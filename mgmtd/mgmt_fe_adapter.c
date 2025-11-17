@@ -75,7 +75,8 @@ DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
 /* Prototypes */
 /* ---------- */
 
-static struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from);
+static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from);
+static void fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats);
 
 /* ---------------- */
 /* Global variables */
@@ -201,6 +202,10 @@ enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 	return MGMTD_UNKNOWN_FAILURE;
 }
 
+/* =========================== */
+/* Frontend Session Management */
+/* =========================== */
+
 static int mgmt_fe_session_write_lock_ds(enum mgmt_ds_id ds_id, struct mgmt_ds_ctx *ds_ctx,
 					 struct mgmt_fe_session_ctx *session)
 {
@@ -237,68 +242,8 @@ static void mgmt_fe_session_unlock_ds(enum mgmt_ds_id ds_id, struct mgmt_ds_ctx 
 	     mgmt_ds_id2name(ds_id), session->session_id, session->adapter->name);
 }
 
-static void
-mgmt_fe_session_cfg_txn_cleanup(struct mgmt_fe_session_ctx *session)
-{
-	/*
-	 * Destroy the actual transaction created earlier.
-	 */
-	if (session->cfg_txn_id != MGMTD_TXN_ID_NONE)
-		mgmt_destroy_txn(&session->cfg_txn_id);
-}
-
-static void
-mgmt_fe_session_show_txn_cleanup(struct mgmt_fe_session_ctx *session)
-{
-	/*
-	 * Destroy the transaction created recently.
-	 */
-	if (session->txn_id != MGMTD_TXN_ID_NONE)
-		mgmt_destroy_txn(&session->txn_id);
-}
-
-static void
-mgmt_fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats)
-{
-	cmt_stats->last_exec_tm =
-		timeval_elapsed(cmt_stats->last_end, cmt_stats->last_start);
-	if (cmt_stats->last_exec_tm > cmt_stats->max_tm) {
-		cmt_stats->max_tm = cmt_stats->last_exec_tm;
-		cmt_stats->max_batch_cnt = cmt_stats->last_batch_cnt;
-	}
-
-	if (cmt_stats->last_exec_tm < cmt_stats->min_tm) {
-		cmt_stats->min_tm = cmt_stats->last_exec_tm;
-		cmt_stats->min_batch_cnt = cmt_stats->last_batch_cnt;
-	}
-}
-
-static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **sessionp)
-{
-	enum mgmt_ds_id ds_id;
-	struct mgmt_ds_ctx *ds_ctx;
-	struct mgmt_fe_session_ctx *session = *sessionp;
-
-	mgmt_fe_session_cfg_txn_cleanup(session);
-	mgmt_fe_session_show_txn_cleanup(session);
-	for (ds_id = 0; ds_id < MGMTD_DS_MAX_ID; ds_id++) {
-		ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
-		if (ds_ctx && session->ds_locked[ds_id])
-			mgmt_fe_session_unlock_ds(ds_id, ds_ctx, session);
-	}
-
-	LIST_REMOVE(session, link);
-
-	mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
-	darr_free_free(session->notify_xpaths);
-	hash_release(mgmt_fe_sessions, session);
-	XFREE(MTYPE_MGMTD_FE_SESSION, session);
-	*sessionp = NULL;
-}
-
 static struct mgmt_fe_session_ctx *
-mgmt_fe_find_session_by_client_id(struct mgmt_fe_client_adapter *adapter,
-				      uint64_t client_id)
+fe_session_lookup_by_client_id(struct mgmt_fe_client_adapter *adapter, uint64_t client_id)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -313,7 +258,7 @@ mgmt_fe_find_session_by_client_id(struct mgmt_fe_client_adapter *adapter,
 	return NULL;
 }
 
-static unsigned int mgmt_fe_session_hash_key(const void *data)
+static unsigned int fe_session_hash_key(const void *data)
 {
 	const struct mgmt_fe_session_ctx *session = data;
 
@@ -321,7 +266,7 @@ static unsigned int mgmt_fe_session_hash_key(const void *data)
 		      sizeof(session->session_id) / sizeof(uint32_t), 0);
 }
 
-static bool mgmt_fe_session_hash_cmp(const void *d1, const void *d2)
+static bool fe_session_hash_cmp(const void *d1, const void *d2)
 {
 	const struct mgmt_fe_session_ctx *session1 = d1;
 	const struct mgmt_fe_session_ctx *session2 = d2;
@@ -329,8 +274,7 @@ static bool mgmt_fe_session_hash_cmp(const void *d1, const void *d2)
 	return (session1->session_id == session2->session_id);
 }
 
-static inline struct mgmt_fe_session_ctx *
-mgmt_session_id2ctx(uint64_t session_id)
+static inline struct mgmt_fe_session_ctx *fe_session_lookup(uint64_t session_id)
 {
 	struct mgmt_fe_session_ctx key = {0};
 	struct mgmt_fe_session_ctx *session;
@@ -347,31 +291,47 @@ mgmt_session_id2ctx(uint64_t session_id)
 	return session;
 }
 
-void mgmt_fe_adapter_toggle_client_debug(bool set)
-{
-	struct mgmt_fe_client_adapter *adapter;
-
-	LIST_FOREACH (adapter, &fe_adapters, link)
-		adapter->conn->debug = set;
-}
-
-static struct mgmt_fe_session_ctx *fe_adapter_session_by_txn_id(uint64_t txn_id)
+static struct mgmt_fe_session_ctx *fe_session_by_txn_id(uint64_t txn_id)
 {
 	uint64_t session_id = mgmt_txn_get_session_id(txn_id);
 
 	if (session_id == MGMTD_SESSION_ID_NONE)
 		return NULL;
-	return mgmt_session_id2ctx(session_id);
+	return fe_session_lookup(session_id);
 }
 
-static struct mgmt_fe_session_ctx *mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
-							  uint8_t notify_format, uint64_t client_id)
+static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
+{
+	enum mgmt_ds_id ds_id;
+	struct mgmt_ds_ctx *ds_ctx;
+	struct mgmt_fe_session_ctx *session = *sessionp;
+
+	/* XXXchopps what about RPC txns? */
+	mgmt_destroy_txn(&session->cfg_txn_id);
+	mgmt_destroy_txn(&session->txn_id);
+	for (ds_id = 0; ds_id < MGMTD_DS_MAX_ID; ds_id++) {
+		ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
+		if (ds_ctx && session->ds_locked[ds_id])
+			mgmt_fe_session_unlock_ds(ds_id, ds_ctx, session);
+	}
+
+	LIST_REMOVE(session, link);
+
+	mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+	darr_free_free(session->notify_xpaths);
+	hash_release(mgmt_fe_sessions, session);
+	XFREE(MTYPE_MGMTD_FE_SESSION, session);
+	*sessionp = NULL;
+}
+
+static struct mgmt_fe_session_ctx *fe_session_create(struct mgmt_fe_client_adapter *adapter,
+						     uint8_t notify_format, uint64_t client_id)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = mgmt_fe_find_session_by_client_id(adapter, client_id);
+	session = fe_session_lookup_by_client_id(adapter, client_id);
 	if (session)
-		mgmt_fe_cleanup_session(&session);
+		fe_session_cleanup(&session);
 
 	session = XCALLOC(MTYPE_MGMTD_FE_SESSION,
 			sizeof(struct mgmt_fe_session_ctx));
@@ -390,42 +350,49 @@ static struct mgmt_fe_session_ctx *mgmt_fe_create_session(struct mgmt_fe_client_
 	return session;
 }
 
-static int fe_adapter_send_native_msg(struct mgmt_fe_client_adapter *adapter,
-				      void *msg, size_t len,
-				      bool short_circuit_ok)
+
+/* =============================== */
+/* Frontend Message (API) Handling */
+/* =============================== */
+
+/*
+ * Code structure: 3 functions per message type:
+ *
+ * 1) send reply back to FE client
+ * 2) process result from Txn module to send back to FE client, call (1)
+ * 3) handle request from FE client, either create TXN or call (1)
+ *
+ * For message types that don't require a transaction then (2) is elided.
+ *
+ * Txn's are used by any message that requires a fan-out to multiple backends:
+ *
+ * 1) FE handler creates Txn and calls Txn module to process request
+ * 2) Txn module creates Txn request determines backends to contact and sends
+ *    them each a message.
+ * 3) Each backend client responds and the BE adapter calls TXN module
+ * 4) Txn module aggregates results and calls FE reply function to process
+ *    send results back to FE client.
+ *
+ *                         .-> (BE Daemon) -> [BE adapter/Txn Handler]
+ *        (1)         (2) /                 o      (3)      \\   (4)
+ *   [FE handler] => [TXN] ...              o                [TXN] => [FE reply]
+ *     session            \                 o               //
+ *                         `-> (BE Daemon) -> [BE adapter/Txn Handler]
+ */
+
+static int fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter, void *msg, size_t len,
+			       bool short_circuit_ok)
 {
-	return msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE, msg,
-				 len, NULL, short_circuit_ok);
+	return msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE, msg, len, NULL,
+				 short_circuit_ok);
 }
 
-static int fe_adapter_conn_send_error(struct msg_conn *conn,
-				      uint64_t session_id, uint64_t req_id,
-				      bool short_circuit_ok, int16_t error,
-				      const char *errfmt, ...) PRINTFRR(6, 7);
-static int fe_adapter_conn_send_error(struct msg_conn *conn, uint64_t session_id,
-				      uint64_t req_id, bool short_circuit_ok,
-				      int16_t error, const char *errfmt, ...)
-{
-	va_list ap;
-	int ret;
-
-	va_start(ap, errfmt);
-
-	ret = vmgmt_msg_native_send_error(conn, session_id, req_id,
-					  short_circuit_ok, error, errfmt, ap);
-	va_end(ap);
-
-	return ret;
-}
-
-static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
-				 uint64_t req_id, bool short_circuit_ok,
-				 int16_t error, const char *errfmt, ...)
+static int fe_session_send_error(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				 bool short_circuit_ok, int16_t error, const char *errfmt, ...)
 	PRINTFRR(5, 6);
 
-static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
-				 uint64_t req_id, bool short_circuit_ok,
-				 int16_t error, const char *errfmt, ...)
+static int fe_session_send_error(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				 bool short_circuit_ok, int16_t error, const char *errfmt, ...)
 {
 	va_list ap;
 	int ret;
@@ -439,59 +406,310 @@ static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
 	return ret;
 }
 
-static struct mgmt_fe_client_adapter *
-mgmt_fe_find_adapter_by_fd(int conn_fd)
-{
-	struct mgmt_fe_client_adapter *adapter;
-
-	LIST_FOREACH (adapter, &fe_adapters, link)
-		if (adapter->conn->fd == conn_fd)
-			return adapter;
-	return NULL;
-}
-
-static void mgmt_fe_adapter_delete(struct mgmt_fe_client_adapter *adapter)
-{
-	struct mgmt_fe_session_ctx *session, *next;
-	_dbg("deleting client adapter '%s'", adapter->name);
-
-	/* TODO: notify about client disconnect for appropriate cleanup */
-	LIST_FOREACH_SAFE (session, &adapter->sessions, link, next)
-		mgmt_fe_cleanup_session(&session);
-	LIST_REMOVE(adapter, link);
-	msg_server_conn_delete(adapter->conn);
-	XFREE(MTYPE_MGMTD_FE_ADPATER, adapter);
-}
-
-static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
-{
-	struct mgmt_fe_client_adapter *adapter = conn->user;
-
-	_dbg("notify disconnect for client adapter '%s'", adapter->name);
-
-	mgmt_fe_adapter_delete(adapter);
-
-	return 0;
-}
-
-/**
- * Send result of get-tree request back to the FE client.
+/*
+ * Transaction (txn) Error - send an error back to the FE client and cleanup any
+ * in-progress txn.
  *
- * Args:
- *	session: the session.
- *	req_id: the request ID.
- *	short_circuit_ok: if allowed to short circuit the message.
- *	result_format: LYD_FORMAT for the sent output.
- *	tree: the tree to send, can be NULL which will send an empty tree.
- *	partial_error: if an error occurred during gathering results.
- *
- * Return:
- *	Any error that occurs -- the message is likely not sent if non-zero.
+ * XXXchopps this is used in 2 places for GET-DATA and RPC errors from TXN
+ * module just adapt those 2 normal reply fucntions to take an error result and
+ * get rid of this function.
  */
-static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
-				     uint64_t req_id, bool short_circuit_ok,
-				     uint8_t result_type, uint32_t wd_options,
-				     const struct lyd_node *tree,
+int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
+			      int16_t error, const char *errstr)
+{
+	struct mgmt_fe_session_ctx *session;
+	int ret;
+
+	session = fe_session_by_txn_id(txn_id);
+	if (!session) {
+		_log_err("failed sending error for txn-id %" PRIu64 " session not found", txn_id);
+		return -ENOENT;
+	}
+
+	ret = fe_session_send_error(session, req_id, false, error, "%s", errstr);
+
+	mgmt_destroy_txn(&session->txn_id);
+
+	return ret;
+}
+
+
+/* -------------- */
+/* COMMIT Message */
+/* -------------- */
+
+static void fe_session_send_commit_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+					 uint8_t source, uint8_t target, uint8_t action,
+					 bool unlock)
+{
+	struct mgmt_msg_commit_reply *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_commit_reply, 0,
+					MTYPE_MSG_NATIVE_COMMIT_REPLY);
+	msg->refer_id = session->session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_COMMIT_REPLY;
+	msg->source = source;
+	msg->target = target;
+	msg->action = action;
+	msg->unlock = unlock;
+
+	_dbg("Sending commit-reply session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s action: %u unlock: %d",
+	     session->session_id, session->adapter->name, req_id, mgmt_ds_id2name(source),
+	     mgmt_ds_id2name(target), action, unlock);
+
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+	if (ret) {
+		_log_err("Failed to send COMMIT_REPLY to session-id %Lu", session->session_id);
+		msg_conn_disconnect(session->adapter->conn, false);
+	}
+}
+
+int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgmt_ds_id src_ds_id,
+				  enum mgmt_ds_id dst_ds_id, uint64_t req_id, bool validate_only,
+				  bool unlock, enum mgmt_result result, const char *error_if_any)
+{
+	struct mgmt_fe_session_ctx *session;
+	uint8_t action;
+	int ret = 0;
+
+	/*
+	 * When a session is deleted (e.g., disconnects) while there's an active
+	 * TXN we can get a NULL return for the session_id after the TXN
+	 * completes. A commit message never implicitly locks datastores --
+	 * those locks are managed by the client (or cleaned up on session
+	 * disconnect).
+	 *
+	 * However, for the implicit commit (legacy CLI/non-transactional) case
+	 * the intention is that each change is made to the candidate and
+	 * running at the same (i.e., as the user enters commands they take
+	 * affect). So a failure to apply the change to running means we should
+	 * back that change out of the candidate DS, and the user will be
+	 * presented with an error message.
+	 *
+	 * So, if we have a failiure to apply an implicit commit, we
+	 * should restore the candidate DS, and we can do this by copying
+	 * running back over candidate. This doesn't work in the transactional
+	 * case b/c the candidate may be made up from multiple changes and a
+	 * failure of the latest change shouldn't invalidate all the previous
+	 * valid changes which is what would happen if we copied running back
+	 * over candidate.
+	 */
+	session = fe_session_lookup(session_id);
+	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
+		session = NULL;
+
+	if (validate_only)
+		action = MGMT_MSG_COMMIT_VALIDATE;
+	else
+		action = MGMT_MSG_COMMIT_APPLY;
+
+	/*
+	 * Restore the source from the dest in case of error with an implicit commit.
+	 * Currently we use the unlock feedback to identify an implicit commit.
+	 */
+	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES && unlock)
+		mgmt_ds_copy_dss(mgmt_ds_get_ctx_by_id(mm, src_ds_id),
+				 mgmt_ds_get_ctx_by_id(mm, dst_ds_id), false);
+
+	if (!session)
+		return -ENOENT;
+
+	if (mm->perf_stats_en)
+		gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
+	fe_session_compute_commit_timers(&session->adapter->cmt_stats);
+
+	if (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES)
+		fe_session_send_commit_reply(session, req_id, src_ds_id, dst_ds_id, action, unlock);
+	else {
+		ret = fe_session_send_error(
+			session, req_id, false, EINVAL /* convert result */,
+			"commit failed session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s validate-only: %u: reason: '%s'",
+			session->session_id, session->adapter->name, req_id,
+			mgmt_ds_id2name(src_ds_id), mgmt_ds_id2name(dst_ds_id), validate_only,
+			error_if_any ?: "");
+	}
+
+	assert(session->cfg_txn_id == txn_id);
+	mgmt_destroy_txn(&session->cfg_txn_id);
+
+	return ret;
+}
+
+static void fe_session_handle_commit(struct mgmt_fe_session_ctx *session, void *_msg,
+				     size_t msg_len)
+{
+	struct mgmt_msg_commit *msg = _msg;
+	struct mgmt_ds_ctx *src_ds_ctx, *dst_ds_ctx;
+	uint64_t txn_id;
+
+	_dbg("Got COMMIT for source-ds: %s target-ds: %s action: %s on session-id %Lu from '%s'",
+	     mgmt_ds_id2name(msg->source), mgmt_ds_id2name(msg->target),
+	     msg->action == MGMT_MSG_COMMIT_VALIDATE ? "validate"
+	     : msg->action == MGMT_MSG_COMMIT_ABORT  ? "abort"
+						     : "apply",
+	     session->session_id, session->adapter->name);
+
+	if (mm->perf_stats_en)
+		gettimeofday(&session->adapter->cmt_stats.last_start, NULL);
+	session->adapter->cmt_stats.commit_cnt++;
+
+	/* Validate source and dest DS */
+	if (msg->source != MGMTD_DS_CANDIDATE || msg->target != MGMTD_DS_RUNNING) {
+		fe_session_send_error(session, msg->req_id, false, EINVAL,
+				      "source/target for commit must be candidate/running");
+		return;
+	}
+
+	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, msg->source);
+	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, msg->target);
+
+	if (mgmt_ds_is_txn_locked(src_ds_ctx, &txn_id) ||
+	    mgmt_ds_is_txn_locked(dst_ds_ctx, &txn_id)) {
+		fe_session_send_error(session, msg->req_id, false, EBUSY,
+				      "source/target datastore is locked by another transaction txn-id: %Lu",
+				      txn_id);
+		return;
+	}
+
+	/* User must always have lock on source */
+	if (!session->ds_locked[msg->source]) {
+		fe_session_send_error(session, msg->req_id, false, EBUSY,
+				      "source not locked by session-id: %Lu on '%s'",
+				      session->session_id, session->adapter->name);
+		return;
+	}
+
+	/* For apply/abort user must also have lock on target */
+	if (msg->action != MGMT_MSG_COMMIT_VALIDATE && !session->ds_locked[msg->target]) {
+		fe_session_send_error(session, msg->req_id, false, EBUSY,
+				      "target not locked for apply/abort by session-id: %Lu on '%s'",
+				      session->session_id, session->adapter->name);
+		return;
+	}
+
+	/*
+	 * We get an exisitng cfg_txn_id if a check/validate was done first then
+	 * an apply/abort later.
+	 */
+	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
+		/* as we have the lock no-one else should have a config txn */
+		assert(!mgmt_txn_config_in_progress());
+
+		/*
+		 * Start a CONFIG Transaction (if not started already)
+		 */
+		session->cfg_txn_id = mgmt_create_txn(session->session_id, MGMTD_TXN_TYPE_CONFIG);
+		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
+			fe_session_send_error(session, msg->req_id, false, ENOMEM,
+					      "failed to create config transaction for session-id: %Lu on '%s'",
+					      session->session_id, session->adapter->name);
+			return;
+		}
+		_dbg("created config txn-id: %Lu for session-id %Lu on '%s'", session->cfg_txn_id,
+		     session->session_id, session->adapter->name);
+	}
+
+	/*
+	 * Create COMMIT Config request under the transaction
+	 */
+	mgmt_txn_send_commit_config_req(session->cfg_txn_id, msg->req_id, msg->source, src_ds_ctx,
+					msg->target, dst_ds_ctx,
+					msg->action == MGMT_MSG_COMMIT_VALIDATE,
+					msg->action == MGMT_MSG_COMMIT_ABORT, false /* implicit */,
+					msg->unlock, NULL);
+}
+
+/* ------------ */
+/* LOCK Message */
+/* ------------ */
+
+static int fe_session_send_lock_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				      uint8_t datastore, bool lock, bool short_circuit_ok)
+{
+	struct mgmt_msg_lock_reply *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_lock_reply, 0, MTYPE_MSG_NATIVE_LOCK_REPLY);
+	msg->code = MGMT_MSG_CODE_LOCK_REPLY;
+	msg->refer_id = session->session_id;
+	msg->req_id = req_id;
+	msg->datastore = datastore;
+	msg->lock = lock;
+
+	_dbg("Sending lock-reply from adapter %s on session-id %Lu req-id %Lu datastore %u lock %u scok %u",
+	     session->adapter->name, session->session_id, req_id, datastore, lock,
+	     short_circuit_ok);
+
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg),
+				  short_circuit_ok);
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
+}
+
+static void fe_session_handle_lock(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
+{
+	const struct mgmt_msg_lock *msg = _msg;
+	struct mgmt_ds_ctx *ds_ctx;
+	bool short_circuit_ok = session->adapter->conn->is_short_circuit;
+	uint8_t datastore = msg->datastore;
+	uint64_t lock_session;
+	uint64_t txn_id;
+	bool lock = msg->lock;
+	int ret;
+
+	_dbg("Got %sLOCK for DS:%s for session-id %Lu from '%s'", msg->lock ? "" : "UN",
+	     mgmt_ds_id2name(datastore), msg->refer_id, session->adapter->name);
+
+	if (datastore != MGMTD_DS_CANDIDATE && datastore != MGMTD_DS_RUNNING) {
+		fe_session_send_error(session, msg->req_id, short_circuit_ok, EINVAL,
+				      "Lock/Unlock on DS other than candidate or running DS not supported");
+		return;
+	}
+
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
+	assert(ds_ctx);
+
+	if (lock && mgmt_ds_is_locked(ds_ctx, &lock_session, &txn_id) &&
+	    lock_session != session->session_id) {
+		fe_session_send_error(session, msg->req_id, short_circuit_ok, EBUSY,
+				      "Lock already taken on datastore %s by session: %Lu txn-id: %Lu",
+				      mgmt_ds_id2name(datastore), lock_session, txn_id);
+		return;
+	} else if (lock) {
+		ret = mgmt_fe_session_write_lock_ds(datastore, ds_ctx, session);
+		if (ret) {
+			fe_session_send_error(session, msg->req_id, short_circuit_ok, EBUSY,
+					      "Unexpected error %d trying to lock datastore by session-id: %Lu",
+					      ret, session->session_id);
+			return;
+		}
+	} else {
+		/* unlock even if one or both of the lock indicators is wrong */
+		mgmt_fe_session_unlock_ds(datastore, ds_ctx, session);
+	}
+
+	if (fe_session_send_lock_reply(session, msg->req_id, msg->datastore, msg->lock,
+				       short_circuit_ok)) {
+		assert(!short_circuit_ok);
+		_log_err("Failed to send LOCK_REPLY to session-id %Lu", session->session_id);
+		msg_conn_disconnect(session->adapter->conn, false);
+	}
+}
+
+/* ---------------- */
+/* GET-DATA Message */
+/* ---------------- */
+
+/*
+ * Send result of get-tree request back to the FE client.
+ */
+static int fe_session_send_tree_data(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				     bool short_circuit_ok, uint8_t result_type,
+				     uint32_t wd_options, const struct lyd_node *tree,
 				     int partial_error)
 
 {
@@ -499,8 +717,7 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 	uint8_t **darrp = NULL;
 	int ret = 0;
 
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_tree_data, 0,
-					MTYPE_MSG_NATIVE_TREE_DATA);
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_tree_data, 0, MTYPE_MSG_NATIVE_TREE_DATA);
 	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_TREE_DATA;
@@ -523,376 +740,36 @@ static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
 	     session->adapter->name, session->session_id, req_id, short_circuit_ok, result_type,
 	     mgmt_msg_native_get_msg_len(msg));
 
-	ret = fe_adapter_send_native_msg(session->adapter, msg,
-					 mgmt_msg_native_get_msg_len(msg),
-					 short_circuit_ok);
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg),
+				  short_circuit_ok);
 done:
 	mgmt_msg_native_free_msg(msg);
 
 	return ret;
 }
 
-static int fe_adapter_send_rpc_reply(struct mgmt_fe_session_ctx *session,
-				     uint64_t req_id, uint8_t result_type,
-				     const struct lyd_node *result)
+void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+				    LYD_FORMAT result_type, uint32_t wd_options,
+				    const struct lyd_node *tree, int partial_error,
+				    bool short_circuit_ok)
 {
-	struct mgmt_msg_rpc_reply *msg;
-	uint8_t **darrp = NULL;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc_reply, 0,
-					MTYPE_MSG_NATIVE_RPC_REPLY);
-	msg->refer_id = session->session_id;
-	msg->req_id = req_id;
-	msg->code = MGMT_MSG_CODE_RPC_REPLY;
-	msg->result_type = result_type;
-
-	if (result) {
-		darrp = mgmt_msg_native_get_darrp(msg);
-		ret = yang_print_tree_append(darrp, result, result_type, 0);
-		if (ret != LY_SUCCESS) {
-			_log_err("Error building rpc-reply result for client %s session-id %" PRIu64
-				 " req-id %" PRIu64 " result type %u",
-				 session->adapter->name, session->session_id, req_id, result_type);
-			goto done;
-		}
-	}
-
-	_dbg("Sending rpc-reply from adapter %s to session-id %" PRIu64 " req-id %" PRIu64 " len %u",
-	     session->adapter->name, session->session_id, req_id, mgmt_msg_native_get_msg_len(msg));
-
-	ret = fe_adapter_send_native_msg(session->adapter, msg,
-					 mgmt_msg_native_get_msg_len(msg),
-					 false);
-done:
-	mgmt_msg_native_free_msg(msg);
-
-	return ret;
-}
-
-static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
-				      uint64_t req_id, bool changed,
-				      bool created, const char *xpath,
-				      const char *data)
-{
-	struct mgmt_msg_edit_reply *msg;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_edit_reply, 0,
-					MTYPE_MSG_NATIVE_EDIT_REPLY);
-	msg->refer_id = session->session_id;
-	msg->req_id = req_id;
-	msg->changed = changed;
-	msg->created = created;
-	msg->code = MGMT_MSG_CODE_EDIT_REPLY;
-
-	mgmt_msg_native_xpath_encode(msg, xpath);
-
-	if (data)
-		mgmt_msg_native_append(msg, data, strlen(data) + 1);
-
-	_dbg("Sending edit-reply from adapter %s to session-id %" PRIu64 " req-id %" PRIu64
-	     " changed %u created %u len %u",
-	     session->adapter->name, session->session_id, req_id, changed, created,
-	     mgmt_msg_native_get_msg_len(msg));
-
-	ret = fe_adapter_send_native_msg(session->adapter, msg,
-					 mgmt_msg_native_get_msg_len(msg),
-					 false);
-	mgmt_msg_native_free_msg(msg);
-
-	return ret;
-}
-
-static int fe_adapter_native_send_session_reply(struct mgmt_fe_client_adapter *adapter,
-						uint64_t session_id, uint64_t req_id, bool created)
-{
-	struct mgmt_msg_session_reply *msg;
-	bool scok = adapter->conn->is_short_circuit;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_session_reply, 0,
-					MTYPE_MSG_NATIVE_SESSION_REPLY);
-	msg->refer_id = session_id;
-	msg->req_id = req_id;
-	msg->code = MGMT_MSG_CODE_SESSION_REPLY;
-	msg->created = created;
-
-	_dbg("Sending session-reply from adapter %s to session-id %Lu req-id %Lu created %u scok %u",
-	     adapter->name, session_id, req_id, created, scok);
-
-	ret = fe_adapter_send_native_msg(adapter, msg, mgmt_msg_native_get_msg_len(msg), scok);
-	mgmt_msg_native_free_msg(msg);
-
-	return ret;
-}
-
-/**
- * fe_adapter_handle_session_req() - Handle a session-req message from a FE client.
- * @msg_raw: the message data.
- * @msg_len: the length of the message data.
- */
-static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter, void *_msg,
-					  size_t msg_len)
-{
-	const struct mgmt_msg_session_req *msg = _msg;
 	struct mgmt_fe_session_ctx *session;
-	bool scok = adapter->conn->is_short_circuit;
-	uint64_t client_id;
 
-	_dbg("Got session-req is create %u req-id %Lu for refer-id %Lu notify-fmt %u from '%s'",
-	     msg->refer_id == 0, msg->req_id, msg->refer_id, msg->notify_format, adapter->name);
-
-	/*
-	 * It's important that any error has its refer_id set to 0 for create
-	 * case and set to the passed in msg->refer_id otherwise (the destroy
-	 * case). For non-error return pass the session_id for create or destroy.
-	 */
-
-	if (msg->refer_id) {
-		uint64_t session_id = msg->refer_id;
-
-		session = mgmt_session_id2ctx(session_id);
-		if (!session) {
-			fe_adapter_conn_send_error(adapter->conn, session_id, msg->req_id, scok,
-						   EINVAL,
-						   "No session to delete for session-id: %" PRIu64,
-						   session_id);
-			return;
-		}
-		fe_adapter_native_send_session_reply(adapter, session_id, msg->req_id, false);
-		mgmt_fe_cleanup_session(&session);
+	session = fe_session_lookup(session_id);
+	if (!session)
 		return;
-	}
 
-	client_id = msg->req_id;
+	/* XXXchopps why do we care about this? Why not allow multple? */
+	assert(session->txn_id == txn_id);
 
-	/* Default notification format */
-	if (msg->notify_format && msg->notify_format > MGMT_MSG_FORMAT_LAST) {
-		fe_adapter_conn_send_error(adapter->conn, 0, msg->req_id, scok, EINVAL,
-					   "Unrecognized notify format: %u", msg->notify_format);
-		return;
-	}
-
-	/* See if we have a client name to register */
-	if (msg_len > sizeof(*msg)) {
-		if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
-			fe_adapter_conn_send_error(adapter->conn, 0, msg->req_id, scok, EINVAL,
-						   "Corrupt session-req message rcvd from client-id: %" PRIu64,
-						   client_id);
-			return;
-		}
-		_dbg("Set client-name to '%s'", msg->client_name);
-		strlcpy(adapter->name, msg->client_name, sizeof(adapter->name));
-	}
-
-	session = mgmt_fe_create_session(adapter, msg->notify_format ?: DEFAULT_NOTIFY_FORMAT,
-					 client_id);
-	fe_adapter_native_send_session_reply(adapter, session->session_id, msg->req_id, true);
+	if (fe_session_send_tree_data(session, req_id, short_circuit_ok, result_type, wd_options,
+				      tree, partial_error))
+		fe_session_send_error(session, req_id, false, -EIO,
+				      "Failed sending GET-DATA reply");
+	mgmt_destroy_txn(&session->txn_id);
 }
 
-static void fe_adapter_send_commit_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
-					 uint8_t source, uint8_t target, uint8_t action,
-					 bool unlock)
-{
-	struct mgmt_msg_commit_reply *msg;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_commit_reply, 0,
-					MTYPE_MSG_NATIVE_COMMIT_REPLY);
-	msg->refer_id = session->session_id;
-	msg->req_id = req_id;
-	msg->code = MGMT_MSG_CODE_COMMIT_REPLY;
-	msg->source = source;
-	msg->target = target;
-	msg->action = action;
-	msg->unlock = unlock;
-
-	_dbg("Sending commit-reply session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s action: %u unlock: %d",
-	     session->session_id, session->adapter->name, req_id, mgmt_ds_id2name(source),
-	     mgmt_ds_id2name(target), action, unlock);
-
-	ret = fe_adapter_send_native_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg),
-					 false);
-	mgmt_msg_native_free_msg(msg);
-	if (ret) {
-		_log_err("Failed to send COMMIT_REPLY to session-id %Lu", session->session_id);
-		msg_conn_disconnect(session->adapter->conn, false);
-	}
-}
-
-/**
- * fe_adapter_handle_commit() - Handle a commit message from a FE client.
- * @msg_raw: the message data.
- * @msg_len: the length of the message data.
- */
-static void fe_adapter_handle_commit(struct mgmt_fe_session_ctx *session, void *_msg,
-				     size_t msg_len)
-{
-	struct mgmt_msg_commit *msg = _msg;
-	struct mgmt_ds_ctx *src_ds_ctx, *dst_ds_ctx;
-	uint64_t txn_id;
-
-	_dbg("Got COMMIT for source-ds: %s target-ds: %s action: %s on session-id %Lu from '%s'",
-	     mgmt_ds_id2name(msg->source), mgmt_ds_id2name(msg->target),
-	     msg->action == MGMT_MSG_COMMIT_VALIDATE ? "validate"
-	     : msg->action == MGMT_MSG_COMMIT_ABORT  ? "abort"
-						     : "apply",
-	     session->session_id, session->adapter->name);
-
-	if (mm->perf_stats_en)
-		gettimeofday(&session->adapter->cmt_stats.last_start, NULL);
-	session->adapter->cmt_stats.commit_cnt++;
-
-	/* Validate source and dest DS */
-	if (msg->source != MGMTD_DS_CANDIDATE || msg->target != MGMTD_DS_RUNNING) {
-		fe_adapter_send_error(session, msg->req_id, false, EINVAL,
-				      "source/target for commit must be candidate/running");
-		return;
-	}
-
-	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, msg->source);
-	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, msg->target);
-
-	if (mgmt_ds_is_txn_locked(src_ds_ctx, &txn_id) ||
-	    mgmt_ds_is_txn_locked(dst_ds_ctx, &txn_id)) {
-		fe_adapter_send_error(session, msg->req_id, false, EBUSY,
-				      "source/target datastore is locked by another transaction txn-id: %Lu",
-				      txn_id);
-		return;
-	}
-
-	/* User must always have lock on source */
-	if (!session->ds_locked[msg->source]) {
-		fe_adapter_send_error(session, msg->req_id, false, EBUSY,
-				      "source not locked by session-id: %Lu on '%s'",
-				      session->session_id, session->adapter->name);
-		return;
-	}
-
-	/* For apply/abort user must also have lock on target */
-	if (msg->action != MGMT_MSG_COMMIT_VALIDATE && !session->ds_locked[msg->target]) {
-		fe_adapter_send_error(session, msg->req_id, false, EBUSY,
-				      "target not locked for apply/abort by session-id: %Lu on '%s'",
-				      session->session_id, session->adapter->name);
-		return;
-	}
-
-	/* We get an exisitng cfg_txn_id if a check/validate was done first then an apply/abort later */
-	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
-		/* as we have the lock no-one else should have a config txn */
-		assert(!mgmt_config_txn_in_progress());
-
-		/*
-		 * Start a CONFIG Transaction (if not started already)
-		 */
-		session->cfg_txn_id = mgmt_create_txn(session->session_id, MGMTD_TXN_TYPE_CONFIG);
-		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
-			fe_adapter_send_error(session, msg->req_id, false, ENOMEM,
-					      "failed to create config transaction for session-id: %Lu on '%s'",
-					      session->session_id, session->adapter->name);
-			return;
-		}
-		_dbg("created config txn-id: %Lu for session-id %Lu on '%s'", session->cfg_txn_id,
-		     session->session_id, session->adapter->name);
-	}
-
-	/*
-	 * Create COMMIT Config request under the transaction
-	 */
-	mgmt_txn_send_commit_config_req(session->cfg_txn_id, msg->req_id, msg->source, src_ds_ctx,
-					msg->target, dst_ds_ctx,
-					msg->action == MGMT_MSG_COMMIT_VALIDATE,
-					msg->action == MGMT_MSG_COMMIT_ABORT, false /* implicit */,
-					msg->unlock, NULL);
-}
-
-static int fe_adapter_native_send_lock_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
-					     uint8_t datastore, bool lock, bool short_circuit_ok)
-{
-	struct mgmt_msg_lock_reply *msg;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_lock_reply, 0, MTYPE_MSG_NATIVE_LOCK_REPLY);
-	msg->code = MGMT_MSG_CODE_LOCK_REPLY;
-	msg->refer_id = session->session_id;
-	msg->req_id = req_id;
-	msg->datastore = datastore;
-	msg->lock = lock;
-
-	_dbg("Sending lock-reply from adapter %s on session-id %Lu req-id %Lu datastore %u lock %u scok %u",
-	     session->adapter->name, session->session_id, req_id, datastore, lock,
-	     short_circuit_ok);
-
-	ret = fe_adapter_send_native_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg),
-					 short_circuit_ok);
-	mgmt_msg_native_free_msg(msg);
-
-	return ret;
-}
-
-/**
- * fe_adapter_handle_lock() - Handle a LOCK message from a FE client.
- * @msg_raw: the message data.
- * @msg_len: the length of the message data.
- */
-static void fe_adapter_handle_lock(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
-{
-	const struct mgmt_msg_lock *msg = _msg;
-	struct mgmt_ds_ctx *ds_ctx;
-	bool short_circuit_ok = session->adapter->conn->is_short_circuit;
-	uint8_t datastore = msg->datastore;
-	uint64_t lock_session;
-	uint64_t txn_id;
-	bool lock = msg->lock;
-	int ret;
-
-	_dbg("Got %sLOCK for DS:%s for session-id %Lu from '%s'", msg->lock ? "" : "UN",
-	     mgmt_ds_id2name(datastore), msg->refer_id, session->adapter->name);
-
-	if (datastore != MGMTD_DS_CANDIDATE && datastore != MGMTD_DS_RUNNING) {
-		fe_adapter_send_error(session, msg->req_id, short_circuit_ok, EINVAL,
-				      "Lock/Unlock on DS other than candidate or running DS not supported");
-		return;
-	}
-
-	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
-	assert(ds_ctx);
-
-	if (lock && mgmt_ds_is_locked(ds_ctx, &lock_session, &txn_id) &&
-	    lock_session != session->session_id) {
-		fe_adapter_send_error(session, msg->req_id, short_circuit_ok, EBUSY,
-				      "Lock already taken on datastore %s by session: %Lu txn-id: %Lu",
-				      mgmt_ds_id2name(datastore), lock_session, txn_id);
-		return;
-	} else if (lock) {
-		ret = mgmt_fe_session_write_lock_ds(datastore, ds_ctx, session);
-		if (ret) {
-			fe_adapter_send_error(session, msg->req_id, short_circuit_ok, EBUSY,
-					      "Unexpected error %d trying to lock datastore by session-id: %Lu",
-					      ret, session->session_id);
-			return;
-		}
-	} else {
-		/* unlock even if one or both of the lock indicators is wrong */
-		mgmt_fe_session_unlock_ds(datastore, ds_ctx, session);
-	}
-
-	if (fe_adapter_native_send_lock_reply(session, msg->req_id, msg->datastore, msg->lock,
-					      short_circuit_ok)) {
-		assert(!short_circuit_ok);
-		_log_err("Failed to send LOCK_REPLY to session-id %Lu", session->session_id);
-		msg_conn_disconnect(session->adapter->conn, false);
-	}
-}
-
-/**
- * fe_adapter_handle_get_data() - Handle a get-tree message from a FE client.
- * @session: the client session.
- * @msg_raw: the message data.
- * @msg_len: the length of the message data.
- */
-static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void *_msg,
+static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void *_msg,
 				       size_t msg_len)
 {
 	struct mgmt_msg_get_data *msg = _msg;
@@ -911,14 +788,14 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	     session->adapter->name, session->session_id, msg->req_id);
 
 	if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
-		fe_adapter_send_error(session, req_id, false, -EINVAL,
+		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "Invalid message rcvd from session-id: %" PRIu64,
 				      session->session_id);
 		goto done;
 	}
 
 	if (session->txn_id != MGMTD_TXN_ID_NONE) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "Transaction in progress txn-id: %" PRIu64
 				      " for session-id: %" PRIu64,
 				      session->txn_id, session->session_id);
@@ -939,7 +816,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 		wd_options = LYD_PRINT_WD_IMPL_TAG;
 		break;
 	default:
-		fe_adapter_send_error(session, req_id, false, -EINVAL,
+		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "Invalid defaults value %u for session-id: %" PRIu64,
 				      msg->defaults, session->session_id);
 		goto done;
@@ -961,13 +838,13 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
 					      ly_ctx_get_change_count(ly_native_ctx));
 		if (err) {
-			fe_adapter_send_error(session, req_id, false, err,
+			fe_session_send_error(session, req_id, false, err,
 					      "Error getting yang-library data, session-id: %" PRIu64
 					      " error: %s",
 					      session->session_id, ly_last_errmsg());
 		} else if (nb_oper_is_yang_lib_query(msg->xpath)) {
 			yang_lyd_trim_xpath(&ylib, msg->xpath);
-			(void)fe_adapter_send_tree_data(session, req_id, false, msg->result_type,
+			(void)fe_session_send_tree_data(session, req_id, false, msg->result_type,
 							wd_options, ylib, 0);
 			goto done;
 		}
@@ -984,7 +861,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 		ds_id = MGMTD_DS_OPERATIONAL;
 		break;
 	default:
-		fe_adapter_send_error(session, req_id, false, -EINVAL,
+		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "Unsupported datastore %" PRIu8
 				      " requested from session-id: %" PRIu64,
 				      msg->datastore, session->session_id);
@@ -994,7 +871,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	err = yang_resolve_snode_xpath(ly_native_ctx, msg->xpath, &snodes,
 				       &simple_xpath);
 	if (err) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "XPath doesn't resolve for session-id: %" PRIu64,
 				      session->session_id);
 		goto done;
@@ -1008,8 +885,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 		_dbg("No backends provide xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     msg->xpath, session->txn_id, session->session_id);
 
-		fe_adapter_send_tree_data(session, req_id, false,
-					  msg->result_type, wd_options, NULL, 0);
+		fe_session_send_tree_data(session, req_id, false, msg->result_type, wd_options,
+					  NULL, 0);
 		goto done;
 	}
 
@@ -1019,8 +896,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	/* Start a SHOW Transaction */
 	session->txn_id = mgmt_create_txn(session->session_id,
 					  MGMTD_TXN_TYPE_SHOW);
-	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+	if (session->txn_id == MGMTD_TXN_ID_NONE) {
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "failed to create a 'show' txn");
 		goto done;
 	}
@@ -1034,7 +911,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "failed to create a 'show' txn");
 	}
 done:
@@ -1043,7 +920,97 @@ done:
 	darr_free(snodes);
 }
 
-static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
+/* ------------ */
+/* EDIT Message */
+/* ------------ */
+
+static int fe_session_send_edit_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				      bool changed, bool created, const char *xpath,
+				      const char *data)
+{
+	struct mgmt_msg_edit_reply *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_edit_reply, 0, MTYPE_MSG_NATIVE_EDIT_REPLY);
+	msg->refer_id = session->session_id;
+	msg->req_id = req_id;
+	msg->changed = changed;
+	msg->created = created;
+	msg->code = MGMT_MSG_CODE_EDIT_REPLY;
+
+	mgmt_msg_native_xpath_encode(msg, xpath);
+
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
+	_dbg("Sending edit-reply from adapter %s to session-id %" PRIu64 " req-id %" PRIu64
+	     " changed %u created %u len %u",
+	     session->adapter->name, session->session_id, req_id, changed, created,
+	     mgmt_msg_native_get_msg_len(msg));
+
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
+}
+
+
+int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+				    bool unlock, bool commit, struct mgmt_edit_req **edit,
+				    enum mgmt_result result, const char *errstr)
+{
+	struct mgmt_fe_session_ctx *session;
+	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
+	const enum mgmt_ds_id run_id = MGMTD_DS_RUNNING;
+	struct mgmt_ds_ctx *can_ds = mgmt_ds_get_ctx_by_id(mm, can_id);
+	struct mgmt_ds_ctx *run_ds = mgmt_ds_get_ctx_by_id(mm, run_id);
+	int ret;
+
+	/*
+	 * When a session is deleted (e.g., disconnects) while there's an
+	 * active TXN we can get a NULL return here when the TXN completes. We
+	 * still want to do any cleanup that the session cleanup could not
+	 * accomplish b/c of the outstanding TXN.
+	 */
+	session = fe_session_lookup(session_id);
+	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
+		session = NULL;
+
+	/*
+	 * Deal with the backup candidate config. If the edit was successful we
+	 * free the backup. If it failed we restore the datastore from the
+	 * backup.
+	 */
+	if (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES)
+		nb_config_free((*edit)->nb_backup);
+	else
+		mgmt_ds_restore_nb_config(can_ds, (*edit)->nb_backup);
+
+	if (!session)
+		return -ENOENT;
+
+	if ((*edit)->unlock_running)
+		mgmt_fe_session_unlock_ds(run_id, run_ds, session);
+	if ((*edit)->unlock_candidate)
+		mgmt_fe_session_unlock_ds(can_id, can_ds, session);
+
+
+	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES)
+		/* Fix the error */
+		ret = fe_session_send_error(session, req_id, false, -EINVAL, "%s", errstr);
+	else
+		ret = fe_session_send_edit_reply(session, req_id,
+						 result == MGMTD_SUCCESS /*changed*/,
+						 (*edit)->created, (*edit)->xpath_created, errstr);
+	XFREE(MTYPE_MGMTD_TXN_REQ, *edit);
+
+	assert(session->cfg_txn_id == txn_id);
+	mgmt_destroy_txn(&session->cfg_txn_id);
+
+	return ret;
+}
+
+static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
 {
 	struct mgmt_msg_edit *msg = _msg;
 	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
@@ -1069,7 +1036,7 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 
 	commit = commit || msg->datastore == MGMT_MSG_DATASTORE_RUNNING;
 	if (!commit && msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
-		fe_adapter_send_error(session, msg->req_id, false, -EINVAL,
+		fe_session_send_error(session, msg->req_id, false, -EINVAL,
 				      "Unsupported datastore");
 		return;
 	}
@@ -1077,15 +1044,14 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 	/* Decode the target xpath and config changes */
 	xpath = mgmt_msg_native_xpath_data_decode(msg, msg_len, data);
 	if (!xpath) {
-		fe_adapter_send_error(session, msg->req_id, false, -EINVAL,
-				      "Invalid message");
+		fe_session_send_error(session, msg->req_id, false, -EINVAL, "Invalid message");
 		return;
 	}
 
 	/* If committing, make sure no other txn has locks on the datastores */
 	if (commit &&
 	    (mgmt_ds_is_txn_locked(can_ds, &txn_id) || mgmt_ds_is_txn_locked(run_ds, &txn_id))) {
-		fe_adapter_send_error(session, msg->req_id, false, -EBUSY,
+		fe_session_send_error(session, msg->req_id, false, -EBUSY,
 				      "datastores are locked by another transaction txn-id: %Lu",
 				      txn_id);
 		return;
@@ -1094,7 +1060,7 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 	/* We always ensure the candidate DS is locked */
 	if (!session->ds_locked[can_id]) {
 		if (mgmt_fe_session_write_lock_ds(can_id, can_ds, session)) {
-			fe_adapter_send_error(session, msg->req_id, false, -EBUSY,
+			fe_session_send_error(session, msg->req_id, false, -EBUSY,
 					      "Candidate DS is locked by another session");
 			return;
 		}
@@ -1106,7 +1072,7 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 		if (mgmt_fe_session_write_lock_ds(run_id, run_ds, session)) {
 			if (implicit_can_lock)
 				mgmt_fe_session_unlock_ds(can_id, can_ds, session);
-			fe_adapter_send_error(session, msg->req_id, false, -EBUSY,
+			fe_session_send_error(session, msg->req_id, false, -EBUSY,
 					      "Running DS is locked by another session");
 			return;
 		}
@@ -1155,13 +1121,14 @@ reply:
 					&edit, nb_error_to_mgmt_result(ret), errstr);
 }
 
-/**
- * fe_adapter_handle_notify_select() - Handle an Notify Select message.
- * @session: the client session.
- * @_msg: the message data.
- * @msg_len: the length of the message data.
+/* --------------------- */
+/* NOTIFY-SELECT Message */
+/* --------------------- */
+
+/*
+ * Handle an Notify Select message - there's no reply for this message.
  */
-static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session, void *_msg,
+static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session, void *_msg,
 					    size_t msg_len)
 {
 	struct mgmt_msg_notify_select *msg = _msg;
@@ -1173,13 +1140,12 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	char *selstr = NULL;
 	uint64_t clients = 0;
 	uint64_t all_matched = 0, rm_clients = 0;
-	uint ret = NB_OK;
 
 
 	if (msg_len >= sizeof(*msg)) {
 		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
 		if (!selectors) {
-			fe_adapter_send_error(session, req_id, false, -EINVAL, "Invalid message");
+			fe_session_send_error(session, req_id, false, -EINVAL, "Invalid message");
 			return;
 		}
 	}
@@ -1188,7 +1154,7 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	darr_foreach_p (selectors, sp) {
 		nb_nodes = nb_nodes_find(*sp);
 		if (!nb_nodes) {
-			fe_adapter_send_error(session, req_id, false, -EINVAL,
+			fe_session_send_error(session, req_id, false, -EINVAL,
 					      "Selector doesn't resolve to a node: %s", *sp);
 			darr_free_free(selectors);
 			return;
@@ -1247,35 +1213,22 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 		     session->session_id);
 		goto done;
 	}
-	if (!(clients | rm_clients)) {
+	if (!(clients | rm_clients))
 		_dbg("No backends to newly notify for selectors: '%s' session-id: %Lu", selstr,
 		     session->session_id);
-	} else {
-		/*
-		 * First send a message to set the selectors on the changed clients.
-		 */
-		ret = mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
-						     (clients | rm_clients),
-						     msg->replace ? NULL : selectors);
-		if (ret) {
-			fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
-					      "Failed to create a NOTIFY_SELECT transaction");
-		}
-	}
+	else
+		/* Send a message to set the selectors on the changed clients */
+		mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
+					       (clients | rm_clients),
+					       msg->replace ? NULL : selectors);
 
-	if (ret != NB_OK || !all_matched || !selectors)
+	if (!all_matched || !selectors)
 		goto done;
 
 	_dbg("Created new push for session-id: %Lu", session->session_id);
 
-	/*
-	 * Send a second message requesting a full state dump
-	 */
-	ret = mgmt_txn_send_notify_selectors(req_id, session->session_id, all_matched, selectors);
-	if (ret) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
-				      "Failed to create a NOTIFY_SELECT transaction");
-	}
+	/* Send a second message requesting a full state dump for the session */
+	mgmt_txn_send_notify_selectors(req_id, session->session_id, all_matched, selectors);
 done:
 	if (session->notify_xpaths != selectors)
 		darr_free(selectors);
@@ -1283,33 +1236,82 @@ done:
 		XFREE(MTYPE_TMP, selstr);
 }
 
-/**
- * fe_adapter_handle_rpc() - Handle an RPC message from an FE client.
- * @session: the client session.
- * @_msg: the message data.
- * @msg_len: the length of the message data.
- */
-static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
+/* ----------- */
+/* RPC Message */
+/* ----------- */
+
+static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				     uint8_t result_type, const struct lyd_node *result)
+{
+	struct mgmt_msg_rpc_reply *msg;
+	uint8_t **darrp = NULL;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc_reply, 0, MTYPE_MSG_NATIVE_RPC_REPLY);
+	msg->refer_id = session->session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_RPC_REPLY;
+	msg->result_type = result_type;
+
+	if (result) {
+		darrp = mgmt_msg_native_get_darrp(msg);
+		ret = yang_print_tree_append(darrp, result, result_type, 0);
+		if (ret != LY_SUCCESS) {
+			_log_err("Error building rpc-reply result for client %s session-id %" PRIu64
+				 " req-id %" PRIu64 " result type %u",
+				 session->adapter->name, session->session_id, req_id, result_type);
+			goto done;
+		}
+	}
+
+	_dbg("Sending rpc-reply from adapter %s to session-id %" PRIu64 " req-id %" PRIu64
+	     " len %u",
+	     session->adapter->name, session->session_id, req_id, mgmt_msg_native_get_msg_len(msg));
+
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg), false);
+done:
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
+}
+
+void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+				    LYD_FORMAT result_type, const struct lyd_node *result)
+{
+	struct mgmt_fe_session_ctx *session;
+
+	session = fe_session_lookup(session_id);
+	if (!session)
+		return;
+
+	/* XXXchopps why do we care about this? Why not allow multple? */
+	assert(session->txn_id == txn_id);
+
+	if (fe_session_send_rpc_reply(session, req_id, result_type, result))
+		fe_session_send_error(session, req_id, false, -EIO, "Failed sending RPC reply");
+
+	mgmt_destroy_txn(&session->txn_id);
+}
+
+static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
 {
 	struct mgmt_msg_rpc *msg = _msg;
 	const struct lysc_node *snode;
 	const char *xpath, *data;
 	uint64_t req_id = msg->req_id;
 	uint64_t clients;
-	int ret;
 
 	_dbg("Received RPC request from client %s for session-id %" PRIu64 " req-id %" PRIu64,
 	     session->adapter->name, session->session_id, msg->req_id);
 
 	xpath = mgmt_msg_native_xpath_data_decode(msg, msg_len, data);
 	if (!xpath) {
-		fe_adapter_send_error(session, req_id, false, -EINVAL,
-				      "Invalid message");
+		fe_session_send_error(session, req_id, false, -EINVAL, "Invalid message");
 		return;
 	}
 
 	if (session->txn_id != MGMTD_TXN_ID_NONE) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "Transaction in progress txn-id: %" PRIu64
 				      " for session-id: %" PRIu64,
 				      session->txn_id, session->session_id);
@@ -1318,13 +1320,12 @@ static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 
 	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
 	if (!snode) {
-		fe_adapter_send_error(session, req_id, false, -ENOENT,
-				      "No such path: %s", xpath);
+		fe_session_send_error(session, req_id, false, -ENOENT, "No such path: %s", xpath);
 		return;
 	}
 
 	if (snode->nodetype != LYS_RPC && snode->nodetype != LYS_ACTION) {
-		fe_adapter_send_error(session, req_id, false, -EINVAL,
+		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "Not an RPC or action path: %s", xpath);
 		return;
 	}
@@ -1335,7 +1336,7 @@ static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 		_dbg("No backends implement xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     xpath, session->txn_id, session->session_id);
 
-		fe_adapter_send_error(session, req_id, false, -ENOENT,
+		fe_session_send_error(session, req_id, false, -ENOENT,
 				      "No backends implement xpath: %s", xpath);
 		return;
 	}
@@ -1344,7 +1345,7 @@ static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 	session->txn_id = mgmt_create_txn(session->session_id,
 					  MGMTD_TXN_TYPE_RPC);
 	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
 				      "Failed to create an RPC transaction");
 		return;
 	}
@@ -1353,27 +1354,140 @@ static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 	     session->session_id);
 
 	/* Create an RPC request under the transaction */
-	ret = mgmt_txn_send_rpc(session->txn_id, req_id, clients,
-				msg->request_type, xpath, data,
-				mgmt_msg_native_data_len_decode(msg, msg_len));
-	if (ret) {
-		/* destroy the just created txn */
-		mgmt_destroy_txn(&session->txn_id);
-		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
-				      "Failed to create an RPC transaction");
-	}
+	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, xpath, data,
+			  mgmt_msg_native_data_len_decode(msg, msg_len));
 }
 
-/**
- * Handle a native encoded message from the FE client.
- */
-static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
-					 struct mgmt_msg_header *msg,
-					 size_t msg_len)
-{
-	struct mgmt_fe_session_ctx *session;
-	size_t min_size = mgmt_msg_get_min_size(msg->code);
+/* -------------------- */
+/* New Session Requests */
+/* -------------------- */
 
+static int fe_adapter_conn_send_error(struct msg_conn *conn, uint64_t session_id, uint64_t req_id,
+				      bool short_circuit_ok, int16_t error, const char *errfmt,
+				      ...) PRINTFRR(6, 7);
+static int fe_adapter_conn_send_error(struct msg_conn *conn, uint64_t session_id, uint64_t req_id,
+				      bool short_circuit_ok, int16_t error, const char *errfmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, errfmt);
+
+	ret = vmgmt_msg_native_send_error(conn, session_id, req_id, short_circuit_ok, error,
+					  errfmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+static int fe_adapter_send_session_reply(struct mgmt_fe_client_adapter *adapter,
+					 uint64_t session_id, uint64_t req_id, bool created)
+{
+	struct mgmt_msg_session_reply *msg;
+	bool scok = adapter->conn->is_short_circuit;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_session_reply, 0,
+					MTYPE_MSG_NATIVE_SESSION_REPLY);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_SESSION_REPLY;
+	msg->created = created;
+
+	_dbg("Sending session-reply from adapter %s to session-id %Lu req-id %Lu created %u scok %u",
+	     adapter->name, session_id, req_id, created, scok);
+
+	ret = fe_adapter_send_msg(adapter, msg, mgmt_msg_native_get_msg_len(msg), scok);
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
+}
+
+/*
+ * Handle a session-req message from a FE client.
+ */
+static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter, void *_msg,
+					  size_t msg_len)
+{
+	const struct mgmt_msg_session_req *msg = _msg;
+	struct mgmt_fe_session_ctx *session;
+	bool scok = adapter->conn->is_short_circuit;
+	uint64_t client_id;
+
+	_dbg("Got session-req is create %u req-id %Lu for refer-id %Lu notify-fmt %u from '%s'",
+	     msg->refer_id == 0, msg->req_id, msg->refer_id, msg->notify_format, adapter->name);
+
+	/*
+	 * It's important that any error has its refer_id set to 0 for create
+	 * case and set to the passed in msg->refer_id otherwise (the destroy
+	 * case). For non-error return pass the session_id for create or destroy.
+	 */
+
+	if (msg->refer_id) {
+		uint64_t session_id = msg->refer_id;
+
+		session = fe_session_lookup(session_id);
+		if (!session) {
+			fe_adapter_conn_send_error(adapter->conn, session_id, msg->req_id, scok,
+						   EINVAL,
+						   "No session to delete for session-id: %" PRIu64,
+						   session_id);
+			return;
+		}
+		fe_adapter_send_session_reply(adapter, session_id, msg->req_id, false);
+		fe_session_cleanup(&session);
+		return;
+	}
+
+	client_id = msg->req_id;
+
+	/* Default notification format */
+	if (msg->notify_format && msg->notify_format > MGMT_MSG_FORMAT_LAST) {
+		fe_adapter_conn_send_error(adapter->conn, 0, msg->req_id, scok, EINVAL,
+					   "Unrecognized notify format: %u", msg->notify_format);
+		return;
+	}
+
+	/* See if we have a client name to register */
+	if (msg_len > sizeof(*msg)) {
+		if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
+			fe_adapter_conn_send_error(adapter->conn, 0, msg->req_id, scok, EINVAL,
+						   "Corrupt session-req msg from client-id: %Lu",
+						   client_id);
+			return;
+		}
+		_dbg("Set client-name to '%s'", msg->client_name);
+		strlcpy(adapter->name, msg->client_name, sizeof(adapter->name));
+	}
+
+	session = fe_session_create(adapter, msg->notify_format ?: DEFAULT_NOTIFY_FORMAT,
+				    client_id);
+	fe_adapter_send_session_reply(adapter, session->session_id, msg->req_id, true);
+}
+
+/*
+ * Handle a message from the FE client.
+ */
+static void fe_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_len,
+				   struct msg_conn *conn)
+{
+	struct mgmt_fe_client_adapter *adapter = conn->user;
+	struct mgmt_fe_session_ctx *session;
+	struct mgmt_msg_header *msg = (typeof(msg))data;
+	size_t min_size;
+
+	if (version != MGMT_MSG_VERSION_NATIVE) {
+		_log_err("Protobuf not supported for frontend messages (adapter: %s)",
+			 adapter->name);
+		return;
+	}
+
+	if (msg_len < sizeof(*msg)) {
+		_log_err("native message to adapter %s too short %zu", adapter->name, msg_len);
+		return;
+	}
+
+	min_size = mgmt_msg_get_min_size(msg->code);
 	if (msg_len < min_size) {
 		if (!min_size)
 			_log_err("adapter %s: recv msg refer-id %" PRIu64 " unknown message type %u",
@@ -1385,6 +1499,10 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 		return;
 	}
 
+	/*
+	 * Handle new session requests up front.
+	 */
+
 	if (msg->code == MGMT_MSG_CODE_SESSION_REQ) {
 		_dbg("adapter %s: session-id %Lu received SESSION_REQ message", adapter->name,
 		     msg->refer_id);
@@ -1392,7 +1510,11 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 		return;
 	}
 
-	session = mgmt_session_id2ctx(msg->refer_id);
+	/*
+	 * Get session and handle all other message types.
+	 */
+
+	session = fe_session_lookup(msg->refer_id);
 	if (!session) {
 		_log_err("adapter %s: recv msg unknown session-id %" PRIu64, adapter->name,
 			 msg->refer_id);
@@ -1404,32 +1526,32 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 	case MGMT_MSG_CODE_COMMIT:
 		_dbg("adapter %s: session-id %Lu received COMMIT message", adapter->name,
 		     msg->refer_id);
-		fe_adapter_handle_commit(session, msg, msg_len);
+		fe_session_handle_commit(session, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_EDIT:
 		_dbg("adapter %s: session-id %" PRIu64 " received EDIT message", adapter->name,
 		     msg->refer_id);
-		fe_adapter_handle_edit(session, msg, msg_len);
+		fe_session_handle_edit(session, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_LOCK:
 		_dbg("adapter %s: session-id %Lu received LOCK message", adapter->name,
 		     msg->refer_id);
-		fe_adapter_handle_lock(session, msg, msg_len);
+		fe_session_handle_lock(session, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_NOTIFY_SELECT:
 		_dbg("adapter %s: session-id %" PRIu64 " received NOTIFY_SELECT message",
 		     adapter->name, msg->refer_id);
-		fe_adapter_handle_notify_select(session, msg, msg_len);
+		fe_session_handle_notify_select(session, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_GET_DATA:
 		_dbg("adapter %s: session-id %" PRIu64 " received GET_DATA message", adapter->name,
 		     msg->refer_id);
-		fe_adapter_handle_get_data(session, msg, msg_len);
+		fe_session_handle_get_data(session, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_RPC:
 		_dbg("adapter %s: session-id %" PRIu64 " received RPC message", adapter->name,
 		     msg->refer_id);
-		fe_adapter_handle_rpc(session, msg, msg_len);
+		fe_session_handle_rpc(session, msg, msg_len);
 		break;
 	default:
 		_log_err("unknown native message session-id %" PRIu64 " req-id %" PRIu64
@@ -1439,25 +1561,9 @@ static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
 	}
 }
 
-
-static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
-					size_t len, struct msg_conn *conn)
-{
-	struct mgmt_fe_client_adapter *adapter = conn->user;
-
-	if (version == MGMT_MSG_VERSION_NATIVE) {
-		struct mgmt_msg_header *msg = (typeof(msg))data;
-
-		if (len >= sizeof(*msg))
-			fe_adapter_handle_native_msg(adapter, msg, len);
-		else
-			_log_err("native message to adapter %s too short %zu", adapter->name, len);
-		return;
-	}
-
-	_log_err("Protobuf not supported for frontend messages (adapter: %s)", adapter->name);
-}
-
+/* ============================= */
+/* Async Notification Processing */
+/* ============================= */
 
 static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_msg_notify_data *msg,
 							    size_t msglen, struct lyd_node **tree,
@@ -1570,7 +1676,7 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	 * notifications it first gets a dump of all the subscribed state.
 	 */
 	if (msg->refer_id != MGMTD_SESSION_ID_NONE) {
-		session = mgmt_session_id2ctx(msg->refer_id);
+		session = fe_session_lookup(msg->refer_id);
 		if (!session || !session->notify_xpaths) {
 			_dbg("No session listening for notify 'get' data: %Lu", msg->refer_id);
 			return;
@@ -1578,7 +1684,7 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 
 		send_msg = assure_notify_msg_cache(msg, msglen, &tree, session->notify_format,
 						   cache);
-		(void)fe_adapter_send_native_msg(session->adapter, send_msg, msglen, false);
+		(void)fe_adapter_send_msg(session->adapter, send_msg, msglen, false);
 		goto done;
 	}
 
@@ -1613,7 +1719,7 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 		send_msg = assure_notify_msg_cache(msg, msglen, &tree, sessions[i]->notify_format,
 						   cache);
 		send_msg->refer_id = sessions[i]->session_id;
-		(void)fe_adapter_send_native_msg(sessions[i]->adapter, send_msg, msglen, false);
+		(void)fe_adapter_send_msg(sessions[i]->adapter, send_msg, msglen, false);
 	}
 	darr_free(sessions);
 
@@ -1630,7 +1736,7 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
 								   session->notify_format, cache);
 				send_msg->refer_id = session->session_id;
-				(void)fe_adapter_send_native_msg(adapter, send_msg, msglen, false);
+				(void)fe_adapter_send_msg(adapter, send_msg, msglen, false);
 			}
 		}
 	}
@@ -1641,297 +1747,37 @@ done:
 	cleanup_notify_msg_cache(msg, &tree, cache);
 }
 
-/*
- * Initialize the FE adapter module
- */
-void mgmt_fe_adapter_init(struct event_loop *tm)
+
+/* =========================== */
+/* Frontend VTY and Statistics */
+/* =========================== */
+
+static void fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats)
 {
-	char server_path[MAXPATHLEN];
+	cmt_stats->last_exec_tm = timeval_elapsed(cmt_stats->last_end, cmt_stats->last_start);
+	if (cmt_stats->last_exec_tm > cmt_stats->max_tm) {
+		cmt_stats->max_tm = cmt_stats->last_exec_tm;
+		cmt_stats->max_batch_cnt = cmt_stats->last_batch_cnt;
+	}
 
-	assert(!mgmt_loop);
-	mgmt_loop = tm;
-
-	assert(!mgmt_fe_sessions);
-	mgmt_fe_sessions =
-		hash_create(mgmt_fe_session_hash_key, mgmt_fe_session_hash_cmp,
-			    "MGMT Frontend Sessions");
-
-	ns_string_init(&mgmt_fe_ns_strings);
-
-	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
-
-	if (msg_server_init(&mgmt_fe_server, server_path, tm,
-			    mgmt_fe_create_adapter, "frontend", &mgmt_debug_fe)) {
-		zlog_err("cannot initialize frontend server");
-		exit(1);
+	if (cmt_stats->last_exec_tm < cmt_stats->min_tm) {
+		cmt_stats->min_tm = cmt_stats->last_exec_tm;
+		cmt_stats->min_batch_cnt = cmt_stats->last_batch_cnt;
 	}
 }
 
-static FRR_NORETURN void mgmt_fe_abort_if_session(void *data)
-{
-	struct mgmt_fe_session_ctx *session = data;
-
-	_log_err("found orphaned session id %" PRIu64 " client id %" PRIu64 " adapter %s",
-		 session->session_id, session->client_id,
-		 session->adapter ? session->adapter->name : "NULL");
-	abort();
-}
-
-/*
- * Destroy the FE adapter module
- */
-void mgmt_fe_adapter_destroy(void)
-{
-	struct mgmt_fe_client_adapter *adapter, *next;
-
-	msg_server_cleanup(&mgmt_fe_server);
-
-
-	/* Deleting the adapters will delete all the sessions */
-	LIST_FOREACH_SAFE (adapter, &fe_adapters, link, next)
-		mgmt_fe_adapter_delete(adapter);
-
-	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
-
-	hash_clean_and_free(&mgmt_fe_sessions, mgmt_fe_abort_if_session);
-}
-
-/*
- * The server accepted a new connection
- */
-static struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
-{
-	struct mgmt_fe_client_adapter *adapter = NULL;
-
-	adapter = mgmt_fe_find_adapter_by_fd(conn_fd);
-	if (!adapter) {
-		adapter = XCALLOC(MTYPE_MGMTD_FE_ADPATER, sizeof(struct mgmt_fe_client_adapter));
-		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
-			 conn_fd);
-
-		LIST_INSERT_HEAD(&fe_adapters, adapter, link);
-
-		adapter->conn = msg_server_conn_create(
-			mgmt_loop, conn_fd, mgmt_fe_adapter_notify_disconnect,
-			mgmt_fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN,
-			adapter, "FE-adapter");
-
-		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe,
-							DEBUG_MODE_ALL);
-
-		adapter->cmt_stats.min_tm = ULONG_MAX;
-		_dbg("Added new MGMTD Frontend adapter '%s'", adapter->name);
-	}
-	return adapter->conn;
-}
-
-int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgmt_ds_id src_ds_id,
-				  enum mgmt_ds_id dst_ds_id, uint64_t req_id, bool validate_only,
-				  bool unlock, enum mgmt_result result, const char *error_if_any)
-{
-
-	struct mgmt_fe_session_ctx *session;
-	uint8_t action;
-	int ret = 0;
-
-	/*
-	 * When a session is deleted (e.g., disconnects) while there's an active
-	 * TXN we can get a NULL return for the session_id after the TXN
-	 * completes. A commit message never implicitly locks datastores --
-	 * those locks are managed by the client (or cleaned up on session
-	 * disconnect).
-	 *
-	 * However, for the implicit commit (legacy CLI/non-transactional) case
-	 * the intention is that each change is made to the candidate and
-	 * running at the same (i.e., as the user enters commands they take
-	 * affect). So a failure to apply the change to running means we should
-	 * back that change out of the candidate DS, and the user will be
-	 * presented with an error message.
-	 *
-	 * So, if we have a failiure to apply an implicit commit, we
-	 * should restore the candidate DS, and we can do this by copying
-	 * running back over candidate. This doesn't work in the transactional
-	 * case b/c the candidate may be made up from multiple changes and a
-	 * failure of the latest change shouldn't invalidate all the previous
-	 * valid changes which is what would happen if we copied running back
-	 * over candidate.
-	 */
-	session = mgmt_session_id2ctx(session_id);
-	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
-		session = NULL;
-
-	if (validate_only)
-		action = MGMT_MSG_COMMIT_VALIDATE;
-	else
-		action = MGMT_MSG_COMMIT_APPLY;
-
-	/*
-	 * Restore the source from the dest in case of error with an implicit commit.
-	 * Currently we use the unlock feedback to identify an implicit commit.
-	 */
-	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES && unlock)
-		mgmt_ds_copy_dss(mgmt_ds_get_ctx_by_id(mm, src_ds_id),
-				 mgmt_ds_get_ctx_by_id(mm, dst_ds_id),
-				 false);
-
-	if (!session)
-		return -ENOENT;
-
-	if (mm->perf_stats_en)
-		gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
-	mgmt_fe_session_compute_commit_timers(&session->adapter->cmt_stats);
-
-	if (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES)
-		fe_adapter_send_commit_reply(session, req_id, src_ds_id, dst_ds_id, action, unlock);
-	else {
-		ret = fe_adapter_send_error(
-			session, req_id, false, EINVAL /* convert result */,
-			"commit failed session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s validate-only: %u: reason: '%s'",
-			session->session_id, session->adapter->name, req_id,
-			mgmt_ds_id2name(src_ds_id), mgmt_ds_id2name(dst_ds_id), validate_only,
-			error_if_any ?: "");
-	}
-
-	assert(session->cfg_txn_id == txn_id);
-	mgmt_destroy_txn(&session->cfg_txn_id);
-
-	return ret;
-}
-
-int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
-				   uint64_t req_id, LYD_FORMAT result_type,
-				   uint32_t wd_options,
-				   const struct lyd_node *tree,
-				   int partial_error, bool short_circuit_ok)
-{
-	struct mgmt_fe_session_ctx *session;
-	int ret;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || session->txn_id != txn_id)
-		return -1;
-
-	ret = fe_adapter_send_tree_data(session, req_id, short_circuit_ok,
-					result_type, wd_options, tree,
-					partial_error);
-
-	mgmt_destroy_txn(&session->txn_id);
-
-	return ret;
-}
-
-int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
-				   uint64_t req_id, LYD_FORMAT result_type,
-				   const struct lyd_node *result)
-{
-	struct mgmt_fe_session_ctx *session;
-	int ret;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || session->txn_id != txn_id)
-		return -1;
-
-	ret = fe_adapter_send_rpc_reply(session, req_id, result_type, result);
-
-	mgmt_destroy_txn(&session->txn_id);
-
-	return ret;
-}
-
-int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-				    bool unlock, bool commit, struct mgmt_edit_req **edit,
-				    enum mgmt_result result, const char *errstr)
-{
-	struct mgmt_fe_session_ctx *session;
-	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
-	const enum mgmt_ds_id run_id = MGMTD_DS_RUNNING;
-	struct mgmt_ds_ctx *can_ds = mgmt_ds_get_ctx_by_id(mm, can_id);
-	struct mgmt_ds_ctx *run_ds = mgmt_ds_get_ctx_by_id(mm, run_id);
-	int ret;
-
-	/*
-	 * When a session is deleted (e.g., disconnects) while there's an
-	 * active TXN we can get a NULL return here when the TXN completes. We
-	 * still want to do any cleanup that the session cleanup could not
-	 * accomplish b/c of the outstanding TXN.
-	 */
-	session = mgmt_session_id2ctx(session_id);
-	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
-		session = NULL;
-
-	/*
-	 * Deal with the backup candidate config. If the edit was successful we
-	 * free the backup. If it failed we restore the datastore from the
-	 * backup.
-	 */
-	if (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES)
-		nb_config_free((*edit)->nb_backup);
-	else
-		mgmt_ds_restore_nb_config(can_ds, (*edit)->nb_backup);
-
-	if (!session)
-		return -ENOENT;
-
-	if ((*edit)->unlock_running)
-		mgmt_fe_session_unlock_ds(run_id, run_ds, session);
-	if ((*edit)->unlock_candidate)
-		mgmt_fe_session_unlock_ds(can_id, can_ds, session);
-
-
-	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES)
-		/* Fix the error */
-		ret = fe_adapter_send_error(session, req_id, false, -EINVAL, "%s", errstr);
-	else
-		ret = fe_adapter_send_edit_reply(session, req_id,
-						 result == MGMTD_SUCCESS /*changed*/,
-						 (*edit)->created, (*edit)->xpath_created, errstr);
-	XFREE(MTYPE_MGMTD_TXN_REQ, *edit);
-
-	assert(session->cfg_txn_id == txn_id);
-	mgmt_destroy_txn(&session->cfg_txn_id);
-
-	return ret;
-}
-
-/**
- * Send an error back to the FE client and cleanup any in-progress txn.
- */
-int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
-			      bool short_circuit_ok, int16_t error,
-			      const char *errstr)
-{
-	struct mgmt_fe_session_ctx *session;
-	int ret;
-
-	session = fe_adapter_session_by_txn_id(txn_id);
-	if (!session) {
-		_log_err("failed sending error for txn-id %" PRIu64 " session not found", txn_id);
-		return -ENOENT;
-	}
-
-	ret = fe_adapter_send_error(session, req_id, false, error, "%s", errstr);
-
-	mgmt_destroy_txn(&session->txn_id);
-
-	return ret;
-}
-
-struct mgmt_commit_stats *
-mgmt_fe_get_session_commit_stats(uint64_t session_id)
+struct mgmt_commit_stats *mgmt_fe_get_session_commit_stats(uint64_t session_id)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = mgmt_session_id2ctx(session_id);
+	session = fe_session_lookup(session_id);
 	if (!session || !session->adapter)
 		return NULL;
 
 	return &session->adapter->cmt_stats;
 }
 
-static void
-mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
-				    struct mgmt_fe_client_adapter *adapter)
+static void _cmt_stats_write(struct vty *vty, struct mgmt_fe_client_adapter *adapter)
 {
 	char buf[MGMT_LONG_TIME_MAX_LEN];
 
@@ -2010,7 +1856,7 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "  Client: \t\t\t\t%s\n", adapter->name);
 		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn->fd);
 		if (detail) {
-			mgmt_fe_adapter_cmt_stats_write(vty, adapter);
+			_cmt_stats_write(vty, adapter);
 		}
 		scount = 0;
 		vty_out(vty, "    Sessions\n");
@@ -2056,4 +1902,124 @@ void mgmt_fe_adapter_reset_perf_stats(struct vty *vty)
 
 	LIST_FOREACH (adapter, &fe_adapters, link)
 		memset(&adapter->cmt_stats, 0, sizeof(adapter->cmt_stats));
+}
+
+/* =================== */
+/* Frontend Management */
+/* =================== */
+
+void mgmt_fe_adapter_toggle_client_debug(bool set)
+{
+	struct mgmt_fe_client_adapter *adapter;
+
+	LIST_FOREACH (adapter, &fe_adapters, link)
+		adapter->conn->debug = set;
+}
+
+static struct mgmt_fe_client_adapter *fe_adapter_lookup_by_fd(int conn_fd)
+{
+	struct mgmt_fe_client_adapter *adapter;
+
+	LIST_FOREACH (adapter, &fe_adapters, link)
+		if (adapter->conn->fd == conn_fd)
+			return adapter;
+	return NULL;
+}
+
+static void fe_adapter_delete(struct mgmt_fe_client_adapter *adapter)
+{
+	struct mgmt_fe_session_ctx *session, *next;
+
+	_dbg("Deleting client adapter '%s'", adapter->name);
+
+	/* TODO: notify about client disconnect for appropriate cleanup */
+	LIST_FOREACH_SAFE (session, &adapter->sessions, link, next)
+		fe_session_cleanup(&session);
+	LIST_REMOVE(adapter, link);
+	msg_server_conn_delete(adapter->conn);
+	XFREE(MTYPE_MGMTD_FE_ADPATER, adapter);
+}
+
+static int fe_adapter_notify_disconnect(struct msg_conn *conn)
+{
+	struct mgmt_fe_client_adapter *adapter = conn->user;
+
+	_dbg("notify disconnect for client adapter '%s'", adapter->name);
+
+	fe_adapter_delete(adapter);
+
+	return 0;
+}
+
+/*
+ * The server accepted a new connection
+ */
+static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from)
+{
+	struct mgmt_fe_client_adapter *adapter = NULL;
+
+	adapter = fe_adapter_lookup_by_fd(conn_fd);
+	if (!adapter) {
+		adapter = XCALLOC(MTYPE_MGMTD_FE_ADPATER, sizeof(struct mgmt_fe_client_adapter));
+		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d", conn_fd);
+
+		LIST_INSERT_HEAD(&fe_adapters, adapter, link);
+
+		adapter->conn =
+			msg_server_conn_create(mgmt_loop, conn_fd, fe_adapter_notify_disconnect,
+					       fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
+					       MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN,
+					       adapter, "FE-adapter");
+
+		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL);
+
+		adapter->cmt_stats.min_tm = ULONG_MAX;
+		_dbg("Added new MGMTD Frontend adapter '%s'", adapter->name);
+	}
+	return adapter->conn;
+}
+
+
+/*
+ * Initialize the FE adapter module
+ */
+void mgmt_fe_adapter_init(struct event_loop *tm)
+{
+	char server_path[MAXPATHLEN];
+
+	assert(!mgmt_loop);
+	mgmt_loop = tm;
+
+	assert(!mgmt_fe_sessions);
+	mgmt_fe_sessions = hash_create(fe_session_hash_key, fe_session_hash_cmp,
+				       "MGMT Frontend Sessions");
+
+	ns_string_init(&mgmt_fe_ns_strings);
+
+	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
+
+	if (msg_server_init(&mgmt_fe_server, server_path, tm, fe_adapter_create, "frontend",
+			    &mgmt_debug_fe)) {
+		zlog_err("cannot initialize frontend server");
+		exit(1);
+	}
+}
+
+/*
+ * Destroy the FE adapter module
+ */
+void mgmt_fe_adapter_destroy(void)
+{
+	struct mgmt_fe_client_adapter *adapter, *next;
+
+	msg_server_cleanup(&mgmt_fe_server);
+
+
+	/* Deleting the adapters will delete all the sessions */
+	LIST_FOREACH_SAFE (adapter, &fe_adapters, link, next)
+		fe_adapter_delete(adapter);
+
+	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
+
+	hash_free(mgmt_fe_sessions);
 }

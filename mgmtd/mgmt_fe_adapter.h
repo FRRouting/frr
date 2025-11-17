@@ -49,6 +49,8 @@ extern void mgmt_fe_adapter_destroy(void);
 
 /*
  * Send commit-config reply to the frontend client.
+ *
+ * This also cleans up and frees the transaction.
  */
 extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
 					 enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
@@ -69,16 +71,11 @@ extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
  *	tree: the results.
  *	partial_error: if there were errors while gather results.
  *	short_circuit_ok: True if OK to short-circuit the call.
- *
- * Return:
- *	the return value from the underlying send function.
- *
  */
-extern int
-mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
-			       uint64_t req_id, LYD_FORMAT result_type,
-			       uint32_t wd_options, const struct lyd_node *tree,
-			       int partial_error, bool short_circuit_ok);
+extern void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, uint32_t wd_options,
+					   const struct lyd_node *tree, int partial_error,
+					   bool short_circuit_ok);
 
 /**
  * Send RPC reply back to client.
@@ -91,14 +88,9 @@ mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
  *	req_id: the req id for the rpc message
  *	result_type: the format of the result data.
  *	result: the results.
- *
- * Return:
- *	the return value from the underlying send function.
  */
-extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
-					  uint64_t req_id,
-					  LYD_FORMAT result_type,
-					  const struct lyd_node *result);
+extern void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, const struct lyd_node *result);
 
 /**
  * Send edit reply back to client. If error is not 0, a native error is sent.
@@ -120,6 +112,13 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 					   enum mgmt_result error, const char *errstr);
 
 /**
+ * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @msg: the notify message from the backend client.
+ * @msglen: the length of the notify message.
+ */
+extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen);
+
+/**
  * Send an error back to the FE client using native messaging.
  *
  * This also cleans up and frees the transaction.
@@ -135,10 +134,8 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
  *	the return value from the underlying send function.
  *
  */
-extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
-				     bool short_circuit_ok, int16_t error,
-				     const char *errstr);
-
+extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
+				     int16_t error, const char *errstr);
 
 /**
  * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.
