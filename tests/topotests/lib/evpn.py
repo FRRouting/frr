@@ -1113,6 +1113,42 @@ def evpn_verify_l3vni_rmacs(router, l3vni_list, expected_remote_vteps):
     return None
 
 
+def _verify_type5_route_advertisement(tgen, vtep_routers, l3vni_list, rt_base="60207"):
+    """
+    Helper function to verify that all VTEPs are advertising Type-5 routes for all L3VNIs.
+
+    RMACs are ONLY installed when Type-5 routes are advertised. This function ensures
+    that all VTEPs are advertising routes before we check for RMACs.
+
+    Parameters
+    ----------
+    * `tgen`: Topogen object
+    * `vtep_routers`: list of router names to check
+    * `l3vni_list`: list of L3VNI strings (e.g., ["104001", "104002"])
+    * `rt_base`: base Route Target (default "60207" for RT:60207:XXXXX)
+
+    Returns
+    -------
+    dict: mapping of {router_name: {vni: bool}} indicating which VNIs have Type-5 routes
+    """
+    results = {}
+
+    for rname in vtep_routers:
+        router = tgen.gears[rname]
+        results[rname] = {}
+
+        for vni in l3vni_list:
+            # Check if router is advertising Type-5 routes for this VNI
+            # Look for Route Target RT:<rt_base>:<vni> in self-originated routes
+            cmd = f"show bgp l2vpn evpn route self-originate | grep 'RT:{rt_base}:{vni}'"
+            output = router.vtysh_cmd(cmd, isjson=False)
+
+            has_routes = bool(output and output.strip())
+            results[rname][vni] = has_routes
+
+    return results
+
+
 def evpn_verify_l3vni_remote_rmacs(
     tgen, vtep_routers, l3vni_list, vxlan_device="vxlan48"
 ):
@@ -1151,6 +1187,9 @@ def evpn_verify_l3vni_remote_rmacs(
 
     # Discover VTEP addresses using helper function
     vtep_ips = _discover_vtep_ips(tgen, vtep_routers, vxlan_device)
+
+    logger.info("Pre-check: Verifying Type-5 route advertisement for all L3VNIs")
+    type5_status = _verify_type5_route_advertisement(tgen, vtep_routers, l3vni_list)
 
     # Verify L3VNI RMACs for all VTEPs
     for rname in vtep_routers:
