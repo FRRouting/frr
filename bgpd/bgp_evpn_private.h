@@ -575,11 +575,27 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 static inline struct prefix_evpn *
 evpn_type1_prefix_vni_ip_copy(struct prefix_evpn *vni_p,
 			      const struct prefix_evpn *global_p,
-			      struct in_addr originator_ip)
+			      const struct attr *attr)
 {
 	memcpy(vni_p, global_p, sizeof(*vni_p));
-	vni_p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
-	vni_p->prefix.ead_addr.ip.ipaddr_v4 = originator_ip;
+	/* Extract originator IP from attr based on nexthop length */
+	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+		/* IPv4 nexthop */
+		SET_IPADDR_V4(&vni_p->prefix.ead_addr.ip);
+		IPV4_ADDR_COPY(&vni_p->prefix.ead_addr.ip.ipaddr_v4, &attr->nexthop);
+	} else if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+		   attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		   attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
+		   attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+		/* IPv6 nexthop - use global address */
+		SET_IPADDR_V6(&vni_p->prefix.ead_addr.ip);
+		IPV6_ADDR_COPY(&vni_p->prefix.ead_addr.ip.ipaddr_v6, &attr->mp_nexthop_global);
+	} else {
+		/* IPADDR_NONE - should not happen, but handle gracefully */
+		vni_p->prefix.ead_addr.ip.ipa_type = IPADDR_NONE;
+		memset(&vni_p->prefix.ead_addr.ip, 0, sizeof(vni_p->prefix.ead_addr.ip));
+	}
 
 	return vni_p;
 }

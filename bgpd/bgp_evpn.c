@@ -793,8 +793,7 @@ struct bgp_dest *bgp_evpn_vni_ip_node_get(struct bgp_table *const table,
 		/* prefix in the global table doesn't include the VTEP-IP so
 		 * we need to create a different copy for the VNI
 		 */
-		evpn_type1_prefix_vni_ip_copy(&vni_p, evp,
-					      parent_pi->attr->nexthop);
+		evpn_type1_prefix_vni_ip_copy(&vni_p, evp, parent_pi->attr);
 		evp = &vni_p;
 	} else if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		/* Only MAC-IP should go into this table, not mac-only */
@@ -824,8 +823,7 @@ bgp_evpn_vni_ip_node_lookup(const struct bgp_table *const table,
 		/* prefix in the global table doesn't include the VTEP-IP so
 		 * we need to create a different copy for the VNI
 		 */
-		evpn_type1_prefix_vni_ip_copy(&vni_p, evp,
-					      parent_pi->attr->nexthop);
+		evpn_type1_prefix_vni_ip_copy(&vni_p, evp, parent_pi->attr);
 		evp = &vni_p;
 	} else if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		/* Only MAC-IP should go into this table, not mac-only */
@@ -4483,8 +4481,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	 * we need to create a different copy for the VNI
 	 */
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)
-		evp = evpn_type1_prefix_vni_ip_copy(&ad_evp, evp,
-						    attr->nexthop);
+		evp = evpn_type1_prefix_vni_ip_copy(&ad_evp, evp, attr);
 
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
