@@ -3269,8 +3269,8 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 			   esi_to_str(&esi, buf, sizeof(buf)), &originator_ip, active, df_pref,
 			   bypass ? "bypass" : "");
 
-	frrtrace(5, frr_bgp, evpn_mh_local_es_add_zrecv, &esi, originator_ip,
-		 active, bypass, df_pref);
+	frrtrace(5, frr_bgp, evpn_mh_local_es_add_zrecv, &esi, &originator_ip, active, bypass,
+		 df_pref);
 
 	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref,
 			      !!bypass);
