@@ -3411,8 +3411,31 @@ static int install_evpn_route_entry_in_vni_common(
 			bgp_path_info_restore(dest, pi);
 
 		/* Mark if nexthop has changed. */
-		if (!IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop))
+		if (pi->attr->mp_nexthop_len != attr_new->mp_nexthop_len) {
+			/* Nexthop address family changed */
 			SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+		} else if (BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr)) {
+			/* IPv6 nexthop */
+			if (!IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
+					    &attr_new->mp_nexthop_global))
+				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+			/* Also check link-local nexthop if present */
+			else if ((pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+				  pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) &&
+				 !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_local,
+						 &attr_new->mp_nexthop_local))
+				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+		} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+			/* IPv4 nexthop in mp_nexthop_global_in */
+			if (!IPV4_ADDR_SAME(&pi->attr->mp_nexthop_global_in,
+					    &attr_new->mp_nexthop_global_in))
+				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+		} else {
+			/* IPv4 nexthop in nexthop field */
+			if (!IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop))
+				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+		}
 
 		old_local_es = bgp_evpn_attr_is_local_es(pi->attr);
 		new_local_es = bgp_evpn_attr_is_local_es(attr_new);
