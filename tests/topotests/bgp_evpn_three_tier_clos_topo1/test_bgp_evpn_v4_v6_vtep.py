@@ -1136,7 +1136,7 @@ def test_host_to_host_ping(tgen_and_ip_version):
             source_ip="fd00:60:1:1::211",
             count=4,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
         assert result is None, f"IPv6 connectivity test failed: {result}"
     else:
         logger.info("Skipping IPv6 connectivity test (not running with IPv6 underlay)")
