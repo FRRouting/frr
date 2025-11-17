@@ -44,10 +44,6 @@ struct mgmt_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
-	/* Map of Transactions and its ID */
-	struct hash *txn_hash;
-	uint64_t next_txn_id;
-
 	/* Datastores */
 	struct mgmt_ds_ctx *running_ds;
 	struct mgmt_ds_ctx *candidate_ds;

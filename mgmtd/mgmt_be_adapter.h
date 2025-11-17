@@ -119,10 +119,6 @@ extern void mgmt_be_adapter_init(struct event_loop *tm);
 /* Destroy the backend adapter module. */
 extern void mgmt_be_adapter_destroy(void);
 
-/* Create backend adapter. */
-extern struct msg_conn *mgmt_be_create_adapter(int conn_fd,
-					       union sockunion *su);
-
 /* Fetch backend adapter given an client ID. */
 extern struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id);
@@ -134,7 +130,7 @@ extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
 
 /* Fetch backend adapter config. */
-extern struct nb_config_cbs mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter);
+extern struct nb_config_cbs mgmt_be_adapter_get_config(struct mgmt_be_client_adapter *adapter);
 
 /*
  * Dump backend adapter status to vty.
@@ -157,7 +153,7 @@ extern void mgmt_be_xpath_register_write(struct vty *vty);
  * Return:
  *	Any return value from msg_conn_send_msg().
  */
-extern int mgmt_be_send_native(struct mgmt_be_client_adapter *adapter, void *msg);
+extern int mgmt_be_adapter_send(struct mgmt_be_client_adapter *adapter, void *msg);
 
 enum mgmt_be_xpath_subscr_type {
 	MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
@@ -177,17 +173,10 @@ enum mgmt_be_xpath_subscr_type {
 extern uint64_t mgmt_be_interested_clients(const char *xpath,
 					   enum mgmt_be_xpath_subscr_type type);
 
-/**
- * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
- * @msg: the notify message from the backend client.
- * @msglen: the length of the notify message.
- */
-extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg,
-					size_t msglen);
 /*
  * Dump backend client information for a given xpath to vty.
  */
-extern void mgmt_be_show_xpath_registries(struct vty *vty, const char *xpath);
+extern void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath);
 
 /*
  * Specials for mgmtd internally handling BE like behaviors
