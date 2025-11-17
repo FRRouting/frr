@@ -1236,7 +1236,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			listnode_add(locator.srv6_sid, sid);
 		}
 
-		isis_tlvs_add_srv6_locator(lsp->tlvs, 0, &locator);
+		isis_tlvs_add_srv6_locator(lsp->tlvs, 
+					isis_area_ipv6_topology(area),
+					&locator);
 		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
 			  area->area_tag);
 
