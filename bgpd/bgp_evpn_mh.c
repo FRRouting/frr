@@ -507,10 +507,19 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 					: (vpn ? "ead-evi" : "ead-es"),
 				&attr->mp_nexthop_global_in);
 
-		if (es)
+		if (es) {
+			struct ipaddr vtep_ip = {};
+
+			if (IS_IPADDR_V4(&es->originator_ip)) {
+				SET_IPADDR_V4(&vtep_ip);
+				vtep_ip.ipaddr_v4 = attr->mp_nexthop_global_in;
+			} else if (IS_IPADDR_V6(&es->originator_ip)) {
+				SET_IPADDR_V6(&vtep_ip);
+				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &attr->mp_nexthop_global);
+			}
 			frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_upd, &es->esi,
-				 (vpn ? vpn->vni : 0), evp->prefix.route_type,
-				 attr->mp_nexthop_global_in);
+				 (vpn ? vpn->vni : 0), evp->prefix.route_type, &vtep_ip);
+		}
 	}
 
 	/* Return back th*e route entry. */
@@ -3588,9 +3597,8 @@ bgp_evpn_es_evi_vtep_add(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   ead_es ? "ead_es" : "ead_evi");
 
-	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_add,
-		 &evi_vtep->es_evi->es->esi, evi_vtep->es_evi->vpn->vni,
-		 evi_vtep->vtep_ip, ead_es);
+	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_add, &evi_vtep->es_evi->es->esi,
+		 evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip, ead_es);
 
 	if (ead_es)
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES);
@@ -3616,9 +3624,8 @@ bgp_evpn_es_evi_vtep_del(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   ead_es ? "ead_es" : "ead_evi");
 
-	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_del,
-		 &evi_vtep->es_evi->es->esi, evi_vtep->es_evi->vpn->vni,
-		 evi_vtep->vtep_ip, ead_es);
+	frrtrace(4, frr_bgp, evpn_mh_es_evi_vtep_del, &evi_vtep->es_evi->es->esi,
+		 evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip, ead_es);
 
 	if (ead_es)
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES);
