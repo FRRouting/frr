@@ -892,6 +892,137 @@ def test_vni_state(tgen_and_ip_version):
         assert result is None, f"{rname} L3 VNI state verification failed: {result}"
 
 
+def test_static_route_advertisement(tgen_and_ip_version):
+    """
+    Verify that TORs are advertising their static routes as Type-5 routes.
+
+    This test validates that:
+    1. Static routes are installed in VRF routing tables
+    2. Static routes are being advertised as EVPN Type-5 routes
+    3. Each TOR has unique routes (no conflicts)
+    4. Remote VTEPs receive these Type-5 routes
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        f"Validating static route advertisement from TORs ({ip_version} underlay)"
+    )
+
+    # Expected static routes per TOR and VRF based on IP version
+    if ip_version == "ipv4":
+        expected_routes = {
+            "tor-21": {
+                "vrf1": "203.0.113.0/24",
+                "vrf2": "203.0.115.0/24",
+            },
+            "tor-22": {
+                "vrf1": "203.0.114.0/24",
+                "vrf2": "203.0.116.0/24",
+            },
+        }
+        route_cmd_prefix = "show ip route vrf"
+        route_type = "IPv4"
+    else:  # ipv6
+        expected_routes = {
+            "tor-21": {
+                "vrf1": "2001:db8:72:21::/64",
+                "vrf2": "2001:db8:73:21::/64",
+            },
+            "tor-22": {
+                "vrf1": "2001:db8:72:22::/64",
+                "vrf2": "2001:db8:73:22::/64",
+            },
+        }
+        route_cmd_prefix = "show ipv6 route vrf"
+        route_type = "IPv6"
+
+    # Validate static routes
+    logger.info(f"Validating {route_type} static routes")
+    for tor, vrfs in expected_routes.items():
+        router = tgen.gears[tor]
+
+        for vrf, route in vrfs.items():
+            # Check if static route is in VRF routing table
+            output = router.vtysh_cmd(f"{route_cmd_prefix} {vrf} {route}", isjson=False)
+            logger.info(f"{tor} {vrf}: {route_type} route table for {route}:\n{output}")
+
+            # Verify route exists and is a static blackhole route
+            if "blackhole" not in output.lower():
+                pytest.fail(
+                    f"{tor} {vrf}: {route_type} static route {route} not found or not blackhole"
+                )
+
+            logger.info(f"{tor} {vrf}: {route_type} static route {route} is installed")
+
+    # Verify Type-5 routes are advertised
+    logger.info(
+        f"Checking Type-5 route advertisement for {route_type} routes (self-originated)"
+    )
+
+    for tor in ["tor-21", "tor-22"]:
+        router = tgen.gears[tor]
+        output = router.vtysh_cmd(
+            "show bgp l2vpn evpn route self-originate", isjson=False
+        )
+        logger.info(f"{tor} self-originated EVPN routes:\n{output}")
+
+        # Count Type-5 routes
+        type5_count = output.count("[5]:")
+        if type5_count == 0:
+            pytest.fail(f"{tor}: No Type-5 routes being advertised!")
+
+        logger.info(f"{tor}: Advertising {type5_count} Type-5 route(s)")
+
+        # Verify specific routes are advertised (case-insensitive for IPv6)
+        for vrf, route in expected_routes[tor].items():
+            route_base = route.split('/')[0].lower()  # Get network address (lowercase for comparison)
+            if route_base not in output.lower():
+                pytest.fail(
+                    f"{tor} {vrf}: {route_type} route {route} not found in Type-5 advertisements"
+                )
+
+            logger.info(
+                f"{tor} {vrf}: {route_type} route {route} is being advertised as Type-5"
+            )
+
+    # Verify remote VTEPs receive these Type-5 routes
+    logger.info(
+        f"Checking Type-5 route reception on remote VTEPs ({ip_version} underlay)"
+    )
+
+    # Determine VTEP IPs based on IP version
+    if ip_version == "ipv4":
+        tor21_vtep = "10.0.0.30"
+        tor22_vtep = "10.0.0.31"
+    else:  # ipv6
+        tor21_vtep = "fd00:0:20::30"
+        tor22_vtep = "fd00:0:20::31"
+
+    # tor-21 should receive routes from tor-22
+    router = tgen.gears["tor-21"]
+    output = router.vtysh_cmd(
+        f"show bgp l2vpn evpn route type prefix | grep {tor22_vtep}", isjson=False
+    )
+    if not output or len(output.strip()) == 0:
+        pytest.fail(f"tor-21: Not receiving Type-5 routes from tor-22 ({tor22_vtep})")
+    logger.info(f"tor-21: Receiving Type-5 routes from tor-22 ({tor22_vtep})")
+
+    # tor-22 should receive routes from tor-21
+    router = tgen.gears["tor-22"]
+    output = router.vtysh_cmd(
+        f"show bgp l2vpn evpn route type prefix | grep {tor21_vtep}", isjson=False
+    )
+    if not output or len(output.strip()) == 0:
+        pytest.fail(f"tor-22: Not receiving Type-5 routes from tor-21 ({tor21_vtep})")
+    logger.info(f"tor-22: Receiving Type-5 routes from tor-21 ({tor21_vtep})")
+
+    logger.info(
+        f"Static route advertisement validation completed successfully ({ip_version})"
+    )
+
+
 def test_l3vni_rmacs(tgen_and_ip_version):
     """
     Verify L3VNI Router MACs (RMACs) from remote VTEPs on all VTEPs.
