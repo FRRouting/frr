@@ -799,6 +799,31 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 
 	/* Community value. */
 	if (isdigit((unsigned char)*p)) {
+		/* Handle numeric communities */
+		const char *q = p;
+		while (isdigit((unsigned char)*q)) q++;
+		/* If the token is all digits and not followed by ':' treat as 0:<digits> */
+		if (*q == '\0' || isspace((unsigned char)*q)) {
+			char tmp_comm[40]; /*Max length shall be 33 . add some buffer*/
+			memset(tmp_comm, 0, sizeof(tmp_comm));
+			int toklen = q - p;
+			if (toklen > 0 && toklen < (int)sizeof(tmp_comm) - 2) {
+				snprintf(tmpcomm, sizeof(tmpcomm), "0:%.*s", toklen, p);
+				if (!community_valid(tmpcomm)) {
+					*token = community_token_unknown;
+					return NULL;
+				}
+				unsigned int asn, valn;
+				if (sscanf(tmpcomm, "%u:%u", &asn, &valn) == 2) {
+					*val = (asn << 16) | (valn & 0xFFFF);
+					*token = community_token_val;
+					return q;
+				}
+			}
+			*token = community_token_unknown;
+			return NULL;
+		}
+
 		int separator = 0;
 		int digit = 0;
 		uint32_t community_low = 0;
@@ -854,21 +879,9 @@ struct community *community_str2com(const char *str)
 	struct community *com_sort = NULL;
 	uint32_t val = 0;
 	enum community_token token = community_token_unknown;
-	char com_str[33];
-	const char *com_str_ptr;
 
-	memset (com_str, 0, sizeof(com_str));
-
-	/* Restore old 6.0.3 behavior: if only a number is given, prepend "0:" */
-	if (all_digit(str)) {
-		snprintf(com_str, sizeof(com_str), "0:%s", str);
-	} else {
-		snprintf(com_str, sizeof(com_str), "%s", str);
-	}
-
-	com_str_ptr = com_str;
-
-	while ((com_str_ptr = community_gettoken(com_str_ptr, &token, &val)) != NULL) {
+	do {
+		str = community_gettoken(str, &token, &val);
 
 		switch (token) {
 		case community_token_val:
@@ -897,7 +910,7 @@ struct community *community_str2com(const char *str)
 				community_free(&com);
 			return NULL;
 		}
-	}
+	} while (str);
 
 	com_sort = community_uniq_sort(com);
 	community_free(&com);
