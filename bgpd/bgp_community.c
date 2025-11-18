@@ -808,13 +808,13 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			memset(tmp_comm, 0, sizeof(tmp_comm));
 			int toklen = q - p;
 			if (toklen > 0 && toklen < (int)sizeof(tmp_comm) - 2) {
-				snprintf(tmpcomm, sizeof(tmpcomm), "0:%.*s", toklen, p);
-				if (!community_valid(tmpcomm)) {
+				snprintf(tmp_comm, sizeof(tmp_comm), "0:%.*s", toklen, p);
+				if (!community_valid(tmp_comm)) {
 					*token = community_token_unknown;
 					return NULL;
 				}
 				unsigned int asn, valn;
-				if (sscanf(tmpcomm, "%u:%u", &asn, &valn) == 2) {
+				if (sscanf(tmp_comm, "%u:%u", &asn, &valn) == 2) {
 					*val = (asn << 16) | (valn & 0xFFFF);
 					*token = community_token_val;
 					return q;
