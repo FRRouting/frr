@@ -3419,6 +3419,7 @@ static void bgp_zebra_disconnected(struct zclient *zclient)
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
 	}
+	bgp_srv6_locators_flush();
 }
 
 void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
@@ -4262,6 +4263,8 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 
 	bgp_ls_originate_srv6_locator_prefix(bgp_get_default(), &loc);
 
+	bgp_srv6_locator_store(&loc);
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
 			continue;
@@ -4445,6 +4448,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			return 0;
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
 	}
+
+	bgp_srv6_locator_remove(loc.name);
 
 	return 0;
 }
