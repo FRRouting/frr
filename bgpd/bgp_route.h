@@ -913,10 +913,9 @@ extern struct bgp_path_info *info_make(int type, int sub_type,
 				       struct peer *peer, struct attr *attr,
 				       struct bgp_dest *dest);
 
-extern void route_vty_out(struct vty *vty, const struct prefix *p,
-			  struct bgp_path_info *path, int display,
-			  struct attr *attr, safi_t safi,
-			  json_object *json_paths, bool wide);
+extern void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info *path,
+			  int display, struct attr *attr, safi_t safi, json_object *json_paths,
+			  bool wide, char *rd_str);
 extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
 			      safi_t safi, json_object *json);
