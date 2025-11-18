@@ -398,3 +398,22 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 			bgp_announce_route(peer, afi, safi, true);
 	}
 }
+
+/**
+ * Return the SRv6 locator by name
+ *
+ * @param name Locator name
+ * @return srv6_locator
+ */
+struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name)
+{
+	if (!bm || !bm->srv6_locators)
+		return NULL;
+
+	struct srv6_locator lkey;
+
+	memset(&lkey, 0, sizeof(lkey));
+	strlcpy(lkey.name, name, sizeof(lkey.name));
+
+	return hash_lookup(bm->srv6_locators, &lkey);
+}

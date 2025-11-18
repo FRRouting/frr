@@ -507,4 +507,28 @@ const struct frr_yang_module_info ietf_srv6_types_info = {
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
+
 /* clang-format on */
+unsigned int srv6_locator_hash(const void *data)
+{
+	const struct srv6_locator *loc = data;
+	return string_hash_make(loc->name);
+}
+
+bool srv6_locator_cmp(const void *d1, const void *d2)
+{
+	const struct srv6_locator *loc1 = d1;
+	const struct srv6_locator *loc2 = d2;
+
+	return strncmp(loc1->name, loc2->name, SRV6_LOCNAME_SIZE) == 0;
+}
+
+void show_srv6_locator_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct vty *vty = arg;
+	const struct srv6_locator *locator = bucket->data;
+	char str[256];
+
+	prefix2str(&locator->prefix, str, sizeof(str));
+	vty_out(vty, "%-20s %-24s\n", locator->name, str);
+}

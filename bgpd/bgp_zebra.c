@@ -4061,11 +4061,22 @@ static int bgp_zebra_srv6_act_redirect(ZAPI_CALLBACK_ARGS)
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
+	struct srv6_locator *locator;
 	struct bgp *bgp;
 	struct listnode *node;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	/* Store locator in global hash table. */
+	locator = hash_lookup(bm->srv6_locators, &loc);
+	if (locator)
+		srv6_locator_copy(locator, &loc);
+	else {
+		locator = srv6_locator_alloc(loc.name);
+		srv6_locator_copy(locator, &loc);
+		hash_get(bm->srv6_locators, locator, hash_alloc_intern);
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
@@ -4202,6 +4213,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 
 static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 {
+	struct srv6_locator *locator;
 	struct srv6_locator loc = {};
 	struct bgp *bgp;
 	struct listnode *node;
@@ -4215,6 +4227,13 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		if (!strmatch(bgp->srv6_locator->name, loc.name))
 			return 0;
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
+	}
+
+	/* Remove locator from global hash table. */
+	locator = hash_lookup(bm->srv6_locators, &loc);
+	if (locator) {
+		hash_release(bm->srv6_locators, locator);
+		srv6_locator_free(locator);
 	}
 
 	return 0;

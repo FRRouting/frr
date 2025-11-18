@@ -194,6 +194,9 @@ struct bgp_master {
 	/* To preserve ordering of processing of L2 VNIs in BGP */
 	struct zebra_l2_vni_head zebra_l2_vni_head;
 
+	/* Hash of all SRv6 locators, keyed by name. */
+	struct hash *srv6_locators;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);

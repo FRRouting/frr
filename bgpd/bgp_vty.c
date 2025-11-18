@@ -11384,6 +11384,19 @@ DEFPY (show_bgp_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_bgp_srv6_locators,
+       show_bgp_srv6_locators_cmd,
+       "show bgp segment-routing srv6 locators",
+       SHOW_STR
+       BGP_STR
+       "BGP Segment Routing\n"
+       "BGP Segment Routing SRv6\n"
+       "BGP Segment Routing SRv6 locators\n")
+{
+	hash_iterate(bm->srv6_locators, show_srv6_locator_entry, vty);
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
@@ -22323,6 +22336,7 @@ void bgp_vty_init(void)
 
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
+	install_element(VIEW_NODE, &show_bgp_srv6_locators_cmd);
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);

@@ -8939,6 +8939,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->t_vpn_leak_postchange = NULL;
 	bm->t_bgp_zebra_route = NULL;
 	bm->t_bgp_zebra_l2_vni = NULL;
+	bm->srv6_locators = hash_create(srv6_locator_hash, srv6_locator_cmp, "SRv6 Locators");
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -9191,6 +9192,8 @@ void bgp_terminate(void)
 
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
+
+	hash_clean_and_free(&bm->srv6_locators, (void (*)(void *))srv6_locator_free);
 
 	EVENT_OFF(bm->t_rmap_update);
 	EVENT_OFF(bm->t_bgp_sync_label_manager);

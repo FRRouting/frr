@@ -11,6 +11,7 @@
 #include "prefix.h"
 #include "json.h"
 #include "vrf.h"
+#include "hash.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -584,6 +585,9 @@ srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
 extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
 extern void srv6_sid_format_free(struct srv6_sid_format *format);
 extern void delete_srv6_sid_format(void *format);
+extern bool srv6_locator_cmp(const void *d1, const void *d2);
+extern unsigned int srv6_locator_hash(const void *data);
+extern void show_srv6_locator_entry(struct hash_bucket *bucket, void *arg);
 
 #ifdef __cplusplus
 }
