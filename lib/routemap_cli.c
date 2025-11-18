@@ -1564,6 +1564,10 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation"));
+	} else if (IS_SET_SRV6_LOCATOR(action)) {
+		vty_out(vty, " set segment-routing srv6 locator %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-set-action/frr-bgp-route-map:srv6-locator"));
 	}
 }
 
