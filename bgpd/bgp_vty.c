@@ -3111,6 +3111,42 @@ DEFUN (no_bgp_deterministic_med,
 	return CMD_SUCCESS;
 }
 
+/* "bgp bestpath use-source-attributes" configuration. */
+DEFUN (bgp_bestpath_use_src_attrs,
+       bgp_bestpath_use_src_attrs_cmd,
+       "bgp bestpath use-source-attributes",
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Use source VRF attributes of imported routes for bestpath comparison\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS);
+		bgp_recalculate_all_bestpaths(bgp);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_bestpath_use_src_attrs,
+       no_bgp_bestpath_use_src_attrs_cmd,
+       "no bgp bestpath use-source-attributes",
+       NO_STR
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Use source VRF attributes of imported routes for bestpath comparison\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS);
+		bgp_recalculate_all_bestpaths(bgp);
+	}
+
+	return CMD_SUCCESS;
+}
+
 static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 				  bool disable)
 {
@@ -20356,6 +20392,10 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		/* BGP bestpath use-source-attributes. */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS))
+			vty_out(vty, " bgp bestpath use-source-attributes\n");
+
 		/* BGP update-delay. */
 		bgp_config_write_update_delay(vty, bgp);
 
@@ -21300,6 +21340,10 @@ void bgp_vty_init(void)
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);
 	install_element(BGP_NODE, &no_bgp_deterministic_med_cmd);
+
+	/* "bgp bestpath use-source-attributes" commands */
+	install_element(BGP_NODE, &bgp_bestpath_use_src_attrs_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_use_src_attrs_cmd);
 
 	/* "bgp graceful-restart" command */
 	install_element(BGP_NODE, &bgp_graceful_restart_cmd);

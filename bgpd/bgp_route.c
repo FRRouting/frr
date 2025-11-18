@@ -1145,10 +1145,12 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* Here if these are imported routes then get ultimate pi for
-	 * path compare.
+	 * path compare, if it is configured to do so.
 	 */
-	new = bgp_get_imported_bpi_ultimate(new);
-	exist = bgp_get_imported_bpi_ultimate(exist);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_SRC_ATTRS)) {
+		new = bgp_get_imported_bpi_ultimate(new);
+		exist = bgp_get_imported_bpi_ultimate(exist);
+	}
 	newattr = new->attr;
 	existattr = exist->attr;
 
