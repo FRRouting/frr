@@ -192,6 +192,10 @@ int lib_route_map_entry_set_action_rmap_set_action_prefix_sid_srv6_function_leng
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_prefix_sid_srv6_function_length_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_srv6_locator_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_srv6_locator_destroy(
+	struct nb_cb_destroy_args *args);
 
 #ifdef __cplusplus
 }

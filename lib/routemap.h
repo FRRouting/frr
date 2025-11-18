@@ -399,6 +399,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-l3vpn-nexthop-encapsulation"))
 #define IS_SET_BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-prefix-sid-srv6-function-length"))
+#define IS_SET_SRV6_LOCATOR(A) (strmatch(A, "frr-bgp-route-map:srv6-locator"))
 
 enum ecommunity_lb_type {
 	EXPLICIT_BANDWIDTH,

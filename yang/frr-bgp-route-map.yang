@@ -410,6 +410,12 @@ identity set-extcommunity-color {
       "Override SRv6 function-length parameter of BGP prefix sid attribute";
   }
 
+  identity srv6-locator {
+    base frr-route-map:rmap-set-type;
+    description
+      "Specify segment routing ipv6 locator";
+  }
+
   grouping extcommunity-non-transitive-types {
     leaf two-octet-as-specific {
       type boolean;
@@ -1274,6 +1280,14 @@ identity set-extcommunity-color {
         }
         description
           "Set the function-len of BGP prefix SID SRv6 SSTLV option";
+      }
+    }
+    case srv6-locator {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:srv6-locator')";
+      leaf srv6-locator {
+        type string;
+        description
+          "Specify segment routing ipv6 locator";
       }
     }
   }

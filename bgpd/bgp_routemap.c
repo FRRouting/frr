@@ -7993,6 +7993,43 @@ DEFUN_YANG (no_set_ipv6_nexthop_global,
 	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
+DEFPY_YANG(set_srv6_locator,
+	   set_srv6_locator_cmd,
+	   "set segment-routing srv6 locator WORD",
+	   SET_STR
+	   "Set Segment-routing properties\n"
+	   "Set SRv6 properties\n"
+	   "Set SRv6 locator for the route\n"
+	   "Locator name\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:srv6-locator']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:srv6-locator", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_set_srv6_locator,
+	   no_set_srv6_locator_cmd,
+	   "no set segment-routing srv6 locator [WORD]",
+	   NO_STR
+	   SET_STR
+	   "Set Segment-routing properties\n"
+	   "Set SRv6 properties\n"
+	   "Set SRv6 locator for the route\n"
+	   "Locator name\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:srv6-locator']";
+
+	/* locator name is ignored */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 #ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN_YANG (set_vpn_nexthop,
 	    set_vpn_nexthop_cmd,
@@ -8283,6 +8320,35 @@ DEFPY_YANG (match_vpn_dataplane,
 	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
+static enum route_map_cmd_result_t route_set_srv6_locator(void *rule_val, const struct prefix *p,
+							  void *object)
+{
+	struct bgp_path_info *pi = object;
+	char *locator_name = rule_val;
+
+	if (!pi || !pi->attr) {
+		zlog_warn("route-map: set srv6 locator: path or attr is NULL");
+		return RMAP_ERROR;
+	}
+	/* TODO: link the locator to the pi */
+	return RMAP_OKAY;
+}
+
+static void *route_set_srv6_locator_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_set_srv6_locator_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static struct route_map_rule_cmd rmap_set_srv6_locator_cmd = { "segment-routing srv6 locator",
+							       route_set_srv6_locator,
+							       route_set_srv6_locator_compile,
+							       route_set_srv6_locator_free };
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -8419,6 +8485,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_label_index_cmd);
 	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
 	route_map_install_set(&route_set_prefix_sid_srv6_function_length_cmd);
+	route_map_install_set(&rmap_set_srv6_locator_cmd);
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
@@ -8528,6 +8595,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ecommunity_nt_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_color_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_color_cmd);
+	install_element(RMAP_NODE, &set_srv6_locator_cmd);
+	install_element(RMAP_NODE, &no_set_srv6_locator_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_color_all_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_delete_cmd);
