@@ -424,7 +424,7 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	if (plen < BGP_LABEL_BYTES)
 		return 0;
 
-	for (; data < lim; data += BGP_LABEL_BYTES) {
+	for (; (data + BGP_LABEL_BYTES) <= lim; data += BGP_LABEL_BYTES) {
 		memcpy(label, data, BGP_LABEL_BYTES);
 		llen += BGP_LABEL_BYTES;
 
