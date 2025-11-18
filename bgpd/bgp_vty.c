@@ -12189,6 +12189,25 @@ DEFUN_YANG_NOSH (exit_address_family,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_bgp_srv6_locators,
+       show_bgp_srv6_locators_cmd,
+       "show bgp segment-routing srv6 locators",
+       SHOW_STR
+       BGP_STR
+       "BGP Segment Routing\n"
+       "BGP Segment Routing SRv6\n"
+       "BGP Segment Routing SRv6 locators\n")
+{
+	struct bgp_srv6_locator_entry *entry;
+	char str[PREFIX_STRLEN];
+
+	frr_each (bgp_srv6_locators, &bm->srv6_locators, entry) {
+		prefix2str(&entry->locator->prefix, str, sizeof(str));
+		vty_out(vty, "%-20s %-24s\n", entry->locator->name, str);
+	}
+	return CMD_SUCCESS;
+}
+
 /* Recalculate bestpath and re-advertise a prefix */
 static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 			    const char *ip_str, afi_t afi, safi_t safi,
@@ -25270,6 +25289,7 @@ void bgp_vty_init(void)
 
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
+	install_element(VIEW_NODE, &show_bgp_srv6_locators_cmd);
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);

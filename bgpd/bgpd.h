@@ -21,6 +21,7 @@
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
 PREDECL_HASH(bgp_upa_prefix_hash);
+PREDECL_RBTREE_UNIQ(bgp_srv6_locators);
 
 enum bgp_bp_install_type {
 	BGP_BP_INSTALL_ROUTE,
@@ -265,6 +266,9 @@ struct bgp_master {
 	uint32_t peer_conn_errs_dequeue_limit;
 	/* Limit the number of clearing dests we'll process per callback */
 	uint32_t peer_clearing_batch_max_dests;
+
+	/* All SRv6 locators, sorted by name. */
+	struct bgp_srv6_locators_head srv6_locators;
 
 	QOBJ_FIELDS;
 };

@@ -15,6 +15,8 @@
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgpd.h"
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_LOCATOR, "BGP SRv6 locator");
+
 extern struct zclient *bgp_zclient;
 
 static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
@@ -473,4 +475,74 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 		    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
 			bgp_announce_route(peer, afi, safi, true);
 	}
+}
+
+int bgp_srv6_locators_cmp(const struct bgp_srv6_locator_entry *a,
+			  const struct bgp_srv6_locator_entry *b)
+{
+	return strncmp(a->locator->name, b->locator->name, SRV6_LOCNAME_SIZE);
+}
+
+static struct bgp_srv6_locator_entry *bgp_srv6_locator_entry_find(const char *name)
+{
+	struct srv6_locator loc = {};
+	struct bgp_srv6_locator_entry key = { .locator = &loc };
+
+	strlcpy(loc.name, name, sizeof(loc.name));
+
+	return bgp_srv6_locators_find(&bm->srv6_locators, &key);
+}
+
+/**
+ * Return the SRv6 locator by name
+ *
+ * @param name Locator name
+ * @return srv6_locator
+ */
+struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(name);
+
+	return entry ? entry->locator : NULL;
+}
+
+void bgp_srv6_locator_store(const struct srv6_locator *loc)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(loc->name);
+	if (!entry) {
+		entry = XCALLOC(MTYPE_BGP_SRV6_LOCATOR, sizeof(*entry));
+		entry->locator = srv6_locator_alloc(loc->name);
+		bgp_srv6_locators_add(&bm->srv6_locators, entry);
+	}
+	srv6_locator_copy(entry->locator, loc);
+}
+
+static void bgp_srv6_locator_entry_free(struct bgp_srv6_locator_entry *entry)
+{
+	srv6_locator_free(entry->locator);
+	XFREE(MTYPE_BGP_SRV6_LOCATOR, entry);
+}
+
+void bgp_srv6_locator_remove(const char *name)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(name);
+	if (!entry)
+		return;
+	bgp_srv6_locators_del(&bm->srv6_locators, entry);
+	bgp_srv6_locator_entry_free(entry);
+}
+
+void bgp_srv6_locators_finish(void)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	while ((entry = bgp_srv6_locators_pop(&bm->srv6_locators)))
+		bgp_srv6_locator_entry_free(entry);
+	bgp_srv6_locators_fini(&bm->srv6_locators);
 }

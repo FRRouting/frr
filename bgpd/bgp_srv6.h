@@ -47,6 +47,16 @@ bgp_srv6_unicast_endpoint_behavior_codepoint(struct bgp *bgp, afi_t afi,
 	return usid ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID : SRV6_ENDPOINT_BEHAVIOR_END_DT6;
 }
 
+struct bgp_srv6_locator_entry {
+	struct bgp_srv6_locators_item item;
+	struct srv6_locator *locator;
+};
+
+int bgp_srv6_locators_cmp(const struct bgp_srv6_locator_entry *a,
+			  const struct bgp_srv6_locator_entry *b);
+
+DECLARE_RBTREE_UNIQ(bgp_srv6_locators, struct bgp_srv6_locator_entry, item, bgp_srv6_locators_cmp);
+
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi);
@@ -60,5 +70,9 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				     struct bgp_path_info *bpi);
 void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi);
+struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name);
+void bgp_srv6_locator_store(const struct srv6_locator *loc);
+void bgp_srv6_locator_remove(const char *name);
+void bgp_srv6_locators_finish(void);
 
 #endif /* _BGP_SRV6_H_ */
