@@ -83,7 +83,7 @@ static inline int16_t errno_from_nb_error(enum nb_error ret)
 extern enum mgmt_result nb_error_to_mgmt_result(enum nb_error error);
 
 /* Initialise transaction module. */
-extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
+extern void mgmt_txn_init(void);
 
 /* Destroy the transaction module. */
 extern void mgmt_txn_destroy(void);
