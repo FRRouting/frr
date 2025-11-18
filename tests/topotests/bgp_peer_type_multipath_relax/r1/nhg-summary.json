@@ -1,0 +1,218 @@
+{
+	"10.0.1.0/24": [
+		{
+			"prefix": "10.0.1.0/24",
+			"prefixLen": 24,
+			"protocol": "connected",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.1.1/32": [
+		{
+			"prefix": "10.0.1.1/32",
+			"prefixLen": 32,
+			"protocol": "local",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.3.0/24": [
+		{
+			"prefix": "10.0.3.0/24",
+			"prefixLen": 24,
+			"protocol": "connected",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.3.1/32": [
+		{
+			"prefix": "10.0.3.1/32",
+			"prefixLen": 32,
+			"protocol": "local",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.4.0/24": [
+		{
+			"prefix": "10.0.4.0/24",
+			"prefixLen": 24,
+			"protocol": "connected",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.4.1/32": [
+		{
+			"prefix": "10.0.4.1/32",
+			"prefixLen": 32,
+			"protocol": "local",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.5.0/24": [
+		{
+			"prefix": "10.0.5.0/24",
+			"prefixLen": 24,
+			"protocol": "connected",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"10.0.5.1/32": [
+		{
+			"prefix": "10.0.5.1/32",
+			"prefixLen": 32,
+			"protocol": "local",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"198.51.100.0/24": [
+		{
+			"prefix": "198.51.100.0/24",
+			"prefixLen": 24,
+			"protocol": "bgp",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 1,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"203.0.113.0/30": [
+		{
+			"prefix": "203.0.113.0/30",
+			"prefixLen": 30,
+			"protocol": "bgp",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 3,
+			"fibInstalledCount": 2,
+			"nexthopGroupValid": true
+		}
+	],
+	"203.0.113.4/30": [
+		{
+			"prefix": "203.0.113.4/30",
+			"prefixLen": 30,
+			"protocol": "bgp",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 200,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 2,
+			"fibInstalledCount": 1,
+			"nexthopGroupValid": true
+		}
+	],
+	"203.0.113.8/30": [
+		{
+			"prefix": "203.0.113.8/30",
+			"prefixLen": 30,
+			"protocol": "bgp",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"ecmpCount": 2,
+			"fibInstalledCount": 2,
+			"nexthopGroupValid": true
+		}
+	]
+}

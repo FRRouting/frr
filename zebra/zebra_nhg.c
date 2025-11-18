@@ -4140,3 +4140,72 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		}
 	}
 }
+
+/* Format NHG flags into a comma-separated string for display */
+void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
+{
+	bool first = true;
+
+	if (!buf || len == 0)
+		return;
+
+	buf[0] = '\0';
+
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_VALID)) {
+		strlcat(buf, "Valid", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_INSTALLED)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Installed", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_QUEUED)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Queued", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_RECURSIVE)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Recursive", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_REINSTALL)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Reinstall", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_BACKUP)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Backup", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Proto Released", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Keep Around", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_FPM)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "FPM", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Initial Delay", len);
+	}
+}
