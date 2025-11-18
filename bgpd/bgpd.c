@@ -9592,6 +9592,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	bgp_srv6_locators_init(&bm->srv6_locators);
 
 	bm->peer_clearing_batch_id = 1;
 	/* TODO -- make these configurable */
@@ -9908,6 +9909,8 @@ void bgp_terminate(void)
 
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
+
+	bgp_srv6_locators_finish();
 
 	event_cancel(&bm->t_rmap_update);
 	event_cancel(&bm->t_bgp_sync_label_manager);
