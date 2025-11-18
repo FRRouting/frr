@@ -83,6 +83,9 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 	struct seg6local_context ctx = {};
 	struct in6_addr *unicast_sid_ls = NULL;
 
+	if (afi == AFI_UNSPEC)
+		return;
+
 	if (!bgp->srv6_unicast[afi].sid)
 		return;
 
@@ -119,6 +122,9 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
 	int debug = BGP_DEBUG(zebra, ZEBRA);
+
+	if (afi == AFI_UNSPEC)
+		return;
 
 	if (bgp->vrf_id != VRF_DEFAULT)
 		return;
@@ -187,6 +193,9 @@ void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 {
 	struct interface *ifp;
 
+	if (afi == AFI_UNSPEC)
+		return;
+
 	if (!bgp->srv6_unicast[afi].sid)
 		return;
 
@@ -217,6 +226,9 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	route_map_result_t ret;
 	struct bgp_path_info info;
 	struct srv6_locator *locator;
+
+	if (afi == AFI_UNSPEC)
+		return;
 
 	if (!bpi) {
 		if (dest->srv6_unicast)
@@ -289,6 +301,9 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 	safi_t safi = SAFI_UNICAST;
 	struct listnode *node, *nnode;
 
+	if (afi == AFI_UNSPEC)
+		return;
+
 	if (!bgp->srv6_unicast[afi].sid_locator)
 		return;
 
@@ -320,6 +335,9 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 	struct bgp_dest *pdest;
 	safi_t safi = SAFI_UNICAST;
 	struct listnode *node, *nnode;
+
+	if (afi == AFI_UNSPEC)
+		return;
 
 	for (pdest = bgp_table_top(bgp->rib[afi][safi]); pdest; pdest = bgp_route_next(pdest)) {
 		if (!pdest->srv6_unicast)
