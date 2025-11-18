@@ -25,7 +25,7 @@
 #define _log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 #define TXN_INCREF(txn)   txn_incref(txn, __FILE__, __LINE__)
-#define TXN_DECREF(txn, in_hash_free) txn_decref(txn, in_hash_free, __FILE__, __LINE__)
+#define TXN_DECREF(txn)	  txn_decref(txn, __FILE__, __LINE__)
 
 
 enum txn_req_type {
@@ -184,12 +184,7 @@ static inline struct txn_req *txn_txn_req(struct mgmt_txn *txn, uint64_t req_id)
 }
 
 static void txn_incref(struct mgmt_txn *txn, const char *file, int line);
-static void txn_decref(struct mgmt_txn **txn, bool in_hash_free, const char *file, int line);
-
-static struct event_loop *mgmt_txn_tm;
-static struct mgmt_master *mgmt_txn_mm;
-
-static void mgmt_txn_cleanup_txn(struct mgmt_txn **txn);
+static void txn_decref(struct mgmt_txn *txn, const char *file, int line);
 
 static void mgmt_txn_cfg_commit_timedout(struct event *thread);
 static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq);
@@ -359,7 +354,7 @@ static void mgmt_txn_req_free(struct txn_req *txn_req)
 	_dbg("Removed req-id: %Lu from request-list", txn_req->req_id);
 
 	darr_free(txn_req->err_info);
-	TXN_DECREF(&txn_req->txn, false);
+	TXN_DECREF(txn_req->txn);
 	XFREE(MTYPE_MGMTD_TXN_REQ, txn_req);
 }
 
@@ -464,7 +459,7 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	 * we need to cleanup by itself.
 	 */
 	if (!txn->session_id)
-		mgmt_txn_cleanup_txn(&txn);
+		TXN_DECREF(txn);
 }
 
 static void txn_cfg_next_phase(struct txn_req_commit *ccreq)
@@ -710,7 +705,7 @@ static int txn_make_and_send_cfg_msgs(struct txn_req_commit *ccreq, const struct
 
 	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
-		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn_req,
+		event_add_timer(mm->master, mgmt_txn_cfg_commit_timedout, txn_req,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
 	} else {
 		/* We have no connected interested clients */
@@ -1019,17 +1014,15 @@ static struct mgmt_txn *mgmt_txn_create_new(uint64_t session_id, enum mgmt_txn_t
 	if (type == MGMTD_TXN_TYPE_CONFIG && txn_config_txn)
 		return NULL;
 
-	txn = mgmt_fe_find_txn_by_session_id(mgmt_txn_mm, session_id, type);
+	txn = mgmt_fe_find_txn_by_session_id(mm, session_id, type);
 	if (!txn) {
 		txn = XCALLOC(MTYPE_MGMTD_TXN, sizeof(struct mgmt_txn));
 		txn->session_id = session_id;
 		txn->type = type;
 		TAILQ_INSERT_TAIL(&txn_txns, txn, link);
 		TAILQ_INIT(&txn->reqs);
-		if (!mgmt_txn_mm->next_txn_id)
-			mgmt_txn_mm->next_txn_id++;
-		txn->txn_id = mgmt_txn_mm->next_txn_id++;
-		hash_get(mgmt_txn_mm->txn_hash, txn, hash_alloc_intern);
+		txn->txn_id = mm->next_txn_id++;
+		hash_get(mm->txn_hash, txn, hash_alloc_intern);
 
 		_dbg("Added new '%s' txn-id: %" PRIu64, mgmt_txn_type2str(type), txn->txn_id);
 
@@ -1058,42 +1051,16 @@ static bool mgmt_txn_hash_cmp(const void *d1, const void *d2)
 	return (txn1->txn_id == txn2->txn_id);
 }
 
-static void mgmt_txn_hash_free(void *data)
-{
-	struct mgmt_txn *txn = data;
-
-	TXN_DECREF(&txn, true);
-}
-
-static void mgmt_txn_hash_init(void)
-{
-	if (!mgmt_txn_mm || mgmt_txn_mm->txn_hash)
-		return;
-
-	mgmt_txn_mm->txn_hash = hash_create(mgmt_txn_hash_key, mgmt_txn_hash_cmp,
-					    "MGMT Transactions");
-}
-
-static void mgmt_txn_hash_destroy(void)
-{
-	if (!mgmt_txn_mm || !mgmt_txn_mm->txn_hash)
-		return;
-
-	hash_clean(mgmt_txn_mm->txn_hash, mgmt_txn_hash_free);
-	hash_free(mgmt_txn_mm->txn_hash);
-	mgmt_txn_mm->txn_hash = NULL;
-}
-
 static inline struct mgmt_txn *mgmt_txn_id2ctx(uint64_t txn_id)
 {
 	struct mgmt_txn key = { 0 };
 	struct mgmt_txn *txn;
 
-	if (!mgmt_txn_mm || !mgmt_txn_mm->txn_hash)
+	if (!mm->txn_hash)
 		return NULL;
 
 	key.txn_id = txn_id;
-	txn = hash_lookup(mgmt_txn_mm->txn_hash, &key);
+	txn = hash_lookup(mm->txn_hash, &key);
 
 	return txn;
 }
@@ -1112,65 +1079,51 @@ static void txn_incref(struct mgmt_txn *txn, const char *file, int line)
 	     mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount, file, line);
 }
 
-static void txn_decref(struct mgmt_txn **txn, bool in_hash_free, const char *file, int line)
+static void txn_decref(struct mgmt_txn *txn, const char *file, int line)
 {
-	assert(*txn && (*txn)->refcount);
+	assert(txn && txn->refcount);
 
-	(*txn)->refcount--;
+	txn->refcount--;
 	_dbg("TXN-DECREF %s txn-id: %Lu refcnt: %d file: %s line: %d",
-	     mgmt_txn_type2str((*txn)->type), (*txn)->txn_id, (*txn)->refcount, file, line);
-	if (!(*txn)->refcount) {
-		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
-			if (txn_config_txn == *txn)
+	     mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount, file, line);
+	if (!txn->refcount) {
+		if (txn->type == MGMTD_TXN_TYPE_CONFIG)
+			if (txn_config_txn == txn)
 				txn_config_txn = NULL;
-		if (!in_hash_free)
-			hash_release(mgmt_txn_mm->txn_hash, *txn);
+		hash_release(mm->txn_hash, txn);
+		TAILQ_REMOVE(&txn_txns, txn, link);
 
-		TAILQ_REMOVE(&txn_txns, *txn, link);
+		_dbg("Deleted %s txn-id: %Lu session-id: %Lu", mgmt_txn_type2str(txn->type),
+		     txn->txn_id, txn->session_id);
 
-		_dbg("Deleted %s txn-id: %Lu session-id: %Lu", mgmt_txn_type2str((*txn)->type),
-		     (*txn)->txn_id, (*txn)->session_id);
-
-		XFREE(MTYPE_MGMTD_TXN, *txn);
+		XFREE(MTYPE_MGMTD_TXN, txn);
 	}
-
-	*txn = NULL;
 }
 
-static void mgmt_txn_cleanup_txn(struct mgmt_txn **txn)
+void mgmt_txn_init(void)
 {
-	/* TODO: Any other cleanup applicable */
+	assert(mm->next_txn_id == 0);
+	mm->next_txn_id = 1;
 
-	TXN_DECREF(txn, false);
-}
-
-static void mgmt_txn_cleanup_all_txns(void)
-{
-	struct mgmt_txn *txn, *next;
-
-	if (!mgmt_txn_mm || !mgmt_txn_mm->txn_hash)
-		return;
-
-	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next)
-		mgmt_txn_cleanup_txn(&txn);
-}
-
-int mgmt_txn_init(struct mgmt_master *m, struct event_loop *loop)
-{
-	if (mgmt_txn_mm || mgmt_txn_tm)
-		assert(!"MGMTD TXN: Call txn_init() only once");
-
-	mgmt_txn_mm = m;
-	mgmt_txn_tm = loop;
-	mgmt_txn_hash_init();
-
-	return 0;
+	mm->txn_hash = hash_create(mgmt_txn_hash_key, mgmt_txn_hash_cmp, "MGMT Transactions");
 }
 
 void mgmt_txn_destroy(void)
 {
-	mgmt_txn_cleanup_all_txns();
-	mgmt_txn_hash_destroy();
+	struct mgmt_txn *txn, *next;
+
+	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
+		/* Free all txn_reqs associated with this txn */
+		while (!TAILQ_EMPTY(&txn->reqs))
+			mgmt_txn_req_free(TAILQ_FIRST(&txn->reqs));
+		assert(txn->refcount == 1);
+		TXN_DECREF(txn);
+	}
+
+	if (mm->txn_hash) {
+		hash_free(mm->txn_hash);
+		mm->txn_hash = NULL;
+	}
 }
 
 bool mgmt_config_txn_in_progress(void)
@@ -1194,7 +1147,7 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 	if (!txn)
 		return;
 
-	TXN_DECREF(&txn, false);
+	TXN_DECREF(txn);
 	*txn_id = MGMTD_TXN_ID_NONE;
 }
 
@@ -1552,7 +1505,7 @@ state:
 	/* Start timeout timer - pulled out of register event code so we can
 	 * pass a different arg
 	 */
-	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, get_tree,
+	event_add_timer(mm->master, txn_get_tree_timeout, get_tree,
 			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC, &get_tree->req.timeout);
 	return 0;
 }
@@ -1599,8 +1552,8 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	if (!rpc->clients_wait)
 		return txn_rpc_done(rpc);
 
-	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, rpc,
-			MGMTD_TXN_RPC_MAX_DELAY_SEC, &rpc->req.timeout);
+	event_add_timer(mm->master, txn_rpc_timeout, rpc, MGMTD_TXN_RPC_MAX_DELAY_SEC,
+			&rpc->req.timeout);
 
 	return 0;
 }
