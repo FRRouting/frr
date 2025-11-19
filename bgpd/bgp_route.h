@@ -304,6 +304,8 @@ struct bgp_path_info_extra {
 	 * the Color Extended Community via bgp_path_info_get_srte_color()).
 	 */
 	uint32_t srte_color;
+	/* For srv6 locator modified by route-map */
+	char *srv6_locator;
 };
 
 struct bgp_mplsvpn_label_nh {
