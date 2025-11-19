@@ -436,6 +436,9 @@ struct ospf {
 	/* Per-interface write socket */
 	bool intf_socket_enabled;
 
+	/* Force forwarding address to self for external LSAs. */
+	bool forwarding_address_self;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf);
