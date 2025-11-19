@@ -934,6 +934,7 @@ static void assegment_data_put(struct stream *s, as_t *as, int num,
 			       int use32bit)
 {
 	int i;
+
 	assert(num <= AS_SEGMENT_MAX);
 
 	for (i = 0; i < num; i++)
@@ -1821,10 +1822,11 @@ struct aspath *aspath_filter_exclude_acl(struct aspath *source,
 }
 
 /* Add specified AS to the leftmost of aspath. */
-static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno, uint8_t type, unsigned num)
+static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno, uint8_t type,
+				      unsigned int num)
 {
 	struct assegment *assegment = aspath->segments;
-	unsigned i;
+	unsigned int i;
 
 	if (assegment && assegment->type == type) {
 		/* extend existing segment */
