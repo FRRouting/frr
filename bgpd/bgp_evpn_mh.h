@@ -226,6 +226,7 @@ struct bgp_evpn_es_evi {
 #define BGP_EVPNES_EVI_REMOTE           (1 << 1)
 #define BGP_EVPNES_EVI_INCONS_VTEP_LIST (1 << 2)
 
+	uint32_t eth_tag;
 	/* memory used for adding the es_evi to es_evi->vpn->es_evi_rb_tree */
 	RB_ENTRY(bgp_evpn_es_evi) rb_node;
 	/* memory used for linking the es_evi to
@@ -416,8 +417,8 @@ extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 				 struct in_addr originator_ip, bool oper_up,
 				 uint16_t df_pref, bool bypass);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
-extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
-extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
+extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag);
+extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 			   const struct prefix_evpn *p);
@@ -434,6 +435,8 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 		bool uj, bool detail);
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
+struct bgp_evpn_es_evi *bgp_evpn_es_evi_find(struct bgp_evpn_es *es, struct bgpevpn *vpn,
+					     uint32_t eth_tag);
 extern void bgp_evpn_vrf_es_init(struct bgp *bgp_vrf);
 extern bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi);
 extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);

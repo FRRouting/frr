@@ -6103,13 +6103,13 @@ DEFPY_HIDDEN(test_es_vni_add,
 	}
 
 	if (no) {
-		ret = bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+		ret = bgp_evpn_local_es_evi_del(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG);
 		if (ret == -1) {
 			vty_out(vty, "%% Failed to deref ES VNI\n");
 			return CMD_WARNING;
 		}
 	} else {
-		ret = bgp_evpn_local_es_evi_add(bgp, &esi, vni);
+		ret = bgp_evpn_local_es_evi_add(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG);
 		if (ret == -1) {
 			vty_out(vty, "%% Failed to ref ES VNI\n");
 			return CMD_WARNING;
