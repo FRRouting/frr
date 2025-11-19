@@ -482,7 +482,7 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
-	int i;
+	int i, ind_seg6;
 
 	netlink_parse_rtattr_nested(tb_encap, SEG6_IPTUNNEL_MAX, tb);
 
@@ -490,11 +490,41 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 		ipt = (struct seg6_iptunnel_encap *)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
 
+<<<<<<< HEAD
 		for (i = ipt->srh[0].first_segment; i >= 0; i--)
 			memcpy(&segs[i], &ipt->srh[0].segments[i],
+=======
+		switch (ipt->mode) {
+		case SEG6_IPTUN_MODE_INLINE:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_INSERT;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
+			break;
+		}
+		ind_seg6 = ipt->srh[0].first_segment;
+		if (ind_seg6 >= SRV6_MAX_SIDS) {
+			ind_seg6 = SRV6_MAX_SIDS - 1;
+			flog_err(EC_ZEBRA_NETLINK_SRV6_SID_NUMBER_ERROR,
+				 "%s: nexthop unicast SRV6 Segment truncated from  %d to %d",
+				 __func__, ipt->srh[0].first_segment, ind_seg6);
+		}
+
+		for (i = ind_seg6; i >= 0; i--)
+			memcpy(&segs[ind_seg6 - i], &ipt->srh[0].segments[i],
+>>>>>>> c3c08d489 ( zebra: fix crash due to lack of control of received number of srv6 SID from netlink)
 			       sizeof(struct in6_addr));
 
-		return ipt->srh[0].first_segment + 1;
+		return ind_seg6 + 1;
 	}
 
 	return 0;
