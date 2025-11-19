@@ -379,6 +379,19 @@ To start OSPF process you have to specify the OSPF router.
    causes ospfd to use a single socket per ospf instance for sending
    and receiving packets.
 
+.. clicmd:: forwarding-address-self
+
+   By default, when an OSPF router redistributes routes into OSPF, it
+   sets the forwarding address field of the resulting next-hop.
+
+   When this command is configured, the router sets the forwarding address
+   field to its own address, causing other routers to send traffic for the
+   redistributed routes to ASBR directly.
+
+   This command is useful in scenarios where the ASBR is multi-homed (ECMP) 
+   and the administrator wants to ensure that traffic for redistributed 
+   routes is sent to the correct next-hop.
+
 .. _ospf-area:
 
 Areas
