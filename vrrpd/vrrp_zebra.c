@@ -150,6 +150,7 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_del(c->ifp);
+	connected_free(&c);
 
 	return 0;
 }
