@@ -891,10 +891,50 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit,
 	return find;
 }
 
+/* Add specified AS to the rightmost of aspath. */
+static struct aspath *aspath_add_asns_rightmost(struct aspath *aspath, as_t asno, uint8_t type,
+						unsigned int num)
+{
+	struct assegment *seg = aspath->segments;
+	struct assegment *last = NULL;
+
+	if (!seg) {
+		struct assegment *newseg = assegment_new(type, num);
+		unsigned int i;
+
+		for (i = 0; i < num; i++)
+			newseg->as[i] = asno;
+
+		aspath->segments = newseg;
+	} else {
+		while (seg) {
+			last = seg;
+			seg = seg->next;
+		}
+
+		if (last->type == type && (last->length + num) <= AS_SEGMENT_MAX) {
+			assegment_append_asns(last, &asno, num);
+		} else {
+			struct assegment *newseg = assegment_new(type, num);
+			unsigned int i;
+
+			for (i = 0; i < num; i++)
+				newseg->as[i] = asno;
+
+			last->next = newseg;
+		}
+	}
+
+	aspath_str_update(aspath, false);
+	aspath->count = aspath_count_hops_internal(aspath);
+	return aspath;
+}
+
 static void assegment_data_put(struct stream *s, as_t *as, int num,
 			       int use32bit)
 {
 	int i;
+
 	assert(num <= AS_SEGMENT_MAX);
 
 	for (i = 0; i < num; i++)
@@ -1018,40 +1058,6 @@ uint8_t *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
 	return stream_pnt(snmp_stream);
 }
 
-static struct assegment *aspath_aggregate_as_set_add(struct aspath *aspath,
-						     struct assegment *asset,
-						     as_t as)
-{
-	int i;
-
-	/* If this is first AS set member, create new as-set segment. */
-	if (asset == NULL) {
-		asset = assegment_new(AS_SET, 1);
-		if (!aspath->segments)
-			aspath->segments = asset;
-		else {
-			struct assegment *seg = aspath->segments;
-			while (seg->next)
-				seg = seg->next;
-			seg->next = asset;
-		}
-		asset->as[0] = as;
-	} else {
-		/* Check this AS value already exists or not. */
-		for (i = 0; i < asset->length; i++)
-			if (asset->as[i] == as)
-				return asset;
-
-		asset->length++;
-		asset->as = XREALLOC(MTYPE_AS_SEG_DATA, asset->as,
-				     asset->length * AS_VALUE_SIZE);
-		asset->as[asset->length - 1] = as;
-	}
-
-	aspath->count = aspath_count_hops_internal(aspath);
-	return asset;
-}
-
 /* Modify as1 using as2 for aggregation. */
 struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 {
@@ -1062,7 +1068,6 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 	struct assegment *seg1 = as1->segments;
 	struct assegment *seg2 = as2->segments;
 	struct aspath *aspath = NULL;
-	struct assegment *asset = NULL;
 	struct assegment *prevseg = NULL;
 
 	/* First of all check common leading sequence. */
@@ -1109,9 +1114,13 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 	/* Make as-set using rest of all information. */
 	from = match;
 	while (seg1) {
-		for (i = from; i < seg1->length; i++)
-			asset = aspath_aggregate_as_set_add(aspath, asset,
-							    seg1->as[i]);
+		for (i = from; i < seg1->length; i++) {
+			if (seg1->type == AS_CONFED_SEQUENCE || seg1->type == AS_CONFED_SET) {
+				aspath_add_asns_rightmost(aspath, seg1->as[i], AS_CONFED_SET, 1);
+				continue;
+			}
+			aspath_add_asns_rightmost(aspath, seg1->as[i], AS_SET, 1);
+		}
 
 		from = 0;
 		seg1 = seg1->next;
@@ -1119,9 +1128,13 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 
 	from = match;
 	while (seg2) {
-		for (i = from; i < seg2->length; i++)
-			asset = aspath_aggregate_as_set_add(aspath, asset,
-							    seg2->as[i]);
+		for (i = from; i < seg2->length; i++) {
+			if (seg2->type == AS_CONFED_SEQUENCE || seg2->type == AS_CONFED_SET) {
+				aspath_add_asns_rightmost(aspath, seg2->as[i], AS_CONFED_SET, 1);
+				continue;
+			}
+			aspath_add_asns_rightmost(aspath, seg2->as[i], AS_SET, 1);
+		}
 
 		from = 0;
 		seg2 = seg2->next;
@@ -1808,18 +1821,16 @@ struct aspath *aspath_filter_exclude_acl(struct aspath *source,
 	return source;
 }
 
-
 /* Add specified AS to the leftmost of aspath. */
-static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
-				      uint8_t type, unsigned num)
+static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno, uint8_t type,
+				      unsigned int num)
 {
 	struct assegment *assegment = aspath->segments;
-	unsigned i;
+	unsigned int i;
 
 	if (assegment && assegment->type == type) {
 		/* extend existing segment */
-		aspath->segments =
-			assegment_prepend_asns(aspath->segments, asno, num);
+		aspath->segments = assegment_prepend_asns(aspath->segments, asno, num);
 	} else {
 		/* prepend with new segment */
 		struct assegment *newsegment = assegment_new(type, num);
