@@ -15,6 +15,7 @@
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgpd.h"
 
+DEFINE_MTYPE_STATIC(BGPD, SRV6_LOCATOR_EXTRA, "BGP SRv6 Extra locator");
 DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_LOCATOR, "BGP SRv6 locator");
 
 extern struct zclient *bgp_zclient;
@@ -545,4 +546,14 @@ void bgp_srv6_locators_finish(void)
 	while ((entry = bgp_srv6_locators_pop(&bm->srv6_locators)))
 		bgp_srv6_locator_entry_free(entry);
 	bgp_srv6_locators_fini(&bm->srv6_locators);
+}
+
+void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra)
+{
+	XFREE(MTYPE_SRV6_LOCATOR_EXTRA, extra->srv6_locator);
+}
+
+void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator)
+{
+	extra->srv6_locator = XSTRDUP(MTYPE_SRV6_LOCATOR_EXTRA, locator);
 }

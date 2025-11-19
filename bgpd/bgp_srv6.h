@@ -74,5 +74,7 @@ struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name);
 void bgp_srv6_locator_store(const struct srv6_locator *loc);
 void bgp_srv6_locator_remove(const char *name);
 void bgp_srv6_locators_finish(void);
+void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra);
+void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator);
 
 #endif /* _BGP_SRV6_H_ */
