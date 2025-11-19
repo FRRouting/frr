@@ -281,6 +281,7 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->labels)
 		bgp_labels_unintern(&e->labels);
 
+	bgp_srv6_path_locator_extra_free(e);
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 }
 

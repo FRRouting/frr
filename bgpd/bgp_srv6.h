@@ -31,5 +31,7 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi);
 struct interface *get_srv6_endpoint_ifp(char *vrf_name);
 void bgp_srv6_unicast_ifp_update(struct interface *ifp, bool state);
 struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name);
+void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra);
+void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator);
 
 #endif /* _BGP_SRV6_H_ */

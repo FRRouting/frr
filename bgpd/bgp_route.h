@@ -251,6 +251,9 @@ struct bgp_path_info_extra {
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
+
+	/* For srv6 locator modified by route-map */
+	char *srv6_locator;
 };
 
 struct bgp_mplsvpn_label_nh {
