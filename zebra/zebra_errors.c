@@ -303,6 +303,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.description = "Zebra NameSpace subsystem failed to find a Default namespace during initialization.",
 		.suggestion = "Open an Issue with all relevant log files and restart FRR",
 	},
+	{
+		.code = EC_ZEBRA_NETLINK_SRV6_SID_NUMBER_ERROR,
+		.title = "Netlink SRv6 SID number error",
+		.description = "Zebra received a Netlink message with too many SRv6 SIDs (MAX=XX).",
+		.suggestion = "Notify a developer.",
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
