@@ -2066,6 +2066,11 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			zebra_evpn_mac_clear_sync_info(mac);
 			zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr,
 							  mac->flags, false);
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY)) {
+				zlog_warn("Received remote mac add for MAC %pEA VNI %u VTEP %pIA, "
+					  "but it is already learnt as local sticky MAC on Intf %s",
+					  macaddr, zevpn->vni, vtep_ip, mac->ifp->name);
+			}
 		}
 
 		/* Set "auto" and "remote" forwarding info. */
@@ -2176,14 +2181,10 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			    old_local_inactive == local_inactive &&
 			    dp_static == old_static && !es_change) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("        Add/Update %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s, "
-						   "entry exists and has not changed ",
-						   sticky ? "sticky " : "",
-						   macaddr, ifp->name,
+					zlog_debug("        Add/Update %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s, entry exists and has not changed ",
+						   sticky ? "sticky " : "", macaddr, ifp->name,
 						   ifp->ifindex, vid, zevpn->vni,
-						   local_inactive
-							   ? " local_inactive"
-							   : "");
+						   local_inactive ? " local_inactive" : "");
 				return 0;
 			}
 			if (mac_sticky != sticky) {

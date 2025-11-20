@@ -1405,6 +1405,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 
 			zrmac->fwd_info.r_vtep_ip = ip_vtep;
 
+			/* Send RMAC for FPM processing */
+			hook_call(zebra_rmac_update, zrmac, zl3vni, false, "RMAC changed");
+
 			/* install rmac in kernel */
 			zl3vni_rmac_install(zl3vni, zrmac);
 		}
@@ -1464,6 +1467,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				zlog_debug("L3VNI %u Remote VTEP nh change(%pIA -> %pIA) for RMAC %pEA",
 					   zl3vni->vni, vtep_ip, &zrmac->fwd_info.r_vtep_ip,
 					   &zrmac->macaddr);
+
+			/* Send RMAC for FPM processing */
+			hook_call(zebra_rmac_update, zrmac, zl3vni, false, "RMAC changed");
 
 			/* install rmac in kernel */
 			zl3vni_rmac_install(zl3vni, zrmac);
@@ -2590,6 +2596,9 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 		return;
 	zrmac = zl3vni_rmac_lookup(zl3vni, &nh->emac);
 
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("l3vni %u del nexthop: rmac %pEA%s vtep-ip %pIA", zl3vni->vni,
+			   &nh->emac, (zrmac ? "" : " (not-found)"), vtep_ip);
 	/* delete the next hop entry */
 	zl3vni_remote_nh_del(zl3vni, nh, host_prefix);
 
@@ -3973,9 +3982,9 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 
 	if (!use_json)
-		vty_out(vty, "%-10s %-4s %-21s %-8s %-8s %-15s %-37s\n", "VNI",
-			"Type", "VxLAN IF", "# MACs", "# ARPs",
-			"# Remote VTEPs", "Tenant VRF");
+		vty_out(vty, "%-10s %-4s %-21s %-8s %-8s %-15s %-15s %-10s %-37s\n", "VNI", "Type",
+			"VxLAN IF", "# MACs", "# ARPs", "# Remote VTEPs", "Tenant VRF", "VLAN",
+			"BRIDGE");
 
 	args[0] = vty;
 	args[1] = json;
@@ -5206,6 +5215,9 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 {
 	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_vrf *zvrf_evpn = NULL;
+	struct zebra_vxlan_vni *vnip = NULL;
+	struct zebra_if *vxlan_if_zif = NULL;
+	struct interface *br_if = NULL;
 
 	zvrf_evpn = zebra_vrf_get_evpn();
 
@@ -5234,6 +5246,9 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		 */
 		zl3vni->vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 
+		if (zl3vni->vxlan_if)
+			vxlan_if_zif = zl3vni->vxlan_if->info;
+
 		/* associate with corresponding SVI interface, we can associate
 		 * with svi-if only after vxlan interface association is
 		 * complete
@@ -5241,6 +5256,17 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
+
+		if (vxlan_if_zif) {
+			vnip = zebra_vxlan_if_vni_find(vxlan_if_zif, vni);
+			br_if = vxlan_if_zif->brslave_info.br_if;
+		}
+
+		if (vnip)
+			zl3vni->vid = vnip->access_vlan;
+
+		if (br_if)
+			zl3vni_bridge_if_set(zl3vni, br_if, true);
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
