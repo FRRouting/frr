@@ -1240,12 +1240,26 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 
 				if (ecommunity_tunnel_type(ecom, i, &tunneltype))
 					snprintf(encbuf, sizeof(encbuf), "ET:%d", tunneltype);
-			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
-				strlcpy(encbuf, "Default Gateway",
-					sizeof(encbuf));
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
 						     pnt);
+			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_LOAD_BALANCING ||
+				   *pnt == ECOMMUNITY_EVPN_SUBTYPE_LOAD_BALANCING) {
+				/* RFC 9014: Load Balancing Extended Community
+				 * RFC 9014 standardized as EVPN encoding (0x06, 0x0e).
+				 * Earlier drafts used OPAQUE encoding (0x03, 0x0e) - handle both for compatibility.
+				 */
+				uint32_t lb_id_high;
+				uint16_t lb_id_low;
+
+				pnt++;
+				memcpy(&lb_id_high, pnt, 4);
+				lb_id_high = ntohl(lb_id_high);
+				memcpy(&lb_id_low, pnt + 4, 2);
+				lb_id_low = ntohs(lb_id_low);
+
+				snprintf(encbuf, sizeof(encbuf), "LB: %u:%u", lb_id_high,
+					 lb_id_low);
 			} else {
 				unk_ecom = true;
 			}
@@ -1365,6 +1379,40 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 						 ? 'Y'
 						 : 'N',
 					 l2mtu);
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_ETREE) {
+				/* RFC 8317: E-Tree Extended Community */
+				/* Format: 1 byte flags, 5 bytes reserved (all zeros) */
+				pnt++;
+				strlcpy(encbuf, "E-Tree", sizeof(encbuf));
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_ISID) {
+				/* draft-ietf-bess-evpn-virtual-eth-segment: I-SID Extended Community */
+				/* Format: 3 bytes I-SID (24-bit), 3 bytes reserved */
+				uint32_t isid;
+
+				pnt++;
+				/* I-SID is 24 bits in first 3 bytes, network byte order */
+				isid = (pnt[0] << 16) | (pnt[1] << 8) | pnt[2];
+
+				snprintf(encbuf, sizeof(encbuf), "I-SID: %u", isid);
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
+				strlcpy(encbuf, "Default Gateway", sizeof(encbuf));
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_LOAD_BALANCING ||
+				   *pnt == ECOMMUNITY_OPAQUE_SUBTYPE_LOAD_BALANCING) {
+				/* RFC 9014: Load Balancing Extended Community
+				 * RFC 9014 standardized as EVPN encoding (0x06, 0x0e).
+				 * Earlier drafts used OPAQUE encoding (0x03, 0x0e) - handle both for compatibility.
+				 */
+				uint32_t lb_id_high;
+				uint16_t lb_id_low;
+
+				pnt++;
+				memcpy(&lb_id_high, pnt, 4);
+				lb_id_high = ntohl(lb_id_high);
+				memcpy(&lb_id_low, pnt + 4, 2);
+				lb_id_low = ntohs(lb_id_low);
+
+				snprintf(encbuf, sizeof(encbuf), "LB: %u:%u", lb_id_high,
+					 lb_id_low);
 			} else
 				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
