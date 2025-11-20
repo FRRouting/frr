@@ -3226,6 +3226,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 				    ospf->distance_all
 					    ? ospf->distance_all
 					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
+
+		json_object_boolean_add(json_vrf, "forwardingAddressSelf",
+					ospf->forwarding_address_self);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3248,6 +3251,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* show max multipath */
 		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		if (ospf->forwarding_address_self)
+			vty_out(vty, " Forwarding address is set to self for external LSAs\n");
 
 		/* show administrative distance */
 		vty_out(vty, " Administrative distance %u\n",
