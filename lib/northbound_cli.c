@@ -239,7 +239,8 @@ static int _nb_cli_apply_changes(struct vty *vty, const char *xpath_base, bool c
 			return CMD_SUCCESS;
 
 		implicit_commit = vty_needs_implicit_commit(vty);
-		if (vty_mgmt_send_config_data(vty, xpath_base_abs, implicit_commit) < 0) {
+		if (vty_mgmt_send_config_data(vty, xpath_base_abs,
+				implicit_commit) != CMD_SUCCESS) {
 			vty_out(vty, "%% Failed to apply configuration data.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
