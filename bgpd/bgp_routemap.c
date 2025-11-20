@@ -61,6 +61,7 @@
 #include "bgpd/bgp_script.h"
 #include "bgpd/bgp_tracker.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_srv6.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -8330,7 +8331,16 @@ static enum route_map_cmd_result_t route_set_srv6_locator(void *rule_val, const 
 		zlog_warn("route-map: set srv6 locator: path or attr is NULL");
 		return RMAP_ERROR;
 	}
-	/* TODO: link the locator to the pi */
+	/* unlink and link operations can not be done here,
+	 * as pi is juste a copy passed to route-map
+	 * instead save the locator name in pi->extra
+	 */
+	if (!pi->extra)
+		/* XXX every place where route-map can apply this rule should provide this param */
+		return RMAP_ERROR;
+	SET_FLAG(pi->attr->rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED);
+	bgp_srv6_path_locator_extra_free(pi->extra);
+	bgp_srv6_path_locator_extra_alloc(pi->extra, locator_name);
 	return RMAP_OKAY;
 }
 

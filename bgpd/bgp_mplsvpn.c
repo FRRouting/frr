@@ -34,6 +34,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_srv6.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1827,6 +1828,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	struct ecommunity *old_ecom;
 	struct ecommunity *new_ecom = NULL;
 	struct ecommunity *rtlist_ecom;
+	struct bgp_srv6_per_locator_cache *bslc;
 
 	if (debug)
 		zlog_debug("%s: from vrf %s", __func__, from_bgp->name_pretty);
@@ -1910,18 +1912,22 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	/*
 	 * route map handling
 	 */
+	RESET_FLAG(static_attr.rmap_change_flags);
 	if (from_bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]) {
 		struct bgp_path_info info;
 		route_map_result_t ret;
+		struct bgp_path_info_extra dummy_rmap_path_extra = { 0 };
 
 		memset(&info, 0, sizeof(info));
 		info.peer = to_bgp->peer_self;
 		info.attr = &static_attr;
-		ret = route_map_apply(from_bgp->vpn_policy[afi]
-					      .rmap[BGP_VPN_POLICY_DIR_TOVPN],
-				      p, &info);
+		info.extra = &dummy_rmap_path_extra;
+		ret = route_map_apply(from_bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN], p,
+				      &info);
 		if (RMAP_DENYMATCH == ret) {
 			bgp_attr_flush(&static_attr); /* free any added parts */
+			bgp_srv6_per_locator_unlink(path_vrf);
+			bgp_srv6_path_locator_extra_free(&dummy_rmap_path_extra);
 			if (debug)
 				zlog_debug("%s: vrf %s route map \"%s\" says DENY, returning",
 					   __func__, from_bgp->name_pretty,
@@ -1930,8 +1936,35 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 						   ->name);
 			return;
 		}
-	}
-	/* XXX bgp_srv6_per_locator_cache handling: add, replace, delete */
+		bslc = path_vrf->srv6_vpn.bslc;
+		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
+			if ((bslc &&
+			     strcmp(bslc->locator_name, dummy_rmap_path_extra.srv6_locator)) ||
+			    !bslc) {
+				bgp_srv6_per_locator_unlink(path_vrf);
+				/* update bgp srv6 locator cache context */
+				bslc = bgp_srv6_per_locator_find(&from_bgp->srv6_locators_per_routemap
+									  [afi],
+								 dummy_rmap_path_extra.srv6_locator);
+				if (bslc == NULL) {
+					bslc = bgp_srv6_per_locator_new(
+						&from_bgp->srv6_locators_per_routemap[afi],
+						dummy_rmap_path_extra.srv6_locator);
+					bslc->bgp = from_bgp;
+				}
+				bslc->path_count++;
+				bslc->last_update = monotime(NULL);
+				path_vrf->srv6_vpn.bslc = bslc;
+				LIST_INSERT_HEAD(&(bslc->paths), path_vrf,
+						 srv6_vpn.srv6_locator_thread);
+			}
+			/* else no change */
+			bgp_srv6_path_locator_extra_free(&dummy_rmap_path_extra);
+		} else if (bslc)
+			bgp_srv6_per_locator_unlink(path_vrf);
+		bgp_srv6_path_locator_extra_free(&dummy_rmap_path_extra);
+	} else
+		bgp_srv6_per_locator_unlink(path_vrf);
 
 	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!ecommunity_has_route_target(new_ecom)) {
