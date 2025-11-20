@@ -10592,6 +10592,7 @@ DEFPY(sid_export,
 {
 	afi_t afi = bgp_node_afi(vty);
 	struct in6_addr *unicast_sid_explicit = NULL;
+	bool vpn_export;
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -10616,9 +10617,15 @@ DEFPY(sid_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* SRv6 unicast disables the route-map locators of the VPN export */
+	vpn_export = vpn_leak_to_vpn_active(bgp, afi, NULL, true);
+
 	if (no) {
 		if (!is_srv6_unicast_enabled(bgp, afi))
 			return CMD_SUCCESS;
+
+		if (vpn_export)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 		if (bgp->srv6_unicast[afi].rmap_name) {
 			route_map_counter_decrement(
@@ -10635,6 +10642,9 @@ DEFPY(sid_export,
 
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);
 		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+
+		if (vpn_export)
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 		return CMD_SUCCESS;
 	}
@@ -10723,6 +10733,9 @@ DEFPY(sid_export,
 		}
 	}
 
+	if (vpn_export)
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
+
 	if (rmap_str) {
 		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 		route_map_counter_increment(
@@ -10743,6 +10756,10 @@ DEFPY(sid_export,
 		SET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
 	else
 		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+
+	/* release the route-map locator SIDs before requesting the unicast SID */
+	if (vpn_export)
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 	/* request srv6 sid */
 	bgp_srv6_unicast_ensure_afi_sid(bgp, afi);
