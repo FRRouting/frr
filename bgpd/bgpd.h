@@ -383,6 +383,9 @@ struct as_confed {
 struct bgp_mplsvpn_nh_label_bind_cache;
 PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 
+struct bgp_srv6_per_locator_cache;
+PREDECL_RBTREE_UNIQ(bgp_srv6_per_locator_cache);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -609,6 +612,9 @@ struct bgp {
 
 	/* Tree for next-hop lookup cache. */
 	struct bgp_nexthop_cache_head nexthop_cache_table[AFI_MAX];
+
+	/* Tree for srv6 locator context per BGP/AFI */
+	struct bgp_srv6_per_locator_cache_head srv6_locators_per_routemap[AFI_MAX];
 
 	/* Tree for import-check */
 	struct bgp_nexthop_cache_head import_check_table[AFI_MAX];

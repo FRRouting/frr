@@ -3697,9 +3697,11 @@ peer_init:
 			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+		bgp_srv6_per_locator_cache_init(&bgp->srv6_locators_per_routemap[afi]);
+	}
 
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 		/* It is possible to configure VRF BGP instances before the default VRF
@@ -4503,6 +4505,9 @@ void bgp_free(struct bgp *bgp)
 			route_map_counter_decrement(rmap->map);
 		}
 	}
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		bgp_srv6_per_locator_cache_reset(bgp, afi);
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
@@ -9149,6 +9154,7 @@ void bgp_init(unsigned short instance)
 	bgp_lp_vty_init();
 
 	bgp_label_per_nexthop_init();
+	bgp_srv6_locator_per_routemap_init();
 	bgp_mplsvpn_nexthop_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);

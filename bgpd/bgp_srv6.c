@@ -8,14 +8,19 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "vty.h"
 #include "zclient.h"
 
+#include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgpd.h"
 
+#include "bgpd/bgp_srv6_clippy.c"
+
 DEFINE_MTYPE_STATIC(BGPD, SRV6_LOCATOR_EXTRA, "BGP SRv6 Extra locator");
+DEFINE_MTYPE_STATIC(BGPD, SRV6_PER_LOCATOR_CACHE, "BGP SRv6 per locator cache");
 
 extern struct zclient *zclient;
 
@@ -428,4 +433,165 @@ void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra)
 void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator)
 {
 	extra->srv6_locator = XSTRDUP(MTYPE_SRV6_LOCATOR_EXTRA, locator);
+}
+
+static void bgp_srv6_per_locator_free(struct bgp_srv6_per_locator_cache *bslc)
+{
+	if (!bslc)
+		return;
+
+	assert(bslc->tree);
+
+	bslc = bgp_srv6_per_locator_cache_del(bslc->tree, bslc);
+	if (bslc)
+		XFREE(MTYPE_SRV6_PER_LOCATOR_CACHE, bslc);
+}
+
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+
+	bslc = XCALLOC(MTYPE_SRV6_PER_LOCATOR_CACHE, sizeof(struct bgp_srv6_per_locator_cache));
+	bslc->tree = tree;
+	strncpy(bslc->locator_name, locator_name, sizeof(bslc->locator_name) - 1);
+	LIST_INIT(&(bslc->paths));
+	bgp_srv6_per_locator_cache_add(tree, bslc);
+
+	return bslc;
+}
+
+int bgp_srv6_per_locator_cache_cmp(const struct bgp_srv6_per_locator_cache *a,
+				   const struct bgp_srv6_per_locator_cache *b)
+{
+	return strncmp(a->locator_name, b->locator_name, sizeof(a->locator_name));
+}
+
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_find(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache bslc = {};
+
+	assert(tree);
+
+	strncpy(bslc.locator_name, locator_name, sizeof(bslc.locator_name) - 1);
+
+	return bgp_srv6_per_locator_cache_find(tree, &bslc);
+}
+
+/* detach locator when bgp path is removed */
+static void bgp_srv6_per_locator_unlink_and_free(struct bgp_path_info *pi, bool free_bslc)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+
+	bslc = pi->srv6_vpn.bslc;
+	if (!bslc)
+		return;
+
+	LIST_REMOVE(pi, srv6_vpn.srv6_locator_thread);
+	bslc->path_count--;
+	pi->srv6_vpn.bslc = NULL;
+
+	if (free_bslc && LIST_EMPTY(&(bslc->paths)))
+		bgp_srv6_per_locator_free(bslc);
+}
+
+void bgp_srv6_per_locator_unlink(struct bgp_path_info *pi)
+{
+	bgp_srv6_per_locator_unlink_and_free(pi, true);
+}
+
+/* Reset and free all BGP nexthop cache */
+void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_srv6_per_locator_cache_head *tree;
+
+	tree = &bgp->srv6_locators_per_routemap[afi];
+
+	while (bgp_srv6_per_locator_cache_count(tree) > 0) {
+		bslc = bgp_srv6_per_locator_cache_first(tree);
+
+		while (!LIST_EMPTY(&(bslc->paths)))
+			bgp_srv6_per_locator_unlink_and_free(LIST_FIRST(&(bslc->paths)), false);
+		bgp_srv6_per_locator_free(bslc);
+	}
+}
+
+static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, struct bgp *bgp,
+						    bool detail)
+{
+	struct bgp_srv6_per_locator_cache_head *tree;
+	struct bgp_srv6_per_locator_cache *iter;
+	safi_t safi;
+	char buf[PREFIX2STR_BUFFER];
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	struct bgp *bgp_path;
+	struct bgp_table *table;
+
+	vty_out(vty, "Current BGP SRv6 locator per route-map for %s, VRF %s\n", afi2str(afi),
+		bgp->name_pretty);
+
+	tree = &bgp->srv6_locators_per_routemap[afi];
+	frr_each (bgp_srv6_per_locator_cache, tree, iter) {
+		vty_out(vty, " %s, #paths %u\n", iter->locator_name, iter->path_count);
+		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
+		if (!detail)
+			continue;
+		vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(iter->paths), srv6_vpn.srv6_locator_thread) {
+			dest = path->net;
+			table = bgp_dest_table(dest);
+			assert(dest && table);
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
+					(struct prefix_rd *)bgp_dest_get_prefix(dest->pdest));
+				vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+					path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n", afi, safi, dest,
+					bgp_path->name_pretty, path->flags);
+		}
+	}
+}
+
+DEFPY(show_bgp_srv6_locator_per_routemap, show_bgp_srv6_locator_per_routemap_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME] locator-routemap [detail]",
+      SHOW_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "BGP locator from route-map table\n"
+      "Show detailed information\n")
+{
+	int idx = 0;
+	char *vrf = NULL;
+	struct bgp *bgp;
+	bool detail = false;
+	int afi;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[++idx]->arg;
+		bgp = bgp_lookup_by_name(vrf);
+	} else
+		bgp = bgp_get_default();
+
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+		show_bgp_srv6_locators_per_routemap_afi(vty, afi, bgp, detail);
+	return CMD_SUCCESS;
+}
+
+void bgp_srv6_locator_per_routemap_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_srv6_locator_per_routemap_cmd);
 }

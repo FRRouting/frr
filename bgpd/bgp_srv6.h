@@ -8,6 +8,8 @@
 #ifndef _BGP_SRV6_H_
 #define _BGP_SRV6_H_
 
+#include "bgpd.h"
+
 static inline bool is_srv6_unicast_enabled(struct bgp *bgp, afi_t afi)
 {
 	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)
@@ -16,6 +18,35 @@ static inline bool is_srv6_unicast_enabled(struct bgp *bgp, afi_t afi)
 
 	return false;
 }
+
+int bgp_srv6_per_locator_cache_cmp(const struct bgp_srv6_per_locator_cache *a,
+				   const struct bgp_srv6_per_locator_cache *b);
+
+struct bgp_srv6_per_locator_cache {
+	/* RB-tree entry. */
+	struct bgp_srv6_per_locator_cache_item entry;
+
+	/* the locator name is the key */
+	char locator_name[SRV6_LOCNAME_SIZE];
+
+	/* number of path_vrfs */
+	unsigned int path_count;
+
+	/* back pointer to bgp instance */
+	struct bgp *bgp;
+
+	/* list of path_vrfs using it */
+	LIST_HEAD(paths_list, bgp_path_info) paths;
+
+	/* Back pointer to the cache tree this entry belongs to. */
+	struct bgp_srv6_per_locator_cache_head *tree;
+
+	time_t last_update;
+	bool allocation_in_progress;
+};
+
+DECLARE_RBTREE_UNIQ(bgp_srv6_per_locator_cache, struct bgp_srv6_per_locator_cache, entry,
+		    bgp_srv6_per_locator_cache_cmp);
 
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
@@ -33,5 +64,12 @@ void bgp_srv6_unicast_ifp_update(struct interface *ifp, bool state);
 struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name);
 void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra);
 void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator);
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_find(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name);
+void bgp_srv6_per_locator_unlink(struct bgp_path_info *path);
+void bgp_srv6_locator_per_routemap_init(void);
+void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi);
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name);
 
 #endif /* _BGP_SRV6_H_ */

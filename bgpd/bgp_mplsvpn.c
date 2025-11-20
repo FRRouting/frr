@@ -1931,6 +1931,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			return;
 		}
 	}
+	/* XXX bgp_srv6_per_locator_cache handling: add, replace, delete */
 
 	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!ecommunity_has_route_target(new_ecom)) {

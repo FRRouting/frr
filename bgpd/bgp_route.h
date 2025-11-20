@@ -272,6 +272,14 @@ struct bgp_mplsvpn_nh_label_bind {
 	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
 };
 
+struct bgp_srv6_locator_path {
+	/* List of paths sharing the locator */
+	LIST_ENTRY(bgp_path_info) srv6_locator_thread;
+
+	/* Back pointer to the BGP srv6 locator context per bgp/afi context */
+	struct bgp_srv6_per_locator_cache *bslc;
+};
+
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -356,6 +364,8 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_label_nh blnc;
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
+
+	struct bgp_srv6_locator_path srv6_vpn;
 };
 
 /* Structure used in BGP path selection */
