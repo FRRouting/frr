@@ -104,6 +104,20 @@ static void agentx_read(struct event *t)
 	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
+/* Safely cancel an event only if we're in the owner thread.
+ * event_cancel() requires owner thread. If not in owner thread,
+ * skip cancellation - the event will be cleaned up eventually.
+ */
+static void agentx_event_cancel_safe(struct event **thr)
+{
+	if (thr == NULL || *thr == NULL)
+		return;
+
+	if (agentx_tm != NULL &&
+	    pthread_equal(frr_event_loop_get_pthread_owner(agentx_tm), pthread_self()))
+		event_cancel(thr);
+}
+
 static void agentx_events_update(void)
 {
 	int maxfd = 0;
@@ -114,7 +128,7 @@ static void agentx_events_update(void)
 	struct event **thr;
 	int fd, thr_fd;
 
-	event_cancel(&timeout_thr);
+	agentx_event_cancel_safe(&timeout_thr);
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	snmp_select_info2(&maxfd, &lfds, &timeout, &block);
@@ -137,7 +151,7 @@ static void agentx_events_update(void)
 			struct listnode *nextln = listnextnode(ln);
 			if (!netsnmp_large_fd_is_set(fd, &lfds)) {
 				DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d", fd);
-				event_cancel(thr);
+				agentx_event_cancel_safe(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
@@ -168,7 +182,7 @@ static void agentx_events_update(void)
 		thr = listgetdata(ln);
 		DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d",
 		       (thr && *thr) ? EVENT_FD(*thr) : -1);
-		event_cancel(thr);
+		agentx_event_cancel_safe(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
