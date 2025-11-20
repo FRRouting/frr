@@ -543,6 +543,7 @@ void bgp_path_info_free_with_caller(const char *name,
 	bgp_attr_unintern(&path->attr);
 
 	bgp_unlink_nexthop(path);
+	bgp_srv6_per_locator_unlink(path);
 	bgp_path_info_extra_free(&path->extra);
 	if (path->net)
 		bgp_addpath_free_info_data(&path->tx_addpath,
