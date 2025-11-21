@@ -2047,6 +2047,10 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return false;
 
 	pim_ifp = ifp->info;
+
+	if (!pim_ifp || !c_oil)
+		return false;
+
 	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
 		return false;
 
