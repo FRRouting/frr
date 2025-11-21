@@ -51,6 +51,10 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_VERBOSE        Show detailed build output.
 	                        Enabled by default, set to 0 to disable.
 
+	TOPOTEST_SKIP_BUILD     If set to 1, skip building FRR from source if
+	                        packages are already installed in the container.
+	                        Disabled by default, set to 1 to enable.
+
 	EOF
 	exit 1
 fi
@@ -137,6 +141,7 @@ set -- --rm -i \
 	-e "TOPOTEST_VERBOSE=$TOPOTEST_VERBOSE" \
 	-e "TOPOTEST_DOC=$TOPOTEST_DOC" \
 	-e "TOPOTEST_SANITIZER=$TOPOTEST_SANITIZER" \
+	-e "TOPOTEST_SKIP_BUILD=$TOPOTEST_SKIP_BUILD" \
 	--privileged \
         $SCREEN_OPTINS \
         $TMUX_OPTIONS \
