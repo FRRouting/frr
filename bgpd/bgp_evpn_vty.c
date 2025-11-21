@@ -4404,15 +4404,18 @@ DEFPY (bgp_evpn_enable_resolve_overlay_index,
 
 DEFPY (bgp_evpn_advertise_pip_ip_mac,
        bgp_evpn_advertise_pip_ip_mac_cmd,
-       "[no$no] advertise-pip [ip <A.B.C.D> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]",
+       "[no$no] advertise-pip [ip <A.B.C.D|X:X::X:X>$ip_str [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]",
        NO_STR
        "evpn system primary IP\n"
        IP_STR
-       "ip address\n"
+       "IPv4 address\n"
+       "IPv6 address\n"
        MAC_STR MAC_STR MAC_STR)
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	struct bgp *bgp_evpn = NULL;
+	struct prefix pfx;
+	struct ipaddr pip_addr;
 
 	if (!bgp_vrf || EVPN_ENABLED(bgp_vrf)) {
 		vty_out(vty,
@@ -4427,18 +4430,45 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 			return CMD_SUCCESS;
 
 		bgp_vrf->evpn_info->advertise_pip = true;
-		if (ip.s_addr != INADDR_ANY) {
+		if (ip_str) {
+			/* Convert sockunion to prefix */
+			if (!sockunion2hostprefix(ip_str, &pfx)) {
+				vty_out(vty, "%% Invalid IP address\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (pfx.family == AF_INET) {
+				SET_IPADDR_V4(&pip_addr);
+				pip_addr.ipaddr_v4 = pfx.u.prefix4;
+			} else if (pfx.family == AF_INET6) {
+				if (IN6_IS_ADDR_LINKLOCAL(&pfx.u.prefix6) ||
+				    IN6_IS_ADDR_MULTICAST(&pfx.u.prefix6)) {
+					vty_out(vty,
+						"%% Cannot use link-local or multicast address\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+				SET_IPADDR_V6(&pip_addr);
+				IPV6_ADDR_COPY(&pip_addr.ipaddr_v6, &pfx.u.prefix6);
+			} else {
+				vty_out(vty, "%% Invalid address family\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
 			/* Already configured with same IP */
-			if (IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4))
+			if (ipaddr_is_same(&pip_addr, &bgp_vrf->evpn_info->pip_ip_static))
 				return CMD_SUCCESS;
 
-			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4 = ip;
-			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = ip;
+			bgp_vrf->evpn_info->pip_ip_static = pip_addr;
+			bgp_vrf->evpn_info->pip_ip = pip_addr;
 		} else {
-			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-			/* default instance router-id assignemt */
-			if (bgp_evpn)
+			/* Reset to uninitialized state */
+			memset(&bgp_vrf->evpn_info->pip_ip_static, 0, sizeof(struct ipaddr));
+			/* default instance router-id assignment */
+			if (bgp_evpn) {
+				SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
 				bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
+			} else {
+				memset(&bgp_vrf->evpn_info->pip_ip, 0, sizeof(struct ipaddr));
+			}
 		}
 		/* parse sys mac */
 		if (!is_zero_mac(&mac->eth_addr)) {
@@ -4470,11 +4500,27 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 			       &bgp_vrf->rmac, ETH_ALEN);
 		} else {
 			/* remove MAC-IP option retain PIP knob. */
-			if ((ip.s_addr != INADDR_ANY) &&
-			    !IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4)) {
-				vty_out(vty,
-					"%% BGP EVPN PIP IP does not match\n");
-				return CMD_WARNING_CONFIG_FAILED;
+			if (ip_str) {
+				/* Convert sockunion to prefix */
+				if (!sockunion2hostprefix(ip_str, &pfx)) {
+					vty_out(vty, "%% Invalid IP address\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+				if (pfx.family == AF_INET) {
+					SET_IPADDR_V4(&pip_addr);
+					pip_addr.ipaddr_v4 = pfx.u.prefix4;
+				} else if (pfx.family == AF_INET6) {
+					SET_IPADDR_V6(&pip_addr);
+					IPV6_ADDR_COPY(&pip_addr.ipaddr_v6, &pfx.u.prefix6);
+				} else {
+					vty_out(vty, "%% Invalid address family\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+
+				if (!ipaddr_is_same(&pip_addr, &bgp_vrf->evpn_info->pip_ip_static)) {
+					vty_out(vty, "%% BGP EVPN PIP IP does not match\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
 			}
 
 			if (!is_zero_mac(&mac->eth_addr) &&
@@ -4506,12 +4552,14 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		/* reset user configured sys MAC */
 		memset(&bgp_vrf->evpn_info->pip_rmac_static, 0, ETH_ALEN);
 		/* reset user configured sys IP */
-		bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
+		memset(&bgp_vrf->evpn_info->pip_ip_static, 0, sizeof(struct ipaddr));
 		/* Assign default PIP IP (bgp instance router-id) */
-		if (bgp_evpn)
+		if (bgp_evpn) {
+			SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
 			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		else
-			bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		} else {
+			memset(&bgp_vrf->evpn_info->pip_ip, 0, sizeof(struct ipaddr));
+		}
 	}
 
 	if (is_evpn_enabled()) {
@@ -5271,9 +5319,9 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_macip,
 /*
  * Display per-VNI EVPN routing table for specific multicast IP (remote VTEP).
  */
-DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
+DEFPY(show_bgp_l2vpn_evpn_route_vni_multicast,
       show_bgp_l2vpn_evpn_route_vni_multicast_cmd,
-      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " multicast A.B.C.D [json]",
+      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE "$vni multicast <A.B.C.D$orig_ipv4|X:X::X:X$orig_ipv6> [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -5282,14 +5330,13 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
       "VXLAN Network Identifier\n"
       "VNI number\n"
       EVPN_TYPE_3_HELP_STR
-      "Originating Router IP address\n"
+      "Originating Router IPv4 address\n"
+      "Originating Router IPv6 address\n"
       JSON_STR)
 {
-	vni_t vni;
 	struct bgp *bgp;
 	int ret;
 	struct ipaddr orig_ip;
-	int idx = 0;
 	bool uj = false;
 	json_object *json = NULL;
 
@@ -5300,24 +5347,31 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	/* check if we need json output */
 	uj = use_json(argc, argv);
 
-	if (!argv_find(argv, argc, "evpn", &idx))
-		return CMD_WARNING;
-
-	/* get the VNI */
-	vni = strtoul(argv[idx + 3]->arg, NULL, 10);
-
-	/* get the ip */
-	ret = inet_aton(argv[idx + 5]->arg, &orig_ip.ipaddr_v4);
-	SET_IPADDR_V4(&orig_ip);
-	if (!ret) {
-		vty_out(vty, "%% Malformed Originating Router IP address\n");
+	/* get the ip - parse as IPv4 or IPv6 */
+	memset(&orig_ip, 0, sizeof(orig_ip));
+	if (orig_ipv4_str) {
+		ret = inet_aton(orig_ipv4_str, &orig_ip.ipaddr_v4);
+		if (!ret) {
+			vty_out(vty, "%% Malformed Originating Router IPv4 address\n");
+			return CMD_WARNING;
+		}
+		SET_IPADDR_V4(&orig_ip);
+	} else if (orig_ipv6_str) {
+		ret = inet_pton(AF_INET6, orig_ipv6_str, &orig_ip.ipaddr_v6);
+		if (ret != 1) {
+			vty_out(vty, "%% Malformed Originating Router IPv6 address\n");
+			return CMD_WARNING;
+		}
+		SET_IPADDR_V6(&orig_ip);
+	} else {
+		vty_out(vty, "%% Originating Router IP address required\n");
 		return CMD_WARNING;
 	}
 
 	if (uj)
 		json = json_object_new_object();
 
-	evpn_show_route_vni_multicast(vty, bgp, vni, &orig_ip, json);
+	evpn_show_route_vni_multicast(vty, bgp, (vni_t)vni, &orig_ip, json);
 
 	if (uj)
 		vty_json(vty, json);
@@ -7439,9 +7493,16 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (!bgp->evpn_info->advertise_pip)
 			vty_out(vty, "  no advertise-pip\n");
 		if (bgp->evpn_info->advertise_pip) {
-			if (bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr != INADDR_ANY) {
-				vty_out(vty, "  advertise-pip ip %pIA",
-					&bgp->evpn_info->pip_ip_static);
+			if ((IS_IPADDR_V4(&bgp->evpn_info->pip_ip_static) &&
+			     bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr != INADDR_ANY) ||
+			    (IS_IPADDR_V6(&bgp->evpn_info->pip_ip_static) &&
+			     !IN6_IS_ADDR_UNSPECIFIED(&bgp->evpn_info->pip_ip_static.ipaddr_v6))) {
+				if (IS_IPADDR_V4(&bgp->evpn_info->pip_ip_static))
+					vty_out(vty, "  advertise-pip ip %pI4",
+						&bgp->evpn_info->pip_ip_static.ipaddr_v4);
+				else
+					vty_out(vty, "  advertise-pip ip %pI6",
+						&bgp->evpn_info->pip_ip_static.ipaddr_v6);
 				if (!is_zero_mac(&(
 					    bgp->evpn_info->pip_rmac_static))) {
 					char buf[ETHER_ADDR_STRLEN];
