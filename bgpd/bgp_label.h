@@ -14,9 +14,15 @@ struct bgp_path_info;
 struct peer;
 
 /* Maximum number of labels we can process or send with a prefix. We
- * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
+ * support 10 for MPLS (BGP-LU) and need only 2 for EVPN-VxLAN.
+ *
+ * According to RFC 3107/RFC 8277 label stack is distributed in NLRI, length is given in
+ * one byte in bits! (prefix length + whole number of label stack bits), so even if
+ * prefix is 0 length, (each label takes 3 bytes) floor(256/24) = 10
+ *
+ * It is impossible to pass more than 10 labels by BGP-LU
  */
-#define BGP_MAX_LABELS 2
+#define BGP_MAX_LABELS 10
 
 /* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
 struct bgp_labels {
@@ -38,19 +44,22 @@ extern int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 extern void bgp_reg_dereg_for_label(struct bgp_dest *dest,
 				    struct bgp_path_info *pi, bool reg);
 extern int bgp_parse_fec_update(void);
-extern mpls_label_t bgp_adv_label(struct bgp_dest *dest,
-				  struct bgp_path_info *pi, struct peer *to,
-				  afi_t afi, safi_t safi);
+extern void bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi, struct peer *to,
+			  afi_t afi, safi_t safi, mpls_label_t *labels, uint8_t *num_labels);
 
 extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				struct bgp_nlri *packet);
 extern uint32_t decode_label(mpls_label_t *label);
+extern void encode_label_bos(mpls_label_t label_in, mpls_label_t *label_out, bool bos);
 extern void encode_label(mpls_label_t label_in, mpls_label_t *label_out);
 extern bool bgp_labels_same(const mpls_label_t *tbl_a,
 			    const uint8_t num_labels_a,
 			    const mpls_label_t *tbl_b,
 			    const uint8_t num_labels_b);
 extern bool bgp_labels_is_implicit_null(struct bgp_path_info *pi);
+/* Write labels to str of format "prefixLABEL1/LABEL2/.../LABELN", prefix may be NULL */
+extern char *mpls_labels2str(mpls_label_t *labels, uint8_t num_labels, const char *prefix,
+			     char *buf, int size);
 
 static inline int bgp_labeled_safi(safi_t safi)
 {
@@ -114,5 +123,14 @@ static inline uint8_t label_bos(mpls_label_t *label)
 	uint8_t *t = (uint8_t *)label;
 	return (t[2] & 0x01);
 };
+
+/* Set BOS to 1 */
+static inline void label_set_bos(mpls_label_t *label)
+{
+	uint8_t *t = (uint8_t *)label;
+
+	if (t)
+		t[2] |= 0x01;
+}
 
 #endif /* _BGP_LABEL_H */

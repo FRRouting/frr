@@ -2170,8 +2170,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
 	bool nh_reset = false;
 	uint64_t cum_bw;
-	mpls_label_t label;
 	bool global_and_ll = false;
+	uint8_t num_labels;
+	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2262,13 +2263,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If it's labeled safi, make sure the route has a valid label. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		label = bgp_adv_label(dest, pi, peer, afi, safi);
-		if (!bgp_is_valid_label(&label)) {
+		bgp_adv_label(dest, pi, peer, afi, safi, labels, &num_labels);
+		if (!bgp_is_valid_label(&labels[0])) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64
-					   " %pFX is filtered - no label (%p)",
-					   subgrp->update_group->id, subgrp->id,
-					   p, &label);
+				zlog_debug("u%" PRIu64 ":s%" PRIu64 " %pFX is filtered - no label",
+					   subgrp->update_group->id, subgrp->id, p);
 			return false;
 		}
 	} else if (safi == SAFI_MPLS_VPN &&
@@ -2285,8 +2284,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * then get appropriate mpls local label
 		 * and check its validity
 		 */
-		label = bgp_mplsvpn_nh_label_bind_get_label(pi);
-		if (!bgp_is_valid_label(&label)) {
+		labels[0] = bgp_mplsvpn_nh_label_bind_get_label(pi);
+		if (!bgp_is_valid_label(&labels[0])) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug("u%" PRIu64 ":s%" PRIu64
 					   " %pFX is filtered - no valid label",
@@ -11609,6 +11608,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			  struct attr *pattr, uint16_t show_opts)
 {
 	char buf[INET6_ADDRSTRLEN];
+	char labels_buf[9 * BGP_MAX_LABELS]; /* 8 per label + / or \0 for each */
 	char vni_buf[30] = {};
 	struct attr *attr = pattr ? pattr : path->attr;
 	time_t tbuf;
@@ -11616,6 +11616,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_bestpath = NULL;
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
+	json_object *json_labels = NULL;
 	json_object *json_ext_community = NULL;
 	json_object *json_ext_ipv6_community = NULL;
 	json_object *json_last_update = NULL;
@@ -11626,6 +11627,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_path = NULL;
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
+	json_object *json_int = NULL;
 	json_object *json_adv_to = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
@@ -11636,12 +11638,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
-	char *nexthop_hostname =
-		bgp_nexthop_hostname(path->peer, path->nexthop);
-	uint32_t ttl = 0;
-	uint32_t bos = 0;
-	uint32_t exp = 0;
-	mpls_label_t label = MPLS_INVALID_LABEL;
+	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, path->nexthop);
 	struct bgp_path_info *bpi_ultimate =
 		bgp_get_imported_bpi_ultimate(path);
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
@@ -12472,13 +12469,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Remote Label */
 	if (bgp_path_info_has_valid_label(path) &&
 	    (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
-		mpls_lse_decode(path->extra->labels->label[0], &label, &ttl,
-				&exp, &bos);
+		if (json_paths) {
+#if CONFDATE > 20261107
+			CPP_NOTICE("Remove 'remoteLabel' field");
+#endif
+			/* For backward compatibility write top label to remoteLabel */
+			json_object_int_add(json_path, "remoteLabel",
+					    decode_label(&path->extra->labels->label[0]));
 
-		if (json_paths)
-			json_object_int_add(json_path, "remoteLabel", label);
-		else
-			vty_out(vty, "      Remote label: %d\n", label);
+			/* Write full stack to remoteLabels */
+			json_labels = json_object_new_array();
+			for (int label_index = 0; label_index < path->extra->labels->num_labels;
+			     label_index++) {
+				json_int = json_object_new_int(
+					decode_label(&path->extra->labels->label[label_index]));
+				json_object_array_add(json_labels, json_int);
+			}
+			json_object_object_add(json_path, "remoteLabels", json_labels);
+		} else {
+			mpls_labels2str(path->extra->labels->label, path->extra->labels->num_labels,
+					NULL, labels_buf, sizeof(labels_buf));
+			vty_out(vty, "      Remote labels: %s\n", labels_buf);
+		}
 	}
 
 	/* Remote SID */
