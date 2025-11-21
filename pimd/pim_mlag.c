@@ -554,18 +554,14 @@ static inline void pim_mlag_vxlan_state_update(void)
 /********************API to process PIM MLAG Data ************************/
 static void pim_mlag_peer_zebra_flag_set(void)
 {
-	if (CHECK_FLAG(router->mlag_flags,
-		       PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING)) {
-		if (!(CHECK_FLAG(router->mlag_flags,
-				 PIM_MLAGF_PEER_ZEBRA_UP))) {
+	if (CHECK_FLAG(router->mlag_flags, PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING)) {
+		if (!(CHECK_FLAG(router->mlag_flags, PIM_MLAGF_PEER_ZEBRA_UP))) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug(
-					"%s: update Mlag flag with PIM_MLAGF_PEER_ZEBRA_UP",
-					__func__);
+				zlog_debug("%s: update Mlag flag with PIM_MLAGF_PEER_ZEBRA_UP",
+					   __func__);
 			SET_FLAG(router->mlag_flags, PIM_MLAGF_PEER_ZEBRA_UP);
-			UNSET_FLAG(
-				router->mlag_flags,
-				PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING);
+			UNSET_FLAG(router->mlag_flags,
+				   PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING);
 		}
 	}
 }
@@ -674,13 +670,10 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 			(msg.frr_state == MLAG_FRR_STATE_UP ? "UP" : "DOWN"));
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
-		SET_FLAG(router->mlag_flags,
-			 PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING);
+		SET_FLAG(router->mlag_flags, PIM_MLAGF_PEER_ZEBRA_UP_NOTIFY_RECEIVE_PENDING);
 		if (PIM_DEBUG_MLAG)
-			zlog_debug(
-				"%s: msg ignored mlagd process state down, \
-			        Setting Local MLAG Pending flag",
-				__func__);
+			zlog_debug("%s: msg ignored mlagd process state down, Setting Local MLAG Pending flag",
+				   __func__);
 		return;
 	}
 	++router->mlag_stats.msg.peer_zebra_status_updates;
@@ -690,9 +683,8 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 		if (!(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)) {
 			router->mlag_flags |= PIM_MLAGF_PEER_ZEBRA_UP;
 			if (PIM_DEBUG_MLAG)
-				zlog_debug(
-					"%s:%d: Mlag Peer FRR state is UP Setting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
-					__func__, __LINE__, router->mlag_flags);
+				zlog_debug("%s:%d: Mlag Peer FRR state is UP Setting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
+					   __func__, __LINE__, router->mlag_flags);
 			/* XXX - when peer zebra comes up we need to wait for
 			 * for some time to let the peer setup MDTs before
 			 * before relinquishing DF status
@@ -705,9 +697,8 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 			++router->mlag_stats.peer_zebra_downs;
 			router->mlag_flags &= ~PIM_MLAGF_PEER_ZEBRA_UP;
 			if (PIM_DEBUG_MLAG)
-				zlog_debug(
-					"%s:%d: Mlag Peer FRR state is DOWN unsetting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
-					__func__, __LINE__, router->mlag_flags);
+				zlog_debug("%s:%d: Mlag Peer FRR state is DOWN unsetting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
+					   __func__, __LINE__, router->mlag_flags);
 			/* when a peer zebra goes down we assume DF role */
 			pim_mlag_up_local_reeval(true /*mlagd_send*/,
 					"zebra_down");
