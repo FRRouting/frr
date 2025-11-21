@@ -71,6 +71,10 @@ DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 
+static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
+							     struct srv6_locator *locator,
+							     afi_t afi, bool add);
+
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
@@ -4284,6 +4288,37 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
+							     struct srv6_locator *locator,
+							     afi_t afi, bool add)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_path_info *path, *path_next;
+
+	bslc = bgp_srv6_per_locator_find(&bgp->srv6_locators_per_routemap[afi], locator->name);
+	if (bslc) {
+		zlog_info("%s(%d), afi %s: %s, %s SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+			  bgp->name_pretty, bgp->vrf_id, afi2str(afi), add ? "added" : "removed",
+			  __func__, locator->name, &locator->prefix, locator->block_bits_length,
+			  locator->node_bits_length, locator->function_bits_length,
+			  locator->argument_bits_length);
+
+		if (add == false && bslc->sid_policy.tovpn_sid)
+			sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+
+		LIST_FOREACH_SAFE (path, &(bslc->paths), srv6_vpn.srv6_locator_thread, path_next) {
+			if (add == false) {
+				if (bslc->sid_policy.tovpn_sid)
+					bgp_srv6_vpn_path_withdraw(bgp_get_default(),
+								   bgp_dest_get_prefix(path->net),
+								   afi, locator);
+				bgp_srv6_per_locator_unlink(path);
+			}
+			vpn_leak_from_vrf_update(bgp_get_default(), bgp, path);
+		}
+	}
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
@@ -4301,6 +4336,11 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 		if (!bgp_srv6_locator_is_configured(bgp))
 			continue;
 		bgp_zebra_process_srv6_locator_internal(&loc, bgp);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP, true);
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP6, true);
 	}
 	return 0;
 }
@@ -4473,6 +4513,13 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	bgp_ls_withdraw_srv6_locator_prefix(bgp_get_default(), &loc);
 
+	bgp_srv6_locator_remove(loc.name);
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP, false);
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP6, false);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
 			continue;
@@ -4480,9 +4527,6 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			return 0;
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
 	}
-
-	bgp_srv6_locator_remove(loc.name);
-
 	return 0;
 }
 
