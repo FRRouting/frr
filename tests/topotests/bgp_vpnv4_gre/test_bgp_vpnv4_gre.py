@@ -9,8 +9,8 @@
 #
 
 """
- test_bgp_vpnv4_gre.py: Test the FRR BGP daemon with BGP IPv6 interface
- with route advertisements on a separate netns.
+test_bgp_vpnv4_gre.py: Test the FRR BGP daemon with BGP IPv6 interface
+with route advertisements on a separate netns.
 """
 
 import os
@@ -27,12 +27,15 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import retry
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
 
 pytestmark = [pytest.mark.bgpd]
+
+TUNNEL_TYPE = None
 
 
 def build_topo(tgen):
@@ -53,29 +56,37 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r2"])
 
 
-def _populate_iface():
+def _populate_iface(mod):
+    global TUNNEL_TYPE
+
     tgen = get_topogen()
+
+    if "gretap" in mod.__name__:
+        TUNNEL_TYPE = "gretap"
+    else:
+        TUNNEL_TYPE = "gre"
+
     cmds_list = [
         "ip link add vrf1 type vrf table 10",
         "echo 10 > /proc/sys/net/mpls/platform_labels",
         "ip link set dev vrf1 up",
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
-        "ip tunnel add {0}-gre0 mode gre ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
+        "ip link add {0}-gre0 type {3} ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
         "ip link set dev {0}-gre0 up",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-gre0/input",
     ]
 
     for cmd in cmds_list:
-        input = cmd.format("r1", "1", "2")
-        logger.info("input: " + cmd)
-        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2"))
+        input = cmd.format("r1", "1", "2", TUNNEL_TYPE)
+        logger.info("input: " + input)
+        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2", TUNNEL_TYPE))
         logger.info("output: " + output)
 
     for cmd in cmds_list:
-        input = cmd.format("r2", "2", "1")
-        logger.info("input: " + cmd)
-        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
+        input = cmd.format("r2", "2", "1", TUNNEL_TYPE)
+        logger.info("input: " + input)
+        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1", TUNNEL_TYPE))
         logger.info("output: " + output)
 
 
@@ -85,15 +96,18 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    _populate_iface()
+    _populate_iface(mod)
 
     for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        bgp_config = (
+            f"{rname}/bgpd_{TUNNEL_TYPE}.conf"
+            if rname == "r1"
+            else f"{rname}/bgpd.conf"
         )
+        router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, bgp_config))
 
     # Initialize all routers.
     tgen.start_router()
@@ -104,6 +118,19 @@ def teardown_module(_mod):
     tgen = get_topogen()
 
     tgen.stop_topology()
+
+
+@retry(retry_timeout=10)
+def _check_show_bgp_mpls_not_selected(router, vrf, ipv4prefix):
+    valid = True
+    output = json.loads(router.vtysh_cmd(f"show bgp vrf {vrf} ipv4 {ipv4prefix} json"))
+    paths = output["paths"]
+    for path in paths:
+        if "remoteLabel" in path.keys():
+            valid = path.get("valid", False)
+    if not valid:
+        return True
+    return f"MPLS path to {ipv4prefix} in vrf {vrf} not found or considered as valid"
 
 
 def test_protocols_convergence():
@@ -148,7 +175,7 @@ def test_protocols_convergence():
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
-    # Check BGP IPv4 routing tables on r2 not installed
+    # Check BGP IPv4 convergence on r2
     logger.info("Checking BGP IPv4 routes for convergence on r2")
     router = tgen.gears["r2"]
     json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
@@ -165,6 +192,13 @@ def test_protocols_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
+
+    # Check BGP IPv4 route 10.201.0.0/24 on r2 not installed
+    logger.info("Checking BGP IPv4 route 10.201.0.0/24 for invalidity on r2")
+    success = _check_show_bgp_mpls_not_selected(
+        tgen.gears["r2"], "vrf1", "10.201.0.0/24"
+    )
+    assert success is True, "network 10.201.0.0/24 invalid for MPLS: not found on r2"
 
 
 def test_memory_leak():

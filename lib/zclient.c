@@ -3068,6 +3068,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETL(s, ifp->mtu6);
 	STREAM_GETL(s, ifp->bandwidth);
 	STREAM_GETL(s, ifp->link_ifindex);
+	STREAM_GETL(s, ifp->zif_type);
 	STREAM_GETL(s, ifp->ll_type);
 	STREAM_GETL(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
