@@ -214,14 +214,14 @@ static void isis_config_end_timeout(struct event *t)
 	isis_config_finish(t);
 }
 
-static void isis_config_start(void)
+static void isis_config_start(struct vty *vty)
 {
 	event_cancel(&t_isis_cfg);
 	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
-static void isis_config_end(void)
+static void isis_config_end(struct vty *vty)
 {
 	/* If ISIS config processing thread isn't running, then
 	 * we can return and rely it's properly handled.

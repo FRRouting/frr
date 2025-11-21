@@ -209,7 +209,7 @@ static void ospf6_config_finish(struct event *t)
 		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
 }
 
-static void ospf6_config_start(void)
+static void ospf6_config_start(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config start received");
@@ -218,7 +218,7 @@ static void ospf6_config_start(void)
 			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
 }
 
-static void ospf6_config_end(void)
+static void ospf6_config_end(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config end received");

@@ -17,6 +17,14 @@
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
 
+static bool trace;
+
+#define MGMT_MSG_TRACE(dbgtag, fmt, ...)                                                          \
+	do {                                                                                      \
+		if (dbgtag && trace)                                                              \
+			zlog_debug("%s: %s: " fmt, dbgtag, __func__, ##__VA_ARGS__);              \
+	} while (0)
+
 
 #define MGMT_MSG_DBG(dbgtag, fmt, ...)                                         \
 	do {                                                                   \
@@ -56,6 +64,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	ssize_t n, left;
 
 	assert(ms && fd != -1);
+	MGMT_MSG_TRACE(dbgtag, "enter with %zu bytes available to read on fd %d", avail, fd);
 
 	/*
 	 * Read as much as we can into the stream.
@@ -65,19 +74,18 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 
 		/* -2 is normal nothing read, and to retry */
 		if (n == -2) {
-			MGMT_MSG_DBG(dbgtag, "nothing more to read");
+			MGMT_MSG_TRACE(dbgtag, "nothing more to read on fd %d", fd);
 			break;
 		}
 		if (n <= 0) {
 			if (n == 0)
-				MGMT_MSG_ERR(ms, "got EOF/disconnect");
+				MGMT_MSG_ERR(ms, "got EOF/disconnect on fd %d", fd);
 			else
-				MGMT_MSG_ERR(ms,
-					     "got error while reading: '%s'",
+				MGMT_MSG_ERR(ms, "got error while reading on fd %d: '%s'", fd,
 					     safe_strerror(errno));
 			return MSR_DISCONNECT;
 		}
-		MGMT_MSG_DBG(dbgtag, "read %zd bytes", n);
+		MGMT_MSG_TRACE(dbgtag, "read %zd bytes on fd %d", n, fd);
 		ms->nrxb += n;
 		avail -= n;
 	}
@@ -90,13 +98,13 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	while (left > (ssize_t)sizeof(struct mgmt_msg_hdr)) {
 		mhdr = (struct mgmt_msg_hdr *)(STREAM_DATA(ms->ins) + total);
 		if (!MGMT_MSG_IS_MARKER(mhdr->marker)) {
-			MGMT_MSG_DBG(dbgtag, "recv corrupt buffer, disconnect");
+			MGMT_MSG_DBG(dbgtag, "recv corrupt buffer on fd %d, disconnect", fd);
 			return MSR_DISCONNECT;
 		}
 		if ((ssize_t)mhdr->len > left)
 			break;
 
-		MGMT_MSG_DBG(dbgtag, "read full message len %u", mhdr->len);
+		MGMT_MSG_TRACE(dbgtag, "read full message on fd %d len %u", fd, mhdr->len);
 		total += mhdr->len;
 		left -= mhdr->len;
 		mcount++;
@@ -166,7 +174,7 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 	uint8_t *data;
 	size_t left, nproc;
 
-	MGMT_MSG_DBG(dbgtag, "Have %zu streams to process", ms->inq.count);
+	MGMT_MSG_TRACE(dbgtag, "Have %zu streams to process", ms->inq.count);
 
 	nproc = 0;
 	while (nproc < ms->max_read_buf) {
@@ -176,7 +184,7 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 
 		data = STREAM_DATA(work);
 		left = stream_get_endp(work);
-		MGMT_MSG_DBG(dbgtag, "Processing stream of len %zu", left);
+		MGMT_MSG_TRACE(dbgtag, "Processing stream of len %zu", left);
 
 		for (; left > sizeof(struct mgmt_msg_hdr);
 		     left -= mhdr->len, data += mhdr->len) {
@@ -185,10 +193,11 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 			assert(MGMT_MSG_IS_MARKER(mhdr->marker));
 			assert(left >= mhdr->len);
 
-			handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker),
-				   (uint8_t *)(mhdr + 1),
-				   mhdr->len - sizeof(struct mgmt_msg_hdr),
-				   user);
+			/*
+			 * Q: if the handler disconnects should stop/flush?
+			 */
+			handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker), (uint8_t *)(mhdr + 1),
+				   mhdr->len - sizeof(struct mgmt_msg_hdr), user);
 			ms->nrxm++;
 			nproc++;
 		}
@@ -230,9 +239,8 @@ enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
 	ssize_t n;
 
 	if (ms->outs) {
-		MGMT_MSG_DBG(dbgtag,
-			     "found unqueued stream with %zu bytes, queueing",
-			     stream_get_endp(ms->outs));
+		MGMT_MSG_TRACE(dbgtag, "found unqueued stream with %zu bytes on fd %d, queueing",
+			       stream_get_endp(ms->outs), fd);
 		stream_fifo_push(&ms->outq, ms->outs);
 		ms->outs = NULL;
 	}
@@ -245,46 +253,40 @@ enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
 		n = stream_flush(s, fd);
 		if (n <= 0) {
 			if (n == 0)
-				MGMT_MSG_ERR(ms,
-					     "connection closed while writing");
+				MGMT_MSG_ERR(ms, "connection closed while writing on fd %d", fd);
 			else if (ERRNO_IO_RETRY(errno)) {
-				MGMT_MSG_DBG(
-					dbgtag,
-					"retry error while writing %zd bytes: %s (%d)",
-					left, safe_strerror(errno), errno);
+				MGMT_MSG_DBG(dbgtag,
+					     "retry error while writing %zd bytes on fd %d: %s (%d)",
+					     left, fd, safe_strerror(errno), errno);
 				return MSW_SCHED_STREAM;
 			} else
-				MGMT_MSG_ERR(
-					ms,
-					"error while writing %zd bytes: %s (%d)",
-					left, safe_strerror(errno), errno);
+				MGMT_MSG_ERR(ms, "error while writing %zd bytes on fd %d: %s (%d)",
+					     left, fd, safe_strerror(errno), errno);
 
 			n = mgmt_msg_reset_writes(ms);
-			MGMT_MSG_DBG(dbgtag, "drop and freed %zd streams", n);
+			MGMT_MSG_ERR(ms, "drop, freed %zd streams on fd %d for disconnect", n, fd);
 
 			return MSW_DISCONNECT;
 		}
 
 		ms->ntxb += n;
 		if (n != left) {
-			MGMT_MSG_DBG(dbgtag, "short stream write %zd of %zd", n,
-				     left);
+			MGMT_MSG_DBG(dbgtag, "short stream write %zd of %zd on fd %d", n, left, fd);
 			stream_forward_getp(s, n);
 			return MSW_SCHED_STREAM;
 		}
 
 		stream_free(stream_fifo_pop(&ms->outq));
-		MGMT_MSG_DBG(dbgtag, "wrote stream of %zd bytes", n);
+		MGMT_MSG_TRACE(dbgtag, "wrote stream of %zd bytes on fd %d", n, fd);
 		nproc++;
 	}
 	if (s) {
-		MGMT_MSG_DBG(
-			dbgtag,
-			"reached %zu buffer writes, pausing with %zu streams left",
-			ms->max_write_buf, ms->outq.count);
+		MGMT_MSG_DBG(dbgtag,
+			     "reached %zu buffer writes on fd %d, pausing with %zu streams left",
+			     ms->max_write_buf, fd, ms->outq.count);
 		return MSW_SCHED_STREAM;
 	}
-	MGMT_MSG_DBG(dbgtag, "flushed all streams from output q");
+	MGMT_MSG_TRACE(dbgtag, "flushed all streams from output q for fd %d", fd);
 	return MSW_SCHED_NONE;
 }
 
@@ -317,30 +319,27 @@ int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version, void *msg,
 	size_t mlen = len + sizeof(*mhdr);
 
 	if (mlen > ms->max_msg_sz)
-		MGMT_MSG_DBG(dbgtag, "Sending large msg size %zu > max size %zu",
-			     mlen, ms->max_msg_sz);
+		MGMT_MSG_TRACE(dbgtag, "Sending large msg size %zu > max size %zu", mlen,
+			       ms->max_msg_sz);
 
 	if (!ms->outs) {
-		MGMT_MSG_DBG(dbgtag, "creating new stream for msg len %zu", mlen);
+		MGMT_MSG_TRACE(dbgtag, "creating new stream for msg len %zu", mlen);
 		ms->outs = stream_new(MAX(ms->max_msg_sz, mlen));
 	} else if (mlen > ms->max_msg_sz && ms->outs->endp == 0) {
 		/* msg is larger than stream max size get a fit-to-size stream */
-		MGMT_MSG_DBG(dbgtag,
-			     "replacing old stream with fit-to-size for msg len %zu",
-			     mlen);
+		MGMT_MSG_TRACE(dbgtag, "replacing old stream with fit-to-size for msg len %zu",
+			       mlen);
 		stream_free(ms->outs);
 		ms->outs = stream_new(mlen);
 	} else if (STREAM_WRITEABLE(ms->outs) < mlen) {
-		MGMT_MSG_DBG(dbgtag,
-			     "enq existing stream len %zu and creating new stream for msg len %zu",
-			     STREAM_WRITEABLE(ms->outs), mlen);
+		MGMT_MSG_TRACE(dbgtag,
+			       "enq existing stream len %zu and creating new stream for msg len %zu",
+			       STREAM_WRITEABLE(ms->outs), mlen);
 		stream_fifo_push(&ms->outq, ms->outs);
 		ms->outs = stream_new(MAX(ms->max_msg_sz, mlen));
 	} else {
-		MGMT_MSG_DBG(
-			dbgtag,
-			"using existing stream with avail %zu for msg len %zu",
-			STREAM_WRITEABLE(ms->outs), mlen);
+		MGMT_MSG_TRACE(dbgtag, "using existing stream with avail %zu for msg len %zu",
+			       STREAM_WRITEABLE(ms->outs), mlen);
 	}
 	s = ms->outs;
 

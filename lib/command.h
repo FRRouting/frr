@@ -611,8 +611,8 @@ extern int cmd_execute_command(vector vline, struct vty *vty, const struct cmd_e
 extern int cmd_execute_command_strict(vector vline, struct vty *vty,
 				      const struct cmd_element **cmd);
 extern void cmd_init(int terminal);
-extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
-				      void (*end_config_cb)(void));
+extern void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
+				      void (*end_config_cb)(struct vty *vty));
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);

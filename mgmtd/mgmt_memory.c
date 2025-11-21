@@ -26,7 +26,4 @@ DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN, "txn");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_REQ, "txn request");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_RPC_REQ, "txn rpc requests");
 DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

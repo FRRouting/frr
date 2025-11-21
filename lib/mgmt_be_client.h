@@ -54,12 +54,8 @@ struct mgmt_be_client_txn_ctx {
  *
  */
 struct mgmt_be_client_cbs {
-	void (*client_connect_notify)(struct mgmt_be_client *client,
-				      uintptr_t usr_data, bool connected);
-	void (*txn_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
-			   struct mgmt_be_client_txn_ctx *txn_ctx,
-			   bool destroyed);
-
+	void (*client_connect_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
+				      bool connected);
 	const char **config_xpaths;
 	uint nconfig_xpaths;
 	const char **oper_xpaths;

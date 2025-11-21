@@ -266,9 +266,9 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id, 
 	return ret;
 }
 
-int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
-			       enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
-			       bool validate_only, bool abort, bool unlock)
+int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
+			    enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
+			    bool validate_only, bool abort, bool unlock)
 {
 	struct mgmt_msg_commit *msg;
 	int ret;
@@ -287,8 +287,12 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_i
 		msg->action = MGMT_MSG_COMMIT_APPLY;
 	msg->unlock = unlock;
 
-	debug_fe_client("Sending COMMIT message for Src-DS:%s, Dst-DS:%s session-id %Lu",
-			dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id);
+	debug_fe_client("Sending COMMIT message for src: %s dst: %s session-id %Lu action: %s unlock: %d",
+			dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id,
+			msg->action == MGMT_MSG_COMMIT_VALIDATE ? "validate"
+			: msg->action == MGMT_MSG_COMMIT_ABORT	? "abort"
+								: "apply",
+			unlock);
 
 	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
 	ret = fe_client_push_sent_msg(client, (struct mgmt_msg_header *)msg, ret);
@@ -695,7 +699,7 @@ static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 		return;
 	}
 
-	log_err_fe_client("Protobuf no longer used in backend API");
+	log_err_fe_client("Protobuf no longer used in frontend API");
 	msg_conn_disconnect(&client->client.conn, true);
 }
 
