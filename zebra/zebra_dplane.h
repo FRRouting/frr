@@ -1191,9 +1191,6 @@ enum dplane_provider_prio {
 /* Flags values used during provider registration. */
 #define DPLANE_PROV_FLAGS_DEFAULT  0x0
 
-/* Provider will be spawning its own worker thread */
-#define DPLANE_PROV_FLAG_THREADED  0x1
-
 /* Provider registration: ordering or priority value, callbacks, and optional
  * opaque data value. If 'prov_p', return the newly-allocated provider object
  * on success.
@@ -1231,10 +1228,9 @@ int dplane_provider_register(const char *name,
 const char *dplane_provider_get_name(const struct zebra_dplane_provider *prov);
 uint32_t dplane_provider_get_id(const struct zebra_dplane_provider *prov);
 void *dplane_provider_get_data(const struct zebra_dplane_provider *prov);
-bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov);
 
-/* Lock/unlock a provider's mutex - iff the provider was registered with
- * the THREADED flag.
+/*
+ * Lock/unlock a provider's mutex
  */
 void dplane_provider_lock(struct zebra_dplane_provider *prov);
 void dplane_provider_unlock(struct zebra_dplane_provider *prov);
