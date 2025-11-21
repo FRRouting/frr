@@ -2059,19 +2059,30 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 
 		if (!found) {
 			zebra_if = ifp->info;
-
 			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
 				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
-					/* skip non link-local addresses */
-					if (!IPV6_ADDR_SAME(&nexthop->gate.ipv6, &in6addr_any)) {
+					if ((nexthop->type == NEXTHOP_TYPE_IPV6 ||
+					     nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) &&
+					    !IPV6_ADDR_SAME(&nexthop->gate.ipv6, &in6addr_any)) {
+						/* This is an IPv6 nexthop, use gate.ipv6 */
 						ctx->nh6 = nexthop->gate.ipv6;
+						found = true;
+						break;
+					} else if ((nexthop->type == NEXTHOP_TYPE_IPV4 ||
+						    nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) &&
+						   nexthop->gate.ipv4.s_addr != INADDR_ANY) {
+						/* This is an IPv4 nexthop, convert to IPv4-mapped IPv6 */
+						ipv4_to_ipv4_mapped_ipv6(&ctx->nh6,
+									 nexthop->gate.ipv4);
 						found = true;
 						break;
 					}
 				}
+
 				if (found)
 					break;
 			}
+
 			if (!found) {
 				zlog_err("%s: cannot get SID, interface (ifindex %u) not found",
 					 __func__, ctx->ifindex);
