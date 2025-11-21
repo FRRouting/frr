@@ -2555,7 +2555,7 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 	struct listnode *node;
 	struct bgp_evpn_es_vtep *es_vtep;
 	bool first = true;
-	char ip_buf[INET_ADDRSTRLEN];
+	char ip_buf[INET6_ADDRSTRLEN];
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
@@ -2572,10 +2572,8 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 			first = false;
 		else
 			strlcat(vtep_str, ",", vtep_str_size);
-		strlcat(vtep_str,
-			inet_ntop(AF_INET, &es_vtep->vtep_ip, ip_buf,
-				  sizeof(ip_buf)),
-			vtep_str_size);
+		ipaddr2str(&es_vtep->vtep_ip, ip_buf, sizeof(ip_buf));
+		strlcat(vtep_str, ip_buf, vtep_str_size);
 		strlcat(vtep_str, "(", vtep_str_size);
 		strlcat(vtep_str, vtep_flag_str, vtep_str_size);
 		strlcat(vtep_str, ")", vtep_str_size);
@@ -2593,8 +2591,7 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 
 	json_vtep_entry = json_object_new_object();
 
-	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
-				&es_vtep->vtep_ip);
+	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pIA", &es_vtep->vtep_ip);
 	if (CHECK_FLAG(es_vtep->flags,
 		       (BGP_EVPNES_VTEP_ESR | BGP_EVPNES_VTEP_ACTIVE))) {
 		json_flags = json_object_new_array();
@@ -2635,8 +2632,7 @@ static void bgp_evpn_es_vteps_show_detail(struct vty *vty,
 		if (!strlen(vtep_flag_str))
 			strlcat(vtep_flag_str, "-", sizeof(vtep_flag_str));
 
-		vty_out(vty, "  %pI4 flags: %s", &es_vtep->vtep_ip,
-			vtep_flag_str);
+		vty_out(vty, "  %pIA flags: %s", &es_vtep->vtep_ip, vtep_flag_str);
 
 		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
 			vty_out(vty, " df_alg: %s df_pref: %u\n",
@@ -2732,8 +2728,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags, "bypass");
 			json_object_object_add(json, "flags", json_flags);
 		}
-		json_object_string_addf(json, "originator_ip", "%pI4",
-					&es->originator_ip);
+		json_object_string_addf(json, "originator_ip", "%pIA", &es->originator_ip);
 		json_object_int_add(json, "remoteVniCount",
 				es->remote_es_evi_cnt);
 		json_object_int_add(json, "vrfCount",
@@ -2783,7 +2778,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " Type: %s\n", type_str);
 		vty_out(vty, " RD: %pRDP\n",
 			es->es_base_frag ? &es->es_base_frag->prd : NULL);
-		vty_out(vty, " Originator-IP: %pI4\n", &es->originator_ip);
+		vty_out(vty, " Originator-IP: %pIA\n", &es->originator_ip);
 		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 			vty_out(vty, " Local ES DF preference: %u\n",
 				es->df_pref);
@@ -4123,7 +4118,7 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 	struct listnode *node;
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 	bool first = true;
-	char ip_buf[INET_ADDRSTRLEN];
+	char ip_buf[INET6_ADDRSTRLEN];
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
@@ -4139,9 +4134,7 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 			first = false;
 		else
 			strlcat(vtep_str, ",", vtep_str_size);
-		strlcat(vtep_str,
-			inet_ntop(AF_INET, &evi_vtep->vtep_ip, ip_buf,
-				  sizeof(ip_buf)),
+		strlcat(vtep_str, ipaddr2str(&evi_vtep->vtep_ip, ip_buf, sizeof(ip_buf)),
 			vtep_str_size);
 		strlcat(vtep_str, "(", vtep_str_size);
 		strlcat(vtep_str, vtep_flag_str, vtep_str_size);
@@ -4159,8 +4152,7 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 
 	json_vtep_entry = json_object_new_object();
 
-	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
-				&evi_vtep->vtep_ip);
+	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pIA", &evi_vtep->vtep_ip);
 	if (CHECK_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
 					 BGP_EVPN_EVI_VTEP_EAD_PER_EVI))) {
 		json_flags = json_object_new_array();
