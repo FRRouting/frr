@@ -7994,6 +7994,8 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 		if ((peer_established(peer->connection)) &&
 		    (peer->afc[afi][safi]))
 			bgp_maximum_prefix_overflow(peer, afi, safi, 1);
+		else if (!peer_established(peer->connection))
+			peer_maximum_prefix_clear_overflow(peer);
 
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
@@ -8032,6 +8034,8 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 		if ((peer_established(member->connection)) &&
 		    (member->afc[afi][safi]))
 			bgp_maximum_prefix_overflow(member, afi, safi, 1);
+		else if (!peer_established(member->connection))
+			peer_maximum_prefix_clear_overflow(member);
 	}
 
 	return 0;
@@ -8049,6 +8053,9 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 		PEER_ATTR_INHERIT(peer, peer->group, pmax[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax_threshold[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax_restart[afi][safi]);
+
+		/* Trigger peer FSM to form neighborship using updated config */
+		peer_maximum_prefix_clear_overflow(peer);
 
 		return 0;
 	}
