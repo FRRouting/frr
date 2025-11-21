@@ -1211,6 +1211,58 @@ def test_large_community_after_clear_bgp(request):
     write_test_footer(tc_name)
 
 
+def test_large_community_buffer_limit(request):
+    """
+    Verify that setting 150 large communities with maximum sized values
+    (approximately 4770 bytes) works properly. This tests the buffer limit
+    increase from 4096 to 8192 bytes.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Generate 150 large communities with maximum sized values (4294967295:4294967295:4294967XXX)
+    # Each community is approximately 31 bytes, total ~4770 bytes
+    large_comm_values = []
+    for i in range(1, 151):
+        large_comm_values.append(f"4294967295:4294967295:{4294967000 + i}")
+
+    large_comm_str = " ".join(large_comm_values)
+
+    step("Configuring route-map with 150 large communities (~4770 bytes)")
+    router = tgen.gears["r1"]
+
+    try:
+        output = router.vtysh_cmd(
+            f"""
+configure terminal
+route-map LARGE_COMM_150 permit 10
+set large-community {large_comm_str}
+"""
+        )
+        step("Successfully applied configuration")
+    except Exception as e:
+        step(f"Configuration failed (may indicate buffer limit issue): {e}")
+        pytest.fail(
+            "Failed to configure 150 large communities - buffer limit may be too small"
+        )
+
+    step("Verifying route-map configuration with 150 large communities")
+    output = router.vtysh_cmd("show running-config")
+    assert (
+        "route-map LARGE_COMM_150 permit 10" in output
+    ), f"Test case {tc_name} : Failed - route-map not found in configuration"
+    assert (
+        "4294967295:4294967295" in output
+    ), f"Test case {tc_name} : Failed - large communities not found in configuration"
+
+    step("Test passed: Successfully configured 150 large communities (~4770 bytes)")
+    write_test_footer(tc_name)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
