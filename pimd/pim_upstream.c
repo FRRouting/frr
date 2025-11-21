@@ -943,6 +943,16 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		bool new_use_rpt;
 		bool send_xg_jp = false;
 
+		/*
+		 * In FHR pimreg interface is needed all the time
+		 * inorder to send register packets.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) &&
+		    up->reg_state == PIM_REG_NOINFO &&
+		    pim->regiface->configured) {
+			pim_channel_add_oif(up->channel_oil, pim->regiface,
+					    PIM_OIF_FLAG_PROTO_PIM, __func__);
+		}
 		forward_off(up);
 		/*
 		 * RFC 4601 Sec 4.5.7:
