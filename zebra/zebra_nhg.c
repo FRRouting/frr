@@ -410,12 +410,23 @@ struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 				      uint32_t id)
 {
 	struct nhg_hash_entry *nhe;
+	struct nexthop *nh = NULL;
 
 	nhe = zebra_nhg_alloc();
 
 	nhe->id = id;
 
 	nexthop_group_copy(&(nhe->nhg), &(orig->nhg));
+
+	/*
+	 * Clear DUPLICATE flag from copied nexthops. The DUPLICATE flag
+	 * is a per-NHG property set by nexthop_group_mark_duplicates(),
+	 * not a per-nexthop property that should be inherited.
+	 * This prevents false duplicate detection when nexthops are
+	 * copied from existing NHGs (e.g., during route updates).
+	 */
+	for (ALL_NEXTHOPS(nhe->nhg, nh))
+		UNSET_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE);
 
 	nhe->vrf_id = orig->vrf_id;
 	nhe->afi = orig->afi;
@@ -706,6 +717,14 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	struct nhg_hash_entry *newnhe, *backup_nhe;
 	struct nexthop *nh = NULL;
 
+	/*
+	 * Clear DUPLICATE flag from incoming nexthops BEFORE hash lookup.
+	 * The DUPLICATE flag is a Zebra internal construct that should be
+	 * set by nexthop_group_mark_duplicates(), not inherited from BGP.
+	 * Having it set on incoming nexthops causes incorrect hash calculations.
+	 */
+	for (nh = lookup->nhg.nexthop; nh; nh = nh->next)
+		UNSET_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE);
 
 	if (lookup->id)
 		(*nhe) = zebra_nhg_lookup_id(lookup->id);
@@ -795,6 +814,10 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		/* Proto-owned are groups by default */
 		/* List of nexthops */
 		for (nh = newnhe->nhg.nexthop; nh; nh = nh->next) {
+			/* Skip duplicates - dependencies already added for unique nexthop */
+			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE))
+				continue;
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s: depends NH %pNHv %s",
 					   __func__, nh,
@@ -842,6 +865,10 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	} else {
 		/* One or more backup NHs */
 		for (; nh; nh = nh->next) {
+			/* Skip duplicates - dependencies already added for unique nexthop */
+			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE))
+				continue;
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s: backup depend NH %pNHv %s",
 					   __func__, nh,
@@ -3445,9 +3472,57 @@ uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int m
 	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
 }
 
-void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
+/*
+ * Check if an NHG is singleton-equivalent:
+ * - Has duplicates that collapse to a single unique nexthop
+ * - Depends on exactly one singleton NHG
+ * - That singleton matches the unique nexthop
+ * Returns the singleton NHG if equivalent, NULL otherwise
+ */
+struct nhg_hash_entry *zebra_nhg_find_singleton_equivalent(struct nhg_hash_entry *nhe)
+{
+	struct nexthop *nh;
+	struct nexthop *unique_nh = NULL;
+	int unique_count = 0;
+	struct nhg_connected *rb_node_dep;
+	struct nhg_hash_entry *singleton_dep = NULL;
+
+	if (ZEBRA_NHG_IS_SINGLETON(nhe))
+		return NULL;
+
+	for (ALL_NEXTHOPS(nhe->nhg, nh)) {
+		if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE)) {
+			unique_nh = nh;
+			unique_count++;
+		}
+	}
+
+	if (unique_count != 1 || zebra_nhg_depends_count(nhe) != 1)
+		return NULL;
+
+	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		singleton_dep = rb_node_dep->nhe;
+		break;
+	}
+
+	if (!singleton_dep || !ZEBRA_NHG_IS_SINGLETON(singleton_dep))
+		return NULL;
+
+	/* Comparing if our unique nexthop same as the singleton's nexthop */
+	if (nexthop_same_no_weight(unique_nh, singleton_dep->nhg.nexthop)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: NHG %pNG is singleton-equivalent to NHG %pNG", __func__,
+				   nhe, singleton_dep);
+		return singleton_dep;
+	}
+
+	return NULL;
+}
+
+struct nhg_hash_entry *zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 {
 	struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_hash_entry *singleton_equiv_nhg = NULL;
 
 	/* Resolve it first */
 	nhe = zebra_nhg_resolve(nhe);
@@ -3468,6 +3543,19 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 	/* Make sure all depends are installed/queued */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		zebra_nhg_install_kernel(rb_node_dep->nhe, type);
+	}
+
+	/*
+	 * Check if this NHG is singleton-equivalent (has duplicates that
+	 * collapse to a single depend). If so, skip kernel installation
+	 * as it's redundant - return the singleton depend to be used instead.
+	 */
+	singleton_equiv_nhg = zebra_nhg_find_singleton_equivalent(nhe);
+	if (singleton_equiv_nhg) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: Skipping kernel install for singleton-equivalent NHG %pNG, singleton %pNG is used instead",
+				   __func__, nhe, singleton_equiv_nhg);
+		return singleton_equiv_nhg;
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
@@ -3494,6 +3582,8 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 			break;
 		}
 	}
+
+	return nhe;
 }
 
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
