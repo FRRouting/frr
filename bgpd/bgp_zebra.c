@@ -3623,11 +3623,8 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	 * Check if the BGP instance is configured to use the received
 	 * locator
 	 */
-	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
-		zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s", bgp->name_pretty,
-			 bgp->vrf_id, __func__, bgp->srv6_locator_name, locator->name);
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0)
 		return 0;
-	}
 
 	zlog_info("%s(%d): %s, Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
 		  bgp->name_pretty, bgp->vrf_id, __func__, locator->name, &locator->prefix,
@@ -4108,11 +4105,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
 			continue;
-		if (!strmatch(bgp->srv6_locator->name, loc.name)) {
-			zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s", bgp->name_pretty,
-				 bgp->vrf_id, __func__, bgp->srv6_locator->name, loc.name);
+		if (!strmatch(bgp->srv6_locator->name, loc.name))
 			return 0;
-		}
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
 	}
 
