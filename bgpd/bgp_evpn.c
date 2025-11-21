@@ -925,6 +925,9 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	static struct ipaddr zero_remote_vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 	bool esi_valid;
 
+	if (ipaddr_is_same(&vpn->originator_ip, remote_vtep_ip))
+		return ZCLIENT_SEND_SUCCESS;
+
 	/* Check socket. */
 	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -2372,6 +2375,10 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
         * and (re)install the remote route into zebra.
 	*/
 	evpn_route_select_install(bgp, vpn, dest, pi);
+
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+		bgp_evpn_import_route(bgp, AFI_L2VPN, SAFI_EVPN, &dest->rn->p, pi);
+
 	/*
 	 * If the new local route was not selected evict it and tell zebra
 	 * to re-add the best remote dest. BGP doesn't retain non-best local
