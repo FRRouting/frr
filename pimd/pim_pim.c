@@ -818,9 +818,8 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
-	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
+	return pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
 			   tolen, ifp ? ifp->name : "*");
-	return 0;
 
 #else
 	struct iovec iovector[2];
@@ -828,9 +827,8 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
-	pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
+	return pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
 
-	return 0;
 #endif
 }
 
