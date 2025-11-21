@@ -1075,6 +1075,8 @@ void if_terminate(struct vrf *vrf)
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
+		if (!ifp)
+			break;
 		if_delete(&ifp);
 	}
 }
@@ -1587,6 +1589,12 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 		} else {
 			ifp = if_get_by_name(ifname, VRF_UNKNOWN,
 					     VRF_DEFAULT_NAME);
+		}
+
+		if (!ifp) {
+			snprintf(args->errmsg, args->errmsg_len, "failed to create interface '%s'",
+				 ifname);
+			return NB_ERR_RESOURCE;
 		}
 
 		ifp->configured = true;
