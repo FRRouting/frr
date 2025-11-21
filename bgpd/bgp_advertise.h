@@ -106,6 +106,9 @@ struct bgp_adj_in {
 
 	/* Addpath identifier */
 	uint32_t addpath_rx_id;
+
+	/* if this update was filtered */
+	bool filtered;
 };
 
 /* BGP advertisement list.  */
@@ -140,9 +143,8 @@ struct bgp_synchronize {
 /* Prototypes.  */
 extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
-extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
-			   struct attr *attr, uint32_t addpath_id,
-			   struct bgp_labels *labels);
+struct bgp_adj_in *bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
+				  uint32_t addpath_id, struct bgp_labels *labels);
 extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);

@@ -1,0 +1,104 @@
+{
+  "default": {
+    "ipv4Unicast": {
+      "peers": {
+        "10.10.0.2": {
+          "pfxRcd": 2,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "fd00::2": {
+          "pfxRcd": 4,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "10.10.1.2": {
+          "pfxRcd": 4,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "fd00:1::2": {
+          "pfxRcd": 4,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "10.10.2.2": {
+          "pfxRcd": 4,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "fd00:2::2": {
+          "pfxRcd": 4,
+          "pfxSnt": 1,
+          "state": "Established"
+        }
+      }
+    },
+    "ipv6Unicast": {
+      "peers": {
+        "fd00::2": {
+          "pfxRcd": 1,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "fd00:1::2": {
+          "pfxRcd": 1,
+          "pfxSnt": 1,
+          "state": "Established"
+        },
+        "fd00:2::2": {
+          "pfxRcd": 1,
+          "pfxSnt": 1,
+          "state": "Established"
+        }
+      }
+    },
+    "ipv4Vpn": {
+      "peers": {
+        "10.10.0.2": {
+          "state": "Established"
+        },
+        "10.10.1.2": {
+          "state": "Established"
+        },
+        "10.10.2.2": {
+          "state": "Established"
+        }
+      }
+    },
+    "l2VpnEvpn": {
+      "peers": {
+        "10.10.0.2": {
+          "state": "Established"
+        },
+        "10.10.1.2": {
+          "state": "Established"
+        },
+        "10.10.2.2": {
+          "state": "Established"
+        }
+      }
+    }
+  },
+  "RED": {
+    "ipv4Unicast": {
+      "peers": {
+        "10.10.3.2":{
+          "pfxRcd": 3,
+          "pfxSnt": 3,
+          "state": "Established"
+        },
+        "10.10.4.2":{
+          "pfxRcd": 3,
+          "pfxSnt": 3,
+          "state": "Established"
+        },
+        "10.10.5.2":{
+          "pfxRcd": 3,
+          "pfxSnt": 3,
+          "state": "Established"
+        }
+      }
+    }
+  }
+}
