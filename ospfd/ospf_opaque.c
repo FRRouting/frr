@@ -1262,6 +1262,11 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	json_object *jopaque = NULL;
 	int len, lenValid;
 
+	if (!lsah) {
+		zlog_warn("opaque_lsa_dump: NULL lsa.data pointer.");
+		return;
+	}
+
 	/* Switch output functionality by vty address. */
 	if (vty != NULL) {
 		if (!json) {
@@ -1301,10 +1306,18 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 						       : "(Invalid length?)");
 	}
 
+	if (!VALID_OPAQUE_INFO_LEN(lsah))
+		return;
+
 	/* Call individual output functions. */
-	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
-		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, jopaque, lsa);
+	functab = ospf_opaque_functab_lookup(lsa);
+	if (functab) {
+		if (functab->show_opaque_info)
+			functab->show_opaque_info(vty, jopaque, lsa);
+		else
+			zlog_warn("functab found but show_opaque_info is NULL");
+	} else
+		zlog_warn("ospf_opaque_functab_lookup returned NULL");
 
 	return;
 }
