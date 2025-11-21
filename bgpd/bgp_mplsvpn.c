@@ -880,8 +880,11 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	} else if (is_tovpn_sid_explicit) {
 		tovpn_sid = *(bgp_vrf->vpn_policy[afi].tovpn_sid_explicit);
 		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
-	} else
+	} else {
 		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+		/* a route-map locator context of this locator has the same SID context */
+		bgp_srv6_per_locator_cache_flush(bgp_vpn, bgp_vrf, afi, locator_bgp->name);
+	}
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -2057,6 +2060,17 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			return;
 		}
 		bslc = path_vrf->srv6_vpn.bslc;
+		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
+			if (bgp_srv6_locator_name_lookup(from_bgp, to_bgp) &&
+			    strmatch(rmap_extra.srv6_locator,
+				     bgp_srv6_locator_name_lookup(from_bgp, to_bgp)) &&
+			    (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
+					BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
+				UNSET_FLAG(static_attr.rmap_change_flags,
+					   BATTR_RMAP_SRV6_LOCATOR_CHANGED);
+				bgp_srv6_per_locator_unlink(path_vrf);
+			}
+		}
 		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
 			if ((bslc &&
 			     strcmp(bslc->locator_name, rmap_extra.srv6_locator)) ||
