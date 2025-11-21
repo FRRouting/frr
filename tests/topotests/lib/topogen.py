@@ -35,8 +35,10 @@ import platform
 import pwd
 import re
 import shlex
+import signal
 import subprocess
 import sys
+import time
 from collections import OrderedDict
 
 import lib.topolog as topolog
@@ -466,11 +468,15 @@ class Topogen(object):
 
     def stop_topology(self):
         """
-        Stops the network topology. This function will call the stop() function
-        of all gears before calling the mininet stop function, so they can have
-        their oportunity to do a graceful shutdown. stop() is called twice. The
-        first is a simple kill with no sleep, the second will sleep if not
-        killed and try with a different signal.
+        Stops the network topology. This function will:
+        1. Send SIGTERM to all daemons on all routers in parallel
+        2. Wait for all daemons to stop together
+        3. Force stop any remaining daemons with SIGBUS and wait for exit/core
+        4. Collect errors from all routers and stop non-router gears (ExaBGP, etc.)
+        5. Stop the mininet network
+
+        This parallel approach reduces test completion time compared to
+        stopping routers sequentially.
         """
         pause = bool(self.net.cfgopt.get_option("--pause-at-end"))
         pause = pause or bool(self.net.cfgopt.get_option("--pause"))
@@ -484,9 +490,106 @@ class Topogen(object):
 
         logger.info("stopping topology: {}".format(self.modname))
 
+        # Step 1: Send SIGTERM to all daemons on all routers in parallel (non-blocking)
+        all_routers = {}  # {router_name: (gear, [(daemon_name, pid), ...])}
+        for gear in self.gears.values():
+            # Only process routers (TopoRouter instances have 'net' attribute with listDaemons)
+            if hasattr(gear, "net") and hasattr(gear.net, "listDaemons"):
+                running = gear.net.listDaemons()
+                if running:
+                    router_name = gear.name if hasattr(gear, "name") else str(gear)
+                    all_routers[router_name] = (gear, running)
+                    logger.info(
+                        "%s: stopping %s",
+                        router_name,
+                        ", ".join([x[0] for x in running]),
+                    )
+                    for name, pid in running:
+                        logger.debug(
+                            "{}: sending SIGTERM to {}".format(router_name, name)
+                        )
+                        try:
+                            os.kill(pid, signal.SIGTERM)
+                        except OSError as err:
+                            logger.debug(
+                                "%s: could not kill %s (%s): %s",
+                                router_name,
+                                name,
+                                pid,
+                                str(err),
+                            )
+
+        # Step 2: Wait for all daemons to stop (check all routers in a single loop)
+        still_running = {}
+        if all_routers:
+            max_wait = 30
+            wait_count = 0
+            while wait_count < max_wait:
+                still_running = {}
+                for router_name, (gear, _) in all_routers.items():
+                    running = gear.net.listDaemons()
+                    if running:
+                        still_running[router_name] = (gear, running)
+
+                if not still_running:
+                    break
+
+                if wait_count % 5 == 0:  # Log every 2.5 seconds
+                    daemon_list = []
+                    for router_name, (_, running) in still_running.items():
+                        daemon_list.extend(
+                            ["{}:{}".format(router_name, x[0]) for x in running]
+                        )
+                    logger.info(
+                        "waiting for daemons stopping: {}".format(
+                            ", ".join(daemon_list)
+                        )
+                    )
+
+                time.sleep(0.5)
+                wait_count += 1
+
+        # Step 3: Force stop any remaining daemons with SIGBUS
+        if still_running:
+            for router_name, (gear, running) in still_running.items():
+                logger.warning(
+                    "%s: sending SIGBUS to: %s",
+                    router_name,
+                    ", ".join([x[0] for x in running]),
+                )
+                for name, pid in running:
+                    pidfile = "/var/run/{}/{}.pid".format(gear.net.routertype, name)
+                    logger.info("%s: killing %s", router_name, name)
+                    gear.net.cmd("kill -SIGBUS %d" % pid)
+                    gear.net.cmd("rm -- " + pidfile)
+
+            # Wait for daemons to exit/core after SIGBUS (matching stopRouter behavior)
+            time.sleep(0.5)
+
+        # Step 5: Collect errors from all routers (cores, etc.)
         errors = ""
         for gear in self.gears.values():
-            errors += gear.stop()
+            if hasattr(gear, "net") and hasattr(gear.net, "checkRouterCores"):
+                try:
+                    router_errors = gear.net.checkRouterCores(reportOnce=True)
+                    if router_errors:
+                        errors += router_errors
+                except Exception as e:
+                    router_name = gear.name if hasattr(gear, "name") else str(gear)
+                    errors += "Error checking cores for {}: {}\n".format(
+                        router_name, str(e)
+                    )
+            else:
+                # For non-router gears (ExaBGP, BMP collectors, etc.), call their stop() method
+                # This ensures proper cleanup for all gear types
+                try:
+                    gear_errors = gear.stop()
+                    if gear_errors:
+                        errors += gear_errors
+                except Exception as e:
+                    gear_name = gear.name if hasattr(gear, "name") else str(gear)
+                    errors += "Error stopping {}: {}\n".format(gear_name, str(e))
+
         if len(errors) > 0:
             logger.error(
                 "Errors found post shutdown - details follow: {}".format(errors)
