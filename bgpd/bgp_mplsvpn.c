@@ -983,8 +983,8 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
 		if (debug)
-			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf label",
-				   __func__, bgp_vrf->name_pretty);
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf sid", __func__,
+				   bgp_vrf->name_pretty);
 		return;
 	}
 
