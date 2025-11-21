@@ -1034,13 +1034,11 @@ int pim_if_del_vif(struct interface *ifp)
 			  __func__, pim_ifp->mroute_vif_index, ifp->name,
 			  ifp->ifindex);
 		return -1;
-	} else {
-		if (PIM_DEBUG_ZEBRA)
-			zlog_debug(
-				"%s: vif_index=%d  on interface %s ifindex=%d",
-				__func__, pim_ifp->mroute_vif_index, ifp->name,
-				ifp->ifindex);
 	}
+
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: vif_index=%d  on interface %s ifindex=%d", __func__,
+			   pim_ifp->mroute_vif_index, ifp->name, ifp->ifindex);
 
 	/* if the device was a pim_vxlan iif/oif update vxlan mroute entries */
 	pim_vxlan_del_vif(ifp);
@@ -1894,9 +1892,8 @@ static int pim_ifp_up(struct interface *ifp)
 	 * operational state may  be down at that moment, create one now if
 	 * not created.
 	 */
-	if (if_is_operative(ifp) && (!pim->regiface)) {
+	if (if_is_operative(ifp) && (!pim->regiface))
 		pim_if_create_pimreg(pim);
-	}
 
 	/*
 	 * If we have a pimreg device callback and it's for a specific
