@@ -34,6 +34,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 
+/* Global nexthop epoch for nexthop_active cache invalidation */
+uint32_t global_nh_epoch = 1;
+
 /* Map backup nexthop indices between two nhes */
 struct backup_nh_map_s {
 	int map_count;
@@ -422,6 +425,10 @@ struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 	nhe->type = orig->type ? orig->type : ZEBRA_ROUTE_NHG;
 	nhe->refcnt = 0;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
+
+	/* Initialize nexthop_active related cache fields */
+	nhe->resolved_nhe_id = 0;
+	nhe->cache_gen_num = 0;
 
 	/* Copy backup info also, if present */
 	if (orig->backup_info)
@@ -2240,8 +2247,8 @@ zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
  * Set the nexthop->ifindex and resolution info as appropriate.
  */
 static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
-			  const struct prefix *top, int type, uint32_t flags,
-			  uint32_t *pmtu, vrf_id_t vrf_id)
+			  const struct prefix *top, struct route_entry *re, int type,
+			  uint32_t flags, uint32_t *pmtu, vrf_id_t vrf_id)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -2318,6 +2325,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		    !nexthop_set_evpn_dvni_svd(vrf_id, nexthop))
 			return 0;
 
+		/* If the NH has DVNI label at this point, set
+		 * ROUTE_ENTRY_SKIP_NHE_CACHE to avoid caching the result.
+		 */
+		if (re && nexthop->nh_label && nexthop->nh_label->num_labels)
+			SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
+
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (!ifp) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2382,6 +2395,11 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					 NEXTHOP_FLAG_RECURSIVE);
 				nexthop_set_resolved(afi, nhlfe->nexthop,
 						     nexthop, policy);
+				/* NH may carry SR labels; set SKIP_NHE_CACHE
+				 * to avoid caching the NHE.
+				 */
+				if (re)
+					SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 				resolved = 1;
 			}
 			if (resolved)
@@ -2435,6 +2453,23 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			     && (rn->p.prefixlen != IPV4_MAX_BITLEN))
 			    || ((afi == AFI_IP6)
 				&& (rn->p.prefixlen != IPV6_MAX_BITLEN))) {
+				/* Mark SKIP_NHE_CACHE flag to prevent caching of a partial resolution
+				 * that skipped a nexthop due to self-prefix guard.
+				 *
+				 * Problem scenario:
+				 * - A Route prefix (e.g., 10.0.2.0/24) arrives first with two
+				 *   nexthops, one of which points into the same connected subnet.
+				 * - The self-prefix guard suppresses that nexthop here, leaving only
+				 *   one active nexthop at this moment which is ok for the current route.
+				 * - If we cache this partial resolved NHE against the received NHG,
+				 *   later prefixes (e.g., 20.0.1.0/24) may hit the fast path and
+				 *   incorrectly reuse the 1-NH resolution, even after the connected
+				 *   route becomes available and both NHs should be active.
+				 * - By setting ROUTE_ENTRY_SKIP_NHE_CACHE we force the slow-path
+				 *   to skip caching for this RE so subsequent routes re-resolve.
+				 */
+				if (re)
+					SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
 						"        %s: Matched against ourself and prefix length is not max bit length",
@@ -2476,6 +2511,11 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 							    nexthop->ifindex);
 
 			newhop = match->nhe->nhg.nexthop;
+			/* The 'newhop' comes from a dependent NHG. If it carries labels,
+			 * set ROUTE_ENTRY_SKIP_NHE_CACHE here to avoid caching the result.
+			 */
+			if (re && newhop && newhop->nh_label && newhop->nh_label->num_labels)
+				SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 			if (nexthop->type == NEXTHOP_TYPE_IPV4) {
 				nexthop->ifindex = newhop->ifindex;
 				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -2552,6 +2592,11 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
+				/* If recursive dependent NH carries labels, set SKIP_NHE_CACHE */
+				if (re && newhop && newhop->nh_label &&
+				    newhop->nh_label->num_labels)
+					SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
+
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 					zlog_debug(
 						"%s: RECURSIVE match %p (%pNG), newhop %pNHv",
@@ -2588,6 +2633,11 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
+
+				/* If recursive backup dependent NH carries labels, set SKIP_NHE_CACHE */
+				if (re && newhop && newhop->nh_label &&
+				    newhop->nh_label->num_labels)
+					SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 					zlog_debug(
@@ -2698,8 +2748,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
-				   &mtu, vrf_id))
+		if (nexthop_active(nexthop, nhe, &rn->p, re, re->type, re->flags, &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2707,8 +2756,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
-				   &mtu, vrf_id))
+		if (nexthop_active(nexthop, nhe, &rn->p, re, re->type, re->flags, &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2719,8 +2767,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
-				   &mtu, vrf_id))
+		if (nexthop_active(nexthop, nhe, &rn->p, re, re->type, re->flags, &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2773,7 +2820,10 @@ skip_check:
 		family = info->afi;
 	}
 
-	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
+	/* Capture rmap_src before route-map. clear it for evaluation */
+	union g_addr prev_rmap_src = nexthop->rmap_src;
+
+	memset(&nexthop->rmap_src, 0, sizeof(nexthop->rmap_src));
 
 	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (!zvrf) {
@@ -2791,7 +2841,18 @@ skip_check:
 				re->vrf_id, rn, nexthop);
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 	}
+
+	/* Check if route-map modified rmap_src */
+	if (family == AFI_IP) {
+		if (prev_rmap_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr)
+			SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
+	} else if (family == AFI_IP6) {
+		if (!IPV6_ADDR_SAME(&prev_rmap_src.ipv6, &nexthop->rmap_src.ipv6))
+			SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
+	}
+
 	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
@@ -2903,6 +2964,9 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 
 	/* Process nexthops one-by-one */
 	for ( ; nexthop; nexthop = nexthop->next) {
+		/* If this NH carries labels, set SKIP_NHE_CACHE */
+		if (nexthop->nh_label && nexthop->nh_label->num_labels)
+			SET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 
 		/* No protocol daemon provides src and so we're skipping
 		 * tracking it
@@ -3213,9 +3277,96 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	afi_t rt_afi = family2afi(rn->p.family);
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+	/* Reset skip-cache flag; will be set again if we encounter
+	 * labels or policies during slow-path resolution
+	 */
+	UNSET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
 
-	/* Make a local copy of the existing nhe, so we don't work on/modify
-	 * the shared nhe.
+	/* Fast-path check using nhe_received cache.
+	 * Use the cached resolved_nhe if it is valid and has no rmap modifications
+	 * cache validity is determined by the cache_gen_num and global_nh_epoch
+	 */
+	if (re->nhe_received && re->nhe_received->cache_gen_num == global_nh_epoch &&
+	    re->nhe_received->resolved_nhe_id != 0) {
+		struct nhg_hash_entry *cached =
+			zebra_nhg_lookup_id(re->nhe_received->resolved_nhe_id);
+		bool use_slow_path = false;
+
+		if (cached) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+			/*
+			 * If label stack changed during label processing in this re->nhe,
+			 * force slow-path and increment the global epoch so that any cached
+			 * users of this NHE can invalidate and re-resolve on the next pass.
+			 */
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
+				use_slow_path = true;
+				global_nh_epoch++;
+			}
+
+			/* Check if route-map would modify nexthops */
+			if (!use_slow_path && zvrf &&
+			    (PROTO_RM_MAP(zvrf, rt_afi, re->type) ||
+			     PROTO_RM_MAP(zvrf, rt_afi, ZEBRA_ROUTE_ALL))) {
+				const struct prefix *p, *src_p;
+				bool rmap_src_changed = false;
+
+				srcdest_rnode_prefixes(rn, &p, &src_p);
+
+				for (struct nexthop *nh = cached->nhg.nexthop; nh; nh = nh->next) {
+					struct nexthop tmp = *nh;
+
+					memset(&tmp.rmap_src, 0, sizeof(tmp.rmap_src));
+
+					route_map_result_t ret =
+						zebra_route_map_check(rt_afi, re, p, &tmp, zvrf);
+
+					/* Check for route-map deny or flag modifications */
+					if (ret == RMAP_DENYMATCH || tmp.flags != nh->flags) {
+						use_slow_path = true;
+						break;
+					}
+
+					if (rt_afi == AFI_IP)
+						rmap_src_changed = (tmp.rmap_src.ipv4.s_addr !=
+								    nh->rmap_src.ipv4.s_addr);
+					else if (rt_afi == AFI_IP6)
+						rmap_src_changed =
+							!IPV6_ADDR_SAME(&tmp.rmap_src.ipv6,
+									&nh->rmap_src.ipv6);
+					if (rmap_src_changed) {
+						use_slow_path = true;
+						break;
+					}
+				}
+			}
+
+			if (!use_slow_path) {
+				/* Fast path: reuse cached resolved NHE */
+				route_entry_update_nhe(re, cached);
+				uint32_t active_count = 0;
+				unsigned int nh_total = 0;
+
+				for (struct nexthop *nh = cached->nhg.nexthop; nh; nh = nh->next) {
+					nh_total++;
+					if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE))
+						active_count++;
+				}
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+					zlog_debug("%s fastpath-adopt: %pRN %pFX re=%p rng=%u adopt=%u cached_flags=0x%x nh_total=%u nh_active=%u global=%u",
+						   __func__, rn, &rn->p, re,
+						   re->nhe_received ? re->nhe_received->id : 0,
+						   cached->id, cached->flags, nh_total,
+						   active_count, global_nh_epoch);
+				}
+				return active_count;
+			}
+		}
+	}
+
+	/* Slow path: Make a local copy of the existing nhe, so we don't
+	 * work on/modify the shared nhe directly.
 	 */
 	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
 
@@ -3282,6 +3433,30 @@ backups_done:
 		route_entry_update_nhe(re, new_nhe);
 	}
 
+	/* Do the NHG Caching now - only if
+	 * - The resolved NHE is different from received NHE (actual resolution happened)
+	 * - The incoming route is using RNH - to avoid issues with recursive NHs
+	 * - The NHG is zebra-owned (ZEBRA_ROUTE_NHG)
+	 * - The resolved NHE has no labels on any nexthop
+	 * Cache invalidation is handled by global_nh_epoch bumps when:
+	 * - Routes that other protocols track (via RNH) change (rib_process)
+	 * - Route-map configuration changes (zebra_route_map_process_update_cb)
+	 * - Interface up/down events (if_up, if_down)
+	 * - Interface address add/delete (for connected routes)
+	 * - Label updates in the NHG (mpls_zebra_nhe_update)
+	 */
+	if (re->nhe_received && re->nhe_received->type == ZEBRA_ROUTE_NHG &&
+	    !CHECK_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE) &&
+	    re->nhe_received->id != re->nhe->id && re->type != ZEBRA_ROUTE_SHARP &&
+	    re->type != ZEBRA_ROUTE_ISIS && !CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
+		re->nhe_received->resolved_nhe_id = re->nhe->id;
+		re->nhe_received->cache_gen_num = global_nh_epoch;
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+			zlog_debug("%s slowpath-cache-write: %pRN rng=%u -> ing=%u global=%u",
+				   __func__, rn, re->nhe_received->id, re->nhe->id,
+				   global_nh_epoch);
+		}
+	}
 
 	/* Walk the NHE depends tree and toggle NEXTHOP_GROUP_VALID
 	 * flag where appropriate.
@@ -3295,6 +3470,10 @@ backups_done:
 	 * used at all.
 	 */
 	zebra_nhg_free(curr_nhe);
+
+	/* Done with the resolution. Reset the transient flag */
+	UNSET_FLAG(re->status, ROUTE_ENTRY_SKIP_NHE_CACHE);
+
 	return curr_active;
 }
 
