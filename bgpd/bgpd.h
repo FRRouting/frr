@@ -670,6 +670,11 @@ struct bgp {
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 
+/* Use source (ultimate) VRF attributes instead of current (imported) attributes
+ * for bestpath comparison of imported routes.
+ */
+#define BGP_FLAG_BESTPATH_USE_SRC_ATTRS (1ULL << 45)
+
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
 	 */
