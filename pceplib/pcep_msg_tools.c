@@ -420,6 +420,9 @@ void pcep_obj_free_object(struct pcep_object_header *obj)
 
 void pcep_msg_free_message(struct pcep_message *message)
 {
+	if (message == NULL)
+		return;
+
 	/* Iterate the objects and free each one */
 	if (message->obj_list != NULL) {
 		struct pcep_object_header *obj;
