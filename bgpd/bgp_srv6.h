@@ -132,6 +132,8 @@ void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi);
 void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc);
 void bgp_srv6_per_locator_cache_forget_sids(struct bgp *bgp);
 void bgp_srv6_per_locator_cache_get_locators(struct bgp *bgp);
+void bgp_srv6_per_locator_cache_flush(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi,
+				      const char *locator_name);
 struct bgp_srv6_per_locator_cache *
 bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name);
 void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc);
