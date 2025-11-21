@@ -1072,10 +1072,14 @@ void pim_instance_mlag_terminate(struct pim_instance *pim)
 
 void pim_mlag_terminate(void)
 {
-	stream_free(router->mlag_stream);
-	router->mlag_stream = NULL;
-	stream_fifo_free(router->mlag_fifo);
-	router->mlag_fifo = NULL;
+	if (router->mlag_stream) {
+		stream_free(router->mlag_stream);
+		router->mlag_stream = NULL;
+	}
+	if (router->mlag_fifo) {
+		stream_fifo_free(router->mlag_fifo);
+		router->mlag_fifo = NULL;
+	}
 }
 
 void pim_mlag_init(void)
