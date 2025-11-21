@@ -1511,7 +1511,10 @@ enum netlink_msg_status netlink_batch_add_msg(
 	int seq;
 	ssize_t size;
 	struct nlmsghdr *msgh;
-	struct nlsock *nl;
+	struct nlsock *nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+
+	if (!nl || nl->sock < 0 || !nl->buf)
+		return FRR_NETLINK_ERROR;
 
 	size = (*msg_encoder)(ctx, bth->buf_head, bth->bufsiz - bth->curlen);
 
@@ -1539,7 +1542,6 @@ enum netlink_msg_status netlink_batch_add_msg(
 	}
 
 	seq = dplane_ctx_get_ns(ctx)->seq;
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	if (ignore_res)
 		seq++;
