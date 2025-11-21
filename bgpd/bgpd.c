@@ -1763,7 +1763,16 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	return NULL;
 }
 
-/* Allocate new peer object, implicitly locked.  */
+char *bgp_srv6_locator_name_lookup(struct bgp *bgp_vrf, struct bgp *bgp)
+{
+	if (bgp_vrf && bgp_vrf->srv6_locator_name[0] != '\0')
+		return bgp_vrf->srv6_locator_name;
+	if (bgp && bgp->srv6_locator_name[0] != '\0')
+		return bgp->srv6_locator_name;
+	return NULL;
+}
+
+/* Allocate new peer object, implicitely locked.  */
 struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir)
 {
 	afi_t afi;

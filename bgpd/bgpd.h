@@ -3472,6 +3472,7 @@ void bgp_clearing_batch_end_event_start(struct bgp *bgp);
 
 bool bgp_srv6_locator_is_configured(struct bgp *bgp);
 struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bgp);
+char *bgp_srv6_locator_name_lookup(struct bgp *bgp_vrf, struct bgp *bgp);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
