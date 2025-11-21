@@ -215,9 +215,10 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
 
-	if (reflect
-	    && !CHECK_FLAG(to->af_flags[afi][safi],
-			   PEER_FLAG_FORCE_NEXTHOP_SELF))
+	if (reflect &&
+	    !CHECK_FLAG(to->af_flags[afi][safi],
+			PEER_FLAG_FORCE_NEXTHOP_SELF) &&
+	    !CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
 		return remote_label;
 
 	if (CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
