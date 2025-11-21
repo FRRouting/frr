@@ -22,6 +22,11 @@ static inline bool is_srv6_unicast_enabled(struct bgp *bgp, afi_t afi)
 int bgp_srv6_per_locator_cache_cmp(const struct bgp_srv6_per_locator_cache *a,
 				   const struct bgp_srv6_per_locator_cache *b);
 
+struct bgp_srv6_vpn_policy {
+	struct srv6_locator *tovpn_sid_locator;
+	struct in6_addr *tovpn_sid;
+};
+
 struct bgp_srv6_per_locator_cache {
 	/* RB-tree entry. */
 	struct bgp_srv6_per_locator_cache_item entry;
@@ -40,6 +45,14 @@ struct bgp_srv6_per_locator_cache {
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_srv6_per_locator_cache_head *tree;
+
+	/* each instance per AFI, per BGP will perform SID allocation
+	 * the tuple (VRF, family, locator) will return a unique SID
+	 * lets consider auto mode is default
+	 * XXX extend here if we want to support multiple allocation modes
+	 */
+	afi_t afi;
+	struct bgp_srv6_vpn_policy sid_policy;
 
 	time_t last_update;
 	bool allocation_in_progress;
@@ -71,5 +84,7 @@ void bgp_srv6_locator_per_routemap_init(void);
 void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi);
 struct bgp_srv6_per_locator_cache *
 bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name);
+void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
+				struct srv6_locator *locator);
 
 #endif /* _BGP_SRV6_H_ */

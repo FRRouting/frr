@@ -595,3 +595,53 @@ void bgp_srv6_locator_per_routemap_init(void)
 {
 	install_element(VIEW_NODE, &show_bgp_srv6_locator_per_routemap_cmd);
 }
+
+/* attempt to withdraw exported vpn path - code derived from vpn_leak_from_vrf_withdraw_all() */
+void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
+				struct srv6_locator *locator)
+{
+	struct bgp_dest *pdest, *bn = NULL;
+	struct bgp_table *table;
+	struct prefix_ipv6 tmp_prefix;
+	struct bgp_path_info *bpi;
+	bool process_pdest;
+
+	assert(bgp);
+	if (p == NULL)
+		return;
+
+	for (pdest = bgp_table_top(bgp_get_default()->rib[afi][SAFI_MPLS_VPN]); pdest;
+	     pdest = bgp_route_next(pdest)) {
+		/* This is the per-RD table of prefixes */
+		table = bgp_dest_get_bgp_table_info(pdest);
+		if (table)
+			bn = bgp_node_lookup(table, p);
+		if (!bn)
+			continue;
+		bpi = bgp_dest_get_bgp_path_info(bn);
+		process_pdest = false;
+		for (; bpi; bpi = bpi->next) {
+			if (bpi->sub_type != BGP_ROUTE_IMPORTED)
+				continue;
+			/* Srv6 should match */
+			if (!bpi->attr->srv6_l3service)
+				continue;
+			/* Verify that the received SID belongs to the configured locator */
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			IPV6_ADDR_COPY(&tmp_prefix.prefix, &bpi->attr->srv6_l3service->sid);
+
+			if (!prefix_match((struct prefix *)&locator->prefix,
+					  (struct prefix *)&tmp_prefix))
+				continue;
+			vpn_leak_to_vrf_withdraw(bpi);
+			bgp_aggregate_decrement(bgp_get_default(), bgp_dest_get_prefix(bn), bpi,
+						afi, SAFI_MPLS_VPN);
+			bgp_path_info_delete(bn, bpi);
+			process_pdest = true;
+			/* no need to handle mpls function */
+		}
+		if (process_pdest)
+			bgp_process(bgp, bn, afi, SAFI_MPLS_VPN);
+	}
+}
