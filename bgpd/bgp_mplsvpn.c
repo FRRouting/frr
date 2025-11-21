@@ -1938,6 +1938,17 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		}
 		bslc = path_vrf->srv6_vpn.bslc;
 		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
+			if (bgp_srv6_locator_name_lookup(from_bgp, to_bgp) &&
+			    strmatch(dummy_rmap_path_extra.srv6_locator,
+				     bgp_srv6_locator_name_lookup(from_bgp, to_bgp)) &&
+			    (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
+					BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
+				UNSET_FLAG(static_attr.rmap_change_flags,
+					   BATTR_RMAP_SRV6_LOCATOR_CHANGED);
+				bgp_srv6_per_locator_unlink(path_vrf);
+			}
+		}
+		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
 			if ((bslc &&
 			     strcmp(bslc->locator_name, dummy_rmap_path_extra.srv6_locator)) ||
 			    !bslc) {
