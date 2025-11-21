@@ -1041,6 +1041,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
 			fd, errno, safe_strerror(errno));
 		close(fd);
+		mroute_read_off(pim);
 		pim->mroute_socket = -1;
 		return -3;
 	}

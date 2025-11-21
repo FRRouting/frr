@@ -688,8 +688,9 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		    (PIM_UPSTREAM_FLAG_TEST_FHR(upstream->flags) && i_am_rp) ||
 		    ((SwitchToSptDesiredOnRp(pim, &sg)) &&
 		     pim_upstream_inherited_olist(pim, upstream) == 0)) {
-			zlog_debug("sending pim register stop message :  %s ",
-				   upstream->sg_str);
+			if (PIM_DEBUG_PIM_REG)
+				zlog_debug("sending pim register stop message :  %s ",
+					   upstream->sg_str);
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {

@@ -946,8 +946,6 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 
 	if (enable)
 		vxlan_mlag.flags |= PIM_VXLAN_MLAGF_ENABLED;
-	else
-		vxlan_mlag.flags &= ~PIM_VXLAN_MLAGF_ENABLED;
 
 	if (vxlan_mlag.peerlink_rif != peerlink_rif)
 		vxlan_mlag.peerlink_rif = peerlink_rif;
@@ -959,11 +957,15 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 	/* process changes */
 	if (vxlan_mlag.peerlink_rif)
 		pim_ifp = (struct pim_interface *)vxlan_mlag.peerlink_rif->info;
-	if ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
-			pim_ifp && (pim_ifp->mroute_vif_index > 0))
+	if (enable && pim_ifp && (pim_ifp->mroute_vif_index > 0))
 		pim_vxlan_set_peerlink_rif(pim, peerlink_rif);
-	else
+	else {
 		pim_vxlan_set_peerlink_rif(pim, NULL);
+
+		/*unset should be done only after peerlinks rif are unset*/
+		if (!enable)
+			vxlan_mlag.flags &= ~PIM_VXLAN_MLAGF_ENABLED;
+	}
 }
 
 /****************************** misc callbacks *******************************/
