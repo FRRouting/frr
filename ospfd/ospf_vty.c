@@ -6317,14 +6317,10 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa,
 	if (!json) {
 		if (IS_LSA_SELF(lsa))
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
-					? "(S-DNA)"
-					: "");
+				IS_LSA_AGE_DNA(lsa) ? "(S-DNA)" : "");
 		else
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
-					? "(DNA)"
-					: "");
+				IS_LSA_AGE_DNA(lsa) ? "(DNA)" : "");
 		vty_out(vty, "  Options: 0x%-2x : %s\n", lsa->data->options,
 			ospf_options_dump(lsa->data->options));
 		vty_out(vty, "  LS Flags: 0x%-2x %s\n", lsa->flags,

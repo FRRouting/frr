@@ -205,10 +205,13 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 #define GET_METRIC(x) get_metric(x)
 #define IS_EXTERNAL_METRIC(x)   ((x) & 0x80)
 
-#define GET_AGE(x)     (ntohs ((x)->data->ls_age) + time (NULL) - (x)->tv_recv)
 #define LS_AGE(x) (OSPF_LSA_MAXAGE < get_age(x) ? OSPF_LSA_MAXAGE : get_age(x))
-#define IS_LSA_SELF(L)          (CHECK_FLAG ((L)->flags, OSPF_LSA_SELF))
-#define IS_LSA_MAXAGE(L)        (LS_AGE ((L)) == OSPF_LSA_MAXAGE)
+#define LS_AGE_RAW(L)	  (ntohs((L)->data->ls_age) & ~DO_NOT_AGE)
+#define LS_AGE_SET(L, age) ((L)->data->ls_age = \
+							IS_LSA_AGE_DNA((L)) | htons(age))
+#define IS_LSA_SELF(L)	  (CHECK_FLAG((L)->flags, OSPF_LSA_SELF))
+#define IS_LSA_MAXAGE(L)  (LS_AGE((L)) == OSPF_LSA_MAXAGE)
+#define IS_LSA_AGE_DNA(L) (CHECK_FLAG((L)->data->ls_age, htons(DO_NOT_AGE)))
 #define IS_LSA_MAX_SEQ(L)                                                      \
 	((L)->data->ls_seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER))
 
