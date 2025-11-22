@@ -44,13 +44,11 @@ void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf)
 	struct ospf_lsa *lsa = NULL;
 
 	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-		if (IS_LSA_SELF(lsa) &&
-		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+		if (IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa))
 			ospf_lsa_refresh(ospf, lsa);
 
 	LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
-		if (IS_LSA_SELF(lsa) &&
-		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+		if (IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa))
 			ospf_lsa_refresh(ospf, lsa);
 }
 
@@ -404,9 +402,9 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (current != NULL) /* -- endo. */
 	{
 		if (IS_LSA_SELF(current)
-		    && (ntohs(current->data->ls_age) == 0
-			&& ntohl(current->data->ls_seqnum)
-				   == OSPF_INITIAL_SEQUENCE_NUMBER)) {
+		    && LS_AGE_RAW(current) == OSPF_LSA_INITIAL_AGE
+		    && ntohl(current->data->ls_seqnum)
+					== OSPF_INITIAL_SEQUENCE_NUMBER) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"%s:LSA[Flooding]: Got a self-originated LSA, while local one is initial instance.",
@@ -617,7 +615,7 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		 * self lsas.
 		 */
 		if (oi->area->fr_info.enabled)
-			SET_FLAG(lsa->data->ls_age, DO_NOT_AGE);
+			SET_FLAG(lsa->data->ls_age, htons(DO_NOT_AGE));
 	}
 
 	/* Remember if new LSA is added to a retransmit list. */

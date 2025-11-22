@@ -1592,8 +1592,9 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		 * What if the received LSA's age is greater than MaxAge?
 		 * Treat it as a MaxAge case -- endo.
 		 */
-		if (ntohs(lsah->ls_age) > OSPF_LSA_MAXAGE)
-			lsah->ls_age = htons(OSPF_LSA_MAXAGE);
+		uint16_t ls_age = ntohs(lsah->ls_age);
+		if ((ls_age & ~DO_NOT_AGE) > OSPF_LSA_MAXAGE)
+			lsah->ls_age = htons(OSPF_LSA_MAXAGE | (ls_age & DO_NOT_AGE));
 
 		if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
 #ifdef STRICT_OBIT_USAGE_CHECK

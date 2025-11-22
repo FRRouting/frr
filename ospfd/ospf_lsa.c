@@ -82,9 +82,7 @@ uint32_t get_metric(uint8_t *metric)
  */
 bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
 {
-	return ((IS_LSA_SELF(lsa) && CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
-			? true
-			: false);
+	return ((IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa)) ? true : false);
 }
 
 struct timeval msec2tv(int a)
@@ -145,11 +143,11 @@ int get_age(struct ospf_lsa *lsa)
 	 */
 
 	/* If LSA is marked as donotage */
-	if (CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE) && !IS_LSA_SELF(lsa))
-		return ntohs(lsa->data->ls_age);
+	if (IS_LSA_AGE_DNA(lsa) && !IS_LSA_SELF(lsa))
+		return LS_AGE_RAW(lsa);
 
 	monotime_since(&lsa->tv_recv, &rel);
-	return ntohs(lsa->data->ls_age) + rel.tv_sec;
+	return LS_AGE_RAW(lsa) + rel.tv_sec;
 }
 
 
