@@ -1050,6 +1050,130 @@ static void unsetsids(struct bgp_path_info *bpi)
 	memset(extra->sid, 0, sizeof(extra->sid));
 }
 
+/* Extract vnet_id from VRF name of the form "segment<id>".
+ * Returns >=0 on success, -1 on failure.
+ */
+static int vrf_name_get_vnet_id(const char *name)
+{
+	const char *p;
+	long id;
+	char *end;
+
+	if (!name)
+		return -1;
+
+	/* Skip optional leading "VRF " */
+	if (strncmp(name, "VRF ", 4) == 0)
+		p = name + 4;
+	else
+		p = name;
+
+	/* Trim leading spaces */
+	while (*p == ' ')
+		++p;
+
+	if (strncmp(p, "segment", 7) != 0)
+		return -1;
+
+	p += 7; /* now at first digit */
+
+	if (!isdigit((unsigned char)*p))
+		return -1;
+
+	id = strtol(p, &end, 10);
+
+	/* Allow trailing spaces only */
+	while (*end == ' ')
+		++end;
+
+	if (*end != '\0')
+		return -1;
+
+	if (id < 0 || id > 0xFFFFFFFF)
+		return -1;
+
+	return (int)id;
+}
+
+/* Check for an RT exactly matching: <local-AS>:<vnet_id>
+ * (vnet_id derived from VRF name "segment<id>").
+ * Accept both 2-byte and 4-byte AS encodings.
+ * For ECOMMUNITY_ENCODE_AS:
+ *   Global Admin = 2-byte AS
+ *   Local  Admin = 4-byte value
+ * For ECOMMUNITY_ENCODE_AS4:
+ *   Global Admin = 4-byte AS
+ *   Local  Admin = 2-byte value
+ */
+static bool leak_has_local_rt_vnet(const struct attr *attr,
+				const struct bgp *to_bgp,
+				const struct prefix *prefix,
+				int debug)
+{
+	const struct ecommunity *ec;
+	const uint8_t *p;
+	uint32_t i;
+	as_t local_as;
+	int vnet_id;
+
+	if (!attr || !to_bgp)
+		return false;
+
+	vnet_id = vrf_name_get_vnet_id(to_bgp->name_pretty);
+	if (vnet_id < 0)
+		return false;
+
+	local_as = to_bgp->as;
+	if (!local_as)
+		return false;
+
+	if (debug)
+                zlog_debug("%s: %pFX nexthop local AS %d vnet id %d", __func__, prefix,
+                           local_as, vnet_id);
+
+	ec = bgp_attr_get_ecommunity(attr);
+	if (!ec || !ec->size || ec->unit_size != ECOMMUNITY_SIZE)
+		return false;
+
+	p = ec->val;
+	for (i = 0; i < ec->size; i++, p += ec->unit_size) {
+		uint8_t type = p[0];
+		uint8_t sub  = p[1];
+
+		if (sub != ECOMMUNITY_ROUTE_TARGET)
+			continue;
+
+		if (type == ECOMMUNITY_ENCODE_AS && local_as <= 0xFFFF) {
+			as_t asn = ((as_t)p[2] << 8) | (as_t)p[3];
+			uint32_t local_admin = ((uint32_t)p[4] << 24) |
+						((uint32_t)p[5] << 16) |
+						((uint32_t)p[6] << 8)  |
+						(uint32_t)p[7];
+			if (debug)
+                                zlog_debug("ECOMM ENCODED in AS: asn %d local_admin %d",
+                                                asn, local_admin);
+			if (asn == (local_as & 0xFFFF) &&
+			    local_admin == (uint32_t)vnet_id)
+				return true;
+		} else if (type == ECOMMUNITY_ENCODE_AS4) {
+			as_t asn = ((as_t)p[2] << 24) |
+				((as_t)p[3] << 16) |
+				((as_t)p[4] << 8)  |
+				(as_t)p[5];
+			uint16_t local_admin = ((uint16_t)p[6] << 8) |
+						(uint16_t)p[7];
+			if (debug)
+                                zlog_debug("ECOMM ENCODED in AS4: asn %d local_admin %d",
+                                                asn, local_admin);
+			if (asn == local_as &&
+				local_admin == (uint16_t)(vnet_id & 0xFFFF))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 				      struct attr *new_attr, afi_t afi,
 				      safi_t safi,
@@ -1095,6 +1219,14 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	if (to_bgp->srv6_enabled &&
 	    (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
 		nh_valid = false;
+	}
+
+	/* Force valid if RT matches <local-as>:<vnet_id> derived from VRF name */
+	if (!nh_valid && leak_has_local_rt_vnet(new_attr, to_bgp, p, debug)) {
+		nh_valid = true;
+		if (debug)
+			zlog_debug("%s: %pFX forcing VALID local-AS match (AS %u) segment  %s",
+			__func__, p, to_bgp->as, bgp_nexthop->name_pretty);
 	}
 
 	if (debug)
