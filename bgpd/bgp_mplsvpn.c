@@ -1128,8 +1128,8 @@ static bool leak_has_local_rt_vnet(const struct attr *attr,
 		return false;
 
 	if (debug)
-                zlog_debug("%s: %pFX nexthop local AS %d vnet id %d", __func__, prefix,
-                           local_as, vnet_id);
+		zlog_debug("%s: %pFX nexthop local AS %d vnet id %d", __func__, prefix,
+				local_as, vnet_id);
 
 	ec = bgp_attr_get_ecommunity(attr);
 	if (!ec || !ec->size || ec->unit_size != ECOMMUNITY_SIZE)
@@ -1150,8 +1150,8 @@ static bool leak_has_local_rt_vnet(const struct attr *attr,
 						((uint32_t)p[6] << 8)  |
 						(uint32_t)p[7];
 			if (debug)
-                                zlog_debug("ECOMM ENCODED in AS: asn %d local_admin %d",
-                                                asn, local_admin);
+				zlog_debug("ECOMM ENCODED in AS: asn %d local_admin %d",
+						asn, local_admin);
 			if (asn == (local_as & 0xFFFF) &&
 			    local_admin == (uint32_t)vnet_id)
 				return true;
@@ -1163,8 +1163,8 @@ static bool leak_has_local_rt_vnet(const struct attr *attr,
 			uint16_t local_admin = ((uint16_t)p[6] << 8) |
 						(uint16_t)p[7];
 			if (debug)
-                                zlog_debug("ECOMM ENCODED in AS4: asn %d local_admin %d",
-                                                asn, local_admin);
+				zlog_debug("ECOMM ENCODED in AS4: asn %d local_admin %d",
+						asn, local_admin);
 			if (asn == local_as &&
 				local_admin == (uint16_t)(vnet_id & 0xFFFF))
 				return true;
