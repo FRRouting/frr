@@ -30,6 +30,8 @@ import sys
 import time
 import pytest
 from copy import deepcopy
+import functools
+from lib import topotest
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -1337,7 +1339,10 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
     aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
+        test_func = functools.partial(
+            verify_bgp_rib, tgen, addr_type, dut, input_static_r1, aspath=aspath
+        )
+        result, _ = topotest.run_and_expect(test_func, True, count=60, wait=1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
