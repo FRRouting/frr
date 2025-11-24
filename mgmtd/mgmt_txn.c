@@ -638,9 +638,14 @@ void mgmt_txn_handle_error_reply(struct mgmt_be_client_adapter *adapter, uint64_
 		return;
 	}
 
-	TAILQ_FOREACH (txn_req, &txn->reqs, link)
-		if (txn_req->req_id == req_id)
+	TAILQ_FOREACH (txn_req, &txn->reqs, link) {
+		/* Clients do not set req_id for commit errors yet there's only
+		 * one so this works for now. */
+		if (req_id == 0 && txn_req->req_type == TXN_REQ_TYPE_COMMIT)
 			break;
+		else if (txn_req->req_id == req_id)
+			break;
+	}
 	if (!txn_req) {
 		_log_err("Error reply from %s for txn-id %Lu cannot find req_id %Lu",
 			 adapter->name, txn_id, req_id);
