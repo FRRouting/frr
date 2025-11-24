@@ -311,8 +311,6 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 
 			darr_ensure_i(cfg_msgs, id);
 			darr_ensure_i(cfg_actions, id);
-			if (DEBUG_MODE_CHECK(&mgmt_debug_txn, DEBUG_MODE_ALL))
-				darr_ensure_i(num_cfg_data, id);
 			if (!cfg_msgs[id]) {
 				/* Allocate a new config message */
 				struct mgmt_msg_cfg_req *msg;
@@ -337,6 +335,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 			if (op == 'm')
 				mgmt_msg_native_add_str(cfg_msgs[id], value);
 			if (DEBUG_MODE_CHECK(&mgmt_debug_txn, DEBUG_MODE_ALL)) {
+				darr_ensure_i(num_cfg_data, id);
 				num_cfg_data[id]++;
 				_dbg(" -- %s item: %Lu", adapter->name, num_cfg_data[id]);
 			}
@@ -392,6 +391,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 	/* Send the messages to the backends */
 	FOREACH_BE_ADAPTER_BITS (id, adapter, ccreq->clients) {
 		/* NUL terminate actions string and add to tail of message */
+		darr_ensure_i(cfg_actions, id); /* required for clang SA NULL ptr check */
 		darr_push(cfg_actions[id], 0);
 		mgmt_msg_native_add_str(cfg_msgs[id], cfg_actions[id]);
 		_dbg("Finished CFG_REQ for '%s' txn-id: %Lu with actions: %s", adapter->name,
@@ -497,7 +497,7 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	bool success, apply_op, accept_changes, discard_changes;
 	struct txn_req *txn_req = as_txn_req(ccreq);
 	struct mgmt_txn *txn = txn_req->txn;
-	int ret;
+	int ret = 0;
 
 	success = (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES);
 
@@ -542,7 +542,7 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 		 */
 		if (!--txn_init_readers)
 			mgmt_ds_unlock(ccreq->dst_ds_ctx, 0);
-		ret = 0;
+		TXN_DECREF(txn);
 	} else if (ccreq->rollback) {
 		/*
 		 * Resume processing the rollback command.
@@ -552,14 +552,18 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 		 * can do the right thing.
 		 */
 		mgmt_history_rollback_complete(success);
-		ret = 0;
-	} else if (!ccreq->edit)
-		/* This means we are in the mgmtd CLI vty code */
+		TXN_DECREF(txn);
+	} else if (!ccreq->edit) {
+		/*
+		 * This means we are in the mgmtd CLI vty code -- session code
+		 * will release it's reference on the TXN
+		 */
 		ret = mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id, ccreq->src_ds_id,
 						    ccreq->dst_ds_id, txn_req->req_id,
 						    ccreq->validate_only, ccreq->unlock_info,
 						    result, error_if_any);
-	else {
+	} else {
+		/* Session code will release it's reference on the TXN */
 		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
 						      txn_req->req_id, ccreq->unlock_info,
 						      true /* commit */, &ccreq->edit,
@@ -572,14 +576,6 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 
 	ccreq->cmt_stats = NULL;
 	txn_req_free(txn_req);
-
-	/*
-	 * The CONFIG Transaction should be destroyed from Frontend-adapter.
-	 * But in case the transaction is not triggered from a front-end session
-	 * we need to cleanup by itself.
-	 */
-	if (!txn->session_id)
-		TXN_DECREF(txn);
 }
 
 /* ---------------------- */
