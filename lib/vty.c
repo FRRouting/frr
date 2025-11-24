@@ -2423,6 +2423,7 @@ static void vtysh_read(struct event *event)
 		/* Clear command line buffer. */
 		vty->cp = vty->length = 0;
 		vty_clear_buf(vty);
+		flog_err(EC_LIB_VTY, "Command too long (%d bytes): %.80s...", nbytes, buf);
 		vty_out(vty, "%% Command is too long.\n");
 	} else {
 		for (p = buf; p < buf + nbytes; p++) {
