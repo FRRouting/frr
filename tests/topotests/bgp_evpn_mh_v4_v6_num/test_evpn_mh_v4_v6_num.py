@@ -539,6 +539,12 @@ def tgen_and_ip_version(request):
         # Load unified frr.conf from the IP-version specific config directory
         router.load_frr_config(os.path.join(config_dir, "{}/frr.conf".format(rname)))
 
+    # For torm11 we want to exercise config application via frr-reload.py
+    # instead of the default "vtysh -f /etc/frr/frr.conf" path in Router.startRouter.
+    torm11 = router_list.get("torm11")
+    if torm11 is not None:
+        torm11.skip_unified_vtysh = True
+
     logger.info("Starting all routers...")
     tgen.start_router()
 
@@ -552,6 +558,30 @@ def tgen_and_ip_version(request):
         if status:
             logger.error("Router %s has issues: %s", rname, status)
             pytest.fail("Router {} failed to start properly: {}".format(rname, status))
+
+    # Explicitly exercise frr-reload on torm11 using the unified frr.conf.
+    # Run this inside the torm11 namespace so that vtysh talks to the correct daemons.
+    if torm11 is not None:
+        logger.info("Running frr-reload.py on torm11 unified config")
+        cmd = "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf"
+        # Run inside the torm11 namespace (TopoRouter.net is the underlying node)
+        rc, out, err = torm11.net.cmd_status(cmd, warn=False)
+        if rc:
+            logger.error(
+                "frr-reload failed on torm11 (rc=%s): stdout=%s stderr=%s",
+                rc,
+                out,
+                err,
+            )
+            pytest.fail("frr-reload failed on torm11 (rc={})".format(rc))
+
+        # Sanity check that all expected daemons on torm11 are still healthy
+        status = torm11.check_router_running()
+        if status:
+            logger.error("Router torm11 has issues after frr-reload: %s", status)
+            pytest.fail(
+                "Router torm11 failed health-check after frr-reload: {}".format(status)
+            )
 
     # Configure hosts
     hosts = ["hostd11", "hostd12", "hostd21", "hostd22"]
