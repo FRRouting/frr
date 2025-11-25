@@ -247,7 +247,7 @@ ISIS interface
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: isis metric [level-1 | level-2] [(0-255) | (0-16777215)]
+.. clicmd:: isis metric [level-1 | level-2] [(0-63) | (0-16777215)]
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
