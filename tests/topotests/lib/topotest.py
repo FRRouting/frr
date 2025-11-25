@@ -1494,6 +1494,12 @@ class Router(Node):
         # Individual tests can override this flag (e.g., to drive config via
         # tools/frr-reload.py instead).
         self.skip_unified_vtysh = False
+        # Control whether startRouter() flushes all IP addresses from kernel
+        # interfaces before daemons are started. Some tests intentionally
+        # manage all interface addresses via Linux iproute2 (not via FRR
+        # interface config); they can set this to True to prevent those
+        # addresses from being removed.
+        self.skip_remove_ips = False
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1816,8 +1822,16 @@ class Router(Node):
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
-        # Remove IP addresses from OS first - we have them in zebra.conf
-        self.removeIPs()
+        # Remove IP addresses from OS first - we have them in zebra.conf, unless
+        # this router is explicitly configured to manage addresses purely via
+        # Linux iproute2.
+        if not self.skip_remove_ips:
+            self.removeIPs()
+        else:
+            logger.info(
+                "%s: skipping initial IP address flush; addresses managed externally",
+                self.name,
+            )
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
         # No error - but return message and skip all the tests
         if self.daemons["ldpd"] == 1:
