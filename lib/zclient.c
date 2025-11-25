@@ -2347,7 +2347,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 {
 	uint32_t f, wf;
 	uint16_t len;
-	static char locator_name[SRV6_LOCNAME_SIZE] = {};
+	static char locator_name[SRV6_LOCNAME_SIZE];
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2369,6 +2369,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 		if (len == 0)
 			*p_locator_name = NULL;
 		else {
+			memset(locator_name, 0, sizeof(locator_name));
 			STREAM_GET(locator_name, s, len);
 			*p_locator_name = locator_name;
 		}
