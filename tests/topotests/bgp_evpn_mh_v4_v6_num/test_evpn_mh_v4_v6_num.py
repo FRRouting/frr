@@ -22,6 +22,7 @@ import os
 import sys
 import subprocess
 from functools import partial
+from ipaddress import ip_network
 
 import pytest
 import json
@@ -236,6 +237,60 @@ tor_uplink_ipv6 = {
         "torm22-eth1": "2001:db8:8::0/127",
     },
 }
+
+
+def _normalize_prefix_for_ip_show(prefix):
+    """
+    Given a prefix string as used in `ip -6 addr add` (e.g. "2001:db8:1::0/127"),
+    return the normalized form that `ip -6 addr show` prints (e.g. "2001:db8:1::/127").
+    """
+    try:
+        net = ip_network(prefix, strict=False)
+        return str(net)
+    except ValueError:
+        # Fallback: just return what we were given
+        return prefix
+
+
+def check_underlay_and_bgp_ipv6(dut, lo_prefix, uplink_prefixes, neighbors):
+    """
+    Generic helper to verify:
+
+    - Kernel IPv6 address on loopback matches `lo_prefix`
+    - Kernel IPv6 addresses on all uplink interfaces match `uplink_prefixes`
+    - All BGP IPv6 unicast neighbors in `neighbors` are Established
+    """
+
+    # Check loopback IPv6
+    lo_out = dut.run("ip -6 addr show dev lo")
+    if lo_prefix not in lo_out:
+        return f"{dut.name}: loopback IPv6 missing in kernel: {lo_out}"
+
+    # Check uplink IPv6 addresses
+    for ifname, prefix in uplink_prefixes.items():
+        expected = _normalize_prefix_for_ip_show(prefix)
+        out = dut.run(f"ip -6 addr show dev {ifname}")
+        if expected not in out:
+            return f"{dut.name}: {ifname} IPv6 missing in kernel: {out}"
+
+    # Check BGP IPv6 unicast neighbors
+    summary = dut.vtysh_cmd("show bgp ipv6 unicast summary json")
+    try:
+        js = json.loads(summary)
+    except Exception as exc:  # pragma: no cover - defensive
+        return f"{dut.name}: failed to parse BGP IPv6 summary json: {summary} ({exc})"
+
+    # Prefer modern layout, fall back if needed
+    peers = js.get("ipv6Unicast", {}).get("peers")
+    if not isinstance(peers, dict):
+        peers = js.get("peers", {}) if isinstance(js.get("peers"), dict) else {}
+
+    for neigh in neighbors:
+        state = peers.get(neigh, {}).get("state", "")
+        if state != "Established":
+            return f"{dut.name}: neighbor {neigh} not Established (state={state})"
+
+    return None
 
 
 def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
@@ -571,11 +626,23 @@ def tgen_and_ip_version(request):
         # Load unified frr.conf from the IP-version specific config directory
         router.load_frr_config(os.path.join(config_dir, "{}/frr.conf".format(rname)))
 
-    # For torm11 we want to exercise config application via frr-reload.py
-    # instead of the default "vtysh -f /etc/frr/frr.conf" path in Router.startRouter.
+    # For all TORs we now manage addresses directly via Linux iproute2 in
+    # config_tor(), not via FRR interface configuration. Prevent startRouter()
+    # from flushing those kernel IPs, and for torm11 specifically, exercise
+    # config application via frr-reload.py instead of the default
+    # "vtysh -f /etc/frr/frr.conf" path in Router.startRouter.
     torm11 = router_list.get("torm11")
-    if torm11 is not None:
-        torm11.skip_unified_vtysh = True
+    for tor_name in tors:
+        tor = router_list.get(tor_name)
+        if tor is None:
+            continue
+        # `tor` is a TopoRouter wrapper; the actual FRR router object is
+        # `tor.net` (topotest.Router). Apply flags there so that
+        # Router.startRouter() sees them.
+        nrouter = tor.net
+        nrouter.skip_remove_ips = True
+        if tor_name == "torm11":
+            nrouter.skip_unified_vtysh = True
 
     logger.info("Starting all routers...")
     tgen.start_router()
@@ -621,6 +688,21 @@ def tgen_and_ip_version(request):
 
     # Disable DAD on all interfaces (additional per-interface configuration)
     disable_dad_on_all_interfaces(tgen)
+
+    # Final underlay/BGP sanity check on torm11: verify that loopback/uplink
+    # IPv6 addresses are present in the kernel and that IPv6 BGP neighbors
+    # towards leaf1/leaf2 establish. This uses the generic helper so it can be
+    # reused for other routers/AFs if needed.
+    if torm11 is not None:
+        check_fn = partial(
+            check_underlay_and_bgp_ipv6,
+            torm11,
+            lo_prefix="2001:db8:100::15/128",
+            uplink_prefixes=tor_uplink_ipv6["torm11"],
+            neighbors=["2001:db8:1::1", "2001:db8:5::1"],
+        )
+        _, result = topotest.run_and_expect(check_fn, None, count=20, wait=3)
+        assert result is None, "torm11 underlay/BGP sanity failed: %s" % (result,)
 
     # Yield to tests
     yield tgen, ip_version
