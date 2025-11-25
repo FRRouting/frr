@@ -4986,7 +4986,12 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 		       sizeof(ip.ipaddr_v6));
 	} else {
 		SET_IPADDR_V4(&ip);
-		memcpy(&ip.ipaddr_v4, &pi->attr->nexthop, sizeof(ip.ipaddr_v4));
+		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+			memcpy(&ip.ipaddr_v4, &pi->attr->mp_nexthop_global_in,
+			       sizeof(ip.ipaddr_v4));
+		else
+			memcpy(&ip.ipaddr_v4, &pi->attr->nexthop, sizeof(ip.ipaddr_v4));
 	}
 
 	nh = bgp_evpn_nh_find(bgp_vrf, &ip);
