@@ -554,7 +554,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug(
-			"local ES %s vni %u route-type %s nexthop %pI4 delete",
+			"local ES %s vni %u route-type %s nexthop %pIA delete",
 			es->esi_str, vpn ? vpn->vni : 0,
 			p->prefix.route_type == BGP_EVPN_ES_ROUTE
 				? "esr"
@@ -730,7 +730,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	if (ret != 0)
 		flog_err(
 			EC_BGP_ES_INVALID,
-			"%u ERROR: Failed to updated ES route ESI: %s VTEP %pI4",
+			"%u ERROR: Failed to updated ES route ESI: %s VTEP %pIA",
 			bgp->vrf_id, es->esi_str, &es->originator_ip);
 
 	assert(pi);
