@@ -1489,6 +1489,11 @@ class Router(Node):
         self.hasmpls = False
         self.routertype = "frr"
         self.unified_config = False
+        # Control how unified configs are initially rendered. By default we
+        # render /etc/frr/frr.conf via "vtysh -f" after daemons are up.
+        # Individual tests can override this flag (e.g., to drive config via
+        # tools/frr-reload.py instead).
+        self.skip_unified_vtysh = False
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1902,7 +1907,18 @@ class Router(Node):
                 )
                 return "Datastores are locked, cannot proceed with config load"
 
-            self.cmd("vtysh -f /etc/frr/frr.conf")
+            # By default, render frr.conf into the running config via vtysh.
+            # Tests that want to drive config via frr-reload.py (or other
+            # mechanisms) can set skip_unified_vtysh = True on the router
+            # instance before calling start_router().
+            if not self.skip_unified_vtysh:
+                self.cmd("vtysh -f /etc/frr/frr.conf")
+            else:
+                logger.info(
+                    "%s: skipping initial 'vtysh -f /etc/frr/frr.conf'; "
+                    "config will be applied externally (e.g., via frr-reload.py)",
+                    self.name,
+                )
 
         return status
 
