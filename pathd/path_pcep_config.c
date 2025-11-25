@@ -13,6 +13,7 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_config.h"
 #include "pathd/path_pcep_debug.h"
+#include "pathd/path_zebra.h"
 #include "frrevent.h"
 
 #define MAX_XPATH 256
@@ -421,6 +422,7 @@ int path_pcep_config_update_path(struct path *path)
 			number_of_sid_clashed++;
 	}
 
+	path_nht_removed(candidate);
 	candidate->lsp->segment_list = segment_list;
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 

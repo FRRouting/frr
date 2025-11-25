@@ -1,0 +1,246 @@
+{
+    "fc00:0:1::/128": [
+        {
+            "prefix": "fc00:0:1::/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "active": true,
+                    "weight": 1,
+                    "seg6local": {
+                        "action": "End"
+                    }
+                }
+            ]
+        }
+    ],
+    "fc00:0:1:1::/128": [
+        {
+            "prefix": "fc00:0:1:1::/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "active": true,
+                    "weight": 1,
+                    "seg6local": {
+                        "action": "End.X"
+                    }
+                }
+            ]
+        }
+    ],
+    "fc00:0:1:2::/128": [
+        {
+            "prefix": "fc00:0:1:2::/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "active": true,
+                    "weight": 1,
+                    "seg6local": {
+                        "action": "End.X"
+                    }
+                }
+            ]
+        }
+    ],
+    "fc00:0:2::/48": [
+        {
+            "prefix": "fc00:0:2::/48",
+            "prefixLen": 48,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:2::1/128": [
+        {
+            "prefix": "fc00:0:2::1/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:3::/48": [
+        {
+            "prefix": "fc00:0:3::/48",
+            "prefixLen": 48,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:3::1/128": [
+        {
+            "prefix": "fc00:0:3::1/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:4::/48": [
+        {
+            "prefix": "fc00:0:4::/48",
+            "prefixLen": 48,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:4::1/128": [
+        {
+            "prefix": "fc00:0:4::1/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:5::/48": [
+        {
+            "prefix": "fc00:0:5::/48",
+            "prefixLen": 48,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:5::1/128": [
+        {
+            "prefix": "fc00:0:5::1/128",
+            "prefixLen": 128,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fc00:0:6::/48": [
+        {
+            "prefix": "fc00:0:6::/48",
+            "prefixLen": 48,
+            "protocol": "isis",
+            "selected": true,
+            "distance": 115,
+            "installed": true,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                },
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "afi": "ipv6",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ]
+}

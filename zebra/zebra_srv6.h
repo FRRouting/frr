@@ -10,6 +10,7 @@
 #include <zebra.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include "zebra_srte.h"
 
 #include "qobj.h"
 #include "prefix.h"
