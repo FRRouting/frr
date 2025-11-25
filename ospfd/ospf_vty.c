@@ -3226,6 +3226,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 				    ospf->distance_all
 					    ? ospf->distance_all
 					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
+
+		json_object_boolean_add(json_vrf, "forwardingAddressSelf",
+					ospf->forwarding_address_self);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3248,6 +3251,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* show max multipath */
 		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		if (ospf->forwarding_address_self)
+			vty_out(vty, " Forwarding address is set to self for external LSAs\n");
 
 		/* show administrative distance */
 		vty_out(vty, " Administrative distance %u\n",
@@ -9606,6 +9612,22 @@ DEFUN (no_ospf_default_metric,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ospf_forwarding_address_self,
+       ospf_forwarding_address_self_cmd,
+       "[no$no] forwarding-address-self",
+        NO_STR
+       "Set forwarding address to self for external LSAs\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (no)
+		ospf->forwarding_address_self = false;
+	else
+		ospf->forwarding_address_self = true;
+
+	return CMD_SUCCESS;
+}
+
 
 DEFUN (ospf_distance,
        ospf_distance_cmd,
@@ -12995,6 +13017,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
+	if (ospf->forwarding_address_self)
+		vty_out(vty, " forwarding-address-self\n");
+
 	/* proactive-arp print. */
 	if (ospf->proactive_arp != OSPF_PROACTIVE_ARP_DEFAULT) {
 		if (ospf->proactive_arp)
@@ -13255,6 +13280,8 @@ static void ospf_vty_zebra_init(void)
 
 	install_element(OSPF_NODE, &ospf_default_metric_cmd);
 	install_element(OSPF_NODE, &no_ospf_default_metric_cmd);
+
+	install_element(OSPF_NODE, &ospf_forwarding_address_self_cmd);
 
 	install_element(OSPF_NODE, &ospf_distance_cmd);
 	install_element(OSPF_NODE, &no_ospf_distance_cmd);

@@ -1628,9 +1628,13 @@ static struct in_addr ospf_external_lsa_nexthop_get(struct ospf *ospf,
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	fwd.s_addr = 0;
+	fwd.s_addr = INADDR_ANY;
 
 	if (!nexthop.s_addr)
+		return fwd;
+
+	/* Force forwarding address to self for external LSAs. */
+	if (ospf->forwarding_address_self)
 		return fwd;
 
 	/* Check whether nexthop is covered by OSPF network. */
