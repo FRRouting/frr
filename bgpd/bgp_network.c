@@ -530,6 +530,14 @@ static void bgp_accept(struct event *thread)
 
 			return;
 		}
+	} else {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR)) {
+			zlog_debug("Received an open connection for a peering %s that we have not fully closed down yet",
+				   peer->host);
+			close(bgp_sock);
+
+			return;
+		}
 	}
 
 	if (!peer1) {
