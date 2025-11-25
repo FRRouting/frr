@@ -214,6 +214,29 @@ host_es_map = {
     "hostd22": "03:44:38:39:ff:ff:02:00:00:02",
 }
 
+# Underlay IPv6 addresses for TOR uplink interfaces. These mirror the interface
+# addresses configured in the per-router frr.conf files, but are applied early
+# using Linux iproute2 so that zebra/BGP always see stable interface addresses,
+# even when configuration is loaded via tools/frr-reload.py.
+tor_uplink_ipv6 = {
+    "torm11": {
+        "torm11-eth0": "2001:db8:1::0/127",
+        "torm11-eth1": "2001:db8:5::0/127",
+    },
+    "torm12": {
+        "torm12-eth0": "2001:db8:2::0/127",
+        "torm12-eth1": "2001:db8:6::0/127",
+    },
+    "torm21": {
+        "torm21-eth0": "2001:db8:3::0/127",
+        "torm21-eth1": "2001:db8:7::0/127",
+    },
+    "torm22": {
+        "torm22-eth0": "2001:db8:4::0/127",
+        "torm22-eth1": "2001:db8:8::0/127",
+    },
+}
+
 
 def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
     """
@@ -361,8 +384,9 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     Create the bond/vxlan-bridge on the TOR which acts as VTEP and EPN-PE
     """
     # Add IPv4 and IPv6 addresses to loopback interface for VTEP
-    # These must be added before creating VXLAN device
-    # They match the addresses in frr.conf for consistency
+    # These must be added before creating VXLAN device.
+    # They match the addresses in frr.conf for consistency and are applied
+    # via Linux iproute2 so that zebra/BGP learn them from the kernel.
     tor_id = tor_name.replace("torm", "")  # Extract number: 11, 12, 21, 22
     if tor_id == "11":
         ipv4_lo = "10.0.0.15"
@@ -375,6 +399,14 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
 
     tor.run("ip addr add %s/32 dev lo" % ipv4_lo)
     tor.run("ip -6 addr add %s/128 dev lo" % tor_ip)
+
+    # Add IPv6 underlay addresses on uplink interfaces using iproute2 as well.
+    # This avoids timing/race issues where, when using frr-reload.py, BGP may
+    # come up before interface addresses have been fully programmed by zebra
+    # from the FRR config, leading to incorrect (e.g. IPv4-mapped IPv6) nexthops.
+    uplinks = tor_uplink_ipv6.get(tor_name, {})
+    for ifname, prefix in uplinks.items():
+        tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
 
     # create a device for terminating VxLAN multicast tunnels
     config_mcast_tunnel_termination_device(tor)
