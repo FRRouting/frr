@@ -1427,7 +1427,7 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 			XFREE(MTYPE_EVPN_VTEP, vtep);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("%s L3VNI %u VTEP %pIA nh_list count %u", __func__, zl3vni->vni,
-				   vtep, listcount(zrmac->nh_list));
+				   vtep_ip, listcount(zrmac->nh_list));
 	}
 
 	return 0;
