@@ -12564,11 +12564,25 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Remote SID */
 	if ((path->attr->srv6_l3service || path->attr->srv6_vpn) && safi != SAFI_EVPN) {
 		json_object *json_sid_attr;
+		mpls_label_t label_sid = 0;
 		struct in6_addr *sid_tmp = path->attr->srv6_l3service
 						   ? (&path->attr->srv6_l3service->sid)
 						   : (&path->attr->srv6_vpn->sid);
+		struct in6_addr sid_transposed = {};
 
 		if (json_paths) {
+			if (bgp_path_info_has_valid_label(path) &&
+			    (safi != SAFI_EVPN && !is_route_parent_evpn(path)) &&
+			    path->extra->labels->num_labels == 1 &&
+			    decode_label(&path->extra->labels->label[0]) >=
+				    MPLS_LABEL_UNRESERVED_MIN)
+				label_sid = decode_label(&path->extra->labels->label[0]);
+			IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
+			transpose_sid(&sid_transposed, label_sid,
+				      path->attr->srv6_l3service->transposition_offset,
+				      path->attr->srv6_l3service->transposition_len);
+			json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
+						&sid_transposed);
 			json_object_string_addf(json_path, "remoteSid", "%pI6",
 						sid_tmp);
 			if (path->attr->srv6_l3service) {
