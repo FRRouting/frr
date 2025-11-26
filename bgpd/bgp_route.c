@@ -4746,6 +4746,39 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+<<<<<<< HEAD
+=======
+	/* RFC 8212 to prevent route leaks.
+	 * This specification intends to improve this situation by requiring the
+	 * explicit configuration of both BGP Import and Export Policies for any
+	 * External BGP (EBGP) session such as customers, peers, or
+	 * confederation boundaries for all enabled address families. Through
+	 * codification of the aforementioned requirement, operators will
+	 * benefit from consistent behavior across different BGP
+	 * implementations.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
+		if (!bgp_inbound_policy_exists(peer, &peer->filter[afi][orig_safi])) {
+			reason = "inbound policy missing";
+			if (monotime_since(&bgp->ebgprequirespolicywarning, NULL) >
+				    FIFTEENMINUTE2USEC ||
+			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
+				zlog_warn("%pBP rcvd UPDATE EBGP inbound policy not properly setup, please configure in order for your peering to work correctly",
+					  peer);
+				monotime(&bgp->ebgprequirespolicywarning);
+			}
+			goto filtered;
+		}
+
+	/* Do not accept a host route that matches a local address. */
+	if (((safi == SAFI_UNICAST) || (safi == SAFI_LABELED_UNICAST)) && is_host_route(p)) {
+		if (bgp_hostroute_self(bgp, p)) {
+			reason = "host route matches a local address";
+			goto filtered;
+		}
+	}
+
+>>>>>>> 6e80ef29e (bgpd: fix labeled unicast inbound policy lookup)
 	/* Apply incoming filter.  */
 	if (bgp_input_filter(peer, p, attr, afi, orig_safi) == FILTER_DENY) {
 		peer->stat_pfx_filter++;
