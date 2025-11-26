@@ -1380,6 +1380,16 @@ static void rib_process(struct route_node *rn)
 			}
 		} else {
 			/*
+			 * During interface flap events, we have multiple NHGs
+			 * some with valid and some with invalid flags, skip
+			 * invalid NHGs
+			 */
+			if (!re->nhe)
+				continue;
+
+			if (!CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_VALID))
+				continue;
+			/*
 			 * If the re has not changed and the nhg we have is
 			 * not usable, then we cannot use this route entry
 			 * for consideration, as that the route will just
