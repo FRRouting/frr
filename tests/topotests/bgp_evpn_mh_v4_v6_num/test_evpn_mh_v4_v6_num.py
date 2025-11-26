@@ -336,102 +336,120 @@ def config_mcast_tunnel_termination_device(node):
 
 def config_bridge(node):
     """
-    Create a VLAN aware bridge
+    Create a VLAN aware bridge for SVD:
+    - Single bridge `br_default`
+    - VLANs 1000–1003 (L2VNIs) and 4000/4001 (L3VNIs for vrf1/vrf2)
     """
-    node.run("ip link add dev bridge type bridge stp_state 0")
-    node.run("ip link set dev bridge type bridge vlan_filtering 1")
-    node.run("ip link set dev bridge mtu 9216")
-    node.run("ip link set dev bridge type bridge ageing_time 1800")
-    node.run("ip link set dev bridge type bridge mcast_snooping 0")
-    node.run("ip link set dev bridge type bridge vlan_stats_enabled 1")
-    node.run("ip link set dev bridge up")
-    node.run("/sbin/bridge vlan add vid 1000 dev bridge self")
+    node.run("ip link del br_default 2>/dev/null || true")
+    node.run("ip link add dev br_default type bridge stp_state 0")
+    node.run("ip link set dev br_default type bridge vlan_filtering 1")
+    node.run("ip link set dev br_default mtu 9216")
+    node.run("ip link set dev br_default type bridge ageing_time 1800")
+    node.run("ip link set dev br_default type bridge mcast_snooping 0")
+    node.run("ip link set dev br_default type bridge vlan_stats_enabled 1")
+    node.run("ip link set dev br_default up")
+    # Self VLAN entries for all L2VNIs and L3VNI VLANs
+    for vid in (1000, 1001, 1002, 1003, 4000, 4001):
+        node.run(f"/sbin/bridge vlan add vid {vid} dev br_default self")
 
 
 def config_vxlan(node, node_ip):
     """
-    Create a VxLAN device for VNI 1000 and add it to the bridge.
-    VLAN-1000 is mapped to VNI-1000.
-    Uses IPv6 VTEP address and IPv6 multicast group.
+    Create a Single VXLAN Device (SVD) `vxlan48` and add it to the bridge.
+    VLANs 1000–1003 (L2VNIs) and 4000/4001 (L3VNIs for vrf1/vrf2) are mapped to
+    VNIs 1000–1003 and 4000/4001 respectively via tunnel_info, following the
+    same pattern as `setup_vtep` in bgp_evpn_three_tier_clos_topo1.
     """
-    # Create VXLAN with IPv6 local address and multicast group
-    node.run(
-        "ip link add dev vx-1000 type vxlan id 1000 dstport 4789 local %s dev ipmr-lo group ff0e::100 nolearning ttl 64"
-        % node_ip
-    )
-    node.run("ip link set dev vx-1000 mtu 9152")
-    node.run("ip link set dev vx-1000 up")
+    # Cleanup any existing vxlan48
+    node.run("ip link del vxlan48 2>/dev/null || true")
 
-    # bridge attrs
-    node.run("ip link set dev vx-1000 master bridge")
-    node.run("/sbin/bridge link set dev vx-1000 neigh_suppress on")
-    node.run("/sbin/bridge link set dev vx-1000 learning off")
-    node.run("/sbin/bridge link set dev vx-1000 priority 8")
-    node.run("/sbin/bridge vlan del vid 1 dev vx-1000")
-    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev vx-1000")
-    node.run("/sbin/bridge vlan add vid 1000 dev vx-1000")
-    node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev vx-1000")
+    # Create VXLAN with IPv6 local address; BGP EVPN will control remote
+    # endpoints via the `external` flag.
+    node.run(
+        "ip link add vxlan48 type vxlan dstport 4789 local %s "
+        "nolearning external ttl 64 ageing 18000" % node_ip
+    )
+    node.run("ip link set dev vxlan48 mtu 9152")
+    node.run("ip link set dev vxlan48 master br_default")
+    # Mirror SVD behavior: enable VLAN tunneling, suppress ARP/ND, disable learning
+    node.run("/sbin/bridge link set dev vxlan48 vlan_tunnel on")
+    node.run("/sbin/bridge link set dev vxlan48 neigh_suppress on")
+    node.run("/sbin/bridge link set dev vxlan48 learning off")
+    node.run("/sbin/bridge vlan del vid 1 dev vxlan48")
+    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev vxlan48")
+
+    # Map VLANs to VNIs
+    vni_map = {
+        1000: 1000,
+        1001: 1001,
+        1002: 1002,
+        1003: 1003,
+        4000: 4000,
+        4001: 4001,
+    }
+    for vid, vni in vni_map.items():
+        # First add the VLAN membership on vxlan48, then add tunnel_info id
+        node.run(f"/sbin/bridge vlan add dev vxlan48 vid {vid}")
+        node.run(
+            f"/sbin/bridge vlan add dev vxlan48 vid {vid} tunnel_info id {vni}"
+        )
+
+    node.run("ip link set dev vxlan48 up")
 
 
 def config_l3vni(node, node_ip):
     """
-    Create L3VNI infrastructure for VRF vrf1 with L3VNI 4000.
-    VLAN-4000 is mapped to VNI-4000.
-    Uses IPv6 VTEP address and IPv6 multicast group.
+    L3VNI is handled by VLAN 4001 mapped to VNI 4001 on `vxlan48`, so this
+    function becomes a no-op placeholder kept for compatibility.
     """
-    # Create L3VNI VXLAN device
-    node.run(
-        "ip link add dev vx-4000 type vxlan id 4000 dstport 4789 local %s dev ipmr-lo group ff0e::4000 nolearning ttl 64"
-        % node_ip
-    )
-    node.run("ip link set dev vx-4000 mtu 9152")
-    node.run("ip link set dev vx-4000 up")
-
-    # bridge attrs - Add L3VNI VXLAN to bridge
-    node.run("ip link set dev vx-4000 master bridge")
-    node.run("/sbin/bridge link set dev vx-4000 neigh_suppress on")
-    node.run("/sbin/bridge link set dev vx-4000 learning off")
-    node.run("/sbin/bridge link set dev vx-4000 priority 8")
-    node.run("/sbin/bridge vlan del vid 1 dev vx-4000")
-    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev vx-4000")
-    node.run("/sbin/bridge vlan add vid 4000 dev vx-4000")
-    node.run("/sbin/bridge vlan add vid 4000 untagged pvid dev vx-4000")
-
-    # Add VLAN 4000 to bridge for L3VNI
-    node.run("/sbin/bridge vlan add vid 4000 dev bridge self")
+    del node
+    del node_ip
 
 
 def config_svi(node, svi_pip):
     """
-    Create an SVI for VLAN 1000 with IPv6 addressing
+    Create an SVI for VLAN 1000 with IPv6 addressing in vrf1.
+    SVIs for other VLANs (1001–1003) can be created similarly if needed.
     """
-    node.run("ip link add link bridge name vlan1000 type vlan id 1000 protocol 802.1q")
+    node.run(
+        "ip link add link br_default name vlan1000 type vlan id 1000 protocol 802.1q"
+    )
     node.run("ip -6 addr add %s/64 dev vlan1000" % svi_pip)
+    node.run("ip link set dev vlan1000 master vrf1")
     node.run("ip link set dev vlan1000 up")
     node.run("/sbin/sysctl net.ipv6.conf.vlan1000.accept_dad=0")
     node.run("/sbin/sysctl net.ipv6.conf.vlan1000.dad_transmits=0")
-    node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan1000-v0.accept_dad=0")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan1000-v0.dad_transmits=0")
-    node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
-    node.run("ip link set dev vlan1000-v0 up")
-    node.run("ip -6 addr add 2001:db8:45::1/64 dev vlan1000-v0")
 
 
 def config_vrf_l3vni(node):
     """
-    Create VRF vrf1 and L3VNI VLAN interface for L3VNI 4000
+    Create VRFs and the L3VNI VLAN interfaces for vrf1 (L3VNI 4000)
+    and vrf2 (L3VNI 4001). vrf1 and vrf2 are created here so that
+    config_svi() can attach SVIs.
     """
-    # Create VRF vrf1 with table 1001
-    node.run("ip link add vrf1 type vrf table 1001")
+    # VRF vrf1 (table 1001) and vrf2 (table 1002)
+    node.run("ip link add vrf1 type vrf table 1001 2>/dev/null || true")
     node.run("ip link set dev vrf1 up")
+    node.run("ip link add vrf2 type vrf table 1002 2>/dev/null || true")
+    node.run("ip link set dev vrf2 up")
 
-    # Create L3VNI VLAN interface (vlan4000) for VNI 4000
-    node.run("ip link add link bridge name vlan4000 type vlan id 4000 protocol 802.1q")
+    # L3VNI VLAN interface (vlan4000) for vrf1/L3VNI 4000
+    node.run(
+        "ip link add link br_default name vlan4000 type vlan id 4000 protocol 802.1q"
+    )
     node.run("ip link set dev vlan4000 master vrf1")
     node.run("ip link set dev vlan4000 up")
     node.run("/sbin/sysctl net.ipv6.conf.vlan4000.accept_dad=0")
     node.run("/sbin/sysctl net.ipv6.conf.vlan4000.dad_transmits=0")
+
+    # L3VNI VLAN interface (vlan4001) for vrf2/L3VNI 4001
+    node.run(
+        "ip link add link br_default name vlan4001 type vlan id 4001 protocol 802.1q"
+    )
+    node.run("ip link set dev vlan4001 master vrf2")
+    node.run("ip link set dev vlan4001 up")
+    node.run("/sbin/sysctl net.ipv6.conf.vlan4001.accept_dad=0")
+    node.run("/sbin/sysctl net.ipv6.conf.vlan4001.dad_transmits=0")
 
 
 def config_tor(tor_name, tor, tor_ip, svi_pip):
@@ -463,38 +481,89 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     for ifname, prefix in uplinks.items():
         tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
 
-    # create a device for terminating VxLAN multicast tunnels
-    config_mcast_tunnel_termination_device(tor)
-
-    # create a vlan aware bridge
+    # create VRFs and L3VNI VLAN 4001
     config_bridge(tor)
-
-    # create vxlan device and add it to bridge
     config_vxlan(tor, tor_ip)
-
-    # create L3VNI infrastructure (VRF vrf1 with L3VNI 4000)
-    config_l3vni(tor, tor_ip)
     config_vrf_l3vni(tor)
 
-    # create hostbonds and add them to the bridge
+    # create hostbonds; we will attach them to the bridge explicitly
     if "torm1" in tor_name:
         sys_mac = "44:38:39:ff:ff:01"
     else:
         sys_mac = "44:38:39:ff:ff:02"
     bond_member = tor_name + "-eth2"
-    config_bond(tor, "hostbond1", [bond_member], sys_mac, "bridge")
+    config_bond(tor, "hostbond1", [bond_member], sys_mac, None)
 
     bond_member = tor_name + "-eth3"
-    config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
+    config_bond(tor, "hostbond2", [bond_member], sys_mac, None)
 
-    # create SVI
+    # Attach host bonds to bridge with VLANs:
+    # - hostbond1 carries VLAN 1000 (vrf1)
+    # - hostbond2 carries VLAN 1001 (vrf1)
+    for bond, vid in (("hostbond1", 1000), ("hostbond2", 1001)):
+        tor.run(f"ip link set dev {bond} master br_default")
+        tor.run(f"/sbin/bridge vlan del vid 1 dev {bond}")
+        tor.run(f"/sbin/bridge vlan del vid 1 untagged pvid dev {bond}")
+        tor.run(f"/sbin/bridge vlan add vid {vid} dev {bond}")
+        tor.run(f"/sbin/bridge vlan add vid {vid} pvid untagged dev {bond}")
+
+    # create SVI for VLAN 1000 in vrf1 (others can be added similarly as needed)
     config_svi(tor, svi_pip)
+
+
+def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip):
+    """
+    Configure SVD VXLAN (`vxlan48`) and bridge (`br_default`) on a TOR VTEP
+    in a manner similar to `setup_vtep` from bgp_evpn_three_tier_clos_topo1:
+    - Clean up any existing SVD state
+    - Create a single VLAN-aware bridge
+    - Create a single VXLAN device for all VNIs (L2 and L3)
+    - Create VRFs and L3VNI VLANs for vrf1 (4000) and vrf2 (4001)
+    - Attach host-facing bonds to the bridge with appropriate VLANs
+    """
+    tor = tgen.gears[tor_name]
+
+    # Cleanup any existing SVD-related interfaces
+    cleanup_cmds = [
+        # SVIs and L3VNI VLANs
+        "ip link set dev vlan1000 down 2>/dev/null || true",
+        "ip link set dev vlan1001 down 2>/dev/null || true",
+        "ip link set dev vlan1002 down 2>/dev/null || true",
+        "ip link set dev vlan1003 down 2>/dev/null || true",
+        "ip link set dev vlan4000 down 2>/dev/null || true",
+        "ip link set dev vlan4001 down 2>/dev/null || true",
+        "ip link del vlan1000 2>/dev/null || true",
+        "ip link del vlan1001 2>/dev/null || true",
+        "ip link del vlan1002 2>/dev/null || true",
+        "ip link del vlan1003 2>/dev/null || true",
+        "ip link del vlan4000 2>/dev/null || true",
+        "ip link del vlan4001 2>/dev/null || true",
+        # VXLAN and bridge
+        "ip link set dev vxlan48 down 2>/dev/null || true",
+        "ip link del vxlan48 2>/dev/null || true",
+        "ip link set dev br_default down 2>/dev/null || true",
+        "ip link del br_default 2>/dev/null || true",
+        # VRFs
+        "ip link set dev vrf1 down 2>/dev/null || true",
+        "ip link set dev vrf2 down 2>/dev/null || true",
+        "ip link del vrf1 2>/dev/null || true",
+        "ip link del vrf2 2>/dev/null || true",
+    ]
+    for cmd in cleanup_cmds:
+        tor.run(cmd)
+
+    # Now configure SVD data plane and host bonds using existing helper
+    config_tor(tor_name, tor, tor_ip, svi_pip)
 
 
 def config_tors(tgen, tors):
     for tor_name in tors:
-        tor = tgen.gears[tor_name]
-        config_tor(tor_name, tor, tor_ips.get(tor_name), svi_ips.get(tor_name))
+        setup_vtep_mh(
+            tgen,
+            tor_name,
+            tor_ips.get(tor_name),
+            svi_ips.get(tor_name),
+        )
 
 
 def compute_host_ip_mac(host_name):
