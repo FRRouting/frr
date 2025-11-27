@@ -1366,6 +1366,22 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					if (peer_cmp(peer, pi->peer) != 0)
 						continue;
 				}
+				if (type == bgp_show_type_extcommunity) {
+					struct ecommunity *ecom = output_arg;
+
+					if (!bgp_attr_get_ecommunity(pi->attr) ||
+					    !ecommunity_match(bgp_attr_get_ecommunity(pi->attr),
+							      ecom))
+						continue;
+				}
+				if (type == bgp_show_type_extcommunity_exact) {
+					struct ecommunity *ecom = output_arg;
+
+					if (!bgp_attr_get_ecommunity(pi->attr) ||
+					    !ecommunity_cmp(bgp_attr_get_ecommunity(pi->attr),
+							    ecom))
+						continue;
+				}
 				if (type == bgp_show_type_lcommunity_exact) {
 					struct lcommunity *lcom = output_arg;
 
@@ -1985,6 +2001,44 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 				     SHOW_DISPLAY_OVERLAY,
 				     use_json(argc, argv));
 }
+
+DEFUN(show_bgp_l2vpn_evpn_rt,
+      show_bgp_l2vpn_evpn_rt_cmd,
+      "show bgp l2vpn evpn rt RT [exact-match] [json]",
+      SHOW_STR
+      BGP_STR
+      L2VPN_HELP_STR
+      EVPN_HELP_STR
+      "Display routes matching the route-target\n"
+      "Route target (A.B.C.D:MN|AA:NN|AA:NNNNNN)\n"
+      "Exact match of the route-target\n"
+      JSON_STR)
+{
+	int idx = 0;
+	int ret = 0;
+	const char *rt_str;
+	struct ecommunity *ecom;
+	int show_type = bgp_show_type_extcommunity;
+
+	argv_find(argv, argc, "RT", &idx);
+	rt_str = argv[idx]->arg;
+
+	if ((idx + 1) < argc && strmatch(argv[idx + 1]->text, "exact-match"))
+		show_type = bgp_show_type_extcommunity_exact;
+
+	ecom = ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecom) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING;
+	}
+
+	ret = bgp_show_ethernet_vpn(vty, NULL, show_type, ecom, SHOW_DISPLAY_STANDARD,
+				    use_json(argc, argv));
+
+	ecommunity_free(&ecom);
+	return ret;
+}
+
 
 DEFUN(show_bgp_l2vpn_evpn_com,
       show_bgp_l2vpn_evpn_com_cmd,
@@ -7625,6 +7679,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_evpn_import_rt_cmd);
 	install_element(VIEW_NODE, &show_bgp_vrf_l3vni_info_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_com_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_rt_cmd);
 
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vni_cmd);

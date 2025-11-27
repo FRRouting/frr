@@ -34,6 +34,8 @@ enum bgp_show_type {
 	bgp_show_type_community_exact,
 	bgp_show_type_community_list,
 	bgp_show_type_community_list_exact,
+	bgp_show_type_extcommunity,
+	bgp_show_type_extcommunity_exact,
 	bgp_show_type_lcommunity_all,
 	bgp_show_type_lcommunity,
 	bgp_show_type_lcommunity_exact,
