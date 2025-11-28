@@ -181,6 +181,24 @@ All routers have both IPv4 and IPv6 loopback addresses for proper BGP router-id 
 | torm22 | 10.0.0.18/32 | **2001:db8:100::18/128** | 10.0.0.18 | 65005 |
 
 **Note**: TOR routers use IPv6 addresses (2001:db8:100::15-18) as VTEP source addresses for VXLAN tunnels. IPv4 loopbacks are configured for BGP router-id compatibility.
+### VRF IPv4 Addresses (10.1.x.x)
+
+Each TOR has unique IPv4 addresses assigned directly to its VRF devices. These
+act as loopback-style addresses within each VRF and are associated to L3VNIs:
+
+- `vrf1` → L3VNI 400
+- `vrf2` → L3VNI 4001
+
+| Device | VRF  | VRF IPv4 Address | L3VNI |
+|--------|------|------------------|-------|
+| torm11 | vrf1 | 10.1.11.1/32     | 4000  |
+| torm11 | vrf2 | 10.1.11.2/32     | 4001  |
+| torm12 | vrf1 | 10.1.12.1/32     | 4000  |
+| torm12 | vrf2 | 10.1.12.2/32     | 4001  |
+| torm21 | vrf1 | 10.1.21.1/32     | 4000  |
+| torm21 | vrf2 | 10.1.21.2/32     | 4001  |
+| torm22 | vrf1 | 10.1.22.1/32     | 4000  |
+| torm22 | vrf2 | 10.1.22.2/32     | 4001  |
 
 ### Point-to-Point Link Addresses (/127 Networks)
 
