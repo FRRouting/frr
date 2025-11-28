@@ -1302,6 +1302,7 @@ Zebra also supports importing into the main multicast RIB (MRIB) which can be us
 to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
 
 .. clicmd:: ip import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
+.. clicmd:: ipv6 import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
 
    Import table, by given table id, into the main URIB (or MRIB). Optional distance can override
    the default distance when importing routes from the alternate table. An optional route map
