@@ -402,11 +402,9 @@ def evpn_verify_vni_state(router, vni_list, vni_type="L2", expected_state="Up"):
         # For L2 VNIs, perform additional checks
         if vni_type == "L2":
             # Check if this is indeed an L2 VNI
-            if "type" in output:
-                if output["type"] != "L2":
-                    return (
-                        f"VNI {vni}: Expected L2 VNI but found type: {output['type']}"
-                    )
+            vni_type_field = output.get("type")
+            if vni_type_field is not None and vni_type_field != "L2":
+                return f"VNI {vni}: Expected L2 VNI but found type: {vni_type_field}"
 
             # Check remoteVteps field exists
             if "remoteVteps" not in output:
@@ -428,36 +426,83 @@ def evpn_verify_vni_state(router, vni_list, vni_type="L2", expected_state="Up"):
                 )
 
             logger.info(
-                f"{router.name}: VNI {vni} (L2) has {num_remote_vteps} remote VTEPs"
+                "%s: VNI %s (L2) has %s remote VTEPs",
+                router.name,
+                vni,
+                num_remote_vteps,
             )
 
             # Log remote VTEP IPs if available
             if remote_vteps:
                 remote_vtep_ips = [vtep.get("ip", "unknown") for vtep in remote_vteps]
-                logger.info(f"{router.name}: VNI {vni} remote VTEPs: {remote_vtep_ips}")
+                logger.info(
+                    "%s: VNI %s remote VTEPs: %s",
+                    router.name,
+                    vni,
+                    remote_vtep_ips,
+                )
 
-        # For L3 VNIs, perform L3-specific checks
+            # Validate VLAN and bridge for L2VNIs as well. These come from
+            # zebra_evpn's JSON ("vlan", "bridge").
+            if "vlan" not in output:
+                return f"VNI {vni}: 'vlan' field not found in EVPN VNI JSON output"
+            if "bridge" not in output:
+                return f"VNI {vni}: 'bridge' field not found in EVPN VNI JSON output"
+
+            vlan = output.get("vlan")
+            bridge = output.get("bridge")
+            logger.info(
+                "%s: VNI %s (L2) vlan=%s bridge=%s",
+                router.name,
+                vni,
+                vlan,
+                bridge,
+            )
+
+        # For L3 VNIs, perform L3-specific checks, including newly added
+        # VLAN/bridge fields from "show evpn vni <vni> json".
         elif vni_type == "L3":
             # Check if this is indeed an L3 VNI
-            if "type" in output:
-                if output["type"] != "L3":
-                    return (
-                        f"VNI {vni}: Expected L3 VNI but found type: {output['type']}"
-                    )
+            vni_type_field = output.get("type")
+            if vni_type_field is not None and vni_type_field != "L3":
+                return f"VNI {vni}: Expected L3 VNI but found type: {vni_type_field}"
 
-            # Check for VRF association
-            if "vrf" in output:
-                vrf_name = output["vrf"]
+            # Check for VRF association (field name may vary between FRR
+            # versions; prefer "tenantVrf", fall back to "vrf").
+            vrf_name = output.get("tenantVrf", output.get("vrf"))
+            if vrf_name:
                 logger.info(
                     f"{router.name}: VNI {vni} (L3) associated with VRF {vrf_name}"
                 )
             else:
                 logger.warning(f"{router.name}: VNI {vni} (L3) has no VRF association")
 
-            # Check for L3VNI-specific fields
-            if "routerMac" in output:
-                router_mac = output["routerMac"]
-                logger.info(f"{router.name}: VNI {vni} (L3) router MAC: {router_mac}")
+            # Validate presence of VLAN and bridge for L3VNI. These fields are
+            # provided by zebra_vxlan's L3VNI JSON ("vlan", "bridge").
+            if "vlan" not in output:
+                return f"VNI {vni}: 'vlan' field not found in EVPN VNI JSON output"
+            if "bridge" not in output:
+                return f"VNI {vni}: 'bridge' field not found in EVPN VNI JSON output"
+
+            vlan = output.get("vlan")
+            bridge = output.get("bridge")
+            logger.info(
+                "%s: VNI %s (L3) vlan=%s bridge=%s",
+                router.name,
+                vni,
+                vlan,
+                bridge,
+            )
+
+            # Check for L3VNI-specific fields such as routerMac when present.
+            router_mac = output.get("routerMac")
+            if router_mac:
+                logger.info(
+                    "%s: VNI %s (L3) router MAC: %s",
+                    router.name,
+                    vni,
+                    router_mac,
+                )
 
         else:
             return f"VNI {vni}: Invalid VNI type '{vni_type}'. Must be 'L2' or 'L3'"
