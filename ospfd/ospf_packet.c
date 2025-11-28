@@ -416,6 +416,37 @@ void ospf_ls_ack_delayed_timer(struct event *event)
 		ospf_ls_ack_send_delayed(oi);
 }
 
+static inline uint8_t ospf_tos_for_type(struct ospf_interface *oi, uint8_t type)
+{
+	uint8_t dscp;
+
+	switch (type) {
+	case OSPF_MSG_HELLO:
+	case OSPF_MSG_LS_ACK:
+		/* Always highest priority */
+		dscp = OSPF_IF_PARAM(oi, dscp_ospf_all);
+		break;
+
+	case OSPF_MSG_DB_DESC:
+	case OSPF_MSG_LS_REQ:
+	case OSPF_MSG_LS_UPD:
+	default:
+		/*
+		 * Other control traffic: use low-control only if explicitly configured;
+		 * otherwise inherit "all".
+		 */
+		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), dscp_low_control))
+			dscp = OSPF_IF_PARAM(oi, dscp_low_control);
+		else
+			dscp = OSPF_IF_PARAM(oi, dscp_ospf_all);
+		break;
+	}
+
+	dscp &= 0x3f;		     /* clamp to 6 bits */
+	return (uint8_t)(dscp << 2); /* DSCP in bits 7..2, ECN = 0 */
+}
+
+
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 			     struct msghdr *msg, unsigned int maxdatasize,
@@ -593,7 +624,8 @@ static void ospf_write(struct event *event)
 					overflow ip_hl.. */
 
 		iph.ip_v = IPVERSION;
-		iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
+		/* RFC4222: differentiate DSCP per OSPF packet type */
+		iph.ip_tos = ospf_tos_for_type(oi, type);
 		iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
 
 #if defined(__DragonFly__)
