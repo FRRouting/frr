@@ -191,6 +191,11 @@ module frr-filter {
           description "Access list action on match";
         }
 
+        unique "value/ipv4-prefix/style/zebra/ipv4-prefix value/ipv4-prefix/style/zebra/ipv4-exact-match";
+        unique "value/ipv6-prefix/ipv6-prefix value/ipv6-prefix/ipv6-exact-match";
+        unique "value/mac/mac";
+        unique "value/any/any";
+
         choice value {
           mandatory true;
           description "Access list value to match";
