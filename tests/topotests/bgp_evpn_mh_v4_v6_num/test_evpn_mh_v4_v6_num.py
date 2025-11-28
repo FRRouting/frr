@@ -238,6 +238,26 @@ tor_uplink_ipv6 = {
     },
 }
 
+# Logical description of VLAN/VNI layout so we avoid hard-coding numbers
+# throughout the helper functions.
+#
+# - VLAN 1000, 1001 in vrf1, VNIs 1000, 1001
+# - VLAN 1002, 1003 in vrf2, VNIs 1002, 1003
+VLAN_VNI_VRF = {
+    1000: (1000, "vrf1"),
+    1001: (1001, "vrf1"),
+    1002: (1002, "vrf2"),
+    1003: (1003, "vrf2"),
+}
+
+# L3VNIs:
+# - vrf1 -> L3VNI 4000 (VLAN 4000)
+# - vrf2 -> L3VNI 4001 (VLAN 4001)
+L3VNI_VRF = {
+    4000: "vrf1",
+    4001: "vrf2",
+}
+
 
 def _normalize_prefix_for_ip_show(prefix):
     """
@@ -338,7 +358,7 @@ def config_bridge(node):
     """
     Create a VLAN aware bridge for SVD:
     - Single bridge `br_default`
-    - VLANs 1000–1003 (L2VNIs) and 4000/4001 (L3VNIs for vrf1/vrf2)
+    - All L2 VLANs from VLAN_VNI_VRF and L3 VLANs from L3VNI_VRF
     """
     node.run("ip link del br_default 2>/dev/null || true")
     node.run("ip link add dev br_default type bridge stp_state 0")
@@ -348,17 +368,19 @@ def config_bridge(node):
     node.run("ip link set dev br_default type bridge mcast_snooping 0")
     node.run("ip link set dev br_default type bridge vlan_stats_enabled 1")
     node.run("ip link set dev br_default up")
-    # Self VLAN entries for all L2VNIs and L3VNI VLANs
-    for vid in (1000, 1001, 1002, 1003, 4000, 4001):
+    # Self VLAN entries for all L2VNIs and L3VNI VLANs derived from the maps
+    for vid in sorted(VLAN_VNI_VRF.keys()):
+        node.run(f"/sbin/bridge vlan add vid {vid} dev br_default self")
+    for vid in sorted(L3VNI_VRF.keys()):
         node.run(f"/sbin/bridge vlan add vid {vid} dev br_default self")
 
 
 def config_vxlan(node, node_ip):
     """
     Create a Single VXLAN Device (SVD) `vxlan48` and add it to the bridge.
-    VLANs 1000–1003 (L2VNIs) and 4000/4001 (L3VNIs for vrf1/vrf2) are mapped to
-    VNIs 1000–1003 and 4000/4001 respectively via tunnel_info, following the
-    same pattern as `setup_vtep` in bgp_evpn_three_tier_clos_topo1.
+    All VLANs in VLAN_VNI_VRF and L3VNI_VRF are mapped to their VNIs via
+    tunnel_info, following the same pattern as `setup_vtep` in
+    bgp_evpn_three_tier_clos_topo1.
     """
     # Cleanup any existing vxlan48
     node.run("ip link del vxlan48 2>/dev/null || true")
@@ -378,21 +400,17 @@ def config_vxlan(node, node_ip):
     node.run("/sbin/bridge vlan del vid 1 dev vxlan48")
     node.run("/sbin/bridge vlan del vid 1 untagged pvid dev vxlan48")
 
-    # Map VLANs to VNIs
-    vni_map = {
-        1000: 1000,
-        1001: 1001,
-        1002: 1002,
-        1003: 1003,
-        4000: 4000,
-        4001: 4001,
-    }
+    # Map VLANs to VNIs using the logical maps
+    vni_map = {}
+    for vid, (vni, _vrf) in VLAN_VNI_VRF.items():
+        vni_map[vid] = vni
+    for vni, _vrf in L3VNI_VRF.items():
+        vni_map[vni] = vni
+
     for vid, vni in vni_map.items():
         # First add the VLAN membership on vxlan48, then add tunnel_info id
         node.run(f"/sbin/bridge vlan add dev vxlan48 vid {vid}")
-        node.run(
-            f"/sbin/bridge vlan add dev vxlan48 vid {vid} tunnel_info id {vni}"
-        )
+        node.run(f"/sbin/bridge vlan add dev vxlan48 vid {vid} tunnel_info id {vni}")
 
     node.run("ip link set dev vxlan48 up")
 
@@ -408,48 +426,52 @@ def config_l3vni(node, node_ip):
 
 def config_svi(node, svi_pip):
     """
-    Create an SVI for VLAN 1000 with IPv6 addressing in vrf1.
-    SVIs for other VLANs (1001–1003) can be created similarly if needed.
+    Create SVIs and attach them to the appropriate VRFs:
+    - VLAN 1000, 1001 in vrf1
+    - VLAN 1002, 1003 in vrf2
+
+    IPv6 addressing is configured only on VLAN 1000 using `svi_pip`, to
+    provide a single anycast GW for vrf1, mirroring the previous test.
     """
-    node.run(
-        "ip link add link br_default name vlan1000 type vlan id 1000 protocol 802.1q"
-    )
+    # Create SVIs for all access VLANs based on VLAN_VNI_VRF
+    for vid, (_vni, vrf) in VLAN_VNI_VRF.items():
+        vlan_name = f"vlan{vid}"
+        node.run(
+            f"ip link add link br_default name {vlan_name} "
+            f"type vlan id {vid} protocol 802.1q"
+        )
+        node.run(f"ip link set dev {vlan_name} master {vrf}")
+        node.run(f"ip link set dev {vlan_name} up")
+        node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.accept_dad=0")
+        node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
+
+    # Assign IPv6 anycast GW only to VLAN 1000 in vrf1
     node.run("ip -6 addr add %s/64 dev vlan1000" % svi_pip)
-    node.run("ip link set dev vlan1000 master vrf1")
-    node.run("ip link set dev vlan1000 up")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan1000.accept_dad=0")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan1000.dad_transmits=0")
 
 
 def config_vrf_l3vni(node):
     """
-    Create VRFs and the L3VNI VLAN interfaces for vrf1 (L3VNI 4000)
-    and vrf2 (L3VNI 4001). vrf1 and vrf2 are created here so that
-    config_svi() can attach SVIs.
+    Create VRFs and the L3VNI VLAN interfaces based on L3VNI_VRF.
+    vrf1 and vrf2 are created here so that config_svi() can attach SVIs.
     """
-    # VRF vrf1 (table 1001) and vrf2 (table 1002)
-    node.run("ip link add vrf1 type vrf table 1001 2>/dev/null || true")
-    node.run("ip link set dev vrf1 up")
-    node.run("ip link add vrf2 type vrf table 1002 2>/dev/null || true")
-    node.run("ip link set dev vrf2 up")
+    # Create VRF devices for all VRFs referenced in L3VNI_VRF
+    # Use static table IDs for now: vrf1 -> 1001, vrf2 -> 1002
+    vrf_tables = {"vrf1": 1001, "vrf2": 1002}
+    for vrf, table in vrf_tables.items():
+        node.run(f"ip link add {vrf} type vrf table {table} 2>/dev/null || true")
+        node.run(f"ip link set dev {vrf} up")
 
-    # L3VNI VLAN interface (vlan4000) for vrf1/L3VNI 4000
-    node.run(
-        "ip link add link br_default name vlan4000 type vlan id 4000 protocol 802.1q"
-    )
-    node.run("ip link set dev vlan4000 master vrf1")
-    node.run("ip link set dev vlan4000 up")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan4000.accept_dad=0")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan4000.dad_transmits=0")
-
-    # L3VNI VLAN interface (vlan4001) for vrf2/L3VNI 4001
-    node.run(
-        "ip link add link br_default name vlan4001 type vlan id 4001 protocol 802.1q"
-    )
-    node.run("ip link set dev vlan4001 master vrf2")
-    node.run("ip link set dev vlan4001 up")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan4001.accept_dad=0")
-    node.run("/sbin/sysctl net.ipv6.conf.vlan4001.dad_transmits=0")
+    # Create L3VNI VLAN interfaces and attach them to the appropriate VRFs
+    for l3vni, vrf in L3VNI_VRF.items():
+        vlan_name = f"vlan{l3vni}"
+        node.run(
+            f"ip link add link br_default name {vlan_name} "
+            f"type vlan id {l3vni} protocol 802.1q"
+        )
+        node.run(f"ip link set dev {vlan_name} master {vrf}")
+        node.run(f"ip link set dev {vlan_name} up")
+        node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.accept_dad=0")
+        node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
 
 
 def config_tor(tor_name, tor, tor_ip, svi_pip):
