@@ -1970,13 +1970,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	if (!is_route_injectable_into_vpn(path_vrf))
 		return;
 
-	if (!vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, false)) {
-		if (debug)
-			zlog_debug("%s: %s skipping: %s", __func__,
-				   from_bgp->name, debugmsg);
-		return;
-	}
-
 	/* Aggregate-address suppress check. */
 	if (bgp_path_suppressed(path_vrf)) {
 		if (debug)
@@ -2093,6 +2086,14 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		bgp_srv6_path_locator_extra_free(&rmap_extra);
 	} else
 		bgp_srv6_per_locator_unlink(path_vrf);
+
+	if (!CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED) &&
+	    !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, false)) {
+		if (debug)
+			zlog_debug("%s: %s skipping: %s", __func__, from_bgp->name, debugmsg);
+		ecommunity_free(&new_ecom);
+		return;
+	}
 
 	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!ecommunity_has_route_target(new_ecom)) {
@@ -2304,7 +2305,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	if (!is_route_injectable_into_vpn(path_vrf))
 		return;
 
-	if (!vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, true)) {
+	if (!path_vrf->srv6_vpn.bslc && !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, true)) {
 		if (debug)
 			zlog_debug("%s: skipping: %s", __func__, debugmsg);
 		return;
@@ -2894,7 +2895,6 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 	struct listnode *mnode, *mnnode;
 	struct bgp_dest *bn;
 	struct bgp_path_info *bpi;
-	const char *debugmsg;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -2930,14 +2930,6 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-		if (!vpn_leak_from_vpn_active(bgp, afi, &debugmsg)) {
-			if (debug)
-				zlog_debug("%s: from %s, skipping: %s",
-					   __func__, bgp->name_pretty,
-					   debugmsg);
-			continue;
-		}
-
 		/* Check for intersection of route targets */
 		if (!ecommunity_include(
 			    bgp->vpn_policy[afi]
