@@ -1,0 +1,228 @@
+{
+    "2001:db8:db02::/48": [
+        {
+            "prefix": "2001:db8:db02::/48",
+            "prefixLen": 48,
+            "protocol": "connected",
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "2001:db8:db02::1/128": [
+        {
+            "prefix": "2001:db8:db02::1/128",
+            "prefixLen": 128,
+            "protocol": "local",
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd4c:e24:f4c3::/48": [
+        {
+            "prefix": "fd4c:e24:f4c3::/48",
+            "prefixLen": 48,
+            "protocol": "table",
+            "instance": 10,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 15,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "2001:db8:db02::2",
+                    "afi": "ipv6",
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd4c:e24:f4c4::/48": [
+        {
+            "prefix": "fd4c:e24:f4c4::/48",
+            "prefixLen": 48,
+            "protocol": "table",
+            "instance": 10,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 15,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "2001:db8:db02::2",
+                    "afi": "ipv6",
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd4c:e24:f4c5::/48": [
+        {
+            "prefix": "fd4c:e24:f4c5::/48",
+            "prefixLen": 48,
+            "protocol": "table",
+            "instance": 10,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 15,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "fd15:d0bf:ab23::2",
+                    "afi": "ipv6",
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd4c:e24:f4c6::/48": [
+        {
+            "prefix": "fd4c:e24:f4c6::/48",
+            "prefixLen": 48,
+            "protocol": "table",
+            "instance": 10,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 15,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "fd15:d0bf:ab23::2",
+                    "afi": "ipv6",
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd15:d0bf:ab23::/48": [
+        {
+            "prefix": "fd15:d0bf:ab23::/48",
+            "prefixLen": 48,
+            "protocol": "connected",
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd15:d0bf:ab23::1/128": [
+        {
+            "prefix": "fd15:d0bf:ab23::1/128",
+            "prefixLen": 128,
+            "protocol": "local",
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "fd4c:e24:f4c7::/48": [
+        {
+            "prefix": "fd4c:e24:f4c7::/48",
+            "prefixLen": 48,
+            "protocol": "table",
+            "instance": 10,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 15,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "fd15:d0bf:ab23::2",
+                    "afi": "ipv6",
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ]
+}
