@@ -575,6 +575,9 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 	frr_each (bgp_srv6_per_locator_cache, tree, iter) {
 		vty_out(vty, " %s, #paths %u\n", iter->locator_name, iter->path_count);
 		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
+		if (iter->sid_policy.tovpn_sid)
+			vty_out(vty, "  SID %pI6, label %u\n", iter->sid_policy.tovpn_sid,
+				iter->sid_policy.tovpn_sid_transpose_label);
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
