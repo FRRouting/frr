@@ -1,111 +1,31 @@
 # BGP EVPN MH IPv4/IPv6 Numbered - Network Topology
 
-## Topology Diagram
+## Topology Overview
 
-```
-                                 SPINE LAYER (AS 65001)
-                            ┌─────────────────────────────┐
-                            │                             │
-                    ┌───────┴────────┐          ┌────────┴────────┐
-                    │    spine1      │          │    spine2       │
-                    │  AS 65001      │          │  AS 65001       │
-                    │  lo: 2001:db8: │          │  lo: 2001:db8:  │
-                    │      100::13   │          │      100::14    │
-                    └────┬──────┬────┘          └────┬──────┬─────┘
-                         │      │                    │      │
-                    eth0 │      │ eth1          eth0 │      │ eth1
-              ::50::1/127│      │::51::1/127 ::60::1/127   │::61::1/127
-                         │      │                    │      │
-                         │      └─────────┐    ┏─────┘      │
-                         │                │    │            │
-                    ┌────┴──────┐    ┌────┴────┴──┐    ┌────┴────────┐
-                    │   leaf1   │    │   leaf2    │    │             │
-                    │  AS 65101 │    │  AS 65101  │    │             │
-                    │  lo: 2001:│    │  lo: 2001: │    │             │
-                    │  db8:200::│    │  db8:200:: │    │             │
-                    │      13   │    │      14    │    │             │
-                    └─┬──┬──┬──┬┘    └─┬──┬──┬───┬┘    │             │
-                 eth2 │  │  │  │       │  │  │   │     │             │
-                      │  │  │  └───────┘  │  │   └─────┘             │
-                      │  │  │             │  │                        │
-                      │  │  └─────────────┼──┼────────────────────────┘
-                      │  │                │  │
-                      │  └────────────────┼──┼──────────────┐
-                      │                   │  │              │
-                      │ eth3          eth4│  │eth5      eth2│ eth3
-                      │                   │  │              │
-                      │                   │  │              │
-                    ┌─┴─────────┐  ┌──────┴──┴────┐  ┌─────┴───────┐  ┌──────────────┐
-                    │  torm11   │  │   torm12     │  │  torm21     │  │   torm22     │
-                    │ AS 65002  │  │  AS 65003    │  │ AS 65004    │  │  AS 65005    │
-                    │ VTEP:     │  │  VTEP:       │  │ VTEP:       │  │  VTEP:       │
-                    │ 2001:db8: │  │  2001:db8:   │  │ 2001:db8:   │  │  2001:db8:   │
-                    │ 100::15   │  │  100::16     │  │ 100::17     │  │  100::18     │
-                    └─┬───────┬─┘  └─┬────────┬───┘  └─┬───────┬───┘  └─┬────────┬───┘
-                 eth2 │       │eth3  │eth2    │eth3    │eth2   │eth3    │eth2    │eth3
-                      │       │      │        │        │       │        │        │
-                      │       └──────┼────┐   │   ┌────┼───────┘        │   ┌────┘
-                      │              │    │   │   │    │                │   │
-                    ┌─┴─────┐  ┌─────┴──┐ │   │   │ ┌──┴──────┐  ┌──────┴───┴──┐
-                    │hostd11│  │hostd12 │ │   │   │ │hostd21  │  │  hostd22    │
-                    │(bond) │  │(bond)  │ │   │   │ │(bond)   │  │  (bond)     │
-                    └───┬───┘  └────┬───┘ │   │   │ └────┬────┘  └─────┬───────┘
-                        │           │     │   │   │      │             │
-                        └───────────┴─────┴───┴───┴──────┴─────────────┘
-                              Rack 1                  Rack 2
-                         ES sys-mac:             ES sys-mac:
-                      44:38:39:ff:ff:01       44:38:39:ff:ff:02
-```
+- Spine layer (AS 65001): `spine1`, `spine2`
+- Leaf layer (AS 65101): `leaf1`, `leaf2`
+- TOR layer (VTEPs):
+  - Rack 1: `torm11` (AS 65002), `torm12` (AS 65003)
+  - Rack 2: `torm21` (AS 65004), `torm22` (AS 65005)
+- Host layer:
+  - Rack 1: `hostd11`, `hostd12` (dual-attached)
+  - Rack 2: `hostd21`, `hostd22` (dual-attached)
 
 ## Layer Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        SPINE LAYER                                │
-│                                                                   │
-│  spine1 (AS 65001)              spine2 (AS 65001)                │
-│  - BGP Route Reflector          - BGP Route Reflector            │
-│  - L2VPN EVPN                   - L2VPN EVPN                     │
-└──────────────────────────────────────────────────────────────────┘
-                              ▲  │
-                              │  ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                         LEAF LAYER                                │
-│                                                                   │
-│  leaf1 (AS 65101)               leaf2 (AS 65101)                 │
-│  - BGP Route Reflector          - BGP Route Reflector            │
-│  - Aggregation                  - Aggregation                    │
-└──────────────────────────────────────────────────────────────────┘
-                              ▲  │
-                              │  ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                          TOR LAYER (VTEP)                         │
-│                                                                   │
-│  Rack 1:                        Rack 2:                          │
-│  ├─ torm11 (AS 65002)          ├─ torm21 (AS 65004)             │
-│  │  VTEP: 2001:db8:100::15    │  VTEP: 2001:db8:100::17        │
-│  └─ torm12 (AS 65003)          └─ torm22 (AS 65005)             │
-│     VTEP: 2001:db8:100::16        VTEP: 2001:db8:100::18        │
-│                                                                   │
-│  Features:                                                        │
-│  - EVPN Multihoming (ES-ID, ES sys-mac)                         │
-│  - VXLAN (VNI 1000)                                              │
-│  - PIM6 for BUM traffic                                          │
-│  - SVI: VLAN 1000                                                │
-└──────────────────────────────────────────────────────────────────┘
-                              ▲  │
-                              │  ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                         HOST LAYER                                │
-│                                                                   │
-│  Rack 1:                        Rack 2:                          │
-│  ├─ hostd11 (dual-attached)   ├─ hostd21 (dual-attached)        │
-│  └─ hostd12 (dual-attached)   └─ hostd22 (dual-attached)        │
-│                                                                   │
-│  - LACP bonds to both TORs                                       │
-│  - IPv6 addressing in VLAN 1000                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+- Spine layer:
+  - `spine1`, `spine2` (AS 65001)
+  - BGP route reflectors, EVPN core
+- Leaf layer:
+  - `leaf1`, `leaf2` (AS 65101)
+  - Aggregation, EVPN PE towards TORs
+- TOR layer (VTEP):
+  - Rack 1: `torm11` (AS 65002), `torm12` (AS 65003)
+  - Rack 2: `torm21` (AS 65004), `torm22` (AS 65005)
+  - EVPN multihoming, VXLAN (SVD `vxlan48` with VNIs 1000–1003, 4000, 4001)
+- Host layer:
+  - Rack 1: `hostd11`, `hostd12` (dual-attached via LACP bonds)
+  - Rack 2: `hostd21`, `hostd22` (dual-attached via LACP bonds)
 
 ## Detailed Connection Table
 
@@ -113,28 +33,28 @@
 
 | Source Device | Source Interface | Source IPv6 Address | Destination Device | Destination Interface | Destination IPv6 Address | AS Pair |
 |--------------|------------------|---------------------|-------------------|----------------------|--------------------------|---------|
-| spine1 | spine1-eth0 | 2001:db8:50::1/127 | leaf1 | leaf1-eth0 | 2001:db8:50::0/127 | 65001 ↔ 65101 |
-| spine1 | spine1-eth1 | 2001:db8:51::1/127 | leaf2 | leaf2-eth0 | 2001:db8:51::0/127 | 65001 ↔ 65101 |
-| spine2 | spine2-eth0 | 2001:db8:60::1/127 | leaf1 | leaf1-eth1 | 2001:db8:60::0/127 | 65001 ↔ 65101 |
-| spine2 | spine2-eth1 | 2001:db8:61::1/127 | leaf2 | leaf2-eth1 | 2001:db8:61::0/127 | 65001 ↔ 65101 |
+| spine1 | spine1-eth0 | 2001:db8:50::1/127 | leaf1 | leaf1-eth0 | 2001:db8:50::0/127 | 65001 <-> 65101 |
+| spine1 | spine1-eth1 | 2001:db8:51::1/127 | leaf2 | leaf2-eth0 | 2001:db8:51::0/127 | 65001 <-> 65101 |
+| spine2 | spine2-eth0 | 2001:db8:60::1/127 | leaf1 | leaf1-eth1 | 2001:db8:60::0/127 | 65001 <-> 65101 |
+| spine2 | spine2-eth1 | 2001:db8:61::1/127 | leaf2 | leaf2-eth1 | 2001:db8:61::0/127 | 65001 <-> 65101 |
 
 ### Leaf to TOR Connections (Rack 1)
 
 | Source Device | Source Interface | Source IPv6 Address | Destination Device | Destination Interface | Destination IPv6 Address | AS Pair |
 |--------------|------------------|---------------------|-------------------|----------------------|--------------------------|---------|
-| leaf1 | leaf1-eth2 | 2001:db8:1::1/127 | torm11 | torm11-eth0 | 2001:db8:1::0/127 | 65101 ↔ 65002 |
-| leaf1 | leaf1-eth3 | 2001:db8:2::1/127 | torm12 | torm12-eth0 | 2001:db8:2::0/127 | 65101 ↔ 65003 |
-| leaf2 | leaf2-eth2 | 2001:db8:5::1/127 | torm11 | torm11-eth1 | 2001:db8:5::0/127 | 65101 ↔ 65002 |
-| leaf2 | leaf2-eth3 | 2001:db8:6::1/127 | torm12 | torm12-eth1 | 2001:db8:6::0/127 | 65101 ↔ 65003 |
+| leaf1 | leaf1-eth2 | 2001:db8:1::1/127 | torm11 | torm11-eth0 | 2001:db8:1::0/127 | 65101 <-> 65002 |
+| leaf1 | leaf1-eth3 | 2001:db8:2::1/127 | torm12 | torm12-eth0 | 2001:db8:2::0/127 | 65101 <-> 65003 |
+| leaf2 | leaf2-eth2 | 2001:db8:5::1/127 | torm11 | torm11-eth1 | 2001:db8:5::0/127 | 65101 <-> 65002 |
+| leaf2 | leaf2-eth3 | 2001:db8:6::1/127 | torm12 | torm12-eth1 | 2001:db8:6::0/127 | 65101 <-> 65003 |
 
 ### Leaf to TOR Connections (Rack 2)
 
 | Source Device | Source Interface | Source IPv6 Address | Destination Device | Destination Interface | Destination IPv6 Address | AS Pair |
 |--------------|------------------|---------------------|-------------------|----------------------|--------------------------|---------|
-| leaf1 | leaf1-eth4 | 2001:db8:3::1/127 | torm21 | torm21-eth0 | 2001:db8:3::0/127 | 65101 ↔ 65004 |
-| leaf1 | leaf1-eth5 | 2001:db8:4::1/127 | torm22 | torm22-eth0 | 2001:db8:4::0/127 | 65101 ↔ 65005 |
-| leaf2 | leaf2-eth4 | 2001:db8:7::1/127 | torm21 | torm21-eth1 | 2001:db8:7::0/127 | 65101 ↔ 65004 |
-| leaf2 | leaf2-eth5 | 2001:db8:8::1/127 | torm22 | torm22-eth1 | 2001:db8:8::0/127 | 65101 ↔ 65005 |
+| leaf1 | leaf1-eth4 | 2001:db8:3::1/127 | torm21 | torm21-eth0 | 2001:db8:3::0/127 | 65101 <-> 65004 |
+| leaf1 | leaf1-eth5 | 2001:db8:4::1/127 | torm22 | torm22-eth0 | 2001:db8:4::0/127 | 65101 <-> 65005 |
+| leaf2 | leaf2-eth4 | 2001:db8:7::1/127 | torm21 | torm21-eth1 | 2001:db8:7::0/127 | 65101 <-> 65004 |
+| leaf2 | leaf2-eth5 | 2001:db8:8::1/127 | torm22 | torm22-eth1 | 2001:db8:8::0/127 | 65101 <-> 65005 |
 
 ### TOR to Host Connections (Rack 1)
 
@@ -262,22 +182,22 @@ act as loopback-style addresses within each VRF and are associated to L3VNIs:
 **Total BGP Sessions**: 20
 
 #### Spine Layer (4 sessions)
-- spine1 ↔ leaf1 (AS 65001 ↔ 65101)
-- spine1 ↔ leaf2 (AS 65001 ↔ 65101)
-- spine2 ↔ leaf1 (AS 65001 ↔ 65101)
-- spine2 ↔ leaf2 (AS 65001 ↔ 65101)
+- spine1 <-> leaf1 (AS 65001 <-> 65101)
+- spine1 <-> leaf2 (AS 65001 <-> 65101)
+- spine2 <-> leaf1 (AS 65001 <-> 65101)
+- spine2 <-> leaf2 (AS 65001 <-> 65101)
 
 #### Leaf to Rack 1 (8 sessions)
-- leaf1 ↔ torm11 (AS 65101 ↔ 65002)
-- leaf1 ↔ torm12 (AS 65101 ↔ 65003)
-- leaf2 ↔ torm11 (AS 65101 ↔ 65002)
-- leaf2 ↔ torm12 (AS 65101 ↔ 65003)
+- leaf1 <-> torm11 (AS 65101 <-> 65002)
+- leaf1 <-> torm12 (AS 65101 <-> 65003)
+- leaf2 <-> torm11 (AS 65101 <-> 65002)
+- leaf2 <-> torm12 (AS 65101 <-> 65003)
 
 #### Leaf to Rack 2 (8 sessions)
-- leaf1 ↔ torm21 (AS 65101 ↔ 65004)
-- leaf1 ↔ torm22 (AS 65101 ↔ 65005)
-- leaf2 ↔ torm21 (AS 65101 ↔ 65004)
-- leaf2 ↔ torm22 (AS 65101 ↔ 65005)
+- leaf1 <-> torm21 (AS 65101 <-> 65004)
+- leaf1 <-> torm22 (AS 65101 <-> 65005)
+- leaf2 <-> torm21 (AS 65101 <-> 65004)
+- leaf2 <-> torm22 (AS 65101 <-> 65005)
 
 ## EVPN Multihoming Configuration
 
@@ -316,37 +236,37 @@ act as loopback-style addresses within each VRF and are associated to L3VNIs:
 ### spine1
 ```
 lo              : 10.0.0.13/32 (IPv4) + 2001:db8:100::13/128 (IPv6)
-spine1-eth0     : 2001:db8:50::1/127    → leaf1-eth0
-spine1-eth1     : 2001:db8:51::1/127    → leaf2-eth0
+spine1-eth0     : 2001:db8:50::1/127    -> leaf1-eth0
+spine1-eth1     : 2001:db8:51::1/127    -> leaf2-eth0
 ```
 
 ### spine2
 ```
 lo              : 10.0.0.14/32 (IPv4) + 2001:db8:100::14/128 (IPv6)
-spine2-eth0     : 2001:db8:60::1/127    → leaf1-eth1
-spine2-eth1     : 2001:db8:61::1/127    → leaf2-eth1
+spine2-eth0     : 2001:db8:60::1/127    -> leaf1-eth1
+spine2-eth1     : 2001:db8:61::1/127    -> leaf2-eth1
 ```
 
 ### leaf1
 ```
 lo              : 10.0.0.13/32 (IPv4) + 2001:db8:200::13/128 (IPv6)
-leaf1-eth0      : 2001:db8:50::0/127    → spine1-eth0
-leaf1-eth1      : 2001:db8:60::0/127    → spine2-eth0
-leaf1-eth2      : 2001:db8:1::1/127     → torm11-eth0
-leaf1-eth3      : 2001:db8:2::1/127     → torm12-eth0
-leaf1-eth4      : 2001:db8:3::1/127     → torm21-eth0
-leaf1-eth5      : 2001:db8:4::1/127     → torm22-eth0
+leaf1-eth0      : 2001:db8:50::0/127    -> spine1-eth0
+leaf1-eth1      : 2001:db8:60::0/127    -> spine2-eth0
+leaf1-eth2      : 2001:db8:1::1/127     -> torm11-eth0
+leaf1-eth3      : 2001:db8:2::1/127     -> torm12-eth0
+leaf1-eth4      : 2001:db8:3::1/127     -> torm21-eth0
+leaf1-eth5      : 2001:db8:4::1/127     -> torm22-eth0
 ```
 
 ### leaf2
 ```
 lo              : 10.0.0.14/32 (IPv4) + 2001:db8:200::14/128 (IPv6)
-leaf2-eth0      : 2001:db8:51::0/127    → spine1-eth1
-leaf2-eth1      : 2001:db8:61::0/127    → spine2-eth1
-leaf2-eth2      : 2001:db8:5::1/127     → torm11-eth1
-leaf2-eth3      : 2001:db8:6::1/127     → torm12-eth1
-leaf2-eth4      : 2001:db8:7::1/127     → torm21-eth1
-leaf2-eth5      : 2001:db8:8::1/127     → torm22-eth1
+leaf2-eth0      : 2001:db8:51::0/127    -> spine1-eth1
+leaf2-eth1      : 2001:db8:61::0/127    -> spine2-eth1
+leaf2-eth2      : 2001:db8:5::1/127     -> torm11-eth1
+leaf2-eth3      : 2001:db8:6::1/127     -> torm12-eth1
+leaf2-eth4      : 2001:db8:7::1/127     -> torm21-eth1
+leaf2-eth5      : 2001:db8:8::1/127     -> torm22-eth1
 ```
 
 ### torm11 (IPv6 VTEP: 2001:db8:100::15/128)
