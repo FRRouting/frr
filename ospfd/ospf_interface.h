@@ -133,6 +133,9 @@ struct ospf_if_params {
 	/* RFC4222 Inactivity */
 	DECLARE_IF_PARAM(bool,
 			 dead_timer_any); /* when true, All recived packets reset inactivity */
+	/* RFC4222 Priority markings */
+	DECLARE_IF_PARAM(uint8_t, dscp_ospf_all);    /* 0–63 */
+	DECLARE_IF_PARAM(uint8_t, dscp_low_control); /* 0–63 */
 };
 
 enum { MEMBER_ALLROUTERS = 0,

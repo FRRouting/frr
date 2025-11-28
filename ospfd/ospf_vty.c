@@ -3388,6 +3388,59 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
+/* RFC4222 DSCP: 'all' (Hello/Ack + default) and 'low-control' override */
+DEFPY(ospf_if_dscp,
+      ospf_if_dscp_cmd,
+      "[no$no] ip ospf dscp <all|low-control>$which [(0-63)$value]",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "Set DSCP for OSPF control packets\n"    /* dscp */
+      "DSCP used for all OSPF control packets (Hellos, Acks, and others when low-control not set)\n" /* all */
+      "DSCP used for lower-priority control packets (DB-Desc, LS-Req, LSUs)\n"   /* low-control */
+      "DSCP value (0-63)\n") /* (0-63)$value */
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!params)
+		return CMD_WARNING;
+
+	/* Normalize: if no keyword provided, treat as 'all' for backward-ish usage */
+	if (!which)
+		which = "all";
+
+	if (no) {
+		if (!strcmp(which, "all")) {
+			/* Reset to default: Network Control (CS6 = 48) */
+			UNSET_IF_PARAM(params, dscp_ospf_all);
+			params->dscp_ospf_all = IPTOS_PREC_INTERNETCONTROL >> 2;
+		} else if (!strcmp(which, "low-control")) {
+			/* Clear explicit low-control override; fall back to 'all' DSCP */
+			UNSET_IF_PARAM(params, dscp_low_control);
+			params->dscp_low_control = params->dscp_ospf_all;
+		}
+		return CMD_SUCCESS;
+	}
+
+	/* Non-no case: must have a value */
+	if (!value) {
+		vty_out(vty, "%% DSCP value required\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!strcmp(which, "all")) {
+		params->dscp_ospf_all = value;
+		SET_IF_PARAM(params, dscp_ospf_all);
+	} else if (!strcmp(which, "low-control")) {
+		params->dscp_low_control = value;
+		SET_IF_PARAM(params, dscp_low_control);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* RFC4222 any packet sets dead-timer inactivity*/
 DEFPY (ospf_dead_timer_any_control,
 	     ospf_dead_timer_any_control_cmd,
@@ -3412,12 +3465,10 @@ DEFPY (ospf_dead_timer_any_control,
 	} else {
 		SET_IF_PARAM(params, dead_timer_any);
 		params->dead_timer_any = true; /* RFC4222 mode */
-					       /* Uncomment when merged with RFC4222 Rec 1 */
 	}
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
@@ -12334,6 +12385,14 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 						&rn->p.u.prefix4);
 				vty_out(vty, "\n");
 			}
+			/* RFC4222 DSCP knobs */
+			if (OSPF_IF_PARAM_CONFIGURED(params, dscp_low_control) ||
+			    OSPF_IF_PARAM_CONFIGURED(params, dscp_ospf_all)) {
+				vty_out(vty, " ip ospf dscp all %u\n", params->dscp_ospf_all);
+				vty_out(vty, " ip ospf dscp low-control %u\n",
+					params->dscp_low_control);
+			}
+
 
 			/* Hello Graceful-Restart Delay print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params,
@@ -13322,6 +13381,8 @@ static void ospf_vty_if_init(void)
 
 	/* RFC4222 for control packets*/
 	install_element(INTERFACE_NODE, &ospf_dead_timer_any_control_cmd);
+	/* RFC4222 DSCP settings for control packets*/
+	install_element(INTERFACE_NODE, &ospf_if_dscp_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);
