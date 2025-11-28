@@ -296,6 +296,37 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
+static void ospf_maybe_restart_inactivity(struct ospf_interface *oi, struct ospf_neighbor *nbr,
+					  const struct ip *iph)
+{
+	in_addr_t dst;
+
+	if (!nbr)
+		return;
+
+	/* Only apply when configured */
+	if (!OSPF_IF_PARAM(oi, dead_timer_any))
+		return;
+
+	/* Only once the neighbor is at or beyond 2-Way */
+	if (nbr->state < NSM_TwoWay)
+		return;
+
+	dst = ntohl(iph->ip_dst.s_addr);
+
+	/* Any unicast OSPF packet */
+	bool is_unicast = !IN_MULTICAST(dst);
+
+	/* Any OSPF packet to AllSPFRouters over a point-to-point link */
+	bool is_p2p_allspf = (oi->type == OSPF_IFTYPE_POINTOPOINT &&
+			      dst == OSPF_ALLSPFROUTERS); /* 224.0.0.5 in host order */
+
+	if (is_unicast || is_p2p_allspf) {
+		ospf_nsm_restart_inactivity_timer(nbr);
+		nbr->dead_timer_resets++;
+	}
+}
+
 /*
  * OSPF neighbor link state retransmission timer handler. Unicast
  * unacknowledged LSAs to the neighbors.
@@ -1228,6 +1259,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 			ntohl(dd->dd_seqnum), nbr->dd_seqnum);
 
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Process DD packet by neighbor status. */
 	switch (nbr->state) {
 	case NSM_Down:
@@ -1474,6 +1510,11 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		return;
 	}
 
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Send Link State Update for ALL requested LSAs. */
 	ls_upd = list_new();
 	length = OSPF_HEADER_SIZE + OSPF_LS_UPD_MIN_SIZE;
@@ -1718,6 +1759,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					   NULL));
 		return;
 	}
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 
 	/* Get list of LSAs from Link State Update packet. - Also performs
 	 * Stages 1 (validate LSA checksum) and 2 (check for LSA consistent
@@ -2107,6 +2153,12 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 					   NULL));
 		return;
 	}
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
+
 
 	while (size >= OSPF_LSA_HEADER_SIZE) {
 		struct ospf_lsa *lsa, *lsr;

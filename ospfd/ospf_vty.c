@@ -3388,6 +3388,37 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
+/* RFC4222 any packet sets dead-timer inactivity*/
+DEFPY (ospf_dead_timer_any_control,
+	     ospf_dead_timer_any_control_cmd,
+             "[no$no] ip ospf dead-timer-reset any-control",
+             NO_STR
+             IP_STR
+             OSPF_STR
+             "Neighbor dead-timer / inactivity behavior\n"
+             "RFC4222 non-hello control packets also resets dead timer\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (!params)
+		return CMD_WARNING;
+
+	if (no) {
+		UNSET_IF_PARAM(params, dead_timer_any);
+		params->dead_timer_any = false; /* Legacy: Hello-only */
+	} else {
+		SET_IF_PARAM(params, dead_timer_any);
+		params->dead_timer_any = true; /* RFC4222 mode */
+					       /* Uncomment when merged with RFC4222 Rec 1 */
+	}
+
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
        "show ip ospf [vrf <NAME|all>] [json]",
@@ -5320,10 +5351,17 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			json_object_int_add(
 				json_neigh,
 				"routerDeadIntervalTimerDueMsec", -1);
-	} else
+		/* RFC4222: count inactivity resets due to non-Hello packets */
+		json_object_int_add(json_neigh, "nonHelloDeadTimerResets",
+				    (int64_t)nbr->dead_timer_resets);
+	} else {
 		vty_out(vty, "    Dead timer due in %s\n",
 			ospf_timer_dump(nbr->t_inactivity, timebuf,
 					sizeof(timebuf)));
+		/* RFC4222: count inactivity resets due to non-Hello packets */
+		vty_out(vty, "    Non hello dead timer resets: %llu\n",
+			(unsigned long long)nbr->dead_timer_resets);
+	}
 
 	/* Show Database Summary list. */
 	if (use_json)
@@ -12444,6 +12482,12 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* dead_timer_any print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, dead_timer_any) &&
+			    params->dead_timer_any) {
+				vty_out(vty, " ip ospf dead-timer-reset any-control\n");
+			}
+
 			while (1) {
 				if (rn == NULL)
 					rn = route_top(IF_OIFS_PARAMS(ifp));
@@ -13275,6 +13319,9 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf neighbor-filter" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_neighbor_filter_addr_cmd);
+
+	/* RFC4222 for control packets*/
+	install_element(INTERFACE_NODE, &ospf_dead_timer_any_control_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);
