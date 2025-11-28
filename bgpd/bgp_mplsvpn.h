@@ -14,6 +14,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_srv6.h"
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -269,7 +270,8 @@ static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 		vpn_leak_to_vrf_withdraw_all(bgp_vrf, afi);
 	}
 	if ((direction == BGP_VPN_POLICY_DIR_TOVPN) &&
-	    vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true)) {
+	    (vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true) ||
+	     bgp_srv6_per_locator_cache_count(&bgp_vrf->srv6_locators_per_routemap[afi]))) {
 		vpn_leak_from_vrf_withdraw_all(bgp_vpn, bgp_vrf, afi);
 	}
 }
