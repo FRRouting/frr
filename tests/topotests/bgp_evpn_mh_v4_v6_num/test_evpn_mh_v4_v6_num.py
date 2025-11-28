@@ -258,6 +258,16 @@ L3VNI_VRF = {
     4001: "vrf2",
 }
 
+# Per-TOR IPv4 addresses for VRF devices. These are assigned directly to the
+# VRF interfaces (vrf1 and vrf2) as /32 loopback-style addresses in the
+# 10.1.x.x range, unique per TOR.
+VRF_IPV4 = {
+    "torm11": {"vrf1": "10.1.11.1/32", "vrf2": "10.1.11.2/32"},
+    "torm12": {"vrf1": "10.1.12.1/32", "vrf2": "10.1.12.2/32"},
+    "torm21": {"vrf1": "10.1.21.1/32", "vrf2": "10.1.21.2/32"},
+    "torm22": {"vrf1": "10.1.22.1/32", "vrf2": "10.1.22.2/32"},
+}
+
 
 def _normalize_prefix_for_ip_show(prefix):
     """
@@ -503,10 +513,16 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     for ifname, prefix in uplinks.items():
         tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
 
-    # create VRFs and L3VNI VLAN 4001
+    # create VRFs and L3VNI VLANs based on L3VNI_VRF
     config_bridge(tor)
     config_vxlan(tor, tor_ip)
     config_vrf_l3vni(tor)
+
+    # Assign per-VRF IPv4 addresses (10.1.x.x/32) on vrf1 and vrf2 devices so
+    # each TOR has unique loopback-style addresses in each VRF.
+    vrf_ips = VRF_IPV4.get(tor_name, {})
+    for vrf, addr in vrf_ips.items():
+        tor.run(f"ip addr add {addr} dev {vrf}")
 
     # create hostbonds; we will attach them to the bridge explicitly
     if "torm1" in tor_name:
