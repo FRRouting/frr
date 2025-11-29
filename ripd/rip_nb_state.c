@@ -119,8 +119,10 @@ struct yang_data *ripd_instance_state_neighbors_neighbor_address_get_elem(
 struct yang_data *ripd_instance_state_neighbors_neighbor_last_update_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	/* TODO: yang:date-and-time is tricky */
-	return NULL;
+	const struct listnode *node = args->list_entry;
+	const struct rip_peer *peer = listgetdata(node);
+
+	return yang_data_new_date_and_time(args->xpath, peer->uptime, false);
 }
 
 /*
