@@ -812,7 +812,7 @@ def parse_frr_bgp_evpn_bum_vtep_zsend(event):
             pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
 
     """
-    field_parsers = {"vtep": print_net_ipv4_addr}
+    field_parsers = {"vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
@@ -833,7 +833,7 @@ def parse_frr_bgp_evpn_mh_local_es_add_zrecv(event):
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
     """
-    field_parsers = {"esi": print_esi, "vtep": print_net_ipv4_addr}
+    field_parsers = {"esi": print_esi, "vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
@@ -873,7 +873,8 @@ def parse_frr_bgp_evpn_mh_es_evi_vtep_add(event):
     bgp evpn remote ead evi remote vtep add; raw format -
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     """
-    field_parsers = {"esi": print_esi, "vtep": print_net_ipv4_addr}
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
@@ -883,7 +884,8 @@ def parse_frr_bgp_evpn_mh_es_evi_vtep_del(event):
     bgp evpn remote ead evi remote vtep del; raw format -
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     """
-    field_parsers = {"esi": print_esi, "vtep": print_net_ipv4_addr}
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
@@ -893,7 +895,8 @@ def parse_frr_bgp_evpn_mh_local_ead_es_evi_route_upd(event):
     bgp evpn local ead evi vtep; raw format -
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     """
-    field_parsers = {"esi": print_esi, "vtep": print_net_ipv4_addr}
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
@@ -903,7 +906,8 @@ def parse_frr_bgp_evpn_mh_local_ead_es_evi_route_del(event):
     bgp evpn local ead evi vtep del; raw format -
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     """
-    field_parsers = {"esi": print_esi, "vtep": print_net_ipv4_addr}
+    field_parsers = {"esi": print_esi,
+                     "vtep": print_ip_addr}
 
     parse_event(event, field_parsers)
 
