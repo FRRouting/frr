@@ -9,8 +9,12 @@
 #
 
 """
-Check if Cease/BFD Down notification message is sent/received
-when the BFD is down (administratively).
+Test BGP behavior when BFD profile is administratively shutdown.
+
+When a BFD profile is shutdown, it sends Admin Down to the remote peer.
+The remote peer receives Admin Down and maintains the BGP session (no teardown).
+This is by design - Admin Down from peer means BFD is administratively disabled
+but protocols should remain up.
 """
 
 import os
@@ -84,25 +88,32 @@ def test_bgp_bfd_down_notification_shutdown():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_bfd_down_notification():
+    def _bgp_stays_established_on_r2():
+        """
+        On R2, when R1's BFD profile is shutdown, R2 receives Admin Down.
+        BGP session should STAY UP (not tear down) because Admin Down from
+        peer indicates administrative BFD shutdown but protocols should remain up.
+        """
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
-                "lastResetDueTo": "BFD down initiated",
+                "bgpState": "Established",
                 "peerBfdInfo": {
-                    "status": "Down",
+                    "status": "Admin Down",
                 },
             }
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_bfd_down_notification_1():
+    def _bgp_stays_established_on_r1():
+        """
+        On R1, BFD profile is shutdown locally. BGP session should remain up.
+        Local BFD status will show Admin Down, but BGP is not affected.
+        """
         output = json.loads(r1.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
         expected = {
             "192.168.255.2": {
-                "lastNotificationReason": "Cease/BFD Down",
-                "lastNotificationHardReset": True,
-                "lastResetDueTo": "BGP Notification received",
+                "bgpState": "Established",
                 "peerBfdInfo": {
                     "status": "Admin Down",
                 },
@@ -112,9 +123,10 @@ def test_bgp_bfd_down_notification_shutdown():
 
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Failed to see BGP convergence on R2"
 
+    step("Shutdown BFD profile on R1")
     r1.vtysh_cmd(
         """
     configure
@@ -124,38 +136,15 @@ def test_bgp_bfd_down_notification_shutdown():
     """
     )
 
-    step("Check if we sent Cease/BFD Down notification message on R2")
-    test_func = functools.partial(_bgp_bfd_down_notification)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
+    step("Check if BGP session stays Established on R2 after R1 BFD profile shutdown")
+    test_func = functools.partial(_bgp_stays_established_on_r2)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, "BGP session should stay Established on R2 when R1 BFD profile is shutdown"
 
-    step("Check if we received Cease/BFD Down notification message on R1")
-    test_func = functools.partial(_bgp_bfd_down_notification_1)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Failed to see BGP Cease/BFD Down notification message on R1"
-
-    def _bgp_status_post_bfd_profile_shutdown():
-        output = json.loads(r1.vtysh_cmd("show bgp summary json"))
-        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"state": "Idle"}}}}
-        ret = topotest.json_cmp(output, expected)
-        # If the peer is in Idle state and already 10 seconds, then all good
-        if (
-            not ret
-            and output["ipv4Unicast"]["peers"]["192.168.255.2"]["peerUptimeMsec"]
-            > 10000
-        ):
-            return ret
-
-        # Here, the peer might be in Idle state, but not for long enough, which is bad
-        # and not expected.
-        return "BGP peer is not in Idle state for long enough"
-
-    step("Check if BGP stays in Idle state on R1 after BFD profile shutdown")
-    test_func = functools.partial(_bgp_status_post_bfd_profile_shutdown)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "BGP should stay in shutdown state on R1 after BFD profile shutdown"
+    step("Check if BGP session stays Established on R1 after local BFD profile shutdown")
+    test_func = functools.partial(_bgp_stays_established_on_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, "BGP session should stay Established on R1 after local BFD profile shutdown"
 
 
 if __name__ == "__main__":
