@@ -101,6 +101,19 @@ static void ospf6_bfd_callback(struct bfd_session_params *bsp,
 {
 	struct ospf6_neighbor *on = arg;
 
+	/*
+	 * Handle Admin Down from peer separately.
+	 * When BFD receives Admin Down from peer, we should NOT tear down
+	 * the OSPFv6 neighbor. The peer is administratively shutting down BFD,
+	 * but the OSPFv6 adjacency should remain up.
+	 */
+	if (bss->state == BSS_ADMIN_DOWN && bss->previous_state == BSS_UP) {
+		/* Don't tear down OSPFv6 neighbor, just log the event */
+		zlog_info("OSPFv6 BFD: Neighbor %pI6: Received Admin Down from peer - adjacency maintained",
+			  &on->linklocal_addr);
+		return;
+	}
+
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
 		event_cancel(&on->inactivity_timer);
