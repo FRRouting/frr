@@ -59,6 +59,20 @@ static void pim_neighbor_bfd_cb(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->previous_state));
 	}
 
+	/*
+	 * Handle Admin Down from peer separately.
+	 * When BFD receives Admin Down from peer, we should NOT tear down
+	 * the PIM neighbor. The peer is administratively shutting down BFD,
+	 * but the PIM adjacency should remain up.
+	 */
+	if (bss->state == BSS_ADMIN_DOWN && bss->previous_state == BSS_UP) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: BFD received Admin Down from peer - PIM neighbor maintained",
+				   __func__);
+		/* Don't delete PIM neighbor, just log the event */
+		return;
+	}
+
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP)
 		pim_neighbor_delete(nbr->interface, nbr, "BFD Session Expired");
