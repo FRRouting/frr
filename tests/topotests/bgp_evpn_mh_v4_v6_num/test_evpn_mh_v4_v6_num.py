@@ -733,6 +733,67 @@ def tgen_and_ip_version(request):
         # Load unified frr.conf from the IP-version specific config directory
         router.load_frr_config(os.path.join(config_dir, "{}/frr.conf".format(rname)))
 
+        # Explicitly ensure pim6d and its configuration are applied for this
+        # topology when using IPv6 underlay. Guard this with a runtime check
+        # so tests don't crash on builds where pim6d is not compiled/enabled.
+        if ip_version == "ipv6" and rname in ["torm11", "torm12", "torm21", "torm22"]:
+            # Check for pim6d binary inside the router namespace; if missing,
+            # just log a warning and skip enabling/applying any pim6 config.
+            has_pim6d = (
+                router.run("test -x /usr/lib/frr/pim6d && echo yes || echo no")
+                .strip()
+                .endswith("yes")
+            )
+            if has_pim6d:
+                # Start pim6d with an empty config file (unified config will
+                # still drive most state).
+                router.load_config(TopoRouter.RD_PIM6, "")
+
+                # Program the PIMv6 configuration that used to live in the
+                # static frr.conf files only when pim6d is available.
+                #
+                # This includes:
+                # - router pim6
+                #     join-prune-interval 5
+                # - interface <uplinks> ipv6 pim
+                # - interface ipmr-lo ipv6 pim
+                uplinks = {
+                    "torm11": ["torm11-eth0", "torm11-eth1"],
+                    "torm12": ["torm12-eth0", "torm12-eth1"],
+                    "torm21": ["torm21-eth0", "torm21-eth1"],
+                    "torm22": ["torm22-eth0", "torm22-eth1"],
+                }
+
+                pim_cfg_cmds = [
+                    "configure terminal",
+                    "router pim6",
+                    " join-prune-interval 5",
+                ]
+                for intf in uplinks[rname]:
+                    pim_cfg_cmds.extend(
+                        [
+                            f"interface {intf}",
+                            " ipv6 pim",
+                        ]
+                    )
+
+                # ipmr-lo is created at the Linux level via config_mcast_tunnel_termination_device()
+                pim_cfg_cmds.extend(
+                    [
+                        "interface ipmr-lo",
+                        " ipv6 pim",
+                    ]
+                )
+                pim_cfg_cmds.append("end")
+
+                # Apply config via vtysh in the router namespace
+                router.vtysh_cmd("\n".join(pim_cfg_cmds))
+            else:
+                logger.warning(
+                    "pim6d binary not found on %s; skipping PIM6 daemon and config",
+                    rname,
+                )
+
     # For all TORs we now manage addresses directly via Linux iproute2 in
     # config_tor(), not via FRR interface configuration. Prevent startRouter()
     # from flushing those kernel IPs, and for torm11 specifically, exercise
@@ -770,16 +831,21 @@ def tgen_and_ip_version(request):
     if torm11 is not None:
         logger.info("Running frr-reload.py on torm11 unified config")
         cmd = "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf"
-        # Run inside the torm11 namespace (TopoRouter.net is the underlying node)
+        # Run this inside the torm11 namespace (TopoRouter.net is the underlying node)
         rc, out, err = torm11.net.cmd_status(cmd, warn=False)
         if rc:
+            # Log full details and also surface them directly in the assertion
             logger.error(
                 "frr-reload failed on torm11 (rc=%s): stdout=%s stderr=%s",
                 rc,
                 out,
                 err,
             )
-            pytest.fail("frr-reload failed on torm11 (rc={})".format(rc))
+            pytest.fail(
+                "frr-reload failed on torm11 (rc={})\nstdout:\n{}\nstderr:\n{}".format(
+                    rc, out, err
+                )
+            )
 
         # Sanity check that all expected daemons on torm11 are still healthy
         status = torm11.check_router_running()
