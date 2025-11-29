@@ -5286,7 +5286,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * implementations.
 	 */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
-		if (!bgp_inbound_policy_exists(peer, &peer->filter[afi][safi])) {
+		if (!bgp_inbound_policy_exists(peer, &peer->filter[afi][orig_safi])) {
 			reason = "inbound policy missing";
 			if (monotime_since(&bgp->ebgprequirespolicywarning, NULL) >
 				    FIFTEENMINUTE2USEC ||
