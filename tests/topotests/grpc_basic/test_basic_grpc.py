@@ -108,7 +108,17 @@ def test_capabilities(tgen):
     logging.debug("grpc output: %s", output)
 
     modules = sorted(re.findall('name: "([^"]+)"', output))
-    expected = ["frr-backend", "frr-host", "frr-interface", "frr-logging", "frr-routing", "frr-staticd", "frr-vrf", "ietf-srv6-types", "ietf-syslog-types"]
+    expected = [
+        "frr-backend",
+        "frr-host",
+        "frr-interface",
+        "frr-logging",
+        "frr-routing",
+        "frr-staticd",
+        "frr-vrf",
+        "ietf-srv6-types",
+        "ietf-syslog-types",
+    ]
     assert modules == expected
 
     encodings = sorted(re.findall("supported_encodings: (.*)", output))
@@ -203,7 +213,7 @@ def test_shutdown_checks(tgen):
     time.sleep(1)
     try:
         for r in tgen.routers().values():
-            r.net.stopRouter(False)
+            r.net.stopRouter()
             r.net.checkRouterCores()
     finally:
         if p:

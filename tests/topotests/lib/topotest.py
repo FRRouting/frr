@@ -15,6 +15,7 @@ import errno
 import functools
 import glob
 import json
+import logging
 import os
 import platform
 import re
@@ -24,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import logging
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
@@ -32,7 +32,7 @@ from pathlib import Path
 import lib.topolog as topolog
 from lib.micronet_compat import Node
 from lib.topolog import logger
-from munet.base import commander, get_exec_path_host, Timeout
+from munet.base import Timeout, commander, get_exec_path_host
 from munet.testing.util import retry
 
 from lib import micronet
@@ -1611,21 +1611,37 @@ class Router(Node):
                 pass
         return ret
 
-    def stopRouter(self, assertOnError=True):
-        # Stop Running FRR Daemons
+    def stopRouterSignalDaemons(self, sig=signal.SIGTERM, remove_pidfile=False):
+        stopped = []
         running = self.listDaemons()
-        if not running:
-            return ""
-
-        logger.info("%s: stopping %s", self.name, ", ".join([x[0] for x in running]))
+        if running and remove_pidfile:
+            logger.warning(
+                "%s: force stopping %s", self.name, ", ".join([x[0] for x in running])
+            )
+        elif running:
+            logger.info(
+                "%s: stopping %s", self.name, ", ".join([x[0] for x in running])
+            )
         for name, pid in running:
-            logger.debug("{}: sending SIGTERM to {}".format(self.name, name))
+            logger.debug("%s: sending %s to %s", self.name, signal.strsignal(sig), name)
             try:
-                os.kill(pid, signal.SIGTERM)
+                # Probably better to use cmd_raises to support non-local process
+                os.kill(pid, sig)
+                stopped.append(name)
             except OSError as err:
                 logger.debug(
                     "%s: could not kill %s (%s): %s", self.name, name, pid, str(err)
                 )
+            if remove_pidfile:
+                self.cmd(f"rm -f /var/run/{self.routertype}/{name}.pid")
+        return stopped
+
+    def stopRouter(self, wait=True):
+        # Stop Running FRR Daemons
+        stopped = self.stopRouterSignalDaemons()
+
+        if not wait:
+            return
 
         running = self.listDaemons()
         if running:
@@ -1641,26 +1657,10 @@ class Router(Node):
                     break
 
         if running:
-            logger.warning(
-                "%s: sending SIGBUS to: %s",
-                self.name,
-                ", ".join([x[0] for x in running]),
-            )
-            for name, pid in running:
-                pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
-                logger.info("%s: killing %s", self.name, name)
-                self.cmd("kill -SIGBUS %d" % pid)
-                self.cmd("rm -- " + pidfile)
+            stopped = self.stopRouterSignalDaemons(signal.SIGBUS, True)
+            sleep(1, f"{self.name}: waiting for core files after SIGBUS")
 
-            sleep(
-                0.5,
-                "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name,
-            )
-
-        errors = self.checkRouterCores(reportOnce=True)
-        if assertOnError and (errors is not None) and len(errors) > 0:
-            assert "Errors found - details follow:" == 0, errors
-        return errors
+        return self.checkRouterCores(reportOnce=True)
 
     def removeIPs(self):
         for interface in self.intfNames():

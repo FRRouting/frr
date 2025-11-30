@@ -35,17 +35,20 @@ import platform
 import pwd
 import re
 import shlex
+import signal
 import subprocess
 import sys
+import time
 from collections import OrderedDict
 
 import lib.topolog as topolog
 from lib.micronet import Commander
 from lib.micronet_compat import Mininet
 from lib.topolog import logger
+from munet.base import Timeout
 from munet.testing.util import pause_test
 
-from lib import topotest
+from . import topotest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -466,11 +469,16 @@ class Topogen(object):
 
     def stop_topology(self):
         """
-        Stops the network topology. This function will call the stop() function
-        of all gears before calling the mininet stop function, so they can have
-        their oportunity to do a graceful shutdown. stop() is called twice. The
-        first is a simple kill with no sleep, the second will sleep if not
-        killed and try with a different signal.
+        Stops the network topology. This function will:
+        1. Send SIGTERM to all daemons on all routers in parallel
+        2. Wait for all daemons to stop together
+        3. Force stop any remaining daemons with SIGBUS
+        4. Stop all non-router gears (hosts, ExaBGP, etc.)
+        5. Collect errors from all routers
+        6. Stop the mininet network
+
+        This parallel approach reduces test completion time compared to
+        stopping routers sequentially.
         """
         pause = bool(self.net.cfgopt.get_option("--pause-at-end"))
         pause = pause or bool(self.net.cfgopt.get_option("--pause"))
@@ -484,13 +492,43 @@ class Topogen(object):
 
         logger.info("stopping topology: {}".format(self.modname))
 
+        # Step 1: Send SIGTERM to all daemons on all routers in parallel (non-blocking)
+        routers = {x.net for x in self.gears.values() if isinstance(x, TopoRouter)}
+        for router in routers:
+            router.stopRouterSignalDaemons()
+
+        # Step 2: Wait for all daemons to stop (check all routers in a single loop)
+        wait_count = 0
+        still_running = {x: dt for x in routers if (dt := x.listDaemons())}
+        for rem in Timeout(30):
+            if not any(still_running):
+                break
+            if wait_count % 5 == 0:  # Log every 2.5 seconds
+                desc = " ".join([f"{r.name}: {d}" for r, d in still_running.items()])
+                logger.info(f"[%s]: waiting for daemons to stop: %s", rem, desc)
+            time.sleep(0.5)
+            wait_count += 1
+            still_running = {x: dt for x in still_running if (dt := x.listDaemons())}
+
+        # Step 3: Force stop any remaining daemons with SIGBUS
+        for router in still_running:
+            router.stopRouterSignalDaemons(signal.SIGBUS, remove_pidfile=True)
+
+        # Wait 5 seconds for cores
+        if any(still_running):
+            time.sleep(5)
+
+        # Step 4: Stop all non-routers.
+        hosts = {x for x in self.gears.values() if not isinstance(x, TopoRouter)}
+        for host in hosts:
+            host.stop()
+
+        # Step 5: Collect errors from all routers (cores, etc.)
         errors = ""
-        for gear in self.gears.values():
-            errors += gear.stop()
-        if len(errors) > 0:
-            logger.error(
-                "Errors found post shutdown - details follow: {}".format(errors)
-            )
+        for router in routers:
+            errors += router.checkRouterCores(reportOnce=True)
+        if errors:
+            logger.error("Errors found post shutdown: %s", errors)
 
         try:
             self.net.stop()
@@ -615,7 +653,7 @@ class TopoGear(object):
         "Basic start function that just reports equipment start"
         logger.info('starting "{}"'.format(self.name))
 
-    def stop(self, wait=True, assertOnError=True):
+    def stop(self, wait=True):
         "Basic stop function that just reports equipment stop"
         logger.info('"{}" base stop called'.format(self.name))
         return ""
@@ -952,13 +990,13 @@ class TopoRouter(TopoGear):
 
         return result
 
-    def stop(self):
+    def stop(self, wait=True):
         """
         Stop router cleanly:
         * Signal daemons twice, once with SIGTERM, then with SIGKILL.
         """
-        self.logger.debug("stopping (no assert)")
-        return self.net.stopRouter(False)
+        self.logger.debug("stopping")
+        return self.net.stopRouter(wait=wait)
 
     def startDaemons(self, daemons):
         """
@@ -1175,6 +1213,7 @@ class TopoSwitch(TopoGear):
 
 class TopoHost(TopoGear):
     "Host abstraction."
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
@@ -1213,6 +1252,7 @@ class TopoHost(TopoGear):
 
 class TopoExaBGP(TopoHost):
     "ExaBGP peer abstraction."
+
     # pylint: disable=too-few-public-methods
 
     PRIVATE_DIRS = [
@@ -1281,8 +1321,9 @@ class TopoExaBGP(TopoHost):
 
         logger.info("{} exabgp started, output={}".format(self.name, output))
 
-    def stop(self, wait=True, assertOnError=True):
+    def stop(self, wait=True):
         "Stop ExaBGP peer and kill the daemon"
+        logger.debug("stopping exabgp")
         self.run("kill `cat /var/run/exabgp/exabgp.pid`")
         return ""
 
@@ -1321,7 +1362,8 @@ class TopoBMPCollector(TopoHost):
                 stderr=err,
             )
 
-    def stop(self):
+    def stop(self, wait=True):
+        logger.debug("stopping bmp collector")
         self.run(f"kill $(cat {self.pid_file}")
         return ""
 
