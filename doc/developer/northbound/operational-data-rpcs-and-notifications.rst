@@ -289,9 +289,8 @@ Finally, each YANG leaf inside the ``neighbor`` list has its associated
    ripd_state_neighbors_neighbor_last_update_get_elem(const char *xpath,
                                                       void *list_entry)
    {
-           struct rip_peer *peer = list_entry;
-
-           return yang_data_new_date_and_time(args->xpath, peer->uptime, false);
+           /* TODO: yang:date-and-time is tricky */
+           return NULL;
    }
 
    /*

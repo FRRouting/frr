@@ -5,16 +5,27 @@ set -e
 # of normal "configure" or error-handling "abort-upgrade", "abort-remove" or
 # "abort-deconfigure"
 
-addgroup --system frrvty
-addgroup --system frr
-adduser \
-	--system \
-	--ingroup frr \
-	--home /nonexistent \
-	--gecos "Frr routing suite" \
-	--no-create-home \
-	frr
-usermod -a -G frrvty frr
+# Create groups if they don't already exist
+if ! getent group frrvty >/dev/null 2>&1; then
+	addgroup --system frrvty
+fi
+if ! getent group frr >/dev/null 2>&1; then
+	addgroup --system frr
+fi
+# Create user if it doesn't already exist
+if ! getent passwd frr >/dev/null 2>&1; then
+	adduser \
+		--system \
+		--ingroup frr \
+		--home /nonexistent \
+		--gecos "Frr routing suite" \
+		--no-create-home \
+		frr
+fi
+# Add frr user to frrvty group if not already a member
+if ! id -nG frr 2>/dev/null | grep -qw frrvty; then
+	usermod -a -G frrvty frr
+fi
 
 mkdir -m 0755 -p /var/log/frr
 mkdir -m 0700 -p /var/lib/frr

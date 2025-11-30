@@ -1334,7 +1334,7 @@ def verify_router_id(tgen, topo, input_dict, expected=True):
 
 
 @retry(retry_timeout=150)
-def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=None):
+def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=None, seconds_left=None):
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
@@ -1346,6 +1346,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=N
     * `topo`: input json file data
     * `dut`: device under test
     * `addr_type` : address type for which verification to be done, by-default both v4 and v6
+    * `seconds_left`: remaining retry time (used by retry decorator, can be ignored)
 
     Usage
     -----
@@ -1359,6 +1360,8 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=N
     """
 
     if topo is None:
+        if not hasattr(tgen, 'json_topo') or tgen.json_topo is None:
+            return "verify_bgp_convergence requires topology JSON data (topo parameter or tgen.json_topo)"
         topo = tgen.json_topo
 
     result = False
@@ -1605,15 +1608,23 @@ def verify_bgp_community(
             if (
                 "largeCommunity" in show_bgp_json["paths"][i]
                 or "community" in show_bgp_json["paths"][i]
+                or "extendedCommunity" in show_bgp_json["paths"][i]
+                or "extendedIpv6Community" in show_bgp_json["paths"][i]
             ):
                 found = True
                 logger.info(
-                    "Large Community attribute is found for route:" " %s in router: %s",
+                    "Community attribute is found for route:" " %s in router: %s",
                     net,
                     router,
                 )
                 if input_dict is not None:
                     for criteria, comm_val in input_dict.items():
+                        if criteria not in show_bgp_json["paths"][i]:
+                            errormsg = (
+                                "Failed: BGP attribute {} not found for route: {}"
+                                " in router: {}".format(criteria, net, router)
+                            )
+                            return errormsg
                         show_val = show_bgp_json["paths"][i][criteria]["string"]
                         if comm_val == show_val:
                             logger.info(
@@ -1634,9 +1645,9 @@ def verify_bgp_community(
                             )
                             return errormsg
 
-        if not found:
+        if not found and expected:
             errormsg = (
-                "Large Community attribute is not found for route: "
+                "Community attribute is not found for route: "
                 "{} in router: {} ".format(net, router)
             )
             return errormsg
@@ -1806,7 +1817,7 @@ def verify_as_numbers(tgen, topo, input_dict, expected=True):
 
 
 @retry(retry_timeout=150)
-def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True):
+def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True, seconds_left=None):
     """
     API to verify BGP convergence b/w loopback and physical interface.
     This API would be used when routers have BGP neighborship is loopback
@@ -1817,6 +1828,7 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True):
     * `tgen`: topogen object
     * `dut`: device under test
     * `expected` : expected results from API, by-default True
+    * `seconds_left`: remaining retry time (used by retry decorator, can be ignored)
 
     Usage
     -----

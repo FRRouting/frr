@@ -69,9 +69,12 @@
 #define ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT 0x02
 #define ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC    0x03
 #define ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR  0x04
+#define ECOMMUNITY_EVPN_SUBTYPE_ETREE	       0x05 /* RFC 8317 */
 #define ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION 0x06
-#define ECOMMUNITY_EVPN_SUBTYPE_DEF_GW       0x0d
+#define ECOMMUNITY_EVPN_SUBTYPE_ISID	       0x07 /* draft-ietf-bess-evpn-virtual-eth-segment */
 #define ECOMMUNITY_EVPN_SUBTYPE_ND           0x08
+#define ECOMMUNITY_EVPN_SUBTYPE_DEF_GW	       0x0d
+#define ECOMMUNITY_EVPN_SUBTYPE_LOAD_BALANCING 0x0e /* RFC 9014 - standardized as EVPN encoding */
 
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY 0x01
 
@@ -92,6 +95,8 @@
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
 #define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
+#define ECOMMUNITY_OPAQUE_SUBTYPE_LOAD_BALANCING                                                  \
+	0x0e /* RFC 9014 - draft used OPAQUE, RFC standardized as EVPN */
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
