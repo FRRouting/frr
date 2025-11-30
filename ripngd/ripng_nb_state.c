@@ -88,10 +88,8 @@ struct yang_data *ripngd_instance_state_neighbors_neighbor_address_get_elem(
 struct yang_data *ripngd_instance_state_neighbors_neighbor_last_update_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct ripng_peer *peer = listgetdata(node);
-
-	return yang_data_new_date_and_time(args->xpath, peer->uptime, false);
+	/* TODO: yang:date-and-time is tricky */
+	return NULL;
 }
 
 /*

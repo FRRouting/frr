@@ -1002,7 +1002,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		 */
 		zlog_info("RI (%s): ROUTER INFORMATION is disabled now.",
 			  __func__);
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		lsa->data->ls_age =
+			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* Verify that the Router Information ID is supported */

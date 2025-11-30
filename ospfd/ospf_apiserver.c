@@ -1908,7 +1908,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	if (!apiserv) {
 		zlog_warn("%s: LSA[%s]: No apiserver?", __func__,
 			  dump_lsa_key(lsa));
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		lsa->data->ls_age =
+			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 		goto out;
 	}
 

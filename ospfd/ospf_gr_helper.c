@@ -463,11 +463,11 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	}
 
 	/*LSA age must be less than the grace period */
-	if (LS_AGE_RAW(lsa) >= grace_interval) {
+	if (ntohs(lsa->data->ls_age) >= grace_interval) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
 				"%s, Grace LSA age(%d) is more than the grace interval(%d)",
-				__func__, LS_AGE_RAW(lsa), grace_interval);
+				__func__, lsa->data->ls_age, grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_LSA_AGE_MORE;
 		return OSPF_GR_NOT_HELPER;
