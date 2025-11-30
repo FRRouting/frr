@@ -3226,9 +3226,6 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 				    ospf->distance_all
 					    ? ospf->distance_all
 					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
-
-		json_object_boolean_add(json_vrf, "forwardingAddressSelf",
-					ospf->forwarding_address_self);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3251,9 +3248,6 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* show max multipath */
 		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
-
-		if (ospf->forwarding_address_self)
-			vty_out(vty, " Forwarding address is set to self for external LSAs\n");
 
 		/* show administrative distance */
 		vty_out(vty, " Administrative distance %u\n",
@@ -6323,10 +6317,14 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa,
 	if (!json) {
 		if (IS_LSA_SELF(lsa))
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				IS_LSA_AGE_DNA(lsa) ? "(S-DNA)" : "");
+				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
+					? "(S-DNA)"
+					: "");
 		else
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				IS_LSA_AGE_DNA(lsa) ? "(DNA)" : "");
+				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
+					? "(DNA)"
+					: "");
 		vty_out(vty, "  Options: 0x%-2x : %s\n", lsa->data->options,
 			ospf_options_dump(lsa->data->options));
 		vty_out(vty, "  LS Flags: 0x%-2x %s\n", lsa->flags,
@@ -9604,22 +9602,6 @@ DEFUN (no_ospf_default_metric,
 	ospf->default_metric = -1;
 
 	ospf_schedule_asbr_redist_update(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (ospf_forwarding_address_self,
-       ospf_forwarding_address_self_cmd,
-       "[no$no] forwarding-address-self",
-        NO_STR
-       "Set forwarding address to self for external LSAs\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	if (no)
-		ospf->forwarding_address_self = false;
-	else
-		ospf->forwarding_address_self = true;
 
 	return CMD_SUCCESS;
 }
@@ -13013,9 +12995,6 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
-	if (ospf->forwarding_address_self)
-		vty_out(vty, " forwarding-address-self\n");
-
 	/* proactive-arp print. */
 	if (ospf->proactive_arp != OSPF_PROACTIVE_ARP_DEFAULT) {
 		if (ospf->proactive_arp)
@@ -13276,8 +13255,6 @@ static void ospf_vty_zebra_init(void)
 
 	install_element(OSPF_NODE, &ospf_default_metric_cmd);
 	install_element(OSPF_NODE, &no_ospf_default_metric_cmd);
-
-	install_element(OSPF_NODE, &ospf_forwarding_address_self_cmd);
 
 	install_element(OSPF_NODE, &ospf_distance_cmd);
 	install_element(OSPF_NODE, &no_ospf_distance_cmd);

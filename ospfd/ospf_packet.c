@@ -1592,10 +1592,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		 * What if the received LSA's age is greater than MaxAge?
 		 * Treat it as a MaxAge case -- endo.
 		 */
-		uint16_t ls_age = ntohs(lsah->ls_age);
-
-		if ((ls_age & ~DO_NOT_AGE) > OSPF_LSA_MAXAGE)
-			lsah->ls_age = htons(OSPF_LSA_MAXAGE | (ls_age & DO_NOT_AGE));
+		if (ntohs(lsah->ls_age) > OSPF_LSA_MAXAGE)
+			lsah->ls_age = htons(OSPF_LSA_MAXAGE);
 
 		if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
 #ifdef STRICT_OBIT_USAGE_CHECK
@@ -3173,8 +3171,6 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 
 					/* Set LS age. */
 					ls_age = LS_AGE(lsa);
-					if (IS_LSA_AGE_DNA(lsa))
-						SET_FLAG(ls_age, DO_NOT_AGE);
 					lsah->ls_age = htons(ls_age);
 				}
 
@@ -3257,16 +3253,9 @@ static int ls_age_increment(struct ospf_lsa *lsa, int delay)
 {
 	int age;
 
-	age = LS_AGE(lsa) + delay;
+	age = IS_LSA_MAXAGE(lsa) ? OSPF_LSA_MAXAGE : LS_AGE(lsa) + delay;
 
-	if (age > OSPF_LSA_MAXAGE)
-		age = OSPF_LSA_MAXAGE;
-
-	/* Preserve DNA bit on age increment */
-	if (IS_LSA_AGE_DNA(lsa))
-		SET_FLAG(age, DO_NOT_AGE);
-
-	return age;
+	return (age > OSPF_LSA_MAXAGE ? OSPF_LSA_MAXAGE : age);
 }
 
 static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,

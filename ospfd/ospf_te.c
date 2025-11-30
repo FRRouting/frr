@@ -1453,14 +1453,16 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		 * It seems a slip among routers in the routing domain.
 		 */
 		ote_debug("MPLS-TE (%s): MPLS-TE is disabled now", __func__);
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		lsa->data->ls_age =
+			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* At first, resolve lsa/lp relationship. */
 	if ((lp = lookup_linkparams_by_instance(lsa)) == NULL) {
 		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE (%s): Invalid parameter?", __func__);
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		lsa->data->ls_age =
+			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 		ospf_opaque_lsa_flush_schedule(lsa);
 		return NULL;
 	}
@@ -1469,7 +1471,8 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)) {
 		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE (%s): lp was disabled: Flush it!", __func__);
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		lsa->data->ls_age =
+			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure. */

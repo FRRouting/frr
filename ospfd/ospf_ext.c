@@ -1418,7 +1418,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 			"EXT (%s): Segment Routing functionality is Disabled",
 			__func__);
 		/* Flush it anyway. */
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* Lookup this lsa corresponding Extended parameters */
@@ -1427,7 +1427,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Invalid parameter LSA ID", __func__);
 		/* Flush it anyway. */
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* Check if Interface was not disable in the interval */
@@ -1436,7 +1436,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 			  "EXT (%s): Interface was Disabled: Flush it!",
 			  __func__);
 		/* Flush it anyway. */
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure. */
@@ -1504,7 +1504,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		zlog_info("EXT (%s): Segment Routing functionality is Disabled",
 			  __func__);
 		/* Flush it anyway. */
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* Lookup this LSA corresponding Extended parameters */
@@ -1513,7 +1513,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Invalid parameter LSA ID", __func__);
 		/* Flush it anyway. */
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* Check if Interface was not disable in the interval */
@@ -1521,7 +1521,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Interface was Disabled: Flush it!",
 			  __func__);
-		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure */
