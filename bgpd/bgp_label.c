@@ -435,7 +435,7 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mp
 	if (plen < BGP_LABEL_BYTES)
 		return 0;
 
-	label_pnt = &labels[0];
+	label_pnt = labels;
 	for (; (data + BGP_LABEL_BYTES) <= lim; data += BGP_LABEL_BYTES, label_pnt++) {
 		/*
 		 * Support only BGP_MAX_LABELS, read rest to local variable and
