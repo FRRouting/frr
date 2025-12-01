@@ -215,13 +215,14 @@ static struct bgp_path_info_mpath *bgp_path_info_mpath_new(void)
  */
 void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath)
 {
-	if (mpath && *mpath) {
-		if ((*mpath)->mp_attr)
-			bgp_attr_unintern(&(*mpath)->mp_attr);
-		(*mpath)->mp_attr = NULL;
+	if (!mpath || !(*mpath))
+		return;
 
-		XFREE(MTYPE_BGP_MPATH_INFO, *mpath);
-	}
+	if ((*mpath)->mp_attr)
+		bgp_attr_unintern(&(*mpath)->mp_attr);
+	(*mpath)->mp_attr = NULL;
+
+	XFREE(MTYPE_BGP_MPATH_INFO, *mpath);
 }
 
 /*
