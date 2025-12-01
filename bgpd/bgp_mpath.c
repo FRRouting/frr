@@ -282,7 +282,7 @@ struct bgp_path_info *bgp_path_info_mpath_first(struct bgp_path_info *path)
  */
 uint32_t bgp_path_info_mpath_count(struct bgp_dest *dest)
 {
-	if (!dest->mpath)
+	if (!dest || !dest->mpath)
 		return 1;
 
 	return dest->mpath->mp_count;
@@ -297,7 +297,7 @@ static void bgp_path_info_mpath_count_set(struct bgp_dest *dest,
 					  uint16_t count)
 {
 	struct bgp_path_info_mpath *mpath;
-	if (!count && !dest->mpath)
+	if (!count && (!dest || !dest->mpath))
 		return;
 	mpath = bgp_path_info_mpath_get(dest);
 	if (!mpath)
@@ -318,6 +318,9 @@ static void bgp_path_info_mpath_lb_update(struct bgp_dest *dest, bool set,
 					  bool all_paths_lb, uint64_t cum_bw)
 {
 	struct bgp_path_info_mpath *mpath;
+
+	if (!dest)
+		return;
 
 	mpath = dest->mpath;
 	if (mpath == NULL) {
@@ -352,7 +355,7 @@ static void bgp_path_info_mpath_lb_update(struct bgp_dest *dest, bool set,
  */
 struct attr *bgp_path_info_mpath_attr(struct bgp_dest *dest)
 {
-	if (!dest->mpath)
+	if (!dest || !dest->mpath)
 		return NULL;
 	return dest->mpath->mp_attr;
 }
@@ -366,7 +369,7 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_dest *dest)
 enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_dest *dest)
 {
 	/* Check if not multipath */
-	if (!dest->mpath)
+	if (!dest || !dest->mpath)
 		return BGP_WECMP_BEHAVIOR_NONE;
 
 	struct bgp_path_info *path = bgp_dest_get_bgp_path_info(dest);
@@ -404,7 +407,7 @@ enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_d
  */
 uint64_t bgp_path_info_mpath_cumbw(struct bgp_dest *dest)
 {
-	if (!dest->mpath)
+	if (!dest || !dest->mpath)
 		return 0;
 	return dest->mpath->cum_bw;
 }
@@ -418,7 +421,7 @@ static void bgp_path_info_mpath_attr_set(struct bgp_dest *dest,
 					 struct attr *attr)
 {
 	struct bgp_path_info_mpath *mpath;
-	if (!attr && !dest->mpath)
+	if (!attr && (!dest || !dest->mpath))
 		return;
 	mpath = bgp_path_info_mpath_get(dest);
 	if (!mpath)
