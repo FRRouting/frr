@@ -4229,15 +4229,23 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
             if (
                 "largeCommunity" in show_bgp_json["paths"][i]
                 or "community" in show_bgp_json["paths"][i]
+                or "extendedCommunity" in show_bgp_json["paths"][i]
+                or "extendedIpv6Community" in show_bgp_json["paths"][i]
             ):
                 found = True
                 logger.info(
-                    "Large Community attribute is found for route:" " %s in router: %s",
+                    "Community attribute is found for route:" " %s in router: %s",
                     net,
                     router,
                 )
                 if input_dict is not None:
                     for criteria, comm_val in input_dict.items():
+                        if criteria not in show_bgp_json["paths"][i]:
+                            errormsg = (
+                                "Failed: BGP attribute {} not found for route: {}"
+                                " in router: {}".format(criteria, net, router)
+                            )
+                            return errormsg
                         show_val = show_bgp_json["paths"][i][criteria]["string"]
                         if comm_val == show_val:
                             logger.info(
@@ -4260,7 +4268,7 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
         if not found:
             errormsg = (
-                "Large Community attribute is not found for route: "
+                "Community attribute is not found for route: "
                 "{} in router: {} ".format(net, router)
             )
             return errormsg

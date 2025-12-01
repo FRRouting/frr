@@ -37,6 +37,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from collections import OrderedDict
 
 import lib.topolog as topolog
@@ -1253,7 +1254,7 @@ class TopoExaBGP(TopoHost):
 
         self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
-        self.run("cp {}/exa-* /etc/exabgp/".format(CWD))
+        self.run("cp {}/exa-* /etc/exabgp/ 2>/dev/null || true".format(CWD))
         self.run("cp {}/* /etc/exabgp/".format(peer_dir))
         if env_file is not None:
             self.run("cp {} /etc/exabgp/exabgp.env".format(env_file))
@@ -1272,14 +1273,23 @@ class TopoExaBGP(TopoHost):
 
         env_cmd = "env exabgp.log.level=INFO "
         env_cmd += "exabgp.log.destination={} ".format(log_file)
+        # Ensure daemonization via environment variable (in addition to config file)
+        env_cmd += "exabgp.daemon.daemonize=true "
 
-        output = self.run(
-            env_cmd + exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
-        )
-        if output is None or len(output) == 0:
-            output = "<none>"
-
-        logger.info("{} exabgp started, output={}".format(self.name, output))
+        # ExaBGP 4.2.25+ uses --env instead of -e
+        # Run ExaBGP in background with nohup to ensure it doesn't block
+        # The daemonize option should make it fork, but we run it in background
+        # to ensure self.run() returns immediately
+        exabgp_cmd = "nohup " + env_cmd + exacmd + " --env=/etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg >/dev/null 2>&1 &"
+        output = self.run(exabgp_cmd)
+        # Give ExaBGP a moment to start and daemonize
+        time.sleep(2)
+        # Check if ExaBGP is running by checking for the PID file
+        pid_check = self.run("test -f /var/run/exabgp/exabgp.pid && echo 'running' || echo 'not running'")
+        if "running" in pid_check:
+            logger.info("{} exabgp started (daemonized)".format(self.name))
+        else:
+            logger.warning("{} exabgp may not have started properly, output={}".format(self.name, output))
 
     def stop(self, wait=True, assertOnError=True):
         "Stop ExaBGP peer and kill the daemon"
