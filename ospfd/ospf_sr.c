@@ -371,7 +371,7 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 	struct sr_local_block *srlb = &OspfSR.srlb;
 	mpls_label_t label;
 	uint32_t index;
-	uint64_t pos;
+	uint32_t pos;
 	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
@@ -416,7 +416,7 @@ int ospf_sr_local_block_release_label(mpls_label_t label)
 {
 	struct sr_local_block *srlb = &OspfSR.srlb;
 	uint32_t index;
-	uint64_t pos;
+	uint32_t pos;
 
 	/* Check that label falls inside the SRLB */
 	if ((label < srlb->start) || (label > srlb->end)) {

@@ -552,7 +552,7 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 {
 	mpls_label_t label;
 	uint32_t index;
-	uint64_t pos;
+	uint32_t pos;
 	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
@@ -598,7 +598,7 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 					mpls_label_t label)
 {
 	uint32_t index;
-	uint64_t pos;
+	uint32_t pos;
 
 	/* Check that label falls inside the SRLB */
 	if ((label < srlb->start) || (label > srlb->end)) {

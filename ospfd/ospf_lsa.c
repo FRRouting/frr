@@ -82,7 +82,9 @@ uint32_t get_metric(uint8_t *metric)
  */
 bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
 {
-	return ((IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa)) ? true : false);
+	return ((IS_LSA_SELF(lsa) && CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			? true
+			: false);
 }
 
 struct timeval msec2tv(int a)
@@ -143,11 +145,11 @@ int get_age(struct ospf_lsa *lsa)
 	 */
 
 	/* If LSA is marked as donotage */
-	if (IS_LSA_AGE_DNA(lsa) && !IS_LSA_SELF(lsa))
-		return LS_AGE_RAW(lsa);
+	if (CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE) && !IS_LSA_SELF(lsa))
+		return ntohs(lsa->data->ls_age);
 
 	monotime_since(&lsa->tv_recv, &rel);
-	return LS_AGE_RAW(lsa) + rel.tv_sec;
+	return ntohs(lsa->data->ls_age) + rel.tv_sec;
 }
 
 
@@ -1626,13 +1628,9 @@ static struct in_addr ospf_external_lsa_nexthop_get(struct ospf *ospf,
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	fwd.s_addr = INADDR_ANY;
+	fwd.s_addr = 0;
 
 	if (!nexthop.s_addr)
-		return fwd;
-
-	/* Force forwarding address to self for external LSAs. */
-	if (ospf->forwarding_address_self)
 		return fwd;
 
 	/* Check whether nexthop is covered by OSPF network. */
@@ -3041,7 +3039,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 			if (!IS_LSA_MAXAGE(lsa))
 				lsa->flags |= OSPF_LSA_PREMATURE_AGE;
-			LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+			lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 
 			if (IS_DEBUG_OSPF(lsa, LSA_REFRESH)) {
 				zlog_debug(
@@ -3065,7 +3063,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	if (old != NULL) {
 		if (rt_recalc && !IS_LSA_SELF(lsa) && (lsa->data->type == OSPF_AS_EXTERNAL_LSA) &&
 		    !IS_LSA_SELF(old) && (old->data->type == OSPF_AS_EXTERNAL_LSA)) {
-			LS_AGE_SET(old, OSPF_LSA_MAXAGE);
+			old->data->ls_age = htons(OSPF_LSA_MAXAGE);
 			ospf_ase_incremental_update(ospf, old);
 		}
 
@@ -3706,7 +3704,7 @@ int ospf_lsa_flush_schedule(struct ospf *ospf, struct ospf_lsa *lsa)
 			lsa->data->type, &lsa->data->id);
 
 	/* Force given lsa's age to MaxAge. */
-	LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 
 	switch (lsa->data->type) {
 	/* Opaque wants to be notified of flushes */
