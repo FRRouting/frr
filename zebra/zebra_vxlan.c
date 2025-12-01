@@ -772,6 +772,9 @@ static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 		json_object_string_add(json, "type", "L3");
 		json_object_string_add(json, "tenantVrf",
 				       zl3vni_vrf_name(zl3vni));
+		json_object_int_add(json, "vlan", zl3vni->vid);
+		json_object_string_add(json, "bridge",
+				       zl3vni->bridge_if ? zl3vni->bridge_if->name : "-");
 		json_object_string_addf(json, "localVtepIp", "%pIA", &zl3vni->local_vtep_ip);
 		json_object_string_add(json, "vxlanIntf",
 				       zl3vni_vxlan_if_name(zl3vni));
@@ -811,11 +814,14 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	if (!json) {
-		vty_out(vty, "%-10u %-4s %-21s %-8lu %-8lu %-15s %-37s\n",
-			zl3vni->vni, "L3", zl3vni_vxlan_if_name(zl3vni),
+		vty_out(vty,
+			"%-10u %-4s %-21s %-8lu %-8lu %-15s %-15s %-10u %-37s\n",
+			zl3vni->vni, "L3",
+			zl3vni_vxlan_if_name(zl3vni),
 			hashcount(zl3vni->rmac_table),
 			hashcount(zl3vni->nh_table), "n/a",
-			zl3vni_vrf_name(zl3vni));
+			zl3vni_vrf_name(zl3vni), zl3vni->vid,
+			zl3vni->bridge_if ? zl3vni->bridge_if->name : "-");
 	} else {
 		char vni_str[VNI_STR_LEN];
 
@@ -824,6 +830,9 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 		json_object_int_add(json_evpn, "vni", zl3vni->vni);
 		json_object_string_add(json_evpn, "vxlanIf",
 				       zl3vni_vxlan_if_name(zl3vni));
+		json_object_int_add(json_evpn, "vlan", zl3vni->vid);
+		json_object_string_add(json_evpn, "bridge",
+				       (zl3vni->bridge_if ? zl3vni->bridge_if->name : "-"));
 		json_object_int_add(json_evpn, "numMacs",
 				    hashcount(zl3vni->rmac_table));
 		json_object_int_add(json_evpn, "numArpNd",
