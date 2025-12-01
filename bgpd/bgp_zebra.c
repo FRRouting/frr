@@ -1421,8 +1421,8 @@ static void bgp_zebra_announce_parse_nexthop(
 				api_nh->labels[0] = nh_label;
 			} else {
 				uint8_t i;
-				int max_elements = sizeof(api_nh->labels) /
-						   sizeof(api_nh->labels[0]);
+				int max_elements = MIN(array_size(api_nh->labels),
+						       array_size(mpinfo->extra->labels->label));
 
 				api_nh->label_num = num_labels;
 				if (api_nh->label_num > max_elements) {
