@@ -13372,6 +13372,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			      safi_t safi, bool use_json,
 			      json_object *json_neigh)
 {
+	int pfx_rcd_safi;
 	struct bgp_filter *filter;
 	struct peer_af *paf;
 	char orf_pfx_name[BUFSIZ];
@@ -13380,6 +13381,11 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	json_object *json_prefA = NULL;
 	json_object *json_addr = NULL;
 	json_object *json_advmap = NULL;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		pfx_rcd_safi = SAFI_UNICAST;
+	else
+		pfx_rcd_safi = safi;
 
 	if (use_json) {
 		json_addr = json_object_new_object();
@@ -13663,7 +13669,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		/* Receive prefix count */
 		json_object_int_add(json_addr, "acceptedPrefixCounter",
-				    p->pcount[afi][safi]);
+				    p->pcount[afi][pfx_rcd_safi]);
 		if (paf && PAF_SUBGRP(paf))
 			json_object_int_add(json_addr, "sentPrefixCounter",
 						(PAF_SUBGRP(paf))->scount);
@@ -13963,8 +13969,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					: "Withdraw");
 
 		/* Receive prefix count */
-		vty_out(vty, "  %u accepted prefixes\n",
-			p->pcount[afi][safi]);
+		vty_out(vty, "  %u accepted prefixes\n", p->pcount[afi][pfx_rcd_safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
