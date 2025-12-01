@@ -969,11 +969,22 @@ static int bgp_capability_software_version(struct peer *peer,
 					   struct capability_header *hdr)
 {
 	struct stream *s = BGP_INPUT(peer);
+	struct stream *dup = stream_dup(s);
 	char str[BGP_MAX_SOFT_VERSION + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
-	uint8_t len;
+	uint8_t len = hdr->length;
+	uint8_t cap_value_len_field = stream_getc(dup) + 1;
 
-	len = stream_getc(s);
+	/* For backward compatibility.
+	 * Older draft versions defined the length field inside
+	 * the capability's value. Newer versions use just the capability's
+	 * length which is hdr->length.
+	 */
+	if (cap_value_len_field == len)
+		len = stream_getc(s);
+
+	stream_free(dup);
+
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
