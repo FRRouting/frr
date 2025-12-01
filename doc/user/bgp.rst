@@ -5011,6 +5011,18 @@ Displaying Routes by AS Path
 
    Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
+Displaying Routes by Route Target
+----------------------------------------
+
+.. clicmd:: show bgp l2vpn evpn rt <RT> [exact-match] [json]
+
+   This command displays BGP routes for the EVPN address family matching 
+   the specified route target. When `exact-match` is specified, it
+   displays only routes that have an exact match with no other extended
+   communities. 
+
+   If ``json`` option is specified, output is displayed in JSON format.
+
 Displaying Routes by Route Distinguisher
 ----------------------------------------
 
