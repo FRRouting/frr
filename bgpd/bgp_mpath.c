@@ -566,7 +566,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (new_best) {
-		if (mpath_count > 1 || new_best->net->mpath) {
+		if (mpath_count > 1 || (new_best->net && new_best->net->mpath)) {
 			bgp_path_info_mpath_count_set(new_best->net, mpath_count);
 			bgp_path_info_mpath_lb_update(new_best->net, true, all_paths_lb, cum_bw);
 		}
