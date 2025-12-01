@@ -3596,7 +3596,8 @@ The SVI interface’s MAC address can be interpreted as system-MAC
 and MAC-VLAN interface's MAC as anycast MAC.
 
 To derive system-IP and anycast-IP, the default BGP instance's router-id is used
-as system-IP and the VxLAN interface’s local tunnel IP as the anycast-IP.
+as system-IP and the VxLAN interface's local tunnel IP as the anycast-IP.
+Both IPv4 and IPv6 addresses are supported for system-IP and anycast-IP.
 
 User has an option to configure the system-IP and/or system-MAC value if the
 auto derived value is not preferred.
@@ -3606,10 +3607,11 @@ disable the feature via configuration CLI. Once the feature is disabled under
 bgp vrf instance or MAC-VLAN interface is not configured, all the routes follow
 the same behavior of using same next-hop and RMAC values.
 
-.. clicmd:: advertise-pip [ip <addr> [mac <addr>]]
+.. clicmd:: advertise-pip [ip <A.B.C.D|X:X::X:X> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]
 
-Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
-parameters.
+Enables or disables advertise-pip feature, specify system-IP (IPv4 or IPv6) and/or system-MAC
+parameters. When configured with an IPv6 address, the show command output will display the IPv6
+address in the format ``advertise-pip ip X:X::X:X``.
 
 EVPN advertise-svi-ip
 ^^^^^^^^^^^^^^^^^^^^^

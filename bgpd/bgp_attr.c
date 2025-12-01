@@ -4745,8 +4745,6 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      uint8_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
-	mpls_label_t restore_label;
-
 	switch (safi) {
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
@@ -4771,16 +4769,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			assert(!"Add encoding bits here for other AFI's");
 		break;
 	case SAFI_LABELED_UNICAST:
-		if (num_labels > 1) {
-			zlog_warn("%s: stream_put_labeled_prefix currently supports only one label, ignoring rest (num_labels=%d)",
-				  __func__, num_labels);
-			restore_label = label[0];
-			label_set_bos(&label[0]);
-		}
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label, addpath_capable, addpath_tx_id);
-		if (num_labels > 1)
-			label[0] = restore_label;
+		stream_put_labeled_prefix(s, p, label, addpath_capable,
+					  addpath_tx_id);
 		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
