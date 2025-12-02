@@ -821,6 +821,13 @@ const struct frr_yang_module_info frr_gmp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/last-member-query-count",
+			.cbs = {
+				.modify = lib_interface_gmp_address_family_last_member_query_count_modify,
+				.destroy = lib_interface_gmp_address_family_last_member_query_count_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/robustness-variable",
 			.cbs = {
 				.modify = lib_interface_gmp_address_family_robustness_variable_modify,

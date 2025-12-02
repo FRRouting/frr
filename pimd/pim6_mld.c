@@ -2282,7 +2282,7 @@ static void gm_start(struct interface *ifp)
 	gm_ifp->cur_query_intv_trig =
 		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
 	gm_ifp->cur_max_resp = pim_ifp->gm_query_max_response_time_dsec * 100;
-	gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
+	gm_ifp->cur_lmqc = if_gm_last_member_query_count(pim_ifp);
 
 	gm_ifp->cfg_timing_fuzz.tv_sec = 0;
 	gm_ifp->cfg_timing_fuzz.tv_usec = 10 * 1000;
@@ -2478,8 +2478,7 @@ void gm_ifp_update(struct interface *ifp)
 	if (gm_ifp->cur_max_resp != cfg_max_response)
 		gm_ifp->cur_max_resp = cfg_max_response;
 
-	if (gm_ifp->cur_lmqc != pim_ifp->gm_last_member_query_count)
-		gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
+	gm_ifp->cur_lmqc = if_gm_last_member_query_count(pim_ifp);
 
 	enum gm_version cfg_version;
 
