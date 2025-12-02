@@ -457,14 +457,14 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	debug = bgp_debug_bestpath(dest);
 
 	if (old_best) {
-		old_mpath_count = bgp_path_info_mpath_count(old_best->net);
+		old_mpath_count = bgp_path_info_mpath_count(dest);
 		if (old_mpath_count == 1)
 			SET_FLAG(old_best->flags, BGP_PATH_MULTIPATH);
-		old_cum_bw = bgp_path_info_mpath_cumbw(old_best->net);
-		bgp_path_info_mpath_count_set(old_best->net, 0);
-		bgp_path_info_mpath_lb_update(old_best->net, false, false, 0);
-		bgp_path_info_mpath_free(&old_best->net->mpath);
-		old_best->net->mpath = NULL;
+		old_cum_bw = bgp_path_info_mpath_cumbw(dest);
+		bgp_path_info_mpath_count_set(dest, 0);
+		bgp_path_info_mpath_lb_update(dest, false, false, 0);
+		bgp_path_info_mpath_free(dest->mpath);
+		dest->mpath = NULL;
 	}
 
 	if (new_best) {
