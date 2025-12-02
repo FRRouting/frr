@@ -30,6 +30,7 @@ from lib.evpn import (
     evpn_mac_learn_test,
     evpn_mac_test_local_remote,
     evpn_show_vni_json_elide_ifindex,
+    evpn_check_bgp_imet,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -630,6 +631,39 @@ def test_evpn_l3vni_vlan_bridge():
 
         assertmsg = "L3 VNI 999 (PE2): text output should contain 'Type: L3'"
         assert "Type: L3" in output, assertmsg
+
+
+def test_imet():
+    """
+    Verify PMSI tunnel attribute info
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut_name = "PE1"
+    dut = tgen.gears[dut_name]
+    rd = "10.30.30.30:2"
+    prefix = "[3]:[0]:[32]:[10.30.30.30]"
+    pmsi_label = 101
+    pmsi_id = "10.30.30.30"
+    # Check Imet from PE2 to PE1
+    test_fn = partial(evpn_check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
+
+    # Check Imet from PE1 to PE2
+    dut_name = "PE2"
+    dut = tgen.gears[dut_name]
+    rd = "10.10.10.10:2"
+    prefix = "[3]:[0]:[32]:[10.10.10.10]"
+    pmsi_label = 101
+    pmsi_id = "10.10.10.10"
+    test_fn = partial(evpn_check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
 
 
 def test_remote_neigh_uninstall_on_vxlan_down():

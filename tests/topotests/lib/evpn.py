@@ -1558,6 +1558,34 @@ def evpn_trigger_host_arp(tgen, host_gateways, interface="swp1", count=3, interv
                 sleep(interval)
 
 
+#
+#
+#
+def evpn_check_bgp_imet(dut, rd, prefix, pmsi_label, pmsi_id):
+    """
+    Return error if the type-3 PMSI attr label or ID don't match the inputs
+    """
+    rd_routes_json = dut.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} type 3 json")
+    rd_routes = json.loads(rd_routes_json)
+
+    if not rd_routes:
+        return "Imet routes not found"
+
+    if rd not in rd_routes or prefix not in rd_routes[rd]:
+        return f"Imet routes not found for rd {rd} and {prefix}"
+    paths = rd_routes[rd][prefix]["paths"]
+    if not len(paths):
+        return f"Imet route paths routes not found for rd {rd} and {prefix}"
+    out_label = paths[0][0]["pmsi"].get("label", 0)
+    if out_label != pmsi_label:
+        return f"Imet PMSI Label mismatch Expected {pmsi_label} Got {out_label}"
+
+    out_id = paths[0][0]["pmsi"].get("id", "")
+    if out_id != pmsi_id:
+        return f"Imet PMSI Id mismatch Expected {pmsi_id} Got {out_id}"
+    return None
+
+
 def evpn_trigger_arp_scapy(tgen, host_gateways, interface="swp1"):
     """
     Trigger ARP using Scapy to populate MAC address tables in the EVPN fabric.
