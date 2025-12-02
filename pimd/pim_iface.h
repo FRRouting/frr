@@ -208,6 +208,14 @@ struct pim_interface {
 	} bfd_config;
 };
 
+/* Last member query count is robustness variable unless overridden */
+static inline int if_gm_last_member_query_count(const struct pim_interface *pim_interface)
+{
+	return (pim_interface->gm_last_member_query_count != 0)
+		       ? pim_interface->gm_last_member_query_count
+		       : pim_interface->gm_default_robustness_variable;
+}
+
 /*
  * if default_holdtime is set (>= 0), use it;
  * otherwise default_holdtime is 3.5 * hello_period
