@@ -4856,7 +4856,19 @@ int lib_interface_gmp_address_family_robustness_variable_modify(struct nb_cb_mod
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->gm_default_robustness_variable = yang_dnode_get_uint8(args->dnode, NULL);
-#if PIM_IPV == 6
+
+#if PIM_IPV == 4
+		struct listnode *node;
+		struct gm_sock *igmp;
+
+		/* Update all addresses that are acting as querier */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, node, igmp)) {
+			if (igmp->t_other_querier_timer)
+				continue;
+
+			igmp->querier_robustness_variable = pim_ifp->gm_default_robustness_variable;
+		}
+#else
 		gm_ifp_update(ifp);
 #endif
 		break;
