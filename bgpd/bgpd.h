@@ -682,6 +682,11 @@ struct bgp {
 #define BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK		    (1ULL << 50)
 #define BGP_FLAG_ENCAPSULATION_SELECTION     (1ULL << 51)
 
+/* Use current (imported) path's attributes instead of source path's attributes
+ * for bestpath comparison of imported paths.
+ */
+#define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 45)
+
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
 	 */
