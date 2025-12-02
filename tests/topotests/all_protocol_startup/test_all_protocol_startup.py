@@ -1868,6 +1868,93 @@ def test_pbr_table():
     print("Default route found in PBR table 10000")
 
 
+def test_connected_route_nht_with_quick_flap():
+    global fatal_error
+    tgen = get_topogen()
+    net = tgen.net
+
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Testing Connected Route NHT with Quick Interface Flap")
+    print("******************************************\n")
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        ip route 10.10.10.10/32 r1-eth1
+        ip route 9.9.9.0/24 10.10.10.10
+        """
+    )
+
+    print("Verifying initial route installation...")
+
+    def _check_routes_installed():
+        connected_route = net["r1"].cmd("ip route show 10.10.10.10")
+        if "10.10.10.10" not in connected_route:
+            return False
+
+        static_route = net["r1"].cmd("ip route show 9.9.9.0/24")
+        if "9.9.9.0/24" not in static_route:
+            return False
+
+        return True
+
+    test_func = functools.partial(_check_routes_installed)
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+    assert result, "Initial route installation failed"
+
+    nht_output = r1.vtysh_cmd("show ip nht")
+    print("Initial NHT state:\n{}".format(nht_output))
+
+    print("\nPerforming quick interface flap on r1-eth1...")
+    net["r1"].cmd("ip link set r1-eth1 down;ip link set r1-eth1 up")
+
+    print("\nVerifying routes after quick flap...")
+
+    def _verify_routes_after_flap():
+        """Verify both routes are still installed after quick flap"""
+        connected_route = net["r1"].cmd("ip route show 10.10.10.10")
+        if "10.10.10.10" not in connected_route:
+            return False
+
+        static_route = net["r1"].cmd("ip route show 9.9.9.0/24")
+        if "9.9.9.0/24" not in static_route:
+            return False
+
+        vtysh_route = r1.vtysh_cmd("show ip route 9.9.9.0/24")
+        if "9.9.9.0/24" not in vtysh_route:
+            return False
+
+        return True
+
+    test_func = functools.partial(_verify_routes_after_flap)
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+
+    if not result:
+        print("\n*** FAILURE - Debug Information ***")
+        print("Kernel routes:")
+        print(net["r1"].cmd("ip route show"))
+        print("\nFRR routes:")
+        print(r1.vtysh_cmd("show ip route"))
+        print("\nNHT state:")
+        print(r1.vtysh_cmd("show ip nht"))
+
+        fatal_error = "Route verification failed after quick interface flap"
+        assert False, fatal_error
+
+    print("SUCCESS: Routes properly maintained after quick interface flap")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        no ip route 9.9.9.0/24 10.10.10.10
+        no ip route 10.10.10.10/32 r1-eth1
+        """
+    )
+
+
 def test_vtysh_timeout():
     "Test vtysh idle session timeout feature."
 
