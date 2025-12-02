@@ -333,6 +333,12 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+	/* IF ip igmp robustness */
+	if (pim_ifp->gm_default_robustness_variable != GM_DEFAULT_ROBUSTNESS_VARIABLE) {
+		vty_out(vty, " ip igmp robustness %d\n", pim_ifp->gm_default_robustness_variable);
+		++writes;
+	}
+
 	/* IF ip igmp last-member_query-count */
 	if (pim_ifp->gm_last_member_query_count != 0) {
 		vty_out(vty, " ip igmp last-member-query-count %d\n",
@@ -413,6 +419,12 @@ static int gm_config_write(struct vty *vty, int writes,
 	if (pim_ifp->gm_default_query_interval != GM_GENERAL_QUERY_INTERVAL)
 		vty_out(vty, " ipv6 mld query-interval %d\n",
 			pim_ifp->gm_default_query_interval);
+
+	/* IF ipv6 mld robustness */
+	if (pim_ifp->gm_default_robustness_variable != GM_DEFAULT_ROBUSTNESS_VARIABLE) {
+		vty_out(vty, " ipv6 mld robustness %d\n", pim_ifp->gm_default_robustness_variable);
+		++writes;
+	}
 
 	/* IF ipv6 mld last-member_query-count */
 	if (pim_ifp->gm_last_member_query_count != 0)

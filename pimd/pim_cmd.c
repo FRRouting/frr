@@ -5621,6 +5621,29 @@ DEFUN_YANG_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 				    "frr-routing:ipv4");
 }
 
+DEFPY_YANG(interface_ip_igmp_robustness,
+           interface_ip_igmp_robustness_cmd,
+           "ip igmp robustness (1-255)$robustness",
+           IP_STR
+           IFACE_IGMP_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_robustness_cmd(vty, robustness_str);
+}
+
+DEFPY_YANG(interface_no_ip_igmp_robustness,
+           interface_no_ip_igmp_robustness_cmd,
+           "no ip igmp robustness [(1-255)]",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_no_robustness_cmd(vty);
+}
+
 DEFPY (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
        "ip igmp last-member-query-count (1-255)$lmqc",
@@ -9424,6 +9447,8 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_robustness_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_igmp_robustness_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ip_igmp_last_member_query_count_cmd);
 	install_element(INTERFACE_NODE,

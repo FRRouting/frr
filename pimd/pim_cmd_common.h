@@ -130,6 +130,8 @@ int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj);
 int gm_process_query_max_response_time_cmd(struct vty *vty,
 					   const char *qmrt_str);
 int gm_process_no_query_max_response_time_cmd(struct vty *vty);
+int gm_process_robustness_cmd(struct vty *vty, const char *robustness);
+int gm_process_no_robustness_cmd(struct vty *vty);
 int gm_process_last_member_query_count_cmd(struct vty *vty,
 					   const char *lmqc_str);
 int gm_process_no_last_member_query_count_cmd(struct vty *vty);

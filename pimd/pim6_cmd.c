@@ -1818,6 +1818,29 @@ DEFPY (interface_no_ipv6_mld_query_max_response_time,
 	return gm_process_no_query_max_response_time_cmd(vty);
 }
 
+DEFPY_YANG(interface_ipv6_mld_robustness,
+           interface_ipv6_mld_robustness_cmd,
+           "ipv6 mld robustness (1-255)$robustness",
+           IPV6_STR
+           IFACE_MLD_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_robustness_cmd(vty, robustness_str);
+}
+
+DEFPY_YANG(interface_no_ipv6_mld_robustness,
+           interface_no_ipv6_mld_robustness_cmd,
+           "no ipv6 mld robustness [(1-255)]",
+           NO_STR
+           IPV6_STR
+           IFACE_MLD_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_no_robustness_cmd(vty);
+}
+
 DEFPY (interface_ipv6_mld_last_member_query_count,
        interface_ipv6_mld_last_member_query_count_cmd,
        "ipv6 mld last-member-query-count (1-255)$lmqc",
@@ -3159,6 +3182,8 @@ void pim_cmd_init(void)
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_max_response_time_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_robustness_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_robustness_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_last_member_query_count_cmd);
 	install_element(INTERFACE_NODE,
