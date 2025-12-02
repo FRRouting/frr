@@ -1872,20 +1872,23 @@ class Router(Node):
             self.run_in_window("vtysh", title="vt-%s" % self.name)
 
         if self.unified_config:
-
             # Check that none of the datastores are locked before proceeding
             def check_datastores_unlocked():
                 """Check that all datastores are unlocked"""
                 try:
-                    logger.info("Checking datastores on router %s", self.name)
+                    logger.debug("Checking datastores on router %s", self.name)
                     output = self.cmd("vtysh -c 'show mgmt datastore all'")
                     # Check if any datastore is locked
                     for line in output.splitlines():
-                        logger.info("Line: %s", line)
+                        logger.debug("Line: %s", line)
                         if "Locked:" in line and "True" in line:
-                            logger.info("Datastore is locked on router %s", self.name)
+                            logger.warning(
+                                "Datastore is locked on router %s: %s",
+                                self.name,
+                                output,
+                            )
                             return False
-                    logger.info("Datastores are unlocked on router %s", self.name)
+                    logger.debug("Datastores are unlocked on router %s", self.name)
                     return True
                 except Exception:
                     # If command fails, assume datastores are unlocked
@@ -1940,7 +1943,8 @@ class Router(Node):
         # Get global bundle data
         if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
             logger.info(
-                "No support bundle commands.conf found in %s namespace, copying them over", self.name
+                "No support bundle commands.conf found in %s namespace, copying them over",
+                self.name,
             )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
@@ -1948,7 +1952,9 @@ class Router(Node):
                 with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
                     bundle_data = rf.read()
             else:
-                logger.warning("No support bundle commands.conf found, please install them on this system")
+                logger.warning(
+                    "No support bundle commands.conf found, please install them on this system"
+                )
             self.cmd_raises(
                 "cat > /etc/frr/support_bundle_commands.conf",
                 stdin=bundle_data,
