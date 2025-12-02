@@ -4258,6 +4258,32 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
 	return CMD_SUCCESS;
 }
 
+/* "bgp bestpath use-imported-attributes" configuration. */
+DEFPY (bgp_bestpath_use_imported_attrs,
+       bgp_bestpath_use_imported_attrs_cmd,
+       "[no$no] bgp bestpath use-imported-attributes",
+       NO_STR
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Use imported path's attributes for bestpath comparison\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
+			UNSET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS);
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+	} else {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS);
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp bestpath as-path confed" configuration.  */
 DEFUN (bgp_bestpath_aspath_confed,
        bgp_bestpath_aspath_confed_cmd,
@@ -20536,6 +20562,8 @@ int bgp_config_write(struct vty *vty)
 
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 			vty_out(vty, " bgp bestpath compare-routerid\n");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS))
+			vty_out(vty, " bgp bestpath use-imported-attributes\n");
 
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP) != SAVE_BGP_COMPARE_AIGP)
 			vty_out(vty, " %sbgp bestpath aigp\n",
@@ -21430,6 +21458,9 @@ void bgp_vty_init(void)
 	/* "bgp bestpath as-path ignore" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aspath_ignore_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_aspath_ignore_cmd);
+
+	/* "bgp bestpath use-imported-attributes" commands */
+	install_element(BGP_NODE, &bgp_bestpath_use_imported_attrs_cmd);
 
 	/* "bgp bestpath as-path confed" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aspath_confed_cmd);
