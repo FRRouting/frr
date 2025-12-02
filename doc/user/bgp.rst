@@ -2955,7 +2955,7 @@ BGP Extended Communities in Route Map
      of the route(Default Setting).
    - ``01`` Can match on a specific endpoint or a null endpoint.
    - ``10`` Can match on a specific endpoint, null endpoint or any endpoint.
-   - ``11`` Reserved for future use and shuould not be used.
+   - ``11`` Reserved for future use and should not be used.
 
 
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
@@ -3187,7 +3187,7 @@ VRF Route Leaking
 BGP routes may be leaked (i.e. copied) between a unicast VRF RIB and the VPN
 SAFI RIB of the default VRF for use in MPLS-based L3VPNs. Unicast routes may
 also be leaked between any VRFs (including the unicast RIB of the default BGP
-instanced). A shortcut syntax is also available for specifying leaking from one
+instance). A shortcut syntax is also available for specifying leaking from one
 VRF to another VRF using the default instance's VPN RIB as the intermediary. A
 common application of the VRF-VRF feature is to connect a customer's private
 routing domain to a provider's VPN service. Leaking is configured from the
