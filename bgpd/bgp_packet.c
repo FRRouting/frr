@@ -1281,7 +1281,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		if (len > BGP_MAX_SOFT_VERSION)
 			len = BGP_MAX_SOFT_VERSION;
 
-		stream_putc(s, len);
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
+			stream_putc(s, len);
 		stream_put(s, soft_version, len);
 
 		/* Software Version capability Len. */

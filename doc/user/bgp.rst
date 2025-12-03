@@ -2072,12 +2072,16 @@ Configuring Peers
 
    For ``datacenter`` profile, this is enabled by default.
 
-.. clicmd:: bgp default software-version-capability
+.. clicmd:: bgp default software-version-capability [latest-encoding]
 
    This command enables software version capability advertisement by default
    for all the neighbors.
 
    For ``datacenter`` profile, this is enabled by default.
+
+   If ``latest-encoding`` is specified, then the latest version of encoding is used.
+
+   It's based on https://datatracker.ietf.org/doc/html/draft-abraitis-bgp-version-capability-18.
 
    .. code-block:: frr
 

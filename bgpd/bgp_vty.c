@@ -112,8 +112,11 @@ FRR_CFG_DEFAULT_BOOL(BGP_HARD_ADMIN_RESET,
 	{ .val_bool = false, .match_version = "< 8.3", },
 	{ .val_bool = true },
 );
-FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_OLD,
 	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
+);
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_NEW,
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
@@ -680,9 +683,10 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 		if (DFLT_BGP_HARD_ADMIN_RESET)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_HARD_ADMIN_RESET);
-		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
-			SET_FLAG((*bgp)->flags,
-				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
 		if (DFLT_BGP_LINK_LOCAL_CAPABILITY)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
 		if (DFLT_BGP_DYNAMIC_CAPABILITY)
@@ -4590,18 +4594,22 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
 
 DEFPY (bgp_default_software_version_capability,
        bgp_default_software_version_capability_cmd,
-       "[no] bgp default software-version-capability",
+       "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
-       "Advertise software version capability for all neighbors\n")
+       "Advertise software version capability for all neighbors\n"
+       "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	uint64_t encoding = latest_encoding ? BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW
+					    : BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD;
+
 	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		UNSET_FLAG(bgp->flags, encoding);
 	else
-		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		SET_FLAG(bgp->flags, encoding);
 
 	return CMD_SUCCESS;
 }
@@ -6276,31 +6284,30 @@ DEFUN (no_neighbor_capability_enhe,
 /* neighbor capability software-version */
 DEFPY(neighbor_capability_software_version,
       neighbor_capability_software_version_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version",
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version [latest-encoding$latest_encoding]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "Advertise capability to the peer\n"
-      "Advertise Software Version capability to the peer\n")
+      "Advertise Software Version capability to the peer\n"
+      "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	struct peer *peer;
 	int ret;
+	uint64_t encoding = latest_encoding ? PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW
+					    : PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_unset_vty(vty, neighbor, encoding);
 	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_set_vty(vty, neighbor, encoding);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-			    CAPABILITY_CODE_SOFT_VERSION,
-			    no ? CAPABILITY_ACTION_UNSET
-			       : CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -19542,17 +19549,27 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* capability software-version */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY)) {
-		if (!peergroup_flag_check(peer,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" no neighbor %s capability software-version\n",
 				addr);
 	} else {
-		if (peergroup_flag_check(peer,
-					 PEER_FLAG_CAPABILITY_SOFT_VERSION))
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" neighbor %s capability software-version\n",
+				addr);
+	}
+
+	/* capability software-version latest-encoding */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty,
+				" no neighbor %s capability software-version latest-encoding\n",
+				addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty, " neighbor %s capability software-version latest-encoding\n",
 				addr);
 	}
 
@@ -20291,12 +20308,17 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY) !=
-		    SAVE_BGP_SOFT_VERSION_CAPABILITY)
-			vty_out(vty,
-				" %sbgp default software-version-capability\n",
-				CHECK_FLAG(bgp->flags,
-					   BGP_FLAG_SOFT_VERSION_CAPABILITY)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			vty_out(vty, " %sbgp default software-version-capability\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)
+					? ""
+					: "no ");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			vty_out(vty, " %sbgp default software-version-capability latest-encoding\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)
 					? ""
 					: "no ");
 

@@ -2039,7 +2039,8 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	 * the implementation MUST include a configuration switch to enable
 	 * or disable its use, and that switch MUST be off by default.
 	 */
-	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION) ||
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
+	    peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW) ||
 	    peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
 		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
@@ -2058,7 +2059,9 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		if (len > BGP_MAX_SOFT_VERSION)
 			len = BGP_MAX_SOFT_VERSION;
 
-		stream_putc(s, len);
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
+			/* For old software version capability, prepend the length byte. */
+			stream_putc(s, len);
 		stream_put(s, cmd_software_version_get(), len);
 
 		/* Software Version capability Len. */
