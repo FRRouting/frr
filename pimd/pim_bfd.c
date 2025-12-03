@@ -80,10 +80,15 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 	bfd_sess_set_timers(
 		neigh->bfd_session, pim_ifp->bfd_config.detection_multiplier,
 		pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
+	/* Pass local interface primary address as source (like BGP does with su_local) */
 #if PIM_IPV == 4
-	bfd_sess_set_ipv4_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
+	bfd_sess_set_ipv4_addrs(neigh->bfd_session,
+				&pim_ifp->primary_address,  /* local source */
+				&neigh->source_addr);        /* remote dest */
 #else
-	bfd_sess_set_ipv6_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
+	bfd_sess_set_ipv6_addrs(neigh->bfd_session,
+				&pim_ifp->primary_address,  /* local source */
+				&neigh->source_addr);        /* remote dest */
 #endif
 	bfd_sess_set_interface(neigh->bfd_session, neigh->interface->name);
 	bfd_sess_set_vrf(neigh->bfd_session, neigh->interface->vrf->vrf_id);
