@@ -90,7 +90,12 @@ enum zebra_if_flags {
 	 * and inherited by the bond (if one or more bond members are in
 	 * a bypass state the bond is placed in a bypass state)
 	 */
-	ZIF_FLAG_LACP_BYPASS = (1 << 5)
+	ZIF_FLAG_LACP_BYPASS = (1 << 5),
+
+	/* Dataplane does not provide interface speed in
+	 * DPLANE_OP_INTF_INSTALL/UPDATE, so we must poll for it.
+	 */
+	ZIF_FLAG_SPEED_POLLING = (1 << 6),
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)

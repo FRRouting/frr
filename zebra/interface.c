@@ -69,6 +69,9 @@ static void if_zebra_speed_update(struct event *event)
 
 static void zebra_if_schedule_speed_update(struct zebra_if *zif, int timeout)
 {
+	if (!CHECK_FLAG(zif->flags, ZIF_FLAG_SPEED_POLLING))
+		return;
+
 	if (event_is_scheduled(zif->speed_update))
 		return;
 
@@ -2079,6 +2082,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 				speed = 0;
 				/* Query inital speed if not provided by dplane */
 				dplane_intf_speed_get(ifp);
+				SET_FLAG(zif->flags, ZIF_FLAG_SPEED_POLLING);
 			} else
 				zif->speed_checked++;
 			if_update_state_speed(ifp, speed);
