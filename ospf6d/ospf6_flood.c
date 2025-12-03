@@ -558,10 +558,10 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 		/* If unknown LSA and U-bit clear, treat as link local
 		 * flooding scope
 		 */
-		if (!OSPF6_LSA_IS_KNOWN(lsa->header->type)
-		    && !(ntohs(lsa->header->type) & OSPF6_LSTYPE_UBIT_MASK)
-		    && (oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)) {
-
+		if (!OSPF6_LSA_IS_KNOWN(lsa->header->type) &&
+		    !(ntohs(lsa->header->type) & OSPF6_LSTYPE_UBIT_MASK) &&
+		    OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+		    (oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)) {
 			if (IS_OSPF6_DEBUG_FLOODING)
 				zlog_debug("Unknown LSA, do not flood");
 			continue;
