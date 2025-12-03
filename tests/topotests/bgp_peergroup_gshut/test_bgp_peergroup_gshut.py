@@ -47,6 +47,7 @@ sys.path.append(os.path.dirname(CWD))
 # Mark test with bgpd
 pytestmark = [pytest.mark.bgpd]
 
+
 # Helper Functions
 def check_route_has_gshut_community(path):
     """Check if a route has the graceful-shutdown community."""
@@ -365,17 +366,34 @@ def test_peer_group_graceful_shutdown_hierarchy():
     """
     )
 
-    # FIXME
-    # Verify R1 no-longer receives GSHUT community
-    # Please note this is a *BUG*.  This test
-    # should be R1 receiving the GSHUT community.
-    # Since there is a large set of graceful restart
-    # patches, I'm just going to make this test pass
-    # for the moment.
+    # Verify R1 still receives GSHUT community because neighbor-level GSHUT is still active
+    # This validates that neighbor-level config takes precedence over global-level config
+    # (Previously, global disable incorrectly affected neighbor-level config - that was a bug)
     success, result = topotest.run_and_expect(
-        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32"), False, count=12, wait=5
+        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32"), True, count=12, wait=5
     )
-    assert success, "R1 should still receive GSHUT community after global-level disable"
+    assert (
+        success
+    ), "R1 should still receive GSHUT community after global-level disable (neighbor-level still active)"
+
+    # Step 3a: Disable GSHUT at neighbor level (with global also disabled)
+    logger.info("Step 3a: Disabling GSHUT at neighbor level")
+    r2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65002
+         no neighbor 172.16.1.1 graceful-shutdown
+        end
+    """
+    )
+
+    # Verify R1 no longer receives GSHUT community (disabled at both global and neighbor level)
+    success, result = topotest.run_and_expect(
+        lambda: check_prefix_gshut_disabled(r1, "10.3.3.3/32"), True, count=12, wait=5
+    )
+    assert (
+        success
+    ), "R1 should not receive GSHUT community after neighbor-level disable (global also disabled)"
 
     # Step 4: Enable GSHUT at peer-group level
     logger.info("Step 4: Enabling GSHUT at peer-group level")
@@ -658,6 +676,143 @@ def test_peer_group_graceful_shutdown_preserve_after_restart():
         configure terminal
         router bgp 65002
          no neighbor PEER-GROUP1 graceful-shutdown
+        end
+    """
+    )
+
+
+def test_peer_group_graceful_shutdown_originated_routes():
+    """Test GSHUT community on R2 originated routes (network, connected, static):
+    1. Verify R2 originated routes are present on R1 and R3 without GSHUT
+    2. Enable GSHUT on peer group and verify R2 originated routes have GSHUT
+    3. Disable GSHUT and verify R2 originated routes no longer have GSHUT
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing GSHUT on R2 originated routes")
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    logger.info("Configure R2 to originate routes (network, connected, static)")
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         interface lo
+          ip address 10.30.30.2/32
+         exit
+         ip route 10.20.20.2/32 Null0
+         router bgp 65002
+          address-family ipv4 unicast
+           network 10.30.30.2/32
+           redistribute connected
+           redistribute static
+          exit-address-family
+         exit
+        end
+    """
+    )
+
+    logger.info("Waiting for initial BGP convergence")
+    success, result = topotest.run_and_expect(
+        lambda: wait_for_bgp_convergence(
+            r2,
+            {
+                "172.16.1.1": {"state": "Established"},
+                "172.16.2.2": {"state": "Established"},
+            },
+        ),
+        True,
+        count=12,
+        wait=5,
+    )
+    assert success, "BGP did not converge initially"
+
+    # Define R2 originated routes to check across R1 and R3
+    r2_originated_routes = [
+        (r1, "10.30.30.2/32"),  # network command
+        (r1, "10.0.1.2/32"),  # connected (loopback)
+        (r1, "10.20.20.2/32"),  # static
+        (r1, "172.16.2.0/24"),  # connected (interface)
+        (r3, "10.30.30.2/32"),  # network command
+        (r3, "10.0.1.2/32"),  # connected (loopback)
+        (r3, "10.20.20.2/32"),  # static
+        (r3, "172.16.1.0/24"),  # connected (interface)
+    ]
+
+    logger.info("Checking R2 originated routes without GSHUT")
+
+    def _check_r2_routes_no_gshut():
+        # Check routes at R1 and R3 should NOT have GSHUT community
+        for router, prefix in r2_originated_routes:
+            path = get_route_info(router, prefix)
+            if not path or check_route_has_gshut_community(path):
+                return False
+
+        return True
+
+    success, result = topotest.run_and_expect(
+        _check_r2_routes_no_gshut, True, count=12, wait=5
+    )
+    assert success, "R2 originated routes incorrectly have GSHUT before enabling"
+
+    logger.info("Enabling GSHUT on PEER-GROUP1")
+    r2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65002
+         neighbor PEER-GROUP1 graceful-shutdown
+        end
+    """
+    )
+
+    logger.info("Checking R2 originated routes with GSHUT")
+
+    def _check_r2_routes_with_gshut():
+        # Check routes at R1 and R3 SHOULD have GSHUT community
+        for router, prefix in r2_originated_routes:
+            if not check_prefix_gshut_enabled(router, prefix):
+                return False
+
+        return True
+
+    success, result = topotest.run_and_expect(
+        _check_r2_routes_with_gshut, True, count=12, wait=5
+    )
+    assert success, "R2 originated routes don't have GSHUT after enabling"
+
+    logger.info("Disabling GSHUT on PEER-GROUP1")
+    r2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65002
+         no neighbor PEER-GROUP1 graceful-shutdown
+        end
+    """
+    )
+
+    success, result = topotest.run_and_expect(
+        _check_r2_routes_no_gshut, True, count=12, wait=5
+    )
+    assert success, "R2 originated routes still have GSHUT after disabling"
+
+    logger.info("Cleanup: Remove originated routes config")
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65002
+          address-family ipv4 unicast
+           no network 10.30.30.2/32
+           no redistribute connected
+           no redistribute static
+          exit-address-family
+         exit
+         no ip route 10.20.20.2/32 Null0
+         interface lo
+          no ip address 10.30.30.2/32
+         exit
         end
     """
     )

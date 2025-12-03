@@ -2701,7 +2701,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (aspath_check_as_zero(attr->aspath))
 		return false;
 
-	if (bgp_in_graceful_shutdown(bgp)) {
+	if ((bgp_in_graceful_shutdown(bgp)) ||
+	    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))) {
 		if (peer->sort == BGP_PEER_IBGP ||
 		    peer->sort == BGP_PEER_CONFED ||
 		    peer->sub_sort == BGP_PEER_EBGP_OAD) {
