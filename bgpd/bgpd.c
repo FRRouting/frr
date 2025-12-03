@@ -9517,6 +9517,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 	struct bgp_dest *dest;
 	struct bgp_clearing_dest *destinfo;
 	struct bgp_table *table;
+	uint32_t idx = 0;
 
 	if (bgp_debug_neighbor_events(NULL))
 		zlog_debug("%s: cinfo id %#x, %p, total %u", __func__, cinfo->id, cinfo,
@@ -9526,7 +9527,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 	event_cancel_event(bm->master, &cinfo->t_sched);
 
 	/* Remove all peers and un-ref */
-	while ((peer = bgp_clearing_hash_pop(&cinfo->peers)) != NULL)
+	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)
 		bgp_clearing_peer_done(peer);
 
 	/* Remove any dests/prefixes and unlock */
