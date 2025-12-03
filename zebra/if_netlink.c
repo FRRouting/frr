@@ -1520,6 +1520,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			dplane_ctx_set_ifp_vrf_id(ctx, ns_id);
 
 		dplane_ctx_set_ifp_flags(ctx, ifi->ifi_flags & 0x0000fffff);
+		dplane_ctx_set_ifp_change_flags(ctx, ifi->ifi_change & 0x0000fffff);
 
 		if (tb[IFLA_PROTO_DOWN]) {
 			dplane_ctx_set_ifp_protodown_set(ctx, true);
