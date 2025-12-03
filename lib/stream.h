@@ -180,15 +180,8 @@ extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
 extern bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip);
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
-extern int stream_put_in6_addr_at(struct stream *s, size_t putp,
-				  const struct in6_addr *addr);
-extern int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
-				     bool addpath_capable,
-				     uint32_t addpath_tx_id);
+extern int stream_put_in6_addr_at(struct stream *s, size_t putp, const struct in6_addr *addr);
 extern int stream_put_prefix(struct stream *s, const struct prefix *p);
-extern int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-				     mpls_label_t *label, bool addpath_capable,
-				     uint32_t addpath_tx_id);
 extern void stream_get(void *dst, struct stream *s, size_t size);
 extern bool stream_get2(void *data, struct stream *s, size_t size);
 extern void stream_get_from(void *dst, struct stream *s, size_t from, size_t size);

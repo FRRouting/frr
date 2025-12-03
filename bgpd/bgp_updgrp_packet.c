@@ -797,8 +797,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		if ((afi == AFI_IP && safi == SAFI_UNICAST)
 		    && !peer_cap_enhe(peer, afi, safi))
-			stream_put_prefix_addpath(s, dest_p, addpath_capable,
-						  addpath_tx_id);
+			bgp_attr_stream_put_prefix_addpath(s, dest_p, addpath_capable,
+							   addpath_tx_id);
 		else {
 			/* Encode the prefix in MP_REACH_NLRI attribute */
 			if (dest->pdest)
@@ -1003,8 +1003,8 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 
 		if (afi == AFI_IP && safi == SAFI_UNICAST
 		    && !peer_cap_enhe(peer, afi, safi))
-			stream_put_prefix_addpath(s, dest_p, addpath_capable,
-						  addpath_tx_id);
+			bgp_attr_stream_put_prefix_addpath(s, dest_p, addpath_capable,
+							   addpath_tx_id);
 		else {
 			if (dest->pdest)
 				prd = (struct prefix_rd *)bgp_dest_get_prefix(
@@ -1177,9 +1177,8 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* NLRI set. */
 	if (p.family == AF_INET && safi == SAFI_UNICAST
 	    && !peer_cap_enhe(peer, afi, safi))
-		stream_put_prefix_addpath(
-			s, &p, addpath_capable,
-			BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+		bgp_attr_stream_put_prefix_addpath(s, &p, addpath_capable,
+						   BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 
 	/* Set size. */
 	bgp_packet_set_size(s);
@@ -1252,9 +1251,8 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 	/* Withdrawn Routes. */
 	if (p.family == AF_INET && safi == SAFI_UNICAST
 	    && !peer_cap_enhe(peer, afi, safi)) {
-		stream_put_prefix_addpath(
-			s, &p, addpath_capable,
-			BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+		bgp_attr_stream_put_prefix_addpath(s, &p, addpath_capable,
+						   BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 
 		unfeasible_len = stream_get_endp(s) - cp - 2;
 

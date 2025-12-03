@@ -492,6 +492,40 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 	stream_putq(s, aigp);
 }
 
+/* Put NLRI with optional label and optional addpath*/
+int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
+				       mpls_label_t *label, bool addpath_capable,
+				       uint32_t addpath_tx_id)
+{
+	size_t psize;
+	uint8_t *label_pnt;
+
+	/* 4 for addpath, 1 for prefix length byte */
+	uint8_t buffer[4 + BGP_LABEL_BYTES + IPV6_MAX_BYTELEN + 1];
+	uint8_t *endp = buffer;
+
+	psize = PSIZE(p->prefixlen);
+
+	if (addpath_capable) {
+		*endp++ = (uint8_t)(addpath_tx_id >> 24);
+		*endp++ = (uint8_t)(addpath_tx_id >> 16);
+		*endp++ = (uint8_t)(addpath_tx_id >> 8);
+		*endp++ = (uint8_t)addpath_tx_id;
+	}
+
+	*endp++ = p->prefixlen + (label ? BGP_LABEL_BYTES * 8 : 0);
+	if (label) {
+		label_pnt = (uint8_t *)label;
+		*endp++ = label_pnt[0];
+		*endp++ = label_pnt[1];
+		*endp++ = label_pnt[2];
+	}
+	memcpy(endp, &p->u.prefix, psize);
+	endp += psize;
+
+	return stream_write(s, buffer, endp - buffer);
+}
+
 static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 {
 	uint8_t *data = pnt;
@@ -4772,13 +4806,13 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		break;
 	case SAFI_LABELED_UNICAST:
 		if (num_labels > 1) {
-			zlog_warn("%s: stream_put_labeled_prefix currently supports only one label, ignoring rest (num_labels=%d)",
+			zlog_warn("%s: bgp_attr_stream_put_labeled_prefix currently supports only one label, ignoring rest (num_labels=%d)",
 				  __func__, num_labels);
 			restore_label = label[0];
 			label_set_bos(&label[0]);
 		}
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label, addpath_capable, addpath_tx_id);
+		bgp_attr_stream_put_labeled_prefix(s, p, label, addpath_capable, addpath_tx_id);
 		if (num_labels > 1)
 			label[0] = restore_label;
 		break;
@@ -4790,7 +4824,7 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
-		stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
+		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
 		break;
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
@@ -5707,8 +5741,7 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 		stream_putc(s, 0);
 
 		/* Prefix */
-		stream_put_prefix_addpath(s, prefix, addpath_capable,
-					  addpath_tx_id);
+		bgp_attr_stream_put_prefix_addpath(s, prefix, addpath_capable, addpath_tx_id);
 
 		/* Set MP attribute length. */
 		stream_putc_at(s, sizep, (stream_get_endp(s) - sizep) - 1);
