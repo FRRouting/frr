@@ -439,6 +439,39 @@ Route Selection
    If the paths MED value is missing and this command is configured
    then treat it as the worse possible value that it can be.
 
+.. clicmd:: bgp bestpath use-imported-attributes
+
+   This command changes the bestpath selection to use imported (local VRF)
+   attributes for modifiable attributes instead of the source (ultimate) VRF
+   attributes.
+
+   When routes are leaked between VRFs using ``import vrf``, route-maps can modify
+   attributes like AS_PATH, Origin, MED, and Originator-ID. By default, BGP bestpath
+   selection uses the original source path's attributes for these comparisons. When
+   this command is enabled, the locally modified (imported) attributes are used instead.
+
+   **Modifiable attributes affected:**
+
+   - AS_PATH length (after ``set as-path exclude`` or ``set as-path prepend``)
+   - Origin
+   - MED
+   - Originator-ID
+
+   **Non-modifiable attributes (always use source values):**
+
+   - Peer Type
+   - IGP Metric
+   - Cluster List
+   - Neighbor Address
+
+   This is useful when you want the bestpath selection to consider AS_PATH
+   modifications made during VRF route leaking. For example, if you use
+   ``set as-path exclude`` in a route-map to strip AS numbers during import,
+   enabling this command will make the shorter AS_PATH preferred in bestpath
+   selection.
+
+   Disabled by default.
+
 .. clicmd:: maximum-paths (1-128)
 
    Sets the maximum-paths value used for ecmp calculations for this
