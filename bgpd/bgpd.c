@@ -1687,8 +1687,11 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su)
 		SET_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS);
 	}
 
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
-		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY))
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
@@ -3085,11 +3088,12 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
 
 	/* capability software-version apply */
-	if (!CHECK_FLAG(peer->flags_override,
-			PEER_FLAG_CAPABILITY_SOFT_VERSION))
-		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION))
-			SET_FLAG(peer->flags,
-				 PEER_FLAG_CAPABILITY_SOFT_VERSION);
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
+			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
 
 	/* capability dynamic apply */
 	if (!CHECK_FLAG(peer->flags_override,
@@ -5110,7 +5114,8 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{ PEER_FLAG_PORT, 0, peer_change_reset },
 	{ PEER_FLAG_AIGP, 0, peer_change_none },
 	{ PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none },
-	{ PEER_FLAG_CAPABILITY_SOFT_VERSION, 0, peer_change_none },
+	{ PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD, 0, peer_change_none },
+	{ PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW, 0, peer_change_none },
 	{ PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none },
 	{ PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none },
 	{ PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none },
@@ -5218,9 +5223,10 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 {
 	if (flag == PEER_FLAG_DYNAMIC_CAPABILITY || flag == PEER_FLAG_CAPABILITY_ENHE ||
-	    flag == PEER_FLAG_CAPABILITY_FQDN || flag == PEER_FLAG_CAPABILITY_SOFT_VERSION ||
-	    flag == PEER_FLAG_DONT_CAPABILITY || flag == PEER_FLAG_OVERRIDE_CAPABILITY ||
-	    flag == PEER_FLAG_STRICT_CAP_MATCH || flag == PEER_FLAG_CAPABILITY_LINK_LOCAL)
+	    flag == PEER_FLAG_CAPABILITY_FQDN || flag == PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD ||
+	    flag == PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW || flag == PEER_FLAG_DONT_CAPABILITY ||
+	    flag == PEER_FLAG_OVERRIDE_CAPABILITY || flag == PEER_FLAG_STRICT_CAP_MATCH ||
+	    flag == PEER_FLAG_CAPABILITY_LINK_LOCAL)
 		peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
 	else if (flag == PEER_FLAG_PASSIVE)
 		peer_set_last_reset(peer, PEER_DOWN_PASSIVE_CHANGE);
