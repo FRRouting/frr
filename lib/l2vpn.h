@@ -122,7 +122,7 @@ struct l2vpn_pw *l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
 struct l2vpn_lib_register {
 	void (*add_hook)(const char *name);
 	void (*del_hook)(const char *name);
-	void (*event_hook)(const char *name);
+	void (*event_hook)(struct l2vpn_pw *l2vpn_pw);
 	bool (*iface_ok_for_l2vpn)(const char *ifname);
 };
 
@@ -132,7 +132,7 @@ extern struct l2vpn_head l2vpn_tree_config;
 int l2vpn_iface_is_configured(const char *ifname);
 
 void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const char *),
-			 void (*func_event)(const char *),
+			 void (*func_event)(struct l2vpn_pw *),
 			 bool (*func_iface_ok_for_l2vpn)(const char *));
 
 #ifdef __cplusplus
