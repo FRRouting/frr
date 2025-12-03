@@ -953,6 +953,21 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		}                                                              \
 	return NULL;                                                           \
 }                                                                              \
+macro_inline type *prefix ## _pop_all(struct prefix##_head *h, uint32_t *pi)   \
+{                                                                              \
+	uint32_t i = *pi;                                                      \
+	for ( ; i < HASH_SIZE(h->hh); i++) {                                   \
+		if (h->hh.entries[i]) {                                        \
+			struct thash_item *hitem = h->hh.entries[i];           \
+			h->hh.entries[i] = hitem->next;                        \
+			h->hh.count--;                                         \
+			hitem->next = NULL;                                    \
+			*pi = i;                                               \
+			return container_of(hitem, type, field.hi);            \
+		}                                                              \
+	}                                                                      \
+	return NULL;                                                           \
+}                                                                              \
 TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
