@@ -81,7 +81,10 @@ void ospf_neighbor_bfd_apply(struct ospf_neighbor *nbr)
 	/* New BFD session. */
 	if (nbr->bfd_session == NULL) {
 		nbr->bfd_session = bfd_sess_new(ospf_bfd_session_change, nbr);
-		bfd_sess_set_ipv4_addrs(nbr->bfd_session, NULL, &nbr->src);
+		/* Pass local interface address as source (like BGP does with su_local) */
+		bfd_sess_set_ipv4_addrs(nbr->bfd_session,
+					oi->address ? &oi->address->u.prefix4 : NULL,  /* local source */
+					&nbr->src);                /* remote dest */
 		bfd_sess_set_interface(nbr->bfd_session, oi->ifp->name);
 		bfd_sess_set_vrf(nbr->bfd_session, oi->ospf->vrf_id);
 	}
