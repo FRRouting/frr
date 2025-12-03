@@ -956,7 +956,7 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 }
 
 /*
-  pim_if_add_vif() uses ifindex as vif_index
+  pim_if_add_vif() uses ifindex as mroute_vif_index
 
   see also pim_if_find_vifindex_by_ifindex()
  */
@@ -1716,6 +1716,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
+		pim_reg_sock_bind(pim);
 		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
 					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
