@@ -463,7 +463,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		old_cum_bw = bgp_path_info_mpath_cumbw(dest);
 		bgp_path_info_mpath_count_set(dest, 0);
 		bgp_path_info_mpath_lb_update(dest, false, false, 0);
-		bgp_path_info_mpath_free(dest->mpath);
+		bgp_path_info_mpath_free(&dest->mpath);
 		dest->mpath = NULL;
 	}
 
