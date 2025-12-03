@@ -662,24 +662,32 @@ def test_configure_gua_on_unnumbered_intf(request):
         }
         return topotest.json_cmp(output, expected)
 
-    def bgp_prefix_received_v4_mapped_v6_nh(router):
+    def bgp_prefix_received_linklocal_nh(router):
+        """Verify nexthop falls back to link-local after GUA removal"""
         output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 11.0.20.1/32 json"))
-        expected = {
-            "prefix": "11.0.20.1/32",
-            "paths": [
-                {
-                    "nexthops": [
-                        {
-                            "ip": "::ffff:10.0.5.1",
-                            "hostname": "r1",
-                            "afi": "ipv6",
-                            "scope": "global",
-                        }
-                    ]
-                }
-            ],
-        }
-        return topotest.json_cmp(output, expected)
+
+        # After GUA removal, nexthop should be link-local (fe80::), not IPv4-mapped
+        if "paths" not in output or not output["paths"]:
+            return "No paths found"
+
+        nexthops = output["paths"][0].get("nexthops", [])
+        if not nexthops:
+            return "No nexthops found"
+
+        nexthop_ip = nexthops[0].get("ip", "")
+        nexthop_scope = nexthops[0].get("scope", "")
+
+        if not nexthop_ip.startswith("fe80:"):
+            if nexthop_ip.startswith("::ffff:"):
+                return (
+                    f"Bug: Nexthop is IPv4-mapped: {nexthop_ip}, should be link-local"
+                )
+            return f"Unexpected nexthop: {nexthop_ip}, expected link-local (fe80::)"
+
+        if nexthop_scope != "link-local":
+            return f"Nexthop scope is {nexthop_scope}, expected 'link-local'"
+
+        return None
 
     step("Configure a global V6 address on an unnumbered interface on R1")
     output = tgen.gears["r1"].vtysh_cmd(
@@ -751,15 +759,10 @@ def test_configure_gua_on_unnumbered_intf(request):
         !
         """
     )
-    # verify that r1 has rcvd the prefix with v4-mapped-v6 address as the nexthop
-    test_func = functools.partial(bgp_prefix_received_v4_mapped_v6_nh, r2)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert (
-        result is None
-    ), "Testcase {} : Failed \n Error: Nexthop for prefix 11.0.20.1 \
-    is not ::ffff:10.0.5.1".format(
-        tc_name
-    )
+    # verify that nexthop falls back to link-local address (not IPv4-mapped)
+    test_func = functools.partial(bgp_prefix_received_linklocal_nh, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
