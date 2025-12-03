@@ -440,6 +440,15 @@ Route Selection
 
    Disabled by default.
 
+.. clicmd:: bgp bestpath use-imported-attributes
+
+   When routes are leaked between VRFs using ``import vrf``, the bestpath
+   selection process by default uses the source VRF's path attributes (AS path
+   length, Origin, MED, Originator-ID) for comparison. This command changes
+   the behavior to use the imported path's attributes instead.
+
+   Disabled by default.
+
 .. clicmd:: bgp bestpath med missing-as-worst
 
    If the paths MED value is missing and this command is configured
