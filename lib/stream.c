@@ -1051,37 +1051,21 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp,
 	return 16;
 }
 
-/* Put prefix by nlri type format. */
-int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
-			      bool addpath_capable, uint32_t addpath_tx_id)
+int stream_put_prefix(struct stream *s, const struct prefix *p)
 {
 	size_t psize;
-	size_t psize_with_addpath;
 
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
 
-	if (addpath_capable)
-		psize_with_addpath = psize + 4;
-	else
-		psize_with_addpath = psize;
-
-	if (STREAM_WRITEABLE(s) < (psize_with_addpath + sizeof(uint8_t))) {
+	if (STREAM_WRITEABLE(s) < (psize + sizeof(uint8_t))) {
 		if (s->allow_expansion) {
-			stream_expand(s,
-				      STREAM_EXPAND_SIZE(s, psize_with_addpath + sizeof(uint8_t)));
+			stream_expand(s, STREAM_EXPAND_SIZE(s, psize + sizeof(uint8_t)));
 		} else {
 			STREAM_BOUND_WARN(s, "put");
 			return 0;
 		}
-	}
-
-	if (addpath_capable) {
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
-		s->data[s->endp++] = (uint8_t)addpath_tx_id;
 	}
 
 	s->data[s->endp++] = p->prefixlen;
@@ -1089,51 +1073,6 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 	s->endp += psize;
 
 	return psize;
-}
-
-int stream_put_prefix(struct stream *s, const struct prefix *p)
-{
-	return stream_put_prefix_addpath(s, p, 0, 0);
-}
-
-/* Put NLRI with label */
-int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-			      mpls_label_t *label, bool addpath_capable,
-			      uint32_t addpath_tx_id)
-{
-	size_t psize;
-	size_t psize_with_addpath;
-	uint8_t *label_pnt = (uint8_t *)label;
-
-	STREAM_VERIFY_SANE(s);
-
-	psize = PSIZE(p->prefixlen);
-	psize_with_addpath = psize + (addpath_capable ? 4 : 0);
-
-	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
-		if (s->allow_expansion) {
-			stream_expand(s, STREAM_EXPAND_SIZE(s, psize_with_addpath + 3));
-		} else {
-			STREAM_BOUND_WARN(s, "put");
-			return 0;
-		}
-	}
-
-	if (addpath_capable) {
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
-		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
-		s->data[s->endp++] = (uint8_t)addpath_tx_id;
-	}
-
-	stream_putc(s, (p->prefixlen + 24));
-	stream_putc(s, label_pnt[0]);
-	stream_putc(s, label_pnt[1]);
-	stream_putc(s, label_pnt[2]);
-	memcpy(s->data + s->endp, &p->u.prefix, psize);
-	s->endp += psize;
-
-	return (psize + 3);
 }
 
 /* Read size from fd. */
