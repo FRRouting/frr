@@ -236,7 +236,7 @@ static void ldp_l2vpn_entry_deleted(const char *l2vpn_name)
 	ldp_config_apply(NULL, vty_conf);
 }
 
-static void ldp_l2vpn_entry_event(const char *l2vpn_name)
+static void ldp_l2vpn_entry_event(struct l2vpn_pw *l2vpn_pw)
 {
 	/* XXX handle config load from file */
 	ldp_config_apply(NULL, vty_conf);

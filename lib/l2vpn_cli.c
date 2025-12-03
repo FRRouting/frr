@@ -597,7 +597,7 @@ void l2vpn_init(void)
 }
 
 void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const char *),
-			 void (*func_event)(const char *),
+			 void (*func_event)(struct l2vpn_pw *),
 			 bool (*func_iface_ok_for_l2vpn)(const char *))
 {
 	l2vpn_lib_master.add_hook = func_add;
