@@ -725,6 +725,53 @@ struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
 	return bpi_ultimate;
 }
 
+/*
+ * Compare the admin distances of two paths when one is redistributed, and
+ * the other one is eligible for installation. Prefer the path with a lower
+ * admin distance.
+ *
+ * This is to make sure BGP and zebra are deterministic and consistent
+ * regarding whether the local route or another route would be installed
+ * and advertised to the network, irrespective of the order in which the
+ * routes are received.
+ */
+static int bgp_path_info_cmp_distance(struct bgp *bgp, struct bgp_path_info *new,
+				      struct bgp_path_info *exist, int debug, char *pfx_buf,
+				      char *new_buf, char *exist_buf, afi_t afi, safi_t safi,
+				      bool new_redist)
+{
+	uint8_t new_distance;
+	uint8_t exist_distance;
+	const struct prefix *p;
+
+	p = bgp_dest_get_prefix(new->net);
+	if (new_redist) {
+		new_distance = new->attr->distance;
+		exist_distance = bgp_distance_apply(p, exist, afi, safi, bgp);
+	} else {
+		exist_distance = exist->attr->distance;
+		new_distance = bgp_distance_apply(p, new, afi, safi, bgp);
+	}
+
+	if (new_distance < exist_distance) {
+		if (debug) {
+			zlog_debug("%s: %s wins over %s due to distance %u < %u", pfx_buf, new_buf,
+				   exist_buf, new_distance, exist_distance);
+		}
+		return 1;
+	}
+
+	if (new_distance > exist_distance) {
+		if (debug) {
+			zlog_debug("%s: %s loses to %s due to distance %u > %u", pfx_buf, new_buf,
+				   exist_buf, new_distance, exist_distance);
+		}
+		return 0;
+	}
+
+	return -1;
+}
+
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
  */
 int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
@@ -765,6 +812,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool same_esi;
 	bool old_proxy;
 	bool new_proxy;
+	bool new_redist;
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
@@ -994,6 +1042,23 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 					pfx_buf, new_buf, exist_buf, new_mm_seq,
 					&new->attr->nexthop);
 			return 0;
+		}
+	}
+
+	/* 0. Admin distance check when one path is locally redistributed, and
+	 *    the other path is eligible for installation.
+	 */
+	new_redist = (new->peer == bgp->peer_self) && (new->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
+		     bgp_zebra_announce_eligible(exist);
+
+	if (new_redist ||
+	    ((exist->peer == bgp->peer_self) && (exist->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
+	     bgp_zebra_announce_eligible(new))) {
+		ret = bgp_path_info_cmp_distance(bgp, new, exist, debug, pfx_buf, new_buf,
+						 exist_buf, afi, safi, new_redist);
+		if (ret >= 0) {
+			*reason = bgp_path_selection_admin_distance;
+			return ret;
 		}
 	}
 
@@ -10329,6 +10394,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "EVPN local ES path";
 	case bgp_path_selection_evpn_non_proxy:
 		return "EVPN non proxy";
+	case bgp_path_selection_admin_distance:
+		return "Admin Distance";
 	case bgp_path_selection_weight:
 		return "Weight";
 	case bgp_path_selection_local_pref:
