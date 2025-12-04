@@ -16,6 +16,7 @@
 #include "log_vty.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
+#include "ospfd/ospf_nb.h"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
 #include "routemap.h"
@@ -147,6 +148,7 @@ const struct frr_yang_module_info zebra_route_map_info = {
  * List of YANG modules to be loaded in the process context of
  * MGMTd.
  */
+/* clang-format off */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_backend_info,
 	&frr_filter_cli_info,
@@ -180,9 +182,11 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 #ifdef HAVE_STATICD
 	&frr_staticd_cli_info,
 #endif
+#ifdef HAVE_OSPFD
+	&frr_ospfd_lite_cli_info
+#endif
 };
 
-/* clang-format off */
 FRR_DAEMON_INFO(mgmtd, MGMTD,
 		.vty_port = MGMTD_VTY_PORT,
 		.proghelp = "FRR Management Daemon.",

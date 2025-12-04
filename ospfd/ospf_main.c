@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "keychain.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -46,6 +47,7 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
 #include "ospfd/ospf_apiserver.h"
+#include "ospfd/ospf_nb.h"
 
 #define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
 #define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_libstatedir, i
@@ -92,6 +94,8 @@ const struct option longopts[] = {
 /* Master of threads. */
 struct event_loop *master;
 
+struct mgmt_be_client *mgmt_be_client;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
@@ -103,6 +107,7 @@ static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 	ospf_terminate();
 
 	exit(0);
@@ -134,13 +139,10 @@ struct frr_signal_t ospf_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
-	&frr_filter_info,
-	&frr_interface_info,
-	&frr_route_map_info,
-	&frr_vrf_info,
-	&frr_ospf_route_map_info,
-	&ietf_key_chain_info,
-	&ietf_key_chain_deviation_info,
+	&frr_filter_info,	  &frr_interface_info,
+	&frr_route_map_info,	  &frr_vrf_info,
+	&frr_ospf_route_map_info, &frr_ospfd_lite_info,
+	&ietf_key_chain_info,	  &ietf_key_chain_deviation_info,
 };
 
 /* actual paths filled in main() */
@@ -288,6 +290,8 @@ int main(int argc, char **argv)
 	ospf_vty_init();
 	ospf_vty_show_init();
 	ospf_vty_clear_init();
+
+	mgmt_be_client = mgmt_be_client_create("ospfd", NULL, 0, master);
 
 	/* OSPF BFD init */
 	ospf_bfd_init(master);

@@ -30,6 +30,9 @@ enum mgmt_be_client_id {
 	MGMTD_BE_CLIENT_ID_TESTC, /* always first */
 	MGMTD_BE_CLIENT_ID_MGMTD, /* loopback */
 	MGMTD_BE_CLIENT_ID_ZEBRA,
+#ifdef HAVE_OSPFD
+	MGMTD_BE_CLIENT_ID_OSPFD,
+#endif
 #ifdef HAVE_RIPD
 	MGMTD_BE_CLIENT_ID_RIPD,
 #endif
