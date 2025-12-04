@@ -150,14 +150,15 @@ BFD peers and profiles share the same BFD session configuration commands.
 .. clicmd:: detect-multiplier (1-255)
 
    Configures the detection multiplier to determine packet loss. The
-   remote transmission interval will be multiplied by this value to
-   determine the connection loss detection timer. The default value is
-   3.
+   larger value of a comparison between the local system's `transmit-interval`
+   and the remote system's `receive-interval` will be multiplied by this value
+   to determine the connection loss detection timer on the remote system. The
+   default value is 3.
 
-   Example: when the local system has `detect-multiplier 3` and  the
-   remote system has `transmission interval 300`, the local system will
-   detect failures only after 900 milliseconds without receiving
-   packets.
+   Example: when the local system has `detect-multiplier 3` with
+   `transmit-interval 300`, and the remote system has `receive-interval 200`
+   the remote system will detect failures only after 900 milliseconds without
+   receiving packets.
 
 .. clicmd:: receive-interval (10-4294967)
 
