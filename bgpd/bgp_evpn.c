@@ -372,8 +372,10 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi)
 bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 {
 	/* do not import aggr suppressed routes */
-	if (bgp_path_suppressed(pi))
+	if (bgp_path_suppressed(pi)) {
+		frrtrace(2, frr_bgp, evpn_ignore_suppress_route, pi->net, pi->peer);
 		return false;
+	}
 
 	return is_route_injectable_into_evpn_non_supp(pi);
 }

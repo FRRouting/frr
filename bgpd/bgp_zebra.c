@@ -98,6 +98,7 @@ static int bgp_router_id_update(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Rx Router Id update VRF %u Id %pFX", vrf_id,
 			   &router_id);
 
+	frrtrace(2, frr_bgp, router_id_update_zrecv, vrf_id, &router_id);
 	bgp_router_id_zebra_bump(vrf_id, &router_id);
 	return 0;
 }
@@ -221,6 +222,7 @@ static int bgp_ifp_up(struct interface *ifp)
 
 	bgp_mac_add_mac_entry(ifp);
 
+	frrtrace(2, frr_bgp, bgp_ifp_oper, ifp, 1);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf up VRF %s IF %s", ifp->vrf->name, ifp->name);
 
@@ -265,6 +267,7 @@ static int bgp_ifp_down(struct interface *ifp)
 
 	bgp_mac_del_mac_entry(ifp);
 
+	frrtrace(2, frr_bgp, bgp_ifp_oper, ifp, 2);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf down VRF %s IF %s", ifp->vrf->name,
 			   ifp->name);
@@ -334,6 +337,8 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (bgp_debug_zebra(ifc->address))
 		zlog_debug("Rx Intf address add VRF %s IF %s addr %pFX",
 			   ifc->ifp->vrf->name, ifc->ifp->name, ifc->address);
+
+	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 1);
 
 	if (!bgp)
 		return 0;
@@ -414,6 +419,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Rx Intf address del VRF %s IF %s addr %pFX",
 			   ifc->ifp->vrf->name, ifc->ifp->name, ifc->address);
 
+	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 2);
+
 	if (bgp && if_is_operative(ifc->ifp)) {
 		bgp_connected_delete(bgp, ifc);
 	}
@@ -471,6 +478,8 @@ static int bgp_interface_nbr_address_add(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Rx Intf neighbor add VRF %s IF %s addr %pFX",
 			   ifc->ifp->vrf->name, ifc->ifp->name, ifc->address);
 
+	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 3);
+
 	if (if_is_operative(ifc->ifp)) {
 		bgp = bgp_lookup_by_vrf_id(vrf_id);
 		if (bgp)
@@ -493,6 +502,8 @@ static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 	if (bgp_debug_zebra(ifc->address))
 		zlog_debug("Rx Intf neighbor del VRF %s IF %s addr %pFX",
 			   ifc->ifp->vrf->name, ifc->ifp->name, ifc->address);
+
+	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 4);
 
 	if (if_is_operative(ifc->ifp)) {
 		bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -2494,6 +2505,7 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 	if (bgp_zclient->sock < 0)
 		return;
 
+	frrtrace(3, frr_bgp, bgp_zebra_radv_operation, 1, bgp->vrf_id, peer->host);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%u: Initiating RA for peer %s", bgp->vrf_id,
 			   peer->host);
@@ -2514,6 +2526,7 @@ void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 	if (bgp_zclient->sock < 0)
 		return;
 
+	frrtrace(3, frr_bgp, bgp_zebra_radv_operation, 2, bgp->vrf_id, peer->host);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id,
 			   peer->host);
@@ -2545,6 +2558,7 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 	}
 
+	frrtrace(4, frr_bgp, bgp_zebra_evpn_advertise_type, bgp, advertise, vni, 1);
 	s = bgp_zclient->obuf;
 	stream_reset(s);
 
@@ -2568,6 +2582,7 @@ int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise, vni_t vni)
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		return 0;
 
+	frrtrace(4, frr_bgp, bgp_zebra_evpn_advertise_type, bgp, advertise, vni, 2);
 	s = bgp_zclient->obuf;
 	stream_reset(s);
 
@@ -2596,6 +2611,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 	}
 
+	frrtrace(4, frr_bgp, bgp_zebra_evpn_advertise_type, bgp, advertise, vni, 3);
 	s = bgp_zclient->obuf;
 	stream_reset(s);
 
@@ -2628,6 +2644,7 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn)
 		return 0;
 	}
 
+	frrtrace(2, frr_bgp, bgp_zebra_vxlan_flood_control, bgp, flood_control);
 	s = bgp_zclient->obuf;
 	stream_reset(s);
 
@@ -2655,6 +2672,7 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		return 0;
 
+	frrtrace(4, frr_bgp, bgp_zebra_evpn_advertise_type, bgp, advertise, 0, 4);
 	s = bgp_zclient->obuf;
 	stream_reset(s);
 
@@ -2681,6 +2699,7 @@ int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		return 0;
 
+	frrtrace(1, frr_bgp, bgp_zebra_dup_addr_detection, bgp);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("dup addr detect %s max_moves %u time %u freeze %s freeze_time %u",
 			   bgp->evpn_info->dup_addr_detect ?
@@ -2964,6 +2983,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		return -1;
 	}
 
+	frrtrace(3, frr_bgp, bgp_zebra_route_notify_owner, note, dest, &p);
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
@@ -3493,6 +3513,7 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	if (!bgp_vrf)
 		return 0;
 
+	frrtrace(3, frr_bgp, bgp_zebra_process_local_ip_prefix_zrecv, &p, cmd, vrf_id);
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Recv prefix %pFX %s on vrf %s", &p,
 			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
