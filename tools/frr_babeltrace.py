@@ -634,6 +634,43 @@ def parse_frr_bgp_ug_subgroup_add_remove_peer(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_upd_rmac_is_self_mac(event):
+    field_parsers = {"rmac": print_mac}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_attr_type_unsupported(event):
+    field_parsers = {
+        "attr": lambda x: {
+            1: "SRv6 sub sub TLV",
+            2: "SRv6 sub TLV",
+            3: "Prefix SID",
+        }.get(x, f"Unknown attribute type {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_update_prefix_filter(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Originator-id same as remote router id",
+            2: "Filtered via ORF",
+            3: "Output Filter",
+        }.get(x, f"Unknown prefix filter reason {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_upd_mp_unrecognized_afi_safi(event):
+    field_parsers = {
+        "loc": lambda x: {
+            1: "MP_REACH_NLRI",
+            2: "MP_UNREACH_NLRI",
+        }.get(x, f"Unknown location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -674,6 +711,10 @@ def main():
         "frr_bgp:ug_create_delete": parse_frr_bgp_ug_create_delete,
         "frr_bgp:ug_subgroup_create_delete": parse_frr_bgp_ug_subgroup_create_delete,
         "frr_bgp:ug_subgroup_add_remove_peer": parse_frr_bgp_ug_subgroup_add_remove_peer,
+        "frr_bgp:upd_rmac_is_self_mac": parse_frr_bgp_upd_rmac_is_self_mac,
+        "frr_bgp:upd_attr_type_unsupported": parse_frr_bgp_attr_type_unsupported,
+        "frr_bgp:upd_prefix_filtered_due_to": parse_frr_update_prefix_filter,
+        "frr_bgp:upd_mp_unrecognized_afi_safi": parse_frr_bgp_upd_mp_unrecognized_afi_safi,
     }
 
     # get the trace path from the first command line argument

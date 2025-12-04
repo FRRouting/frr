@@ -2268,6 +2268,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug("u%" PRIu64 ":s%" PRIu64 " %pFX is filtered - no label",
 					   subgrp->update_group->id, subgrp->id, p);
+
+			char pfxprint[PREFIX2STR_BUFFER];
+
+			prefix2str(p, pfxprint, sizeof(pfxprint));
+			frrtrace(3, frr_bgp, upd_prefix_filtered_no_label,
+				 subgrp->update_group->id, subgrp->id, pfxprint);
+
 			return false;
 		}
 	} else if (safi == SAFI_MPLS_VPN &&
@@ -2317,11 +2324,22 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If community is not disabled check the no-export and local. */
 	if (!transparent && bgp_community_filter(peer, piattr)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(p, pfxprint, sizeof(pfxprint));
+
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug("%s: community filter check fail for %pFX",
 				   __func__, p);
+
+		frrtrace(1, frr_bgp, upd_comm_filter_check_failed, pfxprint);
+
 		return false;
 	}
+
+	char pfxprint[PREFIX2STR_BUFFER];
+
+	prefix2str(p, pfxprint, sizeof(pfxprint));
 
 	/* If the attribute has originator-id and it is same as remote
 	   peer's id. */
@@ -2331,6 +2349,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			zlog_debug(
 				"%pBP [Update:SEND] %pFX originator-id is same as remote router-id",
 				onlypeer, p);
+
+		frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 1, onlypeer->host, pfxprint);
+
 		return false;
 	}
 
@@ -2345,6 +2366,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					zlog_debug(
 						"%pBP [Update:SEND] %pFX is filtered via ORF",
 						peer, p);
+
+				frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 2, peer->host,
+					 pfxprint);
+
 				return false;
 			}
 		}
@@ -2375,6 +2400,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug("%pBP [Update:SEND] %pFX is filtered", peer,
 				   p);
+
+		frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 3, peer->host, pfxprint);
+
 		return false;
 	}
 
@@ -2385,6 +2413,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			zlog_debug(
 				"%pBP [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
 				peer, peer->as);
+
+		frrtrace(4, frr_bgp, upd_as_path_loop_filter, peer->host, pfxprint, peer->as, 0);
+
 		return false;
 	}
 
@@ -2395,6 +2426,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				zlog_debug(
 					"%pBP [Update:SEND] suppress announcement to peer AS %u is AS path.",
 					peer, bgp->confed_id);
+
+			frrtrace(4, frr_bgp, upd_as_path_loop_filter, peer->host, pfxprint,
+				 bgp->confed_id, 1);
+
 			return false;
 		}
 	}
@@ -2620,6 +2655,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					   bgp_path_suppressed(pi) ? "unsuppress-map" : "out",
 					   bgp_path_suppressed(pi) ? UNSUPPRESS_MAP_NAME(filter)
 								   : ROUTE_MAP_OUT_NAME(filter));
+
+			frrtrace(3, frr_bgp, upd_outbound_route_map_filter, peer->host, pfxprint,
+				 bgp_path_suppressed(pi) ? UNSUPPRESS_MAP_NAME(filter)
+							 : ROUTE_MAP_OUT_NAME(filter));
+
 			bgp_attr_flush(rmap_path.attr);
 			return false;
 		}
@@ -2812,6 +2852,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				zlog_debug(
 					"%s: %pFX BGP_PATH_ANNC_NH_SELF, family=%s",
 					__func__, p, family2str(family));
+
+			frrtrace(1, frr_bgp, upd_announce_nh_self, family2str(family));
+
 			subgroup_announce_reset_nhop(family, attr);
 			nh_reset = true;
 		}
@@ -5680,6 +5723,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							ecommunity_str(
 								bgp_attr_get_ecommunity(
 									attr_new)));
+
+					frrtrace(2, frr_bgp, upd_extcomm_change,
+						 ecommunity_str(bgp_attr_get_ecommunity(pi->attr)),
+						 ecommunity_str(bgp_attr_get_ecommunity(attr_new)));
+
 					if (safi == SAFI_EVPN)
 						bgp_evpn_unimport_route(
 							bgp, afi, safi, p, pi);

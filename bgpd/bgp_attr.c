@@ -36,6 +36,7 @@
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_trace.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgp_encap_types.h"
@@ -1659,13 +1660,14 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	 */
 	uint8_t *notify_datap = (length > 0 ? args->startp : NULL);
 
-	if (bgp_debug_update(peer, NULL, NULL, 1)) {
-		char str[BUFSIZ] = { 0 };
+	char str[BUFSIZ] = { 0 };
 
-		bgp_dump_attr(attr, str, sizeof(str));
+	bgp_dump_attr(attr, str, sizeof(str));
 
+	if (bgp_debug_update(peer, NULL, NULL, 1))
 		zlog_debug("%s: attributes: %s", __func__, str);
-	}
+
+	frrtrace(2, frr_bgp, upd_malformed_attr, peer->host, str);
 
 	/* If the Length of Next Hop Network Address field of the MP_REACH
 	 * attribute is inconsistent with that which was expected, the attribute
@@ -2606,6 +2608,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+	char addrgbl[BUFSIZ];
+	char addrlocal[BUFSIZ];
 
 	/* Set end of packet. */
 	s = BGP_INPUT(connection);
@@ -2635,6 +2639,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				"%s sent unrecognizable AFI, %s or, SAFI, %s, of MP_REACH_NLRI",
 				peer->host, iana_afi2str(pkt_afi),
 				iana_safi2str(pkt_safi));
+
+		frrtrace(4, frr_bgp, upd_mp_unrecognized_afi_safi, peer->host,
+			 iana_afi2str(pkt_afi), iana_safi2str(pkt_safi), 1);
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -2728,6 +2735,10 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 					"%s sent next-hops %pI6 and %pI6. Ignoring non-LL value",
 					peer->host, &attr->mp_nexthop_global,
 					&attr->mp_nexthop_local);
+
+			frrtrace(3, frr_bgp, upd_ignoring_non_ll_nexthop, peer->host,
+				 inet_ntop(AF_INET6, &attr->mp_nexthop_global, addrgbl, BUFSIZ),
+				 inet_ntop(AF_INET6, &attr->mp_nexthop_local, addrlocal, BUFSIZ));
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
@@ -2824,6 +2835,9 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 				"%s: MP_UNREACH received AFI %s or SAFI %s is unrecognized",
 				peer->host, iana_afi2str(pkt_afi),
 				iana_safi2str(pkt_safi));
+
+		frrtrace(4, frr_bgp, upd_mp_unrecognized_afi_safi, peer->host,
+			 iana_afi2str(pkt_afi), iana_safi2str(pkt_safi), 2);
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -2937,6 +2951,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		    && bgp_mac_exist(&attr->rmac))
 			zlog_debug("%s: router mac %pEA is self mac", __func__,
 				   &attr->rmac);
+
+		frrtrace(1, frr_bgp, upd_rmac_is_self_mac, &attr->rmac);
 	}
 
 	/* Get the tunnel type from encap extended community */
@@ -3219,6 +3235,8 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 				"%s attr SRv6 Service Data Sub-Sub-TLV sub-sub-type=%u is not supported, skipped",
 				peer->host, type);
 
+		frrtrace(3, frr_bgp, upd_attr_type_unsupported, 1, peer->host, type);
+
 		stream_forward_getp(connection->curr, length);
 	}
 
@@ -3319,6 +3337,8 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 			zlog_debug(
 				"%s attr SRv6 Service Sub-TLV sub-type=%u is not supported, skipped",
 				peer->host, type);
+
+		frrtrace(3, frr_bgp, upd_attr_type_unsupported, 2, peer->host, type);
 
 		stream_forward_getp(connection->curr, length);
 	}
@@ -3496,6 +3516,8 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			zlog_debug(
 				"%s attr Prefix-SID sub-type=%u is not supported, skipped",
 				peer->host, type);
+
+		frrtrace(3, frr_bgp, upd_attr_type_unsupported, 3, peer->host, type);
 
 		stream_forward_getp(connection->curr, length);
 	}
@@ -3885,6 +3907,8 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 		zlog_debug(
 			"%s Unknown attribute is received (type %d, length %d)",
 			peer->host, type, length);
+
+	frrtrace(3, frr_bgp, upd_unknown_attr_rcvd, peer->host, type, length);
 
 	/* Forward read pointer of input stream. */
 	stream_forward_getp(connection->curr, length);
