@@ -152,6 +152,12 @@ The route selection process used by FRR's BGP implementation uses the following
 decision criterion, starting at the top of the list and going towards the
 bottom until one of the factors can be used.
 
+0. **Admin distance check**
+
+   When one route is locally redistributed and another route is either locally
+   aggregated or received from another BGP speaker, prefer the route with a
+   lower admin distance.
+
 1. **Weight check**
 
    Prefer higher local weight routes to lower routes.
@@ -1379,12 +1385,11 @@ OSPFv3 into ``address-family ipv4 unicast`` as OSPFv3 supports IPv6.
 
    Redistribute routes from other protocols into BGP.
 
-   Note - When redistributing a static route, or any better Admin Distance route,
-   into BGP for which the same path is learned dynamically from another BGP
-   speaker, if the redistribute path is more preferred from a BGP Best Path
-   standpoint than the dynamically learned path, then BGP will not export
-   the best path to Zebra(RIB) for installation into the routing table,
-   unless BGP receives the path before the static route is created.
+   Note - When redistributing a static route, or any other route, into BGP,
+   the Admin Distance is carried into BGP, and is used in BGP's Best Path
+   calculation. When comparing a redistributed route with a local aggregate,
+   or a route learned dynamically from another BGP speaker, the one with a
+   lower Admin Distance is more preferred.
 
 .. clicmd:: redistribute <table|table-direct> (1-65535)] [metric (0-4294967295)] [route-map WORD]
 
