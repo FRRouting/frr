@@ -580,8 +580,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				   mpath_changed ? "YES" : "NO", all_paths_lb,
 				   cum_bw);
 
-		if (mpath_count == 1)
+		if (mpath_count == 1) {
 			UNSET_FLAG(new_best->flags, BGP_PATH_MULTIPATH);
+			if (dest->mpath)
+				bgp_path_info_mpath_free(&dest->mpath);
+		}
 		if (mpath_changed
 		    || (bgp_path_info_mpath_count(new_best->net) != old_mpath_count))
 			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
