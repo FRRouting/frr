@@ -1749,6 +1749,10 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 					"u%" PRIu64 ":s%" PRIu64" announcing routes upon policy %s (type %d) change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name, ctx->policy_type);
+
+			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 0, updgrp->id,
+				 subgrp->id, ctx->policy_name, ctx->policy_type);
+
 			subgroup_announce_route(subgrp);
 		}
 		if (def_changed) {
@@ -1757,6 +1761,10 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 					"u%" PRIu64 ":s%" PRIu64" announcing default upon default routemap %s change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name);
+
+			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 1, updgrp->id,
+				 subgrp->id, ctx->policy_name, ctx->policy_type);
+
 			if (route_map_lookup_by_name(ctx->policy_name)) {
 				/*
 				 * When there is change in routemap, this flow
@@ -2255,6 +2263,8 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 			zlog_debug("u%" PRIu64 ":s%" PRIu64" %s announcing routes",
 				   subgrp->update_group->id, subgrp->id,
 				   paf->peer->host);
+		frrtrace(3, frr_bgp, upd_peer_af_announce_route, subgrp->update_group->id,
+			 subgrp->id, paf->peer->host);
 
 		subgroup_announce_route(paf->subgroup);
 		return;
@@ -2276,6 +2286,8 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes to %s, combined into %d peers",
 			   subgrp->update_group->id, subgrp->id,
 			   paf->peer->host, subgrp->peer_count);
+	frrtrace(4, frr_bgp, upd_peer_af_announce_route_combined, subgrp->update_group->id,
+		 subgrp->id, paf->peer->host, subgrp->peer_count);
 
 	subgroup_announce_route(subgrp);
 
