@@ -3686,7 +3686,6 @@ static void bgp_dynamic_capability_software_version(uint8_t *pnt, int action,
 	uint8_t len = hdr->length;
 	uint8_t cap_value_len_field = *data + 1;
 	char soft_version[BGP_MAX_SOFT_VERSION + 1] = {};
-	bool old_encoding = false;
 
 	if (action == CAPABILITY_ACTION_SET) {
 		/* For backward compatibility.
@@ -3696,17 +3695,21 @@ static void bgp_dynamic_capability_software_version(uint8_t *pnt, int action,
 		 */
 		if (cap_value_len_field == len) {
 			len = *data;
-			old_encoding = true;
-		}
 
-		if (data + len + 1 > end) {
-			zlog_err("%pBP: Received invalid Software Version capability length %d",
-				 peer, len);
-			return;
-		}
+			if (data + len + 1 > end) {
+				zlog_err("%pBP: Received invalid Software Version capability length %d",
+					 peer, len);
+				return;
+			}
 
-		if (old_encoding)
 			data++;
+		} else {
+			if (data + len > end) {
+				zlog_err("%pBP: Received invalid Software Version capability length %d",
+					 peer, len);
+				return;
+			}
+		}
 
 		if (len > BGP_MAX_SOFT_VERSION)
 			len = BGP_MAX_SOFT_VERSION;
