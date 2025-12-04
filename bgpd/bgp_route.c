@@ -8806,6 +8806,7 @@ static void bgp_aggregate_install(
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
 			if (debug)
 				zlog_debug("%s: %pFX null attribute", __func__, p);
+			frrtrace(4, frr_bgp, ug_bgp_aggregate_install, p, afi, safi, origin);
 			return;
 		}
 
