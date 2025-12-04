@@ -105,6 +105,40 @@ def print_prefix_addr(field_val):
     return str(field_val)
 
 
+def print_afi_string(field_val):
+    if field_val == 0:
+        return "UNSPEC"
+    elif field_val == 1:
+        return "IPV4"
+    elif field_val == 2:
+        return "IPV6"
+    elif field_val == 3:
+        return "L2VPN"
+    elif field_val == 4:
+        return "MAX"
+    return f"UNKNOWN({field_val})"
+
+
+def print_safi_string(field_val):
+    if field_val == 0:
+        return "UNSPEC"
+    elif field_val == 1:
+        return "UNICAST"
+    elif field_val == 2:
+        return "MULTICAST"
+    elif field_val == 3:
+        return "MPLS_VPN"
+    elif field_val == 4:
+        return "ENCAP"
+    elif field_val == 5:
+        return "EVPN"
+    elif field_val == 6:
+        return "LABELED_UNICAST"
+    elif field_val == 7:
+        return "FLOWSPEC"
+    return f"UNKNOWN({field_val})"
+
+
 def zapi_route_note_to_string(note_val):
     notes = {
         1: "ROUTE_INSTALLED",
@@ -561,6 +595,45 @@ def parse_frr_bgp_router_id_update_zrecv(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_ug_bgp_aggregate_install(event):
+    field_parsers = {
+        "prefix": print_prefix_addr,
+        "afi": print_afi_string,
+        "safi": print_safi_string,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_create_delete(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group create",
+            2: "BGP update-group delete",
+        }.get(x, f"Unknown UG create/delete operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_subgroup_create_delete(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group subgroup create",
+            2: "BGP update-group subgroup delete",
+        }.get(x, f"Unknown UG subgroup create/delete operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_subgroup_add_remove_peer(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group subgroup add peer",
+            2: "BGP update-group subgroup remove peer",
+        }.get(x, f"Unknown UG subgroup add/remove peer operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -597,6 +670,10 @@ def main():
         "frr_bgp:bgp_redistribute_delete_zrecv": parse_bgp_redistribute_zrecv,
         "frr_bgp:interface_address_oper_zrecv": parse_frr_interface_addr_oper_zrecv,
         "frr_bgp:router_id_update_zrecv": parse_frr_bgp_router_id_update_zrecv,
+        "frr_bgp:ug_bgp_aggregate_install": parse_frr_bgp_ug_bgp_aggregate_install,
+        "frr_bgp:ug_create_delete": parse_frr_bgp_ug_create_delete,
+        "frr_bgp:ug_subgroup_create_delete": parse_frr_bgp_ug_subgroup_create_delete,
+        "frr_bgp:ug_subgroup_add_remove_peer": parse_frr_bgp_ug_subgroup_add_remove_peer,
     }
 
     # get the trace path from the first command line argument

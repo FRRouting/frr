@@ -902,6 +902,92 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, router_id_update_zrecv, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_bgp_aggregate_install,
+	TP_ARGS(const struct prefix *, prefix, uint8_t, afi, uint8_t, safi,
+		uint8_t, origin),
+	TP_FIELDS(
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+		ctf_integer(uint8_t, origin, origin)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_bgp_aggregate_install, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_create_delete,
+	TP_ARGS(uint8_t, operation, uint64_t, updgrp_id),
+	TP_FIELDS(
+		ctf_integer(uint8_t, operation, operation)
+		ctf_integer(uint64_t, updgrp_id, updgrp_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_create_delete, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_subgroup_create_delete,
+	TP_ARGS(uint8_t, operation, uint64_t, updgrp_id, uint64_t, subgroup_id),
+	TP_FIELDS(
+		ctf_integer(uint8_t, operation, operation)
+		ctf_integer(uint64_t, updgrp_id, updgrp_id)
+		ctf_integer(uint64_t, subgroup_id, subgroup_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_subgroup_create_delete, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_subgroup_add_remove_peer,
+	TP_ARGS(uint8_t, operation, char *, peer_host, uint8_t, pafi, uint8_t, psafi, uint32_t, pafid,
+		uint64_t, subgroup_id, uint32_t, peer_count),
+	TP_FIELDS(
+		ctf_integer(uint8_t, operation, operation)
+		ctf_string(peer, peer_host)
+		ctf_integer(uint8_t, pafi, pafi)
+		ctf_integer(uint8_t, psafi, psafi)
+		ctf_integer(uint32_t, pafid, pafid)
+		ctf_integer(uint64_t, subgroup_id, subgroup_id)
+		ctf_integer(uint32_t, peer_count, peer_count)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_subgroup_add_remove_peer, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_subgroup_merge,
+	TP_ARGS(uint64_t, updgrp_id, uint64_t, subgroup_id, uint32_t, peer_count,
+		uint64_t, target_updgrp_id, uint64_t, target_subgroup_id, const char *, reason),
+	TP_FIELDS(
+		ctf_integer(uint64_t, updgrp_id, updgrp_id)
+		ctf_integer(uint64_t, subgroup_id, subgroup_id)
+		ctf_integer(uint32_t, peer_count, peer_count)
+		ctf_integer(uint64_t, target_updgrp_id, target_updgrp_id)
+		ctf_integer(uint64_t, target_subgroup_id, target_subgroup_id)
+		ctf_string(reason, reason)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_subgroup_merge, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	ug_subgroup_split_peer,
+	TP_ARGS(uint64_t, old_updgrp_id, uint64_t, old_subgroup_id, uint32_t, old_peer_count,
+		char *, peer_host, uint64_t, new_updgrp_id, uint64_t, new_subgroup_id),
+	TP_FIELDS(
+		ctf_integer(uint64_t, old_updgrp_id, old_updgrp_id)
+		ctf_integer(uint64_t, old_subgroup_id, old_subgroup_id)
+		ctf_integer(uint32_t, old_peer_count, old_peer_count)
+		ctf_string(peer, peer_host)
+		ctf_integer(uint64_t, new_updgrp_id, new_updgrp_id)
+		ctf_integer(uint64_t, new_subgroup_id, new_subgroup_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, ug_subgroup_split_peer, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
