@@ -82,6 +82,74 @@ def print_esi(field_val):
     return ":".join("%02x" % fb for fb in field_val)
 
 
+def print_prefix_addr(field_val):
+    """
+    pretty print "struct prefix"
+    """
+    if field_val[0] == socket.AF_INET:
+        addr = [str(fv) for fv in field_val[8:12]]
+        return str(ipaddress.IPv4Address(".".join(addr)))
+
+    if field_val[0] == socket.AF_INET6:
+        tmp = "".join("%02x" % fb for fb in field_val[8:24])
+        addr = []
+        while tmp:
+            addr.append(tmp[:4])
+            tmp = tmp[4:]
+        addr = ":".join(addr)
+        return str(ipaddress.IPv6Address(addr))
+
+    if not field_val[0]:
+        return ""
+
+    return str(field_val)
+
+
+def zapi_route_note_to_string(note_val):
+    notes = {
+        1: "ROUTE_INSTALLED",
+        2: "ROUTE_REMOVED",
+        3: "ROUTE_CHANGED",
+        4: "ROUTE_ADDED",
+        5: "ROUTE_DELETED",
+    }
+    return notes.get(note_val, f"UNKNOWN({note_val})")
+
+
+def parse_bgp_dest_flags(flags_val):
+    flags = int(flags_val)
+    flag_strings = []
+
+    # BGP destination flags with minimal naming
+    if flags & 0x00000001:  # BGP_NODE_SCHEDULE_FOR_INSTALL
+        flag_strings.append("install")
+    if flags & 0x00000002:  # BGP_NODE_SCHEDULE_FOR_DELETE
+        flag_strings.append("delete")
+    if flags & 0x00000004:  # BGP_NODE_SCHEDULE_FOR_UPDATE
+        flag_strings.append("update")
+    if flags & 0x00000008:  # BGP_NODE_SCHEDULE_FOR_ANNOUNCEMENT
+        flag_strings.append("announce")
+    if flags & 0x00000010:  # BGP_NODE_SCHEDULE_FOR_WITHDRAWAL
+        flag_strings.append("withdraw")
+    if flags & 0x00000020:  # BGP_NODE_SCHEDULE_FOR_IMPORT
+        flag_strings.append("import")
+    if flags & 0x00000040:  # BGP_NODE_SCHEDULE_FOR_EXPORT
+        flag_strings.append("export")
+    if flags & 0x00000080:  # BGP_NODE_SCHEDULE_FOR_AGGREGATION
+        flag_strings.append("aggregate")
+    if flags & 0x00000100:  # BGP_NODE_SCHEDULE_FOR_ORIGINATION
+        flag_strings.append("originate")
+    if flags & 0x00000200:  # BGP_NODE_SCHEDULE_FOR_ANNOUNCEMENT_TO_ZEBRA
+        flag_strings.append("zebra_announce")
+    if flags & 0x00000400:  # BGP_NODE_SCHEDULE_FOR_WITHDRAWAL_FROM_ZEBRA
+        flag_strings.append("zebra_withdraw")
+
+    if not flag_strings:
+        return "none"
+
+    return " | ".join(flag_strings)
+
+
 def get_field_list(event):
     """
     only fetch fields added via the TP, skip metadata etc.
@@ -409,6 +477,90 @@ def parse_frr_bgp_fsm_event(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_bgp_err_str(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "failed in bgp_accept",
+            2: "failed in bgp_connect",
+        }.get(x, f"Unknown BGP error string location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv(event):
+    field_parsers = {"prefix": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_vxlan_flood_control(event):
+    field_parsers = {
+        "flood_enabled": lambda x: "Flooding Enabled" if x else "Flooding Disabled"
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_route_notify_owner(event):
+    field_parsers = {
+        "route_status": zapi_route_note_to_string,
+        "dest_flags": parse_bgp_dest_flags,
+        "prefix": print_prefix_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_evpn_advertise_type(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Subnet advertisement",
+            2: "SVI MAC-IP advertisement",
+            3: "Gateway MAC-IP advertisement",
+            4: "All VNI advertisement",
+        }.get(x, f"Unknown BGP zebra EVPN advertise location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_radv_operation(event):
+    field_parsers = {
+        "location": lambda x: {1: "Initiating", 2: "Terminating"}.get(
+            x, f"Unknown BGP zebra RADV operation location {x}"
+        )
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ifp_oper(event):
+    field_parsers = {
+        "location": lambda x: {1: "Intf UP", 2: "Intf DOWN"}.get(
+            x, f"Unknown BGP IFP operation location {x}"
+        )
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_bgp_redistribute_zrecv(event):
+    field_parsers = {"prefix": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_interface_addr_oper_zrecv(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Rx Intf address Add",
+            2: "Rx Intf address Delete",
+            3: "Rx Intf Neighbor Add",
+            4: "Rx Intf Neighbor Delete",
+        }.get(x, f"Unknown interface operation zrecv location {x}"),
+        "address": print_prefix_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_router_id_update_zrecv(event):
+    field_parsers = {"router_id": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -434,6 +586,17 @@ def main():
         "frr_bgp:session_state_change": parse_frr_bgp_session_state_change,
         "frr_bgp:connection_attempt": parse_frr_bgp_connection_attempt,
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
+        "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
+        "frr_bgp:bgp_zebra_process_local_ip_prefix_zrecv": parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv,
+        "frr_bgp:bgp_zebra_vxlan_flood_control": parse_frr_bgp_bgp_zebra_vxlan_flood_control,
+        "frr_bgp:bgp_zebra_route_notify_owner": parse_frr_bgp_bgp_zebra_route_notify_owner,
+        "frr_bgp:bgp_zebra_evpn_advertise_type": parse_frr_bgp_bgp_zebra_evpn_advertise_type,
+        "frr_bgp:bgp_zebra_radv_operation": parse_frr_bgp_bgp_zebra_radv_operation,
+        "frr_bgp:bgp_ifp_oper": parse_frr_bgp_ifp_oper,
+        "frr_bgp:bgp_redistribute_add_zrecv": parse_bgp_redistribute_zrecv,
+        "frr_bgp:bgp_redistribute_delete_zrecv": parse_bgp_redistribute_zrecv,
+        "frr_bgp:interface_address_oper_zrecv": parse_frr_interface_addr_oper_zrecv,
+        "frr_bgp:router_id_update_zrecv": parse_frr_bgp_router_id_update_zrecv,
     }
 
     # get the trace path from the first command line argument

@@ -32,6 +32,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_trace.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -524,6 +525,8 @@ static void bgp_accept(struct event *event)
 				peer_set_last_reset(dynamic_peer, PEER_DOWN_SOCKET_ERROR);
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
+				frrtrace(3, frr_bgp, bgp_err_str, dynamic_peer->host,
+					 dynamic_peer->flags, 1);
 				return;
 			}
 
@@ -838,6 +841,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+		frrtrace(3, frr_bgp, bgp_err_str, peer->host, peer->flags, 2);
 		return connect_error;
 	}
 
