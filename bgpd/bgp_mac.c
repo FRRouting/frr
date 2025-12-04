@@ -20,6 +20,7 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BSM, "Mac Hash Entry");
 DEFINE_MTYPE_STATIC(BGPD, BSM_STRING, "Mac Hash Entry Intf String");
@@ -178,19 +179,20 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			memcpy(&prd.val, pdest_p->u.val, 8);
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
-				if (bgp_debug_update(peer, p, NULL, 1)) {
-					char pfx_buf[BGP_PRD_PATH_STRLEN];
+				char pfx_buf[BGP_PRD_PATH_STRLEN] = { 0 };
 
-					bgp_debug_rdpfxpath2str(
-						AFI_L2VPN, SAFI_EVPN, &prd,
-						p, label_pnt, num_labels,
-						pi->addpath_rx_id ? 1 : 0,
-						pi->addpath_rx_id, NULL,
-						pfx_buf, sizeof(pfx_buf));
-					zlog_debug(
-						   "%s skip update of %s marked as removed",
+				bgp_debug_rdpfxpath2str(AFI_L2VPN, SAFI_EVPN, &prd, p, label_pnt,
+							num_labels, pi->addpath_rx_id ? 1 : 0,
+							pi->addpath_rx_id, NULL, pfx_buf,
+							sizeof(pfx_buf));
+
+				if (bgp_debug_update(peer, p, NULL, 1))
+					zlog_debug("%s skip update of %s marked as removed",
 						   peer->host, pfx_buf);
-				}
+
+				frrtrace(2, frr_bgp, upd_skip_update_of_removed_prefix, peer->host,
+					 pfx_buf);
+
 				continue;
 			}
 
@@ -233,6 +235,8 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 
 		if (!bgp_soft_reconfig_in(peer, afi, safi)) {
 			struct bgp_table *table = bgp->rib[afi][safi];
+
+			frrtrace(2, frr_bgp, upd_mac_rescan_evpn_table, peer->host, 0);
 
 			bgp_process_mac_rescan_table(bgp, peer, table, macaddr);
 		}

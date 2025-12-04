@@ -3673,11 +3673,19 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				    struct bgp_path_info *parent_pi)
 {
 	int ret = 0;
+	char prefix_str[PREFIX2STR_BUFFER] = { 0 };
+	struct prefix tmp;
 
 	if (bgp_debug_update(parent_pi->peer, NULL, NULL, 1))
 		zlog_debug(
 			"%s (%u): Installing EVPN %pFX route in VNI %u IP/MAC table",
 			vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, p, vpn->vni);
+
+	tmp.family = p->family;
+	tmp.prefixlen = p->prefixlen;
+	tmp.u.prefix_evpn = p->prefix;
+	prefix2str(&tmp, prefix_str, sizeof(prefix_str));
+	frrtrace(4, frr_bgp, upd_evpn_route_entry, 1, bgp->vrf_id, prefix_str, vpn->vni);
 
 	ret = install_evpn_route_entry_in_vni_mac(bgp, vpn, p, parent_pi);
 
@@ -3712,11 +3720,19 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				      struct bgp_path_info *parent_pi)
 {
 	int ret = 0;
+	char prefix_str[PREFIX2STR_BUFFER] = { 0 };
+	struct prefix tmp;
 
 	if (bgp_debug_update(parent_pi->peer, NULL, NULL, 1))
 		zlog_debug(
 			"%s (%u): Uninstalling EVPN %pFX route from VNI %u IP/MAC table",
 			vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, p, vpn->vni);
+
+	tmp.family = p->family;
+	tmp.prefixlen = p->prefixlen;
+	tmp.u.prefix_evpn = p->prefix;
+	prefix2str(&tmp, prefix_str, sizeof(prefix_str));
+	frrtrace(4, frr_bgp, upd_evpn_route_entry, 0, bgp->vrf_id, prefix_str, vpn->vni);
 
 	ret = uninstall_evpn_route_entry_in_vni_ip(bgp, vpn, p, parent_pi);
 
@@ -3928,14 +3944,25 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 	 * bgp_mac_rescan_all_evpn_tables.
 	 */
 	if (memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
-		if (bgp_debug_update(pi->peer, NULL, NULL, 1)) {
-			char attr_str[BUFSIZ] = {0};
+		/* Only do expensive string formatting if debug or trace is enabled. */
+		if (bgp_debug_update(pi->peer, NULL, NULL, 1) ||
+		    frrtrace_enabled(frr_bgp, upd_prefix_denied_due_to_self_mac)) {
+			char prefix_str[PREFIX2STR_BUFFER] = { 0 };
+			char attr_str[BUFSIZ] = { 0 };
+			struct prefix tmp;
 
 			bgp_dump_attr(pi->attr, attr_str, sizeof(attr_str));
 
-			zlog_debug(
-				"%s: bgp %u prefix %pFX with attr %s - DENIED due to self mac",
-				__func__, bgp_vrf->vrf_id, evp, attr_str);
+			if (bgp_debug_update(pi->peer, NULL, NULL, 1))
+				zlog_debug("%s: bgp %u prefix %pFX with attr %s - DENIED due to self mac",
+					   __func__, bgp_vrf->vrf_id, evp, attr_str);
+
+			tmp.family = evp->family;
+			tmp.prefixlen = evp->prefixlen;
+			tmp.u.prefix_evpn = evp->prefix;
+			prefix2str(&tmp, prefix_str, sizeof(prefix_str));
+			frrtrace(3, frr_bgp, upd_prefix_denied_due_to_self_mac, bgp_vrf->vrf_id,
+				 prefix_str, attr_str);
 		}
 
 		return 1;
@@ -6740,6 +6767,29 @@ void bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
  * - New RMAC
  *   + bgp_zebra_process_local_l3vni
  */
+static void bgp_evpn_log_martian_discard(struct bgp *bgp, struct bgp_path_info *pi,
+					 struct bgp_dest *dest, const struct prefix *p,
+					 enum bgp_martian_type martian_type)
+{
+	/* Only do expensive string formatting if debug or trace is enabled. */
+	if (!bgp_debug_update(pi->peer, p, NULL, 1) &&
+	    !frrtrace_enabled(frr_bgp, upd_attr_discarded_due_to_martian))
+		return;
+
+	char attr_str[BUFSIZ] = { 0 };
+	char prefix_str[PREFIX2STR_BUFFER] = { 0 };
+
+	bgp_dump_attr(pi->attr, attr_str, sizeof(attr_str));
+	prefix2str(p, prefix_str, sizeof(prefix_str));
+
+	if (bgp_debug_update(pi->peer, p, NULL, 1))
+		zlog_debug("%u: prefix %pBD with attr %s - DISCARDED due to Martian/%s",
+			   bgp->vrf_id, dest, attr_str, bgp_martian_type2str(martian_type));
+
+	frrtrace(4, frr_bgp, upd_attr_discarded_due_to_martian, bgp->vrf_id, prefix_str, attr_str,
+		 bgp_martian_type2str(martian_type));
+}
+
 void bgp_filter_evpn_routes_upon_martian_change(
 	struct bgp *bgp, enum bgp_martian_type martian_type)
 {
@@ -6796,22 +6846,8 @@ void bgp_filter_evpn_routes_upon_martian_change(
 				}
 
 				if (affected) {
-					if (bgp_debug_update(pi->peer, p, NULL,
-							     1)) {
-						char attr_str[BUFSIZ] = {0};
-
-						bgp_dump_attr(pi->attr,
-							      attr_str,
-							      sizeof(attr_str));
-
-						zlog_debug(
-							"%u: prefix %pBD with attr %s - DISCARDED due to Martian/%s",
-							bgp->vrf_id, dest,
-							attr_str,
-							bgp_martian_type2str(
-								martian_type));
-					}
-
+					bgp_evpn_log_martian_discard(bgp, pi, dest, p,
+								     martian_type);
 
 					bgp_evpn_unimport_route(bgp, afi, safi,
 								p, pi);
@@ -6903,6 +6939,9 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 					bgp_martian_type2str(martian_type),
 					peer->host);
 
+			frrtrace(3, frr_bgp, upd_evpn_martian_change, peer->host,
+				 bgp_martian_type2str(martian_type), 1);
+
 			bgp_soft_reconfig_in(peer, afi, safi);
 		} else {
 			if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -6910,6 +6949,10 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 					"Processing EVPN Martian/%s change on peer %s",
 					bgp_martian_type2str(martian_type),
 					peer->host);
+
+			frrtrace(3, frr_bgp, upd_evpn_martian_change, peer->host,
+				 bgp_martian_type2str(martian_type), 0);
+
 			bgp_route_refresh_send(peer, afi, safi, 0,
 					       REFRESH_IMMEDIATE, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
