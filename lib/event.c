@@ -32,6 +32,90 @@ DEFINE_MTYPE_STATIC(LIB, EVENT_POLL, "Thread Poll Info");
 DEFINE_MTYPE_STATIC(LIB, EVENT_STATS, "Thread stats");
 
 #if EPOLL_ENABLED
+
+PREDECL_HASH(epoll_event_hash);
+
+struct frr_epoll_event {
+	struct epoll_event ev;
+	struct epoll_event_hash_item link;
+};
+
+struct fd_handler {
+	/* The epoll set file descriptor */
+	int epoll_fd;
+
+	/* A hash table in which monitored I/O file descriptors and events
+	 * are registered
+	 */
+	struct epoll_event_hash_head epoll_event_hash;
+
+	/* Maximum size of .revents and .regular_revents arrays */
+	int eventsize;
+
+	/* The buffer which stores the results of epoll_wait */
+	struct epoll_event *revents;
+
+	/* Vtysh might redirect stdin/stdout to regular files. However,
+	 * regular files can't be added into epoll set and need special
+	 * treatment. I/O events from/to regular file will be directly
+	 * added to regular_revents, but not into epoll set, whereby
+	 * sidestepping epoll_wait.
+	 */
+	struct epoll_event *regular_revents;
+	int regular_revent_count;
+
+	unsigned long *fd_poll_counter;
+};
+#else
+struct fd_handler {
+	/* number of pfd that fit in the allocated space of pfds. This is a
+	 * constant and is the same for both pfds and copy.
+	 */
+	nfds_t pfdsize;
+
+	/* file descriptors to monitor for i/o */
+	struct pollfd *pfds;
+	/* number of pollfds stored in pfds */
+	nfds_t pfdcount;
+
+	/* chunk used for temp copy of pollfds */
+	struct pollfd *copy;
+	/* number of pollfds stored in copy */
+	nfds_t copycount;
+};
+#endif
+
+/* Master of the theads. */
+struct event_loop {
+	char *name;
+
+	struct event **read;
+	struct event **write;
+	struct event_timer_list_head timer;
+	struct event_list_head event, ready, unuse;
+	struct list *cancel_req;
+	bool canceled;
+	pthread_cond_t cancel_cond;
+	struct cpu_records_head cpu_records[1];
+	int io_pipe[2];
+	int fd_limit;
+	struct fd_handler handler;
+	long selectpoll_timeout;
+	bool spin;
+	bool handle_signals;
+	pthread_mutex_t mtx;
+	pthread_t owner;
+
+#if !EPOLL_ENABLED
+	nfds_t last_read;
+#endif
+
+	bool ready_run_loop;
+	RUSAGE_T last_getrusage;
+	struct timeval last_tardy_warning;
+};
+
+#if EPOLL_ENABLED
 DEFINE_MTYPE_STATIC(LIB, EVENT_EPOLL, "Thread epoll events");
 
 static int epoll_event_hash_cmp(const struct frr_epoll_event *f,
@@ -48,6 +132,7 @@ static uint32_t epoll_event_hash_key(const struct frr_epoll_event *e)
 	return jhash_1word(val, initval);
 }
 
+/* Hash of epoll events (by fd) */
 DECLARE_HASH(epoll_event_hash, struct frr_epoll_event, link, epoll_event_hash_cmp,
 	     epoll_event_hash_key);
 
@@ -714,7 +799,7 @@ struct event_loop *event_master_create(const char *name)
 	set_nonblocking(rv->io_pipe[1]);
 
 #if EPOLL_ENABLED
-	/* Initailize data structures for epoll */
+	/* Initialize data structures for epoll */
 	rv->handler.epoll_fd = epoll_create1(0);
 	epoll_event_hash_init(&rv->handler.epoll_event_hash);
 	rv->handler.eventsize = rv->fd_limit;
@@ -850,8 +935,9 @@ void event_master_free(struct event_loop *m)
 
 	close(m->handler.epoll_fd);
 
-	while ((ev = epoll_event_hash_pop(&(m->handler.epoll_event_hash))) != NULL)
+	while ((ev = epoll_event_hash_pop(&(m->handler.epoll_event_hash))) != NULL) {
 		frr_epoll_event_del(&ev);
+	}
 
 	epoll_event_hash_fini(&(m->handler.epoll_event_hash));
 
@@ -2836,6 +2922,23 @@ void debug_signals(const sigset_t *sigs)
 		snprintf(buf, sizeof(buf), "<none>");
 
 	zlog_debug("%s: %s", __func__, buf);
+}
+
+/* Accessors for event loop pthread */
+pthread_t frr_event_loop_get_pthread_owner(struct event_loop *loop)
+{
+	return loop->owner;
+}
+
+void frr_event_loop_set_pthread_owner(struct event_loop *loop, pthread_t pth)
+{
+	loop->owner = pth;
+}
+
+/* Control whether 'loop' is the signal-handler for a process */
+void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p)
+{
+	loop->handle_signals = handle_p;
 }
 
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
