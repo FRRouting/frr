@@ -15,6 +15,9 @@
 
 #include "lib/l2vpn_cli_clippy.c"
 
+static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail);
+static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail);
+
 DEFPY_YANG_NOSH(l2vpn_command,
 	l2vpn_cmd,
 	"l2vpn WORD$l2vpn_name type <vpls|vpws>$l2vpn_type",
@@ -253,6 +256,28 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(show_l2vpn,
+      show_l2vpn_cmd,
+      "show l2vpn NAME$name [vpws|vpls]$type [detail $detail]",
+      SHOW_STR
+      "L2VPN\n"
+      "L2VPN name\n"
+      "Type virtual private wired service\n"
+      "Type virtual private LAN service\n"
+      "Detail\n")
+{
+	if (!type) {
+		show_l2vpn_vpls(vty, name, !!detail);
+		show_l2vpn_vpws(vty, name, !!detail);
+	} else if (!strcmp("vpws", type)) {
+		show_l2vpn_vpws(vty, name, !!detail);
+	} else {
+		show_l2vpn_vpls(vty, name, !!detail);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_YANG_NOSH(
 	l2vpn_member_evpn,
 	l2vpn_member_evpn_cmd,
@@ -393,6 +418,7 @@ void l2vpn_cli_init(void)
 	install_default(L2VPN_NODE);
 	install_default(L2VPN_PSEUDOWIRE_NODE);
 	install_default(L2VPN_EVPN_NODE);
+	install_element(ENABLE_NODE, &show_l2vpn_cmd);
 	install_element(CONFIG_NODE, &l2vpn_cmd);
 	install_element(CONFIG_NODE, &no_l2vpn_cmd);
 
@@ -532,6 +558,74 @@ static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_no
 		remote_ac_id = yang_dnode_get_uint32(dnode, "./neighbor-evpn/remote-ac-id");
 		vty_out(vty, "  neighbor evpn evi %u local-ac-id %u remote-ac-id %u\n",
 			evi, local_ac_id, remote_ac_id);
+	}
+}
+
+static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail)
+{
+	struct l2vpn *l2vpn;
+
+	l2vpn = l2vpn_find(&l2vpn_tree_config, name, L2VPN_TYPE_VPLS);
+	if (!l2vpn)
+		return;
+
+	/* TODO */
+}
+
+static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
+{
+	bool state;
+	char buf[81] = {0};
+	struct l2vpn *l2vpn;
+	struct interface *ifp;
+	struct l2vpn_svc *l2vpn_svc;
+
+	l2vpn = l2vpn_find(&l2vpn_tree_config, name, L2VPN_TYPE_VPWS);
+	if (!l2vpn)
+		return;
+
+	vty_out(vty, "Virtual Private Wire Service\n");
+	if (!detail) {
+		vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote AC",
+			"IFNAME ", "Status", "PROTO");
+		memset(buf, '-', 19);
+		vty_out(vty, "%s %s %s %s %s\n", buf, buf, buf, buf, buf);
+		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+			vty_out(vty, "%-19u ", l2vpn_svc->evi);
+			snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->local_ac_id,
+				 l2vpn_svc->remote_ac_id);
+			vty_out(vty, "%-19s ", buf);
+			vty_out(vty, "%-19s ", l2vpn_svc->ifname);
+			state = l2vpn_svc->local_status  == EVPN_FORWARDING &&
+				l2vpn_svc->remote_status == EVPN_FORWARDING;
+			vty_out(vty, "%-19s ", state ? "Up" : "Down");
+			vty_out(vty, "%-19s\n", "BGP");
+			vty_out(vty, "\n");
+		}
+
+		return;
+	}
+
+	RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+		vty_out(vty,  "EVI %u\n", l2vpn_svc->evi);
+		state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
+		ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
+		vty_out(vty, "  AC: %s, state is %s\n", l2vpn_svc->local_ac,
+			ifp && if_is_operative(ifp) ? "Up" : "Down");
+		vty_out(vty, "      AC-ID %u\n", l2vpn_svc->local_ac_id);
+		vty_out(vty, "      Status: %s (%d)\n",
+			evpn_status_to_str(l2vpn_svc->local_status), l2vpn_svc->local_status);
+
+		state = l2vpn_svc->remote_status == EVPN_FORWARDING;
+		vty_out(vty, "  EVPN: neighbor %pI4, AC-ID %u, state is %s\n", &l2vpn_svc->lsr_id,
+			l2vpn_svc->remote_ac_id, state ? "Up" : "Down");
+		vty_out(vty, "      Status: %s\n", l2vpn_svc_error_code(l2vpn_svc->reason));
+		vty_out(vty, "      MTU: %u\n", l2vpn_svc->remote_mtu);
+		vty_out(vty, "      Encapsulation VXLAN\n");
+		vty_out(vty, "      Ignore MTU mismatch: %s\n",
+			l2vpn_svc->ignore_mtu_mismatch ? "true" : "false");
+		vty_out(vty, "      Nexthop: %pI4\n", &l2vpn_svc->addr.ipv4);
+		vty_out(vty, "\n");
 	}
 }
 
