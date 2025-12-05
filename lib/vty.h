@@ -54,6 +54,22 @@ enum vty_status {
 
 PREDECL_DLIST(vtys);
 
+/* Data for yield/resume of large show outputs. Application handlers can
+ * call the yield api before returning; this will schedule the resume callback.
+ * When the handler returns, the vty library code will try to avoid reading
+ * any new input.
+ * When the application is done with the yield/resume cycles, it calls the finish
+ * api, and resumes normal processing.
+ */
+struct vty_yield_resume_s {
+	/* Application callback and argument */
+	void *arg;
+	void (*app_cb)(struct vty *vty, void *arg);
+
+	/* Event to schedule the resume callback */
+	struct event *t_resume;
+};
+
 /* VTY struct. */
 struct vty {
 	struct vtys_item itm;
@@ -231,6 +247,7 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+
 	/* Incremental write/flush limit and current accumulator. When
 	 * producing large outputs, we try to avoid buffering the entire
 	 * output, sending incremental output periodically
@@ -238,6 +255,9 @@ struct vty {
 	 */
 	size_t vty_buf_threshold;
 	size_t vty_buf_size_accum;
+
+	/* Data for yield/resume of large show outputs */
+	struct vty_yield_resume_s yield_resume;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -439,6 +459,25 @@ extern void (*vty_config_node_exit_mgmt_cb)(struct vty *vty);
 extern int (*nb_cli_apply_changes_mgmt_cb)(struct vty *vty, const char *xpath_base_abs);
 extern int (*nb_cli_rpc_mgmt_cb)(struct vty *vty, const char *xpath, const struct lyd_node *input);
 
+/*
+ * Application process wants to yield while sending results/replies.
+ * We'll schedule a task to resume, and call the application's callback
+ * with the 'vty' and its 'arg'. We won't restart reads on the vty until
+ * the application tells us to.
+ * If the vty is being closed or deleted, we'll call the callback with a NULL
+ * 'vty', so the application can clean up, free memory, if necessary.
+ */
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
+	       void *arg);
+
+/*
+ * Yield/resume is complete; cancel any scheduled resume task, and return
+ * to normal vty operation (turn on reads, e.g.). For clients of vtysh,
+ * send 'retcode' to signal that output is complete.
+ * Called from the application, so we expect the application to have
+ * cleaned-up any context, memory, etc.
+ */
+void vty_yield_finish(struct vty *vty, int retcode);
 
 #ifdef __cplusplus
 }
