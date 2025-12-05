@@ -654,11 +654,23 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	enum zebra_dplane_result ret;
 
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct nhg_hash_entry *nhe_for_kernel = NULL;
 
 	/*
 	 * Install the resolved nexthop object first.
+	 * This may return a different NHG if the requested one is
+	 * singleton-equivalent (e.g. NHG 44 returns NHG 34).
 	 */
-	zebra_nhg_install_kernel(re->nhe, re->type);
+	nhe_for_kernel = zebra_nhg_install_kernel(re->nhe, re->type);
+
+	/* Set the NHG ID that will be used for kernel installation */
+	if (nhe_for_kernel && nhe_for_kernel != re->nhe) {
+		re->nhe_installed_id = nhe_for_kernel->id;
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: Route %pRN using NHG %u (%pNG), but kernel will use NHG %u (%pNG)",
+				   __func__, rn, re->nhe->id, re->nhe, nhe_for_kernel->id,
+				   nhe_for_kernel);
+	}
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
