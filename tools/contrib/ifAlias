@@ -1,0 +1,74 @@
+#!/usr/bin/perl -w
+# SPDX-License-Identifier: GPL-2.0-or-later
+## Based on code original From Sascha Schaal
+
+use strict;
+use warnings;
+ 
+my $REQ = $ARGV[0];
+my $ROID = $ARGV[1];
+my $Base = ".1.3.6.1.2.1.31.1.1.1.18";
+my @iface_list = `ip l | grep mtu`;
+my @desc_list = `vtysh -c "show interface description"`;
+my $description;
+my $index = 0;
+my %Table;
+my $p_oid;
+my $p_type = "STRING";
+my $p_desc;
+ 
+if ($ROID eq $Base){
+  $index = 0;
+}
+else{
+  my @split = split("$Base.",$ROID);
+  $index = $split[1];
+}
+foreach my $row (@iface_list){
+  my @split = split(": ", $row);
+  my @int = split("@", $split[1]);
+  my @desc = grep { /^$int[0]\ / } @desc_list;
+  my @onlydesc = split(' ', $desc[0], 4);
+  if ( $onlydesc[3] ne "" ) {
+    $description = $onlydesc[3];
+  } else {
+    $description = $split[1] . "\n";
+  }
+  my ($key, $value) = ("$Base.$split[0]",$description);
+  $Table{$key} = $value;
+}
+if ($REQ eq "-g"){
+  if ($index == 0){
+    exit 0;
+  }
+    else{
+      if( exists($Table{$ROID} ) ) {
+        $p_oid = $ROID;
+        $p_desc = $Table{$ROID};
+      }
+        else{
+        print "noSuchName\n";
+        exit 0;
+        }
+    }
+      
+}
+  elsif ($REQ eq "-n"){
+    for ($index, $index <= keys %Table,$index++){
+      if( exists($Table{"$Base.$index"} ) ) {
+        $p_oid = "$Base.$index";
+        $p_desc = $Table{"$Base.$index"};
+      }
+        else{
+          exit 0;
+        }
+    }
+  }
+  else{
+    exit 0;
+  }
+
+print "$p_oid\n";
+print "$p_type\n";
+print "$p_desc";
+exit 0;
