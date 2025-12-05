@@ -33,8 +33,12 @@ pytestmark = [pytest.mark.bgpd]
 def build_topo(tgen):
     "Build function"
 
-    for routern in range(1, 2):
+    for routern in range(1, 3):
         tgen.add_router("r{}".format(routern))
+
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -72,7 +76,7 @@ def test_router_bgp_as_pretty():
         pytest.skip(tgen.errors)
 
     output = tgen.gears["r1"].vtysh_cmd("show run")
-    assert "router bgp 99\n" in output, "router bgp 99 not found in show run"
+    assert "router bgp 65500\n" in output, "router bgp 65500 not found in show run"
 
 
 def test_vrf_route_leak_donna():
