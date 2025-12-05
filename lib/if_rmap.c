@@ -138,9 +138,8 @@ static void if_rmap_unset(struct if_rmap_ctx *ctx, const char *ifname,
 	}
 }
 
-static int if_route_map_handler(struct vty *vty, bool no, const char *dir,
-				const char *other_dir, const char *ifname,
-				const char *route_map)
+int if_route_map_handler(struct vty *vty, bool no, const char *dir, const char *other_dir,
+			 const char *ifname, const char *route_map)
 {
 	enum nb_operation op = no ? NB_OP_DESTROY : NB_OP_MODIFY;
 	const struct lyd_node *dnode;
@@ -177,67 +176,6 @@ static int if_route_map_handler(struct vty *vty, bool no, const char *dir,
 	nb_cli_enqueue_change(vty, xpath, op, route_map);
 
 	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY_YANG(if_ipv4_route_map, if_ipv4_route_map_cmd,
-	   "route-map ROUTE-MAP <in$in|out> IFNAME",
-	   "Route map set\n"
-	   "Route map name\n"
-	   "Route map set for input filtering\n"
-	   "Route map set for output filtering\n" INTERFACE_STR)
-{
-	const char *dir = in ? "in" : "out";
-	const char *other_dir = in ? "out" : "in";
-
-	return if_route_map_handler(vty, false, dir, other_dir, ifname,
-				    route_map);
-}
-
-DEFPY_YANG(no_if_ipv4_route_map, no_if_ipv4_route_map_cmd,
-	   "no route-map [ROUTE-MAP] <in$in|out> IFNAME",
-	   NO_STR
-	   "Route map set\n"
-	   "Route map name\n"
-	   "Route map set for input filtering\n"
-	   "Route map set for output filtering\n" INTERFACE_STR)
-{
-	const char *dir = in ? "in" : "out";
-	const char *other_dir = in ? "out" : "in";
-
-	return if_route_map_handler(vty, true, dir, other_dir, ifname,
-				    route_map);
-}
-
-/*
- * CLI infra requires new handlers for ripngd
- */
-DEFPY_YANG(if_ipv6_route_map, if_ipv6_route_map_cmd,
-	   "route-map ROUTE-MAP <in$in|out> IFNAME",
-	   "Route map set\n"
-	   "Route map name\n"
-	   "Route map set for input filtering\n"
-	   "Route map set for output filtering\n" INTERFACE_STR)
-{
-	const char *dir = in ? "in" : "out";
-	const char *other_dir = in ? "out" : "in";
-
-	return if_route_map_handler(vty, false, dir, other_dir, ifname,
-				    route_map);
-}
-
-DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
-	   "no route-map [ROUTE-MAP] <in$in|out> IFNAME",
-	   NO_STR
-	   "Route map set\n"
-	   "Route map name\n"
-	   "Route map set for input filtering\n"
-	   "Route map set for output filtering\n" INTERFACE_STR)
-{
-	const char *dir = in ? "in" : "out";
-	const char *other_dir = in ? "out" : "in";
-
-	return if_route_map_handler(vty, true, dir, other_dir, ifname,
-				    route_map);
 }
 
 void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
@@ -294,17 +232,6 @@ struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 		hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
 				 "Interface Route-Map Hash");
 	return ctx;
-}
-
-void if_rmap_init(int node)
-{
-	if (node == RIP_NODE) {
-		install_element(RIP_NODE, &if_ipv4_route_map_cmd);
-		install_element(RIP_NODE, &no_if_ipv4_route_map_cmd);
-	} else if (node == RIPNG_NODE) {
-		install_element(RIPNG_NODE, &if_ipv6_route_map_cmd);
-		install_element(RIPNG_NODE, &no_if_ipv6_route_map_cmd);
-	}
 }
 
 void if_rmap_terminate(void)
