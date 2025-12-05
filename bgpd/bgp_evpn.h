@@ -138,6 +138,7 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
+extern void bgp_evpn_import_type2_route_all(struct bgp *bgp);
 extern void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest,
 					struct bgp_path_info *pi, afi_t afi, safi_t safi);
 extern void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,

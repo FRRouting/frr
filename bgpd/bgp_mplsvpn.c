@@ -2209,6 +2209,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 				  afi_t afi)
 {
+	struct bgp *bgp_default = bgp_get_default();
 	struct bgp_dest *bn;
 	struct bgp_path_info *bpi;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
@@ -2232,6 +2233,9 @@ void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 			vpn_leak_from_vrf_update(to_bgp, from_bgp, bpi);
 		}
 	}
+
+	if (bgp_default)
+		bgp_evpn_import_type2_route_all(bgp_default);
 }
 
 static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,

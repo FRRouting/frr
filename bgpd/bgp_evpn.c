@@ -925,6 +925,9 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	static struct ipaddr zero_remote_vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 	bool esi_valid;
 
+	if (ipaddr_is_same(&vpn->originator_ip, remote_vtep_ip))
+		return ZCLIENT_SEND_SUCCESS;
+
 	/* Check socket. */
 	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -2372,6 +2375,10 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
         * and (re)install the remote route into zebra.
 	*/
 	evpn_route_select_install(bgp, vpn, dest, pi);
+
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only)
+		bgp_evpn_import_route(bgp, AFI_L2VPN, SAFI_EVPN, &dest->rn->p, pi);
+
 	/*
 	 * If the new local route was not selected evict it and tell zebra
 	 * to re-add the best remote dest. BGP doesn't retain non-best local
@@ -6583,6 +6590,42 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			    const struct prefix *p, struct bgp_path_info *pi)
 {
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 0);
+}
+
+void bgp_evpn_import_type2_route_all(struct bgp *bgp)
+{
+	struct bgp_dest *dest, *dest_evpn;
+	struct bgp_path_info *pi, *next;
+	struct bgp_table *table;
+	const struct prefix *p;
+
+	if (!bgp->rib[AFI_L2VPN][SAFI_EVPN])
+		return;
+
+	for (dest = bgp_table_top(bgp->rib[AFI_L2VPN][SAFI_EVPN]); dest;
+	     dest = bgp_route_next(dest)) {
+		table = bgp_dest_get_bgp_table_info(dest);
+		if (!table)
+			continue;
+		for (dest_evpn = bgp_table_top(table); dest_evpn;
+		     dest_evpn = bgp_route_next(dest_evpn)) {
+			for (pi = bgp_dest_get_bgp_path_info(dest_evpn); pi; pi = next) {
+				p = bgp_dest_get_prefix(dest_evpn);
+
+				next = pi->next;
+
+				if (p->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE)
+					/* not a RT-2 entry */
+					continue;
+
+				if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)p))
+					/* MAC entry without IP address */
+					continue;
+
+				bgp_evpn_import_route(bgp, AFI_L2VPN, SAFI_EVPN, p, pi);
+			}
+		}
+	}
 }
 
 /*
