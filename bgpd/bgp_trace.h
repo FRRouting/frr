@@ -327,7 +327,7 @@ TRACEPOINT_EVENT(
 		const struct prefix_evpn *, pfx,
 		struct ipaddr *, vtep, esi_t *, esi),
 	TP_FIELDS(
-		ctf_string(action, add ? "add" : "del")
+		ctf_integer(int, action, add)
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
 		ctf_integer(uint32_t, eth_tag, &pfx->prefix.macip_addr.eth_tag)
 		ctf_array(unsigned char, mac, &pfx->prefix.macip_addr.mac,
@@ -346,7 +346,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(int, add, struct bgpevpn *, vpn,
 		const struct prefix_evpn *, pfx),
 	TP_FIELDS(
-		ctf_string(action, add ? "add" : "del")
+		ctf_integer(int, action, add)
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
 		ctf_integer_network_hex(unsigned int, vtep,
 			pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
@@ -360,7 +360,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(bool, add, struct bgp_evpn_es *, es,
 		struct bgp_evpn_es_vtep *, es_vtep),
 	TP_FIELDS(
-		ctf_string(action, add ? "add" : "del")
+		ctf_integer(bool, action, add)
 		ctf_string(esi, es->esi_str)
 		ctf_string(vtep, es_vtep->vtep_str)
 	)
@@ -373,8 +373,8 @@ TRACEPOINT_EVENT(
 	TP_ARGS(bool, add, bool, type_v4, uint32_t, nhg_id,
 		struct bgp_evpn_es_vrf *, es_vrf),
 	TP_FIELDS(
-		ctf_string(action, add ? "add" : "del")
-		ctf_string(type, type_v4 ? "v4" : "v6")
+		ctf_integer(bool, action, add)
+		ctf_integer(bool, type, type_v4)
 		ctf_integer(unsigned int, nhg, nhg_id)
 		ctf_string(esi, es_vrf->es->esi_str)
 		ctf_integer(int, vrf, es_vrf->bgp_vrf->vrf_id)
@@ -400,7 +400,7 @@ TRACEPOINT_EVENT(
 	evpn_mh_nh_rmac_zsend,
 	TP_ARGS(bool, add, struct bgp_evpn_nh *, nh),
 	TP_FIELDS(
-		ctf_string(action, add ? "add" : "del")
+		ctf_integer(bool, action, add)
 		ctf_integer(int, vrf, nh->bgp_vrf->vrf_id)
 		ctf_string(nh, nh->nh_str)
 		ctf_array(unsigned char, rmac, &nh->rmac,
@@ -620,7 +620,7 @@ TRACEPOINT_EVENT(
 		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer(int, filter, filter)
 		ctf_integer(int, svi_ifindex, svi_ifindex)
-		ctf_string(anycast_mac, anycast_mac ? "y" : "n")
+		ctf_integer(bool, anycast_mac, anycast_mac)
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_l3vni_add_zrecv, TRACE_INFO)
