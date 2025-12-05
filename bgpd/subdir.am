@@ -156,6 +156,7 @@ noinst_HEADERS += \
 	bgpd/bgp_snmp.h \
 	bgpd/bgp_snmp_bgp4.h \
 	bgpd/bgp_snmp_bgp4v2.h \
+	bgpd/bgp_snmp_cbgp4.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
 	bgpd/bgp_vpn.h \
@@ -197,7 +198,7 @@ bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 
-bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp_bgp4.c bgpd/bgp_snmp_bgp4v2.c bgpd/bgp_snmp.c bgpd/bgp_mplsvpn_snmp.c
+bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp_bgp4.c bgpd/bgp_snmp_bgp4v2.c bgpd/bgp_snmp.c bgpd/bgp_mplsvpn_snmp.c bgpd/bgp_snmp_cbgp4.c
 bgpd_bgpd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
 bgpd_bgpd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 bgpd_bgpd_snmp_la_LIBADD = lib/libfrrsnmp.la
