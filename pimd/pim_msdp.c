@@ -1173,8 +1173,16 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 					const char *mesh_group_name)
 {
 	struct pim_msdp_peer *mp;
+	struct pim_msdp_peer *existing_mp;
 
 	pim_msdp_enable(pim);
+
+	/* Check if peer already exists to avoid memory leak */
+	existing_mp = pim_msdp_peer_find(pim, *peer);
+	if (existing_mp) {
+		/* Peer already exists, return it */
+		return existing_mp;
+	}
 
 	mp = XCALLOC(MTYPE_PIM_MSDP_PEER, sizeof(*mp));
 
@@ -1301,6 +1309,11 @@ void pim_msdp_peer_restart(struct pim_msdp_peer *mp)
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr)
 {
+	/* Only restart if the source IP is actually changing */
+	if (mp->local.s_addr == addr->s_addr) {
+		/* Source IP hasn't changed, no need to restart */
+		return;
+	}
 	mp->local = *addr;
 	pim_msdp_peer_restart(mp);
 }
