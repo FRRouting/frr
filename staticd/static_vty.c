@@ -1278,14 +1278,20 @@ DEFPY_YANG_NOSH (static_srv6_sids, static_srv6_sids_cmd,
 }
 
 DEFPY_YANG(srv6_sid, srv6_sid_cmd,
-      "sid X:X::X:X/M locator NAME$locator_name behavior <uN | uA interface INTERFACE$interface [nexthop X:X::X:X$nh6] | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>",
+      "sid X:X::X:X/M locator NAME$locator_name behavior <uN | End | uA interface INTERFACE$interface [nexthop X:X::X:X$nh6] | End_X interface INTERFACE$interface [nexthop X:X::X:X$nh6] | uDT6 vrf VIEWVRFNAME | End_DT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | End_DT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME | End_DT46 vrf VIEWVRFNAME>",
 	  "Configure SRv6 SID\n"
       "Specify SRv6 SID\n"
 	  "Locator name\n"
       "Specify Locator name\n"
       "Specify SRv6 SID behavior\n"
       "Apply the code to a uN SID\n"
+      "Apply the code to a END SID\n"
       "Behavior uA\n"
+      "Configure the interface\n"
+      "Interface name\n"
+      "Configure the nexthop\n"
+      "IPv6 address of the nexthop\n"
+      "Behavior End_X\n"
       "Configure the interface\n"
       "Interface name\n"
       "Configure the nexthop\n"
@@ -1293,10 +1299,19 @@ DEFPY_YANG(srv6_sid, srv6_sid_cmd,
       "Apply the code to an uDT6 SID\n"
       "Configure VRF name\n"
       "Specify VRF name\n"
+      "Apply the code to an End_DT6 SID\n"
+      "Configure VRF name\n"
+      "Specify VRF name\n"
       "Apply the code to an uDT4 SID\n"
       "Configure VRF name\n"
       "Specify VRF name\n"
+      "Apply the code to an End_DT4 SID\n"
+      "Configure VRF name\n"
+      "Specify VRF name\n"
       "Apply the code to an uDT46 SID\n"
+      "Configure VRF name\n"
+      "Specify VRF name\n"
+      "Apply the code to an End_DT46 SID\n"
       "Configure VRF name\n"
       "Specify VRF name\n")
 {
@@ -1314,17 +1329,30 @@ DEFPY_YANG(srv6_sid, srv6_sid_cmd,
 
 	if (argv_find(argv, argc, "uN", &idx)) {
 		behavior = SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID;
+	} else if (argv_find(argv, argc, "End", &idx)) {
+		behavior = SRV6_ENDPOINT_BEHAVIOR_END;
 	} else if (argv_find(argv, argc, "uDT6", &idx)) {
 		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID;
+		vrf_name = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "End_DT6", &idx)) {
+		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT6;
 		vrf_name = argv[idx + 2]->arg;
 	} else if (argv_find(argv, argc, "uDT4", &idx)) {
 		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID;
 		vrf_name = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "End_DT4", &idx)) {
+		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT4;
+		vrf_name = argv[idx + 2]->arg;
 	} else if (argv_find(argv, argc, "uDT46", &idx)) {
 		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID;
 		vrf_name = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "End_DT46", &idx)) {
+		behavior = SRV6_ENDPOINT_BEHAVIOR_END_DT46;
+		vrf_name = argv[idx + 2]->arg;
 	} else if (argv_find(argv, argc, "uA", &idx)) {
 		behavior = SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID;
+	} else if (argv_find(argv, argc, "End_X", &idx)) {
+		behavior = SRV6_ENDPOINT_BEHAVIOR_END_X;
 	}
 
 	snprintf(xpath_srv6, sizeof(xpath_srv6), FRR_STATIC_SRV6_INFO_KEY_XPATH,
