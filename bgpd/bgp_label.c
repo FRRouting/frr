@@ -423,25 +423,27 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 /* Labels must have BGP_MAX_LABELS elements */
 static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mpls_label_t *labels,
-			       uint8_t *num_labels)
+			       uint8_t *num_labels_pnt)
 {
 	uint8_t *data = pnt;
 	uint8_t *lim = pnt + plen;
 	uint8_t llen = 0;
 	uint8_t label_depth = 0;
-	mpls_label_t *label_pnt;
-	mpls_label_t label;
+	uint8_t num_labels = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+	mpls_label_t *label_pnt = &label;
 
 	if (plen < BGP_LABEL_BYTES)
 		return 0;
 
-	label_pnt = labels;
-	for (; (data + BGP_LABEL_BYTES) <= lim; data += BGP_LABEL_BYTES, label_pnt++) {
+	for (; (data + BGP_LABEL_BYTES) <= lim; data += BGP_LABEL_BYTES) {
 		/*
 		 * Support only BGP_MAX_LABELS, read rest to local variable and
 		 * discard, shouldn't be possible - see comment to BGP_MAX_LABELS
 		 */
-		if (label_depth >= BGP_MAX_LABELS)
+		if (num_labels < BGP_MAX_LABELS)
+			label_pnt = &labels[num_labels++];
+		else
 			label_pnt = &label;
 
 		memcpy(label_pnt, data, BGP_LABEL_BYTES);
@@ -455,13 +457,12 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mp
 			break;
 	}
 
-	*num_labels = label_depth;
+	*num_labels_pnt = num_labels;
 
 	if (label_depth > BGP_MAX_LABELS) {
-		*num_labels = BGP_MAX_LABELS;
-		label_set_bos(&labels[*num_labels - 1]);
+		label_set_bos(&labels[num_labels - 1]);
 		zlog_info("%pBP rcvd UPDATE with label stack %d deep, using only first %d labels",
-			  peer, label_depth, BGP_MAX_LABELS);
+			  peer, label_depth, num_labels);
 	}
 
 	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt)))
