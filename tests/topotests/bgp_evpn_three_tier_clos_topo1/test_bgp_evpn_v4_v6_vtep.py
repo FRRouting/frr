@@ -673,6 +673,630 @@ def setup_ext1(tgen, ip_version):
             logger.info(f"Interface {intf} does not exist on ext-1, skipping")
 
 
+def _check_route_in_vrf(router, vrf, route, ip_version):
+    """Helper to check if route is present in VRF BGP table"""
+    if ip_version == "ipv4":
+        cmd = f"show bgp vrf {vrf} ipv4 unicast {route}"
+    else:
+        cmd = f"show bgp vrf {vrf} ipv6 unicast {route}"
+
+    output = router.vtysh_cmd(cmd, isjson=False)
+    route_prefix = route.split("/")[0].lower()
+
+    if route_prefix not in output.lower():
+        return f"Route {route} not found in {vrf}"
+    if "imported from" not in output.lower():
+        return f"Route {route} not imported in {vrf}"
+    return None
+
+
+def configure_route_leak_common(tor21, tor22, bordertor11, ip_version, route_config):
+    """Configure common setup: static routes, AS path prepending, filters.
+    This is shared by both import and export tests."""
+    logger.info("Configuring common setup: static routes and AS path prepending")
+
+    # Add static route on tor-21 (both VRFs)
+    if ip_version == "ipv4":
+        cmd_string = """
+        configure terminal
+         vrf vrf1
+          ip route 203.0.118.250/24 blackhole
+         exit
+         vrf vrf2
+          ip route 203.0.118.250/24 blackhole
+         exit
+        exit
+        """
+    else:
+        cmd_string = """
+        configure terminal
+         vrf vrf1
+          ipv6 route 2001:db8:99:250::/64 blackhole
+         exit
+         vrf vrf2
+          ipv6 route 2001:db8:99:250::/64 blackhole
+         exit
+        exit
+        """
+
+    tor21.vtysh_multicmd(cmd_string)
+
+    # Configure AS path prepending
+    if ip_version == "ipv4":
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            ip prefix-list TEST-ROUTE-VRF1 seq 10 permit 203.0.118.0/24
+            ip prefix-list TEST-ROUTE-VRF2 seq 10 permit 203.0.118.0/24
+            !
+            route-map PREPEND-VRF1 permit 10
+             match ip address prefix-list TEST-ROUTE-VRF1
+             set as-path prepend 4200000001 4200000188 4200000002 4200000002 4200000002
+            exit
+            route-map PREPEND-VRF1 permit 20
+            exit
+            !
+            route-map PREPEND-VRF2 permit 10
+             match ip address prefix-list TEST-ROUTE-VRF2
+             set as-path prepend 4200000000 4200000034 4200000188
+            exit
+            route-map PREPEND-VRF2 permit 20
+            exit
+            !
+            router bgp 650030 vrf vrf1
+             address-family ipv4 unicast
+              redistribute static route-map PREPEND-VRF1
+             exit-address-family
+            exit
+            !
+            router bgp 650030 vrf vrf2
+             address-family ipv4 unicast
+              redistribute static route-map PREPEND-VRF2
+             exit-address-family
+            exit
+            """
+        )
+    else:
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            ipv6 prefix-list TEST-ROUTE-VRF1-v6 seq 10 permit 2001:db8:99:250::/64
+            ipv6 prefix-list TEST-ROUTE-VRF2-v6 seq 10 permit 2001:db8:99:250::/64
+            !
+            route-map PREPEND-VRF1 permit 10
+             match ipv6 address prefix-list TEST-ROUTE-VRF1-v6
+             set as-path prepend 4200000001 4200000188 4200000002 4200000002 4200000002
+            exit
+            route-map PREPEND-VRF1 permit 20
+            exit
+            !
+            route-map PREPEND-VRF2 permit 10
+             match ipv6 address prefix-list TEST-ROUTE-VRF2-v6
+             set as-path prepend 4200000000 4200000034 4200000188
+            exit
+            route-map PREPEND-VRF2 permit 20
+            exit
+            !
+            router bgp 650030 vrf vrf1
+             address-family ipv6 unicast
+              redistribute static route-map PREPEND-VRF1
+             exit-address-family
+            exit
+            !
+            router bgp 650030 vrf vrf2
+             address-family ipv6 unicast
+              redistribute static route-map PREPEND-VRF2
+             exit-address-family
+            exit
+            """
+        )
+
+    # Wait for BGP to process and advertise routes
+    test_route = "203.0.118.0/24" if ip_version == "ipv4" else "2001:db8:99:250::/64"
+    test_func = partial(
+        _check_route_in_vrf, bordertor11, "vrf1", test_route, ip_version
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        logger.warning(f"Route not yet in vrf1: {result}")
+
+    # Filter tor-22 from advertising the route
+    tor22.vtysh_multicmd(
+        """
+        configure terminal
+        ip prefix-list BLOCK-TEST-ROUTE seq 10 permit 203.0.118.0/24
+        !
+        route-map FILTER-OUT deny 10
+         match ip address prefix-list BLOCK-TEST-ROUTE
+        exit
+        !
+        route-map FILTER-OUT permit 99
+        exit
+        !
+        router bgp 650031
+         address-family l2vpn evpn
+          neighbor 10.254.0.125 route-map FILTER-OUT out
+          neighbor 10.254.0.141 route-map FILTER-OUT out
+         exit-address-family
+        exit
+        """
+    )
+
+    # Filter leaf-12 on bordertor-11
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        ip prefix-list BLOCK-TEST-ROUTE seq 10 permit 203.0.118.0/24
+        !
+        route-map FILTER-LEAF12 deny 10
+         match ip address prefix-list BLOCK-TEST-ROUTE
+        exit
+        !
+        route-map FILTER-LEAF12 permit 99
+        exit
+        !
+        router bgp 660000 vrf vrf1
+         address-family l2vpn evpn
+          route-target import 650030:104001
+         exit-address-family
+        exit
+        !
+        router bgp 660000
+         address-family l2vpn evpn
+          neighbor 10.254.0.6 route-map FILTER-LEAF12 in
+         exit-address-family
+        exit
+        """
+    )
+
+
+def configure_import_vrf_test(bordertor11, ip_version):
+    """Configure 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)"""
+    logger.info("Configuring 'import vrf route-map' on VRF2")
+
+    test_route = "203.0.118.0/24" if ip_version == "ipv4" else "2001:db8:99:250::/64"
+
+    # Configure route-map for import
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            ip prefix-list LEAKED-ROUTES seq 10 permit 203.0.118.0/24
+            !
+            route-map LEAK-VRF1-TO-VRF2 permit 10
+             match ip address prefix-list LEAKED-ROUTES
+             set as-path exclude 4200000001 4200000002 651001 652000 651004 650030 650031
+            exit
+            route-map LEAK-VRF1-TO-VRF2 permit 20
+            exit
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            ipv6 prefix-list LEAKED-ROUTES-v6 seq 10 permit 2001:db8:99:250::/64
+            !
+            route-map LEAK-VRF1-TO-VRF2 permit 10
+             match ipv6 address prefix-list LEAKED-ROUTES-v6
+             set as-path exclude 4200000001 4200000002 651001 652000 651004 650030 650031
+            exit
+            route-map LEAK-VRF1-TO-VRF2 permit 20
+            exit
+            """
+        )
+
+    # Configure vrf2 route leaking with import vrf route-map
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family l2vpn evpn
+              route-target import 650030:104002
+             exit-address-family
+             address-family ipv4 unicast
+              import vrf route-map LEAK-VRF1-TO-VRF2
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family l2vpn evpn
+              route-target import 650030:104002
+             exit-address-family
+             address-family ipv6 unicast
+              import vrf route-map LEAK-VRF1-TO-VRF2
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+
+    # Wait for route to be leaked into vrf2
+    test_func = partial(
+        _check_route_in_vrf, bordertor11, "vrf2", test_route, ip_version
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        logger.warning(f"Route not yet leaked to vrf2: {result}")
+
+
+def cleanup_import_vrf_test(bordertor11, ip_version):
+    """Remove import vrf config from VRF2"""
+    logger.info("Removing 'import vrf route-map' config from VRF2")
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              no import vrf vrf1
+              no import vrf route-map LEAK-VRF1-TO-VRF2
+             exit-address-family
+             address-family l2vpn evpn
+              no route-target import 650030:104002
+             exit-address-family
+            exit
+            !
+            no route-map LEAK-VRF1-TO-VRF2
+            no ip prefix-list LEAKED-ROUTES
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv6 unicast
+              no import vrf vrf1
+              no import vrf route-map LEAK-VRF1-TO-VRF2
+             exit-address-family
+             address-family l2vpn evpn
+              no route-target import 650030:104002
+             exit-address-family
+            exit
+            !
+            no route-map LEAK-VRF1-TO-VRF2
+            no ipv6 prefix-list LEAKED-ROUTES-v6
+            """
+        )
+
+
+def configure_export_vrf_test(bordertor11, ip_version):
+    """Configure 'route-map vpn export' on VRF1 (source), exporting to VRF2 (destination)"""
+    logger.info("Configuring 'route-map vpn export' on VRF1")
+
+    test_route = "203.0.118.0/24" if ip_version == "ipv4" else "2001:db8:99:250::/64"
+
+    # Configure route-map for export on VRF1
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            ip prefix-list EXPORT-ROUTES seq 10 permit 203.0.118.0/24
+            !
+            route-map VPN-EXPORT-EXCLUDE permit 10
+             match ip address prefix-list EXPORT-ROUTES
+             set as-path exclude 4200000001 4200000002 651001 652000 651004 650030 650031
+            exit
+            route-map VPN-EXPORT-EXCLUDE permit 20
+            exit
+            router bgp 660000 vrf vrf1
+             address-family ipv4 unicast
+              route-map vpn export VPN-EXPORT-EXCLUDE
+             exit-address-family
+            exit
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            ipv6 prefix-list EXPORT-ROUTES-v6 seq 10 permit 2001:db8:99:250::/64
+            !
+            route-map VPN-EXPORT-EXCLUDE permit 10
+             match ipv6 address prefix-list EXPORT-ROUTES-v6
+             set as-path exclude 4200000001 4200000002 651001 652000 651004 650030 650031
+            exit
+            route-map VPN-EXPORT-EXCLUDE permit 20
+            exit
+            router bgp 660000 vrf vrf1
+             address-family ipv6 unicast
+              route-map vpn export VPN-EXPORT-EXCLUDE
+             exit-address-family
+            exit
+            """
+        )
+
+    # Configure import vrf on VRF2 (without route-map - AS path stripping is on export side)
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv6 unicast
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+
+    # Wait for route to be leaked into vrf2
+    test_func = partial(
+        _check_route_in_vrf, bordertor11, "vrf2", test_route, ip_version
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        logger.warning(f"Route not yet leaked to vrf2: {result}")
+
+
+def cleanup_export_vrf_test(bordertor11, ip_version):
+    """Remove route-map vpn export config from VRF1"""
+    logger.info("Removing 'route-map vpn export' config from VRF1")
+    if ip_version == "ipv4":
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              no import vrf vrf1
+             exit-address-family
+            exit
+            router bgp 660000 vrf vrf1
+             address-family ipv4 unicast
+              no route-map vpn export VPN-EXPORT-EXCLUDE
+             exit-address-family
+            exit
+            no route-map VPN-EXPORT-EXCLUDE
+            no ip prefix-list EXPORT-ROUTES
+            """
+        )
+    else:
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv6 unicast
+              no import vrf vrf1
+             exit-address-family
+            exit
+            router bgp 660000 vrf vrf1
+             address-family ipv6 unicast
+              no route-map vpn export VPN-EXPORT-EXCLUDE
+             exit-address-family
+            exit
+            no route-map VPN-EXPORT-EXCLUDE
+            no ipv6 prefix-list EXPORT-ROUTES-v6
+            """
+        )
+
+
+def check_as_path_stripped(router, ip_version, test_route):
+    """Helper to check if AS path has been stripped to only 4200000188"""
+    if ip_version == "ipv4":
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+        )
+    else:
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+        )
+
+    # Look for leaked path with stripped AS path
+    paths = output.split("Imported from")
+
+    for path in paths:
+        if "vrf vrf1" in path.lower():
+            lines = path.split("\n")
+            for i, line in enumerate(lines):
+                if "from" in line.lower() and i > 0:
+                    as_line = lines[i - 1].strip()
+                    if as_line and not as_line.startswith("Advertised"):
+                        as_numbers = as_line.split()
+                        if as_numbers == ["4200000188"]:
+                            return None  # Success - AS path is stripped
+                        else:
+                            return f"AS path not stripped yet: {' '.join(as_numbers)}"
+
+    return "Leaked path from vrf1 not found yet"
+
+
+def verify_as_path_stripping(bordertor11, ip_version, test_route):
+    """Verify that AS path stripping worked correctly"""
+    logger.info("Verifying AS path stripping")
+
+    # Wait for AS path to be stripped
+    test_func = partial(check_as_path_stripped, bordertor11, ip_version, test_route)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+
+    if result is not None:
+        logger.error(f"AS path stripping verification failed: {result}")
+        # Get final output for debugging
+        if ip_version == "ipv4":
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+        else:
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+            )
+        logger.error(f"Final BGP output:\n{output}")
+        pytest.fail(f"AS path stripping failed - expected only 4200000188: {result}")
+
+    logger.info("AS path stripping verified successfully")
+
+
+def check_route_removed(router, vrf, route, ip_version):
+    """Helper to check if route has been removed from VRF"""
+    if ip_version == "ipv4":
+        cmd = f"show bgp vrf {vrf} ipv4 unicast {route}"
+    else:
+        cmd = f"show bgp vrf {vrf} ipv6 unicast {route}"
+
+    output = router.vtysh_cmd(cmd, isjson=False)
+
+    if "Network not in table" in output or route not in output:
+        return None  # Success - route is removed
+    return f"Route {route} still present in {vrf}"
+
+
+def cleanup_route_leak_common(tor21, tor22, bordertor11, ip_version, test_route):
+    """Remove common configurations added during test"""
+    logger.info("Removing common configuration")
+
+    # Step 1: Remove static routes from tor-21
+    logger.info("Removing static routes from tor-21")
+    if ip_version == "ipv4":
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            vrf vrf1
+             no ip route 203.0.118.250/24 blackhole
+            exit
+            vrf vrf2
+             no ip route 203.0.118.250/24 blackhole
+            exit
+            """
+        )
+    else:
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            vrf vrf1
+             no ipv6 route 2001:db8:99:250::/64 blackhole
+            exit
+            vrf vrf2
+             no ipv6 route 2001:db8:99:250::/64 blackhole
+            exit
+            """
+        )
+
+    # Step 2: Restore original static redistribution (without route-map) on tor-21
+    logger.info("Restoring original static redistribution on tor-21")
+    if ip_version == "ipv4":
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 650030 vrf vrf1
+             address-family ipv4 unicast
+              redistribute static
+             exit-address-family
+            exit
+            !
+            router bgp 650030 vrf vrf2
+             address-family ipv4 unicast
+              redistribute static
+             exit-address-family
+            exit
+            """
+        )
+    else:
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 650030 vrf vrf1
+             address-family ipv6 unicast
+              redistribute static
+             exit-address-family
+            exit
+            !
+            router bgp 650030 vrf vrf2
+             address-family ipv6 unicast
+              redistribute static
+             exit-address-family
+            exit
+            """
+        )
+
+    # Step 3: Remove filters from bordertor-11
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 660000 vrf vrf1
+         address-family l2vpn evpn
+          no route-target import 650030:104001
+         exit-address-family
+        exit
+        !
+        router bgp 660000
+         address-family l2vpn evpn
+          no neighbor 10.254.0.6 route-map FILTER-LEAF12 in
+         exit-address-family
+        exit
+        !
+        no route-map FILTER-LEAF12
+        no ip prefix-list BLOCK-TEST-ROUTE
+        """
+    )
+
+    # Remove tor-22 filter
+    tor22.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 650031
+         address-family l2vpn evpn
+          no neighbor 10.254.0.125 route-map FILTER-OUT out
+          no neighbor 10.254.0.141 route-map FILTER-OUT out
+         exit-address-family
+        exit
+        !
+        no route-map FILTER-OUT
+        no ip prefix-list BLOCK-TEST-ROUTE
+        """
+    )
+
+    # Step 4: Remove AS path prepending route-maps and prefix-lists from tor-21
+    logger.info("Removing route-maps and prefix-lists from tor-21")
+    if ip_version == "ipv4":
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            no route-map PREPEND-VRF1
+            no route-map PREPEND-VRF2
+            no ip prefix-list TEST-ROUTE-VRF1
+            no ip prefix-list TEST-ROUTE-VRF2
+            """
+        )
+    else:
+        tor21.vtysh_multicmd(
+            """
+            configure terminal
+            no route-map PREPEND-VRF1
+            no route-map PREPEND-VRF2
+            no ipv6 prefix-list TEST-ROUTE-VRF1-v6
+            no ipv6 prefix-list TEST-ROUTE-VRF2-v6
+            """
+        )
+
+    # Step 5: Wait for BGP to withdraw routes from bordertor-11 vrf1
+    logger.info("Waiting for route withdrawal from vrf1")
+    test_func = partial(
+        check_route_removed, bordertor11, "vrf1", test_route, ip_version
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        logger.warning(f"Route removal from vrf1 incomplete: {result}")
+
+    logger.info("Common configuration removed successfully")
+
+
 def test_bgp_summary_neighbor_state(tgen_and_ip_version):
     """
     Verify BGP neighbor states are Established based on underlay IP version
@@ -918,7 +1542,7 @@ def test_static_route_advertisement(tgen_and_ip_version):
                 "vrf2": "203.0.115.0/24",
             },
             "tor-22": {
-                "vrf1": "203.0.114.0/24",
+                "vrf1": "203.0.117.0/24",
                 "vrf2": "203.0.116.0/24",
             },
         }
@@ -977,7 +1601,9 @@ def test_static_route_advertisement(tgen_and_ip_version):
 
         # Verify specific routes are advertised (case-insensitive for IPv6)
         for vrf, route in expected_routes[tor].items():
-            route_base = route.split('/')[0].lower()  # Get network address (lowercase for comparison)
+            route_base = route.split("/")[
+                0
+            ].lower()  # Get network address (lowercase for comparison)
             if route_base not in output.lower():
                 pytest.fail(
                     f"{tor} {vrf}: {route_type} route {route} not found in Type-5 advertisements"
@@ -1273,6 +1899,60 @@ def test_host_to_host_ping(tgen_and_ip_version):
         logger.info("Skipping IPv6 connectivity test (not running with IPv6 underlay)")
 
     logger.info("Host-to-host connectivity test completed successfully")
+
+
+def test_for_leaked_route_as_path(tgen_and_ip_version):
+    """
+    Test EVPN Type-5 route leaking with AS path stripping.
+
+    Tests BOTH code paths:
+    1. 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+    2. 'route-map vpn export' on VRF1 (source), exporting to VRF2 (destination)
+
+    Both tests use the same common setup, but with different route-map locations.
+    Route is originated from tor-21 and and DUT is bordertor-11
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(f"Testing route leaking with AS path manipulation ({ip_version})")
+
+    if ip_version == "ipv4":
+        test_route = "203.0.118.0/24"
+        route_config = "203.0.118.250/24"
+    else:
+        test_route = "2001:db8:99:250::/64"
+        route_config = test_route
+
+    tor21 = tgen.gears["tor-21"]
+    tor22 = tgen.gears["tor-22"]
+    bordertor11 = tgen.gears["bordertor-11"]
+
+    try:
+        # Configure common setup (static routes, AS prepending, filters)
+        configure_route_leak_common(tor21, tor22, bordertor11, ip_version, route_config)
+
+        # TEST 1: 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+        try:
+            configure_import_vrf_test(bordertor11, ip_version)
+            verify_as_path_stripping(bordertor11, ip_version, test_route)
+        finally:
+            cleanup_import_vrf_test(bordertor11, ip_version)
+
+        # TEST 2: 'route-map vpn export' on VRF1 (source), exporting to VRF2 (destination)
+        try:
+            configure_export_vrf_test(bordertor11, ip_version)
+            verify_as_path_stripping(bordertor11, ip_version, test_route)
+        finally:
+            cleanup_export_vrf_test(bordertor11, ip_version)
+
+    finally:
+        # Cleanup common config
+        try:
+            cleanup_route_leak_common(tor21, tor22, bordertor11, ip_version, test_route)
+        except Exception as e:
+            logger.error(f"Common cleanup failed: {e}")
 
 
 def test_memory_leak(tgen_and_ip_version):
