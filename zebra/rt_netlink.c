@@ -3216,7 +3216,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				nh_afi = LWTUNNEL_ENCAP_IP;
 			} else if (afi == AFI_IP6) {
 				req->nhm.nh_family = AF_INET6;
-				nh_afi = LWTUNNEL_ENCAP_IP6;
+				if (IS_MAPPED_IPV6(&nh->gate.ipv6))
+					nh_afi = LWTUNNEL_ENCAP_IP;
+				else
+					nh_afi = LWTUNNEL_ENCAP_IP6;
 			}
 
 			switch (nh->type) {
