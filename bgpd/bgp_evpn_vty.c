@@ -6043,7 +6043,7 @@ DEFPY_HIDDEN(test_es_add,
 	int ret = 0;
 	esi_t esi;
 	struct bgp *bgp;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip = {};
 	bool oper_up;
 
 	bgp = bgp_get_evpn();
@@ -6068,7 +6068,8 @@ DEFPY_HIDDEN(test_es_add,
 			oper_up = true;
 		else
 			oper_up = false;
-		vtep_ip = bgp->router_id;
+		SET_IPADDR_V4(&vtep_ip);
+		vtep_ip.ipaddr_v4 = bgp->router_id;
 
 		ret = bgp_evpn_local_es_add(bgp, &esi, vtep_ip, oper_up,
 					    EVPN_MH_DF_PREF_MIN, false);
