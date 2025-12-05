@@ -47,6 +47,7 @@ struct static_nht_data {
 
 	uint32_t refcount;
 	uint16_t nh_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 	bool registered;
 };
 
@@ -211,6 +212,7 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 					struct zapi_route *nhr)
 {
 	struct static_nht_data *nhtd, lookup;
+	uint32_t i;
 
 	if (static_zclient->bfd_integration)
 		bfd_nht_update(matched, nhr);
@@ -229,15 +231,20 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
+		if (nhr->nexthop_num < nhtd->nh_num) {
+			for (i = nhr->nexthop_num; i < nhtd->nh_num; i++)
+				memset(&nhr->nexthops[i], 0, sizeof(struct zapi_nexthop));
+		}
 		nhtd->nh_num = nhr->nexthop_num;
-
+		for (i = 0; i < nhtd->nh_num; i++)
+			memcpy(&nhtd->nexthops[i], &nhr->nexthops[i], sizeof(struct zapi_nexthop));
 		/* The tracked nexthop might be used by IPv4 and IPv6 routes */
 		static_nht_reset_start(matched, AFI_IP, nhr->safi, nhtd->nh_vrf_id);
 		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, AFI_IP, nhr->safi,
-				  nhtd->nh_vrf_id);
+				  nhtd->nh_vrf_id, nhr->nexthops);
 		static_nht_reset_start(matched, AFI_IP6, nhr->safi, nhtd->nh_vrf_id);
 		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, AFI_IP6, nhr->safi,
-				  nhtd->nh_vrf_id);
+				  nhtd->nh_vrf_id, nhr->nexthops);
 	} else
 		zlog_err("No nhtd?");
 }
@@ -369,7 +376,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			    nh->state == STATIC_SENT_TO_ZEBRA)
 				nh->state = STATIC_START;
 			static_nht_update(p, src_p, &nhtd->nh, nhtd->nh_num, afi, si->safi,
-					  nh->nh_vrf_id);
+					  nh->nh_vrf_id, nhtd->nexthops);
 			return;
 		}
 
@@ -483,6 +490,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			api_nh->gate = nh->addr;
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
+			if (!nh->nh_valid)
+				continue;
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 			api_nh->ifindex = nh->ifindex;
@@ -496,6 +505,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			api_nh->gate = nh->addr;
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
+			if (!nh->nh_valid)
+				continue;
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
