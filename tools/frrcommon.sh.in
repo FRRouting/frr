@@ -195,13 +195,19 @@ daemon_start() {
 }
 
 daemon_stop() {
-	local dmninst daemon inst pidfile vtyfile pid cnt fail
+	local dmninst daemon inst pidfile vtyfile pid cnt fail sig
 	daemon_inst "$1"
 
 	is_user_root || exit 1
 
 	all=false
 	[ "$2" = "--reallyall" ] && all=true
+
+        if [ -z "$3" ]; then
+                sig="INT"
+        else
+                sig="$3"
+        fi
 
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
@@ -217,8 +223,8 @@ daemon_stop() {
 		return 1
 	fi
 
-	debug "kill -2 $pid"
-	kill -2 "$pid"
+	debug "kill -$sig $pid"
+	kill -$sig "$pid"
 	cnt=1200
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
@@ -272,10 +278,11 @@ all_start() {
 }
 
 all_stop() {
-	local pids reversed
+	local pids reversed sig
 
 	daemon_list enabled_daemons disabled_daemons
 	[ "$1" = "--reallyall" ] && enabled_daemons="$enabled_daemons $disabled_daemons"
+        [ -n "$2" ] && sig="$2"
 
 	reversed=""
 	for dmninst in $enabled_daemons; do
@@ -283,7 +290,7 @@ all_stop() {
 	done
 
 	for dmninst in $reversed; do
-		daemon_stop "$dmninst" "$1" &
+		daemon_stop "$dmninst" "$1" "$sig" &
 		pids="$pids $!"
 	done
 	for pid in $pids; do
@@ -359,15 +366,24 @@ test -n "$frr_profile" && frr_global_options="$frr_global_options -F $frr_profil
 #
 
 frrcommon_main() {
-	local cmd
+	local cmd sig
 
 	debug "frrcommon_main" "$@"
 
 	cmd="$1"
 	shift
 
+	if [ "$cmd" = "signal" ]; then
+		sig="$1"
+		shift
+	fi
+
 	if [ "$1" = "all" ] || [ -z "$1" ]; then
 		case "$cmd" in
+		signal)
+			all_stop $sig
+			all_start
+			;;
 		start)	all_start;;
 		stop)	all_stop;;
 		restart)
@@ -378,6 +394,10 @@ frrcommon_main() {
 		esac
 	else
 		case "$cmd" in
+		signal)
+			daemon_stop "$@" $sig
+			daemon_start "$@"
+			;;
 		start)	daemon_start "$@";;
 		stop)	daemon_stop "$@";;
 		restart)
