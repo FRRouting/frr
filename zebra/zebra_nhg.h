@@ -14,6 +14,12 @@
 extern "C" {
 #endif
 
+/* Global nexthop epoch/counter for nhe_received->resolved_nhe cache invalidation.
+ * This will be incremented whenever there is an update related to nexthop
+ * resolution in the system that could affect the cache
+ */
+extern uint32_t global_nh_epoch;
+
 /* This struct is used exclusively for dataplane
  * interaction via a dataplane context.
  *
@@ -62,6 +68,11 @@ struct nhg_hash_entry {
 	uint32_t dplane_ref;
 
 	uint32_t flags;
+
+	/* Cached resolved_nhe for NH active check optimization (0 = not cached) */
+	uint32_t resolved_nhe_id;
+	/* Generation number/stamp for the resolved_nhe cache */
+	uint32_t cache_gen_num;
 
 	/* Dependency trees for other entries.
 	 * For instance a group with two
@@ -171,6 +182,12 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+/*
+ * This represents the original nexthops
+ * received from a protocol before resolution.
+ */
+#define NEXTHOP_GROUP_RECEIVED (1 << 10)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
