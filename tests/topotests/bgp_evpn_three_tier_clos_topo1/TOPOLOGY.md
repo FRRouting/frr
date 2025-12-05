@@ -808,7 +808,7 @@ ToRs (tor-21, tor-22) advertise static blackhole routes via BGP to test EVPN Typ
 - `ipv6 route 2001:db8:73:21::/64 blackhole`
 
 **tor-22 VRF1:**
-- `ip route 203.0.114.0/24 blackhole`
+- `ip route 203.0.117.0/24 blackhole`
 - `ipv6 route 2001:db8:72:22::/64 blackhole`
 
 **tor-22 VRF2:**
