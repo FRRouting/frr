@@ -53,6 +53,7 @@ Test Execution Order:
 import os
 import sys
 import json
+import re
 from functools import partial
 import pytest
 
@@ -845,8 +846,8 @@ def configure_route_leak_common(tor21, tor22, bordertor11, ip_version, route_con
          address-family l2vpn evpn
           neighbor 10.254.0.6 route-map FILTER-LEAF12 in
          exit-address-family
-        exit
-        """
+            exit
+            """
     )
 
 
@@ -1086,6 +1087,159 @@ def cleanup_export_vrf_test(bordertor11, ip_version):
             no ipv6 prefix-list EXPORT-ROUTES-v6
             """
         )
+
+
+def get_bestpath_as_length(router, ip_version, test_route):
+    """
+    Get the AS path length of the best path.
+    Returns (as_length, as_path_string) or (None, error_message) on failure.
+    """
+    if ip_version == "ipv4":
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+        )
+    else:
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+        )
+
+    # Find the path with "best (" marker, then look backwards to find its AS path
+    # For EVPN: AS path is on SAME line as "Imported from" after "VNI XXXXX"
+    # For VRF-leaked: AS path is on the NEXT line after "Imported from"
+    lines = output.split("\n")
+    for i, line in enumerate(lines):
+        if "best (" in line:  # Found best path marker
+            # Look backwards to find the "Imported from" line
+            for j in range(i, -1, -1):
+                if "Imported from" in lines[j]:
+                    imported_line = lines[j]
+                    # Check if AS path is on same line (EVPN case - after "VNI XXXXX")
+                    if "VNI" in imported_line:
+                        # Extract everything after "VNI XXXXX" pattern
+                        # Example: "...VNI 104002  651001 652000 651004..."
+                        parts = imported_line.split("VNI")
+                        if len(parts) > 1:
+                            after_vni = parts[1].strip()
+                            # Skip the VNI number, rest is AS path
+                            tokens = after_vni.split()
+                            if len(tokens) > 1:
+                                as_numbers = [x for x in tokens[1:] if x.isdigit()]
+                                as_path_str = " ".join(tokens[1:])
+                                return (len(as_numbers), as_path_str)
+                    else:
+                        # VRF-leaked case - AS path is on next line
+                        if j + 1 < len(lines):
+                            as_path_line = lines[j + 1].strip()
+                            as_numbers = [
+                                x for x in as_path_line.split() if x.isdigit()
+                            ]
+                            return (len(as_numbers), as_path_line)
+                    break
+    return (None, "Could not find best path AS path in output")
+
+
+def check_bestpath_uses_source_as(router, ip_version, test_route):
+    """
+    Verify best path is NOT the VRF-leaked path with stripped AS (local AS path length is 1).
+    WITHOUT 'use-imported-attributes': VRF-leaked path uses source/ultimate AS
+    which has AS path length > 1.
+    """
+    result = get_bestpath_as_length(router, ip_version, test_route)
+    if result[0] is None:
+        return result[1]  # Error message
+
+    as_length, as_path = result
+    if as_length > 1:
+        return None  # Success - best path has long AS (source AS used)
+    return f"Best path has short AS (len={as_length}), expected long. AS: {as_path}"
+
+
+def check_bestpath_uses_imported_as(router, ip_version, test_route):
+    """
+    Verify best path IS the VRF-leaked path with stripped AS (AS path length is 1).
+    WITH 'use-imported-attributes': VRF-leaked path uses imported/local AS
+    (which is stripped/short), so it wins because shorter AS wins.
+    Best path should have short AS path (== 1).
+    """
+    result = get_bestpath_as_length(router, ip_version, test_route)
+    if result[0] is None:
+        return result[1]  # Error message
+
+    as_length, as_path = result
+    if as_length == 1:
+        return None  # Success - best path has short AS (imported AS used)
+    return f"Best path has long AS (len={as_length}), expected 1. AS: {as_path}"
+
+
+def verify_bestpath_use_imported_attrs(bordertor11, ip_version, test_route):
+    """
+    Verify 'bgp bestpath use-imported-attributes' changes bestpath selection.
+
+    Shorter AS path always wins in BGP.
+
+    Without config: VRF-leaked path uses source attribute
+    With config:    VRF-leaked path uses local attribute
+    """
+    logger.info("Verifying 'bgp bestpath use-imported-attributes' behavior")
+
+    # Step 1: Without config - VRF-leaked path uses source AS (long), so doesn't win
+    test_func = partial(
+        check_bestpath_uses_source_as, bordertor11, ip_version, test_route
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    if result is not None:
+        pytest.fail(
+            f"Without config, expected best path with source AS (long): {result}"
+        )
+    logger.info("Verified: Best path uses source AS (long AS path)")
+
+    # Step 2: Enable 'bgp bestpath use-imported-attributes'
+    logger.info("Step 2: Enabling 'bgp bestpath use-imported-attributes'")
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 660000 vrf vrf2
+         bgp bestpath use-imported-attributes
+        exit
+        """
+    )
+
+    # Step 3: With config - VRF-leaked path uses imported AS (short/stripped), so it wins
+    logger.info(
+        "Step 3: Verifying best path uses imported AS (short) with 'use-imported-attributes'"
+    )
+    test_func = partial(
+        check_bestpath_uses_imported_as, bordertor11, ip_version, test_route
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        # Log debug output
+        if ip_version == "ipv4":
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+        else:
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+            )
+        logger.error(f"BGP output:\n{output}")
+        pytest.fail(
+            f"With config, expected best path with imported AS (short): {result}"
+        )
+    logger.info("Verified: Best path uses imported AS (short/stripped AS path)")
+
+    # Step 4: Cleanup - remove the config
+    logger.info("Step 4: Removing 'bgp bestpath use-imported-attributes'")
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 660000 vrf vrf2
+         no bgp bestpath use-imported-attributes
+        exit
+        """
+    )
+
+    logger.info("'bgp bestpath use-imported-attributes' verification completed")
 
 
 def check_as_path_stripped(router, ip_version, test_route):
@@ -1875,7 +2029,7 @@ def test_host_to_host_ping(tgen_and_ip_version):
             source_ip="192.168.11.211",
             count=4,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
         assert result is None, f"IPv4 connectivity test failed: {result}"
     else:
         logger.info("Skipping IPv4 connectivity test (not running with IPv4 underlay)")
@@ -1907,10 +2061,13 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
 
     Tests BOTH code paths:
     1. 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+       - Also verifies 'bgp bestpath use-imported-attributes':
+         * Without config: path #1 (longer AS path, ultimate attrs) is best
+         * With config: path #2 (stripped AS path, imported attrs) becomes best
     2. 'route-map vpn export' on VRF1 (source), exporting to VRF2 (destination)
 
     Both tests use the same common setup, but with different route-map locations.
-    Route is originated from tor-21 and and DUT is bordertor-11
+    Route is originated from tor-21 and DUT is bordertor-11
     """
     tgen, ip_version = tgen_and_ip_version
     if tgen.routers_have_failure():
@@ -1934,9 +2091,19 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
         configure_route_leak_common(tor21, tor22, bordertor11, ip_version, route_config)
 
         # TEST 1: 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+        # Also verifies 'bgp bestpath use-imported-attributes' behavior in vrf2
         try:
             configure_import_vrf_test(bordertor11, ip_version)
             verify_as_path_stripping(bordertor11, ip_version, test_route)
+
+            # Verify bestpath selection with and without 'bgp bestpath use-imported-attributes'
+            # Without config: Leaked path(from vrf1) in vrf2, uses source path's attribute/AS path length
+            # which is longer than directly imported (from EVPN) paths' AS path length. So directly imported path
+            # wins bestpath selection in vrf2
+            # With config: Leaked path(from vrf1) in vrf2, uses local/imported path's attribute/AS path length
+            # which is shorter than directly imported (from EVPN) path's AS path length. So leaked path wins bestpath
+            # selection in vrf2
+            verify_bestpath_use_imported_attrs(bordertor11, ip_version, test_route)
         finally:
             cleanup_import_vrf_test(bordertor11, ip_version)
 
