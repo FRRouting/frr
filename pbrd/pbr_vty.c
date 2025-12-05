@@ -2058,13 +2058,14 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DST_PORT))
 		vty_out(vty, " match dst-port %u\n", pbrms->dst_prt);
 
-	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP))
-		vty_out(vty, " match dscp %u\n",
-			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+	/*  As per RFC 3168 section 5, the ECN field in the IP header has two
+	 *  bits, allowing for four ECN codepoints from '00' to '11'. DSCP/ECN
+	 * with a value of 0 should be treated like any other value and its
+	 * valid. This also applies to  the 6 bits of DSCP in the IP header.*/
+	vty_out(vty, " match dscp %u\n",
+		(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
 
-	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_ECN))
-		vty_out(vty, " match ecn %u\n",
-			pbrms->dsfield & PBR_DSFIELD_ECN);
+	vty_out(vty, " match ecn %u\n", pbrms->dsfield & PBR_DSFIELD_ECN);
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP))
 		vty_out(vty, " match pcp %d\n", pbrms->match_pcp);
