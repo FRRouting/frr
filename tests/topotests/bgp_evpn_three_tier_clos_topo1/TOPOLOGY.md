@@ -717,6 +717,13 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 - ✅ **Peer-groups** - TOR-LEAF-SPINE with aggressive timers
 - ✅ **AS-PATH allowas-in** - For CLOS topology with AS path relaxation
 
+### VRF Route Leaking Features
+- ✅ **VRF-to-VRF route leaking** - Import routes between VRFs
+- ✅ **AS path stripping** - `set as-path exclude` in route-maps during leaking
+- ✅ **Import vrf route-map** - Route-map on destination VRF import
+- ✅ **Route-map vpn export** - Route-map on source VRF export
+- ✅ **Bestpath use-imported-attributes** - Use local/imported attribute/AS path for bestpath selection
+
 ### Test Coverage
 - ✅ **Parametrized tests** - All tests run with both IPv4 and IPv6 underlay
 - ✅ **Control plane validation** - BGP, EVPN, VNI state verification
@@ -750,7 +757,12 @@ The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation
 10. **`test_host_to_host_ping`** - Verifies end-to-end connectivity (host-211 → host-111)
     - IPv4 connectivity test (when using IPv4 underlay)
     - IPv6 connectivity test (when using IPv6 underlay)
-11. **`test_memory_leak`** - Memory leak detection
+11. **`test_for_leaked_route_as_path`** - VRF route leaking with AS path manipulation
+    - Tests `import vrf route-map` on destination VRF (VRF2)
+    - Tests `route-map vpn export` on source VRF (VRF1)
+    - Verifies `set as-path exclude` correctly strips ASNs
+    - Verifies `bgp bestpath use-imported-attributes` behavior
+12. **`test_memory_leak`** - Memory leak detection
 
 ### Library Functions (`tests/topotests/lib/evpn.py`)
 
