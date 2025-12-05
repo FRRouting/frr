@@ -555,6 +555,37 @@ Array:
    [1] -> baz
 
 
+.. _cli-json-api:
+
+Json APIs
+---------
+
+FRR includes some APIs that allow us to incrementally output a json
+object hierarchy. Many leaf objects can be freed as soon as they've
+been output. Parent container objects can be kept "open" during
+long-running iterations, and then "closed" once their children have
+been processed. This incremental approach reduces the number of json
+objects in memory: only "open" containers and a limited number of leaf
+objects need to be in memory.
+
+
+.. c:function:: void frr_json_vty_out(struct vty *vty, struct json_object *jobj)
+.. c:function:: void frr_json_vty_out_bare(struct vty *vty, struct json_object *jobj)
+
+Recurse through the object hierarchy at `jobj`. The "bare" form uses
+the NO_PRETTY json flag.
+
+.. c:function:: void frr_json_set_open(struct json_object *jobj)
+
+Flag that an object (a collection) is not yet complete; don't emit
+end-of-collection text yet, as more children may be added.
+
+.. c:function:: void frr_json_set_complete(struct json_object *jobj)
+
+Indicate that an object is complete; during the next output function
+call, emit end-of-collection text, and free the object and its children.
+
+
 .. _cli-data-structures:
 
 Data Structures
