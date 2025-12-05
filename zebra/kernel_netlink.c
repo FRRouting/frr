@@ -500,8 +500,7 @@ static void kernel_read(struct event *event)
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, false);
 
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
-			   5, false);
+	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info, 500, false);
 
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 		       &zns->t_netlink);
