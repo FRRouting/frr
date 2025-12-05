@@ -89,6 +89,11 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 						   &dest->tx_addpath, rt->afi,
 						   rt->safi);
 		}
+
+		/* Free mpath if exists */
+		if (dest->mpath)
+			bgp_path_info_mpath_free(&dest->mpath);
+
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
 		rn->info = NULL;

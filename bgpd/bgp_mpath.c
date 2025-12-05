@@ -570,9 +570,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (new_best) {
-		if (mpath_count > 1 || (new_best->net && new_best->net->mpath)) {
-			bgp_path_info_mpath_count_set(new_best->net, mpath_count);
-			bgp_path_info_mpath_lb_update(new_best->net, true, all_paths_lb, cum_bw);
+		if (mpath_count > 1) {
+			bgp_path_info_mpath_count_set(dest, mpath_count);
+			bgp_path_info_mpath_lb_update(dest, true, all_paths_lb, cum_bw);
 		}
 		if (debug)
 			zlog_debug("%pBD(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
@@ -586,7 +586,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_mpath_free(&dest->mpath);
 		}
 		if (mpath_changed
-		    || (bgp_path_info_mpath_count(new_best->net) != old_mpath_count))
+		    || (bgp_path_info_mpath_count(dest) != old_mpath_count))
 			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
 		if ((mpath_count) != old_mpath_count || old_cum_bw != cum_bw)
 			SET_FLAG(new_best->flags, BGP_PATH_LINK_BW_CHG);
