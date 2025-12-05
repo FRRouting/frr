@@ -33,7 +33,6 @@ struct be_oper_iter_arg {
 	struct lyd_node *hint; /* last node added */
 };
 
-PREDECL_LIST(mgmt_be_txns);
 struct mgmt_be_txn_ctx {
 	/* Txn-Id as assigned by MGMTD */
 	uint64_t txn_id;
@@ -42,21 +41,17 @@ struct mgmt_be_txn_ctx {
 	struct mgmt_be_client_txn_ctx client_data;
 	struct mgmt_be_client *client;
 
-	struct mgmt_be_txns_item list_linkage;
-
+	struct nb_config *candidate_config;
 	struct nb_transaction *nb_txn;
 	uint32_t nb_txn_id;
 };
 #define MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED (1U << 1)
-
-DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
 struct mgmt_be_client {
 	struct msg_client client;
 
 	char *name;
 
-	struct nb_config *candidate_config;
 	struct nb_config *running_config;
 
 	uint64_t num_edit_nb_cfg;
@@ -66,14 +61,11 @@ struct mgmt_be_client {
 	uint64_t num_apply_nb_cfg;
 	uint64_t avg_apply_nb_cfg_tm;
 
-	struct mgmt_be_txns_head txn_head;
+	struct mgmt_be_txn_ctx *config_txn;
 
 	struct mgmt_be_client_cbs cbs;
 	uintptr_t user_data;
 };
-
-#define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
-	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 struct debug mgmt_dbg_be_client = {
 	.conf = "debug mgmt client backend",
@@ -96,15 +88,10 @@ static struct mgmt_be_txn_ctx *
 mgmt_be_find_txn_by_id(struct mgmt_be_client *client_ctx, uint64_t txn_id,
 		       bool warn)
 {
-	struct mgmt_be_txn_ctx *txn = NULL;
-
-	FOREACH_BE_TXN_IN_LIST (client_ctx, txn)
-		if (txn->txn_id == txn_id)
-			return txn;
+	if (client_ctx->config_txn && client_ctx->config_txn->txn_id == txn_id)
+		return client_ctx->config_txn;
 	if (warn)
-		log_err_be_client("client %s unkonwn txn-id: %" PRIu64,
-				  client_ctx->name, txn_id);
-
+		log_err_be_client("client %s unkonwn txn-id: %Lu", client_ctx->name, txn_id);
 	return NULL;
 }
 
@@ -123,53 +110,54 @@ mgmt_be_txn_create(struct mgmt_be_client *client_ctx, uint64_t txn_id)
 	txn = XCALLOC(MTYPE_MGMTD_BE_TXN, sizeof(struct mgmt_be_txn_ctx));
 	txn->txn_id = txn_id;
 	txn->client = client_ctx;
-	mgmt_be_txns_add_tail(&client_ctx->txn_head, txn);
+	/*
+	 * NOTE: If this is ends up being expensive then we should just offload
+	 * creating one in a thread whenever updating running_config.
+	 */
+	txn->candidate_config = nb_config_dup(client_ctx->running_config);
+	if (!txn->candidate_config) {
+		log_err_be_client("Failed to create candidate config for txn-id: %Lu", txn_id);
+		XFREE(MTYPE_MGMTD_BE_TXN, txn);
+		return NULL;
+	}
+	/* record that we have one going */
+	client_ctx->config_txn = txn;
 
 	debug_be_client("Created new txn-id: %" PRIu64, txn_id);
 
 	return txn;
 }
 
-static void mgmt_be_txn_delete(struct mgmt_be_client *client_ctx,
-			       struct mgmt_be_txn_ctx **txn)
+static void mgmt_be_txn_delete(struct mgmt_be_txn_ctx *txn)
 {
+	struct mgmt_be_client *client_ctx;
 	char err_msg[] = "MGMT Transaction Delete";
 
 	if (!txn)
 		return;
+	/*
+	 * Stop tracking this transaction from the client context
+	 */
+	client_ctx = txn->client;
+	assert(client_ctx->config_txn == txn);
+	client_ctx->config_txn = NULL;
 
 	/*
-	 * Remove the transaction from the list of transactions
-	 * so that future lookups with the same transaction id
-	 * does not return this one.
+	 * Delete the northbound transaction which should also take care
+	 * of cleaning up any allocations made so far.
 	 */
-	mgmt_be_txns_del(&client_ctx->txn_head, *txn);
+	if (txn->nb_txn)
+		nb_candidate_commit_abort(txn->nb_txn, err_msg, sizeof(err_msg));
 
-	/*
-	 * Time to delete the transaction which should also take care of
-	 * cleaning up all batches created via CFG_REQs. But first notify the
-	 * client about the transaction delete.
-	 */
-	if (client_ctx->cbs.txn_notify)
-		(void)(*client_ctx->cbs.txn_notify)(client_ctx,
-						    client_ctx->user_data,
-						    &(*txn)->client_data, true);
+	nb_config_free(txn->candidate_config);
 
-	if ((*txn)->nb_txn)
-		nb_candidate_commit_abort((*txn)->nb_txn, err_msg,
-					sizeof(err_msg));
-	XFREE(MTYPE_MGMTD_BE_TXN, *txn);
-
-	*txn = NULL;
+	XFREE(MTYPE_MGMTD_BE_TXN, txn);
 }
 
 static void mgmt_be_cleanup_all_txns(struct mgmt_be_client *client_ctx)
 {
-	struct mgmt_be_txn_ctx *txn = NULL;
-
-	FOREACH_BE_TXN_IN_LIST (client_ctx, txn) {
-		mgmt_be_txn_delete(client_ctx, &txn);
-	}
+	mgmt_be_txn_delete(client_ctx->config_txn);
+	assert(client_ctx->config_txn == NULL);
 }
 
 
@@ -308,64 +296,9 @@ static int mgmt_be_send_notification(void *__client, const char *path, const str
 	return 0;
 }
 
-static int mgmt_be_send_txn_reply(struct mgmt_be_client *client, uint64_t txn_id, bool create)
-{
-	struct mgmt_msg_txn_reply *msg;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_txn_reply, 0, MTYPE_MSG_NATIVE_TXN_REPLY);
-	msg->code = MGMT_MSG_CODE_TXN_REPLY;
-	msg->refer_id = txn_id;
-	msg->created = create;
-
-	debug_be_client("Sending TXN_REPLY txn-id %Lu", txn_id);
-
-	ret = be_client_send_native_msg(client, msg, mgmt_msg_native_get_msg_len(msg), false);
-	mgmt_msg_native_free_msg(msg);
-	return ret;
-}
-
 /* ===================== */
 /* CONFIGURATION PROCESS */
 /* ===================== */
-
-/* ------------------ */
-/* Create Transaction */
-/* ------------------ */
-
-/*
- * Process transaction create message
- */
-static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn_id, void *msgbuf,
-				     size_t msg_len)
-{
-	struct mgmt_msg_txn_req *msg = msgbuf;
-	struct mgmt_be_txn_ctx *txn;
-
-	debug_be_client("Got TXN_REQ for client %s txn-id %Lu req-id %Lu", client->name, txn_id,
-			msg->req_id);
-
-	if (msg->create) {
-		debug_be_client("Creating new txn-id %" PRIu64, txn_id);
-
-		txn = mgmt_be_txn_create(client, txn_id);
-		if (!txn) {
-			msg_conn_disconnect(&client->client.conn, true);
-			return;
-		}
-
-		if (client->cbs.txn_notify)
-			(*client->cbs.txn_notify)(client, client->user_data, &txn->client_data,
-						  false);
-	} else {
-		debug_be_client("Deleting txn-id: %" PRIu64, txn_id);
-		txn = mgmt_be_find_txn_by_id(client, txn_id, false);
-		if (txn)
-			mgmt_be_txn_delete(client, &txn);
-	}
-
-	mgmt_be_send_txn_reply(client, txn_id, msg->create);
-}
 
 /* ------------------------- */
 /* Receive Config from MgmtD */
@@ -405,17 +338,6 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 		nb_candidate_commit_abort(txn->nb_txn, errmsg, sizeof(errmsg));
 		txn->nb_txn = 0;
 	}
-
-	/*
-	 * revert candidate back to running
-	 *
-	 * This is one txn ctx but the candidate_config is per client ctx, how
-	 * does that work?
-	 */
-	debug_be_client("Reset candidate configurations after abort of txn-id: %" PRIu64,
-			txn->txn_id);
-	nb_config_replace(txn->client->candidate_config,
-			  txn->client->running_config, true);
 }
 
 /* ------------------------------------------------ */
@@ -470,10 +392,29 @@ static bool be_client_change_edit_config(struct nb_config *candidate_config, con
 	return error;
 }
 
-static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **config)
+/**
+ * be_txn_config_prepare() - Prepare to apply the given configuration.
+ * @client_ctx: The backend client context.
+ * @txn_id: The transaction id for this configuration change.
+ *
+ * The configuration changes are applied to the candidate configuration and
+ * validated. If the configuration is valid it is saved in a northbound
+ * transaction that is saved in a mgmtd txn associated with the @txn_id.
+ *
+ * If there is a config validation error the error is returned to mgmtd. For any
+ * other error the connection is dropped.
+ *
+ * Currently the global candidate configuration is used. This will be changed to
+ * a per TXN candidate eventually. For now it is assumed that we only have one
+ * change TXN at a time.
+ *
+ * Return: true if the connection should be dropped.
+ */
+static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t txn_id,
+				    const char **config)
 {
-	struct mgmt_be_client *client_ctx;
-	struct nb_context nb_ctx = {0};
+	struct mgmt_be_txn_ctx *txn;
+	struct nb_context nb_ctx = { 0 };
 	struct timeval edit_nb_cfg_start;
 	struct timeval edit_nb_cfg_end;
 	unsigned long edit_nb_cfg_tm;
@@ -483,58 +424,76 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **con
 	bool error;
 	char err_buf[BUFSIZ];
 	size_t num_processed;
+	bool disconnect = false;
 	int err;
 
-	assert(txn && txn->client);
-	client_ctx = txn->client;
-
 	num_processed = 0;
-	error = false;
 	nb_ctx.client = NB_CLIENT_CLI;
 	nb_ctx.user = (void *)client_ctx->user_data;
 	err_buf[0] = 0;
 
+	debug_be_client("Creating new txn-id %Lu", txn_id);
+
 	/*
-	 * this is always true, right?!
+	 * First validate there's no other config txn right now. Eventually we
+	 * may want to support multiple CFG_REQ prioer to a CFG_APPLY.
 	 */
-	assert(!txn->nb_txn);
-
-	if (!txn->nb_txn) {
-		/*
-		 * XXX, is this just an old crusty comment?
-		 *
-		 * This happens when the current backend client is only
-		 * interested in consuming the config items but is not
-		 * interested in validating it.
-		 */
-		gettimeofday(&edit_nb_cfg_start, NULL);
-
-		error = be_client_change_edit_config(client_ctx->candidate_config, config, err_buf,
-						     sizeof(err_buf));
-		if (error) {
-			log_err_be_client("Failed to update configs for txn-id: %" PRIu64
-					  " to candidate, err: '%s'",
-					  txn->txn_id, err_buf);
-			return -1;
-		}
-
-		gettimeofday(&edit_nb_cfg_end, NULL);
-		edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end, edit_nb_cfg_start);
-		client_ctx->avg_edit_nb_cfg_tm =
-			((client_ctx->avg_edit_nb_cfg_tm * client_ctx->num_edit_nb_cfg) +
-			 edit_nb_cfg_tm) /
-			(client_ctx->num_edit_nb_cfg + 1);
-		client_ctx->num_edit_nb_cfg++;
+	if (client_ctx->config_txn) {
+		log_err_be_client("Cannot prepare cfg for txn-id: %Lu, another txn-id: %Lu was in progress",
+				  txn_id, client_ctx->config_txn->txn_id);
+		return true;
 	}
 
+	/* Create a txn to track the config changes for later apply */
+	txn = mgmt_be_txn_create(client_ctx, txn_id);
+	if (!txn) {
+		log_err_be_client("Failed to create txn for txn_id: %Lu", txn_id);
+		return true;
+	}
+
+	/* Apply the list of config changes to the candidate config */
+	gettimeofday(&edit_nb_cfg_start, NULL);
+	error = be_client_change_edit_config(txn->candidate_config, config, err_buf,
+					     sizeof(err_buf));
+	if (error) {
+		log_err_be_client("Failed to update configs for txn-id: %" PRIu64
+				  " to candidate, err: '%s'",
+				  txn->txn_id, err_buf);
+		disconnect = true;
+		goto done;
+	}
+
+	gettimeofday(&edit_nb_cfg_end, NULL);
+	edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end, edit_nb_cfg_start);
+	client_ctx->avg_edit_nb_cfg_tm =
+		((client_ctx->avg_edit_nb_cfg_tm * client_ctx->num_edit_nb_cfg) + edit_nb_cfg_tm) /
+		(client_ctx->num_edit_nb_cfg + 1);
+	client_ctx->num_edit_nb_cfg++;
+
+	/* Create a northbound transaction and prepare for the changes */
+
+	/*
+	 * XXX this takes the candidate config we just applied a list of config
+	 * changes to, creates a diff, then creates a new list of changes,
+	 * again, so that we can use that to call the callbacks. Would should
+	 * just use the original list!
+	 *
+	 * We do need the changes applied to the candidate config for validation
+	 * and to eventually replace the running config, but we should be able
+	 * to go back and just use the original list. The only possible issue is
+	 * if the list includes any new changes. We should maybe build a new
+	 * list and then validate that it is the same as the original lsit (or a
+	 * subset of it) in development mode, but not in production build.
+	 *
+	 * Anyway we should time it to see if this is a big deal or not.
+	 */
 	gettimeofday(&prep_nb_cfg_start, NULL);
-	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
-					  "MGMTD Backend Txn", &txn->nb_txn,
-					  false, true,
-					  err_buf, sizeof(err_buf) - 1);
+	err = nb_candidate_commit_prepare(nb_ctx, txn->candidate_config, "MGMTD Backend Txn",
+					  &txn->nb_txn, false, true, err_buf, sizeof(err_buf) - 1);
 	if (err != NB_OK) {
 		err_buf[sizeof(err_buf) - 1] = 0;
 		if (err == NB_ERR_VALIDATION) {
+			/* maybe symantic validation error isn't a LOGERR? */
 			log_err_be_client("Failed to validate configs txn-id: %" PRIu64
 					  " %zu batches, err: '%s'",
 					  txn->txn_id, num_processed, err_buf);
@@ -556,38 +515,39 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **con
 
 	gettimeofday(&prep_nb_cfg_end, NULL);
 	prep_nb_cfg_tm = timeval_elapsed(prep_nb_cfg_end, prep_nb_cfg_start);
-	client_ctx->avg_prep_nb_cfg_tm = ((client_ctx->avg_prep_nb_cfg_tm *
-					   client_ctx->num_prep_nb_cfg) +
-					  prep_nb_cfg_tm) /
-					 (client_ctx->num_prep_nb_cfg + 1);
+	client_ctx->avg_prep_nb_cfg_tm =
+		((client_ctx->avg_prep_nb_cfg_tm * client_ctx->num_prep_nb_cfg) + prep_nb_cfg_tm) /
+		(client_ctx->num_prep_nb_cfg + 1);
 	client_ctx->num_prep_nb_cfg++;
 
-	mgmt_be_send_cfg_reply(client_ctx, txn->txn_id, !error, error ? err_buf : NULL);
+	/*
+	 * Replying to mgmtd
+	 */
+	disconnect = !!mgmt_be_send_cfg_reply(client_ctx, txn->txn_id, !error,
+					      error ? err_buf : NULL);
 
 	debug_be_client("Avg-nb-edit-duration %Lu uSec, nb-prep-duration %lu (avg: %Lu) uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
 			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
-
-	if (error)
+done:
+	/*
+	 * If we have any error we abort the new transaction and delete the txn
+	 */
+	if (error || disconnect) {
 		mgmt_be_txn_cfg_abort(txn);
+		mgmt_be_txn_delete(txn);
+	}
 
-	return 0;
+	return disconnect;
 }
 
 static void be_client_handle_cfg(struct mgmt_be_client *client, uint64_t txn_id, void *msgbuf,
 				 size_t msg_len)
 {
 	struct mgmt_msg_cfg_req *msg = msgbuf;
-	struct mgmt_be_txn_ctx *txn;
 	const char **config = NULL;
 
-	debug_be_client("Got CFG_DATA_REQ txn-id: %Lu", txn_id);
-
-	txn = mgmt_be_find_txn_by_id(client, txn_id, true);
-	if (!txn) {
-		log_err_be_client("Can't find TXN for txn_id: %Lu", txn_id);
-		goto failed;
-	}
+	debug_be_client("Got CFG_REQ txn-id: %Lu", txn_id);
 
 	config = mgmt_msg_native_strings_decode(msg, msg_len, msg->config);
 	if (darr_len(config) == 0) {
@@ -595,9 +555,9 @@ static void be_client_handle_cfg(struct mgmt_be_client *client, uint64_t txn_id,
 		goto failed;
 	}
 
-	debug_be_client("End of data; CFG_PREPARE_REQ processing");
+	debug_be_client("CFG_REQ processing");
 
-	if (mgmt_be_txn_cfg_prepare(txn, config))
+	if (mgmt_be_txn_cfg_prepare(client, txn_id, config))
 		goto failed;
 
 	darr_free_free(config);
@@ -605,6 +565,7 @@ static void be_client_handle_cfg(struct mgmt_be_client *client, uint64_t txn_id,
 
 failed:
 	darr_free_free(config);
+	log_err_be_client("Disconnecting client %s due to error handling CFG_REQ", client->name);
 	msg_conn_disconnect(&client->client.conn, true);
 }
 
@@ -631,16 +592,18 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
 	return ret;
 }
 
-static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
+static bool mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 {
 	struct mgmt_be_client *client_ctx;
 	struct timeval apply_nb_cfg_start;
 	struct timeval apply_nb_cfg_end;
 	unsigned long apply_nb_cfg_tm;
 	char err_buf[BUFSIZ];
+	bool disconnect;
 
 	assert(txn && txn->client);
 	client_ctx = txn->client;
+	assert(client_ctx->config_txn == txn);
 
 	assert(txn->nb_txn);
 
@@ -648,8 +611,7 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	 * Now apply all the batches we have applied in one go.
 	 */
 	gettimeofday(&apply_nb_cfg_start, NULL);
-	(void)nb_candidate_commit_apply(txn->nb_txn, true, &txn->nb_txn_id,
-					err_buf, sizeof(err_buf) - 1);
+	nb_candidate_commit_apply(txn->nb_txn, true, &txn->nb_txn_id, err_buf, sizeof(err_buf) - 1);
 	gettimeofday(&apply_nb_cfg_end, NULL);
 
 	apply_nb_cfg_tm = timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
@@ -659,23 +621,52 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	client_ctx->num_apply_nb_cfg++;
 	txn->nb_txn = NULL;
 
-	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, true, NULL);
+	disconnect = !!mgmt_be_send_apply_reply(client_ctx, txn->txn_id, true, NULL);
 
 	debug_be_client("Nb-apply-duration %lu (avg: %Lu) uSec", apply_nb_cfg_tm,
 			client_ctx->avg_apply_nb_cfg_tm);
 
-	return 0;
+	mgmt_be_txn_delete(txn);
+
+	return disconnect;
 }
 
 static void be_client_handle_cfg_apply(struct mgmt_be_client *client, uint64_t txn_id)
 {
-	struct mgmt_be_txn_ctx *txn;
+	struct mgmt_be_txn_ctx *txn = NULL;
 
 	debug_be_client("Got CFG_APPLY_REQ for client %s txn-id %Lu", client->name, txn_id);
 
-	txn = mgmt_be_find_txn_by_id(client, txn_id, true);
+	if (client->config_txn && client->config_txn->txn_id == txn_id)
+		txn = client->config_txn;
+	else
+		log_err_be_client("client %s unkonwn config txn-id: %Lu", client->name, txn_id);
+
 	if (!txn || mgmt_be_txn_proc_cfgapply(txn))
 		msg_conn_disconnect(&client->client.conn, true);
+}
+
+/*
+ * This currently serves as the CFG_ABORT
+ */
+static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn_id, void *msgbuf,
+				     size_t msg_len)
+{
+	struct mgmt_msg_txn_req *msg = msgbuf;
+
+	debug_be_client("Got TXN_DELETE txn-id: %Lu", txn_id);
+	if (msg->create) {
+		log_err_be_client("Unsupported TXN_REQ create for txn-id: %Lu", txn_id);
+		goto failed;
+	}
+	if (!client->config_txn || client->config_txn->txn_id != txn_id) {
+		log_err_be_client("Cannot find TXN for TXN_DELETE txn-id: %Lu", txn_id);
+		goto failed;
+	}
+	mgmt_be_txn_delete(client->config_txn);
+	return;
+failed:
+	msg_conn_disconnect(&client->client.conn, true);
 }
 
 
@@ -1009,6 +1000,7 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 
 	switch (msg->code) {
 	case MGMT_MSG_CODE_TXN_REQ:
+		/* XXX used as a CFG_ABORT_REQ */
 		be_client_handle_txn_req(client, txn_id, msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_CFG_REQ:
@@ -1119,8 +1111,12 @@ static int _notify_conenct_disconnect(struct msg_client *msg_client,
 	if (connected) {
 		assert(msg_client->conn.fd != -1);
 		ret = mgmt_be_send_subscribe(client);
-		if (ret)
+		if (ret) {
+			log_err_be_client("Failed to send subscribe on connect: %s", client->name);
 			return ret;
+		}
+		debug_be_client("Sent subscribe on connect: %s: fd: %d", client->name,
+				msg_client->conn.fd);
 	}
 
 	/* Notify BE client through registered callback (if any) */
@@ -1227,7 +1223,12 @@ static enum nb_error clients_client_state_candidate_config_version_get(
 	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint64_t value = __be_client->candidate_config->version;
+	uint64_t value;
+
+	if (__be_client->config_txn)
+		value = __be_client->config_txn->candidate_config->version;
+	else
+		value = __be_client->running_config->version;
 
 	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
 			     LYD_NEW_PATH_UPDATE, NULL))
@@ -1376,10 +1377,9 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 
 	client->name = XSTRDUP(MTYPE_MGMTD_BE_CLIENT_NAME, client_name);
 	client->running_config = running_config;
-	client->candidate_config = vty_shared_candidate_config;
+	// client->candidate_config = vty_shared_candidate_config;
 	if (cbs)
 		client->cbs = *cbs;
-	mgmt_be_txns_init(&client->txn_head);
 
 	snprintf(server_path, sizeof(server_path), MGMTD_BE_SOCK_NAME);
 
@@ -1417,7 +1417,6 @@ void mgmt_be_client_destroy(struct mgmt_be_client *client)
 	nb_oper_cancel_all_walks();
 	msg_client_cleanup(&client->client);
 	mgmt_be_cleanup_all_txns(client);
-	mgmt_be_txns_fini(&client->txn_head);
 
 	XFREE(MTYPE_MGMTD_BE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_BE_CLIENT, client);

@@ -215,6 +215,8 @@ DECLARE_MTYPE(MSG_NATIVE_COMMIT_REPLY);
 #define MGMT_MSG_DATASTORE_CANDIDATE   2
 #define MGMT_MSG_DATASTORE_OPERATIONAL 3
 
+const char *mgmt_msg_code_name(uint code);
+
 /*
  * Formats
  */
@@ -375,7 +377,13 @@ struct mgmt_msg_notify_data {
 _Static_assert(sizeof(struct mgmt_msg_notify_data) == offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
-#define EDIT_FLAG_IMPLICIT_LOCK	  0x01
+/*
+ * deprecated -- can simply do the locks as needed, if the session holds the
+ * locks then they aren't needed, otherwise an attempt to acquire them is made
+ * and if that fails the edit fails.
+ */
+#define EDIT_FLAG_IMPLICIT_LOCK 0x01
+/* also deprecated -- unneeded, if DS is candidate, then no "commit", if running then "commit" */
 #define EDIT_FLAG_IMPLICIT_COMMIT 0x02
 
 #define EDIT_OP_CREATE	0
@@ -777,7 +785,7 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * mgmt_msg_free_native_msg() - Free a native msg.
  * @msg: pointer to message allocated by mgmt_msg_create_native_msg().
  */
-#define mgmt_msg_native_free_msg(msg) darr_free(msg)
+#define mgmt_msg_native_free_msg darr_free
 
 /**
  * mgmt_msg_native_get_msg_len() - Get the total length of the msg.

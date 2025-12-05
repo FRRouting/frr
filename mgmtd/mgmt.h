@@ -33,7 +33,7 @@ extern struct debug mgmt_debug_txn;
 #define MGMT_DEBUG_FE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)
 #define MGMT_DEBUG_TXN_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_tx, DEBUG_MODE_ALL)
 
-struct mgmt_txn_ctx;
+struct mgmt_txn;
 
 /*
  * MGMTD master for system wide configurations and variables.
@@ -43,16 +43,6 @@ struct mgmt_master {
 
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
-
-	/* The single instance of config transaction allowed at any time */
-	struct mgmt_txns_head txn_list;
-
-	/* Map of Transactions and its ID */
-	struct hash *txn_hash;
-	uint64_t next_txn_id;
-
-	/* The single instance of config transaction allowed at any time */
-	struct mgmt_txn_ctx *cfg_txn;
 
 	/* Datastores */
 	struct mgmt_ds_ctx *running_ds;
@@ -66,6 +56,7 @@ struct mgmt_master {
 	struct mgmt_cmt_infos_head cmts; /* List of last 10 commits executed. */
 };
 
+extern struct frr_daemon_info *mgmt_daemon_info;
 extern struct mgmt_master *mm;
 
 /* Inline functions */
@@ -100,5 +91,25 @@ extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 
 extern void mgmt_init(void);
 extern void mgmt_vty_init(void);
+
+/*
+ * mgmt vty
+ */
+extern void vty_mgmt_init(void);
+extern void vty_mgmt_terminate(void);
+
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort,
+				       bool unlock);
+extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore, LYD_FORMAT result_type,
+				      uint8_t flags, uint8_t defaults, const char *xpath);
+extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore, LYD_FORMAT request_type,
+				  uint8_t flags, uint8_t operation, const char *xpath,
+				  const char *data);
+extern void vty_mgmt_resume_response(struct vty *vty, int ret);
+
+
+extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bool implicit_commit);
+extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type, const char *xpath,
+				 const char *data);
 
 #endif /* _FRR_MGMTD_H */
