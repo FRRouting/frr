@@ -806,8 +806,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	iih.v4_usable = (fabricd_ip_addrs(circuit)
-			 && iih.tlvs->ipv4_address.count);
+	iih.v4_usable = (isis_circuit_ip_addrs(circuit) && iih.tlvs->ipv4_address.count);
 
 	iih.v6_usable =
 		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count);
@@ -2014,7 +2013,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 	}
 
 	if (circuit->ip_router) {
-		struct list *circuit_ip_addrs = fabricd_ip_addrs(circuit);
+		struct list *circuit_ip_addrs = isis_circuit_ip_addrs(circuit);
 
 		if (circuit_ip_addrs)
 			isis_tlvs_add_ipv4_addresses(tlvs, circuit_ip_addrs);
