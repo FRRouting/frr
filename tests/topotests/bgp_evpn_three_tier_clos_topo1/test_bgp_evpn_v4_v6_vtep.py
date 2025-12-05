@@ -53,6 +53,7 @@ Test Execution Order:
 import os
 import sys
 import json
+import re
 from functools import partial
 import pytest
 
@@ -1088,6 +1089,87 @@ def cleanup_export_vrf_test(bordertor11, ip_version):
         )
 
 
+def check_bestpath_number(router, ip_version, test_route, expected_best):
+    """Helper to check which path is selected as best (1 or 2)"""
+    if ip_version == "ipv4":
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+        )
+    else:
+        output = router.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+        )
+
+    # Parse "best #N" from output like "Paths: (2 available, best #1, vrf vrf2)"
+    match = re.search(r"best #(\d+)", output)
+    if match:
+        actual_best = int(match.group(1))
+        if actual_best == expected_best:
+            return None  # Success
+        return f"Expected best #{expected_best}, got best #{actual_best}"
+    return "Could not parse bestpath number from output"
+
+
+def verify_bestpath_use_imported_attrs(bordertor11, ip_version, test_route):
+    """
+    Verify 'bgp bestpath use-imported-attributes' changes bestpath selection.
+
+    Without config: Path #1 (longer AS path from EVPN, ultimate attrs) is best
+    With config: Path #2 (stripped AS path, imported attrs) becomes best
+    """
+    logger.info("Verifying 'bgp bestpath use-imported-attributes' behavior")
+
+    # Step 1: Without config - verify path #1 is best (longer AS path wins with ultimate attrs)
+    logger.info("Step 1: Verifying path #1 is best without 'use-imported-attributes'")
+    test_func = partial(check_bestpath_number, bordertor11, ip_version, test_route, 1)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    if result is not None:
+        pytest.fail(f"Without config, expected path #1 as best: {result}")
+    logger.info("Verified: Path #1 is best (ultimate attrs - longer AS path)")
+
+    # Step 2: Enable 'bgp bestpath use-imported-attributes'
+    logger.info("Step 2: Enabling 'bgp bestpath use-imported-attributes'")
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 660000 vrf vrf2
+         bgp bestpath use-imported-attributes
+        exit
+        """
+    )
+
+    # Step 3: With config - verify path #2 is best (shorter stripped AS path wins)
+    logger.info("Step 3: Verifying path #2 is best with 'use-imported-attributes'")
+    test_func = partial(check_bestpath_number, bordertor11, ip_version, test_route, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        # Log debug output
+        if ip_version == "ipv4":
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+        else:
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv6 unicast {test_route}", isjson=False
+            )
+        logger.error(f"BGP output:\n{output}")
+        pytest.fail(f"With config, expected path #2 as best: {result}")
+    logger.info("Verified: Path #2 is best (imported attrs - shorter stripped AS path)")
+
+    # Step 4: Cleanup - remove the config
+    logger.info("Step 4: Removing 'bgp bestpath use-imported-attributes'")
+    bordertor11.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 660000 vrf vrf2
+         no bgp bestpath use-imported-attributes
+        exit
+        """
+    )
+
+    logger.info("'bgp bestpath use-imported-attributes' verification completed")
+
+
 def check_as_path_stripped(router, ip_version, test_route):
     """Helper to check if AS path has been stripped to only 4200000188"""
     if ip_version == "ipv4":
@@ -1907,10 +1989,13 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
 
     Tests BOTH code paths:
     1. 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+       - Also verifies 'bgp bestpath use-imported-attributes':
+         * Without config: path #1 (longer AS path, ultimate attrs) is best
+         * With config: path #2 (stripped AS path, imported attrs) becomes best
     2. 'route-map vpn export' on VRF1 (source), exporting to VRF2 (destination)
 
     Both tests use the same common setup, but with different route-map locations.
-    Route is originated from tor-21 and and DUT is bordertor-11
+    Route is originated from tor-21 and DUT is bordertor-11
     """
     tgen, ip_version = tgen_and_ip_version
     if tgen.routers_have_failure():
@@ -1934,9 +2019,15 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
         configure_route_leak_common(tor21, tor22, bordertor11, ip_version, route_config)
 
         # TEST 1: 'import vrf route-map' on VRF2 (destination), importing from VRF1 (source)
+        # Also verifies 'bgp bestpath use-imported-attributes' behavior
         try:
             configure_import_vrf_test(bordertor11, ip_version)
             verify_as_path_stripping(bordertor11, ip_version, test_route)
+
+            # Verify bestpath selection with and without 'bgp bestpath use-imported-attributes'
+            # Without config: 1st path (longer AS path from EVPN) is best (uses ultimate attrs)
+            # With config: 2nd path (stripped AS path) becomes best (uses imported attrs)
+            verify_bestpath_use_imported_attrs(bordertor11, ip_version, test_route)
         finally:
             cleanup_import_vrf_test(bordertor11, ip_version)
 
