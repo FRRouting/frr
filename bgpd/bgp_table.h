@@ -253,7 +253,7 @@ static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 						sizeof(struct bgp_dest));
 
 		RB_INIT(bgp_adj_out_rb, &dest->adj_out);
-		rn->info = dest;
+		route_node_set_info(rn, dest);
 		dest->rn = rn;
 	}
 	return rn->info;
@@ -283,7 +283,7 @@ static inline struct bgp_dest *bgp_node_match(const struct bgp_table *table,
 
 static inline unsigned long bgp_table_count(const struct bgp_table *const table)
 {
-	return route_table_count(table->route_table);
+	return route_table_info_count(table->route_table);
 }
 
 /*
