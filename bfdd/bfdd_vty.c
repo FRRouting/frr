@@ -216,15 +216,23 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		bs->timers.required_min_rx / 1000);
 	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->timers.desired_min_tx / 1000);
+	if (bs->xmt_TO_actual > 0)
+		vty_out(vty, "\t\t\tTransmission interval (actual with jitter): %" PRIu64 "ms\n",
+			bs->xmt_TO_actual / 1000);
 	if (bs->timers.required_min_echo_rx != 0)
 		vty_out(vty, "\t\t\tEcho receive interval: %ums\n",
 			bs->timers.required_min_echo_rx / 1000);
 	else
 		vty_out(vty, "\t\t\tEcho receive interval: disabled\n");
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
 		vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 			bs->timers.desired_min_echo_tx / 1000);
-	else
+		if (bs->echo_xmt_TO_actual > 0)
+			vty_out(vty,
+				"\t\t\tEcho transmission interval (actual with jitter): %" PRIu64
+				"ms\n",
+				bs->echo_xmt_TO_actual / 1000);
+	} else
 		vty_out(vty, "\t\t\tEcho transmission interval: disabled\n");
 
 
@@ -333,6 +341,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 			    bs->timers.required_min_rx / 1000);
 	json_object_int_add(jo, "transmit-interval",
 			    bs->timers.desired_min_tx / 1000);
+	if (bs->xmt_TO_actual > 0)
+		json_object_int_add(jo, "transmit-interval-actual",
+				    bs->xmt_TO_actual / 1000);
 	json_object_int_add(jo, "echo-receive-interval",
 			    bs->timers.required_min_echo_rx / 1000);
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
