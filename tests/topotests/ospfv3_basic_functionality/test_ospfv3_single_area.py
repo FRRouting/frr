@@ -1123,6 +1123,79 @@ def test_ospfv3_tc4_mtu_ignore_p0(request):
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
+    step("Restore MTU back to default value (1500) on R0 to R1 interface.")
+    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+    rtr1.run("ifconfig {} mtu 1500".format(r1_r0_intf))
+
+    write_test_footer(tc_name)
+
+
+def test_ospfv3_tc5_mtu_auto_change_p0(request):
+    """
+    OSPF NFSM - Automatic MTU change detection
+
+    Verify that OSPFv3 automatically detects MTU changes after adjacency is FULL
+    and resets the neighbor adjacencies without manual intervention.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config as per the topology")
+    step("Configure OSPF on all the routers of the topology.")
+    step("Verify that OSPF neighbors are FULL.")
+    reset_config_on_routers(tgen)
+
+    rtr0 = tgen.routers()["r0"]
+    rtr1 = tgen.routers()["r1"]
+
+    r0_r1_intf = topo["routers"]["r0"]["links"]["r1"]["interface"]
+    r1_r0_intf = topo["routers"]["r1"]["links"]["r0"]["interface"]
+
+    step("Verify that OSPF neighborship between R0 and R1 is FULL.")
+    result = verify_ospf6_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Change MTU on R0-R1 interface to 1400 while adjacency is FULL.")
+    rtr0.run("ifconfig {} mtu 1400".format(r0_r1_intf))
+
+    # Give some time for interface state update to propagate
+    time.sleep(2)
+
+    step(
+        "Verify that OSPF neighborship between R0 and R1 is stuck in Exstart state "
+        "due to MTU mismatch, without explicit 'clear ospf'"
+    )
+    result = verify_ospf6_neighbor(tgen, topo, expected=False)
+    assert result is not True, (
+        "Testcase {} : Failed \n OSPF nbrs are Full "
+        "instead of being stuck due to MTU mismatch. Error: {}".format(tc_name, result)
+    )
+
+    step("Verify that MTU value of 1400 is reflected in show ipv6 ospf interface.")
+    dut = "r0"
+    input_dict = {"r0": {"links": {"r1": {"ospf6": {"interfaceMtu": 1400}}}}}
+    result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Restore MTU to 1500 on R0-R1 interface. ")
+    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+
+    # Give some time for interface state update and adjacency to reform
+    time.sleep(5)
+
+    step(
+        "Verify that OSPF neighborship between R0 and R1 becomes FULL again "
+        "automatically after MTU is restored, without explicit 'clear ospf'."
+    )
+    result = verify_ospf6_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     write_test_footer(tc_name)
 
 
