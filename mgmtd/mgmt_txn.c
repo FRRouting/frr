@@ -840,11 +840,12 @@ void mgmt_txn_init(void)
 void mgmt_txn_destroy(void)
 {
 	struct mgmt_txn *txn, *next;
+	struct txn_req *txn_req, *next_req;
 
 	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
-		/* Free all txn_reqs associated with this txn */
-		while (!TAILQ_EMPTY(&txn->reqs))
-			txn_req_free(TAILQ_FIRST(&txn->reqs));
+		/* Free all txn_reqs associated with this txn -- pop-first-free trips up coverity */
+		TAILQ_FOREACH_SAFE (txn_req, &txn->reqs, link, next_req)
+			txn_req_free(txn_req);
 		assert(txn->refcount == 1);
 		TXN_DECREF(txn);
 	}
