@@ -208,18 +208,14 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 
 	ret = mgmt_ds_lock(src_ds_ctx, vty->mgmt_session_id);
 	if (ret != 0) {
-		vty_out(vty,
-			"Failed to lock the DS %u for rollback Reason: %s!\n",
-			MGMTD_DS_RUNNING, strerror(ret));
+		vty_out(vty, "Failed to lock %s datastore\n", mgmt_ds_id2name(MGMTD_DS_CANDIDATE));
 		return -1;
 	}
 
 	ret = mgmt_ds_lock(dst_ds_ctx, vty->mgmt_session_id);
 	if (ret != 0) {
 		mgmt_ds_unlock(src_ds_ctx, vty->mgmt_session_id);
-		vty_out(vty,
-			"Failed to lock the DS %u for rollback Reason: %s!\n",
-			MGMTD_DS_RUNNING, strerror(ret));
+		vty_out(vty, "Failed to lock %s datastore\n", mgmt_ds_id2name(MGMTD_DS_RUNNING));
 		return -1;
 	}
 
