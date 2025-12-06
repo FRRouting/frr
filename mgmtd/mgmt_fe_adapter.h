@@ -87,10 +87,12 @@ extern void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
  *	txn_id: the txn_id this data pertains to
  *	req_id: the req id for the rpc message
  *	result_type: the format of the result data.
+ *	restconf: true if the RPC is formatted from RESTCONF operation.
  *	result: the results.
  */
 extern void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-					   LYD_FORMAT result_type, const struct lyd_node *result);
+					   LYD_FORMAT result_type, bool restconf,
+					   const struct lyd_node *result);
 
 /**
  * Send edit reply back to client. If error is not 0, a native error is sent.

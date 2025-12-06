@@ -268,6 +268,29 @@ static struct yang_data *frr_test_module_c3value_get_elem(struct nb_cb_get_elem_
 	return yang_data_new_uint8(args->xpath, 21);
 }
 
+/*
+ * XPath: /frr-test-module:rpc_no_args
+ */
+static int rpc_no_args_rpc(struct nb_cb_rpc_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-test-module:rpc_both_args
+ */
+static int rpc_both_args_rpc(struct nb_cb_rpc_args *args)
+{
+	char result[32];
+	const char *data;
+
+	data = yang_dnode_get_string(args->input, "data");
+	snprintf(result, sizeof(result), "%s-out", data);
+	yang_dnode_rpc_output_add(args->output, "result", result);
+
+	return NB_OK;
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_test_module_info = {
 	.name = "frr-test-module",
@@ -336,15 +359,23 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.cbs.get_elem = __return_null,
 		},
 		{
+			.xpath = "/frr-test-module:rpc-no-args",
+			.cbs.rpc = rpc_no_args_rpc,
+		},
+		{
+			.xpath = "/frr-test-module:rpc-both-args",
+			.cbs.rpc = rpc_both_args_rpc,
+		},
+		{
 			.xpath = NULL,
 		},
 	}
 };
 /* clang-format on */
 
-DEFUN(test_rpc, test_rpc_cmd, "test rpc",
+DEFUN(test_action, test_action_cmd, "test action",
       "Test\n"
-      "RPC\n")
+      "Action\n")
 {
 	struct lyd_node *output = NULL;
 	char xpath[XPATH_MAXLEN];
@@ -364,6 +395,43 @@ DEFUN(test_rpc, test_rpc_cmd, "test rpc",
 	vty_out(vty, "vrf %s data %s\n", yang_dnode_get_string(output, "vrf"),
 		yang_dnode_get_string(output, "data-out"));
 
+	yang_dnode_free(output);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(test_rpc_no_args, test_rpc_no_args_cmd, "test rpc-no-args",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node_inner *output = NULL;
+	int ret;
+
+	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-no-args", (struct lyd_node **)&output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+	assert(output->child == NULL);
+	yang_dnode_free(&output->node);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(test_rpc_both_args, test_rpc_both_args_cmd, "test rpc-both-args",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node *output = NULL;
+	int ret;
+
+	nb_cli_rpc_enqueue(vty, "data", "in-data");
+	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-both-args", &output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+	vty_out(vty, "result %s\n", yang_dnode_get_string(output, "result"));
 	yang_dnode_free(output);
 
 	return CMD_SUCCESS;
@@ -509,7 +577,9 @@ int main(int argc, char **argv)
 	debug_init();
 	nb_init(master, modules, array_size(modules), false, false);
 
-	install_element(ENABLE_NODE, &test_rpc_cmd);
+	install_element(ENABLE_NODE, &test_action_cmd);
+	install_element(ENABLE_NODE, &test_rpc_no_args_cmd);
+	install_element(ENABLE_NODE, &test_rpc_both_args_cmd);
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);

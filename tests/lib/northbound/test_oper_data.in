@@ -6,4 +6,6 @@ show yang operational-data /frr-test-module:frr-test-module/c3value
 show yang operational-data /frr-test-module:frr-test-module/c2cont
 show yang operational-data /frr-test-module:frr-test-module/c2cont/
 show yang operational-data /frr-test-module:frr-test-module/c2cont/c2value
-test rpc
+test action
+test rpc-no-args
+test rpc-both-args

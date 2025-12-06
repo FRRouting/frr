@@ -979,8 +979,56 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	return LY_SUCCESS;
 }
 
-LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
-		      bool reply, struct lyd_node **rpc)
+LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char *data, bool reply,
+			       struct lyd_node **rpc)
+{
+	const struct lysc_node *snode;
+	struct lyd_node *dnode = NULL;
+	struct ly_in *in = NULL;
+	LY_ERR err;
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		zlog_err("Failed to find RPC/action schema node: %s", xpath);
+		return LY_ENOTFOUND;
+	}
+	if (snode->nodetype != LYS_RPC && snode->nodetype != LYS_ACTION) {
+		zlog_err("Node '%s' is not an RPC/action", xpath);
+		return LY_ENOTFOUND;
+	}
+	/* Get the tree for the RPC/Action */
+	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
+	if (err) {
+		zlog_err("Failed to create parent node for action: %s", ly_last_errmsg());
+		goto done;
+	}
+
+	if (!data)
+		goto done;
+
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+		goto done;
+	}
+
+	err = lyd_parse_op(ly_native_ctx, dnode, in, format,
+			   reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF, NULL, NULL);
+	ly_in_free(in, 0);
+	if (err) {
+		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
+		goto done;
+	}
+done:
+	if (err)
+		lyd_free_all(dnode);
+	else
+		*rpc = dnode;
+	return err;
+}
+
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bool reply,
+		      struct lyd_node **rpc)
 {
 	const struct lysc_node *snode;
 	struct lyd_node *parent = NULL;

@@ -837,16 +837,10 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		return;
 	}
 
-	if (data) {
-		err = yang_parse_rpc(xpath, rpc_msg->request_type, data, false,
-				     &input);
-		if (err) {
-			be_client_send_error(client, txn_id, rpc_msg->req_id,
-					     false, -EINVAL,
-					     "Can't parse RPC data for: %s",
-					     xpath);
-			return;
-		}
+	if (data && rpc_msg->restconf) {
+		err = yang_parse_restconf_rpc(xpath, rpc_msg->request_type, data, false, &input);
+	} else if (data) {
+		err = yang_parse_rpc(xpath, rpc_msg->request_type, data, false, &input);
 	} else {
 		/*
 		 * If there's no input data, create an empty input container.
@@ -855,13 +849,11 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		 */
 		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0,
 				    NULL, &input);
-		if (err) {
-			be_client_send_error(client, txn_id, rpc_msg->req_id,
-					     false, -EINVAL,
-					     "Can't create input node for RPC: %s",
-					     xpath);
-			return;
-		}
+	}
+	if (err) {
+		be_client_send_error(client, txn_id, rpc_msg->req_id, false, -EINVAL,
+				     "Can't parse RPC data for: %s", xpath);
+		return;
 	}
 
 	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
