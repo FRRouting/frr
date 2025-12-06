@@ -90,7 +90,7 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 		}
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
-		rn->info = NULL;
+		route_node_set_info(rn, NULL);
 	}
 	route_unlock_node(rn);
 
@@ -114,7 +114,7 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 						   rt->afi, rt->safi);
 		}
 		XFREE(MTYPE_BGP_NODE, dest);
-		node->info = NULL;
+		route_node_set_info(node, NULL);
 	}
 
 	if (node->p.family == AF_FLOWSPEC)
