@@ -872,7 +872,8 @@ extern int _darr_search_floor(const void *a, size_t esize, const void *key, bool
  *	The index of the greatest element that is less than or equal to the @K
  *	string. @E is set to true if equal otherwise false. If used with
  *	darr_insert() then the index should be passed +1 because darr_insert()
- *	inserts *before* the given index.
+ *	inserts *before* the given index. If no element is less than or equal to
+ *	the key then -1 is returned.
  */
 #define darr_str_search_floor(A, K, E)                                                             \
 	_darr_search_floor((A), _darr_esize(A), (K), (E), (darr_search_cmpf)darr_strings_cmp)
