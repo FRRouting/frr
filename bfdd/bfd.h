@@ -357,7 +357,9 @@ struct bfd_session {
 	struct event *echo_recvtimer_ev;
 	struct event *recvtimer_ev;
 	uint64_t xmt_TO;
+	uint64_t xmt_TO_actual; /* Actual transmit timeout with jitter applied */
 	uint64_t echo_xmt_TO;
+	uint64_t echo_xmt_TO_actual; /* Actual echo transmit timeout with jitter applied */
 	struct event *xmttimer_ev;
 	struct event *echo_xmttimer_ev;
 	uint64_t echo_detect_TO;
