@@ -1187,10 +1187,8 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 
 		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
 							 change->value, in_backend);
-		if (result != NB_CHANGE_OK) {
-			if (error)
-				*error = true;
-		}
+		if (result != NB_CHANGE_OK)
+			*error = true;
 		if (result == NB_CHANGE_ERR)
 			break;
 	}
@@ -1422,8 +1420,8 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	}
 
 	/* Record transaction. */
-	if (save_transaction && nb_db_enabled
-	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
+	if (save_transaction && nb_db_enabled && transaction->config &&
+	    nb_db_transaction_save(transaction, transaction_id) != NB_OK)
 		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 			  "%s: failed to record transaction", __func__);
 
