@@ -1420,8 +1420,8 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	}
 
 	/* Record transaction. */
-	if (save_transaction && nb_db_enabled
-	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
+	if (save_transaction && nb_db_enabled && transaction->config &&
+	    nb_db_transaction_save(transaction, transaction_id) != NB_OK)
 		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 			  "%s: failed to record transaction", __func__);
 
