@@ -115,7 +115,9 @@ const char *const syslog_severity[] = {
 const char *zlog_priority_str(int priority)
 {
 	if (priority > LOG_DEBUG)
-		return "???";
+		return "invalid";
+	else if (priority < 0)
+		return "disabled";
 	return zlog_priority[priority];
 }
 
