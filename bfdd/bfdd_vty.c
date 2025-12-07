@@ -219,6 +219,9 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	if (bs->xmt_TO_actual > 0)
 		vty_out(vty, "\t\t\tTransmission interval (actual with jitter): %" PRIu64 "ms\n",
 			bs->xmt_TO_actual / 1000);
+	if (bs->detect_TO > 0)
+		vty_out(vty, "\t\t\tDetection timeout: %" PRIu64 "ms\n",
+			bs->detect_TO / 1000);
 	if (bs->timers.required_min_echo_rx != 0)
 		vty_out(vty, "\t\t\tEcho receive interval: %ums\n",
 			bs->timers.required_min_echo_rx / 1000);
@@ -344,6 +347,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	if (bs->xmt_TO_actual > 0)
 		json_object_int_add(jo, "transmit-interval-actual",
 				    bs->xmt_TO_actual / 1000);
+	if (bs->detect_TO > 0)
+		json_object_int_add(jo, "detection-timeout",
+				    bs->detect_TO / 1000);
 	json_object_int_add(jo, "echo-receive-interval",
 			    bs->timers.required_min_echo_rx / 1000);
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
