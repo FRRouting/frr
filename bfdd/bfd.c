@@ -232,10 +232,16 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_log_session_changes(bs, bs->peer_profile.log_session_changes);
 
 	/* If session interval changed negotiate new timers. */
-	if (bs->ses_state == PTM_BFD_UP
-	    && (bs->timers.desired_min_tx != min_tx
-		|| bs->timers.required_min_rx != min_rx))
+	if (bs->ses_state == PTM_BFD_UP &&
+	    (bs->timers.desired_min_tx != min_tx || bs->timers.required_min_rx != min_rx)) {
+		if (bglobal.debug_peer_event) {
+			zlog_debug("[%s] Timer changed while UP: old_tx=%u new_tx=%u, old_rx=%u new_rx=%u",
+				   bs_to_string(bs), min_tx, bs->timers.desired_min_tx, min_rx,
+				   bs->timers.required_min_rx);
+			zlog_debug("Starting poll sequence to negotiate new timers");
+		}
 		bfd_set_polling(bs);
+	}
 
 	/* Send updated information to data plane. */
 	bfd_dplane_update_session(bs);
@@ -1157,6 +1163,9 @@ void bfd_set_polling(struct bfd_session *bs)
 	 *
 	 * RFC 5880, Section 6.8.3.
 	 */
+	if (bglobal.debug_peer_event)
+		zlog_debug("[%s] Setting polling=1 to negotiate timer change", bs_to_string(bs));
+
 	bs->polling = 1;
 }
 
@@ -1482,12 +1491,23 @@ void bs_final_handler(struct bfd_session *bs)
 		bs->xmt_TO = bs->timers.desired_min_tx;
 	else
 		bs->xmt_TO = bs->remote_timers.required_min_rx;
-	
+
+	if (bglobal.debug_peer_event)
+		zlog_debug("  calculated xmt_TO=%" PRIu64 " (using slowest rate)", bs->xmt_TO);
+
 	/* Only apply increased transmission interval after Poll Sequence */
-	if (bs->ses_state == PTM_BFD_UP && bs->xmt_TO > old_xmt_TO) {
-		bs->xmt_TO = old_xmt_TO;  /* Keep old timing until Poll Sequence done */
+	if (bs->ses_state == PTM_BFD_UP && bs->xmt_TO > old_xmt_TO && bs->polling) {
+		if (bglobal.debug_peer_event) {
+			zlog_debug("  REJECTED increase: xmt_TO=%" PRIu64 " > old=%" PRIu64
+				   " (polling=%d)",
+				   bs->xmt_TO, old_xmt_TO, bs->polling);
+		}
+		bs->xmt_TO = old_xmt_TO; /* Keep old timing DURING Poll Sequence */
 		return;
 	}
+
+	if (bglobal.debug_peer_event)
+		zlog_debug("  APPLYING new xmt_TO=%" PRIu64, bs->xmt_TO);
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
