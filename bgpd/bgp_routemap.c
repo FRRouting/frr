@@ -1699,6 +1699,56 @@ static const struct route_map_rule_cmd route_match_aspath_cmd = {
 	route_match_aspath_free
 };
 
+/* `match as-path-count' */
+
+/* Match function should return :
+ * - RMAP_MATCH if the bgp update aspath  count
+ * is less or equal to the configured limit.
+ * - RMAP_NOMATCH if the aspath count is greater than the
+ * configured limit.
+ */
+static enum route_map_cmd_result_t route_match_aspath_count(void *rule, const struct prefix *prefix,
+							    void *object)
+{
+	struct bgp_path_info *path = object;
+	uint16_t count = 0;
+	uint16_t *limit_rule = rule;
+
+	count = path->attr->aspath->count;
+
+	if (count <= *limit_rule)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `as-path-count' match statement. */
+static void *route_match_aspath_count_compile(const char *arg)
+{
+	uint16_t *count = NULL;
+	char *end = NULL;
+
+	count = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint16_t));
+	*count = strtoul(arg, &end, 10);
+	if (*end != '\0') {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, count);
+		return NULL;
+	}
+	return count;
+}
+
+/* Free route map's compiled `as-path-count' value. */
+static void route_match_aspath_count_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for as-path-count matching. */
+static const struct route_map_rule_cmd route_match_aspath_count_cmd = {
+	"as-path-count", route_match_aspath_count, route_match_aspath_count_compile,
+	route_match_aspath_count_free
+};
+
 /* `match community COMMUNIY' */
 struct rmap_community {
 	char *name;
@@ -6180,6 +6230,27 @@ DEFUN_YANG (no_match_aspath,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG(
+	match_aspath_count, match_aspath_count_cmd,
+	"[no$no] match as-path-count ![(0-1028)$count]",
+	NO_STR
+	MATCH_STR
+	"Match BGP AS path count\n"
+	"AS path count number\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:match-as-path-count']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:as-path-count", xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, count_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 DEFUN_YANG (match_origin,
 	    match_origin_cmd,
 	    "match origin <egp|igp|incomplete>",
@@ -8189,6 +8260,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_source_protocol_cmd);
 	route_map_install_match(&route_match_ip_route_source_prefix_list_cmd);
 	route_map_install_match(&route_match_aspath_cmd);
+	route_map_install_match(&route_match_aspath_count_cmd);
 	route_map_install_match(&route_match_community_cmd);
 	route_map_install_match(&route_match_lcommunity_cmd);
 	route_map_install_match(&route_match_ecommunity_cmd);
@@ -8270,6 +8342,7 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);
+	install_element(RMAP_NODE, &match_aspath_count_cmd);
 	install_element(RMAP_NODE, &match_local_pref_cmd);
 	install_element(RMAP_NODE, &no_match_local_pref_cmd);
 	install_element(RMAP_NODE, &match_alias_cmd);
