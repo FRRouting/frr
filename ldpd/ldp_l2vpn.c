@@ -28,7 +28,7 @@ l2vpn_init(struct l2vpn *l2vpn)
 }
 
 void
-l2vpn_exit(struct l2vpn *l2vpn)
+ldp_l2vpn_exit(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw		*pw;
 
