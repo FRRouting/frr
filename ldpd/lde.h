@@ -216,6 +216,7 @@ void		 lde_gc_stop_timer(void);
 
 /* l2vpn.c */
 void l2vpn_init(struct l2vpn *l2vpn);
+void ldp_l2vpn_exit(struct l2vpn *l2vpn);
 void l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif);
 void l2vpn_if_update(struct l2vpn_if *lif);
 void l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif);
