@@ -48,60 +48,6 @@ struct rusage_t {
 PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
 
-#if EPOLL_ENABLED
-
-PREDECL_HASH(epoll_event_hash);
-
-struct frr_epoll_event {
-	struct epoll_event ev;
-	struct epoll_event_hash_item link;
-};
-
-struct fd_handler {
-	/* The epoll set file descriptor */
-	int epoll_fd;
-
-	/* A hash table in which monitored I/O file descriptors and events
-	 * are registered
-	 */
-	struct epoll_event_hash_head epoll_event_hash;
-
-	/* Maximum size of .revents and .regular_revents arrays */
-	int eventsize;
-
-	/* The buffer which stores the results of epoll_wait */
-	struct epoll_event *revents;
-
-	/* Vtysh might redirect stdin/stdout to regular files. However,
-	 * regular files can't be added into epoll set and need special
-	 * treatment. I/O events from/to regular file will be directly
-	 * added to regular_revents, but not into epoll set, whereby
-	 * sidestepping epoll_wait.
-	 */
-	struct epoll_event *regular_revents;
-	int regular_revent_count;
-
-	unsigned long *fd_poll_counter;
-};
-#else
-struct fd_handler {
-	/* number of pfd that fit in the allocated space of pfds. This is a
-	 * constant and is the same for both pfds and copy.
-	 */
-	nfds_t pfdsize;
-
-	/* file descriptors to monitor for i/o */
-	struct pollfd *pfds;
-	/* number of pollfds stored in pfds */
-	nfds_t pfdcount;
-
-	/* chunk used for temp copy of pollfds */
-	struct pollfd *copy;
-	/* number of pollfds stored in copy */
-	nfds_t copycount;
-};
-#endif
-
 struct xref_eventsched {
 	struct xref xref;
 
@@ -111,36 +57,6 @@ struct xref_eventsched {
 };
 
 PREDECL_HASH(cpu_records);
-
-/* Master of the theads. */
-struct event_loop {
-	char *name;
-
-	struct event **read;
-	struct event **write;
-	struct event_timer_list_head timer;
-	struct event_list_head event, ready, unuse;
-	struct list *cancel_req;
-	bool canceled;
-	pthread_cond_t cancel_cond;
-	struct cpu_records_head cpu_records[1];
-	int io_pipe[2];
-	int fd_limit;
-	struct fd_handler handler;
-	long selectpoll_timeout;
-	bool spin;
-	bool handle_signals;
-	pthread_mutex_t mtx;
-	pthread_t owner;
-
-#if !EPOLL_ENABLED
-	nfds_t last_read;
-#endif
-
-	bool ready_run_loop;
-	RUSAGE_T last_getrusage;
-	struct timeval last_tardy_warning;
-};
 
 /* Event types. */
 enum event_types {
@@ -359,6 +275,13 @@ static inline void event_ignore_late_timer(struct event *event)
 {
 	event->tardy_threshold = 0;
 }
+
+/* Accessors for event loop pthread */
+pthread_t frr_event_loop_get_pthread_owner(struct event_loop *loop);
+void frr_event_loop_set_pthread_owner(struct event_loop *loop, pthread_t pth);
+
+/* Control whether 'loop' is the signal-handler for a process */
+void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p);
 
 #ifdef __cplusplus
 }
