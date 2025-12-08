@@ -494,15 +494,34 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 
 /* Put NLRI with optional label and optional addpath*/
 int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-				       mpls_label_t *label, bool addpath_capable,
-				       uint32_t addpath_tx_id)
+				       mpls_label_t *labels, uint8_t num_labels,
+				       bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t psize;
 	uint8_t *label_pnt;
 
-	/* 4 for addpath, 1 for prefix length byte */
-	uint8_t buffer[4 + BGP_LABEL_BYTES + IPV6_MAX_BYTELEN + 1];
+	/* 4 for addpath
+	 * + 1 for length field
+	 * + 32 is absolute maximum BGP-LU allows for prefix + labels
+	 */
+	uint8_t buffer[4 + 1 + 32];
 	uint8_t *endp = buffer;
+	uint8_t i;
+	bool added_bos = false;
+	mpls_label_t restore_label;
+
+	if (!labels)
+		num_labels = 0;
+
+	if (num_labels && (p->prefixlen + BGP_LABEL_BYTES * 8 * num_labels >= 256)) {
+		/* 255 because it is maximum, we can't write 256 */
+		num_labels = (255 - p->prefixlen) / 8 / BGP_LABEL_BYTES;
+		zlog_warn("%s: Ignoring extra labels, can fit only %d in BGP-LU message with prefixlen %d",
+			  __func__, num_labels, p->prefixlen);
+		added_bos = true;
+		restore_label = labels[num_labels - 1];
+		label_set_bos(&labels[num_labels - 1]);
+	}
 
 	psize = PSIZE(p->prefixlen);
 
@@ -513,13 +532,17 @@ int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 		*endp++ = (uint8_t)addpath_tx_id;
 	}
 
-	*endp++ = p->prefixlen + (label ? BGP_LABEL_BYTES * 8 : 0);
-	if (label) {
-		label_pnt = (uint8_t *)label;
+	*endp++ = p->prefixlen + num_labels * BGP_LABEL_BYTES * 8;
+
+	for (i = 0; i < num_labels; i++) {
+		label_pnt = (uint8_t *)(&labels[i]);
 		*endp++ = label_pnt[0];
 		*endp++ = label_pnt[1];
 		*endp++ = label_pnt[2];
 	}
+	if (added_bos)
+		labels[num_labels - 1] = restore_label;
+
 	memcpy(endp, &p->u.prefix, psize);
 	endp += psize;
 
@@ -4779,8 +4802,6 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      uint8_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
-	mpls_label_t restore_label;
-
 	switch (safi) {
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
@@ -4805,16 +4826,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			assert(!"Add encoding bits here for other AFI's");
 		break;
 	case SAFI_LABELED_UNICAST:
-		if (num_labels > 1) {
-			zlog_warn("%s: bgp_attr_stream_put_labeled_prefix currently supports only one label, ignoring rest (num_labels=%d)",
-				  __func__, num_labels);
-			restore_label = label[0];
-			label_set_bos(&label[0]);
-		}
 		/* Prefix write with label. */
-		bgp_attr_stream_put_labeled_prefix(s, p, label, addpath_capable, addpath_tx_id);
-		if (num_labels > 1)
-			label[0] = restore_label;
+		bgp_attr_stream_put_labeled_prefix(s, p, label, num_labels, addpath_capable,
+						   addpath_tx_id);
 		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
@@ -4853,7 +4867,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		assert(!"Do we try to use this?");
 		break;
 	case SAFI_LABELED_UNICAST:
-		size += BGP_LABEL_BYTES;
+		/* 32 is absolute maximum BGP-LU allows for prefix + labels */
+		size = 32;
 		break;
 	case SAFI_EVPN:
 		/*
