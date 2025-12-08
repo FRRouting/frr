@@ -296,6 +296,10 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
 				*error = INTERFACE_SPEED_ERROR_READ;
+
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 1);
+
 			return 0;
 		}
 		/* Get the current link state for the interface */
@@ -310,6 +314,11 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
 			*error = INTERFACE_SPEED_ERROR_READ;
+
+		if (errno != EOPNOTSUPP)
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 2);
+
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
