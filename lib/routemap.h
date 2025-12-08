@@ -282,6 +282,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_PEER(C) (strmatch(C, "frr-bgp-route-map:peer"))
 #define IS_MATCH_AS_LIST(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:as-path-list"))
+#define IS_MATCH_ASPATH_COUNT(C) (strmatch(C, "frr-bgp-route-map:match-as-path-count"))
 #define IS_MATCH_MAC_LIST(C)                                                   \
 	(strmatch(C, "frr-bgp-route-map:mac-address-list"))
 #define IS_MATCH_EVPN_ROUTE_TYPE(C)                                            \
