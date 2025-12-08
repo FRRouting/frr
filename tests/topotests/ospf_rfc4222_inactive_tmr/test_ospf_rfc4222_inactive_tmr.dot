@@ -1,0 +1,25 @@
+graph template {
+    graph [fontsize=8];
+    node [fontsize=8];
+    edge [fontsize=8]
+    label="ospf_4222_baseline";
+    splines = "line"
+
+    # Routers
+    r1 [
+        shape=doubleoctagon,
+        label="r1\n192.0.2.1",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r2 [
+        shape=doubleoctagon,
+        label="r1\n192.0.2.2",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+
+    # Connections
+    r1 -- r2 [taillabel="eth0\n192.0.2.1/30",headlabel="eth0\n192.0.2.2/30"]
+
+}
