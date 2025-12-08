@@ -1831,7 +1831,7 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 		if (l2vpn_find(src, l2vpn->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
-				l2vpn_exit(l2vpn);
+				ldp_l2vpn_exit(l2vpn);
 				break;
 			case PROC_LDP_ENGINE:
 				ldpe_l2vpn_exit(l2vpn);
