@@ -25,6 +25,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_trace.h"
 
 /* communicate the withdrawal of a connected address */
 static void connected_withdraw(struct connected *ifc)
@@ -425,6 +426,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	 * the notification. So it should be safe to set the REAL flag here. */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 
+	frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 0);
 	connected_update(ifp, ifc);
 }
 
@@ -602,6 +604,9 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	} else
 		ifc = connected_check_ptp(ifp, &p, NULL);
 
+	if (ifc)
+		frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 1);
+
 	connected_delete_helper(ifc, &p);
 }
 
@@ -668,6 +673,7 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	 * might still be running.
 	 */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+	frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 2);
 	connected_update(ifp, ifc);
 }
 
@@ -695,6 +701,9 @@ void connected_delete_ipv6(struct interface *ifp,
 		ifc = connected_check_ptp(ifp, &p, &d);
 	} else
 		ifc = connected_check_ptp(ifp, &p, NULL);
+
+	if (ifc)
+		frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 3);
 
 	connected_delete_helper(ifc, &p);
 }
