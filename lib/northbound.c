@@ -860,7 +860,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	bool root;
 	int ret;
 
-	ly_in_new_memory(data, &in);
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+		return NB_ERR;
+	}
 
 	root = xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0);
 
