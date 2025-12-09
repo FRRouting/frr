@@ -443,7 +443,7 @@ static void logging_daemon_file_filename_cli_write(struct vty *vty, const struct
 
 static void logging_facility_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, "log facility %s\n", yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, "log facility %s\n", yang_dnode_get_identity(dnode));
 }
 
 static void logging_record_priority_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
