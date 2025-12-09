@@ -1136,6 +1136,20 @@ float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
 	return value;
 }
 
+const char *yang_dnode_get_identity(const struct lyd_node *dnode)
+{
+	const struct lyd_node_term *term = (const struct lyd_node_term *)dnode;
+	const struct lysc_node_leaf *leaf = (const struct lysc_node_leaf *)dnode->schema;
+
+	if (leaf->type->basetype == LY_TYPE_IDENT) {
+		const struct lysc_ident *ident = term->value.ident;
+
+		return ident->name;
+	}
+
+	return NULL;
+}
+
 const char *yang_nexthop_type2str(uint32_t ntype)
 {
 	switch (ntype) {
