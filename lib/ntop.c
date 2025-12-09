@@ -169,6 +169,12 @@ inet4:
 	return dst;
 }
 
+#if defined(__GLIBC__) && !defined(INET_NTOP_NO_OVERRIDE)
+#if __GLIBC__ > 2 || __GLIBC_MINOR__ >= 41
+#define INET_NTOP_NO_OVERRIDE
+#endif
+#endif
+
 #if !defined(INET_NTOP_NO_OVERRIDE)
 /* we want to override libc inet_ntop, but make sure it shows up in backtraces
  * as frr_inet_ntop (to avoid confusion while debugging)
