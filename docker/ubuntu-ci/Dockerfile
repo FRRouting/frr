@@ -128,7 +128,7 @@ RUN cd && pwd && ls -al && \
     -DCMAKE_BUILD_TYPE:String="Debug" .. && \
     make -j $(nproc) && \
     sudo make install
-RUN python3 -m pip install libyang
+RUN python3 -m pip install 'libyang<4'
 
 USER frr:frr
 
