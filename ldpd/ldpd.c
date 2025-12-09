@@ -1289,6 +1289,33 @@ void ldp_config_reset_l2vpns(struct l2vpn_head *conf_l2vpn_tree)
 	}
 }
 
+static void ldp_l2vpn_del(struct l2vpn *l2vpn)
+{
+	struct l2vpn_if *lif;
+	struct l2vpn_pw *pw;
+
+	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
+		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
+
+		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
+		free(lif);
+	}
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
+
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+		free(pw);
+	}
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+		free(pw);
+	}
+
+	free(l2vpn);
+}
+
 void
 ldp_clear_config(struct ldpd_conf *xconf)
 {
@@ -1322,7 +1349,7 @@ ldp_clear_config(struct ldpd_conf *xconf)
 		l2vpn = RB_ROOT(l2vpn_head, &xconf->l2vpn_tree);
 
 		RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, l2vpn);
-		l2vpn_del(l2vpn);
+		ldp_l2vpn_del(l2vpn);
 	}
 
 	free(xconf);
@@ -1810,7 +1837,7 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 				break;
 			}
 			RB_REMOVE(l2vpn_head, dst, l2vpn);
-			l2vpn_del(l2vpn);
+			ldp_l2vpn_del(l2vpn);
 		}
 	}
 	RB_FOREACH_SAFE (xl, l2vpn_head, src, ltmp) {
