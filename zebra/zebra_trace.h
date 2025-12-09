@@ -27,6 +27,8 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
 
+/* clang-format off */
+
 TRACEPOINT_EVENT(
 	frr_zebra,
 	if_add_del_update,
@@ -380,6 +382,8 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_zebra, zsend_redistribute_route, TRACE_INFO)
+
+/* clang-format on */
 
 #include <lttng/tracepoint-event.h>
 
