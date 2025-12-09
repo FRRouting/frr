@@ -757,7 +757,8 @@ static int nb_cli_apply_changes_mgmt(struct vty *vty, const char *xpath_base_abs
 		return CMD_SUCCESS;
 
 	implicit_commit = frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
-	if (vty_mgmt_send_config_data(vty, xpath_base_abs, implicit_commit) < 0) {
+	if (vty_mgmt_send_config_data(vty, xpath_base_abs,
+			implicit_commit) != CMD_SUCCESS) {
 		vty_out(vty, "%% Failed to apply configuration data.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
