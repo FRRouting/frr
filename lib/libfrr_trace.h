@@ -73,7 +73,7 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_libfrr, hash_release, TRACE_INFO)
 
 #define THREAD_SCHEDULE_ARGS                                                   \
-	TP_ARGS(struct event_loop *, master, const char *, funcname,        \
+	TP_ARGS(const char *, loopname, const char *, funcname,        \
 		const char *, schedfrom, int, fromln, struct event **,        \
 		thread_ptr, int, fd, int, val, void *, arg, long, time)
 
@@ -82,7 +82,7 @@ TRACEPOINT_EVENT_CLASS(
 	thread_operation,
 	THREAD_SCHEDULE_ARGS,
 	TP_FIELDS(
-		ctf_string(threadmaster_name, master->name)
+		ctf_string(threadmaster_name, loopname)
 		ctf_string(function_name, funcname ? funcname : "(unknown function)")
 		ctf_string(scheduled_from, schedfrom ? schedfrom : "(unknown file)")
 		ctf_integer(int, scheduled_on_line, fromln)

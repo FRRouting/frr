@@ -1320,11 +1320,11 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 	struct event **thread_array;
 
 	if (dir == EVENT_READ)
-		frrtrace(9, frr_libfrr, schedule_read, m,
+		frrtrace(9, frr_libfrr, schedule_read, m->name,
 			 xref->funcname, xref->xref.file, xref->xref.line,
 			 t_ptr, fd, 0, arg, 0);
 	else
-		frrtrace(9, frr_libfrr, schedule_write, m,
+		frrtrace(9, frr_libfrr, schedule_write, m->name,
 			 xref->funcname, xref->xref.file, xref->xref.line,
 			 t_ptr, fd, 0, arg, 0);
 
@@ -1418,7 +1418,7 @@ static void _event_add_timer_timeval(const struct xref_eventsched *xref,
 
 	assert(time_relative);
 
-	frrtrace(9, frr_libfrr, schedule_timer, m,
+	frrtrace(9, frr_libfrr, schedule_timer, m->name,
 		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
@@ -1504,7 +1504,7 @@ void _event_add_event(const struct xref_eventsched *xref, struct event_loop *m,
 {
 	struct event *event = NULL;
 
-	frrtrace(9, frr_libfrr, schedule_event, m,
+	frrtrace(9, frr_libfrr, schedule_event, m->name,
 		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, val, arg, 0);
 
@@ -1985,7 +1985,7 @@ void event_cancel(struct event **event)
 
 	master = (*event)->master;
 
-	frrtrace(9, frr_libfrr, event_cancel, master, (*event)->xref->funcname,
+	frrtrace(9, frr_libfrr, event_cancel, master->name, (*event)->xref->funcname,
 		 (*event)->xref->xref.file, (*event)->xref->xref.line, NULL, (*event)->u.fd,
 		 (*event)->u.val, (*event)->arg, (*event)->u.sands.tv_sec);
 
@@ -2032,7 +2032,7 @@ void event_cancel_async(struct event_loop *master, struct event **thread,
 	assert(!(thread && eventobj) && (thread || eventobj));
 
 	if (!thread)
-		frrtrace(9, frr_libfrr, event_cancel_async, master, NULL, NULL,
+		frrtrace(9, frr_libfrr, event_cancel_async, master->name, NULL, NULL,
 			 0, NULL, 0, 0, eventobj, 0);
 
 	assert(master->owner != pthread_self());
@@ -2043,7 +2043,7 @@ void event_cancel_async(struct event_loop *master, struct event **thread,
 		if (thread) {
 			if (*thread)
 				frrtrace(9, frr_libfrr, event_cancel_async,
-					 master, (*thread)->xref->funcname,
+					 master->name, (*thread)->xref->funcname,
 					 (*thread)->xref->xref.file,
 					 (*thread)->xref->xref.line, NULL,
 					 (*thread)->u.fd, (*thread)->u.val,
@@ -2721,7 +2721,7 @@ void event_call(struct event *event)
 
 	event->real = before.real;
 
-	frrtrace(9, frr_libfrr, event_call, event->master,
+	frrtrace(9, frr_libfrr, event_call, event->master->name,
 		 event->xref->funcname, event->xref->xref.file,
 		 event->xref->xref.line, NULL, event->u.fd, event->u.val,
 		 event->arg, event->u.sands.tv_sec);
