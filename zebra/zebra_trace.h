@@ -294,6 +294,93 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, get_iflink_speed, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	ip_prefix_send_to_client,
+	TP_ARGS(vrf_id_t, vrf_id, uint16_t, cmd, struct prefix *, p),
+	TP_FIELDS(
+		ctf_integer(int, vrfid, vrf_id)
+		ctf_integer(uint16_t, cmd, cmd)
+		ctf_integer(unsigned int, prefix_len, p->prefixlen)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, ip_prefix_send_to_client, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	rib_process_subq_dequeue,
+	TP_ARGS(int, qindex),
+	TP_FIELDS(
+		ctf_integer(int, qindex, qindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, rib_process_subq_dequeue, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	rib_uninstall_kernel_route,
+	TP_ARGS(const char *, prefix, struct nhg_hash_entry *, nhe, int, ret),
+	TP_FIELDS(
+		ctf_string(prefix, prefix)
+		ctf_integer(uint32_t, nhe_id, nhe->id)
+		ctf_integer(uint32_t, nhe_flags, nhe->flags)
+		ctf_integer(int, dplane_status, ret)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, rib_uninstall_kernel_route, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zread_route_add,
+	TP_ARGS(struct zapi_route, api, char *, pfx, vrf_id_t, vrf_id, const char *, nexthop),
+	TP_FIELDS(
+		ctf_integer(int, api_flag, api.flags)
+		ctf_integer(int, api_msg, api.message)
+		ctf_integer(int, api_safi, api.safi)
+		ctf_integer(unsigned int, nhg_id, api.nhgid)
+		ctf_string(prefix, pfx)
+		ctf_integer(int, vrf_id, vrf_id)
+		ctf_string(nexthops, nexthop)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zread_route_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zread_route_del,
+	TP_ARGS(struct zapi_route, api, char *, pfx, uint32_t, table_id),
+	TP_FIELDS(
+		ctf_integer(int, api_flag, api.flags)
+		ctf_integer(int, api_msg, api.message)
+		ctf_integer(int, api_safi, api.safi)
+		ctf_string(prefix, pfx)
+		ctf_integer(int, table_id, table_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zread_route_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zsend_redistribute_route,
+	TP_ARGS(uint32_t, cmd, struct zserv *, client, struct zapi_route, api,
+		const char *, nexthop),
+	TP_FIELDS(
+		ctf_string(cmd, zserv_command_string(cmd))
+		ctf_integer(uint8_t, client_proto, client->proto)
+		ctf_integer(uint8_t, api_type, api.type)
+		ctf_integer(uint32_t, vrfid, api.vrf_id)
+		ctf_integer(unsigned int, prefix_len, api.prefix.prefixlen)
+		ctf_string(nexthops, nexthop)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zsend_redistribute_route, TRACE_INFO)
+
 #include <lttng/tracepoint-event.h>
 
 #endif /* HAVE_LTTNG */

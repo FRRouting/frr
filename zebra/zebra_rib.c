@@ -48,6 +48,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
@@ -723,13 +724,20 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
+	__attribute__((unused)) char buf[PREFIX2STR_BUFFER] = { 0 };
+
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
 
-	switch (dplane_route_delete(rn, re)) {
+	enum zebra_dplane_result result = dplane_route_delete(rn, re);
+
+	frrtrace(3, frr_zebra, rib_uninstall_kernel_route, srcdest_rnode2str(rn, buf, sizeof(buf)),
+		 re->nhe, result);
+
+	switch (result) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		if (zvrf)
 			zvrf->removals_queued++;
@@ -3310,7 +3318,7 @@ static unsigned int process_subq(struct list *subq,
 		process_subq_gr_run(lnode);
 		break;
 	}
-
+	frrtrace(1, frr_zebra, rib_process_subq_dequeue, qindex);
 	list_delete_node(subq, lnode);
 
 	return 1;

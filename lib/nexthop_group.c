@@ -1404,7 +1404,8 @@ void nexthop_group_init(void (*new)(const char *name),
 const char *nexthop_group2str(const struct nexthop_group *nhg, char *str, size_t size)
 {
 	if (!nhg || !nhg->nexthop || !str || size == 0) {
-		str[0] = '\0';
+		if (str)
+			str[0] = '\0';
 		return str;
 	}
 
