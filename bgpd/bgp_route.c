@@ -4773,6 +4773,14 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 						   : "NOT done");
 			}
 		}
+	} else if (safi == SAFI_UNREACH && (afi == AFI_IP || afi == AFI_IP6)) {
+		/*
+		 * Process deferred path selection for SAFI_UNREACH routes.
+		 * Even though SAFI_UNREACH has no forwarding state, best path
+		 * selection should still be deferred during GR until EOR is
+		 * received from all helpers.
+		 */
+		bgp_deferred_path_selection(bgp, afi, safi, bgp->rib[afi][safi], cnt, NULL, false);
 	}
 
 	/*

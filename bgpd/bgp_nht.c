@@ -1346,6 +1346,66 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc)
 	sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_UNREGISTER);
 }
 
+/*
+ * Handle a GR-helper-context stale path whose tracked nexthop has just
+ * become unreachable.
+ *
+ * RFC 4724 §4.2 allows the receiving speaker to delete stale routes from
+ * a restarting peer once it determines the peer's forwarding state is no
+ * longer viable.  A nexthop going unreachable is such a determination:
+ * the link went down, so the peer's forwarding state was not preserved.
+ *
+ * BGP_PATH_STALE is also set during RFC 7313 Enhanced Route Refresh, so
+ * we additionally gate on the GR-specific markers
+ * (PEER_STATUS_NSF_WAIT, peer->nsf[afi][safi]) to apply this only in the
+ * GR helper context.
+ *
+ * SAFI_UNREACH has no forwarding state.  Per
+ * draft-tantsura-idr-unreachability-safi GR semantics, stale routes
+ * MUST NOT be withdrawn here; they are retained until EoR is received
+ * or the peer's Restart Time expires.
+ *
+ * Returns true if the path was handled (retained or deleted) and the
+ * caller should advance to the next path; false if the path is not in
+ * GR helper context and the caller should continue with normal
+ * NH-unreachable handling.
+ */
+static bool bgp_nht_handle_gr_stale_nh_unreach(struct bgp_path_info *path,
+					       struct bgp_nexthop_cache *bnc,
+					       struct bgp_dest *dest,
+					       const struct prefix *p,
+					       struct bgp *bgp_path, afi_t afi,
+					       safi_t safi)
+{
+	if (!CHECK_FLAG(path->flags, BGP_PATH_STALE))
+		return false;
+	if (!CHECK_FLAG(path->peer->sflags, PEER_STATUS_NSF_WAIT))
+		return false;
+	if (!path->peer->nsf[afi][safi])
+		return false;
+
+	if (safi == SAFI_UNREACH) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%pBP NH %pFX unreachable.  Retaining stale path for %pFX in %s",
+				   path->peer, &bnc->prefix, p,
+				   get_afi_safi_str(afi, safi, false));
+		return true;
+	}
+
+	if (bgp_debug_neighbor_events(path->peer))
+		zlog_debug("%pBP NH %pFX unreachable and path stale (GR helper), deleting %pFX",
+			   path->peer, &bnc->prefix, p);
+	if (safi == SAFI_EVPN &&
+	    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+		bgp_evpn_unimport_route(bgp_path, afi, safi,
+					bgp_dest_get_prefix(dest), path);
+	if (safi == SAFI_UNICAST &&
+	    bgp_path->inst_type != BGP_INSTANCE_TYPE_VIEW)
+		vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_path, path);
+	bgp_rib_remove(dest, path, path->peer, afi, safi);
+	return true;
+}
+
 /**
  * evaluate_paths - Evaluate the paths/nets associated with a nexthop.
  * ARGUMENTS:
@@ -1535,58 +1595,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 						 path);
 		else if (old_path_valid != bnc_is_valid_nexthop) {
 			if (old_path_valid) {
-				/*
-				 * RFC 4724 section 4.2: "A BGP speaker
-				 * could have some way of determining
-				 * whether its peer's forwarding state
-				 * is still viable, for example through
-				 * Bidirectional Forwarding Detection
-				 * [BFD] or through monitoring layer
-				 * two information. ... In the event
-				 * that it determines that its peer's
-				 * forwarding state is not viable prior
-				 * to the re-establishment of the
-				 * session, the speaker MAY delete all
-				 * the stale routes from the peer that
-				 * it is retaining."
-				 *
-				 * Nexthop becoming unreachable means
-				 * the link went down, so forwarding
-				 * state was not preserved. Delete the
-				 * stale path immediately so traffic
-				 * is not blackholed. If the peer comes
-				 * back before the restart timer and the
-				 * link is up again, NHT will mark the
-				 * nexthop reachable and we no longer
-				 * have this path to revive; the peer
-				 * will re-advertise on session up.
-				 *
-				 * BGP_PATH_STALE is also set during
-				 * Enhanced Route Refresh (RFC 7313),
-				 * so additionally gate on the GR-specific
-				 * condition the setters use
-				 * (PEER_STATUS_NSF_WAIT and
-				 * peer->nsf[afi][safi]) to act only in
-				 * the GR helper context.
-				 */
-				if (CHECK_FLAG(path->flags, BGP_PATH_STALE) &&
-				    CHECK_FLAG(path->peer->sflags, PEER_STATUS_NSF_WAIT) &&
-				    path->peer->nsf[afi][safi]) {
-					if (bgp_debug_neighbor_events(path->peer))
-						zlog_debug("%pBP NH %pFX unreachable and path stale (GR helper), deleting %pFX",
-							   path->peer, &bnc->prefix, p);
-					if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(
-									 bgp_dest_get_prefix(dest)))
-						bgp_evpn_unimport_route(bgp_path, (afi_t)afi, safi,
-									bgp_dest_get_prefix(dest),
-									path);
-					if (safi == SAFI_UNICAST &&
-					    (bgp_path->inst_type != BGP_INSTANCE_TYPE_VIEW))
-						vpn_leak_from_vrf_withdraw(bgp_get_default(),
-									   bgp_path, path);
-					bgp_rib_remove(dest, path, path->peer, (afi_t)afi, safi);
+				if (bgp_nht_handle_gr_stale_nh_unreach(path, bnc, dest, p,
+								       bgp_path, afi, safi))
 					continue;
-				}
 
 				/* No longer valid, clear flag; also for EVPN
 				 * routes, unimport from VRFs if needed.

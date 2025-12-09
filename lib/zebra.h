@@ -192,9 +192,16 @@ typedef enum {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
-#define FOREACH_AFI_SAFI_NSF(afi, safi)                                                           \
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)                                                  \
-		for (safi = SAFI_UNICAST; safi <= SAFI_EVPN; safi++)
+/*
+ * Iterate the SAFIs that participate in Non-Stop Forwarding (Graceful
+ * Restart): UNICAST, MULTICAST, MPLS_VPN, ENCAP and EVPN (SAFI 1-5),
+ * plus UNREACH. LABELED_UNICAST, FLOWSPEC and BGP_LS are skipped as
+ * they have no GR semantics.
+ */
+#define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)             \
+			if (safi <= SAFI_EVPN || safi == SAFI_UNREACH)
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))

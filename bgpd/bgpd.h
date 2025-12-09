@@ -3313,14 +3313,27 @@ static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
 		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
 }
 
+static inline bool bgp_gr_is_forwarding_preserved_for_safi(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	/* SAFI_UNREACH has no forwarding state (purely control-plane UI-RIB).
+	 * Per RFC 4724, F-bit indicates forwarding state preservation.
+	 * Since there's no forwarding state, F=0.
+	 */
+	if (safi == SAFI_UNREACH)
+		return false;
+
+	return bgp_gr_is_forwarding_preserved(bgp);
+}
+
 static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 {
 	/*
 	 * GR restarter behavior is supported only for IPv4-unicast,
-	 * IPv6-unicast and L2vpn EVPN
+	 * IPv6-unicast, L2vpn EVPN, and IPv4/IPv6 unreachability
 	 */
 	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST) ||
-	    (afi == AFI_L2VPN && safi == SAFI_EVPN))
+	    (afi == AFI_L2VPN && safi == SAFI_EVPN) || (afi == AFI_IP && safi == SAFI_UNREACH) ||
+	    (afi == AFI_IP6 && safi == SAFI_UNREACH))
 		return true;
 	return false;
 }

@@ -1741,7 +1741,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer_connection
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
 
-			f_bit = bgp_gr_is_forwarding_preserved(bgp);
+			f_bit = bgp_gr_is_forwarding_preserved_for_safi(bgp, afi, safi);
 
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 				zlog_debug("... F-bit %s for %s",
@@ -1792,6 +1792,9 @@ static void bgp_peer_send_llgr_capability(struct stream *s, struct peer_connecti
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!peer->afc[afi][safi])
+			continue;
+
+		if (safi == SAFI_UNREACH)
 			continue;
 
 		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
