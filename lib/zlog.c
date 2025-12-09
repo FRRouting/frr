@@ -695,6 +695,8 @@ void vzlogx(const struct xref_logmsg *xref, int prio,
 	va_copy(copy, ap);
 	char *msg = vasprintfrr(MTYPE_LOG_MESSAGE, fmt, copy);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
 	switch (prio) {
 	case LOG_ERR:
 		frrtracelog(TRACE_ERR, msg);
@@ -716,6 +718,7 @@ void vzlogx(const struct xref_logmsg *xref, int prio,
 
 	va_end(copy);
 	XFREE(MTYPE_LOG_MESSAGE, msg);
+#pragma GCC diagnostic pop
 #endif
 
 	if (zlog_tls)
