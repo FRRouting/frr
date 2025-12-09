@@ -480,7 +480,7 @@ class Topogen(object):
             except KeyboardInterrupt:
                 print("^C...continuing")
             except Exception as error:
-                self.logger.error("\n...continuing after error: %s", error)
+                logger.error("\n...continuing after error: %s", error)
 
         logger.info("stopping topology: {}".format(self.modname))
 
