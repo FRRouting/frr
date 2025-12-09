@@ -220,6 +220,7 @@ extern const char *yang_nexthop_type2str(uint32_t ntype);
 
 const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi);
 void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi);
+extern const char *yang_dnode_get_identity(const struct lyd_node *dnode);
 
 #ifdef __cplusplus
 }
