@@ -3366,6 +3366,8 @@ DEFPY (show_evpn_mac_vni_all_vtep,
 		return CMD_WARNING;
 	}
 	zvrf = zebra_vrf_get_evpn();
+	assert(zvrf);
+
 	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, &vtep_ip, uj);
 
 	return CMD_SUCCESS;

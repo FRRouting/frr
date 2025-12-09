@@ -2156,7 +2156,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 	bool inform_client = false;
 	bool upd_neigh = false;
 	bool is_dup_detect = false;
-	struct ipaddr vtep_ip = { 0 };
+	struct ipaddr vtep_ip = { .ipa_type = IPADDR_NONE };
 	bool es_change = false;
 	bool new_bgp_ready;
 	/* assume inactive if not present or if not local */

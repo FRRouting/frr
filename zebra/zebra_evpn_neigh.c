@@ -1309,7 +1309,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	bool neigh_on_hold = false;
 	bool neigh_was_remote = false;
 	bool do_dad = false;
-	struct ipaddr vtep_ip = { 0 };
+	struct ipaddr vtep_ip = { .ipa_type = IPADDR_NONE };
 	bool inform_dataplane = false;
 	bool created = false;
 	bool new_static = false;
