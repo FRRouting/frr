@@ -4622,12 +4622,21 @@ DEFPY (no_vtysh_terminal_monitor,
 }
 
 
-/* Execute command in child process. */
-static void execute_command(const char *command, int argc, const char *arg1,
-			    const char *arg2)
+/*
+ * Execute command `command` with all the arguments after position `shift` in `argv`.
+ */
+static void execute_command(const char *command, int argc, struct cmd_token *argv[], int shift)
 {
 	pid_t pid;
 	int status;
+	int count = MAX(argc - shift, 0);
+	char *cmd_argv[count + 2];
+
+	cmd_argv[0] = (char *)command;
+	for (int i = 0; i < count; i++)
+		cmd_argv[i + 1] = argv[i + shift]->arg;
+
+	cmd_argv[count + 1] = NULL;
 
 	/* Call fork(). */
 	pid = fork();
@@ -4638,20 +4647,9 @@ static void execute_command(const char *command, int argc, const char *arg1,
 		exit(1);
 	} else if (pid == 0) {
 		/* This is child process. */
-		switch (argc) {
-		case 0:
-			execlp(command, command, (const char *)NULL);
-			break;
-		case 1:
-			execlp(command, command, arg1, (const char *)NULL);
-			break;
-		case 2:
-			execlp(command, command, arg1, arg2,
-			       (const char *)NULL);
-			break;
-		}
+		execvp(command, cmd_argv);
 
-		/* When execlp suceed, this part is not executed. */
+		/* When execvp suceed, this part is not executed. */
 		fprintf(stderr, "Can't execute %s: %s\n", command,
 			safe_strerror(errno));
 		exit(1);
@@ -4665,14 +4663,11 @@ static void execute_command(const char *command, int argc, const char *arg1,
 
 DEFUN (vtysh_ping,
        vtysh_ping_cmd,
-       "ping WORD",
+       "ping WORD...",
        "Send echo messages\n"
-       "Ping destination address or hostname\n")
+       "Ping destination arguments\n")
 {
-	int idx = 1;
-
-	argv_find(argv, argc, "WORD", &idx);
-	execute_command("ping", 1, argv[idx]->arg, NULL);
+	execute_command("ping", argc, argv, 1);
 	return CMD_SUCCESS;
 }
 
@@ -4689,14 +4684,11 @@ ALIAS(vtysh_ping, vtysh_ping_ip_cmd, "ping ip WORD",
 
 DEFUN (vtysh_traceroute,
        vtysh_traceroute_cmd,
-       "traceroute WORD",
+       "traceroute WORD...",
        "Trace route to destination\n"
-       "Trace route to destination address or hostname\n")
+       "Trace route arguments\n")
 {
-	int idx = 1;
-
-	argv_find(argv, argc, "WORD", &idx);
-	execute_command("traceroute", 1, argv[idx]->arg, NULL);
+	execute_command("traceroute", argc, argv, 1);
 	return CMD_SUCCESS;
 }
 
@@ -4707,37 +4699,33 @@ ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
 
 DEFUN (vtysh_mtrace,
        vtysh_mtrace_cmd,
-       "mtrace WORD [WORD]",
+       "mtrace WORD...",
        "Multicast trace route to multicast source\n"
-       "Multicast trace route to multicast source address\n"
-       "Multicast trace route for multicast group address\n")
+       "Multicast trace route arguments\n")
 {
-	if (argc == 2)
-		execute_command("mtracebis", 1, argv[1]->arg, NULL);
-	else
-		execute_command("mtracebis", 2, argv[1]->arg, argv[2]->arg);
+	execute_command("mtracebis", argc, argv, 1);
 	return CMD_SUCCESS;
 }
 
 DEFUN (vtysh_ping6,
        vtysh_ping6_cmd,
-       "ping ipv6 WORD",
+       "ping ipv6 WORD...",
        "Send echo messages\n"
        "IPv6 echo\n"
-       "Ping destination address or hostname\n")
+       "Ping destination arguments\n")
 {
-	execute_command("ping6", 1, argv[2]->arg, NULL);
+	execute_command("ping6", argc, argv, 2);
 	return CMD_SUCCESS;
 }
 
 DEFUN (vtysh_traceroute6,
        vtysh_traceroute6_cmd,
-       "traceroute ipv6 WORD",
+       "traceroute ipv6 WORD...",
        "Trace route to destination\n"
        "IPv6 trace\n"
-       "Trace route to destination address or hostname\n")
+       "Trace route arguments\n")
 {
-	execute_command("traceroute6", 1, argv[2]->arg, NULL);
+	execute_command("traceroute6", argc, argv, 2);
 	return CMD_SUCCESS;
 }
 
