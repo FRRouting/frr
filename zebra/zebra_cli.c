@@ -2355,22 +2355,6 @@ static void lib_vrf_mpls_fec_nexthop_resolution_cli_write(
 	}
 }
 
-#if CONFDATE > 20251207
-CPP_NOTICE("Remove no-op netns command")
-#endif
-DEFPY_YANG (vrf_netns,
-       vrf_netns_cmd,
-       "[no] netns ![NAME$netns_name]",
-       NO_STR
-       "Attach VRF to a Namespace\n"
-       "The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	vty_out(vty, "%% This command doesn't do anything.\n");
-	vty_out(vty,
-		"%% VRF is linked to a netns automatically based on its name.\n");
-	return CMD_WARNING;
-}
-
 DEFPY_YANG (ip_table_range, ip_table_range_cmd,
       "[no] ip table range ![(1-4294967295)$start (1-4294967295)$end]",
       NO_STR IP_STR
@@ -3135,9 +3119,6 @@ void zebra_cli_init(void)
 
 	install_element(CONFIG_NODE, &vni_mapping_cmd);
 	install_element(VRF_NODE, &vni_mapping_cmd);
-
-	if (vrf_is_backend_netns())
-		install_element(VRF_NODE, &vrf_netns_cmd);
 
 	install_element(CONFIG_NODE, &ip_table_range_cmd);
 	install_element(VRF_NODE, &ip_table_range_cmd);
