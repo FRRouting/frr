@@ -388,7 +388,7 @@ if test "$enable_scripting" = "yes"; then
    AX_LUA_HEADERS([], [
      AC_MSG_ERROR([Lua >= 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-  
+
    for version in 5.3 5.4; do
      PKG_CHECK_MODULES([LUA], [lua >= $version], [
        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
@@ -1405,22 +1405,46 @@ dnl yes this might include stddef.h 3 times but who cares
 
 AH_VERBATIM(HAVE_STRLCAT_, [
 #ifndef HAVE_STRLCAT
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 size_t strlcat(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
+               const char *__restrict src, size_t destsize);
+
+#ifdef __cplusplus
+}
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_STRLCPY_, [
 #ifndef HAVE_STRLCPY
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
-size_t strlcpy(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
+size_t strlcpy(char *dest, const char *src, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
 #ifndef HAVE_EXPLICIT_BZERO
 #include <stddef.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
 void explicit_bzero(void *buf, size_t len);
+
+#ifdef __cplusplus
+}
+#endif
 #endif
 ])
 
