@@ -1406,21 +1406,33 @@ dnl yes this might include stddef.h 3 times but who cares
 AH_VERBATIM(HAVE_STRLCAT_, [
 #ifndef HAVE_STRLCAT
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcat(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_STRLCPY_, [
 #ifndef HAVE_STRLCPY
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcpy(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
 #ifndef HAVE_EXPLICIT_BZERO
 #include <stddef.h>
+#ifndef __cplusplus
 void explicit_bzero(void *buf, size_t len);
+#else
+extern "C" void explicit_bzero(void *buf, size_t len);
+#endif
 #endif
 ])
 
