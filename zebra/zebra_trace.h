@@ -550,6 +550,21 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, zread_nhg_del, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	dplane_vtep_add_del,
+	TP_ARGS(const struct interface *, ifp, const struct ipaddr *, ip, vni_t, vni, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(ifp, ifp->name)
+		ctf_integer(unsigned int, ifindex, ifp->ifindex)
+		ctf_integer(int, vni, vni)
+		ctf_array(unsigned char, ip_addr, ip, sizeof(struct ipaddr))
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, dplane_vtep_add_del, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
