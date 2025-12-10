@@ -923,6 +923,16 @@ def parse_frr_zebra_zread_nhg_del(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_dplane_vtep_add_del(event):
+    field_parsers = {
+        "ip_addr": print_ip_addr,
+        "location": lambda x: {1: "VTEP ADD", 2: "VTEP DELETE"}.get(
+            x, f"Unknown VTEP operation {x}"
+        ),
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -981,6 +991,7 @@ def main():
         "frr_zebra:zebra_nhg_install_kernel": parse_frr_zebra_nhg_install,
         "frr_zebra:zread_nhg_add": parse_frr_zebra_zread_nhg_add,
         "frr_zebra:zread_nhg_del": parse_frr_zebra_zread_nhg_del,
+        "frr_zebra:dplane_vtep_add_del": parse_frr_zebra_dplane_vtep_add_del,
     }
 
     # get the trace path from the first command line argument
