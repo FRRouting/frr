@@ -19,6 +19,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_trace.h"
 #include "typesafe.h"
 
 #include <stdio.h>
@@ -1834,6 +1835,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 			if (IS_ZEBRA_DEBUG_SRV6)
 				zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s", __func__,
 					   sid_value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+			frrtrace(3, frr_zebra, get_srv6_sid_explicit,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, 1);
 			*sid = zctx->sid;
 			zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
 			return 0;
@@ -1901,6 +1905,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: allocated explicit SRv6 SID function %u for context %s", __func__,
 			   (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	frrtrace(3, frr_zebra, get_srv6_sid_explicit, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+		 sid_value, 2);
 
 	return 1;
 }
@@ -2041,6 +2048,9 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
+
+	frrtrace(3, frr_zebra, get_srv6_sid, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+		 locator_name);
 
 	if (ctx->ifindex != 0 && IPV6_ADDR_SAME(&ctx->nh6, &in6addr_any)) {
 		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
@@ -2273,6 +2283,8 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: released explicit SRv6 SID function %u from block %pFX",
 			   __func__, sid_func, &block->prefix);
+
+	frrtrace(2, frr_zebra, release_srv6_sid_func_explicit, &block->prefix, sid_func);
 
 	return 0;
 }
@@ -2540,6 +2552,10 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 		return -1;
 	}
 
+	frrtrace(5, frr_zebra, release_srv6_sid, &entry->sid_value,
+		 srv6_sid_ctx2str(buf, sizeof(buf), &zctx->ctx), client->proto, client->instance,
+		 zebra_srv6_sid_client_list_count(&entry->clients_list));
+
 	/* Remove the client from the list of clients using the SID */
 	zebra_srv6_sid_client_del(zctx->sid, entry, zclient);
 
@@ -2631,6 +2647,9 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value ? sid_value : &in6addr_any, locator_name);
 
+	frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+		 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, locator_name, -1, 1);
+
 	if (locator_name && locator_name[0] != '\0') {
 		locator = zebra_srv6_locator_lookup(locator_name);
 		if (!locator) {
@@ -2646,16 +2665,35 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			  sid_value ? sid_value : &in6addr_any, locator_name);
 
+		frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+			 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, locator_name, ret, 2);
+
 		/* Notify client about SID alloc failure */
 		zebra_srv6_sid_clients_notify_single(*sid, NULL, client, is_localonly,
 						     ZAPI_SRV6_SID_FAIL_ALLOC);
 	} else if (ret == 0) {
 		assert(*sid);
+
 		if (IS_ZEBRA_DEBUG_SRV6)
 			zlog_debug("%s: got existing SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notify client",
 				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 				   (*sid)->func, client->proto, client->instance,
 				   client->session_id);
+
+		if (frrtrace_enabled(frr_zebra, srv6_manager_get_sid_internal)) {
+			struct zebra_srv6_sid_entry *entry __attribute__((unused)) = NULL;
+
+			if (locator) {
+				entry = zebra_srv6_sid_entry_lookup(*sid, locator->name,
+								    is_localonly);
+			}
+
+			frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				 entry ? &entry->sid_value : sid_value,
+				 locator ? locator->name : NULL, ret, 3);
+		}
+
 		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
 		zebra_srv6_sid_clients_notify_single(*sid, locator, client, is_localonly,
 						     ZAPI_SRV6_SID_ALLOCATED);
@@ -2665,6 +2703,21 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 				   (*sid)->func, client->proto, client->instance,
 				   client->session_id);
+
+		if (frrtrace_enabled(frr_zebra, srv6_manager_get_sid_internal)) {
+			struct zebra_srv6_sid_entry *entry __attribute__((unused)) = NULL;
+
+			if (locator) {
+				entry = zebra_srv6_sid_entry_lookup(*sid, locator->name,
+								    is_localonly);
+			}
+
+			frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				 entry ? &entry->sid_value : sid_value,
+				 locator ? locator->name : NULL, ret, 4);
+		}
+
 		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
 		zebra_srv6_sid_clients_notify_all(*sid, locator, is_localonly,
 						  ZAPI_SRV6_SID_ALLOCATED);
@@ -2728,6 +2781,9 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	frrtrace(2, frr_zebra, srv6_manager_release_sid_internal,
+		 srv6_sid_ctx2str(buf, sizeof(buf), ctx), locator_name);
 
 	if (!locator_name || locator_name[0] == '\0') {
 		zlog_err("%s: invalid SM request arguments: SRv6 locator not provided", __func__);
