@@ -248,6 +248,9 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 
 	api.flags = flags;
 
+	if (sg.use_underlying_nexthop_group_weight)
+		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
+
 	/* Only send via ID if nhgroup has been successfully installed */
 	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
 		zapi_route_set_nhg_id(&api, &nhgid);
