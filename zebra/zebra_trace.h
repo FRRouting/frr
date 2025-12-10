@@ -565,6 +565,86 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, dplane_vtep_add_del, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	get_srv6_sid,
+	TP_ARGS(const char *, ctx_str, struct in6_addr *, sid_value, const char *, locator_name),
+	TP_FIELDS(
+		ctf_string(ctx_str, ctx_str)
+		ctf_array(unsigned char, sid_value, sid_value ? sid_value : &in6addr_any, sizeof(struct in6_addr))
+		ctf_string(locator_name, locator_name ? locator_name : "")
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, get_srv6_sid, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	get_srv6_sid_explicit,
+	TP_ARGS(const char *, ctx_str, struct in6_addr *, sid_value, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(ctx_str, ctx_str)
+		ctf_array(unsigned char, sid_value, sid_value, sizeof(struct in6_addr))
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, get_srv6_sid_explicit, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	release_srv6_sid,
+	TP_ARGS(struct in6_addr *, sid_value, const char *, ctx_str, uint8_t, proto, uint16_t, instance, uint16_t, client_list_count),
+	TP_FIELDS(
+		ctf_array(unsigned char, sid_value, sid_value, sizeof(struct in6_addr))
+		ctf_string(ctx_str, ctx_str)
+		ctf_integer(uint8_t, proto, proto)
+		ctf_integer(uint16_t, instance, instance)
+		ctf_integer(uint16_t, client_list_count, client_list_count)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, release_srv6_sid, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	release_srv6_sid_func_explicit,
+	TP_ARGS(struct prefix_ipv6 *, prefix, uint32_t, sid_func),
+	TP_FIELDS(
+		ctf_array(unsigned char, block_prefix, prefix, sizeof(struct prefix_ipv6))
+		ctf_integer(uint32_t, sid_func, sid_func)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, release_srv6_sid_func_explicit, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	srv6_manager_get_sid_internal,
+	TP_ARGS(const char *, ctx_str, struct in6_addr *, sid_value, const char *, locator_name, int, ret, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(ctx_str, ctx_str)
+		ctf_array(unsigned char, sid_value, sid_value ? sid_value : &in6addr_any, sizeof(struct in6_addr))
+		ctf_string(locator_name, locator_name ? locator_name : "")
+		ctf_integer(int, ret, ret)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, srv6_manager_get_sid_internal, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	srv6_manager_release_sid_internal,
+	TP_ARGS(const char *, ctx_str, const char *, locator_name),
+	TP_FIELDS(
+		ctf_string(ctx_str, ctx_str)
+		ctf_string(locator_name, locator_name ? locator_name : "")
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, srv6_manager_release_sid_internal, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

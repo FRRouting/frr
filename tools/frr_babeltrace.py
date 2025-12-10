@@ -933,6 +933,45 @@ def parse_frr_zebra_dplane_vtep_add_del(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_get_srv6_sid(event):
+    field_parsers = {"sid_value": print_net_ipv6_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_get_srv6_sid_explicit(event):
+    field_parsers = {
+        "sid_value": print_net_ipv6_addr,
+        "location": lambda x: {
+            1: "Returning existing SRv6 SID",
+            2: "Allocated explicit SRv6 SID function",
+        }.get(x, f"Unknown get_srv6_sid_explicit location {x}"),
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_release_srv6_sid(event):
+    field_parsers = {"sid_value": print_net_ipv6_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_release_srv6_sid_func_explicit(event):
+    field_parsers = {"block_prefix": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_srv6_manager_get_sid_internal(event):
+    field_parsers = {
+        "sid_value": print_net_ipv6_addr,
+        "location": lambda x: {
+            1: "Getting existing SRv6 SID",
+            2: "Not got SRv6 SID",
+            3: "Got existing SRv6 SID",
+            4: "Got new SRv6 SID",
+        }.get(x, f"Unknown srv6_manager_get_sid_internal location {x}"),
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -992,6 +1031,11 @@ def main():
         "frr_zebra:zread_nhg_add": parse_frr_zebra_zread_nhg_add,
         "frr_zebra:zread_nhg_del": parse_frr_zebra_zread_nhg_del,
         "frr_zebra:dplane_vtep_add_del": parse_frr_zebra_dplane_vtep_add_del,
+        "frr_zebra:get_srv6_sid": parse_frr_zebra_get_srv6_sid,
+        "frr_zebra:get_srv6_sid_explicit": parse_frr_zebra_get_srv6_sid_explicit,
+        "frr_zebra:release_srv6_sid": parse_frr_zebra_release_srv6_sid,
+        "frr_zebra:release_srv6_sid_func_explicit": parse_frr_zebra_release_srv6_sid_func_explicit,
+        "frr_zebra:srv6_manager_get_sid_internal": parse_frr_zebra_srv6_manager_get_sid_internal,
     }
 
     # get the trace path from the first command line argument
