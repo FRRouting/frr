@@ -365,9 +365,14 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path)
  */
 enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
 {
+	enum bgp_wecmp_behavior default_val = BGP_WECMP_BEHAVIOR_NONE;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT))
+		default_val = BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE;
+
 	/* Check if not multipath */
 	if (!path->mpath)
-		return BGP_WECMP_BEHAVIOR_NONE;
+		return default_val;
 
 	/* If link bandwidth is to be ignored, check if we have Next-Next Hop Nodes
 	 * characteristic and do weighted ECMP based on that.
@@ -385,13 +390,13 @@ enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_p
 		if (CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_ALL))
 			return BGP_WECMP_BEHAVIOR_LINK_BW;
 		else
-			return BGP_WECMP_BEHAVIOR_NONE;
+			return default_val;
 	}
 
 	if (CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_PRESENT))
 		return BGP_WECMP_BEHAVIOR_LINK_BW;
 
-	return BGP_WECMP_BEHAVIOR_NONE;
+	return default_val;
 }
 
 /*

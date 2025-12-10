@@ -1245,11 +1245,12 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
-static void bgp_zebra_announce_parse_nexthop(
-	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
-	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
-	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
-	bool *allow_recursion)
+static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const struct prefix *p,
+					     struct bgp *bgp, struct zapi_route *api,
+					     unsigned int *valid_nh_count, afi_t afi, safi_t safi,
+					     uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
+					     bool *allow_recursion,
+					     enum bgp_wecmp_behavior do_wt_ecmp)
 {
 	struct zapi_nexthop *api_nh;
 	int nh_family;
@@ -1263,15 +1264,11 @@ static void bgp_zebra_announce_parse_nexthop(
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
-	enum bgp_wecmp_behavior do_wt_ecmp = BGP_WECMP_BEHAVIOR_NONE;
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 
 	struct bgp_route_evpn *bre = NULL;
-
-	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
 
 	/*
 	 * vrf leaking support (will have only one nexthop)
@@ -1581,6 +1578,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	uint32_t nhg_id = 0;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+	enum bgp_wecmp_behavior do_wt_ecmp = BGP_WECMP_BEHAVIOR_NONE;
 
 	if (table->safi == SAFI_FLOWSPEC) {
 		bgp_pbr_update_entry(bgp, p, info, table->afi, table->safi,
@@ -1629,9 +1627,14 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 
-	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
-					 table->afi, table->safi, &nhg_id,
-					 &metric, &tag, &allow_recursion);
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
+					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
+					 do_wt_ecmp);
+
+	if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE)
+		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct bgp_zebra_opaque bzo = {};

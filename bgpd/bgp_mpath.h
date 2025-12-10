@@ -13,7 +13,8 @@
 enum bgp_wecmp_behavior {
 	BGP_WECMP_BEHAVIOR_NONE = 0,
 	BGP_WECMP_BEHAVIOR_LINK_BW = 1,
-	BGP_WECMP_BEHAVIOR_NNHN_COUNT = 2
+	BGP_WECMP_BEHAVIOR_NNHN_COUNT = 2,
+	BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE = 3,
 };
 
 /* Supplemental information linked to bgp_path_info for keeping track of
