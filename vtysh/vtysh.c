@@ -4791,6 +4791,20 @@ DEFUN(find,
 	return cmd_find_cmds(vty, argv, argc);
 }
 
+DEFUN(clear,
+      clear_cmd,
+      "clear",
+      "Clear the terminal\n")
+{
+	rl_clear_screen(0, 0);
+#ifdef __OpenBSD__
+	rl_refresh_line(0, 0);
+#else
+	rl_clear_visible_line();
+#endif
+	return CMD_SUCCESS;
+}
+
 DEFUN_HIDDEN(show_cli_graph_vtysh,
 	     show_cli_graph_vtysh_cmd,
 	     "show cli graph",
@@ -4810,6 +4824,7 @@ static void vtysh_install_default(enum node_type node)
 {
 	_install_element(node, &config_list_cmd);
 	_install_element(node, &find_cmd);
+	_install_element(node, &clear_cmd);
 	_install_element(node, &show_cli_graph_vtysh_cmd);
 	_install_element(node, &vtysh_output_file_cmd);
 	_install_element(node, &no_vtysh_output_file_cmd);
