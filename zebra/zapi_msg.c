@@ -2048,6 +2048,8 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	frrtrace(2, frr_zebra, zread_nhg_del, api_nhg.id, api_nhg.proto);
+
 	/* Sanity check - Empty nexthop and group */
 	nhe->nhg.nexthop = NULL;
 

@@ -98,6 +98,48 @@ def print_net_ipv6_addr(field_val):
     return str(field_val)
 
 
+def zebra_route_string(proto_val):
+    # Mapping based on upstream route_types.txt order
+    # Note: ZEBRA_ROUTE_NHG appears first in route_info array but enum order
+    # follows route_types.txt. Using canonical names from route_types.txt.
+    zebra_routes = {
+        0: "system",  # ZEBRA_ROUTE_SYSTEM
+        1: "kernel",  # ZEBRA_ROUTE_KERNEL
+        2: "connected",  # ZEBRA_ROUTE_CONNECT
+        3: "local",  # ZEBRA_ROUTE_LOCAL
+        4: "static",  # ZEBRA_ROUTE_STATIC
+        5: "rip",  # ZEBRA_ROUTE_RIP
+        6: "ripng",  # ZEBRA_ROUTE_RIPNG
+        7: "ospf",  # ZEBRA_ROUTE_OSPF
+        8: "ospf6",  # ZEBRA_ROUTE_OSPF6
+        9: "isis",  # ZEBRA_ROUTE_ISIS
+        10: "bgp",  # ZEBRA_ROUTE_BGP
+        11: "pim",  # ZEBRA_ROUTE_PIM
+        12: "eigrp",  # ZEBRA_ROUTE_EIGRP
+        13: "nhrp",  # ZEBRA_ROUTE_NHRP
+        14: "hsls",  # ZEBRA_ROUTE_HSLS
+        15: "olsr",  # ZEBRA_ROUTE_OLSR
+        16: "table",  # ZEBRA_ROUTE_TABLE
+        17: "ldp",  # ZEBRA_ROUTE_LDP
+        18: "vnc",  # ZEBRA_ROUTE_VNC
+        19: "vnc-direct",  # ZEBRA_ROUTE_VNC_DIRECT
+        20: "vnc-rn",  # ZEBRA_ROUTE_VNC_DIRECT_RH
+        21: "bgp-direct",  # ZEBRA_ROUTE_BGP_DIRECT
+        22: "bgp-direct-to-nve-groups",  # ZEBRA_ROUTE_BGP_DIRECT_EXT
+        23: "babel",  # ZEBRA_ROUTE_BABEL
+        24: "sharp",  # ZEBRA_ROUTE_SHARP
+        25: "pbr",  # ZEBRA_ROUTE_PBR
+        26: "bfd",  # ZEBRA_ROUTE_BFD
+        27: "openfabric",  # ZEBRA_ROUTE_OPENFABRIC
+        28: "vrrp",  # ZEBRA_ROUTE_VRRP
+        29: "zebra",  # ZEBRA_ROUTE_NHG (canonical name is "zebra" per route_types.txt)
+        30: "srte",  # ZEBRA_ROUTE_SRTE
+        31: "table-direct",  # ZEBRA_ROUTE_TABLE_DIRECT
+        32: "any",  # ZEBRA_ROUTE_ALL
+    }
+    return zebra_routes.get(proto_val, f"unknown_proto_{proto_val}")
+
+
 def print_esi(field_val):
     """
     pretty print ethernet segment id, esi_t
@@ -846,6 +888,41 @@ def parse_frr_zebra_get_iflink_speed(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_interface_nhg_reinstall(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Interface dependent NHE",
+            2: "Dependents of NHE",
+        }.get(x, f"Unknown interface NHG reinstall location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zebra_nhg_dplane_result(event):
+    field_parsers = {"op": dplane_op2str, "status": dplane_res2str}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_nhg_install(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Queuing NH ADD changing the type to Zebra",
+            2: "Queuing NH ADD",
+        }.get(x, f"Unknown NHG install location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zread_nhg_add(event):
+    field_parsers = {"proto": zebra_route_string}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zread_nhg_del(event):
+    field_parsers = {"proto": zebra_route_string}
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -899,6 +976,11 @@ def main():
         "frr_zebra:if_dplane_ifp_handling_new": parse_frr_zebra_if_dplane_ifp_handling_new,
         "frr_zebra:if_ip_addr_add_del": parse_frr_zebra_if_ip_addr_add_del,
         "frr_zebra:get_iflink_speed": parse_frr_zebra_get_iflink_speed,
+        "frr_zebra:zebra_interface_nhg_reinstall": parse_frr_zebra_interface_nhg_reinstall,
+        "frr_zebra:zebra_nhg_dplane_result": parse_frr_zebra_zebra_nhg_dplane_result,
+        "frr_zebra:zebra_nhg_install_kernel": parse_frr_zebra_nhg_install,
+        "frr_zebra:zread_nhg_add": parse_frr_zebra_zread_nhg_add,
+        "frr_zebra:zread_nhg_del": parse_frr_zebra_zread_nhg_del,
     }
 
     # get the trace path from the first command line argument
