@@ -586,6 +586,8 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_TABLEID 0x800
 
+#define ZEBRA_FLAG_USE_RECURSIVE_WEIGHT 0x1000
+
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
 
