@@ -180,8 +180,10 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 	struct nhg_connected *rb_node_dep = NULL;
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		frrtrace(2, frr_zebra, if_down_nhg_dependents, ifp, rb_node_dep->nhe);
 		zebra_nhg_check_valid(rb_node_dep->nhe);
+	}
 }
 
 static void if_nhg_dependents_release(const struct interface *ifp)

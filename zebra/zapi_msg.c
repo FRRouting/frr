@@ -2054,6 +2054,8 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	frrtrace(2, frr_zebra, zread_nhg_del, api_nhg.id, api_nhg.proto);
+
 	/* Sanity check - Empty nexthop and group */
 	nhe->nhg.nexthop = NULL;
 
@@ -2104,9 +2106,18 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	if (nhg && nhg->nexthop && frrtrace_enabled(frr_zebra, zread_nhg_add)) {
+		char buf[MULTIPATH_NUM * (NEXTHOP_STRLEN + 1) + 1] = { 0 };
+
+		nexthop_group2str((const struct nexthop_group *)nhg, buf, sizeof(buf));
+		frrtrace(4, frr_zebra, zread_nhg_add, api_nhg.id, api_nhg.proto, nhg, buf);
+	}
+
 	/* Take over the list(s) of nexthops */
-	nhe->nhg.nexthop = nhg->nexthop;
-	nhg->nexthop = NULL;
+	if (nhg) {
+		nhe->nhg.nexthop = nhg->nexthop;
+		nhg->nexthop = NULL;
+	}
 
 	nhe->nhg.nhgr = api_nhg.resilience;
 
