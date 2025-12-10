@@ -18,6 +18,7 @@
 #include "printfrr.h"
 #include "vrf.h"
 #include "nexthop_group.h"
+#include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");

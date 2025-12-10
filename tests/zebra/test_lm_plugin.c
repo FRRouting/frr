@@ -7,6 +7,7 @@
 
 
 #include <zebra.h>
+#include "lib/command.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/label_manager.h"
 

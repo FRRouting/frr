@@ -8,7 +8,6 @@
 #ifndef _ZEBRA_BFD_H
 #define _ZEBRA_BFD_H
 
-#include "lib/json.h"
 #include "lib/zclient.h"
 
 #ifdef __cplusplus
@@ -338,6 +337,7 @@ bool bfd_sess_auto_source(const struct bfd_session_params *bsp);
  * \param json (optional) JSON object pointer.
  * \param bsp session parameters.
  */
+struct json_object;
 void bfd_sess_show(struct vty *vty, struct json_object *json,
 		   struct bfd_session_params *bsp);
 

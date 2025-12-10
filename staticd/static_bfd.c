@@ -11,6 +11,7 @@
 #include "lib/bfd.h"
 #include "lib/printfrr.h"
 #include "lib/srcdest_table.h"
+#include "lib/json.h"
 
 #include "staticd/static_routes.h"
 #include "staticd/static_zebra.h"

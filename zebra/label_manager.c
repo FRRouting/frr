@@ -20,6 +20,7 @@
 #include "lib/stream.h"
 #include "lib/zclient.h"
 #include "lib/libfrr.h"
+#include "lib/json.h"
 
 //#include "zebra/zserv.h"
 #include "zebra/zebra_router.h"

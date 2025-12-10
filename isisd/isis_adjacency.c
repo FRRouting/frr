@@ -19,6 +19,7 @@
 #include "if.h"
 #include "stream.h"
 #include "bfd.h"
+#include "lib/json.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"

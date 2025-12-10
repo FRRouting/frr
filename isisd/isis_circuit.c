@@ -26,6 +26,7 @@
 #include "stream.h"
 #include "qobj.h"
 #include "lib/northbound_cli.h"
+#include "lib/json.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"

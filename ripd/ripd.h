@@ -11,6 +11,7 @@
 #include "distribute.h"
 #include "memory.h"
 #include "bfd.h"
+#include "lib/vector.h"
 
 /* RIP version number. */
 #define RIPv1                            1

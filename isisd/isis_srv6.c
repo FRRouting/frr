@@ -10,6 +10,7 @@
 #include <zebra.h>
 
 #include "srv6.h"
+#include "lib/command.h"
 #include "termtable.h"
 #include "lib/lib_errors.h"
 

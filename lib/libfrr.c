@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "frrscript.h"
 #include "systemd.h"
+#include "json.h"
 
 #include "lib/config_paths.h"
 
