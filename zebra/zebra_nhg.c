@@ -1821,10 +1821,9 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
 }
 
-static struct nexthop *nexthop_set_resolved(afi_t afi,
-					    const struct nexthop *newhop,
+static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 					    struct nexthop *nexthop,
-					    struct zebra_sr_policy *policy)
+					    struct zebra_sr_policy *policy, uint32_t flags)
 {
 	struct nexthop *resolved_hop;
 	uint8_t num_labels = 0;
@@ -1840,7 +1839,10 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 	/* Using weighted ECMP, we should respect the weight and use
 	 * the same value for non-recursive next-hop.
 	 */
-	resolved_hop->weight = nexthop->weight;
+	if (CHECK_FLAG(flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT))
+		resolved_hop->weight = newhop->weight;
+	else
+		resolved_hop->weight = nexthop->weight;
 
 	switch (newhop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -2380,8 +2382,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					continue;
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, nhlfe->nexthop,
-						     nexthop, policy);
+				nexthop_set_resolved(afi, nhlfe->nexthop, nexthop, policy, flags);
 				resolved = 1;
 			}
 			if (resolved)
@@ -2560,8 +2561,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				resolver = nexthop_set_resolved(afi, newhop,
-								nexthop, NULL);
+				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
 				resolved = 1;
 
 				/* If there are backup nexthops, capture
@@ -2597,8 +2597,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop,
-						     NULL);
+				nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
 				resolved = 1;
 			}
 
