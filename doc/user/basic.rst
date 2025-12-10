@@ -678,6 +678,9 @@ Terminal Mode Commands
 
    POSIX Extended Regular Expressions are supported.
 
+.. clicmd:: clear
+
+   Clear the terminal display.
 
 .. _common-show-commands:
 
