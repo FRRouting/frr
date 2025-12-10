@@ -26,6 +26,9 @@
 
 #define GRPC_DEFAULT_PORT 50051
 
+/* Default address for outbound notification collector */
+#define GRPC_NOTIFICATION_COLLECTOR_ADDR "127.0.0.1"
+#define GRPC_NOTIFICATION_COLLECTOR_PORT 4221
 
 // ------------------------------------------------------
 //                 File Local Variables
@@ -613,6 +616,30 @@ bool HandleStreamingGet(
 	}
 }
 
+// Handler for Subscribe RPC - registers data subscriptions
+grpc::Status HandleUnarySubscribe(
+	UnaryRpcState<frr::SubscribeRequest, frr::SubscribeResponse> *tag)
+{
+	grpc_debug("%s: entered", __func__);
+
+	const char *xpath_str;
+	const char *action;
+	const char *mode;
+	uint32_t interval;
+
+	for (const frr::Subscription &item :
+	     tag->request.subscribe().subscriptions()) {
+		xpath_str = item.path().c_str();
+		action = item.action().c_str();
+		mode = item.stream_mode().c_str();
+		interval = item.sample_interval();
+		nb_cache_subscriptions(main_master, xpath_str, action, interval);
+		grpc_debug("Subscribe %s(path: \"%s\") action: %s interval: %u",
+			   __func__, xpath_str, action, interval);
+	}
+	return grpc::Status::OK;
+}
+
 grpc::Status HandleUnaryCreateCandidate(
 	UnaryRpcState<frr::CreateCandidateRequest, frr::CreateCandidateResponse>
 		*tag)
@@ -1167,6 +1194,7 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC(LockConfig, NULL);
 	REQUEST_NEWRPC(UnlockConfig, NULL);
 	REQUEST_NEWRPC(Execute, NULL);
+	REQUEST_NEWRPC(Subscribe, NULL);
 
 	/* Schedule streaming RPC handlers */
 	REQUEST_NEWRPC_STREAMING(Get);
@@ -1224,6 +1252,125 @@ static void *grpc_pthread_start(void *arg)
 	return NULL;
 }
 
+/*
+ * Async gRPC client for non-blocking notification streaming.
+ * - Non-blocking with timeout: Won't hang indefinitely (100ms max wait)
+ * - Proper CQ management: Shutdown and drain properly
+ * - Error handling: Handles different completion statuses
+ */
+static int frr_grpc_send_async(frr::SubscriptionCacheRequest cache)
+{
+	grpc::ClientContext context;
+	grpc::ChannelArguments args;
+	grpc::Status status;
+
+	args.SetString(GRPC_ARG_PRIMARY_USER_AGENT_STRING, "frr_grpc_client");
+	args.SetString("grpc.lb_policy_name", "pick_first");
+
+	std::string vrf_address = std::string(GRPC_NOTIFICATION_COLLECTOR_ADDR) + ":"
+				  + std::to_string(GRPC_NOTIFICATION_COLLECTOR_PORT);
+	args.SetString("grpc.target", vrf_address);
+
+	grpc_debug("Attempting to connect to gRPC service at %s",
+		   vrf_address.c_str());
+	auto channel = grpc::CreateCustomChannel(
+		vrf_address, grpc::InsecureChannelCredentials(), args);
+	if (!channel) {
+		zlog_err("Failed to create gRPC channel to %s",
+			 vrf_address.c_str());
+		return -1;
+	}
+
+	auto stub = frr::Northbound::NewStub(channel);
+	if (!stub) {
+		zlog_err("Failed to create gRPC stub for %s", vrf_address.c_str());
+		return -1;
+	}
+
+	grpc::CompletionQueue cq;
+	frr::SubscriptionCacheResponse resp;
+
+	auto rpc = stub->AsyncSubscriptionCache(&context, cache, &cq);
+	zlog_debug("Notification data successfully sent via gRPC");
+
+	void *tag = reinterpret_cast<void *>(1);
+	rpc->Finish(&resp, &status, tag);
+
+	/* Wait for the RPC to complete with timeout */
+	void *got_tag;
+	bool ok = false;
+
+	auto deadline = std::chrono::system_clock::now() +
+			std::chrono::milliseconds(100);
+	grpc::CompletionQueue::NextStatus cq_status =
+		cq.AsyncNext(&got_tag, &ok, deadline);
+
+	if (ok && got_tag == tag) {
+		switch (cq_status) {
+		case grpc::CompletionQueue::NextStatus::GOT_EVENT:
+			grpc_debug("CQ GOT_EVENT");
+			break;
+		case grpc::CompletionQueue::NextStatus::TIMEOUT:
+			grpc_debug("CQ TIMEOUT_EVENT");
+			break;
+		case grpc::CompletionQueue::NextStatus::SHUTDOWN:
+			grpc_debug("CQ SHUTDOWN_EVENT");
+			break;
+		}
+	}
+
+	/* Stop new events and drain the CQ */
+	cq.Shutdown();
+	while (cq.Next(&got_tag, &ok))
+		grpc_debug("Draining CQ");
+
+	zlog_debug("gRPC call completed and shutdown the CQ.");
+	return 0;
+}
+
+/* Send empty notification to signal readiness */
+static int frr_grpc_empty_notification(void)
+{
+	grpc_debug("frr_grpc_empty_notification");
+	frr::SubscriptionCacheRequest cache{};
+	int ret = frr_grpc_send_async(cache);
+	if (ret == -1)
+		zlog_err("%s: failed to send gRPC message", __func__);
+	return ret;
+}
+
+/* Send notification with data */
+static int frr_grpc_notification_send(const char *xpath, struct list *arguments)
+{
+	grpc::Status status;
+	int ret = 0;
+	frr::SubscriptionCacheRequest cache{};
+
+	struct nb_node *nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		zlog_err("%s: unknown data path: %s", __func__, xpath);
+		return -1;
+	}
+
+	cache.add_path(nb_node->xpath);
+	auto *dt = cache.mutable_data();
+	dt->set_encoding(frr::JSON);
+	cache.set_sampletime(nb_get_sample_time());
+
+	status = get_path(dt, xpath, frr::GetRequest_DataType_STATE, LYD_JSON,
+			  false);
+	if (!status.ok()) {
+		zlog_err("%s: failed to populate DataTree for path: %s",
+			 __func__, xpath);
+		return -1;
+	}
+
+	ret = frr_grpc_send_async(cache);
+	if (ret == -1)
+		zlog_err("%s: failed to send gRPC message: %s", __func__, xpath);
+
+	return ret;
+}
 
 static int frr_grpc_init(uint port)
 {
@@ -1243,6 +1390,10 @@ static int frr_grpc_init(uint port)
 			 __func__, safe_strerror(errno));
 		return -1;
 	}
+
+	/* Register notification streaming hooks */
+	hook_register(nb_notification_send, frr_grpc_notification_send);
+	hook_register(nb_empty_notification_send, frr_grpc_empty_notification);
 
 	return 0;
 }
