@@ -1653,6 +1653,20 @@ DEFPY(crashme_uaf,
 	return CMD_SUCCESS;
 }
 
+DEFPY(sharp_use_resolved_nexthop_weight,
+      sharp_use_resolved_nexthop_weight_cmd,
+      "[no] sharp use-underlays-nexthop-weight",
+      NO_STR
+      SHARP_STR
+      "Tell zebra when resolving a route to use the underlays nexthop weight for when nexthops are resolved\n")
+{
+	if (no)
+		sg.use_underlying_nexthop_group_weight = false;
+	else
+		sg.use_underlying_nexthop_group_weight = true;
+
+	return CMD_SUCCESS;
+}
 
 void sharp_vty_init(void)
 {
@@ -1696,5 +1710,7 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &crashme_segv_cmd);
 	install_element(ENABLE_NODE, &crashme_uaf_cmd);
+
+	install_element(ENABLE_NODE, &sharp_use_resolved_nexthop_weight_cmd);
 	return;
 }

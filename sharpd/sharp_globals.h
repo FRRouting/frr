@@ -59,6 +59,8 @@ struct sharp_global {
 
 	/* list of sharp_srv6_locator */
 	struct list *srv6_locators;
+
+	bool use_underlying_nexthop_group_weight;
 };
 
 extern struct sharp_global sg;
