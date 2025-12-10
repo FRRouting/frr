@@ -41,6 +41,7 @@
 #include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */
 #include "lib/lib_errors.h"       /* for generic ferr ids */
 #include "lib/printfrr.h"         /* for string functions */
+#include "lib/json.h"
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */

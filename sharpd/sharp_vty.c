@@ -18,6 +18,7 @@
 #include "link_state.h"
 #include "cspf.h"
 #include "tc.h"
+#include "lib/json.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"

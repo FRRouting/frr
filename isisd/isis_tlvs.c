@@ -25,6 +25,7 @@
 #include "stream.h"
 #include "sbuf.h"
 #include "network.h"
+#include "lib/json.h"
 
 #include "isisd/isisd.h"
 #include "isisd/isis_tlvs.h"
