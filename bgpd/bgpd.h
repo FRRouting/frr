@@ -189,7 +189,6 @@ struct bgp_master {
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
 #define BM_FLAG_CONFIG_LOADED		 (1 << 9)
 
-
 #define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
 
 	/* BGP-wide graceful restart config params */
@@ -670,6 +669,7 @@ struct bgp {
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW (1ULL << 45)
+#define BGP_FLAG_USE_RECURSIVE_WEIGHT (1ULL << 46)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
