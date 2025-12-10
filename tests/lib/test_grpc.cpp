@@ -480,7 +480,7 @@ void grpc_client_run_test(void)
 void *grpc_client_test_start(void *arg)
 {
 	struct frr_pthread *fpt = (struct frr_pthread *)arg;
-	fpt->master->owner = pthread_self();
+	frr_event_loop_set_pthread_owner(master, pthread_self());
 	frr_pthread_set_name(fpt);
 	frr_pthread_notify_running(fpt);
 
