@@ -26,6 +26,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_tc.h"
+#include "zebra/zebra_trace.h"
 #include "printfrr.h"
 
 /* Memory types */
@@ -5783,6 +5784,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const stru
 		zlog_debug("Install %pIA into flood list for VNI %u intf %s(%u)", ip, vni,
 			   ifp->name, ifp->ifindex);
 
+	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 1);
+
 	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac, AF_ETHERNET, ip, vni, 0, 0, 0,
 				       0);
 
@@ -5801,6 +5804,8 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const s
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Uninstall %pIA from flood list for VNI %u intf %s(%u)", ip, vni,
 			   ifp->name, ifp->ifindex);
+
+	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 2);
 
 	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE, ifp, (const void *)&mac, AF_ETHERNET,
 				       ip, vni, 0, 0, 0, 0);
