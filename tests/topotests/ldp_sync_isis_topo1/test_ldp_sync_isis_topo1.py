@@ -114,16 +114,11 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        # Don't start isisd and ldpd in the CE nodes
         if router.name[0] == "r":
+            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        else:
             router.load_config(
-                TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-            )
-            router.load_config(
-                TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname))
+                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
             )
 
     tgen.start_router()
@@ -274,11 +269,11 @@ def test_isis_ldp_sync():
         pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
+        result, diff = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_interface_detail(
+        result, diff = validate_show_isis_interface_detail(
             rname, "show_isis_interface_detail.ref"
         )
         assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
@@ -311,13 +306,13 @@ def test_r1_eth1_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(
+        result, diff = validate_show_isis_ldp_sync(
             rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
         )
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_interface_detail(
+        result, diff = validate_show_isis_interface_detail(
             rname, "show_isis_interface_detail_r1_eth1_shutdown.ref"
         )
         assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
@@ -342,11 +337,11 @@ def test_r1_eth1_no_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
+        result, diff = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_interface_detail(
+        result, diff = validate_show_isis_interface_detail(
             rname, "show_isis_interface_detail.ref"
         )
         assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
@@ -373,13 +368,13 @@ def test_r2_eth1_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(
+        result, diff = validate_show_isis_ldp_sync(
             rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
         )
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_interface_detail(
+        result, diff = validate_show_isis_interface_detail(
             rname, "show_isis_interface_detail_r2_eth1_shutdown.ref"
         )
         assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
@@ -404,11 +399,11 @@ def test_r2_eth1_no_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
+        result, diff = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_interface_detail(
+        result, diff = validate_show_isis_interface_detail(
             rname, "show_isis_interface_detail.ref"
         )
         assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
@@ -504,7 +499,7 @@ def validate_show_isis_ldp_sync(rname, fname):
         return topotest.json_cmp(actual, expected)
 
     test_func = partial(compare_isis_ldp_sync, router, expected)
-    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
+    result, diff = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
 
     return (result, diff)
 
@@ -541,7 +536,6 @@ def parse_show_isis_interface_detail(lines, rname):
                     line = next(it)
 
                 while line.startswith(" Level-"):
-
                     level = {}
 
                     level_name = line.split()[0]
@@ -569,7 +563,6 @@ def parse_show_isis_interface_detail(lines, rname):
             areas[area_id] = area
 
         except StopIteration:
-
             areas[area_id] = area
             break
 
@@ -608,6 +601,6 @@ def validate_show_isis_interface_detail(rname, fname):
         return topotest.json_cmp(actual, expected)
 
     test_func = partial(compare_isis_interface_detail, router, expected)
-    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
+    result, diff = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
 
     return (result, diff)
