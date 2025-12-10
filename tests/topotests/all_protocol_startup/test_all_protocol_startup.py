@@ -1646,10 +1646,13 @@ def test_resilient_nexthop_group():
 
     # Use the json output and collect the nhg id from it
 
-    for nhgid in joutput:
-        n = joutput[nhgid]
-        if "buckets" in n:
-            break
+    n = {}
+    for jvrfname in joutput:
+        jvrf = joutput[jvrfname]
+        for nhgid in jvrf:
+            n = jvrf[nhgid]
+            if "buckets" in n:
+                break
 
     verify_nexthop_group(int(nhgid))
     assert len(buckets) == 1, "Resilient NHG not created in zebra"
