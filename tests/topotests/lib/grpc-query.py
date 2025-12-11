@@ -78,6 +78,22 @@ class GRPCClient:
             result += str(r.data.data)
         return result
 
+    def subscribe(self, xpath, action="add", interval=5000):
+        """Subscribe to a data path for notifications."""
+        request = frr_northbound_pb2.SubscribeRequest()
+        sub = request.subscribe.subscriptions.add()
+        sub.path = xpath
+        sub.action = action
+        sub.stream_mode = "sample"
+        sub.sample_interval = interval
+        try:
+            response = self.stub.Subscribe(request)
+            logging.debug("GRPC Subscribe response: %s", response)
+            return "OK"
+        except Exception as error:
+            logging.error("Got exception from Subscribe: %s", error)
+            return f"ERROR: {error}"
+
 
 def next_action(action_list=None):
     "Get next action from list or STDIN"
@@ -106,7 +122,7 @@ def main(*args):
     parser.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     parser.add_argument("--check", action="store_true", help="check runable")
     parser.add_argument("--xml", action="store_true", help="encode XML instead of JSON")
-    parser.add_argument("actions", nargs="*", help="GETCAP|GET,xpath")
+    parser.add_argument("actions", nargs="*", help="GETCAP|GET,xpath|SUBSCRIBE,xpath[,action,interval]")
     args = parser.parse_args(*args)
 
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -144,7 +160,14 @@ def main(*args):
             _, xpath = action.split(",", 1)
             logging.debug("Get State XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.STATE))
-            # for _ in range(0, 1):
+        elif action.startswith("subscribe,"):
+            # Subscribe to a data path
+            parts = action.split(",")
+            xpath = parts[1] if len(parts) > 1 else "/frr-interface:lib"
+            sub_action = parts[2] if len(parts) > 2 else "add"
+            interval = int(parts[3]) if len(parts) > 3 else 5000
+            logging.debug("Subscribe XPath: %s action: %s interval: %d", xpath, sub_action, interval)
+            print(c.subscribe(xpath, sub_action, interval))
 
 
 if __name__ == "__main__":
