@@ -1042,6 +1042,41 @@ def parse_frr_zebra_srv6_manager_get_sid_internal(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_zebra_vxlan_handle_vni_transition(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Del L2-VNI - transition to L3-VNI",
+            2: "Adding L2-VNI - transition from L3-VNI",
+        }.get(x, f"Unknown VNI transition location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zebra_vxlan_remote_macip_add(event):
+    field_parsers = {
+        "ip": print_ip_addr,
+        "esi": print_esi,
+        "mac": print_mac,
+        "vtep_ip": print_ip_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zebra_vxlan_remote_macip_del(event):
+    field_parsers = {"ip": print_ip_addr, "mac": print_mac, "vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zebra_vxlan_remote_vtep_add(event):
+    field_parsers = {"vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zebra_vxlan_remote_vtep_del(event):
+    field_parsers = {"vtep_ip": print_ip_addr, "client_proto": zebra_route_string}
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -1113,6 +1148,11 @@ def main():
         "frr_zebra:release_srv6_sid": parse_frr_zebra_release_srv6_sid,
         "frr_zebra:release_srv6_sid_func_explicit": parse_frr_zebra_release_srv6_sid_func_explicit,
         "frr_zebra:srv6_manager_get_sid_internal": parse_frr_zebra_srv6_manager_get_sid_internal,
+        "frr_zebra:zebra_vxlan_handle_vni_transition": parse_frr_zebra_zebra_vxlan_handle_vni_transition,
+        "frr_zebra:zebra_vxlan_remote_macip_add": parse_frr_zebra_zebra_vxlan_remote_macip_add,
+        "frr_zebra:zebra_vxlan_remote_macip_del": parse_frr_zebra_zebra_vxlan_remote_macip_del,
+        "frr_zebra:zebra_vxlan_remote_vtep_add": parse_frr_zebra_zebra_vxlan_remote_vtep_add,
+        "frr_zebra:zebra_vxlan_remote_vtep_del": parse_frr_zebra_zebra_vxlan_remote_vtep_del,
     }
 
     # get the trace path from the first command line argument
