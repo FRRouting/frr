@@ -968,7 +968,7 @@ static int txn_get_config_changes(struct txn_req_commit *ccreq, struct nb_config
 	if (ret != NB_OK) {
 		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
 			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
-		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM, err_buf);
+		return txn_set_config_error(txn_req, MGMTD_VALIDATION_ERROR, err_buf);
 	}
 
 	nb_config_diff(mgmt_ds_get_nb_config(ccreq->dst_ds_ctx), nb_config, cfg_chgs);

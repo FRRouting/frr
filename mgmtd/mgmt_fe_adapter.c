@@ -187,7 +187,7 @@ enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 	case NB_ERR_NOT_FOUND:
 		return MGMTD_INVALID_PARAM;
 	case NB_ERR_EXISTS:
-		return MGMTD_INVALID_PARAM;
+		return MGMTD_VALUE_EXISTS;
 	case NB_ERR_LOCKED:
 		return MGMTD_DS_LOCK_FAILED;
 	case NB_ERR_VALIDATION:
@@ -200,6 +200,29 @@ enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 		return MGMTD_UNKNOWN_FAILURE;
 	}
 	return MGMTD_UNKNOWN_FAILURE;
+}
+
+int mgmt_result_to_error(enum mgmt_result result)
+{
+	switch (result) {
+	case MGMTD_SUCCESS:
+		return 0;
+	case MGMTD_INVALID_PARAM:
+		return -EBADMSG;
+	case MGMTD_INTERNAL_ERROR:
+	case MGMTD_DS_UNLOCK_FAILED:
+	case MGMTD_UNKNOWN_FAILURE:
+		return -EFAULT;
+	case MGMTD_VALIDATION_ERROR:
+		return -EINVAL;
+	case MGMTD_NO_CFG_CHANGES:
+		return -EALREADY;
+	case MGMTD_VALUE_EXISTS:
+		return -EEXIST;
+	case MGMTD_DS_LOCK_FAILED:
+		return -EBUSY;
+	}
+	return -EFAULT;
 }
 
 /* =========================== */
@@ -525,7 +548,7 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgm
 		fe_session_send_commit_reply(session, req_id, src_ds_id, dst_ds_id, action, unlock);
 	else {
 		ret = fe_session_send_error(
-			session, req_id, false, EINVAL /* convert result */,
+			session, req_id, false, mgmt_result_to_error(result),
 			"commit failed session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s validate-only: %u: reason: '%s'",
 			session->session_id, session->adapter->name, req_id,
 			mgmt_ds_id2name(src_ds_id), mgmt_ds_id2name(dst_ds_id), validate_only,
@@ -1002,8 +1025,8 @@ int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64
 
 
 	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES)
-		/* Fix the error */
-		ret = fe_session_send_error(session, req_id, false, -EINVAL, "%s", errstr);
+		ret = fe_session_send_error(session, req_id, false, mgmt_result_to_error(result),
+					    "%s", errstr);
 	else
 		ret = fe_session_send_edit_reply(session, req_id,
 						 result == MGMTD_SUCCESS /*changed*/,
