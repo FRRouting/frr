@@ -888,6 +888,76 @@ def parse_frr_zebra_get_iflink_speed(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_netlink_macfdb_change(event):
+    field_parsers = {
+        "mac": print_mac,
+        "vtep_ip": print_ip_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_neigh_update_msg_encode(event):
+    field_parsers = {
+        "ip": print_ip_addr,
+        "mac": print_mac,
+        "family": print_family_str,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_nexthop_msg_encode_err(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "kernel nexthops not supported, ignoring",
+            2: "proto-based nexthops only, ignoring",
+            3: "Local Interface Address is NULL",
+        }.get(x, f"Unknown netlink nexthop msg encode error {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_route_multipath_msg_encode(event):
+    field_parsers = {"pfx": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_vrf_change(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "IFLA_INFO_DATA missing from VRF message",
+            2: "IFLA_VRF_TABLE missing from VRF message",
+        }.get(x, f"Unknown netlink VRF change error {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_msg_err(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Invalid address family",
+            2: "netlink msg bad size",
+            3: "Invalid prefix length-V4",
+            4: "Invalid prefix length-V6",
+            5: "Invalid/tentative addr",
+            6: "No local interface address",
+            7: "wrong kernel message",
+        }.get(x, f"Unknown netlink message error {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_netlink_intf_err(event):
+    field_parsers = {
+        "location": lambda x: {
+            2: "RTM_NEWLINK for interface without MTU set",
+            3: "Cannot find VNI for VID and IF for vlan state update",
+            4: "Cannot find bridge-vlan IF for vlan update",
+            5: "Ignoring non-vxlan IF for vlan update",
+        }.get(x, f"Unknown netlink interface error {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def parse_frr_zebra_interface_nhg_reinstall(event):
     field_parsers = {
         "location": lambda x: {
@@ -1025,6 +1095,13 @@ def main():
         "frr_zebra:if_dplane_ifp_handling_new": parse_frr_zebra_if_dplane_ifp_handling_new,
         "frr_zebra:if_ip_addr_add_del": parse_frr_zebra_if_ip_addr_add_del,
         "frr_zebra:get_iflink_speed": parse_frr_zebra_get_iflink_speed,
+        "frr_zebra:netlink_macfdb_change": parse_frr_zebra_netlink_macfdb_change,
+        "frr_zebra:netlink_neigh_update_msg_encode": parse_frr_zebra_netlink_neigh_update_msg_encode,
+        "frr_zebra:netlink_nexthop_msg_encode_err": parse_frr_zebra_netlink_nexthop_msg_encode_err,
+        "frr_zebra:netlink_route_multipath_msg_encode": parse_frr_zebra_netlink_route_multipath_msg_encode,
+        "frr_zebra:netlink_vrf_change": parse_frr_zebra_netlink_vrf_change,
+        "frr_zebra:netlink_msg_err": parse_frr_zebra_netlink_msg_err,
+        "frr_zebra:netlink_intf_err": parse_frr_zebra_netlink_intf_err,
         "frr_zebra:zebra_interface_nhg_reinstall": parse_frr_zebra_interface_nhg_reinstall,
         "frr_zebra:zebra_nhg_dplane_result": parse_frr_zebra_zebra_nhg_dplane_result,
         "frr_zebra:zebra_nhg_install_kernel": parse_frr_zebra_nhg_install,
