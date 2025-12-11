@@ -1598,6 +1598,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		/* nothing to install */
 		return;
 
+	if (safi == SAFI_UNICAST && CHECK_FLAG(info->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
+		return;
+
 	/*
 	 * BGP is installing this route and bgp has been configured
 	 * to suppress announcements until the route has been installed
