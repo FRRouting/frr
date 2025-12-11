@@ -962,8 +962,8 @@ static int fe_session_send_edit_reply(struct mgmt_fe_session_ctx *session, uint6
 
 
 int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-				    bool unlock, bool commit, struct mgmt_edit_req **edit,
-				    enum mgmt_result result, const char *errstr)
+				    struct mgmt_edit_req **edit, enum mgmt_result result,
+				    const char *errstr)
 {
 	struct mgmt_fe_session_ctx *session;
 	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
@@ -1118,13 +1118,14 @@ static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 		     session->session_id);
 
 		/* And this is modifying the running */
-		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id, run_ds,
-						false, false, true /* implicit */, false, edit);
+		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id,
+						run_ds, false /*abort*/, false /*validate-only*/,
+						true /*implicit*/, false /*unlock*/, edit);
 		return;
 	}
 reply:
-	mgmt_fe_adapter_send_edit_reply(session->session_id, txn_id, msg->req_id, false, commit,
-					&edit, nb_error_to_mgmt_result(ret), errstr);
+	mgmt_fe_adapter_send_edit_reply(session->session_id, txn_id, msg->req_id, &edit,
+					nb_error_to_mgmt_result(ret), errstr);
 }
 
 /* --------------------- */
@@ -1978,7 +1979,7 @@ static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from)
 			msg_server_conn_create(mgmt_loop, conn_fd, fe_adapter_notify_disconnect,
 					       fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
 					       MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN,
-					       adapter, "FE-adapter");
+					       adapter, "FE-ADAPTER-CONN");
 
 		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL);
 
