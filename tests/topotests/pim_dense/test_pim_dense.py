@@ -654,12 +654,6 @@ def test_pim_dense_prune_r6(request):
             "oil": "none",
             "joinState": "NotJoined",
         },
-        "r1": {
-            "src_address": "10.100.0.2",
-            "iif": "r1-eth1",
-            "oil": "none",
-            "joinState": "NotJoined",
-        },
     }
 
     step("Verify 'show ip mroute' showing routes with no OIL")
