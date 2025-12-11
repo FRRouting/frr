@@ -1881,6 +1881,7 @@ static void interface_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 		zlog_debug("Access VLAN %u for VxLAN IF %s(%u)", bvinfo->vid,
 			   ifp->name, ifp->ifindex);
 
+	frrtrace(2, frr_zebra, if_br_vxlan_upd, ifp, bvinfo->vid);
 	zebra_l2_vxlanif_update_access_vlan(ifp, bvinfo->vid);
 }
 

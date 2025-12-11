@@ -817,6 +817,179 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, netlink_vrf_change, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	if_br_vxlan_upd,
+	TP_ARGS(
+		struct interface *, ifp,
+		vlanid_t, vid),
+	TP_FIELDS(
+		ctf_string(interface_name, ifp->name)
+		ctf_integer(ifindex_t, ifindex, ifp->ifindex)
+		ctf_integer(vlanid_t, access_vlan_id, vid)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, if_br_vxlan_upd, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	vxlan_vni_state_change,
+	TP_ARGS(
+		uint16_t, id,
+		struct zebra_if *, zif,
+		vni_t, vni,
+		uint8_t, state),
+	TP_FIELDS(
+		ctf_integer(int, id, id)
+		ctf_integer(int, vni, vni)
+		ctf_integer(uint8_t, state, state)
+		ctf_string(zif_name, zif->ifp->name)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, vxlan_vni_state_change, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_advertise_gw_macip,
+	TP_ARGS(
+		int, advertise,
+		vni_t, vni,
+		int, curr_advertise_gw_macip),
+	TP_FIELDS(
+		ctf_integer(int, advertise, advertise)
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(int, curr_advertise_gw_macip, curr_advertise_gw_macip)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_advertise_gw_macip, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_handle_vni_transition,
+	TP_ARGS(
+		vni_t, vni,
+		uint8_t, loc),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_handle_vni_transition, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_remote_macip_add,
+	TP_ARGS(
+		const struct ethaddr *, mac,
+		const struct ipaddr *, ip,
+		vni_t, vni,
+		struct ipaddr*, vtep_ip,
+		uint8_t, flags,
+		esi_t *, esi),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, mac, mac, sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, ip, sizeof(struct ipaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip, sizeof(struct ipaddr))
+		ctf_integer(uint8_t, flags, flags)
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_remote_macip_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_remote_macip_del,
+	TP_ARGS(
+		const struct ethaddr *, mac,
+		const struct ipaddr *, ip,
+		vni_t, vni,
+		const struct ipaddr *, vtep_ip,
+		uint16_t, ipa_len),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, mac, mac, sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, ip, sizeof(struct ipaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip, sizeof(struct ipaddr))
+		ctf_integer(int, ip_len, ipa_len)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_remote_macip_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_remote_vtep_add,
+	TP_ARGS(
+		const struct ipaddr *, vtep_ip,
+		vni_t, vni,
+		int, flood_control),
+	TP_FIELDS(
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(int, flood_control, flood_control)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_remote_vtep_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_remote_vtep_del,
+	TP_ARGS(
+		const struct ipaddr *, vtep_ip,
+		vni_t, vni,
+		uint8_t, client_proto),
+	TP_FIELDS(
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint8_t, client_proto, client_proto)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_remote_vtep_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_sg_send,
+	TP_ARGS(const char *, sg_str, uint16_t, cmd),
+	TP_FIELDS(
+		ctf_string(SG, sg_str)
+		ctf_integer(uint16_t, action, cmd)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_sg_send, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_sg_new,
+	TP_ARGS(const char *, sg),
+	TP_FIELDS(
+		ctf_string(new_vxlan_sg_create, sg)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_sg_new, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zebra_vxlan_sg_del,
+	TP_ARGS(const char *, sg),
+	TP_FIELDS(
+		ctf_string(vxlan_sg_del, sg)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_sg_del, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
