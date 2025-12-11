@@ -2735,6 +2735,17 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 			}
 		}
 
+		if (p && frrtrace_enabled(frr_zebra, netlink_route_multipath_msg_encode)) {
+			char buf[MULTIPATH_NUM * (NEXTHOP_STRLEN + 1) + 1] __attribute__((unused));
+			const struct nexthop_group *ctxnhg
+				__attribute__((unused)) = dplane_ctx_get_ng(ctx);
+			const char *nhg_str __attribute__((unused)) =
+				nexthop_group2str(ctxnhg, buf, sizeof(buf));
+
+			frrtrace(4, frr_zebra, netlink_route_multipath_msg_encode, p, cmd,
+				 dplane_ctx_get_nhe_id(ctx), nhg_str);
+		}
+
 		return NLMSG_ALIGN(req->n.nlmsg_len);
 	}
 
@@ -2893,6 +2904,17 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: No useful nexthop.", __func__);
+	}
+
+	if (p && nexthop_num > 0 &&
+	    frrtrace_enabled(frr_zebra, netlink_route_multipath_msg_encode)) {
+		char buf[MULTIPATH_NUM * (NEXTHOP_STRLEN + 1) + 1] __attribute__((unused));
+		const struct nexthop_group *ctxnhg __attribute__((unused)) = dplane_ctx_get_ng(ctx);
+		const char *nhg_str
+			__attribute__((unused)) = nexthop_group2str(ctxnhg, buf, sizeof(buf));
+
+		frrtrace(4, frr_zebra, netlink_route_multipath_msg_encode, p, cmd,
+			 dplane_ctx_get_nhe_id(ctx), nhg_str);
 	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
@@ -3153,6 +3175,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			zlog_debug(
 				"%s: nhg_id %u (%s): kernel nexthops not supported, ignoring",
 				__func__, id, zebra_route_string(type));
+
+		frrtrace(3, frr_zebra, netlink_nexthop_msg_encode_err, id,
+			 zebra_route_string(type), 1);
+
 		return 0;
 	}
 
@@ -3161,6 +3187,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			zlog_debug(
 				"%s: nhg_id %u (%s): proto-based nexthops only, ignoring",
 				__func__, id, zebra_route_string(type));
+
+		frrtrace(3, frr_zebra, netlink_nexthop_msg_encode_err, id,
+			 zebra_route_string(type), 2);
+
 		return 0;
 	}
 
@@ -3354,9 +3384,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 nexthop_done:
 
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: ID (%u): %pNHv(%d) vrf %u %s ",
-					   __func__, id, nh, nh->ifindex,
-					   nh->vrf_id, label_buf);
+				zlog_debug("%s: ID (%u): %pNHv(%d) vrf %u %s ", __func__, id, nh,
+					   nh->ifindex, nh->vrf_id, label_buf);
+
+			if (nh)
+				frrtrace(2, frr_zebra, netlink_nexthop_msg_encode, nh, id);
 		}
 
 		req->nhm.nh_protocol = zebra2proto(type);
@@ -3700,6 +3732,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zlog_debug("Ignore kernel update (%u) for fdb-nh 0x%x",
 					h->nlmsg_type, id);
 		}
+
+		frrtrace(2, frr_zebra, netlink_nexthop_change_err, h->nlmsg_type, id);
+
 		return 0;
 	}
 
@@ -3940,6 +3975,20 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
+	if (frrtrace_enabled(frr_zebra, netlink_neigh_update_msg_encode)) {
+		if (lla && ip) {
+			frrtrace(8, frr_zebra, netlink_neigh_update_msg_encode,
+				 (const struct ethaddr *)lla, ip, nhg_id, flags, state, family,
+				 type, op);
+		} else if (lla) {
+			struct ipaddr tmp_ip __attribute__((unused)) = { .ipa_type = IPADDR_NONE };
+
+			frrtrace(8, frr_zebra, netlink_neigh_update_msg_encode,
+				 (const struct ethaddr *)lla, &tmp_ip, nhg_id, flags, state,
+				 family, type, op);
+		}
+	}
+
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
 		vni_t vni = dplane_ctx_mac_get_vni(ctx);
@@ -4134,6 +4183,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	dplane_ctx_mac_set_vni(ctx, vni);
 	dplane_ctx_mac_set_is_sticky(ctx, sticky);
 	dplane_ctx_set_op(ctx, op);
+	frrtrace(6, frr_zebra, netlink_macfdb_change, h, ndm, nhg_id, vni, &mac, &vtep_ip);
 	dplane_provider_enqueue_to_zebra(ctx);
 	return 0;
 }
@@ -4599,6 +4649,9 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			dplane_ctx_neigh_set_local_inactive(ctx, local_inactive);
 		}
 	}
+
+	if (h && ndm && ifp)
+		frrtrace(5, frr_zebra, netlink_ipneigh_change, h, ndm, ifp, &mac, &ip);
 
 	dplane_provider_enqueue_to_zebra(ctx);
 	return 0;
