@@ -88,6 +88,7 @@ extern void mgmt_txn_init(void);
 extern void mgmt_txn_destroy(void);
 
 extern enum mgmt_result nb_error_to_mgmt_result(enum nb_error error);
+extern int mgmt_result_to_error(enum mgmt_result result);
 
 /* Dump transaction status to vty */
 extern void mgmt_txn_status_write(struct vty *vty);
