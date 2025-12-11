@@ -103,15 +103,13 @@ extern void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
  *     session_id: the session.
  *     txn_id: the txn_id this data pertains to
  *     req_id: the req id for the edit message
- *     unlock: implicit-lock flag was set in the request
- *     commit: implicit-commit flag was set in the request
  *     edit: the edit request info created when processing the edit
  *     error: mgmt result code
  *     errstr: the error string, if error is non-zero
  */
 extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-					   bool unlock, bool commit, struct mgmt_edit_req **edit,
-					   enum mgmt_result error, const char *errstr);
+					   struct mgmt_edit_req **edit, enum mgmt_result error,
+					   const char *errstr);
 
 /**
  * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.

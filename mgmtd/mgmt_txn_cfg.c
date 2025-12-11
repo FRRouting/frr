@@ -564,11 +564,8 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 						    result, error_if_any);
 	} else {
 		/* Session code will release it's reference on the TXN */
-		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
-						      txn_req->req_id, ccreq->unlock_info,
-						      true /* commit */, &ccreq->edit,
-						      success ? 0 : MGMTD_INTERNAL_ERROR,
-						      error_if_any);
+		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, txn_req->req_id,
+						      &ccreq->edit, result, error_if_any);
 	}
 	if (ret)
 		_log_err("Failed sending config reply for txn-id: %Lu session-id: %Lu",
