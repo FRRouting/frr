@@ -38,7 +38,13 @@ static inline int csv_safe_snprintf(char *buf, int size, const char *fmt, ...)
 		return 0;
 
 	va_start(args, fmt);
+	/* Suppress format-nonliteral warning: This is a legitimate wrapper
+	 * function where fmt is passed from callers who use literal strings
+	 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	ret = vsnprintf(buf, size, fmt, args);
+#pragma GCC diagnostic pop
 	va_end(args);
 
 	return MIN(ret, size - 1);
