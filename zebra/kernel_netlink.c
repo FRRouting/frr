@@ -41,6 +41,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/zebra_trace.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -733,6 +734,7 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
+		frrtrace(2, frr_zebra, netlink_send_msg, nl, msg);
 #ifdef NETLINK_DEBUG
 		nl_dump(buf, buflen);
 #else

@@ -27,6 +27,15 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
 
+#ifdef HAVE_NETLINK
+#include "zebra/rt_netlink.h"
+#include <linux/netlink.h>
+#include <linux/neighbour.h>
+#endif /* HAVE_NETLINK */
+
+#define INTF_INVALID_INDEX 4294967295
+#define INTF_INVALID_NAME  "not-found"
+
 /* clang-format off */
 
 TRACEPOINT_EVENT(
@@ -644,6 +653,169 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_zebra, srv6_manager_release_sid_internal, TRACE_INFO)
+
+#ifdef HAVE_NETLINK
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_macfdb_change,
+	TP_ARGS(
+		struct nlmsghdr *, h,
+		struct ndmsg *, ndm,
+		uint32_t, nhg_id,
+		vni_t, vni,
+		const struct ethaddr *, mac,
+		const struct ipaddr *, vtep_ip),
+	TP_FIELDS(
+		ctf_string(nl_msg_type, nlmsg_type2str(h->nlmsg_type) ?
+			   nlmsg_type2str(h->nlmsg_type) : "(Invalid Msg Type)")
+		ctf_integer(unsigned int, ndm_ifindex, ndm->ndm_ifindex)
+		ctf_integer(int, ndm_state, ndm->ndm_state)
+		ctf_integer(uint32_t, ndm_flags, ndm->ndm_flags)
+		ctf_integer(uint32_t, nhg, nhg_id)
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, mac, mac, sizeof(struct ethaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip, sizeof(struct ipaddr))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_macfdb_change, TRACE_INFO)
+
+#endif /* HAVE_NETLINK */
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_intf_err,
+	TP_ARGS(const char *, ifname, ifindex_t, ifindex, uint8_t, location),
+	TP_FIELDS(
+		ctf_string(ifname, ifname)
+		ctf_integer(ifindex_t, ifindex, ifindex)
+		ctf_integer(uint8_t, location, location)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_intf_err, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_neigh_update_msg_encode,
+	TP_ARGS(
+		const struct ethaddr *, mac,
+		const struct ipaddr *, ip,
+		uint32_t, nhg_id,
+		uint8_t, flags,
+		uint16_t, state,
+		uint8_t, family,
+		uint8_t, type,
+		uint32_t, op),
+	TP_FIELDS(
+		ctf_array(unsigned char, mac, mac, sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, ip, sizeof(struct ipaddr))
+		ctf_integer(uint32_t, nhg, nhg_id)
+		ctf_integer(uint8_t, flags, flags)
+		ctf_integer(uint16_t, state, state)
+		ctf_integer(uint8_t, family, family)
+		ctf_integer(uint8_t, type, type)
+		ctf_integer(uint32_t, op, op)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_neigh_update_msg_encode, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_nexthop_change_err,
+	TP_ARGS(uint16_t, nlmsg_type, uint32_t, nhg_id),
+	TP_FIELDS(
+		ctf_integer(uint16_t, nlmsg_type, nlmsg_type)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_nexthop_change_err, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_nexthop_msg_encode,
+	TP_ARGS(const struct nexthop *, nh, uint32_t, nhg_id),
+	TP_FIELDS(
+		ctf_integer(uint32_t, nh_index, nh->ifindex)
+		ctf_integer(uint32_t, nh_vrfid, nh->vrf_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_nexthop_msg_encode, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_nexthop_msg_encode_err,
+	TP_ARGS(uint32_t, nhg_id, const char *, zroute_type, uint8_t, location),
+	TP_FIELDS(
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_string(zroute_type, zroute_type)
+		ctf_integer(uint8_t, location, location)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_nexthop_msg_encode_err, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_msg_err,
+	TP_ARGS(const char *, msg_type, uint32_t, data, uint8_t, location),
+	TP_FIELDS(
+		ctf_string(msg_type, msg_type)
+		ctf_integer(uint32_t, data, data)
+		ctf_integer(uint8_t, location, location)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_msg_err, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_send_msg,
+	TP_ARGS(const struct nlsock *, nl, struct msghdr, msg),
+	TP_FIELDS(
+		ctf_string(nl_name, nl->name)
+		ctf_integer(uint32_t, msg_len, msg.msg_namelen)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_send_msg, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_route_multipath_msg_encode,
+	TP_ARGS(
+		const struct prefix *, p,
+		int, cmd,
+		uint32_t, nhg_id,
+		const char *, nexthop),
+	TP_FIELDS(
+		ctf_string(family, (p->family == AF_INET) ? "AF_INET" : "AF_INET6")
+		ctf_array(unsigned char, pfx, p, sizeof(struct prefix))
+		ctf_integer(unsigned int, pfxlen, p->prefixlen)
+		ctf_integer(uint8_t, cmd, cmd)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_string(nexthops, nexthop)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_route_multipath_msg_encode, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_vrf_change,
+	TP_ARGS(const char *, name, uint8_t, location),
+	TP_FIELDS(
+		ctf_string(name, name)
+		ctf_integer(uint8_t, location, location)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, netlink_vrf_change, TRACE_INFO)
 
 /* clang-format on */
 

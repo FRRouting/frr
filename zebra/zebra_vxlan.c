@@ -41,6 +41,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -6326,6 +6327,8 @@ static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
 			zlog_debug("Cannot find VNI for VID (%u) IF %s for vlan state update",
 				   id, zif->ifp->name);
 
+		frrtrace(3, frr_zebra, netlink_intf_err, zif->ifp->name, zif->ifp->ifindex, 3);
+
 		return;
 	}
 
@@ -6373,6 +6376,9 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 	if (!ifp) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update", ifindex);
+
+		frrtrace(3, frr_zebra, netlink_intf_err, INTF_INVALID_NAME, INTF_INVALID_INDEX, 4);
+
 		return;
 	}
 
@@ -6380,6 +6386,8 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
 				   ifp->name);
+
+		frrtrace(3, frr_zebra, netlink_intf_err, ifp->name, ifp->ifindex, 5);
 
 		return;
 	}
