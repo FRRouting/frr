@@ -20,11 +20,14 @@
 #include "northbound_cli.h"
 #include "northbound_db.h"
 #include "frrstr.h"
+#include "wheel.h"
+#include "vty.h"
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry");
 
+#define SUBSCRIPTION_SAMPLE_TIMER 10000
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
 
@@ -2501,14 +2504,175 @@ uint32_t nb_get_sample_time(void)
 	return 0;
 }
 
-void nb_cache_subscriptions(struct event_loop *master __attribute__((unused)),
-			    const char *xpath, const char *action,
-			    uint32_t interval)
+/* Create hash key for xpath. */
+static unsigned int nb_xpath_hash_key_make(const void *value)
 {
-	/* Stub: subscription cache management to be implemented in follow-up PR */
+	return string_hash_make(value);
+}
+
+unsigned int nb_xpath_hash_key(const char *str)
+{
+	return string_hash_make(str);
+}
+
+static bool nb_xpath_hash_entry_cmp(const void *value1, const void *value2)
+{
+	const struct subscr_cache_entry *c1 = value1;
+	const struct subscr_cache_entry *c2 = value2;
+
+	return strmatch(c1->xpath, c2->xpath);
+}
+
+/* Allocate a new hash entry to save xpath. */
+static void *subsc_cache_entry_alloc(void *p)
+{
+	struct subscr_cache_entry *new, *key = p;
+
+	new = XCALLOC(MTYPE_NB_CONFIG_ENTRY, sizeof(*new));
+	strlcpy(new->xpath, key->xpath, sizeof(new->xpath));
+	return new;
+}
+
+/* Free a subscription cache entry. */
+static void subsc_cache_entry_free(void *p)
+{
+	XFREE(MTYPE_NB_CONFIG_ENTRY, p);
+}
+
+/* Walk the current subscriptions in the cache. */
+static int hash_walk_dump(struct hash_bucket *bucket, void *arg)
+{
+	struct subscr_cache_entry *entry = bucket->data;
+
+	DEBUGD(&nb_dbg_events, "Notifying xpath %s", entry->xpath);
+	nb_notification_send(entry->xpath, NULL);
+	return NB_OK;
+}
+
+/* Send notification of the xpaths. */
+int nb_notify_subscriptions(void)
+{
+	if (!nb_current_subcr_cache || !nb_current_subcr_cache->timer_wheel)
+		return NB_OK;
+
+	/* Increment the sample time by timer wheel period. */
+	nb_current_subcr_cache->sample_time +=
+		(nb_current_subcr_cache->timer_wheel->period / 1000);
+
+	DEBUGD(&nb_dbg_events, "Sample time set to %u",
+	       nb_current_subcr_cache->sample_time);
+
+	/* Walk the subscription cache. */
+	hash_walk(nb_current_subcr_cache->subscr_cache_entries, hash_walk_dump,
+		  NULL);
+	return NB_OK;
+}
+
+static int show_subscriptions(struct hash_bucket *bucket, void *arg)
+{
+	struct subscr_cache_entry *entry = bucket->data;
+	struct vty *vtyp = (struct vty *)arg;
+
+	vty_out(vtyp, "%s\n", entry->xpath);
+	return 0;
+}
+
+void nb_show_subscription_cache(struct vty *vty)
+{
+	vty_out(vty, "Subscription Cache:\n");
+	if (nb_current_subcr_cache &&
+	    nb_current_subcr_cache->subscr_cache_entries) {
+		/* Walk the subscription cache. */
+		hash_walk(nb_current_subcr_cache->subscr_cache_entries,
+			  show_subscriptions, vty);
+	}
+}
+
+/* Initialize or reset the timer wheel for subscriptions. */
+static void nb_wheel_init_or_reset(struct event_loop *master, const char *xpath,
+				   uint32_t interval)
+{
+	int sampletime;
+	char *xpath_copy;
+
+	if (!master)
+		return;
+
+	if (!nb_current_subcr_cache)
+		return;
+
+	/* Convert interval to milliseconds, use default if not specified. */
+	sampletime = interval ? interval * 1000 : SUBSCRIPTION_SAMPLE_TIMER;
+
+	DEBUGD(&nb_dbg_events, "Wheel sample %d", sampletime);
+
+	if (nb_current_subcr_cache->timer_wheel) {
+		if ((uint32_t)sampletime !=
+		    nb_current_subcr_cache->timer_wheel->period) {
+			/* Timer is running and interval changed, stop wheel. */
+			wheel_delete(nb_current_subcr_cache->timer_wheel);
+		} else {
+			/* Timer is running, nothing has changed. */
+			return;
+		}
+	}
+
+	DEBUGD(&nb_dbg_events, "Initing the timer wheel");
+	nb_current_subcr_cache->timer_wheel =
+		wheel_init(master, sampletime, 1, nb_xpath_hash_key_make,
+			   (void *)nb_notify_subscriptions, "subscription thread");
+	xpath_copy = XCALLOC(MTYPE_NB_CONFIG_ENTRY, XPATH_MAXLEN);
+	wheel_add_item(nb_current_subcr_cache->timer_wheel, (void *)xpath_copy);
+}
+
+/* Add or delete subscriptions of xpath to the cache. */
+void nb_cache_subscriptions(struct event_loop *master, const char *xpath,
+			    const char *action, uint32_t interval)
+{
+	struct subscr_cache_entry *cache, s;
+
+	if (!nb_current_subcr_cache)
+		return;
+
 	DEBUGD(&nb_dbg_events,
-	       "Subscription registered: xpath=%s action=%s interval=%u",
-	       xpath, action, interval);
+	       "Subscription for xpath %s, action %s, interval %u", xpath,
+	       action, interval);
+
+	strlcpy(s.xpath, xpath, sizeof(s.xpath));
+
+	if (strcmp(action, "add") == 0 || strcmp(action, "Add") == 0) {
+		cache = hash_get(nb_current_subcr_cache->subscr_cache_entries,
+				 &s, subsc_cache_entry_alloc);
+		(void)cache; /* Suppress unused warning. */
+
+		/* Start timer wheel for sampling subscriptions. */
+		nb_wheel_init_or_reset(master, xpath, interval);
+	} else if (strcmp(action, "delete") == 0 || strcmp(action, "Del") == 0) {
+		/* Delete the subscription xpath from the cache. */
+		cache = hash_lookup(nb_current_subcr_cache->subscr_cache_entries,
+				    &s);
+		if (cache) {
+			hash_release(nb_current_subcr_cache->subscr_cache_entries,
+				     cache);
+			XFREE(MTYPE_NB_CONFIG_ENTRY, cache);
+		}
+
+		if (hashcount(nb_current_subcr_cache->subscr_cache_entries) ==
+			    0 &&
+		    nb_current_subcr_cache->timer_wheel) {
+			DEBUGD(&nb_dbg_events, "Deleting timer wheel");
+			wheel_delete(nb_current_subcr_cache->timer_wheel);
+			nb_current_subcr_cache->timer_wheel = NULL;
+			nb_current_subcr_cache->sample_time = 0;
+			return;
+		}
+	} else {
+		/* Update: reinit timer with new interval. */
+		nb_wheel_init_or_reset(master, xpath, interval);
+	}
+
+	/* Send notification of the current subscriptions. */
+	nb_notify_subscriptions();
 }
 
 /* Running configuration user pointers management. */
@@ -2876,6 +3040,13 @@ void nb_init(struct event_loop *tm,
 					     "Running Configuration Entries");
 	pthread_mutex_init(&running_config_mgmt_lock.mtx, NULL);
 
+	/* Allocate subscription cache for notification streaming. */
+	nb_current_subcr_cache =
+		XCALLOC(MTYPE_NB_CONFIG, sizeof(struct nb_subscription_cache));
+	nb_current_subcr_cache->subscr_cache_entries =
+		hash_create(nb_xpath_hash_key_make, nb_xpath_hash_entry_cmp,
+			    "Subscription Cache Entries");
+
 	/* Initialize the northbound CLI. */
 	nb_cli_init(tm);
 
@@ -2902,4 +3073,15 @@ void nb_terminate(void)
 	hash_clean_and_free(&running_config_entries, running_config_entry_free);
 	nb_config_free(running_config);
 	pthread_mutex_destroy(&running_config_mgmt_lock.mtx);
+
+	/* Clean up subscription cache. */
+	if (nb_current_subcr_cache) {
+		if (nb_current_subcr_cache->timer_wheel)
+			wheel_delete(nb_current_subcr_cache->timer_wheel);
+		if (nb_current_subcr_cache->subscr_cache_entries)
+			hash_clean_and_free(
+				&nb_current_subcr_cache->subscr_cache_entries,
+				subsc_cache_entry_free);
+		XFREE(MTYPE_NB_CONFIG, nb_current_subcr_cache);
+	}
 }

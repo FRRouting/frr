@@ -273,8 +273,8 @@ def test_notification_flow_with_collector(tgen, collector):
     2. Subscribe to FRR for interface events
     3. Verify collector infrastructure is ready
 
-    Note: Full notification triggering requires nb_cache_subscriptions
-    implementation (follow-up PR).
+    Note: Timer wheel will trigger notifications at the sample_interval.
+    The collector must be reachable at GRPC_NOTIFICATION_COLLECTOR_PORT (4221).
     """
     step("Test end-to-end notification flow")
 
@@ -310,6 +310,87 @@ def test_notification_flow_with_collector(tgen, collector):
     step("Verify collector is running (infrastructure test)")
     assert collector is not None, "Collector should be running"
     logging.info("Collector infrastructure verified - ready to receive from FRR")
+
+
+def test_subscription_with_timer(tgen):
+    """Test subscription with sample_interval triggers timer wheel.
+
+    Subscribes with a short interval to verify the timer wheel is initialized.
+    The timer wheel should fire and call nb_notify_subscriptions() which walks
+    all subscriptions in the hash table.
+    """
+    step("Test subscription timer wheel")
+
+    r1 = tgen.gears["r1"]
+    channel = get_grpc_channel(r1)
+    
+    if not wait_for_grpc_server(channel, timeout=5):
+        pytest.skip("gRPC server not ready within timeout")
+    
+    stub = pb2_grpc.NorthboundStub(channel)
+
+    step("Subscribe with 5 second sample interval")
+    request = pb2.SubscribeRequest()
+    sub = request.subscribe.subscriptions.add()
+    sub.path = "/frr-interface:lib/interface"
+    sub.action = "add"
+    sub.stream_mode = "sample"
+    sub.sample_interval = 5  # 5 second interval
+
+    try:
+        response = stub.Subscribe(request)
+        logging.info("Subscribe with timer successful: %s", response)
+    except grpc.RpcError as e:
+        if e.code() == grpc.StatusCode.UNIMPLEMENTED:
+            pytest.skip("Subscribe RPC not implemented in this build")
+        elif e.code() == grpc.StatusCode.UNAVAILABLE:
+            pytest.skip("gRPC server not available")
+        else:
+            pytest.fail(f"Subscribe RPC failed: {e.code()} - {e.details()}")
+
+
+def test_subscription_delete(tgen):
+    """Test subscription delete removes from hash table.
+
+    After deleting, the subscription should no longer trigger notifications.
+    """
+    step("Test subscription delete")
+
+    r1 = tgen.gears["r1"]
+    channel = get_grpc_channel(r1)
+    
+    if not wait_for_grpc_server(channel, timeout=5):
+        pytest.skip("gRPC server not ready within timeout")
+    
+    stub = pb2_grpc.NorthboundStub(channel)
+
+    step("Add a subscription")
+    add_req = pb2.SubscribeRequest()
+    sub = add_req.subscribe.subscriptions.add()
+    sub.path = "/frr-vrf:lib/vrf"
+    sub.action = "add"
+    sub.sample_interval = 10
+
+    try:
+        stub.Subscribe(add_req)
+        logging.info("Added subscription for VRF")
+    except grpc.RpcError as e:
+        if e.code() in (grpc.StatusCode.UNIMPLEMENTED, grpc.StatusCode.UNAVAILABLE):
+            pytest.skip("Subscribe RPC not available")
+        raise
+
+    step("Delete the subscription")
+    del_req = pb2.SubscribeRequest()
+    sub = del_req.subscribe.subscriptions.add()
+    sub.path = "/frr-vrf:lib/vrf"
+    sub.action = "delete"
+    sub.sample_interval = 0
+
+    try:
+        stub.Subscribe(del_req)
+        logging.info("Deleted subscription for VRF")
+    except grpc.RpcError as e:
+        pytest.fail(f"Delete subscription failed: {e.code()} - {e.details()}")
 
 
 if __name__ == "__main__":

@@ -55,16 +55,35 @@ struct nb_yang_xpath {
 		 ? &(_xpath)->tags[(_indx1)].keys[(_indx2)]                                        \
 		 : NULL)
 
-/* Subscription cache entry for notification streaming. */
+/* Subscription cache entry for hash table. */
+struct subscr_cache_entry {
+	char xpath[XPATH_MAXLEN];
+};
+
+/* Subscription cache for notification streaming. */
 struct nb_subscription_cache {
-	char *xpath;
-	uint32_t interval;
+	/* Timer wheel for periodic subscription notification. */
+	struct timer_wheel *timer_wheel;
+	/* Hash table of subscription cache entries. */
+	struct hash *subscr_cache_entries;
+	/* Cache requested on re-init. */
+	bool init_cache_requested;
+	/* Sample time (incremented each timer wheel period). */
 	uint32_t sample_time;
-	struct event *timer;
 };
 
 /* Current subscription cache state. */
 extern struct nb_subscription_cache *nb_current_subcr_cache;
+
+/* Create a hash key for an xpath. */
+extern unsigned int nb_xpath_hash_key(const char *str);
+
+/* Notify all current subscriptions. */
+extern int nb_notify_subscriptions(void);
+
+/* Show subscription cache via VTY. */
+struct vty;
+extern void nb_show_subscription_cache(struct vty *vty);
 
 /* Northbound events. */
 enum nb_event {
