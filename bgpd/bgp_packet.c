@@ -4077,10 +4077,9 @@ void bgp_process_packet(struct event *event)
 						  memory_order_relaxed);
 			mprc = bgp_open_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_PKT_OPEN,
-					"%s: BGP OPEN receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_PKT_OPEN,
+					 "%s: BGP OPEN receipt failed for peer: %s(%s)", __func__,
+					 peer->host, bgp_peer_get_connection_direction(connection));
 			break;
 		case BGP_MSG_UPDATE:
 			frrtrace(2, frr_bgp, update_process, peer, size);
@@ -4089,10 +4088,10 @@ void bgp_process_packet(struct event *event)
 			peer->readtime = monotime(NULL);
 			mprc = bgp_update_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_UPDATE_RCV,
-					"%s: BGP UPDATE receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_UPDATE_RCV,
+					 "%s: BGP UPDATE receipt failed for peer: %s(%s)",
+					 __func__, peer->host,
+					 bgp_peer_get_connection_direction(connection));
 			break;
 		case BGP_MSG_NOTIFY:
 			frrtrace(2, frr_bgp, notification_process, peer, size);
@@ -4100,10 +4099,10 @@ void bgp_process_packet(struct event *event)
 						  memory_order_relaxed);
 			mprc = bgp_notify_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_NOTIFY_RCV,
-					"%s: BGP NOTIFY receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_NOTIFY_RCV,
+					 "%s: BGP NOTIFY receipt failed for peer: %s(%s)",
+					 __func__, peer->host,
+					 bgp_peer_get_connection_direction(connection));
 			break;
 		case BGP_MSG_KEEPALIVE:
 			frrtrace(2, frr_bgp, keepalive_process, peer, size);
@@ -4112,10 +4111,10 @@ void bgp_process_packet(struct event *event)
 						  memory_order_relaxed);
 			mprc = bgp_keepalive_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_KEEP_RCV,
-					"%s: BGP KEEPALIVE receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_KEEP_RCV,
+					 "%s: BGP KEEPALIVE receipt failed for peer: %s(%s)",
+					 __func__, peer->host,
+					 bgp_peer_get_connection_direction(connection));
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
 		case BGP_MSG_ROUTE_REFRESH_OLD:
@@ -4124,10 +4123,10 @@ void bgp_process_packet(struct event *event)
 						  memory_order_relaxed);
 			mprc = bgp_route_refresh_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_RFSH_RCV,
-					"%s: BGP ROUTEREFRESH receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_RFSH_RCV,
+					 "%s: BGP ROUTEREFRESH receipt failed for peer: %s(%s)",
+					 __func__, peer->host,
+					 bgp_peer_get_connection_direction(connection));
 			break;
 		case BGP_MSG_CAPABILITY:
 			frrtrace(2, frr_bgp, capability_process, peer, size);
@@ -4135,10 +4134,10 @@ void bgp_process_packet(struct event *event)
 						  memory_order_relaxed);
 			mprc = bgp_capability_receive(connection, peer, size);
 			if (mprc == BGP_Stop)
-				flog_err(
-					EC_BGP_CAP_RCV,
-					"%s: BGP CAPABILITY receipt failed for peer: %s",
-					__func__, peer->host);
+				flog_err(EC_BGP_CAP_RCV,
+					 "%s: BGP CAPABILITY receipt failed for peer: %s(%s)",
+					 __func__, peer->host,
+					 bgp_peer_get_connection_direction(connection));
 			break;
 		default:
 			/* Suppress uninitialized variable warning */
