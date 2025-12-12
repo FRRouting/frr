@@ -849,6 +849,12 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	vty = vl_config->vty;
 	area_id = vl_config->area_id;
 
+	if (!CHECK_FLAG(ospf->flags, OSPF_FLAG_ABR)) {
+		vty_out(vty,
+			"Configuring VLs on non-ABRs is not allowed\n");
+		return NULL;
+	}
+
 	if (area_id.s_addr == OSPF_AREA_BACKBONE) {
 		vty_out(vty,
 			"Configuring VLs over the backbone is not allowed\n");
