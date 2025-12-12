@@ -82,6 +82,108 @@ def print_esi(field_val):
     return ":".join("%02x" % fb for fb in field_val)
 
 
+def print_prefix_addr(field_val):
+    """
+    pretty print "struct prefix"
+    """
+    if field_val[0] == socket.AF_INET:
+        addr = [str(fv) for fv in field_val[8:12]]
+        return str(ipaddress.IPv4Address(".".join(addr)))
+
+    if field_val[0] == socket.AF_INET6:
+        tmp = "".join("%02x" % fb for fb in field_val[8:24])
+        addr = []
+        while tmp:
+            addr.append(tmp[:4])
+            tmp = tmp[4:]
+        addr = ":".join(addr)
+        return str(ipaddress.IPv6Address(addr))
+
+    if not field_val[0]:
+        return ""
+
+    return str(field_val)
+
+
+def print_afi_string(field_val):
+    if field_val == 0:
+        return "UNSPEC"
+    elif field_val == 1:
+        return "IPV4"
+    elif field_val == 2:
+        return "IPV6"
+    elif field_val == 3:
+        return "L2VPN"
+    elif field_val == 4:
+        return "MAX"
+    return f"UNKNOWN({field_val})"
+
+
+def print_safi_string(field_val):
+    if field_val == 0:
+        return "UNSPEC"
+    elif field_val == 1:
+        return "UNICAST"
+    elif field_val == 2:
+        return "MULTICAST"
+    elif field_val == 3:
+        return "MPLS_VPN"
+    elif field_val == 4:
+        return "ENCAP"
+    elif field_val == 5:
+        return "EVPN"
+    elif field_val == 6:
+        return "LABELED_UNICAST"
+    elif field_val == 7:
+        return "FLOWSPEC"
+    return f"UNKNOWN({field_val})"
+
+
+def zapi_route_note_to_string(note_val):
+    notes = {
+        1: "ROUTE_INSTALLED",
+        2: "ROUTE_REMOVED",
+        3: "ROUTE_CHANGED",
+        4: "ROUTE_ADDED",
+        5: "ROUTE_DELETED",
+    }
+    return notes.get(note_val, f"UNKNOWN({note_val})")
+
+
+def parse_bgp_dest_flags(flags_val):
+    flags = int(flags_val)
+    flag_strings = []
+
+    # BGP destination flags with minimal naming
+    if flags & 0x00000001:  # BGP_NODE_SCHEDULE_FOR_INSTALL
+        flag_strings.append("install")
+    if flags & 0x00000002:  # BGP_NODE_SCHEDULE_FOR_DELETE
+        flag_strings.append("delete")
+    if flags & 0x00000004:  # BGP_NODE_SCHEDULE_FOR_UPDATE
+        flag_strings.append("update")
+    if flags & 0x00000008:  # BGP_NODE_SCHEDULE_FOR_ANNOUNCEMENT
+        flag_strings.append("announce")
+    if flags & 0x00000010:  # BGP_NODE_SCHEDULE_FOR_WITHDRAWAL
+        flag_strings.append("withdraw")
+    if flags & 0x00000020:  # BGP_NODE_SCHEDULE_FOR_IMPORT
+        flag_strings.append("import")
+    if flags & 0x00000040:  # BGP_NODE_SCHEDULE_FOR_EXPORT
+        flag_strings.append("export")
+    if flags & 0x00000080:  # BGP_NODE_SCHEDULE_FOR_AGGREGATION
+        flag_strings.append("aggregate")
+    if flags & 0x00000100:  # BGP_NODE_SCHEDULE_FOR_ORIGINATION
+        flag_strings.append("originate")
+    if flags & 0x00000200:  # BGP_NODE_SCHEDULE_FOR_ANNOUNCEMENT_TO_ZEBRA
+        flag_strings.append("zebra_announce")
+    if flags & 0x00000400:  # BGP_NODE_SCHEDULE_FOR_WITHDRAWAL_FROM_ZEBRA
+        flag_strings.append("zebra_withdraw")
+
+    if not flag_strings:
+        return "none"
+
+    return " | ".join(flag_strings)
+
+
 def get_field_list(event):
     """
     only fetch fields added via the TP, skip metadata etc.
@@ -135,10 +237,11 @@ def parse_frr_bgp_evpn_mac_ip_zsend(event):
             sizeof(struct ethaddr))
     ctf_array(unsigned char, ip, &pfx->prefix.macip_addr.ip,
             sizeof(struct ipaddr))
-    ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+    ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
     ctf_array(unsigned char, esi, esi, sizeof(esi_t))
     """
     field_parsers = {
+        "action": lambda x: "add" if x else "del",
         "ip": print_ip_addr,
         "mac": print_mac,
         "esi": print_esi,
@@ -155,7 +258,10 @@ def parse_frr_bgp_evpn_bum_vtep_zsend(event):
             pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
 
     """
-    field_parsers = {"vtep": print_net_ipv4_addr}
+    field_parsers = {
+        "action": lambda x: "add" if x else "del",
+        "vtep": print_net_ipv4_addr,
+    }
 
     parse_event(event, field_parsers)
 
@@ -165,7 +271,10 @@ def parse_frr_bgp_evpn_mh_nh_rmac_send(event):
     bgp evpn nh-rmac parser; raw format -
     ctf_array(unsigned char, rmac, &nh->rmac, sizeof(struct ethaddr))
     """
-    field_parsers = {"rmac": print_mac}
+    field_parsers = {
+        "action": lambda x: "add" if x else "del",
+        "rmac": print_mac,
+    }
 
     parse_event(event, field_parsers)
 
@@ -251,6 +360,32 @@ def parse_frr_bgp_evpn_mh_local_ead_es_evi_route_del(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_evpn_mh_vtep_zsend(event):
+    """
+    bgp evpn mh vtep parser; raw format -
+    ctf_string(esi, es->esi_str)
+    ctf_string(vtep, es_vtep->vtep_str)
+    """
+    field_parsers = {
+        "action": lambda x: "add" if x else "del",
+    }
+
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_evpn_mh_nhg_zsend(event):
+    """
+    bgp evpn mh nhg parser; raw format -
+    ctf_string(esi, es_vrf->es->esi_str)
+    """
+    field_parsers = {
+        "action": lambda x: "add" if x else "del",
+        "type": lambda x: "v4" if x else "v6",
+    }
+
+    parse_event(event, field_parsers)
+
+
 def parse_frr_bgp_evpn_local_vni_add_zrecv(event):
     """
     bgp evpn local-vni parser; raw format -
@@ -273,6 +408,7 @@ def parse_frr_bgp_evpn_local_l3vni_add_zrecv(event):
         "vtep": print_ip_addr,
         "svi_rmac": print_mac,
         "vrr_rmac": print_mac,
+        "anycast_mac": lambda x: "y" if x else "n",
     }
 
     parse_event(event, field_parsers)
@@ -409,6 +545,166 @@ def parse_frr_bgp_fsm_event(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_bgp_err_str(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "failed in bgp_accept",
+            2: "failed in bgp_connect",
+        }.get(x, f"Unknown BGP error string location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv(event):
+    field_parsers = {"prefix": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_vxlan_flood_control(event):
+    field_parsers = {
+        "flood_enabled": lambda x: "Flooding Enabled" if x else "Flooding Disabled"
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_route_notify_owner(event):
+    field_parsers = {
+        "route_status": zapi_route_note_to_string,
+        "dest_flags": parse_bgp_dest_flags,
+        "prefix": print_prefix_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_evpn_advertise_type(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Subnet advertisement",
+            2: "SVI MAC-IP advertisement",
+            3: "Gateway MAC-IP advertisement",
+            4: "All VNI advertisement",
+        }.get(x, f"Unknown BGP zebra EVPN advertise location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_zebra_radv_operation(event):
+    field_parsers = {
+        "location": lambda x: {1: "Initiating", 2: "Terminating"}.get(
+            x, f"Unknown BGP zebra RADV operation location {x}"
+        )
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ifp_oper(event):
+    field_parsers = {
+        "location": lambda x: {1: "Intf UP", 2: "Intf DOWN"}.get(
+            x, f"Unknown BGP IFP operation location {x}"
+        )
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_bgp_redistribute_zrecv(event):
+    field_parsers = {"prefix": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_interface_addr_oper_zrecv(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Rx Intf address Add",
+            2: "Rx Intf address Delete",
+            3: "Rx Intf Neighbor Add",
+            4: "Rx Intf Neighbor Delete",
+        }.get(x, f"Unknown interface operation zrecv location {x}"),
+        "address": print_prefix_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_router_id_update_zrecv(event):
+    field_parsers = {"router_id": print_prefix_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_bgp_aggregate_install(event):
+    field_parsers = {
+        "prefix": print_prefix_addr,
+        "afi": print_afi_string,
+        "safi": print_safi_string,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_create_delete(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group create",
+            2: "BGP update-group delete",
+        }.get(x, f"Unknown UG create/delete operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_subgroup_create_delete(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group subgroup create",
+            2: "BGP update-group subgroup delete",
+        }.get(x, f"Unknown UG subgroup create/delete operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_ug_subgroup_add_remove_peer(event):
+    field_parsers = {
+        "operation": lambda x: {
+            1: "BGP update-group subgroup add peer",
+            2: "BGP update-group subgroup remove peer",
+        }.get(x, f"Unknown UG subgroup add/remove peer operation {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_upd_rmac_is_self_mac(event):
+    field_parsers = {"rmac": print_mac}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_attr_type_unsupported(event):
+    field_parsers = {
+        "attr": lambda x: {
+            1: "SRv6 sub sub TLV",
+            2: "SRv6 sub TLV",
+            3: "Prefix SID",
+        }.get(x, f"Unknown attribute type {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_update_prefix_filter(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Originator-id same as remote router id",
+            2: "Filtered via ORF",
+            3: "Output Filter",
+        }.get(x, f"Unknown prefix filter reason {x}")
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_upd_mp_unrecognized_afi_safi(event):
+    field_parsers = {
+        "loc": lambda x: {
+            1: "MP_REACH_NLRI",
+            2: "MP_UNREACH_NLRI",
+        }.get(x, f"Unknown location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -416,6 +712,8 @@ def main():
     event_parsers = {
         "frr_bgp:evpn_mac_ip_zsend": parse_frr_bgp_evpn_mac_ip_zsend,
         "frr_bgp:evpn_bum_vtep_zsend": parse_frr_bgp_evpn_bum_vtep_zsend,
+        "frr_bgp:evpn_mh_vtep_zsend": parse_frr_bgp_evpn_mh_vtep_zsend,
+        "frr_bgp:evpn_mh_nhg_zsend": parse_frr_bgp_evpn_mh_nhg_zsend,
         "frr_bgp:evpn_mh_nh_rmac_zsend": parse_frr_bgp_evpn_mh_nh_rmac_send,
         "frr_bgp:evpn_mh_local_es_add_zrecv": parse_frr_bgp_evpn_mh_local_es_add_zrecv,
         "frr_bgp:evpn_mh_local_es_del_zrecv": parse_frr_bgp_evpn_mh_local_es_del_zrecv,
@@ -434,6 +732,25 @@ def main():
         "frr_bgp:session_state_change": parse_frr_bgp_session_state_change,
         "frr_bgp:connection_attempt": parse_frr_bgp_connection_attempt,
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
+        "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
+        "frr_bgp:bgp_zebra_process_local_ip_prefix_zrecv": parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv,
+        "frr_bgp:bgp_zebra_vxlan_flood_control": parse_frr_bgp_bgp_zebra_vxlan_flood_control,
+        "frr_bgp:bgp_zebra_route_notify_owner": parse_frr_bgp_bgp_zebra_route_notify_owner,
+        "frr_bgp:bgp_zebra_evpn_advertise_type": parse_frr_bgp_bgp_zebra_evpn_advertise_type,
+        "frr_bgp:bgp_zebra_radv_operation": parse_frr_bgp_bgp_zebra_radv_operation,
+        "frr_bgp:bgp_ifp_oper": parse_frr_bgp_ifp_oper,
+        "frr_bgp:bgp_redistribute_add_zrecv": parse_bgp_redistribute_zrecv,
+        "frr_bgp:bgp_redistribute_delete_zrecv": parse_bgp_redistribute_zrecv,
+        "frr_bgp:interface_address_oper_zrecv": parse_frr_interface_addr_oper_zrecv,
+        "frr_bgp:router_id_update_zrecv": parse_frr_bgp_router_id_update_zrecv,
+        "frr_bgp:ug_bgp_aggregate_install": parse_frr_bgp_ug_bgp_aggregate_install,
+        "frr_bgp:ug_create_delete": parse_frr_bgp_ug_create_delete,
+        "frr_bgp:ug_subgroup_create_delete": parse_frr_bgp_ug_subgroup_create_delete,
+        "frr_bgp:ug_subgroup_add_remove_peer": parse_frr_bgp_ug_subgroup_add_remove_peer,
+        "frr_bgp:upd_rmac_is_self_mac": parse_frr_bgp_upd_rmac_is_self_mac,
+        "frr_bgp:upd_attr_type_unsupported": parse_frr_bgp_attr_type_unsupported,
+        "frr_bgp:upd_prefix_filtered_due_to": parse_frr_update_prefix_filter,
+        "frr_bgp:upd_mp_unrecognized_afi_safi": parse_frr_bgp_upd_mp_unrecognized_afi_safi,
     }
 
     # get the trace path from the first command line argument
