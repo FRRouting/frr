@@ -22,14 +22,13 @@
         "nexthops": [
           {
             "hostname": "r1",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r1",
             "hostname": "r1",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       }
@@ -56,14 +55,13 @@
         "nexthops": [
           {
             "hostname": "r1",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r1",
             "hostname": "r1",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       }

@@ -10,14 +10,13 @@
         "nexthops": [
           {
             "hostname": "r2",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r2",
             "hostname": "r2",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       },
@@ -29,14 +28,13 @@
         "nexthops": [
           {
             "hostname": "r3",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r3",
             "hostname": "r3",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       }
@@ -51,14 +49,13 @@
         "nexthops": [
           {
             "hostname": "r3",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r3",
             "hostname": "r3",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       },
@@ -70,14 +67,13 @@
         "nexthops": [
           {
             "hostname": "r2",
-            "scope": "link-local",
-            "linkLocalOnly": false,
-            "used": true
+            "scope": "global"
           },
           {
             "interface": "eth-r2",
             "hostname": "r2",
-            "scope": "link-local"
+            "scope": "link-local",
+            "used": true
           }
         ]
       }
