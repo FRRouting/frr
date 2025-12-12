@@ -5416,3 +5416,21 @@ void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
+
+void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_NEIGH_GET, VRF_DEFAULT);
+	stream_putl(s, ifp->ifindex);
+	stream_putw(s, afi);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
