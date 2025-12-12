@@ -1506,6 +1506,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+		if (startup) {
+			dplane_ctx_set_ifp_speed(ctx, kernel_get_speed(vrf_id, name, NULL));
+			dplane_ctx_set_ifp_speed_set(ctx, true);
+		} else
+			dplane_ctx_set_ifp_speed_set(ctx, false);
+
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
 		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);

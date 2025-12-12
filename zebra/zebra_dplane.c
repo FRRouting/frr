@@ -644,6 +644,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_intfs_in;
 	_Atomic uint32_t dg_intf_errors;
 
+	_Atomic uint32_t dg_intf_speed_get_in;
+	_Atomic uint32_t dg_intf_speed_get_errors;
+
 	_Atomic uint32_t dg_tcs_in;
 	_Atomic uint32_t dg_tcs_errors;
 
@@ -917,6 +920,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		break;
@@ -1182,6 +1186,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_UPDATE";
 	case DPLANE_OP_INTF_DELETE:
 		return "INTF_DELETE";
+
+	case DPLANE_OP_INTF_SPEED_GET:
+		return "INTF_SPEED_GET";
 
 	case DPLANE_OP_TC_QDISC_INSTALL:
 		return "TC_QDISC_INSTALL";
@@ -5544,6 +5551,45 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp)
 }
 
 /*
+ * Enqueue a interface speed query for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = DPLANE_OP_INTF_SPEED_GET;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_in, 1, memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
@@ -6394,6 +6440,11 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Intf change updates:        %" PRIu64 "\n", incoming);
 	vty_out(vty, "Intf change errors:         %" PRIu64 "\n", errs);
 
+	incoming = atomic_load_explicit(&zdplane_info.dg_intf_speed_get_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_intf_speed_get_errors, memory_order_relaxed);
+	vty_out(vty, "Intf speed query:           %" PRIu64 "\n", incoming);
+	vty_out(vty, "Intf speed errors:          %" PRIu64 "\n", errs);
+
 	incoming = atomic_load_explicit(&zdplane_info.dg_macs_in,
 					memory_order_relaxed);
 	errs = atomic_load_explicit(&zdplane_info.dg_mac_errors,
@@ -7033,6 +7084,11 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_intf_is_protodown(ctx));
 		break;
+	case DPLANE_OP_INTF_SPEED_GET:
+		zlog_debug("Dplane intf %s, idx %u, speed %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_get_ifp_speed(ctx));
+		break;
 
 	/* TODO: more detailed log */
 	case DPLANE_OP_TC_QDISC_INSTALL:
@@ -7229,6 +7285,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
@@ -7267,6 +7324,13 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 				  struct zebra_dplane_ctx *ctx)
 {
 	zebra_pbr_process_ipset_entry(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
+}
+
+static void kernel_dplane_process_if_speed(struct zebra_dplane_provider *prov,
+					   struct zebra_dplane_ctx *ctx)
+{
+	zebra_if_speed_process(ctx);
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
@@ -7314,6 +7378,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			  || dplane_ctx_get_op(ctx)
 				     == DPLANE_OP_IPSET_ENTRY_DELETE))
 			kernel_dplane_process_ipset_entry(prov, ctx);
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_INTF_SPEED_GET)
+			kernel_dplane_process_if_speed(prov, ctx);
 		else
 			dplane_ctx_list_add_tail(&work_list, ctx);
 	}

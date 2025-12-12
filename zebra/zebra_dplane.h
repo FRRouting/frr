@@ -190,6 +190,7 @@ enum dplane_op_e {
 
 	/* Incoming interface config events */
 	DPLANE_OP_INTF_NETCONFIG,
+	DPLANE_OP_INTF_SPEED_GET,
 
 	/* Interface update */
 	DPLANE_OP_INTF_INSTALL,
@@ -967,6 +968,7 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
  */
 enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
+enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
 
 /*
  * Enqueue tc link changes for the dataplane.
