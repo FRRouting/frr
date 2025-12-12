@@ -3578,11 +3578,8 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	 * Check if the BGP instance is configured to use the received
 	 * locator
 	 */
-	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
-		zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s", bgp->name_pretty,
-			 bgp->vrf_id, __func__, bgp->srv6_locator_name, locator->name);
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0)
 		return 0;
-	}
 
 	zlog_info("%s(%d): %s, Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
 		  bgp->name_pretty, bgp->vrf_id, __func__, locator->name, &locator->prefix,
@@ -3802,15 +3799,21 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
 		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, &sid_addr) &&
-		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
-			 !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, &sid_addr) &&
-			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
-			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr))
-			break;
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, &sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
+		    !sid_same(bgp_vrf->tovpn_sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
 
 		/* Un-export VPN to VRF routes */
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
@@ -4061,11 +4064,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
 			continue;
-		if (!strmatch(bgp->srv6_locator->name, loc.name)) {
-			zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s", bgp->name_pretty,
-				 bgp->vrf_id, __func__, bgp->srv6_locator->name, loc.name);
+		if (!strmatch(bgp->srv6_locator->name, loc.name))
 			return 0;
-		}
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
 	}
 

@@ -2370,6 +2370,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 			*p_locator_name = NULL;
 		else {
 			STREAM_GET(locator_name, s, len);
+			locator_name[len] = '\0';
 			*p_locator_name = locator_name;
 		}
 	}

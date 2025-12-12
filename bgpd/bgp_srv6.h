@@ -10,6 +10,9 @@
 
 static inline bool is_srv6_unicast_enabled(struct bgp *bgp, afi_t afi)
 {
+	if (afi == AFI_UNSPEC)
+		return false;
+
 	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)
 	    || bgp->srv6_unicast[afi].sid_explicit || bgp->srv6_unicast[afi].sid_index)
 		return true;
