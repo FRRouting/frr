@@ -54,6 +54,9 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # all test functions without declaring a test local variable.
 global_tgen = None
 
+# Global variable to control command output limiting in debug logs
+LIMIT_CMD_OUTPUT = False
+
 
 def get_topogen(topo=None):
     """
@@ -70,6 +73,20 @@ def set_topogen(tgen):
     # pylint: disable=W0603
     global global_tgen
     global_tgen = tgen
+
+
+def set_cmd_output_limit():
+    """Enable or disable command output limiting in debug logs"""
+    # pylint: disable=W0603
+    global LIMIT_CMD_OUTPUT
+    LIMIT_CMD_OUTPUT = True
+
+
+def unset_cmd_output_limit():
+    """Disable command output limiting in debug logs"""
+    # pylint: disable=W0603
+    global LIMIT_CMD_OUTPUT
+    LIMIT_CMD_OUTPUT = False
 
 
 def is_string(value):
@@ -1034,6 +1051,8 @@ class TopoRouter(TopoGear):
         if command.find("\n") != -1:
             return self.vtysh_multicmd(command, daemon=daemon)
 
+        global LIMIT_CMD_OUTPUT
+
         dparam = ""
         if daemon is not None:
             dparam += "-d {}".format(daemon)
@@ -1047,11 +1066,30 @@ class TopoRouter(TopoGear):
 
         dbgout = output.strip()
         if dbgout:
-            if "\n" in dbgout:
+            # Check if output limiting is enabled
+            lines = dbgout.split("\n")
+            if LIMIT_CMD_OUTPUT:
+                if len(lines) > 25:
+                    truncated_dbgout = "\n".join(
+                        lines[:25]
+                    ) + "\n... (output truncated, {} more lines)".format(
+                        len(lines) - 25
+                    )
+                    dbgout = truncated_dbgout.replace("\n", "\n\t")
+                    self.logger.debug("vtysh result (truncated):\n\t{}".format(dbgout))
+                # Check if first line is too long (over 300 chars)
+                elif len(lines) > 0 and len(lines[0]) > 300:
+                    lines[0] = lines[0][:300] + "... (line truncated)"
+                    dbgout = "\n".join(lines).replace("\n", "\n\t")
+                    self.logger.debug(
+                        "vtysh result (first line truncated):\n\t{}".format(dbgout)
+                    )
+                else:
+                    dbgout = dbgout.replace("\n", "\n\t")
+                    self.logger.debug("vtysh result:\n\t{}".format(dbgout))
+            else:
                 dbgout = dbgout.replace("\n", "\n\t")
                 self.logger.debug("vtysh result:\n\t{}".format(dbgout))
-            else:
-                self.logger.debug('vtysh result: "{}"'.format(dbgout))
 
         if isjson is False:
             return output
