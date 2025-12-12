@@ -477,7 +477,7 @@ static bool zebra_gr_process_route_entry(struct route_node *rn,
 	char buf[PREFIX2STR_BUFFER];
 
 	/* If the route is not refreshed after restart, delete the entry */
-	if (re->uptime < compare_time) {
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_STARTUP)) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			prefix2str(&rn->p, buf, sizeof(buf));
 			zlog_debug("%s: Client %s stale route %s is deleted",
