@@ -2039,6 +2039,8 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 {
 	struct isis_route_table_info *backup_info;
 
+	if (!tree)
+		return;
 	isis_route_invalidate_table(tree->area, tree->route_table);
 
 	/* Delete backup routes. */
