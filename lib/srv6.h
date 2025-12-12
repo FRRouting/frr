@@ -575,12 +575,6 @@ extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
 extern void srv6_sid_format_free(struct srv6_sid_format *format);
 extern void delete_srv6_sid_format(void *format);
 
-extern struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
-					       struct in_addr *nh4,
-					       struct in6_addr *nh6,
-					       vrf_id_t vrf_id);
-extern void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx);
-
 #ifdef __cplusplus
 }
 #endif
