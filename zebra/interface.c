@@ -204,17 +204,6 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	ifp->info = zebra_if;
 
-	/*
-	 * Some platforms are telling us that the interface is
-	 * up and ready to go.  When we check the speed we
-	 * sometimes get the wrong value.  Wait a couple
-	 * of seconds and ask again.  Hopefully it's all settled
-	 * down upon startup.
-	 */
-	zebra_if->speed_update_count = 0;
-	zebra_if->speed_checked = 0;
-	zebra_if_schedule_speed_update(zebra_if, 15);
-
 	return 0;
 }
 
@@ -2136,6 +2125,17 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 				speed = 0;
 				/* Query initial speed if not provided by dplane */
 				dplane_intf_speed_get(ifp);
+
+				/*
+				 * Some platforms are telling us that the interface is
+				 * up and ready to go.  When we check the speed we
+				 * sometimes get the wrong value.  Wait a couple
+				 * of seconds and ask again.  Hopefully it's all settled
+				 * down upon startup.
+				 */
+				zif->speed_update_count = 0;
+				zif->speed_checked = 0;
+				zebra_if_schedule_speed_update(zif, 15);
 			} else
 				zif->speed_checked++;
 			if_update_state_speed(ifp, speed);
