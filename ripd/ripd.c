@@ -2498,6 +2498,20 @@ static void rip_update_process(struct rip *rip, int route_type)
 			continue;
 		}
 
+		/* If unicast is used, but `network X.Y.Z.W` is not defined
+		 * for this interface, we SHOULD NOT send an update to this
+		 * neighbor.
+		 * If RIP is configured on such an interface, the redistribution
+		 * of route(s) from another routing protocol into RIP, received
+		 * through that interface, does not work.
+		 */
+		if (rip_enable_network_lookup2(connected) < 0) {
+			if (RIP_DEBUG_SEND)
+				zlog_debug("Neighbor %pI4 is not in any `network` statement!",
+					   &p->u.prefix4);
+			continue;
+		}
+
 		/* Set destination address and port */
 		memset(&to, 0, sizeof(struct sockaddr_in));
 		to.sin_addr = p->u.prefix4;
