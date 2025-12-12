@@ -3909,9 +3909,10 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s",
+		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s, mode %s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
-			   zapi_srv6_sid_notify2str(note), loc_name);
+			   zapi_srv6_sid_notify2str(note), loc_name,
+			   srv6_sid_alloc_mode2str(ctx.alloc_mode));
 
 	if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
 		afi = AFI_IP6;
@@ -4071,6 +4072,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				*unicast->sid = sid_addr;
 				unicast->sid_locator = srv6_locator_alloc(locator_bgp->name);
 				srv6_locator_copy(unicast->sid_locator, locator_bgp);
+				unicast->zebra_sid_alloc_mode_last_sent = ctx.alloc_mode;
 
 				dt46_changed[dt46_afi] = true;
 			}
