@@ -940,7 +940,7 @@ static void be_adapter_conn_init(struct event *event)
 		/* Deal with a disconnect happening */
 		if (!mgmt_be_adapters_by_id[id])
 			return;
-		_log_err("Couldn't send intial config to adapter: %s", adapter->name);
+		_log_err("Couldn't send initial config to adapter: %s", adapter->name);
 		be_adapter_sched_init_event(adapter);
 	}
 }
