@@ -168,6 +168,7 @@ configure terminal
     step("Add VRF {} and assign it r1-eth0 interface".format(vrf))
     r1.run("ip link add {} type vrf table {}".format(vrf, table_id))
     r1.run("ip link set {} up".format(vrf))
+
     r1.run("ip link set dev r1-eth0 master {}".format(vrf))
 
     step("Add static routes to VRF {}".format(vrf))
