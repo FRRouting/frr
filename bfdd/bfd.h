@@ -605,7 +605,7 @@ int bfd_session_enable(struct bfd_session *bs);
 void bfd_session_disable(struct bfd_session *bs);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc);
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_down);
 void ptm_bfd_sess_up(struct bfd_session *bfd);
 void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
