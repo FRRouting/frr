@@ -318,8 +318,18 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
     - Uses `evpn_verify_ping_connectivity()` from `lib/evpn.py`
     - IPv4 test when using IPv4 underlay, IPv6 test when using IPv6 underlay
 
+### VRF Route Leaking with AS Path Manipulation
+11. **test_for_leaked_route_as_path()** - Verify VRF route leaking with AS path stripping and bestpath selection
+    - Tests both `import vrf route-map` and `route-map vpn export` code paths
+    - Verifies `set as-path exclude` correctly strips ASNs during VRF route leaking
+    - Validates `bgp bestpath use-imported-attributes` behavior:
+      * Without config: bestpath uses source/ultimate attribute/AS path (longer, not stripped)
+      * With config: bestpath uses imported/local attribute/AS path (shorter, stripped)
+    - Test scenario: Route originated from tor-21 (vrf1), leaked to bordertor-11 (vrf2)
+    - DUT: bordertor-11
+
 ### Memory and Cleanup
-11. **test_memory_leak()** - Memory leak detection
+12. **test_memory_leak()** - Memory leak detection
 
 ## Generic EVPN Library Functions
 
@@ -416,6 +426,15 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
 - **AS-PATH allowas-in:** For CLOS topology with AS path relaxation
 - **Datacenter Optimizations:** FRR datacenter defaults for fast convergence
 - **Auto Route Target Derivation:** RT derived from L3VNI automatically
+
+### VRF Route Leaking with AS Path Manipulation
+- **VRF-to-VRF Route Leaking:** Import routes between VRFs with route-map processing
+- **AS Path Stripping:** `set as-path exclude` removes ASNs during VRF leaking
+- **Route-Map Application Points:**
+  - `import vrf route-map` on destination VRF (import side)
+  - `route-map vpn export` on source VRF (export side)
+- **Bestpath with Imported Attributes:** `bgp bestpath use-imported-attributes` changes
+  bestpath selection to use the imported/local attribute/AS path instead of source/ultimate attribite/AS path
 
 ### Test Coverage
 - **Parametrized Tests:** All tests run with both IPv4 and IPv6 underlay
