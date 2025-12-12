@@ -147,11 +147,11 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 		zebra_evpn_send_del_to_client(zevpn);
 
 		/* Free up all neighbors and MAC, if any. */
-		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
-		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
+		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
-		zebra_evpn_vtep_del_all(zevpn, 1);
+		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 
 		/* Delete the hash entry. */
 		if (zebra_evpn_vxlan_del(zevpn)) {
@@ -278,9 +278,9 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			/* Also, free up all MACs and neighbors. */
 			zevpn->svi_if = NULL;
 			zebra_evpn_send_del_to_client(zevpn);
-			zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
-			zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
-			zebra_evpn_vtep_del_all(zevpn, 1);
+			zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+			zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
+			zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 			return 0;
 		}
 
@@ -291,8 +291,8 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			 */
 			access_vlan = vnip->access_vlan;
 			vnip->access_vlan = ctx->old_vni.access_vlan;
-			zebra_evpn_neigh_del_all(zevpn, 0, 1, DEL_LOCAL_MAC);
-			zebra_evpn_mac_del_all(zevpn, 0, 1, DEL_LOCAL_MAC);
+			zebra_evpn_neigh_del_all(zevpn, 0, 1, DEL_LOCAL_MAC, NULL);
+			zebra_evpn_mac_del_all(zevpn, 0, 1, DEL_LOCAL_MAC, NULL);
 			zebra_evpn_rem_mac_uninstall_all(zevpn);
 			vnip->access_vlan = access_vlan;
 		}
@@ -907,11 +907,11 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		zebra_evpn_send_del_to_client(zevpn);
 
 		/* Free up all neighbors and MACs, if any. */
-		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
-		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
+		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
-		zebra_evpn_vtep_del_all(zevpn, 1);
+		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 	}
 	return 0;
 }

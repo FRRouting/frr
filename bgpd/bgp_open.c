@@ -26,6 +26,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_trace.h"
 
 const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_MP, "MultiProtocol Extensions" },
@@ -1639,6 +1640,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 				      PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV)
 				   ? "SET"
 				   : "NOT-SET");
+	frrtrace(4, frr_bgp, gr_send_rbit_capability, bgp->name_pretty, peer->host,
+		 bgp->restart_time, CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV));
 
 	/* Send address-family specific graceful-restart capability
 	 * only when GR config is present
@@ -1667,6 +1670,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					   f_bit ? "SET" : "NOT-SET",
 					   get_afi_safi_str(afi, safi, false));
 
+			frrtrace(5, frr_bgp, gr_send_fbit_capability, bgp->name_pretty, peer->host,
+				 afi, safi, f_bit);
 			stream_putc(s, f_bit ? GRACEFUL_RESTART_F_BIT : 0);
 		}
 	}
