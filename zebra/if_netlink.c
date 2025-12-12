@@ -220,8 +220,14 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_BOND;
 	else if (strcmp(kind, "team") == 0)
 		*zif_type = ZEBRA_IF_BOND;
+	else if (strcmp(kind, "gretap") == 0)
+		*zif_type = ZEBRA_IF_GRETAP;
+	else if (strcmp(kind, "ip6gretap") == 0)
+		*zif_type = ZEBRA_IF_IP6GRETAP;
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
+	else if (strcmp(kind, "ip6gre") == 0)
+		*zif_type = ZEBRA_IF_IP6GRE;
 	else if (strcmp(kind, "dummy") == 0)
 		*zif_type = ZEBRA_IF_DUMMY;
 }
@@ -579,6 +585,9 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_set_ifp_vxlan_info(ctx, &vxlan_info);
 		break;
 	case ZEBRA_IF_GRE:
+	case ZEBRA_IF_IP6GRE:
+	case ZEBRA_IF_GRETAP:
+	case ZEBRA_IF_IP6GRETAP:
 		netlink_extract_gre_info(link_data, &gre_info);
 		gre_info.link_nsid = link_nsid;
 		dplane_ctx_set_ifp_gre_info(ctx, &gre_info);
