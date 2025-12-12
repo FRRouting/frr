@@ -1140,6 +1140,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* Request SRv6 SID from SID Manager */
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
 				   NULL, is_srv6_sid_localonly(sid));
 	if (ret < 0)
@@ -1236,6 +1237,7 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 		return;
 	}
 
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	/* remove the SRv6 SID from the zebra RIB */
 	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name,
 				       is_srv6_sid_localonly(sid));
