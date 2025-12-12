@@ -26,7 +26,7 @@ int
 ldp_create_socket(int af, enum socket_type type)
 {
 	int			 fd, domain, proto;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	union sockunion		 local_su;
 #ifdef __OpenBSD__
 	int			 opt;
@@ -274,8 +274,7 @@ sock_set_bindany(int fd, int enable)
  * Set MD5 key for the socket, for the given peer address. If the password
  * is NULL or zero-length, the option will be disabled.
  */
-int
-sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password)
+int sock_set_md5sig(int fd, int af, union g_addr *addr, const char *password)
 {
 	int		 ret = -1;
 	int		 save_errno = ENOSYS;
