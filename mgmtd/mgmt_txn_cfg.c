@@ -344,7 +344,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 		}
 
 		if (clients && clients != chg_clients)
-			_dbg("Some deamons interested in XPATH are not currently connected");
+			_dbg("Some daemons interested in XPATH are not currently connected");
 
 		ccreq->clients |= chg_clients;
 
