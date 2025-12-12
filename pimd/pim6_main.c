@@ -180,6 +180,9 @@ int main(int argc, char **argv, char **envp)
 
 	routing_control_plane_protocols_register_vrf_dependency();
 
+	/* Register cleanup hook for parent process after fork() */
+	hook_register(frr_parent_cleanup, pim_parent_cleanup);
+
 	frr_config_fork();
 	frr_run(router->master);
 
