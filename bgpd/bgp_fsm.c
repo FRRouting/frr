@@ -2576,11 +2576,12 @@ static enum bgp_fsm_state_progress bgp_ignore(struct peer_connection *connection
 	struct peer *peer = connection->peer;
 
 	flog_err(EC_BGP_FSM,
-		 "%s [FSM] Ignoring event %s in state %s, prior events %s, %s, fd %d",
-		 peer->host, bgp_event_str[peer->cur_event],
+		 "%s(%s) [FSM] Ignoring event %s in state %s, prior events %s, %s, fd %d",
+		 peer->host, bgp_peer_get_connection_direction(connection),
+		 bgp_event_str[peer->cur_event],
 		 lookup_msg(bgp_status_msg, connection->status, NULL),
-		 bgp_event_str[peer->last_event],
-		 bgp_event_str[peer->last_major_event], connection->fd);
+		 bgp_event_str[peer->last_event], bgp_event_str[peer->last_major_event],
+		 connection->fd);
 	return BGP_FSM_SUCCESS;
 }
 
@@ -2591,11 +2592,12 @@ bgp_fsm_exception(struct peer_connection *connection)
 	struct peer *peer = connection->peer;
 
 	flog_err(EC_BGP_FSM,
-		 "%s [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
-		 peer->host, bgp_event_str[peer->cur_event],
+		 "%s(%s) [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
+		 peer->host, bgp_peer_get_connection_direction(connection),
+		 bgp_event_str[peer->cur_event],
 		 lookup_msg(bgp_status_msg, connection->status, NULL),
-		 bgp_event_str[peer->last_event],
-		 bgp_event_str[peer->last_major_event], connection->fd);
+		 bgp_event_str[peer->last_event], bgp_event_str[peer->last_major_event],
+		 connection->fd);
 	return bgp_stop(connection);
 }
 
