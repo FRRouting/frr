@@ -61,16 +61,27 @@ static const char *if_zebra_data_state(uint8_t state)
 	return "STATE IS WRONG DEV ESCAPE";
 }
 
-static void if_zebra_speed_update(struct event *event)
+static void zebra_if_speed_get(struct zebra_if *zif)
 {
-	struct interface *ifp = EVENT_ARG(event);
+	if (CHECK_FLAG(zif->flags, ZIF_FLAG_SPEED_NOTIFY))
+		return;
 
-	dplane_intf_speed_get(ifp);
+	dplane_intf_speed_get(zif->ifp);
+}
+
+static void zebra_if_speed_update(struct event *event)
+{
+	struct zebra_if *zif = EVENT_ARG(event);
+
+	zebra_if_speed_get(zif);
 }
 
 static void zebra_if_schedule_speed_update(struct zebra_if *zif, int timeout)
 {
-	event_add_timer(zrouter.master, if_zebra_speed_update, zif->ifp, timeout,
+	if (CHECK_FLAG(zif->flags, ZIF_FLAG_SPEED_NOTIFY))
+		return;
+
+	event_add_timer(zrouter.master, zebra_if_speed_update, zif, timeout,
 			&zif->speed_update);
 	event_ignore_late_timer(zif->speed_update);
 }
@@ -1030,7 +1041,7 @@ void if_up(struct interface *ifp, bool install_connected)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
 	event_cancel(&zif->speed_update);
-	dplane_intf_speed_get(ifp);
+	zebra_if_speed_get(zif);
 
 	if_addr_wakeup(ifp);
 
@@ -2107,7 +2118,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if (!speed_set) {
 				speed = 0;
 				/* Query initial speed if not provided by dplane */
-				dplane_intf_speed_get(ifp);
+				zebra_if_speed_get(zif);
 
 				/*
 				 * Some platforms are telling us that the interface is
@@ -2119,8 +2130,11 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 				zif->speed_update_count = 0;
 				zif->speed_checked = 0;
 				zebra_if_schedule_speed_update(zif, 15);
-			} else
+			} else {
+				/* If dataplane reports speed in install/update, skip future polling. */
+				SET_FLAG(zif->flags, ZIF_FLAG_SPEED_NOTIFY);
 				zif->speed_checked++;
+			}
 			if_update_state_speed(ifp, speed);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
