@@ -60,12 +60,15 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 				 __func__, bgp->name_pretty, afi2str(afi));
 			return;
 		}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	} else if (unicast_sid_explicit) {
 		unicast_sid = *(bgp->srv6_unicast[afi].sid_explicit);
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	} else if (!unicast_sid_auto) {
 		zlog_err("%s: neither index, auto, nor explicit mode is selected.",  __func__);
 		return;
-	}
+	} else
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -73,7 +76,9 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	if (!bgp_zebra_request_srv6_sid(&ctx, &unicast_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
 			 bgp->name_pretty, afi2str(afi));
+		return;
 	}
+	bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent = ctx.alloc_mode;
 }
 
 struct interface *get_srv6_endpoint_ifp(char *vrf_name)
@@ -161,6 +166,7 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 	ctx.vrf_id = bgp->vrf_id;
+	ctx.alloc_mode = srv6_policy->zebra_sid_alloc_mode_last_sent;
 	bgp_zebra_release_srv6_sid(&ctx, srv6_policy->sid_locator->name);
 }
 
@@ -183,6 +189,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 		ctx.vrf_id = bgp->vrf_id;
 		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.alloc_mode = bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent;
 		bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 
 		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);

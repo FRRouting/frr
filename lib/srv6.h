@@ -400,6 +400,7 @@ struct srv6_sid_ctx {
 	uint32_t color;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+	enum srv6_sid_alloc_mode alloc_mode;
 };
 
 /**

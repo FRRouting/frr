@@ -227,6 +227,7 @@ struct srv6_policy {
 	struct in6_addr *sid;
 	struct srv6_locator *sid_locator;
 	struct in6_addr *zebra_sid_last_sent;
+	enum srv6_sid_alloc_mode zebra_sid_alloc_mode_last_sent;
 	char *rmap_name;
 	char endpoint_vrf[IFNAMSIZ];
 };
@@ -277,6 +278,7 @@ struct vpn_policy {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+	enum srv6_sid_alloc_mode tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 };
 
 /*
@@ -862,6 +864,7 @@ struct bgp {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+	enum srv6_sid_alloc_mode tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 	bool srv6_only;
 
 	/* BGP L3 service IPv4/v6 SRv6 backend */

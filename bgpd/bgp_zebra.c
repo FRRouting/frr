@@ -3736,9 +3736,10 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s",
+		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s, mode %s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
-			   zapi_srv6_sid_notify2str(note), loc_name);
+			   zapi_srv6_sid_notify2str(note), loc_name,
+			   srv6_sid_alloc_mode2str(ctx.alloc_mode));
 
 	/* Get the BGP instance for which the SID has been requested, if any */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {

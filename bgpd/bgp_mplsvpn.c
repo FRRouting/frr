@@ -511,6 +511,8 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = NULL;
+	ctx.alloc_mode = bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent;
+	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -556,7 +558,8 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 			      &seg6localctx);
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	bgp->tovpn_zebra_vrf_sid_last_sent = NULL;
-
+	ctx.alloc_mode = bgp->tovpn_zebra_vrf_sid_alloc_mode_last_sent;
+	bgp->tovpn_zebra_vrf_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 	bgp_zebra_release_srv6_sid(&ctx, bgp->tovpn_sid_locator->name);
@@ -849,9 +852,12 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 				 __func__, bgp_vrf->name_pretty, afi2str(afi));
 			return;
 		}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	} else if (is_tovpn_sid_explicit) {
 		tovpn_sid = *(bgp_vrf->vpn_policy[afi].tovpn_sid_explicit);
-	}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+	} else
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -861,9 +867,11 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 			 bgp_vrf->name_pretty, afi2str(afi));
 		return;
 	}
+	bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent = ctx.alloc_mode;
 	if (debug)
-		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
-			   bgp_vrf->name_pretty, afi2str(afi), locator_bgp->name);
+		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s, mode %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi), locator_bgp->name,
+			   srv6_sid_alloc_mode2str(ctx.alloc_mode));
 }
 
 void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
@@ -938,9 +946,12 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 				 __func__, bgp_vrf->name_pretty);
 			return;
 		}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	} else if (is_tovpn_sid_explicit) {
 		tovpn_sid = *(bgp_vrf->tovpn_sid_explicit);
-	}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+	} else
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
@@ -949,9 +960,11 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 			 bgp_vrf->name_pretty);
 		return;
 	}
+	bgp_vrf->tovpn_zebra_vrf_sid_alloc_mode_last_sent = ctx.alloc_mode;
 	if (debug)
-		zlog_debug("%s: allocating new SID for vrf %s, locator %s", __func__,
-			   bgp_vrf->name_pretty, locator_bgp->name);
+		zlog_debug("%s: allocating new SID for vrf %s, locator %s, mode %s", __func__,
+			   bgp_vrf->name_pretty, locator_bgp->name,
+			   srv6_sid_alloc_mode2str(ctx.alloc_mode));
 }
 
 void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
@@ -998,6 +1011,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		ctx.vrf_id = bgp_vrf->vrf_id;
 		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.alloc_mode = bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[afi].tovpn_sid_locator->name);
 
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
@@ -1044,6 +1058,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if (bgp_vrf->tovpn_sid) {
 		ctx.vrf_id = bgp_vrf->vrf_id;
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		ctx.alloc_mode = bgp_vrf->tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
 
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
