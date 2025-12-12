@@ -372,6 +372,23 @@ struct srv6_sid_format {
 };
 DECLARE_QOBJ_TYPE(srv6_sid_format);
 
+/**
+ * The function part of an SRv6 SID can be allocated in one
+ * of the following ways:
+ *  - dynamic: allocate any available function
+ *  in BGP, this is the auto mode
+ *  - explicit: allocate a specific function
+ *  in BGP, this is either via explicit command or using index value
+ */
+enum srv6_sid_alloc_mode {
+	SRV6_SID_ALLOC_MODE_UNSPEC = 0,
+	/* Dynamic SID allocation */
+	SRV6_SID_ALLOC_MODE_DYNAMIC = 1,
+	/* Explicit SID allocation */
+	SRV6_SID_ALLOC_MODE_EXPLICIT = 2,
+	SRV6_SID_ALLOC_MODE_MAX = 3,
+};
+
 /* Context for an SRv6 SID */
 struct srv6_sid_ctx {
 	/* Behavior associated with the SID */
@@ -384,6 +401,27 @@ struct srv6_sid_ctx {
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
 };
+
+/**
+ * Convert SID allocation mode to string.
+ *
+ * @param alloc_mode SID allocation mode
+ * @return String representing the allocation mode
+ */
+static inline const char *srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
+{
+	switch (alloc_mode) {
+	case SRV6_SID_ALLOC_MODE_EXPLICIT:
+		return "explicit";
+	case SRV6_SID_ALLOC_MODE_DYNAMIC:
+		return "dynamic";
+	case SRV6_SID_ALLOC_MODE_UNSPEC:
+		return "unspec";
+	case SRV6_SID_ALLOC_MODE_MAX:
+	default:
+		return "unknown";
+	}
+}
 
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,
 						    bool running_conf)
@@ -545,12 +583,6 @@ srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
 extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
 extern void srv6_sid_format_free(struct srv6_sid_format *format);
 extern void delete_srv6_sid_format(void *format);
-
-extern struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
-					       struct in_addr *nh4,
-					       struct in6_addr *nh6,
-					       vrf_id_t vrf_id);
-extern void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx);
 
 #ifdef __cplusplus
 }

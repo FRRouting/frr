@@ -300,29 +300,6 @@ void delete_srv6_sid_format(void *val)
 	srv6_sid_format_free((struct srv6_sid_format *)val);
 }
 
-struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
-					struct in_addr *nh4,
-					struct in6_addr *nh6, vrf_id_t vrf_id)
-{
-	struct srv6_sid_ctx *ctx = NULL;
-
-	ctx = XCALLOC(MTYPE_SRV6_SID_CTX, sizeof(struct srv6_sid_ctx));
-	ctx->behavior = behavior;
-	if (nh4)
-		ctx->nh4 = *nh4;
-	if (nh6)
-		ctx->nh6 = *nh6;
-	if (vrf_id)
-		ctx->vrf_id = vrf_id;
-
-	return ctx;
-}
-
-void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx)
-{
-	XFREE(MTYPE_SRV6_SID_CTX, ctx);
-}
-
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 {
 	json_object *jo_root = NULL;
