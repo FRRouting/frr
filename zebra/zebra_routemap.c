@@ -17,6 +17,7 @@
 #include "lib/route_types.h"
 #include "vrf.h"
 #include "frrstr.h"
+#include "lib/json.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
