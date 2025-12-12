@@ -1397,3 +1397,52 @@ void nexthop_group_init(void (*new)(const char *name),
 	if (delete)
 		nhg_hooks.delete = delete;
 }
+#define NEXTHOP_GRP_STRLEN 256
+/*
+ * Copy the list of nexthops into a string.
+ * nexthop2str() adds interface index.
+ */
+const char *nexthop_group2str(const struct nexthop_group *nhg, char *str, size_t size)
+{
+	if (!nhg || !nhg->nexthop || !str || size == 0) {
+		if (str)
+			str[0] = '\0';
+		return str;
+	}
+
+	str[0] = '\0';
+	int isfirst_iteration = 1;
+
+	struct nexthop *tnexthop = nhg->nexthop;
+
+	while (tnexthop) {
+		char buf[NEXTHOP_GRP_STRLEN];
+
+		nexthop2str(tnexthop, buf, sizeof(buf));
+
+		/* Calculate the space needed to append buf and a space.
+		 * whitespace btw each nexthop+idx.
+		 */
+		size_t space_required;
+
+		if (!isfirst_iteration) {
+			space_required = strlcat(str, " ", size);
+			if (space_required >= size) {
+				/* Not enough space in the dest buffer */
+				break;
+			}
+		} else {
+			isfirst_iteration = 0;
+		}
+
+		space_required = strlcat(str, buf, size);
+		if (space_required >= size) {
+			/* Not enough space in the dest buffer */
+			break;
+		}
+
+		tnexthop = tnexthop->next;
+	}
+
+	return str;
+}

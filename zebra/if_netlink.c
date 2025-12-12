@@ -240,6 +240,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			zlog_debug(
 				"%s: IFLA_INFO_DATA missing from VRF message: %s",
 				__func__, name);
+
+		frrtrace(2, frr_zebra, netlink_vrf_change, name, 1);
+
 		return;
 	}
 
@@ -250,6 +253,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			zlog_debug(
 				"%s: IFLA_VRF_TABLE missing from VRF message: %s",
 				__func__, name);
+
+		frrtrace(2, frr_zebra, netlink_vrf_change, name, 2);
+
 		return;
 	}
 
@@ -290,6 +296,10 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
 				*error = INTERFACE_SPEED_ERROR_READ;
+
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 1);
+
 			return 0;
 		}
 		/* Get the current link state for the interface */
@@ -304,6 +314,11 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
 			*error = INTERFACE_SPEED_ERROR_READ;
+
+		if (errno != EOPNOTSUPP)
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 2);
+
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
@@ -1088,6 +1103,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 			zlog_debug("%s: %s: Invalid address family: %u",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_family);
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_family, 1);
+
 		return 0;
 	}
 
@@ -1099,6 +1118,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 				   h->nlmsg_len,
 				   (size_t)NLMSG_LENGTH(
 					   sizeof(struct ifaddrmsg)));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 h->nlmsg_len, 2);
+
 		return -1;
 	}
 
@@ -1154,6 +1177,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 			zlog_debug("%s: %s: Invalid prefix length: %u",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_prefixlen);
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_prefixlen, 3);
+
 		return -1;
 	}
 
@@ -1164,6 +1191,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 					   __func__,
 					   nl_msg_type_to_str(h->nlmsg_type),
 					   ifa->ifa_prefixlen);
+
+			frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+				 ifa->ifa_prefixlen, 4);
+
 			return -1;
 		}
 
@@ -1177,6 +1208,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 				zlog_debug("%s: %s: Invalid/tentative addr",
 					   __func__,
 					   nl_msg_type_to_str(h->nlmsg_type));
+
+			frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+				 0, 5);
+
 			return 0;
 		}
 	}
@@ -1195,6 +1230,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: %s: No local interface address",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_index, 6);
+
 		return -1;
 	}
 
@@ -1297,6 +1336,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: wrong kernel message %s", __func__,
 				   nl_msg_type_to_str(h->nlmsg_type));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type), 0, 7);
+
 		return 0;
 	}
 
@@ -1400,6 +1442,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				zlog_debug(
 					"RTM_NEWLINK for interface %s(%u) without MTU set",
 					name, ifi->ifi_index);
+
+			frrtrace(3, frr_zebra, netlink_intf_err, name, ifi->ifi_index, 2);
+
 			dplane_ctx_fini(&ctx);
 			return 0;
 		}

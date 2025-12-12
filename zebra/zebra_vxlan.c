@@ -41,6 +41,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -2404,6 +2405,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Del L2-VNI %u - transition to L3-VNI", vni);
 
+		frrtrace(2, frr_zebra, zebra_vxlan_handle_vni_transition, vni, 1);
+
 		/* Delete EVPN from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
@@ -2435,6 +2438,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Adding L2-VNI %u - transition from L3-VNI",
 				   vni);
+
+		frrtrace(2, frr_zebra, zebra_vxlan_handle_vni_transition, vni, 2);
 
 		zns = zebra_ns_lookup(NS_DEFAULT);
 
@@ -4276,6 +4281,9 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 				   ipa_len ? ipaddr2str(&ip, buf1, sizeof(buf1)) : "", &vtep_ip,
 				   zebra_route_string(client->proto));
 
+		frrtrace(5, frr_zebra, zebra_vxlan_remote_macip_del, &macaddr, &ip, vni, &vtep_ip,
+			 ipa_len);
+
 		/* Enqueue to workqueue for processing */
 		zebra_rib_queue_evpn_rem_macip_del(vni, &macaddr, &ip, &vtep_ip);
 	}
@@ -4332,6 +4340,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 				   ipa_len ? ipaddr2str(&ip, buf1, sizeof(buf1)) : "", flags, seq,
 				   &vtep_ip, esi_buf, zebra_route_string(client->proto));
 		}
+		frrtrace(6, frr_zebra, zebra_vxlan_remote_macip_add, &macaddr, &ip, vni, &vtep_ip,
+			 flags, &esi);
 
 		/* Enqueue to workqueue for processing */
 		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags, seq, &vtep_ip, &esi);
@@ -4672,6 +4682,7 @@ void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 			zlog_debug("Recv VTEP DEL %pIA VNI %u from %s", &vtep_ip, vni,
 				   zebra_route_string(client->proto));
 
+		frrtrace(3, frr_zebra, zebra_vxlan_remote_vtep_del, &vtep_ip, vni, client->proto);
 		/* Enqueue for processing */
 		zebra_rib_queue_evpn_rem_vtep_del(zvrf_id(zvrf), vni, &vtep_ip);
 	}
@@ -4876,6 +4887,7 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 			zlog_debug("Recv VTEP ADD %pIA VNI %u flood %d from %s", &vtep_ip, vni,
 				   flood_control, zebra_route_string(client->proto));
 
+		frrtrace(3, frr_zebra, zebra_vxlan_remote_vtep_add, &vtep_ip, vni, flood_control);
 		/* Enqueue for processing */
 		zebra_rib_queue_evpn_rem_vtep_add(zvrf_id(zvrf), vni, &vtep_ip, flood_control);
 	}
@@ -5654,6 +5666,8 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 								  : "disabled");
 
 		old_advertise = advertise_gw_macip_enabled(zevpn);
+		frrtrace(3, frr_zebra, zebra_vxlan_advertise_gw_macip, advertise, vni,
+			 old_advertise);
 
 		zevpn->advertise_gw_macip = advertise;
 		if (advertise_gw_macip_enabled(zevpn) == old_advertise)
@@ -5957,6 +5971,8 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 	else
 		client->vxlan_sg_del_cnt++;
 
+	frrtrace(2, frr_zebra, zebra_vxlan_sg_send, sg_str, cmd);
+
 	return zserv_send_message(client, s);
 }
 
@@ -6002,6 +6018,8 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s created", vxlan_sg->sg_str);
+
+	frrtrace(1, frr_zebra, zebra_vxlan_sg_new, vxlan_sg->sg_str);
 
 	return vxlan_sg;
 }
@@ -6070,6 +6088,7 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("VXLAN SG %s deleted", vxlan_sg->sg_str);
 
+	frrtrace(1, frr_zebra, zebra_vxlan_sg_del, vxlan_sg->sg_str);
 	XFREE(MTYPE_ZVXLAN_SG, vxlan_sg);
 }
 
@@ -6326,8 +6345,12 @@ static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
 			zlog_debug("Cannot find VNI for VID (%u) IF %s for vlan state update",
 				   id, zif->ifp->name);
 
+		frrtrace(3, frr_zebra, netlink_intf_err, zif->ifp->name, zif->ifp->ifindex, 3);
+
 		return;
 	}
+
+	frrtrace(4, frr_zebra, vxlan_vni_state_change, id, zif, vnip->vni, state);
 
 	switch (state) {
 	case ZEBRA_DPLANE_BR_STATE_FORWARDING:
@@ -6373,6 +6396,9 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 	if (!ifp) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update", ifindex);
+
+		frrtrace(3, frr_zebra, netlink_intf_err, INTF_INVALID_NAME, INTF_INVALID_INDEX, 4);
+
 		return;
 	}
 
@@ -6380,6 +6406,8 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
 				   ifp->name);
+
+		frrtrace(3, frr_zebra, netlink_intf_err, ifp->name, ifp->ifindex, 5);
 
 		return;
 	}
