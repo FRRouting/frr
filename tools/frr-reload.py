@@ -214,8 +214,10 @@ def get_normalized_es_id(line):
 def get_normalized_mac_ip_line(line):
     if line.startswith("evpn mh es"):
         return get_normalized_es_id(line)
-
-    if not "ipv6 add" in line:
+    """
+    pbr map match should preserve Full Address
+    """
+    if not "ipv6 add" or not "match" in line:
         return get_normalized_ipv6_line(line)
 
     return line
