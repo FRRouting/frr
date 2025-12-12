@@ -335,6 +335,8 @@ void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 	pim_msdp_i_am_rp_changed(pim);
 #endif /* PIM_IPV == 4 */
 	pim_upstream_reeval_use_rpt(pim);
+	/* re-check dense groups */
+	pim_upstream_register_reevaluate(pim);
 }
 
 void pim_rp_prefix_list_update(struct pim_instance *pim,
