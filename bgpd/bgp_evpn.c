@@ -925,6 +925,9 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	static struct ipaddr zero_remote_vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 	bool esi_valid;
 
+	if (ipaddr_is_same(&vpn->originator_ip, remote_vtep_ip))
+		return ZCLIENT_SEND_SUCCESS;
+
 	/* Check socket. */
 	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -2426,6 +2429,11 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 			NULL /* ip */, 1, &global_pi, flags, seq,
 			false /* setup_sync */, NULL /* old_is_sync */);
 
+		if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only) {
+			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+			bgp_evpn_import_route(bgp, afi, safi, bgp_dest_get_prefix(dest), global_pi);
+		}
+
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, dest, global_pi, afi, safi);
 		bgp_dest_unlock_node(dest);
@@ -2530,8 +2538,13 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
 		 */
-		if (pi)
+		if (pi) {
 			bgp_process(bgp, global_dest, pi, afi, safi);
+			if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+			    !is_evpn_prefix_ipaddr_none(p))
+				bgp_evpn_unimport_route(bgp, afi, safi,
+							bgp_dest_get_prefix(global_dest), pi);
+		}
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -3089,6 +3102,8 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	/* Create new route with its attribute. */
 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
 		       attr_new, dest);
+	if (CHECK_FLAG(parent_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
+		SET_FLAG(pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
 	SET_FLAG(pi->flags, BGP_PATH_VALID);
 	bgp_path_info_extra_get(pi);
 	if (!pi->extra->vrfleak)
@@ -6583,6 +6598,43 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			    const struct prefix *p, struct bgp_path_info *pi)
 {
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 0);
+}
+
+void bgp_evpn_import_type2_route_all(struct bgp *bgp)
+{
+	struct bgp_dest *dest, *dest_evpn;
+	struct bgp_path_info *pi, *next;
+	struct bgp_table *table;
+	const struct prefix *p;
+
+	if (!bgp->rib[AFI_L2VPN][SAFI_EVPN])
+		return;
+
+	for (dest = bgp_table_top(bgp->rib[AFI_L2VPN][SAFI_EVPN]); dest;
+	     dest = bgp_route_next(dest)) {
+		table = bgp_dest_get_bgp_table_info(dest);
+		if (!table)
+			continue;
+		for (dest_evpn = bgp_table_top(table); dest_evpn;
+		     dest_evpn = bgp_route_next(dest_evpn)) {
+			for (pi = bgp_dest_get_bgp_path_info(dest_evpn); pi; pi = next) {
+				p = bgp_dest_get_prefix(dest_evpn);
+
+				next = pi->next;
+
+				if (p->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE)
+					/* not a RT-2 entry */
+					continue;
+
+				if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)p))
+					/* MAC entry without IP address */
+					continue;
+
+				SET_FLAG(pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+				bgp_evpn_import_route(bgp, AFI_L2VPN, SAFI_EVPN, p, pi);
+			}
+		}
+	}
 }
 
 /*
