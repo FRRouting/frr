@@ -70,6 +70,9 @@ extern int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id);
 
 extern void zebra_import_table_rm_update(const char *rmap);
 
+bool zebra_redistribute_check(const struct route_node *rn, const struct route_entry *re,
+			      struct zserv *client);
+
 #ifdef __cplusplus
 }
 #endif
