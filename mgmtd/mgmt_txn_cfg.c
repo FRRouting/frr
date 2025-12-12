@@ -564,11 +564,8 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 						    result, error_if_any);
 	} else {
 		/* Session code will release it's reference on the TXN */
-		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
-						      txn_req->req_id, ccreq->unlock_info,
-						      true /* commit */, &ccreq->edit,
-						      success ? 0 : MGMTD_INTERNAL_ERROR,
-						      error_if_any);
+		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, txn_req->req_id,
+						      &ccreq->edit, result, error_if_any);
 	}
 	if (ret)
 		_log_err("Failed sending config reply for txn-id: %Lu session-id: %Lu",
@@ -971,7 +968,7 @@ static int txn_get_config_changes(struct txn_req_commit *ccreq, struct nb_config
 	if (ret != NB_OK) {
 		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
 			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
-		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM, err_buf);
+		return txn_set_config_error(txn_req, MGMTD_VALIDATION_ERROR, err_buf);
 	}
 
 	nb_config_diff(mgmt_ds_get_nb_config(ccreq->dst_ds_ctx), nb_config, cfg_chgs);
