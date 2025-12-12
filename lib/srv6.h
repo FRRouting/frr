@@ -430,6 +430,7 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+	enum srv6_sid_alloc_mode alloc_mode;
 };
 
 /**
