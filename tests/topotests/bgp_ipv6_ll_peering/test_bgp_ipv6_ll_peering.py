@@ -121,7 +121,7 @@ def test_bgp_ipv6_gua_to_linklocal_fallback():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    step("Add GUA addresses and configure IPv6 unicast peering")
+    step("Add GUA addresses to interfaces")
     r1.vtysh_cmd(
         """
          configure terminal
@@ -131,6 +131,86 @@ def test_bgp_ipv6_gua_to_linklocal_fallback():
           interface lo
            ipv6 address 2001:db8:100::1/128
           exit
+         end
+     """
+    )
+
+    r2.vtysh_cmd(
+        """
+         configure terminal
+          interface r2-eth0
+           ipv6 address 2001:db8:1::2/64
+          exit
+         end
+     """
+    )
+
+    step("Verify GUA addresses are present on interfaces")
+
+    def _r1_gua_present():
+        output = json.loads(r1.vtysh_cmd("show interface r1-eth0 json"))
+        if "r1-eth0" not in output:
+            return "Interface r1-eth0 not found"
+
+        iface = output["r1-eth0"]
+        if "ipAddresses" not in iface:
+            return "No IP addresses on r1-eth0"
+
+        for addr_info in iface["ipAddresses"]:
+            addr = addr_info.get("address", "")
+            if addr.startswith("2001:db8:1::1/"):
+                return None
+
+        return "GUA 2001:db8:1::1 not found on r1-eth0"
+
+    def _r1_lo_gua_present():
+        output = json.loads(r1.vtysh_cmd("show interface lo json"))
+        if "lo" not in output:
+            return "Interface lo not found"
+
+        iface = output["lo"]
+        if "ipAddresses" not in iface:
+            return "No IP addresses on lo"
+
+        for addr_info in iface["ipAddresses"]:
+            addr = addr_info.get("address", "")
+            if addr.startswith("2001:db8:100::1/"):
+                return None
+
+        return "GUA 2001:db8:100::1 not found on lo"
+
+    def _r2_gua_present():
+        output = json.loads(r2.vtysh_cmd("show interface r2-eth0 json"))
+        if "r2-eth0" not in output:
+            return "Interface r2-eth0 not found"
+
+        iface = output["r2-eth0"]
+        if "ipAddresses" not in iface:
+            return "No IP addresses on r2-eth0"
+
+        for addr_info in iface["ipAddresses"]:
+            addr = addr_info.get("address", "")
+            if addr.startswith("2001:db8:1::2/"):
+                return None
+
+        return "GUA 2001:db8:1::2 not found on r2-eth0"
+
+    test_func = functools.partial(_r1_gua_present)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "R1 r1-eth0 should have GUA 2001:db8:1::1"
+
+    test_func = functools.partial(_r1_lo_gua_present)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "R1 lo should have GUA 2001:db8:100::1"
+
+    test_func = functools.partial(_r2_gua_present)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "R2 r2-eth0 should have GUA 2001:db8:1::2"
+
+    step("Configure IPv6 unicast peering")
+    r1.vtysh_cmd(
+        """
+         configure terminal
           router bgp 65001
            address-family ipv6 unicast
             neighbor fe80:1::2 activate
@@ -144,9 +224,6 @@ def test_bgp_ipv6_gua_to_linklocal_fallback():
     r2.vtysh_cmd(
         """
          configure terminal
-          interface r2-eth0
-           ipv6 address 2001:db8:1::2/64
-          exit
           router bgp 65002
            address-family ipv6 unicast
             neighbor fe80:1::1 activate
