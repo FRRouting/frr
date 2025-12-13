@@ -2301,7 +2301,12 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			if (sleaf->when)
 				return true;
 			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
-			    || sleaf->dflt)
+#if (LY_VERSION_MAJOR < 4)
+			    || sleaf->dflt
+#else
+			    || sleaf->dflt.str
+#endif
+			)
 				return false;
 			break;
 		case LYS_CONTAINER:
