@@ -1604,6 +1604,7 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 							    struct mgmt_msg_notify_data **cache)
 
 {
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	struct mgmt_msg_notify_data *new_msg;
 	const struct lyd_node *root;
 	uint8_t **darrp = NULL;
@@ -1619,8 +1620,12 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 
 	/* Get a libyang data tree if we haven't yet */
 	if (!*tree) {
-		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type,
-					 LYD_PARSE_STRICT | LYD_PARSE_ONLY, 0, tree);
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+		if (msg->result_type == LYD_LYB)
+			parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type, parse_options, 0,
+					 tree);
 		assert(err == LY_SUCCESS);
 	}
 
