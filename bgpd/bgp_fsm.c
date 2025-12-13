@@ -308,7 +308,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 */
 	bgp_peer_reg_with_nht(peer);
 	if (from_peer)
-		bgp_replace_nexthop_by_peer(from_peer, peer);
+		bgp_replace_nexthop_by_peer(from_peer->connection, peer->connection);
 
 	bgp_reads_on(keeper);
 	bgp_writes_on(keeper);
