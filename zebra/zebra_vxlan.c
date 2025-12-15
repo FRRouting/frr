@@ -967,6 +967,8 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				"create L3-VNI hash for Intf %s(%u) L3-VNI %u",
 				ifp->name, ifp->ifindex, vni);
 
+		frrtrace(4, frr_zebra, zevpn_build_vni_hash, vni, ifp->name, ifp->ifindex, 1);
+
 		/* associate with vxlan_if */
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
 		zl3vni->vxlan_if = ifp;
@@ -988,6 +990,10 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name
 						    : "NIL");
 
+		frrtrace(3, frr_zebra, zevpn_build_l3vni_hash, vni,
+			 zl3vni->svi_if ? zl3vni->svi_if->name : "NIL",
+			 zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name : "NIL");
+
 		if (is_l3vni_oper_up(zl3vni))
 			zebra_vxlan_process_l3vni_oper_up(zl3vni);
 
@@ -999,6 +1005,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				"Create L2-VNI hash for intf %s(%u) L2-VNI %u local IP %pIA",
 				ifp->name, ifp->ifindex, vni, &vxl->vtep_ip);
 
+		frrtrace(4, frr_zebra, zevpn_build_l2vni_hash, vni, ifp->name, ifp->ifindex,
+			 &vxl->vtep_ip);
+
 		/*
 		 * EVPN hash entry is expected to exist, if the BGP process is
 		 * killed
@@ -1008,6 +1017,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("EVPN hash already present for IF %s(%u) L2-VNI %u",
 					   ifp->name, ifp->ifindex, vni);
+
+			frrtrace(4, frr_zebra, zevpn_build_vni_hash, vni, ifp->name, ifp->ifindex,
+				 2);
 
 			/*
 			 * Inform BGP if intf is up and mapped to
@@ -1027,6 +1039,10 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug("Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
 						   ifp->name, ifp->ifindex, vni);
+
+				frrtrace(4, frr_zebra, zevpn_build_vni_hash, vni, ifp->name,
+					 ifp->ifindex, 3);
+
 				return 0;
 			}
 
@@ -1083,12 +1099,16 @@ static int zevpn_build_hash_table_zns(struct interface *ifp, void *arg)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) link not in same namespace as BGP EVPN core instance",
 				   ifp->name, ifp->ifindex);
+		frrtrace(2, frr_zebra, intf_in_different_ns, ifp->name, ifp->ifindex);
 		goto done;
 	}
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Building vni table for %s-if %s",
 			   IS_ZEBRA_VXLAN_IF_VNI(zif) ? "vni" : "svd", ifp->name);
+
+	frrtrace(2, frr_zebra, building_vni_table, IS_ZEBRA_VXLAN_IF_VNI(zif) ? "vni" : "svd",
+		 ifp->name);
 
 	zebra_vxlan_if_vni_iterate(zif, zevpn_build_vni_hash_table, NULL);
 
@@ -1292,6 +1312,9 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 	else
 		vid = 0;
 
+	frrtrace(5, frr_zebra, evpn_dplane_remote_rmac_add, zrmac, &zrmac->fwd_info.r_vtep_ip,
+		 vni->vni, vid, zl3vni->vxlan_if);
+
 	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr, vni->vni,
 				 &zrmac->fwd_info.r_vtep_ip, 0, 0, false /*was_static*/);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
@@ -1340,6 +1363,9 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 	else
 		vid = 0;
 
+	frrtrace(5, frr_zebra, evpn_dplane_remote_rmac_del, zrmac, &zrmac->fwd_info.r_vtep_ip,
+		 vni->vni, vid, zl3vni->vxlan_if);
+
 	res = dplane_rem_mac_del(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr, vni->vni,
 				 &zrmac->fwd_info.r_vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
@@ -1380,7 +1406,6 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
 	if (!zrmac) {
-
 		 /* Create the RMAC entry, or update its vtep, if necessary. */
 		zrmac = zl3vni_rmac_add(zl3vni, rmac);
 		if (!zrmac) {
@@ -1389,6 +1414,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 					   rmac, zl3vni->vni, vtep_ip);
 			return -1;
 		}
+
+		frrtrace(4, frr_zebra, l3vni_remote_rmac, 1, zl3vni->vni, vtep_ip, rmac);
+
 		memset(&zrmac->fwd_info, 0, sizeof(zrmac->fwd_info));
 		zrmac->fwd_info.r_vtep_ip = ip_vtep;
 
@@ -1412,6 +1440,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("L3VNI %u Remote VTEP change(%pIA -> %pIA) for RMAC %pEA",
 					   zl3vni->vni, &zrmac->fwd_info.r_vtep_ip, vtep_ip, rmac);
+
+			frrtrace(4, frr_zebra, l3vni_remote_rmac_update, zl3vni->vni,
+				 &zrmac->fwd_info.r_vtep_ip, (struct ipaddr *)vtep_ip, rmac);
 
 			zrmac->fwd_info.r_vtep_ip = ip_vtep;
 
@@ -1478,6 +1509,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 					   zl3vni->vni, vtep_ip, &zrmac->fwd_info.r_vtep_ip,
 					   &zrmac->macaddr);
 
+			frrtrace(4, frr_zebra, l3vni_remote_vtep_nh_upd, zl3vni->vni, vtep_ip,
+				 &zrmac->fwd_info.r_vtep_ip, zrmac->macaddr);
+
 			/* Send RMAC for FPM processing */
 			hook_call(zebra_rmac_update, zrmac, zl3vni, false, "RMAC changed");
 
@@ -1497,6 +1531,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				zlog_debug(
 					"L3VNI %u RMAC %pEA vtep_ip %pIA delete",
 					zl3vni->vni, &zrmac->macaddr, vtep_ip);
+
+			frrtrace(4, frr_zebra, l3vni_remote_rmac, 2, zl3vni->vni, &ip_vtep,
+				 &zrmac->macaddr);
 
 			/* del the rmac entry */
 			zl3vni_rmac_del(zl3vni, zrmac);
@@ -1665,6 +1702,7 @@ static int _nh_install(struct zebra_l3vni *zl3vni, struct interface *ifp,
 	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
 		flags |= DPLANE_NTF_ROUTER;
 
+	frrtrace(4, frr_zebra, evpn_dplane_remote_nh_add, &n->emac, &n->ip, zl3vni->vrf_id, ifp);
 	dplane_rem_neigh_add(ifp, &n->ip, &n->emac, flags,
 			     false /*was_static*/);
 
@@ -1683,6 +1721,7 @@ static int _nh_uninstall(struct interface *ifp, struct zebra_neigh *n)
 	if (!ifp || !if_is_operative(ifp))
 		return 0;
 
+	frrtrace(3, frr_zebra, evpn_dplane_remote_nh_del, &n->emac, &n->ip, ifp);
 	dplane_rem_neigh_delete(ifp, &n->ip);
 
 	return 0;
@@ -1749,6 +1788,9 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 				zl3vni->vni, &nh->emac, rmac, vtep_ip,
 				host_prefix);
 
+		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
+			 vtep_ip, nh->refcnt);
+
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
 		zl3vni_nh_install(zl3vni, nh);
@@ -1803,6 +1845,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
 				   &nh->emac, rmac, vtep_ip, host_prefix,
 				   nh->refcnt);
+
+		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
+			 vtep_ip, nh->refcnt);
 
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
@@ -2325,6 +2370,7 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 		return;
 
 	/* send l3vni add to BGP */
+	frrtrace(3, frr_zebra, send_l3vni_oper_to_client, zl3vni->vrf_id, zl3vni->vni, 0);
 	zl3vni_send_add_to_client(zl3vni);
 }
 
@@ -2334,6 +2380,7 @@ void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 		return;
 
 	/* send l3-vni del to BGP*/
+	frrtrace(3, frr_zebra, send_l3vni_oper_to_client, zl3vni->vrf_id, zl3vni->vni, 1);
 	zl3vni_send_del_to_client(zl3vni);
 }
 

@@ -26,6 +26,7 @@
 #include <zebra/zebra_ns.h>
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_evpn_mac.h"
 
 #ifdef HAVE_NETLINK
 #include "zebra/rt_netlink.h"
@@ -989,6 +990,270 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_zebra, zebra_vxlan_sg_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	evpn_dplane_remote_nh_add,
+	TP_ARGS(
+		struct ethaddr *, mac,
+		struct ipaddr *, ip,
+		vrf_id_t, vrf_id,
+		const struct interface *, ifp),
+	TP_FIELDS(
+		ctf_array(unsigned char, rmac, mac,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, nh_ip, ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(int, vrf_id, vrf_id)
+		ctf_integer(unsigned int, ifindex, ifp->ifindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, evpn_dplane_remote_nh_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	evpn_dplane_remote_nh_del,
+	TP_ARGS(
+		struct ethaddr *, mac,
+		struct ipaddr *, ip,
+		const struct interface *, ifp),
+	TP_FIELDS(
+		ctf_array(unsigned char, rmac, mac,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, nh_ip, ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(unsigned int, ifindex, ifp->ifindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, evpn_dplane_remote_nh_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	evpn_dplane_remote_rmac_add,
+	TP_ARGS(
+		struct zebra_mac *, zrmac,
+		struct ipaddr*, vtep_ip,
+		vni_t, vni,
+		vlanid_t, vid,
+		const struct interface *, vxlan_if),
+	TP_FIELDS(
+		ctf_array(unsigned char, rmac, &zrmac->macaddr,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint16_t, vlan_id, vid)
+		ctf_integer(unsigned int, vxlan_if, vxlan_if->ifindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, evpn_dplane_remote_rmac_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	evpn_dplane_remote_rmac_del,
+	TP_ARGS(
+		struct zebra_mac *, zrmac,
+		struct ipaddr *, vtep_ip,
+		vni_t, vni,
+		vlanid_t, vid,
+		const struct interface *, vxlan_if),
+	TP_FIELDS(
+		ctf_array(unsigned char, rmac, &zrmac->macaddr,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint16_t, vlan_id, vid)
+		ctf_integer(unsigned int, vxlan_if, vxlan_if->ifindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, evpn_dplane_remote_rmac_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	l3vni_remote_rmac,
+	TP_ARGS(
+		uint8_t, loc,
+		vni_t, vni,
+		const struct ipaddr *, ip,
+		const struct ethaddr *, rmac),
+	TP_FIELDS(
+		ctf_integer(uint8_t, location, loc)
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, vtep_ip, ip,
+			  sizeof(struct ipaddr))
+		ctf_array(unsigned char, rmac, rmac,
+			  sizeof(struct ethaddr))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, l3vni_remote_rmac, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	l3vni_remote_rmac_update,
+	TP_ARGS(
+		vni_t, vni,
+		struct ipaddr *, old_vtep_ip,
+		struct ipaddr *, ip,
+		const struct ethaddr *, rmac),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, old_vtep_ip, old_vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_array(unsigned char, new_vtep, ip,
+			  sizeof(struct ipaddr))
+		ctf_array(unsigned char, rmac, rmac,
+			  sizeof(struct ethaddr))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, l3vni_remote_rmac_update, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	l3vni_remote_vtep_nh_upd,
+	TP_ARGS(
+		vni_t, vni,
+		const struct ipaddr *, ip,
+		struct ipaddr *, new_vtep_ip,
+		struct ethaddr, mac),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, old_vtep, ip,
+			  sizeof(struct ipaddr))
+		ctf_array(unsigned char, new_vtep_ip, new_vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_array(unsigned char, rmac, &mac,
+			  sizeof(struct ethaddr))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, l3vni_remote_vtep_nh_upd, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	remote_nh_add_rmac_change,
+	TP_ARGS(
+		vni_t, vni,
+		const struct ethaddr *, oldmac,
+		const struct ethaddr *, newmac,
+		const struct ipaddr *, vtep_ip,
+		uint8_t, refcnt),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_array(unsigned char, oldmac, oldmac,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, newmac, newmac,
+			  sizeof(struct ethaddr))
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+		ctf_integer(uint8_t, refcnt, refcnt)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, remote_nh_add_rmac_change, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	send_l3vni_oper_to_client,
+	TP_ARGS(
+		vrf_id_t, vrf_id,
+		vni_t, vni,
+		uint8_t, loc),
+	TP_FIELDS(
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, send_l3vni_oper_to_client, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zevpn_build_l2vni_hash,
+	TP_ARGS(
+		vni_t, vni,
+		char *, if_name,
+		ifindex_t, ifindex,
+		struct ipaddr *, vtep_ip),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_string(interface, if_name)
+		ctf_integer(ifindex_t, ifindex, ifindex)
+		ctf_array(unsigned char, vtep_ip, vtep_ip,
+			  sizeof(struct ipaddr))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zevpn_build_l2vni_hash, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zevpn_build_l3vni_hash,
+	TP_ARGS(
+		vni_t, vni,
+		const char *, svi_if_name,
+		const char *, mac_vlan_if_name),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_string(svi_interface, svi_if_name)
+		ctf_string(mac_vlan_interface, mac_vlan_if_name)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zevpn_build_l3vni_hash, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	zevpn_build_vni_hash,
+	TP_ARGS(
+		vni_t, vni,
+		char *, if_name,
+		ifindex_t, ifindex,
+		uint8_t, loc),
+	TP_FIELDS(
+		ctf_integer(vni_t, vni, vni)
+		ctf_string(interface, if_name)
+		ctf_integer(ifindex_t, ifindex, ifindex)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zevpn_build_vni_hash, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	building_vni_table,
+	TP_ARGS(
+		const char *, type,
+		char *, if_name),
+	TP_FIELDS(
+		ctf_string(interface_type, type)
+		ctf_string(interface, if_name)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, building_vni_table, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	intf_in_different_ns,
+	TP_ARGS(
+		char *, if_name,
+		ifindex_t, ifindex),
+	TP_FIELDS(
+		ctf_string(interface, if_name)
+		ctf_integer(ifindex_t, ifindex, ifindex)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, intf_in_different_ns, TRACE_INFO)
 
 /* clang-format on */
 
