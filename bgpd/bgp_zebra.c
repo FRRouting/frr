@@ -1905,6 +1905,24 @@ static void bgp_zebra_buffer_write_ready(void)
 	bgp_handle_route_announcements_to_zebra(NULL);
 }
 
+void bgp_zebra_update_fib_install_pending(struct bgp_dest *dest, struct bgp *bgp, bool install)
+{
+	/*
+	 * BGP is installing this route and bgp has been configured
+	 * to suppress announcements until the route has been installed
+	 * let's set the fact that we expect this route to be installed
+	 */
+	if (install) {
+		if (BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+			bgp_dest_increment_gr_fib_install_pending_count(dest);
+			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+		}
+	} else {
+		bgp_dest_decrement_gr_fib_install_pending_count(dest);
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+	}
+}
+
 /*
  * BGP is now keeping a list of dests with the dest having a pointer
  * to the bgp_path_info that it will be working on.
