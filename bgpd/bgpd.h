@@ -1428,8 +1428,8 @@ struct peer_connection {
 DECLARE_LIST(peer_connection_fifo, struct peer_connection, fifo_item);
 
 const char *bgp_peer_get_connection_direction(struct peer_connection *connection);
-extern struct peer_connection *bgp_peer_connection_new(struct peer *peer,
-						       const union sockunion *su);
+extern struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su,
+						       enum connection_direction dir);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 

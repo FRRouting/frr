@@ -1241,12 +1241,15 @@ const char *bgp_peer_get_connection_direction(struct peer_connection *connection
 	return "DEV ESCAPE";
 }
 
-struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su)
+struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su,
+						enum connection_direction dir)
 {
 	struct peer_connection *connection;
 
 	connection = XCALLOC(MTYPE_BGP_PEER_CONNECTION,
 			     sizeof(struct peer_connection));
+
+	connection->dir = dir;
 
 	if (su)
 		connection->su = *su;
@@ -1638,7 +1641,7 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su)
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
 	/* Create buffers. */
-	peer->connection = bgp_peer_connection_new(peer, su);
+	peer->connection = bgp_peer_connection_new(peer, su, UNKNOWN);
 	peer->connection->dir = CONNECTION_OUTGOING;
 
 	/* Set default value. */
