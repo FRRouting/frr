@@ -3968,7 +3968,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
-	struct prefix_ipv6 tmp_prefi;
+	struct prefix_ipv6 tmp_prefix;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
@@ -4010,10 +4010,10 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
-		tmp_prefi.family = AF_INET6;
-		tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
-		tmp_prefi.prefix = func->sid;
-		if (prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefi)) {
+		tmp_prefix.family = AF_INET6;
+		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+		tmp_prefix.prefix = func->sid;
+		if (prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix)) {
 			listnode_delete(bgp->srv6_functions, func);
 			srv6_function_free(func);
 		}
@@ -4038,11 +4038,11 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		// refresh vpnv4 tovpn_sid
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
 		if (tovpn_sid) {
-			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefi.prefix = *tovpn_sid;
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefix.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefi)) {
+					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 				/* refresh vpnv4 tovpn_sid_locator */
@@ -4054,11 +4054,11 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		// refresh vpnv6 tovpn_sid
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
 		if (tovpn_sid) {
-			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefi.prefix = *tovpn_sid;
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefix.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefi)) {
+					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 				/* refresh vpnv6 tovpn_sid_locator */
@@ -4070,11 +4070,11 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		/* refresh per-vrf tovpn_sid */
 		tovpn_sid = bgp_vrf->tovpn_sid;
 		if (tovpn_sid) {
-			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefi.prefix = *tovpn_sid;
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefix.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefi)) {
+					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 				/* refresh per-vrf tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
