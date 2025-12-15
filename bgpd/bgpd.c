@@ -1627,7 +1627,7 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 }
 
 /* Allocate new peer object, implicitely locked.  */
-struct peer *peer_new(struct bgp *bgp, union sockunion *su)
+struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir)
 {
 	afi_t afi;
 	safi_t safi;
@@ -1641,8 +1641,7 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su)
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
 	/* Create buffers. */
-	peer->connection = bgp_peer_connection_new(peer, su, UNKNOWN);
-	peer->connection->dir = CONNECTION_OUTGOING;
+	peer->connection = bgp_peer_connection_new(peer, su, dir);
 
 	/* Set default value. */
 	peer->v_start = BGP_INIT_START_TIMER;
@@ -2069,7 +2068,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	afi_t afi;
 	safi_t safi;
 
-	peer = peer_new(bgp, su);
+	peer = peer_new(bgp, su, UNKNOWN);
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
 		if (!su)
@@ -2163,7 +2162,7 @@ struct peer *peer_create_accept(struct bgp *bgp, union sockunion *su)
 {
 	struct peer *peer;
 
-	peer = peer_new(bgp, su);
+	peer = peer_new(bgp, su, UNKNOWN);
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
@@ -2997,7 +2996,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->peer = list_new();
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		group->listen_range[afi] = list_new();
-	group->conf = peer_new(bgp, NULL);
+	group->conf = peer_new(bgp, NULL, UNKNOWN);
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (bgp->default_af[afi][safi])
 			group->conf->afc[afi][safi] = 1;
@@ -3613,7 +3612,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
-	bgp->peer_self = peer_new(bgp, NULL);
+	bgp->peer_self = peer_new(bgp, NULL, UNKNOWN);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
