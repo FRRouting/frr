@@ -18,6 +18,7 @@
 #include "northbound.h"
 #include "stream.h"
 #include "sockopt.h"
+#include "sys/stat.h"
 #include "northbound_cli.h"
 
 #include "lib/mgmt_be_client_clippy.c"
@@ -195,6 +196,39 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
+/*
+ * Helper function to check the fd is valid
+ * When mgmtd socket is closed the fd is invalid,
+ * check this the 'fd' before sending any notification
+ */
+static bool is_fd_in_valid_range(struct mgmt_be_client *client, int fd)
+{
+	int fd_limit;
+	struct stat st;
+
+	/* Basic sanity check */
+	if (fd < 0)
+		return false;
+
+	debug_be_client("fd is %d client fd limit is %d", fd, client->client.conn.loop->fd_limit);
+	/* Try to get fd_limit from event loop */
+	if (client && client->client.conn.loop) {
+		fd_limit = client->client.conn.loop->fd_limit;
+		/* Check if fd is in valid range */
+		if (fd >= fd_limit) {
+			debug_be_client("fd is invalid");
+			return false;
+		}
+	}
+	/* Verify FD refers to an open file */
+	if (fstat(fd, &st) < 0) {
+		debug_be_client("fd=%d is not open: fstat failed with %s (%d)", fd,
+				strerror(errno), errno);
+		return false;
+	}
+	return true;
+}
+
 static int __send_notification(struct mgmt_be_client *client, const char *xpath,
 			       const struct lyd_node *tree, uint8_t op, uint64_t refer_id)
 {
@@ -204,6 +238,19 @@ static int __send_notification(struct mgmt_be_client *client, const char *xpath,
 	uint8_t **darrp;
 	LY_ERR err;
 	int ret = 0;
+
+	/* Validate client */
+	if (!client) {
+		debug_be_client("%s: No client", __func__);
+		return 1;
+	}
+
+	/* Check fd is valid */
+	if (!is_fd_in_valid_range(client, client->client.conn.fd)) {
+		debug_be_client("%s: Invalid fd=%d for client '%s'", __func__,
+				client->client.conn.fd, client->name ?: "unknown");
+		return 1;
+	}
 
 	assert(op != NOTIFY_OP_NOTIFICATION || xpath || tree);
 	debug_be_client("%s: sending %sYANG %snotification: %s", __func__,
