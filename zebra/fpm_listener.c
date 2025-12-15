@@ -20,6 +20,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <libgen.h>
+#include <string.h>
+#include <limits.h>
 
 #ifdef GNU_LINUX
 #include <stdint.h>
@@ -1250,6 +1253,25 @@ int main(int argc, char **argv)
 
 		if (daemon)
 			exit(0);
+
+		/* Write PID file if dump_file is specified */
+		if (glob->dump_file) {
+			char *dump_file_copy = strdup(glob->dump_file);
+			char *dir = dirname(dump_file_copy);
+			char pid_file_path[PATH_MAX];
+			FILE *pid_file;
+
+			snprintf(pid_file_path, sizeof(pid_file_path), "%s/fpm_listener.pid", dir);
+			pid_file = fopen(pid_file_path, "w");
+			if (pid_file) {
+				fprintf(pid_file, "%d\n", getpid());
+				fclose(pid_file);
+			} else {
+				fprintf(stderr, "Warning: Failed to write PID file %s: %s\n",
+					pid_file_path, strerror(errno));
+			}
+			free(dump_file_copy);
+		}
 	}
 
 	if (!create_listen_sock(FPM_DEFAULT_PORT, &glob->server_sock))
