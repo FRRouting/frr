@@ -3204,10 +3204,10 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 		vpn_leak_postchange(idir, afi, bgp_get_default(), to_bgp);
 }
 
-void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 			   afi_t afi, safi_t safi)
 {
-	const char *export_name, *tmp_name;
+	const char *export_name;
 	enum vpn_policy_direction idir, edir;
 	char *vname;
 	struct ecommunity *ecom = NULL;
@@ -3215,7 +3215,6 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	int debug;
 
 	export_name = to_bgp->name ? to_bgp->name : VRF_DEFAULT_NAME;
-	tmp_name = from_bgp->name ? from_bgp->name : VRF_DEFAULT_NAME;
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
@@ -3225,7 +3224,7 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	/* Were we importing from "import_vrf"? */
 	for (ALL_LIST_ELEMENTS_RO(to_bgp->vpn_policy[afi].import_vrf, node,
 				  vname)) {
-		if (strcmp(vname, tmp_name) == 0)
+		if (strcmp(vname, import_name) == 0)
 			break;
 	}
 
@@ -3240,7 +3239,7 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 		return;
 
 	if (debug)
-		zlog_debug("%s from %s to %s", __func__, tmp_name, export_name);
+		zlog_debug("%s from %s to %s", __func__, import_name, export_name);
 
 	/* Remove "import_vrf" from our import list. */
 	listnode_delete(to_bgp->vpn_policy[afi].import_vrf, vname);
@@ -3258,13 +3257,17 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				   BGP_CONFIG_VRF_TO_VRF_IMPORT);
 		if (to_bgp->vpn_policy[afi].rtlist[idir])
 			ecommunity_free(&to_bgp->vpn_policy[afi].rtlist[idir]);
-	} else {
+	} else if (from_bgp) {
 		ecom = from_bgp->vpn_policy[afi].rtlist[edir];
 		if (ecom)
 			ecommunity_del_val(to_bgp->vpn_policy[afi].rtlist[idir],
 				   (struct ecommunity_val *)ecom->val);
 		vpn_leak_postchange(idir, afi, bgp_get_default(), to_bgp);
 	}
+
+	if (!from_bgp)
+		/* import vrf VRF context not (or no more) existing */
+		return;
 
 	/*
 	 * What?
@@ -4105,7 +4108,7 @@ void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 					   to_bgp->name_pretty, afi2str(afi),
 					   to_vpolicy->import_vrf->count);
 
-			vrf_unimport_from_vrf(to_bgp, from_bgp, afi, safi);
+			vrf_unimport_from_vrf(to_bgp, from_bgp, tmp_name, afi, safi);
 
 			/* readd vrf name as unimport removes import vrf name
 			 * from the destination vrf's import list where the
@@ -4125,8 +4128,8 @@ void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 						  .export_vrf, node,
 						  vname)) {
 				if (strcmp(vname, tmp_name) == 0) {
-					vrf_unimport_from_vrf(from_bgp, to_bgp,
-						      afi, safi);
+					vrf_unimport_from_vrf(from_bgp, to_bgp, tmp_name, afi,
+							      safi);
 					break;
 				}
 			}

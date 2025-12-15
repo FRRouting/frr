@@ -11143,10 +11143,11 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	}
 
 	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
+
 	if (!vrf_bgp) {
 		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
 			vrf_bgp = bgp_default;
-		} else {
+		} else if (!remove) {
 			as = AS_UNSPECIFIED;
 
 			/* Auto-create with AS_UNSPECIFIED, fill in later */
@@ -11170,7 +11171,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	}
 
 	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	} else {
 		/* Already importing from "import_vrf"? */
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
