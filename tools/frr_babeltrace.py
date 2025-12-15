@@ -1077,6 +1077,85 @@ def parse_frr_zebra_zebra_vxlan_remote_vtep_del(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_evpn_dplane_remote_nh_add(event):
+    field_parsers = {"nh_ip": print_ip_addr, "rmac": print_mac}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_evpn_dplane_remote_nh_del(event):
+    field_parsers = {"nh_ip": print_ip_addr, "rmac": print_mac}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_evpn_dplane_remote_rmac_add(event):
+    field_parsers = {"rmac": print_mac, "vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_evpn_dplane_remote_rmac_del(event):
+    field_parsers = {"rmac": print_mac, "vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_l3vni_remote_rmac(event):
+    field_parsers = {
+        "vtep_ip": print_ip_addr,
+        "rmac": print_mac,
+        "location": lambda x: {1: "Add", 2: "Del"}.get(
+            x, f"Unknown L3VNI remote RMAC location {x}"
+        ),
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_l3vni_remote_rmac_update(event):
+    field_parsers = {
+        "new_vtep": print_ip_addr,
+        "rmac": print_mac,
+        "old_vtep_ip": print_ip_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_l3vni_remote_vtep_nh_upd(event):
+    field_parsers = {
+        "old_vtep": print_ip_addr,
+        "rmac": print_mac,
+        "new_vtep_ip": print_ip_addr,
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_remote_nh_add_rmac_change(event):
+    field_parsers = {"oldmac": print_mac, "newmac": print_mac, "vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_send_l3vni_oper_to_client(event):
+    field_parsers = {
+        "location": lambda x: {0: "l3vni oper up", 1: "l3vni oper down"}.get(
+            x, f"Unknown l3vni oper event {x}"
+        )
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zevpn_build_l2vni_hash(event):
+    field_parsers = {"vtep_ip": print_ip_addr}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_zebra_zevpn_build_vni_hash(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "Create l3vni hash",
+            2: "EVPN hash already present",
+            3: "EVPN instance does not exist",
+        }.get(x, f"Unknown zevpn build vni hash location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -1153,6 +1232,17 @@ def main():
         "frr_zebra:zebra_vxlan_remote_macip_del": parse_frr_zebra_zebra_vxlan_remote_macip_del,
         "frr_zebra:zebra_vxlan_remote_vtep_add": parse_frr_zebra_zebra_vxlan_remote_vtep_add,
         "frr_zebra:zebra_vxlan_remote_vtep_del": parse_frr_zebra_zebra_vxlan_remote_vtep_del,
+        "frr_zebra:evpn_dplane_remote_nh_add": parse_frr_zebra_evpn_dplane_remote_nh_add,
+        "frr_zebra:evpn_dplane_remote_nh_del": parse_frr_zebra_evpn_dplane_remote_nh_del,
+        "frr_zebra:evpn_dplane_remote_rmac_add": parse_frr_zebra_evpn_dplane_remote_rmac_add,
+        "frr_zebra:evpn_dplane_remote_rmac_del": parse_frr_zebra_evpn_dplane_remote_rmac_del,
+        "frr_zebra:l3vni_remote_rmac": parse_frr_zebra_l3vni_remote_rmac,
+        "frr_zebra:l3vni_remote_rmac_update": parse_frr_zebra_l3vni_remote_rmac_update,
+        "frr_zebra:l3vni_remote_vtep_nh_upd": parse_frr_zebra_l3vni_remote_vtep_nh_upd,
+        "frr_zebra:remote_nh_add_rmac_change": parse_frr_zebra_remote_nh_add_rmac_change,
+        "frr_zebra:send_l3vni_oper_to_client": parse_frr_zebra_send_l3vni_oper_to_client,
+        "frr_zebra:zevpn_build_l2vni_hash": parse_frr_zebra_zevpn_build_l2vni_hash,
+        "frr_zebra:zevpn_build_vni_hash": parse_frr_zebra_zevpn_build_vni_hash,
     }
 
     # get the trace path from the first command line argument
