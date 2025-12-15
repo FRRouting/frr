@@ -1255,6 +1255,18 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, intf_in_different_ns, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	if_netlink_parse_error,
+	TP_ARGS(
+		uint8_t, location),
+	TP_FIELDS(
+		ctf_integer(uint8_t, location, location)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, if_netlink_parse_error, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

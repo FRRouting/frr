@@ -443,6 +443,9 @@ static int netlink_extract_vlan_info(struct rtattr *link_data,
 	if (!attr[IFLA_VLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VLAN_ID missing from VLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 1);
+
 		return -1;
 	}
 
@@ -464,6 +467,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_GRE_LOCAL missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 2);
 	} else
 		gre_info->vtep_ip =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
@@ -471,6 +476,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_GRE_REMOTE missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 3);
 	} else
 		gre_info->vtep_ip_remote =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]);
@@ -478,6 +485,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 	if (!attr[IFLA_GRE_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_GRE_LINK missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 4);
 	} else {
 		gre_info->ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_GRE_LINK]);
@@ -519,6 +528,9 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"IFLA_VXLAN_ID missing from VXLAN IF message");
+
+			frrtrace(1, frr_zebra, if_netlink_parse_error, 5);
+
 			return -1;
 		}
 
@@ -547,6 +559,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_VXLAN_LOCAL missing from VXLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 6);
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
@@ -559,6 +573,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	if (!attr[IFLA_VXLAN_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VXLAN_LINK missing from VXLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 7);
 	} else {
 		ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_VXLAN_LINK]);
@@ -1379,6 +1395,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: ignoring IFLA_WIRELESS message",
 				   __func__);
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 8);
+
 		return 0;
 	}
 
@@ -1391,6 +1410,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (len < 2 || name[len - 1] != '\0') {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: invalid intf name", __func__);
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 9);
+
 		return -1;
 	}
 
