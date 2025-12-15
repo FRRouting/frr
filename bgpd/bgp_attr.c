@@ -2770,17 +2770,26 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s sent a v6 global and LL attribute but global address is a V6 LL and there's no peer interface information. Hence, withdrawing",
-					  peer->host);
-				return BGP_ATTR_PARSE_WITHDRAW;
+				/*
+				 * BGP views do not currently get proper data
+				 * from zebra (when attached) to be able to
+				 * properly resolve nexthops, so give this
+				 * instance type a pass.
+				 */
+				if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+					zlog_warn("%s sent a v6 global and LL attribute but global address is a V6 LL and there's no peer interface information. Hence, withdrawing",
+						  peer->host);
+					return BGP_ATTR_PARSE_WITHDRAW;
+				}
+				/* For views, set nh_ifindex to 0 since we don't have interface info */
+				attr->nh_ifindex = 0;
+			} else {
+				attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+				if (if_is_operative(peer->nexthop.ifp))
+					SET_FLAG(attr->nh_flags, BGP_ATTR_NH_IF_OPERSTATE);
+				else
+					UNSET_FLAG(attr->nh_flags, BGP_ATTR_NH_IF_OPERSTATE);
 			}
-			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
-			if (if_is_operative(peer->nexthop.ifp))
-				SET_FLAG(attr->nh_flags,
-					 BGP_ATTR_NH_IF_OPERSTATE);
-			else
-				UNSET_FLAG(attr->nh_flags,
-					   BGP_ATTR_NH_IF_OPERSTATE);
 		}
 		if (attr->mp_nexthop_len
 		    == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
@@ -2809,11 +2818,22 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
 		if (!peer->nexthop.ifp) {
-			zlog_warn("%s sent a v6 LL next-hop and there's no peer interface information. Hence, withdrawing",
-				  peer->host);
-			return BGP_ATTR_PARSE_WITHDRAW;
+			/*
+			 * BGP views do not currently get proper data
+			 * from zebra (when attached) to be able to
+			 * properly resolve nexthops, so give this
+			 * instance type a pass.
+			 */
+			if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+				zlog_warn("%s sent a v6 LL next-hop and there's no peer interface information. Hence, withdrawing",
+					  peer->host);
+				return BGP_ATTR_PARSE_WITHDRAW;
+			}
+			/* For views, set nh_lla_ifindex to 0 since we don't have interface info */
+			attr->nh_lla_ifindex = 0;
+		} else {
+			attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		}
-		attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		break;
 	default:
 		zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
