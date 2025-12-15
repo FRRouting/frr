@@ -1342,7 +1342,7 @@ static int handle_attr_test(struct aspath_tests *t)
 			  t->segment->asnotation);
 	bgp.asnotation = t->segment->asnotation;
 
-	peer.connection = bgp_peer_connection_new(&peer, NULL);
+	peer.connection = bgp_peer_connection_new(&peer, NULL, UNKNOWN);
 	peer.connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
