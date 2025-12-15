@@ -2549,11 +2549,10 @@ extern bool peer_active_nego(struct peer *peer);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
-extern struct peer *peer_create(union sockunion *su, const char *conf_if,
-				struct bgp *bgp, as_t local_as, as_t remote_as,
-				enum peer_asn_type as_type,
-				struct peer_group *group, bool config_node,
-				const char *as_str);
+extern struct peer *peer_create(union sockunion *su, const char *conf_if, struct bgp *bgp,
+				as_t local_as, as_t remote_as, enum peer_asn_type as_type,
+				struct peer_group *group, bool config_node, const char *as_str,
+				enum connection_direction dir);
 extern struct peer *peer_create_accept(struct bgp *bgp, union sockunion *su);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
