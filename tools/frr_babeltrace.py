@@ -1156,6 +1156,23 @@ def parse_frr_zebra_zevpn_build_vni_hash(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_zebra_if_netlink_parse_error(event):
+    field_parsers = {
+        "location": lambda x: {
+            1: "IFLA_VLAN_ID missing",
+            2: "IFLA_GRE_LOCAL missing",
+            3: "IFLA_GRE_REMOTE missing",
+            4: "IFLA_GRE_LINK missing",
+            5: "IFLA_VXLAN_ID missing",
+            6: "IFLA_VXLAN_LOCAL missing",
+            7: "IFLA_VXLAN_LINK missing",
+            8: "IFLA_WIRELESS ignored",
+            9: "Invalid interface name",
+        }.get(x, f"Unknown if_netlink_parse_error location {x}")
+    }
+    parse_event(event, field_parsers)
+
+
 def main():
     """
     FRR lttng trace output parser; babel trace plugin
@@ -1243,6 +1260,7 @@ def main():
         "frr_zebra:send_l3vni_oper_to_client": parse_frr_zebra_send_l3vni_oper_to_client,
         "frr_zebra:zevpn_build_l2vni_hash": parse_frr_zebra_zevpn_build_l2vni_hash,
         "frr_zebra:zevpn_build_vni_hash": parse_frr_zebra_zevpn_build_vni_hash,
+        "frr_zebra:if_netlink_parse_error": parse_frr_zebra_if_netlink_parse_error,
     }
 
     # get the trace path from the first command line argument
