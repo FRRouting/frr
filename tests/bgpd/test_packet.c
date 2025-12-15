@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		}
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->connection = bgp_peer_connection_new(peer, NULL);
+	peer->connection = bgp_peer_connection_new(peer, NULL, UNKNOWN);
 	peer->connection->status = Established;
 
 	peer->connection->fd = open(argv[1], O_RDONLY | O_NONBLOCK);
