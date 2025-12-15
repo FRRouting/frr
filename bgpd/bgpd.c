@@ -2057,10 +2057,9 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  * track the bgp->peerhash( ie we don't want to remove the current
  * one from the config ).
  */
-struct peer *peer_create(union sockunion *su, const char *conf_if,
-			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 enum peer_asn_type as_type, struct peer_group *group,
-			 bool config_node, const char *as_str)
+struct peer *peer_create(union sockunion *su, const char *conf_if, struct bgp *bgp, as_t local_as,
+			 as_t remote_as, enum peer_asn_type as_type, struct peer_group *group,
+			 bool config_node, const char *as_str, enum connection_direction dir)
 {
 	enum bgp_peer_active active;
 	struct peer *peer;
@@ -2068,7 +2067,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	afi_t afi;
 	safi_t safi;
 
-	peer = peer_new(bgp, su, UNKNOWN);
+	peer = peer_new(bgp, su, dir);
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
 		if (!su)
@@ -2334,8 +2333,8 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		else
 			local_as = bgp->as;
 
-		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL,
-			    true, as_str);
+		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL, true, as_str,
+			    CONNECTION_OUTGOING);
 	}
 
 	return 0;
@@ -3497,8 +3496,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
 		}
 
-		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, group, true, NULL);
+		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type,
+				   group, true, NULL, CONNECTION_OUTGOING);
 
 		peer = peer_lock(peer); /* group->peer list reference */
 		listnode_add(group->peer, peer);
@@ -4695,8 +4694,8 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	safi_t safi;
 
 	/* Create peer first; we've already checked group config is valid. */
-	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, group, true, NULL);
+	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, group,
+			   true, NULL, CONNECTION_INCOMING);
 	if (!peer)
 		return NULL;
 
