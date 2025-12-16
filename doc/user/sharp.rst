@@ -326,3 +326,10 @@ keyword. At present, no sharp commands will be preserved in the config.
 .. clicmd:: sharp interface IFNAME protodown
 
    Set an interface protodown.
+
+.. clicmd:: sharp use-underlays-nexthop-weight
+
+   If you are using sharpd to install routes and the underlying route
+   that the sharp route is being resolved through has nexthop weights
+   associated with it, tell the RIB to use those nexthop weights
+   when creating the nexthop group for the sharp route being installed.

@@ -4404,6 +4404,19 @@ The following are available in the ``router bgp`` mode:
    at a time in a loop. This setting controls how many iterations the loop runs
    for. As with write-quanta, it is best to leave this setting on the default.
 
+.. clicmd:: use-underlays-nexthop-weight
+
+   BGP when it installs routes has a feature that allows it to use weights
+   that are based upon community values.  This allows the nexthops using
+   those weights to be used in accordance to the operators configuration.
+   If BGP is using itself as a underlay and the underlay has weights associated
+   with them, turn on this command to tell BGP to signal to zebra when
+   installing the route that the underlays weights should be used for the
+   recursively resolved nexthops.  If this command is turned on and the
+   route already has weights associated with it, then BGP will not signal
+   to zebra that it should use the recursively resolved underlay routes
+   nexthop weights.
+
 The following command is available in ``config`` mode as well as in the
 ``router bgp`` mode:
 
