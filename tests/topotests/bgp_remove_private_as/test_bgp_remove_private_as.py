@@ -429,6 +429,105 @@ def test_bgp_remove_private_as():
         _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
         assert result == True, "bgpd may has major failure"
 
+    def _bgp_count_1():
+        router = tgen.gears["r3"]
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.0.2.3",
+            "localAS": 65003,
+            "totalRoutes": 5,
+            "totalPaths": 6,
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_count_2():
+        router = tgen.gears["r3"]
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.0.2.3",
+            "localAS": 65003,
+            "totalRoutes": 5,
+            "totalPaths": 6,
+        }
+        return topotest.json_cmp(output, expected)
+
+    def test_bgp_aspath_count_match():
+        tgen = get_topogen()
+
+        if tgen.routers_have_failure():
+            pytest.skip(tgen.errors)
+
+        router = tgen.gears["r3"]
+
+        router.vtysh_cmd(
+            """
+            configure terminal
+            route-map r1 permit 20
+            match as-path-count 2
+            """
+        )
+
+        router.vtysh_cmd(
+            """
+            configure terminal
+            router bgp 65003
+	    address-family ipv4 unicast
+	    neighbor 203.0.113.7 route-map r1 in
+            """
+        )
+
+        """Check that 6 path have been received on R3"""
+        test_func = partial(_bgp_count_1)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "Failed to check that 6 paths have been keeped on R3"
+
+        router.vtysh_cmd(
+            """
+            configure terminal
+            router bgp 65003
+	    address-family ipv4 unicast
+	    neighbor 203.0.113.5 route-map r1 in
+            """
+        )
+
+        """Check that 6 path have been received on R3"""
+        test_func = partial(_bgp_count_2)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "Failed to check that 6 path bis have been keeped on R3"
+
+    def _bgp_count_two():
+        router = tgen.gears["r3"]
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.0.2.3",
+            "localAS": 65003,
+            "totalRoutes": 5,
+            "totalPaths": 10,
+        }
+        return topotest.json_cmp(output, expected)
+
+    def test_bgp_aspath_reset_count_match():
+        tgen = get_topogen()
+
+        if tgen.routers_have_failure():
+            pytest.skip(tgen.errors)
+
+        router = tgen.gears["r3"]
+        router.vtysh_cmd(
+            """
+            configure terminal
+            route-map r1 permit 20
+            no match as-path-count
+            """
+        )
+
+        test_func = partial(_bgp_count_two)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "Failed to check that 10 path have been keeped on R3"
+
     #######################
     # Begin Test
     #######################
@@ -451,6 +550,10 @@ def test_bgp_remove_private_as():
     # verify that nulled as_path don't make a crash.
     _change_remove_type("remove-private-AS all", "add")
     _crash_scenario()
+
+    # verify the as-path-limit
+    test_bgp_aspath_count_match()
+    test_bgp_aspath_reset_count_match()
 
 
 exit
