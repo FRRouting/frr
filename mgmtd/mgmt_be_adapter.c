@@ -450,23 +450,33 @@ struct nb_config_cbs mgmt_be_adapter_get_config(struct mgmt_be_client_adapter *a
 	const struct lyd_node *root, *dnode;
 	uint32_t seq = 0;
 	char *xpath;
+	int node_count = 0;
+	int interested_count = 0;
+
+	_dbg("%s: Getting config for adapter: %s", __func__, adapter->name);
 
 	LY_LIST_FOR (running_config->dnode, root) {
 		LYD_TREE_DFS_BEGIN (root, dnode) {
+			node_count++;
 			if (lysc_is_key(dnode->schema))
 				goto walk_cont;
 
 			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
 			if (be_is_client_interested(xpath, adapter->id,
-						    MGMT_BE_XPATH_SUBSCR_TYPE_CFG))
+						    MGMT_BE_XPATH_SUBSCR_TYPE_CFG)) {
 				nb_config_diff_add_change(&changes, NB_CB_CREATE, &seq, dnode);
-			else
+				interested_count++;
+			} else
 				LYD_TREE_DFS_continue = 1; /* skip any subtree */
 			free(xpath);
 walk_cont:
 			LYD_TREE_DFS_END(root, dnode);
 		}
 	}
+
+	_dbg("%s: adapter: %s total nodes: %d interested nodes: %d", __func__, adapter->name,
+	     node_count, interested_count);
+
 	return changes;
 }
 
@@ -929,6 +939,8 @@ static void be_adapter_conn_init(struct event *event)
 	assert(adapter && adapter->conn->fd >= 0);
 	id = adapter->id;
 
+	_dbg("%s: Starting initialization for adapter: %s", __func__, adapter->name);
+
 	/*
 	 * Notify TXN module to create a CONFIG transaction and
 	 * download the CONFIGs identified for this new client.
@@ -950,6 +962,8 @@ static void be_adapter_conn_init(struct event *event)
  */
 static void be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter)
 {
+	_dbg("%s: Scheduling init event for adapter: %s with delay: %dms", __func__, adapter->name,
+	     MGMTD_BE_CONN_INIT_DELAY_MSEC);
 	event_add_timer_msec(mgmt_loop, be_adapter_conn_init, adapter,
 			     MGMTD_BE_CONN_INIT_DELAY_MSEC, &adapter->conn_init_ev);
 }

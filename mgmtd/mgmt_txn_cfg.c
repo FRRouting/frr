@@ -852,6 +852,8 @@ int txn_cfg_be_client_connect(struct mgmt_be_client_adapter *adapter)
 	/* Get config for this single backend client */
 	adapter_cfgs = mgmt_be_adapter_get_config(adapter);
 	if (RB_EMPTY(nb_config_cbs, &adapter_cfgs)) {
+		_dbg("%s: No config changes for adapter '%s', returning early", __func__,
+		     adapter->name);
 		if (!--txn_init_readers)
 			mgmt_ds_unlock(ds_ctx, 0);
 		return 0;
