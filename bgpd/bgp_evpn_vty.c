@@ -6109,7 +6109,7 @@ DEFPY_HIDDEN(test_es_vni_add,
 			return CMD_WARNING;
 		}
 	} else {
-		ret = bgp_evpn_local_es_evi_add(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG);
+		ret = bgp_evpn_local_es_evi_add(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG, NULL);
 		if (ret == -1) {
 			vty_out(vty, "%% Failed to ref ES VNI\n");
 			return CMD_WARNING;

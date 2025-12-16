@@ -410,6 +410,16 @@ static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
 		eval->val[2] |= ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG;
 }
 
+static inline void encode_l2attr_extcomm(struct ecommunity_val *eval, uint16_t mtu, uint8_t cflag)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR;
+	eval->val[3] = cflag;
+	eval->val[4] = (mtu >> 8) & 0xff;
+	eval->val[5] = mtu & 0xff;
+}
+
 static inline void ip_prefix_from_type5_prefix(const struct prefix_evpn *evp,
 					       struct prefix *ip)
 {

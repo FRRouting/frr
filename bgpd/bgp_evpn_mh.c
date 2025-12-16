@@ -918,10 +918,10 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 }
 
 /* Extended communities associated with EAD-per-EVI */
-static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
-		struct bgpevpn *vpn, struct attr *attr)
+static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es_evi *es_evi,
+						   struct bgpevpn *vpn, struct attr *attr)
 {
-	struct ecommunity ecom_encap;
+	struct ecommunity ecom_encap, ecom_l2attr;
 	struct ecommunity_val eval;
 	bgp_encap_types tnl_type;
 	struct listnode *rt_node;
@@ -935,6 +935,16 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
 	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
+
+	/* EAD-per-EVI l2attr ecomunity */
+	if (es_evi && es_evi->l2attr.val[1] == ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR) {
+		memset(&ecom_l2attr, 0, sizeof(ecom_l2attr));
+		ecom_l2attr.size = 1;
+		ecom_l2attr.unit_size = ECOMMUNITY_SIZE;
+		ecom_l2attr.val = (uint8_t *)es_evi->l2attr.val;
+		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
+							       &ecom_l2attr));
+	}
 
 	/* Add export RTs for the L2-VNI */
 	for (ALL_LIST_ELEMENTS_RO(vpn->export_rtl, rt_node, ecom))
@@ -960,6 +970,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct bgp_path_info *pi = NULL;
 	int route_changed = 0;
 	struct prefix_rd *global_rd;
+	struct bgp_evpn_es_evi *es_evi;
 
 	memset(&attr, 0, sizeof(attr));
 
@@ -972,10 +983,11 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	if (vpn) {
 		/* EAD-EVI route update */
 		/* MPLS label */
+		es_evi = bgp_evpn_es_evi_find(es, vpn, p->prefix.ead_addr.eth_tag);
 		vni2label(vpn->vni, &(attr.label));
 
 		/* Set up extended community */
-		bgp_evpn_type1_evi_route_extcomm_build(es, vpn, &attr);
+		bgp_evpn_type1_evi_route_extcomm_build(es_evi, vpn, &attr);
 
 		/* First, create (or fetch) route node within the VNI. */
 		dest = bgp_node_get(vpn->ip_table, (struct prefix *)p);
@@ -3826,7 +3838,8 @@ int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t e
 }
 
 /* Create ES-EVI and advertise the corresponding EAD routes */
-int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag)
+int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag,
+			      struct ecommunity_val *ecom_l2attr)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -3871,6 +3884,8 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t e
 			return -1;
 		}
 	}
+	if (ecom_l2attr)
+		memcpy(&es_evi->l2attr, ecom_l2attr, ECOMMUNITY_SIZE);
 
 	bgp_evpn_es_evi_local_info_set(es_evi);
 

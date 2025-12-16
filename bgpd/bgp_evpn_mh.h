@@ -227,6 +227,7 @@ struct bgp_evpn_es_evi {
 #define BGP_EVPNES_EVI_INCONS_VTEP_LIST (1 << 2)
 
 	uint32_t eth_tag;
+	struct ecommunity_val l2attr;
 	/* memory used for adding the es_evi to es_evi->vpn->es_evi_rb_tree */
 	RB_ENTRY(bgp_evpn_es_evi) rb_node;
 	/* memory used for linking the es_evi to
@@ -417,7 +418,8 @@ extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 				 struct in_addr originator_ip, bool oper_up,
 				 uint16_t df_pref, bool bypass);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
-extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag);
+extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag,
+				     struct ecommunity_val *ecom_l2attr);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni, uint32_t eth_tag);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
