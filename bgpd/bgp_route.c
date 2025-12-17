@@ -3958,10 +3958,16 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 #endif
 			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)) {
-				if (bgp_zebra_announce_eligible(new_select))
-					bgp_zebra_route_install(dest, old_select,
-								bgp, true, NULL,
-								false);
+				if (bgp_zebra_announce_eligible(new_select)) {
+					if (CHECK_FLAG(bgp->gr_info[afi][safi].flags,
+						       BGP_GR_SKIP_BP)) {
+						bgp_zebra_update_fib_install_pending(dest, bgp,
+										     true);
+						bgp_zebra_announce_actual(dest, old_select, bgp);
+					} else
+						bgp_zebra_route_install(dest, old_select, bgp,
+									true, NULL, false);
+				}
 			}
 		}
 
@@ -4067,14 +4073,21 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
 		if (new_select && bgp_zebra_announce_eligible(new_select)) {
-			bgp_zebra_route_install(dest, new_select, bgp, true,
-						NULL, false);
+			if (CHECK_FLAG(bgp->gr_info[afi][safi].flags, BGP_GR_SKIP_BP)) {
+				bgp_zebra_update_fib_install_pending(dest, bgp, true);
+				bgp_zebra_announce_actual(dest, new_select, bgp);
+			} else
+				bgp_zebra_route_install(dest, new_select, bgp, true, NULL, false);
 		} else {
 			/* Withdraw the route from the kernel. */
-			if (old_select && bgp_zebra_announce_eligible(old_select))
-
-				bgp_zebra_route_install(dest, old_select, bgp,
-							false, NULL, false);
+			if (old_select && bgp_zebra_announce_eligible(old_select)) {
+				if (CHECK_FLAG(bgp->gr_info[afi][safi].flags, BGP_GR_SKIP_BP)) {
+					bgp_zebra_update_fib_install_pending(dest, bgp, false);
+					bgp_zebra_withdraw_actual(dest, old_select, bgp);
+				} else
+					bgp_zebra_route_install(dest, old_select, bgp, false, NULL,
+								false);
+			}
 		}
 	}
 
@@ -7463,8 +7476,10 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, afi_t af
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 			    bgp_zebra_announce_eligible(pi)) {
-				if (bgp_fibupd_safi(safi))
+				if (bgp_fibupd_safi(safi)) {
+					bgp_zebra_update_fib_install_pending(dest, bgp, false);
 					bgp_zebra_withdraw_actual(dest, pi, bgp);
+				}
 			}
 
 			dest = bgp_path_info_reap(dest, pi);
