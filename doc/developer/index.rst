@@ -25,3 +25,4 @@ FRRouting Developer's Guide
    link-state
    northbound/northbound
    sbfd
+   zebra-neigh-api
