@@ -2051,8 +2051,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	 * or disable its use, and that switch MUST be off by default.
 	 */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
-	    peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW) ||
-	    peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
+	    peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW)) {
 		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s);
