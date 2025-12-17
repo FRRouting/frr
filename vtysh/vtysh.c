@@ -4623,8 +4623,7 @@ DEFPY (no_vtysh_terminal_monitor,
 
 
 /* Execute command in child process. */
-static void execute_command(const char *command, int argc, const char *arg1,
-			    const char *arg2)
+static void execute_command(const char *command, char *argv[])
 {
 	pid_t pid;
 	int status;
@@ -4638,18 +4637,7 @@ static void execute_command(const char *command, int argc, const char *arg1,
 		exit(1);
 	} else if (pid == 0) {
 		/* This is child process. */
-		switch (argc) {
-		case 0:
-			execlp(command, command, (const char *)NULL);
-			break;
-		case 1:
-			execlp(command, command, arg1, (const char *)NULL);
-			break;
-		case 2:
-			execlp(command, command, arg1, arg2,
-			       (const char *)NULL);
-			break;
-		}
+		execvp(command, (char *const *)argv);
 
 		/* When execlp suceed, this part is not executed. */
 		fprintf(stderr, "Can't execute %s: %s\n", command,
@@ -4663,16 +4651,54 @@ static void execute_command(const char *command, int argc, const char *arg1,
 	}
 }
 
-DEFUN (vtysh_ping,
-       vtysh_ping_cmd,
-       "ping WORD",
-       "Send echo messages\n"
-       "Ping destination address or hostname\n")
+/* Helper function to add don't fragment arguments based on platform */
+static int add_dontfragment_args(const char **args, int arg_count)
 {
-	int idx = 1;
+	/* BSD uses -D, Linux/others use -M do for DF bit */
+#if defined __OpenBSD__ || defined __FreeBSD__ || defined __NetBSD__
+	args[arg_count++] = "-D";
+#else
+	args[arg_count++] = "-M";
+	args[arg_count++] = "do";
+#endif
+	return arg_count;
+}
 
-	argv_find(argv, argc, "WORD", &idx);
-	execute_command("ping", 1, argv[idx]->arg, NULL);
+DEFPY (vtysh_ping,
+       vtysh_ping_cmd,
+       "ping WORD$dst [source <A.B.C.D|X:X::X:X|WORD>$source] [count (1-1000)$count] [dontfragment]$dontfragment",
+       "Send echo messages\n"
+       "Ping destination address or hostname\n"
+       "Source interface or address\n"
+       "Source interface or address ip value\n"
+       "Source interface or address ipv6 value\n"
+       "Source interface or address hostname value\n"
+       "Count of the packets send\n"
+       "Count of the packets send value\n"
+       "Don't fragment the packets\n")
+{
+	const char *args[9];
+	int arg_count = 0;
+
+	args[arg_count++] = "ping";
+	args[arg_count++] = dst;
+
+	if (source) {
+		args[arg_count++] = "-I";
+		args[arg_count++] = source;
+	}
+
+	if (count) {
+		args[arg_count++] = "-c";
+		args[arg_count++] = count_str;
+	}
+
+	if (dontfragment)
+		arg_count = add_dontfragment_args(args, arg_count);
+
+	args[arg_count] = NULL;
+
+	execute_command("ping", (char **)args);
 	return CMD_SUCCESS;
 }
 
@@ -4682,62 +4708,103 @@ DEFUN(vtysh_motd, vtysh_motd_cmd, "show motd", SHOW_STR "Show motd\n")
 	return CMD_SUCCESS;
 }
 
-ALIAS(vtysh_ping, vtysh_ping_ip_cmd, "ping ip WORD",
+ALIAS(vtysh_ping, vtysh_ping_ip_cmd, "ping ip WORD$dst [source <A.B.C.D|X:X::X:X|WORD>$source] [count (1-1000)$count] [dontfragment]$dontfragment",
       "Send echo messages\n"
       "IP echo\n"
-      "Ping destination address or hostname\n")
+      "Ping destination address or hostname\n"
+      "Source interface or address\n"
+      "Source interface or address ip value\n"
+      "Source interface or address ipv6 value\n"
+      "Source interface or address hostname value\n"
+      "Count of the packets send\n"
+      "Count of the packets send value\n"
+      "Don't fragment the packets\n")
 
-DEFUN (vtysh_traceroute,
+DEFPY (vtysh_traceroute,
        vtysh_traceroute_cmd,
-       "traceroute WORD",
+       "traceroute WORD$dst",
        "Trace route to destination\n"
        "Trace route to destination address or hostname\n")
 {
-	int idx = 1;
+	const char *args[3] = { "traceroute", dst, NULL };
 
-	argv_find(argv, argc, "WORD", &idx);
-	execute_command("traceroute", 1, argv[idx]->arg, NULL);
+	execute_command("traceroute", (char **)args);
 	return CMD_SUCCESS;
 }
 
-ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
+ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD$dst",
       "Trace route to destination\n"
       "IP trace\n"
       "Trace route to destination address or hostname\n")
 
-DEFUN (vtysh_mtrace,
+DEFPY (vtysh_mtrace,
        vtysh_mtrace_cmd,
-       "mtrace WORD [WORD]",
+       "mtrace WORD$source [WORD]$group",
        "Multicast trace route to multicast source\n"
        "Multicast trace route to multicast source address\n"
        "Multicast trace route for multicast group address\n")
 {
-	if (argc == 2)
-		execute_command("mtracebis", 1, argv[1]->arg, NULL);
-	else
-		execute_command("mtracebis", 2, argv[1]->arg, argv[2]->arg);
+	if (group) {
+		const char *args[4] = { "mtracebis", source, group, NULL };
+
+		execute_command("mtracebis", (char **)args);
+	} else {
+		const char *args[3] = { "mtracebis", source, NULL };
+
+		execute_command("mtracebis", (char **)args);
+	}
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_ping6,
+DEFPY (vtysh_ping6,
        vtysh_ping6_cmd,
-       "ping ipv6 WORD",
+       "ping ipv6 WORD$dst [source <A.B.C.D|X:X::X:X|WORD>$source] [count (1-1000)$count] [dontfragment]$dontfragment",
        "Send echo messages\n"
        "IPv6 echo\n"
-       "Ping destination address or hostname\n")
+       "Ping destination address or hostname\n"
+       "Source interface or address\n"
+       "Source interface or address ip value\n"
+       "Source interface or address ipv6 value\n"
+       "Source interface or address hostname value\n"
+       "Count of the packets send\n"
+       "Count of the packets send value\n"
+       "Don't fragment the packets\n")
 {
-	execute_command("ping6", 1, argv[2]->arg, NULL);
+	const char *args[9];
+	int arg_count = 0;
+
+	args[arg_count++] = "ping6";
+	args[arg_count++] = dst;
+
+	if (source) {
+		args[arg_count++] = "-I";
+		args[arg_count++] = source;
+	}
+
+	if (count) {
+		args[arg_count++] = "-c";
+		args[arg_count++] = count_str;
+	}
+
+	if (dontfragment)
+		arg_count = add_dontfragment_args(args, arg_count);
+
+	args[arg_count] = NULL;
+
+	execute_command("ping6", (char **)args);
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_traceroute6,
+DEFPY (vtysh_traceroute6,
        vtysh_traceroute6_cmd,
-       "traceroute ipv6 WORD",
+       "traceroute ipv6 WORD$dst",
        "Trace route to destination\n"
        "IPv6 trace\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute6", 1, argv[2]->arg, NULL);
+	const char *args[3] = { "traceroute6", dst, NULL };
+
+	execute_command("traceroute6", (char **)args);
 	return CMD_SUCCESS;
 }
 
