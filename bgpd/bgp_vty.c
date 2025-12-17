@@ -11093,7 +11093,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
-	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
 	safi_t safi;
 	afi_t afi;
 
@@ -11142,33 +11141,10 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
-
-	if (!vrf_bgp) {
-		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
-			vrf_bgp = bgp_default;
-		} else if (!remove) {
-			as = AS_UNSPECIFIED;
-
-			/* Auto-create with AS_UNSPECIFIED, fill in later */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
-					  NULL, ASNOTATION_UNDEFINED);
-			if (ret) {
-				vty_out(vty,
-					"VRF %s is not configured as a bgp instance\n",
-					import_name);
-				return CMD_WARNING;
-			}
-
-			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
-
-			/* Auto created VRF instances should be marked
-			 * properly, otherwise we have a state after bgpd
-			 * restart where VRF instance has default VRF's ASN.
-			 */
-			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
-		}
-	}
+	if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 
 	if (remove) {
 		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
@@ -11180,7 +11156,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 				return CMD_WARNING;
 		}
 
-		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	}
 
 	return CMD_SUCCESS;

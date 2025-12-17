@@ -3071,7 +3071,7 @@ void vpn_policy_routemap_event(const char *rmap_name)
 		vpn_policy_routemap_update(bgp, rmap_name);
 }
 
-void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 			 afi_t afi, safi_t safi)
 {
 	const char *export_name;
@@ -3095,8 +3095,8 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	 * Cross-ref both VRFs. Also, note if this is the first time
 	 * any VRF is importing from "import_vrf".
 	 */
-	vname = (from_bgp->name ? XSTRDUP(MTYPE_TMP, from_bgp->name)
-			       : XSTRDUP(MTYPE_TMP, VRF_DEFAULT_NAME));
+	vname = (import_name ? XSTRDUP(MTYPE_TMP, import_name)
+			     : XSTRDUP(MTYPE_TMP, VRF_DEFAULT_NAME));
 
 	/* Check the import_vrf list of destination vrf for the source vrf name,
 	 * insert otherwise.
@@ -3113,6 +3113,12 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				     vname);
 	else
 		XFREE(MTYPE_TMP, vname);
+
+	SET_FLAG(to_bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_IMPORT);
+
+	if (!from_bgp)
+		/* import vrf VRF context does not exist yet. */
+		return;
 
 	/* Check if the source vrf already exports to any vrf,
 	 * first time export requires to setup auto derived RD/RT values.
@@ -3168,7 +3174,6 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 					 .rtlist[idir], ecom);
 	else
 		to_bgp->vpn_policy[afi].rtlist[idir] = ecommunity_dup(ecom);
-	SET_FLAG(to_bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_IMPORT);
 
 	if (debug) {
 		const char *from_name;
@@ -4211,8 +4216,7 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 						to_vpolicy->rtlist[idir],
 						(struct ecommunity_val *)
 							ecom->val);
-				vrf_import_from_vrf(to_bgp, from_bgp,
-						    afi, safi);
+				vrf_import_from_vrf(to_bgp, from_bgp, export_name, afi, safi);
 				break;
 
 			}
