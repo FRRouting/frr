@@ -2840,6 +2840,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	struct in6_addr sid_value = {};
 	struct listnode *node;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	bool found = false;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
@@ -2853,17 +2854,19 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 					   locator_name);
 			return 0;
 		}
-		srv6_manager_release_sid_internal_locator(locator, ctx, client, is_localonly, &ret,
+		found = srv6_manager_release_sid_internal_locator(locator, ctx, client, is_localonly, &ret,
 							  &sid_value);
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator))
-			if (srv6_manager_release_sid_internal_locator(locator, ctx, client,
-								      is_localonly, &ret,
-								      &sid_value))
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			found = srv6_manager_release_sid_internal_locator(locator, ctx, client,
+									  is_localonly, &ret,
+									  &sid_value);
+			if (found)
 				break;
+		}
 	}
 
-	if (IS_ZEBRA_DEBUG_SRV6)
+	if (!found && IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: no SID associated with ctx %s%s", __func__,
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   locator == NULL ? " (no locator found)" : "");
