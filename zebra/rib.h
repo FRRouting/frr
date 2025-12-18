@@ -32,6 +32,7 @@ DECLARE_MGROUP(ZEBRA);
 DECLARE_MTYPE(RE);
 
 PREDECL_LIST(rnh_list);
+PREDECL_RBTREE_UNIQ(rnh_rbtree);
 
 /* Nexthop structure. */
 struct rnh {
@@ -51,7 +52,9 @@ struct rnh {
 
 	struct route_entry *state;
 	struct prefix resolved_route;
-	struct list *client_list;
+
+	/* Single client that owns this rnh */
+	struct zserv *client;
 
 	/* pseudowires dependent on this nh */
 	struct list *zebra_pseudowire_list;
@@ -61,9 +64,11 @@ struct rnh {
 	/*
 	 * if this has been filtered for the client
 	 */
-	int filtered[ZEBRA_ROUTE_MAX];
+	bool filtered;
 
 	struct rnh_list_item rnh_list_item;
+
+	struct rnh_rbtree_item rnh_rbtree_item;
 };
 
 #define DISTANCE_INFINITY  255
