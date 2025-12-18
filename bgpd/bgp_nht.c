@@ -481,19 +481,13 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 		path_nh_map(pi, bnc, true);
 
 		bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
-		if (bpi_ultimate != pi && safi == SAFI_UNICAST &&
-		    (CHECK_FLAG(bgp_route->af_flags[afi][SAFI_UNICAST],
-				BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
-		     CHECK_FLAG(bgp_route->af_flags[afi][SAFI_UNICAST],
-				BGP_CONFIG_VRF_TO_VRF_EXPORT)))
-			/* import does not require any valid MPLS label */
-			SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
-
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
 			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
 				bnc->metric;
 		else if (bpi_ultimate->extra)
 			bpi_ultimate->extra->igpmetric = 0;
+
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
