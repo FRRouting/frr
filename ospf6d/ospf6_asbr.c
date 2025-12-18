@@ -1068,7 +1068,7 @@ static void ospf6_asbr_routemap_update_timer(struct event *event)
 	struct ospf6_redist *red;
 	int type;
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 		red = ospf6_redist_lookup(ospf6, type, 0);
 
 		if (!red)
@@ -1122,7 +1122,7 @@ void ospf6_asbr_routemap_update(const char *mapname)
 		return;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			red = ospf6_redist_lookup(ospf6, type, 0);
 			if (!red || (ROUTEMAP_NAME(red) == NULL))
 				continue;
@@ -1176,7 +1176,7 @@ static void ospf6_asbr_routemap_event(const char *name)
 	if (om6 == NULL)
 		return;
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			red = ospf6_redist_lookup(ospf6, type, 0);
 			if (red && ROUTEMAP_NAME(red)
 			    && (strcmp(ROUTEMAP_NAME(red), name) == 0))
@@ -1788,7 +1788,7 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 	int type;
 	struct ospf6_redist *red;
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 		red = ospf6_redist_lookup(ospf6, type, 0);
 		if (!red)
 			continue;
@@ -1813,7 +1813,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 					   json_object *json, bool use_json)
 {
 	int type;
-	int nroute[ZEBRA_ROUTE_MAX];
+	int nroute[ZEBRA_ROUTE_MAX + 1];
 	int total;
 	struct ospf6_route *route;
 	struct ospf6_external_info *info;
@@ -1832,7 +1832,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 	if (!use_json)
 		vty_out(vty, "Redistributing External Routes from:\n");
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 
 		red = ospf6_redist_lookup(ospf6, type, 0);
 
