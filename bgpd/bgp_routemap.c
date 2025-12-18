@@ -2294,11 +2294,10 @@ route_set_l3vpn_nexthop_encapsulation(void *rule, const struct prefix *prefix,
 
 	path = object;
 
-	if (rins->zif_type == ZEBRA_IF_GRE)
-		SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
-	if (rins->zif_type == ZEBRA_IF_GRETAP)
-		SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRETAP);
+	if (rins->zif_type != ZEBRA_IF_GRE)
+		return RMAP_OKAY;
 
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
 	return RMAP_OKAY;
 }
 
@@ -2310,13 +2309,10 @@ static void *route_set_l3vpn_nexthop_encapsulation_compile(const char *arg)
 	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
 		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
 
-	/* GRE IPv4 and IPv6 modes are covered under gre keyword
-	 * GRETAP IPv4 and IPv6 modes are covered under gretap keyword
+	/* ALL GRE modes are accepted for now: gre or ip6gre
+	 * zif_type used will be ZEBRA_IF_GRE
 	 */
-	if (strmatch(arg, "gretap"))
-		rins->zif_type = ZEBRA_IF_GRETAP;
-	else
-		rins->zif_type = ZEBRA_IF_GRE;
+	rins->zif_type = ZEBRA_IF_GRE;
 
 	return rins;
 }
@@ -6348,13 +6344,12 @@ DEFUN_YANG (no_set_distance,
 }
 
 DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
-	   "[no] set l3vpn next-hop encapsulation <gre|gretap>$ziftype",
+	   "[no] set l3vpn next-hop encapsulation gre",
 	   NO_STR SET_STR
 	   "L3VPN operations\n"
 	   "Next hop Information\n"
 	   "Encapsulation options (for BGP only)\n"
-	   "Accept L3VPN traffic over GRE encapsulation\n"
-	   "Accept L3VPN traffic over GRETAP encapsulation\n")
+	   "Accept L3VPN traffic over GRE encapsulation\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']";
@@ -6371,7 +6366,7 @@ DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
 	if (operation == NB_OP_DESTROY)
 		return nb_cli_apply_changes(vty, NULL);
 
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ziftype);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "gre");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
