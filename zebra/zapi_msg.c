@@ -77,7 +77,6 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, ifp->mtu6);
 	stream_putl(s, ifp->bandwidth);
 	stream_putl(s, zif->link_ifindex);
-	stream_putl(s, ifp->zif_type);
 	stream_putl(s, ifp->ll_type);
 	stream_putl(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)

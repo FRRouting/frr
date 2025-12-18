@@ -79,21 +79,6 @@ enum zebra_link_type {
 	ZEBRA_LLT_IEEE802154_PHY,
 };
 
-/* interface type - ones of interest. */
-enum zebra_iftype {
-	ZEBRA_IF_OTHER = 0, /* Anything else */
-	ZEBRA_IF_VXLAN,	    /* VxLAN interface */
-	ZEBRA_IF_VRF,	    /* VRF device */
-	ZEBRA_IF_BRIDGE,    /* bridge device */
-	ZEBRA_IF_VLAN,	    /* VLAN sub-interface */
-	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
-	ZEBRA_IF_VETH,	    /* VETH interface*/
-	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_GRE,	    /* GRE interface */
-	ZEBRA_IF_GRETAP,    /* GRETAP interface */
-	ZEBRA_IF_DUMMY,	    /* Dummy interface */
-};
-
 /*
   Interface name length.
 
@@ -279,10 +264,6 @@ struct interface {
 
 	/* Link-layer information and hardware address */
 	enum zebra_link_type ll_type;
-
-	/* Zebra interface type */
-	enum zebra_iftype zif_type;
-
 	uint8_t hw_addr[INTERFACE_HWADDR_MAX];
 	int hw_addr_len;
 

@@ -2028,9 +2028,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
 
-			/* Update interface type */
-			ifp->zif_type = zif_type;
-
 			/* Inform clients, install any configured addresses. */
 			if_add_update(ifp);
 
@@ -2108,9 +2105,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
-
-			/* Update interface type */
-			ifp->zif_type = zif_type;
 
 			if (protodown_set)
 				interface_if_protodown(ifp, protodown,
