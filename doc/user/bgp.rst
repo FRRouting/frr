@@ -3178,15 +3178,15 @@ that check when the path chosen by the next-hop uses a GRE interface, and
 there is a route-map configured at inbound side of ipv4-vpn or ipv6-vpn
 address family with following syntax:
 
-.. clicmd:: set l3vpn next-hop encapsulation gre
+.. clicmd:: set l3vpn next-hop encapsulation <gre|gretap>
    :daemon: bgp
 
 The incoming BGP L3VPN entry is accepted, provided that the next hop of the
-L3VPN entry uses a path that takes the GRE tunnel as outgoing interface. The
-remote endpoint should be configured just behind the GRE tunnel; remote
-device configuration may vary depending whether it acts at edge endpoint or
-not: in any case, the expectation is that incoming MPLS traffic received at
-this endpoint should be considered as a valid path for L3VPN.
+L3VPN entry uses a path that takes chosen tunnel kind. The remote endpoint
+should be configured just behind the tunnel; remote device configuration may
+vary depending whether it acts at edge endpoint or not: in any case, the
+expectation is that incoming MPLS traffic received at this endpoint should
+be considered as a valid path for L3VPN.
 
 .. _bgp-vrf-route-leaking:
 
