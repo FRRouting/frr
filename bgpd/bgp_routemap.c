@@ -2282,7 +2282,7 @@ static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 
 /* Set nexthop to object */
 struct rmap_l3vpn_nexthop_encapsulation_set {
-	enum zebra_iftype zif_type;
+	uint8_t protocol;
 };
 
 static enum route_map_cmd_result_t
@@ -2294,7 +2294,7 @@ route_set_l3vpn_nexthop_encapsulation(void *rule, const struct prefix *prefix,
 
 	path = object;
 
-	if (rins->zif_type != ZEBRA_IF_GRE)
+	if (rins->protocol != IPPROTO_GRE)
 		return RMAP_OKAY;
 
 	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
@@ -2309,10 +2309,8 @@ static void *route_set_l3vpn_nexthop_encapsulation_compile(const char *arg)
 	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
 		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
 
-	/* ALL GRE modes are accepted for now: gre or ip6gre
-	 * zif_type used will be ZEBRA_IF_GRE
-	 */
-	rins->zif_type = ZEBRA_IF_GRE;
+	/* XXX ALL GRE modes are accepted for now: gre or ip6gre */
+	rins->protocol = IPPROTO_GRE;
 
 	return rins;
 }
