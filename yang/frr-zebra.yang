@@ -154,12 +154,6 @@ module frr-zebra {
       "Zebra interface type gre.";
   }
 
-  identity zif-gretap {
-    base zebra-interface-type;
-    description
-      "Zebra interface type gretap.";
-  }
-
   identity zif-dummy {
     base zebra-interface-type;
     description
