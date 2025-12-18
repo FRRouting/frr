@@ -2,6 +2,8 @@
 ## Configure template file for FRRouting.
 ## autoconf will generate a configure script.
 ##
+## Change for CI Test
+##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
