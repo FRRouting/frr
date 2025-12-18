@@ -413,7 +413,7 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node)
 {
 	if (node->info)
-		zebra_free_rnh(node->info);
+		zebra_rnh_node_cleanup(node);
 }
 
 /*
