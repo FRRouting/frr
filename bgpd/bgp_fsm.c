@@ -89,9 +89,10 @@ static void bgp_delayopen_timer(struct event *event);
 static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi);
 
 /* Register peer with NHT */
-int bgp_peer_reg_with_nht(struct peer *peer)
+int bgp_peer_connection_reg_with_nht(struct peer_connection *connection)
 {
 	int connected = 0;
+	struct peer *peer = connection->peer;
 	struct bgp *bgp = peer->bgp;
 
 	if (peer->sort == BGP_PEER_EBGP && peer->ttl == BGP_DEFAULT_TTL &&
@@ -99,7 +100,7 @@ int bgp_peer_reg_with_nht(struct peer *peer)
 	    !CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(bgp, bgp, family2afi(peer->connection->su.sa.sa_family),
+	return bgp_find_or_add_nexthop(bgp, bgp, family2afi(connection->su.sa.sa_family),
 				       SAFI_UNICAST, NULL, peer, connected, NULL, NULL);
 }
 
@@ -306,9 +307,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	/* Register peer for NHT. This is to allow RAs to be enabled when
 	 * needed, even on a passive connection.
 	 */
-	bgp_peer_reg_with_nht(peer);
+	bgp_peer_connection_reg_with_nht(keeper);
 	if (from_peer)
-		bgp_replace_nexthop_by_peer(from_peer, peer);
+		bgp_replace_nexthop_by_peer(from_peer->connection, peer->connection);
 
 	bgp_reads_on(keeper);
 	bgp_writes_on(keeper);
@@ -2165,7 +2166,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	/* Register peer for NHT. If next hop is already resolved, proceed
 	 * with connection setup, else wait.
 	 */
-	if (!bgp_peer_reg_with_nht(peer)) {
+	if (!bgp_peer_connection_reg_with_nht(connection)) {
 		if (bgp_zebra_num_connects()) {
 			frrtrace(2, frr_bgp, session_state_change, peer, 8);
 			if (bgp_debug_neighbor_events(peer))

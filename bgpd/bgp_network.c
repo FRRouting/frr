@@ -535,7 +535,7 @@ static void bgp_accept(struct event *event)
 				vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock,
 					 bgp_get_bound_name(incoming));
 			}
-			bgp_peer_reg_with_nht(dynamic_peer);
+			bgp_peer_connection_reg_with_nht(incoming);
 			bgp_fsm_change_status(incoming, Active);
 			event_cancel(&incoming->t_start);
 
@@ -680,7 +680,7 @@ static void bgp_accept(struct event *event)
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
-	bgp_peer_reg_with_nht(doppelganger);
+	bgp_peer_connection_reg_with_nht(incoming);
 	bgp_fsm_change_status(incoming, Active);
 	event_cancel(&incoming->t_start); /* created in peer_create() */
 
