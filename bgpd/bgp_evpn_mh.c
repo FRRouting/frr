@@ -66,6 +66,30 @@ static void bgp_evpn_mh_get_vtep_ip(const struct attr *attr, struct ipaddr *vtep
 	}
 }
 
+static inline void
+bgp_evpn_mh_fill_vtep_ip_from_pi(const struct bgp_path_info *pi,
+				 struct ipaddr *vtep_ip)
+{
+	if (!pi || !pi->attr || !vtep_ip)
+		return;
+
+	/* Extract VTEP IP from BGP path attributes, not from prefix
+	 * (prefix in global table has IP zeroed out)
+	 */
+	if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+	    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+		SET_IPADDR_V4(vtep_ip);
+		vtep_ip->ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+	} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
+		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+		SET_IPADDR_V6(vtep_ip);
+		IPV6_ADDR_COPY(&vtep_ip->ipaddr_v6,
+			       &pi->attr->mp_nexthop_global);
+	}
+}
+
 static void bgp_evpn_local_es_down(struct bgp *bgp,
 		struct bgp_evpn_es *es);
 static void bgp_evpn_local_type1_evi_route_del(struct bgp *bgp,
@@ -3973,22 +3997,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 		/* local EAD-ES need not be sent back to zebra */
 		return ret;
 
-	/* Extract VTEP IP from BGP path attributes, not from prefix
-	 * (prefix in global table has IP zeroed out)
-	 */
-	if (pi && pi->attr) {
-		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
-		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
-		} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
-			SET_IPADDR_V6(&vtep_ip);
-			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
-		}
-	}
+	bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &vtep_ip);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("add remote %s es %s evi %u ead-ip %pIA vtep %pIA",
@@ -4033,19 +4042,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp,
 	/* Extract VTEP IP from BGP path attributes, not from prefix
 	 * (prefix in global table has IP zeroed out)
 	 */
-	if (pi && pi->attr) {
-		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
-		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
-		} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
-			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
-			SET_IPADDR_V6(&vtep_ip);
-			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
-		}
-	}
+	bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &vtep_ip);
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("del remote %s es %s evi %u ead_ip %pIA vtep %pIA",
 			   p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
