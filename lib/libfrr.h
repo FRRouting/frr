@@ -129,6 +129,7 @@ struct frr_daemon_info {
 	bool daemon_mode;
 	bool terminal;
 	bool graceful_restart;
+	bool tls_mode;
 	int gr_cleanup_time;
 	enum frr_cli_mode cli_mode;
 

@@ -120,6 +120,7 @@ static const struct option lo_always[] = {
 	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
 	{ "moduledir", required_argument, NULL, OPTION_MODULEDIR },
 	{ "scriptdir", required_argument, NULL, OPTION_SCRIPTDIR },
+	{ "disable-tls", no_argument, NULL, 'T' },
 	{ "log", required_argument, NULL, OPTION_LOG },
 	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
 	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
@@ -145,6 +146,7 @@ static const struct optspec os_always = {
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
+	"  -T, --disable-tls  Disable Thread Local Storage\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
 	"      --command-log-always Always log every command, cannot be turned off\n"
@@ -336,6 +338,7 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	/* basename(), opencoded. */
 	char *p = strrchr(argv[0], '/');
 	di->progname = p ? p + 1 : argv[0];
+	di->tls_mode = true;
 
 	if (!getenv("GCOV_PREFIX"))
 		umask(0027);
@@ -457,6 +460,9 @@ static int frr_opt(int opt)
 		break;
 	case 'd':
 		di->daemon_mode = true;
+		break;
+	case 'T':
+		di->tls_mode = false;
 		break;
 	case 'M':
 		oc = XMALLOC(MTYPE_TMP, sizeof(*oc));
@@ -1074,7 +1080,8 @@ void frr_config_fork(void)
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
 	pid_output(di->pid_file);
-	zlog_tls_buffer_init();
+	if (di->tls_mode)
+		zlog_tls_buffer_init();
 }
 
 static void frr_check_detach(void)
@@ -1286,7 +1293,8 @@ void frr_fini(void)
 	/* signal_init -> nothing needed */
 	event_master_free(master);
 	master = NULL;
-	zlog_tls_buffer_fini();
+	if (di->tls_mode)
+		zlog_tls_buffer_fini();
 
 	if (0) {
 		/* this is intentionally disabled.  zlog remains running until
