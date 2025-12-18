@@ -2383,6 +2383,12 @@ Using AS Path in Route Map
    and if it matches do normal route-map actions.  The no form of the command
    removes this match from the route-map.
 
+
+.. clicmd:: match as-path-count MAX_COUNT
+
+   This command allows filtering routes based on the number of AS entries in
+   their AS path.
+
 .. clicmd:: set as-path prepend AS-PATH
 
    Prepend the given string of AS numbers to the AS_PATH of the BGP path's NLRI.
