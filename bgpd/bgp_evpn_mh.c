@@ -41,6 +41,31 @@
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_trace.h"
 
+static void bgp_evpn_mh_get_vtep_ip(const struct attr *attr, struct ipaddr *vtep_ip)
+{
+	uint8_t nhfamily;
+
+	if (!attr || !vtep_ip)
+		return;
+
+	nhfamily = NEXTHOP_FAMILY(attr->mp_nexthop_len);
+
+	if (nhfamily == AF_INET) {
+		SET_IPADDR_V4(vtep_ip);
+		if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+		    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+			IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->mp_nexthop_global_in);
+		else
+			IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->nexthop);
+	} else if (nhfamily == AF_INET6) {
+		SET_IPADDR_V6(vtep_ip);
+		IPV6_ADDR_COPY(&vtep_ip->ipaddr_v6, &attr->mp_nexthop_global);
+	} else {
+		SET_IPADDR_V4(vtep_ip);
+		IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->nexthop);
+	}
+}
+
 static void bgp_evpn_local_es_down(struct bgp *bgp,
 		struct bgp_evpn_es *es);
 static void bgp_evpn_local_type1_evi_route_del(struct bgp *bgp,
@@ -127,25 +152,8 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		if (bgp_zebra_has_route_changed(old_select)) {
 			struct ipaddr vtep_ip = {};
-			uint8_t nhfamily = NEXTHOP_FAMILY(old_select->attr->mp_nexthop_len);
 
-			if (nhfamily == AF_INET) {
-				SET_IPADDR_V4(&vtep_ip);
-				if (old_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
-				    old_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-					IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
-						       &old_select->attr->mp_nexthop_global_in);
-				else
-					IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
-						       &old_select->attr->nexthop);
-			} else if (nhfamily == AF_INET6) {
-				SET_IPADDR_V6(&vtep_ip);
-				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6,
-					       &old_select->attr->mp_nexthop_global);
-			} else {
-				SET_IPADDR_V4(&vtep_ip);
-				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &old_select->attr->nexthop);
-			}
+			bgp_evpn_mh_get_vtep_ip(old_select->attr, &vtep_ip);
 			bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr*/,
 					     old_select->attr->df_alg, old_select->attr->df_pref,
 					     &zret);
@@ -176,23 +184,8 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 			&& new_select->sub_type == BGP_ROUTE_IMPORTED) {
 		struct ipaddr vtep_ip = {};
-		uint8_t nhfamily = NEXTHOP_FAMILY(new_select->attr->mp_nexthop_len);
 
-		if (nhfamily == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			if (new_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
-			    new_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
-					       &new_select->attr->mp_nexthop_global_in);
-			else
-				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &new_select->attr->nexthop);
-		} else if (nhfamily == AF_INET6) {
-			SET_IPADDR_V6(&vtep_ip);
-			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &new_select->attr->mp_nexthop_global);
-		} else {
-			SET_IPADDR_V4(&vtep_ip);
-			IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &new_select->attr->nexthop);
-		}
+		bgp_evpn_mh_get_vtep_ip(new_select->attr, &vtep_ip);
 		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */, new_select->attr->df_alg,
 				     new_select->attr->df_pref, &zret);
 	} else {
