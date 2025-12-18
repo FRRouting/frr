@@ -3694,6 +3694,13 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
+	/* Set AFI/SAFI before checking re, as these are needed even
+	 * when creating a dplane context without a route entry (e.g. for
+	 * kernel routes).
+	 */
+	ctx->u.rinfo.zd_afi = afi;
+	ctx->u.rinfo.zd_safi = safi;
+
 	/* This function may be called to create/init a dplane context, not
 	 * necessarily to copy a route object. Let's return if there is no route
 	 * object to copy.
@@ -3723,9 +3730,6 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_tag = re->tag;
 	ctx->u.rinfo.zd_old_tag = re->tag;
 	ctx->u.rinfo.zd_distance = re->distance;
-
-	ctx->u.rinfo.zd_afi = afi;
-	ctx->u.rinfo.zd_safi = safi;
 
 	return AOK;
 }
