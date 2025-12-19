@@ -90,6 +90,22 @@ bgp_evpn_mh_fill_vtep_ip_from_pi(const struct bgp_path_info *pi,
 	}
 }
 
+void bgp_evpn_vtep_ip_to_attr_nh(const struct ipaddr *vtep_ip, struct attr *attr)
+{
+	if (!vtep_ip || !attr)
+		return;
+
+	/* v4 vtep use v4 attr.nexthop, v6 vtep use mp_nexthop_global */
+	if (IS_IPADDR_V4(vtep_ip)) {
+		attr->nexthop = vtep_ip->ipaddr_v4;
+		attr->mp_nexthop_global_in = vtep_ip->ipaddr_v4;
+		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+	} else if (IS_IPADDR_V6(vtep_ip)) {
+		IPV6_ADDR_COPY(&attr->mp_nexthop_global, &vtep_ip->ipaddr_v6);
+		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+	}
+}
+
 static void bgp_evpn_local_es_down(struct bgp *bgp,
 		struct bgp_evpn_es *es);
 static void bgp_evpn_local_type1_evi_route_del(struct bgp *bgp,
@@ -734,14 +750,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	/* v4 vtep use v4 attr.nexthop, v6 vtep use mp_nexthop_global */
-	if (IS_IPADDR_V4(&es->originator_ip)) {
-		attr.nexthop = es->originator_ip.ipaddr_v4;
-		attr.mp_nexthop_global_in = es->originator_ip.ipaddr_v4;
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-	} else if (IS_IPADDR_V6(&es->originator_ip)) {
-		IPV6_ADDR_COPY(&attr.mp_nexthop_global, &es->originator_ip.ipaddr_v6);
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-	}
+	bgp_evpn_vtep_ip_to_attr_nh(&es->originator_ip, &attr);
 
 	/* Set up extended community. */
 	bgp_evpn_type4_route_extcomm_build(es, &attr);
@@ -1051,14 +1060,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
-	if (IS_IPADDR_V4(&es->originator_ip)) {
-		attr.nexthop = es->originator_ip.ipaddr_v4;
-		attr.mp_nexthop_global_in = es->originator_ip.ipaddr_v4;
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-	} else if (IS_IPADDR_V6(&es->originator_ip)) {
-		IPV6_ADDR_COPY(&attr.mp_nexthop_global, &es->originator_ip.ipaddr_v6);
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-	}
+	bgp_evpn_vtep_ip_to_attr_nh(&es->originator_ip, &attr);
 
 
 	if (vpn) {
