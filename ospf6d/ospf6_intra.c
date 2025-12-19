@@ -675,6 +675,7 @@ void ospf6_link_lsa_originate(struct event *event)
 	struct ospf6_link_lsa *link_lsa;
 	struct ospf6_route *route;
 	struct ospf6_prefix *op;
+	unsigned int prefix_num = 0;
 
 	oi = (struct ospf6_interface *)EVENT_ARG(event);
 
@@ -724,20 +725,33 @@ void ospf6_link_lsa_originate(struct event *event)
 	memcpy(link_lsa->options, oi->area->options, 3);
 	memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
 	       sizeof(struct in6_addr));
-	link_lsa->prefix_num = htonl(oi->route_connected->count);
 
 	op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_LINK);
 
 	/* connected prefix to advertise */
 	for (route = ospf6_route_head(oi->route_connected); route;
 	     route = ospf6_route_next(route)) {
+		/* Check buffer overflow before writing prefix */
+		if ((size_t)((char *)op - buffer) + OSPF6_PREFIX_SPACE(route->prefix.prefixlen) +
+			    sizeof(struct ospf6_prefix) >=
+		    sizeof(buffer)) {
+			zlog_warn("%s: Interface %s has too many prefixes, truncating at %u of %u",
+				  __func__, oi->interface->name, prefix_num,
+				  oi->route_connected->count);
+			break;
+		}
+
 		op->prefix_length = route->prefix.prefixlen;
 		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(0);
 		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
 		op = OSPF6_PREFIX_NEXT(op);
+		prefix_num++;
 	}
+
+	/* Update actual prefix count */
+	link_lsa->prefix_num = htonl(prefix_num);
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
@@ -1241,6 +1255,16 @@ void ospf6_intra_prefix_lsa_originate_transit(struct event *event)
 	prefix_num = 0;
 	for (route = ospf6_route_head(route_advertise); route;
 	     route = ospf6_route_best_next(route)) {
+		/* Check buffer overflow before writing prefix */
+		if ((size_t)((char *)op - buffer) + OSPF6_PREFIX_SPACE(route->prefix.prefixlen) +
+			    sizeof(struct ospf6_prefix) >=
+		    sizeof(buffer)) {
+			zlog_warn("%s: Interface %s has too many transit prefixes, truncating at %u of %u",
+				  __func__, oi->interface->name, prefix_num,
+				  route_advertise->count);
+			break;
+		}
+
 		op->prefix_length = route->prefix.prefixlen;
 		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(0);
