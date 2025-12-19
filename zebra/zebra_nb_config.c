@@ -1459,11 +1459,16 @@ int lib_interface_zebra_link_params_max_bandwidth_modify(
 int lib_interface_zebra_link_params_max_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1494,11 +1499,16 @@ int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
 int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-reservable-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1532,11 +1542,20 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_c
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing unreserved-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint8_t priority;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	priority = yang_dnode_get_uint8(args->dnode, "priority");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
+					 iflp->default_bw);
 
 	return NB_OK;
 }
