@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <time.h>
 
+#include "darr.h"
 #include "printfrr.h"
 #include "monotime.h"
 
@@ -267,18 +268,32 @@ static ssize_t printfrr_str_array(struct fbuf *buf, struct printfrr_eargs *ea, c
 {
 	ssize_t len = printfrr_ext_len(ea);
 	char const *const *sarr = vptr;
+	bool is_darr = false;
 	ssize_t olen = 0;
+	const char *s;
 	int i;
 
 	if (!sarr)
 		return bputs(buf, "");
 
+	if (ea->fmt[0] == 'd') {
+		ea->fmt++;
+		is_darr = true;
+		if (len < 0)
+			len = darr_len((char **)sarr);
+	}
+
 	for (i = 0; len < 0 || i < len; i++) {
-		if (!sarr[i])
-			break;
+		s = sarr[i];
+		if (!s) {
+			if (is_darr)
+				s = "(null)";
+			else
+				break;
+		}
 		if (i > 0)
 			olen += bputch(buf, ',');
-		olen += bputs(buf, sarr[i]);
+		olen += bputs(buf, s);
 	}
 	return olen;
 }
