@@ -2,7 +2,7 @@
 <img src="http://docs.frrouting.org/en/latest/_static/frr-icon.svg" alt="Icon" width="20%"/>
 </p>
 
- FRRouting
+  FRRouting
 ==============
 
 FRR is free software that implements and manages various IPv4 and IPv6 routing
