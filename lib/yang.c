@@ -7,6 +7,7 @@
 #include <zebra.h>
 
 #include "darr.h"
+#include "debug.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "yang.h"
@@ -129,8 +130,13 @@ struct yang_module *yang_module_load(const char *module_name,
 	struct yang_module *module;
 	const struct lys_module *module_info;
 
-	module_info = ly_ctx_load_module(ly_native_ctx, module_name, NULL,
-					 features);
+	if (features)
+		DEBUGD(&nb_dbg_events, "yang: loading module %s features: %pSA", module_name,
+		       features);
+	else
+		DEBUGD(&nb_dbg_events, "yang: loading module %s", module_name);
+
+	module_info = ly_ctx_load_module(ly_native_ctx, module_name, NULL, features);
 	if (!module_info) {
 		flog_err(EC_LIB_YANG_MODULE_LOAD,
 			 "%s: failed to load data model: %s", __func__,
@@ -401,9 +407,13 @@ const char *yang_snode_get_default(const struct lysc_node *snode)
 	switch (snode->nodetype) {
 	case LYS_LEAF:
 		sleaf = (const struct lysc_node_leaf *)snode;
-		return sleaf->dflt ? lyd_value_get_canonical(sleaf->module->ctx,
-							     sleaf->dflt)
+#if (LY_VERSION_MAJOR < 4)
+		return sleaf->dflt ? lyd_value_get_canonical(sleaf->module->ctx, sleaf->dflt)
 				   : NULL;
+#else
+		/* NOTE: this is value in the schema, not necessarily the canonical form */
+		return sleaf->dflt.str;
+#endif
 	case LYS_LEAFLIST:
 		/* TODO: check leaf-list default values */
 		return NULL;
@@ -852,7 +862,7 @@ struct yang_data *yang_data_list_find(const struct list *list,
 
 /* Make libyang log its errors using FRR logging infrastructure. */
 static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_path
-#if !(LY_VERSION_MAJOR < 3)
+#if (LY_VERSION_MAJOR >= 3)
 		       ,
 		       const char *schema_path, uint64_t line
 #endif
@@ -875,7 +885,7 @@ static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_pat
 
 	if (data_path)
 		zlog(priority, "libyang: %s (%s)", msg, data_path);
-#if !(LY_VERSION_MAJOR < 3)
+#if (LY_VERSION_MAJOR >= 3)
 	else if (schema_path)
 		zlog(priority, "libyang %s (%s)\n", msg, schema_path);
 	else if (line)
@@ -954,6 +964,9 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	}
 
 	err = lyd_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG,
+#if (LY_VERSION_MAJOR >= 4)
+			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
+#endif
 			   &tree, NULL);
 	ly_in_free(in, 0);
 	if (err) {
@@ -1013,7 +1026,11 @@ LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char 
 	}
 
 	err = lyd_parse_op(ly_native_ctx, dnode, in, format,
-			   reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF, NULL, NULL);
+			   reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF,
+#if (LY_VERSION_MAJOR >= 4)
+			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
+#endif
+			   NULL, NULL);
 	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
@@ -1073,6 +1090,9 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bo
 
 	err = lyd_parse_op(ly_native_ctx, parent, in, format,
 			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
+#if (LY_VERSION_MAJOR >= 4)
+			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
+#endif
 			   NULL, rpc);
 	ly_in_free(in, 0);
 	if (err) {
@@ -1120,6 +1140,7 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 			      bool shrink)
 {
 	struct lyd_node *tree = NULL;
+	uint32_t parse_options = LYD_PARSE_ONLY;
 	uint32_t options = LYD_PRINT_WD_EXPLICIT | LYD_PRINT_WITHSIBLINGS;
 	uint8_t *result = NULL;
 	LY_ERR err;
@@ -1134,8 +1155,12 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 	if (in_format == out_format)
 		return darr_strdup((const char *)data);
 
-	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data, in_format,
-				 LYD_PARSE_ONLY, 0, &tree);
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+	if (in_format == LYD_LYB)
+		parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data, in_format, parse_options, 0,
+				 &tree);
 
 	if (err) {
 		flog_err_sys(EC_LIB_LIBYANG,
@@ -1219,6 +1244,9 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, 
 	}
 
 	options = LY_CTX_DISABLE_SEARCHDIR_CWD;
+#if (LY_VERSION_MAJOR >= 4)
+	options |= LY_CTX_LYB_HASHES;
+#endif
 	if (!load_library)
 		options |= LY_CTX_NO_YANGLIBRARY;
 	if (explicit_compile)

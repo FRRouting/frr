@@ -529,6 +529,7 @@ static int vty_mgmt_handle_get_tree_reply(struct mgmt_fe_client *client, uintptr
 {
 	struct vty *vty;
 	struct lyd_node *dnode;
+	uint32_t parse_options = LYD_PARSE_ONLY;
 	int ret = CMD_SUCCESS;
 	LY_ERR err;
 
@@ -548,7 +549,10 @@ static int vty_mgmt_handle_get_tree_reply(struct mgmt_fe_client *client, uintptr
 		 */
 		result_type = vty->mgmt_req_pending_data;
 
-		err = lyd_parse_data_mem(ly_native_ctx, result, LYD_LYB, 0, 0, &dnode);
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+		parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+		err = lyd_parse_data_mem(ly_native_ctx, result, LYD_LYB, parse_options, 0, &dnode);
 		if (!err)
 			err = lyd_print_clb(vty_mgmt_libyang_print, vty, dnode, result_type,
 					    LYD_PRINT_WITHSIBLINGS);
