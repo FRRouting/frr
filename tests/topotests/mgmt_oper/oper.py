@@ -168,10 +168,6 @@ def do_oper_test(tgen, query_results, exact=True):
         if reset:
             reset = False
         ret = _do_oper_test(tgen, qr, exact=exact)
-        if ret is not None:
-            logger = logging.getLogger("name")
-            logger.setLevel(logging.level)
-
         assert ret is None, "Unexpected diff: " + str(ret)
 
 
@@ -312,7 +308,7 @@ def do_config(
     else:
         load_command = 'vtysh -f "{}"'.format(config_file)
     tstamp = datetime.datetime.now()
-    output = r1.cmd_raises(load_command)
+    r1.cmd_raises(load_command)
     delta = (datetime.datetime.now() - tstamp).total_seconds()
 
     #
