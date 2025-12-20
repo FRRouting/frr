@@ -262,6 +262,27 @@ static ssize_t printfrr_quote(struct fbuf *buf, struct printfrr_eargs *ea,
 	return ret;
 }
 
+printfrr_ext_autoreg_p("SA", printfrr_str_array);
+static ssize_t printfrr_str_array(struct fbuf *buf, struct printfrr_eargs *ea, const void *vptr)
+{
+	ssize_t len = printfrr_ext_len(ea);
+	char const *const *sarr = vptr;
+	ssize_t olen = 0;
+	int i;
+
+	if (!sarr)
+		return bputs(buf, "");
+
+	for (i = 0; len < 0 || i < len; i++) {
+		if (!sarr[i])
+			break;
+		if (i > 0)
+			olen += bputch(buf, ',');
+		olen += bputs(buf, sarr[i]);
+	}
+	return olen;
+}
+
 static ssize_t printfrr_abstime(struct fbuf *buf, struct printfrr_eargs *ea,
 				const struct timespec *ts, unsigned int flags);
 static ssize_t printfrr_reltime(struct fbuf *buf, struct printfrr_eargs *ea,
