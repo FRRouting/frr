@@ -2086,8 +2086,23 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+LIBYANG_MAJOR=$(pkg-config --modversion libyang | cut -f1 -d.)
+if test "$LIBYANG_MAJOR" -ge 4; then
+  dnl NOTE when we see the bugs fixed we could move this to a warning
+  dnl and remove the comment about bugs leaving the comment about binary
+  dnl encoding and efficiency recommending use of v3
+  AC_MSG_ERROR([m4_normalize([
+    Libyang v4 is not currently supported. At the time of last testing bugs
+    were encountered. Additionally, our use of it's binary encoding (LYD_lYB)
+    is no longer supported and so it will be less efficient than v3.
+    ])
+  ])
+fi
+
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
+
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
