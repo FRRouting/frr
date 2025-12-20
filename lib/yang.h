@@ -20,6 +20,11 @@
 extern "C" {
 #endif
 
+#include <libyang/version.h>
+#if (LY_VERSION_MAJOR >= 4)
+#define LYD_PRINT_WITHSIBLINGS LYD_PRINT_SIBLINGS
+#endif
+
 struct frr_yang_module_info;
 
 /* Maximum XPath length. */
