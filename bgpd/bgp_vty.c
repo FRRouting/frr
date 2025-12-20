@@ -24963,6 +24963,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_ls_remote_link_id_cmd);
 
 	bgp_vty_if_init();
+
+	bgp_unreach_vty_init();
 }
 
 #include "memory.h"

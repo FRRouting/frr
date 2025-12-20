@@ -1659,6 +1659,40 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, unreach_info_delete, TRACE_INFO)
 
+/*
+ * 'bgp inject unreachability ...' DEFPY_HIDDEN fired one tracepoint
+ * per injection so operators can correlate CLI-driven UI-RIB churn
+ * with received NLRI traffic on the same router.
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_vty_inject,
+	TP_ARGS(const char *, vrf_name, struct prefix *, prefix,
+		struct in_addr *, reporter_id, uint32_t, reporter_as,
+		uint16_t, reason_code, uint64_t, timestamp),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+		ctf_array(unsigned char, reporter_id, reporter_id, sizeof(struct in_addr))
+		ctf_integer(uint32_t, reporter_as, reporter_as)
+		ctf_enum(frr_bgp, unreach_reason, uint16_t, reason_code, reason_code)
+		ctf_integer(uint64_t, timestamp, timestamp)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_vty_inject, TRACE_INFO)
+
+/* 'no bgp inject unreachability ...' DEFPY_HIDDEN */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_vty_delete,
+	TP_ARGS(const char *, vrf_name, const struct prefix *, prefix),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_vty_delete, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

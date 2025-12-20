@@ -47,6 +47,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_flowspec_vty.c \
 	bgpd/bgp_fsm.c \
 	bgpd/bgp_unreach.c \
+	bgpd/bgp_unreach_vty.c \
 	bgpd/bgp_io.c \
 	bgpd/bgp_keepalives.c \
 	bgpd/bgp_label.c \
@@ -227,6 +228,7 @@ clippy_scan += \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
+	bgpd/bgp_unreach_vty.c \
 	bgpd/bgp_vty.c \
         bgpd/bgp_nexthop.c \
 	bgpd/bgp_snmp.c \

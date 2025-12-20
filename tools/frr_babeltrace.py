@@ -1850,6 +1850,22 @@ def parse_frr_bgp_unreach_info_delete(event):
         "prefix": print_prefix_with_len
     }
     parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_unreach_vty_inject(event):
+    field_parsers = {
+        "prefix": print_prefix_with_len,
+        "reporter_id": print_reporter_id,
+        "timestamp": print_unreach_timestamp
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_unreach_vty_delete(event):
+    field_parsers = {
+        "prefix": print_prefix_with_len
+    }
+    parse_event(event, field_parsers)
 ########################### SAFI_UNREACH parsers - end ##############################
 
 
@@ -1903,6 +1919,8 @@ def main():
         "frr_bgp:unreach_nlri_withdraw_received": parse_frr_bgp_unreach_nlri_withdraw_received,
         "frr_bgp:unreach_info_add": parse_frr_bgp_unreach_info_add,
         "frr_bgp:unreach_info_delete": parse_frr_bgp_unreach_info_delete,
+        "frr_bgp:unreach_vty_inject": parse_frr_bgp_unreach_vty_inject,
+        "frr_bgp:unreach_vty_delete": parse_frr_bgp_unreach_vty_delete,
         "frr_zebra:if_add_del_update": parse_frr_zebra_if_add_del_update,
         "frr_zebra:if_protodown": parse_frr_zebra_if_protodown,
         "frr_zebra:if_upd_ctx_dplane_result": parse_frr_zebra_if_upd_ctx_dplane_result,
