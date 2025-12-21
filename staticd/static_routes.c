@@ -163,6 +163,20 @@ struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
 	return pn;
 }
 
+void static_description_set(struct static_path *pn, const char *desc)
+{
+	if (pn->desc)
+		XFREE(MTYPE_STATIC_ROUTE, pn->desc);
+
+	if (desc)
+		pn->desc = XSTRDUP(MTYPE_STATIC_ROUTE, desc);
+}
+
+void static_description_unset(struct static_path *pn)
+{
+	XFREE(MTYPE_STATIC_ROUTE, pn->desc);
+}
+
 void static_del_path(struct static_path *pn)
 {
 	struct route_node *rn = pn->rn;
@@ -176,6 +190,9 @@ void static_del_path(struct static_path *pn)
 	frr_each_safe(static_nexthop_list, &pn->nexthop_list, nh) {
 		static_delete_nexthop(nh);
 	}
+
+	if (pn->desc)
+		static_description_unset(pn);
 
 	route_unlock_node(rn);
 

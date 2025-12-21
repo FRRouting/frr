@@ -101,6 +101,16 @@ module frr-staticd {
           "Route tag";
       }
 
+      leaf description {
+        type string {
+          length "1..80" {
+            error-message "The description must be between 1 and 80 characters long";
+          }
+        }
+        description
+          "Static route description.";
+      }
+
       uses frr-nexthop:frr-nexthop;
     }
   }
