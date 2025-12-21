@@ -305,7 +305,7 @@ addresses but unicast addresses.
 This table is fully separate from the default unicast table. However,
 RPF lookup can include the unicast table.
 
-.. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
+.. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE] [description DESCRIPTION]
 
    Adds a static route entry to the Multicast RIB. This performs exactly as the
    ``ip route`` command, except that it inserts the route in the Multicast RIB
