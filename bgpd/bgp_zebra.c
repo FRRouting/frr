@@ -1461,7 +1461,8 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 			       sizeof(api_nh->seg6_segs[0]));
 			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
-			if (mpinfo->attr->srv6_l3service && bgp_is_valid_label(&labels[0]) &&
+			if (mpinfo->attr->srv6_l3service && labels && (num_labels > 0) &&
+			    bgp_is_valid_label(&labels[0]) &&
 			    mpinfo->attr->srv6_l3service->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
