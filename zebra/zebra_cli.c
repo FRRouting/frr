@@ -379,21 +379,25 @@ static void lib_interface_zebra_link_params_metric_cli_write(
 
 DEFPY_YANG (link_params_maxbw,
 	link_params_maxbw_cmd,
-	"max-bw BANDWIDTH",
+	"[no] max-bw BANDWIDTH",
+	NO_STR
 	"Maximum bandwidth that can be used\n"
 	"Bytes/second (IEEE floating point format)\n")
 {
 	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(bandwidth, "%g", &bw) != 1) {
-		vty_out(vty, "Invalid bandwidth value\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	snprintf(value, sizeof(value), "%a", bw);
+		snprintf(value, sizeof(value), "%a", bw);
 
-	nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
+		nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_MODIFY, value);
+	} else
+		nb_cli_enqueue_change(vty, "./max-bandwidth", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -408,22 +412,25 @@ static void lib_interface_zebra_link_params_max_bandwidth_cli_write(
 
 DEFPY_YANG (link_params_max_rsv_bw,
 	link_params_max_rsv_bw_cmd,
-	"max-rsv-bw BANDWIDTH",
+	"[no] max-rsv-bw BANDWIDTH",
+	NO_STR
 	"Maximum bandwidth that may be reserved\n"
 	"Bytes/second (IEEE floating point format)\n")
 {
 	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(bandwidth, "%g", &bw) != 1) {
-		vty_out(vty, "Invalid bandwidth value\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	snprintf(value, sizeof(value), "%a", bw);
+		snprintf(value, sizeof(value), "%a", bw);
 
-	nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_MODIFY,
-			      value);
+		nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_MODIFY, value);
+	} else
+		nb_cli_enqueue_change(vty, "./max-reservable-bandwidth", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -439,7 +446,8 @@ static void lib_interface_zebra_link_params_max_reservable_bandwidth_cli_write(
 
 DEFPY_YANG (link_params_unrsv_bw,
 	link_params_unrsv_bw_cmd,
-	"unrsv-bw (0-7)$priority BANDWIDTH",
+	"[no] unrsv-bw (0-7)$priority BANDWIDTH",
+	NO_STR
 	"Unreserved bandwidth at each priority level\n"
 	"Priority\n"
 	"Bytes/second (IEEE floating point format)\n")
@@ -448,17 +456,25 @@ DEFPY_YANG (link_params_unrsv_bw,
 	char value[YANG_VALUE_MAXLEN];
 	float bw;
 
-	if (sscanf(bandwidth, "%g", &bw) != 1) {
-		vty_out(vty, "Invalid bandwidth value\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!no) {
+		if (sscanf(bandwidth, "%g", &bw) != 1) {
+			vty_out(vty, "Invalid bandwidth value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		snprintf(xpath, sizeof(xpath),
+			 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']/unreserved-bandwidth",
+			 priority_str);
+		snprintf(value, sizeof(value), "%a", bw);
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
+	} else {
+		snprintf(xpath, sizeof(xpath),
+			 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']",
+			 priority_str);
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	}
-
-	snprintf(xpath, sizeof(xpath),
-		 "./unreserved-bandwidths/unreserved-bandwidth[priority='%s']/unreserved-bandwidth",
-		 priority_str);
-	snprintf(value, sizeof(value), "%a", bw);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
