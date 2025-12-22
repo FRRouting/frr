@@ -698,6 +698,8 @@ void nb_notif_set_filters(const char **selectors, bool replace)
 	bool exists;
 	int before;
 
+	_dbg("existing notif_filters: %pSAd", nb_notif_filters);
+
 	if (replace)
 		darr_free_free(nb_notif_filters);
 
@@ -714,6 +716,8 @@ void nb_notif_set_filters(const char **selectors, bool replace)
 		else
 			*darr_insert(nb_notif_filters, before) = *csp;
 	}
+
+	_dbg("new notif_filters: %pSAd", nb_notif_filters);
 
 	darr_free(selectors);
 }
