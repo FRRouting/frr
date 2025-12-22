@@ -56,13 +56,13 @@ struct mgmt_be_client_txn_ctx {
 struct mgmt_be_client_cbs {
 	void (*client_connect_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
 				      bool connected);
-	const char **config_xpaths;
+	const char *const *config_xpaths;
 	uint nconfig_xpaths;
-	const char **oper_xpaths;
+	const char *const *oper_xpaths;
 	uint noper_xpaths;
-	const char **notify_xpaths;
+	const char *const *notify_xpaths;
 	uint nnotify_xpaths;
-	const char **rpc_xpaths;
+	const char *const *rpc_xpaths;
 	uint nrpc_xpaths;
 };
 
