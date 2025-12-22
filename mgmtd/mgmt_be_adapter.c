@@ -25,6 +25,17 @@
 #define _log_warn(fmt, ...) zlog_warn("BE-ADAPTER: %s: WARNING: " fmt, __func__, ##__VA_ARGS__)
 #define _log_err(fmt, ...) zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
+/* ----- */
+/* Types */
+/* ----- */
+
+/*
+ * Mapping of YANG XPath prefixes to their corresponding backend clients.
+ */
+struct mgmt_be_xpath_map {
+	char *xpath_prefix;
+	uint64_t clients;
+};
 
 /* ---------- */
 /* Prototypes */
@@ -66,193 +77,7 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #endif
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
-
-
-/* ------------------------------- */
-/* Const XPath Mappings (for init) */
-/* ------------------------------- */
-
-/*
- * NOTE: These mappings are more trouble than they are worth. Just convert to
- * use the subscribe message exclusively.
- */
-
-/*
- * Mapping of YANG XPath prefixes to their corresponding backend clients.
- */
-struct mgmt_be_xpath_map {
-	char *xpath_prefix;
-	uint64_t clients;
-};
-
-/*
- * Each client gets their own map, but also union all the strings into the
- * above map as well.
- */
-
-/* clang-format off */
-static const char *const zebra_config_xpaths[] = {
-	"/frr-affinity-map:lib",
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-route-map:lib",
-	"/frr-zebra:zebra",
-	"/frr-interface:lib",
-	"/frr-vrf:lib",
-	NULL,
-};
-
-static const char *const zebra_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-interface:lib/interface",
-	"/frr-vrf:lib/vrf/frr-zebra:zebra",
-	"/frr-zebra:zebra",
-	NULL,
-};
-
-static const char *const zebra_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-
-/*
- * MGMTD does not use config paths. Config is handled specially since it's own
- * tree is modified directly when processing changes from the front end clients
- */
-
-static const char *const mgmtd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-
-static const char *const mgmtd_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-
-
-#ifdef HAVE_MGMTD_TESTC
-static const char *const mgmtd_testc_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_RIPD
-static const char *const ripd_config_xpaths[] = {
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-interface:lib/interface",
-	"/frr-ripd:ripd",
-	"/frr-route-map:lib",
-	"/frr-vrf:lib",
-	"/ietf-key-chain:key-chains",
-	NULL,
-};
-static const char *const ripd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-ripd:ripd",
-	"/ietf-key-chain:key-chains",
-	NULL,
-};
-static const char *const ripd_rpc_xpaths[] = {
-	"/frr-ripd",
-	"/frr-logging",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_RIPNGD
-static const char *const ripngd_config_xpaths[] = {
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-interface:lib/interface",
-	"/frr-ripngd:ripngd",
-	"/frr-route-map:lib",
-	"/frr-vrf:lib",
-	NULL,
-};
-static const char *const ripngd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-ripngd:ripngd",
-	NULL,
-};
-static const char *const ripngd_rpc_xpaths[] = {
-	"/frr-ripngd",
-	"/frr-logging",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_STATICD
-static const char *const staticd_config_xpaths[] = {
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-vrf:lib",
-	"/frr-interface:lib",
-	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
-	NULL,
-};
-static const char *const staticd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-static const char *const staticd_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-#endif
 /* clang-format on */
-
-static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_config_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_config_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
-#endif
-};
-
-static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_MGMTD] = mgmtd_oper_xpaths,
-#ifdef HAVE_MGMTD_TESTC
-	[MGMTD_BE_CLIENT_ID_TESTC] = mgmtd_testc_oper_xpaths,
-#endif
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_oper_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_oper_xpaths,
-#endif
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
-};
-
-static const char *const *be_client_notif_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-};
-
-static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_MGMTD] = mgmtd_rpc_xpaths,
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_rpc_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_rpc_xpaths,
-#endif
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_rpc_xpaths,
-};
 
 /* ---------------- */
 /* Global Variables */
@@ -282,7 +107,8 @@ static struct mgmt_be_client_adapter
 
 /*
  * Mgmtd has it's own special "interested-in" xpath maps since it's not actually
- * a backend client of itself.
+ * a backend client of itself; it's own tree is modified directly when
+ * processing changes from the front end clients
  */
 static const char *const mgmtd_config_xpaths[] = {
 	"/frr-logging:logging",
@@ -500,57 +326,16 @@ static void be_adapter_register_client_xpath(enum mgmt_be_client_id id, const ch
 	}
 	/* we didn't find a matching entry */
 	map = darr_append(*maps);
-	map->xpath_prefix = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+	map->xpath_prefix = darr_strdup(xpath);
 	map->clients = (1ul << id);
 }
 
-/*
- * Use the global per-client constants to initialize the xpath maps.
- *
- * NOTE: This system was used to bootstrap the mgmtd work, and has proved to add
- * complexity to the process converting daemons to use mgmtd with no real
- * performance requirement, the daemon can send it's xpath regsitrations in it's
- * subscribe message so we should just use that. Please convert to do that and
- * remove this function at first convenience.
- */
 static void be_adapter_xpath_maps_init(void)
 {
-	enum mgmt_be_client_id id;
-	const char *const *init;
-
-	_dbg("Init XPath Maps");
-
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		/* Initialize the common config init map */
-		for (init = be_client_config_xpaths[id]; init && *init; init++) {
-			_dbg(" - CFG XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
-		}
-
-		/* Initialize the common oper init map */
-		for (init = be_client_oper_xpaths[id]; init && *init; init++) {
-			_dbg(" - OPER XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-		}
-
-		/* Initialize the common NOTIF init map */
-		for (init = be_client_notif_xpaths[id]; init && *init; init++) {
-			_dbg(" - NOTIF XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init,
-							 MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
-		}
-
-		/* Initialize the common RPC init map */
-		for (init = be_client_rpc_xpaths[id]; init && *init; init++) {
-			_dbg(" - RPC XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
-		}
-	}
-
-	_dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
-	_dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
-	_dbg("Total Notif XPath Maps: %u", darr_len(be_notif_xpath_map));
-	_dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
+	be_adapter_register_client_xpath(MGMTD_BE_CLIENT_ID_MGMTD, "/frr-backend:clients",
+					 MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	be_adapter_register_client_xpath(MGMTD_BE_CLIENT_ID_MGMTD, "/frr-logging",
+					 MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 }
 
 /*
@@ -561,19 +346,19 @@ static void be_adapter_xpath_maps_cleanup(void)
 	struct mgmt_be_xpath_map *map;
 
 	darr_foreach_p (be_cfg_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_cfg_xpath_map);
 
 	darr_foreach_p (be_oper_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_oper_xpath_map);
 
 	darr_foreach_p (be_notif_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_notif_xpath_map);
 
 	darr_foreach_p (be_rpc_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_rpc_xpath_map);
 }
 

@@ -154,6 +154,37 @@ FRR_DAEMON_INFO(ripd, RIP,
 	/* mgmtd will load the per-daemon config file now */
 	.flags = FRR_NO_SPLIT_CONFIG | FRR_MGMTD_BACKEND,
 );
+
+static const char *const ripd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-interface:lib/interface",
+	"/frr-ripd:ripd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+	"/ietf-key-chain:key-chains",
+};
+
+static const char *const ripd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-ripd:ripd",
+	"/ietf-key-chain:key-chains",
+};
+
+static const char *const ripd_rpc_xpaths[] = {
+	"/frr-ripd",
+	"/frr-logging",
+};
+
+struct mgmt_be_client_cbs ripd_be_client_data = {
+	.config_xpaths = ripd_config_xpaths,
+	.nconfig_xpaths = array_size(ripd_config_xpaths),
+	.oper_xpaths = ripd_oper_xpaths,
+	.noper_xpaths = array_size(ripd_oper_xpaths),
+	.rpc_xpaths = ripd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ripd_rpc_xpaths),
+};
 /* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
@@ -200,7 +231,7 @@ int main(int argc, char **argv)
 	rip_init();
 	rip_if_init();
 
-	mgmt_be_client = mgmt_be_client_create("ripd", NULL, 0, master);
+	mgmt_be_client = mgmt_be_client_create("ripd", &ripd_be_client_data, 0, master);
 
 	rip_zclient_init(master);
 	rip_bfd_init(master);
