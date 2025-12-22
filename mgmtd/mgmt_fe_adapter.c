@@ -88,7 +88,9 @@ static struct msg_server mgmt_fe_server = {.fd = -1};
 LIST_HEAD(fe_adapter_list_head, mgmt_fe_client_adapter) fe_adapters;
 
 static struct hash *mgmt_fe_sessions;
-static uint64_t mgmt_fe_next_session_id;
+
+static uint64_t fe_session_next_id = MGMT_FE_SESSION_ID_MIN;
+static bool fe_session_id_wrapped;
 
 static struct ns_string_head mgmt_fe_ns_strings;
 
@@ -301,7 +303,7 @@ static bool fe_session_hash_cmp(const void *d1, const void *d2)
 	return (session1->session_id == session2->session_id);
 }
 
-static inline struct mgmt_fe_session_ctx *fe_session_lookup(uint64_t session_id)
+static struct mgmt_fe_session_ctx *fe_session_lookup(uint64_t session_id)
 {
 	struct mgmt_fe_session_ctx key = {0};
 	struct mgmt_fe_session_ctx *session;
@@ -325,6 +327,31 @@ static struct mgmt_fe_session_ctx *fe_session_by_txn_id(uint64_t txn_id)
 	if (session_id == MGMTD_SESSION_ID_NONE)
 		return NULL;
 	return fe_session_lookup(session_id);
+}
+
+static uint64_t fe_session_get_next_id(void)
+{
+	uint64_t id = fe_session_next_id;
+	uint64_t next, sanity;
+
+	if (id < MGMT_FE_SESSION_ID_MAX)
+		next = id + 1;
+	else {
+		next = MGMT_FE_SESSION_ID_MIN;
+		fe_session_id_wrapped = true;
+	}
+	if (fe_session_id_wrapped) {
+		sanity = next;
+		while (fe_session_lookup(next)) {
+			if (next < MGMT_FE_SESSION_ID_MAX)
+				next++;
+			else
+				next = MGMT_FE_SESSION_ID_MIN;
+			assert(next != sanity);
+		}
+	}
+	fe_session_next_id = next;
+	return id;
 }
 
 static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
@@ -369,9 +396,8 @@ static struct mgmt_fe_session_ctx *fe_session_create(struct mgmt_fe_client_adapt
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
 	LIST_INSERT_HEAD(&adapter->sessions, session, link);
-	if (!mgmt_fe_next_session_id)
-		mgmt_fe_next_session_id++;
-	session->session_id = mgmt_fe_next_session_id++;
+
+	session->session_id = fe_session_get_next_id();
 	hash_get(mgmt_fe_sessions, session, hash_alloc_intern);
 
 	return session;
