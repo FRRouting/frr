@@ -33,6 +33,13 @@ extern struct debug mgmt_debug_txn;
 #define MGMT_DEBUG_FE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)
 #define MGMT_DEBUG_TXN_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_tx, DEBUG_MODE_ALL)
 
+/* The first 1000 session IDs are reserved for backend clients IDs */
+#define MGMT_FE_SESSION_ID_MIN 1001
+#define MGMT_FE_SESSION_ID_MAX UINTPTR_MAX
+
+#define MGMT_BE_CLIENT_TO_SESSION_ID(client_id)	 ((client_id) + 1)
+#define MGMT_FE_SESSION_TO_CLIENT_ID(session_id) (assert((session_id) > 0), ((session_id)-1))
+
 struct mgmt_txn;
 
 /*
