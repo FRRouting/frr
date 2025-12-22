@@ -21,9 +21,10 @@
 #include "mgmt_be_client.h"
 #include "mgmtd/mgmt_be_adapter.h"
 
-#define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_be, "BE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
+#define _dbg_nf(fmt, ...)   DEBUGD(&mgmt_debug_be, "BE-ADAPTER: " fmt, ##__VA_ARGS__)
+#define _dbg(fmt, ...)	    DEBUGD(&mgmt_debug_be, "BE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
 #define _log_warn(fmt, ...) zlog_warn("BE-ADAPTER: %s: WARNING: " fmt, __func__, ##__VA_ARGS__)
-#define _log_err(fmt, ...) zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define _log_err(fmt, ...)  zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 /* ----- */
 /* Types */
@@ -183,7 +184,8 @@ static bool mgmt_be_xpath_prefix(const char *path, const char *xpath)
 /*
  * Get the mask of clients interested in an xpath.
  */
-uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr_type type)
+uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr_type type,
+				    const char *dbg_user)
 {
 	struct mgmt_be_xpath_map *maps = NULL, *map;
 	uint64_t clients = 0;
@@ -206,11 +208,18 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 
 	/* wild_root will select all clients that advertise op-state */
 	wild_root = !strcmp(xpath, "/") || !strcmp(xpath, "/*");
-	darr_foreach_p (maps, map)
-		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
+	darr_foreach_p (maps, map) {
+		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath)) {
+			_dbg_nf("%s: xpath: '%s' matched map-prefix: '%s' clients: %pMBM",
+				dbg_user, xpath, map->xpath_prefix, &map->clients);
 			clients |= map->clients;
+		}
+	}
 
-	_dbg("xpath: '%s' subscribed clients: %pMBM", xpath, &clients);
+	if (clients)
+		_dbg_nf("%s: xpath: '%s' registered clients: %pMBM", dbg_user, xpath, &clients);
+	else
+		_dbg_nf("%s: no registered clients for xpath: '%s'", dbg_user, xpath);
 
 	return clients;
 }
@@ -269,6 +278,8 @@ struct nb_config_cbs mgmt_be_adapter_get_config(struct mgmt_be_client_adapter *a
 	uint32_t seq = 0;
 	char *xpath;
 
+	_dbg("Getting initial config for backend client: %s", adapter->name);
+
 	LY_LIST_FOR (running_config->dnode, root) {
 		LYD_TREE_DFS_BEGIN (root, dnode) {
 			if (lysc_is_key(dnode->schema))
@@ -292,26 +303,35 @@ static void be_adapter_register_client_xpath(mgmt_be_client_id_t id, const char 
 					     enum mgmt_be_xpath_subscr_type type)
 {
 	struct mgmt_be_xpath_map **maps, *map;
+	const char *interest = "interest in";
+	const char *typ;
 
 	maps = NULL;
 
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
+		typ = "CONFIG";
 		maps = &be_cfg_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
+		interest = "to provide";
+		typ = "OPER-STATE";
 		maps = &be_oper_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
+		typ = "NOTIFICATION";
 		maps = &be_notif_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
+		typ = "RPC";
 		maps = &be_rpc_xpath_map;
 		break;
 	}
 
 	darr_foreach_p (*maps, map) {
 		if (!strcmp(xpath, map->xpath_prefix)) {
+			_dbg("%pMBI registers %s %s xpath: '%s' joining: %pMBM", &id, interest,
+			     typ, xpath, &map->clients);
 			SET_IDBIT(map->clients, id);
 			return;
 		}
@@ -320,6 +340,7 @@ static void be_adapter_register_client_xpath(mgmt_be_client_id_t id, const char 
 	map = darr_append(*maps);
 	map->xpath_prefix = darr_strdup(xpath);
 	map->clients = (1ul << id);
+	_dbg("%pMBI registers %s %s xpath: '%s'", &id, interest, typ, xpath);
 }
 
 static void be_adapter_xpath_maps_init(void)
@@ -482,6 +503,8 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 		be_adapter_delete(old);
 	}
 	mgmt_be_adapters_by_id[adapter->id] = adapter;
+
+	_dbg("\"%s\" backend has client id: %u", adapter->name, id);
 
 	/* schedule INIT sequence now that it is registered */
 	be_adapter_sched_init_event(adapter);
@@ -646,10 +669,10 @@ void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath)
 	struct mgmt_be_client_adapter *adapter;
 	uint64_t cclients, nclients, oclients, rclients, combined;
 
-	cclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
-	oclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-	nclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
-	rclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+	cclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG, "SHOW");
+	oclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER, "SHOW");
+	nclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF, "SHOW");
+	rclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "SHOW");
 	combined = cclients | nclients | oclients | rclients;
 
 	vty_out(vty, "XPath: '%s'\n", xpath);
