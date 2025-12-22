@@ -149,7 +149,7 @@ enum mgmt_be_xpath_subscr_type {
  *     type - type of subscription to check for.
  */
 extern uint64_t mgmt_be_interested_clients(const char *xpath,
-					   enum mgmt_be_xpath_subscr_type type);
+					   enum mgmt_be_xpath_subscr_type type, const char *dbg_user);
 
 /*
  * Dump backend client information for a given xpath to vty.

@@ -298,7 +298,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 		if (init_client_mask)
 			clients = init_client_mask;
 		else
-			clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+			clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
+							     "SEND-CFG");
 		if (!clients)
 			_dbg("No backends interested in xpath: %s", xpath);
 
@@ -409,8 +410,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 
 	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
-		_dbg("Setting timeout (%us) for backend client CFG_REPLY responses",
-		     MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC);
+		_dbg("Set timeout (%us) for txn-id: %Lu backend client CFG_REPLYs",
+		     MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, txn_req->txn->txn_id);
 		event_add_timer(mm->master, txn_cfg_timeout, txn_req,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
 	} else {
