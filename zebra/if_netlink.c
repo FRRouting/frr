@@ -246,6 +246,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			zlog_debug(
 				"%s: IFLA_INFO_DATA missing from VRF message: %s",
 				__func__, name);
+
+		frrtrace(2, frr_zebra, netlink_vrf_change, name, 1);
+
 		return;
 	}
 
@@ -256,6 +259,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			zlog_debug(
 				"%s: IFLA_VRF_TABLE missing from VRF message: %s",
 				__func__, name);
+
+		frrtrace(2, frr_zebra, netlink_vrf_change, name, 2);
+
 		return;
 	}
 
@@ -296,6 +302,10 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
 				*error = INTERFACE_SPEED_ERROR_READ;
+
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 1);
+
 			return 0;
 		}
 		/* Get the current link state for the interface */
@@ -310,6 +320,11 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
 			*error = INTERFACE_SPEED_ERROR_READ;
+
+		if (errno != EOPNOTSUPP)
+			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
+				 safe_strerror(errno), 2);
+
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
@@ -428,6 +443,9 @@ static int netlink_extract_vlan_info(struct rtattr *link_data,
 	if (!attr[IFLA_VLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VLAN_ID missing from VLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 1);
+
 		return -1;
 	}
 
@@ -449,6 +467,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_GRE_LOCAL missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 2);
 	} else
 		gre_info->vtep_ip =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
@@ -456,6 +476,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_GRE_REMOTE missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 3);
 	} else
 		gre_info->vtep_ip_remote =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]);
@@ -463,6 +485,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 	if (!attr[IFLA_GRE_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_GRE_LINK missing from GRE IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 4);
 	} else {
 		gre_info->ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_GRE_LINK]);
@@ -504,6 +528,9 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"IFLA_VXLAN_ID missing from VXLAN IF message");
+
+			frrtrace(1, frr_zebra, if_netlink_parse_error, 5);
+
 			return -1;
 		}
 
@@ -532,6 +559,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_VXLAN_LOCAL missing from VXLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 6);
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
@@ -544,6 +573,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	if (!attr[IFLA_VXLAN_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VXLAN_LINK missing from VXLAN IF message");
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 7);
 	} else {
 		ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_VXLAN_LINK]);
@@ -1097,6 +1128,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 			zlog_debug("%s: %s: Invalid address family: %u",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_family);
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_family, 1);
+
 		return 0;
 	}
 
@@ -1108,6 +1143,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 				   h->nlmsg_len,
 				   (size_t)NLMSG_LENGTH(
 					   sizeof(struct ifaddrmsg)));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 h->nlmsg_len, 2);
+
 		return -1;
 	}
 
@@ -1163,6 +1202,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 			zlog_debug("%s: %s: Invalid prefix length: %u",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_prefixlen);
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_prefixlen, 3);
+
 		return -1;
 	}
 
@@ -1173,6 +1216,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 					   __func__,
 					   nl_msg_type_to_str(h->nlmsg_type),
 					   ifa->ifa_prefixlen);
+
+			frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+				 ifa->ifa_prefixlen, 4);
+
 			return -1;
 		}
 
@@ -1186,6 +1233,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 				zlog_debug("%s: %s: Invalid/tentative addr",
 					   __func__,
 					   nl_msg_type_to_str(h->nlmsg_type));
+
+			frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+				 0, 5);
+
 			return 0;
 		}
 	}
@@ -1204,6 +1255,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: %s: No local interface address",
 				   __func__, nl_msg_type_to_str(h->nlmsg_type));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
+			 ifa->ifa_index, 6);
+
 		return -1;
 	}
 
@@ -1306,6 +1361,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: wrong kernel message %s", __func__,
 				   nl_msg_type_to_str(h->nlmsg_type));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type), 0, 7);
+
 		return 0;
 	}
 
@@ -1337,6 +1395,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: ignoring IFLA_WIRELESS message",
 				   __func__);
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 8);
+
 		return 0;
 	}
 
@@ -1349,6 +1410,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (len < 2 || name[len - 1] != '\0') {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: invalid intf name", __func__);
+
+		frrtrace(1, frr_zebra, if_netlink_parse_error, 9);
+
 		return -1;
 	}
 
@@ -1409,6 +1473,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				zlog_debug(
 					"RTM_NEWLINK for interface %s(%u) without MTU set",
 					name, ifi->ifi_index);
+
+			frrtrace(3, frr_zebra, netlink_intf_err, name, ifi->ifi_index, 2);
+
 			dplane_ctx_fini(&ctx);
 			return 0;
 		}
