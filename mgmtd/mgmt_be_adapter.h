@@ -21,29 +21,7 @@
 #define MGMTD_FIND_ADAPTER_BY_INDEX(adapter_index)	\
 	mgmt_adaptr_ref[adapter_index]
 
-/**
- * CLIENT-ID
- *
- * Add enum value for each supported component, wrap with
- * #ifdef HAVE_COMPONENT
- */
-enum mgmt_be_client_id {
-	MGMTD_BE_CLIENT_ID_TESTC, /* always first */
-	MGMTD_BE_CLIENT_ID_MGMTD, /* loopback */
-	MGMTD_BE_CLIENT_ID_ZEBRA,
-#ifdef HAVE_RIPD
-	MGMTD_BE_CLIENT_ID_RIPD,
-#endif
-#ifdef HAVE_RIPNGD
-	MGMTD_BE_CLIENT_ID_RIPNGD,
-#endif
-#ifdef HAVE_STATICD
-	MGMTD_BE_CLIENT_ID_STATICD,
-#endif
-	MGMTD_BE_CLIENT_ID_MAX
-};
-#define MGMTD_BE_CLIENT_ID_MIN	0
-
+typedef uint mgmt_be_client_id_t;
 
 PREDECL_LIST(mgmt_be_adapters);
 
@@ -52,8 +30,8 @@ struct mgmt_be_client_adapter {
 
 	struct event *conn_init_ev;
 
-	enum mgmt_be_client_id id;
-	char name[MGMTD_CLIENT_NAME_MAX_LEN];
+	mgmt_be_client_id_t id;
+	char *name;
 
 	struct mgmt_commit_stats cfg_stats;
 	struct mgmt_be_adapters_item list_linkage;
@@ -64,10 +42,12 @@ struct mgmt_be_client_adapter {
 /* --------- */
 /* CLIENT-ID */
 /* --------- */
+#define MGMTD_BE_CLIENT_ID_MIN	 0
+#define MGMTD_BE_CLIENT_ID_MGMTD 0
+#define MGMTD_BE_CLIENT_ID_MAX	 64
 
-#define FOREACH_MGMTD_BE_CLIENT_ID(id)                                         \
-	for ((id) = MGMTD_BE_CLIENT_ID_MIN; (id) < MGMTD_BE_CLIENT_ID_MAX;     \
-	     (id)++)
+
+extern struct mgmt_be_client_adapter **mgmt_be_adapters_by_id;
 
 #define IDBIT_MASK(id)	      (1ull << (id))
 #define IS_IDBIT_UNSET(v, id) (!((v)&IDBIT_MASK(id)))
@@ -75,26 +55,26 @@ struct mgmt_be_client_adapter {
 #define SET_IDBIT(v, id)      ((v) |= IDBIT_MASK(id))
 #define UNSET_IDBIT(v, id)    ((v) &= ~IDBIT_MASK(id))
 
-#define _GET_NEXT_SET(id, bits)                                                                    \
-	({                                                                                         \
-		enum mgmt_be_client_id _gns_id = (id);                                             \
-                                                                                                   \
-		for (; _gns_id < MGMTD_BE_CLIENT_ID_MAX && IS_IDBIT_UNSET(bits, _gns_id);          \
-		     _gns_id++)                                                                    \
-			;                                                                          \
-		_gns_id;                                                                           \
+#define _GET_NEXT_SET(id, bits)                                                                   \
+	({                                                                                        \
+		mgmt_be_client_id_t _gns_id = (id);                                               \
+                                                                                                  \
+		for (; _gns_id < darr_len(mgmt_be_adapters_by_id); _gns_id++)                     \
+			if (IS_IDBIT_SET(bits, _gns_id))                                          \
+				break;                                                            \
+		_gns_id;                                                                          \
 	})
 
-#define FOREACH_BE_CLIENT_BITS(id, bits)                                                           \
-	for ((id) = _GET_NEXT_SET(MGMTD_BE_CLIENT_ID_MIN, bits); (id) < MGMTD_BE_CLIENT_ID_MAX;    \
-	     (id) = _GET_NEXT_SET((id) + 1, bits))
+#define FOREACH_BE_CLIENT_BITS(id, bits)                                                          \
+	for ((id) = _GET_NEXT_SET(MGMTD_BE_CLIENT_ID_MIN, bits);                                  \
+	     (id) < darr_len(mgmt_be_adapters_by_id); (id) = _GET_NEXT_SET((id) + 1, bits))
 
 /* This is required to avoid assignment in if conditional in FOREACH_BE_ADAPTER_BITS :( */
 #define _GET_NEXT_SET_ADAPTER(id, adapter, bits)                                                  \
 	({                                                                                        \
-		enum mgmt_be_client_id _gnsa_id = (id);                                           \
+		mgmt_be_client_id_t _gnsa_id = (id);                                              \
                                                                                                   \
-		for (; _gnsa_id < MGMTD_BE_CLIENT_ID_MAX; _gnsa_id++) {                           \
+		for (; _gnsa_id < darr_len(mgmt_be_adapters_by_id); _gnsa_id++) {                 \
 			if (IS_IDBIT_SET(bits, _gnsa_id)) {                                       \
 				(adapter) = mgmt_be_get_adapter_by_id(_gnsa_id);                  \
 				if ((adapter))                                                    \
@@ -104,9 +84,11 @@ struct mgmt_be_client_adapter {
 		_gnsa_id;                                                                         \
 	})
 
+
 #define FOREACH_BE_ADAPTER_BITS(id, adapter, bits)                                                \
-	for ((id) = _GET_NEXT_SET_ADAPTER(MGMTD_BE_CLIENT_ID_MIN, (adapter), (bits));             \
-	     (id) < MGMTD_BE_CLIENT_ID_MAX;                                                       \
+	for ((adapter) = NULL,                                                                    \
+	    (id) = _GET_NEXT_SET_ADAPTER(MGMTD_BE_CLIENT_ID_MIN, (adapter), (bits));              \
+	     (id) < darr_len(mgmt_be_adapters_by_id);                                             \
 	     (id) = _GET_NEXT_SET_ADAPTER((id) + 1, (adapter), (bits)))
 
 /* ---------- */
@@ -120,11 +102,7 @@ extern void mgmt_be_adapter_init(struct event_loop *tm);
 extern void mgmt_be_adapter_destroy(void);
 
 /* Fetch backend adapter given an client ID. */
-extern struct mgmt_be_client_adapter *
-mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id);
-
-/* Get the client name given a client ID */
-extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
+extern struct mgmt_be_client_adapter *mgmt_be_get_adapter_by_id(mgmt_be_client_id_t id);
 
 /* Toggle debug on or off for connected clients. */
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
