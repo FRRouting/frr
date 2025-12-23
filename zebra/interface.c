@@ -2119,10 +2119,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						       rc_bitfield);
 
 			if (if_is_no_ptm_operative(ifp)) {
-
-				ifp->flags = flags;
 				bool is_up = if_is_operative(ifp);
 
+				ifp->flags = flags;
 				if (!if_is_no_ptm_operative(ifp) ||
 				    CHECK_FLAG(zif->flags,
 					       ZIF_FLAG_PROTODOWN)) {
@@ -2143,7 +2142,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						zlog_debug(
 							"Intf %s(%u) PTM up, notifying clients",
 							name, ifp->ifindex);
-					if_up(ifp, is_up);
+					if_up(ifp, !is_up);
 
 					/*
 					 * Update EVPN VNI when SVI MAC change
