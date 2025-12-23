@@ -48,6 +48,12 @@ static void be_adapter_delete(struct mgmt_be_client_adapter *adapter);
 
 static enum mgmt_be_client_id mgmt_be_client_name2id(const char *name);
 
+// clang-format off
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pMBI" (mgmt_be_client_id_t *)
+#pragma FRR printfrr_ext "%pMBM" (uint64_t *)
+#endif
+// clang-format on
 
 /* --------- */
 /* Constants */
@@ -119,13 +125,6 @@ static const char *const mgmtd_config_xpaths[] = {
 /* Lookup Functions */
 /* ---------------- */
 
-static const char *be_adapter_id_name(enum mgmt_be_client_id id)
-{
-	if (id > MGMTD_BE_CLIENT_ID_MAX)
-		return "invalid client id";
-	return mgmt_be_client_names[id];
-}
-
 static enum mgmt_be_client_id mgmt_be_client_name2id(const char *name)
 {
 	enum mgmt_be_client_id id;
@@ -153,6 +152,35 @@ struct mgmt_be_client_adapter *mgmt_be_get_adapter_by_id(enum mgmt_be_client_id 
 	return (id < MGMTD_BE_CLIENT_ID_MAX ? mgmt_be_adapters_by_id[id] : NULL);
 }
 
+printfrr_ext_autoreg_p("MBI", printfrr_be_id);
+static ssize_t printfrr_be_id(struct fbuf *buf, struct printfrr_eargs *ea, const void *ptr)
+{
+	enum mgmt_be_client_id id = *(const enum mgmt_be_client_id *)ptr;
+
+	if (id >= MGMTD_BE_CLIENT_ID_MAX)
+		return bprintfrr(buf, "unknown-client-id-%d", id);
+	return bputs(buf, mgmt_be_client_names[id]);
+}
+
+printfrr_ext_autoreg_p("MBM", printfrr_be_mask);
+static ssize_t printfrr_be_mask(struct fbuf *buf, struct printfrr_eargs *ea, const void *ptr)
+{
+	uint64_t bits = *(const uint64_t *)ptr;
+	enum mgmt_be_client_id id;
+	size_t total_len = 0;
+	bool first = true;
+
+	FOREACH_BE_CLIENT_BITS (id, bits) {
+		if (!first)
+			total_len += bputch(buf, '|');
+		if (id >= MGMTD_BE_CLIENT_ID_MAX)
+			total_len += bprintfrr(buf, "unknown-client-id-%d", id);
+		else
+			total_len += bputs(buf, mgmt_be_client_names[id]);
+		first = false;
+	}
+	return total_len;
+}
 
 /* ======================= */
 /* XPath Mapping Functions */
@@ -213,7 +241,7 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
 			clients |= map->clients;
 
-	_dbg("xpath: '%s' subscribed clients: 0x%Lx", xpath, clients);
+	_dbg("xpath: '%s' subscribed clients: %pMBM", xpath, &clients);
 
 	return clients;
 }
@@ -250,17 +278,12 @@ static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id
 {
 	uint64_t clients;
 
-	assert(id < MGMTD_BE_CLIENT_ID_MAX);
-
-	_dbg("Checking client: %s for xpath: '%s'", be_adapter_id_name(id), xpath);
-
 	clients = mgmt_be_interested_clients(xpath, type);
 	if (IS_IDBIT_SET(clients, id)) {
-		_dbg("client: %s: interested", be_adapter_id_name(id));
+		_dbg("client: %pMBI for xpath: '%s': interested", &id, xpath);
 		return true;
 	}
-
-	_dbg("client: %s: not interested", be_adapter_id_name(id));
+	_dbg("client: %pMBI for xpath: '%s': not interested", &id, xpath);
 	return false;
 }
 
@@ -603,7 +626,7 @@ static void _show_xpath_map(struct vty *vty, struct mgmt_be_xpath_map *map)
 	vty_out(vty, " - xpath: '%s'\n", map->xpath_prefix);
 	FOREACH_BE_CLIENT_BITS (id, map->clients) {
 		astr = mgmt_be_get_adapter_by_id(id) ? "active" : "inactive";
-		vty_out(vty, "   -- %s-client: '%s'\n", astr, be_adapter_id_name(id));
+		vty_out(vty, "   -- %s-client: '%pMBI'\n", astr, &id);
 	}
 }
 
@@ -647,10 +670,9 @@ void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath)
 
 	vty_out(vty, "XPath: '%s'\n", xpath);
 	FOREACH_BE_CLIENT_BITS (id, combined) {
-		vty_out(vty, "  -- Client: '%s'\tconfig:%d notify:%d oper:%d rpc:%d\n",
-			be_adapter_id_name(id), IS_IDBIT_SET(cclients, id),
-			IS_IDBIT_SET(nclients, id), IS_IDBIT_SET(oclients, id),
-			IS_IDBIT_SET(rclients, id));
+		vty_out(vty, "  -- Client: %pMBI\tconfig:%d notify:%d oper:%d rpc:%d\n", &id,
+			IS_IDBIT_SET(cclients, id), IS_IDBIT_SET(nclients, id),
+			IS_IDBIT_SET(oclients, id), IS_IDBIT_SET(rclients, id));
 		adapter = mgmt_be_get_adapter_by_id(id);
 		if (adapter)
 			vty_out(vty, "    -- Adapter: %p\n", adapter);
