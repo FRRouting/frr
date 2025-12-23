@@ -394,6 +394,24 @@ bgpd
 
    Print BGP peer's IP and hostname together.
 
+
+mgmtd
+"""""
+
+.. frrfmt:: %pMBI (mgmt_be_client_id_t *)
+
+   Print the client name for the given client ID. If the client is unknown
+   ``unknown-cliend-id-%d`` is substituted.
+
+.. frrfmt:: %pMBM (uint64_t *)
+
+   Print all the clients indicated by the given bit-mask value. Each bit
+   represents it's client ID (i.e., 0x06 == client id's 1 and 2). If a client
+   is unknown ``unknown-cliend-id-%d`` is substituted.
+
+   :frrfmtout:`zebra|ripd|staticd`
+
+
 pimd/pim6d
 """"""""""
 
