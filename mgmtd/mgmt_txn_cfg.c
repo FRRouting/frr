@@ -116,7 +116,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 	struct txn_req_commit *ccreq = as_commit(txn_req);
 	struct mgmt_be_client_adapter *adapter;
 	enum mgmt_commit_phase phase;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	uint64_t txn_id = txn_req->txn->txn_id;
 	uint64_t clients;
 
@@ -260,7 +260,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 	struct nb_config_change *chg;
 	struct nb_config_cbs mgmtd_changes = { 0 };
 	char *xpath = NULL, *value = NULL;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *adapter;
 	struct txn_req *txn_req = &ccreq->req;
 	struct mgmt_msg_cfg_req **cfg_msgs = NULL;
@@ -437,7 +437,7 @@ done:
  */
 static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq)
 {
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_cfg_apply_req *msg;
 	uint64_t txn_id = ccreq->req.txn->txn_id;
@@ -628,7 +628,7 @@ static void txn_cfg_adapter_acked(struct txn_req_commit *ccreq,
 	     mgmt_commit_phase_name[ccreq->phase]);
 
 	if (adapter) {
-		enum mgmt_be_client_id id = adapter->id;
+		mgmt_be_client_id_t id = adapter->id;
 
 		if (IS_IDBIT_SET(ccreq->clients_wait, id))
 			UNSET_IDBIT(ccreq->clients_wait, id);
