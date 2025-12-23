@@ -97,6 +97,18 @@ def test_rip_del_instance(tgen):
     _, result = topotest.run_and_expect(check_if_rip_removed, True, count=30, wait=1)
     assert result, "RIP is still running"
 
+    step("Verifying 'show ip rip' returns expected error message")
+
+    def check_rip_error_message():
+        output = router.vtysh_cmd("show ip rip")
+        expected = "% RIP instance not found"
+        if expected in output:
+            return True
+        return False
+
+    _, result = topotest.run_and_expect(check_rip_error_message, True, count=15, wait=1)
+    assert result, "Expected error message not found in 'show ip rip' output"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
