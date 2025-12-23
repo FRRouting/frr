@@ -2173,6 +2173,25 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
+	if (peer->connection && peer->connection->su_remote &&
+	    sockunion_family(peer->connection->su_remote) == AF_INET) {
+		struct in_addr peer_addr;
+		peer_addr.s_addr = sockunion2ip(peer->connection->su_remote);
+		if (attr->nexthop.s_addr == peer_addr.s_addr) {
+			uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
+			
+			flog_err(EC_BGP_ATTR_PEER_NH, "Invalid nexthop %pI4 equals peer address",
+			         &attr->nexthop);
+			data[0] = BGP_ATTR_FLAG_TRANS;
+			data[1] = BGP_ATTR_NEXT_HOP;
+			data[2] = BGP_ATTR_NHLEN_IPV4;
+			memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
+			bgp_notify_send_with_data(peer->connection, BGP_NOTIFY_UPDATE_ERR,
+						  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP, data, 7);
+			return BGP_ATTR_PARSE_ERROR;
+		}
+	}
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
