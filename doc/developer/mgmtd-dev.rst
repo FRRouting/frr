@@ -45,6 +45,7 @@ Fully Converted To MGMTD
 - lib/if
 - lib/if_rmap
 - lib/keychain
+- lib/log_vty
 - lib/routemap
 - lib/vrf
 - ripd
@@ -70,7 +71,6 @@ Unconverted
 - bgpd
 - ldpd
 - lib/event
-- lib/log_vty
 - lib/nexthop_group
 - lib/zlog_5424_cli
 - nhrpd
@@ -160,15 +160,17 @@ Back-End Interface:
    should be destroyed with a call to `mgmt_be_client_destroy` and to be safe
    NULL out the global `mgmt_be_client` variable.
 
-#. In ``mgmtd/mgmt_be_adapter.c`` add xpath prefix mappings to a each of the
-   mapping arrays (``be_client_config_xpaths``, ``be_client_oper_xpaths``, and
-   ``be_client_rpc_xpaths``) to direct ``mgmtd`` to send config, oper-state, and
-   RPC requests to your daemon.
+   One argument to mgmt_be_client_create is `struct mgmt_be_client_cbs *cbs`.
+   This structure should contain the arrays of XPATH prefixes that the backend
+   client supports for it's config, oper-state, and RPCs. Additionally, an array
+   of notify XPATH prefixes can be passed to indicate interest in being notified of
+   changes in oper-state from other backends on those paths, as well as standard
+   YANG notifications (again passing their XPATHs).
 
-   NOTE: make sure to include library supported xpaths prefixes as well (e.g.,
-   "/frr-interface:lib"). A good way to figure these paths out are to look in
-   each of the YANG modules that the daemon uses and include each of their paths
-   in the array.
+   NOTE: make sure to include your library supported XPATHs prefixes as well
+   (e.g., "/frr-interface:lib"). A good way to figure these paths out are to
+   look in each of the YANG modules that the daemon uses and include each of
+   their paths in the appropriate array.
 
 #. In ``python/xref2vtysh.py`` add ``VTYSH_xxxD`` (for client xxx) to
    ``lib/mgmt_be_client.c`` entry in the ``daemon_falgs`` dictionary.
@@ -213,7 +215,7 @@ The daemon's CLI handlers for configuration (which having been converted to the
 :ref:`northbound` now simply generate YANG changes) will be linked directly into
 ``mgmtd``.
 
-If the operational and debug CLI commands are kept in files separate from the
+If the debug and legacy operational CLI commands are kept in files separate from the
 daemon's configuration CLI commands then no extra work is required. Otherwise some
 CPP #ifndef's will be required.
 
@@ -283,6 +285,7 @@ So you will need to define 2 :code:`struct frr_yang_module_info` arrays.
    This new :code:`struct frr_yang_module_info` array is the one to be included
    in mgmtd in `mgmt_yang_modules` inside ``mgmtd/mgmt_main.c``.
 
+
 Back-End Client Connection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -296,6 +299,10 @@ CLI/VTY code.
     struct event_loop *master;
 
     static struct mgmt_be_client *mgmt_be_client;
+
+    static struct mgmt_be_client_cbs ripd_be_client_data = {
+        /* more on this below */
+    };
     ...
 
     int main(int argc, char **argv)
@@ -303,7 +310,7 @@ CLI/VTY code.
         ...
         rip_init();
 	rip_if_init();
-	mgmt_be_client = mgmt_be_client_create("ripd", NULL, 0, master);
+	mgmt_be_client = mgmt_be_client_create("ripd", &ripd_be_client_data, 0, master);
 
 Likewise the client should be cleaned up in the daemon cleanup routine.
 
@@ -322,88 +329,69 @@ Likewise the client should be cleaned up in the daemon cleanup routine.
 Back-End XPATH mappings
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In order for ``mgmtd`` to direct YANG modeled data to your daemon you should add
-some XPATH mappings to ``mgmtd/mgmt_be_adapter.c``. These XPATHs determine which
-YANG modeled data (e.g., config changes) get sent over the *back-end* interface
-to your daemon. There are 4 arrays to possibly update: configuration,
-operational, notification, and RPC. You only need to add entries to the array
-that you require mapping for.
+In order for ``mgmtd`` to direct YANG modeled data to (and from) your daemon you
+need to pass these XPATH prefixes to ``mgmtd`` when creating your be client.
+These XPATHs determine which YANG modeled data (e.g., config changes) get sent
+over the *back-end* client connection to and from your daemon. There are 4
+arrays to possibly initialize in the `struct mgmt_be_client_cbs *cbs` passed to
+``mgmt_be_client_create``: configuration, operational, notification, and RPC.
+These in turn get sent in the ``SUBSCRIBE`` message sent to ``mgmtd`` after
+connecting.
 
-Additionally the back-end client can specify these XPATH mappings when it
-first connects to mgmtd using it's initial ``SUBSCRIBE`` message.
+NOTE: the notif array, is a slightly different from the other 3 types (config,
+oper and rpc) in that it maps xpaths the back-end client wishes to *receive*
+notifications for, not the ones it may generate. Normally a back-end client is
+generating notifications; however, mgmtd supports back-end clients also
+"subscribing" to receive these notifications as well from other back-end clients
+through notif_xpath maps.
 
-NOTE: the notif array (``be_client_notif_xpaths``), is a slightly different from
-the other 3 types (config, oper and rpc) in that it maps xpaths the back-end
-client wishes to *receive* notifications for, not the ones it may generate.
-Normally a back-end client is generating notifications; however, mgmtd supports
-back-end clients also "subscribing" to receive these notifications as well from
-other back-end clients through notif_xpath maps.
+Back-End XPATH Example
+""""""""""""""""""""""
 
-Config Map Example
-""""""""""""""""""
-Below are the strings added for staticd config support:
-
-.. code-block:: c
-
-    #if HAVE_STATICD
-    static const char *const staticd_xpaths[] = {
-            "/frr-vrf:lib",
-            "/frr-interface:lib",
-            "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
-            NULL,
-    };
-    #endif
-
-    static const char *const *be_client_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-    #ifdef HAVE_STATICD
-            [MGMTD_BE_CLIENT_ID_STATICD] = staticd_xpaths,
-    #endif
-    };
-
-
-Operational Map Example
-"""""""""""""""""""""""
-Below are the strings added for zebra operational state support (note zebra is
-not conditionalized b/c it should always be present):
+Below are the XPATH prefixes for ``ripd`` as well the initialization of it's
+``cbs`` argument.
 
 .. code-block:: c
 
-    static const char *const zebra_oper_xpaths[] = {
-            "/frr-interface:lib/interface",
-            "/frr-vrf:lib/vrf/frr-zebra:zebra",
-            "/frr-zebra:zebra",
-            NULL,
+    static const char *const ripd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-interface:lib/interface",
+	"/frr-ripd:ripd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+	"/ietf-key-chain:key-chains",
     };
-
-    static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-            [MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
+    static const char *const ripd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-ripd:ripd",
+	"/ietf-key-chain:key-chains",
     };
-
-
-RPC Map Example
-"""""""""""""""
-Below is the string added for ripd RPC support:
-
-.. code-block:: c
-
     static const char *const ripd_rpc_xpaths[] = {
-            "/frr-ripd",
-            NULL,
+	"/frr-ripd",
+	"/frr-logging",
     };
 
-    static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-    #ifdef HAVE_RIPD
-            [MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
-    #endif
+    struct mgmt_be_client_cbs ripd_be_client_data = {
+	.config_xpaths = ripd_config_xpaths,
+	.nconfig_xpaths = array_size(ripd_config_xpaths),
+	.oper_xpaths = ripd_oper_xpaths,
+	.noper_xpaths = array_size(ripd_oper_xpaths),
+	.rpc_xpaths = ripd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ripd_rpc_xpaths),
     };
+    ...
+
+    int main(int argc, char **argv)
+    {
+        ...
+	mgmt_be_client = mgmt_be_client_create("ripd", &ripd_be_client_data,
+                                               0, master);
 
 
-Notification Map Example
-""""""""""""""""""""""""
-There are no current back-end daemons that wish to receive other back-end
-notifications so the array is empty. This may change in the future, and of
-course any back-end daemon can utilize the connect (``BeSubscribeReq``) messages
-as well.
+NOTE: there are no current back-end daemons that wish to receive oper-state
+change from other back-end so the notif array is empty.
 
 
 MGMTD Internals
