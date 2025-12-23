@@ -296,6 +296,7 @@ static int bgp_ifp_down(struct interface *ifp)
 	bgp_nht_ifp_down(ifp);
 
 	if (bgp_get_default() && if_is_vrf(ifp)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_VRF_LEAK_MARK_DOWN);
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP);

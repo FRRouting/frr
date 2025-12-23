@@ -1262,11 +1262,18 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			return NULL;
 		}
 
-		if (labelssame && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
-		    attrhash_cmp(bpi->attr, new_attr) &&
-		    leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi, source_bpi, bpi,
-						bgp_orig, p, debug) ==
-			    !!CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
+		if (CHECK_FLAG(bgp_orig->flags, BGP_FLAG_VRF_LEAK_MARK_DOWN)&&
+			CHECK_FLAG(new_attr->nh_flags, BGP_ATTR_NH_IF_OPERSTATE) &&
+		    CHECK_FLAG(bpi->attr->nh_flags, BGP_ATTR_NH_IF_OPERSTATE))
+			/* No change in VRF interface operstate since last call,
+			 * but the VRF went down in between — trigger nexthop refresh.
+			 */
+			SET_FLAG(new_attr->nh_flags, BGP_ATTR_NH_REFRESH);
+		else if (labelssame && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
+			 attrhash_cmp(bpi->attr, new_attr) &&
+			 leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi, source_bpi, bpi,
+						   bgp_orig, p, debug) ==
+				 !!CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
 			bgp_attr_unintern(&new_attr);
 			if (debug)
 				zlog_debug(
@@ -3982,6 +3989,7 @@ static void vpn_leak_postchange_all_internal(struct event *t
 			AFI_IP6,
 			bgp_default,
 			bgp);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_LEAK_MARK_DOWN);
 	}
 }
 

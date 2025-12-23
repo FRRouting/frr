@@ -543,6 +543,11 @@ struct bgp {
 #define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
 #define BGP_FLAG_RTC_EOR_MARKER		 (1ULL << 40)
 #define BGP_FLAG_VRF_MAY_LISTEN		 (1ULL << 44)
+/* Notify leak_update() that the VRF was in down state.
+ * Useful if the VRF has flapped quickly and the function
+ * call is delayed after VRF up so that we can refresh NHT state
+ * that was marked down. */
+#define BGP_FLAG_VRF_LEAK_MARK_DOWN		 (1ULL << 45)
 
 
 	/* BGP default address-families.
