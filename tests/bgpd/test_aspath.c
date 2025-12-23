@@ -604,7 +604,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS2_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
@@ -700,7 +700,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS4_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
@@ -716,7 +716,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS4_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
