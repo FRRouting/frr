@@ -1427,6 +1427,12 @@ struct peer_connection {
 /* Declare the FIFO list implementation */
 DECLARE_LIST(peer_connection_fifo, struct peer_connection, fifo_item);
 
+static inline enum connection_direction
+bgp_peer_get_connection_direction(const struct peer_connection *connection)
+{
+	return connection->dir;
+}
+
 const char *bgp_peer_get_connection_direction_string(const struct peer_connection *connection);
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su,
 						       enum connection_direction dir);
