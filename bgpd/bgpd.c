@@ -1221,7 +1221,7 @@ void bgp_peer_connection_free(struct peer_connection **connection)
 	connection = NULL;
 }
 
-const char *bgp_peer_get_connection_direction(struct peer_connection *connection)
+const char *bgp_peer_get_connection_direction_string(const struct peer_connection *connection)
 {
 	switch (connection->dir) {
 	case UNKNOWN:

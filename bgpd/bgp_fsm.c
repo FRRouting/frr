@@ -487,7 +487,7 @@ static void bgp_start_timer(struct event *event)
 	frrtrace(2, frr_bgp, session_state_change, peer, 1);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire for %s).", peer->host,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	EVENT_VAL(event) = BGP_Start;
 	bgp_event(event); /* bgp_event unlocks peer */
@@ -508,7 +508,7 @@ static void bgp_connect_timer(struct event *event)
 	frrtrace(2, frr_bgp, session_state_change, peer, 2);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (connect timer (%us) expire for %s)", peer->host,
-			   peer->v_connect, bgp_peer_get_connection_direction(connection));
+			   peer->v_connect, bgp_peer_get_connection_direction_string(connection));
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 		bgp_stop(connection);
@@ -530,7 +530,7 @@ static void bgp_holdtime_timer(struct event *event)
 	frrtrace(2, frr_bgp, session_state_change, peer, 3);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire for %s)", peer->host,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	/*
 	 * Given that we do not have any expectation of ordering
@@ -563,7 +563,7 @@ void bgp_routeadv_timer(struct event *event)
 	frrtrace(2, frr_bgp, session_state_change, peer, 4);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (routeadv timer expire for %s)", peer->host,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	peer->synctime = monotime(NULL);
 
@@ -584,7 +584,7 @@ void bgp_delayopen_timer(struct event *event)
 	frrtrace(2, frr_bgp, session_state_change, peer, 5);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (DelayOpentimer expire for %s)", peer->host,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	EVENT_VAL(event) = DelayOpen_timer_expired;
 	bgp_event(event); /* bgp_event unlocks peer */
@@ -659,7 +659,8 @@ static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
 	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s) for %s", __func__,
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_delete(peer);
 	}
 
@@ -686,7 +687,7 @@ static void bgp_llgr_stale_timer_expire(struct event *event)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP Long-lived stale timer (%s) expired for %s", peer,
 			   get_afi_safi_str(afi, safi, false),
-			   bgp_peer_get_connection_direction(peer->connection));
+			   bgp_peer_get_connection_direction_string(peer->connection));
 
 	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_LLGR_WAIT);
 
@@ -784,7 +785,7 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP graceful restart timer expired and graceful restart stalepath timer stopped for %s",
-			   peer, bgp_peer_get_connection_direction(connection));
+			   peer, bgp_peer_get_connection_direction_string(connection));
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!peer->nsf[afi][safi])
@@ -811,7 +812,7 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 				zlog_debug("%pBP Long-lived stale timer (%s) started for %d sec for %s",
 					   peer, get_afi_safi_str(afi, safi, false),
 					   peer->llgr[afi][safi].stale_time,
-					   bgp_peer_get_connection_direction(connection));
+					   bgp_peer_get_connection_direction_string(connection));
 
 			SET_FLAG(peer->af_sflags[afi][safi],
 				 PEER_STATUS_LLGR_WAIT);
@@ -843,7 +844,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP graceful restart stalepath timer expired for %s", peer,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	/* NSF delete stale route */
 	FOREACH_AFI_SAFI_NSF (afi, safi)
@@ -1534,7 +1535,7 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 		zlog_debug("%s : vrf %s(%u), Status: %s established_peers %u for %s", __func__,
 			   vrf ? vrf->name : "Unknown", bgp->vrf_id,
 			   lookup_msg(bgp_status_msg, status, NULL), bgp->established_peers,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 	}
 
 	/* Set to router ID to the value provided by RIB if there are no peers
@@ -1618,7 +1619,7 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,
 			   lookup_msg(bgp_status_msg, connection->ostatus, NULL),
 			   lookup_msg(bgp_status_msg, connection->status, NULL),
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 }
 
 /* Flush the event queue and ensure the peer is shut down */
@@ -1650,7 +1651,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s) for %s", __func__,
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_delete(peer);
 		return BGP_FSM_FAILURE_AND_DELETE;
 	}
@@ -1694,16 +1696,17 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 			event_cancel(&connection->t_gr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP graceful restart stalepath timer stopped for %s",
-					   peer, bgp_peer_get_connection_direction(connection));
+					   peer,
+					   bgp_peer_get_connection_direction_string(connection));
 		}
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 			if (bgp_debug_neighbor_events(peer)) {
 				zlog_debug("%pBP graceful restart timer started for %d sec for %s",
 					   peer, peer->v_gr_restart,
-					   bgp_peer_get_connection_direction(connection));
+					   bgp_peer_get_connection_direction_string(connection));
 				zlog_debug("%pBP graceful restart stalepath timer started for %d sec for %s",
 					   peer, bgp->stalepath_time,
-					   bgp_peer_get_connection_direction(connection));
+					   bgp_peer_get_connection_direction_string(connection));
 			}
 			BGP_TIMER_ON(connection->t_gr_restart,
 				     bgp_graceful_restart_timer_expire,
@@ -1723,7 +1726,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP route-refresh restart stalepath timer stopped for %s",
-					   peer, bgp_peer_get_connection_direction(connection));
+					   peer,
+					   bgp_peer_get_connection_direction_string(connection));
 		}
 
 		/* set last reset time */
@@ -1731,7 +1735,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 			zlog_debug("%s remove from all update group for %s", peer->host,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 		update_group_remove_peer_afs(peer);
 
 		/* Reset peer synctime */
@@ -1857,7 +1861,8 @@ bgp_stop_with_error(struct peer_connection *connection)
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s) for %s", __func__,
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_delete(peer);
 		return BGP_FSM_FAILURE;
 	}
@@ -1879,7 +1884,8 @@ bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s) for %s", __func__,
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_delete(peer);
 		return BGP_FSM_FAILURE;
 	}
@@ -1944,9 +1950,9 @@ static void bgp_connect_check(struct event *event)
 		return;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [Event] Connect failed %d(%s) for connection %s", peer->host,
-				   status, safe_strerror(status),
-				   bgp_peer_get_connection_direction(connection));
+			zlog_debug("%s [Event] Connect failed %d(%s) for connection %s",
+				   peer->host, status, safe_strerror(status),
+				   bgp_peer_get_connection_direction_string(connection));
 		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
 		return;
 	}
@@ -1987,10 +1993,10 @@ bgp_connect_success(struct peer_connection *connection)
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 			zlog_debug("%s open active, local address %pSU for %s", peer->host,
 				   connection->su_local,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 		else
 			zlog_debug("%s passive open for %s", peer->host,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 	}
 
 	/* Send an open message */
@@ -2035,10 +2041,10 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 			zlog_debug("%s open active, local address %pSU for %s", peer->host,
 				   connection->su_local,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 		else
 			zlog_debug("%s passive open for %s", peer->host,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 	}
 
 	/* set the DelayOpenTime to the inital value */
@@ -2053,7 +2059,7 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] BGP OPEN message delayed for %d seconds for connection %s",
 			   peer->host, peer->delayopen,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	return BGP_FSM_SUCCESS;
 }
@@ -2067,7 +2073,8 @@ bgp_connect_fail(struct peer_connection *connection)
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s) for %s", __func__,
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_delete(peer);
 		return BGP_FSM_FAILURE_AND_DELETE;
 	}
@@ -2114,7 +2121,8 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		frrtrace(2, frr_bgp, session_state_change, peer, 7);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Unable to get neighbor's IP address, waiting... for %s",
-				   peer->host, bgp_peer_get_connection_direction(connection));
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(connection));
 		peer_set_last_reset(peer, PEER_DOWN_NBR_ADDR);
 		return BGP_FSM_FAILURE;
 	}
@@ -2173,7 +2181,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s [FSM] Waiting for NHT, no path to neighbor present for %s",
 					   peer->host,
-					   bgp_peer_get_connection_direction(connection));
+					   bgp_peer_get_connection_direction_string(connection));
 			peer_set_last_reset(peer, PEER_DOWN_WAITING_NHT);
 			BGP_EVENT_ADD(connection, TCP_connection_open_failed);
 			return BGP_FSM_SUCCESS;
@@ -2191,13 +2199,14 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	case connect_error:
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Connect error for %s", peer->host,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
 		break;
 	case connect_success:
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [FSM] Connect immediately success, fd %d for %s", peer->host,
-				   connection->fd, bgp_peer_get_connection_direction(connection));
+			zlog_debug("%s [FSM] Connect immediately success, fd %d for %s",
+				   peer->host, connection->fd,
+				   bgp_peer_get_connection_direction_string(connection));
 
 		BGP_EVENT_ADD(connection, TCP_connection_open);
 		break;
@@ -2207,7 +2216,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Non blocking connect waiting result, fd %d for %s",
 				   peer->host, connection->fd,
-				   bgp_peer_get_connection_direction(connection));
+				   bgp_peer_get_connection_direction_string(connection));
 		if (connection->fd < 0) {
 			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d",
 				 __func__, peer->connection->fd);
@@ -2289,7 +2298,7 @@ bgp_fsm_holdtime_expire(struct peer_connection *connection)
 	frrtrace(2, frr_bgp, session_state_change, peer, 9);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire for %s", peer->host,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	/* RFC8538 updates RFC 4724 by defining an extension that permits
 	 * the Graceful Restart procedures to be performed when the BGP
@@ -2489,7 +2498,7 @@ bgp_establish(struct peer_connection *connection)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP Long-lived stale timer stopped for afi/safi: %d/%d for %s",
 					   peer, afi, safi,
-					   bgp_peer_get_connection_direction(connection));
+					   bgp_peer_get_connection_direction_string(connection));
 		}
 
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
@@ -2530,8 +2539,10 @@ bgp_establish(struct peer_connection *connection)
 	if (peer->doppelganger &&
 	    (peer->doppelganger->connection->status != Deleted)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("[Event] Deleting stub connection for peer %s for %s", peer->host,
-				   bgp_peer_get_connection_direction(peer->doppelganger->connection));
+			zlog_debug("[Event] Deleting stub connection for peer %s for %s",
+				   peer->host,
+				   bgp_peer_get_connection_direction_string(
+					   peer->doppelganger->connection));
 
 		if (peer->doppelganger->connection->status > Active)
 			bgp_notify_send(peer->doppelganger->connection,
@@ -2579,7 +2590,7 @@ static enum bgp_fsm_state_progress bgp_ignore(struct peer_connection *connection
 
 	flog_err(EC_BGP_FSM,
 		 "%s(%s) [FSM] Ignoring event %s in state %s, prior events %s, %s, fd %d",
-		 peer->host, bgp_peer_get_connection_direction(connection),
+		 peer->host, bgp_peer_get_connection_direction_string(connection),
 		 bgp_event_str[peer->cur_event],
 		 lookup_msg(bgp_status_msg, connection->status, NULL),
 		 bgp_event_str[peer->last_event], bgp_event_str[peer->last_major_event],
@@ -2595,7 +2606,7 @@ bgp_fsm_exception(struct peer_connection *connection)
 
 	flog_err(EC_BGP_FSM,
 		 "%s(%s) [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
-		 peer->host, bgp_peer_get_connection_direction(connection),
+		 peer->host, bgp_peer_get_connection_direction_string(connection),
 		 bgp_event_str[peer->cur_event],
 		 lookup_msg(bgp_status_msg, connection->status, NULL),
 		 bgp_event_str[peer->last_event], bgp_event_str[peer->last_major_event],
@@ -2848,7 +2859,7 @@ int bgp_event_update(struct peer_connection *connection,
 		zlog_debug("%s [FSM] %s (%s->%s), fd %d for %s", peer->host, bgp_event_str[event],
 			   lookup_msg(bgp_status_msg, connection->status, NULL),
 			   lookup_msg(bgp_status_msg, next, NULL), connection->fd,
-			   bgp_peer_get_connection_direction(connection));
+			   bgp_peer_get_connection_direction_string(connection));
 
 	peer->last_event = peer->cur_event;
 	peer->cur_event = event;
