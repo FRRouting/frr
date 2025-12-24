@@ -1995,6 +1995,9 @@ bgp_connect_success(struct peer_connection *connection)
 	/* Send an open message */
 	bgp_open_send(connection);
 
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return BGP_FSM_SUCCESS;
 }
 
