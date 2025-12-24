@@ -2795,7 +2795,7 @@ int peer_delete(struct peer *peer)
 		zlog_debug("%s: peer %pBP", __func__, peer);
 
 	bgp = peer->bgp;
-	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
+	accept_peer = !peer_is_config_node(peer);
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, peer);
 
