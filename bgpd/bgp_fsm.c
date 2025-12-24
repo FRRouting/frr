@@ -276,7 +276,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (bgp_getsockname(keeper) < 0) {
 		flog_err(EC_LIB_SOCKET,
 			 "%%bgp_getsockname() failed for %s peer %s fd %d (from_peer fd %d)",
-			 (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)
+			 (bgp_peer_get_connection_direction(peer->connection) == CONNECTION_INCOMING
 				  ? "accept"
 				  : ""),
 			 peer->host, going_away->fd, keeper->fd);
@@ -289,8 +289,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			flog_err(EC_LIB_SOCKET,
 				 "%%bgp_getsockname() failed for %s from_peer %s fd %d (peer fd %d)",
 
-				 (CHECK_FLAG(from_peer->sflags,
-					     PEER_STATUS_ACCEPT_PEER)
+				 (bgp_peer_get_connection_direction(from_peer->connection) ==
+						  CONNECTION_INCOMING
 					  ? "accept"
 					  : ""),
 				 from_peer->host, going_away->fd, keeper->fd);
@@ -510,7 +510,7 @@ static void bgp_connect_timer(struct event *event)
 		zlog_debug("%s [FSM] Timer (connect timer (%us) expire for %s)", peer->host,
 			   peer->v_connect, bgp_peer_get_connection_direction_string(connection));
 
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+	if (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING)
 		bgp_stop(connection);
 	else {
 		if (!peer->connect)
@@ -1990,7 +1990,7 @@ bgp_connect_success(struct peer_connection *connection)
 	bgp_reads_on(connection);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+		if (bgp_peer_get_connection_direction(connection) != CONNECTION_INCOMING)
 			zlog_debug("%s open active, local address %pSU for %s", peer->host,
 				   connection->su_local,
 				   bgp_peer_get_connection_direction_string(connection));
@@ -2038,7 +2038,7 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	bgp_reads_on(connection);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+		if (bgp_peer_get_connection_direction(connection) != CONNECTION_INCOMING)
 			zlog_debug("%s open active, local address %pSU for %s", peer->host,
 				   connection->su_local,
 				   bgp_peer_get_connection_direction_string(connection));
@@ -2844,8 +2844,8 @@ int bgp_event_update(struct peer_connection *connection,
 	int dyn_nbr;
 	struct peer *peer = connection->peer;
 
-	passive_conn =
-		(CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) ? 1 : 0;
+	passive_conn = (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING) ? 1
+											      : 0;
 	dyn_nbr = peer_dynamic_neighbor(peer);
 
 	/* Logging this event. */
