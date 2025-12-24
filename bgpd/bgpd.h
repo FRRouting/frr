@@ -1816,14 +1816,14 @@ struct peer {
 
 	/* Peer status flags. */
 	uint16_t sflags;
-#define PEER_STATUS_PREFIX_OVERFLOW   (1U << 1) /* prefix-overflow */
-#define PEER_STATUS_CAPABILITY_OPEN   (1U << 2) /* capability open send */
-#define PEER_STATUS_GROUP             (1U << 4) /* peer-group conf */
-#define PEER_STATUS_NSF_MODE          (1U << 5) /* NSF aware peer */
-#define PEER_STATUS_NSF_WAIT          (1U << 6) /* wait comeback peer */
+#define PEER_STATUS_PREFIX_OVERFLOW   (1U << 0) /* prefix-overflow */
+#define PEER_STATUS_CAPABILITY_OPEN   (1U << 1) /* capability open send */
+#define PEER_STATUS_GROUP             (1U << 2) /* peer-group conf */
+#define PEER_STATUS_NSF_MODE          (1U << 3) /* NSF aware peer */
+#define PEER_STATUS_NSF_WAIT          (1U << 4) /* wait comeback peer */
 /* received extended format encoding for OPEN message */
-#define PEER_STATUS_EXT_OPT_PARAMS_LENGTH (1U << 7)
-#define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 8) /* BFD strict hold time expired */
+#define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
+#define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
