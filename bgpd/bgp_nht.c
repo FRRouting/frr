@@ -501,7 +501,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 		 * When we come back around we'll fix up this
 		 * data properly in replace_nexthop_by_peer
 		 */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bnc->nht_info = (void *)peer; /* NHT peer reference */
 	}
 

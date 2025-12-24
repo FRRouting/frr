@@ -177,9 +177,8 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 
 void bgp_session_reset(struct peer *peer)
 {
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted) &&
-	    !(CHECK_FLAG(peer->doppelganger->flags, PEER_FLAG_CONFIG_NODE)))
+	if (peer->doppelganger && (peer->doppelganger->connection->status != Deleted) &&
+	    !peer_is_config_node(peer->doppelganger))
 		peer_delete(peer->doppelganger);
 
 	BGP_EVENT_ADD(peer->connection, BGP_Stop);
@@ -199,9 +198,8 @@ void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
 	n = (nnode) ? *nnode : NULL;
 	npeer = (n) ? listgetdata(n) : NULL;
 
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted) &&
-	    !(CHECK_FLAG(peer->doppelganger->flags, PEER_FLAG_CONFIG_NODE))) {
+	if (peer->doppelganger && (peer->doppelganger->connection->status != Deleted) &&
+	    !peer_is_config_node(peer->doppelganger)) {
 		if (peer->doppelganger == npeer)
 			/* nnode and *nnode are confirmed to be non-NULL here */
 			*nnode = (*nnode)->next;
@@ -1019,8 +1017,7 @@ static bool connection_hash_same(const void *p1, const void *p2)
 	const struct peer *peer2 = c2->peer;
 
 	return (sockunion_same(&c1->su, &c2->su) &&
-		CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE) ==
-			CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
+		peer_is_config_node(peer1) == peer_is_config_node(peer2));
 }
 
 void peer_flag_inherit(struct peer *peer, uint64_t flag)
@@ -1317,8 +1314,7 @@ static void peer_free(struct peer *peer)
 	assert(!connection->t_read);
 
 	/* Free connected nexthop, if present */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
-	    && !peer_dynamic_neighbor(peer))
+	if (peer_is_config_node(peer) && !peer_dynamic_neighbor(peer))
 		bgp_delete_connected_nexthop(family2afi(connection->su.sa.sa_family), peer);
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -2179,7 +2175,7 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct peer *peer;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (peer->afc[afi][safi])
@@ -2878,7 +2874,7 @@ int peer_delete(struct peer *peer)
 	bgp_fsm_change_status(peer->connection, Deleted);
 
 	/* Remove from NHT */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+	if (peer_is_config_node(peer))
 		bgp_unlink_nexthop_by_peer(peer);
 
 	/* Password configuration */
@@ -3019,7 +3015,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 {
 	uint64_t flags_tmp;
 	struct peer *conf;
-	bool config_node = !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
+	bool config_node = peer_is_config_node(peer);
 
 	conf = group->conf;
 
@@ -4604,19 +4600,16 @@ struct peer *peer_lookup_by_conf_if(struct bgp *bgp, const char *conf_if)
 
 	if (bgp != NULL) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->conf_if && !strcmp(peer->conf_if, conf_if)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
+			if (peer->conf_if && !strcmp(peer->conf_if, conf_if) &&
+			    peer_is_config_node(peer))
 				return peer;
 	} else if (bm->bgp != NULL) {
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->conf_if
-				    && !strcmp(peer->conf_if, conf_if)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
+				if (peer->conf_if && !strcmp(peer->conf_if, conf_if) &&
+				    peer_is_config_node(peer))
 					return peer;
 	}
 	return NULL;
@@ -4632,19 +4625,16 @@ struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname)
 
 	if (bgp != NULL) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->hostname && !strcmp(peer->hostname, hostname)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
+			if (peer->hostname && !strcmp(peer->hostname, hostname) &&
+			    peer_is_config_node(peer))
 				return peer;
 	} else if (bm->bgp != NULL) {
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->hostname
-				    && !strcmp(peer->hostname, hostname)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
+				if (peer->hostname && !strcmp(peer->hostname, hostname) &&
+				    peer_is_config_node(peer))
 					return peer;
 	}
 	return NULL;
