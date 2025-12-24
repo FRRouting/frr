@@ -1672,7 +1672,7 @@ static int bgp_collision_detect(struct peer_connection *connection,
 	if (ntohl(peer->local_id.s_addr) < ntohl(remote_id.s_addr)
 	    || (ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)
 		&& peer->local_as < peer->as))
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) {
+		if (bgp_peer_get_connection_direction(peer->connection) != CONNECTION_INCOMING) {
 			/*
 			 * 2. If the value of the local BGP
 			 * Identifier is less than the remote one,
@@ -1707,7 +1707,7 @@ static int bgp_collision_detect(struct peer_connection *connection,
 		 * the existing one (the one that is already in the
 		 * OpenConfirm state).
 		 */
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) {
+		if (bgp_peer_get_connection_direction(peer->connection) == CONNECTION_INCOMING) {
 			bgp_notify_send(other, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 			return 1;
