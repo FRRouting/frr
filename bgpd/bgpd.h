@@ -1816,7 +1816,6 @@ struct peer {
 
 	/* Peer status flags. */
 	uint16_t sflags;
-#define PEER_STATUS_ACCEPT_PEER	      (1U << 0) /* accept peer */
 #define PEER_STATUS_PREFIX_OVERFLOW   (1U << 1) /* prefix-overflow */
 #define PEER_STATUS_CAPABILITY_OPEN   (1U << 2) /* capability open send */
 #define PEER_STATUS_HAVE_ACCEPT       (1U << 3) /* accept peer's parent */
