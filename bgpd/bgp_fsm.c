@@ -135,7 +135,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	keeper = from_peer->connection;
 	peer = from_peer->doppelganger;
 
-	if (!peer || !CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+	if (!peer || !peer_is_config_node(peer))
 		return from_peer;
 
 	/*
@@ -1273,8 +1273,7 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 				   peer->host,
 				   lookup_msg(bgp_status_msg, peer->connection->status, NULL),
 				   peer->flags, peer->af_sflags[afi][safi]);
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
-		    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+		if (!peer_is_config_node(peer) || CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
 		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
 			continue;
 
@@ -1830,8 +1829,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 	peer->update_time = 0;
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
-	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
+	if (!peer_is_config_node(peer) && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		peer_delete(peer);
 		ret = BGP_FSM_FAILURE_AND_DELETE;
 	} else {

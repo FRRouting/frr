@@ -194,7 +194,7 @@ static void bgp_conditional_adv_timer(struct event *t)
 	 * based on condition(exist-map or non-exist map)
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer_established(peer->connection))
