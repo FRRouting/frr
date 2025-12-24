@@ -3001,6 +3001,11 @@ static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
 		!CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT));
 }
 
+static inline bool peer_is_config_node(const struct peer *peer)
+{
+	return !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
+}
+
 static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
 {
 	assert(peer);
