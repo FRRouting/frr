@@ -1598,9 +1598,6 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	/* Operations after status change */
 	hook_call(peer_status_changed, peer);
 
-	if (status == Established)
-		UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
-
 	/* If max-med processing is applicable, do the necessary. */
 	if (status == Established) {
 		if (bgp_maxmed_onstartup_configured(bgp) && bgp_maxmed_onstartup_applicable(bgp))
