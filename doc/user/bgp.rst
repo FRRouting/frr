@@ -5036,7 +5036,7 @@ incoming/outgoing directions.
 
       Total number of VRFs (including default): 3
 
-.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec> | l2vpn evpn]
+.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec|unreachability> | l2vpn evpn]
 
    These commands display BGP routes for the specific routing table indicated by
    the selected afi and the selected safi. If no afi and no safi value is given,
@@ -6326,6 +6326,8 @@ Show command json output:
 .. include:: flowspec.rst
 
 .. include:: bgp-linkstate.rst
+
+.. include:: unreachability.rst
 
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009
