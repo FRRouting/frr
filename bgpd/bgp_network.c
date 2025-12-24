@@ -685,7 +685,6 @@ static void bgp_accept(struct event *event)
 	bgp_fsm_change_status(incoming, Active);
 	event_cancel(&incoming->t_start); /* created in peer_create() */
 
-	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
 	if (peer_established(connection) && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
