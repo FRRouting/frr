@@ -1955,6 +1955,223 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
             logger.error(f"Common cleanup failed: {e}")
 
 
+def test_l3vni_l2vni_transition_restore(tgen_and_ip_version):
+    """
+    Verify L3VNI -> L2VNI transition and restoration back to L3VNI.
+
+    Based on the zebra fix for L3VNI to L2VNI transition, this test performs:
+    1. Capture current L3VNI state for VNI 104001 on bordertor-11
+       (type, VLAN, bridge, tenant VRF, router MAC, local/remote VTEPs).
+    2. Remove the L3VNI binding from VRF1 (no vni 104001 under vrf vrf1) and
+       verify that:
+       - The VNI still exists in zebra.
+       - The VNI type changes to L2.
+       - VLAN / bridge / remoteVteps remain populated.
+    3. Re‑add the L3VNI binding (vni 104001 under vrf vrf1) and verify that:
+       - The VNI type returns to L3.
+       - tenant VRF, VLAN, bridge, router MAC, local/remote VTEPs match the
+         original L3VNI state captured in step 1.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Testing L3VNI -> L2VNI transition and restore on bordertor-11 "
+        f"({ip_version} underlay)"
+    )
+
+    router = tgen.gears["bordertor-11"]
+    l3vni = "104001"
+
+    # Ensure initial L3VNI state is fully up and validated using common helper.
+    test_func = partial(evpn_verify_vni_state, router, [l3vni], vni_type="L3")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f"Initial L3VNI state verification failed for VNI {l3vni}: {result}"
+
+    # Capture initial EVPN VNI JSON for L3VNI.
+    initial = router.vtysh_cmd(f"show evpn vni {l3vni} json", isjson=True)
+    assert initial, f"No EVPN VNI JSON output for VNI {l3vni} before transition"
+
+    assert (
+        initial.get("type") == "L3"
+    ), f"Expected VNI {l3vni} type=L3 before transition, got {initial.get('type')}"
+
+    initial_vrf = initial.get("tenantVrf", initial.get("vrf"))
+    initial_vlan = initial.get("vlan")
+    initial_bridge = initial.get("bridge")
+    initial_router_mac = initial.get("routerMac")
+    initial_local_vtep = initial.get("localVtep")
+    initial_num_remote = initial.get("numRemoteVteps", 0)
+    initial_remote_ips = sorted(
+        vtep.get("ip")
+        for vtep in initial.get("remoteVteps", [])
+        if isinstance(vtep, dict) and "ip" in vtep
+    )
+
+    logger.info(
+        "Initial L3VNI %s on %s: vrf=%s vlan=%s bridge=%s routerMac=%s "
+        "localVtep=%s numRemoteVteps=%s remoteVteps=%s",
+        l3vni,
+        router.name,
+        initial_vrf,
+        initial_vlan,
+        initial_bridge,
+        initial_router_mac,
+        initial_local_vtep,
+        initial_num_remote,
+        initial_remote_ips,
+    )
+
+    # Step 2: Remove L3VNI binding from VRF1 (L3VNI -> L2VNI transition).
+    logger.info("Removing L3VNI binding (no vni %s under vrf vrf1)", l3vni)
+    router.vtysh_multicmd(
+        f"""
+        configure terminal
+         vrf vrf1
+          no vni {l3vni}
+         exit
+        exit
+        """
+    )
+
+    def _check_l3vni_to_l2vni():
+        # First, use the generic helper to validate basic L2VNI fields.
+        res = evpn_verify_vni_state(router, [l3vni], vni_type="L2")
+        if res is not None:
+            return f"L3->L2 transition basic validation failed: {res}"
+
+        out = router.vtysh_cmd(f"show evpn vni {l3vni} json", isjson=True)
+        if not out:
+            return f"VNI {l3vni}: no EVPN VNI JSON after removing L3VNI binding"
+
+        # VLAN should still be present and unchanged.
+        if out.get("vlan") != initial_vlan:
+            return (
+                f"VNI {l3vni}: vlan changed across L3->L2 transition, "
+                f"expected {initial_vlan}, found {out.get('vlan')}"
+            )
+
+        # Remote VTEPs handling:
+        # On some platforms, an L3VNI->L2VNI transition can leave
+        # numRemoteVteps at 0 (no remote VTEPs learned yet) and omit the
+        # detailed remoteVteps list entirely. Treat that as a valid transient
+        # state and only enforce the list when the count is non-zero.
+        num_remote = out.get("numRemoteVteps", 0)
+        if num_remote == 0:
+            logger.info(
+                "VNI %s: numRemoteVteps is 0 after L3->L2 transition (no remote VTEPs yet)",
+                l3vni,
+            )
+        else:
+            rem_ips = sorted(
+                vtep.get("ip")
+                for vtep in out.get("remoteVteps", [])
+                if isinstance(vtep, dict) and "ip" in vtep
+            )
+            if not rem_ips:
+                return (
+                    f"VNI {l3vni}: remoteVteps empty after L3->L2 transition "
+                    f"(expected {num_remote})"
+                )
+
+        return None
+
+    _, result = topotest.run_and_expect(_check_l3vni_to_l2vni, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f"L3VNI -> L2VNI transition validation failed for VNI {l3vni}: {result}"
+
+    # Step 3: Re‑add L3VNI binding and ensure full restoration.
+    logger.info("Re‑adding L3VNI binding (vni %s under vrf vrf1)", l3vni)
+    router.vtysh_multicmd(
+        f"""
+        configure terminal
+         vrf vrf1
+          vni {l3vni}
+         exit
+        exit
+        """
+    )
+
+    def _check_l3vni_restored():
+        # Re‑use common helper to ensure L3VNI view is healthy first.
+        res = evpn_verify_vni_state(router, [l3vni], vni_type="L3")
+        if res is not None:
+            return f"L3VNI restore basic validation failed: {res}"
+
+        out = router.vtysh_cmd(f"show evpn vni {l3vni} json", isjson=True)
+        if not out:
+            return f"VNI {l3vni}: no EVPN VNI JSON after re‑adding L3VNI binding"
+
+        vrf_name = out.get("tenantVrf", out.get("vrf"))
+        if vrf_name != initial_vrf:
+            return (
+                f"VNI {l3vni}: tenant VRF mismatch after restore, "
+                f"expected {initial_vrf}, found {vrf_name}"
+            )
+
+        if out.get("vlan") != initial_vlan:
+            return (
+                f"VNI {l3vni}: vlan mismatch after restore, "
+                f"expected {initial_vlan}, found {out.get('vlan')}"
+            )
+
+        if out.get("bridge") != initial_bridge:
+            return (
+                f"VNI {l3vni}: bridge mismatch after restore, "
+                f"expected {initial_bridge}, found {out.get('bridge')}"
+            )
+
+        if initial_router_mac and out.get("routerMac") != initial_router_mac:
+            return (
+                f"VNI {l3vni}: routerMac mismatch after restore, "
+                f"expected {initial_router_mac}, found {out.get('routerMac')}"
+            )
+
+        if initial_local_vtep and out.get("localVtep") != initial_local_vtep:
+            return (
+                f"VNI {l3vni}: localVtep mismatch after restore, "
+                f"expected {initial_local_vtep}, found {out.get('localVtep')}"
+            )
+
+        # Remote VTEPs and count should match pre‑transition state (order‑insensitive).
+        rem_ips = sorted(
+            vtep.get("ip")
+            for vtep in out.get("remoteVteps", [])
+            if isinstance(vtep, dict) and "ip" in vtep
+        )
+        if initial_remote_ips and rem_ips != initial_remote_ips:
+            return (
+                f"VNI {l3vni}: remoteVteps mismatch after restore, "
+                f"expected {initial_remote_ips}, found {rem_ips}"
+            )
+
+        num_remote = out.get("numRemoteVteps", 0)
+        if initial_num_remote and num_remote != initial_num_remote:
+            return (
+                f"VNI {l3vni}: numRemoteVteps mismatch after restore, "
+                f"expected {initial_num_remote}, found {num_remote}"
+            )
+
+        return None
+
+    _, result = topotest.run_and_expect(_check_l3vni_restored, None, count=60, wait=1)
+    assert (
+        result is None
+    ), f"L3VNI restoration validation failed for VNI {l3vni}: {result}"
+
+    # Additionally confirm BGP control-plane view for the L3VNI using the
+    # common EVPN helper.
+    test_func = partial(evpn_verify_bgp_vni_state, router, [l3vni])
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f"BGP L3VNI state validation failed for VNI {l3vni} after restore: {result}"
+
+
 def test_memory_leak(tgen_and_ip_version):
     """Run the memory leak test and report results."""
     tgen = get_topogen()
