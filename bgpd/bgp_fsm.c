@@ -1591,6 +1591,9 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
 
+	if (status == Established)
+		connection->dir = ESTABLISHED;
+
 	/* Operations after status change */
 	hook_call(peer_status_changed, peer);
 
