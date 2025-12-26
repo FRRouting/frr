@@ -414,7 +414,7 @@ int mgmt_msg_connect(const char *path, size_t sendbuf, size_t recvbuf,
 		return -1;
 	}
 
-	MGMT_MSG_DBG(dbgtag, "connected to server on %s", path);
+	MGMT_MSG_DBG(dbgtag, "connected fd %d to server on %s", sock, path);
 	set_nonblocking(sock);
 	setsockopt_so_sendbuf(sock, sendbuf);
 	setsockopt_so_recvbuf(sock, recvbuf);
