@@ -409,6 +409,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 
 	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
+		_dbg("Setting timeout (%us) for backend client CFG_REPLY responses",
+		     MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC);
 		event_add_timer(mm->master, txn_cfg_timeout, txn_req,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
 	} else {

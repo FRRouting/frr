@@ -660,8 +660,9 @@ static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn
 		goto failed;
 	}
 	if (!client->config_txn || client->config_txn->txn_id != txn_id) {
-		log_err_be_client("Cannot find TXN for TXN_DELETE txn-id: %Lu", txn_id);
-		goto failed;
+		debug_be_client("Ignoring TXN_DELETE of removed (or never present) txn-id: %Lu",
+				txn_id);
+		return;
 	}
 	mgmt_be_txn_delete(client->config_txn);
 	return;
