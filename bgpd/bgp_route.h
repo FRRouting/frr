@@ -11,6 +11,7 @@
 #include "hook.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "typesafe.h"
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
@@ -275,6 +276,8 @@ struct bgp_path_info {
 	struct bgp_path_info *next;
 	struct bgp_path_info *prev;
 
+	struct bgp_pi_hash_item pi_hash_link;
+
 	/* For nexthop linked list */
 	LIST_ENTRY(bgp_path_info) nh_thread;
 
@@ -371,6 +374,11 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
 };
+
+extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2);
+extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
+
+DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
 
 /* Structure used in BGP path selection */
 struct bgp_path_info_pair {

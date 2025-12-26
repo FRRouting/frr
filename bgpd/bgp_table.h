@@ -10,9 +10,13 @@
 #include "table.h"
 #include "queue.h"
 #include "linklist.h"
+#include "typesafe.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
 #include "bgp_attr_srv6.h"
+
+/* Predeclare typesafe hash for path_info lookup */
+PREDECL_HASH(bgp_pi_hash);
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -69,6 +73,9 @@ struct bgp_dest {
 	struct route_node *rn;
 
 	void *info;
+
+	/* Typesafe hash for efficient path lookup */
+	struct bgp_pi_hash_head pi_hash;
 
 	struct bgp_adj_out_rb adj_out;
 
