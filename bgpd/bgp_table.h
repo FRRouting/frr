@@ -10,9 +10,13 @@
 #include "table.h"
 #include "queue.h"
 #include "linklist.h"
+#include "typesafe.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
 #include "bgp_attr_srv6.h"
+
+/* Typesafe hash for bgp_path_info lookup */
+PREDECL_HASH(bgp_pi_hash);
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -23,6 +27,9 @@ struct bgp_table {
 	safi_t safi;
 
 	int lock;
+
+	/* Hash for bgp_path_info lookups across all prefixes in this table */
+	struct bgp_pi_hash_head pi_hash;
 
 	/* soft_reconfig_table in progress */
 	bool soft_reconfig_init;
