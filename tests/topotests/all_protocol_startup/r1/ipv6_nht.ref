@@ -8,8 +8,8 @@ fc00:0:0:8::1000
  resolved via connected, prefix fc00:0:0:8::/64
  is directly connected, r1-eth8 (vrf default), weight 1
  Client list: bgp(fd XX)
-fc00:0:0:8::2000(Connected)
+fc00:0:0:8::2000
  resolved via connected, prefix fc00:0:0:8::/64
  is directly connected, r1-eth8 (vrf default), weight 1
- Client list: bgp(fd XX)
+ Client list: bgp(fd XX)(Connected)
 

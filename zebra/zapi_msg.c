@@ -1303,29 +1303,36 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, client, &exist);
 		if (!rnh)
 			return;
 
 		orig_flags = rnh->flags;
-		if (connected && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+
+		/* Set flags specific to this client's registration */
+		if (connected)
 			SET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
-		else if (!connected
-			 && CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+		else
 			UNSET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
 
 		if (resolve_via_default)
 			SET_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT);
+		else
+			UNSET_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT);
 
 		if (orig_flags != rnh->flags)
 			flag_changed = true;
 
-		/* Anything not AF_INET/INET6 has been filtered out above */
+		/* zebra_add_rnh_client will send the update, so only evaluate
+		 * if we're not adding/notifying the client
+		 */
 		if (!exist || flag_changed)
 			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p,
 					   safi);
-
-		zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
+		else {
+			/* This will send an RNH update to the client */
+			zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
+		}
 	}
 
 stream_failure:
@@ -1390,7 +1397,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
+		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi, client);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
 			zebra_remove_rnh_client(rnh, client);
