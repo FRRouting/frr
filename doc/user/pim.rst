@@ -364,6 +364,20 @@ PIM interface commands allow you to configure an interface as either a Receiver
 or a interface that you would like to form pim neighbors on. If the interface
 is in a vrf, enter the interface command with the vrf keyword at the end.
 
+.. clicmd:: ip pim allow-rp [rp-list PLIST]
+
+   When processing a (\*,G) source list entry for a particular gropu in a Join
+   message, :rfc:`7661` dictates that the source address must be set to the RP
+   address. In some network designs, the sending router's idea of the RP for a
+   particular group may not match ours. Enabling this knob disables checking
+   that the source address in (\*,G) source list entries are equal to our RP
+   address for that group. The RP specified in the source list entry is ignored
+   and our RP address is used to join that group.
+
+   Optionally, a prefix-list may be specified; only RP addresses permitted by
+   this prefix-list will be accepted.
+
+.. index:: ip pim active-active
 .. clicmd:: ip pim active-active
 
    Turn on pim active-active configuration for a Vxlan interface.  This
