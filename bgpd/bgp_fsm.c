@@ -1547,34 +1547,31 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 
 	/* Transition into Clearing or Deleted must /always/ clear all routes..
 	 * (and must do so before actually changing into Deleted..
+	 *
+	 * Obviously if the code is being shutdown there is absolutely no need
+	 * to do a bgp_clear_route_all as that this allocates workqueues and
+	 * puts a bajillion items on them.
 	 */
-	if (status >= Clearing && (peer->established || peer != bgp->peer_self)) {
-		bgp_clear_route_all(peer);
+	if (peer != bgp->peer_self && !bm->terminating) {
+		if (status >= Clearing && peer->established) {
+			bgp_clear_route_all(peer);
 
-		/* If no route was queued for the clear-node processing,
-		 * generate the
-		 * completion event here. This is needed because if there are no
-		 * routes
-		 * to trigger the background clear-node thread, the event won't
-		 * get
-		 * generated and the peer would be stuck in Clearing. Note that
-		 * this
-		 * event is for the peer and helps the peer transition out of
-		 * Clearing
-		 * state; it should not be generated per (AFI,SAFI). The event
-		 * is
-		 * directly posted here without calling clear_node_complete() as
-		 * we
-		 * shouldn't do an extra unlock. This event will get processed
-		 * after
-		 * the state change that happens below, so peer will be in
-		 * Clearing
-		 * (or Deleted).
-		 */
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH) &&
-		    !work_queue_is_scheduled(peer->clear_node_queue) &&
-		    status != Deleted)
-			BGP_EVENT_ADD(connection, Clearing_Completed);
+			/* If no route was queued for the clear-node processing, generate the
+			 * completion event here. This is needed because if there are no
+			 * routes to trigger the background clear-node thread, the event won't
+			 * get generated and the peer would be stuck in Clearing. Note that
+			 * this event is for the peer and helps the peer transition out of
+			 * Clearing state; it should not be generated per (AFI,SAFI). The event
+			 * is directly posted here without calling clear_node_complete() as
+			 * we shouldn't do an extra unlock. This event will get processed
+			 * after the state change that happens below, so peer will be in
+			 * Clearing (or Deleted).
+			 */
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH) &&
+			    !work_queue_is_scheduled(peer->clear_node_queue) &&
+			    status != Deleted)
+				BGP_EVENT_ADD(connection, Clearing_Completed);
+		}
 	}
 
 	/* Preserve old status and change into new status. */
