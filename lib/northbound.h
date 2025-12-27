@@ -55,6 +55,36 @@ struct nb_yang_xpath {
 		 ? &(_xpath)->tags[(_indx1)].keys[(_indx2)]                                        \
 		 : NULL)
 
+/* Subscription cache entry for hash table. */
+struct subscr_cache_entry {
+	char xpath[XPATH_MAXLEN];
+};
+
+/* Subscription cache for notification streaming. */
+struct nb_subscription_cache {
+	/* Timer wheel for periodic subscription notification. */
+	struct timer_wheel *timer_wheel;
+	/* Hash table of subscription cache entries. */
+	struct hash *subscr_cache_entries;
+	/* Cache requested on re-init. */
+	bool init_cache_requested;
+	/* Sample time (incremented each timer wheel period). */
+	uint32_t sample_time;
+};
+
+/* Current subscription cache state. */
+extern struct nb_subscription_cache *nb_current_subcr_cache;
+
+/* Create a hash key for an xpath. */
+extern unsigned int nb_xpath_hash_key(const char *str);
+
+/* Notify all current subscriptions. */
+extern int nb_notify_subscriptions(void);
+
+/* Show subscription cache via VTY. */
+struct vty;
+extern void nb_show_subscription_cache(struct vty *vty);
+
 /* Northbound events. */
 enum nb_event {
 	/*
@@ -871,6 +901,7 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+DECLARE_HOOK(nb_empty_notification_send, (), ());
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -1652,7 +1683,7 @@ extern bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 extern int nb_notification_send(const char *xpath, struct list *arguments);
 
 /*
- * Send a YANG notification from a backend . This is a no-op unless th
+ * Send a YANG notification from a backend. This is a no-op unless the
  * 'nb_notification_tree_send' hook was registered by a northbound plugin.
  *
  * xpath
@@ -1666,6 +1697,40 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
  */
 extern int nb_notification_tree_send(const char *xpath,
 				     const struct lyd_node *tree);
+
+/*
+ * Send an empty notification to signal readiness.
+ * This is a no-op unless the 'nb_empty_notification_send' hook was registered.
+ */
+extern void nb_empty_notification_send(void);
+
+/*
+ * Get the current sample time for notification data.
+ *
+ * Returns:
+ *    The current sample timestamp.
+ */
+extern uint32_t nb_get_sample_time(void);
+
+/*
+ * Register or update a subscription cache entry (stub).
+ *
+ * NOTE: This is a placeholder. Full implementation in follow-up PR.
+ *
+ * master
+ *    The event loop master.
+ *
+ * xpath
+ *    XPath of the data to subscribe to.
+ *
+ * action
+ *    Action to perform: "add", "del", or "update".
+ *
+ * interval
+ *    Sample interval in milliseconds.
+ */
+extern void nb_cache_subscriptions(struct event_loop *master, const char *xpath,
+				   const char *action, uint32_t interval);
 
 /*
  * Associate a user pointer to a configuration node.
