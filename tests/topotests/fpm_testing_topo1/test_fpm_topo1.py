@@ -62,10 +62,12 @@ def setup_module(module):
         router.load_config(
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
+        # Use the router's log directory path for fpm test data
+        fpm_data_path = os.path.join(router.gearlogdir, "fpm_test.data")
         router.load_config(
             TopoRouter.RD_FPM_LISTENER,
             os.path.join(CWD, "{}/fpm_stub.conf".format(rname)),
-            "-r -z /tmp/fpm_test.data",
+            "-r -z {}".format(fpm_data_path),
         )
 
     tgen.start_router()
@@ -129,11 +131,35 @@ def test_fpm_install_routes():
     assert success, "Unable to remove 10000 routes: {}".format(result)
 
 
-def test_fpm_conneted_and_local_routes():
+def test_fpm_connected_and_local_routes():
     "Test that conneted and local routes"
 
     tgen = get_topogen()
     router = tgen.gears["r1"]
+
+    # Get the router's log directory where fpm_test.data is written
+    fpm_data_file = os.path.join(router.gearlogdir, "fpm_test.data")
+
+    def dump_fpm_listener_data():
+        """Send SIGUSR1 to fpm_listener to dump its data"""
+        pid_file = os.path.join(router.gearlogdir, "fpm_listener.pid")
+        try:
+            with open(pid_file, "r") as f:
+                pid = f.read().strip()
+            router.run(f"kill -SIGUSR1 {pid}")
+            return True
+        except FileNotFoundError:
+            return False
+
+    def check_specific_route(prefix):
+        """Check if a specific route prefix exists in the FPM dump file"""
+        # Read directly from the host filesystem
+        try:
+            with open(fpm_data_file, "r") as f:
+                content = f.read()
+                return content.count(prefix)
+        except FileNotFoundError:
+            return 0
 
     # Let's check added routes
     router_count = 1
@@ -146,16 +172,28 @@ def test_fpm_conneted_and_local_routes():
     )
 
     def check_r1_connected_routes():
-        output = router.run(
-            "pkill -SIGUSR1 fpm_listener; grep '10.10.10.0/24' /tmp/fpm_test.data | wc -l"
+        if not dump_fpm_listener_data():
+            return 0
+
+        def check_route():
+            return check_specific_route("10.10.10.0/24")
+
+        success, result = topotest.run_and_expect(
+            check_route, router_count, count=30, wait=0.5
         )
-        return int(output)
+        return result if success else 0
 
     def check_r1_local_routes():
-        output = router.run(
-            "pkill -SIGUSR1 fpm_listener; grep '10.10.10.10/32' /tmp/fpm_test.data | wc -l"
+        if not dump_fpm_listener_data():
+            return 0
+
+        def check_route():
+            return check_specific_route("10.10.10.10/32")
+
+        success, result = topotest.run_and_expect(
+            check_route, router_count, count=30, wait=0.5
         )
-        return int(output)
+        return result if success else 0
 
     success, result = topotest.run_and_expect(
         check_r1_connected_routes, router_count, count=30, wait=1
