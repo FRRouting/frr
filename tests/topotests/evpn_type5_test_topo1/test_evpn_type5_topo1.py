@@ -23,9 +23,11 @@ Following tests are covered to test EVPN-Type5 functionality:
 import os
 import sys
 import time
+import json
 import pytest
 import platform
 from copy import deepcopy
+from functools import partial
 
 
 # Save the Current Working Directory to find configuration files.
@@ -37,6 +39,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topotest import version_cmp
 from lib.topogen import Topogen, get_topogen
 
@@ -2311,6 +2314,51 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
+
+    write_test_footer(tc_name)
+
+
+def test_evpn_route_rd_prefix_p0(request):
+    """
+    Test 'show bgp l2vpn evpn route rd <rd> prefix <prefix>' command.
+    """
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    check_router_status(tgen)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Test 'show bgp l2vpn evpn route rd <rd> prefix <prefix>' on e1")
+
+    e1 = tgen.gears["e1"]
+
+    # Test IPv4 prefix
+    json_file = "{}/e1/bgp_evpn_route_rd_prefix.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        e1,
+        "show bgp l2vpn evpn route rd 10.0.0.37:2 prefix 20.1.1.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertmsg = "e1: IPv4 prefix route output does not match expected"
+    assert result is None, assertmsg
+
+    # Test IPv6 prefix
+    json_file = "{}/e1/bgp_evpn_route_rd_prefix_ipv6.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        e1,
+        "show bgp l2vpn evpn route rd 10.0.0.37:2 prefix 20::1/128 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertmsg = "e1: IPv6 prefix route output does not match expected"
+    assert result is None, assertmsg
 
     write_test_footer(tc_name)
 
