@@ -26,6 +26,7 @@
 #include <linux/ipv6.h>
 #endif /* BFD_LINUX */
 
+#include <string.h>
 #include <netinet/if_ether.h>
 #include <netinet/udp.h>
 #include <netinet/ip6.h>
@@ -844,6 +845,19 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 	return true;
 }
 
+static int match_ip_address(const struct sockaddr_any *a, const struct sockaddr_any *b)
+{
+	if (a->sa_sin.sin_family != b->sa_sin.sin_family)
+		return 0;
+	if (a->sa_sin.sin_family == AF_INET) {
+		return (a->sa_sin.sin_addr.s_addr == b->sa_sin.sin_addr.s_addr);
+	} else if (a->sa_sin.sin_family == AF_INET6) {
+		return (memcmp(&a->sa_sin6.sin6_addr, &b->sa_sin6.sin6_addr,
+			       sizeof(struct in6_addr)) == 0);
+	}
+	return 0;
+}
+
 void bfd_recv_cb(struct event *t)
 {
 	int sd = EVENT_FD(t);
@@ -938,7 +952,8 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
-	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
+	if ((cp->len < (BFD_GETABIT(cp->flags) ? BFD_PKT_LEN + 2 : BFD_PKT_LEN)) ||
+	    (cp->len > mlen)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
 		return;
 	}
@@ -972,10 +987,26 @@ void bfd_recv_cb(struct event *t)
 	}
 
 	/* Ensure that existing good sessions are not overridden. */
-	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
-	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+	/* Drop packet if address mismatch */
+	if (!cp->discrs.remote_discr) {
+		if (bfd->ses_state == PTM_BFD_UP) {
+			/* If address mismatch, drop the packet */
+			if (bfd->local_address.sa_sin.sin_family != AF_UNSPEC &&
+			    (match_ip_address(&bfd->local_address, &local) == 0)) {
+				cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+					 "local address mismatch");
+				return;
+			}
+		}
+	}
+
+
+	/* Implement RFC 5880 6.8.6 */
+	/* This is different from last check, because RFC requires checking of packet state too. */
+	if (!cp->discrs.remote_discr && BFD_GETSTATE(cp->flags) != PTM_BFD_DOWN &&
+	    BFD_GETSTATE(cp->flags) != PTM_BFD_ADM_DOWN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "'remote discriminator' is zero, not overridden");
+			 "'remote discriminator' is zero in non-DOWN state");
 		return;
 	}
 
@@ -1017,14 +1048,14 @@ void bfd_recv_cb(struct event *t)
 			 "remote discriminator mismatch (expected %u, got %u)",
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
-	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
-
 	/* Check authentication. */
 	if (!bfd_check_auth(bfd, cp)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "Authentication failed");
 		return;
 	}
+	/* Update remote discriminator after authentication check */
+	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = CHECK_FLAG(cp->diag, BFD_DIAGMASK);
