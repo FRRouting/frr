@@ -12787,10 +12787,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_string_add(json_pmsi, "tunnelType", str);
 			json_object_int_add(json_pmsi, "label",
 					    label2vni(&attr->label));
+			if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+				json_object_string_addf(json_pmsi, "id", "%pI4",
+							(in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+			} else {
+				json_object_string_addf(json_pmsi, "id", "%pI6", &attr->tunn_id);
+			}
 			json_object_object_add(json_path, "pmsi", json_pmsi);
-		} else
-			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d\n",
-				str, label2vni(&attr->label));
+		} else if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI4\n", str,
+				label2vni(&attr->label), (in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+		} else {
+			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI6\n", str,
+				label2vni(&attr->label), &attr->tunn_id);
+		}
 	}
 
 	if (path->peer->connection->t_gr_restart &&

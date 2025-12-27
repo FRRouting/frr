@@ -200,6 +200,7 @@ struct attr {
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
+	struct in6_addr tunn_id; /* PMSI Tunnel Id */
 
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
@@ -498,7 +499,7 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 	return (attr) ? attr->mm_seqnum : 0;
 }
 
-static inline enum pta_type bgp_attr_get_pmsi_tnl_type(struct attr *attr)
+static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 {
 	return attr->pmsi_tnl_type;
 }
