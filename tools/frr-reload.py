@@ -15,6 +15,7 @@ This program
 from __future__ import print_function, unicode_literals
 import argparse
 import datetime
+import json
 import logging
 import os, os.path
 import random
@@ -198,6 +199,14 @@ class Context(object):
             self.dlines[ligne] = True
 
 
+def get_active_ifnames(vtysh):
+    """
+    Get set of active interface names from vtysh
+    """
+    data = json.loads(vtysh("show interface json"))
+    return {ifname for ifname in data if not data[ifname]["pseudoInterface"]}
+
+
 def get_normalized_es_id(line):
     """
     The es-id or es-sys-mac need to be converted to lower case
@@ -219,6 +228,18 @@ def get_normalized_mac_ip_line(line):
         return get_normalized_ipv6_line(line)
 
     return line
+
+
+def get_normalized_interface_name(line):
+    """
+    Get int_name from If 'interface <int_name> [vrf <vrf_name>]'
+    """
+
+    intf_vrf = re.search(r"interface (\S+)( vrf \S+)?", line)
+    if intf_vrf:
+        return intf_vrf.group(1)
+
+    return None
 
 
 def get_normalized_interface_vrf(line):
@@ -1751,9 +1772,12 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
-def compare_context_objects(newconf, running):
+def compare_context_objects(newconf, running, active_ifnames):
     """
     Create a context diff for the two specified contexts
+
+    active_ifnames: set of active interfaces, needed for removal
+    of interface sections
     """
 
     # Compare the two Config objects to find the lines that we need to add/del
@@ -1800,7 +1824,17 @@ def compare_context_objects(newconf, running):
                 lines_to_del.append((running_ctx_keys, None))
 
             elif running_ctx_keys[0].startswith("interface"):
-                lines_to_del.append((running_ctx_keys, None))
+                ifname = get_normalized_interface_name(running_ctx_keys[0])
+
+                if ifname not in active_ifnames:
+                    # We need to run 'no interface' in case of deleted interface
+                    # because deleting parameters of interface fails for deleted interface
+                    lines_to_del.append((running_ctx_keys, None))
+                else:
+                    # But we cannot do 'no interface' in case of active interface
+                    # as it will fail
+                    for line in running_ctx.lines:
+                        lines_to_del.append((running_ctx_keys, line))
 
             # We cannot do 'no vrf' in FRR, and so deal with it
             elif running_ctx_keys[0].startswith("vrf") or running_ctx_keys[
@@ -2275,6 +2309,8 @@ if __name__ == "__main__":
         log.error("vtysh failed to process new configuration: {}".format(ve))
         reload_ok = False
 
+    active_ifnames = get_active_ifnames(vtysh)
+
     if args.test:
         # Create a Config object from the running config
         running = Config(vtysh)
@@ -2284,7 +2320,9 @@ if __name__ == "__main__":
         else:
             running.load_from_show_running(args.daemon)
 
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del) = compare_context_objects(
+            newconf, running, active_ifnames
+        )
 
         if lines_to_del:
             if not args.test_reset:
@@ -2384,7 +2422,9 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug(f"Running Frr Config (Pass #{x})\n{running.get_lines()}")
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del) = compare_context_objects(
+                newconf, running, active_ifnames
+            )
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add
