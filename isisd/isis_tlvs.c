@@ -1597,6 +1597,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	if (readable <
 	    asla->standard_apps_length + asla->user_def_apps_length) {
 		TLV_SIZE_MISMATCH(log, indent, "ASLA");
+		XFREE(MTYPE_ISIS_SUBTLV, asla);
 		return -1;
 	}
 
@@ -1606,6 +1607,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 			 ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH,
 			 asla->standard_apps_length, asla->user_def_apps_length);
 		stream_forward_getp(s, readable);
+		XFREE(MTYPE_ISIS_SUBTLV, asla);
 		return -1;
 	}
 
@@ -1622,6 +1624,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	while (readable > 0) {
 		if (readable < ISIS_SUBSUBTLV_HDR_SIZE) {
 			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			XFREE(MTYPE_ISIS_SUBTLV, asla);
 			return -1;
 		}
 
@@ -1650,6 +1653,10 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 				admin_group_bulk_set(&asla->ext_admin_group,
 						     val, i);
 			}
+			if (subsubtlv_len % sizeof(uint32_t) != 0) {
+				zlog_warn("Extended Admin Group length is not multiple of 4 bytes");
+			}
+			stream_forward_getp(s, subsubtlv_len % sizeof(uint32_t));
 			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
 			break;
 		case ISIS_SUBTLV_MAX_BW:
@@ -1775,6 +1782,11 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 			stream_forward_getp(s, subsubtlv_len);
 			break;
 		}
+		/* before processing next subsubtlv, check subsubtlv_len to prevent underflow and subsequent infinite loop or assertion failure. Since default branch does not perform any check against subsubtlv_len. */
+		if (readable < subsubtlv_len) {
+			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			return -1;
+		}
 		readable -= subsubtlv_len;
 	}
 
@@ -1833,6 +1845,15 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				val = stream_getl(s);
 				admin_group_bulk_set(&exts->ext_admin_group,
 						     val, i);
+			}
+			/* Check that length is multiple of 4 bytes, if not
+			 * skip remaining bytes, to make sum sync with buffer
+			 */
+			if (subtlv_len % sizeof(uint32_t) != 0) {
+				sbuf_push(log, indent,
+					  "Extended Admin Group sub-TLV length %u is not multiple of 4 bytes\n",
+					  subtlv_len);
+				stream_forward_getp(s, subtlv_len % sizeof(uint32_t));
 			}
 			SET_SUBTLV(exts, EXT_EXTEND_ADM_GRP);
 			break;
@@ -2589,7 +2610,13 @@ static int unpack_subsubtlv_srv6_sid_structure(
 	sid_struct.loc_node_len = stream_getc(s);
 	sid_struct.func_len = stream_getc(s);
 	sid_struct.arg_len = stream_getc(s);
-
+	/* validate that four sizes' sum must be less than or equal to 128 */
+	if ((sid_struct.loc_block_len + sid_struct.loc_node_len + sid_struct.func_len +
+	     sid_struct.arg_len) > 128) {
+		sbuf_push(log, indent,
+			  "Invalid SRv6 SID Structure Sub-Sub-TLV values. (Sum of lengths exceeds 128)\n");
+		return 1;
+	}
 	subsubtlvs->srv6_sid_structure =
 		copy_subsubtlv_srv6_sid_structure(&sid_struct);
 
@@ -5680,6 +5707,16 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			fad->fad.metric_type = stream_getc(s);
 			fad->fad.calc_type = stream_getc(s);
 			fad->fad.priority = stream_getc(s);
+			/* If rcap->fads[] is already allocated, free it before overwriting*/
+			if (rcap->fads[fad->fad.algorithm]) {
+				admin_group_term(&rcap->fads[fad->fad.algorithm]
+							  ->fad.admin_group_exclude_any);
+				admin_group_term(&rcap->fads[fad->fad.algorithm]
+							  ->fad.admin_group_include_any);
+				admin_group_term(&rcap->fads[fad->fad.algorithm]
+							  ->fad.admin_group_include_all);
+				XFREE(MTYPE_ISIS_TLV, rcap->fads[fad->fad.algorithm]);
+			}
 			rcap->fads[fad->fad.algorithm] = fad;
 			admin_group_init(&fad->fad.admin_group_exclude_any);
 			admin_group_init(&fad->fad.admin_group_include_any);
