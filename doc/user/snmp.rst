@@ -15,6 +15,22 @@ on daemon startup. Refer to :ref:`loadable-module-support` on the latter.  If
 you do not start the daemons with snmp module support snmp will not work
 properly.
 
+BGP SNMP Support
+================
+
+In addition to the standard BGP4-MIB (:rfc:`4273`) and BGP4V2-MIB, FRR also
+supports the CISCO-BGP4-MIB. This MIB provides extended information about BGP
+peers organized by address family, including per-AFI/SAFI statistics such as:
+
+- Accepted and denied prefix counts per address family
+- Advertised prefix counts per address family
+- Prefix limits and thresholds per address family
+- Support for multiple address families per peer (IPv4/IPv6 unicast, multicast, VPNv4, etc.)
+
+The CISCO-BGP4-MIB is particularly useful for monitoring BGP peers in
+multi-protocol environments and provides more detailed statistics than the
+standard BGP4-MIB.
+
 .. _getting-and-installing-an-snmp-agent:
 
 Getting and installing an SNMP agent
@@ -121,6 +137,32 @@ An example below is how to query SNMP for BGP:
 
       $ # BGP4-MIB (https://www.circitor.fr/Mibs/Mib/B/BGP4-MIB.mib)
       $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.2.1.15
+
+      $ # CISCO-BGP4-MIB (https://raw.githubusercontent.com/cisco/cisco-mibs/main/v2/CISCO-BGP4-MIB.my)
+
+      $ # cbgpPeerTable - Basic peer information (deprecated, use cbgpPeer2Table)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.1
+
+      $ # cbgpPeerCapsTable - Peer capabilities
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.2
+
+      $ # cbgpPeerAddrFamilyTable - Address families supported by peer
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.3
+
+      $ # cbgpPeerAddrFamilyPrefixTable - Prefix counts per address family
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.4
+
+      $ # cbgpPeer2Table - Extended peer information (supports IPv6)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.5
+
+      $ # cbgpPeer2AddrFamilyTable - Address families for IPv6 peers
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.7
+
+      $ # cbgpPeer2AddrFamilyPrefixTable - Prefix counts for IPv6 peers
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.8
+
+      $ # cbgpPeer3Table - VRF-aware peer information
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.9
 
       $ # BGP4V2-MIB (http://www.circitor.fr/Mibs/Mib/B/BGP4V2-MIB.mib)
       $ # Information about the peers (bgp4V2PeerTable):
