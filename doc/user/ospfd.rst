@@ -102,6 +102,8 @@ To start OSPF process you have to specify the OSPF router.
    with the same router-ID! If one is not specified then *ospfd* will obtain a
    router-ID automatically from *zebra*.
 
+.. _ospf-abr-type:
+
 .. clicmd:: ospf abr-type TYPE
 
 
@@ -134,6 +136,11 @@ To start OSPF process you have to specify the OSPF router.
    destined for the areas not connected to such an ABR or out of the
    OSPF domain, is dropped. This document describes alternative ABR
    behaviors implemented in Cisco and IBM routers."
+
+   With type ``standard``, the router is an ABR if it has more than 1 area attached.
+
+   With type ``cisco`` or ``ibm``, the router is an ABR is if has more than 1 area
+   attached and has configured the backbone area.
 
 .. clicmd:: ospf rfc1583compatibility
 
@@ -457,6 +464,10 @@ Areas
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
 
 .. clicmd:: area (0-4294967295) virtual-link A.B.C.D
+
+   Configures a OSPF virtual-link. To configure virtual-link adjacencies, the 
+   routers must already be ABRs. See  
+   :ref:`ospf abr-type configuration <ospf-abr-type>`.
 
 
 
