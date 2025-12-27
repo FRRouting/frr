@@ -658,6 +658,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 struct route_entry *re)
 {
 	int state_changed = 0;
+	rib_dest_t *dest = NULL;
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
@@ -685,6 +686,25 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		state_changed = 1;
 	}
 	zebra_rnh_store_in_routing_table(rnh);
+
+	/*
+	 * For connected/static routes force trigger rnh (NHT)
+	 * There could be a situation where connected nexthop
+	 * changed so fast where delete followed by add would have
+	 * suppressed to delete request, but dplane would have deleted
+	 * upper layer routes which are resolved via connected.
+	 * Retrigger rnh would help reinstall the routes.
+	 */
+	if (prn) {
+		dest = prn->info;
+		if (dest && !!CHECK_FLAG(dest->flags, RIB_DEST_FORCE_RNH)) {
+			force = true;
+			UNSET_FLAG(dest->flags, RIB_DEST_FORCE_RNH);
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s %pRN type %s set force rnh to true", __func__, prn,
+					   re ? zebra_route_string(re->type) : "unknown");
+		}
+	}
 
 	if (state_changed || force) {
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
