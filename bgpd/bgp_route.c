@@ -2197,7 +2197,7 @@ void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp)
 	if (!ADVERTISE_MAP_NAME(filter))
 		return;
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+	if (!peer_is_config_node(peer))
 		return;
 
 	peer->advmap_table_change = true;

@@ -11969,7 +11969,7 @@ static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 
 	*peers_cfgd = *peers_estbd = 0;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 		(*peers_cfgd)++;
 		if (peer_established(peer->connection))
@@ -12784,7 +12784,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12810,7 +12810,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12868,7 +12868,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	filtered_count = 0;
 	dn_count = 0;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer->afc[afi][safi])
@@ -16844,7 +16844,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp, enum show_type ty
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		switch (type) {
@@ -20043,9 +20043,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				       PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
-		    peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer_is_config_node(peer) &&
+		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
@@ -20053,7 +20052,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		/* Do not display doppelganger peers */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bgp_config_write_peer_af(vty, bgp, peer, afi, safi);
 	}
 
@@ -20588,7 +20587,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* Normal neighbor configuration. */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (peer_is_config_node(peer))
 				bgp_config_write_peer_global(vty, bgp, peer);
 		}
 
