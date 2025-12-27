@@ -233,7 +233,7 @@ void mgmt_txn_handle_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	uint64_t txn_id = data_msg->refer_id;
 	uint64_t req_id = data_msg->req_id;
 
-	enum mgmt_be_client_id id = adapter->id;
+	mgmt_be_client_id_t id = adapter->id;
 	struct mgmt_txn *txn = txn_lookup(txn_id);
 	struct txn_req *txn_req;
 	struct txn_req_get_tree *get_tree;
@@ -303,7 +303,7 @@ int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	struct mgmt_msg_get_tree *msg;
 	struct txn_req_get_tree *get_tree;
 	struct mgmt_txn *txn;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	ssize_t slen = strlen(xpath);
 	int ret;
 
@@ -470,7 +470,7 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 {
 	uint64_t txn_id = reply_msg->refer_id;
 	uint64_t req_id = reply_msg->req_id;
-	enum mgmt_be_client_id id = adapter->id;
+	mgmt_be_client_id_t id = adapter->id;
 	struct mgmt_txn *txn = txn_lookup(txn_id);
 	struct txn_req *txn_req;
 	struct txn_req_rpc *rpc;
@@ -529,7 +529,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	struct mgmt_txn *txn;
 	struct mgmt_msg_rpc *msg;
 	struct txn_req_rpc *rpc;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	int ret;
 
 	txn = txn_lookup(txn_id);
@@ -582,7 +582,7 @@ void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_notify_select *msg;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	char **all_selectors = NULL;
 	uint i;
 

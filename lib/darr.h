@@ -342,16 +342,18 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the (I)th element in `A`
  */
-#define darr_ensure_i_mt(A, I, MT)                                                                 \
-	({                                                                                         \
-		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                                     \
-		int _d__i = (int)(I);                                                              \
-		if (_d__i > darr_maxi(A))                                                          \
-			_darr_resize_mt((A), _d__i + 1, MT);                                       \
-		assert((A) != NULL);                                                               \
-		if ((uint)_d__i + 1 > _darr_len(A))                                                \
-			_darr_len(A) = _d__i + 1;                                                  \
-		&(A)[_d__i];                                                                       \
+#define darr_ensure_i_mt(A, I, MT)                                                                \
+	({                                                                                        \
+		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                                    \
+		int _d__i = (int)(I);                                                             \
+		if (_d__i > darr_maxi(A))                                                         \
+			_darr_resize_mt((A), _d__i + 1, MT);                                      \
+		assert((A) != NULL);                                                              \
+		if ((uint)_d__i + 1 > _darr_len(A)) {                                             \
+			memset(&(A)[darr_len(A)], 0, (_d__i + 1 - darr_len(A)) * _darr_esize(A)); \
+			_darr_len(A) = _d__i + 1;                                                 \
+		}                                                                                 \
+		&(A)[_d__i];                                                                      \
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 
