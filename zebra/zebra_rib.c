@@ -396,22 +396,16 @@ char *zebra_rib_dump_re_status(const struct route_entry *re, char *buf, size_t l
 		return buf;
 	}
 
-	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s%s",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)
-			? "Label Changed "
-			: "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING)
-			? "Replacing "
-			: "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed "
-							      : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG) ? "Fib NHG "
-								: "");
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ? "Label Changed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING) ? "Replacing " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG) ? "Fib NHG " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_STARTUP) ? "Startup" : "");
 	return buf;
 }
 
@@ -4972,7 +4966,7 @@ void rib_sweep_table(struct route_table *table)
 			 * we know we read them in from the kernel.
 			 * As such we can safely remove them.
 			 */
-			if (zrouter.startup_time < re->uptime)
+			if (!CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_STARTUP))
 				continue;
 
 			/*

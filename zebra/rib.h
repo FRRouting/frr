@@ -151,6 +151,10 @@ struct route_entry {
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
+/*
+ * Does this route exist on startup?
+ */
+#define ROUTE_ENTRY_ROUTE_STARTUP 0x100
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
