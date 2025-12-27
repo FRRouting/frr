@@ -544,7 +544,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			      struct update_subgroup *subgrp, struct attr *attr,
 			      struct bgp_path_info *path)
 {
-	struct bgp_adj_out *adj = NULL;
+	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
 	struct peer *peer;
 	afi_t afi;
@@ -552,7 +552,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *adv_peer;
 	struct peer_af *paf;
 	struct bgp *bgp;
-	uint32_t attr_hash = 0;
+	struct attr *attr_new;
+	struct attr *attr_prev;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -587,13 +588,12 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
-	if (likely(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)))
-		attr_hash = attrhash_key_make(attr);
+	attr_new = bgp_attr_intern(attr);
+	attr_prev = adj->adv && adj->adv->baa ? adj->adv->baa->attr : adj->attr;
 
-	if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
-	    attr_hash && adj->attr_hash == attr_hash &&
-	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
-			   adj->labels)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) && (attr_new == attr_prev) &&
+	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels)) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			char attr_str[BUFSIZ] = {0};
 
@@ -602,6 +602,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s, afi=%s, safi=%s",
 				   peer->host, dest, attr_str, afi2str(afi), safi2str(safi));
 		}
+
+		bgp_attr_unintern(&attr_new);
 
 		/*
 		 * If BGP is skipping sending this value to it's peers
@@ -632,9 +634,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
+	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr_new);
 	adv->adj = adj;
-	adj->attr_hash = attr_hash;
 	if (path->extra)
 		adj->labels = bgp_labels_intern(path->extra->labels);
 	else
@@ -711,6 +712,10 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			adv = adj->adv;
 			adv->dest = dest;
 			adv->adj = adj;
+
+			/* Clear the advertised attribute state. */
+			bgp_attr_unintern(&adj->attr);
+			adj->attr = NULL;
 
 			/* Note if we need to trigger a packet write */
 			trigger_write =
