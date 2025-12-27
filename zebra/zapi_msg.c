@@ -79,7 +79,6 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, ifp->mtu6);
 	stream_putl(s, ifp->bandwidth);
 	stream_putl(s, zif->link_ifindex);
-	stream_putl(s, ifp->zif_type);
 	stream_putl(s, ifp->ll_type);
 	stream_putl(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
@@ -3895,7 +3894,6 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
 
 	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
-		/* XXX TODO: other tunnels kinds should be handled */
 		gre_info = &zebra_if->l2info.gre;
 
 		stream_putl(s, idx);
@@ -4089,7 +4087,6 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/* XXX TODO: other tunnels kinds should be handled */
 	if (!IS_ZEBRA_IF_GRE(ifp))
 		return;
 

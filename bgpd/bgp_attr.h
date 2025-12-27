@@ -328,7 +328,6 @@ struct attr {
 #define BATTR_RMAP_L3VPN_ACCEPT_GRE (1 << 8)
 #define BATTR_RMAP_VPNV4_NHOP_CHANGED (1 << 9)
 #define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
-#define BATTR_RMAP_L3VPN_ACCEPT_GRETAP	      (1 << 11)
 
 /* Router Reflector related structure. */
 struct cluster_list {

@@ -3,7 +3,7 @@
   "vrfName": "default",
   "routerId":"192.0.2.2",
   "defaultLocPrf": 100,
-  "localAS": 65501,
+  "localAS": 65500,
   "routes": {
     "routeDistinguishers": {
       "192.0.2.1:1": {
@@ -12,14 +12,15 @@
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
-            "pathFrom": "external",
+            "pathFrom": "internal",
             "prefix": "10.101.0.0",
             "prefixLen": 24,
             "network": "10.101.0.0/24",
             "metric": 0,
+            "locPrf": 100,
             "weight": 0,
             "peerId": "10.125.0.1",
-            "path": "65500",
+            "path": "",
             "origin": "incomplete",
             "nexthops": [
               {
@@ -38,14 +39,15 @@
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
-            "pathFrom": "external",
+            "pathFrom": "internal",
             "prefix": "10.103.0.0",
             "prefixLen": 24,
             "network": "10.103.0.0/24",
             "metric": 0,
+            "locPrf": 100,
             "weight": 0,
             "peerId": "10.125.0.1",
-            "path": "65500",
+            "path": "",
             "origin": "incomplete",
             "nexthops": [
               {
