@@ -61,6 +61,8 @@ static void test_int(void)
 	int z105[105] = {0};
 	int a1[] = {0, 1, 2, 3, 4};
 	int a2[] = {4, 3, 2, 1, 0};
+	int a4[] = { 1, 1, 1, 1, 1 };
+	int a5[] = { 1, 1, 0, 0, 0 };
 	int *da1 = NULL;
 	int *da2 = NULL;
 	int *dap;
@@ -95,6 +97,12 @@ static void test_int(void)
 	darr_foreach_p (da1, dap)
 		*dap = darr_end(da1) - dap - 1;
 	assert(!memcmp(da1, a2, sizeof(a2)));
+
+	/* check that darr_ensure_i re-zeros new exposed elements */
+	memcpy(da1, a4, sizeof(a4));
+	darr_setlen(da1, 2);
+	darr_ensure_i(da1, 4);
+	assert(!memcmp(da1, a5, sizeof(a4)));
 
 	darr_append_n(da1, 100);
 	darr_foreach_p (da1, dap)
