@@ -25,6 +25,11 @@
 DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information");
 
 /*
+ * Mutex used to avoid race conditions in multi-threaded processes.
+ */
+pthread_mutex_t zprivs_mutex;
+
+/*
  * Different capabilities/privileges apis have different characteristics: some
  * are process-wide, and some are per-thread.
  */
@@ -491,26 +496,26 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	int save_errno = errno;
 	struct zebra_privs_refs_t *refs;
 
-	if (!privs)
-		return NULL;
-
 	/*
 	 * Serialize 'raise' operations; particularly important for
 	 * OSes where privs are process-wide.
 	 */
-	frr_with_mutex (&(privs->mutex)) {
-		/* Locate ref-counting object to use */
-		refs = get_privs_refs(privs);
+	pthread_mutex_lock(&zprivs_mutex);
+	if (!privs)
+		return NULL;
+	;
 
-		if (++(refs->refcount) == 1) {
-			errno = 0;
-			if (privs->change(ZPRIVS_RAISE)) {
-				zlog_err("%s: Failed to raise privileges (%s)",
-					 funcname, safe_strerror(errno));
-			}
-			errno = save_errno;
-			refs->raised_in_funcname = funcname;
+	/* Locate ref-counting object to use */
+	refs = get_privs_refs(privs);
+
+	if (++(refs->refcount) == 1) {
+		errno = 0;
+		if (privs->change(ZPRIVS_RAISE)) {
+			zlog_err("%s: Failed to raise privileges (%s)",
+				 funcname, safe_strerror(errno));
 		}
+		errno = save_errno;
+		refs->raised_in_funcname = funcname;
 	}
 
 	return privs;
@@ -521,13 +526,11 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 	int save_errno = errno;
 	struct zebra_privs_refs_t *refs;
 
-	if (!*privs)
-		return;
-
 	/* Serialize 'lower privs' operation - particularly important
 	 * when OS privs are process-wide.
 	 */
-	frr_with_mutex (&(*privs)->mutex) {
+	if (*privs) {
+
 		refs = get_privs_refs(*privs);
 
 		if (--(refs->refcount) == 0) {
@@ -540,22 +543,26 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 			errno = save_errno;
 			refs->raised_in_funcname = NULL;
 		}
-	}
 
 	*privs = NULL;
+	}
+	pthread_mutex_unlock(&zprivs_mutex);
 }
 
 void zprivs_preinit(struct zebra_privs_t *zprivs)
 {
 	struct passwd *pwentry = NULL;
 	struct group *grentry = NULL;
+	pthread_mutexattr_t ma;
 
 	if (!zprivs) {
 		fprintf(stderr, "zprivs_init: called with NULL arg!\n");
 		exit(1);
 	}
 
-	pthread_mutex_init(&(zprivs->mutex), NULL);
+	pthread_mutexattr_init(&ma);
+	pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&zprivs_mutex, &ma);
 	zprivs->process_refs.refcount = 0;
 	zprivs->process_refs.raised_in_funcname = NULL;
 	STAILQ_INIT(&zprivs->thread_refs);
