@@ -54,7 +54,7 @@ static void add_node(struct route_table *table, const char *prefix_str)
 	assert(node);
 	node->prefix_str = strdup(prefix_str);
 	assert(node->prefix_str);
-	rn->info = node;
+	route_node_set_info(rn, node);
 }
 
 /*
@@ -150,7 +150,7 @@ static void clear_table(struct route_table *table)
 		if (!node) {
 			continue;
 		}
-		rn->info = NULL;
+		route_node_set_info(rn, NULL);
 		route_unlock_node(rn);
 		free(node->prefix_str);
 		free(node);
@@ -478,6 +478,30 @@ static void test_iter_pause(void)
 }
 
 /*
+ * test_info_count
+ *
+ * Tests that route_table_info_count() correctly tracks nodes with data.
+ */
+static void test_info_count(void)
+{
+	struct route_table *table;
+
+	printf("\n\nTesting route_table_info_count()\n");
+	table = route_table_init();
+
+	/* Two disjoint prefixes create one glue node and two real entries. */
+	add_nodes(table, "10.0.0.0/24", "10.0.128.0/24", NULL);
+
+	assert(route_table_info_count(table) == 2);
+	assert(route_table_count(table) == 3);
+
+	clear_table(table);
+	assert(route_table_info_count(table) == 0);
+
+	route_table_finish(table);
+}
+
+/*
  * run_tests
  */
 static void run_tests(void)
@@ -485,6 +509,7 @@ static void run_tests(void)
 	test_prefix_iter_cmp();
 	test_get_next();
 	test_iter_pause();
+	test_info_count();
 }
 
 /*
