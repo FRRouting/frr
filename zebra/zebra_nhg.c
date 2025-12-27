@@ -2574,6 +2574,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
 				resolved = 1;
 
+				/* Capture the NHG ID used to resolve the
+				 * nexthop.
+				 */
+				if (resolver)
+					resolver->resolved_via = match->nhe_id;
+
 				/* If there are backup nexthops, capture
 				 * that info with the resolving nexthop.
 				 */
@@ -3429,7 +3435,7 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 			if (!found) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED ||
 				    IS_ZEBRA_DEBUG_NHG)
-					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Gropu Entry, something is terribly wrong",
+					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Group Entry, something is terribly wrong",
 						   __func__, depend->id);
 				continue;
 			}
