@@ -76,7 +76,13 @@ enum zebra_if_flags {
 	 * and inherited by the bond (if one or more bond members are in
 	 * a bypass state the bond is placed in a bypass state)
 	 */
-	ZIF_FLAG_LACP_BYPASS = (1 << 5)
+	ZIF_FLAG_LACP_BYPASS = (1 << 5),
+
+	/* Interface has been configured to enable or disable the neighbor
+	 * throttling feature.
+	 */
+	ZIF_FLAG_NEIGH_THROTTLE = (1 << 6),
+	ZIF_FLAG_NEIGH_THROTTLE_DISABLE = (1 << 7),
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
@@ -336,6 +342,10 @@ extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 					  uint32_t pd_buf_len);
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx);
+
+/* Find appropriate source IP for 'dest'; return in caller's buffer */
+bool zebra_if_get_source(const struct interface *ifp, const struct ipaddr *dest,
+			 struct ipaddr *src);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);
