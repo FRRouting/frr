@@ -277,6 +277,7 @@ struct va_format {
 
 #pragma FRR printfrr_ext "%pSE" (char *)
 #pragma FRR printfrr_ext "%pSQ" (char *)
+#pragma FRR printfrr_ext "%pSA" (const char **)
 
 #pragma FRR printfrr_ext "%pTS" (struct timespec *)
 #pragma FRR printfrr_ext "%pTV" (struct timeval *)

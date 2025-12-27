@@ -232,7 +232,7 @@ void mgmt_txn_handle_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 {
 	uint64_t txn_id = data_msg->refer_id;
 	uint64_t req_id = data_msg->req_id;
-
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	enum mgmt_be_client_id id = adapter->id;
 	struct mgmt_txn *txn = txn_lookup(txn_id);
 	struct txn_req *txn_req;
@@ -256,8 +256,12 @@ void mgmt_txn_handle_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	get_tree = as_get_tree(txn_req);
 
 	/* store the result */
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+	if (data_msg->result_type == LYD_LYB)
+		parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
 	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data_msg->result,
-				 data_msg->result_type, LYD_PARSE_STRICT | LYD_PARSE_ONLY,
+				 data_msg->result_type, parse_options,
 				 0 /*LYD_VALIDATE_OPERATIONAL*/, &tree);
 	if (err) {
 		_log_err("GETTREE reply from %s for txn-id %" PRIu64 " req_id %" PRIu64
@@ -390,8 +394,13 @@ state:
 	msg->refer_id = txn_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_TREE;
+#if (LY_VERSION_MAJOR < 4)
 	/* Always operate with the binary format in the backend */
 	msg->result_type = LYD_LYB;
+#else
+	/* Libyang4 has severe restrictions on LYB so we can't use it anymore */
+	msg->result_type = result_type;
+#endif
 	strlcpy(msg->xpath, xpath, slen + 1);
 
 	assert(clients);
