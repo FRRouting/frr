@@ -786,4 +786,9 @@ extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_xxport_delete_ecomm(void *val);
 extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
 				     struct ecommunity *ecom2);
+extern void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt);
+extern uint16_t bgp_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi,
+					    struct bgp_table *table, uint16_t cnt,
+					    struct bgpevpn *vpn, bool evpn_select);
+
 #endif /* _BGP_EVPN_PRIVATE_H */
