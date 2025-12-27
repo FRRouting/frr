@@ -31,6 +31,7 @@
 #include "zclient.h"
 #include "frrdistance.h"
 #include "frregex_real.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_nhc.h"
@@ -124,6 +125,40 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 #define SOFT_RECONFIG_TASK_MAX_PREFIX 25000
 
 static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo);
+
+/*
+ * BGP Path Info Typesafe Hash Function
+ */
+int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2)
+{
+	if (p1->peer != p2->peer)
+		return (p1->peer < p2->peer) ? -1 : 1;
+
+	if (p1->type != p2->type)
+		return (p1->type < p2->type) ? -1 : 1;
+
+	if (p1->sub_type != p2->sub_type)
+		return (p1->sub_type < p2->sub_type) ? -1 : 1;
+
+	if (p1->addpath_rx_id != p2->addpath_rx_id)
+		return (p1->addpath_rx_id < p2->addpath_rx_id) ? -1 : 1;
+
+	/* All equal */
+	return 0;
+}
+
+/* Generate hash value from bgp_path_info key fields */
+uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi)
+{
+	uint32_t h = 0;
+
+	h = jhash_1word((uint32_t)(uintptr_t)pi->peer, h);
+	h = jhash_1word(pi->addpath_rx_id, h);
+	h = jhash_1word((uint32_t)pi->type, h);
+	h = jhash_1word((uint32_t)pi->sub_type, h);
+
+	return h;
+}
 
 static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 						   char *buf, size_t len)
@@ -519,6 +554,13 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	frrtrace(3, frr_bgp, bgp_path_info_add, dest, pi, name);
 	struct bgp_path_info *top;
 
+	/*
+	 * Initialize typesafe hash on first path add.
+	 * XCALLOC zeroes dest, so count is 0 initially.
+	 */
+	if (bgp_pi_hash_count(&dest->pi_hash) == 0)
+		bgp_pi_hash_init(&dest->pi_hash);
+
 	top = bgp_dest_get_bgp_path_info(dest);
 
 	pi->next = top;
@@ -526,6 +568,7 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	if (top)
 		top->prev = pi;
 	bgp_dest_set_bgp_path_info(dest, pi);
+	bgp_pi_hash_add(&dest->pi_hash, pi);
 
 	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 	bgp_path_info_lock(pi);
@@ -552,6 +595,7 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
+	bgp_pi_hash_del(&dest->pi_hash, pi);
 	if (pi->peer)
 		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
@@ -566,6 +610,7 @@ static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
+	bgp_pi_hash_del(&dest->pi_hash, pi);
 	if (pi->peer)
 		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
@@ -5325,11 +5370,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	/* Check previously received route. */
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->peer == peer && pi->type == type
-		    && pi->sub_type == sub_type
-		    && pi->addpath_rx_id == addpath_id)
-			break;
+	struct bgp_path_info pi_lookup = {
+		.peer = peer, .type = type, .sub_type = sub_type, .addpath_rx_id = addpath_id
+	};
+
+	pi = bgp_pi_hash_find(&dest->pi_hash, &pi_lookup);
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
@@ -17807,6 +17852,148 @@ void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 }
 
+/* Show BGP path info hash keys */
+DEFUN(show_bgp_paths_hash,
+      show_bgp_paths_hash_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> paths-hash [json]",
+      SHOW_STR
+      IP_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      BGP_AFI_HELP_STR
+      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Network in the BGP routing table to display\n"
+      "IPv4 prefix\n"
+      "Network in the BGP routing table to display\n"
+      "IPv6 prefix\n"
+      "Display hash keys for all paths to this prefix\n"
+      JSON_STR)
+{
+	struct bgp *bgp = NULL;
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	struct prefix prefix;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	int idx = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+	json_object *json_paths = NULL;
+	json_object *json_path = NULL;
+	char peer_str[INET6_ADDRSTRLEN];
+	int path_count = 0;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
+	if (!argv_find(argv, argc, "A.B.C.D", &idx))
+		if (!argv_find(argv, argc, "X:X::X:X", &idx))
+			if (!argv_find(argv, argc, "A.B.C.D/M", &idx))
+				argv_find(argv, argc, "X:X::X:X/M", &idx);
+
+	if (str2prefix(argv[idx]->arg, &prefix) == 0) {
+		vty_out(vty, "%% Malformed prefix\n");
+		return CMD_WARNING;
+	}
+
+	/* Check if AFI matches prefix */
+	if ((afi == AFI_IP && prefix.family != AF_INET) ||
+	    (afi == AFI_IP6 && prefix.family != AF_INET6)) {
+		vty_out(vty, "%% Prefix does not match AFI\n");
+		return CMD_WARNING;
+	}
+
+	dest = bgp_node_lookup(bgp->rib[afi][safi], &prefix);
+	if (!dest) {
+		if (uj) {
+			json = json_object_new_object();
+			json_object_string_add(json, "warning", "Network not in table");
+			vty_json(vty, json);
+		} else
+			vty_out(vty, "%% Network not in table\n");
+		return CMD_WARNING;
+	}
+
+	if (uj)
+		json = json_object_new_object();
+
+	/* Display hash information */
+	if (!uj) {
+		vty_out(vty, "BGP routing table entry for %s\n",
+			prefix2str(&prefix, peer_str, sizeof(peer_str)));
+		vty_out(vty, "Hash Keys for all paths:\n\n");
+		vty_out(vty, "%-45s %-15s %-15s %-20s %s\n", "Peer", "Type", "Sub-Type",
+			"AddPath-Rx-ID", "Path-Ptr");
+		vty_out(vty,
+			"------------------------------------------------------------------------------------------------------------------------\n");
+	} else {
+		json_paths = json_object_new_array();
+	}
+
+	/* Iterate through all paths in hash and display hash keys */
+	frr_each (bgp_pi_hash, &dest->pi_hash, pi) {
+		path_count++;
+
+		if (pi->peer) {
+			if (pi->peer->connection && pi->peer->connection->su_remote) {
+				sockunion2str(pi->peer->connection->su_remote, peer_str,
+					      sizeof(peer_str));
+			} else
+				snprintf(peer_str, sizeof(peer_str), "%s", pi->peer->host);
+		} else {
+			snprintf(peer_str, sizeof(peer_str), "Unknown");
+		}
+
+		if (uj) {
+			char pi_ptr_str[32];
+
+			json_path = json_object_new_object();
+			json_object_string_add(json_path, "peer", peer_str);
+			json_object_int_add(json_path, "type", pi->type);
+			json_object_int_add(json_path, "subType", pi->sub_type);
+			json_object_int_add(json_path, "addpathRxId", pi->addpath_rx_id);
+
+			/* Show path info pointer */
+			snprintf(pi_ptr_str, sizeof(pi_ptr_str), "%p", pi);
+			json_object_string_add(json_path, "path-info", pi_ptr_str);
+
+			json_object_array_add(json_paths, json_path);
+		} else {
+			vty_out(vty, "%-45s %-15u %-15u %-20u %p\n", peer_str, pi->type,
+				pi->sub_type, pi->addpath_rx_id, pi);
+		}
+	}
+
+	if (uj) {
+		/* Add typesafe hash table information using APIs */
+		size_t hash_count = bgp_pi_hash_count(&dest->pi_hash);
+
+		json_object_object_add(json, "paths", json_paths);
+		json_object_int_add(json, "totalPaths", path_count);
+		if (hash_count > 0) {
+			json_object_int_add(json, "hashBuckets", HASH_SIZE(dest->pi_hash.hh));
+			json_object_int_add(json, "hashCount", hash_count);
+		}
+
+		vty_json(vty, json);
+	} else {
+		/* Display typesafe hash table info using APIs */
+		size_t hash_count = bgp_pi_hash_count(&dest->pi_hash);
+
+		vty_out(vty, "\nTotal paths: %d\n", path_count);
+		if (hash_count > 0) {
+			vty_out(vty, "Hash table: %u buckets, %zu entries\n",
+				HASH_SIZE(dest->pi_hash.hh), hash_count);
+		} else {
+			vty_out(vty, "Hash table: not initialized\n");
+		}
+	}
+
+	bgp_dest_unlock_node(dest);
+	return CMD_SUCCESS;
+}
+
 /* Allocate routing table structure and install commands. */
 void bgp_route_init(void)
 {
@@ -17954,6 +18141,7 @@ void bgp_route_init(void)
 
 	install_element(VIEW_NODE, &show_bgp_listeners_cmd);
 	install_element(VIEW_NODE, &show_bgp_peerhash_cmd);
+	install_element(VIEW_NODE, &show_bgp_paths_hash_cmd);
 }
 
 void bgp_route_finish(void)

@@ -83,6 +83,8 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 
 	if (rn->lock == 1) {
 		struct bgp_table *rt = bgp_dest_table(dest);
+
+		bgp_pi_hash_fini(&dest->pi_hash);
 		if (rt->bgp) {
 			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
 						   &dest->tx_addpath, rt->afi,
@@ -108,6 +110,7 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 	dest = bgp_dest_from_rnode(node);
 	rt = table->info;
 	if (dest) {
+		bgp_pi_hash_fini(&dest->pi_hash);
 		if (rt->bgp) {
 			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
 						   &dest->tx_addpath,
