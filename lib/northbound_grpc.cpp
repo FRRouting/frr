@@ -1131,18 +1131,15 @@ static grpc::Server *s_server;
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
-	uint port = (uint) reinterpret_cast<intptr_t>(fpt->data);
+	std::string endpoint = *static_cast<std::string *>(fpt->data);
 
 	Candidates candidates;
 	grpc::ServerBuilder builder;
-	std::stringstream server_address;
 	frr::Northbound::AsyncService service;
 
 	frr_pthread_set_name(fpt);
 
-	server_address << "0.0.0.0:" << port;
-	builder.AddListeningPort(server_address.str(),
-				 grpc::InsecureServerCredentials());
+	builder.AddListeningPort(endpoint, grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
 	builder.AddChannelArgument(
 		GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS, 5000);
@@ -1172,8 +1169,7 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC_STREAMING(Get);
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
 
-	zlog_notice("gRPC server listening on %s",
-		    server_address.str().c_str());
+	zlog_notice("gRPC server listening on %s", endpoint.c_str());
 
 	/* Process inbound RPCs */
 	bool ok;
@@ -1225,7 +1221,7 @@ static void *grpc_pthread_start(void *arg)
 }
 
 
-static int frr_grpc_init(uint port)
+static int frr_grpc_init(const std::string &endpoint)
 {
 	struct frr_pthread_attr attr = {
 		.start = grpc_pthread_start,
@@ -1235,12 +1231,14 @@ static int frr_grpc_init(uint port)
 	grpc_debug("%s: entered", __func__);
 
 	fpt = frr_pthread_new(&attr, "frr-grpc", "frr-grpc");
-	fpt->data = reinterpret_cast<void *>((intptr_t)port);
+	std::string *ep = new std::string(endpoint);
+	fpt->data = reinterpret_cast<void *>(ep);
 
 	/* Create a pthread for gRPC since it runs its own event loop. */
 	if (frr_pthread_run(fpt, NULL) < 0) {
 		flog_err(EC_LIB_SYSTEM_CALL, "%s: error creating pthread: %s",
 			 __func__, safe_strerror(errno));
+		delete ep;
 		return -1;
 	}
 
@@ -1288,19 +1286,57 @@ static int frr_grpc_finish(void)
 static void frr_grpc_module_very_late_init(struct event *event)
 {
 	const char *args = THIS_MODULE->load_args;
-	uint port = GRPC_DEFAULT_PORT;
+	std::string endpoint;
 
 	if (args) {
-		port = std::stoul(args);
-		if (port < 1024 || port > UINT16_MAX) {
-			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: port number must be between 1025 and %d",
-				 __func__, UINT16_MAX);
-			goto error;
+		std::string arg_str(args);
+
+		if (arg_str.find(':') != std::string::npos) {
+			size_t pos = arg_str.rfind(':');
+			std::string port_str = arg_str.substr(pos + 1);
+			uint port = 0;
+			try {
+				port = std::stoul(port_str);
+			} catch (const std::exception &e) {
+				flog_err(EC_LIB_GRPC_INIT,
+					 "%s: invalid port number in host:port format: %s",
+					 __func__, e.what());
+				goto error;
+			}
+
+			if (port < 1024 || port > UINT16_MAX) {
+				flog_err(EC_LIB_GRPC_INIT,
+					 "%s: port number must be between 1025 and %d", __func__,
+					 UINT16_MAX);
+				goto error;
+			}
+			endpoint = arg_str;
+		} else {
+			if (!arg_str.empty() && arg_str[0] == ':')
+				arg_str = arg_str.substr(1);
+
+			uint port = 0;
+			try {
+				port = std::stoul(arg_str);
+			} catch (const std::exception &e) {
+				flog_err(EC_LIB_GRPC_INIT, "%s: invalid port number: %s", __func__,
+					 e.what());
+				goto error;
+			}
+
+			if (port < 1024 || port > UINT16_MAX) {
+				flog_err(EC_LIB_GRPC_INIT,
+					 "%s: port number must be between 1025 and %d", __func__,
+					 UINT16_MAX);
+				goto error;
+			}
+			endpoint = "0.0.0.0:" + arg_str;
 		}
+	} else {
+		endpoint = "0.0.0.0:" + std::to_string(GRPC_DEFAULT_PORT);
 	}
 
-	if (frr_grpc_init(port) < 0)
+	if (frr_grpc_init(endpoint) < 0)
 		goto error;
 
 	return;
