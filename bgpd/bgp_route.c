@@ -379,7 +379,6 @@ void bgp_path_info_free_with_caller(const char *name,
 
 	bgp_unlink_nexthop(path);
 	bgp_path_info_extra_free(&path->extra);
-	bgp_path_info_mpath_free(&path->mpath);
 	if (path->net)
 		bgp_addpath_free_info_data(&path->tx_addpath,
 					   &path->net->tx_addpath);
@@ -2252,7 +2251,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	from = pi->peer;
 	filter = &peer->filter[afi][safi];
 	bgp = SUBGRP_INST(subgrp);
-	piattr = bgp_path_info_mpath_count(pi) > 1 ? bgp_path_info_mpath_attr(pi) : pi->attr;
+	piattr = (bgp_path_info_mpath_count(pi->net) > 1 &&
+		  CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			 ? bgp_path_info_mpath_attr(pi->net)
+			 : pi->attr;
 
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT) &&
 	    peer->pmax_out[afi][safi] != 0 &&
@@ -2969,8 +2971,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * the most sense. However, don't modify if the link-bandwidth has
 	 * been explicitly set by user policy.
 	 */
-	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi) == BGP_WECMP_BEHAVIOR_LINK_BW &&
-	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
+	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
+	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
 			bgp_attr_set_ipv6_ecommunity(
@@ -12412,7 +12414,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH) ||
-	    (CHECK_FLAG(path->flags, BGP_PATH_SELECTED) && bgp_path_info_mpath_count(path) > 1)) {
+	    (CHECK_FLAG(path->flags, BGP_PATH_SELECTED) &&
+	     bgp_path_info_mpath_count(path->net) > 1)) {
 		if (json_paths)
 			json_object_boolean_true_add(json_path, "multipath");
 		else
