@@ -4376,7 +4376,8 @@ static void process_eoiu_marker(struct bgp_dest *dest)
 	struct bgp_eoiu_info *info = bgp_dest_get_bgp_eoiu_info(dest);
 
 	if (!info || !info->bgp) {
-		zlog_err("Unable to retrieve BGP instance, can't process EOIU marker");
+		flog_err(EC_BGP_INVALID_BGP_INSTANCE,
+			 "Unable to retrieve BGP instance, can't process EOIU marker");
 		return;
 	}
 
@@ -4501,7 +4502,7 @@ static int mq_add_handler(struct bgp *bgp, void *data,
 			  int (*mq_add_func)(struct meta_queue *mq, void *data))
 {
 	if (bgp->process_queue == NULL) {
-		zlog_err("%s: work_queue does not exist!", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: work_queue does not exist!", __func__);
 		return -1;
 	}
 
@@ -4514,7 +4515,7 @@ static int mq_add_handler(struct bgp *bgp, void *data,
 int early_route_process(struct bgp *bgp, struct bgp_dest *dest)
 {
 	if (!dest) {
-		zlog_err("%s: early route dest is NULL!", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: early route dest is NULL!", __func__);
 		return -1;
 	}
 
@@ -4524,7 +4525,7 @@ int early_route_process(struct bgp *bgp, struct bgp_dest *dest)
 int other_route_process(struct bgp *bgp, struct bgp_dest *dest)
 {
 	if (!dest) {
-		zlog_err("%s: other route dest is NULL!", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: other route dest is NULL!", __func__);
 		return -1;
 	}
 
@@ -4534,7 +4535,7 @@ int other_route_process(struct bgp *bgp, struct bgp_dest *dest)
 int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
 {
 	if (!dest) {
-		zlog_err("%s: eoiu marker dest is NULL!", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: eoiu marker dest is NULL!", __func__);
 		return -1;
 	}
 

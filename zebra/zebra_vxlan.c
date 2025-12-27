@@ -2497,9 +2497,9 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		if (ctx.ret_ifp == NULL) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_err(
-					"Adding L2-VNI - Failed to find VxLAN interface for VNI %u",
-					vni);
+				flog_err(EC_ZEBRA_UNKNOWN_INTERFACE,
+					 "Adding L2-VNI - Failed to find VxLAN interface for VNI %u",
+					 vni);
 			return -1;
 		}
 
@@ -4272,7 +4272,8 @@ static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t
 			ip->ipa_type = IPADDR_V6;
 		else {
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_err("ipa_len *must* be %d or %d bytes in length not %d",
+				flog_err(EC_ZEBRA_INVALID_PREFIX_LEN,
+					 "ipa_len *must* be %d or %d bytes in length not %d",
 					 IPV4_MAX_BYTELEN, IPV6_MAX_BYTELEN, *ipa_len);
 			goto stream_failure;
 		}
@@ -5443,8 +5444,8 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 	void *args[2];
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_err("EVPN flood control for non-EVPN VRF %u",
-			 zvrf_id(zvrf));
+		flog_err(EC_ZEBRA_VXLAN_FLOOD_CONTROL_NON_EVPN,
+			 "EVPN flood control for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 

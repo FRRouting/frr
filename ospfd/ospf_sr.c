@@ -266,7 +266,7 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 	 */
 	size = upper_bound - lower_bound + 1;
 	if (ospf_zebra_request_label_range(lower_bound, size)) {
-		zlog_err("SR: Error reserving SRLB [%u/%u] %u labels",
+		flog_err(EC_OSPF_SR_SID_OVERFLOW, "SR: Error reserving SRLB [%u/%u] %u labels",
 			 lower_bound, upper_bound, size);
 		return -1;
 	}
@@ -301,8 +301,8 @@ static int sr_global_block_init(uint32_t start, uint32_t size)
 	/* request chunk */
 	uint32_t end = start + size - 1;
 	if (ospf_zebra_request_label_range(start, size) < 0) {
-		zlog_err("SR: Error reserving SRGB [%u/%u], %u labels", start,
-			 end, size);
+		flog_err(EC_OSPF_SR_SID_OVERFLOW, "SR: Error reserving SRGB [%u/%u], %u labels",
+			 start, end, size);
 		return -1;
 	}
 
