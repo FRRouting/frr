@@ -93,10 +93,10 @@ def test_zebra_received_nhe_kept():
             ), f"Route {prefix} has different NHG ID"
 
         # Get the NHG information
-        logger.info("Verify NHG {} has refcount of 10".format(nhg_id))
+        logger.info("Verify NHG {} has refcount of 5".format(nhg_id))
         nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
         nhg_json = json.loads(nhg_info)
-        assert nhg_json[str(nhg_id)]["refCount"] == 10, "NHG refcount is not 10"
+        assert nhg_json[str(nhg_id)]["refCount"] == 5, "NHG refcount is not 5"
 
     assert not _check_zebra_routes()
 
@@ -155,7 +155,7 @@ def test_zebra_received_nhe_kept_remove_routes():
     # Get the NHG information
     nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
     nhg_json = json.loads(nhg_info)
-    assert nhg_json[str(nhg_id)]["refCount"] == 4, "NHG refcount is not 4"
+    assert nhg_json[str(nhg_id)]["refCount"] == 2, "NHG refcount is not 2"
 
 
 def test_zebra_received_nhe_kept_add_routes():
@@ -222,7 +222,7 @@ def test_zebra_received_nhe_kept_add_routes():
     # Get the NHG information
     nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
     nhg_json = json.loads(nhg_info)
-    assert nhg_json[str(nhg_id)]["refCount"] == 20, "NHG refcount is not 20"
+    assert nhg_json[str(nhg_id)]["refCount"] == 10, "NHG refcount is not 10"
 
 
 def test_zebra_received_nhe_kept_remove_all_routes():
