@@ -153,6 +153,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 		 * Install or reinstall the pseudowire (e.g. to update
 		 * parameters like the nexthop or the use of the control word).
 		 */
+		event_cancel(&pw->install_retry_timer);
 		zebra_pw_install(pw);
 	}
 }
