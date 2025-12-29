@@ -1033,34 +1033,27 @@ static const char *lfa_protected_resource2str(const struct lfa_protected_resourc
 
 /*
  * Check if an adjacency shares any SRLG with the protected resource.
- * Note: SRLG TLV (RFC 5307 sub-TLV 16) parsing is not yet implemented in FRR.
- * This function provides the framework for SRLG-disjoint path computation
- * once SRLG TLV support is added to isis_tlvs.c.
- *
  * Returns true if the adjacency shares any SRLG with the protected resource.
  */
 static bool spf_adj_check_srlg_affected(const struct isis_spf_adj *sadj,
 					const struct lfa_protected_resource *resource)
 {
-	/*
-	 * TODO: When SRLG TLV parsing is implemented, check if any SRLG
-	 * value from sadj->subtlvs->srlgs matches any value in resource->srlgs.
-	 *
-	 * For now, return false as SRLG information is not available.
-	 * Once SRLG TLV parsing is added, this should be:
-	 *
-	 * if (!sadj->subtlvs || !sadj->subtlvs->srlg_count)
-	 *     return false;
-	 *
-	 * for (uint8_t i = 0; i < resource->srlg_count; i++) {
-	 *     for (uint8_t j = 0; j < sadj->subtlvs->srlg_count; j++) {
-	 *         if (resource->srlgs[i] == sadj->subtlvs->srlgs[j])
-	 *             return true;
-	 *     }
-	 * }
-	 */
-	(void)sadj;
-	(void)resource;
+	uint8_t i, j;
+
+	/* No SRLG information available on this adjacency */
+	if (!sadj->subtlvs || !IS_SUBTLV(sadj->subtlvs, EXT_SRLG))
+		return false;
+
+	if (sadj->subtlvs->srlg_num == 0)
+		return false;
+
+	/* Check if any SRLG value from the adjacency matches the protected set */
+	for (i = 0; i < resource->srlg_count; i++) {
+		for (j = 0; j < sadj->subtlvs->srlg_num; j++) {
+			if (resource->srlgs[i] == sadj->subtlvs->srlgs[j])
+				return true;
+		}
+	}
 
 	return false;
 }

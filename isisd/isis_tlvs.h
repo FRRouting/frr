@@ -523,7 +523,10 @@ enum isis_tlv_type {
 	/* RFC 7308 */
 	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
 
-	/* RFC 8919 */
+	/* RFC 5307 - SRLG sub-TLV (shares type 16 with ASLA, distinguished by format) */
+	ISIS_SUBTLV_SRLG = 16,
+
+	/* RFC 8919 - ASLA sub-TLV (shares type 16 with SRLG, distinguished by format) */
 	ISIS_SUBTLV_ASLA = 16,
 
 	/* draft-ietf-lsr-isis-srv6-extensions */
@@ -652,6 +655,7 @@ enum ext_subsubtlv_types {
 #define EXT_EXTEND_ADM_GRP    0x200000
 #define EXT_SRV6_ENDX_SID     0x400000
 #define EXT_SRV6_LAN_ENDX_SID 0x800000
+#define EXT_SRLG	      0x1000000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -704,6 +708,11 @@ struct isis_ext_subtlvs {
 	/* SRv6 End.X & LAN End.X SID */
 	struct isis_item_list srv6_endx_sid;
 	struct isis_item_list srv6_lan_endx_sid;
+
+	/* Shared Risk Link Group (SRLG) - RFC 5307 */
+#define ISIS_SUBTLV_SRLG_MAX_ENTRIES 16
+	uint32_t srlgs[ISIS_SUBTLV_SRLG_MAX_ENTRIES];
+	uint8_t srlg_num;
 };
 
 /* RFC 8919 */

@@ -959,6 +959,23 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts, struct sbuf *
 							       indent + 4);
 			}
 	}
+	/* Shared Risk Link Group (SRLG) as per RFC 5307 */
+	if (IS_SUBTLV(exts, EXT_SRLG) && exts->srlg_num > 0) {
+		if (json) {
+			struct json_object *arr_json;
+
+			arr_json = json_object_new_array();
+			json_object_object_add(json, "srlg", arr_json);
+			for (int i = 0; i < exts->srlg_num; i++)
+				json_object_array_add(arr_json,
+						      json_object_new_int64(exts->srlgs[i]));
+		} else {
+			sbuf_push(buf, indent, "Shared Risk Link Group:");
+			for (int i = 0; i < exts->srlg_num; i++)
+				sbuf_push(buf, 0, " %u", exts->srlgs[i]);
+			sbuf_push(buf, 0, "\n");
+		}
+	}
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
 		format_item_asla_subtlvs(asla, json, buf, indent);
 }
@@ -1323,12 +1340,122 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts, struct stream *s
 			stream_putc_at(s, subtlv_len_pos, subtlv_len);
 		}
 	}
+	/* Shared Risk Link Group (SRLG) as per RFC 5307 section #1.3 */
+	if (IS_SUBTLV(exts, EXT_SRLG) && exts->srlg_num > 0) {
+		stream_putc(s, ISIS_SUBTLV_SRLG);
+		stream_putc(s, exts->srlg_num * 4);
+		for (int i = 0; i < exts->srlg_num; i++)
+			stream_putl(s, exts->srlgs[i]);
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla)) {
 		ret = pack_item_ext_subtlv_asla(asla, s, min_len);
 		if (ret < 0)
 			return ret;
 	}
+
+	return 0;
+}
+
+/*
+ * Check if sub-TLV 16 content looks like legacy SRLG (RFC 5307) format
+ * rather than ASLA (RFC 9351) format.
+ *
+ * SRLG format: N * 4 bytes of 32-bit SRLG values (no header)
+ * ASLA format: SABM/UABM header followed by sub-sub-TLVs
+ *
+ * Heuristic: If length is multiple of 4 AND first two bytes don't look
+ * like valid ASLA header (SABM_len + UABM_len + 2 > subtlv_len), treat as SRLG.
+ */
+static bool subtlv16_is_srlg_format(struct stream *s, uint8_t subtlv_len)
+{
+	size_t start_pos;
+	uint8_t byte0, byte1;
+	uint8_t sabm_len, uabm_len;
+
+	/* SRLG must be multiple of 4 bytes */
+	if (subtlv_len % 4 != 0)
+		return false;
+
+	/* Need at least 4 bytes for one SRLG value */
+	if (subtlv_len < 4)
+		return false;
+
+	/* Peek at first two bytes without consuming */
+	start_pos = stream_get_getp(s);
+
+	if (subtlv_len < 2) {
+		/* Too short for ASLA header, but also too short for SRLG */
+		return false;
+	}
+
+	byte0 = stream_getc(s);
+	byte1 = stream_getc(s);
+
+	/* Restore position */
+	stream_set_getp(s, start_pos);
+
+	/* Extract SABM and UABM lengths from potential ASLA header */
+	sabm_len = byte0 & ASLA_APPS_LENGTH_MASK;
+	uabm_len = byte1 & ASLA_APPS_LENGTH_MASK;
+
+	/*
+	 * For valid ASLA: header (2 bytes) + sabm_len + uabm_len <= subtlv_len
+	 * If this doesn't hold, it's not valid ASLA, so treat as SRLG.
+	 */
+	if (2 + sabm_len + uabm_len > subtlv_len)
+		return true;
+
+	/*
+	 * Additional heuristic: SRLG values are network byte order 32-bit.
+	 * Typical SRLG values are small to medium numbers.
+	 * ASLA SABM typically has specific flag patterns (R, S, L, X flags).
+	 * If byte0 has none of the standard SABM flags set and length is
+	 * multiple of 4, more likely to be SRLG.
+	 */
+	if ((byte0 &
+	     (ISIS_SABM_FLAG_R | ISIS_SABM_FLAG_S | ISIS_SABM_FLAG_L | ISIS_SABM_FLAG_X)) == 0 &&
+	    sabm_len == 0 && uabm_len == 0)
+		return true;
+
+	return false;
+}
+
+/*
+ * Parse legacy SRLG sub-TLV (RFC 5307)
+ * Format: N * 4 bytes of 32-bit SRLG values
+ */
+static int unpack_item_ext_subtlv_srlg(uint8_t subtlv_len, struct stream *s, struct sbuf *log,
+				       int indent, struct isis_ext_subtlvs *exts)
+{
+	uint8_t num_srlgs;
+	uint8_t i;
+
+	if (subtlv_len % 4 != 0) {
+		sbuf_push(log, indent, "SRLG sub-TLV length %u is not multiple of 4\n", subtlv_len);
+		stream_forward_getp(s, subtlv_len);
+		return -1;
+	}
+
+	num_srlgs = subtlv_len / 4;
+	if (num_srlgs > ISIS_SUBTLV_SRLG_MAX_ENTRIES) {
+		sbuf_push(log, indent, "SRLG sub-TLV has %u entries, max supported is %u\n",
+			  num_srlgs, ISIS_SUBTLV_SRLG_MAX_ENTRIES);
+		/* Parse what we can, skip the rest */
+		num_srlgs = ISIS_SUBTLV_SRLG_MAX_ENTRIES;
+	}
+
+	for (i = 0; i < num_srlgs; i++)
+		exts->srlgs[i] = stream_getl(s);
+
+	/* Skip any remaining SRLG values beyond our max */
+	if (subtlv_len / 4 > ISIS_SUBTLV_SRLG_MAX_ENTRIES) {
+		uint8_t skip = (subtlv_len / 4 - ISIS_SUBTLV_SRLG_MAX_ENTRIES) * 4;
+		stream_forward_getp(s, skip);
+	}
+
+	exts->srlg_num = num_srlgs;
+	SET_SUBTLV(exts, EXT_SRLG);
 
 	return 0;
 }
@@ -1913,9 +2040,21 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			}
 			break;
 		case ISIS_SUBTLV_ASLA:
+			/*
+			 * Sub-TLV 16 is shared by SRLG (RFC 5307) and ASLA
+			 * (RFC 9351). Use heuristic detection to determine
+			 * which format is present.
+			 */
+			if (subtlv16_is_srlg_format(s, subtlv_len)) {
+				if (unpack_item_ext_subtlv_srlg(subtlv_len, s, log, indent, exts) <
+				    0) {
+					sbuf_push(log, indent, "SRLG parse error");
+				}
+				break;
+			}
 			if (unpack_item_ext_subtlv_asla(mtid, subtlv_len, s, log, indent, exts) <
 			    0) {
-				sbuf_push(log, indent, "TLV parse error");
+				sbuf_push(log, indent, "ASLA parse error");
 			}
 			break;
 		default:
