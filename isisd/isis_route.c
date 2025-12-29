@@ -37,6 +37,7 @@
 #include "isis_route.h"
 #include "isis_zebra.h"
 #include "isis_flex_algo.h"
+#include "isis_lfa.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_NEXTHOP, "ISIS nexthop");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_INFO, "ISIS route info");
@@ -82,6 +83,20 @@ static struct isis_nexthop *isis_nexthop_create(int family, const union g_addr *
 	return nexthop;
 }
 
+static struct isis_srv6_seg_stack *srv6_seg_stack_dup(const struct isis_srv6_seg_stack *orig)
+{
+	struct isis_srv6_seg_stack *copy;
+
+	if (!orig)
+		return NULL;
+
+	copy = XCALLOC(MTYPE_ISIS_SRV6_SEG_STACK, sizeof(*copy));
+	copy->num_segs = orig->num_segs;
+	memcpy(copy->segs, orig->segs, sizeof(orig->segs));
+
+	return copy;
+}
+
 static struct isis_nexthop *isis_nexthop_dup(const struct isis_nexthop *const orig)
 {
 	struct isis_nexthop *nexthop;
@@ -90,6 +105,7 @@ static struct isis_nexthop *isis_nexthop_dup(const struct isis_nexthop *const or
 	memcpy(nexthop->sysid, orig->sysid, ISIS_SYS_ID_LEN);
 	nexthop->sr = orig->sr;
 	nexthop->label_stack = label_stack_dup(orig->label_stack);
+	nexthop->srv6_seg_stack = srv6_seg_stack_dup(orig->srv6_seg_stack);
 
 	return nexthop;
 }
@@ -97,6 +113,7 @@ static struct isis_nexthop *isis_nexthop_dup(const struct isis_nexthop *const or
 void isis_nexthop_delete(struct isis_nexthop *nexthop)
 {
 	XFREE(MTYPE_ISIS_NEXTHOP_LABELS, nexthop->label_stack);
+	XFREE(MTYPE_ISIS_SRV6_SEG_STACK, nexthop->srv6_seg_stack);
 	XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
 }
 
@@ -156,7 +173,8 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family, uni
 }
 
 void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
-		     struct isis_sr_psid_info *sr, struct mpls_label_stack *label_stack)
+		     struct isis_sr_psid_info *sr, struct mpls_label_stack *label_stack,
+		     struct isis_srv6_seg_stack *srv6_seg_stack)
 {
 	struct isis_nexthop *nh;
 	union g_addr ip = {};
@@ -174,6 +192,7 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				if (sr)
 					nh->sr = *sr;
 				nh->label_stack = label_stack;
+				nh->srv6_seg_stack = srv6_seg_stack;
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -191,6 +210,7 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				if (sr)
 					nh->sr = *sr;
 				nh->label_stack = label_stack;
+				nh->srv6_seg_stack = srv6_seg_stack;
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -232,6 +252,7 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 		struct isis_adjacency *adj = sadj->adj;
 		struct isis_sr_psid_info *vsr = &vadj->sr;
 		struct mpls_label_stack *label_stack = vadj->label_stack;
+		struct isis_srv6_seg_stack *srv6_seg_stack = vadj->srv6_seg_stack;
 
 		/*
 		 * Create dummy nexthops when running SPF on a testing
@@ -248,7 +269,8 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 		if (CHECK_FLAG(adj->circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
 			SET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 
-		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, vsr, label_stack);
+		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, vsr, label_stack,
+				srv6_seg_stack);
 		if (!allow_ecmp)
 			break;
 	}
