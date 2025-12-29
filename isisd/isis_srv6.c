@@ -751,72 +751,91 @@ void isis_srv6_area_term(struct isis_area *area)
  * paths as they enable proper decapsulation at the final segment endpoint.
  */
 
-/* Arguments structure for End SID lookup callback */
-struct tilfa_srv6_find_end_sid_args {
-	struct in6_addr sid;
-	bool found;
-	int algorithm;
-};
-
-/* Callback to find End SID in SRv6 Locator TLV (TLV 27) */
-static int tilfa_srv6_find_end_sid_cb(const struct prefix *prefix, uint32_t metric, bool external,
-				      struct isis_subtlvs *subtlvs, void *arg)
+/**
+ * Check if End SID behavior is suitable for TI-LFA (node SID).
+ *
+ * Accept End, End with PSP/USD, or uN (End with NEXT-CSID) behaviors.
+ * USD flavor is particularly important for TI-LFA per RFC 8986 Section 4.16.3.
+ */
+static bool tilfa_srv6_end_sid_behavior_valid(enum srv6_endpoint_behavior_codepoint behavior)
 {
-	struct tilfa_srv6_find_end_sid_args *args = arg;
-	struct isis_srv6_end_sid_subtlv *end_sid;
-
-	if (!subtlvs || subtlvs->srv6_end_sids.count == 0)
-		return LSP_ITER_CONTINUE;
-
-	/* Iterate through all End SIDs in this locator */
-	for (end_sid = (struct isis_srv6_end_sid_subtlv *)subtlvs->srv6_end_sids.head; end_sid;
-	     end_sid = end_sid->next) {
-		/*
-		 * For TI-LFA we need an End SID (node SID).
-		 * Accept End, End with PSP/USD, or uN (End with NEXT-CSID) behaviors.
-		 * USD flavor is important for TI-LFA per RFC 8986 Section 4.16.3.
-		 */
-		switch (end_sid->behavior) {
-		case SRV6_ENDPOINT_BEHAVIOR_END:
-		case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
-		case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
-		case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
-		case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
-		case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
-			args->sid = end_sid->sid;
-			args->found = true;
-			return LSP_ITER_STOP;
-		default:
-			/* Skip other behaviors (e.g., END.DT*, END.DX*) */
-			continue;
-		}
+	switch (behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+		return true;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+		/* End.X, End.DT*, End.B6 behaviors not suitable for node SID */
+		return false;
 	}
 
-	return LSP_ITER_CONTINUE;
+	return false;
 }
 
 /**
  * Find End SID for a remote node from its LSP TLV 27 (SRv6 Locator).
  * Equivalent to looking up Prefix-SID in SR-MPLS TI-LFA.
+ *
+ * Per RFC 9352, SRv6 SIDs are associated with a specific algorithm via
+ * the locator. This function filters locators to match the SPF algorithm.
  */
 bool isis_srv6_tilfa_find_pnode_end_sid(struct isis_spftree *spftree, const uint8_t *sysid,
 					struct in6_addr *sid)
 {
 	struct isis_lsp *lsp;
-	struct tilfa_srv6_find_end_sid_args args = {};
+	struct isis_item_list *srv6_locators;
+	struct isis_srv6_locator_tlv *loc;
+	struct isis_srv6_end_sid_subtlv *end_sid;
 
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
-	if (!lsp)
+	if (!lsp || !lsp->tlvs)
 		return false;
 
-	args.algorithm = spftree->algorithm;
-	args.found = false;
+	/* Get SRv6 locators for the requested MT-ID */
+	srv6_locators = isis_lookup_mt_items(&lsp->tlvs->srv6_locator, spftree->mtid);
+	if (!srv6_locators)
+		return false;
 
-	isis_lsp_iterate_srv6_locator(lsp, spftree->mtid, tilfa_srv6_find_end_sid_cb, &args);
+	/*
+	 * Iterate through all locators and find one matching the algorithm.
+	 * Per RFC 9352 section 6, each locator is associated with an algorithm.
+	 */
+	for (loc = (struct isis_srv6_locator_tlv *)srv6_locators->head; loc; loc = loc->next) {
+		/* Filter by algorithm - critical for Flex-Algo support */
+		if (loc->algorithm != spftree->algorithm)
+			continue;
 
-	if (args.found) {
-		*sid = args.sid;
-		return true;
+		if (!loc->subtlvs || loc->subtlvs->srv6_end_sids.count == 0)
+			continue;
+
+		/* Find a suitable End SID in this locator */
+		for (end_sid = (struct isis_srv6_end_sid_subtlv *)loc->subtlvs->srv6_end_sids.head;
+		     end_sid; end_sid = end_sid->next) {
+			if (tilfa_srv6_end_sid_behavior_valid(end_sid->behavior)) {
+				*sid = end_sid->sid;
+				return true;
+			}
+		}
 	}
 
 	return false;
@@ -827,9 +846,13 @@ struct tilfa_srv6_find_endx_sid_args {
 	const uint8_t *neighbor_sysid;
 	struct in6_addr sid;
 	bool found;
+	uint8_t algorithm;
 };
 
-/* Callback to find End.X SID in Extended IS Reachability TLV (TLV 22) */
+/**
+ * Callback to find End.X SID in Extended IS Reachability TLV (TLV 22).
+ * Per RFC 9352 section 8, End.X SID sub-TLVs have an algorithm field.
+ */
 static int tilfa_srv6_find_endx_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
 				       struct isis_ext_subtlvs *subtlvs, void *arg)
 {
@@ -846,15 +869,20 @@ static int tilfa_srv6_find_endx_sid_cb(const uint8_t *id, uint32_t metric, bool 
 
 	/* Check P2P End.X SIDs first (Sub-TLV 43) */
 	if (subtlvs->srv6_endx_sid.count > 0) {
-		endx_sid = (struct isis_srv6_endx_sid_subtlv *)subtlvs->srv6_endx_sid.head;
-		/* Skip backup SIDs, use primary */
-		while (endx_sid) {
-			if (!CHECK_FLAG(endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG)) {
-				args->sid = endx_sid->sid;
-				args->found = true;
-				return LSP_ITER_STOP;
-			}
-			endx_sid = endx_sid->next;
+		for (endx_sid = (struct isis_srv6_endx_sid_subtlv *)subtlvs->srv6_endx_sid.head;
+		     endx_sid; endx_sid = endx_sid->next) {
+			/*
+			 * Per RFC 9352 section 8.1, filter by algorithm.
+			 * Skip backup SIDs (B-flag), use primary.
+			 */
+			if (endx_sid->algorithm != args->algorithm)
+				continue;
+			if (CHECK_FLAG(endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG))
+				continue;
+
+			args->sid = endx_sid->sid;
+			args->found = true;
+			return LSP_ITER_STOP;
 		}
 	}
 
@@ -864,17 +892,22 @@ static int tilfa_srv6_find_endx_sid_cb(const uint8_t *id, uint32_t metric, bool 
 			     (struct isis_srv6_lan_endx_sid_subtlv *)subtlvs->srv6_lan_endx_sid.head;
 		     lan_endx_sid; lan_endx_sid = lan_endx_sid->next) {
 			/*
+			 * Per RFC 9352 section 8.2, filter by algorithm.
 			 * For LAN End.X, the neighbor_id in the sub-TLV
 			 * identifies the specific neighbor.
-			 * Skip backup SIDs.
+			 * Skip backup SIDs (B-flag).
 			 */
+			if (lan_endx_sid->algorithm != args->algorithm)
+				continue;
 			if (memcmp(lan_endx_sid->neighbor_id, args->neighbor_sysid,
-				   ISIS_SYS_ID_LEN) == 0 &&
-			    !CHECK_FLAG(lan_endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG)) {
-				args->sid = lan_endx_sid->sid;
-				args->found = true;
-				return LSP_ITER_STOP;
-			}
+				   ISIS_SYS_ID_LEN) != 0)
+				continue;
+			if (CHECK_FLAG(lan_endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG))
+				continue;
+
+			args->sid = lan_endx_sid->sid;
+			args->found = true;
+			return LSP_ITER_STOP;
 		}
 	}
 
@@ -885,6 +918,9 @@ static int tilfa_srv6_find_endx_sid_cb(const uint8_t *id, uint32_t metric, bool 
  * Find End.X SID from source to neighbor from Extended IS Reach TLV 22.
  * Looks for Sub-TLV 43 (P2P End.X) or Sub-TLV 44 (LAN End.X).
  * Equivalent to looking up Adj-SID in SR-MPLS TI-LFA.
+ *
+ * Per RFC 9352 sections 8.1 and 8.2, End.X SIDs have an algorithm field
+ * that must match the SPF algorithm for proper Flex-Algo support.
  */
 bool isis_srv6_tilfa_find_qnode_endx_sid(struct isis_spftree *spftree, const uint8_t *source_sysid,
 					 const uint8_t *neighbor_sysid, struct in6_addr *sid)
@@ -897,6 +933,7 @@ bool isis_srv6_tilfa_find_qnode_endx_sid(struct isis_spftree *spftree, const uin
 		return false;
 
 	args.neighbor_sysid = neighbor_sysid;
+	args.algorithm = spftree->algorithm;
 	args.found = false;
 
 	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_srv6_find_endx_sid_cb, &args);
