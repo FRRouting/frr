@@ -2090,6 +2090,147 @@ DEFUN(show_isis_mpls_te_db,
 	return rc;
 }
 
+/*
+ * Display SRLG information for a single IS-IS link.
+ */
+static void show_isis_srlg_link(struct vty *vty, struct json_object *json_level,
+				struct isis_lsp *lsp, struct isis_extended_reach *reach, int lev,
+				bool *found_srlg)
+{
+	struct json_object *json_link, *json_srlgs;
+	char xpath[XPATH_MAXLEN];
+
+	if (json_level) {
+		json_link = json_object_new_object();
+		json_object_array_add(json_level, json_link);
+		snprintfrr(xpath, sizeof(xpath), "%pSY", lsp->hdr.lsp_id);
+		json_object_string_add(json_link, "source", xpath);
+		snprintfrr(xpath, sizeof(xpath), "%pPN", reach->id);
+		json_object_string_add(json_link, "neighbor", xpath);
+		json_srlgs = json_object_new_array();
+		json_object_object_add(json_link, "srlgs", json_srlgs);
+		for (int i = 0; i < reach->subtlvs->srlg_num; i++)
+			json_object_array_add(json_srlgs,
+					      json_object_new_int64(reach->subtlvs->srlgs[i]));
+	} else {
+		if (!*found_srlg)
+			vty_out(vty, "  Level-%d SRLG information:\n", lev);
+		vty_out(vty, "    %pSY -> %pPN:", lsp->hdr.lsp_id, reach->id);
+		for (int i = 0; i < reach->subtlvs->srlg_num; i++)
+			vty_out(vty, " %u", reach->subtlvs->srlgs[i]);
+		vty_out(vty, "\n");
+	}
+	*found_srlg = true;
+}
+
+/*
+ * Show ISIS SRLG information learned from LSP database.
+ * Displays SRLG values from Extended IS Reachability TLV (RFC 5307).
+ */
+static void show_isis_srlg_common(struct vty *vty, struct json_object *json, struct isis *isis,
+				  int level)
+{
+	struct isis_area *area;
+	struct isis_lsp *lsp;
+	struct isis_extended_reach *reach;
+	struct json_object *json_area, *json_level;
+	char buf[32];
+	bool found_srlg = false;
+
+	frr_each (isis_area_list, &isis->area_list, area) {
+		if (json) {
+			json_area = json_object_new_object();
+			json_object_object_add(json, area->area_tag, json_area);
+		} else {
+			vty_out(vty, "Area %s:\n", area->area_tag);
+		}
+
+		for (int lev = ISIS_LEVEL1; lev <= ISIS_LEVEL2; lev++) {
+			if (!(level & lev))
+				continue;
+
+			json_level = NULL;
+			if (json) {
+				snprintf(buf, sizeof(buf), "level-%d", lev);
+				json_level = json_object_new_array();
+				json_object_object_add(json_area, buf, json_level);
+			}
+
+			frr_each (lspdb, &area->lspdb[lev - 1], lsp) {
+				if (!lsp->tlvs)
+					continue;
+
+				/* Check Extended IS Reachability TLV */
+				for (reach = (struct isis_extended_reach *)
+						     lsp->tlvs->extended_reach.head;
+				     reach; reach = reach->next) {
+					if (!reach->subtlvs)
+						continue;
+					if (!IS_SUBTLV(reach->subtlvs, EXT_SRLG))
+						continue;
+					if (reach->subtlvs->srlg_num == 0)
+						continue;
+
+					show_isis_srlg_link(vty, json_level, lsp, reach, lev,
+							    &found_srlg);
+				}
+			}
+
+			if (!json && !found_srlg)
+				vty_out(vty, "  Level-%d: No SRLG information found\n", lev);
+			found_srlg = false;
+		}
+	}
+}
+
+DEFUN(show_isis_srlg,
+      show_isis_srlg_cmd,
+      "show " PROTO_NAME " [vrf <NAME|all>] srlg [level-1|level-2] [json]",
+      SHOW_STR PROTO_HELP VRF_CMD_HELP_STR "All VRFs\n"
+      "Shared Risk Link Group information\n"
+      "Level-1 SRLG\n" "Level-2 SRLG\n" JSON_STR)
+{
+	int idx_vrf = 0;
+	int idx = 0;
+	int levels;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	bool uj = use_json(argc, argv);
+	struct isis *isis;
+	struct json_object *json = NULL;
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+
+	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (argv_find(argv, argc, "level-1", &idx))
+		levels = ISIS_LEVEL1;
+	else if (argv_find(argv, argc, "level-2", &idx))
+		levels = ISIS_LEVEL2;
+	else
+		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (all_vrf) {
+		frr_each (isis_instance_list, &im->isis, isis)
+			show_isis_srlg_common(vty, json, isis, levels);
+	} else {
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis)
+			show_isis_srlg_common(vty, json, isis, levels);
+	}
+
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
+}
+
 #endif /* #ifndef FRABRICD */
 
 /* Initialize MPLS_TE */
@@ -2105,6 +2246,7 @@ void isis_mpls_te_init(void)
 	install_element(VIEW_NODE, &show_isis_mpls_te_router_cmd);
 	install_element(VIEW_NODE, &show_isis_mpls_te_interface_cmd);
 	install_element(VIEW_NODE, &show_isis_mpls_te_db_cmd);
+	install_element(VIEW_NODE, &show_isis_srlg_cmd);
 #endif
 
 	return;
