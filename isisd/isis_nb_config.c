@@ -3403,6 +3403,29 @@ int isis_instance_segment_routing_srv6_interface_modify(struct nb_cb_modify_args
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/fast-reroute/ti-lfa/enable
+ */
+int isis_instance_segment_routing_srv6_frr_tilfa_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.tilfa_enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (area->srv6db.config.tilfa_enabled)
+		sr_debug("Enabling SRv6 TI-LFA for IS-IS area %s", area->area_tag);
+	else
+		sr_debug("Disabling SRv6 TI-LFA for IS-IS area %s", area->area_tag);
+
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)

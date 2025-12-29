@@ -2085,6 +2085,32 @@ void cli_show_isis_srv6_interface(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/fast-reroute/ti-lfa/enable
+ */
+DEFPY_YANG (isis_srv6_frr_tilfa,
+       isis_srv6_frr_tilfa_cmd,
+       "[no] fast-reroute ti-lfa",
+       NO_STR
+       "Configure Fast ReRoute\n"
+       "Enable TI-LFA with SRv6\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./fast-reroute/ti-lfa/enable", NB_OP_MODIFY, "false");
+	else
+		nb_cli_enqueue_change(vty, "./fast-reroute/ti-lfa/enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srv6_frr_tilfa(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	vty_out(vty, "  fast-reroute ti-lfa\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
  */
 DEFPY_YANG (isis_frr_lfa_priority_limit,
@@ -3701,6 +3727,7 @@ void isis_cli_init(void)
 	install_element(ISIS_SRV6_NODE, &isis_srv6_locator_cmd);
 	install_element(ISIS_SRV6_NODE, &isis_srv6_node_msd_cmd);
 	install_element(ISIS_SRV6_NODE, &isis_srv6_interface_cmd);
+	install_element(ISIS_SRV6_NODE, &isis_srv6_frr_tilfa_cmd);
 	install_element(ISIS_SRV6_NODE_MSD_NODE, &isis_srv6_node_msd_max_segs_left_cmd);
 	install_element(ISIS_SRV6_NODE_MSD_NODE, &isis_srv6_node_msd_max_end_pop_cmd);
 	install_element(ISIS_SRV6_NODE_MSD_NODE, &isis_srv6_node_msd_max_h_encaps_cmd);
