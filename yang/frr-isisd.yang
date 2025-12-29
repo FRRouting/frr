@@ -1818,6 +1818,18 @@ module frr-isisd {
                 "Array of Attribute Names";
             }
           }
+          container srlg-exclude-anies {
+            description
+              "Exclude links with specified SRLG values";
+            leaf-list srlg-exclude-any {
+              type uint32 {
+                range "0..16777215";
+              }
+              max-elements "16";
+              description
+                "SRLG value to exclude from path computation";
+            }
+          }
           leaf prefix-metric {
             type empty;
             description
