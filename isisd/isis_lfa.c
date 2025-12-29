@@ -537,6 +537,13 @@ static int tilfa_mpls_repair_list_apply(struct isis_spftree *spftree,
 	return 0;
 }
 
+/* Forward declarations for functions used by SRv6 TI-LFA */
+static bool lfa_ext_p_space_check(const struct isis_spftree *spftree_pc,
+				  const struct isis_vertex *vertex_dest,
+				  const struct isis_vertex *vertex);
+static bool lfa_q_space_check(const struct isis_spftree *spftree_pc,
+			      const struct isis_vertex *vertex);
+
 /*
  * SRv6 TI-LFA: Compute segment stack from repair list.
  * Unlike MPLS, SRv6 SIDs are direct IPv6 addresses (no SRGB translation).

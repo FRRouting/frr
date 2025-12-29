@@ -2134,6 +2134,20 @@ module frr-isisd {
           description
             "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
         }
+        container fast-reroute {
+          description
+            "SRv6 Fast ReRoute (FRR) configuration.";
+          container ti-lfa {
+            description
+              "Topology Independent Loop-Free Alternate (TI-LFA) configuration.";
+            leaf enable {
+              type boolean;
+              default "false";
+              description
+                "Enable TI-LFA with SRv6 for fast reroute.";
+            }
+          }
+        }
       }
 
       container mpls {
