@@ -996,6 +996,8 @@ static const char *lfa_protection_type2str(enum lfa_protection_type type)
 		return "link protection";
 	case LFA_NODE_PROTECTION:
 		return "node protection";
+	case LFA_SRLG_PROTECTION:
+		return "SRLG protection";
 	default:
 		return "unknown protection type";
 	}
@@ -1004,7 +1006,23 @@ static const char *lfa_protection_type2str(enum lfa_protection_type type)
 static const char *lfa_protected_resource2str(const struct lfa_protected_resource *resource)
 {
 	const uint8_t *fail_id;
-	static char buffer[128];
+	static char buffer[256];
+
+	if (resource->type == LFA_SRLG_PROTECTION) {
+		char srlg_str[128] = "";
+		size_t offset = 0;
+
+		for (uint8_t i = 0; i < resource->srlg_count && i < LFA_MAX_SRLG; i++) {
+			int ret = snprintf(srlg_str + offset, sizeof(srlg_str) - offset, "%s%u",
+					   i > 0 ? "," : "", resource->srlgs[i]);
+			if (ret < 0 || (size_t)ret >= sizeof(srlg_str) - offset)
+				break;
+			offset += ret;
+		}
+		snprintf(buffer, sizeof(buffer), "SRLG [%s] failure (%s)", srlg_str,
+			 lfa_protection_type2str(resource->type));
+		return buffer;
+	}
 
 	fail_id = resource->adjacency;
 	snprintf(buffer, sizeof(buffer), "%s.%u's failure (%s)", print_sys_hostname(fail_id),
@@ -1013,10 +1031,48 @@ static const char *lfa_protected_resource2str(const struct lfa_protected_resourc
 	return buffer;
 }
 
+/*
+ * Check if an adjacency shares any SRLG with the protected resource.
+ * Note: SRLG TLV (RFC 5307 sub-TLV 16) parsing is not yet implemented in FRR.
+ * This function provides the framework for SRLG-disjoint path computation
+ * once SRLG TLV support is added to isis_tlvs.c.
+ *
+ * Returns true if the adjacency shares any SRLG with the protected resource.
+ */
+static bool spf_adj_check_srlg_affected(const struct isis_spf_adj *sadj,
+					const struct lfa_protected_resource *resource)
+{
+	/*
+	 * TODO: When SRLG TLV parsing is implemented, check if any SRLG
+	 * value from sadj->subtlvs->srlgs matches any value in resource->srlgs.
+	 *
+	 * For now, return false as SRLG information is not available.
+	 * Once SRLG TLV parsing is added, this should be:
+	 *
+	 * if (!sadj->subtlvs || !sadj->subtlvs->srlg_count)
+	 *     return false;
+	 *
+	 * for (uint8_t i = 0; i < resource->srlg_count; i++) {
+	 *     for (uint8_t j = 0; j < sadj->subtlvs->srlg_count; j++) {
+	 *         if (resource->srlgs[i] == sadj->subtlvs->srlgs[j])
+	 *             return true;
+	 *     }
+	 * }
+	 */
+	(void)sadj;
+	(void)resource;
+
+	return false;
+}
+
 static bool spf_adj_check_is_affected(const struct isis_spf_adj *sadj,
 				      const struct lfa_protected_resource *resource,
 				      const uint8_t *root_sysid, bool reverse)
 {
+	/* Handle SRLG protection separately */
+	if (resource->type == LFA_SRLG_PROTECTION)
+		return spf_adj_check_srlg_affected(sadj, resource);
+
 	if (!!CHECK_FLAG(sadj->flags, F_ISIS_SPF_ADJ_BROADCAST) !=
 	    !!LSP_PSEUDO_ID(resource->adjacency))
 		return false;
@@ -1226,7 +1282,8 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 		struct isis_vertex_adj *vadj;
 		bool reverse = false;
 
-		if (p_space && resource->type == LFA_NODE_PROTECTION) {
+		if (p_space && (resource->type == LFA_NODE_PROTECTION ||
+				resource->type == LFA_SRLG_PROTECTION)) {
 			if (isis_spf_node_find(&resource->nodes, vertex->N.id))
 				return true;
 			goto parents;
@@ -1392,8 +1449,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area, struct isis_spft
 		zlog_debug("ISIS-LFA: computing TI-LFAs for %s",
 			   lfa_protected_resource2str(resource));
 
-	/* Populate list of nodes affected by link failure. */
-	if (resource->type == LFA_NODE_PROTECTION) {
+	/* Populate list of nodes affected by link/node/SRLG failure. */
+	if (resource->type == LFA_NODE_PROTECTION || resource->type == LFA_SRLG_PROTECTION) {
 		isis_spf_node_list_init(&resource->nodes);
 		RB_FOREACH (adj_node, isis_spf_nodes, &spftree->adj_nodes) {
 			if (spf_adj_node_is_affected(adj_node, resource, spftree->sysid))
@@ -1419,8 +1476,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area, struct isis_spft
 	/* Re-run SPF in the local node to find the post-convergence paths. */
 	isis_run_spf(spftree_pc);
 
-	/* Clear list of nodes affeted by link failure. */
-	if (resource->type == LFA_NODE_PROTECTION)
+	/* Clear list of nodes affected by failure. */
+	if (resource->type == LFA_NODE_PROTECTION || resource->type == LFA_SRLG_PROTECTION)
 		isis_spf_node_list_clear(&resource->nodes);
 
 	return spftree_pc;

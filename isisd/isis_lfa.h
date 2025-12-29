@@ -125,7 +125,11 @@ struct isis_spf_node {
 enum lfa_protection_type {
 	LFA_LINK_PROTECTION = 1,
 	LFA_NODE_PROTECTION,
+	LFA_SRLG_PROTECTION,
 };
+
+/* Maximum number of SRLGs that can be protected simultaneously */
+#define LFA_MAX_SRLG 16
 
 struct lfa_protected_resource {
 	/* The protection type. */
@@ -136,6 +140,10 @@ struct lfa_protected_resource {
 
 	/* List of nodes reachable over the protected interface. */
 	struct isis_spf_nodes nodes;
+
+	/* SRLG protection: list of protected SRLG values. */
+	uint32_t srlgs[LFA_MAX_SRLG];
+	uint8_t srlg_count;
 };
 
 /* Forward declaration(s). */
