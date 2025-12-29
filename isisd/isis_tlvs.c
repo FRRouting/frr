@@ -1653,9 +1653,8 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 				admin_group_bulk_set(&asla->ext_admin_group,
 						     val, i);
 			}
-			if (subsubtlv_len % sizeof(uint32_t) != 0) {
+			if (subsubtlv_len % sizeof(uint32_t) != 0)
 				zlog_warn("Extended Admin Group length is not multiple of 4 bytes");
-			}
 			stream_forward_getp(s, subsubtlv_len % sizeof(uint32_t));
 			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
 			break;
@@ -1785,6 +1784,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 		/* before processing next subsubtlv, check subsubtlv_len to prevent underflow and subsequent infinite loop or assertion failure. Since default branch does not perform any check against subsubtlv_len. */
 		if (readable < subsubtlv_len) {
 			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			XFREE(MTYPE_ISIS_SUBTLV, asla);
 			return -1;
 		}
 		readable -= subsubtlv_len;
