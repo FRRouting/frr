@@ -56,6 +56,16 @@ static inline bool is_all_zero(const unsigned char *data, int len)
 	return true;
 }
 
+static inline bool is_all_ones(const unsigned char *data, int len)
+{
+	for (int j = 0; j < len; j++) {
+		if (data[j] != 0xFF) {
+			return false;
+		}
+	}
+	return true;
+}
+
 /*
  * Parse a network prefix, encoded in the somewhat baroque compressed
  * representation used by Babel.  Return the number of bytes parsed.
@@ -261,6 +271,19 @@ static int parse_ihu_subtlv(const unsigned char *a, int alen, unsigned int *hell
 			return -1;
 		}
 
+		if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
+			/*
+			 * RFC 8966 4.4
+			 * If the mandatory bit is set, then the whole enclosing
+			 * TLV MUST be silently ignored (except for updating the
+			 * parser state by a Router-Id, Next Hop, or Update TLV, as
+			 * described in the next section).
+			 */
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			return -2;
+		}
+
 		if (type == SUBTLV_PADN) {
 			if (!is_all_zero(a + i + 2, len)) {
 				debugf(BABEL_DEBUG_COMMON,
@@ -303,6 +326,18 @@ static int parse_request_subtlv(int ae, const unsigned char *a, int alen,
 		len = a[i + 1];
 		if (i + 2 + len > alen)
 			goto fail;
+		if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
+			/*
+			 * RFC 8966 4.4
+			 * If the mandatory bit is set, then the whole enclosing
+			 * TLV MUST be silently ignored (except for updating the
+			 * parser state by a Router-Id, Next Hop, or Update TLV,
+			 * as described in the next section).
+			 */
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			return -2;
+		}
 
 		if (type == SUBTLV_PADN) {
 			/* Nothing to do. */
@@ -336,6 +371,58 @@ static int parse_request_subtlv(int ae, const unsigned char *a, int alen,
 fail:
 	flog_err(EC_BABEL_PACKET, "Received truncated sub-TLV on Route Request.");
 	return -1;
+}
+
+static int parse_subtlv_no_special_action(const unsigned char *a, int alen)
+{
+	int type, len, i = 0;
+
+	while (i < alen) {
+		type = a[i];
+		if (type == SUBTLV_PAD1) {
+			i++;
+			continue;
+		}
+
+		if (i + 1 >= alen) {
+			flog_err(EC_BABEL_PACKET, "Received truncated sub-TLV on Ack-Req message.");
+			return -1;
+		}
+		len = a[i + 1];
+		if (i + len + 2 > alen) {
+			flog_err(EC_BABEL_PACKET, "Received truncated sub-TLV on Ack-Req message.");
+			return -1;
+		}
+
+		if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
+			/*
+			 * RFC 8966 4.4
+			 * If the mandatory bit is set, then the whole enclosing
+			 * TLV MUST be silently ignored (except for updating the
+			 * parser state by a Router-Id, Next Hop, or Update TLV, as
+			 * described in the next section).
+			 */
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			return -2;
+		}
+
+		switch (type) {
+		case SUBTLV_PADN:
+		case SUBTLV_DIVERSITY:
+		case SUBTLV_TIMESTAMP:
+		case SUBTLV_SOURCE_PREFIX:
+			break;
+		default: {
+			debugf(BABEL_DEBUG_COMMON, "Received unknown Request sub-TLV type %d.",
+			       type);
+			return -1;
+		}
+		}
+
+		i += len + 2;
+	}
+	return 0;
 }
 
 static int network_address(int ae, const unsigned char *a, unsigned int len, unsigned char *a_r)
@@ -461,23 +548,42 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			debugf(BABEL_DEBUG_COMMON, "Received pad%d from %s on %s.", len,
 			       format_address(from), ifp->name);
 		} else if (type == MESSAGE_ACK_REQ) {
-			unsigned short nonce, interval, Reserved;
-			DO_NTOHS(Reserved, message + 2);
+			unsigned short nonce, interval;
 			DO_NTOHS(nonce, message + 4);
 			DO_NTOHS(interval, message + 6);
-			if (Reserved != RESERVED) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received ack-req (%04X %d) with non zero Reserved from %s on %s.",
-				       nonce, interval, format_address(from), ifp->name);
-				goto done;
-			}
 			debugf(BABEL_DEBUG_COMMON, "Received ack-req (%04X %d) from %s on %s.",
 			       nonce, interval, format_address(from), ifp->name);
+			if (interval == 0) {
+				debugf(BABEL_DEBUG_COMMON,
+				       "Received ack-req from %s on %s with zero interval, ignoring.",
+				       format_address(from), ifp->name);
+				goto done;
+			}
+			/* handling of ack-req sub-TLVs could go here */
+			if (len > 6) {
+				int ret = parse_subtlv_no_special_action(message + 8, len - 6);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received Ack-Req with subtlv Mandatory bit set, ignoring entire Ack-Req TLV as per RFC 8966");
+					goto done;
+				}
+			}
 			send_ack(neigh, nonce, interval);
 		} else if (type == MESSAGE_ACK) {
 			debugf(BABEL_DEBUG_COMMON, "Received ack from %s on %s.",
 			       format_address(from), ifp->name);
 			/* Nothing right now */
+			/* Handling of ack sub-TLVs could go here */
+			if (len > 2) {
+				int ret = parse_subtlv_no_special_action(message + 4, len - 2);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received Ack with subtlv Mandatory bit set, ignoring entire Ack TLV as per RFC 8966");
+					goto done;
+				}
+			}
 		} else if (type == MESSAGE_HELLO) {
 			unsigned short seqno, interval, flags;
 			int changed;
@@ -515,31 +621,31 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				goto done;
 			}
 
-			changed = update_neighbour(neigh, seqno, interval);
-			update_neighbour_metric(neigh, changed);
 			if (interval > 0)
 				/* Multiply by 3/2 to allow hellos to expire. */
 				schedule_neighbours_check(interval * 15, 0);
 			/* Sub-TLV handling. */
 			if (len > 8) {
-				if (parse_hello_subtlv(message + 8, len - 6, &timestamp) > 0) {
+				int ret = parse_hello_subtlv(message + 8, len - 6, &timestamp);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received Hello with subtlv Mandatory bit set, ignoring entire Hello TLV as per RFC 8966");
+					goto done;
+				}
+				if (ret > 0) {
 					neigh->hello_send_us = timestamp;
 					neigh->hello_rtt_receive_time = babel_now;
 					have_hello_rtt = 1;
 				}
 			}
+			/* Moving the update code to the end of the block to ensure we have processed sub-TLVs first */
+			changed = update_neighbour(neigh, seqno, interval);
+			update_neighbour_metric(neigh, changed);
 		} else if (type == MESSAGE_IHU) {
 			unsigned short txcost, interval;
-			unsigned char Reserved;
 			unsigned char address[16];
 			int rc;
-			Reserved = message[3];
-			if (Reserved != RESERVED) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received ihu with non zero Reserved from %s on %s.",
-				       format_address(from), ifp->name);
-				goto done;
-			}
 			DO_NTOHS(txcost, message + 4);
 			DO_NTOHS(interval, message + 6);
 			rc = network_address(message[2], message + 8, len - 6, address);
@@ -549,6 +655,17 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			       txcost, interval, format_address(from), ifp->name,
 			       format_address(address));
 			if (message[2] == 0 || is_interface_ll_address(ifp, address)) {
+				int ret = -3;
+				if (len > 10 + rc)
+					ret = parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
+							       &hello_send_us,
+							       &hello_rtt_receive_time);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received IHU with subtlv Mandatory bit set, ignoring entire IHU TLV as per RFC 8966");
+					goto done;
+				}
 				int changed = txcost != neigh->txcost;
 				neigh->txcost = txcost;
 				neigh->ihu_time = babel_now;
@@ -558,15 +675,32 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					/* Multiply by 3/2 to allow neighbours to expire. */
 					schedule_neighbours_check(interval * 45, 0);
 				/* RTT sub-TLV. */
-				if (len > 10 + rc)
-					parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
-							 &hello_send_us, &hello_rtt_receive_time);
 			}
 		} else if (type == MESSAGE_ROUTER_ID) {
 			memcpy(router_id, message + 4, 8);
 			have_router_id = 1;
 			debugf(BABEL_DEBUG_COMMON, "Received router-id %s from %s on %s.",
 			       format_eui64(router_id), format_address(from), ifp->name);
+			if (is_all_zero(router_id, 8)) {
+				flog_err(EC_BABEL_PACKET,
+					 "Received router id with all-zero value.");
+				goto fail;
+			}
+			if (is_all_ones(router_id, 8)) {
+				flog_err(EC_BABEL_PACKET,
+					 "Received router id with all-ones value.");
+				goto fail;
+			}
+			/* handle sub-TLVs */
+			if (len > 10) {
+				int ret = parse_subtlv_no_special_action(message + 12, len - 10);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received Router-ID with subtlv Mandatory bit set, ignoring entire Router-ID TLV as per RFC 8966");
+					goto done;
+				}
+			}
 		} else if (type == MESSAGE_NH) {
 			unsigned char nh[16];
 			int rc;
@@ -585,6 +719,19 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			}
 			debugf(BABEL_DEBUG_COMMON, "Received nh %s (%d) from %s on %s.",
 			       format_address(nh), message[2], format_address(from), ifp->name);
+
+			/* handling sub-tlvs */
+			if (len > 2 + rc) {
+				int ret = parse_subtlv_no_special_action(message + 4 + rc,
+									 len - 2 - rc);
+				if (ret == -2) {
+					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
+					debugf(BABEL_DEBUG_COMMON,
+					       "Received NH with subtlv Mandatory bit set, ignoring entire NH TLV as per RFC 8966");
+					goto done;
+				}
+			}
+
 			if (message[2] == 1) {
 				memcpy(v4_nh, nh, 16);
 				have_v4_nh = 1;
@@ -651,6 +798,19 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				}
 				have_router_id = 1;
 			}
+			/* Adding check for router id that must not be all zeroes or all ones */
+			if (have_router_id) {
+				if (is_all_zero(router_id, 8)) {
+					flog_err(EC_BABEL_PACKET,
+						 "Received prefix with all-zero router id.");
+					goto fail;
+				}
+				if (is_all_ones(router_id, 8)) {
+					flog_err(EC_BABEL_PACKET,
+						 "Received prefix with all-ones router id.");
+					goto fail;
+				}
+			}
 			if (metric < INFINITY && !have_router_id && message[2] != 0) {
 				flog_err(EC_BABEL_PACKET, "Received prefix with no router id.");
 				goto fail;
@@ -682,6 +842,13 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				nh = v6_nh;
 			} else {
 				nh = neigh->address;
+			}
+
+			// Add check that if AE (message[2]) is 3 (link-local IPv6), then Omitted (message[5]) must be 0
+			if (message[2] == 3 && message[5] != 0) {
+				flog_err(EC_BABEL_PACKET,
+					 "Received link-local IPv6 update with non-zero Omitted.");
+				goto fail;
 			}
 
 			if (message[2] == 1) {
@@ -770,15 +937,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				send_update(neigh->ifp, 0, prefix, plen);
 			}
 		} else if (type == MESSAGE_MH_REQUEST) {
-			unsigned char prefix[16], plen, Reserved;
+			unsigned char prefix[16], plen;
 			unsigned short seqno;
-			Reserved = message[7];
-			if (Reserved != RESERVED) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received request with non zero Reserved from %s on %s.",
-				       format_address(from), ifp->name);
-				goto done;
-			}
 			int rc;
 			DO_NTOHS(seqno, message + 4);
 			rc = network_prefix(message[2], message[3], 0, message + 16, NULL,
