@@ -2415,8 +2415,29 @@ static void isis_spf_run_tilfa(struct isis_area *area, struct isis_circuit *circ
 {
 	struct isis_spftree *spftree_pc_link;
 	struct isis_spftree *spftree_pc_node;
+	struct isis_spftree *spftree_pc_srlg;
 
-	/* Compute node protecting repair paths first (if necessary). */
+	/* Compute SRLG protecting repair paths first (if necessary). */
+	if (circuit->tilfa_srlg_protection[spftree->level - 1]) {
+		/* Check if circuit has SRLG values configured */
+		if (circuit->ext && circuit->ext->srlg_num > 0) {
+			uint8_t i;
+
+			resource->type = LFA_SRLG_PROTECTION;
+			resource->srlg_count = circuit->ext->srlg_num;
+			for (i = 0; i < circuit->ext->srlg_num && i < LFA_MAX_SRLG; i++)
+				resource->srlgs[i] = circuit->ext->srlgs[i];
+
+			spftree_pc_srlg = isis_tilfa_compute(area, spftree, spftree_reverse,
+							     resource);
+			isis_spftree_del(spftree_pc_srlg);
+
+			/* Reset SRLG info for subsequent computations */
+			resource->srlg_count = 0;
+		}
+	}
+
+	/* Compute node protecting repair paths (if necessary). */
 	if (circuit->tilfa_node_protection[spftree->level - 1]) {
 		resource->type = LFA_NODE_PROTECTION;
 		spftree_pc_node = isis_tilfa_compute(area, spftree, spftree_reverse, resource);

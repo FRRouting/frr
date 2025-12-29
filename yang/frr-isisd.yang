@@ -565,6 +565,13 @@ module frr-isisd {
         description
           "Fallback to link protection.";
       }
+      leaf srlg-protection {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "SRLG-disjoint protection is provided by the alternate.";
+      }
     }
   }
 
