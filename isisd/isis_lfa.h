@@ -10,8 +10,10 @@
 #include "lib/typesafe.h"
 #include "lib/zclient.h"
 #include "lib/memory.h"
+#include "lib/srv6.h"
 
 DECLARE_MTYPE(ISIS_NEXTHOP_LABELS);
+DECLARE_MTYPE(ISIS_SRV6_SEG_STACK);
 
 PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree);
 PREDECL_RBTREE_UNIQ(rlfa_tree);
@@ -55,6 +57,29 @@ struct isis_tilfa_sid {
 		} index;
 		mpls_label_t label;
 	} value;
+};
+
+/*
+ * SRv6 TI-LFA support - uses SRv6 SIDs instead of MPLS labels
+ */
+
+/* SRv6 TI-LFA SID types */
+enum isis_tilfa_srv6_sid_type {
+	TILFA_SRV6_SID_END = 1, /* End SID (node SID) - replaces Prefix-SID */
+	TILFA_SRV6_SID_END_X,	/* End.X SID (adjacency) - replaces Adj-SID */
+};
+
+/* SRv6 TI-LFA SID entry */
+struct isis_tilfa_srv6_sid {
+	enum isis_tilfa_srv6_sid_type type;
+	struct in6_addr sid;		       /* Actual IPv6 SID value */
+	uint8_t remote_sysid[ISIS_SYS_ID_LEN]; /* Source node for this SID */
+};
+
+/* SRv6 segment stack for backup paths */
+struct isis_srv6_seg_stack {
+	uint8_t num_segs;
+	struct in6_addr segs[SRV6_MAX_SEGS]; /* Max 8 segments */
 };
 
 enum spf_prefix_priority {
