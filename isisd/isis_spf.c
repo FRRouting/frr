@@ -48,6 +48,7 @@
 #include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
+#include "isis_lfa.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE, "ISIS SPFtree");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
@@ -220,6 +221,8 @@ void isis_vertex_adj_free(void *arg)
 {
 	struct isis_vertex_adj *vadj = arg;
 
+	XFREE(MTYPE_ISIS_NEXTHOP_LABELS, vadj->label_stack);
+	XFREE(MTYPE_ISIS_SRV6_SEG_STACK, vadj->srv6_seg_stack);
 	XFREE(MTYPE_ISIS_VERTEX_ADJ, vadj);
 }
 
