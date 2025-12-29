@@ -1287,6 +1287,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/srlg",
+			.cbs = {
+				.cli_show = cli_show_isis_srlg,
+				.create = lib_interface_isis_srlg_create,
+				.destroy = lib_interface_isis_srlg_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis",
 			.cbs = {
 				.get_elem = lib_interface_state_isis_get_elem,

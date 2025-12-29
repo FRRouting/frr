@@ -4647,3 +4647,82 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/srlg
+ */
+int lib_interface_isis_srlg_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	uint32_t srlg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	/* Ensure ext subtlvs structure exists */
+	if (!circuit->ext) {
+		circuit->ext = isis_alloc_ext_subtlvs();
+		circuit->ext->status = EXT_DISABLE;
+	}
+
+	/* Add SRLG value if not already present and space available */
+	if (circuit->ext->srlg_num < ISIS_SUBTLV_SRLG_MAX_ENTRIES) {
+		uint8_t i;
+		bool found = false;
+
+		for (i = 0; i < circuit->ext->srlg_num; i++) {
+			if (circuit->ext->srlgs[i] == srlg) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			circuit->ext->srlgs[circuit->ext->srlg_num++] = srlg;
+			SET_SUBTLV(circuit->ext, EXT_SRLG);
+		}
+	}
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int lib_interface_isis_srlg_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	uint32_t srlg;
+	uint8_t i, j;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (circuit->ext && circuit->ext->srlg_num > 0) {
+		for (i = 0; i < circuit->ext->srlg_num; i++) {
+			if (circuit->ext->srlgs[i] == srlg) {
+				/* Shift remaining entries */
+				for (j = i; j < circuit->ext->srlg_num - 1; j++)
+					circuit->ext->srlgs[j] = circuit->ext->srlgs[j + 1];
+				circuit->ext->srlg_num--;
+				if (circuit->ext->srlg_num == 0)
+					UNSET_SUBTLV(circuit->ext, EXT_SRLG);
+				break;
+			}
+		}
+	}
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}

@@ -3400,6 +3400,37 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty, const struct lyd_n
 	vty_out(vty, " isis mpls ldp-sync holddown %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/srlg
+ */
+DEFPY_YANG(isis_srlg, isis_srlg_cmd,
+	   "[no] isis srlg (0-16777215)$srlg",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Shared Risk Link Group\n"
+	   "SRLG value\n")
+{
+	const struct lyd_node *dnode;
+	char xpath[XPATH_MAXLEN];
+
+	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	snprintf(xpath, sizeof(xpath), "./frr-isisd:isis/srlg[.='%s']", srlg_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srlg(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " isis srlg %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 		"Flexible Algorithm\n"
 		"Flexible Algorithm Number\n")
@@ -3783,6 +3814,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
 	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
+	install_element(INTERFACE_NODE, &isis_srlg_cmd);
 
 	install_element(ISIS_NODE, &flex_algo_cmd);
 	install_element(ISIS_NODE, &no_flex_algo_cmd);

@@ -869,6 +869,16 @@ module frr-isisd {
       }
     }
 
+    leaf-list srlg {
+      type uint32 {
+        range "0..16777215";
+      }
+      max-elements "16";
+      description
+        "Shared Risk Link Group (SRLG) values for this interface.
+         Used by TI-LFA to compute SRLG-disjoint backup paths.";
+    }
+
     container fast-reroute {
       description
         "Interface IP Fast-reroute configuration.";
