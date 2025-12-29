@@ -808,6 +808,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/srlg-exclude-anies/srlg-exclude-any",
+			.cbs = {
+				.create = isis_instance_flex_algo_srlg_exclude_any_create,
+				.destroy = isis_instance_flex_algo_srlg_exclude_any_destroy,
+				.cli_show = cli_show_isis_flex_algo_srlg_exclude_any,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric",
 			.cbs = {
 				.create = isis_instance_flex_algo_prefix_metric_create,

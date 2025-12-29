@@ -2915,6 +2915,87 @@ int isis_instance_flex_algo_affinity_exclude_any_destroy(struct nb_cb_destroy_ar
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/srlg-exclude-anies/srlg-exclude-any
+ */
+
+int isis_instance_flex_algo_srlg_exclude_any_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t srlg;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		if (fa->exclude_srlg_count >= FLEX_ALGO_MAX_SRLG) {
+			snprintf(args->errmsg, args->errmsg_len, "maximum SRLG count reached");
+			return NB_ERR_RESOURCE;
+		}
+		fa->exclude_srlgs[fa->exclude_srlg_count++] = srlg;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_srlg_exclude_any_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t srlg;
+	uint8_t i, j;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		/* Remove the SRLG from the array */
+		for (i = 0; i < fa->exclude_srlg_count; i++) {
+			if (fa->exclude_srlgs[i] == srlg) {
+				for (j = i; j < fa->exclude_srlg_count - 1; j++)
+					fa->exclude_srlgs[j] = fa->exclude_srlgs[j + 1];
+				fa->exclude_srlg_count--;
+				break;
+			}
+		}
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric
  */
 

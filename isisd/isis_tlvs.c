@@ -4739,7 +4739,9 @@ static size_t isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *
 	if (fad->fad.flags != 0)
 		sz += ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE + 2;
 
-	/* TODO: add exclude SRLG sub-sub-TLV length when supported */
+	/* Exclude SRLG sub-sub-TLV: type(1) + len(1) + values(4 * count) */
+	if (fad->fad.exclude_srlg_count > 0)
+		sz += sizeof(uint32_t) * fad->fad.exclude_srlg_count + 2;
 
 	return sz;
 }
@@ -4934,6 +4936,14 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS);
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE);
 			stream_putc(s, fad->fad.flags);
+		}
+
+		/* Exclude SRLG sub-sub-TLV */
+		if (fad->fad.exclude_srlg_count > 0) {
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG);
+			stream_putc(s, sizeof(uint32_t) * fad->fad.exclude_srlg_count);
+			for (j = 0; j < fad->fad.exclude_srlg_count; j++)
+				stream_putl(s, fad->fad.exclude_srlgs[j]);
 		}
 	}
 #endif /* ifndef FABRICD */
@@ -5295,7 +5305,16 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 					break;
 				case ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG:
 					fad->fad.exclude_srlg = true;
-					stream_forward_getp(s, subsubtlv_len);
+					/* Parse SRLG values (4 bytes each) */
+					while (subsubtlv_len >= 4 &&
+					       fad->fad.exclude_srlg_count < FLEX_ALGO_MAX_SRLG) {
+						fad->fad.exclude_srlgs[fad->fad.exclude_srlg_count++] =
+							stream_getl(s);
+						subsubtlv_len -= 4;
+					}
+					/* Skip remaining bytes if any */
+					if (subsubtlv_len > 0)
+						stream_forward_getp(s, subsubtlv_len);
 					break;
 				default:
 					sbuf_push(log, indent,

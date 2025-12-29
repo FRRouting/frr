@@ -3539,6 +3539,26 @@ DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
 	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
 }
 
+DEFPY_YANG(srlg_exclude_any, srlg_exclude_any_cmd,
+	   "[no] srlg exclude-any (0-16777215)$srlg",
+	   NO_STR
+	   "SRLG configuration\n"
+	   "Exclude links with SRLG\n"
+	   "SRLG value\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./srlg-exclude-anies/srlg-exclude-any[.='%s']", srlg_str);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_flex_algo_srlg_exclude_any(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	vty_out(vty, "  srlg exclude-any %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 DEFPY_YANG(prefix_metric, prefix_metric_cmd, "[no] prefix-metric",
 	   NO_STR "Use Flex-Algo Prefix Metric\n")
 {
@@ -3844,6 +3864,7 @@ void isis_cli_init(void)
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_any_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_all_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_exclude_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &srlg_exclude_any_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_sr_mpls_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_srv6_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_ip_cmd);
