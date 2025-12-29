@@ -11,6 +11,7 @@
 #define _FRR_ISIS_SRV6_H
 
 #include "lib/srv6.h"
+#include "typesafe.h"
 #include "isisd/isis_tlvs.h"
 
 #define ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD 3
@@ -26,9 +27,11 @@ struct isis_srv6_sid_structure {
 	uint8_t arg_len;
 };
 
+PREDECL_DLIST(isis_srv6_sid_list);
+
 /* SRv6 SID not bound to any adjacency */
 struct isis_srv6_sid {
-	struct isis_srv6_sid *next;
+	struct isis_srv6_sid_list_item item;
 
 	/* SID flags */
 	uint8_t flags;
@@ -49,6 +52,8 @@ struct isis_srv6_sid {
 	struct isis_area *area;
 };
 
+DECLARE_DLIST(isis_srv6_sid_list, struct isis_srv6_sid, item);
+
 /* SRv6 Locator */
 struct isis_srv6_locator {
 	struct isis_srv6_locator *next;
@@ -61,7 +66,7 @@ struct isis_srv6_locator {
 	uint8_t algorithm;
 	struct prefix_ipv6 prefix;
 
-	struct list *srv6_sid;
+	struct isis_srv6_sid_list_head srv6_sid;
 };
 
 /* SRv6 Adjacency-SID type */
@@ -142,6 +147,9 @@ struct isis_srv6_db {
 
 		/* Interface used for installing SRv6 SIDs into the data plane */
 		char srv6_ifname[IF_NAMESIZE];
+
+		/* Enable TI-LFA with SRv6 */
+		bool tilfa_enabled;
 	} config;
 };
 
@@ -178,5 +186,38 @@ struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj, enum 
 void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
 
 int isis_srv6_ifp_up_notify(struct interface *ifp);
+
+/*
+ * TI-LFA SRv6 remote SID lookup functions
+ */
+
+/* Forward declarations */
+struct isis_spftree;
+
+/**
+ * Find End SID for a remote node from its LSP TLV 27 (SRv6 Locator).
+ * Equivalent to looking up Prefix-SID in SR-MPLS TI-LFA.
+ *
+ * @param spftree   SPF tree containing LSPDB
+ * @param sysid     System ID of the remote node
+ * @param sid       Output: the End SID if found
+ * @return          true if End SID found, false otherwise
+ */
+bool isis_srv6_tilfa_find_pnode_end_sid(struct isis_spftree *spftree, const uint8_t *sysid,
+					struct in6_addr *sid);
+
+/**
+ * Find End.X SID from source to neighbor from Extended IS Reach TLV 22.
+ * Looks for Sub-TLV 43 (P2P End.X) or Sub-TLV 44 (LAN End.X).
+ * Equivalent to looking up Adj-SID in SR-MPLS TI-LFA.
+ *
+ * @param spftree       SPF tree containing LSPDB
+ * @param source_sysid  System ID of the source node
+ * @param neighbor_sysid System ID of the neighbor
+ * @param sid           Output: the End.X SID if found
+ * @return              true if End.X SID found, false otherwise
+ */
+bool isis_srv6_tilfa_find_qnode_endx_sid(struct isis_spftree *spftree, const uint8_t *source_sysid,
+					 const uint8_t *neighbor_sysid, struct in6_addr *sid);
 
 #endif /* _FRR_ISIS_SRV6_H */

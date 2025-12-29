@@ -1229,17 +1229,17 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		struct listnode *sid_node;
 		struct isis_srv6_sid *sid;
-		locator.srv6_sid = list_new();
+		isis_srv6_sid_list_init(&locator.srv6_sid);
 		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, sid_node,
 					  sid)) {
-			listnode_add(locator.srv6_sid, sid);
+			isis_srv6_sid_list_add_tail(&locator.srv6_sid, sid);
 		}
 
 		isis_tlvs_add_srv6_locator(lsp->tlvs, isis_area_ipv6_topology(area), &locator);
 		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
 			  area->area_tag);
 
-		list_delete(&locator.srv6_sid);
+		isis_srv6_sid_list_fini(&locator.srv6_sid);
 
 		isis_tlvs_add_ipv6_reach(lsp->tlvs,
 					 isis_area_ipv6_topology(area),
