@@ -2912,11 +2912,25 @@ DEFPY(bgp_enforce_first_as,
       "Enforce the first AS for EBGP routes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
 
-	if (no)
+	if (no) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
-	else
+	} else {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_on_policy_change(peer, afi, safi, 0);
+	}
 
 	return CMD_SUCCESS;
 }
