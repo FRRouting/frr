@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <lib/version.h>
 #include "getopt.h"
@@ -24,6 +25,10 @@
 #include "isisd/isis_spf_private.h"
 
 #include "test_common.h"
+
+/* Forward declaration for grid topology test */
+static int test_run_grid(struct vty *vty, const struct isis_grid_topology *grid,
+			 const struct isis_test_grid_node *root, uint8_t flags);
 
 enum test_type {
 	TEST_SPF = 1,
@@ -325,6 +330,279 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Grid Topology Test Functions (for large-scale stress testing)
+ */
+
+static void test_run_grid_spf(struct vty *vty, const struct isis_grid_topology *grid,
+			      const struct isis_test_grid_node *root, struct isis_area *area,
+			      struct lspdb_head *lspdb, int level, int tree)
+{
+	struct isis_spftree *spftree;
+	struct timeval start, end;
+	long elapsed_us;
+
+	/* Measure SPF computation time */
+	gettimeofday(&start, NULL);
+	spftree = isis_spftree_new(area, lspdb, root->sysid, level, tree, SPF_TYPE_FORWARD,
+				   F_SPFTREE_NO_ADJACENCIES, SR_ALGORITHM_SPF);
+	isis_run_spf(spftree);
+	gettimeofday(&end, NULL);
+
+	elapsed_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+
+	/* Print timing and summary info */
+	vty_out(vty, "SPF computation time: %ld us\n", elapsed_us);
+	vty_out(vty, "Nodes: %u, Tree: %s\n", grid->node_count,
+		tree == SPFTREE_IPV4 ? "IPv4" : "IPv6");
+
+	/* Print the SPT and routing table */
+	isis_print_spftree(vty, spftree, NULL);
+	isis_print_routes(vty, spftree, NULL, false, false);
+
+	isis_spftree_del(spftree);
+}
+
+static void test_run_grid_ti_lfa(struct vty *vty, const struct isis_grid_topology *grid,
+				 const struct isis_test_grid_node *root, struct isis_area *area,
+				 struct lspdb_head *lspdb, int level, int tree,
+				 struct lfa_protected_resource *protected_resource)
+{
+	struct isis_spftree *spftree_self;
+	struct isis_spftree *spftree_reverse;
+	struct isis_spftree *spftree_pc;
+	struct isis_spf_node *node;
+	struct timeval start, end;
+	long elapsed_us;
+	uint8_t flags;
+
+	/* Run forward SPF */
+	flags = F_SPFTREE_NO_ADJACENCIES;
+	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree, SPF_TYPE_FORWARD,
+					flags, SR_ALGORITHM_SPF);
+	isis_run_spf(spftree_self);
+
+	/* Run reverse SPF */
+	spftree_reverse = isis_spf_reverse_run(spftree_self);
+
+	/* Run forward SPF on all neighbors */
+	isis_spf_run_neighbors(spftree_self);
+
+	/* Measure TI-LFA computation time */
+	gettimeofday(&start, NULL);
+	spftree_pc = isis_tilfa_compute(area, spftree_self, spftree_reverse, protected_resource);
+	gettimeofday(&end, NULL);
+
+	elapsed_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+
+	/* Print timing */
+	vty_out(vty, "TI-LFA computation time: %ld us\n", elapsed_us);
+
+	/* Print P-space and Q-space sizes */
+	uint32_t p_count = 0, q_count = 0;
+
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.p_space)
+		p_count++;
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.q_space)
+		q_count++;
+	vty_out(vty, "P-space size: %u, Q-space size: %u\n", p_count, q_count);
+
+	/* Print backup routes */
+	isis_print_routes(vty, spftree_self, NULL, false, true);
+
+	/* Cleanup */
+	isis_spftree_del(spftree_self);
+	isis_spftree_del(spftree_reverse);
+	isis_spftree_del(spftree_pc);
+}
+
+static int test_run_grid(struct vty *vty, const struct isis_grid_topology *grid,
+			 const struct isis_test_grid_node *root, uint8_t flags)
+{
+	struct isis_area *area;
+	static char sysidstr[ISO_SYSID_STRLEN];
+	char net_title[255];
+	uint8_t buff[255];
+	struct iso_address *addr = NULL;
+
+	/* Init area */
+	area = isis_area_create("1", NULL);
+	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
+	area->is_type = IS_LEVEL_1_AND_2;
+	area->srdb.enabled = true;
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
+	snprintfrr(sysidstr, sizeof(sysidstr), "%pSY", area->isis->sysid);
+	snprintf(net_title, sizeof(net_title), "49.%s.00", sysidstr);
+	addr->addr_len = dotformat2buff(buff, net_title);
+	memcpy(addr->area_addr, buff, addr->addr_len);
+	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
+	iso_address_list_add_tail(&area->area_addrs, addr);
+
+	/* Load grid topology into LSPDB */
+	if (test_grid_topology_load(grid, area, area->lspdb) != 0) {
+		vty_out(vty, "%% Failed to load grid topology\n");
+		isis_area_destroy(area);
+		return CMD_WARNING;
+	}
+
+	/* Run tests - grid topology is level-1 only */
+	for (int tree = SPFTREE_IPV4; tree <= SPFTREE_IPV6; tree++) {
+		if (tree == SPFTREE_IPV4 && CHECK_FLAG(flags, F_IPV6_ONLY))
+			continue;
+		if (tree == SPFTREE_IPV6 && CHECK_FLAG(flags, F_IPV4_ONLY))
+			continue;
+
+		test_run_grid_spf(vty, grid, root, area, &area->lspdb[0], IS_LEVEL_1, tree);
+	}
+
+	/* Cleanup */
+	isis_area_destroy(area);
+
+	return CMD_SUCCESS;
+}
+
+static int test_run_grid_with_tilfa(struct vty *vty, const struct isis_grid_topology *grid,
+				    const struct isis_test_grid_node *root,
+				    const char *fail_hostname, uint8_t flags)
+{
+	struct isis_area *area;
+	struct lfa_protected_resource protected_resource = {};
+	const struct isis_test_grid_node *fail_node;
+	static char sysidstr[ISO_SYSID_STRLEN];
+	char net_title[255];
+	uint8_t buff[255];
+	struct iso_address *addr = NULL;
+
+	/* Find the failed node */
+	fail_node = test_grid_topology_find_node(grid, fail_hostname);
+	if (!fail_node) {
+		vty_out(vty, "%% Node \"%s\" not found\n", fail_hostname);
+		return CMD_WARNING;
+	}
+
+	/* Init area */
+	area = isis_area_create("1", NULL);
+	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
+	area->is_type = IS_LEVEL_1_AND_2;
+	area->srdb.enabled = true;
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
+	snprintfrr(sysidstr, sizeof(sysidstr), "%pSY", area->isis->sysid);
+	snprintf(net_title, sizeof(net_title), "49.%s.00", sysidstr);
+	addr->addr_len = dotformat2buff(buff, net_title);
+	memcpy(addr->area_addr, buff, addr->addr_len);
+	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
+	iso_address_list_add_tail(&area->area_addrs, addr);
+
+	/* Load grid topology */
+	if (test_grid_topology_load(grid, area, area->lspdb) != 0) {
+		vty_out(vty, "%% Failed to load grid topology\n");
+		isis_area_destroy(area);
+		return CMD_WARNING;
+	}
+
+	/* Setup protected resource */
+	protected_resource.type = LFA_LINK_PROTECTION;
+	memcpy(protected_resource.adjacency, fail_node->sysid, ISIS_SYS_ID_LEN);
+
+	/* Run TI-LFA tests - grid topology is level-1 only */
+	for (int tree = SPFTREE_IPV4; tree <= SPFTREE_IPV6; tree++) {
+		if (tree == SPFTREE_IPV4 && CHECK_FLAG(flags, F_IPV6_ONLY))
+			continue;
+		if (tree == SPFTREE_IPV6 && CHECK_FLAG(flags, F_IPV4_ONLY))
+			continue;
+
+		test_run_grid_ti_lfa(vty, grid, root, area, &area->lspdb[0], IS_LEVEL_1, tree,
+				     &protected_resource);
+	}
+
+	/* Cleanup */
+	isis_area_destroy(area);
+
+	return CMD_SUCCESS;
+}
+
+/* Dynamic grid topology instance */
+static struct isis_grid_topology dynamic_grid;
+
+DEFUN(test_isis_grid, test_isis_grid_cmd,
+      "test isis grid rows (1-256) cols (1-256) root HOSTNAME\
+         <spf|ti-lfa system-id WORD>\
+	 [<ipv4-only|ipv6-only>] [srv6]",
+      "Test command\n"
+      "IS-IS routing protocol\n"
+      "Grid topology test\n"
+      "Number of rows\n"
+      "Rows (1-256, total nodes must not exceed 256)\n"
+      "Number of columns\n"
+      "Columns (1-256, total nodes must not exceed 256)\n"
+      "SPF root\n"
+      "SPF root hostname\n"
+      "Shortest Path First\n"
+      "Topology Independent LFA\n"
+      "System ID\n"
+      "System ID of failed link endpoint\n"
+      "Do IPv4 processing only\n"
+      "Do IPv6 processing only\n"
+      "Enable SRv6\n")
+{
+	struct isis_grid_topology *grid = &dynamic_grid;
+	const struct isis_test_grid_node *root;
+	uint16_t rows, cols;
+	bool srv6_enabled;
+	uint8_t flags = 0;
+	int idx = 0;
+
+	/* Get grid dimensions */
+	argv_find(argv, argc, "rows", &idx);
+	rows = atoi(argv[idx + 1]->arg);
+	idx = 0;
+	argv_find(argv, argc, "cols", &idx);
+	cols = atoi(argv[idx + 1]->arg);
+
+	if (rows * cols > GRID_MAX_NODES) {
+		vty_out(vty, "%% Grid too large: %u nodes (max %u)\n", rows * cols, GRID_MAX_NODES);
+		return CMD_WARNING;
+	}
+
+	/* Check for SRv6 flag */
+	idx = 0;
+	srv6_enabled = argv_find(argv, argc, "srv6", &idx);
+
+	/* Initialize the grid topology */
+	test_grid_topology_init(grid, 0, rows, cols, srv6_enabled);
+
+	/* Find root node */
+	idx = 0;
+	argv_find(argv, argc, "root", &idx);
+	root = test_grid_topology_find_node(grid, argv[idx + 1]->arg);
+	if (!root) {
+		vty_out(vty, "%% Node \"%s\" not found (valid: rt1-rt%u)\n", argv[idx + 1]->arg,
+			rows * cols);
+		return CMD_WARNING;
+	}
+
+	/* Parse flags */
+	idx = 0;
+	if (argv_find(argv, argc, "ipv4-only", &idx))
+		SET_FLAG(flags, F_IPV4_ONLY);
+	idx = 0;
+	if (argv_find(argv, argc, "ipv6-only", &idx))
+		SET_FLAG(flags, F_IPV6_ONLY);
+
+	/* Run test */
+	idx = 0;
+	if (argv_find(argv, argc, "spf", &idx))
+		return test_run_grid(vty, grid, root, flags);
+	idx = 0;
+	if (argv_find(argv, argc, "ti-lfa", &idx)) {
+		const char *fail_hostname = argv[idx + 2]->arg;
+
+		return test_run_grid_with_tilfa(vty, grid, root, fail_hostname, flags);
+	}
+
+	return CMD_WARNING;
+}
+
 DEFUN(test_isis, test_isis_cmd,
       "test isis topology (1-17) root HOSTNAME\
          <\
@@ -533,8 +811,9 @@ int main(int argc, char **argv)
 	debug_events |= DEBUG_EVENTS;
 	debug_rte_events |= DEBUG_RTE_EVENTS;
 
-	/* Install test command. */
+	/* Install test commands. */
 	install_element(VIEW_NODE, &test_isis_cmd);
+	install_element(VIEW_NODE, &test_isis_grid_cmd);
 
 	/* Read input from .in file. */
 	vty_stdio(vty_do_exit);

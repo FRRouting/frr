@@ -17,6 +17,10 @@
 #define MAX_NODES	12
 #define MAX_SRLGS	4
 
+/* Large-scale topology limits */
+#define GRID_MAX_NODES	     256
+#define GRID_MAX_ADJACENCIES 4
+
 #define SRGB_DFTL_LOWER_BOUND 16000
 #define SRGB_DFTL_RANGE_SIZE  8000
 
@@ -61,6 +65,38 @@ struct isis_topology {
 	struct isis_test_node nodes[MAX_NODES + 1];
 };
 
+/*
+ * Grid topology node structure for large-scale testing.
+ * Supports up to GRID_MAX_NODES nodes with up to 4 adjacencies each.
+ */
+struct isis_test_grid_adj {
+	uint16_t neighbor_id; /* Node ID (1-based) */
+	uint32_t metric;
+};
+
+struct isis_test_grid_node {
+	uint16_t id; /* Node ID (1-based) */
+	char hostname[MAX_HOSTNAME];
+	uint8_t sysid[ISIS_SYS_ID_LEN];
+	int level;
+	char router_id[20];    /* "10.0.X.Y" */
+	char ipv4_net[24];     /* "10.0.X.Y/32" */
+	char ipv6_net[48];     /* "2001:db8::X:Y/128" */
+	char srv6_locator[32]; /* "fc00:X:Y::/48" */
+	char srv6_end_sid[48]; /* "fc00:X:Y::1" */
+	struct isis_test_grid_adj adjacencies[GRID_MAX_ADJACENCIES];
+	uint8_t adj_count;
+	uint8_t flags;
+};
+
+struct isis_grid_topology {
+	uint16_t number;
+	uint16_t rows;
+	uint16_t cols;
+	uint16_t node_count;
+	struct isis_test_grid_node nodes[GRID_MAX_NODES];
+};
+
 /* Prototypes. */
 extern int isis_sock_init(struct isis_circuit *circuit);
 extern const struct isis_test_node *test_topology_find_node(const struct isis_topology *topology,
@@ -72,6 +108,15 @@ extern mpls_label_t test_topology_node_ldp_label(const struct isis_topology *top
 						 struct in_addr router_id);
 extern int test_topology_load(const struct isis_topology *topology, struct isis_area *area,
 			      struct lspdb_head lspdb[]);
+
+/* Grid topology functions */
+extern void test_grid_topology_init(struct isis_grid_topology *grid, uint16_t number,
+				    uint16_t rows, uint16_t cols, bool srv6_enabled);
+extern const struct isis_test_grid_node *
+test_grid_topology_find_node(const struct isis_grid_topology *grid, const char *hostname);
+extern int test_grid_topology_load(const struct isis_grid_topology *grid, struct isis_area *area,
+				   struct lspdb_head lspdb[]);
+extern struct isis_grid_topology *test_grid_topology_get(uint16_t number);
 
 /* Global variables. */
 extern struct event_loop *master;

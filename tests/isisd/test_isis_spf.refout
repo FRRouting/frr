@@ -5838,5 +5838,11 @@ IS-IS L1 IPv6 routing table:
  fc00:0:4::/48    31      -          rt3      -              
  fc00:0:6::/48    41      -          rt3      implicit-null  
 
-test# 
+test# NONE: showing active allocations in memory group libfrr
+NONE: memstats:  Link List                     :      3 *         40
+NONE: memstats:  Link Node                     :      1 *         24
+NONE: showing active allocations in memory group isisd
+NONE: memstats:  ISIS process                  :      1 *        144
+NONE: memstats:  ISIS process name             :      1 *          8
+
 end.
