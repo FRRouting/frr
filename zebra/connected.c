@@ -347,13 +347,13 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		struct route_node *m_rn = route_node_match(m_table, &plocal);
 		if (u_rn) {
 			rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, 0,
-				&plocal,NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+				    &plocal,NULL, &nh, 0, zvrf->table_id, 0, 0, false);
 			route_unlock_node(u_rn);
 		}
 
 		if (m_rn) {
 			rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, 0, 
-				&plocal, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+				    &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
 			route_unlock_node(m_rn);
 		}
 
