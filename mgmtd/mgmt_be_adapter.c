@@ -25,6 +25,17 @@
 #define _log_warn(fmt, ...) zlog_warn("BE-ADAPTER: %s: WARNING: " fmt, __func__, ##__VA_ARGS__)
 #define _log_err(fmt, ...) zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
+/* ----- */
+/* Types */
+/* ----- */
+
+/*
+ * Mapping of YANG XPath prefixes to their corresponding backend clients.
+ */
+struct mgmt_be_xpath_map {
+	char *xpath_prefix;
+	uint64_t clients;
+};
 
 /* ---------- */
 /* Prototypes */
@@ -35,8 +46,12 @@ static void be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 
 static void be_adapter_delete(struct mgmt_be_client_adapter *adapter);
 
-static enum mgmt_be_client_id mgmt_be_client_name2id(const char *name);
-
+// clang-format off
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pMBI" (mgmt_be_client_id_t *)
+#pragma FRR printfrr_ext "%pMBM" (uint64_t *)
+#endif
+// clang-format on
 
 /* --------- */
 /* Constants */
@@ -45,214 +60,6 @@ static enum mgmt_be_client_id mgmt_be_client_name2id(const char *name);
 /*
  * Client IDs
  */
-
-/*
- * NOTE: This mapping is more trouble than it's worth. Just convert to a dynamic
- * allocation as backends subscribe/register.
- */
-
-const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
-	[MGMTD_BE_CLIENT_ID_TESTC] = "mgmtd-testc", /* always first */
-	[MGMTD_BE_CLIENT_ID_MGMTD] = "mgmtd",	    /* loopback */
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = "ripd",
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = "ripngd",
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
-#endif
-	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
-};
-
-
-/* ------------------------------- */
-/* Const XPath Mappings (for init) */
-/* ------------------------------- */
-
-/*
- * NOTE: These mappings are more trouble than they are worth. Just convert to
- * use the subscribe message exclusively.
- */
-
-/*
- * Mapping of YANG XPath prefixes to their corresponding backend clients.
- */
-struct mgmt_be_xpath_map {
-	char *xpath_prefix;
-	uint64_t clients;
-};
-
-/*
- * Each client gets their own map, but also union all the strings into the
- * above map as well.
- */
-
-/* clang-format off */
-static const char *const zebra_config_xpaths[] = {
-	"/frr-affinity-map:lib",
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-route-map:lib",
-	"/frr-zebra:zebra",
-	"/frr-interface:lib",
-	"/frr-vrf:lib",
-	NULL,
-};
-
-static const char *const zebra_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-interface:lib/interface",
-	"/frr-vrf:lib/vrf/frr-zebra:zebra",
-	"/frr-zebra:zebra",
-	NULL,
-};
-
-static const char *const zebra_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-
-/*
- * MGMTD does not use config paths. Config is handled specially since it's own
- * tree is modified directly when processing changes from the front end clients
- */
-
-static const char *const mgmtd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-
-static const char *const mgmtd_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-
-
-#ifdef HAVE_MGMTD_TESTC
-static const char *const mgmtd_testc_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_RIPD
-static const char *const ripd_config_xpaths[] = {
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-interface:lib/interface",
-	"/frr-ripd:ripd",
-	"/frr-route-map:lib",
-	"/frr-vrf:lib",
-	"/ietf-key-chain:key-chains",
-	NULL,
-};
-static const char *const ripd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-ripd:ripd",
-	"/ietf-key-chain:key-chains",
-	NULL,
-};
-static const char *const ripd_rpc_xpaths[] = {
-	"/frr-ripd",
-	"/frr-logging",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_RIPNGD
-static const char *const ripngd_config_xpaths[] = {
-	"/frr-filter:lib",
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-interface:lib/interface",
-	"/frr-ripngd:ripngd",
-	"/frr-route-map:lib",
-	"/frr-vrf:lib",
-	NULL,
-};
-static const char *const ripngd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	"/frr-ripngd:ripngd",
-	NULL,
-};
-static const char *const ripngd_rpc_xpaths[] = {
-	"/frr-ripngd",
-	"/frr-logging",
-	NULL,
-};
-#endif
-
-#ifdef HAVE_STATICD
-static const char *const staticd_config_xpaths[] = {
-	"/frr-host:host",
-	"/frr-logging:logging",
-	"/frr-vrf:lib",
-	"/frr-interface:lib",
-	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
-	NULL,
-};
-static const char *const staticd_oper_xpaths[] = {
-	"/frr-backend:clients",
-	NULL,
-};
-static const char *const staticd_rpc_xpaths[] = {
-	"/frr-logging",
-	NULL,
-};
-#endif
-/* clang-format on */
-
-static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_config_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_config_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
-#endif
-};
-
-static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_MGMTD] = mgmtd_oper_xpaths,
-#ifdef HAVE_MGMTD_TESTC
-	[MGMTD_BE_CLIENT_ID_TESTC] = mgmtd_testc_oper_xpaths,
-#endif
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_oper_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_oper_xpaths,
-#endif
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
-};
-
-static const char *const *be_client_notif_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-};
-
-static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
-	[MGMTD_BE_CLIENT_ID_MGMTD] = mgmtd_rpc_xpaths,
-#ifdef HAVE_RIPD
-	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
-#endif
-#ifdef HAVE_RIPNGD
-	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_rpc_xpaths,
-#endif
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_rpc_xpaths,
-#endif
-	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_rpc_xpaths,
-};
 
 /* ---------------- */
 /* Global Variables */
@@ -277,12 +84,14 @@ static struct msg_server mgmt_be_server = {.fd = -1};
 
 LIST_HEAD(be_adapter_list_head, mgmt_be_client_adapter) be_adapters;
 
-static struct mgmt_be_client_adapter
-	*mgmt_be_adapters_by_id[MGMTD_BE_CLIENT_ID_MAX];
+typedef uint mgmt_be_client_id_t;
+static char **mgmt_be_client_names;
+struct mgmt_be_client_adapter **mgmt_be_adapters_by_id;
 
 /*
  * Mgmtd has it's own special "interested-in" xpath maps since it's not actually
- * a backend client of itself.
+ * a backend client of itself; it's own tree is modified directly when
+ * processing changes from the front end clients
  */
 static const char *const mgmtd_config_xpaths[] = {
 	"/frr-logging:logging",
@@ -292,25 +101,6 @@ static const char *const mgmtd_config_xpaths[] = {
 /* ---------------- */
 /* Lookup Functions */
 /* ---------------- */
-
-static const char *be_adapter_id_name(enum mgmt_be_client_id id)
-{
-	if (id > MGMTD_BE_CLIENT_ID_MAX)
-		return "invalid client id";
-	return mgmt_be_client_names[id];
-}
-
-static enum mgmt_be_client_id mgmt_be_client_name2id(const char *name)
-{
-	enum mgmt_be_client_id id;
-
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (!strncmp(mgmt_be_client_names[id], name, MGMTD_CLIENT_NAME_MAX_LEN))
-			return id;
-	}
-
-	return MGMTD_BE_CLIENT_ID_MAX;
-}
 
 static struct mgmt_be_client_adapter *mgmt_be_find_adapter_by_fd(int conn_fd)
 {
@@ -322,11 +112,44 @@ static struct mgmt_be_client_adapter *mgmt_be_find_adapter_by_fd(int conn_fd)
 	return NULL;
 }
 
-struct mgmt_be_client_adapter *mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id)
+struct mgmt_be_client_adapter *mgmt_be_get_adapter_by_id(mgmt_be_client_id_t id)
 {
-	return (id < MGMTD_BE_CLIENT_ID_MAX ? mgmt_be_adapters_by_id[id] : NULL);
+	if (id < darr_len(mgmt_be_adapters_by_id))
+		return mgmt_be_adapters_by_id[id];
+	return NULL;
 }
 
+printfrr_ext_autoreg_p("MBI", printfrr_be_id);
+static ssize_t printfrr_be_id(struct fbuf *buf, struct printfrr_eargs *ea, const void *ptr)
+{
+	mgmt_be_client_id_t id = *(mgmt_be_client_id_t *)ptr;
+
+	if (id < darr_len(mgmt_be_client_names))
+		return bputs(buf, mgmt_be_client_names[id]);
+	return bprintfrr(buf, "unknown-client-id-%d", id);
+}
+
+printfrr_ext_autoreg_p("MBM", printfrr_be_mask);
+static ssize_t printfrr_be_mask(struct fbuf *buf, struct printfrr_eargs *ea, const void *ptr)
+{
+	uint64_t bits = *(const uint64_t *)ptr;
+	mgmt_be_client_id_t id;
+	size_t total_len = 0;
+	bool first = true;
+
+	for (id = 0; id < 64; id++) {
+		if (IS_IDBIT_UNSET(bits, id))
+			continue;
+		if (!first)
+			total_len += bputch(buf, '|');
+		if (id >= darr_len(mgmt_be_client_names))
+			total_len += bprintfrr(buf, "unknown-client-id-%d", id);
+		else
+			total_len += bputs(buf, mgmt_be_client_names[id]);
+		first = false;
+	}
+	return total_len;
+}
 
 /* ======================= */
 /* XPath Mapping Functions */
@@ -387,7 +210,7 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
 			clients |= map->clients;
 
-	_dbg("xpath: '%s' subscribed clients: 0x%Lx", xpath, clients);
+	_dbg("xpath: '%s' subscribed clients: %pMBM", xpath, &clients);
 
 	return clients;
 }
@@ -419,22 +242,17 @@ bool mgmt_is_mgmtd_interested(const char *xpath)
  *
  * NOTE: Fix this when removing the global constant maps used for bootstrapping.
  */
-static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id,
+static bool be_is_client_interested(const char *xpath, mgmt_be_client_id_t id,
 				    enum mgmt_be_xpath_subscr_type type)
 {
 	uint64_t clients;
 
-	assert(id < MGMTD_BE_CLIENT_ID_MAX);
-
-	_dbg("Checking client: %s for xpath: '%s'", be_adapter_id_name(id), xpath);
-
 	clients = mgmt_be_interested_clients(xpath, type);
 	if (IS_IDBIT_SET(clients, id)) {
-		_dbg("client: %s: interested", be_adapter_id_name(id));
+		_dbg("client: %pMBI for xpath: '%s': interested", &id, xpath);
 		return true;
 	}
-
-	_dbg("client: %s: not interested", be_adapter_id_name(id));
+	_dbg("client: %pMBI for xpath: '%s': not interested", &id, xpath);
 	return false;
 }
 
@@ -470,7 +288,7 @@ walk_cont:
 	return changes;
 }
 
-static void be_adapter_register_client_xpath(enum mgmt_be_client_id id, const char *xpath,
+static void be_adapter_register_client_xpath(mgmt_be_client_id_t id, const char *xpath,
 					     enum mgmt_be_xpath_subscr_type type)
 {
 	struct mgmt_be_xpath_map **maps, *map;
@@ -500,57 +318,16 @@ static void be_adapter_register_client_xpath(enum mgmt_be_client_id id, const ch
 	}
 	/* we didn't find a matching entry */
 	map = darr_append(*maps);
-	map->xpath_prefix = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+	map->xpath_prefix = darr_strdup(xpath);
 	map->clients = (1ul << id);
 }
 
-/*
- * Use the global per-client constants to initialize the xpath maps.
- *
- * NOTE: This system was used to bootstrap the mgmtd work, and has proved to add
- * complexity to the process converting daemons to use mgmtd with no real
- * performance requirement, the daemon can send it's xpath regsitrations in it's
- * subscribe message so we should just use that. Please convert to do that and
- * remove this function at first convenience.
- */
 static void be_adapter_xpath_maps_init(void)
 {
-	enum mgmt_be_client_id id;
-	const char *const *init;
-
-	_dbg("Init XPath Maps");
-
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		/* Initialize the common config init map */
-		for (init = be_client_config_xpaths[id]; init && *init; init++) {
-			_dbg(" - CFG XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
-		}
-
-		/* Initialize the common oper init map */
-		for (init = be_client_oper_xpaths[id]; init && *init; init++) {
-			_dbg(" - OPER XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-		}
-
-		/* Initialize the common NOTIF init map */
-		for (init = be_client_notif_xpaths[id]; init && *init; init++) {
-			_dbg(" - NOTIF XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init,
-							 MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
-		}
-
-		/* Initialize the common RPC init map */
-		for (init = be_client_rpc_xpaths[id]; init && *init; init++) {
-			_dbg(" - RPC XPATH: '%s'", *init);
-			be_adapter_register_client_xpath(id, *init, MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
-		}
-	}
-
-	_dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
-	_dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
-	_dbg("Total Notif XPath Maps: %u", darr_len(be_notif_xpath_map));
-	_dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
+	be_adapter_register_client_xpath(MGMTD_BE_CLIENT_ID_MGMTD, "/frr-backend:clients",
+					 MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	be_adapter_register_client_xpath(MGMTD_BE_CLIENT_ID_MGMTD, "/frr-logging",
+					 MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 }
 
 /*
@@ -561,19 +338,19 @@ static void be_adapter_xpath_maps_cleanup(void)
 	struct mgmt_be_xpath_map *map;
 
 	darr_foreach_p (be_cfg_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_cfg_xpath_map);
 
 	darr_foreach_p (be_oper_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_oper_xpath_map);
 
 	darr_foreach_p (be_notif_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_notif_xpath_map);
 
 	darr_foreach_p (be_rpc_xpath_map, map)
-		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+		darr_free(map->xpath_prefix);
 	darr_free(be_rpc_xpath_map);
 }
 
@@ -656,8 +433,10 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t
 static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t msg_len,
 					struct mgmt_be_client_adapter *adapter)
 {
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *old;
 	const char **s = NULL;
+	const char *new_name;
 	uint i = 0;
 
 	_dbg("SUBSCRIBE '%s' to register xpaths config: %u oper: %u notif: %u rpc: %u",
@@ -675,21 +454,31 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 		goto done;
 	}
 
-	_dbg("\"%s\" now known as \"%s\"", adapter->name, s[i]);
+	new_name = s[i++];
+	_dbg("\"%s\" now known as \"%s\"", adapter->name, new_name);
+	darr_in_strdup(adapter->name, new_name);
 
-	strlcpy(adapter->name, s[i++], sizeof(adapter->name));
-	adapter->id = mgmt_be_client_name2id(adapter->name);
-	if (adapter->id >= MGMTD_BE_CLIENT_ID_MAX) {
-		_log_err("Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
-			 adapter->name);
+	/* Get or allocate the ID based on the name */
+	for (id = 0; id < darr_len(mgmt_be_client_names); id++)
+		if (!strcmp(mgmt_be_client_names[id], adapter->name))
+			break;
+	/* Only allow new ID if we have space in uin64_t bitmask i.e., 64 */
+	if (id >= MGMTD_BE_CLIENT_ID_MAX) {
+		_log_err("No available client IDs for '%s', disconnecting.", adapter->name);
 		be_adapter_delete(adapter);
 		goto done;
 	}
+	/* Allocate new ID */
+	if (id == darr_len(mgmt_be_client_names))
+		*darr_append(mgmt_be_client_names) = darr_strdup(adapter->name);
 
-	old = mgmt_be_adapters_by_id[adapter->id];
-	if (old) {
-		_dbg("be-client: %s using fd: %d reconnected with fd: %d", old->name,
-		     old->conn->fd, adapter->conn->fd);
+	adapter->id = id;
+	if (id >= darr_len(mgmt_be_adapters_by_id))
+		darr_ensure_i(mgmt_be_adapters_by_id, id);
+	else if (mgmt_be_adapters_by_id[id]) {
+		old = mgmt_be_adapters_by_id[id];
+		_dbg("client: %s using fd: %d reconnected with fd: %d", old->name, old->conn->fd,
+		     adapter->conn->fd);
 		be_adapter_delete(old);
 	}
 	mgmt_be_adapters_by_id[adapter->id] = adapter;
@@ -812,13 +601,13 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 
 static void _show_xpath_map(struct vty *vty, struct mgmt_be_xpath_map *map)
 {
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	const char *astr;
 
 	vty_out(vty, " - xpath: '%s'\n", map->xpath_prefix);
 	FOREACH_BE_CLIENT_BITS (id, map->clients) {
 		astr = mgmt_be_get_adapter_by_id(id) ? "active" : "inactive";
-		vty_out(vty, "   -- %s-client: '%s'\n", astr, be_adapter_id_name(id));
+		vty_out(vty, "   -- %s-client: '%pMBI'\n", astr, &id);
 	}
 }
 
@@ -850,7 +639,7 @@ void mgmt_be_xpath_register_write(struct vty *vty)
  */
 void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath)
 {
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *adapter;
 	uint64_t cclients, nclients, oclients, rclients, combined;
 
@@ -862,10 +651,9 @@ void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath)
 
 	vty_out(vty, "XPath: '%s'\n", xpath);
 	FOREACH_BE_CLIENT_BITS (id, combined) {
-		vty_out(vty, "  -- Client: '%s'\tconfig:%d notify:%d oper:%d rpc:%d\n",
-			be_adapter_id_name(id), IS_IDBIT_SET(cclients, id),
-			IS_IDBIT_SET(nclients, id), IS_IDBIT_SET(oclients, id),
-			IS_IDBIT_SET(rclients, id));
+		vty_out(vty, "  -- Client: %pMBI\tconfig:%d notify:%d oper:%d rpc:%d\n", &id,
+			IS_IDBIT_SET(cclients, id), IS_IDBIT_SET(nclients, id),
+			IS_IDBIT_SET(oclients, id), IS_IDBIT_SET(rclients, id));
 		adapter = mgmt_be_get_adapter_by_id(id);
 		if (adapter)
 			vty_out(vty, "    -- Adapter: %p\n", adapter);
@@ -895,14 +683,13 @@ static void be_adapter_delete(struct mgmt_be_client_adapter *adapter)
 	 * Notify about disconnect for appropriate cleanup
 	 */
 	mgmt_txn_handle_be_adapter_connect(adapter, false);
-	if (adapter->id < MGMTD_BE_CLIENT_ID_MAX) {
+	if (adapter->id < darr_len(mgmt_be_adapters_by_id))
 		mgmt_be_adapters_by_id[adapter->id] = NULL;
-		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
-	}
 
 	LIST_REMOVE(adapter, link);
 	event_cancel(&adapter->conn_init_ev);
 	msg_server_conn_delete(adapter->conn);
+	darr_free(adapter->name);
 	XFREE(MTYPE_MGMTD_BE_ADPATER, adapter);
 }
 
@@ -923,7 +710,7 @@ static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
 static void be_adapter_conn_init(struct event *event)
 {
 	struct mgmt_be_client_adapter *adapter;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 
 	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(event);
 	assert(adapter && adapter->conn->fd >= 0);
@@ -938,7 +725,7 @@ static void be_adapter_conn_init(struct event *event)
 	 */
 	if (mgmt_txn_handle_be_adapter_connect(adapter, true) != 0) {
 		/* Deal with a disconnect happening */
-		if (!mgmt_be_adapters_by_id[id])
+		if (id >= darr_len(mgmt_be_adapters_by_id) || !mgmt_be_adapters_by_id[id])
 			return;
 		_log_err("Couldn't send initial config to adapter: %s", adapter->name);
 		be_adapter_sched_init_event(adapter);
@@ -965,7 +752,7 @@ static struct msg_conn *be_adapter_create(int conn_fd, union sockunion *from)
 
 	adapter = XCALLOC(MTYPE_MGMTD_BE_ADPATER, sizeof(struct mgmt_be_client_adapter));
 	adapter->id = MGMTD_BE_CLIENT_ID_MAX;
-	snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d", conn_fd);
+	adapter->name = darr_sprintf("init-client-fd-%d", conn_fd);
 
 	LIST_INSERT_HEAD(&be_adapters, adapter, link);
 
@@ -992,6 +779,7 @@ void mgmt_be_adapter_init(struct event_loop *tm)
 	assert(!mgmt_loop);
 	mgmt_loop = tm;
 
+	*darr_append(mgmt_be_client_names) = darr_strdup("mgmtd"); /* reserve ID 0 */
 	be_adapter_xpath_maps_init();
 
 	snprintf(server_path, sizeof(server_path), MGMTD_BE_SOCK_NAME);
@@ -1014,4 +802,6 @@ void mgmt_be_adapter_destroy(void)
 	LIST_FOREACH_SAFE (adapter, &be_adapters, link, next)
 		be_adapter_delete(adapter);
 	be_adapter_xpath_maps_cleanup();
+	darr_free_free(mgmt_be_client_names);
+	darr_free(mgmt_be_adapters_by_id);
 }

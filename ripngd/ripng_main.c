@@ -147,6 +147,35 @@ FRR_DAEMON_INFO(ripngd, RIPNG,
 	/* mgmtd will load the per-daemon config file now */
 	.flags = FRR_NO_SPLIT_CONFIG | FRR_MGMTD_BACKEND,
 );
+
+static const char *const ripngd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-interface:lib/interface",
+	"/frr-ripngd:ripngd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+};
+
+static const char *const ripngd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-ripngd:ripngd",
+};
+
+static const char *const ripngd_rpc_xpaths[] = {
+	"/frr-ripngd",
+	"/frr-logging",
+};
+
+struct mgmt_be_client_cbs ripngd_be_client_data = {
+	.config_xpaths = ripngd_config_xpaths,
+	.nconfig_xpaths = array_size(ripngd_config_xpaths),
+	.oper_xpaths = ripngd_oper_xpaths,
+	.noper_xpaths = array_size(ripngd_oper_xpaths),
+	.rpc_xpaths = ripngd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ripngd_rpc_xpaths),
+};
 /* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
@@ -189,7 +218,7 @@ int main(int argc, char **argv)
 	/* RIPngd inits. */
 	ripng_init();
 
-	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+	mgmt_be_client = mgmt_be_client_create("ripngd", &ripngd_be_client_data, 0, master);
 
 	zebra_init(master);
 
