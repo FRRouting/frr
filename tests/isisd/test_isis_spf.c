@@ -326,7 +326,7 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 }
 
 DEFUN(test_isis, test_isis_cmd,
-      "test isis topology (1-16) root HOSTNAME\
+      "test isis topology (1-17) root HOSTNAME\
          <\
 	   spf\
 	   |reverse-spf\
