@@ -5340,11 +5340,503 @@ IS-IS L1 IPv6 routing table:
  -------------------------------------------------------
  2001:db8::3/128  30      -          rt2      16031     
 
-test# NONE: showing active allocations in memory group libfrr
-NONE: memstats:  Link List                     :      3 *         40
-NONE: memstats:  Link Node                     :      1 *         24
-NONE: showing active allocations in memory group isisd
-NONE: memstats:  ISIS process                  :      1 *        144
-NONE: memstats:  ISIS process name             :      1 *          8
+test# 
+test# test isis topology 17 root rt1 spf
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt1                                                              
+ 10.0.255.1/32  IP internal  0                            rt1(4)  
+ rt2            TE-IS        10      rt2       -          rt1(4)  
+ rt3            TE-IS        10      rt3       -          rt1(4)  
+ rt4            TE-IS        20      rt2       -          rt2(4)  
+ rt5            TE-IS        20      rt3       -          rt3(4)  
+ 10.0.255.2/32  IP TE        20      rt2       -          rt2(4)  
+ 10.0.255.3/32  IP TE        20      rt3       -          rt3(4)  
+ rt6            TE-IS        30      rt2       -          rt4(4)  
+                                     rt3       -          rt5(4)  
+ 10.0.255.4/32  IP TE        30      rt2       -          rt4(4)  
+ 10.0.255.5/32  IP TE        30      rt3       -          rt5(4)  
+ 10.0.255.6/32  IP TE        40      rt2       -          rt6(4)  
+                                     rt3       -          rt6(4)  
 
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.1/32  0       -          -        -         
+ 10.0.255.2/32  20      -          rt2      -         
+ 10.0.255.3/32  20      -          rt3      -         
+ 10.0.255.4/32  30      -          rt2      -         
+ 10.0.255.5/32  30      -          rt3      -         
+ 10.0.255.6/32  40      -          rt2      -         
+                        -          rt3      -         
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt1                                                                 
+ 2001:db8::1/128  IP6 internal  0                            rt1(4)  
+ rt2              TE-IS         10      rt2       -          rt1(4)  
+ rt3              TE-IS         10      rt3       -          rt1(4)  
+ fc00:0:2::/48    IP6 internal  11      rt2       -          rt2(4)  
+ fc00:0:3::/48    IP6 internal  11      rt3       -          rt3(4)  
+ rt4              TE-IS         20      rt2       -          rt2(4)  
+ rt5              TE-IS         20      rt3       -          rt3(4)  
+ 2001:db8::2/128  IP6 internal  20      rt2       -          rt2(4)  
+ 2001:db8::3/128  IP6 internal  20      rt3       -          rt3(4)  
+ fc00:0:4::/48    IP6 internal  21      rt2       -          rt4(4)  
+ fc00:0:5::/48    IP6 internal  21      rt3       -          rt5(4)  
+ rt6              TE-IS         30      rt2       -          rt4(4)  
+                                        rt3       -          rt5(4)  
+ 2001:db8::4/128  IP6 internal  30      rt2       -          rt4(4)  
+ 2001:db8::5/128  IP6 internal  30      rt3       -          rt5(4)  
+ fc00:0:6::/48    IP6 internal  31      rt2       -          rt6(4)  
+                                        rt3       -          rt6(4)  
+ 2001:db8::6/128  IP6 internal  40      rt2       -          rt6(4)  
+                                        rt3       -          rt6(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::1/128  0       -          -        -         
+ 2001:db8::2/128  20      -          rt2      -         
+ 2001:db8::3/128  20      -          rt3      -         
+ 2001:db8::4/128  30      -          rt2      -         
+ 2001:db8::5/128  30      -          rt3      -         
+ 2001:db8::6/128  40      -          rt2      -         
+                          -          rt3      -         
+ fc00:0:2::/48    11      -          rt2      -         
+ fc00:0:3::/48    11      -          rt3      -         
+ fc00:0:4::/48    21      -          rt2      -         
+ fc00:0:5::/48    21      -          rt3      -         
+ fc00:0:6::/48    31      -          rt2      -         
+                          -          rt3      -         
+
+test# test isis topology 17 root rt4 spf
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt4                                                              
+ 10.0.255.4/32  IP internal  0                            rt4(4)  
+ rt2            TE-IS        10      rt2       -          rt4(4)  
+ rt6            TE-IS        10      rt6       -          rt4(4)  
+ rt1            TE-IS        20      rt2       -          rt2(4)  
+ rt3            TE-IS        20      rt2       -          rt2(4)  
+ rt5            TE-IS        20      rt6       -          rt6(4)  
+ 10.0.255.2/32  IP TE        20      rt2       -          rt2(4)  
+ 10.0.255.6/32  IP TE        20      rt6       -          rt6(4)  
+ 10.0.255.1/32  IP TE        30      rt2       -          rt1(4)  
+ 10.0.255.3/32  IP TE        30      rt2       -          rt3(4)  
+ 10.0.255.5/32  IP TE        30      rt6       -          rt5(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.1/32  30      -          rt2      -         
+ 10.0.255.2/32  20      -          rt2      -         
+ 10.0.255.3/32  30      -          rt2      -         
+ 10.0.255.4/32  0       -          -        -         
+ 10.0.255.5/32  30      -          rt6      -         
+ 10.0.255.6/32  20      -          rt6      -         
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt4                                                                 
+ 2001:db8::4/128  IP6 internal  0                            rt4(4)  
+ rt2              TE-IS         10      rt2       -          rt4(4)  
+ rt6              TE-IS         10      rt6       -          rt4(4)  
+ fc00:0:2::/48    IP6 internal  11      rt2       -          rt2(4)  
+ fc00:0:6::/48    IP6 internal  11      rt6       -          rt6(4)  
+ rt1              TE-IS         20      rt2       -          rt2(4)  
+ rt3              TE-IS         20      rt2       -          rt2(4)  
+ rt5              TE-IS         20      rt6       -          rt6(4)  
+ 2001:db8::2/128  IP6 internal  20      rt2       -          rt2(4)  
+ 2001:db8::6/128  IP6 internal  20      rt6       -          rt6(4)  
+ fc00:0:1::/48    IP6 internal  21      rt2       -          rt1(4)  
+ fc00:0:3::/48    IP6 internal  21      rt2       -          rt3(4)  
+ fc00:0:5::/48    IP6 internal  21      rt6       -          rt5(4)  
+ 2001:db8::1/128  IP6 internal  30      rt2       -          rt1(4)  
+ 2001:db8::3/128  IP6 internal  30      rt2       -          rt3(4)  
+ 2001:db8::5/128  IP6 internal  30      rt6       -          rt5(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::1/128  30      -          rt2      -         
+ 2001:db8::2/128  20      -          rt2      -         
+ 2001:db8::3/128  30      -          rt2      -         
+ 2001:db8::4/128  0       -          -        -         
+ 2001:db8::5/128  30      -          rt6      -         
+ 2001:db8::6/128  20      -          rt6      -         
+ fc00:0:1::/48    21      -          rt2      -         
+ fc00:0:2::/48    11      -          rt2      -         
+ fc00:0:3::/48    21      -          rt2      -         
+ fc00:0:5::/48    21      -          rt6      -         
+ fc00:0:6::/48    11      -          rt6      -         
+
+test# 
+test# test isis topology 17 root rt4 ti-lfa system-id rt2
+P-space (self):
+ rt5
+ rt6
+
+P-space (rt6):
+ rt3
+ rt5
+ rt6
+
+Q-space:
+ rt1
+ rt2
+ rt3
+ rt5
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt4                                                              
+ 10.0.255.4/32  IP internal  0                            rt4(4)  
+ rt6            TE-IS        10      rt6       -          rt4(4)  
+ rt5            TE-IS        20      rt6       -          rt6(4)  
+ 10.0.255.6/32  IP TE        20      rt6       -          rt6(4)  
+ rt3            TE-IS        30      rt6       -          rt5(4)  
+ 10.0.255.5/32  IP TE        30      rt6       -          rt5(4)  
+ rt1            TE-IS        40      rt6       -          rt3(4)  
+ rt2            TE-IS        40      rt6       -          rt3(4)  
+ 10.0.255.3/32  IP TE        40      rt6       -          rt3(4)  
+ 10.0.255.1/32  IP TE        50      rt6       -          rt1(4)  
+ 10.0.255.2/32  IP TE        50      rt6       -          rt2(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)       
+ ----------------------------------------------------------
+ 10.0.255.1/32  50      -          rt6      implicit-null  
+ 10.0.255.2/32  50      -          rt6      implicit-null  
+ 10.0.255.3/32  40      -          rt6      -              
+
+P-space (self):
+ rt5
+ rt6
+
+P-space (rt6):
+ rt3
+ rt5
+ rt6
+
+Q-space:
+ rt1
+ rt2
+ rt3
+ rt5
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt4                                                                 
+ 2001:db8::4/128  IP6 internal  0                            rt4(4)  
+ rt6              TE-IS         10      rt6       -          rt4(4)  
+ fc00:0:6::/48    IP6 internal  11      rt6       -          rt6(4)  
+ rt5              TE-IS         20      rt6       -          rt6(4)  
+ 2001:db8::6/128  IP6 internal  20      rt6       -          rt6(4)  
+ fc00:0:5::/48    IP6 internal  21      rt6       -          rt5(4)  
+ rt3              TE-IS         30      rt6       -          rt5(4)  
+ 2001:db8::5/128  IP6 internal  30      rt6       -          rt5(4)  
+ fc00:0:3::/48    IP6 internal  31      rt6       -          rt3(4)  
+ rt1              TE-IS         40      rt6       -          rt3(4)  
+ rt2              TE-IS         40      rt6       -          rt3(4)  
+ 2001:db8::3/128  IP6 internal  40      rt6       -          rt3(4)  
+ fc00:0:1::/48    IP6 internal  41      rt6       -          rt1(4)  
+ fc00:0:2::/48    IP6 internal  41      rt6       -          rt2(4)  
+ 2001:db8::1/128  IP6 internal  50      rt6       -          rt1(4)  
+ 2001:db8::2/128  IP6 internal  50      rt6       -          rt2(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)       
+ ------------------------------------------------------------
+ 2001:db8::1/128  50      -          rt6      implicit-null  
+ 2001:db8::2/128  50      -          rt6      implicit-null  
+ 2001:db8::3/128  40      -          rt6      -              
+ fc00:0:1::/48    41      -          rt6      implicit-null  
+ fc00:0:2::/48    41      -          rt6      implicit-null  
+ fc00:0:3::/48    31      -          rt6      -              
+
+test# test isis topology 17 root rt4 ti-lfa system-id rt6
+P-space (self):
+ rt1
+ rt2
+ rt3
+
+P-space (rt2):
+ rt1
+ rt2
+ rt3
+ rt5
+
+Q-space:
+ rt3
+ rt5
+ rt6
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt4                                                              
+ 10.0.255.4/32  IP internal  0                            rt4(4)  
+ rt2            TE-IS        10      rt2       -          rt4(4)  
+ rt1            TE-IS        20      rt2       -          rt2(4)  
+ rt3            TE-IS        20      rt2       -          rt2(4)  
+ 10.0.255.2/32  IP TE        20      rt2       -          rt2(4)  
+ rt5            TE-IS        30      rt2       -          rt3(4)  
+ 10.0.255.1/32  IP TE        30      rt2       -          rt1(4)  
+ 10.0.255.3/32  IP TE        30      rt2       -          rt3(4)  
+ rt6            TE-IS        40      rt2       -          rt5(4)  
+ 10.0.255.5/32  IP TE        40      rt2       -          rt5(4)  
+ 10.0.255.6/32  IP TE        50      rt2       -          rt6(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)       
+ ----------------------------------------------------------
+ 10.0.255.5/32  40      -          rt2      -              
+ 10.0.255.6/32  50      -          rt2      implicit-null  
+
+P-space (self):
+ rt1
+ rt2
+ rt3
+
+P-space (rt2):
+ rt1
+ rt2
+ rt3
+ rt5
+
+Q-space:
+ rt3
+ rt5
+ rt6
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt4                                                                 
+ 2001:db8::4/128  IP6 internal  0                            rt4(4)  
+ rt2              TE-IS         10      rt2       -          rt4(4)  
+ fc00:0:2::/48    IP6 internal  11      rt2       -          rt2(4)  
+ rt1              TE-IS         20      rt2       -          rt2(4)  
+ rt3              TE-IS         20      rt2       -          rt2(4)  
+ 2001:db8::2/128  IP6 internal  20      rt2       -          rt2(4)  
+ fc00:0:1::/48    IP6 internal  21      rt2       -          rt1(4)  
+ fc00:0:3::/48    IP6 internal  21      rt2       -          rt3(4)  
+ rt5              TE-IS         30      rt2       -          rt3(4)  
+ 2001:db8::1/128  IP6 internal  30      rt2       -          rt1(4)  
+ 2001:db8::3/128  IP6 internal  30      rt2       -          rt3(4)  
+ fc00:0:5::/48    IP6 internal  31      rt2       -          rt5(4)  
+ rt6              TE-IS         40      rt2       -          rt5(4)  
+ 2001:db8::5/128  IP6 internal  40      rt2       -          rt5(4)  
+ fc00:0:6::/48    IP6 internal  41      rt2       -          rt6(4)  
+ 2001:db8::6/128  IP6 internal  50      rt2       -          rt6(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)       
+ ------------------------------------------------------------
+ 2001:db8::5/128  40      -          rt2      -              
+ 2001:db8::6/128  50      -          rt2      implicit-null  
+ fc00:0:5::/48    31      -          rt2      -              
+ fc00:0:6::/48    41      -          rt2      implicit-null  
+
+test# test isis topology 17 root rt5 ti-lfa system-id rt3
+P-space (self):
+ rt4
+ rt6
+
+P-space (rt6):
+ rt2
+ rt4
+ rt6
+
+Q-space:
+ rt1
+ rt2
+ rt3
+ rt4
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt5                                                              
+ 10.0.255.5/32  IP internal  0                            rt5(4)  
+ rt6            TE-IS        10      rt6       -          rt5(4)  
+ rt4            TE-IS        20      rt6       -          rt6(4)  
+ 10.0.255.6/32  IP TE        20      rt6       -          rt6(4)  
+ rt2            TE-IS        30      rt6       -          rt4(4)  
+ 10.0.255.4/32  IP TE        30      rt6       -          rt4(4)  
+ rt1            TE-IS        40      rt6       -          rt2(4)  
+ rt3            TE-IS        40      rt6       -          rt2(4)  
+ 10.0.255.2/32  IP TE        40      rt6       -          rt2(4)  
+ 10.0.255.1/32  IP TE        50      rt6       -          rt1(4)  
+ 10.0.255.3/32  IP TE        50      rt6       -          rt3(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)       
+ ----------------------------------------------------------
+ 10.0.255.1/32  50      -          rt6      implicit-null  
+ 10.0.255.2/32  40      -          rt6      -              
+ 10.0.255.3/32  50      -          rt6      implicit-null  
+
+P-space (self):
+ rt4
+ rt6
+
+P-space (rt6):
+ rt2
+ rt4
+ rt6
+
+Q-space:
+ rt1
+ rt2
+ rt3
+ rt4
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt5                                                                 
+ 2001:db8::5/128  IP6 internal  0                            rt5(4)  
+ rt6              TE-IS         10      rt6       -          rt5(4)  
+ fc00:0:6::/48    IP6 internal  11      rt6       -          rt6(4)  
+ rt4              TE-IS         20      rt6       -          rt6(4)  
+ 2001:db8::6/128  IP6 internal  20      rt6       -          rt6(4)  
+ fc00:0:4::/48    IP6 internal  21      rt6       -          rt4(4)  
+ rt2              TE-IS         30      rt6       -          rt4(4)  
+ 2001:db8::4/128  IP6 internal  30      rt6       -          rt4(4)  
+ fc00:0:2::/48    IP6 internal  31      rt6       -          rt2(4)  
+ rt1              TE-IS         40      rt6       -          rt2(4)  
+ rt3              TE-IS         40      rt6       -          rt2(4)  
+ 2001:db8::2/128  IP6 internal  40      rt6       -          rt2(4)  
+ fc00:0:1::/48    IP6 internal  41      rt6       -          rt1(4)  
+ fc00:0:3::/48    IP6 internal  41      rt6       -          rt3(4)  
+ 2001:db8::1/128  IP6 internal  50      rt6       -          rt1(4)  
+ 2001:db8::3/128  IP6 internal  50      rt6       -          rt3(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)       
+ ------------------------------------------------------------
+ 2001:db8::1/128  50      -          rt6      implicit-null  
+ 2001:db8::2/128  40      -          rt6      -              
+ 2001:db8::3/128  50      -          rt6      implicit-null  
+ fc00:0:1::/48    41      -          rt6      implicit-null  
+ fc00:0:2::/48    31      -          rt6      -              
+ fc00:0:3::/48    41      -          rt6      implicit-null  
+
+test# test isis topology 17 root rt5 ti-lfa system-id rt6
+P-space (self):
+ rt1
+ rt2
+ rt3
+
+P-space (rt3):
+ rt1
+ rt2
+ rt3
+ rt4
+
+Q-space:
+ rt2
+ rt4
+ rt6
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt5                                                              
+ 10.0.255.5/32  IP internal  0                            rt5(4)  
+ rt3            TE-IS        10      rt3       -          rt5(4)  
+ rt1            TE-IS        20      rt3       -          rt3(4)  
+ rt2            TE-IS        20      rt3       -          rt3(4)  
+ 10.0.255.3/32  IP TE        20      rt3       -          rt3(4)  
+ rt4            TE-IS        30      rt3       -          rt2(4)  
+ 10.0.255.1/32  IP TE        30      rt3       -          rt1(4)  
+ 10.0.255.2/32  IP TE        30      rt3       -          rt2(4)  
+ rt6            TE-IS        40      rt3       -          rt4(4)  
+ 10.0.255.4/32  IP TE        40      rt3       -          rt4(4)  
+ 10.0.255.6/32  IP TE        50      rt3       -          rt6(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)       
+ ----------------------------------------------------------
+ 10.0.255.4/32  40      -          rt3      -              
+ 10.0.255.6/32  50      -          rt3      implicit-null  
+
+P-space (self):
+ rt1
+ rt2
+ rt3
+
+P-space (rt3):
+ rt1
+ rt2
+ rt3
+ rt4
+
+Q-space:
+ rt2
+ rt4
+ rt6
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt5                                                                 
+ 2001:db8::5/128  IP6 internal  0                            rt5(4)  
+ rt3              TE-IS         10      rt3       -          rt5(4)  
+ fc00:0:3::/48    IP6 internal  11      rt3       -          rt3(4)  
+ rt1              TE-IS         20      rt3       -          rt3(4)  
+ rt2              TE-IS         20      rt3       -          rt3(4)  
+ 2001:db8::3/128  IP6 internal  20      rt3       -          rt3(4)  
+ fc00:0:1::/48    IP6 internal  21      rt3       -          rt1(4)  
+ fc00:0:2::/48    IP6 internal  21      rt3       -          rt2(4)  
+ rt4              TE-IS         30      rt3       -          rt2(4)  
+ 2001:db8::1/128  IP6 internal  30      rt3       -          rt1(4)  
+ 2001:db8::2/128  IP6 internal  30      rt3       -          rt2(4)  
+ fc00:0:4::/48    IP6 internal  31      rt3       -          rt4(4)  
+ rt6              TE-IS         40      rt3       -          rt4(4)  
+ 2001:db8::4/128  IP6 internal  40      rt3       -          rt4(4)  
+ fc00:0:6::/48    IP6 internal  41      rt3       -          rt6(4)  
+ 2001:db8::6/128  IP6 internal  50      rt3       -          rt6(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)       
+ ------------------------------------------------------------
+ 2001:db8::4/128  40      -          rt3      -              
+ 2001:db8::6/128  50      -          rt3      implicit-null  
+ fc00:0:4::/48    31      -          rt3      -              
+ fc00:0:6::/48    41      -          rt3      implicit-null  
+
+test# 
 end.

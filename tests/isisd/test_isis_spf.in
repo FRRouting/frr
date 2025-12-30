@@ -74,3 +74,11 @@ test isis topology 15 root rt1 ti-lfa system-id rt2
 test isis topology 15 root rt1 ti-lfa system-id rt3
 test isis topology 16 root rt1 ti-lfa system-id rt2
 test isis topology 16 root rt1 ti-lfa system-id rt3
+
+test isis topology 17 root rt1 spf
+test isis topology 17 root rt4 spf
+
+test isis topology 17 root rt4 ti-lfa system-id rt2
+test isis topology 17 root rt4 ti-lfa system-id rt6
+test isis topology 17 root rt5 ti-lfa system-id rt3
+test isis topology 17 root rt5 ti-lfa system-id rt6
