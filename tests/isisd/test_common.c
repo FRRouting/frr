@@ -409,3 +409,285 @@ int test_topology_load(const struct isis_topology *topology, struct isis_area *a
 
 	return 0;
 }
+
+/*
+ * Grid Topology Generator for Large-Scale Testing
+ *
+ * Generates a rows x cols grid topology where each node connects to its
+ * neighbors (up, down, left, right). Supports up to 256 nodes.
+ *
+ * Grid layout (10x20 = 200 nodes):
+ *
+ *   rt1  -- rt2  -- rt3  -- ... -- rt20
+ *    |       |       |              |
+ *   rt21 -- rt22 -- rt23 -- ... -- rt40
+ *    |       |       |              |
+ *   ...     ...     ...            ...
+ *    |       |       |              |
+ *   rt181-- rt182-- rt183-- ... -- rt200
+ */
+
+/* Global grid topology instance */
+static struct isis_grid_topology grid_topo_18;
+
+void test_grid_topology_init(struct isis_grid_topology *grid, uint16_t number, uint16_t rows,
+			     uint16_t cols, bool srv6_enabled)
+{
+	uint16_t node_count = rows * cols;
+
+	if (node_count > GRID_MAX_NODES) {
+		zlog_debug("%s: grid too large (%u nodes, max %u)", __func__, node_count,
+			   GRID_MAX_NODES);
+		return;
+	}
+
+	memset(grid, 0, sizeof(*grid));
+	grid->number = number;
+	grid->rows = rows;
+	grid->cols = cols;
+	grid->node_count = node_count;
+
+	/* Generate all nodes */
+	for (uint16_t row = 0; row < rows; row++) {
+		for (uint16_t col = 0; col < cols; col++) {
+			uint16_t id = row * cols + col + 1;
+			struct isis_test_grid_node *node = &grid->nodes[id - 1];
+
+			node->id = id;
+			node->level = IS_LEVEL_1;
+			node->adj_count = 0;
+
+			/* Hostname: rt1, rt2, ..., rt200 */
+			snprintf(node->hostname, sizeof(node->hostname), "rt%u", id);
+
+			/* System ID: encode node ID in last 2 bytes */
+			memset(node->sysid, 0, ISIS_SYS_ID_LEN);
+			node->sysid[4] = (id >> 8) & 0xff;
+			node->sysid[5] = id & 0xff;
+
+			/* Router ID: 10.row.col.1 (simplified) */
+			snprintf(node->router_id, sizeof(node->router_id), "10.%u.%u.1", row, col);
+
+			/* IPv4 network */
+			snprintf(node->ipv4_net, sizeof(node->ipv4_net), "10.%u.%u.1/32", row, col);
+
+			/* IPv6 network */
+			snprintf(node->ipv6_net, sizeof(node->ipv6_net), "2001:db8:%u:%u::1/128",
+				 row, col);
+
+			/* SRv6 configuration */
+			if (srv6_enabled) {
+				node->flags = F_ISIS_TEST_NODE_SRV6;
+				snprintf(node->srv6_locator, sizeof(node->srv6_locator),
+					 "fc00:%u:%u::/48", row, col);
+				snprintf(node->srv6_end_sid, sizeof(node->srv6_end_sid),
+					 "fc00:%u:%u::1", row, col);
+			}
+
+			/* Add adjacencies to neighbors */
+			/* Up: (row-1, col) */
+			if (row > 0) {
+				uint16_t up_id = (row - 1) * cols + col + 1;
+
+				node->adjacencies[node->adj_count].neighbor_id = up_id;
+				node->adjacencies[node->adj_count].metric = 10;
+				node->adj_count++;
+			}
+			/* Down: (row+1, col) */
+			if (row < rows - 1) {
+				uint16_t down_id = (row + 1) * cols + col + 1;
+
+				node->adjacencies[node->adj_count].neighbor_id = down_id;
+				node->adjacencies[node->adj_count].metric = 10;
+				node->adj_count++;
+			}
+			/* Left: (row, col-1) */
+			if (col > 0) {
+				uint16_t left_id = row * cols + (col - 1) + 1;
+
+				node->adjacencies[node->adj_count].neighbor_id = left_id;
+				node->adjacencies[node->adj_count].metric = 10;
+				node->adj_count++;
+			}
+			/* Right: (row, col+1) */
+			if (col < cols - 1) {
+				uint16_t right_id = row * cols + (col + 1) + 1;
+
+				node->adjacencies[node->adj_count].neighbor_id = right_id;
+				node->adjacencies[node->adj_count].metric = 10;
+				node->adj_count++;
+			}
+		}
+	}
+}
+
+const struct isis_test_grid_node *
+test_grid_topology_find_node(const struct isis_grid_topology *grid, const char *hostname)
+{
+	for (uint16_t i = 0; i < grid->node_count; i++) {
+		if (strmatch(hostname, grid->nodes[i].hostname))
+			return &grid->nodes[i];
+	}
+	return NULL;
+}
+
+struct isis_grid_topology *test_grid_topology_get(uint16_t number)
+{
+	/* Topology 18 is a 10x20 grid (200 nodes) with SRv6 */
+	if (number == 18) {
+		static bool initialized;
+
+		if (!initialized) {
+			test_grid_topology_init(&grid_topo_18, 18, 10, 20, true);
+			initialized = true;
+		}
+		return &grid_topo_18;
+	}
+
+	return NULL;
+}
+
+/* Load a grid node into the LSPDB */
+static int grid_load_node_level(const struct isis_grid_topology *grid,
+				const struct isis_test_grid_node *gnode, struct isis_area *area,
+				struct lspdb_head *lspdb, int level)
+{
+	struct isis_lsp *lsp;
+	uint8_t nodeid[ISIS_SYS_ID_LEN + 1];
+	uint16_t mtid;
+	struct nlpids nlpids = {};
+	struct isis_router_cap *cap;
+	struct prefix prefix;
+	struct in6_addr next_srv6_sid;
+
+	lsp = lsp_add(lspdb, area, level, gnode->sysid, 0);
+
+	/* Add MT Router Info for IPv4 and IPv6 */
+	isis_tlvs_add_mt_router_info(lsp->tlvs, ISIS_MT_IPV4_UNICAST, 0, false);
+	isis_tlvs_add_mt_router_info(lsp->tlvs, ISIS_MT_IPV6_UNICAST, 0, false);
+
+	/* Add protocols supported */
+	nlpids.nlpids[0] = NLPID_IP;
+	nlpids.nlpids[1] = NLPID_IPV6;
+	nlpids.count = 2;
+	isis_tlvs_set_protocols_supported(lsp->tlvs, &nlpids);
+
+	/* Add router capability */
+	cap = isis_tlvs_init_router_capability(lsp->tlvs);
+	if (inet_pton(AF_INET, gnode->router_id, &cap->router_id) != 1)
+		zlog_debug("%s: invalid router-id: %s", __func__, gnode->router_id);
+
+	/* Add SRv6 capability */
+	if (CHECK_FLAG(gnode->flags, F_ISIS_TEST_NODE_SRV6)) {
+		cap->srv6_cap.is_srv6_capable = true;
+		cap->algo[0] = SR_ALGORITHM_SPF;
+		cap->algo[1] = SR_ALGORITHM_UNSET;
+
+		/* Add SRv6 locator */
+		struct isis_srv6_locator *loc;
+		struct isis_srv6_sid *sid;
+		struct prefix_ipv6 locator_prefix;
+
+		if (str2prefix_ipv6(gnode->srv6_locator, &locator_prefix) == 1) {
+			loc = XCALLOC(MTYPE_TMP, sizeof(*loc));
+			loc->prefix = locator_prefix;
+			loc->metric = 1;
+			loc->algorithm = SR_ALGORITHM_SPF;
+			isis_srv6_sid_list_init(&loc->srv6_sid);
+
+			sid = XCALLOC(MTYPE_TMP, sizeof(*sid));
+			inet_pton(AF_INET6, gnode->srv6_end_sid, &sid->sid);
+			sid->behavior = SRV6_ENDPOINT_BEHAVIOR_END;
+			sid->structure.loc_block_len = 32;
+			sid->structure.loc_node_len = 16;
+			sid->structure.func_len = 16;
+			sid->structure.arg_len = 0;
+			isis_srv6_sid_list_add_tail(&loc->srv6_sid, sid);
+
+			isis_tlvs_add_srv6_locator(lsp->tlvs, ISIS_MT_IPV6_UNICAST, loc);
+
+			isis_srv6_sid_list_fini(&loc->srv6_sid);
+			XFREE(MTYPE_TMP, sid);
+			XFREE(MTYPE_TMP, loc);
+		}
+	}
+
+	/* Add IPv4 reachability */
+	if (str2prefix(gnode->ipv4_net, &prefix) == 1) {
+		isis_tlvs_add_extended_ip_reach(lsp->tlvs, (struct prefix_ipv4 *)&prefix, 10,
+						false, NULL);
+	}
+
+	/* Add IPv6 reachability */
+	if (str2prefix(gnode->ipv6_net, &prefix) == 1) {
+		isis_tlvs_add_ipv6_reach(lsp->tlvs, ISIS_MT_IPV6_UNICAST,
+					 (struct prefix_ipv6 *)&prefix, 10, false, NULL);
+	}
+
+	/* Initialize SRv6 End.X SID base */
+	memset(&next_srv6_sid, 0, sizeof(next_srv6_sid));
+	if (CHECK_FLAG(gnode->flags, F_ISIS_TEST_NODE_SRV6)) {
+		inet_pton(AF_INET6, gnode->srv6_end_sid, &next_srv6_sid);
+		next_srv6_sid.s6_addr[15] = 0x10;
+	}
+
+	/* Add IS reachability for each adjacency */
+	for (uint8_t i = 0; i < gnode->adj_count; i++) {
+		const struct isis_test_grid_node *neighbor;
+		struct isis_ext_subtlvs *ext = NULL;
+
+		neighbor = &grid->nodes[gnode->adjacencies[i].neighbor_id - 1];
+
+		memcpy(nodeid, neighbor->sysid, ISIS_SYS_ID_LEN);
+		LSP_PSEUDO_ID(nodeid) = 0;
+
+		/* Add SRv6 End.X SID for IPv6 */
+		if (CHECK_FLAG(gnode->flags, F_ISIS_TEST_NODE_SRV6)) {
+			struct isis_srv6_endx_sid_subtlv *endx_sid;
+
+			ext = isis_alloc_ext_subtlvs();
+			endx_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*endx_sid));
+			SET_FLAG(endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG);
+			SET_FLAG(endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG);
+			endx_sid->behavior = SRV6_ENDPOINT_BEHAVIOR_END_X;
+			endx_sid->sid = next_srv6_sid;
+			next_srv6_sid.s6_addr[15]++;
+			isis_tlvs_add_srv6_endx_sid(ext, endx_sid);
+		}
+
+		/* IPv4 IS reach */
+		mtid = ISIS_MT_IPV4_UNICAST;
+		isis_tlvs_add_extended_reach(lsp->tlvs, mtid, nodeid, gnode->adjacencies[i].metric,
+					     NULL);
+
+		/* IPv6 IS reach with SRv6 End.X SID */
+		mtid = ISIS_MT_IPV6_UNICAST;
+		isis_tlvs_add_extended_reach(lsp->tlvs, mtid, nodeid, gnode->adjacencies[i].metric,
+					     ext);
+		isis_del_ext_subtlvs(ext);
+	}
+
+	return 0;
+}
+
+int test_grid_topology_load(const struct isis_grid_topology *grid, struct isis_area *area,
+			    struct lspdb_head lspdb[])
+{
+	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
+		lsp_db_init(&lspdb[level - 1]);
+
+	for (uint16_t i = 0; i < grid->node_count; i++) {
+		const struct isis_test_grid_node *gnode = &grid->nodes[i];
+		int ret;
+
+		/* Add dynamic hostname mapping */
+		isis_dynhn_insert(area->isis, gnode->sysid, gnode->hostname, gnode->level);
+
+		/* Load only level-1 for now */
+		ret = grid_load_node_level(grid, gnode, area, &lspdb[0], IS_LEVEL_1);
+		if (ret != 0)
+			return ret;
+	}
+
+	return 0;
+}
