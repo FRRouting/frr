@@ -3468,6 +3468,234 @@ struct isis_topology test_topologies[] = {
 			},
 		},
 	},
+	/*
+	 * Test topology 15:
+	 * =================
+	 * SRv6 TI-LFA test topology - simple triangle
+	 *
+	 *                 +---------+
+	 *                 |         |
+	 *                 |   RT1   |
+	 *      +----------+         +----------+
+	 *      |          |         |          |
+	 *      |          +---------+          |
+	 *      |                               |
+	 *      |                               |
+	 * +----+----+                     +----+----+
+	 * |         |                     |         |
+	 * |   RT2   +---------------------+   RT3   |
+	 * |         |                     |         |
+	 * +---------+                     +---------+
+	 *
+	 * All nodes have SRv6 enabled with locators fc00:0:X::/48
+	 */
+	{
+		.number = 15,
+		.nodes = {
+			{
+				.hostname = "rt1",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.1",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:1::/48",
+					.end_sid = "fc00:0:1::1",
+				},
+				.networks = {
+					"10.0.255.1/32",
+					"2001:db8::1/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+			{
+				.hostname = "rt2",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.2",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:2::/48",
+					.end_sid = "fc00:0:2::1",
+				},
+				.networks = {
+					"10.0.255.2/32",
+					"2001:db8::2/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+			{
+				.hostname = "rt3",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.3",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:3::/48",
+					.end_sid = "fc00:0:3::1",
+				},
+				.networks = {
+					"10.0.255.3/32",
+					"2001:db8::3/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+		},
+	},
+	/*
+	 * Test topology 16:
+	 * =================
+	 * SRLG test topology
+	 *
+	 *                 +---------+
+	 *                 |         |
+	 *                 |   RT1   |
+	 *      +----------+         +----------+
+	 *      |  SRLG=1  |         |  SRLG=2  |
+	 *      |          +---------+          |
+	 *      |                               |
+	 *      |                               |
+	 * +----+----+                     +----+----+
+	 * |         |                     |         |
+	 * |   RT2   +---------------------+   RT3   |
+	 * |         |       SRLG=3        |         |
+	 * +---------+                     +---------+
+	 *
+	 * Link RT1-RT2 has SRLG 1
+	 * Link RT1-RT3 has SRLG 2
+	 * Link RT2-RT3 has SRLG 3
+	 */
+	{
+		.number = 16,
+		.nodes = {
+			{
+				.hostname = "rt1",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.1",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.1/32",
+					"2001:db8::1/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt2",
+						.metric = 10,
+						.srlgs = {1},
+						.srlg_count = 1,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+						.srlgs = {2},
+						.srlg_count = 1,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SR,
+			},
+			{
+				.hostname = "rt2",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.2",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.2/32",
+					"2001:db8::2/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+						.srlgs = {1},
+						.srlg_count = 1,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+						.srlgs = {3},
+						.srlg_count = 1,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SR,
+			},
+			{
+				.hostname = "rt3",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.3",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.3/32",
+					"2001:db8::3/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+						.srlgs = {2},
+						.srlg_count = 1,
+					},
+					{
+						.hostname = "rt2",
+						.metric = 10,
+						.srlgs = {3},
+						.srlg_count = 1,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SR,
+			},
+		},
+	},
 	{
 		/* sentinel */
 	},
