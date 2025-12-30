@@ -181,6 +181,12 @@ module frr-bgp-route-map {
       "Match BGP AS path list";
   }
 
+  identity match-as-path-count {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP AS path count";
+  }
+
   identity ipv4-nexthop {
     base frr-route-map:rmap-match-type;
     description
@@ -916,6 +922,15 @@ identity set-extcommunity-color {
       }
     }
 
+   case as-path-count {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-as-path-count')";
+      description
+        "Match BGP updates when the AS path count is less than the configured limit.";
+      leaf as-path-count {
+        type uint8;
+      }
+    }
+    
     case comm-list-name {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-community') or "
         + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-large-community') or "
