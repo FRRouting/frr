@@ -15,14 +15,23 @@
 #define MAX_NETWORKS	8
 #define MAX_ADJACENCIES 8
 #define MAX_NODES	12
+#define MAX_SRLGS	4
 
 #define SRGB_DFTL_LOWER_BOUND 16000
 #define SRGB_DFTL_RANGE_SIZE  8000
+
+/* SRv6 test configuration */
+struct isis_test_srv6 {
+	const char *locator; /* e.g., "fc00:0:1::/48" */
+	const char *end_sid; /* e.g., "fc00:0:1::1" */
+};
 
 struct isis_test_adj {
 	char hostname[MAX_HOSTNAME];
 	uint8_t pseudonode_id;
 	uint32_t metric;
+	uint32_t srlgs[MAX_SRLGS]; /* SRLG values for this adjacency */
+	uint8_t srlg_count;
 };
 
 struct isis_test_node {
@@ -39,11 +48,13 @@ struct isis_test_node {
 		uint32_t lower_bound;
 		uint32_t range_size;
 	} srgb;
+	struct isis_test_srv6 srv6; /* SRv6 configuration */
 	const char *networks[MAX_NETWORKS + 1];
 	struct isis_test_adj adjacencies[MAX_ADJACENCIES + 1];
 	uint8_t flags;
 };
-#define F_ISIS_TEST_NODE_SR 0x01
+#define F_ISIS_TEST_NODE_SR   0x01
+#define F_ISIS_TEST_NODE_SRV6 0x02
 
 struct isis_topology {
 	uint16_t number;
