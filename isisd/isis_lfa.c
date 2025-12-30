@@ -520,6 +520,24 @@ static int tilfa_mpls_repair_list_apply(struct isis_spftree *spftree,
 		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
 			continue;
 
+		/*
+		 * Check if the nexthop (first hop on the backup path) has SR
+		 * capability. If not, use Implicit Null label since the nexthop
+		 * cannot process MPLS labels and will forward using IP routing.
+		 */
+		if (!isis_sr_find_srgb(spftree->lspdb, sadj->id)) {
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: nexthop %s has no SR, using Implicit Null",
+					   print_sys_hostname(sadj->id));
+			label_stack =
+				XCALLOC(MTYPE_ISIS_NEXTHOP_LABELS,
+					sizeof(struct mpls_label_stack) + sizeof(mpls_label_t));
+			label_stack->num_labels = 1;
+			label_stack->label[0] = MPLS_LABEL_IMPLICIT_NULL;
+			vadj->label_stack = label_stack;
+			continue;
+		}
+
 		label_stack = tilfa_mpls_compute_label_stack(spftree->lspdb, sadj, repair_list);
 		if (!label_stack) {
 			char buf[VID2STR_BUFFER];
@@ -858,6 +876,23 @@ static int tilfa_build_mpls_repair_list(struct isis_spftree *spftree_pc,
 		label_qnode = tilfa_mpls_find_qnode_adj_sid(spftree_pc, vertex->N.id,
 							    vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {
+			/*
+			 * Adj-SID not found. Check if the source node has SR
+			 * capability. If not, we may still be able to use
+			 * this path with Implicit Null if this node is a
+			 * P-node.
+			 */
+			if (!isis_sr_find_srgb(spftree_pc->lspdb, vertex->N.id) && is_pnode) {
+				if (IS_DEBUG_LFA)
+					zlog_debug("ISIS-LFA: P-node %s has no SR, skipping Adj-SID",
+						   print_sys_hostname(vertex->N.id));
+				/*
+				 * Don't push Adj-SID since the P-node doesn't
+				 * support SR. Continue to P-node check where
+				 * we'll use Implicit Null.
+				 */
+				goto check_pnode;
+			}
 			zlog_warn("ISIS-LFA: failed to find %s->%s Adj-SID",
 				  print_sys_hostname(vertex->N.id),
 				  print_sys_hostname(vertex_child->N.id));
@@ -872,6 +907,7 @@ static int tilfa_build_mpls_repair_list(struct isis_spftree *spftree_pc,
 		listnode_add_head(repair_list, &sid_qnode);
 	}
 
+check_pnode:
 	/* Push Prefix-SID label when necessary. */
 	if (is_pnode) {
 		/* The same P-node can't be used more than once. */
@@ -890,6 +926,26 @@ static int tilfa_build_mpls_repair_list(struct isis_spftree *spftree_pc,
 
 		sid_index = tilfa_mpls_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
 		if (sid_index == UINT32_MAX) {
+			/*
+			 * P-node doesn't have a Prefix-SID. Check if it has
+			 * SR capability. If not, we can still use it as backup
+			 * nexthop with Implicit Null (the backup path will use
+			 * IP forwarding from the P-node).
+			 */
+			if (!isis_sr_find_srgb(spftree_pc->lspdb, vertex->N.id)) {
+				if (IS_DEBUG_LFA)
+					zlog_debug("ISIS-LFA: P-node %s has no SR, using Implicit Null",
+						   print_sys_hostname(vertex->N.id));
+				/*
+				 * Clear the repair list since the first hop
+				 * can't process MPLS labels.
+				 */
+				list_delete_all_node(repair_list);
+				if (tilfa_mpls_repair_list_apply(spftree_pc, vertex_dest, vertex,
+								 repair_list) != 0)
+					return -1;
+				return 0;
+			}
 			zlog_warn("ISIS-LFA: failed to find Prefix-SID corresponding to PQ-node %s",
 				  print_sys_hostname(vertex->N.id));
 			return -1;
