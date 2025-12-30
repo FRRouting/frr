@@ -5,6 +5,8 @@
 
 #include <zebra.h>
 
+#include <limits.h>
+
 #include "prefix.h"
 #include "frrevent.h"
 #include "buffer.h"
@@ -981,7 +983,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 /* Peer comparison function for sorting.  */
-int peer_cmp(struct peer *p1, struct peer *p2)
+int peer_cmp(const struct peer *p1, const struct peer *p2)
 {
 	if (p1->group && !p2->group)
 		return -1;
@@ -1002,6 +1004,63 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 		return strcmp(p1->group->name, p2->group->name);
 
 	return sockunion_cmp(&p1->connection->su, &p2->connection->su);
+}
+
+/* Peer comparison function for sorting by address.
+ * Used for SNMP peer enumeration to ensure deterministic ordering.
+ * Must handle:
+ * - IPv6 link-local addresses (same addr, different ifindex)
+ * - Unnumbered interfaces
+ * - Deterministic ordering across runs (no pointer comparison)
+ *
+ * Note: This is only used within a single BGP instance's peer_by_addr list,
+ * so VRF comparison is not needed.
+ */
+int peer_cmp_addr(const struct peer *p1, const struct peer *p2)
+{
+	int cmp;
+
+	/* Compare addresses using sockunion_cmp */
+	if (p1->connection && p2->connection) {
+		cmp = sockunion_cmp(&p1->connection->su, &p2->connection->su);
+		if (cmp)
+			return cmp;
+
+		/* For IPv6 link-local, also compare scope_id/ifindex */
+		if (p1->connection->su.sa.sa_family == AF_INET6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&p1->connection->su.sin6.sin6_addr)) {
+			if (p1->connection->su.sin6.sin6_scope_id !=
+			    p2->connection->su.sin6.sin6_scope_id) {
+				return (p1->connection->su.sin6.sin6_scope_id <
+					p2->connection->su.sin6.sin6_scope_id)
+					       ? -1
+					       : 1;
+			}
+		}
+	} else if (p1->connection && !p2->connection) {
+		return -1;
+	} else if (!p1->connection && p2->connection) {
+		return 1;
+	}
+
+	/* If addresses are identical (or both AF_UNSPEC), use host string for
+	 * deterministic ordering. This handles unnumbered and other edge cases.
+	 */
+	if (p1->host && p2->host) {
+		cmp = strcmp(p1->host, p2->host);
+		if (cmp != 0)
+			return cmp;
+	}
+
+	/* As last resort, compare remote AS and local AS */
+	if (p1->as != p2->as)
+		return (p1->as < p2->as) ? -1 : 1;
+
+	if (p1->local_as != p2->local_as)
+		return (p1->local_as < p2->local_as) ? -1 : 1;
+
+	/* Truly identical peers - should not happen in practice */
+	return 0;
 }
 
 static unsigned int connection_hash_key_make(const void *p)
@@ -2055,6 +2114,24 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  * track the bgp->peerhash( ie we don't want to remove the current
  * one from the config ).
  */
+
+/* Insert peer into peer_by_addr list in sorted order */
+static void peer_by_addr_insert_sorted(struct bgp *bgp, struct peer *peer)
+{
+	struct peer *iter, *prev = NULL;
+
+	frr_each (peer_by_addr_list, &bgp->peer_by_addr, iter) {
+		if (peer_cmp_addr(peer, iter) < 0)
+			break;
+		prev = iter;
+	}
+
+	if (prev)
+		peer_by_addr_list_add_after(&bgp->peer_by_addr, prev, peer);
+	else
+		peer_by_addr_list_add_head(&bgp->peer_by_addr, peer);
+}
+
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
 			 enum peer_asn_type as_type, struct peer_group *group,
@@ -2096,6 +2173,8 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer = peer_lock(peer); /* bgp peer list reference */
 	peer->group = group;
 	listnode_add_sort(bgp->peer, peer);
+	peer = peer_lock(peer);
+	peer_by_addr_insert_sorted(bgp, peer);
 
 	if (config_node)
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
@@ -2683,6 +2762,7 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 						    CAPABILITY_ACTION_UNSET);
 				bgp_clear_route(peer, afi, safi);
 				peer->pcount[afi][safi] = 0;
+				peer->pfiltered[afi][safi] = 0;
 			} else {
 				peer_notify_config_change(peer->connection);
 			}
@@ -2892,19 +2972,30 @@ int peer_delete(struct peer *peer)
 
 	bgp_timer_set(peer->connection); /* stops all timers for Deleted */
 
-	/* Delete from all peer list. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-	    && (pn = listnode_lookup(bgp->peer, peer))) {
+	/* Delete from peer address list. */
+	if (peer_by_addr_list_count(&bgp->peer_by_addr) > 0 &&
+	    peer_by_addr_list_member(&bgp->peer_by_addr, peer)) {
 		/*
-		 * Removing from the list node first because
-		 * peer_unlock *can* call peer_delete( I know,
-		 * I know ).  So let's remove it and in
-		 * the su recalculate function we'll ensure
-		 * it's in there or not.
+		 * Remove the node before peer_unlock(); that call can indirectly invoke
+		 * peer_delete() again, so we must ensure the list entry is already gone.
 		 */
-		list_delete_node(bgp->peer, pn);
-		hash_release(bgp->connectionhash, peer->connection);
+		peer_by_addr_list_del(&bgp->peer_by_addr, peer);
 		peer_unlock(peer); /* bgp peer list reference */
+	}
+
+
+	/* Delete from all peer list. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		pn = listnode_lookup(bgp->peer, peer);
+		if (pn) {
+			/*
+			 * Remove the node before peer_unlock(); that call can indirectly invoke
+			 * peer_delete() again, so we must ensure the list entry is already gone.
+			 */
+			list_delete_node(bgp->peer, pn);
+			hash_release(bgp->connectionhash, peer->connection);
+			peer_unlock(peer); /* bgp peer list reference */
+		}
 	}
 
 	/* Local and remote addresses. */
@@ -3631,6 +3722,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	SET_FLAG(bgp->peer_self->cap, PEER_CAP_AS4_ADV);
 
 	bgp->peer = list_new();
+	peer_by_addr_list_init(&bgp->peer_by_addr);
 
 peer_init:
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
@@ -3640,6 +3732,7 @@ peer_init:
 
 	if (!hidden)
 		bgp->group = list_new();
+
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -4511,6 +4604,7 @@ void bgp_free(struct bgp *bgp)
 	QOBJ_UNREG(bgp);
 
 	list_delete(&bgp->group);
+	peer_by_addr_list_fini(&bgp->peer_by_addr);
 	list_delete(&bgp->peer);
 
 	if (bgp->connectionhash) {

@@ -20,6 +20,9 @@ extern "C" {
  * The rationale is that the protocol (IANA) values may be sparse and are
  * not optimal for use in data-structure sizing.
  * Note: Only useful (i.e., supported) values are defined below.
+ *
+ * IMPORTANT: When adding new IANA AFI/SAFI values, you MUST also update:
+ *   - bgpd/bgp_snmp.c: iana_ordered_afi_safi[] map for SNMP OID ordering
  */
 typedef enum {
 	IANA_AFI_RESERVED = 0,

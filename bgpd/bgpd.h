@@ -421,6 +421,9 @@ PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 /* List of peers that have connection errors in the io pthread */
 PREDECL_DLIST(bgp_peer_conn_errlist);
 
+/* List of peers sorted by address for SNMP */
+PREDECL_DLIST(peer_by_addr_list);
+
 /* List of info about peers that are being cleared from BGP RIBs in a batch */
 PREDECL_DLIST(bgp_clearing_info);
 
@@ -511,6 +514,7 @@ struct bgp {
 
 	/* BGP peer. */
 	struct list *peer;
+	struct peer_by_addr_list_head peer_by_addr;
 	struct hash *connectionhash;
 
 	/* BGP peer group.  */
@@ -1445,6 +1449,9 @@ struct peer {
 	 */
 	int lock;
 
+	/* List item for peer_by_addr list (sorted by address for SNMP) */
+	struct peer_by_addr_list_item peer_by_addr_item;
+
 	/* BGP peer group.  */
 	struct peer_group *group;
 
@@ -1987,6 +1994,9 @@ struct peer {
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
+	/* Filtered prefix count */
+	uint32_t pfiltered[AFI_MAX][SAFI_MAX];
+
 	/* Max prefix count. */
 	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
@@ -2154,6 +2164,7 @@ struct peer {
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
+DECLARE_DLIST(peer_by_addr_list, struct peer, peer_by_addr_item);
 
 /* Inherit peer attribute from peer-group. */
 #define PEER_ATTR_INHERIT(peer, group, attr)                                   \
@@ -2779,7 +2790,8 @@ extern void bgp_route_map_terminate(void);
 
 extern bool bgp_route_map_has_extcommunity_rt(const struct route_map *map);
 
-extern int peer_cmp(struct peer *p1, struct peer *p2);
+extern int peer_cmp(const struct peer *p1, const struct peer *p2);
+extern int peer_cmp_addr(const struct peer *p1, const struct peer *p2);
 
 extern int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
 				     afi_t *afi, safi_t *safi);
@@ -3166,10 +3178,8 @@ extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
 extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 				  int outbound);
-extern bool bgp_path_attribute_discard(struct peer *peer, char *buf,
-				       size_t size);
-extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
-						 size_t size);
+extern bool bgp_path_attribute_discard(struct peer *peer, char *buf, size_t size);
+extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf, size_t size);
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
