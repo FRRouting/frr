@@ -1241,12 +1241,15 @@ const char *bgp_peer_get_connection_direction(struct peer_connection *connection
 	return "DEV ESCAPE";
 }
 
-struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su)
+struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su,
+						enum connection_direction dir)
 {
 	struct peer_connection *connection;
 
 	connection = XCALLOC(MTYPE_BGP_PEER_CONNECTION,
 			     sizeof(struct peer_connection));
+
+	connection->dir = dir;
 
 	if (su)
 		connection->su = *su;
@@ -1624,7 +1627,7 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 }
 
 /* Allocate new peer object, implicitely locked.  */
-struct peer *peer_new(struct bgp *bgp, union sockunion *su)
+struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir)
 {
 	afi_t afi;
 	safi_t safi;
@@ -1638,8 +1641,7 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su)
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
 	/* Create buffers. */
-	peer->connection = bgp_peer_connection_new(peer, su);
-	peer->connection->dir = CONNECTION_OUTGOING;
+	peer->connection = bgp_peer_connection_new(peer, su, dir);
 
 	/* Set default value. */
 	peer->v_start = BGP_INIT_START_TIMER;
@@ -2055,10 +2057,9 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  * track the bgp->peerhash( ie we don't want to remove the current
  * one from the config ).
  */
-struct peer *peer_create(union sockunion *su, const char *conf_if,
-			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 enum peer_asn_type as_type, struct peer_group *group,
-			 bool config_node, const char *as_str)
+struct peer *peer_create(union sockunion *su, const char *conf_if, struct bgp *bgp, as_t local_as,
+			 as_t remote_as, enum peer_asn_type as_type, struct peer_group *group,
+			 bool config_node, const char *as_str, enum connection_direction dir)
 {
 	enum bgp_peer_active active;
 	struct peer *peer;
@@ -2066,7 +2067,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	afi_t afi;
 	safi_t safi;
 
-	peer = peer_new(bgp, su);
+	peer = peer_new(bgp, su, dir);
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
 		if (!su)
@@ -2160,7 +2161,7 @@ struct peer *peer_create_accept(struct bgp *bgp, union sockunion *su)
 {
 	struct peer *peer;
 
-	peer = peer_new(bgp, su);
+	peer = peer_new(bgp, su, UNKNOWN);
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
@@ -2332,8 +2333,8 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		else
 			local_as = bgp->as;
 
-		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL,
-			    true, as_str);
+		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL, true, as_str,
+			    CONNECTION_OUTGOING);
 	}
 
 	return 0;
@@ -2994,7 +2995,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->peer = list_new();
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		group->listen_range[afi] = list_new();
-	group->conf = peer_new(bgp, NULL);
+	group->conf = peer_new(bgp, NULL, UNKNOWN);
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (bgp->default_af[afi][safi])
 			group->conf->afc[afi][safi] = 1;
@@ -3495,8 +3496,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
 		}
 
-		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, group, true, NULL);
+		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type,
+				   group, true, NULL, CONNECTION_OUTGOING);
 
 		peer = peer_lock(peer); /* group->peer list reference */
 		listnode_add(group->peer, peer);
@@ -3610,7 +3611,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
-	bgp->peer_self = peer_new(bgp, NULL);
+	bgp->peer_self = peer_new(bgp, NULL, UNKNOWN);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
@@ -4693,8 +4694,8 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	safi_t safi;
 
 	/* Create peer first; we've already checked group config is valid. */
-	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, group, true, NULL);
+	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, group,
+			   true, NULL, CONNECTION_INCOMING);
 	if (!peer)
 		return NULL;
 
