@@ -126,13 +126,13 @@ struct isis_threeway_adj {
 };
 
 /* Segment Routing subTLV's as per RFC8667 */
-#define ISIS_SUBTLV_SRGB_FLAG_I		0x80
-#define ISIS_SUBTLV_SRGB_FLAG_V		0x40
-#define IS_SR_IPV4(srgb)               ((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_I)
-#define IS_SR_IPV6(srgb)               ((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_V)
-#define SUBTLV_SR_BLOCK_SIZE            6
-#define SUBTLV_RANGE_INDEX_SIZE         10
-#define SUBTLV_RANGE_LABEL_SIZE         9
+#define ISIS_SUBTLV_SRGB_FLAG_I 0x80
+#define ISIS_SUBTLV_SRGB_FLAG_V 0x40
+#define IS_SR_IPV4(srgb)	((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_I)
+#define IS_SR_IPV6(srgb)	((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_V)
+#define SUBTLV_SR_BLOCK_SIZE	6
+#define SUBTLV_RANGE_INDEX_SIZE 10
+#define SUBTLV_RANGE_LABEL_SIZE 9
 
 /* Structure aggregating SR Global (SRGB) or Local (SRLB) Block info */
 struct isis_sr_block {
@@ -143,11 +143,11 @@ struct isis_sr_block {
 
 /* Prefix-SID sub-TLVs flags */
 #define ISIS_PREFIX_SID_READVERTISED  0x80
-#define ISIS_PREFIX_SID_NODE          0x40
-#define ISIS_PREFIX_SID_NO_PHP        0x20
+#define ISIS_PREFIX_SID_NODE	      0x40
+#define ISIS_PREFIX_SID_NO_PHP	      0x20
 #define ISIS_PREFIX_SID_EXPLICIT_NULL 0x10
-#define ISIS_PREFIX_SID_VALUE         0x08
-#define ISIS_PREFIX_SID_LOCAL         0x04
+#define ISIS_PREFIX_SID_VALUE	      0x08
+#define ISIS_PREFIX_SID_LOCAL	      0x04
 
 struct isis_prefix_sid {
 	struct isis_prefix_sid *next;
@@ -158,12 +158,12 @@ struct isis_prefix_sid {
 };
 
 /* Adj-SID and LAN-Ajd-SID sub-TLVs flags */
-#define EXT_SUBTLV_LINK_ADJ_SID_FFLG	0x80
-#define EXT_SUBTLV_LINK_ADJ_SID_BFLG	0x40
-#define EXT_SUBTLV_LINK_ADJ_SID_VFLG	0x20
-#define EXT_SUBTLV_LINK_ADJ_SID_LFLG	0x10
-#define EXT_SUBTLV_LINK_ADJ_SID_SFLG	0x08
-#define EXT_SUBTLV_LINK_ADJ_SID_PFLG	0x04
+#define EXT_SUBTLV_LINK_ADJ_SID_FFLG 0x80
+#define EXT_SUBTLV_LINK_ADJ_SID_BFLG 0x40
+#define EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x20
+#define EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x10
+#define EXT_SUBTLV_LINK_ADJ_SID_SFLG 0x08
+#define EXT_SUBTLV_LINK_ADJ_SID_PFLG 0x04
 
 struct isis_adj_sid {
 	struct isis_adj_sid *next;
@@ -185,12 +185,12 @@ struct isis_lan_adj_sid {
 };
 
 /* RFC 4971 & RFC 7981 */
-#define ISIS_ROUTER_CAP_FLAG_S	0x01
-#define ISIS_ROUTER_CAP_FLAG_D	0x02
-#define ISIS_ROUTER_CAP_SIZE	5
+#define ISIS_ROUTER_CAP_FLAG_S 0x01
+#define ISIS_ROUTER_CAP_FLAG_D 0x02
+#define ISIS_ROUTER_CAP_SIZE   5
 
-#define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
-#define MSD_TLV_SIZE            2
+#define MSD_TYPE_BASE_MPLS_IMPOSITION 0x01
+#define MSD_TLV_SIZE		      2
 
 #ifndef FABRICD
 struct isis_router_cap_fad;
@@ -221,9 +221,9 @@ struct isis_srv6_end_sid_subtlv {
 };
 
 /* SRv6 End.X SID and SRv6 LAN End.X SID sub-TLVs flags */
-#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG	0x20
-#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG	0x40
-#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG	0x80
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG 0x20
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG 0x40
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG 0x80
 
 /* SRv6 End.X SID Sub-TLV as per RFC 9352 section #8.1 */
 struct isis_srv6_endx_sid_subtlv {
@@ -287,8 +287,7 @@ struct isis_srv6_cap {
 
 	uint16_t flags;
 #define ISIS_SUBTLV_SRV6_FLAG_O 0x4000
-#define SUPPORTS_SRV6_OAM(srv6)                                                \
-	(CHECK_FLAG((srv6)->flags, ISIS_SUBTLV_SRV6_FLAG_O))
+#define SUPPORTS_SRV6_OAM(srv6) (CHECK_FLAG((srv6)->flags, ISIS_SUBTLV_SRV6_FLAG_O))
 };
 
 struct isis_router_cap {
@@ -382,10 +381,8 @@ enum isis_auth_result {
 
 RB_HEAD(isis_mt_item_list, isis_item_list);
 
-struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m,
-					 uint16_t mtid);
-struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m,
-					    uint16_t mtid);
+struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m, uint16_t mtid);
+struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m, uint16_t mtid);
 
 struct isis_tlvs {
 	struct isis_item_list isis_auth;
@@ -624,36 +621,36 @@ enum ext_subsubtlv_types {
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
-#define SET_SUBTLV(s, t) ((s->status) |= (t))
+#define SET_SUBTLV(s, t)   ((s->status) |= (t))
 #define UNSET_SUBTLV(s, t) ((s->status) &= ~(t))
-#define IS_SUBTLV(s, t) (s->status & t)
-#define RESET_SUBTLV(s) (s->status = 0)
-#define NO_SUBTLV(s) (s->status == 0)
+#define IS_SUBTLV(s, t)	   (s->status & t)
+#define RESET_SUBTLV(s)	   (s->status = 0)
+#define NO_SUBTLV(s)	   (s->status == 0)
 
-#define EXT_DISABLE		0x000000
-#define EXT_ADM_GRP		0x000001
-#define EXT_LLRI		0x000002
-#define EXT_LOCAL_ADDR		0x000004
-#define EXT_NEIGH_ADDR		0x000008
-#define EXT_LOCAL_ADDR6		0x000010
-#define EXT_NEIGH_ADDR6		0x000020
-#define EXT_MAX_BW		0x000040
-#define EXT_MAX_RSV_BW		0x000080
-#define EXT_UNRSV_BW		0x000100
-#define EXT_TE_METRIC		0x000200
-#define EXT_RMT_AS		0x000400
-#define EXT_RMT_IP		0x000800
-#define EXT_ADJ_SID		0x001000
-#define EXT_LAN_ADJ_SID		0x002000
-#define EXT_DELAY		0x004000
-#define EXT_MM_DELAY		0x008000
-#define EXT_DELAY_VAR		0x010000
-#define EXT_PKT_LOSS		0x020000
-#define EXT_RES_BW		0x040000
-#define EXT_AVA_BW		0x080000
-#define EXT_USE_BW		0x100000
-#define EXT_EXTEND_ADM_GRP 0x200000
-#define EXT_SRV6_ENDX_SID 0x400000
+#define EXT_DISABLE	      0x000000
+#define EXT_ADM_GRP	      0x000001
+#define EXT_LLRI	      0x000002
+#define EXT_LOCAL_ADDR	      0x000004
+#define EXT_NEIGH_ADDR	      0x000008
+#define EXT_LOCAL_ADDR6	      0x000010
+#define EXT_NEIGH_ADDR6	      0x000020
+#define EXT_MAX_BW	      0x000040
+#define EXT_MAX_RSV_BW	      0x000080
+#define EXT_UNRSV_BW	      0x000100
+#define EXT_TE_METRIC	      0x000200
+#define EXT_RMT_AS	      0x000400
+#define EXT_RMT_IP	      0x000800
+#define EXT_ADJ_SID	      0x001000
+#define EXT_LAN_ADJ_SID	      0x002000
+#define EXT_DELAY	      0x004000
+#define EXT_MM_DELAY	      0x008000
+#define EXT_DELAY_VAR	      0x010000
+#define EXT_PKT_LOSS	      0x020000
+#define EXT_RES_BW	      0x040000
+#define EXT_AVA_BW	      0x080000
+#define EXT_USE_BW	      0x100000
+#define EXT_EXTEND_ADM_GRP    0x200000
+#define EXT_SRV6_ENDX_SID     0x400000
 #define EXT_SRV6_LAN_ENDX_SID 0x800000
 
 /*
@@ -671,33 +668,32 @@ enum ext_subsubtlv_types {
 #define IS_ANORMAL(v) (v & TE_EXT_ANORMAL)
 
 struct isis_ext_subtlvs {
-
 	uint32_t status;
 
-	uint32_t adm_group; /* Resource Class/Color - RFC 5305 */
+	uint32_t adm_group;		    /* Resource Class/Color - RFC 5305 */
 	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
 	/* Link Local/Remote Identifiers - RFC 5307 */
 	uint32_t local_llri;
 	uint32_t remote_llri;
-	struct in_addr local_addr; /* Local IP Address - RFC 5305 */
-	struct in_addr neigh_addr; /* Neighbor IP Address - RFC 5305 */
+	struct in_addr local_addr;   /* Local IP Address - RFC 5305 */
+	struct in_addr neigh_addr;   /* Neighbor IP Address - RFC 5305 */
 	struct in6_addr local_addr6; /* Local IPv6 Address - RFC 6119 */
 	struct in6_addr neigh_addr6; /* Neighbor IPv6 Address - RFC 6119 */
-	float max_bw; /* Maximum Bandwidth - RFC 5305 */
-	float max_rsv_bw; /* Maximum Reservable Bandwidth - RFC 5305 */
-	float unrsv_bw[8]; /* Unreserved Bandwidth - RFC 5305 */
-	uint32_t te_metric; /* Traffic Engineering Metric - RFC 5305 */
-	uint32_t remote_as; /* Remote AS Number sub-TLV - RFC5316 */
-	struct in_addr remote_ip; /* IPv4 Remote ASBR ID Sub-TLV - RFC5316 */
+	float max_bw;		     /* Maximum Bandwidth - RFC 5305 */
+	float max_rsv_bw;	     /* Maximum Reservable Bandwidth - RFC 5305 */
+	float unrsv_bw[8];	     /* Unreserved Bandwidth - RFC 5305 */
+	uint32_t te_metric;	     /* Traffic Engineering Metric - RFC 5305 */
+	uint32_t remote_as;	     /* Remote AS Number sub-TLV - RFC5316 */
+	struct in_addr remote_ip;    /* IPv4 Remote ASBR ID Sub-TLV - RFC5316 */
 
-	uint32_t delay; /* Average Link Delay  - RFC 8570 */
+	uint32_t delay;	    /* Average Link Delay  - RFC 8570 */
 	uint32_t min_delay; /* Low Link Delay  - RFC 8570 */
 	uint32_t max_delay; /* High Link Delay  - RFC 8570 */
 	uint32_t delay_var; /* Link Delay Variation i.e. Jitter - RFC 8570 */
-	uint32_t pkt_loss; /* Unidirectional Link Packet Loss - RFC 8570 */
-	float res_bw; /* Unidirectional Residual Bandwidth - RFC 8570 */
-	float ava_bw; /* Unidirectional Available Bandwidth - RFC 8570 */
-	float use_bw; /* Unidirectional Utilized Bandwidth - RFC 8570 */
+	uint32_t pkt_loss;  /* Unidirectional Link Packet Loss - RFC 8570 */
+	float res_bw;	    /* Unidirectional Residual Bandwidth - RFC 8570 */
+	float ava_bw;	    /* Unidirectional Available Bandwidth - RFC 8570 */
+	float use_bw;	    /* Unidirectional Utilized Bandwidth - RFC 8570 */
 
 	/* Segment Routing Adjacency & LAN Adjacency Segment ID */
 	struct isis_item_list adj_sid;
@@ -716,10 +712,10 @@ struct isis_ext_subtlvs {
 #define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
 #define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
-#define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
+#define ASLA_APP_IDENTIFIER_BIT_LENGTH	   1
 #define ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH 8
-#define ASLA_LEGACY_FLAG 0x80
-#define ASLA_APPS_LENGTH_MASK 0x7f
+#define ASLA_LEGACY_FLAG		   0x80
+#define ASLA_APPS_LENGTH_MASK		   0x7f
 
 struct isis_asla_subtlvs {
 	uint32_t status;
@@ -735,155 +731,124 @@ struct isis_asla_subtlvs {
 	uint32_t admin_group;
 	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
 	float max_bw;			    /* Maximum Bandwidth - RFC 5305 */
-	float max_rsv_bw;   /* Maximum Reservable Bandwidth - RFC 5305 */
-	float unrsv_bw[8];  /* Unreserved Bandwidth - RFC 5305 */
-	uint32_t te_metric; /* Traffic Engineering Metric - RFC 5305 */
-	uint32_t delay;     /* Average Link Delay  - RFC 8570 */
-	uint32_t min_delay; /* Low Link Delay  - RFC 8570 */
-	uint32_t max_delay; /* High Link Delay  - RFC 8570 */
-	uint32_t delay_var; /* Link Delay Variation i.e. Jitter - RFC 8570 */
-	uint32_t pkt_loss;  /* Unidirectional Link Packet Loss - RFC 8570 */
-	float res_bw;       /* Unidirectional Residual Bandwidth - RFC 8570 */
-	float ava_bw;       /* Unidirectional Available Bandwidth - RFC 8570 */
-	float use_bw;       /* Unidirectional Utilized Bandwidth - RFC 8570 */
+	float max_rsv_bw;		    /* Maximum Reservable Bandwidth - RFC 5305 */
+	float unrsv_bw[8];		    /* Unreserved Bandwidth - RFC 5305 */
+	uint32_t te_metric;		    /* Traffic Engineering Metric - RFC 5305 */
+	uint32_t delay;			    /* Average Link Delay  - RFC 8570 */
+	uint32_t min_delay;		    /* Low Link Delay  - RFC 8570 */
+	uint32_t max_delay;		    /* High Link Delay  - RFC 8570 */
+	uint32_t delay_var;		    /* Link Delay Variation i.e. Jitter - RFC 8570 */
+	uint32_t pkt_loss;		    /* Unidirectional Link Packet Loss - RFC 8570 */
+	float res_bw;			    /* Unidirectional Residual Bandwidth - RFC 8570 */
+	float ava_bw;			    /* Unidirectional Available Bandwidth - RFC 8570 */
+	float use_bw;			    /* Unidirectional Utilized Bandwidth - RFC 8570 */
 };
 
-#define IS_COMPAT_MT_TLV(tlv_type)                                             \
-	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) \
-	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH))
+#define IS_COMPAT_MT_TLV(tlv_type)                                                                \
+	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) ||                 \
+	 (tlv_type == ISIS_TLV_MT_IPV6_REACH))
 
 struct stream;
-int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
-		   size_t len_pointer, bool pad, bool is_lsp);
+int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream, size_t len_pointer, bool pad,
+		   bool is_lsp);
 void isis_free_tlvs(struct isis_tlvs *tlvs);
 struct isis_tlvs *isis_alloc_tlvs(void);
 struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context);
-int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
-		     struct isis_tlvs **dest, const char **error_log);
+int isis_unpack_tlvs(size_t avail_len, struct stream *stream, struct isis_tlvs **dest,
+		     const char **error_log);
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
 struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs);
 struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 
-#define ISIS_EXTENDED_IP_REACH_DOWN 0x80
+#define ISIS_EXTENDED_IP_REACH_DOWN   0x80
 #define ISIS_EXTENDED_IP_REACH_SUBTLV 0x40
 
-#define ISIS_IPV6_REACH_DOWN 0x80
+#define ISIS_IPV6_REACH_DOWN	 0x80
 #define ISIS_IPV6_REACH_EXTERNAL 0x40
-#define ISIS_IPV6_REACH_SUBTLV 0x20
+#define ISIS_IPV6_REACH_SUBTLV	 0x20
 
 #ifndef ISIS_MT_MASK
-#define ISIS_MT_MASK           0x0fff
-#define ISIS_MT_OL_MASK        0x8000
-#define ISIS_MT_AT_MASK        0x4000
+#define ISIS_MT_MASK	0x0fff
+#define ISIS_MT_OL_MASK 0x8000
+#define ISIS_MT_AT_MASK 0x4000
 #endif
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
-void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs,
-				 struct list *neighbors);
-void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
-				       struct nlpids *nlpids);
-void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid,
-				  bool overload, bool attached);
+void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct list *addresses);
+void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors);
+void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs, struct nlpids *nlpids);
+void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid, bool overload,
+				  bool attached);
 void isis_tlvs_add_ipv4_address(struct isis_tlvs *tlvs, struct in_addr *addr);
-void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs,
-					 struct list *addresses);
+void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs, struct list *addresses);
+void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
+void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
 int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 			    struct stream *stream, bool is_lsp);
-bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
-				    struct list *addresses);
+bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs, struct list *addresses);
 struct isis_adjacency;
-void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
-		      bool *changed);
+void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *changed);
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa);
 void isis_tlvs_add_lsp_entry(struct isis_tlvs *tlvs, struct isis_lsp *lsp);
-void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
-				uint8_t *stop_id, uint16_t num_lsps,
-				struct lspdb_head *lspdb,
+void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id, uint8_t *stop_id,
+				uint16_t num_lsps, struct lspdb_head *lspdb,
 				struct isis_lsp **last_lsp);
-void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
-				    const char *hostname);
-struct isis_router_cap *
-isis_tlvs_init_router_capability(struct isis_tlvs *tlvs);
+void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs, const char *hostname);
+struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs);
 
 struct isis_area;
 struct isis_flex_algo;
-void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs,
-					 struct flex_algo *fa, int algorithm,
-					 uint8_t *sysid);
+void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_algo *fa,
+					 int algorithm, uint8_t *sysid);
 
 struct isis_area;
 
 int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap);
 
-void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
-				const struct in_addr *id);
-void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs,
-				     const struct in6_addr *id);
-void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint8_t metric);
-void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric,
-				     bool external,
-				     struct sr_prefix_cfg **pcfgs);
-void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric,
-			      bool external, struct sr_prefix_cfg **pcfgs);
+void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs, const struct in_addr *id);
+void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs, const struct in6_addr *id);
+void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 *dest,
+				     uint8_t metric);
+void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 *dest,
+				     uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs);
+void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid, struct prefix_ipv6 *dest,
+			      uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-				     struct prefix_ipv6 *dest,
-				     struct prefix_ipv6 *src,
+				     struct prefix_ipv6 *dest, struct prefix_ipv6 *src,
 				     uint32_t metric);
 struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void);
 void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext);
-void isis_tlvs_add_adj_sid(struct isis_ext_subtlvs *exts,
-			   struct isis_adj_sid *adj);
-void isis_tlvs_del_adj_sid(struct isis_ext_subtlvs *exts,
-			   struct isis_adj_sid *adj);
-void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
-			       struct isis_lan_adj_sid *lan);
-void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
-			       struct isis_lan_adj_sid *lan);
+void isis_tlvs_add_adj_sid(struct isis_ext_subtlvs *exts, struct isis_adj_sid *adj);
+void isis_tlvs_del_adj_sid(struct isis_ext_subtlvs *exts, struct isis_adj_sid *adj);
+void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts, struct isis_lan_adj_sid *lan);
+void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts, struct isis_lan_adj_sid *lan);
 
-void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
-				  struct isis_asla_subtlvs *asla);
-struct isis_asla_subtlvs *
-isis_tlvs_find_alloc_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
+void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext, struct isis_asla_subtlvs *asla);
+struct isis_asla_subtlvs *isis_tlvs_find_alloc_asla(struct isis_ext_subtlvs *ext,
+						    uint8_t standard_apps);
 void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
 
-void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
-				  uint8_t metric);
-void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-				  uint8_t *id, uint32_t metric,
-				  struct isis_ext_subtlvs *subtlvs);
+void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id, uint8_t metric);
+void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid, uint8_t *id,
+				  uint32_t metric, struct isis_ext_subtlvs *subtlvs);
 
 const char *isis_threeway_state_name(enum isis_threeway_state state);
 
-void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
-				enum isis_threeway_state state,
-				uint32_t local_circuit_id,
-				const uint8_t *neighbor_id,
+void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,
+				uint32_t local_circuit_id, const uint8_t *neighbor_id,
 				uint32_t neighbor_circuit_id);
 
-void isis_tlvs_add_spine_leaf(struct isis_tlvs *tlvs, uint8_t tier,
-			      bool has_tier, bool is_leaf, bool is_spine,
-			      bool is_backup);
+void isis_tlvs_add_spine_leaf(struct isis_tlvs *tlvs, uint8_t tier, bool has_tier, bool is_leaf,
+			      bool is_spine, bool is_backup);
 
-struct isis_mt_router_info *
-isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
+struct isis_mt_router_info *isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 
-void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
-				    const uint8_t *generator,
+void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs, const uint8_t *generator,
 				    const uint8_t *sender);
 
 void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
 					    struct isis_srv6_sid *sid);
-void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
-				   struct isis_srv6_sid *sid);
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs, struct isis_srv6_sid *sid);
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
 				struct isis_srv6_locator *loc);
 
