@@ -338,15 +338,16 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree, const uint8_
 	return false;
 }
 
-struct tilfa_find_pnode_prefix_sid_args {
+struct tilfa_mpls_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
 	int algorithm;
 };
 
-static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t metric,
-					  bool external, struct isis_subtlvs *subtlvs, void *arg)
+static int tilfa_mpls_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t metric,
+					       bool external, struct isis_subtlvs *subtlvs,
+					       void *arg)
 {
-	struct tilfa_find_pnode_prefix_sid_args *args = arg;
+	struct tilfa_mpls_find_pnode_prefix_sid_args *args = arg;
 	struct isis_prefix_sid *psid;
 
 	if (!subtlvs || subtlvs->prefix_sids.count == 0)
@@ -365,10 +366,10 @@ static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t 
 }
 
 /* Find Prefix-SID associated to a System ID. */
-static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree, const uint8_t *sysid)
+static uint32_t tilfa_mpls_find_pnode_prefix_sid(struct isis_spftree *spftree, const uint8_t *sysid)
 {
 	struct isis_lsp *lsp;
-	struct tilfa_find_pnode_prefix_sid_args args;
+	struct tilfa_mpls_find_pnode_prefix_sid_args args;
 
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
 	if (!lsp)
@@ -378,20 +379,20 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree, const 
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
-				  tilfa_find_pnode_prefix_sid_cb, &args);
+				  tilfa_mpls_find_pnode_prefix_sid_cb, &args);
 
 	return args.sid_index;
 }
 
-struct tilfa_find_qnode_adj_sid_args {
+struct tilfa_mpls_find_qnode_adj_sid_args {
 	const uint8_t *qnode_sysid;
 	mpls_label_t label;
 };
 
-static int tilfa_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
-				       struct isis_ext_subtlvs *subtlvs, void *arg)
+static int tilfa_mpls_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
+					    struct isis_ext_subtlvs *subtlvs, void *arg)
 {
-	struct tilfa_find_qnode_adj_sid_args *args = arg;
+	struct tilfa_mpls_find_qnode_adj_sid_args *args = arg;
 	struct isis_adj_sid *adj_sid;
 
 	if (memcmp(id, args->qnode_sysid, ISIS_SYS_ID_LEN))
@@ -406,12 +407,12 @@ static int tilfa_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool 
 }
 
 /* Find Adj-SID associated to a pair of System IDs. */
-static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
-					     const uint8_t *source_sysid,
-					     const uint8_t *qnode_sysid)
+static mpls_label_t tilfa_mpls_find_qnode_adj_sid(struct isis_spftree *spftree,
+						  const uint8_t *source_sysid,
+						  const uint8_t *qnode_sysid)
 {
 	struct isis_lsp *lsp;
-	struct tilfa_find_qnode_adj_sid_args args;
+	struct tilfa_mpls_find_qnode_adj_sid_args args;
 
 	lsp = isis_root_system_lsp(spftree->lspdb, source_sysid);
 	if (!lsp)
@@ -419,7 +420,7 @@ static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
 
 	args.qnode_sysid = qnode_sysid;
 	args.label = MPLS_INVALID_LABEL;
-	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_find_qnode_adj_sid_cb, &args);
+	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_mpls_find_qnode_adj_sid_cb, &args);
 
 	return args.label;
 }
@@ -429,9 +430,9 @@ static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
  * needs to be computed separately for each adjacency since different
  * neighbors can have different SRGBs.
  */
-static struct mpls_label_stack *tilfa_compute_label_stack(struct lspdb_head *lspdb,
-							  const struct isis_spf_adj *sadj,
-							  const struct list *repair_list)
+static struct mpls_label_stack *tilfa_mpls_compute_label_stack(struct lspdb_head *lspdb,
+							       const struct isis_spf_adj *sadj,
+							       const struct list *repair_list)
 {
 	struct mpls_label_stack *label_stack;
 	struct isis_tilfa_sid *sid;
@@ -495,9 +496,10 @@ error:
 	return NULL;
 }
 
-static int tilfa_repair_list_apply(struct isis_spftree *spftree, struct isis_vertex *vertex_dest,
-				   const struct isis_vertex *vertex_pnode,
-				   const struct list *repair_list)
+static int tilfa_mpls_repair_list_apply(struct isis_spftree *spftree,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex_pnode,
+					const struct list *repair_list)
 {
 	struct isis_vertex_adj *vadj;
 	struct listnode *node;
@@ -516,7 +518,7 @@ static int tilfa_repair_list_apply(struct isis_spftree *spftree, struct isis_ver
 		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
 			continue;
 
-		label_stack = tilfa_compute_label_stack(spftree->lspdb, sadj, repair_list);
+		label_stack = tilfa_mpls_compute_label_stack(spftree->lspdb, sadj, repair_list);
 		if (!label_stack) {
 			char buf[VID2STR_BUFFER];
 
@@ -576,10 +578,12 @@ static bool lfa_q_space_check(const struct isis_spftree *spftree_pc,
 }
 
 /* This is a recursive function. */
-static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_vertex *vertex_dest,
-				   const struct isis_vertex *vertex,
-				   const struct isis_vertex *vertex_child,
-				   struct isis_spf_nodes *used_pnodes, struct list *repair_list)
+static int tilfa_build_mpls_repair_list(struct isis_spftree *spftree_pc,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex,
+					const struct isis_vertex *vertex_child,
+					struct isis_spf_nodes *used_pnodes,
+					struct list *repair_list)
 {
 	struct isis_vertex *pvertex;
 	struct listnode *node;
@@ -638,8 +642,8 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 			list_delete_all_node(repair_list);
 		}
 
-		label_qnode = tilfa_find_qnode_adj_sid(spftree_pc, vertex->N.id,
-						       vertex_child->N.id);
+		label_qnode = tilfa_mpls_find_qnode_adj_sid(spftree_pc, vertex->N.id,
+							    vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {
 			zlog_warn("ISIS-LFA: failed to find %s->%s Adj-SID",
 				  print_sys_hostname(vertex->N.id),
@@ -671,7 +675,7 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 			return 0;
 		}
 
-		sid_index = tilfa_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
+		sid_index = tilfa_mpls_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
 		if (sid_index == UINT32_MAX) {
 			zlog_warn("ISIS-LFA: failed to find Prefix-SID corresponding to PQ-node %s",
 				  print_sys_hostname(vertex->N.id));
@@ -692,7 +696,7 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 				  listcount(repair_list), spftree_pc->area->srdb.config.msd);
 			return -1;
 		}
-		if (tilfa_repair_list_apply(spftree_pc, vertex_dest, vertex, repair_list) != 0)
+		if (tilfa_mpls_repair_list_apply(spftree_pc, vertex_dest, vertex, repair_list) != 0)
 			return -1;
 		return 0;
 	}
@@ -705,8 +709,8 @@ parents:
 
 		ecmp = (listcount(vertex->parents) > 1) ? true : false;
 		repair_list_parent = ecmp ? list_dup(repair_list) : repair_list;
-		ret = tilfa_build_repair_list(spftree_pc, vertex_dest, pvertex, vertex,
-					      used_pnodes, repair_list_parent);
+		ret = tilfa_build_mpls_repair_list(spftree_pc, vertex_dest, pvertex, vertex,
+						   used_pnodes, repair_list_parent);
 		if (ecmp)
 			list_delete(&repair_list_parent);
 		if (ret != 0)
@@ -882,7 +886,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex
 	repair_list = list_new();
 
 	isis_spf_node_list_init(&used_pnodes);
-	ret = tilfa_build_repair_list(spftree_pc, vertex, vertex, NULL, &used_pnodes, repair_list);
+	ret = tilfa_build_mpls_repair_list(spftree_pc, vertex, vertex, NULL, &used_pnodes,
+					   repair_list);
 	isis_spf_node_list_clear(&used_pnodes);
 	list_delete(&repair_list);
 	if (ret != 0)
