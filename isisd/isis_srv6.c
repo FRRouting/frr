@@ -31,9 +31,8 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_INFO, "ISIS SRv6 information");
  * @param sid				    SRv6 SID configuration
  * @param structure_subsubtlv	SRv6 SID Structure Sub-Sub-TLV to be updated
  */
-void isis_srv6_sid_structure2subsubtlv(
-	const struct isis_srv6_sid *sid,
-	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
+void isis_srv6_sid_structure2subsubtlv(const struct isis_srv6_sid *sid,
+				       struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
 {
 	/* Set Locator Block length */
 	structure_subsubtlv->loc_block_len = sid->structure.loc_block_len;
@@ -113,10 +112,8 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 
 	/* Delete SRv6 SIDs */
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
-		sr_debug(
-			"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
-			area->srv6db.config.srv6_locator_name, &sid->sid,
-			area->area_tag);
+		sr_debug("Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+			 area->srv6db.config.srv6_locator_name, &sid->sid, area->area_tag);
 
 		/* Uninstall the SRv6 SID from the forwarding plane through
 		 * Zebra */
@@ -150,18 +147,14 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	}
 
 	/* Inform Zebra that we are releasing the SRv6 locator */
-	ret = isis_zebra_srv6_manager_release_locator_chunk(
-		area->srv6db.config.srv6_locator_name);
+	ret = isis_zebra_srv6_manager_release_locator_chunk(area->srv6db.config.srv6_locator_name);
 	if (ret < 0)
 		return false;
 
 	/* Delete chunks */
-	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode,
-			       chunk)) {
-		sr_debug(
-			"Releasing chunk of locator %s (prefix %pFX) for IS-IS area %s",
-			area->srv6db.config.srv6_locator_name, &chunk->prefix,
-			area->area_tag);
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode, chunk)) {
+		sr_debug("Releasing chunk of locator %s (prefix %pFX) for IS-IS area %s",
+			 area->srv6db.config.srv6_locator_name, &chunk->prefix, area->area_tag);
 
 		listnode_delete(area->srv6db.srv6_locator_chunks, chunk);
 		srv6_locator_chunk_free(&chunk);
@@ -200,7 +193,8 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
 		return;
 	}
 
-	sr_debug("SRv6 interface for IS-IS area %s changed (old interface: %s, new interface: %s)", area->area_tag, area->srv6db.config.srv6_ifname, ifname);
+	sr_debug("SRv6 interface for IS-IS area %s changed (old interface: %s, new interface: %s)",
+		 area->area_tag, area->srv6db.config.srv6_ifname, ifname);
 
 	/* Walk through all SIDs and uninstall them from the data plane */
 	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, sid)) {
@@ -211,7 +205,8 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
 	strlcpy(area->srv6db.config.srv6_ifname, ifname, sizeof(area->srv6db.config.srv6_ifname));
 
 	if (!if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT)) {
-		sr_debug("Interface %s not yet exist in data plane, deferring SIDs installation until it's created", area->srv6db.config.srv6_ifname);
+		sr_debug("Interface %s not yet exist in data plane, deferring SIDs installation until it's created",
+			 area->srv6db.config.srv6_ifname);
 		return;
 	}
 
@@ -232,10 +227,9 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
  *
  * @result the allocated SID on success, NULL otherwise
  */
-struct isis_srv6_sid *
-isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
-		    enum srv6_endpoint_behavior_codepoint behavior,
-		    struct in6_addr *sid_value)
+struct isis_srv6_sid *isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
+					  enum srv6_endpoint_behavior_codepoint behavior,
+					  struct in6_addr *sid_value)
 {
 	struct isis_srv6_sid *sid = NULL;
 
@@ -274,8 +268,7 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
-		if (sra->type == ISIS_SRV6_ADJ_BACKUP &&
-		    (sra->adj->level & level))
+		if (sra->type == ISIS_SRV6_ADJ_BACKUP && (sra->adj->level & level))
 			srv6_endx_sid_del(sra);
 }
 
@@ -289,8 +282,8 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
  * @param nexthops List of backup nexthops (for backup End.X SIDs only)
  * @param sid_value SID value associated to be associated with the adjacency
  */
-void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
-			      struct list *nexthops, struct in6_addr *sid_value)
+void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct list *nexthops,
+			      struct in6_addr *sid_value)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -305,8 +298,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (!area || !area->srv6db.srv6_locator)
 		return;
 
-	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag,
-		 backup ? "Backup" : "Primary");
+	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag, backup ? "Backup" : "Primary");
 
 	/* Determine nexthop IP address */
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
@@ -343,26 +335,22 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
 	case CIRCUIT_T_BROADCAST:
 		ladj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*ladj_sid));
-		memcpy(ladj_sid->neighbor_id, adj->sysid,
-		       sizeof(ladj_sid->neighbor_id));
+		memcpy(ladj_sid->neighbor_id, adj->sysid, sizeof(ladj_sid->neighbor_id));
 		ladj_sid->flags = flags;
 		ladj_sid->algorithm = SR_ALGORITHM_SPF;
 		ladj_sid->weight = 0;
 		ladj_sid->behavior = sra->behavior;
 		ladj_sid->sid = sra->sid;
-		ladj_sid->subsubtlvs = isis_alloc_subsubtlvs(
-			ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
-		ladj_sid->subsubtlvs->srv6_sid_structure = XCALLOC(
-			MTYPE_ISIS_SUBSUBTLV,
-			sizeof(*ladj_sid->subsubtlvs->srv6_sid_structure));
+		ladj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+		ladj_sid->subsubtlvs->srv6_sid_structure =
+			XCALLOC(MTYPE_ISIS_SUBSUBTLV,
+				sizeof(*ladj_sid->subsubtlvs->srv6_sid_structure));
 		ladj_sid->subsubtlvs->srv6_sid_structure->loc_block_len =
 			sra->structure.loc_block_len;
 		ladj_sid->subsubtlvs->srv6_sid_structure->loc_node_len =
 			sra->structure.loc_node_len;
-		ladj_sid->subsubtlvs->srv6_sid_structure->func_len =
-			sra->structure.func_len;
-		ladj_sid->subsubtlvs->srv6_sid_structure->arg_len =
-			sra->structure.arg_len;
+		ladj_sid->subsubtlvs->srv6_sid_structure->func_len = sra->structure.func_len;
+		ladj_sid->subsubtlvs->srv6_sid_structure->arg_len = sra->structure.arg_len;
 		isis_tlvs_add_srv6_lan_endx_sid(circuit->ext, ladj_sid);
 		sra->u.lendx_sid = ladj_sid;
 		break;
@@ -374,25 +362,21 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 		adj_sid->weight = 0;
 		adj_sid->behavior = sra->behavior;
 		adj_sid->sid = sra->sid;
-		adj_sid->subsubtlvs = isis_alloc_subsubtlvs(
-			ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
-		adj_sid->subsubtlvs->srv6_sid_structure = XCALLOC(
-			MTYPE_ISIS_SUBSUBTLV,
-			sizeof(*adj_sid->subsubtlvs->srv6_sid_structure));
+		adj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+		adj_sid->subsubtlvs->srv6_sid_structure =
+			XCALLOC(MTYPE_ISIS_SUBSUBTLV,
+				sizeof(*adj_sid->subsubtlvs->srv6_sid_structure));
 		adj_sid->subsubtlvs->srv6_sid_structure->loc_block_len =
 			sra->structure.loc_block_len;
-		adj_sid->subsubtlvs->srv6_sid_structure->loc_node_len =
-			sra->structure.loc_node_len;
-		adj_sid->subsubtlvs->srv6_sid_structure->func_len =
-			sra->structure.func_len;
-		adj_sid->subsubtlvs->srv6_sid_structure->arg_len =
-			sra->structure.arg_len;
+		adj_sid->subsubtlvs->srv6_sid_structure->loc_node_len = sra->structure.loc_node_len;
+		adj_sid->subsubtlvs->srv6_sid_structure->func_len = sra->structure.func_len;
+		adj_sid->subsubtlvs->srv6_sid_structure->arg_len = sra->structure.arg_len;
 		isis_tlvs_add_srv6_endx_sid(circuit->ext, adj_sid);
 		sra->u.endx_sid = adj_sid;
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
-			 __func__, circuit->circ_type);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
+			 circuit->circ_type);
 		exit(1);
 	}
 
@@ -437,14 +421,13 @@ void srv6_endx_sid_del(struct srv6_adjacency *sra)
 		isis_tlvs_del_srv6_endx_sid(circuit->ext, sra->u.endx_sid);
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
-			 __func__, circuit->circ_type);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
+			 circuit->circ_type);
 		exit(1);
 	}
 
 	if (sra->type == ISIS_SRV6_ADJ_BACKUP && sra->backup_nexthops) {
-		sra->backup_nexthops->del =
-			(void (*)(void *))isis_nexthop_delete;
+		sra->backup_nexthops->del = (void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);
 	}
 
@@ -460,8 +443,7 @@ void srv6_endx_sid_del(struct srv6_adjacency *sra)
  * @param adj	  IS-IS Adjacency
  * @param type    SRv6 End.X SID type
  */
-struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
-					       enum srv6_adj_type type)
+struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj, enum srv6_adj_type type)
 {
 	struct srv6_adjacency *sra;
 	struct listnode *node;
@@ -507,11 +489,9 @@ static int srv6_adj_state_change(struct isis_adjacency *adj)
  *
  * @return	  0
  */
-static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family,
-			       bool global)
+static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
 {
-	if (!adj->circuit->area->srv6db.config.enabled || global ||
-	    family != AF_INET6)
+	if (!adj->circuit->area->srv6db.config.enabled || global || family != AF_INET6)
 		return 0;
 
 	isis_zebra_request_srv6_sid_endx(adj);
@@ -529,14 +509,12 @@ static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family,
  *
  * @return	  0
  */
-static int srv6_adj_ip_disabled(struct isis_adjacency *adj, int family,
-				bool global)
+static int srv6_adj_ip_disabled(struct isis_adjacency *adj, int family, bool global)
 {
 	struct srv6_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	if (!adj->circuit->area->srv6db.config.enabled || global ||
-	    family != AF_INET6)
+	if (!adj->circuit->area->srv6db.config.enabled || global || family != AF_INET6)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra))
@@ -561,9 +539,8 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(
-		tt,
-		"System ID|Algorithm|SRH Max SL|SRH Max End Pop|SRH Max H.encaps|SRH Max End D");
+	ttable_add_row(tt,
+		       "System ID|Algorithm|SRH Max SL|SRH Max End Pop|SRH Max H.encaps|SRH Max End D");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
@@ -579,12 +556,9 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 			continue;
 
 		ttable_add_row(tt, "%pSY|%s|%u|%u|%u|%u", lsp->hdr.lsp_id,
-			       cap->algo[0] == SR_ALGORITHM_SPF ? "SPF"
-								: "S-SPF",
-			       cap->srv6_msd.max_seg_left_msd,
-			       cap->srv6_msd.max_end_pop_msd,
-			       cap->srv6_msd.max_h_encaps_msd,
-			       cap->srv6_msd.max_end_d_msd);
+			       cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
+			       cap->srv6_msd.max_seg_left_msd, cap->srv6_msd.max_end_pop_msd,
+			       cap->srv6_msd.max_h_encaps_msd, cap->srv6_msd.max_end_d_msd);
 	}
 
 	/* Dump the generated table. */
@@ -612,14 +586,12 @@ DEFUN(show_srv6_node, show_srv6_node_cmd,
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			vty_out(vty, "Area %s:\n",
-				area->area_tag ? area->area_tag : "null");
+			vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 			if (!area->srv6db.config.enabled) {
 				vty_out(vty, " SRv6 is disabled\n");
 				continue;
 			}
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
-			     level++)
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
 				show_node(vty, area, level);
 		}
 	}
@@ -647,7 +619,8 @@ int isis_srv6_ifp_up_notify(struct interface *ifp)
 		if (strncmp(area->srv6db.config.srv6_ifname, ifp->name, IF_NAMESIZE))
 			continue;
 
-		sr_debug("Interface %s went up. Installing SIDs for area %s in data plane", ifp->name, area->area_tag);
+		sr_debug("Interface %s went up. Installing SIDs for area %s in data plane",
+			 ifp->name, area->area_tag);
 
 		/* Walk through all SIDs and re-install them into the data plane with the newly configured interface */
 		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node2, sid)) {
@@ -694,8 +667,7 @@ void isis_srv6_area_init(struct isis_area *area)
 
 	srv6db = &area->srv6db;
 
-	sr_debug("ISIS-SRv6 (%s): Initialize Segment Routing SRv6 DB",
-		 area->area_tag);
+	sr_debug("ISIS-SRv6 (%s): Initialize Segment Routing SRv6 DB", area->area_tag);
 
 	/* Initialize SRv6 Data Base */
 	memset(srv6db, 0, sizeof(*srv6db));
@@ -704,24 +676,24 @@ void isis_srv6_area_init(struct isis_area *area)
 	/* Pull defaults from the YANG module */
 #ifndef FABRICD
 	srv6db->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SRV6);
-	srv6db->config.max_seg_left_msd =
-		yang_get_default_uint8("%s/msd/node-msd/max-segs-left",
-				       ISIS_SRV6);
-	srv6db->config.max_end_pop_msd =
-		yang_get_default_uint8("%s/msd/node-msd/max-end-pop", ISIS_SRV6);
-	srv6db->config.max_h_encaps_msd =
-		yang_get_default_uint8("%s/msd/node-msd/max-h-encaps",
-				       ISIS_SRV6);
-	srv6db->config.max_end_d_msd =
-		yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6);
-	strlcpy(srv6db->config.srv6_ifname, yang_get_default_string("%s/interface", ISIS_SRV6), sizeof(srv6db->config.srv6_ifname));
+	srv6db->config.max_seg_left_msd = yang_get_default_uint8("%s/msd/node-msd/max-segs-left",
+								 ISIS_SRV6);
+	srv6db->config.max_end_pop_msd = yang_get_default_uint8("%s/msd/node-msd/max-end-pop",
+								ISIS_SRV6);
+	srv6db->config.max_h_encaps_msd = yang_get_default_uint8("%s/msd/node-msd/max-h-encaps",
+								 ISIS_SRV6);
+	srv6db->config.max_end_d_msd = yang_get_default_uint8("%s/msd/node-msd/max-end-d",
+							      ISIS_SRV6);
+	strlcpy(srv6db->config.srv6_ifname, yang_get_default_string("%s/interface", ISIS_SRV6),
+		sizeof(srv6db->config.srv6_ifname));
 #else
 	srv6db->config.enabled = false;
 	srv6db->config.max_seg_left_msd = ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD;
 	srv6db->config.max_end_pop_msd = ISIS_DEFAULT_SRV6_MAX_END_POP_MSD;
 	srv6db->config.max_h_encaps_msd = ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD;
 	srv6db->config.max_end_d_msd = ISIS_DEFAULT_SRV6_MAX_END_D_MSD;
-	strlcpy(srv6db->config.srv6_ifname, DEFAULT_SRV6_IFNAME, sizeof(srv6db->config.srv6_ifname));
+	strlcpy(srv6db->config.srv6_ifname, DEFAULT_SRV6_IFNAME,
+		sizeof(srv6db->config.srv6_ifname));
 #endif
 
 	/* Initialize SRv6 Locator chunks list */
@@ -748,8 +720,7 @@ void isis_srv6_area_term(struct isis_area *area)
 
 	/* Uninstall all local SRv6 End.X SIDs */
 	if (area->srv6db.config.enabled)
-		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode,
-				       sra))
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
 			srv6_endx_sid_del(sra);
 
 	/* Free SRv6 Locator chunks list */

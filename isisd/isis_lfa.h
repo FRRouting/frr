@@ -28,10 +28,8 @@ struct lfa_tiebreaker {
 	enum lfa_tiebreaker_type type;
 	struct isis_area *area;
 };
-int lfa_tiebreaker_cmp(const struct lfa_tiebreaker *a,
-		       const struct lfa_tiebreaker *b);
-DECLARE_RBTREE_UNIQ(lfa_tiebreaker_tree, struct lfa_tiebreaker, entry,
-		    lfa_tiebreaker_cmp);
+int lfa_tiebreaker_cmp(const struct lfa_tiebreaker *a, const struct lfa_tiebreaker *b);
+DECLARE_RBTREE_UNIQ(lfa_tiebreaker_tree, struct lfa_tiebreaker, entry, lfa_tiebreaker_cmp);
 
 struct rlfa {
 	struct rlfa_tree_item entry;
@@ -121,29 +119,20 @@ struct isis_vertex;
 /* Prototypes. */
 void isis_spf_node_list_init(struct isis_spf_nodes *nodes);
 void isis_spf_node_list_clear(struct isis_spf_nodes *nodes);
-struct isis_spf_node *isis_spf_node_new(struct isis_spf_nodes *nodes,
-					const uint8_t *sysid);
-struct isis_spf_node *isis_spf_node_find(const struct isis_spf_nodes *nodes,
-					 const uint8_t *sysid);
+struct isis_spf_node *isis_spf_node_new(struct isis_spf_nodes *nodes, const uint8_t *sysid);
+struct isis_spf_node *isis_spf_node_find(const struct isis_spf_nodes *nodes, const uint8_t *sysid);
 void isis_lfa_tiebreakers_init(struct isis_area *area, int level);
 void isis_lfa_tiebreakers_clear(struct isis_area *area, int level);
-struct lfa_tiebreaker *isis_lfa_tiebreaker_add(struct isis_area *area,
-					       int level, uint8_t index,
+struct lfa_tiebreaker *isis_lfa_tiebreaker_add(struct isis_area *area, int level, uint8_t index,
 					       enum lfa_tiebreaker_type type);
-void isis_lfa_tiebreaker_delete(struct isis_area *area, int level,
-				struct lfa_tiebreaker *tie_b);
+void isis_lfa_tiebreaker_delete(struct isis_area *area, int level, struct lfa_tiebreaker *tie_b);
 void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level);
 void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level);
-void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level,
-				 const char *ifname);
-void isis_lfa_excluded_iface_delete(struct isis_circuit *circuit, int level,
-				    const char *ifname);
-bool isis_lfa_excluded_iface_check(struct isis_circuit *circuit, int level,
-				   const char *ifname);
-bool isis_lfa_excise_adj_check(const struct isis_spftree *spftree,
-			       const uint8_t *id);
-bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
-				const uint8_t *id);
+void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level, const char *ifname);
+void isis_lfa_excluded_iface_delete(struct isis_circuit *circuit, int level, const char *ifname);
+bool isis_lfa_excluded_iface_check(struct isis_circuit *circuit, int level, const char *ifname);
+bool isis_lfa_excise_adj_check(const struct isis_spftree *spftree, const uint8_t *id);
+bool isis_lfa_excise_node_check(const struct isis_spftree *spftree, const uint8_t *id);
 struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree);
 int isis_spf_run_neighbors(struct isis_spftree *spftree);
 int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
@@ -154,19 +143,15 @@ void isis_rlfa_list_clear(struct isis_spftree *spftree);
 void isis_rlfa_process_ldp_response(struct zapi_rlfa_response *response);
 void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info);
 void isis_rlfa_check(struct isis_spftree *spftree, struct isis_vertex *vertex);
-struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
-				       struct isis_spftree *spftree,
-				       struct isis_spftree *spftree_reverse,
-				       uint32_t max_metric,
+struct isis_spftree *isis_rlfa_compute(struct isis_area *area, struct isis_spftree *spftree,
+				       struct isis_spftree *spftree_reverse, uint32_t max_metric,
 				       struct lfa_protected_resource *resource);
 void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
-		      struct isis_spftree *spftree,
-		      struct lfa_protected_resource *resource);
+		      struct isis_spftree *spftree, struct lfa_protected_resource *resource);
 void isis_spf_run_lfa(struct isis_area *area, struct isis_spftree *spftree);
 int isis_tilfa_check(struct isis_spftree *spftree, struct isis_vertex *vertex);
-struct isis_spftree *
-isis_tilfa_compute(struct isis_area *area, struct isis_spftree *spftree,
-		   struct isis_spftree *spftree_reverse,
-		   struct lfa_protected_resource *protected_resource);
+struct isis_spftree *isis_tilfa_compute(struct isis_area *area, struct isis_spftree *spftree,
+					struct isis_spftree *spftree_reverse,
+					struct lfa_protected_resource *protected_resource);
 
 #endif /* _FRR_ISIS_LFA_H */
