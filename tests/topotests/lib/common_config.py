@@ -4674,6 +4674,69 @@ def required_linux_kernel_version(required_version):
     return True
 
 
+def check_kernel_seg6_support():
+    """
+    Check if the kernel supports SRv6 (seg6) and return status.
+
+    Returns
+    -------
+    tuple (supported, enabled)
+        - supported: True if kernel has seg6 sysctl available
+        - enabled: True if seg6 is already enabled
+
+    Usage
+    -----
+    seg6_supported, seg6_enabled = check_kernel_seg6_support()
+    if not seg6_supported:
+        pytest.skip("Kernel does not support SRv6")
+    """
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "net.ipv6.conf.all.seg6_enabled"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return (False, False)
+        value = int(result.stdout.strip())
+        return (True, value == 1)
+    except (subprocess.SubprocessError, ValueError):
+        return (False, False)
+
+
+def enable_srv6_on_router(router):
+    """
+    Enable SRv6 (seg6) on a router's interfaces.
+
+    Parameters
+    ----------
+    * `router` : Router object from topogen
+
+    Returns
+    -------
+    True if successful, False otherwise
+
+    Usage
+    -----
+    for rname, router in tgen.routers().items():
+        if not enable_srv6_on_router(router):
+            tgen.set_error("Failed to enable SRv6 on router {}".format(rname))
+    """
+    # Enable seg6 on all interfaces
+    result = router.run("sysctl -w net.ipv6.conf.all.seg6_enabled=1")
+    if "= 1" not in result:
+        logger.error("Failed to enable seg6 on %s: %s", router.name, result)
+        return False
+    result = router.run("sysctl -w net.ipv6.conf.default.seg6_enabled=1")
+    if "= 1" not in result:
+        logger.error("Failed to enable seg6 default on %s: %s", router.name, result)
+        return False
+    # Also enable on lo interface for local SID processing
+    router.run("sysctl -w net.ipv6.conf.lo.seg6_enabled=1")
+    logger.debug("SRv6 (seg6) enabled on router %s", router.name)
+    return True
+
+
 class HostApplicationHelper(object):
     """Helper to track and cleanup per-host based test processes."""
 

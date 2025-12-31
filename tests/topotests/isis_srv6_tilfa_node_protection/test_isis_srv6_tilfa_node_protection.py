@@ -77,7 +77,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import create_interface_in_kernel
+from lib.common_config import (
+    create_interface_in_kernel,
+    check_kernel_seg6_support,
+    enable_srv6_on_router,
+)
 
 pytestmark = [pytest.mark.isisd]
 
@@ -183,8 +187,24 @@ def build_topo(tgen):
 
 def setup_module(mod):
     """Sets up the pytest environment"""
+
+    # Check if kernel supports SRv6 (seg6)
+    seg6_supported, seg6_enabled = check_kernel_seg6_support()
+    if not seg6_supported:
+        pytest.skip(
+            "Kernel does not support SRv6: net.ipv6.conf.all.seg6_enabled sysctl not available. "
+            "Please enable CONFIG_IPV6_SEG6_LWTUNNEL in your kernel configuration."
+        )
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
+    # Enable SRv6 (seg6) on all routers if not already enabled
+    if not seg6_enabled:
+        logger.info("Enabling SRv6 (seg6) on all routers")
+    for rname, router in tgen.routers().items():
+        if not enable_srv6_on_router(router):
+            tgen.set_error("Failed to enable SRv6 on router {}".format(rname))
 
     router_list = tgen.routers()
 
