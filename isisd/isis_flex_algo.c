@@ -51,10 +51,10 @@ void *isis_flex_algo_data_alloc(void *voidarg)
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 			if (!(arg->area->is_type & level))
 				continue;
-			data->spftree[tree][level - 1] = isis_spftree_new(
-				arg->area, &arg->area->lspdb[level - 1],
-				arg->area->isis->sysid, level, tree,
-				SPF_TYPE_FORWARD, 0, arg->algorithm);
+			data->spftree[tree][level - 1] =
+				isis_spftree_new(arg->area, &arg->area->lspdb[level - 1],
+						 arg->area->isis->sysid, level, tree,
+						 SPF_TYPE_FORWARD, 0, arg->algorithm);
 		}
 	}
 
@@ -68,14 +68,12 @@ void isis_flex_algo_data_free(void *voiddata)
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++)
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++)
 			if (data->spftree[tree][level - 1])
-				isis_spftree_del(
-					data->spftree[tree][level - 1]);
+				isis_spftree_del(data->spftree[tree][level - 1]);
 	XFREE(MTYPE_FLEX_ALGO, data);
 }
 
 static struct isis_router_cap_fad *
-isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected,
-			      struct isis_router_cap_fad *fa)
+isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected, struct isis_router_cap_fad *fa)
 {
 	if (!elected || fa->fad.priority > elected->fad.priority ||
 	    (fa->fad.priority == elected->fad.priority &&
@@ -100,9 +98,9 @@ isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected,
  *      local definition from LSDB for the election.
  * @return elected flex-algo-definition object if exist, else NULL
  */
-static struct isis_router_cap_fad *
-_isis_flex_algo_elected(int algorithm, const struct isis_area *area,
-			struct isis_router_cap_fad **fad)
+static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
+							   const struct isis_area *area,
+							   struct isis_router_cap_fad **fad)
 {
 	struct flex_algo *flex_ago;
 	const struct isis_lsp *lsp;
@@ -152,8 +150,7 @@ _isis_flex_algo_elected(int algorithm, const struct isis_area *area,
 	return elected;
 }
 
-struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
-						   const struct isis_area *area)
+struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area)
 {
 	return _isis_flex_algo_elected(algorithm, area, NULL);
 }
@@ -203,15 +200,14 @@ _isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area,
 	return NULL;
 }
 
-struct isis_router_cap_fad *
-isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area)
+struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
+							     const struct isis_area *area)
 {
 	return _isis_flex_algo_elected_supported(algorithm, area, NULL);
 }
 
 struct isis_router_cap_fad *
-isis_flex_algo_elected_supported_local_fad(int algorithm,
-					   const struct isis_area *area,
+isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area,
 					   struct isis_router_cap_fad **fad)
 {
 	return _isis_flex_algo_elected_supported(algorithm, area, fad);
@@ -235,8 +231,7 @@ bool sr_algorithm_participated(const struct isis_lsp *lsp, uint8_t algorithm)
 	return false;
 }
 
-bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
-				    struct isis_lsp *lsp,
+bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree, struct isis_lsp *lsp,
 				    struct isis_extended_reach *reach)
 {
 	bool ret;
@@ -248,8 +243,7 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	uint32_t link_ext_admin_group_bitmap0;
 	struct admin_group *link_ext_admin_group = NULL;
 
-	fad = isis_flex_algo_elected_supported(spftree->algorithm,
-					       spftree->area);
+	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area);
 	if (!fad)
 		return true;
 
@@ -261,10 +255,8 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				link_admin_group = &subtlvs->adm_group;
 
 			if (IS_SUBTLV(subtlvs, EXT_EXTEND_ADM_GRP) &&
-			    admin_group_nb_words(&subtlvs->ext_admin_group) !=
-				    0)
-				link_ext_admin_group =
-					&subtlvs->ext_admin_group;
+			    admin_group_nb_words(&subtlvs->ext_admin_group) != 0)
+				link_ext_admin_group = &subtlvs->ext_admin_group;
 		} else {
 			if (IS_SUBTLV(asla, EXT_ADM_GRP))
 				link_admin_group = &asla->admin_group;
@@ -280,21 +272,18 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	 * bits of the EAG SHOULD report this mismatch to the operator.
 	 */
 	if (link_admin_group && link_ext_admin_group) {
-		link_ext_admin_group_bitmap0 =
-			admin_group_get_offset(link_ext_admin_group, 0);
+		link_ext_admin_group_bitmap0 = admin_group_get_offset(link_ext_admin_group, 0);
 		if (*link_admin_group != link_ext_admin_group_bitmap0)
-			zlog_warn(
-				"ISIS-SPF: LSP from %pPN neighbor %pPN. Admin-group 0x%08x differs from ext admin-group 0x%08x.",
-				lsp->hdr.lsp_id, reach->id, *link_admin_group,
-				link_ext_admin_group_bitmap0);
+			zlog_warn("ISIS-SPF: LSP from %pPN neighbor %pPN. Admin-group 0x%08x differs from ext admin-group 0x%08x.",
+				  lsp->hdr.lsp_id, reach->id, *link_admin_group,
+				  link_ext_admin_group_bitmap0);
 	}
 
 	/*
 	 * Exclude Any
 	 */
 	if (!admin_group_zero(&fad->fad.admin_group_exclude_any)) {
-		ret = admin_group_match_any(&fad->fad.admin_group_exclude_any,
-					    link_admin_group,
+		ret = admin_group_match_any(&fad->fad.admin_group_exclude_any, link_admin_group,
 					    link_ext_admin_group);
 		if (ret)
 			return true;
@@ -304,8 +293,7 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	 * Include Any
 	 */
 	if (!admin_group_zero(&fad->fad.admin_group_include_any)) {
-		ret = admin_group_match_any(&fad->fad.admin_group_include_any,
-					    link_admin_group,
+		ret = admin_group_match_any(&fad->fad.admin_group_include_any, link_admin_group,
 					    link_ext_admin_group);
 		if (!ret)
 			return true;
@@ -315,8 +303,7 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	 * Include All
 	 */
 	if (!admin_group_zero(&fad->fad.admin_group_include_all)) {
-		ret = admin_group_match_all(&fad->fad.admin_group_include_all,
-					    link_admin_group,
+		ret = admin_group_match_all(&fad->fad.admin_group_include_all, link_admin_group,
 					    link_ext_admin_group);
 		if (!ret)
 			return true;
