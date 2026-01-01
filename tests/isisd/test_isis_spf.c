@@ -316,7 +316,11 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	}
 
 	/* Cleanup IS-IS area. */
+	struct isis *isis = area->isis;
+
 	isis_area_destroy(area);
+	if (isis_area_list_count(&isis->area_list) == 0)
+		isis_finish(isis);
 
 	return CMD_SUCCESS;
 }

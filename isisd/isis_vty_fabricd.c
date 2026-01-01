@@ -156,7 +156,6 @@ DEFUN (show_lsp_flooding,
 	if (argc == 4)
 		lspid = argv[3]->arg;
 
-	struct listnode *node;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 
@@ -167,7 +166,7 @@ DEFUN (show_lsp_flooding,
 		return CMD_SUCCESS;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		struct lspdb_head *head = &area->lspdb[ISIS_LEVEL2 - 1];
 		struct isis_lsp *lsp;
 
@@ -614,10 +613,9 @@ DEFUN (no_spf_interval,
 static int isis_vty_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (circuit->state != C_STATE_INIT
 		    && circuit->state != C_STATE_UP)
 			continue;

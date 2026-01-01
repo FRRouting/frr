@@ -305,7 +305,6 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	struct route_table *ei_table = get_ext_info(isis, family);
 	struct route_node *ei_node;
 	struct isis_ext_info *info;
-	struct listnode *node;
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
@@ -337,7 +336,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		type = DEFAULT_ROUTE;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_area_list, &isis->area_list, area)
 		for (level = 1; level <= ISIS_LEVELS; level++) {
 			redist = isis_redist_lookup(area, family, type, level,
 						    table);
@@ -355,7 +354,6 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
 	struct route_node *ei_node;
-	struct listnode *node;
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
@@ -391,7 +389,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	}
 	route_unlock_node(ei_node);
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_area_list, &isis->area_list, area)
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 			redist = isis_redist_lookup(area, family, type, level,
 						    table);

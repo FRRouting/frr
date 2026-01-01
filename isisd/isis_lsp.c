@@ -103,13 +103,12 @@ static void lsp_remove_frags(struct lspdb_head *head, struct list *frags);
 
 static void lsp_destroy(struct isis_lsp *lsp)
 {
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 
 	if (!lsp)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit))
+	frr_each (isis_circuit_list, &lsp->area->circuit_list, circuit)
 		isis_tx_queue_del(circuit->tx_queue, lsp);
 
 	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
@@ -406,7 +405,7 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 
 bool isis_level2_adj_up(struct isis_area *area)
 {
-	struct listnode *node, *cnode;
+	struct listnode *node;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
 	struct isis_adjacency *adj;
@@ -414,7 +413,7 @@ bool isis_level2_adj_up(struct isis_area *area)
 	if (area->is_type == IS_LEVEL_1)
 		return false;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 			adjdb = circuit->u.bc.adjdb[1];
 			if (!adjdb || !adjdb->count)
@@ -1298,7 +1297,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	struct isis_circuit *circuit;
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!circuit->interface)
 			lsp_debug(
 				"ISIS (%s): Processing %s circuit %p with unknown interface",
@@ -1669,7 +1668,6 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 	time_t now, diff;
 	long timeout;
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 	int lvl;
 
@@ -1773,7 +1771,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	}
 
 	if (all_pseudo) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			lsp_regenerate_schedule_pseudo(circuit, level);
 	}
 
@@ -2276,7 +2274,6 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	assert(lsp);
@@ -2284,8 +2281,7 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 	if (!lsp->area)
 		return;
 
-	struct list *circuit_list = lsp->area->circuit_list;
-	for (ALL_LIST_ELEMENTS_RO(circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &lsp->area->circuit_list, circuit) {
 		if (set) {
 			isis_tx_queue_add(circuit->tx_queue, lsp,
 					  TX_LSP_NORMAL);

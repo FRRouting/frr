@@ -197,12 +197,11 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 
 static void isis_config_finish(struct event *t)
 {
-	struct listnode *node, *inode;
 	struct isis *isis;
 	struct isis_area *area;
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area)
 			config_end_lsp_generate(area);
 	}
 }

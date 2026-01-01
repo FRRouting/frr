@@ -16,12 +16,16 @@
 #include "prefix.h"
 #include "ferr.h"
 #include "nexthop.h"
+#include "typesafe.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_csm.h"
 
 DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
+
+/* Typesafe list declarations for circuits */
+PREDECL_DLIST(isis_circuit_list);
 
 struct isis_lsp;
 
@@ -116,11 +120,14 @@ struct isis_circuit {
 	/*
 	 * Configurables
 	 */
-	char *tag;				/* area tag */
-	struct isis_passwd passwd;		/* Circuit rx/tx password */
-	int is_type_config;			/* configured circuit is type */
-	int is_type;				/* circuit is type == level of circuit
-					* differentiated from circuit type (media) */
+	char *tag;		   /* area tag */
+	struct isis_passwd passwd; /* Circuit rx/tx password */
+	int is_type_config;	   /* configured circuit is type */
+	/*
+	 * circuit is type == level of circuit
+	 * differentiated from circuit type (media)
+	 */
+	int is_type;
 	uint32_t hello_interval[ISIS_LEVELS];	/* hello-interval in seconds */
 	uint16_t hello_multiplier[ISIS_LEVELS]; /* hello-multiplier */
 	uint16_t csnp_interval[ISIS_LEVELS];	/* csnp-interval in seconds */
@@ -172,13 +179,19 @@ struct isis_circuit {
 
 	uint32_t snmp_id; /* Circuit id in snmp */
 
-	uint32_t snmp_adj_idx_gen;  /* Create unique id for adjacency on creation
-				    */
+	/* Create unique id for adjacency on creation */
+	uint32_t snmp_adj_idx_gen;
 	struct list *snmp_adj_list; /* List in id order */
+
+	/* Typesafe list membership for area->circuit_list */
+	struct isis_circuit_list_item circuit_list_item;
 
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_circuit);
+
+/* Typesafe list definition for circuit_list */
+DECLARE_DLIST(isis_circuit_list, struct isis_circuit, circuit_list_item);
 
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);

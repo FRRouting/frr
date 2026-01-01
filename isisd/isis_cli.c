@@ -2071,11 +2071,10 @@ DEFPY_YANG (isis_srv6_interface,
        "Interface for Segment Routing over IPv6 (SRv6)\n"
        "Interface for Segment Routing over IPv6 (SRv6)\n")
 {
-	if (no) {
+	if (no)
 		nb_cli_enqueue_change(vty, "./interface", NB_OP_MODIFY, NULL);
-	} else {
+	else
 		nb_cli_enqueue_change(vty, "./interface", NB_OP_MODIFY, interface);
-	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2549,6 +2548,7 @@ void cli_show_ip_isis_hello_padding(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults)
 {
 	int hello_padding_type = yang_dnode_get_enum(dnode, NULL);
+
 	if (hello_padding_type == ISIS_HELLO_PADDING_DISABLED)
 		vty_out(vty, " no");
 	vty_out(vty, " isis hello padding");

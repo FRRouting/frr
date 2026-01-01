@@ -64,7 +64,6 @@ static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
  */
 void isis_mpls_te_create(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area)
@@ -99,7 +98,7 @@ void isis_mpls_te_create(struct isis_area *area)
 	/* Update Extended TLVs according to Interface link parameters
 	 * and neighbor IP addresses
 	 */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		isis_link_params_update(circuit, circuit->interface);
 		isis_mpls_te_circuit_ip_update(circuit);
 	}
@@ -112,7 +111,6 @@ void isis_mpls_te_create(struct isis_area *area)
  */
 void isis_mpls_te_disable(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area->mta)
@@ -124,7 +122,7 @@ void isis_mpls_te_disable(struct isis_area *area)
 	ls_ted_clean(area->mta->ted);
 
 	/* Disable Extended SubTLVs on all circuit */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!IS_EXT_TE(circuit->ext))
 			continue;
 
@@ -140,7 +138,6 @@ void isis_mpls_te_disable(struct isis_area *area)
 
 void isis_mpls_te_term(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area->mta)
@@ -152,7 +149,7 @@ void isis_mpls_te_term(struct isis_area *area)
 
 	/* Remove Extended SubTLVs */
 	zlog_info(" |- Remove Extended SubTLVS for all circuit");
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		zlog_info("   |- Call isis_del_ext_subtlvs()");
 		isis_del_ext_subtlvs(circuit->ext);
 		circuit->ext = NULL;
@@ -1583,7 +1580,6 @@ void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event)
  */
 int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 {
-	struct listnode *node, *inode;
 	struct isis *isis;
 	struct isis_area *area;
 	struct mpls_te_area *mta;
@@ -1591,8 +1587,8 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 
 	te_debug("ISIS-TE(%s): Received TED synchro from client %d", __func__, dst.proto);
 	/*  For each area, send TED if TE distribution is enabled */
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			mta = area->mta;
 			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
 				te_debug("  |- Export TED from area %s", area->area_tag);
@@ -1649,7 +1645,6 @@ DEFUN(show_isis_mpls_te_router,
       VRF_CMD_HELP_STR "All VRFs\n"
       MPLS_TE_STR "Router information\n")
 {
-	struct listnode *anode, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -1663,8 +1658,8 @@ DEFUN(show_isis_mpls_te_router,
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
+			frr_each (isis_area_list, &isis->area_list, area) {
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
@@ -1675,7 +1670,7 @@ DEFUN(show_isis_mpls_te_router,
 	}
 	isis = isis_lookup_by_vrfname(vrf_name);
 	if (isis != NULL) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			if (!IS_MPLS_TE(area->mta))
 				continue;
 
@@ -1776,7 +1771,6 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
@@ -1790,14 +1784,14 @@ DEFUN (show_isis_mpls_te_interface,
 
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
-		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
+			frr_each (isis_area_list, &isis->area_list, area) {
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
 				vty_out(vty, "Area %s:\n", area->area_tag);
 
-				for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+				frr_each (isis_circuit_list, &area->circuit_list, circuit)
 					show_ext_sub(vty, circuit->interface->name, circuit->ext);
 			}
 		}
@@ -2044,11 +2038,10 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
  */
 static int show_isis_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct isis *isis)
 {
-	struct listnode *node;
 	struct isis_area *area;
 	int rc;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		rc = show_ted(vty, argv, argc, area, isis);
 		if (rc != CMD_SUCCESS)
 			return rc;
@@ -2077,14 +2070,13 @@ DEFUN(show_isis_mpls_te_db,
 	int idx_vrf = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
-	struct listnode *node;
 	struct isis *isis;
 	int rc = CMD_WARNING;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
 			rc = show_isis_ted(vty, argv, argc, isis);
 			if (rc != CMD_SUCCESS)
 				return rc;
