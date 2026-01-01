@@ -104,6 +104,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_terminate();
 	isis_sr_term();
 	isis_srv6_term();
+	mt_fini();
 	isis_zebra_stop();
 
 	isis_master_terminate();
