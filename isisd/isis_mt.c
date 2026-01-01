@@ -19,6 +19,14 @@ DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting");
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting");
 DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info");
 
+/* Static buffers for MT settings - freed by mt_fini() */
+static struct isis_area_mt_setting **area_mt_setting_buf;
+static unsigned int area_mt_setting_buf_size;
+static struct isis_circuit_mt_setting **circuit_mt_setting_buf;
+static unsigned int circuit_mt_setting_buf_size;
+static uint16_t *circuit_bcast_mt_set_buf;
+static unsigned int circuit_bcast_mt_set_buf_size;
+
 bool isis_area_ipv6_dstsrc_enabled(struct isis_area *area)
 {
 	struct isis_area_mt_setting *area_mt_setting;
@@ -213,9 +221,6 @@ bool area_is_mt(struct isis_area *area)
 struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
 					       unsigned int *mt_count)
 {
-	static unsigned int size = 0;
-	static struct isis_area_mt_setting **rv = NULL;
-
 	unsigned int count = 0;
 	struct listnode *node;
 	struct isis_area_mt_setting *setting;
@@ -225,15 +230,16 @@ struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
 			continue;
 
 		count++;
-		if (count > size) {
-			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv, count * sizeof(*rv));
-			size = count;
+		if (count > area_mt_setting_buf_size) {
+			area_mt_setting_buf = XREALLOC(MTYPE_MT_AREA_SETTING, area_mt_setting_buf,
+						       count * sizeof(*area_mt_setting_buf));
+			area_mt_setting_buf_size = count;
 		}
-		rv[count - 1] = setting;
+		area_mt_setting_buf[count - 1] = setting;
 	}
 
 	*mt_count = count;
-	return rv;
+	return area_mt_setting_buf;
 }
 
 /* Circuit specific MT settings api */
@@ -312,9 +318,6 @@ static int circuit_write_mt_settings(struct isis_circuit *circuit,
 struct isis_circuit_mt_setting **
 circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
 {
-	static unsigned int size = 0;
-	static struct isis_circuit_mt_setting **rv = NULL;
-
 	struct isis_area_mt_setting **area_settings;
 	unsigned int area_count;
 
@@ -340,15 +343,17 @@ circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
 			continue;
 
 		count++;
-		if (count > size) {
-			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv, count * sizeof(*rv));
-			size = count;
+		if (count > circuit_mt_setting_buf_size) {
+			circuit_mt_setting_buf = XREALLOC(MTYPE_MT_AREA_SETTING,
+							  circuit_mt_setting_buf,
+							  count * sizeof(*circuit_mt_setting_buf));
+			circuit_mt_setting_buf_size = count;
 		}
-		rv[count - 1] = setting;
+		circuit_mt_setting_buf[count - 1] = setting;
 	}
 
 	*mt_count = count;
-	return rv;
+	return circuit_mt_setting_buf;
 }
 
 /* ADJ specific MT API */
@@ -476,8 +481,6 @@ static void mt_set_add(uint16_t **mt_set, unsigned int *size,
 static uint16_t *circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
 				      unsigned int *mt_count)
 {
-	static uint16_t *rv;
-	static unsigned int size;
 	struct listnode *node;
 	struct isis_adjacency *adj;
 
@@ -492,11 +495,12 @@ static uint16_t *circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
 		if (adj->adj_state != ISIS_ADJ_UP)
 			continue;
 		for (unsigned int i = 0; i < adj->mt_count; i++)
-			mt_set_add(&rv, &size, &count, adj->mt_set[i]);
+			mt_set_add(&circuit_bcast_mt_set_buf, &circuit_bcast_mt_set_buf_size,
+				   &count, adj->mt_set[i]);
 	}
 
 	*mt_count = count;
-	return rv;
+	return circuit_bcast_mt_set_buf;
 }
 
 static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
@@ -554,4 +558,14 @@ void mt_init(void)
 	hook_register(isis_circuit_config_write,
 		      circuit_write_mt_settings);
 #endif
+}
+
+void mt_fini(void)
+{
+	XFREE(MTYPE_MT_AREA_SETTING, area_mt_setting_buf);
+	area_mt_setting_buf_size = 0;
+	XFREE(MTYPE_MT_AREA_SETTING, circuit_mt_setting_buf);
+	circuit_mt_setting_buf_size = 0;
+	XFREE(MTYPE_MT_AREA_SETTING, circuit_bcast_mt_set_buf);
+	circuit_bcast_mt_set_buf_size = 0;
 }
