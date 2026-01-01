@@ -735,6 +735,7 @@ static void _isis_route_verify_merge(struct isis_area *area, struct route_table 
 
 	for (int i = 0; tables[i]; i++) {
 		uint8_t algorithm = isis_route_table_algorithm(tables[i]);
+
 		for (rnode = route_top(tables[i]); rnode; rnode = srcdest_route_next(rnode)) {
 			struct isis_route_info *rinfo = rnode->info;
 			struct route_node *rnode_bck;

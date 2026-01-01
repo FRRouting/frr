@@ -652,8 +652,8 @@ static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6, struct isis_circuit *
  * @param backup   True to initialize backup Adjacency SID
  * @param nexthops List of backup nexthops (for backup Adj-SIDs only)
  */
-void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
-			   struct list *nexthops)
+void sr_adj_sid_add_single(const struct isis_adjacency *adj, int family,
+			   bool backup, struct list *nexthops)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -851,8 +851,8 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
  * @param family  Inet Family (IPv4 or IPv6)
  * @param type    Adjacency SID type
  */
-struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj, int family,
-					  enum sr_adj_type type)
+struct sr_adjacency *isis_sr_adj_sid_find(const struct isis_adjacency *adj,
+					  int family, enum sr_adj_type type)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node;
@@ -1093,7 +1093,6 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 #endif /* ifndef FABRICD */
 )
 {
-	struct listnode *node, *inode;
 	struct isis_area *area;
 	uint16_t algorithm = SR_ALGORITHM_SPF;
 	bool all_algorithm = false;
@@ -1109,8 +1108,8 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 	}
 #endif /* ifndef FABRICD */
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 			if (!area->srdb.enabled) {
 				vty_out(vty, " Segment Routing is disabled\n");
@@ -1161,7 +1160,6 @@ int isis_sr_start(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 	struct isis_adjacency *adj;
-	struct listnode *node;
 
 	/* First start Label Manager if not ready */
 	if (!isis_zebra_label_manager_ready())
@@ -1193,7 +1191,7 @@ int isis_sr_start(struct isis_area *area)
 	sr_debug("ISIS-Sr: Starting Segment Routing for area %s", area->area_tag);
 
 	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ipv4_address_count > 0)
 			sr_adj_sid_add(adj, AF_INET);
 		if (adj->ll_ipv6_count > 0)

@@ -3117,6 +3117,7 @@ static int unpack_item_oldstyle_ip_reach(uint16_t mtid, uint8_t len, struct stre
 	stream_get(&rv->prefix.prefix, s, 4);
 
 	struct in_addr mask;
+
 	stream_get(&mask, s, 4);
 	rv->prefix.prefixlen = ip_masklen(mask);
 
@@ -3620,6 +3621,7 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i, st
 static void free_item_extended_ip_reach(struct isis_item *i)
 {
 	struct isis_extended_ip_reach *item = (struct isis_extended_ip_reach *)i;
+
 	isis_free_subtlvs(item->subtlvs);
 	XFREE(MTYPE_ISIS_TLV, item);
 }
@@ -3938,11 +3940,10 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf, stru
 	} else {
 		sbuf_push(buf, indent, "Spine-Leaf-Extension:\n");
 		if (spine_leaf->has_tier) {
-			if (spine_leaf->tier == ISIS_TIER_UNDEFINED) {
+			if (spine_leaf->tier == ISIS_TIER_UNDEFINED)
 				sbuf_push(buf, indent, "  Tier: undefined\n");
-			} else {
+			else
 				sbuf_push(buf, indent, "  Tier: %hhu\n", spine_leaf->tier);
-			}
 		}
 
 		sbuf_push(buf, indent, "  Flags:%s%s%s\n", spine_leaf->is_leaf ? " LEAF" : "",
@@ -5243,9 +5244,8 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i, struct sbuf *bu
 			sbuf_push(buf, indent, "  Password: %s\n", obuf);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		for (unsigned int j = 0; j < 16; j++) {
+		for (unsigned int j = 0; j < 16; j++)
 			snprintf(obuf + 2 * j, sizeof(obuf) - 2 * j, "%02hhx", auth->value[j]);
-		}
 		if (json)
 			json_object_string_add(json, "authHmacMd5", obuf);
 		else
@@ -6433,38 +6433,33 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream, struct isis_
 	rv = pack_tlv_router_cap(tlvs->router_cap, stream);
 	if (rv)
 		return rv;
-	if (fragment_tlvs) {
+	if (fragment_tlvs)
 		fragment_tlvs->router_cap = copy_tlv_router_cap(tlvs->router_cap);
-	}
 
 	rv = pack_tlv_te_router_id(tlvs->te_router_id, stream);
 	if (rv)
 		return rv;
-	if (fragment_tlvs) {
+	if (fragment_tlvs)
 		fragment_tlvs->te_router_id = copy_tlv_te_router_id(tlvs->te_router_id);
-	}
 
 	rv = pack_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6, stream);
 	if (rv)
 		return rv;
-	if (fragment_tlvs) {
+	if (fragment_tlvs)
 		fragment_tlvs->te_router_id_ipv6 =
 			copy_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6);
-	}
 
 	rv = pack_tlv_threeway_adj(tlvs->threeway_adj, stream);
 	if (rv)
 		return rv;
-	if (fragment_tlvs) {
+	if (fragment_tlvs)
 		fragment_tlvs->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
-	}
 
 	rv = pack_tlv_spine_leaf(tlvs->spine_leaf, stream);
 	if (rv)
 		return rv;
-	if (fragment_tlvs) {
+	if (fragment_tlvs)
 		fragment_tlvs->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
-	}
 
 	for (size_t pack_idx = 0; pack_idx < array_size(pack_order); pack_idx++) {
 		rv = handle_pack_entry(&pack_order[pack_idx], tlvs, stream,
@@ -6490,9 +6485,8 @@ int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream, size_t len_poi
 	if (pad)
 		add_padding(stream);
 
-	if (len_pointer != (size_t)-1) {
+	if (len_pointer != (size_t)-1)
 		stream_putw_at(stream, len_pointer, stream_get_endp(stream));
-	}
 
 	update_auth(tlvs, stream, is_lsp);
 
@@ -7058,9 +7052,8 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjac
 			XREALLOC(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses,
 				 adj->ipv4_address_count * sizeof(*adj->ipv4_addresses));
 
-		for (; oc < adj->ipv4_address_count; oc++) {
+		for (; oc < adj->ipv4_address_count; oc++)
 			memset(&adj->ipv4_addresses[oc], 0, sizeof(adj->ipv4_addresses[oc]));
-		}
 	}
 
 	struct isis_ipv4_address *addr = NULL;
@@ -7099,9 +7092,8 @@ static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjac
 		adj->ll_ipv6_addrs = XREALLOC(MTYPE_ISIS_ADJACENCY_INFO, adj->ll_ipv6_addrs,
 					      adj->ll_ipv6_count * sizeof(*adj->ll_ipv6_addrs));
 
-		for (; oc < adj->ll_ipv6_count; oc++) {
+		for (; oc < adj->ll_ipv6_count; oc++)
 			memset(&adj->ll_ipv6_addrs[oc], 0, sizeof(adj->ll_ipv6_addrs[oc]));
-		}
 	}
 
 	struct isis_ipv6_address *addr = NULL;
@@ -7142,9 +7134,8 @@ static void tlvs_global_ipv6_addresses_to_adj(struct isis_tlvs *tlvs, struct isi
 			XREALLOC(MTYPE_ISIS_ADJACENCY_INFO, adj->global_ipv6_addrs,
 				 adj->global_ipv6_count * sizeof(*adj->global_ipv6_addrs));
 
-		for (; oc < adj->global_ipv6_count; oc++) {
+		for (; oc < adj->global_ipv6_count; oc++)
 			memset(&adj->global_ipv6_addrs[oc], 0, sizeof(adj->global_ipv6_addrs[oc]));
-		}
 	}
 
 	struct isis_ipv6_address *addr = NULL;
