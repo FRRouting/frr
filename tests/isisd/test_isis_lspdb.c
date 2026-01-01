@@ -84,5 +84,6 @@ int main(int argc, char **argv)
 	struct isis *isis = NULL;
 	isis = calloc(1, sizeof(*isis));
 	test_lsp_build_list_nonzero_ht();
+	free(isis);
 	return 0;
 }
