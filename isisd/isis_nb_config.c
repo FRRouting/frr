@@ -86,7 +86,7 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 	isis = area->isis;
 	isis_area_destroy(area);
 
-	if (listcount(isis->area_list) == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		isis_finish(isis);
 
 	return NB_OK;
@@ -223,7 +223,6 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	uint8_t buff[255];
 	struct isis_area *area;
 	const char *net_title;
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 	int lvl;
 
@@ -249,7 +248,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	 */
 	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid, ISIS_SYS_ID_LEN) &&
 	    listcount(area->area_addrs) == 0) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
 				if (circuit->u.bc.is_dr[lvl - 1])
 					isis_dr_resign(circuit, lvl);
@@ -448,7 +447,7 @@ int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args)
 		}
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	frr_each (isis_circuit_list, &area->circuit_list, circuit)
 		isis_link_params_update(circuit, circuit->interface);
 
 	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
@@ -2638,7 +2637,6 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 	struct flex_algo *fa;
 	bool advertise, update_te;
 	struct isis_circuit *circuit;
-	struct listnode *node;
 	uint32_t algorithm;
 	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
 	struct isis_flex_algo_alloc_arg arg;
@@ -2661,7 +2659,7 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 			admin_group_allow_explicit_zero(&fa->admin_group_include_all);
 		}
 		if (update_te) {
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			frr_each (isis_circuit_list, &area->circuit_list, circuit)
 				isis_link_params_update_asla(circuit, circuit->interface);
 		}
 		lsp_regenerate_schedule(area, area->is_type, 0);
@@ -2694,7 +2692,7 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 			flex_algo_free(area->flex_algos, fa);
 	}
 	if (list_isempty(area->flex_algos->flex_algos)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_link_params_update_asla(circuit, circuit->interface);
 	}
 	lsp_regenerate_schedule(area, area->is_type, 0);

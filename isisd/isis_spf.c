@@ -52,12 +52,24 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE, "ISIS SPFtree");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ, "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ_REF, "ISIS SPF Adjacency Ref");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX, "ISIS vertex");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX_ADJ, "ISIS SPF Vertex Adjacency");
 
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree, struct list *adj_list,
-				   struct isis_lsp *lsp, const uint8_t *pseudo_nodeid,
-				   uint32_t pseudo_metric);
+/*
+ * Temporary adjacency reference for SPF computation.
+ * Wraps isis_adjacency pointer to allow using typesafe list.
+ */
+PREDECL_DLIST(spf_adj_list);
+struct spf_adj_ref {
+	struct isis_adjacency *adj;
+	struct spf_adj_list_item item;
+};
+DECLARE_DLIST(spf_adj_list, struct spf_adj_ref, item);
+
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric);
 
 /*
  *  supports the given af ?
@@ -1108,13 +1120,14 @@ end:
 	return ISIS_OK;
 }
 
-static struct isis_adjacency *adj_find(struct list *adj_list, const uint8_t *id, int level,
-				       uint16_t mtid, int family)
+static struct spf_adj_ref *adj_find(struct spf_adj_list_head *adj_list, const uint8_t *id,
+				    int level, uint16_t mtid, int family)
 {
-	struct isis_adjacency *adj;
-	struct listnode *node;
+	struct spf_adj_ref *ref;
 
-	for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj)) {
+	frr_each (spf_adj_list, adj_list, ref) {
+		struct isis_adjacency *adj = ref->adj;
+
 		if (!(adj->level & level))
 			continue;
 		if (memcmp(adj->sysid, id, ISIS_SYS_ID_LEN) != 0)
@@ -1126,7 +1139,7 @@ static struct isis_adjacency *adj_find(struct list *adj_list, const uint8_t *id,
 		if (mtid == ISIS_MT_IPV4_UNICAST &&
 		    !speaks(adj->nlpids.nlpids, adj->nlpids.count, family))
 			continue;
-		return adj;
+		return ref;
 	}
 
 	return NULL;
@@ -1296,7 +1309,7 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 	}
 }
 
-static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct list *adj_list,
+static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct spf_adj_list_head *adj_list,
 				   const uint8_t *id, const uint8_t *desig_is_id,
 				   uint32_t pseudo_metric, uint32_t metric, bool oldmetric,
 				   struct isis_ext_subtlvs *subtlvs)
@@ -1338,16 +1351,17 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct list *ad
 
 	/* Set real adjacency. */
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES) && !LSP_PSEUDO_ID(id)) {
-		struct isis_adjacency *adj;
+		struct spf_adj_ref *ref;
 
-		adj = adj_find(adj_list, id, spftree->level, spftree->mtid, spftree->family);
-		if (!adj) {
+		ref = adj_find(adj_list, id, spftree->level, spftree->mtid, spftree->family);
+		if (!ref) {
 			XFREE(MTYPE_ISIS_SPF_ADJ, sadj);
 			return;
 		}
 
-		listnode_delete(adj_list, adj);
-		sadj->adj = adj;
+		spf_adj_list_del(adj_list, ref);
+		sadj->adj = ref->adj;
+		XFREE(MTYPE_ISIS_SPF_ADJ_REF, ref);
 	}
 
 	/* Add adjacency to the list. */
@@ -1369,9 +1383,9 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct list *ad
 		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree, struct list *adj_list,
-				   struct isis_lsp *lsp, const uint8_t *pseudo_nodeid,
-				   uint32_t pseudo_metric)
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct isis_lsp *frag;
@@ -1433,15 +1447,27 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree, struct list *ad
 
 static void isis_spf_build_adj_list(struct isis_spftree *spftree, struct isis_lsp *lsp)
 {
-	struct list *adj_list = NULL;
+	struct spf_adj_list_head adj_list;
+	struct isis_adjacency *adj;
+	struct spf_adj_ref *ref;
 
-	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
-		adj_list = list_dup(spftree->area->adjacency_list);
+	spf_adj_list_init(&adj_list);
 
-	spf_adj_list_parse_lsp(spftree, adj_list, lsp, NULL, 0);
+	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)) {
+		frr_each (isis_area_adj_list, &spftree->area->adjacency_list, adj) {
+			ref = XCALLOC(MTYPE_ISIS_SPF_ADJ_REF, sizeof(*ref));
+			ref->adj = adj;
+			spf_adj_list_add_tail(&adj_list, ref);
+		}
+	}
 
-	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
-		list_delete(&adj_list);
+	spf_adj_list_parse_lsp(spftree, &adj_list, lsp, NULL, 0);
+
+	/* Free any remaining adjacency references */
+	while ((ref = spf_adj_list_pop(&adj_list)) != NULL)
+		XFREE(MTYPE_ISIS_SPF_ADJ_REF, ref);
+
+	spf_adj_list_fini(&adj_list);
 
 	if (spftree->type == SPF_TYPE_REVERSE)
 		spf_adj_get_reverse_metrics(spftree);
@@ -1529,7 +1555,7 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 	if (spftree->type == SPF_TYPE_TI_LFA && VTYPE_IS(vertex->type) &&
 	    !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)) {
 		if (listcount(vertex->Adj_N) > 0) {
-			struct isis_adjacency *adj;
+			const struct isis_adjacency *adj;
 
 			if (isis_tilfa_check(spftree, vertex) != 0)
 				return;
@@ -1867,9 +1893,9 @@ static void isis_run_spf_cb(struct event *event)
 	struct isis_area *area = run->area;
 	int level = run->level;
 	int have_run = 0;
-	struct listnode *node;
 	struct isis_circuit *circuit;
 #ifndef FABRICD
+	struct listnode *node;
 	struct flex_algo *fa;
 	struct isis_flex_algo_data *data;
 #endif /* ifndef FABRICD */
@@ -1919,7 +1945,7 @@ static void isis_run_spf_cb(struct event *event)
 	isis_area_verify_routes(area);
 
 	/* walk all circuits and reset any spf specific flags */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	frr_each (isis_circuit_list, &area->circuit_list, circuit)
 		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
 	fabricd_run_spf(area);
@@ -1988,6 +2014,7 @@ int _isis_spf_schedule(struct isis_area *area, int level, const char *func, cons
 
 	/* wait configured min_spf_interval before doing the SPF */
 	long timer;
+
 	if (diff >= area->min_spf_interval[level - 1] || area->bfd_force_spf_refresh) {
 		/*
 		 * Last run is more than min interval ago or BFD signalled a
@@ -2156,18 +2183,17 @@ static void show_isis_topology_common(struct vty *vty, int levels, struct isis *
 	struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 	struct isis_spftree *spftree;
-	struct listnode *node;
 	struct isis_area *area;
 	json_object *json_level = NULL, *jstr = NULL, *json_val;
 	char key[18];
 
-	if (!isis->area_list || isis->area_list->count == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
 
 	if (json)
 		*json = json_object_new_object();
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 #ifndef FABRICD
 		/*
 		 * The shapes of the flex algo spftree 2-dimensional array
@@ -2220,9 +2246,8 @@ static void show_isis_topology_common(struct vty *vty, int levels, struct isis *
 					spftree = area->spftree[SPFTREE_IPV4][level - 1];
 
 				isis_print_spftree(vty, spftree, json ? &json_val : NULL);
-				if (json && json_val) {
+				if (json && json_val)
 					json_object_object_add(json_level, "ipv4-paths", json_val);
-				}
 			}
 			if (area->ipv6_circuits > 0) {
 				json_val = NULL;
@@ -2233,9 +2258,8 @@ static void show_isis_topology_common(struct vty *vty, int levels, struct isis *
 #endif /* ifndef FABRICD */
 					spftree = area->spftree[SPFTREE_IPV6][level - 1];
 				isis_print_spftree(vty, spftree, json ? &json_val : NULL);
-				if (json && json_val) {
+				if (json && json_val)
 					json_object_object_add(json_level, "ipv6-paths", json_val);
-				}
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
 				json_val = NULL;
@@ -2295,7 +2319,6 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 )
 {
 	int levels = ISIS_LEVELS;
-	struct listnode *node;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
@@ -2331,7 +2354,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		json = json_object_new_array();
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
 			if (all_algorithm) {
 				for (algorithm = SR_ALGORITHM_FLEX_MIN;
 				     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++)
@@ -2396,15 +2419,14 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis, uint8
 	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
 	struct admin_group *admin_group;
 	struct isis_area *area;
-	struct listnode *node;
 	struct flex_algo *fa;
 	int indent, algo;
 	bool fad_identical, fad_supported;
 
-	if (!isis->area_list || isis->area_list->count == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		/*
 		 * The shapes of the flex algo spftree 2-dimensional array
 		 * and the area spftree 2-dimensional array are not guaranteed
@@ -2502,7 +2524,6 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
       "Algorithm number\n")
 {
 	struct isis *isis;
-	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx = 0;
@@ -2522,7 +2543,7 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+		frr_each (isis_instance_list, &im->isis, isis)
 			show_isis_flex_algo_common(vty, isis, flex_algo);
 		return CMD_SUCCESS;
 	}
@@ -2727,17 +2748,16 @@ static void show_isis_route_common(struct vty *vty, int levels, struct isis *isi
 	struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 	struct isis_spftree *spftree;
-	struct listnode *node;
 	struct isis_area *area;
 	char key[18];
 
-	if (!isis->area_list || isis->area_list->count == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
 
 	if (json)
 		*json = json_object_new_object();
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 #ifndef FABRICD
 		/*
 		 * The shapes of the flex algo spftree 2-dimensional array
@@ -2797,9 +2817,8 @@ static void show_isis_route_common(struct vty *vty, int levels, struct isis *isi
 
 				isis_print_routes(vty, spftree, json ? &json_val : NULL,
 						  prefix_sid, backup);
-				if (json && json_val) {
+				if (json && json_val)
 					json_object_object_add(json_level, "ipv4", json_val);
-				}
 			}
 			if (area->ipv6_circuits > 0) {
 				json_val = NULL;
@@ -2818,9 +2837,8 @@ static void show_isis_route_common(struct vty *vty, int levels, struct isis *isi
 
 				isis_print_routes(vty, spftree, json ? &json_val : NULL,
 						  prefix_sid, backup);
-				if (json && json_val) {
+				if (json && json_val)
 					json_object_object_add(json_level, "ipv6", json_val);
-				}
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
 				json_val = NULL;
@@ -2839,9 +2857,8 @@ static void show_isis_route_common(struct vty *vty, int levels, struct isis *isi
 				}
 				isis_print_routes(vty, spftree, json ? &json_val : NULL,
 						  prefix_sid, backup);
-				if (json && json_val) {
+				if (json && json_val)
 					json_object_object_add(json_level, "ipv6-dstsrc", json_val);
-				}
 			}
 			if (json) {
 				snprintf(key, sizeof(key), "level-%d", level);
@@ -2908,7 +2925,6 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 {
 	int levels;
 	struct isis *isis;
-	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	bool all_algorithm = false;
@@ -2950,7 +2966,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		json = json_object_new_array();
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
 			if (all_algorithm)
 				show_isis_route_all_algos(vty, levels, isis, prefix_sid, backup,
 							  uj ? &json_vrf : NULL);
@@ -3104,29 +3120,25 @@ static void isis_print_frr_summary(struct vty *vty, struct isis_spftree *spftree
 
 static void show_isis_frr_summary_common(struct vty *vty, int levels, struct isis *isis)
 {
-	struct listnode *node;
 	struct isis_area *area;
 
-	if (!isis->area_list || isis->area_list->count == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((level & levels) == 0)
 				continue;
 
-			if (area->ip_circuits > 0) {
+			if (area->ip_circuits > 0)
 				isis_print_frr_summary(vty, area->spftree[SPFTREE_IPV4][level - 1]);
-			}
-			if (area->ipv6_circuits > 0) {
+			if (area->ipv6_circuits > 0)
 				isis_print_frr_summary(vty, area->spftree[SPFTREE_IPV6][level - 1]);
-			}
-			if (isis_area_ipv6_dstsrc_enabled(area)) {
+			if (isis_area_ipv6_dstsrc_enabled(area))
 				isis_print_frr_summary(vty,
 						       area->spftree[SPFTREE_DSTSRC][level - 1]);
-			}
 		}
 	}
 }
@@ -3149,7 +3161,6 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 {
 	int levels;
 	struct isis *isis;
-	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx = 0;
@@ -3168,7 +3179,7 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 	}
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+		frr_each (isis_instance_list, &im->isis, isis)
 			show_isis_frr_summary_common(vty, levels, isis);
 		return CMD_SUCCESS;
 	}

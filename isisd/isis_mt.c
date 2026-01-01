@@ -198,7 +198,7 @@ bool area_is_mt(struct isis_area *area)
 		if (setting->enabled && setting->mtid != ISIS_MT_IPV4_UNICAST)
 			return true;
 	}
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node2,
 					  csetting)) {
 			if (!csetting->enabled
@@ -226,8 +226,7 @@ struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
 
 		count++;
 		if (count > size) {
-			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv,
-				      count * sizeof(*rv));
+			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv, count * sizeof(*rv));
 			size = count;
 		}
 		rv[count - 1] = setting;
@@ -342,8 +341,7 @@ circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
 
 		count++;
 		if (count > size) {
-			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv,
-				      count * sizeof(*rv));
+			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv, count * sizeof(*rv));
 			size = count;
 		}
 		rv[count - 1] = setting;

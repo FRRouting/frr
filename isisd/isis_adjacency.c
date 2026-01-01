@@ -92,7 +92,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	}
 	adj->adj_sids = list_new();
 	adj->srv6_endx_sids = list_new();
-	listnode_add(circuit->area->adjacency_list, adj);
+	isis_area_adj_list_add_tail(&circuit->area->adjacency_list, adj);
 
 	return adj;
 }
@@ -122,13 +122,12 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
-struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
-				     const uint8_t *sysid)
+const struct isis_adjacency *isis_adj_find(const struct isis_area *area,
+					   int level, const uint8_t *sysid)
 {
-	struct isis_adjacency *adj;
-	struct listnode *node;
+	const struct isis_adjacency *adj;
 
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list_const, &area->adjacency_list, adj) {
 		if (!(adj->level & level))
 			continue;
 
@@ -164,7 +163,7 @@ void isis_delete_adj(void *arg)
 	list_delete(&adj->adj_sids);
 	list_delete(&adj->srv6_endx_sids);
 
-	listnode_delete(adj->circuit->area->adjacency_list, adj);
+	isis_area_adj_list_del(&adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
 }
