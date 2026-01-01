@@ -541,6 +541,11 @@ void isis_area_destroy(struct isis_area *area)
 	if (fabricd)
 		fabricd_finish(area->fabricd);
 
+	/* Must destroy LSP database before circuit list, because lsp_destroy
+	 * iterates over circuit_list to remove LSPs from tx queues */
+	lsp_db_fini(&area->lspdb[0]);
+	lsp_db_fini(&area->lspdb[1]);
+
 	frr_each_safe (isis_circuit_list, &area->circuit_list, circuit)
 		isis_area_del_circuit(area, circuit);
 
@@ -550,9 +555,6 @@ void isis_area_destroy(struct isis_area *area)
 		list_delete(&area->flags.free_idcs);
 
 	isis_area_adj_list_fini(&area->adjacency_list);
-
-	lsp_db_fini(&area->lspdb[0]);
-	lsp_db_fini(&area->lspdb[1]);
 
 	/* invalidate and verify to delete all routes from zebra */
 	isis_area_invalidate_routes(area, area->is_type);
