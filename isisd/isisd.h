@@ -12,6 +12,7 @@
 
 #include "vty.h"
 #include "memory.h"
+#include "typesafe.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -28,6 +29,11 @@
 #include "iso.h"
 
 DECLARE_MGROUP(ISISD);
+
+/* Typesafe list declarations */
+PREDECL_DLIST(isis_instance_list);
+PREDECL_DLIST(isis_area_list);
+PREDECL_DLIST(isis_area_adj_list);
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -74,7 +80,7 @@ struct fabricd;
 
 struct isis_master {
 	/* ISIS instance. */
-	struct list *isis;
+	struct isis_instance_list_head isis;
 	/* ISIS thread master. */
 	struct event_loop *master;
 	/* Various global options */
@@ -92,7 +98,7 @@ struct isis {
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
-	struct list *area_list;	/* list of IS-IS areas */
+	struct isis_area_list_head area_list; /* list of IS-IS areas */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct iso_address *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
@@ -102,7 +108,13 @@ struct isis {
 	struct list *dyn_cache;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
+
+	/* Typesafe list membership for im->isis */
+	struct isis_instance_list_item instance_list_item;
 };
+
+/* Typesafe list definition for instance_list */
+DECLARE_DLIST(isis_instance_list, struct isis, instance_list_item);
 
 extern struct isis_master *im;
 
@@ -133,8 +145,8 @@ struct isis_area {
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
-	struct list *circuit_list; /* IS-IS circuits */
-	struct list *adjacency_list; /* IS-IS adjacencies */
+	struct isis_circuit_list_head circuit_list; /* IS-IS circuits */
+	struct isis_area_adj_list_head adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
 	struct event *t_tick; /* LSP walker */
 	struct event *t_lsp_refresh[ISIS_LEVELS];
@@ -261,9 +273,15 @@ struct isis_area {
 	uint64_t id_len_mismatches[2];
 	uint64_t lsp_error_counter[2];
 
+	/* Typesafe list membership for isis->area_list */
+	struct isis_area_list_item area_list_item;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_area);
+
+/* Typesafe list definition for area_list */
+DECLARE_DLIST(isis_area_list, struct isis_area, area_list_item);
 
 DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
 DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */

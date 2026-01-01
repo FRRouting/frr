@@ -12,7 +12,9 @@
 #ifndef _ZEBRA_ISIS_ADJACENCY_H
 #define _ZEBRA_ISIS_ADJACENCY_H
 
+#include "typesafe.h"
 #include "isisd/isis_tlvs.h"
+#include "isisd/isisd.h"
 
 DECLARE_MTYPE(ISIS_ADJACENCY_INFO);
 
@@ -98,7 +100,13 @@ struct isis_adjacency {
 	struct listnode *snmp_list_node;
 
 	struct list *srv6_endx_sids; /* SRv6 End.X SIDs. */
+
+	/* Typesafe list membership for area->adjacency_list */
+	struct isis_area_adj_list_item area_adj_list_item;
 };
+
+/* Typesafe list definition for adjacency_list */
+DECLARE_DLIST(isis_area_adj_list, struct isis_adjacency, area_adj_list_item);
 
 struct isis_threeway_adj;
 

@@ -16,12 +16,16 @@
 #include "prefix.h"
 #include "ferr.h"
 #include "nexthop.h"
+#include "typesafe.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_csm.h"
 
 DECLARE_HOOK(isis_if_new_hook, (struct interface * ifp), (ifp));
+
+/* Typesafe list declarations for circuits */
+PREDECL_DLIST(isis_circuit_list);
 
 struct isis_lsp;
 
@@ -176,9 +180,15 @@ struct isis_circuit {
 				    */
 	struct list *snmp_adj_list; /* List in id order */
 
+	/* Typesafe list membership for area->circuit_list */
+	struct isis_circuit_list_item circuit_list_item;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_circuit);
+
+/* Typesafe list definition for circuit_list */
+DECLARE_DLIST(isis_circuit_list, struct isis_circuit, circuit_list_item);
 
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);

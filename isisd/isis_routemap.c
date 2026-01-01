@@ -244,8 +244,8 @@ static void isis_route_map_update(const char *name)
 	int protocol;
 	struct isis_redist *redist;
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_instance_list, &im->isis, isis)
+		frr_each (isis_area_list, &isis->area_list, area)
 			for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
 				for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
 					for (level = 0; level < ISIS_LEVELS; level++) {

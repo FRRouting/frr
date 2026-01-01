@@ -1109,8 +1109,8 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 	}
 #endif /* ifndef FABRICD */
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 			if (!area->srdb.enabled) {
 				vty_out(vty, " Segment Routing is disabled\n");
@@ -1193,7 +1193,7 @@ int isis_sr_start(struct isis_area *area)
 	sr_debug("ISIS-Sr: Starting Segment Routing for area %s", area->area_tag);
 
 	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ipv4_address_count > 0)
 			sr_adj_sid_add(adj, AF_INET);
 		if (adj->ll_ipv6_count > 0)

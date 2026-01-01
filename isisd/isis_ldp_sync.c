@@ -81,7 +81,6 @@ int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 {
 	struct isis_area *area;
-	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -98,11 +97,11 @@ int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_ldp_sync_if_start(circuit, true);
 	}
 
@@ -382,7 +381,6 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 {
 	struct isis_area *area;
-	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -400,11 +398,11 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 */
 	zlog_err("%s: LDP down", __func__);
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_ldp_sync_ldp_fail(circuit);
 	}
 }
@@ -416,12 +414,11 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 void isis_area_ldp_sync_enable(struct isis_area *area)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_if_ldp_sync_enable(circuit);
 	}
 }
@@ -429,10 +426,9 @@ void isis_area_ldp_sync_enable(struct isis_area *area)
 void isis_area_ldp_sync_disable(struct isis_area *area)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_if_ldp_sync_disable(circuit);
 
 		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
@@ -445,7 +441,6 @@ void isis_area_ldp_sync_disable(struct isis_area *area)
 void isis_area_ldp_sync_set_holddown(struct isis_area *area, uint16_t holddown)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
@@ -454,7 +449,7 @@ void isis_area_ldp_sync_set_holddown(struct isis_area *area, uint16_t holddown)
 
 	area->ldp_sync_cmd.holddown = holddown;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	frr_each (isis_circuit_list, &area->circuit_list, circuit)
 		isis_if_set_ldp_sync_holddown(circuit);
 }
 
@@ -611,7 +606,6 @@ DEFUN (show_isis_mpls_ldp_interface,
 {
 	char *ifname = NULL;
 	int idx_intf = 0;
-	struct listnode *anode, *cnode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -625,8 +619,8 @@ DEFUN (show_isis_mpls_ldp_interface,
 	if (argv_find(argv, argc, "INTERFACE", &idx_intf))
 		ifname = argv[idx_intf]->arg;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+	frr_each (isis_area_list, &isis->area_list, area) {
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			if (!ifname)
 				isis_circuit_ldp_sync_print_vty(circuit, vty);
 			else if (strcmp(circuit->interface->name, ifname)

@@ -1508,7 +1508,7 @@ void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
 	if (IS_DEBUG_LFA)
 		zlog_debug("ISIS-LFA: LDP is down, deactivating all RLFAs");
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 				struct isis_spftree *spftree;
@@ -2104,7 +2104,7 @@ void isis_spf_run_lfa(struct isis_area *area, struct isis_spftree *spftree)
 	isis_spf_run_neighbors(spftree);
 
 	/* Check which interfaces are protected. */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		struct lfa_protected_resource resource = {};
 		struct isis_adjacency *adj;
 		static uint8_t null_sysid[ISIS_SYS_ID_LEN + 1];

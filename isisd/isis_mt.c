@@ -198,7 +198,7 @@ bool area_is_mt(struct isis_area *area)
 		if (setting->enabled && setting->mtid != ISIS_MT_IPV4_UNICAST)
 			return true;
 	}
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node2,
 					  csetting)) {
 			if (!csetting->enabled
