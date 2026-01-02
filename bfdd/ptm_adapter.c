@@ -509,8 +509,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		 * changing peer configuration manually (through `peer` node)
 		 * or via profiles.
 		 */
-		if (bpc.bpc_has_profile)
-			bfd_profile_apply(bpc.bpc_profile, bs);
+		bfd_profile_apply(bpc.bpc_has_profile ? bpc.bpc_profile : NULL, bs);
 	}
 
 	/* Create client peer notification register. */

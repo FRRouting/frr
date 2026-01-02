@@ -135,21 +135,28 @@ void bfd_profile_free(struct bfd_profile *bp)
 
 void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 {
-	struct bfd_profile *bp;
+	struct bfd_profile *bp = NULL;
 
-	/* Remove previous profile if any. */
-	if (bs->profile_name) {
-		/* We are changing profiles. */
-		if (strcmp(bs->profile_name, profname)) {
+	if (profname) {
+		/* Remove previous profile if any. */
+		if (bs->profile_name) {
+			/* We are changing profiles. */
+			if (strcmp(bs->profile_name, profname)) {
+				XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
+				bs->profile_name = XSTRDUP(MTYPE_BFDD_PROFILE, profname);
+			}
+		} else /* Save the current profile name (in case it doesn't exist). */
+			bs->profile_name = XSTRDUP(MTYPE_BFDD_PROFILE, profname);
+
+		/* Look up new profile to apply. */
+		bp = bfd_profile_lookup(profname);
+
+	} else {
+		if (bs->profile_name)
 			XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
-			bs->profile_name =
-				XSTRDUP(MTYPE_BFDD_PROFILE, profname);
-		}
-	} else /* Save the current profile name (in case it doesn't exist). */
-		bs->profile_name = XSTRDUP(MTYPE_BFDD_PROFILE, profname);
 
-	/* Look up new profile to apply. */
-	bp = bfd_profile_lookup(profname);
+		bs->profile_name = NULL;
+	}
 
 	/* Point to profile if it exists. */
 	bs->profile = bp;
@@ -1009,8 +1016,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 * There is no problem calling `shutdown` twice if the value doesn't
 	 * change or if it is overridden by peer specific configuration.
 	 */
-	if (bpc->bpc_has_profile)
-		bfd_profile_apply(bpc->bpc_profile, bs);
+	bfd_profile_apply(bpc->bpc_has_profile ? bpc->bpc_profile : NULL, bs);
 }
 
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
