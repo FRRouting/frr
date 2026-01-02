@@ -114,6 +114,14 @@ static FRR_NORETURN void mgmt_exit(int status)
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
 
+<<<<<<< HEAD
+=======
+	/* frr_fini() calls this but we need our vtys close before we terminate the client */
+	vty_terminate();
+
+	vty_mgmt_terminate();
+
+>>>>>>> 3d4aa9659 (mgmtd: vty_terminate() before client cleanup)
 	frr_early_fini();
 
 	/* stop pthreads (if any) */
