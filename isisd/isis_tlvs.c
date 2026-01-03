@@ -65,6 +65,7 @@ typedef struct isis_item *(*copy_item_func)(struct isis_item *i);
 struct tlv_ops {
 	const char *name;
 	unpack_tlv_func unpack;
+	size_t min_len;
 
 	pack_item_func pack_item;
 	free_item_func free_item;
@@ -5445,11 +5446,6 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	int num_msd;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
-	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
-		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
-		stream_forward_getp(s, tlv_len);
-		return 0;
-	}
 
 	if (!tlvs->router_cap) {
 		/* First Router Capability TLV.
@@ -5474,6 +5470,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		uint8_t subsubtlvs_len;
 #endif /* ifndef FABRICD */
 		uint8_t msd_type;
+
+		if (STREAM_READABLE(s) < 2) {
+			sbuf_push(log, indent,
+				  "WARNING: Unexpected end of stream\n");
+			return 0;
+		}
 
 		type = stream_getc(s);
 		length = stream_getc(s);
@@ -5674,12 +5676,27 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			break;
 #ifndef FABRICD
 		case ISIS_SUBTLV_FAD:
+			if (length < 4) {
+				sbuf_push(log, indent,
+					  "WARNING: Unexpected FAD sub-TLV length\n");
+				stream_forward_getp(s, length);
+				break;
+			}
 			fad = XCALLOC(MTYPE_ISIS_TLV,
 				      sizeof(struct isis_router_cap_fad));
 			fad->fad.algorithm = stream_getc(s);
 			fad->fad.metric_type = stream_getc(s);
 			fad->fad.calc_type = stream_getc(s);
 			fad->fad.priority = stream_getc(s);
+
+			if (rcap->fads[fad->fad.algorithm]) {
+				struct isis_router_cap_fad *old_fad =
+					rcap->fads[fad->fad.algorithm];
+				admin_group_term(&old_fad->fad.admin_group_exclude_any);
+				admin_group_term(&old_fad->fad.admin_group_include_any);
+				admin_group_term(&old_fad->fad.admin_group_include_all);
+				XFREE(MTYPE_ISIS_TLV, old_fad);
+			}
 			rcap->fads[fad->fad.algorithm] = fad;
 			admin_group_init(&fad->fad.admin_group_exclude_any);
 			admin_group_init(&fad->fad.admin_group_include_any);
@@ -5692,6 +5709,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				uint8_t subsubtlv_len;
 				uint32_t v;
 				int n_ag, i;
+
+				if (STREAM_READABLE(s) < 2) {
+					sbuf_push(log, indent,
+						  "WARNING: Unexpected end of stream\n");
+					return 0;
+				}
 
 				subsubtlv_type = stream_getc(s);
 				subsubtlv_len = stream_getc(s);
@@ -7258,6 +7281,13 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 
 	ops = tlv_table[context][tlv_type];
 	if (ops && ops->unpack) {
+		if (tlv_len < ops->min_len) {
+			sbuf_push(log, indent + 2,
+				  "TLV length %hhu is less than minimum %zu.\n",
+				  tlv_len, ops->min_len);
+			return 1;
+		}
+
 		if (unpacked_known_tlvs)
 			*unpacked_known_tlvs = true;
 		return ops->unpack(context, tlv_type, tlv_len, stream, log,
@@ -7327,6 +7357,13 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 		.name = _desc_, .unpack = unpack_tlv_##_name_,                 \
 	}
 
+#define TLV_OPS_MIN_LEN(_name_, _desc_, _min_len_)                             \
+	static const struct tlv_ops tlv_##_name_##_ops = {                     \
+		.name = _desc_,                                                \
+		.unpack = unpack_tlv_##_name_,                                 \
+		.min_len = _min_len_,                                          \
+	}
+
 #define ITEM_TLV_OPS(_name_, _desc_)                                           \
 	static const struct tlv_ops tlv_##_name_##_ops = {                     \
 		.name = _desc_,                                                \
@@ -7375,7 +7412,7 @@ TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
-TLV_OPS(router_cap, "TLV 242 Router Capability");
+TLV_OPS_MIN_LEN(router_cap, "TLV 242 Router Capability", 5);
 
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
