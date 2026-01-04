@@ -348,8 +348,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 
 	isis_circuit_list_init(&area->circuit_list);
 	isis_area_adj_list_init(&area->adjacency_list);
-	area->area_addrs = list_new();
-	area->area_addrs->del = isis_area_address_delete;
+	iso_address_list_init(&area->area_addrs);
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
@@ -499,8 +498,8 @@ struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid)
 		return NULL;
 
 	frr_each (isis_area_list, &isis->area_list, area) {
-		if (listcount(area->area_addrs) > 0) {
-			addr = listgetdata(listhead(area->area_addrs));
+		addr = iso_address_list_first(&area->area_addrs);
+		if (addr != NULL) {
 			if (!memcmp(addr->area_addr + addr->addr_len, sysid,
 				    ISIS_SYS_ID_LEN))
 				return area;
@@ -586,8 +585,8 @@ void isis_area_destroy(struct isis_area *area)
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
 
-	if (listcount(area->area_addrs) > 0) {
-		addr = listgetdata(listhead(area->area_addrs));
+	addr = iso_address_list_first(&area->area_addrs);
+	if (addr != NULL) {
 		if (!memcmp(addr->area_addr + addr->addr_len, area->isis->sysid,
 			    ISIS_SYS_ID_LEN)) {
 			memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
@@ -595,7 +594,9 @@ void isis_area_destroy(struct isis_area *area)
 		}
 	}
 
-	list_delete(&area->area_addrs);
+	while ((addr = iso_address_list_pop(&area->area_addrs)))
+		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
+	iso_address_list_fini(&area->area_addrs);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
 	     i++) {
@@ -874,12 +875,11 @@ int area_net_title(struct vty *vty, const char *net_title)
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	struct iso_address *addr;
 	struct iso_address *addrp;
-	struct listnode *node;
 
 	uint8_t buff[255];
 
 	/* We check that we are not over the maximal number of addresses */
-	if (listcount(area->area_addrs) >= area->isis->max_area_addrs) {
+	if (iso_address_list_count(&area->area_addrs) >= area->isis->max_area_addrs) {
 		vty_out(vty,
 			"Maximum of area addresses (%d) already reached \n",
 			area->isis->max_area_addrs);
@@ -930,7 +930,7 @@ int area_net_title(struct vty *vty, const char *net_title)
 		}
 
 		/* now we see that we don't already have this address */
-		for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
+		frr_each (iso_address_list, &area->area_addrs, addrp) {
 			if ((addrp->addr_len + ISIS_SYS_ID_LEN + ISIS_NSEL_LEN)
 			    != (addr->addr_len))
 				continue;
@@ -946,10 +946,10 @@ int area_net_title(struct vty *vty, const char *net_title)
 	 * Forget the systemID part of the address
 	 */
 	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
-	listnode_add(area->area_addrs, addr);
+	iso_address_list_add_tail(&area->area_addrs, addr);
 
 	/* only now we can safely generate our LSPs for this area */
-	if (listcount(area->area_addrs) > 0) {
+	if (iso_address_list_count(&area->area_addrs) > 0) {
 		if (area->is_type & IS_LEVEL_1)
 			lsp_generate(area, IS_LEVEL_1);
 		if (area->is_type & IS_LEVEL_2)
@@ -963,7 +963,6 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	struct iso_address addr, *addrp = NULL;
-	struct listnode *node;
 	uint8_t buff[255];
 
 	addr.addr_len = dotformat2buff(buff, net_title);
@@ -976,7 +975,7 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp))
+	frr_each (iso_address_list, &area->area_addrs, addrp)
 		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len
 		    && !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
 			break;
@@ -987,13 +986,13 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 		return CMD_ERR_NO_MATCH;
 	}
 
-	listnode_delete(area->area_addrs, addrp);
+	iso_address_list_del(&area->area_addrs, addrp);
 	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
 
 	/*
 	 * Last area address - reset the SystemID for this router
 	 */
-	if (listcount(area->area_addrs) == 0) {
+	if (iso_address_list_count(&area->area_addrs) == 0) {
 		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
 		area->isis->sysid_set = 0;
 		if (IS_DEBUG_EVENTS)
@@ -2375,7 +2374,6 @@ static void common_isis_summary_json(struct json_object *json,
 	int level;
 	json_object *vrf_json, *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json, *levels_json,
 		*level_json;
-	struct listnode *node2;
 	struct isis_area *area;
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
@@ -2409,10 +2407,9 @@ static void common_isis_summary_json(struct json_object *json,
 						       : stier);
 		}
 
-		if (listcount(area->area_addrs) > 0) {
+		{
 			struct iso_address *area_addr;
-			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr))
+			frr_each (iso_address_list, &area->area_addrs, area_addr)
 				json_object_string_addf(area_json, "net",
 							"%pISl", area_addr);
 		}
@@ -2481,7 +2478,6 @@ static void common_isis_summary_json(struct json_object *json,
 
 static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 {
-	struct listnode *node2;
 	struct isis_area *area;
 	int level;
 
@@ -2508,10 +2504,9 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 				vty_out(vty, "  Tier: %hhu\n", tier);
 		}
 
-		if (listcount(area->area_addrs) > 0) {
+		if (iso_address_list_count(&area->area_addrs) > 0) {
 			struct iso_address *area_addr;
-			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr))
+			frr_each (iso_address_list, &area->area_addrs, area_addr)
 				vty_out(vty, "  Net: %pISl\n", area_addr);
 		}
 
@@ -3255,7 +3250,7 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 
 	spftree_area_init(area);
 
-	if (listcount(area->area_addrs) > 0) {
+	if (iso_address_list_count(&area->area_addrs) > 0) {
 		if (is_type & IS_LEVEL_1)
 			lsp_generate(area, IS_LEVEL_1);
 		if (is_type & IS_LEVEL_2)
@@ -3312,7 +3307,7 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
 
 void config_end_lsp_generate(struct isis_area *area)
 {
-	if (listcount(area->area_addrs) > 0) {
+	if (iso_address_list_count(&area->area_addrs) > 0) {
 		if (CHECK_FLAG(area->is_type, IS_LEVEL_1))
 			lsp_generate(area, IS_LEVEL_1);
 		if (CHECK_FLAG(area->is_type, IS_LEVEL_2))
@@ -3527,7 +3522,6 @@ static int isis_config_write(struct vty *vty)
 {
 	int write = 0;
 	struct isis_area *area;
-	struct listnode *node2;
 	struct isis *isis;
 
 	if (!im) {
@@ -3541,10 +3535,9 @@ static int isis_config_write(struct vty *vty)
 			vty_out(vty, "router " PROTO_NAME " %s\n", area->area_tag);
 			write++;
 			/* ISIS - Net */
-			if (listcount(area->area_addrs) > 0) {
+			if (iso_address_list_count(&area->area_addrs) > 0) {
 				struct iso_address *area_addr;
-				for (ALL_LIST_ELEMENTS_RO(area->area_addrs,
-							  node2, area_addr)) {
+				frr_each (iso_address_list, &area->area_addrs, area_addr) {
 					vty_out(vty, " net %pISl\n", area_addr);
 					write++;
 				}

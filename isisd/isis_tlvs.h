@@ -17,7 +17,7 @@
 #include "prefix.h"
 #include "flex_algo.h"
 #include "affinitymap.h"
-
+#include "lib/iso.h"
 
 #include "lib/srv6.h"
 
@@ -774,7 +774,7 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #endif
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
-void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct list *addresses);
+void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses);
 void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors);
 void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs, struct nlpids *nlpids);
 void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid, bool overload,
@@ -785,7 +785,8 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses
 void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
 int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 			    struct stream *stream, bool is_lsp);
-bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs, struct list *addresses);
+bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
+				    struct iso_address_list_head *addresses);
 struct isis_adjacency;
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *changed);
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa);

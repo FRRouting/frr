@@ -839,7 +839,6 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 	size_t addr_len;
 	struct isis_area *area = NULL;
 	struct iso_address *addr = NULL;
-	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
 	if (isis == NULL)
@@ -861,7 +860,7 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 		return 0;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, addr_node, addr)) {
+	frr_each (iso_address_list, &area->area_addrs, addr) {
 		if (addr->addr_len != addr_len)
 			continue;
 
@@ -889,7 +888,6 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 	struct isis_area *area = NULL;
 	struct iso_address *found_addr = NULL;
 	struct iso_address *addr = NULL;
-	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
 	if (isis == NULL)
@@ -908,7 +906,7 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 	if (!res)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, addr_node, addr)) {
+	frr_each (iso_address_list, &area->area_addrs, addr) {
 		if (addr->addr_len < addr_len)
 			continue;
 
