@@ -1074,7 +1074,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 	lsp_add_auth(lsp);
 
-	isis_tlvs_add_area_addresses(lsp->tlvs, area->area_addrs);
+	isis_tlvs_add_area_addresses(lsp->tlvs, &area->area_addrs);
 
 	/* Protocols Supported */
 	if (area->ip_circuits > 0 || area->ipv6_circuits > 0) {

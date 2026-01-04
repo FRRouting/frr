@@ -6752,12 +6752,11 @@ void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 	append_item(&tlvs->isis_auth, (struct isis_item *)auth);
 }
 
-void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct list *addresses)
+void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses)
 {
-	struct listnode *node;
 	struct iso_address *area_addr;
 
-	for (ALL_LIST_ELEMENTS_RO(addresses, node, area_addr)) {
+	frr_each (iso_address_list, addresses, area_addr) {
 		struct isis_area_address *a = XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->len = area_addr->addr_len;
@@ -6933,16 +6932,15 @@ int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 		return ISIS_AUTH_FAILURE;
 }
 
-bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs, struct list *addresses)
+bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses)
 {
 	struct isis_area_address *addr_head;
 
 	addr_head = (struct isis_area_address *)tlvs->area_addresses.head;
 	for (struct isis_area_address *addr = addr_head; addr; addr = addr->next) {
-		struct listnode *node;
 		struct iso_address *a;
 
-		for (ALL_LIST_ELEMENTS_RO(addresses, node, a)) {
+		frr_each (iso_address_list, addresses, a) {
 			if (a->addr_len == addr->len &&
 			    !memcmp(a->area_addr, addr->addr, addr->len))
 				return true;
