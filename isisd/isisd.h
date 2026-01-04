@@ -188,7 +188,7 @@ struct isis_area {
 	/* identifies the routing instance   */
 	char *area_tag;
 	/* area addresses for this area      */
-	struct list *area_addrs;
+	struct iso_address_list_head area_addrs;
 	uint16_t max_lsp_lifetime[ISIS_LEVELS];
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */

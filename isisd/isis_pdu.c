@@ -163,7 +163,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	     (iih->circuit->is_type_config == IS_LEVEL_1_AND_2) &&
 	     (iih->circ_type == IS_LEVEL_1))) {
 		if (!isis_tlvs_area_addresses_match(iih->tlvs,
-						    iih->circuit->area
+						    &iih->circuit->area
 							    ->area_addrs)) {
 			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %u, length %u",
@@ -201,7 +201,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		iih->calculated_type = IS_LEVEL_1_AND_2;
 
 		if (!isis_tlvs_area_addresses_match(iih->tlvs,
-						    iih->circuit->area
+						    &iih->circuit->area
 							    ->area_addrs)) {
 			iih->calculated_type = IS_LEVEL_2;
 		}
@@ -277,7 +277,7 @@ static int process_p2p_hello(struct iih_info *iih)
 
 	/* 8.2.5.2 a) a match was detected */
 	if (isis_tlvs_area_addresses_match(iih->tlvs,
-					   iih->circuit->area->area_addrs)) {
+					   &iih->circuit->area->area_addrs)) {
 		/* 8.2.5.2 a) 2) If the calculated type is L1 - table 5 */
 		if (iih->calculated_type == IS_LEVEL_1) {
 			switch (iih->circ_type) {
@@ -362,7 +362,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		}
 	}
 	/* 8.2.5.2 b) if no match was detected */
-	else if (listcount(iih->circuit->area->area_addrs) > 0) {
+	else if (iso_address_list_count(&iih->circuit->area->area_addrs) > 0) {
 		if (iih->calculated_type == IS_LEVEL_1) {
 			/* 8.2.5.2 b) 1) is_type L1 and adj is not up */
 			if (adj->adj_state != ISIS_ADJ_UP) {
@@ -789,10 +789,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	}
 
 	if (!p2p_hello
-	    && (listcount(circuit->area->area_addrs) == 0
+	    && (iso_address_list_count(&circuit->area->area_addrs) == 0
 		|| (level == ISIS_LEVEL1
 		    && !isis_tlvs_area_addresses_match(
-			       iih.tlvs, circuit->area->area_addrs)))) {
+			       iih.tlvs, &circuit->area->area_addrs)))) {
 		if (IS_DEBUG_ADJ_PACKETS) {
 			zlog_debug(
 				"ISIS-Adj (%s): Area mismatch, level %d IIH on %s",
@@ -1956,12 +1956,12 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_tlvs_add_auth(tlvs, &circuit->passwd);
 
-	if (!listcount(circuit->area->area_addrs)) {
+	if (!iso_address_list_count(&circuit->area->area_addrs)) {
 		isis_free_tlvs(tlvs);
 		return ISIS_WARNING;
 	}
 
-	isis_tlvs_add_area_addresses(tlvs, circuit->area->area_addrs);
+	isis_tlvs_add_area_addresses(tlvs, &circuit->area->area_addrs);
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		isis_tlvs_add_lan_neighbors(

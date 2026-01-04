@@ -247,7 +247,7 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	addr->addr_len = dotformat2buff(buff, net_title);
 	memcpy(addr->area_addr, buff, addr->addr_len);
 	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
-	listnode_add(area->area_addrs, addr);
+	iso_address_list_add_tail(&area->area_addrs, addr);
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
 		vty_out(vty, "%% Failed to load topology\n");
 		return CMD_WARNING;

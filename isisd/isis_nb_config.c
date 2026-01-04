@@ -139,7 +139,6 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	struct iso_address addr, *addrr = NULL, *addrp = NULL;
-	struct listnode *node;
 	struct sysid_iter iter;
 	uint8_t buff[255];
 	const char *net_title = yang_dnode_get_string(args->dnode, NULL);
@@ -187,7 +186,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 			area->isis->sysid_set = 1;
 		} else {
 			/* check that we don't already have this address */
-			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
+			frr_each (iso_address_list, &area->area_addrs, addrp) {
 				if ((addrp->addr_len + ISIS_SYS_ID_LEN + ISIS_NSEL_LEN) !=
 				    (addrr->addr_len))
 					continue;
@@ -200,11 +199,10 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 		/*Forget the systemID part of the address */
 		addrr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
-		assert(area->area_addrs); /* to silence scan-build sillyness */
-		listnode_add(area->area_addrs, addrr);
+		iso_address_list_add_tail(&area->area_addrs, addrr);
 
 		/* only now we can safely generate our LSPs for this area */
-		if (listcount(area->area_addrs) > 0) {
+		if (iso_address_list_count(&area->area_addrs) > 0) {
 			if (area->is_type & IS_LEVEL_1)
 				lsp_generate(area, IS_LEVEL_1);
 			if (area->is_type & IS_LEVEL_2)
@@ -219,7 +217,6 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 {
 	struct iso_address addr, *addrp = NULL;
-	struct listnode *node;
 	uint8_t buff[255];
 	struct isis_area *area;
 	const char *net_title;
@@ -234,7 +231,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
+	frr_each (iso_address_list, &area->area_addrs, addrp) {
 		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len &&
 		    !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
 			break;
@@ -242,12 +239,12 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	if (!addrp)
 		return NB_ERR_INCONSISTENCY;
 
-	listnode_delete(area->area_addrs, addrp);
+	iso_address_list_del(&area->area_addrs, addrp);
 	/*
 	 * Last area address - reset the SystemID for this router
 	 */
 	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid, ISIS_SYS_ID_LEN) &&
-	    listcount(area->area_addrs) == 0) {
+	    iso_address_list_count(&area->area_addrs) == 0) {
 		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
 				if (circuit->u.bc.is_dr[lvl - 1])

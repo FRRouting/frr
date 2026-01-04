@@ -67,7 +67,7 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	isis->router_id = router_id.u.prefix4.s_addr;
 	frr_each (isis_area_list, &isis->area_list, area)
-		if (listcount(area->area_addrs) > 0)
+		if (iso_address_list_count(&area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
