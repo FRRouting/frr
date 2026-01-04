@@ -15,7 +15,8 @@
 #define MAX_NETWORKS	8
 #define MAX_ADJACENCIES 8
 #define MAX_NODES	12
-#define MAX_SRLGS	4
+#define MAX_SRLGS	  4
+#define MAX_SRV6_LOCATORS 2
 
 /* Large-scale topology limits */
 #define GRID_MAX_NODES	     256
@@ -24,10 +25,20 @@
 #define SRGB_DFTL_LOWER_BOUND 16000
 #define SRGB_DFTL_RANGE_SIZE  8000
 
-/* SRv6 test configuration */
-struct isis_test_srv6 {
+/* SRv6 locator with algorithm support */
+struct isis_test_srv6_locator {
 	const char *locator; /* e.g., "fc00:0:1::/48" */
 	const char *end_sid; /* e.g., "fc00:0:1::1" */
+	uint8_t algorithm;   /* SR algorithm (0=SPF, 128-255=Flex-Algo) */
+};
+
+/* SRv6 test configuration - supports multiple locators for algorithm testing */
+struct isis_test_srv6 {
+	const char *locator; /* e.g., "fc00:0:1::/48" - primary locator (algorithm 0) */
+	const char *end_sid; /* e.g., "fc00:0:1::1" */
+	/* Additional locators for multi-algorithm testing */
+	struct isis_test_srv6_locator extra_locators[MAX_SRV6_LOCATORS];
+	uint8_t extra_locator_count;
 };
 
 struct isis_test_adj {

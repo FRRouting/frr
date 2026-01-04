@@ -82,3 +82,7 @@ test isis topology 17 root rt4 ti-lfa system-id rt2
 test isis topology 17 root rt4 ti-lfa system-id rt6
 test isis topology 17 root rt5 ti-lfa system-id rt3
 test isis topology 17 root rt5 ti-lfa system-id rt6
+
+test isis topology 18 root rt1 spf display-lspdb
+test isis topology 18 root rt1 ti-lfa system-id rt2
+test isis topology 18 root rt1 ti-lfa system-id rt3
