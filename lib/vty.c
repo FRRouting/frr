@@ -4154,11 +4154,6 @@ void vty_terminate(void)
 {
 	struct vty *vty;
 
-	if (mgmt_fe_client) {
-		mgmt_fe_client_destroy(mgmt_fe_client);
-		mgmt_fe_client = NULL;
-	}
-
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 
 	vty_reset();
@@ -4177,6 +4172,11 @@ void vty_terminate(void)
 
 	vtys_fini(vtysh_sessions);
 	vtys_init(vtysh_sessions);
+
+	if (mgmt_fe_client) {
+		mgmt_fe_client_destroy(mgmt_fe_client);
+		mgmt_fe_client = NULL;
+	}
 
 	vty_serv_stop();
 }
