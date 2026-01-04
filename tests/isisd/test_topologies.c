@@ -3917,6 +3917,148 @@ struct isis_topology test_topologies[] = {
 			},
 		},
 	},
+	/*
+	 * Test topology 18:
+	 * =================
+	 * SRv6 TI-LFA algorithm filtering test topology
+	 *
+	 *                 +---------+
+	 *                 |         |
+	 *                 |   RT1   |
+	 *      +----------+         +----------+
+	 *      |          |         |          |
+	 *      |          +---------+          |
+	 *      |                               |
+	 *      |                               |
+	 * +----+----+                     +----+----+
+	 * |         |                     |         |
+	 * |   RT2   +---------------------+   RT3   |
+	 * |         |                     |         |
+	 * +---------+                     +---------+
+	 *
+	 * Each node has TWO SRv6 locators:
+	 * - Primary locator with algorithm 0 (SPF): fc00:0:X::/48
+	 * - Extra locator with algorithm 128 (Flex-Algo): fc00:128:X::/48
+	 *
+	 * This topology tests that TI-LFA correctly filters by algorithm,
+	 * using only algorithm 0 locators for backup path computation.
+	 */
+	{
+		.number = 18,
+		.nodes = {
+			{
+				.hostname = "rt1",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.1",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:1::/48",
+					.end_sid = "fc00:0:1::1",
+					.extra_locators = {
+						{
+							.locator = "fc00:128:1::/48",
+							.end_sid = "fc00:128:1::1",
+							.algorithm = 128,
+						},
+					},
+					.extra_locator_count = 1,
+				},
+				.networks = {
+					"10.0.255.1/32",
+					"2001:db8::1/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+			{
+				.hostname = "rt2",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.2",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:2::/48",
+					.end_sid = "fc00:0:2::1",
+					.extra_locators = {
+						{
+							.locator = "fc00:128:2::/48",
+							.end_sid = "fc00:128:2::1",
+							.algorithm = 128,
+						},
+					},
+					.extra_locator_count = 1,
+				},
+				.networks = {
+					"10.0.255.2/32",
+					"2001:db8::2/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+			{
+				.hostname = "rt3",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.3",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.srv6 = {
+					.locator = "fc00:0:3::/48",
+					.end_sid = "fc00:0:3::1",
+					.extra_locators = {
+						{
+							.locator = "fc00:128:3::/48",
+							.end_sid = "fc00:128:3::1",
+							.algorithm = 128,
+						},
+					},
+					.extra_locator_count = 1,
+				},
+				.networks = {
+					"10.0.255.3/32",
+					"2001:db8::3/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+				},
+				.flags = F_ISIS_TEST_NODE_SRV6,
+			},
+		},
+	},
 	{
 		/* sentinel */
 	},

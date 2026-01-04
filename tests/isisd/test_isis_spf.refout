@@ -5838,11 +5838,254 @@ IS-IS L1 IPv6 routing table:
  fc00:0:4::/48    31      -          rt3      -              
  fc00:0:6::/48    41      -          rt3      implicit-null  
 
-test# NONE: showing active allocations in memory group libfrr
-NONE: memstats:  Link List                     :      3 *         40
-NONE: memstats:  Link Node                     :      1 *         24
-NONE: showing active allocations in memory group isisd
-NONE: memstats:  ISIS process                  :      1 *        144
-NONE: memstats:  ISIS process name             :      1 *          8
+test# 
+test# test isis topology 18 root rt1 spf display-lspdb
+IS-IS Level-1 link-state database:
+LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL
+rt1.00-00                  27   0x00000001  0x0000    6000     none
+  Protocols Supported: IPv4, IPv6
+  MT Router Info: ipv4-unicast
+  MT Router Info: ipv6-unicast
+  Router Capability: 10.0.255.1 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0000.0000.0002.00 (Metric: 10)
+  Extended Reachability: 0000.0000.0003.00 (Metric: 10)
+  MT Reachability: 0000.0000.0002.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:1::10, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  MT Reachability: 0000.0000.0003.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:1::11, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  Extended IP Reachability: 10.0.255.1/32 (Metric: 10)
+  MT IPv6 Reachability: 2001:db8::1/128 (Metric: 10) ipv6-unicast
+  SRv6 Locator: fc00:0:1::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:1::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  SRv6 Locator: fc00:128:1::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:128:1::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
 
+rt2.00-00                  27   0x00000001  0x0000    6000     none
+  Protocols Supported: IPv4, IPv6
+  MT Router Info: ipv4-unicast
+  MT Router Info: ipv6-unicast
+  Router Capability: 10.0.255.2 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0000.0000.0001.00 (Metric: 10)
+  Extended Reachability: 0000.0000.0003.00 (Metric: 10)
+  MT Reachability: 0000.0000.0001.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:2::10, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  MT Reachability: 0000.0000.0003.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:2::11, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  Extended IP Reachability: 10.0.255.2/32 (Metric: 10)
+  MT IPv6 Reachability: 2001:db8::2/128 (Metric: 10) ipv6-unicast
+  SRv6 Locator: fc00:0:2::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:2::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  SRv6 Locator: fc00:128:2::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:128:2::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+rt3.00-00                  27   0x00000001  0x0000    6000     none
+  Protocols Supported: IPv4, IPv6
+  MT Router Info: ipv4-unicast
+  MT Router Info: ipv6-unicast
+  Router Capability: 10.0.255.3 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0000.0000.0001.00 (Metric: 10)
+  Extended Reachability: 0000.0000.0002.00 (Metric: 10)
+  MT Reachability: 0000.0000.0001.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:3::10, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  MT Reachability: 0000.0000.0002.00 (Metric: 10) ipv6-unicast
+    SRv6 End.X SID: fc00:0:3::11, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:1, S:0, P:1
+  Extended IP Reachability: 10.0.255.3/32 (Metric: 10)
+  MT IPv6 Reachability: 2001:db8::3/128 (Metric: 10) ipv6-unicast
+  SRv6 Locator: fc00:0:3::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:3::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  SRv6 Locator: fc00:128:3::/48 (Metric: 1) ipv6-unicast
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:128:3::1
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+    3 LSPs
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt1                                                              
+ 10.0.255.1/32  IP internal  0                            rt1(4)  
+ rt2            TE-IS        10      rt2       -          rt1(4)  
+ rt3            TE-IS        10      rt3       -          rt1(4)  
+ 10.0.255.2/32  IP TE        20      rt2       -          rt2(4)  
+ 10.0.255.3/32  IP TE        20      rt3       -          rt3(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.1/32  0       -          -        -         
+ 10.0.255.2/32  20      -          rt2      -         
+ 10.0.255.3/32  20      -          rt3      -         
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt1                                                                 
+ 2001:db8::1/128  IP6 internal  0                            rt1(4)  
+ rt2              TE-IS         10      rt2       -          rt1(4)  
+ rt3              TE-IS         10      rt3       -          rt1(4)  
+ fc00:0:2::/48    IP6 internal  11      rt2       -          rt2(4)  
+ fc00:0:3::/48    IP6 internal  11      rt3       -          rt3(4)  
+ 2001:db8::2/128  IP6 internal  20      rt2       -          rt2(4)  
+ 2001:db8::3/128  IP6 internal  20      rt3       -          rt3(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::1/128  0       -          -        -         
+ 2001:db8::2/128  20      -          rt2      -         
+ 2001:db8::3/128  20      -          rt3      -         
+ fc00:0:2::/48    11      -          rt2      -         
+ fc00:0:3::/48    11      -          rt3      -         
+
+test# test isis topology 18 root rt1 ti-lfa system-id rt2
+P-space (self):
+ rt3
+
+P-space (rt3):
+ rt2
+ rt3
+
+Q-space:
+ rt2
+ rt3
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt1                                                              
+ 10.0.255.1/32  IP internal  0                            rt1(4)  
+ rt3            TE-IS        10      rt3       -          rt1(4)  
+ rt2            TE-IS        20      rt3       -          rt3(4)  
+ 10.0.255.3/32  IP TE        20      rt3       -          rt3(4)  
+ 10.0.255.2/32  IP TE        30      rt3       -          rt2(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.2/32  30      -          rt3      -         
+
+P-space (self):
+ rt3
+
+P-space (rt3):
+ rt2
+ rt3
+
+Q-space:
+ rt2
+ rt3
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt1                                                                 
+ 2001:db8::1/128  IP6 internal  0                            rt1(4)  
+ rt3              TE-IS         10      rt3       -          rt1(4)  
+ fc00:0:3::/48    IP6 internal  11      rt3       -          rt3(4)  
+ rt2              TE-IS         20      rt3       -          rt3(4)  
+ 2001:db8::3/128  IP6 internal  20      rt3       -          rt3(4)  
+ fc00:0:2::/48    IP6 internal  21      rt3       -          rt2(4)  
+ 2001:db8::2/128  IP6 internal  30      rt3       -          rt2(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::2/128  30      -          rt3      -         
+ fc00:0:2::/48    21      -          rt3      -         
+
+test# test isis topology 18 root rt1 ti-lfa system-id rt3
+P-space (self):
+ rt2
+
+P-space (rt2):
+ rt2
+ rt3
+
+Q-space:
+ rt2
+ rt3
+
+IS-IS paths to level-1 routers that speak IP
+ Vertex         Type         Metric  Next-Hop  Interface  Parent  
+ -----------------------------------------------------------------
+ rt1                                                              
+ 10.0.255.1/32  IP internal  0                            rt1(4)  
+ rt2            TE-IS        10      rt2       -          rt1(4)  
+ rt3            TE-IS        20      rt2       -          rt2(4)  
+ 10.0.255.2/32  IP TE        20      rt2       -          rt2(4)  
+ 10.0.255.3/32  IP TE        30      rt2       -          rt3(4)  
+
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.3/32  30      -          rt2      -         
+
+P-space (self):
+ rt2
+
+P-space (rt2):
+ rt2
+ rt3
+
+Q-space:
+ rt2
+ rt3
+
+IS-IS paths to level-1 routers that speak IPv6
+ Vertex           Type          Metric  Next-Hop  Interface  Parent  
+ --------------------------------------------------------------------
+ rt1                                                                 
+ 2001:db8::1/128  IP6 internal  0                            rt1(4)  
+ rt2              TE-IS         10      rt2       -          rt1(4)  
+ fc00:0:2::/48    IP6 internal  11      rt2       -          rt2(4)  
+ rt3              TE-IS         20      rt2       -          rt2(4)  
+ 2001:db8::2/128  IP6 internal  20      rt2       -          rt2(4)  
+ fc00:0:3::/48    IP6 internal  21      rt2       -          rt3(4)  
+ 2001:db8::3/128  IP6 internal  30      rt2       -          rt3(4)  
+
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::3/128  30      -          rt2      -         
+ fc00:0:3::/48    21      -          rt2      -         
+
+test# 
 end.

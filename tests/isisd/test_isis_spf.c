@@ -604,7 +604,7 @@ DEFUN(test_isis_grid, test_isis_grid_cmd,
 }
 
 DEFUN(test_isis, test_isis_cmd,
-      "test isis topology (1-17) root HOSTNAME\
+      "test isis topology (1-18) root HOSTNAME\
          <\
 	   spf\
 	   |reverse-spf\
