@@ -870,10 +870,30 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 
 		/*
 		 * If we are a v4 connection and we are not doing unnumbered
-		 * not having a v6 LL address is ok
+		 * not having a v6 LL address is ok, BUT only if IPv6 AF is NOT configured.
+		 * If IPv6 AF is configured, we need IPv6 addresses for proper nexthop handling.
 		 */
-		if (!v6_ll_avail && !peer->conf_if)
-			v6_ll_avail = true;
+
+		if (!v6_ll_avail && !peer->conf_if) {
+			bool peer_has_ipv6_configured = false;
+			struct interface *direct = NULL;
+			safi_t safi;
+
+			/* Check if peer has any IPv6 address family configured */
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				if (peer->afc[AFI_IP6][safi]) {
+					peer_has_ipv6_configured = true;
+					break;
+				}
+			}
+
+			/* Check if peer is directly connected */
+			direct = if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id);
+
+			/* Allow bypass if IPv6 AF is NOT configured or connection is NOT direct */
+			if (!peer_has_ipv6_configured || !direct)
+				v6_ll_avail = true;
+		}
 		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
 			peer->shared_network = true;
 		else
