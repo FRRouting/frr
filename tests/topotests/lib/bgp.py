@@ -4127,8 +4127,6 @@ def verify_gr_address_family(
         )
         return errormsg
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-
 
 @retry(retry_timeout=12)
 def verify_attributes_for_evpn_routes(
@@ -4803,8 +4801,6 @@ def verify_tcp_mss(tgen, dut, neighbour, configured_tcp_mss, vrf=None):
                 )
             )
             return "TCP-MSS Mismatch"
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return False
 
 
 def get_dut_as_number(tgen, dut):
