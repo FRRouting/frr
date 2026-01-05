@@ -14,6 +14,7 @@
 #include "lib/hook.h"
 
 #include "bfd.h"
+#include "bfd_trace.h"
 
 #include "bfdd/bfdd_vty_clippy.c"
 
@@ -551,9 +552,11 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 	_display_peer_header(vty, bs);
 
 	/* Ask data plane for updated counters. */
-	if (bfd_dplane_update_session_counters(bs) == -1)
+	if (bfd_dplane_update_session_counters(bs) == -1) {
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
+		frrtrace(3, frr_bfd, stats_error, 1, bs->discrs.my_discr, -1);
+	}
 
 	vty_out(vty, "\t\tControl packet input: %" PRIu64 " packets\n",
 		bs->stats.rx_ctrl_pkt);
@@ -578,9 +581,11 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 	struct json_object *jo = _peer_json_header(bs);
 
 	/* Ask data plane for updated counters. */
-	if (bfd_dplane_update_session_counters(bs) == -1)
+	if (bfd_dplane_update_session_counters(bs) == -1) {
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
+		frrtrace(3, frr_bfd, stats_error, 1, bs->discrs.my_discr, -1);
+	}
 
 	json_object_int_add(jo, "control-packet-input", bs->stats.rx_ctrl_pkt);
 	json_object_int_add(jo, "control-packet-output", bs->stats.tx_ctrl_pkt);
