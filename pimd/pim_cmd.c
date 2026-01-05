@@ -5850,7 +5850,7 @@ DEFPY (interface_ip_pim_activeactive,
        NO_STR
        IP_STR
        PIM_STR
-       "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+       "Mark interface as Active-Active for MLAG operations\n")
 {
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
