@@ -583,11 +583,11 @@ static void ospf_ext_link_delete_adj_sid(struct ext_itf *exti)
 
 	/* Release Primary & Backup Labels from Label Manager */
 	if (exti->stype == ADJ_SID) {
-		ospf_sr_local_block_release_label(exti->adj_sid[0].value);
-		ospf_sr_local_block_release_label(exti->adj_sid[1].value);
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->adj_sid[0].value)));
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->adj_sid[1].value)));
 	} else {
-		ospf_sr_local_block_release_label(exti->lan_sid[0].value);
-		ospf_sr_local_block_release_label(exti->lan_sid[1].value);
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->lan_sid[0].value)));
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->lan_sid[1].value)));
 	}
 	/* And reset corresponding TLV */
 	unset_adjacency_sid(exti);
