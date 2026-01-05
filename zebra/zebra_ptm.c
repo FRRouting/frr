@@ -1279,8 +1279,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	/* Find daemon pid by zebra connection pointer. */
 	pp = pp_lookup_byzs(zs);
 	if (pp == NULL) {
-		zlog_err("%s:%d failed to find process pid registration",
-			 __FILE__, __LINE__);
+		flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED,
+			 "%s:%d failed to find process pid registration", __FILE__, __LINE__);
 		return -1;
 	}
 
@@ -1372,7 +1372,8 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 stream_failure:
 	if (msgc)
 		stream_free(msgc);
-	zlog_err("%s:%d failed to registrate client pid", __FILE__, __LINE__);
+	flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED, "%s:%d failed to registrate client pid",
+		 __FILE__, __LINE__);
 }
 
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
