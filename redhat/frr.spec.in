@@ -841,7 +841,57 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Sat Aug 02 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+
+* Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - 10.2.5
+- bgpd
+-     Check l3vni status before adv evpn vrf routes
+-     Clean up coverity warnings in bgp_routemap.c
+-     Crash due to usage of freed up evpn_overlay attr
+-     Do not override a specified rd
+-     Evpn fix auto derive rd when user cfg removed
+-     Evpn-mh fix es-evi memleak during shutdown
+-     Fix bgp_attr_originator_id flag in outbound attribute cache
+-     Fix crash due to dangling pointer in bnc nht_info
+-     Fix default vrf check while configuring md5 password
+-     Fix deref_of_null.ex.cond in community_list_dup_check
+-     Fix expanded extcomm list delete
+-     Fix labeled-unicast output
+-     Fix maximum-prefix session recovery for peers and peer-groups
+-     Fix memory leak in evpn mh es-evi del
+-     Fix memory leak in evpn mh esi del
+-     Fix overflow when decoding zapi nexthop for srv6 max segments
+-     Fix routemap evpn type-5 default route check
+- isisd
+-     Use ipv6 mtid for srv6 locator tlvs when ipv6 mt is enabled
+- ospf6d
+-     Protect lsa in vertex
+- ospfd
+-     Fix crash when entering `ospf authentication key xx`
+- pbrd
+-     Cosmetic change for one name
+-     Dscp-only pbr rules not installing due to incorrect family field
+-     Fix crash for inconsistent status
+-     Fix memleak during pbr map deletion
+- pim6d
+-     Don't segv on repeated mld records
+- pimd
+-     Allow freebsd pimd to have permission to do pim
+-     Fix wrong bsm case with vrf
+-     Prevent crash on interface removal
+-     Properly use ip_recvif on freebsd
+- vrrpd
+-     Ipv6 vrrp macvlan doesn't have ipv6 link-local address
+-     [mem leak] vrrp interface delete fails to free connected route
+- zebrad
+-     Add missing debug guard in if netlink code
+-     Add missing debug guard in rt netlink code
+-     Evpn fix alignment of access-vlan cli output
+-     Explicitly print "exit" at the end of srv6 encap node config
+-     Fix crash due to lack of control of received number of srv6 sid from netlink
+-     Fix neighbor table name length
+-     Fix yang data for mcast-group
+-     Metric 0 is valid, don't drop to 1 on bsd
 
 * Sat Aug 02 2025 Donatas Abraitis <donatas@opensourcerouting.org> - 10.2.4
 - New upstream release FRR 10.2.4
