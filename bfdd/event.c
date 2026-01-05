@@ -12,6 +12,7 @@
 #include <zebra.h>
 
 #include "bfd.h"
+#include "bfd_trace.h"
 
 void tv_normalize(struct timeval *tv);
 
