@@ -1800,6 +1800,9 @@ def compare_context_objects(newconf, running):
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
+            # If we try 'no interface' for still active interface, FRR tries to delete it and fails.
+            # All commands under 'interface' section MUST support 'no' commands and exit silently
+            # without errors if interface is deleted
             elif (
                 running_ctx_keys[0].startswith("interface")
                 or running_ctx_keys[0].startswith("vrf")
