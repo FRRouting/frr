@@ -1762,8 +1762,8 @@ static enum nb_error lib_interface_state_if_index_get(const struct nb_node *nb_n
 	const struct interface *ifp = list_entry;
 	int32_t value = ifp->ifindex;
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1778,8 +1778,8 @@ static enum nb_error lib_interface_state_mtu_get(const struct nb_node *nb_node,
 	const struct interface *ifp = list_entry;
 	uint32_t value = ifp->mtu;
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1794,8 +1794,8 @@ static enum nb_error lib_interface_state_speed_get(const struct nb_node *nb_node
 	const struct interface *ifp = list_entry;
 	uint32_t value = ifp->speed;
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1810,8 +1810,8 @@ static enum nb_error lib_interface_state_metric_get(const struct nb_node *nb_nod
 	const struct interface *ifp = list_entry;
 	uint32_t value = ifp->metric;
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
