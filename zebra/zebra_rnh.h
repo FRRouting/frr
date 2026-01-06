@@ -39,10 +39,6 @@ extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 extern bool rnh_nexthop_valid(const struct route_entry *re,
 			      const struct nexthop *nh);
 
-/* UI control to avoid notifications if backup nexthop status changes */
-void rnh_set_hide_backups(bool hide_p);
-bool rnh_get_hide_backups(void);
-
 void show_nexthop_json_helper(struct json_object *json_nexthop,
 			      const struct nexthop *nexthop,
 			      const struct route_node *rn,
