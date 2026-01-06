@@ -140,10 +140,6 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
-/* Route has a 'fib' set of nexthops, probably because the installed set
- * differs from the rib/normal set of nexthops.
- */
-#define ROUTE_ENTRY_USE_FIB_NHG      0x40
 /*
  * Route entries that are going to the dplane for a Route Replace
  * let's note the fact that this is happening.  This will
@@ -168,13 +164,6 @@ struct route_entry {
 	time_t uptime;
 
 	struct re_opaque *opaque;
-
-	/* Nexthop group from FIB (optional), reflecting what is actually
-	 * installed in the FIB if that differs. The 'backup' group is used
-	 * when backup nexthops are present in the route's nhg.
-	 */
-	struct nexthop_group fib_ng;
-	struct nexthop_group fib_backup_ng;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
@@ -614,23 +603,7 @@ DECLARE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
  */
 static inline struct nexthop_group *rib_get_fib_nhg(struct route_entry *re)
 {
-	/* If the fib set is a subset of the active rib set,
-	 * use the dedicated fib list.
-	 */
-	if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG))
-		return &(re->fib_ng);
-	else
-		return &(re->nhe->nhg);
-}
-
-/*
- * Access backup nexthop-group that represents the installed backup nexthops;
- * any installed backup will be on the fib list.
- */
-static inline struct nexthop_group *rib_get_fib_backup_nhg(
-	struct route_entry *re)
-{
-	return &(re->fib_backup_ng);
+	return &(re->nhe->nhg);
 }
 
 extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,

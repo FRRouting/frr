@@ -133,13 +133,6 @@ struct zebra_architectural_values {
 
 	bool supports_nhgs;
 
-	/*
-	 * If the asic is notifying us about successful nexthop
-	 * allocation/control.  Some developers have made their
-	 * asic take control of how many nexthops/ecmp they can
-	 * have and will report what is successfull or not
-	 */
-	bool asic_notification_nexthop_control;
 	bool nexthop_weight_is_16bit;
 
 };

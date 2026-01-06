@@ -519,7 +519,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 	const struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
 	bool first_p = true;
-	bool nhg_from_backup = false;
 
 	uptime2str(re->uptime, up_str, sizeof(up_str));
 
@@ -658,10 +657,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 			json_object_object_add(json_route, "nexthops", json_nexthops);
 
 			/* If there are backup nexthops, include them */
-			if (is_fib)
-				nhg = rib_get_fib_backup_nhg(re);
-			else
-				nhg = zebra_nhg_get_backup_nhg(re->nhe);
+			nhg = zebra_nhg_get_backup_nhg(re->nhe);
 
 			if (nhg && nhg->nexthop) {
 				json_nexthops = json_object_new_array();
@@ -686,27 +682,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 	 * and there are no installed primary nexthops, see if there are any
 	 * backup nexthops and start with those.
 	 */
-	if (is_fib && nhg->nexthop == NULL) {
-		nhg = rib_get_fib_backup_nhg(re);
-		nhg_from_backup = true;
-	}
-
 	len = vty_out(vty, "%c", zebra_route_char(re->type));
 	if (re->instance)
 		len += vty_out(vty, "[%d]", re->instance);
-	if (nhg_from_backup && nhg->nexthop) {
-		len += vty_out(
-			vty, "%cb%c %s",
-			CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
-			re_status_output_char(re, nhg->nexthop, is_fib),
-			srcdest_rnode2str(rn, buf, sizeof(buf)));
-	} else {
-		len += vty_out(
-			vty, "%c%c %s",
-			CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
-			re_status_output_char(re, nhg->nexthop, is_fib),
-			srcdest_rnode2str(rn, buf, sizeof(buf)));
-	}
+
+	len += vty_out(vty, "%c%c %s", CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
+		       re_status_output_char(re, nhg->nexthop, is_fib),
+		       srcdest_rnode2str(rn, buf, sizeof(buf)));
 
 	/* Distance and metric display. */
 	if (((re->type == ZEBRA_ROUTE_CONNECT ||
@@ -764,10 +746,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		if (first_p) {
 			first_p = false;
-		} else if (nhg_from_backup) {
-			vty_out(vty, "  b%c%*c",
-				re_status_output_char(re, nexthop, is_fib),
-				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		} else {
 			vty_out(vty, "  %c%*c",
 				re_status_output_char(re, nexthop, is_fib),
@@ -778,15 +756,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		vty_out(vty, ", %s\n", up_str);
 	}
 
-	/* If we only had backup nexthops, we're done */
-	if (nhg_from_backup)
-		return;
-
 	/* Check for backup nexthop info if present */
-	if (is_fib)
-		nhg = rib_get_fib_backup_nhg(re);
-	else
-		nhg = zebra_nhg_get_backup_nhg(re->nhe);
+	nhg = zebra_nhg_get_backup_nhg(re->nhe);
 
 	if (nhg == NULL)
 		return;
@@ -1685,17 +1656,6 @@ DEFPY_HIDDEN(backup_nexthop_recursive_use_enable,
 	     "Configure use of backup nexthops in recursive resolution\n")
 {
 	zebra_nhg_set_recursive_use_backups(!no);
-	return CMD_SUCCESS;
-}
-
-DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,
-	     "[no] ip nht hide-backup-events",
-	     NO_STR
-	     IP_STR
-	     "Nexthop-tracking configuration\n"
-	     "Hide notification about backup nexthops\n")
-{
-	rnh_set_hide_backups(!no);
 	return CMD_SUCCESS;
 }
 
@@ -3942,9 +3902,6 @@ static int config_write_protocol(struct vty *vty)
 	frrscript_names_config_write(vty);
 #endif
 
-	if (rnh_get_hide_backups())
-		vty_out(vty, "ip nht hide-backup-events\n");
-
 #ifdef HAVE_NETLINK
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
@@ -4017,15 +3974,6 @@ DEFUN (show_zebra,
 
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.zav.asic_offloaded ? "Used" : "Unavailable");
-
-	/*
-	 * Do not display this unless someone is actually using it
-	 *
-	 * Why this distinction?  I think this is effectively dead code
-	 * and should not be exposed.  Maybe someone proves me wrong.
-	 */
-	if (zrouter.zav.asic_notification_nexthop_control)
-		ttable_add_row(table, "ASIC offload and nexthop control|Used");
 
 	ttable_add_row(table, "RA|%s",
 		       rtadv_compiled_in() ? "Compiled in" : "Not Compiled in");
@@ -4436,8 +4384,6 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
-
-	install_element(CONFIG_NODE, &rnh_hide_backups_cmd);
 
 	install_element(VIEW_NODE, &show_frr_cmd);
 	install_element(VIEW_NODE, &show_evpn_global_cmd);

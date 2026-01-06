@@ -37,11 +37,6 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
 
-/* UI controls whether to notify about changes that only involve backup
- * nexthops. Default is to notify all changes.
- */
-static bool rnh_hide_backups;
-
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
@@ -849,14 +844,6 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 
 	state->nhe = zebra_nhe_copy(re->nhe, 0);
 
-	/* Copy the 'fib' nexthops also, if present - we want to capture
-	 * the true installed nexthops.
-	 */
-	if (re->fib_ng.nexthop)
-		nexthop_group_copy(&state->fib_ng, &re->fib_ng);
-	if (re->fib_backup_ng.nexthop)
-		nexthop_group_copy(&state->fib_backup_ng, &re->fib_backup_ng);
-
 	rnh->state = state;
 }
 
@@ -868,121 +855,22 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 					     struct nexthop *nh)
 {
 	struct nexthop_group *nhg;
-	struct nexthop *bnh;
-	int i, idx;
-	bool default_path = true;
-
-	/* Fib backup ng present: some backups are installed,
-	 * and we're configured for special handling if there are backups.
-	 */
-	if (rnh_hide_backups && (re->fib_backup_ng.nexthop != NULL))
-		default_path = false;
 
 	/* Default path: no special handling, just using the 'installed'
 	 * primary nexthops and the common validity test.
 	 */
-	if (default_path) {
-		if (nh == NULL) {
-			nhg = rib_get_fib_nhg(re);
-			nh = nhg->nexthop;
-		} else
-			nh = nexthop_next(nh);
-
-		while (nh) {
-			if (rnh_nexthop_valid(re, nh))
-				break;
-			else
-				nh = nexthop_next(nh);
-		}
-
-		return nh;
-	}
-
-	/* Hide backup activation/switchover events.
-	 *
-	 * If we've had a switchover, an inactive primary won't be in
-	 * the fib list at all - the 'fib' list could even be empty
-	 * in the case where no primary is installed. But we want to consider
-	 * those primaries "valid" if they have an activated backup nh.
-	 *
-	 * The logic is something like:
-	 * if (!fib_nhg)
-	 *     // then all primaries are installed
-	 * else
-	 *     for each primary in re nhg
-	 *         if in fib_nhg
-	 *             primary is installed
-	 *         else if a backup is installed
-	 *             primary counts as installed
-	 *         else
-	 *             primary !installed
-	 */
-
-	/* Start with the first primary */
-	if (nh == NULL)
-		nh = re->nhe->nhg.nexthop;
-	else
+	if (nh == NULL) {
+		nhg = rib_get_fib_nhg(re);
+		nh = nhg->nexthop;
+	} else
 		nh = nexthop_next(nh);
 
 	while (nh) {
-
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: checking primary NH %pNHv",
-				   __func__, nh);
-
-		/* If this nexthop is in the fib list, it's installed */
-		nhg = rib_get_fib_nhg(re);
-
-		for (bnh = nhg->nexthop; bnh; bnh = nexthop_next(bnh)) {
-			if (nexthop_cmp(nh, bnh) == 0)
-				break;
-		}
-
-		if (bnh != NULL) {
-			/* Found the match */
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s:     NH in fib list", __func__);
+		if (rnh_nexthop_valid(re, nh))
 			break;
-		}
-
-		/* Else if this nexthop's backup is installed, it counts */
-		nhg = rib_get_fib_backup_nhg(re);
-		bnh = nhg->nexthop;
-
-		for (idx = 0; bnh != NULL; idx++) {
-			/* If we find an active backup nh for this
-			 * primary, we're done;
-			 */
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s: checking backup %pNHv [%d]",
-					   __func__, bnh, idx);
-
-			if (!CHECK_FLAG(bnh->flags, NEXTHOP_FLAG_ACTIVE))
-				continue;
-
-			for (i = 0; i < nh->backup_num; i++) {
-				/* Found a matching activated backup nh */
-				if (nh->backup_idx[i] == idx) {
-					if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-						zlog_debug("%s: backup %d activated",
-							   __func__, i);
-
-					goto done;
-				}
-			}
-
-			/* Note that we're not recursing here if the
-			 * backups are recursive: the primary's index is
-			 * only valid in the top-level backup list.
-			 */
-			bnh = bnh->next;
-		}
-
-		/* Try the next primary nexthop */
-		nh = nexthop_next(nh);
+		else
+			nh = nexthop_next(nh);
 	}
-
-done:
 
 	return nh;
 }
@@ -995,7 +883,6 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 				   struct route_entry *r2)
 {
 	bool matched_p = false;
-	struct nexthop_group *nhg1, *nhg2;
 	struct nexthop *nh1, *nh2;
 
 	/* Start with the primary nexthops */
@@ -1028,76 +915,6 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 		nh1 = next_valid_primary_nh(r1, nh1);
 		nh2 = next_valid_primary_nh(r2, nh2);
 	}
-
-	/* If configured, don't compare installed backup state - we've
-	 * accounted for that with the primaries above.
-	 *
-	 * But we do want to compare the routes' backup info,
-	 * in case the owning route has changed the backups -
-	 * that change we do want to report.
-	 */
-	if (rnh_hide_backups) {
-		uint32_t hash1 = 0, hash2 = 0;
-
-		if (r1->nhe->backup_info)
-			hash1 = nexthop_group_hash(
-				&r1->nhe->backup_info->nhe->nhg);
-
-		if (r2->nhe->backup_info)
-			hash2 = nexthop_group_hash(
-				&r2->nhe->backup_info->nhe->nhg);
-
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: backup hash1 %#x, hash2 %#x",
-				   __func__, hash1, hash2);
-
-		if (hash1 != hash2)
-			goto done;
-		else
-			goto finished;
-	}
-
-	/* The test for the backups is slightly different: the only installed
-	 * backups will be in the 'fib' list.
-	 */
-	nhg1 = rib_get_fib_backup_nhg(r1);
-	nhg2 = rib_get_fib_backup_nhg(r2);
-
-	nh1 = nhg1->nexthop;
-	nh2 = nhg2->nexthop;
-
-	while (1) {
-		/* Find each backup list's next valid nexthop */
-		while ((nh1 != NULL) && !rnh_nexthop_valid(r1, nh1))
-			nh1 = nexthop_next(nh1);
-
-		while ((nh2 != NULL) && !rnh_nexthop_valid(r2, nh2))
-			nh2 = nexthop_next(nh2);
-
-		if (nh1 && nh2) {
-			/* Any difference is a no-match */
-			if (nexthop_cmp(nh1, nh2) != 0) {
-				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug("%s: backup nh1: %pNHv, nh2: %pNHv differ",
-						   __func__, nh1, nh2);
-				goto done;
-			}
-
-			nh1 = nexthop_next(nh1);
-			nh2 = nexthop_next(nh2);
-		} else if (nh1 || nh2) {
-			/* One list has more valid nexthops than the other */
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s: backup nh1 %s, nh2 %s",
-					   __func__,
-					   nh1 ? "non-NULL" : "NULL",
-					   nh2 ? "non-NULL" : "NULL");
-			goto done;
-		} else
-			break; /* Done with both lists */
-	}
-
-finished:
 
 	/* Well, it's a match */
 	matched_p = true;
@@ -1225,21 +1042,6 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 
 				num++;
 			}
-
-		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg) {
-			for (ALL_NEXTHOPS_PTR(nhg, nh))
-				if (rnh_nexthop_valid(re, nh)) {
-					zapi_nexthop_from_nexthop(&znh, nh);
-					ret = zapi_nexthop_encode(
-						s, &znh, 0 /* flags */,
-						0 /* message */);
-					if (ret < 0)
-						goto failure;
-
-					num++;
-				}
-		}
 
 		stream_putw_at(s, nump, num);
 	} else {
@@ -1481,17 +1283,4 @@ int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family)
 		return 1;
 	else
 		return 0;
-}
-
-/*
- * UI control to avoid notifications if backup nexthop status changes
- */
-void rnh_set_hide_backups(bool hide_p)
-{
-	rnh_hide_backups = hide_p;
-}
-
-bool rnh_get_hide_backups(void)
-{
-	return rnh_hide_backups;
 }
