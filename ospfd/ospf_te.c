@@ -3154,17 +3154,18 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 /*------------------------------------------------------------------------*
  * Following are vty session control functions.
  *------------------------------------------------------------------------*/
-#define check_tlv_size(size, msg)                                              \
-	do {                                                                   \
-		if (ntohs(tlvh->length) > size) {                              \
-			if (vty != NULL)                                       \
-				vty_out(vty, "  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",  \
-					msg, ntohs(tlvh->length), size);       \
-			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!",    \
-					   msg, ntohs(tlvh->length), size);    \
-			return OSPF_MAX_LSA_SIZE + 1;                            \
-		}                                                              \
+#define check_tlv_size(size, msg)                                                                           \
+	do {                                                                                                \
+		if (ntohs(tlvh->length) > size) {                                                           \
+			if (vty != NULL)                                                                    \
+				vty_out(vty,                                                                \
+					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
+					msg, ntohs(tlvh->length), size);                                    \
+			else                                                                                \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!", \
+					   msg, ntohs(tlvh->length), size);                                 \
+			return OSPF_MAX_LSA_SIZE + 1;                                                       \
+		}                                                                                           \
 	} while (0)
 
 static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh,
