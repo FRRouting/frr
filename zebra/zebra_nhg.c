@@ -2585,32 +2585,6 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 				}
 			}
 
-			/* Examine installed backup nexthops, if any. There
-			 * are only installed backups *if* there is a
-			 * dedicated fib list. The UI can also control use
-			 * of backups for resolution.
-			 */
-			nhg = rib_get_fib_backup_nhg(match);
-			if (!use_recursive_backups ||
-			    nhg == NULL || nhg->nexthop == NULL)
-				goto done_with_match;
-
-			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
-				if (!nexthop_valid_resolve(nexthop, newhop))
-					continue;
-
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug(
-						"%s: RECURSIVE match backup %p (%pNG), newhop %pNHv",
-						__func__, match, match->nhe,
-						newhop);
-
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
-				resolved = 1;
-			}
-
 done_with_match:
 			/* Capture resolving mtu */
 			if (resolved) {
