@@ -1427,7 +1427,13 @@ struct peer_connection {
 /* Declare the FIFO list implementation */
 DECLARE_LIST(peer_connection_fifo, struct peer_connection, fifo_item);
 
-const char *bgp_peer_get_connection_direction(struct peer_connection *connection);
+static inline enum connection_direction
+bgp_peer_get_connection_direction(const struct peer_connection *connection)
+{
+	return connection->dir;
+}
+
+const char *bgp_peer_get_connection_direction_string(const struct peer_connection *connection);
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su,
 						       enum connection_direction dir);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
@@ -1810,16 +1816,14 @@ struct peer {
 
 	/* Peer status flags. */
 	uint16_t sflags;
-#define PEER_STATUS_ACCEPT_PEER	      (1U << 0) /* accept peer */
-#define PEER_STATUS_PREFIX_OVERFLOW   (1U << 1) /* prefix-overflow */
-#define PEER_STATUS_CAPABILITY_OPEN   (1U << 2) /* capability open send */
-#define PEER_STATUS_HAVE_ACCEPT       (1U << 3) /* accept peer's parent */
-#define PEER_STATUS_GROUP             (1U << 4) /* peer-group conf */
-#define PEER_STATUS_NSF_MODE          (1U << 5) /* NSF aware peer */
-#define PEER_STATUS_NSF_WAIT          (1U << 6) /* wait comeback peer */
+#define PEER_STATUS_PREFIX_OVERFLOW   (1U << 0) /* prefix-overflow */
+#define PEER_STATUS_CAPABILITY_OPEN   (1U << 1) /* capability open send */
+#define PEER_STATUS_GROUP             (1U << 2) /* peer-group conf */
+#define PEER_STATUS_NSF_MODE          (1U << 3) /* NSF aware peer */
+#define PEER_STATUS_NSF_WAIT          (1U << 4) /* wait comeback peer */
 /* received extended format encoding for OPEN message */
-#define PEER_STATUS_EXT_OPT_PARAMS_LENGTH (1U << 7)
-#define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 8) /* BFD strict hold time expired */
+#define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
+#define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -2999,6 +3003,11 @@ static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
 {
 	return (peer_dynamic_neighbor(peer) &&
 		!CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT));
+}
+
+static inline bool peer_is_config_node(const struct peer *peer)
+{
+	return !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 }
 
 static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
