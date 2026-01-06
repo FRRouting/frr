@@ -3206,21 +3206,6 @@ void peer_notify_unconfig(struct peer_connection *connection)
 		bgp_notify_send(connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_PEER_UNCONFIG);
 }
 
-static void peer_notify_shutdown(struct peer *peer)
-{
-	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug(
-				"%pBP configured Graceful-Restart, skipping shutdown notification",
-				peer);
-		return;
-	}
-
-	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-				BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-}
-
 void peer_group_notify_unconfig(struct peer_group *group)
 {
 	struct peer *peer, *other;
@@ -4333,8 +4318,11 @@ int bgp_delete(struct bgp *bgp)
 		event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Inform peers we're going down. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
-		peer_notify_shutdown(peer);
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+	}
 
 	/* Delete static routes (networks). */
 	bgp_static_delete(bgp);
@@ -9233,16 +9221,9 @@ void bgp_terminate(void)
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		bgp_close_vrf_socket(bgp);
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%pBP configured Graceful-Restart, skipping unconfig notification",
-						peer);
-				continue;
-			}
+
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 			peer_notify_unconfig(peer->connection);
-		}
 	}
 
 	if (bm->listen_sockets)
