@@ -224,7 +224,7 @@ int zebra_evpn_macip_send_msg_to_client(uint32_t id,
 					const struct ipaddr *ip, uint8_t flags,
 					uint32_t seq, int state,
 					struct zebra_evpn_es *es, uint16_t cmd);
-void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json);
+void zebra_evpn_print_mac(struct zebra_mac *mac, struct vty *vty, json_object *json);
 void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt);
 int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
