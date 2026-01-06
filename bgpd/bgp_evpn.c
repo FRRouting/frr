@@ -1500,6 +1500,17 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
 
+	/* If the flag BGP_NODE_SELECT_DEFER is set, do not add route to
+	 * the workqueue
+	 */
+	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: SELECT_DEFER flag set for EVPN route %pBD, dest %p",
+				   bgp->name_pretty, dest, dest);
+
+		return ret;
+	}
+
 	first = bgp_dest_get_bgp_path_info(dest);
 	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 	if (pi != first) {
@@ -2366,14 +2377,14 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	/* lock ri to prevent freeing in evpn_route_select_install */
 	bgp_path_info_lock(pi);
 
-       /* Perform route selection. Normally, the local route in the
-        * VNI is expected to win and be the best route. However, if
-        * there is a race condition where a host moved from local to
-        * remote and the remote route was received in BGP just prior
-        * to the local MACIP notification from zebra, the remote
-        * route would win, and we should evict the defunct local route
-        * and (re)install the remote route into zebra.
-	*/
+	/* Perform route selection. Normally, the local route in the
+	 * VNI is expected to win and be the best route. However, if
+	 * there is a race condition where a host moved from local to
+	 * remote and the remote route was received in BGP just prior
+	 * to the local MACIP notification from zebra, the remote
+	 * route would win, and we should evict the defunct local route
+	 * and (re)install the remote route into zebra.
+	 */
 	evpn_route_select_install(bgp, vpn, dest, pi);
 	/*
 	 * If the new local route was not selected evict it and tell zebra
@@ -3272,6 +3283,8 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi->uptime = monotime(NULL);
 	}
 
+	bgp_dest_set_defer_flag(dest, false);
+
 	/* Gateway IP nexthop should be resolved */
 	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi, NULL, 0, NULL, NULL))
@@ -3403,6 +3416,8 @@ static int install_evpn_route_entry_in_vni_common(
 		pi->attr = attr_new;
 		pi->uptime = monotime(NULL);
 	}
+
+	bgp_dest_set_defer_flag(dest, false);
 
 	/* Add this route to remote IP hashtable */
 	bgp_evpn_remote_ip_hash_add(vpn, pi);
@@ -3676,7 +3691,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	char prefix_str[PREFIX2STR_BUFFER] = { 0 };
 	struct prefix tmp;
 
-	if (bgp_debug_update(parent_pi->peer, NULL, NULL, 1))
+	if (bgp_debug_update(parent_pi->peer, NULL, NULL, 1) || bgp_debug_zebra(NULL))
 		zlog_debug(
 			"%s (%u): Installing EVPN %pFX route in VNI %u IP/MAC table",
 			vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, p, vpn->vni);
@@ -5960,6 +5975,100 @@ void bgp_evpn_handle_autort_change(struct bgp *bgp)
 		update_autort_l3vni(bgp);
 }
 
+struct vni_gr_walk {
+	struct bgp *bgp;
+	uint16_t cnt;
+};
+
+/*
+ * Iterate over all the deferred prefixes in this table
+ * and calculate the bestpath.
+ */
+uint16_t bgp_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi,
+				     struct bgp_table *table, uint16_t cnt, struct bgpevpn *vpn,
+				     bool evpn_select)
+{
+	struct bgp_dest *dest = NULL;
+
+	for (dest = bgp_table_top(table);
+	     dest && bgp->gr_info[afi][safi].gr_deferred != 0 && cnt < BGP_MAX_BEST_ROUTE_SELECT;
+	     dest = bgp_route_next(dest)) {
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
+			continue;
+
+		UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+		bgp->gr_info[afi][safi].gr_deferred--;
+
+		if (evpn_select) {
+			struct bgp_path_info *pi = bgp_dest_get_bgp_path_info(dest);
+
+			/*
+			 * Mark them all as unsorted and just pass
+			 * the first one in to do work on.  Clear
+			 * everything since at this point it is
+			 * unknown what was or was not done for
+			 * all the deferred paths
+			 */
+			while (pi) {
+				SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
+				pi = pi->next;
+			}
+
+			evpn_route_select_install(bgp, vpn, dest, bgp_dest_get_bgp_path_info(dest));
+		} else
+			bgp_process_main_one(bgp, dest, afi, safi);
+
+		cnt++;
+	}
+
+	/* If iteration stopped before the entire table was traversed then the
+	 * node needs to be unlocked.
+	 */
+	if (dest) {
+		bgp_dest_unlock_node(dest);
+		dest = NULL;
+	}
+
+	return cnt;
+}
+
+static void bgp_evpn_handle_deferred_bestpath_per_vni(struct hash_bucket *bucket, void *arg)
+{
+	struct bgpevpn *vpn = bucket->data;
+	struct vni_gr_walk *ctx = arg;
+	struct bgp *bgp = ctx->bgp;
+	afi_t afi = AFI_L2VPN;
+	safi_t safi = SAFI_EVPN;
+
+	/*
+	 * Now, walk this VNI's MAC & IP route table and do deferred bestpath
+	 * selection
+	 */
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s (%u): GR walking IP and MAC table for VNI %u. Deferred paths %d, batch cnt %d",
+			   vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, vpn->vni,
+			   bgp->gr_info[afi][safi].gr_deferred, ctx->cnt);
+
+	if (!bgp->gr_info[afi][safi].gr_deferred || ctx->cnt >= BGP_MAX_BEST_ROUTE_SELECT)
+		return;
+
+	ctx->cnt += bgp_deferred_path_selection(bgp, afi, safi, vpn->mac_table, ctx->cnt, vpn,
+						true);
+	ctx->cnt += bgp_deferred_path_selection(bgp, afi, safi, vpn->ip_table, ctx->cnt, vpn, true);
+}
+
+void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt)
+{
+	struct vni_gr_walk ctx;
+
+	ctx.bgp = bgp;
+	ctx.cnt = cnt;
+
+	hash_iterate(bgp->vnihash,
+		     (void (*)(struct hash_bucket *,
+			       void *))bgp_evpn_handle_deferred_bestpath_per_vni,
+		     &ctx);
+}
 /*
  * Handle change to export RT - update and advertise local routes.
  */

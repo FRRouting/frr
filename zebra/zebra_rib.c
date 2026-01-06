@@ -2004,7 +2004,6 @@ done:
 }
 
 
-
 /*
  * Route-update results processing after async dataplane update.
  */
@@ -3268,6 +3267,7 @@ struct meta_q_gr_run {
 	uint8_t proto;
 	uint8_t instance;
 	time_t restart_time;
+	time_t update_pending_time;
 	bool stale_client_cleanup;
 };
 
@@ -3276,7 +3276,8 @@ static void process_subq_gr_run(struct listnode *lnode)
 	struct meta_q_gr_run *gr_run = listgetdata(lnode);
 
 	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto, gr_run->instance,
-				gr_run->restart_time, gr_run->stale_client_cleanup);
+				gr_run->restart_time, gr_run->update_pending_time,
+				gr_run->stale_client_cleanup);
 
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
@@ -4477,7 +4478,7 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
 }
 
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-		   time_t restart_time, bool stale_client_cleanup)
+		   time_t restart_time, time_t update_pending_time, bool stale_client_cleanup)
 {
 	struct meta_q_gr_run *gr_run;
 
@@ -4488,6 +4489,7 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 	gr_run->vrf_id = vrf_id;
 	gr_run->instance = instance;
 	gr_run->restart_time = restart_time;
+	gr_run->update_pending_time = update_pending_time;
 	gr_run->stale_client_cleanup = stale_client_cleanup;
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
@@ -5026,6 +5028,7 @@ void rib_sweep_route(struct event *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
+	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 
 /* Remove specific by protocol routes from 'table'. */

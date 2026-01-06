@@ -14027,6 +14027,20 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
+
+			if (peer->bgp->gr_multihop_peer_exists) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2Timer",
+							    peer->bgp->select_defer_time);
+
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2TimerRemaining",
+							    event_timer_remain_second(
+								    peer->bgp->gr_info[afi][safi]
+									    .t_select_deferral_tier2));
+			}
 		} else {
 			vty_out(vty, "      Timers:\n");
 			vty_out(vty,
@@ -14057,6 +14071,15 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
+			if (peer->bgp->gr_multihop_peer_exists) {
+				vty_out(vty, "        Multihop GR peer exists\n");
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					vty_out(vty,
+						"        Selection Deferral Tier2 Time Remaining(sec): %ld\n",
+						event_timer_remain_second(
+							peer->bgp->gr_info[afi][safi]
+								.t_select_deferral_tier2));
+			}
 		}
 		if (json) {
 			json_object_object_add(json_afi_safi, "endOfRibStatus",

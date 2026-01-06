@@ -332,10 +332,58 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
+/*
+ * If BGP has started gracefully and if this VRF has
+ * multihop peer and tier1 processing is done already,
+ * then check if tier2 timer
+ * was started but tier2 GR processing is still pending.
+ */
+#define BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)                                                   \
+	((CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) && bgp->gr_multihop_peer_exists &&      \
+	  bgp->gr_info[afi][safi].select_defer_over &&                                            \
+	  bgp->gr_info[afi][safi].select_defer_tier2_required &&                                  \
+	  !bgp->gr_info[afi][safi].select_defer_over_tier2))
+
+/*
+ * If this VRF has a bgp multihop peer, then
+ * 1. If tier2 processing is not required, then check if tier1
+ *    processing is complete
+ *           OR
+ * 2. If tier2 processing is required, then check if tier2
+ *    processing is complete
+ */
+#define BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi)                                         \
+	((bgp->gr_multihop_peer_exists &&                                                         \
+	  ((!bgp->gr_info[afi][safi].select_defer_tier2_required &&                               \
+	    bgp->gr_info[afi][safi].select_defer_over) ||                                         \
+	   (bgp->gr_info[afi][safi].select_defer_tier2_required &&                                \
+	    bgp->gr_info[afi][safi].select_defer_over_tier2))))
+
+/*
+ * Check if tier1 and tier2 processing (if required)
+ * is complete
+ */
+#define BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi)                                                  \
+	((!bgp->gr_multihop_peer_exists && bgp->gr_info[afi][safi].select_defer_over) ||          \
+	 BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi))
+
+/*
+ * Send eor if:
+ * If eor is enabled and
+ * 1. GR is NOT enabled
+ * OR
+ * 2. GR is enabled and complete
+ */
 #define BGP_SEND_EOR(bgp, afi, safi)                                                              \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
-	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over) &&             \
-	 (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].t_select_deferral))
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) && !bgp_in_graceful_restart())
+
+/*
+ * Checks is tier1 or tier2 GR select deferral timer is
+ * running for given afi safi in given BGP instance
+ */
+#define BGP_GR_SELECT_DEFERRAL_TIMER_IS_RUNNING(bgp, afi, safi)                                   \
+	(bgp->gr_info[afi][safi].t_select_deferral ||                                             \
+	 bgp->gr_info[afi][safi].t_select_deferral_tier2)
 
 /* BGP GR Global ds */
 
@@ -346,6 +394,14 @@ enum bgp_instance_type {
 struct graceful_restart_info {
 	/* Deferral Timer */
 	struct event *t_select_deferral;
+
+	/* If multihop BGP peers are present, and if their
+	 * loopback is learnt via another BGP peer,
+	 * then BGP needs to do 2 level deferred bestpath
+	 * calculation. Hence we need additional select
+	 * deferral timer
+	 */
+	struct event *t_select_deferral_tier2;
 	/* Routes Deferred */
 	uint32_t gr_deferred;
 	/* Routes waiting for FIB install */
@@ -360,6 +416,9 @@ struct graceful_restart_info {
 	uint8_t flags;
 /* Flag to skip backpressure logic for GR */
 #define BGP_GR_SKIP_BP (1 << 0)
+	bool select_defer_tier2_required;
+	bool select_defer_over_tier2;
+	bool route_sync_tier2;
 };
 
 enum global_mode {
@@ -692,6 +751,8 @@ struct bgp {
 	 * upon first peer establishing in an instance.
 	 */
 	bool gr_select_defer_evaluated;
+
+	bool gr_multihop_peer_exists;
 
 	/* Is deferred path selection still not complete? */
 	bool gr_route_sync_pending;
@@ -1048,6 +1109,7 @@ struct afi_safi_info {
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
+	bool tier2_gr;
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
@@ -2368,7 +2430,7 @@ struct bgp_nlri {
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
-#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       240
+#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       120
 #define BGP_DEFAULT_RIB_STALE_TIME             500
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
 
@@ -2811,6 +2873,7 @@ int bgp_enqueue_conn_err(struct bgp *bgp, struct peer_connection *connection,
 			 int errcode);
 struct peer_connection *bgp_dequeue_conn_err(struct bgp *bgp, bool *more_p);
 void bgp_conn_err_reschedule(struct bgp *bgp);
+static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi);
 
 #define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \
 	do {                                                                   \
@@ -3133,10 +3196,11 @@ static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
 static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 {
 	/*
-	 * GR restarter behavior is supported only for IPv4-unicast
-	 * and IPv6-unicast.
+	 * GR restarter behavior is supported only for IPv4-unicast,
+	 * IPv6-unicast and L2vpn EVPN
 	 */
-	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST))
+	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST) ||
+	    (afi == AFI_L2VPN && safi == SAFI_EVPN))
 		return true;
 	return false;
 }

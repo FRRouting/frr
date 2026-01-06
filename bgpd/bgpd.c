@@ -3652,10 +3652,7 @@ peer_init:
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
-		bgp->gr_info[afi][safi].t_select_deferral = NULL;
-		bgp->gr_info[afi][safi].t_route_select = NULL;
-		bgp->gr_info[afi][safi].gr_deferred = 0;
-		bgp->gr_info[afi][safi].select_defer_over = false;
+		memset(&bgp->gr_info[afi][safi], 0, sizeof(struct graceful_restart_info));
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
@@ -9109,12 +9106,13 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		 bgp_in_graceful_restart(), global_gr_mode, gr_cfgd_at_nbr);
 
 	/*
-	 * If BGP is not in GR
+	 * If BGP is not in GR and startup timer is not running
 	 * OR
 	 * If this VRF doesn't have GR configured at global and neighbor level
 	 * then return
 	 */
-	if (!bgp_in_graceful_restart() || (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
+	if ((!bgp_in_graceful_restart() && !bgp->t_startup) ||
+	    (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
 		return 0;
 
 	/*

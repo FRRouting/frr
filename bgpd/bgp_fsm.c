@@ -84,9 +84,13 @@ static void bgp_start_timer(struct event *event);
 static void bgp_connect_timer(struct event *event);
 static void bgp_holdtime_timer(struct event *event);
 static void bgp_delayopen_timer(struct event *event);
+static void bgp_graceful_deferral_timer_expire(struct event *event);
+static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
+				     struct graceful_restart_info *gr_info);
 
 /* BGP GR functions. */
-static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi);
+static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
+				  bool *multihop_eors_pending);
 
 /* Register peer with NHT */
 int bgp_peer_connection_reg_with_nht(struct peer_connection *connection)
@@ -852,6 +856,49 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 			bgp_clear_stale_route(peer, afi, safi);
 }
 
+/*
+ * Start the tier-2 selection deferral timer thread for the specified AFI, SAFI,
+ * mark peers from whom we need an EOR
+ */
+void bgp_start_tier2_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct afi_safi_info *thread_info;
+
+	struct graceful_restart_info *gr_info = &(bgp->gr_info[afi][safi]);
+
+	/*
+	 * tier-2 deferral timer is already running
+	 */
+	if (gr_info->t_select_deferral_tier2) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: tier-2 path-select deferral timer for %s, duration %d is running",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+				   bgp->select_defer_time);
+		return;
+	}
+
+	/* Start the timer */
+	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
+
+	thread_info->afi = afi;
+	thread_info->safi = safi;
+	thread_info->bgp = bgp;
+	thread_info->tier2_gr = true;
+
+	event_add_timer(bm->master, bgp_graceful_deferral_timer_expire, thread_info,
+			bgp->select_defer_time, &gr_info->t_select_deferral_tier2);
+
+	gr_info->select_defer_tier2_required = true;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Started tier-2 path-select deferral timer for %s, duration %ds",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+			   bgp->select_defer_time);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_start, bgp->name_pretty, afi, safi,
+		 bgp->select_defer_time, 2);
+}
+
 /* Selection deferral timer processing function */
 static void bgp_graceful_deferral_timer_expire(struct event *event)
 {
@@ -859,17 +906,26 @@ static void bgp_graceful_deferral_timer_expire(struct event *event)
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
+	bool multihop_eors_pending = false;
 
 	info = EVENT_ARG(event);
 	afi = info->afi;
 	safi = info->safi;
 	bgp = info->bgp;
 
-	bgp->gr_info[afi][safi].select_defer_over = true;
-	XFREE(MTYPE_TMP, info);
+	/*
+	 * If tier 2 timer expired then set then set the
+	 * select_defer_over_tier2 to true to indicate that
+	 * BGP tier2 bestpath selection can be done now.
+	 */
+	if (info->tier2_gr)
+		bgp->gr_info[afi][safi].select_defer_over_tier2 = true;
+	else
+		bgp->gr_info[afi][safi].select_defer_over = true;
 
 	/* Check if graceful restart deferral completion is needed */
-	if (BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp_gr_check_all_eors(bgp, afi, safi) &&
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) &&
+	    bgp_gr_check_all_eors(bgp, afi, safi, &multihop_eors_pending) &&
 	    !bgp->gr_info[afi][safi].gr_deferred && bgp->gr_route_sync_pending) {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: Triggering GR deferral completion from timer expiry for %s",
@@ -880,9 +936,16 @@ static void bgp_graceful_deferral_timer_expire(struct event *event)
 
 	/* Best path selection */
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("%s: Starting deferred path selection for %s, #routes %d -- timeout",
-			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
-			   bgp->gr_info[afi][safi].gr_deferred);
+		zlog_debug("%s: Starting %s deferred path selection for %s, #routes %d -- timeout",
+			   bgp->name_pretty, (info->tier2_gr) ? "2nd" : "1st",
+			   get_afi_safi_str(afi, safi, false), bgp->gr_info[afi][safi].gr_deferred);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_expiry, bgp->name_pretty, info->tier2_gr, afi, safi,
+		 bgp->gr_info[afi][safi].gr_deferred);
+
+
+	XFREE(MTYPE_TMP, info);
+
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
@@ -1258,14 +1321,18 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 	}
 }
 
-static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
+static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
+				  bool *multihop_eors_pending)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer = NULL;
+	bool eor_rcvd_from_all_mh_peers = true;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Checking all peers for EOR receipt for %s", bgp->name_pretty,
 			   get_afi_safi_str(afi, safi, false));
+
+	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 1);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -1282,16 +1349,154 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 			continue;
 
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
-			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-				zlog_debug(".... EOR still awaited from this peer for this %s",
-					   get_afi_safi_str(afi, safi, false));
-			return false;
+			if (!bgp->gr_multihop_peer_exists) {
+				/*
+				 * This instance doesn't have a mix of directly
+				 * connected and multihop peers. So we don't
+				 * need to do 2 level deferred bestpath
+				 * calculation.
+				 */
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 1);
+
+				return false;
+			}
+
+			if (!peer->afc[afi][safi]) {
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
+						   peer->host, get_afi_safi_str(afi, safi, false));
+				continue;
+			}
+
+			/*
+			 * This afi-safi(v4-uni or v6-unicast) has a mix
+			 * of directly connected and multihop peers.
+			 * Since multihop peers could depend on prefixes
+			 * learnt from directly connected peers to form
+			 * the BGP session, BGP needs to do 2 level
+			 * deferred bestpath selection.
+			 *
+			 * 1st level of deferred bestpath selection will
+			 * be done when EORs are recieved from all the
+			 * directly connected peers, or when the
+			 * select-deferral-timer expires. If the timer
+			 * expired, it means that some of the directly
+			 * connected peers didn't come up at all. So on
+			 * timer expiry, BGP will check to see if
+			 * there's a mix of directly-connected and
+			 * multihop peers for that afi-safi. if yes,
+			 * then BGP will start the tier2-select-deferral
+			 * timer and wait for all the multihop peers to
+			 * come up, send EORs and then do 2nd deferred
+			 * bestpath selection.
+			 *
+			 * After EORs are rcvd from all the directly
+			 * connected peers, BGP will check if there are
+			 * any multihop peers from whom we are yet to
+			 * rcv EORs. If yes, BGP will start
+			 * tier2-select-deferral timer and wait for all
+			 * the multihop peers to come up and send EORs.
+			 *
+			 * If before tier2-select-deferral timer expiry,
+			 * if all multihop peers send EOR then BGP will
+			 * cancel the tier2 timer and do 2nd deferred
+			 * bestpath selection.
+			 *
+			 * Here, even if the peerB has
+			 * disable-connected-check configured, it will
+			 * be treated as directly connected peer. This
+			 * is because, peerB's session coming up
+			 * wouldn't depend on some other BGP session
+			 * coming up and learning prefixes.
+			 */
+			if (PEER_IS_MULTIHOP(peer)) {
+				/*
+				 * If we have not recieved EOR from a
+				 * multihop peer, start the tier2
+				 * select-deferral-timer only if EORs
+				 * are rcvd from all the directly
+				 * connected peers
+				 */
+				eor_rcvd_from_all_mh_peers = false;
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this multihop peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 3);
+			} else {
+				/*
+				 * If EOR from directly connected peer
+				 * is not rcvd even after tier1 timer
+				 * expiry, then we are going to ignore
+				 * this peer since this peer may not
+				 * come up at all.
+				 */
+				if (bgp->gr_info[afi][safi].select_defer_over) {
+					if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+						zlog_debug(".... Ignoring directly connected peer %s. Tier1 GR timer has expired already for %s",
+							   peer->host,
+							   get_afi_safi_str(afi, safi, false));
+					frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi,
+						 safi, peer->host, 2);
+					continue;
+				}
+				/*
+				 * If this is a directly connected peer
+				 * and if we haven't recieved EOR from
+				 * this peer yet, then we will wait to
+				 * do the 1st round of deferred
+				 * bestpath.
+				 */
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this directly connected peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 5);
+
+				return false;
+			}
 		}
 	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(".... EOR received from all expected peers for this %s",
+		zlog_debug(".... EOR received from all directly connected peers for %s",
 			   get_afi_safi_str(afi, safi, false));
+	frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 2);
+
+	/*
+	 * EOR is rcvd from all the directly connected peers at this point.
+	 *
+	 * If EOR is not rcvd from all of the multihop(MH) peers
+	 * for this AFI-SAFI then start the tier2-select-deferral-timer
+	 * and wait for all MH peers to comeup.
+	 *
+	 * Note that tier2 GR select deferral timer is started only
+	 * after EOR is rcvd from all the directly connected peers.
+	 *
+	 * If EORs is not rcvd from all the directly connected peers
+	 * then select deferral timer will expire. So when select deferral timer
+	 * expires, we will check if there are any multihop peers from whom
+	 * we have not rcvd EOR yet. If we find any and if the tier2 timer has
+	 * not been started yet, then we will start the timer there.
+	 */
+	if (!eor_rcvd_from_all_mh_peers) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug(".... EOR NOT received from all multihop peers for %s",
+				   get_afi_safi_str(afi, safi, false));
+		frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 3);
+
+		bgp_start_tier2_deferral_timer(bgp, afi, safi);
+		*multihop_eors_pending = true;
+	} else {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug(".... EOR received from all expected peers for %s",
+				   get_afi_safi_str(afi, safi, false));
+		frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 4);
+	}
 
 	return true;
 }
@@ -1299,8 +1504,20 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct graceful_restart_info *gr_info;
+	bool multihop_eors_pending = false;
 
-	if (bgp_gr_check_all_eors(bgp, afi, safi)) {
+	/*
+	 * This function returns true if EORs are rcvd from all the
+	 * directly connected peers for this AFI-SAFI in this BGP
+	 * instance.
+	 *  OR
+	 * If none of the directly connected peers have negotiated
+	 * this AFI-SAFI.
+	 *
+	 * This function returns false if EORs are not rcvd for this AFI-SAFI
+	 * from all the dirctly connected peers.
+	 */
+	if (bgp_gr_check_all_eors(bgp, afi, safi, &multihop_eors_pending)) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!BGP_SUPPRESS_FIB_ENABLED(bgp)) {
 			if (gr_info->t_select_deferral) {
@@ -1310,11 +1527,65 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 			}
 			event_cancel(&gr_info->t_select_deferral);
 		}
+
+		/*
+		 * If there are no pending EORs from multihop peers
+		 * then cancel the timer.
+		 */
+		if (!multihop_eors_pending) {
+			if (gr_info->t_select_deferral_tier2) {
+				void *info = EVENT_ARG(gr_info->t_select_deferral_tier2);
+
+				XFREE(MTYPE_TMP, info);
+			}
+			event_cancel(&gr_info->t_select_deferral_tier2);
+
+			gr_info->select_defer_over_tier2 = true;
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%s: No multihop EORs pending for %s, #routes %d -- EORs recvd",
+					   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+					   gr_info->gr_deferred);
+
+			frrtrace(4, frr_bgp, gr_eors, bgp->name_pretty, afi, safi, 5);
+		} else {
+			/*
+			 * For afi-safi like l2VPN EVPN, we are here because
+			 * EORs were rcvd from all directly connected peers and
+			 * BGP is waiting to rcv EORs from all multihop peers.
+			 * Wait for all directly connected and multihop peers to
+			 * send EORs before doing deferred bestpath selection.
+			 */
+			if (afi == AFI_L2VPN) {
+				gr_info->select_defer_over = true;
+				return;
+			}
+
+			/*
+			 * For IPv4/IPv6 unicast, we are here either because
+			 * EORs are rcvd for all directly connected peers or
+			 * none of the directly connected peers have this
+			 * AFI-SAFI negotiated.
+			 *
+			 * Return if we have already done 1st round of deferred
+			 * bestpath selection (Either because tier1
+			 * select-deferral-timeout or EORs were rcvd from all
+			 * the directly connected peers)
+			 * and if we are still waiting on all multihop bgp peers
+			 * to come up.
+			 */
+			if (gr_info->select_defer_over)
+				return;
+		}
+
 		gr_info->select_defer_over = true;
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: Starting deferred path selection for %s, #routes %d -- EORs recvd",
 				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 				   gr_info->gr_deferred);
+
+		frrtrace(4, frr_bgp, gr_start_deferred_path_selection, bgp->name_pretty, afi, safi,
+			 gr_info->gr_deferred);
+
 		bgp_do_deferred_path_selection(bgp, afi, safi);
 	}
 }
@@ -1341,6 +1612,51 @@ static void bgp_gr_mark_for_deferred_selection(struct bgp *bgp)
 }
 
 /*
+ * Evaluate if GR is enabled for a mix of directly-connected and
+ * multihop peers in ipv4-unicast and ipv6-unicast AFI-SAFI.
+ */
+static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	bgp->gr_multihop_peer_exists = false;
+
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		/*
+		 * GR is not supported for this afi-safi
+		 */
+		if (!bgp_gr_supported_for_afi_safi(afi, safi))
+			continue;
+
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			/*
+			 * If this is not a config node or
+			 * if this peer is admin shutdown or
+			 * if GR is not enabled for peer then skip this
+			 * peer
+			 */
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
+			    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+			    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+				continue;
+
+			/*
+			 * If this is a multihop peer with GR supported
+			 * afi-safi is configured for it, then set the
+			 * value to true.
+			 */
+			if (PEER_IS_MULTIHOP(peer) && peer->afc[afi][safi]) {
+				bgp->gr_multihop_peer_exists = true;
+				return;
+			}
+		}
+	}
+}
+
+/*
  * Start the selection deferral timer thread for the specified AFI, SAFI,
  * mark peers from whom we need an EOR and inform zebra
  */
@@ -1355,6 +1671,7 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	thread_info->afi = afi;
 	thread_info->safi = safi;
 	thread_info->bgp = bgp;
+	thread_info->tier2_gr = false;
 
 	event_add_timer(bm->master, bgp_graceful_deferral_timer_expire, thread_info,
 			bgp->select_defer_time, &gr_info->t_select_deferral);
@@ -1369,6 +1686,9 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 		zlog_debug("%s: Started path-select deferral timer for %s, duration %ds",
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 			   bgp->select_defer_time);
+
+	frrtrace(5, frr_bgp, gr_deferral_timer_start, bgp->name_pretty, afi, safi,
+		 bgp->select_defer_time, 1);
 }
 
 /*
@@ -1431,7 +1751,7 @@ static void bgp_gr_process_peer_up_include(struct bgp *bgp, struct peer *peer)
 		} else {
 			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
 			gr_info = &(bgp->gr_info[afi][safi]);
-			if (!gr_info->t_select_deferral)
+			if (!gr_info->t_select_deferral && !gr_info->select_defer_over)
 				bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 		}
 	}
@@ -1444,13 +1764,18 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 	safi_t safi;
 
 	bgp = peer->bgp;
+
 	if (peer_established(peer->connection)) {
 		/*
 		 * If we haven't yet evaluated for path selection deferral,
 		 * do it now.
+		 *
+		 * If we haven't yet evaluated the presence of both directly
+		 * connected and multihop peers, do it now.
 		 */
 		if (!bgp->gr_select_defer_evaluated) {
 			bgp_gr_mark_for_deferred_selection(bgp);
+			bgp_gr_evaluate_mix_peer_type(bgp);
 			bgp->gr_select_defer_evaluated = true;
 		}
 
@@ -1468,6 +1793,9 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				zlog_debug("%s: Peer %s cap 0x%" PRIx64 " flags 0x%" PRIx64
 					   " restarted or GR not negotiated, check for path-selection",
 					   bgp->name_pretty, peer->host, peer->cap, peer->flags);
+
+			frrtrace(4, frr_bgp, gr_peer_up_ignore, bgp->name_pretty, peer->host,
+				 peer->cap, peer->flags);
 
 			bgp_gr_process_peer_up_ignore(bgp, peer);
 		} else {
@@ -1488,7 +1816,6 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 {
 	afi_t afi;
 	safi_t safi;
-	struct graceful_restart_info *gr_info;
 
 	/* True if BGP has (re)started gracefully (based on start
 	 * settings and GR is not complete and path selection
@@ -1496,12 +1823,12 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	 */
 	if (!bgp->t_startup && !bgp_in_graceful_restart())
 		return false;
+
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		if (!bgp_gr_supported_for_afi_safi(afi, safi))
 			continue;
 
-		gr_info = &(bgp->gr_info[afi][safi]);
-		if (!gr_info->select_defer_over)
+		if (!BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi))
 			return true;
 	}
 

@@ -1092,6 +1092,8 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	mac->neigh_list->cmp = neigh_list_cmp;
 
 	mac->uptime = monotime(NULL);
+	mac->gr_refresh_time = monotime(NULL);
+
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
@@ -1184,15 +1186,34 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return true;
 	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-		return true;
-	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC_FROM_VTEP) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
-		 ipaddr_is_same(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
-		return true;
-	else if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
-		 CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) &&
-		 !listcount(mac->neigh_list)) {
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+		if (wctx->gr_stale_cleanup) {
+			/*
+			 * If zebra is doing stale cleanup, then return true
+			 * only if this is a stale remote MAC entry.
+			 * Return false if this entry was refreshed.
+			 */
+			if (mac->gr_refresh_time < wctx->gr_cleanup_time)
+				return true;
+		} else {
+			return true;
+		}
+	} else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC_FROM_VTEP) &&
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		   ipaddr_is_same(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip)) {
+		if (wctx->gr_stale_cleanup) {
+			/*
+			 * If zebra is doing stale cleanup, then return true
+			 * only if this is a stale remote MAC entry.
+			 * Return false if this entry was refreshed.
+			 */
+			if (mac->gr_refresh_time < wctx->gr_cleanup_time)
+				return true;
+		} else {
+			return true;
+		}
+	} else if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) && !listcount(mac->neigh_list)) {
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char mac_buf[MAC_BUF_SIZE];
 
@@ -1242,8 +1263,8 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 /*
  * Delete all MAC entries for this EVPN.
  */
-void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
-			    int upd_client, uint32_t flags)
+void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			    uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct mac_walk_ctx wctx;
 
@@ -1255,6 +1276,10 @@ void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
+	if (l2_wctx) {
+		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
+		wctx.gr_cleanup_time = l2_wctx->gr_cleanup_time;
+	}
 
 	hash_iterate(zevpn->mac_table, zebra_evpn_mac_del_hash_entry, &wctx);
 }
@@ -1694,6 +1719,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		bool remote_gw;
 
 		mac->uptime = monotime(NULL);
+		mac->gr_refresh_time = monotime(NULL);
 
 		old_flags = mac->flags;
 		sticky = !!CHECK_FLAG(old_flags, ZEBRA_MAC_STICKY);
@@ -1981,6 +2007,10 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (mac) {
+		/* Refresh the timestamp */
+		mac->gr_refresh_time = monotime(NULL);
+	}
 
 	/* Ignore if the mac is already present as a gateway mac */
 	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) &&
@@ -2147,6 +2177,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		inform_client = true;
 	} else {
+		mac->gr_refresh_time = monotime(NULL);
+
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
@@ -2432,6 +2464,7 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn
 	} else
 		mac = *macp;
 
+	mac->gr_refresh_time = monotime(NULL);
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
 	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
@@ -2500,4 +2533,76 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready, new_bgp_ready);
+}
+
+static void zebra_vxlan_stale_remote_mac_add_l2vni(struct zebra_evpn *zevpn,
+						   struct ethaddr *macaddr, struct ipaddr vtep_ip,
+						   bool sticky)
+{
+	struct zebra_mac *mac;
+
+	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (mac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Remote %sMAC %pEA (%p) zevpn %p,VTEP %pIA L2VNI %d exists",
+				   sticky ? "sticky " : "", macaddr, mac, zevpn, &vtep_ip,
+				   zevpn->vni);
+		return;
+	}
+
+	/* Create remote MAC entry in table*/
+	mac = zebra_evpn_mac_add(zevpn, macaddr);
+	if (!mac) {
+		zlog_debug("EVPN-GR: Failed to add remote MAC %pEA, VTEP %pIA, L2VNI %d", macaddr,
+			   &vtep_ip, zevpn->vni);
+		return;
+	}
+
+	/* Set "remote" forwarding info. */
+	SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
+	mac->fwd_info.r_vtep_ip = vtep_ip;
+
+	/*
+	 * Sticky could be set either when ZEBRA_MAC_STICKY or
+	 * ZEBRA_MAC_REMOTE_DEF_GW is set. So set both here.
+	 * If one of them is not required, then zebra will
+	 * update it correctly when BGP downloads the remote MAC
+	 * to zebra.
+	 */
+	if (sticky) {
+		SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+		SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW);
+	} else {
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW);
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN-GR: Added stale remote %sMAC %pEA (%p) zevpn %p, VTEP %pIA L2VNI %d",
+			   sticky ? "sticky " : "", macaddr, mac, zevpn, &vtep_ip, zevpn->vni);
+}
+
+void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip, bool sticky,
+				      vni_t vni)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_l3vni *zl3vni = NULL;
+
+	/* Restore remote Router-MAC */
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
+		zebra_vxlan_stale_remote_mac_add_l3vni(zl3vni, macaddr, vtep_ip);
+		return;
+	}
+
+	/* Restore remote MAC */
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn || !zevpn->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Add of remote %sMAC %pEA VNI %u, could not find EVPN inst/intf (%p)",
+				   sticky ? "sticky " : "", macaddr, vni, zevpn);
+		return;
+	}
+
+	zebra_vxlan_stale_remote_mac_add_l2vni(zevpn, macaddr, vtep_ip, sticky);
 }

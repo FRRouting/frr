@@ -1016,4 +1016,6 @@ extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
+extern int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete);
+extern void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */
