@@ -875,7 +875,113 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Sat Aug 02 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+
+* Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - 10.4.2
+- bgpd
+-     Add null-check in evpn-mh code
+-     Allow proper shutdown of bgp dynamic peers in rare case
+-     Check l3vni status before adv evpn vrf routes
+-     Check length for dynamic capability (software version new encoding)
+-     Check med flag correctly in encap_attr_export()
+-     Clean up coverity warnings in bgp_routemap.c
+-     Correction in json output structure for no data case
+-     Crash due to usage of freed up evpn_overlay attr
+-     Disable link-local capability by default
+-     Do not complain in the logs if we intentionally withdraw specific attrs
+-     Do not override a specified rd
+-     Don't use stale 'evpn' pointer in bgp_update()
+-     Evpn fix auto derive rd when user cfg removed
+-     Evpn-mh fix es-evi memleak during shutdown
+-     Fix bgp_attr_local_pref being set appropriately
+-     Fix bgp_attr_originator_id flag in outbound attribute cache
+-     Fix crash due to dangling pointer in bnc nht_info
+-     Fix default vrf check while configuring md5 password
+-     Fix deref_of_null.ex.cond in community_list_dup_check
+-     Fix expanded extcomm list delete
+-     Fix json wrapper brace consistency in neighbor commands
+-     Fix labeled unicast inbound policy lookup
+-     Fix labeled-unicast output
+-     Fix maximum-prefix session recovery for peers and peer-groups
+-     Fix memory leak in evpn mh es-evi del
+-     Fix memory leak in evpn mh esi del
+-     Fix overflow when decoding zapi nexthop for srv6 max segments
+-     Fix refcounts at termination
+-     Fix routemap evpn type-5 default route check
+-     Fix weird formatting in a function
+-     Notify all incoming/outgoing on peer group notify unconfig
+-     Put local bgp id when sending nnhn tlv for nh characteristic
+-     Try to handle software version capability with the new encoding format
+- isisd
+-     Reorder some free() bits, pass `make check`
+-     Use ipv6 mtid for srv6 locator tlvs when ipv6 mt is enabled
+- ospf6d
+-     Fix summary deletion dropping redistributed routes
+-     Protect lsa in vertex
+- ospfd
+-     Fix crash when entering `ospf authentication key xx`
+-     Ti-lfa: actually delete vertexes on list
+-     Ti-lfa: free copied vertex parent
+-     Ti-lfa: free tables after use
+- pbrd
+-     Cosmetic change for one name
+-     Dscp-only pbr rules not installing due to incorrect family field
+-     Fix crash for inconsistent status
+-     Fix memleak during pbr map deletion
+- pim6d
+-     Don't segv on repeated mld records
+- pimd, pim6d
+-     Changes to pimreg register socket initialization
+- pimd
+-     Add pim_debug_pim_reg protection for pim register stop debug message
+-     Allow freebsd pimd to have permission to do pim
+-     Consolidate setting hold time
+-     Crash while trying mroute_read when fd=-1
+-     Df election on zebra peer down synced to the mlag peer
+-     Fix autorp del error logging
+-     Fix for mc frame loss in a sequential traffic test
+-     Fix pim mlag update peer zebra status upon local mlag connection restoration
+-     Fix warnings for pimd
+-     Fix wrong bsm case with vrf
+-     Pimd crash when pimreg interface not present
+-     Pimd crashed because of indexing invalid index in an array
+-     Prevent crash on interface removal
+-     Properly use ip_recvif on freebsd
+- staticd
+-     Ensure sids are allocated before installation on interface up
+-     Ensure sids are uninstalled before sending them to zebra
+-     Extend sid dependency check for udt4/udt46 default vrf case
+-     Fix typo in srv6 sids debug logs for interface up/down events
+-     Handle `udt*` sids for default vrf on sr0 intf state changes
+-     Move sid interface dependency check to separate function
+-     Refactor and add comments to sid interface dependency logic
+- vrrpd
+-     Ipv6 vrrp macvlan doesn't have ipv6 link-local address
+-     [mem leak] vrrp interface delete fails to free connected route
+- zebrad
+-     Add missing debug guard in if netlink code
+-     Add missing debug guard in rt netlink code
+-     Check if the netlink socket is _active_ before doing batch ops
+-     Cleanup early route q when removing routes.
+-     Coverity issue (null pointer derefence(cid 109575))
+-     Coverity issue (null pointer derefence(cid 18943))
+-     Coverity issue (null pointer derefence(cid 71721))
+-     Coverity issue (null pointer derefence(cid 72714))
+-     Coverity issue (null pointer dereference(cid 72706))
+-     Coverity issue (null pointer dereference(cid 90819))
+-     Evpn fix alignment of access-vlan cli output
+-     Explicitly print "exit" at the end of srv6 encap node config
+-     Fix crash due to lack of control of received number of srv6 sid from netlink
+-     Fix memory leak dplane providers queued contex
+-     Fix memory leak dplane pthread mutex destroy
+-     Fix memory leak in dplane zns info entries
+-     Fix memory leak in netlink link chg err case
+-     Fix missing fpm messages
+-     Fix neighbor table name length
+-     Fix yang data for mcast-group
+-     Metric 0 is valid, don't drop to 1 on bsd
+-     Reset encapsulation source address when 'no srv6' is executed
+-     Workaround for a race condition caused by if_zebra_speed_update timer
 
 * Sat Aug 02 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4.1
 - New upstream release FRR 10.4.1
