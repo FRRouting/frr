@@ -164,6 +164,10 @@ struct mac_walk_ctx {
 	bool print_dup;		  /* Used to print dup addr list */
 	bool gr_stale_cleanup;	  /* Used for cleaning up stale entries for GR */
 	uint64_t gr_cleanup_time;
+
+	/* Fields for incremental json output */
+	struct json_object *top_json;
+	uint32_t json_counter;
 };
 
 struct rmac_walk_ctx {
