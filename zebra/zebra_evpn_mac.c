@@ -599,9 +599,8 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf, struct ze
 /*
  * Print a specific MAC entry.
  */
-void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
+void zebra_evpn_print_mac(struct zebra_mac *mac, struct vty *vty, json_object *json)
 {
-	struct vty *vty;
 	struct zebra_neigh *n = NULL;
 	struct listnode *node = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
@@ -614,7 +613,6 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
 	uptime = monotime(NULL);
