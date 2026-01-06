@@ -1206,12 +1206,12 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 	do {                                                                   \
 		if (ntohs(tlvh->length) > size) {                              \
 			if (vty != NULL)                                       \
-				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
+				vty_out(vty, "  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",  \
 					msg, ntohs(tlvh->length), size);       \
 			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(%d)",    \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!",    \
 					   msg, ntohs(tlvh->length), size);    \
-			return size + TLV_HDR_SIZE;                            \
+			return OSPF_MAX_LSA_SIZE + 1;                            \
 		}                                                              \
 	} while (0)
 

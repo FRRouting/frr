@@ -1710,11 +1710,11 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
 	do {                                                                   \
 		if (ntohs(tlvh->length) != size) {                             \
 			if (vty != NULL)                         \
-				vty_out(vty, "  Wrong %s TLV size: %d(%d). Abort!\n",  \
+				vty_out(vty, "  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",  \
 					msg, ntohs(tlvh->length), size);               \
 			else                                              \
-				zlog_debug("    Wrong %s TLV size: %d(%d). Abort!", msg, ntohs(tlvh->length), size);    \
-			return size + TLV_HDR_SIZE;                            \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!", msg, ntohs(tlvh->length), size);    \
+			return OSPF_MAX_LSA_SIZE + 1;                            \
 		}                                                              \
 	} while (0)
 
