@@ -159,6 +159,10 @@ struct mac_walk_ctx {
 	uint32_t count;		  /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
 	bool print_dup;		  /* Used to print dup addr list */
+
+	/* Fields for incremental json output */
+	struct json_object *top_json;
+	uint32_t json_counter;
 };
 
 struct rmac_walk_ctx {
