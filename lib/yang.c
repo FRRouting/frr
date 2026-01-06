@@ -707,8 +707,8 @@ struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const c
 	struct lyd_node *dnode, *parent;
 	LY_ERR err;
 
-	err = lyd_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
-			    &dnode);
+	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
+			     &dnode);
 	assert(err == LY_SUCCESS);
 
 	/*
@@ -917,7 +917,7 @@ LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bo
 		 * a common YANG JSON technique (vs XML which starts all
 		 * data trees from the root).
 		 */
-		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
 		if (err != LY_SUCCESS)
 			goto done;
 		err = lyd_find_path(parent, xpath, false, &subtree);
@@ -1010,7 +1010,7 @@ LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char 
 		return LY_ENOTFOUND;
 	}
 	/* Get the tree for the RPC/Action */
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
 	if (err) {
 		zlog_err("Failed to create parent node for action: %s", ly_last_errmsg());
 		goto done;
@@ -1068,8 +1068,8 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bo
 			return LY_EINVAL;
 		}
 
-		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
-				    0, 0, NULL, &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, NULL,
+				     &parent);
 		XFREE(MTYPE_TMP, parent_xpath);
 		if (err) {
 			zlog_err("Failed to create parent node for action: %s",
@@ -1713,6 +1713,51 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
 
 	return LY_SUCCESS;
 }
+
+
+/*
+ * Handle NBC API changes between versions of Libyang
+ */
+
+#undef lyd_new_term_bin
+#undef lyd_change_term_bin
+#undef lyd_new_path2
+#undef lyd_new_ext_term
+
+#if (LY_VERSION_MAJOR >= 4)
+#define LY_SZ(x) ((x)*8)
+#else
+#define LY_SZ(x) (x)
+#endif
+
+LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *module,
+			 const char *name, const void *value, uint32_t size, uint32_t options,
+			 struct lyd_node **node)
+{
+	return lyd_new_term_bin(parent, module, name, value, LY_SZ(size), options, node);
+}
+
+LY_ERR yang_change_term_bin(struct lyd_node *term, const void *value, uint32_t size)
+{
+	return lyd_change_term_bin(term, value, LY_SZ(size));
+}
+
+LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
+		      const void *value, uint32_t size, LYD_ANYDATA_VALUETYPE value_type,
+		      uint32_t options, struct lyd_node **new_parent, struct lyd_node **new_node)
+{
+	return lyd_new_path2(parent, ctx, path, value, LY_SZ(size), value_type, options,
+			     new_parent, new_node);
+}
+
+#if (LY_VERSION_MAJOR >= 3)
+LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name, const void *value,
+			 uint32_t size, uint32_t options, struct lyd_node **node)
+{
+	return lyd_new_ext_term(ext, name, value, LY_SZ(size), options, node);
+}
+#endif
+#undef LY_SZ
 
 /*
  * Safe to remove after libyang v2.1.128 is required
