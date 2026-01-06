@@ -296,8 +296,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 	}
 
 	/* create input tree */
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
-			    &input);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &input);
 	assert(err == LY_SUCCESS);
 
 	for (size_t i = 0; i < vty->num_rpc_params; i++) {
@@ -318,8 +317,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 	assert(err == LY_SUCCESS);
 
 	/* create output tree root for population in the callback */
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
-			    &output);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &output);
 	assert(err == LY_SUCCESS);
 
 	ret = nb_callback_rpc(nb_node, xpath, input, output, errmsg,
