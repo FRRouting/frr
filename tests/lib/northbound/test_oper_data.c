@@ -253,8 +253,8 @@ static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb
 	LY_ERR err;
 
 	/* Note that this api expects 'value' to be in little-endian form */
-	err = lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			       LYD_NEW_PATH_UPDATE, NULL);
+	err = yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+				LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
 
 	return NB_OK;
