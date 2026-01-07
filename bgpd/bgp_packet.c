@@ -529,12 +529,6 @@ void bgp_generate_updgrp_packets(struct event *event)
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
 				if (!paf->t_announce_route) {
-					/* Make sure we supress BGP UPDATES
-					 * for normal processing later again.
-					 */
-					UNSET_FLAG(paf->subgroup->sflags,
-						   SUBGRP_STATUS_FORCE_UPDATES);
-
 					/* If route-refresh BoRR message was
 					 * already sent and we are done with
 					 * re-announcing tables for a decent
