@@ -428,7 +428,6 @@ void bgp_generate_updgrp_packets(struct event *event)
 	uint32_t generated = 0;
 	afi_t afi;
 	safi_t safi;
-	enum bgp_af_index index;
 
 	wpq = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 				   memory_order_relaxed);
@@ -445,23 +444,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 	    || bgp_update_delay_active(peer->bgp))
 		return;
 
-	if (peer->connection->t_routeadv) {
-		/* If MRAI is running, we have to hint "adj-rib-out" to
-		 * ignore suppression of updates for this peer, because
-		 * if we don't, we will miss some updates that are very
-		 * quick (flapping/= del/add) during the MRAI wait time.
-		 */
-		for (index = BGP_AF_START; index < BGP_AF_MAX; index++) {
-			paf = peer->peer_af_array[index];
-			if (!paf)
-				continue;
-
-			if (paf && paf->subgroup)
-				SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
-		}
-
+	if (peer->connection->t_routeadv)
 		return;
-	}
 
 	/*
 	 * Since the following is a do while loop
@@ -480,6 +464,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 		return;
 
 	do {
+		enum bgp_af_index index;
+
 		s = NULL;
 		for (index = BGP_AF_START; index < BGP_AF_MAX; index++) {
 			paf = peer->peer_af_array[index];
