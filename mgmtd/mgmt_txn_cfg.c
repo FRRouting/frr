@@ -845,8 +845,8 @@ int txn_cfg_be_client_connect(struct mgmt_be_client_adapter *adapter)
 	 */
 
 	if (!txn_init_readers++ && mgmt_ds_lock(ds_ctx, 0) != 0) {
-		_dbg("Failed to lock DS:%s for init of BE adapter '%s'",
-		     mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
+		_log_warn("Unable to lock DS:%s for init config of BE client '%s' will retry",
+			  mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
 		--txn_init_readers;
 		return -1;
 	}
@@ -865,8 +865,8 @@ int txn_cfg_be_client_connect(struct mgmt_be_client_adapter *adapter)
 	 */
 	txn = txn_create(MGMTD_TXN_TYPE_CONFIG);
 	if (!txn) {
-		_log_err("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
-			 adapter->name);
+		_log_warn("Unable to create init config txn for BE client '%s' will retry",
+			  adapter->name);
 		if (!--txn_init_readers)
 			mgmt_ds_unlock(ds_ctx, 0);
 		nb_config_diff_del_changes(&adapter_cfgs);
