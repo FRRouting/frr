@@ -910,6 +910,8 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
 
     # Find peer-group with remote-as command, also search neighbor
     # associated to peer-group and store into peer-group dict
+    pg_rmtas = r"neighbor (\S+) remote-as (\S+)"
+    nb_pg = r"neighbor (\S+) peer-group (\S+)$"
     for ctx_keys, line in lines_to_add:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -917,21 +919,22 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             and line.startswith("neighbor ")
         ):
             if ctx_keys[0] in pg_dict:
-                for pg_key in pg_dict[ctx_keys[0]]:
-                    # Find 'neighbor <pg_name> remote-as'
-                    pg_rmtas = r"neighbor %s remote-as (\S+)" % pg_key
-                    re_pg_rmtas = re.search(pg_rmtas, line)
-                    if re_pg_rmtas:
-                        pg_dict[ctx_keys[0]][pg_key]["remoteas"] = True
+                # Find 'neighbor <pg_name> remote-as'
+                re_pg_rmtas = re.search(pg_rmtas, line)
+                if (
+                    re_pg_rmtas
+                    and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]
+                ):
+                    pg_dict[ctx_keys[0]][re_pg_rmtas.group(1)]["remoteas"] = True
 
-                    # Find 'neighbor <peer> [interface] peer-group <pg_name>'
-                    nb_pg = r"neighbor (\S+) peer-group %s$" % pg_key
-                    re_nbr_pg = re.search(nb_pg, line)
-                    if (
-                        re_nbr_pg
-                        and re_nbr_pg.group(1) not in pg_dict[ctx_keys[0]][pg_key]
-                    ):
-                        pg_dict[ctx_keys[0]][pg_key]["nbr"].append(re_nbr_pg.group(1))
+                # Find 'neighbor <peer> [interface] peer-group <pg_name>'
+                re_nbr_pg = re.search(nb_pg, line)
+                if (
+                    re_nbr_pg
+                    and re_nbr_pg.group(1) in pg_dict[ctx_keys[0]]
+                    and re_nbr_pg.group(2) not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
+                ):
+                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(re_nbr_pg.group(2))
 
     # Find any neighbor <nbr> remote-as config line check if the nbr
     # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
