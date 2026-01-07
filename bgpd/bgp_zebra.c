@@ -3663,7 +3663,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	char buf[256];
 	struct in6_addr *tovpn_sid;
 	struct prefix_ipv6 tmp_prefix;
-	uint32_t sid_func;
+	uint32_t sid_func, sid_wide_func = 0;
 	bool found = false;
 	char *loc_name;
 
@@ -3685,8 +3685,8 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
-					 &loc_name)) {
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
+					 &note, &loc_name)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
@@ -3762,7 +3762,17 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		uint8_t func_len = locator_bgp->function_bits_length;
 		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
 
-		if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
+		if (sid_wide_func && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
+				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816))) {
+			if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
+				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
+					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
+			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
+				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
+					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
+			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
+				SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
+		} else if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
 			label = sid_func
 				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
 
