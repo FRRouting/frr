@@ -6,6 +6,10 @@
  */
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/if.h>
+#endif /* GNU_LINUX */
+
 #include "lib/nexthop.h"
 #include "lib/nexthop_group_private.h"
 #include "lib/routemap.h"
@@ -536,6 +540,10 @@ static bool nhg_compare_nexthops(const struct nexthop *nh1,
 	 */
 	if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_ACTIVE)
 	    != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_ACTIVE))
+		return false;
+
+	if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_LINKDOWN)
+	    != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_LINKDOWN))
 		return false;
 
 	if (!nexthop_same(nh1, nh2))
@@ -2699,6 +2707,13 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 
+#ifdef IFF_LOWER_UP
+		if (ifp && !(ifp->flags & IFF_LOWER_UP))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN);
+#endif /* IFF_LOWER_UP */
+
 		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp) && if_is_operative(ifp)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			goto skip_check;
@@ -2919,6 +2934,7 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		prev_src = nexthop->rmap_src;
 		prev_active = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		prev_index = nexthop->ifindex;
+		bool prev_linkdown = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN);
 
 		/* Include the containing nhe for primary nexthops: if there's
 		 * recursive resolution, we capture the backup info also.
@@ -2949,6 +2965,7 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED */
 		if (prev_active != new_active ||
 		    prev_index != nexthop->ifindex ||
+		    prev_linkdown != CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN) ||
 		    ((nexthop->type >= NEXTHOP_TYPE_IFINDEX &&
 		      nexthop->type < NEXTHOP_TYPE_IPV6) &&
 		     prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
