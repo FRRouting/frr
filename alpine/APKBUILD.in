@@ -11,7 +11,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     acct autoconf automake bash binutils bison bsd-compat-headers build-base
     c-ares c-ares-dev ca-certificates cryptsetup-libs curl device-mapper-libs
     expat fakeroot flex fortify-headers gdbm git gmp json-c-dev kmod
-    lddtree libacl libatomic libattr libblkid libburn libbz2 libc-dev
+    lddtree acl libatomic libattr libblkid libburn libbz2 libc-dev
     libcap-dev libcurl libedit libffi libgcc libgomp libisoburn libisofs
     libltdl openssl libssh2 libstdc++ libtool libuuid
     linux-headers lzip lzo m4 make mkinitfs mpc1 mpfr4 mtools musl-dev
