@@ -807,18 +807,17 @@ int mgmt_txn_handle_be_adapter_connect(struct mgmt_be_client_adapter *adapter, b
 	struct mgmt_txn *txn, *next;
 
 	if (connect)
-		txn_cfg_be_client_connect(adapter);
-	else {
-		/*
-		 * Check if any transaction is currently on-going that
-		 * involves this backend client. If so check if we can now
-		 * advance that configuration.
-		 */
-		TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
-			/* XXX update to handle get-tree and RPC too! */
-			if (txn->type == MGMTD_TXN_TYPE_CONFIG)
-				txn_cfg_txn_be_client_disconnect(txn, adapter);
-		}
+		return txn_cfg_be_client_connect(adapter);
+
+	/*
+	 * Disconnecting: check if any transaction is currently on-going that
+	 * involves this backend client. If so check if we can now advance that
+	 * transaction.
+	 */
+	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
+		/* XXX update to handle get-tree and RPC too! */
+		if (txn->type == MGMTD_TXN_TYPE_CONFIG)
+			txn_cfg_txn_be_client_disconnect(txn, adapter);
 	}
 
 	return 0;
