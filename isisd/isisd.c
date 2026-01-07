@@ -547,6 +547,17 @@ void isis_area_destroy(struct isis_area *area)
 	lsp_db_fini(&area->lspdb[0]);
 	lsp_db_fini(&area->lspdb[1]);
 
+	/*
+	 * Must terminate SR before MPLS-TE, because SR adj_sids reference
+	 * structures inside circuit->ext which isis_mpls_te_term frees.
+	 * isis_sr_area_term also disables SR, so adj state change hooks
+	 * during circuit cleanup won't try to access freed memory.
+	 */
+	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
+
+	isis_mpls_te_term(area);
+
 	frr_each_safe (isis_circuit_list, &area->circuit_list, circuit)
 		isis_area_del_circuit(area, circuit);
 
@@ -564,11 +575,6 @@ void isis_area_destroy(struct isis_area *area)
 #ifndef FABRICD
 	flex_algos_free(area->flex_algos);
 #endif /* ifndef FABRICD */
-
-	isis_sr_area_term(area);
-	isis_srv6_area_term(area);
-
-	isis_mpls_te_term(area);
 
 	spftree_area_del(area);
 
