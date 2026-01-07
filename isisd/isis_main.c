@@ -108,13 +108,20 @@ static FRR_NORETURN void terminate(int i)
 	mt_fini();
 	isis_zebra_stop();
 
-	isis_master_terminate();
+	/*
+	 * Must call vrf_terminate and prefix_list_reset before
+	 * isis_master_terminate, because their callbacks (isis_vrf_disable,
+	 * isis_prefix_list_update) iterate over im->isis which is finalized
+	 * by isis_master_terminate.
+	 */
 	route_map_finish();
 	prefix_list_reset();
+	vrf_terminate();
+
 #ifndef FABRICD
 	isis_affinity_map_terminate();
 #endif
-	vrf_terminate();
+	isis_master_terminate();
 
 	frr_fini();
 	exit(i);
