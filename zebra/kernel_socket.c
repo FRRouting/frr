@@ -35,6 +35,7 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_dplane.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -956,7 +957,13 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			pnt += rta_get(pnt, dest, sizeof(*dest));
 			break;
 		case RTA_GATEWAY:
-			pnt += rta_get(pnt, gate, sizeof(*gate));
+			/* Use rta_getattr() instead of rta_get() for gateway
+			 * to ensure AF_LINK gateways are properly copied.
+			 * rta_get() has address family checks that may skip
+			 * AF_LINK, but we need to capture the sockaddr_dl
+			 * to extract the interface index.
+			 */
+			pnt += rta_getattr(pnt, gate, sizeof(*gate));
 			break;
 		case RTA_NETMASK:
 			pnt += rta_getattr(pnt, mask, sizeof(*mask));
@@ -1003,6 +1010,9 @@ void rtm_read(struct rt_msghdr *rtm)
 	char fbuf[64];
 	int32_t proto = ZEBRA_ROUTE_KERNEL;
 	uint8_t distance = 0;
+	struct zebra_dplane_ctx *ctx = NULL;
+	enum dplane_op_e op;
+	bool has_gateway = false;
 
 	zebra_flags = 0;
 
@@ -1030,26 +1040,30 @@ void rtm_read(struct rt_msghdr *rtm)
 	    && !(flags & RTF_UP))
 		return;
 
-	/* This is connected route. */
-	if (!(flags & RTF_GATEWAY))
-		return;
+	/*
+	 * Ignore kernel routes for local interface addresses.
+	 * These are automatically created by the kernel for locally configured
+	 * IP addresses and zebra creates its own "Local" routes for these.
+	 * On BSD, these routes typically have HOST+STATIC+DONE flags and RTA_IFA set,
+	 * but we need to distinguish between:
+	 * 1. Local address routes (to lo0/loopback) - should be filtered
+	 * 2. Host routes for interface IPs (to actual interface) - should NOT be filtered
+	 *
+	 * We only filter if the route points to a loopback interface.
+	 */
+	if ((rtm->rtm_addrs & RTA_IFA) && (flags & RTF_HOST) && ifnlen) {
+		if (strncmp(ifname, "lo", 2) == 0) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: local loopback address route (RTA_IFA set, ifname=%s), ignoring",
+					   __func__, ifname);
+			return;
+		}
+	}
 
 	if (flags & RTF_PROTO1) {
 		SET_FLAG(zebra_flags, ZEBRA_FLAG_SELFROUTE);
 		proto = ZEBRA_ROUTE_STATIC;
 		distance = 255;
-	}
-
-	memset(&nh, 0, sizeof(nh));
-
-	nh.vrf_id = VRF_DEFAULT;
-	/* This is a reject or blackhole route */
-	if (flags & RTF_REJECT) {
-		nh.type = NEXTHOP_TYPE_BLACKHOLE;
-		nh.bh_type = BLACKHOLE_REJECT;
-	} else if (flags & RTF_BLACKHOLE) {
-		nh.type = NEXTHOP_TYPE_BLACKHOLE;
-		nh.bh_type = BLACKHOLE_NULL;
 	}
 
 	/*
@@ -1058,6 +1072,14 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == zebra_pid)
 		return;
 
+	/* Determine if a gateway is present */
+	has_gateway = (rtm->rtm_addrs & RTA_GATEWAY) != 0;
+
+	/* Initialize nexthop structure */
+	memset(&nh, 0, sizeof(nh));
+	nh.vrf_id = VRF_DEFAULT;
+
+	/* Parse address family and set up prefix/nexthop */
 	if (dest.sa.sa_family == AF_INET) {
 		afi = AFI_IP;
 		p.family = AF_INET;
@@ -1066,11 +1088,6 @@ void rtm_read(struct rt_msghdr *rtm)
 			p.prefixlen = IPV4_MAX_BITLEN;
 		else
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
-
-		if (!nh.type) {
-			nh.type = NEXTHOP_TYPE_IPV4;
-			nh.gate.ipv4 = gate.sin.sin_addr;
-		}
 	} else if (dest.sa.sa_family == AF_INET6) {
 		afi = AFI_IP6;
 		p.family = AF_INET6;
@@ -1079,30 +1096,91 @@ void rtm_read(struct rt_msghdr *rtm)
 			p.prefixlen = IPV6_MAX_BITLEN;
 		else
 			p.prefixlen = ip6_masklen(mask.sin6.sin6_addr);
+	} else
+		return;
 
+	/* Extract ifindex from AF_LINK gateway if present */
+	if (has_gateway && gate.sa.sa_family == AF_LINK) {
+		struct sockaddr_dl *sdl = (struct sockaddr_dl *)&gate;
+
+		ifindex = sdl->sdl_index;
+	}
+
+	/* Handle IPv6 link-local gateway addresses */
+	if (afi == AFI_IP6 && has_gateway && gate.sa.sa_family == AF_INET6) {
 		if (IN6_IS_ADDR_LINKLOCAL(&gate.sin6.sin6_addr)) {
 			ifindex = IN6_LINKLOCAL_IFINDEX(gate.sin6.sin6_addr);
 			SET_IN6_LINKLOCAL_IFINDEX(gate.sin6.sin6_addr, 0);
 		}
+	}
 
-		if (!nh.type) {
+	/* Determine nexthop type and set up nexthop structure */
+	if (flags & RTF_REJECT) {
+		nh.type = NEXTHOP_TYPE_BLACKHOLE;
+		nh.bh_type = BLACKHOLE_REJECT;
+	} else if (flags & RTF_BLACKHOLE) {
+		nh.type = NEXTHOP_TYPE_BLACKHOLE;
+		nh.bh_type = BLACKHOLE_NULL;
+	} else if (flags & RTF_GATEWAY) {
+		/* Traditional gateway route */
+		if (afi == AFI_IP) {
+			nh.type = NEXTHOP_TYPE_IPV4;
+			nh.gate.ipv4 = gate.sin.sin_addr;
+		} else if (afi == AFI_IP6) {
 			nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
 					  : NEXTHOP_TYPE_IPV6;
 			nh.gate.ipv6 = gate.sin6.sin6_addr;
 			nh.ifindex = ifindex;
 		}
-	} else
+	} else if (gate.sa.sa_family == AF_LINK && ifindex > 0) {
+		/* Interface route identified by AF_LINK gateway */
+		nh.type = NEXTHOP_TYPE_IFINDEX;
+		nh.ifindex = ifindex;
+	} else if (ifnlen) {
+		/* Interface-based route with interface name */
+		nh.type = NEXTHOP_TYPE_IFINDEX;
+		/* Use a placeholder - will be resolved in main thread */
+		nh.ifindex = IFINDEX_INTERNAL;
+	} else if (has_gateway) {
+		/* Connected route - skip for now */
+		return;
+	} else {
+		return;
+	}
+
+	/* Determine operation type */
+	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD || rtm->rtm_type == RTM_CHANGE)
+		op = DPLANE_OP_SYS_ROUTE_ADD;
+	else
+		op = DPLANE_OP_SYS_ROUTE_DELETE;
+
+	/* Allocate and initialize dplane context */
+	ctx = dplane_ctx_alloc();
+	if (!ctx)
 		return;
 
-	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
-	    || rtm->rtm_type == RTM_CHANGE)
-		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
-			&p, NULL, &nh, 0, rt_table_main_id, 0, 0, distance, 0,
-			false);
-	else
-		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
-			   zebra_flags, &p, NULL, &nh, 0, rt_table_main_id, 0,
-			   distance, true);
+	/* Initialize context with basic route info */
+	dplane_ctx_route_init_basic(ctx, op, NULL, NULL, NULL, afi, SAFI_UNICAST);
+
+	/* Set destination prefix explicitly */
+	dplane_ctx_set_dest(ctx, &p);
+
+	/* Set other route attributes */
+	dplane_ctx_set_vrf(ctx, VRF_DEFAULT);
+	dplane_ctx_set_table(ctx, rt_table_main_id);
+	dplane_ctx_set_type(ctx, proto);
+	dplane_ctx_set_distance(ctx, distance);
+	dplane_ctx_set_flags(ctx, zebra_flags);
+
+	/* Store interface name if present (will be resolved in main thread) */
+	if (ifnlen)
+		dplane_ctx_set_ifname(ctx, ifname);
+
+	/* Add nexthop to context */
+	dplane_ctx_set_nexthops(ctx, &nh);
+
+	/* Enqueue context to zebra main thread */
+	dplane_provider_enqueue_to_zebra(ctx);
 }
 
 /* Interface function for the kernel routing table updates.  Support

@@ -5131,6 +5131,59 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
 }
 
 /*
+ * Process system route updates from the dataplane context.
+ * These are routes learned from the kernel that need to be
+ * added to or deleted from the zebra RIB.
+ */
+static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	const struct prefix *prefix = dplane_ctx_get_dest(ctx);
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	struct nexthop_group *ng = NULL;
+	struct nexthop *nexthop;
+	struct route_entry *re = NULL;
+
+	/* Look up interface by name if specified */
+	if (ifname && ifname[0] != '\0') {
+		struct interface *ifp = if_lookup_by_name(ifname, vrf_id);
+
+		if (ifp)
+			ifindex = ifp->ifindex;
+	}
+
+	if (op == DPLANE_OP_SYS_ROUTE_ADD) {
+		/* Create route entry */
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, 0, table, 0, 0, distance,
+					       0);
+
+		/* Create nexthop group and copy nexthops from context */
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, dplane_ctx_get_ng(ctx)->nexthop, NULL);
+
+		/* Resolve IFINDEX_INTERNAL placeholders if we found the interface */
+		if (ifindex > 0) {
+			for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+				if (nexthop->ifindex == IFINDEX_INTERNAL)
+					nexthop->ifindex = ifindex;
+			}
+		}
+
+		rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)prefix, NULL, re, ng, false);
+	} else if (op == DPLANE_OP_SYS_ROUTE_DELETE) {
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, prefix, NULL, NULL, 0,
+			   table, 0, distance, false);
+	}
+}
+
+/*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
@@ -5243,6 +5296,7 @@ static void rib_process_dplane_results(struct event *event)
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
 			case DPLANE_OP_SYS_ROUTE_DELETE:
+				rib_process_sys_route(ctx);
 				break;
 
 			case DPLANE_OP_MAC_INSTALL:
