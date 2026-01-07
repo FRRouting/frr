@@ -1735,6 +1735,9 @@ bgp_connect_success(struct peer_connection *connection)
 	/* Send an open message */
 	bgp_open_send(connection);
 
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return BGP_FSM_SUCCESS;
 }
 
@@ -1789,6 +1792,9 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] BGP OPEN message delayed for %d seconds",
 			   peer->host, peer->delayopen);
+
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
 
 	return BGP_FSM_SUCCESS;
 }
