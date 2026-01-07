@@ -97,15 +97,17 @@ def check_explicit_srv6_sid_allocated(router, expected_file, exact=False):
     assert result is None, "Failed"
 
 
-def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file):
+def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file, prefix):
     logger.info("checking bgp vpn route with SRv6 SIDs in sending end")
-    output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
+    output = json.loads(router.vtysh_cmd(f"show bgp ipv4 vpn {prefix} json"))
     expected = open_json_file("{}/{}".format(CWD, expected_route_file))
     return topotest.json_cmp(output, expected)
 
 
-def check_sent_bgp_vpn_srv6_sid(router, expected_file):
-    func = functools.partial(_check_sent_bgp_vpn_srv6_sid, router, expected_file)
+def check_sent_bgp_vpn_srv6_sid(router, expected_file, prefix="192.168.1.0/24"):
+    func = functools.partial(
+        _check_sent_bgp_vpn_srv6_sid, router, expected_file, prefix
+    )
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
 
@@ -144,22 +146,28 @@ def check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_file):
     assert result is None, "Failed"
 
 
-def _check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_route_file):
+def _check_rcvd_zebra_vrf_srv6_sid(
+    router, vrf_name, expected_route_file, prefix, family
+):
     logger.info(
-        "checking zebra vrf {} ipv4 route with SRv6 SIDs in receiving end".format(
-            vrf_name
+        "checking zebra vrf {} {} route with SRv6 SIDs in receiving end".format(
+            vrf_name, family
         )
     )
     output = json.loads(
-        router.vtysh_cmd("show ip route vrf {} 192.168.1.0/24 json".format(vrf_name))
+        router.vtysh_cmd(
+            "show {} route vrf {} {} json".format(family, vrf_name, prefix)
+        )
     )
     expected = open_json_file("{}/{}".format(CWD, expected_route_file))
     return topotest.json_cmp(output, expected)
 
 
-def check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_file):
+def check_rcvd_zebra_vrf_srv6_sid(
+    router, vrf_name, expected_file, prefix="192.168.1.0/24", family="ip"
+):
     func = functools.partial(
-        _check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file
+        _check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file, prefix, family
     )
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
@@ -429,6 +437,16 @@ def test_explicit_srv6_sid_explicit_wide_index_1():
     )
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_wide_allocated_1.json"
+    )
+    check_rcvd_zebra_vrf_srv6_sid(
+        router,
+        "default",
+        "expected_allocated_srv6_sid_seg6local_wide_1.json",
+        "2001:db8:3:fff7:fe4b::/128",
+        "ipv6",
+    )
+    check_sent_bgp_vpn_srv6_sid(
+        router, "expected_sent_bgp_vpn_srv6_sid_wide_1.json", "192.168.3.0/24"
     )
 
 
