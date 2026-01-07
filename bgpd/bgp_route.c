@@ -6562,11 +6562,14 @@ void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi, bool force)
 	 * Ignore if subgroup doesn't exist (implies AF is not negotiated)
 	 * or a refresh has already been triggered.
 	 */
-	if (!subgrp || paf->t_announce_route)
+	if (!subgrp)
 		return;
 
 	if (force)
 		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
+	if (paf->t_announce_route)
+		return;
 
 	/*
 	 * Start a timer to stagger/delay the announce. This serves
