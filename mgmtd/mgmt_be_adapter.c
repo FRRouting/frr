@@ -501,6 +501,9 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 	for (uint j = 0; j < msg->nrpc; j++)
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+
+	zlog_notice("Backend daemon: %s registers with mgmtd (client-id: %u)", adapter->name,
+		    adapter->id);
 done:
 	darr_free_free(s);
 }
@@ -727,7 +730,7 @@ static void be_adapter_conn_init(struct event *event)
 		/* Deal with a disconnect happening */
 		if (id >= darr_len(mgmt_be_adapters_by_id) || !mgmt_be_adapters_by_id[id])
 			return;
-		_log_err("Couldn't send initial config to adapter: %s", adapter->name);
+		_log_warn("Couldn't send initial config to adapter: %s will retry", adapter->name);
 		be_adapter_sched_init_event(adapter);
 	}
 }
