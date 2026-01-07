@@ -110,9 +110,9 @@ module frr-eigrpd {
     description "EIGRP daemon configuration";
 
     list instance {
+      must "count(../instance[vrf =current()/vrf]) = 1";
       key "asn vrf";
       description "EIGRP autonomous system instance";
-      must "count(../instance[vrf =current()/vrf]) = 1";
       leaf asn {
         type autonomous-system;
         description "Autonomous System Number";
