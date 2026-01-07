@@ -22,11 +22,14 @@
 #include "lib/ns.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_errors.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_dplane.h"
 #include "lib/netlink_parser.h"
+#include "lib/lib_errors.h"
+
 
 /**
  * This file provides an implementation of the functionality exposed by the
@@ -61,22 +64,22 @@ static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	const char *family;
 
 	if (h->nlmsg_type != GENL_ID_CTRL) {
-		zlog_err(
-			"Not a controller message, nlmsg_len=%d nlmsg_type=0x%x",
-			h->nlmsg_len, h->nlmsg_type);
+		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
+			 "Not a controller message, nlmsg_len=%d nlmsg_type=0x%x", h->nlmsg_len,
+			 h->nlmsg_type);
 		return 0;
 	}
 
 	len = h->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN);
 	if (len < 0) {
-		zlog_err(
-			"Message received from netlink is of a broken size %d %zu",
-			h->nlmsg_len, (size_t)NLMSG_LENGTH(GENL_HDRLEN));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "Message received from netlink is of a broken size %d %zu", h->nlmsg_len,
+			 (size_t)NLMSG_LENGTH(GENL_HDRLEN));
 		return -1;
 	}
 
 	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
-		zlog_err("Unknown controller command %d", ghdr->cmd);
+		flog_err(EC_ZEBRA_UNKNOWN_NLMSG, "Unknown controller command %d", ghdr->cmd);
 		return -1;
 	}
 
@@ -84,12 +87,12 @@ static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	netlink_parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
 
 	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
-		zlog_err("Missing family id TLV");
+		flog_err(EC_ZEBRA_NETLINK_INVALID_AF, "Missing family id TLV");
 		return -1;
 	}
 
 	if (tb[CTRL_ATTR_FAMILY_NAME] == NULL) {
-		zlog_err("Missing family name TLV");
+		flog_err(EC_ZEBRA_NETLINK_INVALID_AF, "Missing family name TLV");
 		return -1;
 	}
 
@@ -100,8 +103,8 @@ static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			*(int16_t *)RTA_DATA(tb[CTRL_ATTR_FAMILY_ID]);
 	else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_err("Unsupported Generic Netlink family '%s'",
-				 family);
+			flog_err(EC_ZEBRA_NETLINK_INVALID_AF,
+				 "Unsupported Generic Netlink family '%s'", family);
 		return -1;
 	}
 
@@ -147,8 +150,8 @@ ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	struct genl_request *req = buf;
 
 	if (seg6_genl_family < 0) {
-		zlog_err(
-			"Failed to set SRv6 source address: kernel does not support 'SEG6' Generic Netlink family.");
+		flog_err(EC_ZEBRA_NETLINK_NOT_AVAILABLE,
+			 "Failed to set SRv6 source address: kernel does not support 'SEG6' Generic Netlink family.");
 		return -1;
 	}
 
@@ -180,7 +183,7 @@ ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 			return 0;
 		break;
 	default:
-		zlog_err("Unsupported command (%u)", cmd);
+		flog_err(EC_ZEBRA_UNKNOWN_NLMSG, "Unsupported command (%u)", cmd);
 		return -1;
 	}
 
@@ -208,7 +211,8 @@ ssize_t netlink_sr_tunsrc_set_msg_encoder(struct zebra_dplane_ctx *ctx,
 		cmd = SEG6_CMD_SET_TUNSRC;
 	} else {
 		/* Invalid op */
-		zlog_err("Context received for kernel sr tunsrc update with incorrect OP code (%u)",
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "Context received for kernel sr tunsrc update with incorrect OP code (%u)",
 			 op);
 		return -1;
 	}
@@ -269,7 +273,7 @@ int netlink_sr_tunsrc_reply_read(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	netlink_parse_rtattr(tb, SEG6_ATTR_MAX, attrs, len);
 
 	if (tb[SEG6_ATTR_DST] == NULL) {
-		zlog_err("Missing tunsrc addr");
+		flog_err(EC_ZEBRA_SRV6_NETLINK_MISSING_ATTR, "Missing tunsrc addr");
 		return -1;
 	}
 
@@ -298,8 +302,8 @@ static int netlink_request_sr_tunsrc(struct zebra_ns *zns)
 		return -1;
 
 	if (seg6_genl_family < 0) {
-		zlog_err(
-			"Failed to get SRv6 encap source address: kernel does not support 'SEG6' Generic Netlink family.");
+		flog_err(EC_ZEBRA_NETLINK_NOT_AVAILABLE,
+			 "Failed to get SRv6 encap source address: kernel does not support 'SEG6' Generic Netlink family.");
 		return -1;
 	}
 

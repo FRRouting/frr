@@ -107,6 +107,9 @@ struct bgp_dest {
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
+
+	/* Multipath information */
+	struct bgp_path_info_mpath *mpath;
 };
 
 DECLARE_LIST(zebra_announce, struct bgp_dest, zai);

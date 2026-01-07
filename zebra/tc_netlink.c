@@ -721,10 +721,9 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
 
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
 		return -1;
 	}
 
@@ -790,10 +789,9 @@ int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
 
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
 		return -1;
 	}
 
@@ -826,10 +824,9 @@ int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
 
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
 		return -1;
 	}
 

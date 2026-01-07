@@ -177,9 +177,8 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 
 void bgp_session_reset(struct peer *peer)
 {
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted) &&
-	    !(CHECK_FLAG(peer->doppelganger->flags, PEER_FLAG_CONFIG_NODE)))
+	if (peer->doppelganger && (peer->doppelganger->connection->status != Deleted) &&
+	    !peer_is_config_node(peer->doppelganger))
 		peer_delete(peer->doppelganger);
 
 	BGP_EVENT_ADD(peer->connection, BGP_Stop);
@@ -199,9 +198,8 @@ void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
 	n = (nnode) ? *nnode : NULL;
 	npeer = (n) ? listgetdata(n) : NULL;
 
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted) &&
-	    !(CHECK_FLAG(peer->doppelganger->flags, PEER_FLAG_CONFIG_NODE))) {
+	if (peer->doppelganger && (peer->doppelganger->connection->status != Deleted) &&
+	    !peer_is_config_node(peer->doppelganger)) {
 		if (peer->doppelganger == npeer)
 			/* nnode and *nnode are confirmed to be non-NULL here */
 			*nnode = (*nnode)->next;
@@ -1019,8 +1017,7 @@ static bool connection_hash_same(const void *p1, const void *p2)
 	const struct peer *peer2 = c2->peer;
 
 	return (sockunion_same(&c1->su, &c2->su) &&
-		CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE) ==
-			CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
+		peer_is_config_node(peer1) == peer_is_config_node(peer2));
 }
 
 void peer_flag_inherit(struct peer *peer, uint64_t flag)
@@ -1224,7 +1221,7 @@ void bgp_peer_connection_free(struct peer_connection **connection)
 	connection = NULL;
 }
 
-const char *bgp_peer_get_connection_direction(struct peer_connection *connection)
+const char *bgp_peer_get_connection_direction_string(const struct peer_connection *connection)
 {
 	switch (connection->dir) {
 	case UNKNOWN:
@@ -1317,8 +1314,7 @@ static void peer_free(struct peer *peer)
 	assert(!connection->t_read);
 
 	/* Free connected nexthop, if present */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
-	    && !peer_dynamic_neighbor(peer))
+	if (peer_is_config_node(peer) && !peer_dynamic_neighbor(peer))
 		bgp_delete_connected_nexthop(family2afi(connection->su.sa.sa_family), peer);
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -2179,7 +2175,7 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct peer *peer;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (peer->afc[afi][safi])
@@ -2799,7 +2795,7 @@ int peer_delete(struct peer *peer)
 		zlog_debug("%s: peer %pBP", __func__, peer);
 
 	bgp = peer->bgp;
-	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
+	accept_peer = !peer_is_config_node(peer);
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, peer);
 
@@ -2874,11 +2870,10 @@ int peer_delete(struct peer *peer)
 		peer->doppelganger = NULL;
 	}
 
-	UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	bgp_fsm_change_status(peer->connection, Deleted);
 
 	/* Remove from NHT */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+	if (peer_is_config_node(peer))
 		bgp_unlink_nexthop_by_peer(peer);
 
 	/* Password configuration */
@@ -3019,7 +3014,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 {
 	uint64_t flags_tmp;
 	struct peer *conf;
-	bool config_node = !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
+	bool config_node = peer_is_config_node(peer);
 
 	conf = group->conf;
 
@@ -3657,10 +3652,7 @@ peer_init:
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
-		bgp->gr_info[afi][safi].t_select_deferral = NULL;
-		bgp->gr_info[afi][safi].t_route_select = NULL;
-		bgp->gr_info[afi][safi].gr_deferred = 0;
-		bgp->gr_info[afi][safi].select_defer_over = false;
+		memset(&bgp->gr_info[afi][safi], 0, sizeof(struct graceful_restart_info));
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
@@ -4604,19 +4596,16 @@ struct peer *peer_lookup_by_conf_if(struct bgp *bgp, const char *conf_if)
 
 	if (bgp != NULL) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->conf_if && !strcmp(peer->conf_if, conf_if)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
+			if (peer->conf_if && !strcmp(peer->conf_if, conf_if) &&
+			    peer_is_config_node(peer))
 				return peer;
 	} else if (bm->bgp != NULL) {
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->conf_if
-				    && !strcmp(peer->conf_if, conf_if)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
+				if (peer->conf_if && !strcmp(peer->conf_if, conf_if) &&
+				    peer_is_config_node(peer))
 					return peer;
 	}
 	return NULL;
@@ -4632,19 +4621,16 @@ struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname)
 
 	if (bgp != NULL) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->hostname && !strcmp(peer->hostname, hostname)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
+			if (peer->hostname && !strcmp(peer->hostname, hostname) &&
+			    peer_is_config_node(peer))
 				return peer;
 	} else if (bm->bgp != NULL) {
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->hostname
-				    && !strcmp(peer->hostname, hostname)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
+				if (peer->hostname && !strcmp(peer->hostname, hostname) &&
+				    peer_is_config_node(peer))
 					return peer;
 	}
 	return NULL;
@@ -9120,12 +9106,13 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		 bgp_in_graceful_restart(), global_gr_mode, gr_cfgd_at_nbr);
 
 	/*
-	 * If BGP is not in GR
+	 * If BGP is not in GR and startup timer is not running
 	 * OR
 	 * If this VRF doesn't have GR configured at global and neighbor level
 	 * then return
 	 */
-	if (!bgp_in_graceful_restart() || (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
+	if ((!bgp_in_graceful_restart() && !bgp->t_startup) ||
+	    (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
 		return 0;
 
 	/*

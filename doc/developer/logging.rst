@@ -444,6 +444,14 @@ General utility formats
    (This is a GNU extension not specific to FRR.  FRR guarantees it is
    available on all systems in printfrr, though BSDs support it in printf too.)
 
+.. frrfmt:: %pSA (const char **)
+
+   ([S]tring [A]rray.)  Like ``%s``, but prints an array of strings (char *)
+   until a NULL pointer is seen.
+
+   If a length is specified (``%*pSA`` or ``%.*pSA``), it is the number of
+   strings in the array to print.
+
 .. frrfmt:: %pSQ (char *)
 
    ([S]tring [Q]uote.)  Like ``%s``, but produce a quoted string.  Options:

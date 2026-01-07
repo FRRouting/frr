@@ -1046,7 +1046,7 @@ static void bgp_zebra_tm_connect(struct event *t)
 		ret = tm_table_manager_connect(zc);
 	}
 	if (ret < 0) {
-		zlog_err("Error connecting to table manager!");
+		flog_err(EC_BGP_ZEBRA_SEND, "Error connecting to table manager!");
 		bgp_tm_status_connected = false;
 	} else {
 		if (!bgp_tm_status_connected) {
@@ -1642,7 +1642,7 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 	metric = info->attr->med;
 
 	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, dest);
 	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
 					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
 					 do_wt_ecmp);
@@ -2964,7 +2964,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
 				      &afi, &safi)) {
-		zlog_err("%s : error in msg decode", __func__);
+		flog_err(EC_BGP_ZEBRA_MSG_DECODE, "%s : error in msg decode", __func__);
 		return -1;
 	}
 
@@ -3591,7 +3591,7 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	zapi_srv6_locator_chunk_decode(s, chunk);
 
 	if (strcmp(bgp->srv6_locator_name, chunk->locator_name) != 0) {
-		zlog_err("%s: Locator name unmatch %s:%s", __func__,
+		flog_err(EC_BGP_SRV6_LOCATOR_MISMATCH, "%s: Locator name unmatch %s:%s", __func__,
 			 bgp->srv6_locator_name, chunk->locator_name);
 		srv6_locator_chunk_free(&chunk);
 		return 0;
@@ -4595,6 +4595,9 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s send capability success", __func__, bgp->name_pretty);
+
+		frrtrace(3, frr_bgp, gr_send_capabilities, bgp->name_pretty, bgp->vrf_id, disable);
+
 		ret = BGP_GR_SUCCESS;
 	}
 	return ret;
@@ -4608,7 +4611,19 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	struct zapi_cap api = {0};
 
-	if (BGP_DEBUG(zebra, ZEBRA))
+	/*
+	 * For non-default VRF do not communicate UPDATE_PENDING or
+	 * UPDATE_COMPLTETE for l2vpn evpn AFI SAFI.
+	 */
+	if (IS_L2VPN_AFI_IN_NON_DEFAULT_VRF(bgp, afi, safi)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s afi: %u safi: %u Command %s ignore", __func__,
+				   bgp->name_pretty, afi, safi, zserv_gr_client_cap_string(type));
+
+		return BGP_GR_SUCCESS;
+	}
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: %s afi: %u safi: %u Command %s", __func__,
 			   bgp->name_pretty, afi, safi,
 			   zserv_gr_client_cap_string(type));
@@ -4640,6 +4655,10 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
+
+	frrtrace(4, frr_bgp, gr_zebra_update, bgp->name_pretty, afi, safi,
+		 zserv_gr_client_cap_string(type));
+
 	return BGP_GR_SUCCESS;
 }
 

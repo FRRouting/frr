@@ -217,11 +217,10 @@ static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
 					       bgp->tcp_keepalive_intvl,
 					       bgp->tcp_keepalive_probes);
 		if (ret < 0)
-			zlog_err(
-				"Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
-				fd, bgp->tcp_keepalive_idle,
-				bgp->tcp_keepalive_intvl,
-				bgp->tcp_keepalive_probes);
+			flog_err(EC_LIB_SOCKET,
+				 "Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
+				 fd, bgp->tcp_keepalive_idle, bgp->tcp_keepalive_intvl,
+				 bgp->tcp_keepalive_probes);
 	}
 }
 
@@ -522,7 +521,8 @@ static void bgp_accept(struct event *event)
 
 			if (bgp_set_socket_ttl(incoming) < 0) {
 				peer_set_last_reset(dynamic_peer, PEER_DOWN_SOCKET_ERROR);
-				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
+				flog_err(EC_BGP_TTL_SECURITY_FAIL,
+					 "%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
 				frrtrace(3, frr_bgp, bgp_err_str, dynamic_peer->host,
 					 dynamic_peer->flags, 1);
@@ -685,7 +685,6 @@ static void bgp_accept(struct event *event)
 	bgp_fsm_change_status(incoming, Active);
 	event_cancel(&incoming->t_start); /* created in peer_create() */
 
-	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
 	if (peer_established(connection) && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful

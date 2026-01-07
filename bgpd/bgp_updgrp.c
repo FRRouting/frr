@@ -2032,7 +2032,7 @@ void update_group_adjust_peer(struct peer_af *paf)
 		return;
 	}
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)) {
+	if (!peer_is_config_node(peer)) {
 		return;
 	}
 

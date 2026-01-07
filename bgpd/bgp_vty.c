@@ -11107,7 +11107,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
-	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
 	safi_t safi;
 	afi_t afi;
 
@@ -11156,35 +11155,13 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
-	if (!vrf_bgp) {
-		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
-			vrf_bgp = bgp_default;
-		} else {
-			as = AS_UNSPECIFIED;
-
-			/* Auto-create with AS_UNSPECIFIED, fill in later */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
-					  NULL, ASNOTATION_UNDEFINED);
-			if (ret) {
-				vty_out(vty,
-					"VRF %s is not configured as a bgp instance\n",
-					import_name);
-				return CMD_WARNING;
-			}
-
-			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
-
-			/* Auto created VRF instances should be marked
-			 * properly, otherwise we have a state after bgpd
-			 * restart where VRF instance has default VRF's ASN.
-			 */
-			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
-		}
-	}
+	if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 
 	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	} else {
 		/* Already importing from "import_vrf"? */
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
@@ -11193,7 +11170,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 				return CMD_WARNING;
 		}
 
-		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	}
 
 	return CMD_SUCCESS;
@@ -11983,7 +11960,7 @@ static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 
 	*peers_cfgd = *peers_estbd = 0;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 		(*peers_cfgd)++;
 		if (peer_established(peer->connection))
@@ -12798,7 +12775,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12824,7 +12801,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12882,7 +12859,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	filtered_count = 0;
 	dn_count = 0;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer->afc[afi][safi])
@@ -14050,6 +14027,20 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
+
+			if (peer->bgp->gr_multihop_peer_exists) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2Timer",
+							    peer->bgp->select_defer_time);
+
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2TimerRemaining",
+							    event_timer_remain_second(
+								    peer->bgp->gr_info[afi][safi]
+									    .t_select_deferral_tier2));
+			}
 		} else {
 			vty_out(vty, "      Timers:\n");
 			vty_out(vty,
@@ -14080,6 +14071,15 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
+			if (peer->bgp->gr_multihop_peer_exists) {
+				vty_out(vty, "        Multihop GR peer exists\n");
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					vty_out(vty,
+						"        Selection Deferral Tier2 Time Remaining(sec): %ld\n",
+						event_timer_remain_second(
+							peer->bgp->gr_info[afi][safi]
+								.t_select_deferral_tier2));
+			}
 		}
 		if (json) {
 			json_object_object_add(json_afi_safi, "endOfRibStatus",
@@ -16858,7 +16858,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp, enum show_type ty
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		switch (type) {
@@ -19660,21 +19660,26 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			" neighbor %s path-attribute treat-as-withdraw %s\n",
 			addr, withdraw_attrs_str);
 
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
-				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
-			if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-				       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
-				vty_out(vty, " neighbor %s graceful-restart-helper\n", addr);
-			} else if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-					      PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
-				vty_out(vty, " neighbor %s graceful-restart\n", addr);
-			} else if ((!(CHECK_FLAG(peer->peer_gr_new_status_flag,
-						 PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) &&
-				    !(CHECK_FLAG(peer->peer_gr_new_status_flag,
-						 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
-				vty_out(vty, " neighbor %s graceful-restart-disable\n", addr);
-			}
+	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
+			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
+
+		if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+			       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
+			vty_out(vty,
+				" neighbor %s graceful-restart-helper\n", addr);
+		} else if (CHECK_FLAG(
+				   peer->peer_gr_new_status_flag,
+				   PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
+			vty_out(vty,
+				" neighbor %s graceful-restart\n", addr);
+		} else if (
+			(!(CHECK_FLAG(peer->peer_gr_new_status_flag,
+				      PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
+			 && !(CHECK_FLAG(
+				 peer->peer_gr_new_status_flag,
+				 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
+			vty_out(vty, " neighbor %s graceful-restart-disable\n",
+				addr);
 		}
 	}
 
@@ -20057,9 +20062,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				       PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
-		    peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer_is_config_node(peer) &&
+		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
@@ -20067,7 +20071,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		/* Do not display doppelganger peers */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bgp_config_write_peer_af(vty, bgp, peer, afi, safi);
 	}
 
@@ -20602,7 +20606,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* Normal neighbor configuration. */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (peer_is_config_node(peer))
 				bgp_config_write_peer_global(vty, bgp, peer);
 		}
 
@@ -20913,7 +20917,7 @@ static void bgp_config_finish(struct event *t)
 
 static void bgp_config_end_timeout(struct event *t)
 {
-	zlog_err("BGP configuration end timer expired after %d seconds.",
+	flog_err(EC_BGP_CONFIG_TIMEOUT, "BGP configuration end timer expired after %d seconds.",
 		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
 	bgp_config_finish(t);
 }
