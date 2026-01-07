@@ -103,7 +103,8 @@ struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
 	struct bgp_advertise_attr ref;
 	struct bgp_advertise_attr *baa;
 
-	ref.attr = bgp_attr_intern(attr);
+	/* The attr is already intern'ed */
+	ref.attr = attr;
 	baa = (struct bgp_advertise_attr *)hash_get(
 		hash, &ref, bgp_advertise_attr_hash_alloc);
 	baa->refcnt++;

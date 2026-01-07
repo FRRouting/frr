@@ -69,9 +69,6 @@ struct bgp_adj_out {
 
 	uint32_t addpath_tx_id;
 
-	/* Attribute hash */
-	uint32_t attr_hash;
-
 	/* Advertised attribute.  */
 	struct attr *attr;
 
