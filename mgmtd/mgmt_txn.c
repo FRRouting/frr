@@ -45,6 +45,7 @@ struct txn_req_rpc {
 	uint64_t clients;      /* Bitmask of clients sent req to */
 	uint64_t clients_wait; /* Bitmask of clients waiting for reply from */
 	uint8_t result_type;   /* LYD_FORMAT for results */
+	uint8_t restconf;      /* if restconf formatted data */
 	struct lyd_node *client_results; /* result tree from clients */
 };
 #define as_rpc(txn_req)                                                                           \
@@ -232,7 +233,8 @@ void mgmt_txn_handle_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	uint64_t txn_id = data_msg->refer_id;
 	uint64_t req_id = data_msg->req_id;
 
-	enum mgmt_be_client_id id = adapter->id;
+	mgmt_be_client_id_t id = adapter->id;
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	struct mgmt_txn *txn = txn_lookup(txn_id);
 	struct txn_req *txn_req;
 	struct txn_req_get_tree *get_tree;
@@ -255,8 +257,12 @@ void mgmt_txn_handle_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	get_tree = as_get_tree(txn_req);
 
 	/* store the result */
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+	if (data_msg->result_type == LYD_LYB)
+		parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
 	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data_msg->result,
-				 data_msg->result_type, LYD_PARSE_STRICT | LYD_PARSE_ONLY,
+				 data_msg->result_type, parse_options,
 				 0 /*LYD_VALIDATE_OPERATIONAL*/, &tree);
 	if (err) {
 		_log_err("GETTREE reply from %s for txn-id %" PRIu64 " req_id %" PRIu64
@@ -302,7 +308,7 @@ int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	struct mgmt_msg_get_tree *msg;
 	struct txn_req_get_tree *get_tree;
 	struct mgmt_txn *txn;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	ssize_t slen = strlen(xpath);
 	int ret;
 
@@ -389,8 +395,13 @@ state:
 	msg->refer_id = txn_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_TREE;
+#if (LY_VERSION_MAJOR < 4)
 	/* Always operate with the binary format in the backend */
 	msg->result_type = LYD_LYB;
+#else
+	/* Libyang4 has severe restrictions on LYB so we can't use it anymore */
+	msg->result_type = result_type;
+#endif
 	strlcpy(msg->xpath, xpath, slen + 1);
 
 	assert(clients);
@@ -433,7 +444,8 @@ static void txn_rpc_done(struct txn_req_rpc *rpc)
 					  txn_req->err_info);
 	else
 		mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id, req_id,
-					       rpc->result_type, rpc->client_results);
+					       rpc->result_type, rpc->restconf,
+					       rpc->client_results);
 
 	/* we're done with the request */
 	txn_req_free(txn_req);
@@ -468,7 +480,7 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 {
 	uint64_t txn_id = reply_msg->refer_id;
 	uint64_t req_id = reply_msg->req_id;
-	enum mgmt_be_client_id id = adapter->id;
+	mgmt_be_client_id_t id = adapter->id;
 	struct mgmt_txn *txn = txn_lookup(txn_id);
 	struct txn_req *txn_req;
 	struct txn_req_rpc *rpc;
@@ -521,13 +533,13 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 }
 
 void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_FORMAT result_type,
-		       const char *xpath, const char *data, size_t data_len)
+		       bool restconf, const char *xpath, const char *data, size_t data_len)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_txn *txn;
 	struct mgmt_msg_rpc *msg;
 	struct txn_req_rpc *rpc;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	int ret;
 
 	txn = txn_lookup(txn_id);
@@ -536,6 +548,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	rpc = txn_req_rpc_alloc(txn, req_id);
 	rpc->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
 	rpc->result_type = result_type;
+	rpc->restconf = restconf;
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
 					MTYPE_MSG_NATIVE_RPC);
@@ -543,6 +556,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_RPC;
 	msg->request_type = result_type;
+	msg->restconf = restconf;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 	if (data)
@@ -578,7 +592,7 @@ void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_notify_select *msg;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	char **all_selectors = NULL;
 	uint i;
 
@@ -793,18 +807,17 @@ int mgmt_txn_handle_be_adapter_connect(struct mgmt_be_client_adapter *adapter, b
 	struct mgmt_txn *txn, *next;
 
 	if (connect)
-		txn_cfg_be_client_connect(adapter);
-	else {
-		/*
-		 * Check if any transaction is currently on-going that
-		 * involves this backend client. If so check if we can now
-		 * advance that configuration.
-		 */
-		TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
-			/* XXX update to handle get-tree and RPC too! */
-			if (txn->type == MGMTD_TXN_TYPE_CONFIG)
-				txn_cfg_txn_be_client_disconnect(txn, adapter);
-		}
+		return txn_cfg_be_client_connect(adapter);
+
+	/*
+	 * Disconnecting: check if any transaction is currently on-going that
+	 * involves this backend client. If so check if we can now advance that
+	 * transaction.
+	 */
+	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
+		/* XXX update to handle get-tree and RPC too! */
+		if (txn->type == MGMTD_TXN_TYPE_CONFIG)
+			txn_cfg_txn_be_client_disconnect(txn, adapter);
 	}
 
 	return 0;
@@ -840,11 +853,12 @@ void mgmt_txn_init(void)
 void mgmt_txn_destroy(void)
 {
 	struct mgmt_txn *txn, *next;
+	struct txn_req *txn_req, *next_req;
 
 	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
-		/* Free all txn_reqs associated with this txn */
-		while (!TAILQ_EMPTY(&txn->reqs))
-			txn_req_free(TAILQ_FIRST(&txn->reqs));
+		/* Free all txn_reqs associated with this txn -- pop-first-free trips up coverity */
+		TAILQ_FOREACH_SAFE (txn_req, &txn->reqs, link, next_req)
+			txn_req_free(txn_req);
 		assert(txn->refcount == 1);
 		TXN_DECREF(txn);
 	}

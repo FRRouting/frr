@@ -154,6 +154,24 @@ module frr-zebra {
       "Zebra interface type gre.";
   }
 
+  identity zif-ip6gre {
+    base zebra-interface-type;
+    description
+      "Zebra interface type ip6gre.";
+  }
+
+  identity zif-gretap {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gretap.";
+  }
+
+  identity zif-ip6gretap {
+    base zebra-interface-type;
+    description
+      "Zebra interface type ip6gretap.";
+  }
+
   identity zif-dummy {
     base zebra-interface-type;
     description

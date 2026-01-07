@@ -188,6 +188,7 @@ int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal
 		if (!cmp) {
 			if (equal)
 				*equal = true;
+			assert(mid >= -1);
 			return mid;
 		} else if (cmp < 0) {
 			floor = mid;
@@ -197,6 +198,7 @@ int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal
 		}
 	}
 
+	assert(floor >= -1);
 	return floor;
 #undef _a_at
 }
@@ -215,12 +217,13 @@ int _darr_search(const void *a, size_t esize, const void *key, darr_search_cmpf 
 uint _darr_search_ceil(const void *a, size_t esize, const void *key, bool *equal,
 		       darr_search_cmpf cmpf)
 {
-	uint i;
+	int i;
 
 	i = _darr_search_floor(a, esize, key, equal, cmpf);
+	assert(i >= -1);
 	if (*equal)
-		return i;
-	return i + 1;
+		return (uint)i;
+	return (uint)(i + 1);
 }
 
 int darr_strings_cmp(const char **a, const char *key)

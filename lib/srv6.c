@@ -8,6 +8,7 @@
 
 #include "srv6.h"
 #include "log.h"
+#include "lib/json.h"
 
 DEFINE_QOBJ_TYPE(srv6_locator);
 DEFINE_QOBJ_TYPE(srv6_sid_format);

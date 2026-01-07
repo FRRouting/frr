@@ -50,7 +50,7 @@
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_script.h"
 #include "bgpd/bgp_encap_types.h"
-
+#include "bgpd/bgp_errors.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
@@ -429,8 +429,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	struct frrscript *fs = frrscript_new(scriptname);
 
 	if (frrscript_load(fs, routematch_function, NULL)) {
-		zlog_err(
-			"Issue loading script or function; defaulting to no match");
+		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
+			 "Issue loading script or function; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
@@ -444,7 +444,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE));
 
 	if (result) {
-		zlog_err("Issue running script rule; defaulting to no match");
+		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
+			 "Issue running script rule; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
@@ -454,9 +455,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 
 	switch (*action) {
 	case LUA_RM_FAILURE:
-		zlog_err(
-			"Executing route-map match script '%s' failed; defaulting to no match",
-			scriptname);
+		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
+			 "Executing route-map match script '%s' failed; defaulting to no match",
+			 scriptname);
 		status = RMAP_NOMATCH;
 		break;
 	case LUA_RM_NOMATCH:
@@ -1699,6 +1700,56 @@ static const struct route_map_rule_cmd route_match_aspath_cmd = {
 	route_match_aspath_free
 };
 
+/* `match as-path-count' */
+
+/* Match function should return :
+ * - RMAP_MATCH if the bgp update aspath  count
+ * is less or equal to the configured limit.
+ * - RMAP_NOMATCH if the aspath count is greater than the
+ * configured limit.
+ */
+static enum route_map_cmd_result_t route_match_aspath_count(void *rule, const struct prefix *prefix,
+							    void *object)
+{
+	struct bgp_path_info *path = object;
+	uint16_t count = 0;
+	uint16_t *limit_rule = rule;
+
+	count = path->attr->aspath->count;
+
+	if (count <= *limit_rule)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `as-path-count' match statement. */
+static void *route_match_aspath_count_compile(const char *arg)
+{
+	uint16_t *count = NULL;
+	char *end = NULL;
+
+	count = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint16_t));
+	*count = strtoul(arg, &end, 10);
+	if (*end != '\0') {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, count);
+		return NULL;
+	}
+	return count;
+}
+
+/* Free route map's compiled `as-path-count' value. */
+static void route_match_aspath_count_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for as-path-count matching. */
+static const struct route_map_rule_cmd route_match_aspath_count_cmd = {
+	"as-path-count", route_match_aspath_count, route_match_aspath_count_compile,
+	route_match_aspath_count_free
+};
+
 /* `match community COMMUNIY' */
 struct rmap_community {
 	char *name;
@@ -2282,7 +2333,7 @@ static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 
 /* Set nexthop to object */
 struct rmap_l3vpn_nexthop_encapsulation_set {
-	uint8_t protocol;
+	enum zebra_iftype zif_type;
 };
 
 static enum route_map_cmd_result_t
@@ -2294,10 +2345,11 @@ route_set_l3vpn_nexthop_encapsulation(void *rule, const struct prefix *prefix,
 
 	path = object;
 
-	if (rins->protocol != IPPROTO_GRE)
-		return RMAP_OKAY;
+	if (rins->zif_type == ZEBRA_IF_GRE)
+		SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
+	if (rins->zif_type == ZEBRA_IF_GRETAP)
+		SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRETAP);
 
-	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
 	return RMAP_OKAY;
 }
 
@@ -2309,8 +2361,13 @@ static void *route_set_l3vpn_nexthop_encapsulation_compile(const char *arg)
 	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
 		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
 
-	/* XXX ALL GRE modes are accepted for now: gre or ip6gre */
-	rins->protocol = IPPROTO_GRE;
+	/* GRE IPv4 and IPv6 modes are covered under gre keyword
+	 * GRETAP IPv4 and IPv6 modes are covered under gretap keyword
+	 */
+	if (strmatch(arg, "gretap"))
+		rins->zif_type = ZEBRA_IF_GRETAP;
+	else
+		rins->zif_type = ZEBRA_IF_GRE;
 
 	return rins;
 }
@@ -3419,7 +3476,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return RMAP_OKAY;
 
-		bw_bytes = bgp_path_info_mpath_cumbw(path);
+		bw_bytes = bgp_path_info_mpath_cumbw(path->net);
 		if (!bw_bytes)
 			return RMAP_OKAY;
 
@@ -3430,7 +3487,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 			return RMAP_OKAY;
 
 		bw_bytes = (peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
-		mpath_count = bgp_path_info_mpath_count(path);
+		mpath_count = bgp_path_info_mpath_count(path->net);
 		bw_bytes *= mpath_count;
 	}
 
@@ -6174,6 +6231,27 @@ DEFUN_YANG (no_match_aspath,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG(
+	match_aspath_count, match_aspath_count_cmd,
+	"[no$no] match as-path-count ![(0-1028)$count]",
+	NO_STR
+	MATCH_STR
+	"Match BGP AS path count\n"
+	"AS path count number\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:match-as-path-count']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:as-path-count", xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, count_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 DEFUN_YANG (match_origin,
 	    match_origin_cmd,
 	    "match origin <egp|igp|incomplete>",
@@ -6342,12 +6420,13 @@ DEFUN_YANG (no_set_distance,
 }
 
 DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
-	   "[no] set l3vpn next-hop encapsulation gre",
+	   "[no] set l3vpn next-hop encapsulation <gre|gretap>$ziftype",
 	   NO_STR SET_STR
 	   "L3VPN operations\n"
 	   "Next hop Information\n"
 	   "Encapsulation options (for BGP only)\n"
-	   "Accept L3VPN traffic over GRE encapsulation\n")
+	   "Accept L3VPN traffic over GRE encapsulation\n"
+	   "Accept L3VPN traffic over GRETAP encapsulation\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']";
@@ -6364,7 +6443,7 @@ DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
 	if (operation == NB_OP_DESTROY)
 		return nb_cli_apply_changes(vty, NULL);
 
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "gre");
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ziftype);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -8182,6 +8261,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_source_protocol_cmd);
 	route_map_install_match(&route_match_ip_route_source_prefix_list_cmd);
 	route_map_install_match(&route_match_aspath_cmd);
+	route_map_install_match(&route_match_aspath_count_cmd);
 	route_map_install_match(&route_match_community_cmd);
 	route_map_install_match(&route_match_lcommunity_cmd);
 	route_map_install_match(&route_match_ecommunity_cmd);
@@ -8263,6 +8343,7 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);
+	install_element(RMAP_NODE, &match_aspath_count_cmd);
 	install_element(RMAP_NODE, &match_local_pref_cmd);
 	install_element(RMAP_NODE, &no_match_local_pref_cmd);
 	install_element(RMAP_NODE, &match_alias_cmd);

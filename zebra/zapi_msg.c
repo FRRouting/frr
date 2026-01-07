@@ -42,6 +42,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_trace.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_tc.h"
 #include "zebra/table_manager.h"
@@ -52,6 +53,7 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_neigh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -77,6 +79,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, ifp->mtu6);
 	stream_putl(s, ifp->bandwidth);
 	stream_putl(s, zif->link_ifindex);
+	stream_putl(s, ifp->zif_type);
 	stream_putl(s, ifp->ll_type);
 	stream_putl(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
@@ -2045,6 +2048,8 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	frrtrace(2, frr_zebra, zread_nhg_del, api_nhg.id, api_nhg.proto);
+
 	/* Sanity check - Empty nexthop and group */
 	nhe->nhg.nexthop = NULL;
 
@@ -2318,6 +2323,11 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
 			   __func__, zvrf_id(zvrf), table_id, &api.prefix,
 			   (int)api.message, api.flags);
+
+	char lttng_buf_prefix[PREFIX_STRLEN] = { 0 };
+
+	prefix2str(&api.prefix, lttng_buf_prefix, sizeof(lttng_buf_prefix));
+	frrtrace(3, frr_zebra, zread_route_del, api, lttng_buf_prefix, table_id);
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
@@ -3197,7 +3207,8 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 		zread_srv6_manager_get_locator(client, msg);
 		break;
 	default:
-		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		flog_err(EC_ZEBRA_SRV6_MANAGER_UNKNOWN_COMMAND, "%s: unknown SRv6 Manager command",
+			 __func__);
 		break;
 	}
 }
@@ -3769,6 +3780,66 @@ stream_failure:
 	return;
 }
 
+/* Send neighbor info to client */
+static void zsend_neighbor(struct zserv *client, struct interface *ifp,
+			   struct zebra_neigh_ent *neigh)
+{
+	struct stream *s;
+	union sockunion ip, lladdr;
+
+	/* Convert ipaddr to sockunion */
+	sockunion_family(&ip) = neigh->ip.ipa_type;
+	if (neigh->ip.ipa_type == AF_INET)
+		memcpy(&ip.sin.sin_addr, &neigh->ip.ipaddr_v4, sizeof(struct in_addr));
+	else
+		memcpy(&ip.sin6.sin6_addr, &neigh->ip.ipaddr_v6, sizeof(struct in6_addr));
+
+	/* Convert lladdr to sockunion */
+	sockunion_family(&lladdr) = AF_UNSPEC;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	zclient_neigh_ip_encode(s, ZEBRA_NEIGH_ADDED, &ip, &lladdr, ifp,
+				ZEBRA_NEIGH_STATE_REACHABLE, 0);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+}
+
+static void zebra_neigh_get(ZAPI_HANDLER_ARGS)
+{
+	ifindex_t ifindex;
+	struct interface *ifp;
+	struct zebra_neigh_ent *n;
+	afi_t afi;
+
+	STREAM_GETL(msg, ifindex);
+	STREAM_GETW(msg, afi);
+
+	if (!(IS_VALID_AFI(afi))) {
+		zlog_warn("Failed to get neighbors: invalid AFI %u", afi);
+		return;
+	}
+
+	ifp = if_lookup_by_index(ifindex, zvrf_id(zvrf));
+	if (!ifp) {
+		zlog_warn("Failed to get neighbors: interface with index %u not found", ifindex);
+		return;
+	}
+
+	/* Send all neighbors for this interface */
+	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
+		if (n->ifindex != ifindex)
+			continue;
+
+		if ((afi == AFI_IP && n->ip.ipa_type != AF_INET) ||
+		    (afi == AFI_IP6 && n->ip.ipa_type != AF_INET6))
+			continue;
+
+		zsend_neighbor(client, ifp, n);
+	}
+
+stream_failure:
+	return;
+}
 
 static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 {
@@ -3825,6 +3896,7 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
 
 	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
+		/* XXX TODO: other tunnels kinds should be handled */
 		gre_info = &zebra_if->l2info.gre;
 
 		stream_putl(s, idx);
@@ -4018,6 +4090,7 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
+	/* XXX TODO: other tunnels kinds should be handled */
 	if (!IS_ZEBRA_IF_GRE(ifp))
 		return;
 
@@ -4159,6 +4232,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
 	[ZEBRA_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_NEIGH_GET] = zebra_neigh_get,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,

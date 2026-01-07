@@ -84,6 +84,7 @@ dev_RSTFILES = \
 	doc/developer/northbound/yang-module-translator.rst \
 	doc/developer/northbound/yang-tools.rst \
 	doc/developer/sbfd.rst \
+	doc/developer/zebra-neigh-api.rst \
 	# end
 
 EXTRA_DIST += \

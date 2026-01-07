@@ -64,6 +64,8 @@ extern void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
 		   va_list ap) PRINTFRR(3, 0);
 #define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
+extern void ezlog(int prio, const char *fmt, ...) PRINTFRR(2, 3);
+
 PRINTFRR(2, 3)
 static inline void zlog(int prio, const char *fmt, ...)
 {

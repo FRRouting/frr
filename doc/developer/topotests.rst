@@ -44,6 +44,7 @@ Installing Topotest Requirements
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
    python3 -m pip install 'scapy>=2.4.5'
+   python3 -m pip install 'libyang<4'
    python3 -m pip install pyyaml xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp

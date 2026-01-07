@@ -13,7 +13,7 @@ retransmission.
 Sparse Link State Database (LSDB)
 ---------------------------------
 
-When an explicit or implied acknowledgment is recieved from a
+When an explicit or implied acknowledgment is received from a
 neighbor in 2-way state or higher, the acknowledge LSA must be
 removed from the neighbor's link state retransmission list. In order
 to do this efficiently, a sparse LSDB is utilized. LSDB entries also

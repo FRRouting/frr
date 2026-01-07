@@ -152,6 +152,12 @@ The route selection process used by FRR's BGP implementation uses the following
 decision criterion, starting at the top of the list and going towards the
 bottom until one of the factors can be used.
 
+0. **Admin distance check**
+
+   When one route is locally redistributed and another route is either locally
+   aggregated or received from another BGP speaker, prefer the route with a
+   lower admin distance.
+
 1. **Weight check**
 
    Prefer higher local weight routes to lower routes.
@@ -1118,6 +1124,28 @@ BGP GR Peer Mode Commands
    This command will disable the entire BGP graceful restart functionality
    at the peer level.
 
+BGP GR Support For L2VPN EVPN
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To support GR for L2VPN EVPN AFI SAFI in BGP, following changes were made:
+
+1. If GR is enabled for a BGP instance, then GR select
+   deferral timer will be started for all GR supported AFI-SAFIs after
+   BGP is finished reading configs.This way, BGP will not have to wait
+   for the 1st peer to comeup to start the select-deferral-timer for
+   that VRF, AFI-SAFI
+2. All L2VPN route will be marked as deferred in default VRF,
+   imported into destination VRF/VNI table and then marked as deferred in
+   destination VRF/VNI as well
+3. Deferred bestpath selection will be skipped for IPv4 and IPv6 unicast in
+   non-default VRFs until L2VPN EVPN AFI-SAFI in default VRF completes GR.
+   This ensures that deferred bestpaths calculation in non-default VRF
+   is done only after paths are imported from default to non-default VRF
+4. On GR helper, when the peer that has GR enabled goes down,
+   BGP will mark all the L2VPN EVPN routes in default VRF as stale.
+   If the peer doesn't comeup before GR restart timer expires, then
+   the L2VPN EVPN routes in default VRF that were previously marked
+   stale needs to be unimported from all the VRFs and VNIs (IP and MAC
+   table) before deleting it in L2VPN EVPN table in default VRF
 
 BGP GR Show Commands
 ^^^^^^^^^^^^^^^^^^^^
@@ -1379,12 +1407,11 @@ OSPFv3 into ``address-family ipv4 unicast`` as OSPFv3 supports IPv6.
 
    Redistribute routes from other protocols into BGP.
 
-   Note - When redistributing a static route, or any better Admin Distance route,
-   into BGP for which the same path is learned dynamically from another BGP
-   speaker, if the redistribute path is more preferred from a BGP Best Path
-   standpoint than the dynamically learned path, then BGP will not export
-   the best path to Zebra(RIB) for installation into the routing table,
-   unless BGP receives the path before the static route is created.
+   Note - When redistributing a static route, or any other route, into BGP,
+   the Admin Distance is carried into BGP, and is used in BGP's Best Path
+   calculation. When comparing a redistributed route with a local aggregate,
+   or a route learned dynamically from another BGP speaker, the one with a
+   lower Admin Distance is more preferred.
 
 .. clicmd:: redistribute <table|table-direct> (1-65535)] [metric (0-4294967295)] [route-map WORD]
 
@@ -2072,12 +2099,16 @@ Configuring Peers
 
    For ``datacenter`` profile, this is enabled by default.
 
-.. clicmd:: bgp default software-version-capability
+.. clicmd:: bgp default software-version-capability [latest-encoding]
 
    This command enables software version capability advertisement by default
    for all the neighbors.
 
    For ``datacenter`` profile, this is enabled by default.
+
+   If ``latest-encoding`` is specified, then the latest version of encoding is used.
+
+   It's based on https://datatracker.ietf.org/doc/html/draft-abraitis-bgp-version-capability-18.
 
    .. code-block:: frr
 
@@ -2373,6 +2404,12 @@ Using AS Path in Route Map
    For a given as-path, WORD, match it on the BGP as-path given for the prefix
    and if it matches do normal route-map actions.  The no form of the command
    removes this match from the route-map.
+
+
+.. clicmd:: match as-path-count MAX_COUNT
+
+   This command allows filtering routes based on the number of AS entries in
+   their AS path.
 
 .. clicmd:: set as-path prepend AS-PATH
 
@@ -3169,15 +3206,15 @@ that check when the path chosen by the next-hop uses a GRE interface, and
 there is a route-map configured at inbound side of ipv4-vpn or ipv6-vpn
 address family with following syntax:
 
-.. clicmd:: set l3vpn next-hop encapsulation gre
+.. clicmd:: set l3vpn next-hop encapsulation <gre|gretap>
    :daemon: bgp
 
 The incoming BGP L3VPN entry is accepted, provided that the next hop of the
-L3VPN entry uses a path that takes the GRE tunnel as outgoing interface. The
-remote endpoint should be configured just behind the GRE tunnel; remote
-device configuration may vary depending whether it acts at edge endpoint or
-not: in any case, the expectation is that incoming MPLS traffic received at
-this endpoint should be considered as a valid path for L3VPN.
+L3VPN entry uses a path that takes chosen tunnel kind. The remote endpoint
+should be configured just behind the tunnel; remote device configuration may
+vary depending whether it acts at edge endpoint or not: in any case, the
+expectation is that incoming MPLS traffic received at this endpoint should
+be considered as a valid path for L3VPN.
 
 .. _bgp-vrf-route-leaking:
 
@@ -4394,6 +4431,19 @@ The following are available in the ``router bgp`` mode:
    Unlike Tx, BGP Rx traffic is not vectored. Packets are read off the wire one
    at a time in a loop. This setting controls how many iterations the loop runs
    for. As with write-quanta, it is best to leave this setting on the default.
+
+.. clicmd:: use-underlays-nexthop-weight
+
+   BGP when it installs routes has a feature that allows it to use weights
+   that are based upon community values.  This allows the nexthops using
+   those weights to be used in accordance to the operators configuration.
+   If BGP is using itself as a underlay and the underlay has weights associated
+   with them, turn on this command to tell BGP to signal to zebra when
+   installing the route that the underlays weights should be used for the
+   recursively resolved nexthops.  If this command is turned on and the
+   route already has weights associated with it, then BGP will not signal
+   to zebra that it should use the recursively resolved underlay routes
+   nexthop weights.
 
 The following command is available in ``config`` mode as well as in the
 ``router bgp`` mode:

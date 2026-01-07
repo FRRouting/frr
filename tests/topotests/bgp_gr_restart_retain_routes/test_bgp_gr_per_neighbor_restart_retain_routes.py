@@ -23,7 +23,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import step, stop_router
+from lib.common_config import start_router, step, stop_router
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -101,6 +101,28 @@ def test_bgp_gr_restart_retain_routes():
     assert (
         _bgp_check_kernel_retained_routes() is None
     ), "Failed to retain BGP routes in kernel on R4"
+
+    # Start r3 back for other tests
+    start_router(tgen, "r3")
+
+
+def test_bgp_gr_restart_present_in_write_terminal():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Check if graceful-restart is present in 'write terminal' output")
+    r3 = tgen.gears["r3"]
+
+    def check_convergence():
+        output = r3.vtysh_cmd("write terminal")
+        if "neighbor PG graceful-restart" not in output:
+            return f"graceful-restart is missing in 'neighbor PG' configuration output. Full output: {output}"
+        return None
+
+    _, result = topotest.run_and_expect(check_convergence, None, count=60, wait=1)
+    assert result is None, f"r3 failed to converge, result: {result}"
 
 
 if __name__ == "__main__":

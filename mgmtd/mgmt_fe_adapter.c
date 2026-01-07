@@ -187,7 +187,7 @@ enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 	case NB_ERR_NOT_FOUND:
 		return MGMTD_INVALID_PARAM;
 	case NB_ERR_EXISTS:
-		return MGMTD_INVALID_PARAM;
+		return MGMTD_VALUE_EXISTS;
 	case NB_ERR_LOCKED:
 		return MGMTD_DS_LOCK_FAILED;
 	case NB_ERR_VALIDATION:
@@ -200,6 +200,29 @@ enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 		return MGMTD_UNKNOWN_FAILURE;
 	}
 	return MGMTD_UNKNOWN_FAILURE;
+}
+
+int mgmt_result_to_error(enum mgmt_result result)
+{
+	switch (result) {
+	case MGMTD_SUCCESS:
+		return 0;
+	case MGMTD_INVALID_PARAM:
+		return -EBADMSG;
+	case MGMTD_INTERNAL_ERROR:
+	case MGMTD_DS_UNLOCK_FAILED:
+	case MGMTD_UNKNOWN_FAILURE:
+		return -EFAULT;
+	case MGMTD_VALIDATION_ERROR:
+		return -EINVAL;
+	case MGMTD_NO_CFG_CHANGES:
+		return -EALREADY;
+	case MGMTD_VALUE_EXISTS:
+		return -EEXIST;
+	case MGMTD_DS_LOCK_FAILED:
+		return -EBUSY;
+	}
+	return -EFAULT;
 }
 
 /* =========================== */
@@ -525,7 +548,7 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgm
 		fe_session_send_commit_reply(session, req_id, src_ds_id, dst_ds_id, action, unlock);
 	else {
 		ret = fe_session_send_error(
-			session, req_id, false, EINVAL /* convert result */,
+			session, req_id, false, mgmt_result_to_error(result),
 			"commit failed session-id %Lu on %s req-id %Lu source-ds: %s target-ds: %s validate-only: %u: reason: '%s'",
 			session->session_id, session->adapter->name, req_id,
 			mgmt_ds_id2name(src_ds_id), mgmt_ds_id2name(dst_ds_id), validate_only,
@@ -842,10 +865,16 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 					      "Error getting yang-library data, session-id: %" PRIu64
 					      " error: %s",
 					      session->session_id, ly_last_errmsg());
+			goto done;
 		} else if (nb_oper_is_yang_lib_query(msg->xpath)) {
+			struct lyd_node *result;
+
 			yang_lyd_trim_xpath(&ylib, msg->xpath);
+			result = ylib;
+			if (CHECK_FLAG(msg->flags, GET_DATA_FLAG_EXACT))
+				result = yang_dnode_get(result, msg->xpath);
 			(void)fe_session_send_tree_data(session, req_id, false, msg->result_type,
-							wd_options, ylib, 0);
+							wd_options, result, 0);
 			goto done;
 		}
 	}
@@ -956,8 +985,8 @@ static int fe_session_send_edit_reply(struct mgmt_fe_session_ctx *session, uint6
 
 
 int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-				    bool unlock, bool commit, struct mgmt_edit_req **edit,
-				    enum mgmt_result result, const char *errstr)
+				    struct mgmt_edit_req **edit, enum mgmt_result result,
+				    const char *errstr)
 {
 	struct mgmt_fe_session_ctx *session;
 	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
@@ -996,8 +1025,8 @@ int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64
 
 
 	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES)
-		/* Fix the error */
-		ret = fe_session_send_error(session, req_id, false, -EINVAL, "%s", errstr);
+		ret = fe_session_send_error(session, req_id, false, mgmt_result_to_error(result),
+					    "%s", errstr);
 	else
 		ret = fe_session_send_edit_reply(session, req_id,
 						 result == MGMTD_SUCCESS /*changed*/,
@@ -1112,13 +1141,14 @@ static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 		     session->session_id);
 
 		/* And this is modifying the running */
-		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id, run_ds,
-						false, false, true /* implicit */, false, edit);
+		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id,
+						run_ds, false /*abort*/, false /*validate-only*/,
+						true /*implicit*/, false /*unlock*/, edit);
 		return;
 	}
 reply:
-	mgmt_fe_adapter_send_edit_reply(session->session_id, txn_id, msg->req_id, false, commit,
-					&edit, nb_error_to_mgmt_result(ret), errstr);
+	mgmt_fe_adapter_send_edit_reply(session->session_id, txn_id, msg->req_id, &edit,
+					nb_error_to_mgmt_result(ret), errstr);
 }
 
 /* --------------------- */
@@ -1241,7 +1271,8 @@ done:
 /* ----------- */
 
 static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
-				     uint8_t result_type, const struct lyd_node *result)
+				     uint8_t result_type, bool restconf,
+				     const struct lyd_node *result)
 {
 	struct mgmt_msg_rpc_reply *msg;
 	uint8_t **darrp = NULL;
@@ -1252,6 +1283,7 @@ static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_RPC_REPLY;
 	msg->result_type = result_type;
+	msg->restconf = restconf;
 
 	if (result) {
 		darrp = mgmt_msg_native_get_darrp(msg);
@@ -1276,7 +1308,8 @@ done:
 }
 
 void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-				    LYD_FORMAT result_type, const struct lyd_node *result)
+				    LYD_FORMAT result_type, bool restconf,
+				    const struct lyd_node *result)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -1287,7 +1320,7 @@ void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64
 	/* XXXchopps why do we care about this? Why not allow multple? */
 	assert(session->txn_id == txn_id);
 
-	if (fe_session_send_rpc_reply(session, req_id, result_type, result))
+	if (fe_session_send_rpc_reply(session, req_id, result_type, restconf, result))
 		fe_session_send_error(session, req_id, false, -EIO, "Failed sending RPC reply");
 
 	mgmt_destroy_txn(&session->txn_id);
@@ -1354,8 +1387,8 @@ static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 	     session->session_id);
 
 	/* Create an RPC request under the transaction */
-	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, xpath, data,
-			  mgmt_msg_native_data_len_decode(msg, msg_len));
+	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, msg->restconf,
+			  xpath, data, mgmt_msg_native_data_len_decode(msg, msg_len));
 }
 
 /* -------------------- */
@@ -1571,6 +1604,7 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 							    struct mgmt_msg_notify_data **cache)
 
 {
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	struct mgmt_msg_notify_data *new_msg;
 	const struct lyd_node *root;
 	uint8_t **darrp = NULL;
@@ -1586,8 +1620,12 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 
 	/* Get a libyang data tree if we haven't yet */
 	if (!*tree) {
-		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type,
-					 LYD_PARSE_STRICT | LYD_PARSE_ONLY, 0, tree);
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+		if (msg->result_type == LYD_LYB)
+			parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type, parse_options, 0,
+					 tree);
 		assert(err == LY_SUCCESS);
 	}
 
@@ -1969,7 +2007,7 @@ static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from)
 			msg_server_conn_create(mgmt_loop, conn_fd, fe_adapter_notify_disconnect,
 					       fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
 					       MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN,
-					       adapter, "FE-adapter");
+					       adapter, "FE-ADAPTER-CONN");
 
 		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL);
 

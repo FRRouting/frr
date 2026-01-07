@@ -17,6 +17,7 @@
 #include "frr_pthread.h"
 #include "jhash.h"
 #include "termtable.h"
+#include "lib/json.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"

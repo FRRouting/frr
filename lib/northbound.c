@@ -723,8 +723,8 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 	struct lyd_node *dnode;
 	LY_ERR err;
 
-	err = lyd_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
-			    &dnode);
+	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
+			     &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
 			  __func__, xpath, err);
@@ -860,7 +860,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	bool root;
 	int ret;
 
-	ly_in_new_memory(data, &in);
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+		return NB_ERR;
+	}
 
 	root = xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0);
 
@@ -888,8 +892,8 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	 * merged later with candidate.
 	 */
 	if (parent_xpath) {
-		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
-				    0, 0, &tree, &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, &tree,
+				     &parent);
 		if (err) {
 			yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 			ret = NB_ERR;
@@ -1187,10 +1191,8 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 
 		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
 							 change->value, in_backend);
-		if (result != NB_CHANGE_OK) {
-			if (error)
-				*error = true;
-		}
+		if (result != NB_CHANGE_OK)
+			*error = true;
 		if (result == NB_CHANGE_ERR)
 			break;
 	}
@@ -1422,8 +1424,8 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	}
 
 	/* Record transaction. */
-	if (save_transaction && nb_db_enabled
-	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
+	if (save_transaction && nb_db_enabled && transaction->config &&
+	    nb_db_transaction_save(transaction, transaction_id) != NB_OK)
 		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 			  "%s: failed to record transaction", __func__);
 
@@ -2294,12 +2296,17 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			 * Only optional leafs can be deleted, or leafs whose
 			 * parent is a case statement.
 			 */
-			if (snode->parent->nodetype == LYS_CASE)
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
 				return true;
 			if (sleaf->when)
 				return true;
 			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
-			    || sleaf->dflt)
+#if (LY_VERSION_MAJOR < 4)
+			    || sleaf->dflt
+#else
+			    || sleaf->dflt.str
+#endif
+			)
 				return false;
 			break;
 		case LYS_CONTAINER:

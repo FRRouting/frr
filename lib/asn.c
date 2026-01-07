@@ -7,6 +7,7 @@
 #include <zebra.h>
 #include "log.h"
 #include "asn.h"
+#include "lib/json.h"
 
 static bool relax_as_zero;
 

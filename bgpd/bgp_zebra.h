@@ -153,4 +153,8 @@ bgp_zebra_withdraw_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			  struct bgp *bgp);
 extern void bgp_zebra_process_remote_routes_for_l2vni(struct event *e);
 extern int if_get_ipv6_global(struct interface *ifp, struct in6_addr *addr);
+extern enum zclient_send_status
+bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info, struct bgp *bgp);
+extern void bgp_zebra_update_fib_install_pending(struct bgp_dest *dest, struct bgp *bgp,
+						 bool install);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

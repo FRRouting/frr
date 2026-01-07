@@ -1406,21 +1406,33 @@ dnl yes this might include stddef.h 3 times but who cares
 AH_VERBATIM(HAVE_STRLCAT_, [
 #ifndef HAVE_STRLCAT
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcat(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_STRLCPY_, [
 #ifndef HAVE_STRLCPY
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcpy(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
 #ifndef HAVE_EXPLICIT_BZERO
 #include <stddef.h>
+#ifndef __cplusplus
 void explicit_bzero(void *buf, size_t len);
+#else
+extern "C" void explicit_bzero(void *buf, size_t len);
+#endif
 #endif
 ])
 
@@ -2074,6 +2086,20 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+LIBYANG_MAJOR=$(pkg-config --modversion libyang | cut -f1 -d.)
+if test "$LIBYANG_MAJOR" -ge 4; then
+  dnl NOTE: binary encoding (LYD_LYB) is no longer supported in v4,
+  dnl so v3 may be more efficient for certain use cases
+  AC_MSG_WARN([m4_normalize([
+    Libyang v4 is supported; however libyang v3 use is still suggested. Libyang
+    v4 has changed its binary encoding (LYD_LYB) format to a very restricted
+    subset of users which does not include FRR. This mean FRR will always use
+    JSON or XML even when passing intermediate results internally.
+    ])
+  ])
+fi
+
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [

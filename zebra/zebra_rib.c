@@ -48,6 +48,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
@@ -723,13 +724,20 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
+	__attribute__((unused)) char buf[PREFIX2STR_BUFFER] = { 0 };
+
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
 
-	switch (dplane_route_delete(rn, re)) {
+	enum zebra_dplane_result result = dplane_route_delete(rn, re);
+
+	frrtrace(3, frr_zebra, rib_uninstall_kernel_route, srcdest_rnode2str(rn, buf, sizeof(buf)),
+		 re->nhe, result);
+
+	switch (result) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		if (zvrf)
 			zvrf->removals_queued++;
@@ -1996,7 +2004,6 @@ done:
 }
 
 
-
 /*
  * Route-update results processing after async dataplane update.
  */
@@ -3260,6 +3267,7 @@ struct meta_q_gr_run {
 	uint8_t proto;
 	uint8_t instance;
 	time_t restart_time;
+	time_t update_pending_time;
 	bool stale_client_cleanup;
 };
 
@@ -3268,7 +3276,8 @@ static void process_subq_gr_run(struct listnode *lnode)
 	struct meta_q_gr_run *gr_run = listgetdata(lnode);
 
 	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto, gr_run->instance,
-				gr_run->restart_time, gr_run->stale_client_cleanup);
+				gr_run->restart_time, gr_run->update_pending_time,
+				gr_run->stale_client_cleanup);
 
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
@@ -3310,7 +3319,7 @@ static unsigned int process_subq(struct list *subq,
 		process_subq_gr_run(lnode);
 		break;
 	}
-
+	frrtrace(1, frr_zebra, rib_process_subq_dequeue, qindex);
 	list_delete_node(subq, lnode);
 
 	return 1;
@@ -4469,7 +4478,7 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
 }
 
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-		   time_t restart_time, bool stale_client_cleanup)
+		   time_t restart_time, time_t update_pending_time, bool stale_client_cleanup)
 {
 	struct meta_q_gr_run *gr_run;
 
@@ -4480,6 +4489,7 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 	gr_run->vrf_id = vrf_id;
 	gr_run->instance = instance;
 	gr_run->restart_time = restart_time;
+	gr_run->update_pending_time = update_pending_time;
 	gr_run->stale_client_cleanup = stale_client_cleanup;
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
@@ -5018,6 +5028,7 @@ void rib_sweep_route(struct event *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
+	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 
 /* Remove specific by protocol routes from 'table'. */
@@ -5117,6 +5128,59 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
 		  op == DPLANE_OP_ROUTE_DELETE) &&
 		 tableid == ZEBRA_ROUTE_TABLE_UNKNOWN)
 		dplane_ctx_set_table(ctx, zebra_vrf_lookup_tableid(vrfid, nsid));
+}
+
+/*
+ * Process system route updates from the dataplane context.
+ * These are routes learned from the kernel that need to be
+ * added to or deleted from the zebra RIB.
+ */
+static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	const struct prefix *prefix = dplane_ctx_get_dest(ctx);
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	struct nexthop_group *ng = NULL;
+	struct nexthop *nexthop;
+	struct route_entry *re = NULL;
+
+	/* Look up interface by name if specified */
+	if (ifname && ifname[0] != '\0') {
+		struct interface *ifp = if_lookup_by_name(ifname, vrf_id);
+
+		if (ifp)
+			ifindex = ifp->ifindex;
+	}
+
+	if (op == DPLANE_OP_SYS_ROUTE_ADD) {
+		/* Create route entry */
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, 0, table, 0, 0, distance,
+					       0);
+
+		/* Create nexthop group and copy nexthops from context */
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, dplane_ctx_get_ng(ctx)->nexthop, NULL);
+
+		/* Resolve IFINDEX_INTERNAL placeholders if we found the interface */
+		if (ifindex > 0) {
+			for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+				if (nexthop->ifindex == IFINDEX_INTERNAL)
+					nexthop->ifindex = ifindex;
+			}
+		}
+
+		rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)prefix, NULL, re, ng, false);
+	} else if (op == DPLANE_OP_SYS_ROUTE_DELETE) {
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, prefix, NULL, NULL, 0,
+			   table, 0, distance, false);
+	}
 }
 
 /*
@@ -5232,6 +5296,7 @@ static void rib_process_dplane_results(struct event *event)
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
 			case DPLANE_OP_SYS_ROUTE_DELETE:
+				rib_process_sys_route(ctx);
 				break;
 
 			case DPLANE_OP_MAC_INSTALL:

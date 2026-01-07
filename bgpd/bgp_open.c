@@ -26,6 +26,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_trace.h"
 
 const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_MP, "MultiProtocol Extensions" },
@@ -971,11 +972,22 @@ static int bgp_capability_software_version(struct peer *peer, struct peer_connec
 					   struct capability_header *hdr)
 {
 	struct stream *s = BGP_INPUT(connection);
+	struct stream *dup = stream_dup(s);
 	char str[BGP_MAX_SOFT_VERSION + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
-	uint8_t len;
+	uint8_t len = hdr->length;
+	uint8_t cap_value_len_field = stream_getc(dup) + 1;
 
-	len = stream_getc(s);
+	/* For backward compatibility.
+	 * Older draft versions defined the length field inside
+	 * the capability's value. Newer versions use just the capability's
+	 * length which is hdr->length.
+	 */
+	if (cap_value_len_field == len)
+		len = stream_getc(s);
+
+	stream_free(dup);
+
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
@@ -1628,6 +1640,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 				      PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV)
 				   ? "SET"
 				   : "NOT-SET");
+	frrtrace(4, frr_bgp, gr_send_rbit_capability, bgp->name_pretty, peer->host,
+		 bgp->restart_time, CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV));
 
 	/* Send address-family specific graceful-restart capability
 	 * only when GR config is present
@@ -1656,6 +1670,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					   f_bit ? "SET" : "NOT-SET",
 					   get_afi_safi_str(afi, safi, false));
 
+			frrtrace(5, frr_bgp, gr_send_fbit_capability, bgp->name_pretty, peer->host,
+				 afi, safi, f_bit);
 			stream_putc(s, f_bit ? GRACEFUL_RESTART_F_BIT : 0);
 		}
 	}
@@ -2039,8 +2055,8 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	 * the implementation MUST include a configuration switch to enable
 	 * or disable its use, and that switch MUST be off by default.
 	 */
-	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION) ||
-	    peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
+	    peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW)) {
 		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s);
@@ -2058,7 +2074,9 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		if (len > BGP_MAX_SOFT_VERSION)
 			len = BGP_MAX_SOFT_VERSION;
 
-		stream_putc(s, len);
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
+			/* For old software version capability, prepend the length byte. */
+			stream_putc(s, len);
 		stream_put(s, cmd_software_version_get(), len);
 
 		/* Software Version capability Len. */

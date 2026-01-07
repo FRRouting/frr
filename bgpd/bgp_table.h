@@ -43,6 +43,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_evpn_local_path,
 	bgp_path_selection_evpn_non_proxy,
 	bgp_path_selection_evpn_lower_ip,
+	bgp_path_selection_admin_distance,
 	bgp_path_selection_weight,
 	bgp_path_selection_local_pref,
 	bgp_path_selection_accept_own,
@@ -106,6 +107,9 @@ struct bgp_dest {
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
+
+	/* Multipath information */
+	struct bgp_path_info_mpath *mpath;
 };
 
 DECLARE_LIST(zebra_announce, struct bgp_dest, zai);

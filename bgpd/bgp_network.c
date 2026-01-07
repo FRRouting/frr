@@ -32,6 +32,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_trace.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -216,11 +217,10 @@ static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
 					       bgp->tcp_keepalive_intvl,
 					       bgp->tcp_keepalive_probes);
 		if (ret < 0)
-			zlog_err(
-				"Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
-				fd, bgp->tcp_keepalive_idle,
-				bgp->tcp_keepalive_intvl,
-				bgp->tcp_keepalive_probes);
+			flog_err(EC_LIB_SOCKET,
+				 "Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
+				 fd, bgp->tcp_keepalive_idle, bgp->tcp_keepalive_intvl,
+				 bgp->tcp_keepalive_probes);
 	}
 }
 
@@ -515,15 +515,17 @@ static void bgp_accept(struct event *event)
 			incoming = dynamic_peer->connection;
 			/* Dynamic neighbor has been created, let it proceed */
 			incoming->fd = bgp_sock;
-			incoming->dir = CONNECTION_INCOMING;
 
 			incoming->su_local = sockunion_getsockname(incoming->fd);
 			incoming->su_remote = sockunion_dup(&su);
 
 			if (bgp_set_socket_ttl(incoming) < 0) {
 				peer_set_last_reset(dynamic_peer, PEER_DOWN_SOCKET_ERROR);
-				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
+				flog_err(EC_BGP_TTL_SECURITY_FAIL,
+					 "%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
+				frrtrace(3, frr_bgp, bgp_err_str, dynamic_peer->host,
+					 dynamic_peer->flags, 1);
 				return;
 			}
 
@@ -535,7 +537,7 @@ static void bgp_accept(struct event *event)
 				vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock,
 					 bgp_get_bound_name(incoming));
 			}
-			bgp_peer_reg_with_nht(dynamic_peer);
+			bgp_peer_connection_reg_with_nht(incoming);
 			bgp_fsm_change_status(incoming, Active);
 			event_cancel(&incoming->t_start);
 
@@ -646,8 +648,8 @@ static void bgp_accept(struct event *event)
 		peer_delete(peer->doppelganger);
 	}
 
-	doppelganger = peer_create(&su, peer->conf_if, bgp, peer->local_as, peer->as, peer->as_type,
-				   NULL, false, NULL);
+	doppelganger = peer_create(&su, peer->conf_if, bgp, peer->local_as, peer->as,
+				   peer->as_type, NULL, false, NULL, CONNECTION_INCOMING);
 
 	incoming = doppelganger->connection;
 
@@ -668,7 +670,6 @@ static void bgp_accept(struct event *event)
 	peer->doppelganger = doppelganger;
 
 	incoming->fd = bgp_sock;
-	incoming->dir = CONNECTION_INCOMING;
 	incoming->su_local = sockunion_getsockname(incoming->fd);
 	incoming->su_remote = sockunion_dup(&su);
 
@@ -680,11 +681,10 @@ static void bgp_accept(struct event *event)
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
-	bgp_peer_reg_with_nht(doppelganger);
+	bgp_peer_connection_reg_with_nht(incoming);
 	bgp_fsm_change_status(incoming, Active);
 	event_cancel(&incoming->t_start); /* created in peer_create() */
 
-	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
 	if (peer_established(connection) && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
@@ -838,6 +838,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+		frrtrace(3, frr_bgp, bgp_err_str, peer->host, peer->flags, 2);
 		return connect_error;
 	}
 

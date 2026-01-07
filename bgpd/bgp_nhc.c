@@ -76,6 +76,9 @@ void bgp_nhc_tlvs_free(struct bgp_nhc_tlv *tlv)
 
 void bgp_nhc_free(struct bgp_nhc *nhc)
 {
+	if (!nhc)
+		return;
+
 	bgp_nhc_tlvs_free(nhc->tlvs);
 	XFREE(MTYPE_BGP_NHC, nhc);
 }

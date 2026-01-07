@@ -348,7 +348,7 @@ static int fpt_halt(struct frr_pthread *fpt, void **res)
 static void *fpt_run(void *arg)
 {
 	struct frr_pthread *fpt = arg;
-	fpt->master->owner = pthread_self();
+	frr_event_loop_set_pthread_owner(fpt->master, pthread_self());
 
 	zlog_tls_buffer_init();
 
@@ -356,7 +356,7 @@ static void *fpt_run(void *arg)
 	pipe(sleeper);
 	event_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
 
-	fpt->master->handle_signals = false;
+	frr_event_loop_set_handle_sigs(fpt->master, false);
 
 	frr_pthread_set_name(fpt);
 

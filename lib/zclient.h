@@ -586,6 +586,8 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_TABLEID 0x800
 
+#define ZEBRA_FLAG_USE_RECURSIVE_WEIGHT 0x1000
+
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
 
@@ -1407,6 +1409,8 @@ extern enum zclient_send_status zclient_send_hello(struct zclient *client);
 
 extern void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id,
 				   afi_t afi, bool reg);
+
+extern void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi);
 
 extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,

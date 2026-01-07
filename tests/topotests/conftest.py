@@ -20,7 +20,7 @@ import pytest
 from lib.common_config import generate_support_bundle
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
-from lib.topotest import json_cmp_result, gdb_core
+from lib.topotest import gdb_core, json_cmp_result
 from munet import cli
 from munet.base import BaseMunet, Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
@@ -357,7 +357,9 @@ def check_for_core_dumps():
         tgen.existing_core_files = set()
     existing = tgen.existing_core_files
 
-    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    cores = glob.glob(f"{tgen.logdir}/**/*.dmp", recursive=True)
+    if cores:
+        logging.info("Found core dumps: %s", cores)
     latest = {x for x in cores if x not in existing}
     if latest:
         existing |= latest

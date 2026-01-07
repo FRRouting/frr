@@ -19,6 +19,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_trace.h"
 #include "typesafe.h"
 
 #include <stdio.h>
@@ -1093,7 +1094,8 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 					 client->session_id, locator_name);
 
 	if (!*loc)
-		zlog_err("Unable to assign locator chunk to %s instance %u",
+		flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
+			 "Unable to assign locator chunk to %s instance %u",
 			 zebra_route_string(client->proto), client->instance);
 	else if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_info("Assigned locator chunk %s to %s instance %u",
@@ -1158,7 +1160,7 @@ static int zebra_srv6_manager_release_locator_chunk(struct zserv *client,
 						    vrf_id_t vrf_id)
 {
 	if (vrf_id != VRF_DEFAULT) {
-		zlog_err("SRv6 locator doesn't support vrf");
+		flog_err(EC_ZEBRA_SRV6_LOCATOR_VRF_UNSUPPORTED, "SRv6 locator doesn't support vrf");
 		return -1;
 	}
 
@@ -1500,7 +1502,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 						break;
 
 				if (sid_func_ptr) {
-					zlog_err("%s: invalid SM request arguments: SID function %u already taken",
+					flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+						 "%s: invalid SM request arguments: SID function %u already taken",
 						 __func__, sid_func);
 					return false;
 				}
@@ -1527,7 +1530,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 						break;
 
 				if (sid_wide_func_ptr) {
-					zlog_err("%s: invalid SM request arguments: SID function %u already taken",
+					flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+						 "%s: invalid SM request arguments: SID function %u already taken",
 						 __func__, sid_func);
 					return false;
 				}
@@ -1557,9 +1561,9 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			/* Ensure that the SID function comes from the Explicit range */
 			if (!(sid_func >= explicit_start &&
 			      sid_func <= explicit_end)) {
-				zlog_err("%s: invalid SM request arguments: SID function %u out of explicit range (%u - %u)",
-					 __func__, sid_func, explicit_start,
-					 explicit_end);
+				flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+					 "%s: invalid SM request arguments: SID function %u out of explicit range (%u - %u)",
+					 __func__, sid_func, explicit_start, explicit_end);
 				return false;
 			}
 
@@ -1573,7 +1577,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 
 			/* SID function already taken */
 			if (sid_func_ptr) {
-				zlog_err("%s: invalid SM request arguments: SID function %u already taken",
+				flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+					 "%s: invalid SM request arguments: SID function %u already taken",
 					 __func__, sid_func);
 				return false;
 			}
@@ -1588,8 +1593,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			block->u.uncompressed.num_func_allocated++;
 		} else {
 			/* We should never arrive here */
-			zlog_err("%s: unknown SID format type: %u", __func__,
-				 format->type);
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST, "%s: unknown SID format type: %u",
+				 __func__, format->type);
 			assert(0);
 		}
 	} else {
@@ -1602,7 +1607,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 
 		/* SID function already taken */
 		if (sid_func_ptr) {
-			zlog_err("%s: invalid SM request arguments: SID function %u already taken",
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+				 "%s: invalid SM request arguments: SID function %u already taken",
 				 __func__, sid_func);
 			return false;
 		}
@@ -1743,8 +1749,8 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 					  __func__);
 		} else {
 			/* We should never arrive here */
-			zlog_err("%s: unknown SID format type: %u", __func__,
-				 format->type);
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST, "%s: unknown SID format type: %u",
+				 __func__, format->type);
 			assert(0);
 		}
 	} else {
@@ -1814,7 +1820,8 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 
 	/* Get parent locator and function of the provided SID */
 	if (!zebra_srv6_sid_decompose(sid_value, &block, &loc, &sid_func, &sid_func_wide)) {
-		zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
+		flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+			 "%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
 			 __func__, sid_value);
 		return -1;
 	}
@@ -1834,6 +1841,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 			if (IS_ZEBRA_DEBUG_SRV6)
 				zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s", __func__,
 					   sid_value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+			frrtrace(3, frr_zebra, get_srv6_sid_explicit,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, 1);
 			*sid = zctx->sid;
 			zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
 			return 0;
@@ -1842,7 +1852,8 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		/* Allocate an explicit SID function for the SID */
 		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
 			if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
-				zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+				flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
+					 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
 					 __func__, sid_func, &block->prefix);
 				return -1;
 			}
@@ -1872,7 +1883,8 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		/* Allocate an explicit SID function for the SID */
 		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
 			if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
-				zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+				flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
+					 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
 					 __func__, sid_func, &block->prefix);
 				return -1;
 			}
@@ -1901,6 +1913,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: allocated explicit SRv6 SID function %u for context %s", __func__,
 			   (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	frrtrace(3, frr_zebra, get_srv6_sid_explicit, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+		 sid_value, 2);
 
 	return 1;
 }
@@ -1965,7 +1980,8 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	} else {
 		/* Allocate a dynamic SID function for the SID */
 		if (!alloc_srv6_sid_func_dynamic(block, &sid_func)) {
-			zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+			flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
+				 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
 				 __func__, sid_func, &block->prefix);
 			return -1;
 		}
@@ -2025,13 +2041,6 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 	int ret = -1;
 	struct srv6_locator *locator = NULL;
 	char buf[256];
-	struct nhg_connected *rb_node_dep = NULL;
-	struct listnode *node;
-	struct nexthop *nexthop;
-	struct nbr_connected *nc;
-	bool found = false;
-	struct interface *ifp;
-	struct zebra_if *zebra_if;
 
 	enum srv6_sid_alloc_mode alloc_mode =
 		(sid_value) ? SRV6_SID_ALLOC_MODE_EXPLICIT
@@ -2042,43 +2051,8 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
 
-	if (ctx->ifindex != 0 && IPV6_ADDR_SAME(&ctx->nh6, &in6addr_any)) {
-		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
-		if (!ifp) {
-			zlog_err("%s: interface %u does not exist", __func__, ctx->ifindex);
-			return -1;
-		}
-
-		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc))
-			if (nc->address && nc->address->family == AF_INET6 &&
-			    IN6_IS_ADDR_LINKLOCAL(&nc->address->u.prefix6)) {
-				ctx->nh6 = nc->address->u.prefix6;
-				found = true;
-				break;
-			}
-
-		if (!found) {
-			zebra_if = ifp->info;
-
-			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
-				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
-					/* skip non link-local addresses */
-					if (!IPV6_ADDR_SAME(&nexthop->gate.ipv6, &in6addr_any)) {
-						ctx->nh6 = nexthop->gate.ipv6;
-						found = true;
-						break;
-					}
-				}
-				if (found)
-					break;
-			}
-			if (!found) {
-				zlog_err("%s: cannot get SID, interface (ifindex %u) not found",
-					 __func__, ctx->ifindex);
-				return -1;
-			}
-		}
-	}
+	frrtrace(3, frr_zebra, get_srv6_sid, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+		 locator_name);
 
 	if (alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 		/*
@@ -2088,14 +2062,16 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 		if (locator_name) {
 			locator = zebra_srv6_locator_lookup(locator_name);
 			if (!locator) {
-				zlog_err("%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+				flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+					 "%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
 					 __func__, locator_name);
 				return -1;
 			}
 		}
 
 		if (!sid_value) {
-			zlog_err("%s: invalid SM request arguments: missing SRv6 SID value, necessary for explicit allocation",
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+				 "%s: invalid SM request arguments: missing SRv6 SID value, necessary for explicit allocation",
 				 __func__);
 			return -1;
 		}
@@ -2107,14 +2083,16 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 		 */
 
 		if (!locator_name) {
-			zlog_err("%s: invalid SM request arguments: missing SRv6 locator, necessary for dynamic allocation",
+			flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+				 "%s: invalid SM request arguments: missing SRv6 locator, necessary for dynamic allocation",
 				 __func__);
 			return -1;
 		}
 
 		locator = zebra_srv6_locator_lookup(locator_name);
 		if (!locator) {
-			zlog_err("%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+			flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+				 "%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
 				 __func__, locator_name);
 			return -1;
 		}
@@ -2273,6 +2251,8 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: released explicit SRv6 SID function %u from block %pFX",
 			   __func__, sid_func, &block->prefix);
+
+	frrtrace(2, frr_zebra, release_srv6_sid_func_explicit, &block->prefix, sid_func);
 
 	return 0;
 }
@@ -2528,7 +2508,8 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 
 	entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name, is_localonly);
 	if (!entry) {
-		zlog_err("SRv6 SID func %u ctx %s is not allocated from the provided locator %s",
+		flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+			 "SRv6 SID func %u ctx %s is not allocated from the provided locator %s",
 			 zctx->sid->func, srv6_sid_ctx2str(buf, sizeof(buf), &zctx->ctx),
 			 locator->name);
 		return -1;
@@ -2539,6 +2520,10 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 		flog_err(EC_ZEBRA_SM_DAEMON_MISMATCH, "%s: Daemon mismatch!!", __func__);
 		return -1;
 	}
+
+	frrtrace(5, frr_zebra, release_srv6_sid, &entry->sid_value,
+		 srv6_sid_ctx2str(buf, sizeof(buf), &zctx->ctx), client->proto, client->instance,
+		 zebra_srv6_sid_client_list_count(&entry->clients_list));
 
 	/* Remove the client from the list of clients using the SID */
 	zebra_srv6_sid_client_del(zctx->sid, entry, zclient);
@@ -2631,10 +2616,14 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value ? sid_value : &in6addr_any, locator_name);
 
+	frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+		 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, locator_name, -1, 1);
+
 	if (locator_name && locator_name[0] != '\0') {
 		locator = zebra_srv6_locator_lookup(locator_name);
 		if (!locator) {
-			zlog_err("%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+			flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+				 "%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
 				 __func__, locator_name);
 			return -1;
 		}
@@ -2646,6 +2635,9 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			  sid_value ? sid_value : &in6addr_any, locator_name);
 
+		frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+			 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, locator_name, ret, 2);
+
 		/* Notify client about SID alloc failure */
 		zebra_srv6_sid_clients_notify_single(*sid, NULL, client, is_localonly,
 						     ZAPI_SRV6_SID_FAIL_ALLOC);
@@ -2656,6 +2648,21 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 				   (*sid)->func, client->proto, client->instance,
 				   client->session_id);
+
+		if (frrtrace_enabled(frr_zebra, srv6_manager_get_sid_internal)) {
+			struct zebra_srv6_sid_entry *entry __attribute__((unused)) = NULL;
+
+			if (locator) {
+				entry = zebra_srv6_sid_entry_lookup(*sid, locator->name,
+								    is_localonly);
+			}
+
+			frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				 entry ? &entry->sid_value : sid_value,
+				 locator ? locator->name : NULL, ret, 3);
+		}
+
 		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
 		zebra_srv6_sid_clients_notify_single(*sid, locator, client, is_localonly,
 						     ZAPI_SRV6_SID_ALLOCATED);
@@ -2665,6 +2672,21 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 				   (*sid)->func, client->proto, client->instance,
 				   client->session_id);
+
+		if (frrtrace_enabled(frr_zebra, srv6_manager_get_sid_internal)) {
+			struct zebra_srv6_sid_entry *entry __attribute__((unused)) = NULL;
+
+			if (locator) {
+				entry = zebra_srv6_sid_entry_lookup(*sid, locator->name,
+								    is_localonly);
+			}
+
+			frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				 entry ? &entry->sid_value : sid_value,
+				 locator ? locator->name : NULL, ret, 4);
+		}
+
 		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
 		zebra_srv6_sid_clients_notify_all(*sid, locator, is_localonly,
 						  ZAPI_SRV6_SID_ALLOCATED);
@@ -2729,8 +2751,12 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 
+	frrtrace(2, frr_zebra, srv6_manager_release_sid_internal,
+		 srv6_sid_ctx2str(buf, sizeof(buf), ctx), locator_name);
+
 	if (!locator_name || locator_name[0] == '\0') {
-		zlog_err("%s: invalid SM request arguments: SRv6 locator not provided", __func__);
+		flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+			 "%s: invalid SM request arguments: SRv6 locator not provided", __func__);
 		return -1;
 	}
 

@@ -849,6 +849,12 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	vty = vl_config->vty;
 	area_id = vl_config->area_id;
 
+	if (!CHECK_FLAG(ospf->flags, OSPF_FLAG_ABR)) {
+		vty_out(vty,
+			"Configuring VLs on non-ABRs is not allowed\n");
+		return NULL;
+	}
+
 	if (area_id.s_addr == OSPF_AREA_BACKBONE) {
 		vty_out(vty,
 			"Configuring VLs over the backbone is not allowed\n");
@@ -11779,18 +11785,19 @@ DEFUN (show_ip_ospf_vrfs,
 
 	return CMD_SUCCESS;
 }
-DEFPY (clear_ip_ospf_neighbor,
-       clear_ip_ospf_neighbor_cmd,
-       "clear ip ospf [(1-65535)]$instance neighbor [A.B.C.D$nbr_id]",
-       CLEAR_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Reset OSPF Neighbor\n"
-       "Neighbor ID\n")
+
+DEFPY(clear_ip_ospf_neighbor, clear_ip_ospf_neighbor_cmd,
+      "clear ip ospf [{(1-65535)$instance|vrf NAME$vrf_name}] neighbor [A.B.C.D$nbr_id]",
+      CLEAR_STR IP_STR
+      "OSPF information\n"
+      "Instance ID\n"
+      VRF_CMD_HELP_STR
+      "Reset OSPF Neighbor\n"
+      "Neighbor ID\n")
 {
 	struct listnode *node;
 	struct ospf *ospf = NULL;
+	struct vrf *vrf = NULL;
 
 	/* If user does not specify the arguments,
 	 * instance = 0 and nbr_id = 0.0.0.0
@@ -11801,8 +11808,25 @@ DEFPY (clear_ip_ospf_neighbor,
 			return CMD_NOT_MY_INSTANCE;
 	}
 
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (!vrf)
+			return CMD_WARNING;
+	}
+
 	/* Clear all the ospf processes */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (vrf && (ospf->vrf_id == vrf->vrf_id)) {
+			if (nbr_id_str && IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
+				vty_out(vty, "Self router-id is not allowed.\r\n ");
+				return CMD_SUCCESS;
+			}
+
+			if (ospf->oi_running)
+				ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
+			return CMD_SUCCESS;
+		}
+
 		if (!ospf->oi_running)
 			continue;
 
@@ -11817,17 +11841,17 @@ DEFPY (clear_ip_ospf_neighbor,
 	return CMD_SUCCESS;
 }
 
-DEFPY (clear_ip_ospf_process,
-       clear_ip_ospf_process_cmd,
-       "clear ip ospf [(1-65535)]$instance process",
-       CLEAR_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Reset OSPF Process\n")
+DEFPY(clear_ip_ospf_process, clear_ip_ospf_process_cmd,
+      "clear ip ospf [{(1-65535)$instance|vrf NAME$vrf_name}] process",
+      CLEAR_STR IP_STR
+      "OSPF information\n"
+      "Instance ID\n"
+      VRF_CMD_HELP_STR
+      "Reset OSPF Process\n")
 {
 	struct listnode *node;
 	struct ospf *ospf = NULL;
+	struct vrf *vrf = NULL;
 
 	/* Check if instance is not passed as an argument */
 	if (instance != 0) {
@@ -11836,8 +11860,20 @@ DEFPY (clear_ip_ospf_process,
 			return CMD_NOT_MY_INSTANCE;
 	}
 
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (!vrf)
+			return CMD_WARNING;
+	}
+
 	/* Clear all the ospf processes */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (vrf && (ospf->vrf_id == vrf->vrf_id)) {
+			if (ospf->oi_running)
+				ospf_process_reset(ospf);
+			return CMD_SUCCESS;
+		}
+
 		if (!ospf->oi_running)
 			continue;
 

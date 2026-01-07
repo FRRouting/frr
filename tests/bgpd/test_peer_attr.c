@@ -266,7 +266,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 	},
 	{
 		.cmd = "capability software-version",
-		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
+		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{

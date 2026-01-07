@@ -670,6 +670,12 @@ static void rtadv_timer(struct event *event)
 		}
 }
 
+static void rtsolicit_increment_received(struct zebra_if *zif)
+{
+	if (zif)
+		zif->rs_rcvd++;
+}
+
 static void rtadv_process_solicit(struct interface *ifp)
 {
 	struct zebra_vrf *zvrf;
@@ -679,6 +685,7 @@ static void rtadv_process_solicit(struct interface *ifp)
 	assert(zvrf);
 	zif = ifp->info;
 
+	rtsolicit_increment_received(zif);
 	/*
 	 * If FastRetransmit is enabled, send the RA immediately.
 	 * If not enabled but it has been more than MIN_DELAY_BETWEEN_RAS
@@ -1293,7 +1300,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
 		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
@@ -1304,7 +1311,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else {
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH) {
 			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 			rtadv_prefix_set_defaults(rprefix);
 		}
@@ -1333,7 +1340,8 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 				rtadv_prefix_set_defaults(rprefix);
 				return;
-			}
+			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
+				return;
 		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
@@ -1870,6 +1878,7 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 			rtadv->AdvRetransTimer);
 		vty_out(vty, "  ND advertised hop-count limit is %d hops\n",
 			rtadv->AdvCurHopLimit);
+		vty_out(vty, "  ND router solicit rcvd: %d\n", zif->rs_rcvd);
 		vty_out(vty, "  ND router advertisements sent: %d rcvd: %d\n",
 			zif->ra_sent, zif->ra_rcvd);
 		interval = rtadv->MaxRtrAdvInterval;
@@ -1925,6 +1934,7 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 		json_object_int_add(json_if, "ndAdvertisedRetransmitIntervalMsecs",
 				    rtadv->AdvRetransTimer);
 		json_object_int_add(json_if, "ndAdvertisedHopCountLimitHops", rtadv->AdvCurHopLimit);
+		json_object_int_add(json_if, "ndRouterSolicitsRcvd", zif->rs_rcvd);
 		json_object_int_add(json_if, "ndRouterAdvertisementsSent", zif->ra_sent);
 		json_object_int_add(json_if, "ndRouterAdvertisementsRcvd", zif->ra_rcvd);
 

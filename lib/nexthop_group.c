@@ -14,6 +14,7 @@
 #include <vty.h>
 #include <command.h>
 #include <jhash.h>
+#include "lib/json.h"
 
 #include "lib/nexthop_group_clippy.c"
 

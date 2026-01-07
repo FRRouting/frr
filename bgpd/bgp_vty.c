@@ -112,8 +112,11 @@ FRR_CFG_DEFAULT_BOOL(BGP_HARD_ADMIN_RESET,
 	{ .val_bool = false, .match_version = "< 8.3", },
 	{ .val_bool = true },
 );
-FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_OLD,
 	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
+);
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_NEW,
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
@@ -680,9 +683,10 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 		if (DFLT_BGP_HARD_ADMIN_RESET)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_HARD_ADMIN_RESET);
-		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
-			SET_FLAG((*bgp)->flags,
-				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
 		if (DFLT_BGP_LINK_LOCAL_CAPABILITY)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
 		if (DFLT_BGP_DYNAMIC_CAPABILITY)
@@ -2643,6 +2647,22 @@ DEFUN (no_bgp_coalesce_time,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_use_underlying_nexthop_weight,
+       bgp_use_underlying_nexthop_weight_cmd,
+       "[no] use-underlays-nexthop-weight",
+       NO_STR
+       "Tell Zebra when resolving a route to use the underlays nexthop weight for when nexthops are resolved\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
+
+	return CMD_SUCCESS;
+}
+
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
@@ -2952,11 +2972,25 @@ DEFPY(bgp_enforce_first_as,
       "Enforce the first AS for EBGP routes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
 
-	if (no)
+	if (no) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
-	else
+	} else {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_on_policy_change(peer, afi, safi, 0);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -4590,18 +4624,22 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
 
 DEFPY (bgp_default_software_version_capability,
        bgp_default_software_version_capability_cmd,
-       "[no] bgp default software-version-capability",
+       "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
-       "Advertise software version capability for all neighbors\n")
+       "Advertise software version capability for all neighbors\n"
+       "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	uint64_t encoding = latest_encoding ? BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW
+					    : BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD;
+
 	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		UNSET_FLAG(bgp->flags, encoding);
 	else
-		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		SET_FLAG(bgp->flags, encoding);
 
 	return CMD_SUCCESS;
 }
@@ -5299,8 +5337,8 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
 					     as_str);
 	} else {
-		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type,
-				   NULL, true, as_str);
+		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type, NULL, true, as_str,
+				   CONNECTION_OUTGOING);
 
 		if (!peer) {
 			vty_out(vty, "%% BGP failed to create peer\n");
@@ -6276,31 +6314,30 @@ DEFUN (no_neighbor_capability_enhe,
 /* neighbor capability software-version */
 DEFPY(neighbor_capability_software_version,
       neighbor_capability_software_version_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version",
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version [latest-encoding$latest_encoding]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "Advertise capability to the peer\n"
-      "Advertise Software Version capability to the peer\n")
+      "Advertise Software Version capability to the peer\n"
+      "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	struct peer *peer;
 	int ret;
+	uint64_t encoding = latest_encoding ? PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW
+					    : PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_unset_vty(vty, neighbor, encoding);
 	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_set_vty(vty, neighbor, encoding);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-			    CAPABILITY_CODE_SOFT_VERSION,
-			    no ? CAPABILITY_ACTION_UNSET
-			       : CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -11070,7 +11107,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
-	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
 	safi_t safi;
 	afi_t afi;
 
@@ -11119,35 +11155,13 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
-	if (!vrf_bgp) {
-		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
-			vrf_bgp = bgp_default;
-		} else {
-			as = AS_UNSPECIFIED;
-
-			/* Auto-create with AS_UNSPECIFIED, fill in later */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
-					  NULL, ASNOTATION_UNDEFINED);
-			if (ret) {
-				vty_out(vty,
-					"VRF %s is not configured as a bgp instance\n",
-					import_name);
-				return CMD_WARNING;
-			}
-
-			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
-
-			/* Auto created VRF instances should be marked
-			 * properly, otherwise we have a state after bgpd
-			 * restart where VRF instance has default VRF's ASN.
-			 */
-			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
-		}
-	}
+	if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 
 	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	} else {
 		/* Already importing from "import_vrf"? */
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
@@ -11156,7 +11170,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 				return CMD_WARNING;
 		}
 
-		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	}
 
 	return CMD_SUCCESS;
@@ -11946,7 +11960,7 @@ static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 
 	*peers_cfgd = *peers_estbd = 0;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 		(*peers_cfgd)++;
 		if (peer_established(peer->connection))
@@ -12761,7 +12775,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12787,7 +12801,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12845,7 +12859,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	filtered_count = 0;
 	dn_count = 0;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer->afc[afi][safi])
@@ -14013,6 +14027,20 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
+
+			if (peer->bgp->gr_multihop_peer_exists) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2Timer",
+							    peer->bgp->select_defer_time);
+
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2TimerRemaining",
+							    event_timer_remain_second(
+								    peer->bgp->gr_info[afi][safi]
+									    .t_select_deferral_tier2));
+			}
 		} else {
 			vty_out(vty, "      Timers:\n");
 			vty_out(vty,
@@ -14043,6 +14071,15 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
+			if (peer->bgp->gr_multihop_peer_exists) {
+				vty_out(vty, "        Multihop GR peer exists\n");
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					vty_out(vty,
+						"        Selection Deferral Tier2 Time Remaining(sec): %ld\n",
+						event_timer_remain_second(
+							peer->bgp->gr_info[afi][safi]
+								.t_select_deferral_tier2));
+			}
 		}
 		if (json) {
 			json_object_object_add(json_afi_safi, "endOfRibStatus",
@@ -16821,7 +16858,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp, enum show_type ty
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		switch (type) {
@@ -19542,17 +19579,27 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* capability software-version */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY)) {
-		if (!peergroup_flag_check(peer,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" no neighbor %s capability software-version\n",
 				addr);
 	} else {
-		if (peergroup_flag_check(peer,
-					 PEER_FLAG_CAPABILITY_SOFT_VERSION))
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" neighbor %s capability software-version\n",
+				addr);
+	}
+
+	/* capability software-version latest-encoding */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty,
+				" no neighbor %s capability software-version latest-encoding\n",
+				addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty, " neighbor %s capability software-version latest-encoding\n",
 				addr);
 	}
 
@@ -19613,21 +19660,26 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			" neighbor %s path-attribute treat-as-withdraw %s\n",
 			addr, withdraw_attrs_str);
 
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
-				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
-			if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-				       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
-				vty_out(vty, " neighbor %s graceful-restart-helper\n", addr);
-			} else if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-					      PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
-				vty_out(vty, " neighbor %s graceful-restart\n", addr);
-			} else if ((!(CHECK_FLAG(peer->peer_gr_new_status_flag,
-						 PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) &&
-				    !(CHECK_FLAG(peer->peer_gr_new_status_flag,
-						 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
-				vty_out(vty, " neighbor %s graceful-restart-disable\n", addr);
-			}
+	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
+			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
+
+		if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+			       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
+			vty_out(vty,
+				" neighbor %s graceful-restart-helper\n", addr);
+		} else if (CHECK_FLAG(
+				   peer->peer_gr_new_status_flag,
+				   PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
+			vty_out(vty,
+				" neighbor %s graceful-restart\n", addr);
+		} else if (
+			(!(CHECK_FLAG(peer->peer_gr_new_status_flag,
+				      PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
+			 && !(CHECK_FLAG(
+				 peer->peer_gr_new_status_flag,
+				 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
+			vty_out(vty, " neighbor %s graceful-restart-disable\n",
+				addr);
 		}
 	}
 
@@ -20010,9 +20062,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				       PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
-		    peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer_is_config_node(peer) &&
+		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
@@ -20020,7 +20071,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		/* Do not display doppelganger peers */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bgp_config_write_peer_af(vty, bgp, peer, afi, safi);
 	}
 
@@ -20291,12 +20342,17 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY) !=
-		    SAVE_BGP_SOFT_VERSION_CAPABILITY)
-			vty_out(vty,
-				" %sbgp default software-version-capability\n",
-				CHECK_FLAG(bgp->flags,
-					   BGP_FLAG_SOFT_VERSION_CAPABILITY)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			vty_out(vty, " %sbgp default software-version-capability\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)
+					? ""
+					: "no ");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			vty_out(vty, " %sbgp default software-version-capability latest-encoding\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)
 					? ""
 					: "no ");
 
@@ -20550,7 +20606,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* Normal neighbor configuration. */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (peer_is_config_node(peer))
 				bgp_config_write_peer_global(vty, bgp, peer);
 		}
 
@@ -20578,6 +20634,9 @@ int bgp_config_write(struct vty *vty)
 
 		if (bgp->allow_martian)
 			vty_out(vty, " bgp allow-martian-nexthop\n");
+
+		if (CHECK_FLAG(bgp->flags, BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE))
+			vty_out(vty, " use-underlays-nexthop-weight\n");
 
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
@@ -20858,7 +20917,7 @@ static void bgp_config_finish(struct event *t)
 
 static void bgp_config_end_timeout(struct event *t)
 {
-	zlog_err("BGP configuration end timer expired after %d seconds.",
+	flog_err(EC_BGP_CONFIG_TIMEOUT, "BGP configuration end timer expired after %d seconds.",
 		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
 	bgp_config_finish(t);
 }
@@ -21234,6 +21293,8 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &bgp_coalesce_time_cmd);
 	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);
+
+	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_cmd);
 
 	/* "maximum-paths" commands. */
 	install_element(BGP_NODE, &bgp_maxpaths_hidden_cmd);

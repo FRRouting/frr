@@ -32,7 +32,7 @@ extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       const struct prefix *p, safi_t safi);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
 				  struct vty *vty, const struct prefix *p,
-				  json_object *json);
+				  struct json_object *json);
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 
@@ -43,7 +43,7 @@ extern bool rnh_nexthop_valid(const struct route_entry *re,
 void rnh_set_hide_backups(bool hide_p);
 bool rnh_get_hide_backups(void);
 
-void show_nexthop_json_helper(json_object *json_nexthop,
+void show_nexthop_json_helper(struct json_object *json_nexthop,
 			      const struct nexthop *nexthop,
 			      const struct route_node *rn,
 			      const struct route_entry *re);

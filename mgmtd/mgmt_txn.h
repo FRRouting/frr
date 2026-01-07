@@ -88,6 +88,7 @@ extern void mgmt_txn_init(void);
 extern void mgmt_txn_destroy(void);
 
 extern enum mgmt_result nb_error_to_mgmt_result(enum nb_error error);
+extern int mgmt_result_to_error(enum mgmt_result result);
 
 /* Dump transaction status to vty */
 extern void mgmt_txn_status_write(struct vty *vty);
@@ -145,13 +146,14 @@ extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t cli
  * @req_id: FE client request identifier.
  * @clients: Bitmask of clients to send RPC to.
  * @result_type: LYD_FORMAT result format.
+ * @restconf: true if the RPC is formatted from RESTCONF operation.
  * @xpath: The xpath of the RPC.
  * @data: The input parameters data tree.
  * @data_len: The length of the input parameters data.
  */
 extern void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
-			      LYD_FORMAT result_type, const char *xpath, const char *data,
-			      size_t data_len);
+			      LYD_FORMAT result_type, bool restconf, const char *xpath,
+			      const char *data, size_t data_len);
 
 /**
  * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.

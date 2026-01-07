@@ -397,7 +397,7 @@ void pcep_thread_cancel_timer(struct event **thread)
 		XFREE(MTYPE_PCEP, data);
 	}
 
-	if ((*thread)->master->owner == pthread_self()) {
+	if (frr_event_loop_get_pthread_owner((*thread)->master) == pthread_self()) {
 		event_cancel(thread);
 	} else {
 		event_cancel_async((*thread)->master, thread, NULL);

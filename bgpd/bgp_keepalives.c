@@ -152,7 +152,7 @@ static void bgp_keepalives_finish(void *arg)
 void *bgp_keepalives_start(void *arg)
 {
 	struct frr_pthread *fpt = arg;
-	fpt->master->owner = pthread_self();
+	frr_event_loop_set_pthread_owner(fpt->master, pthread_self());
 
 	struct timeval currtime = {0, 0};
 	struct timeval aftertime = {0, 0};

@@ -17,6 +17,7 @@
 #include "libfrr.h"
 #include "table.h"
 #include "vty.h"
+#include "lib/json.h"
 #include "bfd.h"
 #include "bfdd/bfd.h"
 

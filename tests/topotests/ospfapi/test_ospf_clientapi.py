@@ -1024,6 +1024,21 @@ def _test_opaque_add_restart_add(tgen, apibin):
         step("Bring ospfd on R1 back up")
         start_router_daemons(tgen, "r1", ["ospfd"])
 
+        step("Wait for OSPF to connect to zebra")
+
+        def check_ospf_zebra_client():
+            output = r1.vtysh_cmd("show zebra client summary")
+            # Check if "ospf" appears in the client list
+            for line in output.splitlines():
+                if line.strip().startswith("ospf"):
+                    return True
+            return False
+
+        success, _ = topotest.run_and_expect(
+            check_ospf_zebra_client, True, count=30, wait=1
+        )
+        assert success, "OSPF failed to connect to zebra after restart"
+
         # This will start off with sequence num 80000001
         # But should advance to 80000003 when we reestablish with r2
         p = r1.popen(

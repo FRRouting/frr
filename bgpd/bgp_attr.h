@@ -328,6 +328,7 @@ struct attr {
 #define BATTR_RMAP_L3VPN_ACCEPT_GRE (1 << 8)
 #define BATTR_RMAP_VPNV4_NHOP_CHANGED (1 << 9)
 #define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
+#define BATTR_RMAP_L3VPN_ACCEPT_GRETAP	      (1 << 11)
 
 /* Router Reflector related structure. */
 struct cluster_list {
@@ -686,5 +687,15 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
 extern void evpn_overlay_free(struct bgp_route_evpn *bre);
 extern struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre);
+
+extern int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
+					      mpls_label_t *labels, uint8_t num_labels,
+					      bool addpath_capable, uint32_t addpath_tx_id);
+
+static inline int bgp_attr_stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
+						     bool addpath_capable, uint32_t addpath_tx_id)
+{
+	return bgp_attr_stream_put_labeled_prefix(s, p, NULL, 0, addpath_capable, addpath_tx_id);
+}
 
 #endif /* _QUAGGA_BGP_ATTR_H */
