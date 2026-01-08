@@ -1157,7 +1157,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		 * installed with none as OIF */
 		if (up->rpf.source_nexthop.interface &&
 		    !(pim_upstream_empty_inherited_olist(up) && (ch != NULL) &&
-		      PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))) {
+		      pim_ifchannel_is_sg_rpt(ch))) {
 			pim_upstream_mroute_iif_update(up->channel_oil,
 					__func__);
 		}
@@ -1306,7 +1306,7 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up,
 	 * add it to the OIL
 	 */
 	if (ch) {
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+		if (pim_ifchannel_is_sg_rpt(ch))
 			return 0;
 	}
 
@@ -1330,7 +1330,7 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *starch)
 {
 	if (ch) {
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+		if (pim_ifchannel_is_sg_rpt(ch))
 			return 0;
 
 		if (!pim_macro_ch_lost_assert(ch)
@@ -1343,11 +1343,11 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 	 */
 	if (starch) {
 		/* XXX: check on this with donald
-		 * we are looking for PIM_IF_FLAG_MASK_S_G_RPT in
+		 * we are looking for sg_rpt in
 		 * upstream flags?
 		 */
 #if 0
-		if (PIM_IF_FLAG_TEST_S_G_RPT(starch->upstream->flags))
+		if (pim_ifchannel_is_sg_rpt(starch))
 			return 0;
 #endif
 
@@ -1771,7 +1771,7 @@ int pim_upstream_is_sg_rpt(struct pim_upstream *up)
 	struct pim_ifchannel *ch;
 
 	for (ALL_LIST_ELEMENTS_RO(up->ifchannels, chnode, ch)) {
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+		if (pim_ifchannel_is_sg_rpt(ch))
 			return 1;
 	}
 

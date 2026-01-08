@@ -46,13 +46,6 @@ enum pim_ifjoin_state {
 #define PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(flags) ((flags) |= PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 #define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
-/*
- * Flag to tell us if the ifchannel is (S,G,rpt)
- */
-#define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
-#define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
 
 /*
  * Flag to tell us if the ifchannel is proto PIM
@@ -104,11 +97,29 @@ struct pim_ifchannel {
 
 	/* Upstream (S,G) state */
 	struct pim_upstream *upstream;
+
+	bool sg_rpt;
 };
 
 RB_HEAD(pim_ifchannel_rb, pim_ifchannel);
 RB_PROTOTYPE(pim_ifchannel_rb, pim_ifchannel, pim_ifp_rb,
 	     pim_ifchannel_compare);
+
+/* Inline accessor functions for sg_rpt field */
+static inline bool pim_ifchannel_is_sg_rpt(const struct pim_ifchannel *ch)
+{
+	return ch->sg_rpt;
+}
+
+static inline void pim_ifchannel_set_sg_rpt(struct pim_ifchannel *ch)
+{
+	ch->sg_rpt = true;
+}
+
+static inline void pim_ifchannel_unset_sg_rpt(struct pim_ifchannel *ch)
+{
+	ch->sg_rpt = false;
+}
 
 void pim_ifchannel_delete(struct pim_ifchannel *ch);
 void pim_ifchannel_delete_all(struct interface *ifp);
@@ -129,8 +140,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg);
 
 void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 				 enum pim_ifjoin_state new_state);
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
-				      int flags);
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state, bool sg_rpt);
 const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state);
 
 int pim_ifchannel_isin_oiflist(struct pim_ifchannel *ch);

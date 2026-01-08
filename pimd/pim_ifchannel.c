@@ -259,19 +259,15 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	struct pim_ifchannel *child_ch;
 
 	if (PIM_DEBUG_PIM_EVENTS)
-		zlog_debug(
-			"PIM_IFCHANNEL(%s): %s is switching from %s to %s",
-			ch->interface->name, ch->sg_str,
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
-			pim_ifchannel_ifjoin_name(new_state, 0));
+		zlog_debug("PIM_IFCHANNEL(%s): %s is switching from %s to %s", ch->interface->name,
+			   ch->sg_str, pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt),
+			   pim_ifchannel_ifjoin_name(new_state, false));
 
 
 	if (old_state == new_state) {
 		if (PIM_DEBUG_PIM_EVENTS) {
-			zlog_debug(
-				"%s called by %s: non-transition on state %d (%s)",
-				__func__, caller, new_state,
-				pim_ifchannel_ifjoin_name(new_state, 0));
+			zlog_debug("%s called by %s: non-transition on state %d (%s)", __func__,
+				   caller, new_state, pim_ifchannel_ifjoin_name(new_state, false));
 		}
 		return;
 	}
@@ -372,34 +368,33 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	}
 }
 
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
-				      int flags)
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state, bool sg_rpt)
 {
 	switch (ifjoin_state) {
 	case PIM_IFJOIN_NOINFO:
-		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+		if (sg_rpt)
 			return "SGRpt(NI)";
 		else
 			return "NOINFO";
 	case PIM_IFJOIN_JOIN:
 		return "JOIN";
 	case PIM_IFJOIN_PRUNE:
-		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+		if (sg_rpt)
 			return "SGRpt(P)";
 		else
 			return "PRUNE";
 	case PIM_IFJOIN_PRUNE_PENDING:
-		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+		if (sg_rpt)
 			return "SGRpt(PP)";
 		else
 			return "PRUNEP";
 	case PIM_IFJOIN_PRUNE_TMP:
-		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+		if (sg_rpt)
 			return "SGRpt(P')";
 		else
 			return "PRUNET";
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
-		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+		if (sg_rpt)
 			return "SGRpt(PP')";
 		else
 			return "PRUNEPT";
@@ -557,7 +552,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->flags = 0;
 	if ((source_flags & PIM_ENCODE_RPT_BIT)
 	    && !(source_flags & PIM_ENCODE_WC_BIT))
-		PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+		pim_ifchannel_set_sg_rpt(ch);
 
 	ch->interface = ifp;
 	ch->sg = *sg;
@@ -679,7 +674,7 @@ static void on_ifjoin_prune_pending_timer(struct event *t)
 	if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING) {
 		ifp = ch->interface;
 		pim_ifp = ifp->info;
-		if (!PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)) {
+		if (!pim_ifchannel_is_sg_rpt(ch)) {
 			/* Send PruneEcho(S,G) ? */
 			send_prune_echo =
 				(listcount(pim_ifp->pim_neighbor_list) > 1);
@@ -826,7 +821,7 @@ static void pim_ifchannel_ifjoin_handler(struct pim_ifchannel *ch,
 		struct pim_interface *pim_ifp)
 {
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_JOIN);
-	PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
+	pim_ifchannel_unset_sg_rpt(ch);
 	/* check if the interface qualifies as an immediate
 	 * OIF
 	 */
@@ -1036,7 +1031,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 	case PIM_IFJOIN_NOINFO:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			if (!(source_flags & PIM_ENCODE_WC_BIT))
-				PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+				pim_ifchannel_set_sg_rpt(ch);
 
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
 			pim_upstream_inherited_olist_decide(pim_ifp->pim, ch->upstream);
@@ -1458,15 +1453,14 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 	struct pim_upstream *starup = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug(
-			"%s: %s %s eom: %d join %u", __func__,
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
-			ch->sg_str, eom, join);
+		zlog_debug("%s: %s %s eom: %d join %u", __func__,
+			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt), ch->sg_str,
+			   eom, join);
 	if (!ch->sources)
 		return;
 
 	for (ALL_LIST_ELEMENTS(ch->sources, ch_node, nch_node, child)) {
-		if (!PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+		if (!pim_ifchannel_is_sg_rpt(child))
 			continue;
 
 		switch (child->ifjoin_state) {
@@ -1491,7 +1485,7 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 				event_cancel(&child->t_ifjoin_prune_pending_timer);
 			event_cancel(&child->t_ifjoin_expiry_timer);
 
-			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
+			pim_ifchannel_unset_sg_rpt(child);
 			child->ifjoin_state = PIM_IFJOIN_NOINFO;
 
 			if ((I_am_RP(pim, child->sg.grp)) &&
