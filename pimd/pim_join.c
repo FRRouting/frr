@@ -320,7 +320,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				  &sg, msg_source_flags);
 
 			if (pim_addr_is_any(sg.src)) {
-				starg_ch = pim_ifchannel_find(ifp, &sg);
+				struct pim_ifchannel *throwaway;
+
+				pim_ifchannel_find(ifp, &sg, &starg_ch, &throwaway);
 				if (starg_ch)
 					pim_ifchannel_set_star_g_join_state(
 						starg_ch, 0, 1);
@@ -336,6 +338,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 		/* Scan pruned sources */
 		for (source = 0; source < msg_num_pruned_sources; ++source) {
+			struct pim_ifchannel *throwaway;
+
 			addr_offset = pim_parse_addr_source(
 				&sg, &msg_source_flags, buf, pastend - buf);
 			if (addr_offset < 1) {
@@ -352,7 +356,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			 * We need to retrieve the sg_ch after
 			 * we parse the prune.
 			 */
-			sg_ch = pim_ifchannel_find(ifp, &sg);
+			pim_ifchannel_find(ifp, &sg, &sg_ch, &throwaway);
 
 			if (!sg_ch)
 				continue;
@@ -366,7 +370,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 						event_cancel(&
 							child->t_ifjoin_prune_pending_timer);
 					event_cancel(&child->t_ifjoin_expiry_timer);
-					pim_ifchannel_unset_sg_rpt(child);
 					child->ifjoin_state = PIM_IFJOIN_NOINFO;
 					delete_on_noinfo(child);
 				}
@@ -376,7 +379,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			if (starg_ch && (msg_source_flags & PIM_RPT_BIT_MASK)
 			    && !(msg_source_flags & PIM_WILDCARD_BIT_MASK)) {
 				struct pim_upstream *up = sg_ch->upstream;
-				pim_ifchannel_set_sg_rpt(sg_ch);
 				if (up) {
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(

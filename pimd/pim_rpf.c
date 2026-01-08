@@ -224,7 +224,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 */
 static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 {
-	struct pim_ifchannel *rpf_ch;
+	struct pim_ifchannel *rpf_ch, *throwaway;
 	struct pim_neighbor *neigh;
 	pim_addr rpf_addr;
 
@@ -235,7 +235,7 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 		return PIMADDR_ANY;
 	}
 
-	rpf_ch = pim_ifchannel_find(up->rpf.source_nexthop.interface, &up->sg);
+	pim_ifchannel_find(up->rpf.source_nexthop.interface, &up->sg, &rpf_ch, &throwaway);
 	if (rpf_ch) {
 		if (rpf_ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
 			return rpf_ch->ifassert_winner;
