@@ -213,6 +213,7 @@ extern void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg);
 extern struct sr_prefix_cfg *
 isis_sr_cfg_prefix_find(struct isis_area *area, union prefixconstptr prefix,
 			uint8_t algorithm);
+extern void isis_redist_cfg2subtlvs(struct isis_prefix_sid *psid);
 extern void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg,
 				      bool external,
 				      struct isis_prefix_sid *psid);

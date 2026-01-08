@@ -148,6 +148,15 @@
 
 #define LLC_LEN 3
 
+/*
+ * implementation specific route-leaking values
+ */
+
+#define LEVEL2_TO_LEVEL1   4
+#define LEVEL1_TO_LEVEL2   5
+#define LVL_ISIS_LEAKING_1 0
+#define LVL_ISIS_LEAKING_2 1
+
 /* we need to be aware of the fact we are using ISO sized
  * packets, using isomtu = mtu - LLC_LEN
  */
