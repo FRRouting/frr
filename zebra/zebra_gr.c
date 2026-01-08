@@ -465,9 +465,19 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
  * Stale route handling
  */
 
-static bool zebra_gr_enabled_for_vrf(struct zserv *client, vrf_id_t vrf_id)
+/*
+ * Function to check if GR is enabled for a given VRF
+ */
+static bool zebra_gr_enabled_for_vrf(struct zebra_gr_afi_clean *gac, vrf_id_t vrf_id)
 {
 	struct client_gr_info *info = NULL;
+	struct zserv *client = zserv_find_client(gac->proto, gac->instance);
+
+	/* If active client doesn't exist, fall back to stale client if present. */
+	if (!client)
+		client = zebra_gr_find_stale_client(gac->proto, gac->instance);
+	if (!client)
+		return false;
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (info->vrf_id == vrf_id && info->gr_enable)
@@ -488,7 +498,6 @@ static void zebra_gr_cleanup_of_non_gr_vrf(struct zebra_gr_afi_clean *gac)
 	struct zebra_vrf *zvrf;
 	struct route_table *table;
 	afi_t afi;
-	struct zserv *client = zserv_find_client(gac->proto, gac->instance);
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
@@ -507,7 +516,7 @@ static void zebra_gr_cleanup_of_non_gr_vrf(struct zebra_gr_afi_clean *gac)
 		 * indicated UPDATE_COMPLETE for this VRF for
 		 * all gr-enabled afi-safis. So skip such VRFs.
 		 */
-		if (zebra_gr_enabled_for_vrf(client, vrf->vrf_id))
+		if (zebra_gr_enabled_for_vrf(gac, vrf->vrf_id))
 			continue;
 
 		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
