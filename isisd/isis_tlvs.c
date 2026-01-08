@@ -5445,7 +5445,8 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	int num_msd;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
-	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
+	if (tlv_len < ISIS_ROUTER_CAP_SIZE ||
+	    STREAM_READABLE(s) < ISIS_ROUTER_CAP_SIZE) {
 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
 		return 0;
@@ -5474,6 +5475,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		uint8_t subsubtlvs_len;
 #endif /* ifndef FABRICD */
 		uint8_t msd_type;
+
+		if (STREAM_READABLE(s) < 2) {
+			sbuf_push(log, indent,
+				  "WARNING: Unexpected end of stream\n");
+			return 0;
+		}
 
 		type = stream_getc(s);
 		length = stream_getc(s);
@@ -5674,12 +5681,27 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			break;
 #ifndef FABRICD
 		case ISIS_SUBTLV_FAD:
+			if (length < 4) {
+				sbuf_push(log, indent,
+					  "WARNING: Unexpected FAD sub-TLV length\n");
+				stream_forward_getp(s, length);
+				break;
+			}
 			fad = XCALLOC(MTYPE_ISIS_TLV,
 				      sizeof(struct isis_router_cap_fad));
 			fad->fad.algorithm = stream_getc(s);
 			fad->fad.metric_type = stream_getc(s);
 			fad->fad.calc_type = stream_getc(s);
 			fad->fad.priority = stream_getc(s);
+
+			if (rcap->fads[fad->fad.algorithm]) {
+				struct isis_router_cap_fad *old_fad =
+					rcap->fads[fad->fad.algorithm];
+				admin_group_term(&old_fad->fad.admin_group_exclude_any);
+				admin_group_term(&old_fad->fad.admin_group_include_any);
+				admin_group_term(&old_fad->fad.admin_group_include_all);
+				XFREE(MTYPE_ISIS_TLV, old_fad);
+			}
 			rcap->fads[fad->fad.algorithm] = fad;
 			admin_group_init(&fad->fad.admin_group_exclude_any);
 			admin_group_init(&fad->fad.admin_group_include_any);
@@ -5692,6 +5714,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				uint8_t subsubtlv_len;
 				uint32_t v;
 				int n_ag, i;
+
+				if (STREAM_READABLE(s) < 2) {
+					sbuf_push(log, indent,
+						  "WARNING: Unexpected end of stream\n");
+					return 0;
+				}
 
 				subsubtlv_type = stream_getc(s);
 				subsubtlv_len = stream_getc(s);
