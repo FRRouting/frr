@@ -1434,6 +1434,37 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loc
 	}
 }
 
+/**
+ * Handle End.X SID allocation for a specific adjacency.
+ */
+static void handle_srv6_endx_sid_allocated(struct isis_area *area,
+					   struct srv6_sid_ctx *ctx,
+					   struct in6_addr *sid_addr)
+{
+	struct isis_adjacency *adj;
+	struct srv6_adjacency *sra;
+	struct listnode *node, *nnode;
+
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
+		/* Check if the End.X SID is for this adjacency */
+		if (adj->ll_ipv6_count == 0 ||
+		    memcmp(&adj->ll_ipv6_addrs[0], &ctx->nh6,
+			   sizeof(struct in6_addr)) != 0)
+			continue;
+
+		/* Remove old End.X SIDs, if any */
+		for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra)) {
+			if (!ctx->backup && sra->type == ISIS_SRV6_ADJ_BACKUP)
+				continue;
+			if (ctx->backup && sra->type != ISIS_SRV6_ADJ_BACKUP)
+				continue;
+			srv6_endx_sid_del(sra);
+		}
+		/* Allocate new End.X SID for the adjacency */
+		srv6_endx_sid_add_single(adj, ctx->backup, NULL, sid_addr);
+	}
+}
+
 static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -1446,10 +1477,8 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	char buf[256];
 	struct srv6_locator *locator;
 	struct prefix_ipv6 tmp_prefix;
-	struct srv6_adjacency *sra;
 	enum srv6_endpoint_behavior_codepoint behavior;
 	struct isis_srv6_sid *sid;
-	struct isis_adjacency *adj;
 
 	if (!isis)
 		return -1;
@@ -1525,22 +1554,8 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 			} else if (ctx.behavior ==
 				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
-				frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
-					/* Check if the End.X SID is for this adjacecny */
-					if (adj->ll_ipv6_count == 0 ||
-					    memcmp(&adj->ll_ipv6_addrs[0],
-						   &ctx.nh6,
-						   sizeof(struct in6_addr)) != 0)
-						continue;
-
-					/* Remove old End.X SIDs, if any */
-					for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids,
-							       node, nnode, sra))
-						srv6_endx_sid_del(sra);
-
-					/* Allocate new End.X SID for the adjacency */
-					srv6_endx_sid_add_single(adj, ctx.backup, NULL, &sid_addr);
-				}
+				handle_srv6_endx_sid_allocated(area, &ctx,
+							       &sid_addr);
 			} else {
 				zlog_warn("%s: unsupported behavior %u",
 					  __func__, ctx.behavior);

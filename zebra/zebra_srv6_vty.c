@@ -314,7 +314,9 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
 		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 			ifp = if_lookup_by_index(ctx->ifindex, vrf->vrf_id);
-			if (ifp)
+			if (ifp && ctx->backup)
+				snprintf(str, size, "Interface '%s' (b)", ifp->name);
+			else if (ifp)
 				snprintf(str, size, "Interface '%s'", ifp->name);
 		}
 		break;
