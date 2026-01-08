@@ -2603,14 +2603,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	}
 
 	/* Metric. */
-	/* Hardcode the metric for all routes coming from zebra. Metric isn't
-	 * used
-	 * either by the kernel or by zebra. Its purely for calculating best
-	 * path(s)
-	 * by the routing protocol and for communicating with protocol peers.
-	 */
 	if (!nl_attr_put32(&req->n, datalen, RTA_PRIORITY,
-			   ROUTE_INSTALLATION_METRIC))
+			   dplane_ctx_get_metric(ctx)))
 		return 0;
 
 #if defined(SUPPORT_REALMS)

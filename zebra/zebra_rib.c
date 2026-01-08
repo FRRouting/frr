@@ -2935,13 +2935,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			re->distance = route_distance(re->type);
 	}
 
-	if (re->metric == ROUTE_INSTALLATION_METRIC &&
-	    CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE)) {
-		if (same && !zebra_router_notify_on_ack())
-			re->metric = same->metric;
-		else
-			re->metric = 0;
-	}
+
 
 	/* If this route is kernel/connected route, notify the dataplane. */
 	if (RIB_SYSTEM_ROUTE(re)) {
