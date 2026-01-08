@@ -489,7 +489,7 @@ static void eigrp_update_send_to_all_nbrs(struct eigrp_interface *ei,
 			continue;
 
 		if (packet_sent)
-			ep_dup = eigrp_packet_duplicate(ep, NULL);
+			ep_dup = eigrp_packet_duplicate(ep, nbr);
 		else
 			ep_dup = ep;
 
