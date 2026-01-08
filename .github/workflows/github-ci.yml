@@ -86,7 +86,9 @@ jobs:
         run: |
           uname -a
           MODPKGVER=$(uname -r)
-          sudo apt-get update -y
+          # Retry loop for apt-get update in case of transient mirror failures
+          APT_RETRIES=3
+          for i in $(seq 1 ${APT_RETRIES}); do sudo apt-get update -y && break || sleep 10; done
           # Github is running old kernels but installing newer packages :(
           sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
           sudo modprobe vrf || true
