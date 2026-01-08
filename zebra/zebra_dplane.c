@@ -4286,26 +4286,6 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			}
 		}
 
-		/* Include any installed backup nexthops also. */
-		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg && nhg->nexthop) {
-			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
-				    || CHECK_FLAG(nh->flags,
-						  NEXTHOP_FLAG_RECURSIVE)
-				    || nh->nh_label == NULL)
-					continue;
-
-				newnh = nexthop_dup(nh, NULL);
-
-				if (last_nh)
-					NEXTHOP_APPEND(last_nh, newnh);
-				else
-					ctx->u.pw.fib_nhg.nexthop = newnh;
-				last_nh = newnh;
-			}
-		}
-
 		/* Copy primary nexthops; recursive info is included too */
 		assert(re->nhe != NULL); /* SA warning */
 		copy_nexthops(&(ctx->u.pw.primary_nhg.nexthop),
@@ -4999,13 +4979,6 @@ dplane_route_notif_update(struct route_node *rn,
 		if (nhg && nhg->nexthop)
 			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
 				      nhg->nexthop, NULL);
-
-		/* Check for installed backup nexthops also */
-		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg && nhg->nexthop) {
-			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-				      nhg->nexthop, NULL);
-		}
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
