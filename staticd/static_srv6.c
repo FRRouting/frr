@@ -809,6 +809,16 @@ void static_srv6_neigh_register_if_needed(void)
 		static_srv6_neigh_cache_init();
 	}
 
+	/*
+	 * Coverity complains about a potential NULL pointer dereference here.
+	 * However, neigh_cache is guaranteed to be non-NULL at this point.
+	 * This is because if it was initially NULL, static_srv6_neigh_cache_init would have been called.
+	 * static_srv6_neigh_cache_init uses XCALLOC to allocate memory for neigh_cache,
+	 * which either succeeds (making neigh_cache non-NULL) or aborts the program on failure.
+	 * The assert below is added to make Coverity happy.
+	 */
+	assert(neigh_cache);
+
 	neigh_cache->resolve_sids_cnt++;
 	DEBUGD(&static_dbg_srv6, "%s: SRv6 SID resolve count increased to %u", __func__,
 	       neigh_cache->resolve_sids_cnt);
