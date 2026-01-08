@@ -111,21 +111,12 @@ static inline bool pim_ifchannel_is_sg_rpt(const struct pim_ifchannel *ch)
 	return ch->sg_rpt;
 }
 
-static inline void pim_ifchannel_set_sg_rpt(struct pim_ifchannel *ch)
-{
-	ch->sg_rpt = true;
-}
-
-static inline void pim_ifchannel_unset_sg_rpt(struct pim_ifchannel *ch)
-{
-	ch->sg_rpt = false;
-}
-
-void pim_ifchannel_delete(struct pim_ifchannel *ch);
+void pim_ifchannel_delete(struct pim_ifchannel *origch);
 void pim_ifchannel_delete_all(struct interface *ifp);
 void pim_ifchannel_membership_clear(struct interface *ifp);
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
-struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg);
+void pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg, struct pim_ifchannel **ch,
+			struct pim_ifchannel **chrpt);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 					uint8_t ch_flags, int up_flags);
 void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,

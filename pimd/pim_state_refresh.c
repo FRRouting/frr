@@ -37,7 +37,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	uint8_t *curr;
 	int curr_size;
 	struct pim_interface *pim_ifp = NULL, *pim_ifp2;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
 	uint8_t pim_msg[1000];
@@ -160,7 +160,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 		pim_ifp2 = neigh->interface->info;
 		if (pim_is_group_filtered(pim_ifp2, &up->sg.grp, &up->sg.src))
 			continue;
-		ch = pim_ifchannel_find(neigh->interface, &up->sg);
+		pim_ifchannel_find(neigh->interface, &up->sg, &ch, &throwaway);
 		if (!ch)
 			p = 0;
 		else {
@@ -274,7 +274,7 @@ void pim_send_staterefresh(struct pim_upstream *up)
 	int pim_msg_size;
 	struct interface *ifp, *ifp2 = NULL;
 	struct pim_interface *pim_ifp2;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
 
@@ -301,7 +301,7 @@ void pim_send_staterefresh(struct pim_upstream *up)
 			continue;
 
 		if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex) {
-			ch = pim_ifchannel_find(ifp2, &up->sg);
+			pim_ifchannel_find(ifp2, &up->sg, &ch, &throwaway);
 			if (!ch)
 				p = 0;
 			else

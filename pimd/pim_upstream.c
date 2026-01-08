@@ -467,10 +467,11 @@ static void join_timer_stop(struct pim_upstream *up)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
 					up->rpf.rpf_addr, true);
 
-	if (nbr)
+	if (nbr) {
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
-	pim_jp_agg_upstream_verification(up, false);
+		pim_jp_agg_upstream_verification(up, false);
+	}
 }
 
 void prune_timer_start(struct pim_upstream *up)
@@ -656,9 +657,11 @@ void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 				t_joinsuppress_msec);
 		}
 
-		if (nbr)
+		if (nbr) {
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
+			pim_jp_agg_upstream_verification(up, false);
+		}
 		pim_upstream_join_timer_restart_msec(up, t_joinsuppress_msec);
 	}
 }
@@ -1298,17 +1301,14 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
  * pim_upstream_evaluate_join_desired_interface but limited to
  * parent (*,G)'s includes/joins.
  */
-int pim_upstream_eval_inherit_if(struct pim_upstream *up,
-						 struct pim_ifchannel *ch,
-						 struct pim_ifchannel *starch)
+int pim_upstream_eval_inherit_if(struct pim_upstream *up, struct pim_ifchannel *ch,
+				 struct pim_ifchannel *chrpt, struct pim_ifchannel *starch)
 {
 	/* if there is an explicit prune for this interface we cannot
 	 * add it to the OIL
 	 */
-	if (ch) {
-		if (pim_ifchannel_is_sg_rpt(ch))
-			return 0;
-	}
+	if (chrpt)
+		return 0;
 
 	/* Check if the OIF can be inherited fron the (*,G) entry
 	 */
@@ -1325,32 +1325,22 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up,
  * Passed in up must be the upstream for ch.  starch is NULL if no
  * information
  */
-int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
-						 struct pim_ifchannel *ch,
+int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up, struct pim_ifchannel *ch,
+						 struct pim_ifchannel *chrpt,
 						 struct pim_ifchannel *starch)
 {
 	if (ch) {
-		if (pim_ifchannel_is_sg_rpt(ch))
-			return 0;
-
 		if (!pim_macro_ch_lost_assert(ch)
 		    && pim_macro_chisin_joins_or_include(ch))
 			return 1;
 	}
 
+	if (chrpt)
+		return 0;
 	/*
 	 * joins (*,G)
 	 */
 	if (starch) {
-		/* XXX: check on this with donald
-		 * we are looking for sg_rpt in
-		 * upstream flags?
-		 */
-#if 0
-		if (pim_ifchannel_is_sg_rpt(starch))
-			return 0;
-#endif
-
 		if (!pim_macro_ch_lost_assert(starch)
 		    && pim_macro_chisin_joins_or_include(starch))
 			return 1;
@@ -1366,21 +1356,20 @@ static bool pim_upstream_empty_immediate_olist(struct pim_instance *pim,
 				       struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *chrpt;
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
 			continue;
 
-		ch = pim_ifchannel_find(ifp, &up->sg);
+		pim_ifchannel_find(ifp, &up->sg, &ch, &chrpt);
 		if (!ch)
 			continue;
 
 		/* If we have even one immediate OIF we can return with
 		 * not-empty
 		 */
-		if (pim_upstream_evaluate_join_desired_interface(up, ch,
-					    NULL /* starch */))
+		if (pim_upstream_evaluate_join_desired_interface(up, ch, chrpt, NULL /* starch */))
 			return false;
 	} /* scan iface channel list */
 
@@ -2026,7 +2015,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_ifchannel *ch, *starch;
+	struct pim_ifchannel *ch, *chrpt, *starch, *throwaway;
 	struct pim_upstream *starup = up->parent;
 	int output_intf = 0;
 
@@ -2040,10 +2029,9 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		if (!ifp->info)
 			continue;
 
-		ch = pim_ifchannel_find(ifp, &up->sg);
-
+		pim_ifchannel_find(ifp, &up->sg, &ch, &chrpt);
 		if (starup)
-			starch = pim_ifchannel_find(ifp, &starup->sg);
+			pim_ifchannel_find(ifp, &starup->sg, &starch, &throwaway);
 		else
 			starch = NULL;
 
@@ -2056,8 +2044,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		    && (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
 			|| !PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags)))
 			continue;
-		if (pim_upstream_evaluate_join_desired_interface(up, ch,
-								 starch)) {
+		if (pim_upstream_evaluate_join_desired_interface(up, ch, chrpt, starch)) {
 			int flag = 0;
 
 			if (!ch)

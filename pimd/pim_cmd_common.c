@@ -1779,13 +1779,24 @@ static void pim_show_join_helper(struct pim_interface *pim_ifp,
 		json_object_object_get_ex(json_iface, ch_grp_str, &json_grp);
 		if (!json_grp) {
 			json_grp = json_object_new_object();
-			json_object_object_addf(json_grp, json_row, "%pPAs",
-						&ch->sg.src);
 			json_object_object_addf(json_iface, json_grp, "%pPAs",
 						&ch->sg.grp);
-		} else
-			json_object_object_addf(json_grp, json_row, "%pPAs",
-						&ch->sg.src);
+		}
+
+		/* Generate a unique key for this channel entry.
+		 * If this is an (S,G,rpt) channel and a regular (S,G) already exists,
+		 * append ",S,Grpt" suffix to distinguish them.
+		 */
+		char src_key[PIM_ADDRSTRLEN + 16];
+
+		if (pim_ifchannel_is_sg_rpt(ch)) {
+			/* For S,G,rpt entries, append ",S,Grpt" suffix */
+			snprintfrr(src_key, sizeof(src_key), "%pPAs,S,Grpt", &ch->sg.src);
+		} else {
+			snprintfrr(src_key, sizeof(src_key), "%pPAs", &ch->sg.src);
+		}
+
+		json_object_object_add(json_grp, src_key, json_row);
 	} else {
 		ttable_add_row(tt, "%s|%pPAs|%pPAs|%pPAs|%s|%s|%s|%s", ch->interface->name,
 			       &ifaddr, &ch->sg.src, &ch->sg.grp,
