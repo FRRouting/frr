@@ -1766,10 +1766,9 @@ static void pim_show_join_helper(struct pim_interface *pim_ifp,
 		json_object_string_add(json_row, "upTime", uptime);
 		json_object_string_add(json_row, "expire", expire);
 		json_object_string_add(json_row, "prune", prune);
-		json_object_string_add(
-			json_row, "channelJoinName",
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+		json_object_string_add(json_row, "channelJoinName",
+				       pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt));
+		if (pim_ifchannel_is_sg_rpt(ch))
 			json_object_int_add(json_row, "sgRpt", 1);
 		if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 			json_object_int_add(json_row, "protocolPim", 1);
@@ -1788,11 +1787,10 @@ static void pim_show_join_helper(struct pim_interface *pim_ifp,
 			json_object_object_addf(json_grp, json_row, "%pPAs",
 						&ch->sg.src);
 	} else {
-		ttable_add_row(
-			tt, "%s|%pPAs|%pPAs|%pPAs|%s|%s|%s|%s",
-			ch->interface->name, &ifaddr, &ch->sg.src, &ch->sg.grp,
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
-			uptime, expire, prune);
+		ttable_add_row(tt, "%s|%pPAs|%pPAs|%pPAs|%s|%s|%s|%s", ch->interface->name,
+			       &ifaddr, &ch->sg.src, &ch->sg.grp,
+			       pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt), uptime,
+			       expire, prune);
 	}
 }
 
