@@ -2399,6 +2399,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	/* Fetch routemap's rule information. */
 	rv = rule;
 	path = object;
+	locpref = path->peer->bgp->default_local_pref;
 
 	/* Set local preference value. */
 	if (path->attr->local_pref)
