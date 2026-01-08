@@ -438,7 +438,7 @@ macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
 	struct dlist_item *ditem = h->dh.hitem.next;                           \
-	if (ditem == &h->dh.hitem)                                             \
+	if (!ditem || ditem == &h->dh.hitem)                                   \
 		return NULL;                                                   \
 	ditem->prev->next = ditem->next;                                       \
 	ditem->next->prev = ditem->prev;                                       \

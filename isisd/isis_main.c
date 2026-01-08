@@ -105,15 +105,23 @@ static FRR_NORETURN void terminate(int i)
 	isis_terminate();
 	isis_sr_term();
 	isis_srv6_term();
+	mt_fini();
 	isis_zebra_stop();
 
-	isis_master_terminate();
+	/*
+	 * Must call vrf_terminate and prefix_list_reset before
+	 * isis_master_terminate, because their callbacks (isis_vrf_disable,
+	 * isis_prefix_list_update) iterate over im->isis which is finalized
+	 * by isis_master_terminate.
+	 */
 	route_map_finish();
 	prefix_list_reset();
+	vrf_terminate();
+
 #ifndef FABRICD
 	isis_affinity_map_terminate();
 #endif
-	vrf_terminate();
+	isis_master_terminate();
 
 	frr_fini();
 	exit(i);
@@ -197,12 +205,11 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 
 static void isis_config_finish(struct event *t)
 {
-	struct listnode *node, *inode;
 	struct isis *isis;
 	struct isis_area *area;
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area)
 			config_end_lsp_generate(area);
 	}
 }

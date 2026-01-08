@@ -158,10 +158,9 @@ static int fabricd_handle_adj_state_change(struct isis_adjacency *arg)
 	while (!skiplist_empty(f->neighbors))
 		skiplist_delete_first(f->neighbors);
 
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(f->area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &f->area->circuit_list, circuit) {
 		if (circuit->state != C_STATE_UP)
 			continue;
 
@@ -705,10 +704,9 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 	if (!circuit_scoped && !f->always_send_csnp)
 		return;
 
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!circuit->t_send_csnp[1])
 			continue;
 
@@ -724,13 +722,12 @@ struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 	if (listcount(circuit->ip_addrs))
 		return circuit->ip_addrs;
 
-	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
+	if (!fabricd || !circuit->area)
 		return NULL;
 
-	struct listnode *node;
 	struct isis_circuit *c;
 
-	for (ALL_LIST_ELEMENTS_RO(circuit->area->circuit_list, node, c)) {
+	frr_each (isis_circuit_list, &circuit->area->circuit_list, c) {
 		if (c->circ_type != CIRCUIT_T_LOOPBACK)
 			continue;
 
