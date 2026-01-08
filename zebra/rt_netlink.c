@@ -3367,8 +3367,7 @@ nexthop_done:
 				zlog_debug("%s: ID (%u): %pNHv(%d) vrf %u %s ", __func__, id, nh,
 					   nh->ifindex, nh->vrf_id, label_buf);
 
-			if (nh)
-				frrtrace(2, frr_zebra, netlink_nexthop_msg_encode, nh, id);
+			frrtrace(2, frr_zebra, netlink_nexthop_msg_encode, nh, id);
 		}
 
 		req->nhm.nh_protocol = zebra2proto(type);
