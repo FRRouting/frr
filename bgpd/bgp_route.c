@@ -31,6 +31,7 @@
 #include "zclient.h"
 #include "frrdistance.h"
 #include "frregex_real.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_nhc.h"
@@ -126,6 +127,52 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 
 static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo);
 static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, safi_t safi);
+
+/*
+ * Typesafe Hash Functions for bgp_path_info
+ * hash key: prefix, peer, type, sub_type, addpath_rx_id
+ */
+int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2)
+{
+	int ret;
+
+	/* Get the prefix from pi->net and compare */
+	const struct prefix *pfx1 = bgp_dest_get_prefix(p1->net);
+	const struct prefix *pfx2 = bgp_dest_get_prefix(p2->net);
+
+	ret = prefix_cmp(pfx1, pfx2);
+	if (ret != 0)
+		return ret;
+
+	if (p1->peer != p2->peer)
+		return (p1->peer < p2->peer) ? -1 : 1;
+
+	if (p1->type != p2->type)
+		return (p1->type < p2->type) ? -1 : 1;
+
+	if (p1->sub_type != p2->sub_type)
+		return (p1->sub_type < p2->sub_type) ? -1 : 1;
+
+	if (p1->addpath_rx_id != p2->addpath_rx_id)
+		return (p1->addpath_rx_id < p2->addpath_rx_id) ? -1 : 1;
+
+	/* All fields are equal */
+	return 0;
+}
+
+uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi)
+{
+	uint32_t h = 0;
+	const struct prefix *pfx = bgp_dest_get_prefix(pi->net);
+
+	h = prefix_hash_key(pfx);
+	h = jhash_1word((uint32_t)(uintptr_t)pi->peer, h);
+	h = jhash_1word(pi->addpath_rx_id, h);
+	h = jhash_1word((uint32_t)pi->type, h);
+	h = jhash_1word((uint32_t)pi->sub_type, h);
+
+	return h;
+}
 
 static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 						   char *buf, size_t len)
@@ -544,6 +591,7 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 {
 	frrtrace(3, frr_bgp, bgp_path_info_add, dest, pi, name);
 	struct bgp_path_info *top;
+	struct bgp_table *table;
 
 	top = bgp_dest_get_bgp_path_info(dest);
 
@@ -552,6 +600,11 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	if (top)
 		top->prev = pi;
 	bgp_dest_set_bgp_path_info(dest, pi);
+
+	/* Add this path info to global hash (per AFI/SAFI table) */
+	table = bgp_dest_table(dest);
+	if (table)
+		bgp_pi_hash_add(&table->pi_hash, pi);
 
 	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 	bgp_path_info_lock(pi);
@@ -568,6 +621,8 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 				    struct bgp_path_info *pi)
 {
+	struct bgp_table *table;
+
 	if (pi->next)
 		pi->next->prev = pi->prev;
 	if (pi->prev)
@@ -577,6 +632,11 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 
 	pi->next = NULL;
 	pi->prev = NULL;
+
+	/* Remove this path from global hash (per AFI/SAFI table) */
+	table = bgp_dest_table(dest);
+	if (table)
+		bgp_pi_hash_del(&table->pi_hash, pi);
 
 	if (pi->peer)
 		pi->peer->stat_pfx_loc_rib--;
@@ -589,8 +649,15 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 						    struct bgp_path_info *pi)
 {
+	struct bgp_table *table;
+
 	pi->next = NULL;
 	pi->prev = NULL;
+
+	/* Remove this path from global hash (per AFI/SAFI table) */
+	table = bgp_dest_table(dest);
+	if (table)
+		bgp_pi_hash_del(&table->pi_hash, pi);
 
 	if (pi->peer)
 		pi->peer->stat_pfx_loc_rib--;
@@ -5547,6 +5614,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 {
 	int ret;
 	struct bgp_dest *dest;
+	struct bgp_table *rib_table;
 	struct bgp *bgp;
 	struct attr new_attr = {};
 	struct attr *attr_new;
@@ -5580,6 +5648,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	bgp = peer->bgp;
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
+	rib_table = bgp_dest_table(dest);
 
 	if (num_labels &&
 	    ((afi == AFI_L2VPN && safi == SAFI_EVPN) || bgp_is_valid_label(&label[0]))) {
@@ -5606,12 +5675,14 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
-	/* Check previously received route. */
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->peer == peer && pi->type == type
-		    && pi->sub_type == sub_type
-		    && pi->addpath_rx_id == addpath_id)
-			break;
+	/* Check previously received route using pi_hash */
+	struct bgp_path_info pi_lookup = { .net = dest,
+					   .peer = peer,
+					   .type = type,
+					   .sub_type = sub_type,
+					   .addpath_rx_id = addpath_id };
+
+	pi = bgp_pi_hash_find(&rib_table->pi_hash, &pi_lookup);
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {

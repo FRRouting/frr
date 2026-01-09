@@ -11,6 +11,7 @@
 #include "hook.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "typesafe.h"
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
@@ -274,6 +275,9 @@ struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
 	struct bgp_path_info *prev;
+
+	/* Hash linkage for pi_hash in bgp_table */
+	struct bgp_pi_hash_item pi_hash_link;
 
 	/* For nexthop linked list */
 	LIST_ENTRY(bgp_path_info) nh_thread;
@@ -738,6 +742,11 @@ DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct bgp_path_info *old_route, struct bgp_path_info *new_route),
 	     (bgp, afi, safi, bn, old_route, new_route));
+
+extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2);
+extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
+
+DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
