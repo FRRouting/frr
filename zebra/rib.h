@@ -33,6 +33,13 @@ DECLARE_MTYPE(RE);
 
 PREDECL_LIST(rnh_list);
 
+struct rnh;
+struct rnh_item {
+	struct rnh_list_item next;
+	struct rnh *rnh;
+	struct prefix resolved_route;
+};
+
 /* Nexthop structure. */
 struct rnh {
 	uint8_t flags;
@@ -50,7 +57,6 @@ struct rnh {
 	uint32_t seqno;
 
 	struct route_entry *state;
-	struct prefix resolved_route;
 	struct list *client_list;
 
 	/* pseudowires dependent on this nh */
@@ -63,7 +69,20 @@ struct rnh {
 	 */
 	int filtered[ZEBRA_ROUTE_MAX];
 
-	struct rnh_list_item rnh_list_item;
+/* Level of recursions in nht */
+#define ZEBRA_NHT_RECURSION_MAX 8
+
+	/*
+	 * For a resolved rnh that has a valid route entry ("state"), the array
+	 * contains one or more routes (multiples in case of recursion). The one
+	 * indexed by (resolved_count - 1) corresponds to the fully-resolved
+	 * route.
+	 *
+	 * For an unresolved rnh, the resolved_count is 1 and the item is queued
+	 * to 0.0.0.0/0, or 0::0/0.
+	 */
+	uint8_t resolved_count;
+	struct rnh_item rnh_item[ZEBRA_NHT_RECURSION_MAX];
 };
 
 #define DISTANCE_INFINITY  255
@@ -242,7 +261,7 @@ typedef struct rib_dest_t_ {
 
 } rib_dest_t;
 
-DECLARE_LIST(rnh_list, struct rnh, rnh_list_item);
+DECLARE_LIST(rnh_list, struct rnh_item, next);
 DECLARE_LIST(re_list, struct route_entry, next);
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))

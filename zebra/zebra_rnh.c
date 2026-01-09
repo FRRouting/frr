@@ -78,18 +78,20 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 	if (!table)
 		return;
 
-	rn = route_node_match(table, &rnh->resolved_route);
-	if (!rn)
-		return;
+	for (int i = 0; i < rnh->resolved_count; i++) {
+		rn = route_node_match(table, &rnh->rnh_item[i].resolved_route);
+		if (!rn)
+			continue;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+				   rnh->node, rn);
 
-	dest = rib_dest_from_rnode(rn);
-	rnh_list_del(&dest->nht, rnh);
-	route_unlock_node(rn);
+		dest = rib_dest_from_rnode(rn);
+		rnh_list_del(&dest->nht, &rnh->rnh_item[i]);
+		route_unlock_node(rn);
+	}
 }
 
 static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
@@ -99,18 +101,20 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	struct route_node *rn;
 	rib_dest_t *dest;
 
-	rn = route_node_match(table, &rnh->resolved_route);
-	if (!rn)
-		return;
+	for (int i = 0; i < rnh->resolved_count; i++) {
+		rn = route_node_match(table, &rnh->rnh_item[i].resolved_route);
+		if (!rn)
+			continue;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+				   rnh->node, rn);
 
-	dest = rib_dest_from_rnode(rn);
-	rnh_list_add_tail(&dest->nht, rnh);
-	route_unlock_node(rn);
+		dest = rib_dest_from_rnode(rn);
+		rnh_list_add_tail(&dest->nht, &rnh->rnh_item[i]);
+		route_unlock_node(rn);
+	}
 }
 
 struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
@@ -154,7 +158,12 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 		 * we should set the family so that future
 		 * comparisons can just be done
 		 */
-		rnh->resolved_route.family = p->family;
+		rnh->resolved_count = 1;
+		for (int i = 0; i < ZEBRA_NHT_RECURSION_MAX; i++) {
+			rnh->rnh_item[i].rnh = rnh;
+			rnh->rnh_item[i].resolved_route.family = p->family;
+		}
+
 		rnh->client_list = list_new();
 		rnh->vrf_id = vrfid;
 		rnh->seqno = 0;
@@ -199,6 +208,8 @@ void zebra_free_rnh(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf;
 	struct route_table *table;
+	struct rnh_item *item;
+	uint8_t family;
 
 	zebra_rnh_remove_from_routing_table(rnh);
 	rnh->flags |= ZEBRA_NHT_DELETED;
@@ -206,18 +217,22 @@ void zebra_free_rnh(struct rnh *rnh)
 	list_delete(&rnh->zebra_pseudowire_list);
 
 	zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	table = zvrf->table[family2afi(rnh->resolved_route.family)][rnh->safi];
+	family = rnh->rnh_item[0].resolved_route.family;
+	table = zvrf->table[family2afi(family)][rnh->safi];
 
 	if (table) {
 		struct route_node *rern;
 
-		rern = route_node_match(table, &rnh->resolved_route);
-		if (rern) {
-			rib_dest_t *dest;
+		for (int i = 0; i < rnh->resolved_count; i++) {
+			item = &rnh->rnh_item[i];
+			rern = route_node_match(table, &item->resolved_route);
+			if (rern) {
+				rib_dest_t *dest;
 
-			dest = rib_dest_from_rnode(rern);
-			rnh_list_del(&dest->nht, rnh);
-			route_unlock_node(rern);
+				dest = rib_dest_from_rnode(rern);
+				rnh_list_del(&dest->nht, item);
+				route_unlock_node(rern);
+			}
 		}
 	}
 	free_state(rnh->vrf_id, rnh->state, rnh->node);
@@ -462,30 +477,37 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
  * check in a couple of places, so this is a single home for the logic we
  * use.
  */
-
-static const int RNH_INVALID_NH_FLAGS = (NEXTHOP_FLAG_RECURSIVE |
-					 NEXTHOP_FLAG_DUPLICATE |
-					 NEXTHOP_FLAG_RNH_FILTERED);
-
-bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
+bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh,
+		       bool recursive)
 {
-	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
-		&& !CHECK_FLAG(nh->flags, RNH_INVALID_NH_FLAGS));
+	if (recursive) {
+		return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
+			CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE) &&
+			CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE) &&
+			!CHECK_FLAG(nh->flags, (NEXTHOP_FLAG_DUPLICATE |
+						NEXTHOP_FLAG_RNH_FILTERED)));
+	} else {
+		return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
+			CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE) &&
+			!CHECK_FLAG(nh->flags, (NEXTHOP_FLAG_RECURSIVE |
+						NEXTHOP_FLAG_DUPLICATE |
+						NEXTHOP_FLAG_RNH_FILTERED)));
+	}
 }
 
 /*
  * Determine whether an re's nexthops are valid for tracking.
  */
-static bool rnh_check_re_nexthops(const struct route_entry *re,
-				  const struct rnh *rnh)
+static struct nexthop *rnh_check_re_nexthops(const struct route_entry *re,
+					     const struct rnh *rnh,
+					     bool recursive)
 {
 	bool ret = false;
-	const struct nexthop *nexthop = NULL;
+	struct nexthop *nexthop;
 
 	/* Check route's nexthops */
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		if (rnh_nexthop_valid(re, nexthop))
+		if (rnh_nexthop_valid(re, nexthop, recursive))
 			break;
 	}
 
@@ -493,7 +515,7 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 	if (nexthop == NULL && re->nhe->backup_info &&
 	    re->nhe->backup_info->nhe) {
 		for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg, nexthop)) {
-			if (rnh_nexthop_valid(re, nexthop))
+			if (rnh_nexthop_valid(re, nexthop, recursive))
 				break;
 		}
 	}
@@ -531,7 +553,24 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 	}
 
 done:
-	return ret;
+	return ret ? nexthop : NULL;
+}
+
+static void rnh_init_resolved_route(afi_t afi, uint8_t *count,
+				    struct prefix *route)
+{
+	*count = 1;
+	memset(route, 0, sizeof(struct prefix));
+	route->family = afi2family(afi);
+}
+
+static void rnh_copy_resolved_route(struct rnh *rnh, uint8_t count,
+				    struct prefix *route)
+{
+	rnh->resolved_count = count;
+
+	for (int i = 0; i < count; i++)
+		prefix_copy(&rnh->rnh_item[i].resolved_route, route + i);
 }
 
 /*
@@ -541,13 +580,18 @@ done:
 static struct route_entry *
 zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				struct route_node *nrn, const struct rnh *rnh,
-				struct route_node **prn)
+				struct route_node **prn, uint8_t *res_count,
+				struct prefix *res_route)
 {
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
+	struct nexthop *nexthop;
+	struct prefix p;
+	int count;
 
 	*prn = NULL;
+	rnh_init_resolved_route(afi, res_count, res_route);
 
 	route_table = zvrf->table[afi][rnh->safi];
 	if (!route_table)
@@ -563,6 +607,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	/* While resolving nexthops, we may need to walk up the tree from the
 	 * most-specific match. Do similar logic as in zebra_rib.c
 	 */
+	count = 0;
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
@@ -581,6 +626,8 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					CHECK_FLAG(
 						rnh->flags,
 						ZEBRA_NHT_RESOLVE_VIA_DEFAULT));
+
+			rnh_init_resolved_route(afi, res_count, res_route);
 			return NULL;
 		}
 
@@ -613,14 +660,48 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			if (rnh_check_re_nexthops(re, rnh))
+			if (rnh_check_re_nexthops(re, rnh, false))
 				break;
 		}
 
-		/* Route entry found, we're done; else, walk up the tree. */
+		/* Route entry found, we're done; else, walk up the tree.
+		 *
+		 * In case of a recursive route (e.g., bgp), though, we need
+		 * to keep resolving on the nexthop and get a fully-resolved
+		 * route so that consistent parameters (incl. protocol type,
+		 * route metric, and nexthops) are sent to NHT clients.
+		 */
 		if (re) {
-			*prn = rn;
-			return re;
+			prefix_copy(res_route + count, &rn->p);
+			*res_count = ++count;
+
+			nexthop = rnh_check_re_nexthops(re, rnh, true);
+			if (!nexthop) {
+				*prn = rn;
+				return re;
+			}
+
+			if ((afi != AFI_IP) && (afi != AFI_IP6)) {
+				*prn = rn;
+				return re;
+			}
+
+			if (count >= ZEBRA_NHT_RECURSION_MAX) {
+				zlog_warn("NHT reached max recursion for %pFX",
+					 &nrn->p);
+				*prn = rn;
+				return re;
+			}
+
+			addr2hostprefix(afi2family(afi), &nexthop->gate, &p);
+			rn = route_node_match(route_table, &p);
+			if (rn)
+				route_unlock_node(rn);
+
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+				zlog_debug("  continue resolve on nh %pFX, count %d",
+					   &p, count);
+			}
 		} else {
 			/* Resolve the nexthop recursively by finding matching
 			 * route with lower prefix length
@@ -629,6 +710,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		}
 	}
 
+	rnh_init_resolved_route(afi, res_count, res_route);
 	return NULL;
 }
 
@@ -650,35 +732,33 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 int force, struct route_node *nrn,
 					 struct rnh *rnh,
 					 struct route_node *prn,
-					 struct route_entry *re)
+					 struct route_entry *re,
+					 uint8_t res_count,
+					 struct prefix *res_route)
 {
 	int state_changed = 0;
+
+	assert((res_count > 0) && (res_count <= ZEBRA_NHT_RECURSION_MAX));
+	assert((rnh->resolved_count > 0) &&
+	       (rnh->resolved_count <= ZEBRA_NHT_RECURSION_MAX));
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
 	 * change.
 	 */
 	zebra_rnh_remove_from_routing_table(rnh);
-	if (!prefix_same(&rnh->resolved_route, prn ? &prn->p : NULL)) {
-		if (prn)
-			prefix_copy(&rnh->resolved_route, &prn->p);
-		else {
-			/*
-			 * Just quickly store the family of the resolved
-			 * route so that we can reset it in a second here
-			 */
-			int family = rnh->resolved_route.family;
 
-			memset(&rnh->resolved_route, 0, sizeof(struct prefix));
-			rnh->resolved_route.family = family;
-		}
-
+	/* Compare the fully-resolved route */
+	if (!prefix_same(&rnh->rnh_item[rnh->resolved_count - 1].resolved_route,
+			 res_route + res_count - 1)) {
 		copy_state(rnh, re, nrn);
 		state_changed = 1;
 	} else if (compare_state(re, rnh->state)) {
 		copy_state(rnh, re, nrn);
 		state_changed = 1;
 	}
+
+	rnh_copy_resolved_route(rnh, res_count, res_route);
 	zebra_rnh_store_in_routing_table(rnh);
 
 	if (state_changed || force) {
@@ -701,6 +781,8 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct rnh *rnh;
 	struct route_entry *re;
 	struct route_node *prn;
+	uint8_t res_count;
+	struct prefix res_prefix[ZEBRA_NHT_RECURSION_MAX];
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		zlog_debug("%s(%u):%pRN: Evaluate RNH, %s", VRF_LOGNAME(zvrf->vrf),
@@ -710,7 +792,8 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	rnh = nrn->info;
 
 	/* Identify route entry (RE) resolving this tracked entry. */
-	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn,
+					     &res_count, &res_prefix[0]);
 
 	/* If the entry cannot be resolved and that is also the existing state,
 	 * there is nothing further to do.
@@ -719,7 +802,8 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 		return;
 
 	/* Process based on type of entry. */
-	zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn, re);
+	zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn, re,
+				     res_count, &res_prefix[0]);
 }
 
 /*
@@ -737,11 +821,14 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
 	struct rnh *rnh;
 	struct route_entry *re;
 	struct route_node *prn;
+	uint8_t res_count;
+	struct prefix res_prefix[ZEBRA_NHT_RECURSION_MAX];
 
 	rnh = nrn->info;
 
 	/* Identify route entry (RIB) resolving this tracked entry. */
-	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn,
+					     &res_count, &res_prefix[0]);
 
 	if (re)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
@@ -866,7 +953,7 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 		nh = nexthop_next(nh);
 
 	while (nh) {
-		if (rnh_nexthop_valid(re, nh))
+		if (rnh_nexthop_valid(re, nh, false))
 			break;
 		else
 			nh = nexthop_next(nh);
@@ -964,6 +1051,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	struct route_node *rn;
 	int ret;
 	uint32_t message = 0;
+	struct prefix *resolved;
 
 	rn = rnh->node;
 	re = rnh->state;
@@ -1001,14 +1089,19 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	/*
 	 * What we matched against
 	 */
-	stream_putw(s, rnh->resolved_route.family);
-	stream_putc(s, rnh->resolved_route.prefixlen);
-	switch (rnh->resolved_route.family) {
+	assert((rnh->resolved_count > 0) &&
+	       (rnh->resolved_count <= ZEBRA_NHT_RECURSION_MAX));
+
+	resolved = &rnh->rnh_item[rnh->resolved_count - 1].resolved_route;
+
+	stream_putw(s, resolved->family);
+	stream_putc(s, resolved->prefixlen);
+	switch (resolved->family) {
 	case AF_INET:
-		stream_put_in_addr(s, &rnh->resolved_route.u.prefix4);
+		stream_put_in_addr(s, &resolved->u.prefix4);
 		break;
 	case AF_INET6:
-		stream_put(s, &rnh->resolved_route.u.prefix6, IPV6_MAX_BYTELEN);
+		stream_put(s, &resolved->u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
@@ -1034,7 +1127,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
-			if (rnh_nexthop_valid(re, nh)) {
+			if (rnh_nexthop_valid(re, nh, false)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
 				ret = zapi_nexthop_encode(s, &znh, 0, message);
 				if (ret < 0)
@@ -1119,6 +1212,8 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 	json_object *json_client = NULL;
 	json_object *json_nexthop_array = NULL;
 	json_object *json_nexthop = NULL;
+	json_object *json_prefix_array = NULL;
+	json_object *json_prefix = NULL;
 
 	rnh = rn->info;
 
@@ -1126,6 +1221,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 		json_nht = json_object_new_object();
 		json_nexthop_array = json_object_new_array();
 		json_client_array = json_object_new_array();
+		json_prefix_array = json_object_new_array();
 
 		json_object_object_add(
 			json,
@@ -1138,6 +1234,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 				       json_client_array);
 		json_object_object_add(json_nht, "nexthops",
 				       json_nexthop_array);
+		json_object_object_add(json_nht, "prefixes", json_prefix_array);
 	} else {
 		vty_out(vty, "%s%s\n",
 			inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
@@ -1151,12 +1248,25 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 			json_object_string_add(
 				json_nht, "resolvedProtocol",
 				zebra_route_string(rnh->state->type));
-			json_object_string_addf(json_nht, "prefix", "%pFX",
-						&rnh->resolved_route);
+
+			for (int i = 0; i < rnh->resolved_count; i++) {
+				json_prefix = json_object_new_object();
+				json_object_array_add(json_prefix_array,
+						      json_prefix);
+
+				json_object_string_addf(json_prefix,
+					"prefix", "%pFX",
+					&rnh->rnh_item[i].resolved_route);
+			}
 		} else {
-			vty_out(vty, " resolved via %s, prefix %pFX\n",
-				zebra_route_string(rnh->state->type),
-				&rnh->resolved_route);
+			vty_out(vty, " resolved via %s, prefix",
+				zebra_route_string(rnh->state->type));
+
+			for (int i = 0; i < rnh->resolved_count; i++) {
+				vty_out(vty, " %pFX",
+					&rnh->rnh_item[i].resolved_route);
+			}
+			vty_out(vty, "\n");
 		}
 
 		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;

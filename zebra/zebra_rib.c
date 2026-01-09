@@ -777,6 +777,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 				    bool rt_delete)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct rnh_item *rnh_item;
 	struct rnh *rnh;
 
 	/*
@@ -877,7 +878,8 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		frr_each_safe(rnh_list, &dest->nht, rnh) {
+		frr_each_safe(rnh_list, &dest->nht, rnh_item) {
+			rnh = rnh_item->rnh;
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
