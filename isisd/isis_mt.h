@@ -110,4 +110,5 @@ void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 		     uint8_t *id, uint32_t metric);
 void mt_init(void);
+void mt_fini(void);
 #endif

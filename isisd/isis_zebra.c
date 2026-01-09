@@ -52,7 +52,6 @@ static struct zclient *zclient_sync;
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_area *area;
-	struct listnode *node;
 	struct prefix router_id;
 	struct isis *isis = NULL;
 
@@ -67,8 +66,8 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	isis->router_id = router_id.u.prefix4.s_addr;
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
-		if (listcount(area->area_addrs) > 0)
+	frr_each (isis_area_list, &isis->area_list, area)
+		if (iso_address_list_count(&area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
@@ -686,7 +685,6 @@ static void request_srv6_sids(struct isis_area *area)
 {
 	struct srv6_sid_ctx ctx = {};
 	struct in6_addr sid_value = {};
-	struct listnode *node;
 	struct isis_adjacency *adj;
 	bool ret;
 
@@ -706,7 +704,7 @@ static void request_srv6_sids(struct isis_area *area)
 	}
 
 	/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ll_ipv6_count > 0)
 			isis_zebra_request_srv6_sid_endx(adj);
 	}
@@ -1190,7 +1188,6 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct isis_area *area;
-	struct listnode *node;
 
 	if (!isis || !locator)
 		return -1;
@@ -1201,7 +1198,7 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 		  locator->function_bits_length, locator->argument_bits_length);
 
 	/* Walk through all areas of the ISIS instance */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		/*
 		 * Check if the IS-IS area is configured to use the received
 		 * locator
@@ -1279,7 +1276,7 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		loc.argument_bits_length);
 
 	/* Walk through all areas of the ISIS instance */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (strncmp(area->srv6db.config.srv6_locator_name, loc.name,
 			    sizeof(area->srv6db.config.srv6_locator_name)) != 0)
 			continue;
@@ -1444,7 +1441,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	enum zapi_srv6_sid_notify note;
 	uint32_t sid_func;
 	struct isis_area *area;
-	struct listnode *node, *nnode, *n;
+	struct listnode *node, *nnode;
 	char buf[256];
 	struct srv6_locator *locator;
 	struct prefix_ipv6 tmp_prefix;
@@ -1467,7 +1464,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
 		 sid_func, zapi_srv6_sid_notify2str(note));
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!area->srv6db.config.enabled || !area->srv6db.srv6_locator)
 			continue;
 
@@ -1527,8 +1524,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 			} else if (ctx.behavior ==
 				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
-				for (ALL_LIST_ELEMENTS_RO(area->adjacency_list,
-							  n, adj)) {
+				frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 					/* Check if the End.X SID is for this adjacecny */
 					if (adj->ll_ipv6_count == 0 ||
 					    memcmp(&adj->ll_ipv6_addrs[0],

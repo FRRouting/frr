@@ -117,6 +117,8 @@ static int printchk(const char *ref, const char *fmt, ...)
 	return 0;
 }
 
+const char *sarr[] = { "first", "second", "third", NULL };
+
 static void test_va(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
 static void test_va(const char *ref, const char *fmt, ...)
 {
@@ -145,6 +147,7 @@ int main(int argc, char **argv)
 	uint64_t ui64 = 0xfeed1278cafef00d;
 	uint16_t i16 = -23456;
 	int_fast8_t if8 = 123;
+	const char **sptr = sarr;
 	struct in_addr ip;
 	char *p;
 	char buf[256];
@@ -286,6 +289,15 @@ int main(int argc, char **argv)
 	printchk("\"\"", "%pSQqn", "");
 	printchk("\"\"", "%pSQqn", (char *)NULL);
 	printchk("(null)", "%pSQq", (char *)NULL);
+
+	printchk("first,second,third", "%pSA", sarr);
+	printchk("first,second,third", "%pSA", sptr);
+	printchk("first,second", "%2pSA", sptr);
+	printchk("first,second", "%*pSA", 2, sptr);
+	printchk("first", "%1pSA", sptr);
+	sarr[0] = NULL;
+	printchk("", "%pSA", sptr);
+	printchk("", "%pSA", NULL);
 
 	/*
 	 * %pNH<foo> tests

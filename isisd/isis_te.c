@@ -49,7 +49,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_zebra.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE, "ISIS MPLS_TE parameters");
 
 static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
 
@@ -64,18 +64,15 @@ static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
  */
 void isis_mpls_te_create(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area)
 		return;
 
 	if (area->mta == NULL) {
-
 		struct mpls_te_area *new;
 
-		zlog_debug("ISIS-TE(%s): Initialize MPLS Traffic Engineering",
-			   area->area_tag);
+		zlog_debug("ISIS-TE(%s): Initialize MPLS Traffic Engineering", area->area_tag);
 
 		new = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_area));
 
@@ -101,7 +98,7 @@ void isis_mpls_te_create(struct isis_area *area)
 	/* Update Extended TLVs according to Interface link parameters
 	 * and neighbor IP addresses
 	 */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		isis_link_params_update(circuit, circuit->interface);
 		isis_mpls_te_circuit_ip_update(circuit);
 	}
@@ -114,7 +111,6 @@ void isis_mpls_te_create(struct isis_area *area)
  */
 void isis_mpls_te_disable(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area->mta)
@@ -126,7 +122,7 @@ void isis_mpls_te_disable(struct isis_area *area)
 	ls_ted_clean(area->mta->ted);
 
 	/* Disable Extended SubTLVs on all circuit */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!IS_EXT_TE(circuit->ext))
 			continue;
 
@@ -142,7 +138,6 @@ void isis_mpls_te_disable(struct isis_area *area)
 
 void isis_mpls_te_term(struct isis_area *area)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	if (!area->mta)
@@ -154,7 +149,7 @@ void isis_mpls_te_term(struct isis_area *area)
 
 	/* Remove Extended SubTLVs */
 	zlog_info(" |- Remove Extended SubTLVS for all circuit");
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		zlog_info("   |- Call isis_del_ext_subtlvs()");
 		isis_del_ext_subtlvs(circuit->ext);
 		circuit->ext = NULL;
@@ -164,8 +159,7 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
-void isis_link_params_update_asla(struct isis_circuit *circuit,
-				  struct interface *ifp)
+void isis_link_params_update_asla(struct isis_circuit *circuit, struct interface *ifp)
 {
 	struct isis_asla_subtlvs *asla;
 	struct listnode *node, *nnode;
@@ -209,8 +203,7 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 			UNSET_SUBTLV(asla, EXT_ADM_GRP);
 
 		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
-			admin_group_copy(&asla->ext_admin_group,
-					 &ifp->link_params->ext_admin_grp);
+			admin_group_copy(&asla->ext_admin_group, &ifp->link_params->ext_admin_grp);
 			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
 		} else
 			UNSET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
@@ -218,8 +211,7 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 		/* Send admin-group zero for better compatibility
 		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
 		 */
-		if (circuit->area->admin_group_send_zero &&
-		    !IS_SUBTLV(asla, EXT_ADM_GRP) &&
+		if (circuit->area->admin_group_send_zero && !IS_SUBTLV(asla, EXT_ADM_GRP) &&
 		    !IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP)) {
 			asla->admin_group = 0;
 			SET_SUBTLV(asla, EXT_ADM_GRP);
@@ -268,8 +260,7 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 
 		if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW)) {
 			for (i = 0; i < MAX_CLASS_TYPE; i++)
-				asla->unrsv_bw[i] =
-					ifp->link_params->unrsv_bw[i];
+				asla->unrsv_bw[i] = ifp->link_params->unrsv_bw[i];
 			SET_SUBTLV(asla, EXT_UNRSV_BW);
 		} else
 			UNSET_SUBTLV(asla, EXT_UNRSV_BW);
@@ -318,8 +309,7 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 
 /* Main initialization / update function of the MPLS TE Circuit context */
 /* Call when interface TE Link parameters are modified */
-void isis_link_params_update(struct isis_circuit *circuit,
-			     struct interface *ifp)
+void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp)
 {
 	int i;
 	struct prefix_ipv4 *addr;
@@ -340,8 +330,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 	/* Check if MPLS TE Circuit context has not been already created */
 	if (circuit->ext == NULL) {
 		circuit->ext = isis_alloc_ext_subtlvs();
-		te_debug("  |- Allocated new Ext-subTLVs for interface %s",
-			 ifp->name);
+		te_debug("  |- Allocated new Ext-subTLVs for interface %s", ifp->name);
 	}
 
 	ext = circuit->ext;
@@ -356,8 +345,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
 
 		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
-			admin_group_copy(&ext->ext_admin_group,
-					 &ifp->link_params->ext_admin_grp);
+			admin_group_copy(&ext->ext_admin_group, &ifp->link_params->ext_admin_grp);
 			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
 		} else
 			UNSET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
@@ -365,8 +353,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		/* Send admin-group zero for better compatibility
 		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
 		 */
-		if (circuit->area->admin_group_send_zero &&
-		    !IS_SUBTLV(ext, EXT_ADM_GRP) &&
+		if (circuit->area->admin_group_send_zero && !IS_SUBTLV(ext, EXT_ADM_GRP) &&
 		    !IS_SUBTLV(ext, EXT_EXTEND_ADM_GRP)) {
 			ext->adm_group = 0;
 			SET_SUBTLV(ext, EXT_ADM_GRP);
@@ -387,8 +374,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		/* If known, register local IPv6 addr from ip_addr list */
 		if (listcount(circuit->ipv6_non_link) != 0) {
 			addr6 = (struct prefix_ipv6 *)listgetdata(
-				(struct listnode *)listhead(
-					circuit->ipv6_non_link));
+				(struct listnode *)listhead(circuit->ipv6_non_link));
 			IPV6_ADDR_COPY(&ext->local_addr6, &addr6->prefix);
 			SET_SUBTLV(ext, EXT_LOCAL_ADDR6);
 		} else
@@ -415,8 +401,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 
 		if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW)) {
 			for (i = 0; i < MAX_CLASS_TYPE; i++)
-				ext->unrsv_bw[i] =
-					ifp->link_params->unrsv_bw[i];
+				ext->unrsv_bw[i] = ifp->link_params->unrsv_bw[i];
 			SET_SUBTLV(ext, EXT_UNRSV_BW);
 		} else
 			UNSET_SUBTLV(ext, EXT_UNRSV_BW);
@@ -482,11 +467,9 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_RMT_AS);
 			UNSET_SUBTLV(ext, EXT_RMT_IP);
 		}
-		te_debug("  |- New MPLS-TE link parameters status 0x%x",
-			 ext->status);
+		te_debug("  |- New MPLS-TE link parameters status 0x%x", ext->status);
 	} else {
-		te_debug("  |- Reset Extended subTLVs status 0x%x",
-			 ext->status);
+		te_debug("  |- Reset Extended subTLVs status 0x%x", ext->status);
 		/* Reset TE subTLVs keeping SR one's */
 		if (IS_SUBTLV(ext, EXT_ADJ_SID))
 			ext->status = EXT_ADJ_SID;
@@ -505,8 +488,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 	return;
 }
 
-static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
-					bool global)
+static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
 {
 	struct isis_circuit *circuit;
 	struct isis_ext_subtlvs *ext;
@@ -525,8 +507,7 @@ static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 		if (!circuit->ip_router || !adj->ipv4_address_count)
 			UNSET_SUBTLV(ext, EXT_NEIGH_ADDR);
 		else {
-			IPV4_ADDR_COPY(&ext->neigh_addr,
-				       &adj->ipv4_addresses[0]);
+			IPV4_ADDR_COPY(&ext->neigh_addr, &adj->ipv4_addresses[0]);
 			SET_SUBTLV(ext, EXT_NEIGH_ADDR);
 		}
 		break;
@@ -543,8 +524,7 @@ static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 		if (!circuit->ipv6_router || !adj->global_ipv6_count)
 			UNSET_SUBTLV(ext, EXT_NEIGH_ADDR6);
 		else {
-			IPV6_ADDR_COPY(&ext->neigh_addr6,
-				       &adj->global_ipv6_addrs[0]);
+			IPV6_ADDR_COPY(&ext->neigh_addr6, &adj->global_ipv6_addrs[0]);
 			SET_SUBTLV(ext, EXT_NEIGH_ADDR6);
 		}
 		break;
@@ -555,8 +535,7 @@ static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 	return 0;
 }
 
-static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
-				       bool global)
+static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
 {
 	int ret;
 
@@ -572,8 +551,7 @@ static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
 	return ret;
 }
 
-static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
-					 bool global)
+static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family, bool global)
 {
 	struct isis_circuit *circuit;
 	struct isis_ext_subtlvs *ext;
@@ -606,8 +584,7 @@ static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
 	return 0;
 }
 
-static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
-					bool global)
+static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family, bool global)
 {
 	int ret;
 
@@ -674,12 +651,11 @@ int isis_mpls_te_update(struct interface *ifp)
 	isis_link_params_update(circuit, ifp);
 
 	/* ... and LSP */
-	if (circuit->area &&
-	    (IS_MPLS_TE(circuit->area->mta)
+	if (circuit->area && (IS_MPLS_TE(circuit->area->mta)
 #ifndef FABRICD
-	     || !list_isempty(circuit->area->flex_algos->flex_algos)
+			      || !list_isempty(circuit->area->flex_algos->flex_algos)
 #endif /* ifndef FABRICD */
-		     ))
+				      ))
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 
 	rc = 0;
@@ -736,7 +712,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 	struct ls_vertex *vertex = NULL;
 	struct ls_node *old, lnode = {};
 	struct isis_tlvs *tlvs;
-	const struct in_addr inaddr_any = {.s_addr = INADDR_ANY};
+	const struct in_addr inaddr_any = { .s_addr = INADDR_ANY };
 
 	/* Sanity check */
 	if (!ted || !lsp)
@@ -770,8 +746,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 			SET_FLAG(lnode.flags, LS_NODE_ROUTER_ID);
 		}
 		if (tlvs->te_router_id_ipv6) {
-			IPV6_ADDR_COPY(&lnode.router_id6,
-				       tlvs->te_router_id_ipv6);
+			IPV6_ADDR_COPY(&lnode.router_id6, tlvs->te_router_id_ipv6);
 			SET_FLAG(lnode.flags, LS_NODE_ROUTER_ID6);
 		}
 		if (tlvs->hostname) {
@@ -781,8 +756,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 		if (tlvs->router_cap) {
 			struct isis_router_cap *cap = tlvs->router_cap;
 
-			if (cap->srgb.lower_bound != 0
-			    && cap->srgb.range_size != 0) {
+			if (cap->srgb.lower_bound != 0 && cap->srgb.range_size != 0) {
 				SET_FLAG(lnode.flags, LS_NODE_SR);
 				lnode.srgb.flag = cap->srgb.flags;
 				lnode.srgb.lower_bound = cap->srgb.lower_bound;
@@ -791,8 +765,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 					lnode.algo[i] = cap->algo[i];
 			}
 
-			if (cap->srlb.lower_bound != 0
-			    && cap->srlb.range_size != 0) {
+			if (cap->srlb.lower_bound != 0 && cap->srlb.range_size != 0) {
 				lnode.srlb.lower_bound = cap->srlb.lower_bound;
 				lnode.srlb.range_size = cap->srlb.range_size;
 				SET_FLAG(lnode.flags, LS_NODE_SRLB);
@@ -883,15 +856,14 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR))
 		te_debug("    |- %s Edge (%pI4) from Extended Reach. %pI4",
-			 edge->status == NEW ? "Create" : "Found",
-			 &edge->key.k.addr, &attr->standard.local);
+			 edge->status == NEW ? "Create" : "Found", &edge->key.k.addr,
+			 &attr->standard.local);
 	else if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6))
 		te_debug("    |- %s Edge (%pI6) from Extended Reach. %pI6",
-			 edge->status == NEW ? "Create" : "Found",
-			 &edge->key.k.addr6, &attr->standard.local6);
+			 edge->status == NEW ? "Create" : "Found", &edge->key.k.addr6,
+			 &attr->standard.local6);
 	else
-		te_debug("    |- %s Edge (%" PRIu64 ")",
-			 edge->status == NEW ? "Create" : "Found",
+		te_debug("    |- %s Edge (%" PRIu64 ")", edge->status == NEW ? "Create" : "Found",
 			 edge->key.k.link_id);
 
 	return edge;
@@ -906,11 +878,10 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
  *
  * @return	New Link State attributes if success, NULL otherwise
  */
-static struct ls_attributes *get_attributes(struct ls_node_id adv,
-					    struct isis_ext_subtlvs *tlvs)
+static struct ls_attributes *get_attributes(struct ls_node_id adv, struct isis_ext_subtlvs *tlvs)
 {
 	struct ls_attributes *attr;
-	struct in_addr local = {.s_addr = INADDR_ANY};
+	struct in_addr local = { .s_addr = INADDR_ANY };
 	struct in6_addr local6 = in6addr_any;
 	uint32_t local_id = 0;
 
@@ -935,8 +906,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		SET_FLAG(attr->flags, LS_ATTR_ADM_GRP);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_EXTEND_ADM_GRP)) {
-		admin_group_copy(&attr->ext_admin_group,
-				 &tlvs->ext_admin_group);
+		admin_group_copy(&attr->ext_admin_group, &tlvs->ext_admin_group);
 		SET_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_LLRI)) {
@@ -950,8 +920,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		SET_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_NEIGH_ADDR6)) {
-		memcpy(&attr->standard.remote6, &tlvs->neigh_addr6,
-		       IPV6_MAX_BYTELEN);
+		memcpy(&attr->standard.remote6, &tlvs->neigh_addr6, IPV6_MAX_BYTELEN);
 		SET_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_MAX_BW)) {
@@ -963,8 +932,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		SET_FLAG(attr->flags, LS_ATTR_MAX_RSV_BW);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_UNRSV_BW)) {
-		memcpy(&attr->standard.unrsv_bw, tlvs->unrsv_bw,
-		       ISIS_SUBTLV_UNRSV_BW_SIZE);
+		memcpy(&attr->standard.unrsv_bw, tlvs->unrsv_bw, ISIS_SUBTLV_UNRSV_BW_SIZE);
 		SET_FLAG(attr->flags, LS_ATTR_UNRSV_BW);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_TE_METRIC)) {
@@ -1009,8 +977,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		SET_FLAG(attr->flags, LS_ATTR_USE_BW);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_ADJ_SID)) {
-		struct isis_adj_sid *adj =
-			(struct isis_adj_sid *)tlvs->adj_sid.head;
+		struct isis_adj_sid *adj = (struct isis_adj_sid *)tlvs->adj_sid.head;
 		int i;
 		for (; adj; adj = adj->next) {
 			i = adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG ? 1 : 0;
@@ -1035,8 +1002,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		}
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_LAN_ADJ_SID)) {
-		struct isis_lan_adj_sid *ladj =
-			(struct isis_lan_adj_sid *)tlvs->lan_sid.head;
+		struct isis_lan_adj_sid *ladj = (struct isis_lan_adj_sid *)tlvs->lan_sid.head;
 		int i;
 		for (; ladj; ladj = ladj->next) {
 			i = ladj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG ? 1 : 0;
@@ -1044,8 +1010,8 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 			attr->adj_sid[i].flags = ladj->flags;
 			attr->adj_sid[i].weight = ladj->weight;
 			attr->adj_sid[i].sid = ladj->sid;
-			memcpy(&attr->adj_sid[i].neighbor.sysid,
-			       &ladj->neighbor_id, ISIS_SYS_ID_LEN);
+			memcpy(&attr->adj_sid[i].neighbor.sysid, &ladj->neighbor_id,
+			       ISIS_SYS_ID_LEN);
 			switch (i) {
 			case ADJ_PRI_IPV4:
 				SET_FLAG(attr->flags, LS_ATTR_ADJ_SID);
@@ -1064,8 +1030,7 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_SRV6_ENDX_SID)) {
 		struct isis_srv6_endx_sid_subtlv *endx =
-			(struct isis_srv6_endx_sid_subtlv *)
-				tlvs->srv6_endx_sid.head;
+			(struct isis_srv6_endx_sid_subtlv *)tlvs->srv6_endx_sid.head;
 		int i;
 
 		for (; endx; endx = endx->next) {
@@ -1078,15 +1043,13 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 			}
 			attr->adj_srv6_sid[i].flags = endx->flags;
 			attr->adj_srv6_sid[i].weight = endx->weight;
-			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid,
-			       sizeof(struct in6_addr));
+			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid, sizeof(struct in6_addr));
 			attr->adj_srv6_sid[i].endpoint_behavior = endx->behavior;
 		}
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_SRV6_LAN_ENDX_SID)) {
 		struct isis_srv6_lan_endx_sid_subtlv *lendx =
-			(struct isis_srv6_lan_endx_sid_subtlv *)
-				tlvs->srv6_lan_endx_sid.head;
+			(struct isis_srv6_lan_endx_sid_subtlv *)tlvs->srv6_lan_endx_sid.head;
 		int i;
 
 		for (; lendx; lendx = lendx->next) {
@@ -1097,14 +1060,12 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 				i = 0;
 				SET_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID);
 			}
-			memcpy(&attr->adj_srv6_sid[i].neighbor.sysid,
-			       &lendx->neighbor_id, ISIS_SYS_ID_LEN);
+			memcpy(&attr->adj_srv6_sid[i].neighbor.sysid, &lendx->neighbor_id,
+			       ISIS_SYS_ID_LEN);
 			attr->adj_srv6_sid[i].flags = lendx->flags;
 			attr->adj_srv6_sid[i].weight = lendx->weight;
-			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid,
-			       sizeof(struct in6_addr));
-			attr->adj_srv6_sid[i].endpoint_behavior =
-				lendx->behavior;
+			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid, sizeof(struct in6_addr));
+			attr->adj_srv6_sid[i].endpoint_behavior = lendx->behavior;
 		}
 	}
 	return attr;
@@ -1179,19 +1140,17 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 
 	/* Try to update remote Link from remote address or reachability ID */
 	if (edge->key.family == AF_INET)
-		te_debug("    |- Link Edge (%pI4) to destination vertex (%s)",
-			 &edge->key.k.addr, print_sys_hostname(id));
+		te_debug("    |- Link Edge (%pI4) to destination vertex (%s)", &edge->key.k.addr,
+			 print_sys_hostname(id));
 	else if (edge->key.family == AF_INET6)
-		te_debug("    |- Link Edge (%pI6) to destination vertex (%s)",
-			 &edge->key.k.addr6, print_sys_hostname(id));
+		te_debug("    |- Link Edge (%pI6) to destination vertex (%s)", &edge->key.k.addr6,
+			 print_sys_hostname(id));
 	else if (edge->key.family == AF_LOCAL)
-		te_debug("    |- Link Edge (%" PRIu64
-			 ") to destination vertex (%s)",
+		te_debug("    |- Link Edge (%" PRIu64 ") to destination vertex (%s)",
 			 edge->key.k.link_id, print_sys_hostname(id));
 	else
-		te_debug(
-			"    |- Link Edge (Unknown) to destination vertex (%s)",
-			print_sys_hostname(id));
+		te_debug("    |- Link Edge (Unknown) to destination vertex (%s)",
+			 print_sys_hostname(id));
 
 	/* Then search if there is a reverse Edge to link them */
 	dst = ls_find_edge_by_destination(args->ted, edge->attributes);
@@ -1231,9 +1190,8 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
  *
  * @return		0 if success, -1 otherwise
  */
-static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
-			    bool external, struct isis_subtlvs *subtlvs,
-			    void *arg)
+static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool external,
+			    struct isis_subtlvs *subtlvs, void *arg)
 {
 	struct isis_te_args *args = (struct isis_te_args *)arg;
 	struct ls_vertex *vertex;
@@ -1267,8 +1225,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (prefix->family == AF_INET && prefix->prefixlen < IPV4_MAX_BITLEN) {
 		std = NULL;
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, node, edge)) {
-			if (!CHECK_FLAG(edge->attributes->flags,
-					LS_ATTR_LOCAL_ADDR))
+			if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR))
 				continue;
 
 			p.u.prefix4 = edge->attributes->standard.local;
@@ -1283,12 +1240,10 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		if (std)
 			p.u.prefix4 = std->local;
 
-	} else if (prefix->family == AF_INET6
-		   && prefix->prefixlen < IPV6_MAX_BITLEN) {
+	} else if (prefix->family == AF_INET6 && prefix->prefixlen < IPV6_MAX_BITLEN) {
 		std = NULL;
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, node, edge)) {
-			if (!CHECK_FLAG(edge->attributes->flags,
-					LS_ATTR_LOCAL_ADDR6))
+			if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6))
 				continue;
 
 			p.u.prefix6 = edge->attributes->standard.local6;
@@ -1313,12 +1268,10 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 				subnet->status = DELETE;
 				isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
 			}
-			te_debug("   |- Remove subnet with prefix %pFX",
-				 &subnet->key);
+			te_debug("   |- Remove subnet with prefix %pFX", &subnet->key);
 			ls_subnet_del_all(args->ted, subnet);
 		}
-		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
-			 prefix, &p);
+		te_debug("   |- Adjust prefix %pFX with local address to: %pFX", prefix, &p);
 	}
 
 	/* Search existing Subnet in TED ... */
@@ -1333,12 +1286,11 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	}
 	ls_pref = subnet->ls_pref;
 
-	te_debug("   |- %s Subnet from prefix %pFX",
-		 subnet->status == NEW ? "Create" : "Found", &p);
+	te_debug("   |- %s Subnet from prefix %pFX", subnet->status == NEW ? "Create" : "Found",
+		 &p);
 
 	/* Update Metric */
-	if (!CHECK_FLAG(ls_pref->flags, LS_PREF_METRIC)
-	    || (ls_pref->metric != metric)) {
+	if (!CHECK_FLAG(ls_pref->flags, LS_PREF_METRIC) || (ls_pref->metric != metric)) {
 		ls_pref->metric = metric;
 		SET_FLAG(ls_pref->flags, LS_PREF_METRIC);
 		if (subnet->status != NEW)
@@ -1358,8 +1310,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		sr.sid_flag = psid->flags;
 		sr.sid = psid->value;
 
-		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SR)
-		    || !memcmp(&ls_pref->sr, &sr, sizeof(struct ls_sid))) {
+		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SR) ||
+		    !memcmp(&ls_pref->sr, &sr, sizeof(struct ls_sid))) {
 			memcpy(&ls_pref->sr, &sr, sizeof(struct ls_sid));
 			SET_FLAG(ls_pref->flags, LS_PREF_SR);
 			if (subnet->status != NEW)
@@ -1384,8 +1336,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		struct isis_srv6_end_sid_subtlv *psid;
 		struct ls_srv6_sid sr = {};
 
-		psid = (struct isis_srv6_end_sid_subtlv *)
-			       subtlvs->srv6_end_sids.head;
+		psid = (struct isis_srv6_end_sid_subtlv *)subtlvs->srv6_end_sids.head;
 		sr.behavior = psid->behavior;
 		sr.flags = psid->flags;
 		memcpy(&sr.sid, &psid->sid, sizeof(struct in6_addr));
@@ -1442,14 +1393,12 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	ted = mta->ted;
 
-	te_debug("ISIS-TE(%s): Parse LSP %pSY", lsp->area->area_tag,
-		 lsp->hdr.lsp_id);
+	te_debug("ISIS-TE(%s): Parse LSP %pSY", lsp->area->area_tag, lsp->hdr.lsp_id);
 
 	/* First parse LSP to obtain the corresponding Vertex */
 	vertex = lsp_to_vertex(ted, lsp);
 	if (!vertex) {
-		zlog_warn("Unable to build Vertex from LSP %pSY. Abort!",
-			  lsp->hdr.lsp_id);
+		zlog_warn("Unable to build Vertex from LSP %pSY. Abort!", lsp->hdr.lsp_id);
 		return;
 	}
 
@@ -1472,25 +1421,18 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	args.ted = ted;
 	args.vertex = vertex;
 	args.export = mta->export;
-	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV4_UNICAST, lsp_to_edge_cb,
-				  &args);
+	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV4_UNICAST, lsp_to_edge_cb, &args);
 
-	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_edge_cb,
-				  &args);
+	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_edge_cb, &args);
 
 	/* Process all Extended IP (v4 & v6) in LSP (all fragments) */
 	args.srv6_locator = false;
-	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST,
-				  lsp_to_subnet_cb, &args);
-	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST,
-				  lsp_to_subnet_cb, &args);
-	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST,
-				  lsp_to_subnet_cb, &args);
+	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST, lsp_to_subnet_cb, &args);
+	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
+	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST, lsp_to_subnet_cb, &args);
 	args.srv6_locator = true;
-	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_STANDARD, lsp_to_subnet_cb,
-				      &args);
-	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST,
-				      lsp_to_subnet_cb, &args);
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_STANDARD, lsp_to_subnet_cb, &args);
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))
@@ -1519,8 +1461,8 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
 
-	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY",
-		 lsp->area->area_tag, lsp->hdr.lsp_id);
+	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY", lsp->area->area_tag,
+		 lsp->hdr.lsp_id);
 
 	/* Compute Link State Node ID from IS-IS sysID ... */
 	if (lsp->level == ISIS_LEVEL1)
@@ -1638,21 +1580,18 @@ void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event)
  */
 int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 {
-	struct listnode *node, *inode;
 	struct isis *isis;
 	struct isis_area *area;
 	struct mpls_te_area *mta;
 	int rc = -1;
 
-	te_debug("ISIS-TE(%s): Received TED synchro from client %d", __func__,
-		 dst.proto);
+	te_debug("ISIS-TE(%s): Received TED synchro from client %d", __func__, dst.proto);
 	/*  For each area, send TED if TE distribution is enabled */
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			mta = area->mta;
 			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
-				te_debug("  |- Export TED from area %s",
-					 area->area_tag);
+				te_debug("  |- Export TED from area %s", area->area_tag);
 				rc = ls_sync_ted(mta->ted, isis_zclient, &dst);
 				if (rc != 0)
 					return rc;
@@ -1687,13 +1626,11 @@ static void show_router_id(struct vty *vty, struct isis_area *area)
 
 	vty_out(vty, "Area %s:\n", area->area_tag);
 	if (area->mta->router_id.s_addr != 0) {
-		vty_out(vty, "  MPLS-TE IPv4 Router-Address: %pI4\n",
-			&area->mta->router_id);
+		vty_out(vty, "  MPLS-TE IPv4 Router-Address: %pI4\n", &area->mta->router_id);
 		no_match = false;
 	}
 	if (!IN6_IS_ADDR_UNSPECIFIED(&area->mta->router_id_ipv6)) {
-		vty_out(vty, "  MPLS-TE IPv6 Router-Address: %pI6\n",
-			&area->mta->router_id_ipv6);
+		vty_out(vty, "  MPLS-TE IPv6 Router-Address: %pI6\n", &area->mta->router_id_ipv6);
 		no_match = false;
 	}
 	if (no_match)
@@ -1708,8 +1645,6 @@ DEFUN(show_isis_mpls_te_router,
       VRF_CMD_HELP_STR "All VRFs\n"
       MPLS_TE_STR "Router information\n")
 {
-
-	struct listnode *anode, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -1723,8 +1658,8 @@ DEFUN(show_isis_mpls_te_router,
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
+			frr_each (isis_area_list, &isis->area_list, area) {
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
@@ -1735,7 +1670,7 @@ DEFUN(show_isis_mpls_te_router,
 	}
 	isis = isis_lookup_by_vrfname(vrf_name);
 	if (isis != NULL) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		frr_each (isis_area_list, &isis->area_list, area) {
 			if (!IS_MPLS_TE(area->mta))
 				continue;
 
@@ -1746,8 +1681,7 @@ DEFUN(show_isis_mpls_te_router,
 	return CMD_SUCCESS;
 }
 
-static void show_ext_sub(struct vty *vty, char *name,
-			 struct isis_ext_subtlvs *ext)
+static void show_ext_sub(struct vty *vty, char *name, struct isis_ext_subtlvs *ext)
 {
 	struct sbuf buf;
 	char ibuf[PREFIX2STR_BUFFER];
@@ -1762,86 +1696,63 @@ static void show_ext_sub(struct vty *vty, char *name,
 	sbuf_reset(&buf);
 
 	if (IS_SUBTLV(ext, EXT_ADM_GRP))
-		sbuf_push(&buf, 4, "Administrative Group: 0x%x\n",
-			ext->adm_group);
+		sbuf_push(&buf, 4, "Administrative Group: 0x%x\n", ext->adm_group);
 	if (IS_SUBTLV(ext, EXT_LLRI)) {
-		sbuf_push(&buf, 4, "Link Local  ID: %u\n",
-			  ext->local_llri);
-		sbuf_push(&buf, 4, "Link Remote ID: %u\n",
-			  ext->remote_llri);
+		sbuf_push(&buf, 4, "Link Local  ID: %u\n", ext->local_llri);
+		sbuf_push(&buf, 4, "Link Remote ID: %u\n", ext->remote_llri);
 	}
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR))
-		sbuf_push(&buf, 4, "Local Interface IP Address(es): %pI4\n",
-			  &ext->local_addr);
+		sbuf_push(&buf, 4, "Local Interface IP Address(es): %pI4\n", &ext->local_addr);
 	if (IS_SUBTLV(ext, EXT_NEIGH_ADDR))
-		sbuf_push(&buf, 4, "Remote Interface IP Address(es): %pI4\n",
-			  &ext->neigh_addr);
+		sbuf_push(&buf, 4, "Remote Interface IP Address(es): %pI4\n", &ext->neigh_addr);
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR6))
 		sbuf_push(&buf, 4, "Local Interface IPv6 Address(es): %s\n",
-			  inet_ntop(AF_INET6, &ext->local_addr6, ibuf,
-				    PREFIX2STR_BUFFER));
+			  inet_ntop(AF_INET6, &ext->local_addr6, ibuf, PREFIX2STR_BUFFER));
 	if (IS_SUBTLV(ext, EXT_NEIGH_ADDR6))
 		sbuf_push(&buf, 4, "Remote Interface IPv6 Address(es): %s\n",
-			  inet_ntop(AF_INET6, &ext->local_addr6, ibuf,
-				    PREFIX2STR_BUFFER));
+			  inet_ntop(AF_INET6, &ext->local_addr6, ibuf, PREFIX2STR_BUFFER));
 	if (IS_SUBTLV(ext, EXT_MAX_BW))
-		sbuf_push(&buf, 4, "Maximum Bandwidth: %g (Bytes/sec)\n",
-			  ext->max_bw);
+		sbuf_push(&buf, 4, "Maximum Bandwidth: %g (Bytes/sec)\n", ext->max_bw);
 	if (IS_SUBTLV(ext, EXT_MAX_RSV_BW))
-		sbuf_push(&buf, 4,
-			  "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+		sbuf_push(&buf, 4, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
 			  ext->max_rsv_bw);
 	if (IS_SUBTLV(ext, EXT_UNRSV_BW)) {
 		sbuf_push(&buf, 4, "Unreserved Bandwidth:\n");
 		for (int j = 0; j < MAX_CLASS_TYPE; j += 2) {
-			sbuf_push(&buf, 4 + 2,
-				  "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
-				  j, ext->unrsv_bw[j],
-				  j + 1, ext->unrsv_bw[j + 1]);
+			sbuf_push(&buf, 4 + 2, "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n", j,
+				  ext->unrsv_bw[j], j + 1, ext->unrsv_bw[j + 1]);
 		}
 	}
 	if (IS_SUBTLV(ext, EXT_TE_METRIC))
-		sbuf_push(&buf, 4, "Traffic Engineering Metric: %u\n",
-			  ext->te_metric);
+		sbuf_push(&buf, 4, "Traffic Engineering Metric: %u\n", ext->te_metric);
 	if (IS_SUBTLV(ext, EXT_RMT_AS))
-		sbuf_push(&buf, 4,
-			  "Inter-AS TE Remote AS number: %u\n",
-			  ext->remote_as);
+		sbuf_push(&buf, 4, "Inter-AS TE Remote AS number: %u\n", ext->remote_as);
 	if (IS_SUBTLV(ext, EXT_RMT_IP))
-		sbuf_push(&buf, 4,
-			  "Inter-AS TE Remote ASBR IP address: %pI4\n",
-			  &ext->remote_ip);
+		sbuf_push(&buf, 4, "Inter-AS TE Remote ASBR IP address: %pI4\n", &ext->remote_ip);
 	if (IS_SUBTLV(ext, EXT_DELAY))
-		sbuf_push(&buf, 4,
-			  "%s Average Link Delay: %u (micro-sec)\n",
+		sbuf_push(&buf, 4, "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
 			  ext->delay & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
 		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",
-			  ext->min_delay & TE_EXT_MASK,
-			  ext->max_delay & TE_EXT_MASK);
+			  ext->min_delay & TE_EXT_MASK, ext->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(ext, EXT_DELAY_VAR))
-		sbuf_push(&buf, 4,
-			  "Delay Variation: %u (micro-sec)\n",
+		sbuf_push(&buf, 4, "Delay Variation: %u (micro-sec)\n",
 			  ext->delay_var & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_PKT_LOSS))
 		sbuf_push(&buf, 4, "%s Link Packet Loss: %g (%%)\n",
 			  IS_ANORMAL(ext->pkt_loss) ? "Anomalous" : "Normal",
-			  (float)((ext->pkt_loss & TE_EXT_MASK)
-				  * LOSS_PRECISION));
+			  (float)((ext->pkt_loss & TE_EXT_MASK) * LOSS_PRECISION));
 	if (IS_SUBTLV(ext, EXT_RES_BW))
-		sbuf_push(&buf, 4,
-			  "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
+		sbuf_push(&buf, 4, "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
 			  ext->res_bw);
 	if (IS_SUBTLV(ext, EXT_AVA_BW))
-		sbuf_push(&buf, 4,
-			  "Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
+		sbuf_push(&buf, 4, "Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
 			  ext->ava_bw);
 	if (IS_SUBTLV(ext, EXT_USE_BW))
-		sbuf_push(&buf, 4,
-			  "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
+		sbuf_push(&buf, 4, "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
 			  ext->use_bw);
 
 	vty_multiline(vty, "", "%s", sbuf_buf(&buf));
@@ -1860,7 +1771,6 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
@@ -1874,20 +1784,15 @@ DEFUN (show_isis_mpls_te_interface,
 
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
-		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
-						  area)) {
-
+		frr_each (isis_instance_list, &im->isis, isis) {
+			frr_each (isis_area_list, &isis->area_list, area) {
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
 				vty_out(vty, "Area %s:\n", area->area_tag);
 
-				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
-							  cnode, circuit))
-					show_ext_sub(vty,
-						     circuit->interface->name,
-						     circuit->ext);
+				frr_each (isis_circuit_list, &area->circuit_list, circuit)
+					show_ext_sub(vty, circuit->interface->name, circuit->ext);
 			}
 		}
 	} else {
@@ -1898,9 +1803,7 @@ DEFUN (show_isis_mpls_te_interface,
 		else {
 			circuit = circuit_scan_by_ifp(ifp);
 			if (!circuit)
-				vty_out(vty,
-					"ISIS is not enabled on circuit %s\n",
-					ifp->name);
+				vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
 			else
 				show_ext_sub(vty, ifp->name, circuit->ext);
 		}
@@ -1919,13 +1822,12 @@ DEFUN (show_isis_mpls_te_interface,
  *
  * @return	Vertex if found, NULL otherwise
  */
-static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
-					struct isis *isis)
+static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id, struct isis *isis)
 {
-	char sysid[255] = {0};
+	char sysid[255] = { 0 };
 	uint8_t number[3];
 	const char *pos;
-	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = { 0 };
 	struct isis_dynhn *dynhn;
 	uint64_t key = 0;
 
@@ -1946,16 +1848,14 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
 		pos = id + strlen(id) - 3;
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN + 1] =
-				(uint8_t)strtol((char *)number, NULL, 16);
+			lspid[ISIS_SYS_ID_LEN + 1] = (uint8_t)strtol((char *)number, NULL, 16);
 			pos -= 4;
 			if (strncmp(pos, ".", 1) != 0)
 				return NULL;
 		}
 		if (strncmp(pos, ".", 1) == 0) {
 			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN] =
-				(uint8_t)strtol((char *)number, NULL, 16);
+			lspid[ISIS_SYS_ID_LEN] = (uint8_t)strtol((char *)number, NULL, 16);
 			sysid[pos - id - 1] = '\0';
 		}
 	}
@@ -1993,8 +1893,8 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
  *
  * @return	Command Success if OK, Command Warning otherwise
  */
-static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
-		    struct isis_area *area, struct isis *isis)
+static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct isis_area *area,
+		    struct isis *isis)
 {
 	int idx;
 	char *id;
@@ -2021,8 +1921,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 	if (uj)
 		json = json_object_new_object();
 	else
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+		vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 
 	if (argv[argc - 1]->arg && strmatch(argv[argc - 1]->text, "detail"))
 		detail = true;
@@ -2030,8 +1929,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 	idx = 4;
 	if (argv_find(argv, argc, "vertex", &idx)) {
 		/* Show Vertex */
-		id = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg
-							 : NULL;
+		id = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
 		if (!id)
 			vertex = NULL;
 		else if (!strncmp(id, "self", 4))
@@ -2053,9 +1951,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 		/* Show Edge */
 		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 			if (!inet_pton(AF_INET, argv[idx]->arg, &ip_addr)) {
-				vty_out(vty,
-					"Specified Edge ID %s is invalid\n",
-					argv[idx]->arg);
+				vty_out(vty, "Specified Edge ID %s is invalid\n", argv[idx]->arg);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
@@ -2063,15 +1959,12 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 			IPV4_ADDR_COPY(&key.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI4\n",
-					&ip_addr);
+				vty_out(vty, "No edge found for ID %pI4\n", &ip_addr);
 				return CMD_WARNING;
 			}
 		} else if (argv_find(argv, argc, "X:X::X:X", &idx)) {
 			if (!inet_pton(AF_INET6, argv[idx]->arg, &ip6_addr)) {
-				vty_out(vty,
-					"Specified Edge ID %s is invalid\n",
-					argv[idx]->arg);
+				vty_out(vty, "Specified Edge ID %s is invalid\n", argv[idx]->arg);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
@@ -2079,8 +1972,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 			IPV6_ADDR_COPY(&key.k.addr6, &ip6_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI6\n",
-					&ip6_addr);
+				vty_out(vty, "No edge found for ID %pI6\n", &ip6_addr);
 				return CMD_WARNING;
 			}
 		} else
@@ -2095,28 +1987,24 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 		/* Show Subnet */
 		if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n",
-					argv[idx]->arg);
+				vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n",
-					&pref);
+				vty_out(vty, "No subnet found for ID %pFX\n", &pref);
 				return CMD_WARNING;
 			}
 		} else if (argv_find(argv, argc, "X:X::X:X/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n",
-					argv[idx]->arg);
+				vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n",
-					&pref);
+				vty_out(vty, "No subnet found for ID %pFX\n", &pref);
 				return CMD_WARNING;
 			}
 		} else
@@ -2148,14 +2036,12 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 
  * @return	Command Success if OK, Command Warning otherwise
  */
-static int show_isis_ted(struct vty *vty, struct cmd_token *argv[], int argc,
-			 struct isis *isis)
+static int show_isis_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct isis *isis)
 {
-	struct listnode *node;
 	struct isis_area *area;
 	int rc;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		rc = show_ted(vty, argv, argc, area, isis);
 		if (rc != CMD_SUCCESS)
 			return rc;
@@ -2184,14 +2070,13 @@ DEFUN(show_isis_mpls_te_db,
 	int idx_vrf = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
-	struct listnode *node;
 	struct isis *isis;
 	int rc = CMD_WARNING;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		frr_each (isis_instance_list, &im->isis, isis) {
 			rc = show_isis_ted(vty, argv, argc, isis);
 			if (rc != CMD_SUCCESS)
 				return rc;
@@ -2210,7 +2095,6 @@ DEFUN(show_isis_mpls_te_db,
 /* Initialize MPLS_TE */
 void isis_mpls_te_init(void)
 {
-
 	/* Register Circuit and Adjacency hook */
 	hook_register(isis_if_new_hook, isis_mpls_te_update);
 	hook_register(isis_adj_ip_enabled_hook, isis_mpls_te_adj_ip_enabled);

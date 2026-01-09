@@ -5,8 +5,18 @@ FROM ubuntu:$UBUNTU_VERSION
 ARG UBUNTU_VERSION
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Number of retries for transient network failures
+ARG APT_RETRIES=3
+
+# Configure apt to retry on transient network failures
+RUN echo "Acquire::Retries \"${APT_RETRIES}\";" > /etc/apt/apt.conf.d/80-retries && \
+    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries && \
+    echo 'Acquire::https::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries
+
 # Update and install build requirements.
-RUN apt update && apt upgrade -y && \
+# Retry loop for apt-get update in case of transient mirror failures
+RUN for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; done && \
+    apt-get upgrade -y && \
     # Basic build requirements from documentation
     apt-get install -y \
             autoconf \
@@ -112,11 +122,15 @@ RUN groupadd -r -g 92 frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
 # Install FRR built packages
+# Retry loop for curl in case of transient network failures
 RUN mkdir -p /etc/apt/keyrings && \
-    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    for i in $(seq 1 ${APT_RETRIES}); do \
+        curl -sf -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && break || sleep 10; \
+    done && \
     echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
         $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
-    apt-get update && apt-get install -y librtr-dev
+    for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; done && \
+    apt-get install -y librtr-dev
 
 # build and install libyang3
 RUN cd && pwd && ls -al && \

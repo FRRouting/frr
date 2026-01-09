@@ -470,9 +470,8 @@ static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
 			 * and SHOULD be discarded as specified in this section.
 			 */
 			if (*aigp == BGP_AIGP_TLV_METRIC_MAX) {
-				zlog_err("Bad AIGP TLV (%s) length: %llu",
-					 BGP_AIGP_TLV_METRIC_DESC,
-					 BGP_AIGP_TLV_METRIC_MAX);
+				flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV (%s) length: %llu",
+					 BGP_AIGP_TLV_METRIC_DESC, BGP_AIGP_TLV_METRIC_MAX);
 				return false;
 			}
 
@@ -558,7 +557,7 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 	uint8_t *end = data + length;
 
 	if (length < 3) {
-		zlog_err("Bad AIGP attribute length (MUST be minimum 3): %u",
+		flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP attribute length (MUST be minimum 3): %u",
 			 length);
 		return false;
 	}
@@ -575,14 +574,14 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 		(void)data;
 
 		if (length < tlv_length) {
-			zlog_err(
-				"Bad AIGP attribute length: %u, but TLV length: %u",
-				length, tlv_length);
+			flog_err(EC_BGP_ATTR_AIGP,
+				 "Bad AIGP attribute length: %u, but TLV length: %u", length,
+				 tlv_length);
 			return false;
 		}
 
 		if (tlv_length < 3) {
-			zlog_err("Bad AIGP TLV length (MUST be minimum 3): %u",
+			flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV length (MUST be minimum 3): %u",
 				 tlv_length);
 			return false;
 		}
@@ -590,7 +589,7 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 		/* AIGP TLV, Length: 11 */
 		if (tlv_type == BGP_AIGP_TLV_METRIC &&
 		    tlv_length != BGP_AIGP_TLV_METRIC_LEN) {
-			zlog_err("Bad AIGP TLV (%s) length: %u",
+			flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV (%s) length: %u",
 				 BGP_AIGP_TLV_METRIC_DESC, tlv_length);
 			return false;
 		}
@@ -3089,8 +3088,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 
 	if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
 	    || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL)) {
-		zlog_err("Tunnel Encap attribute flag isn't optional and transitive %d",
-			 flag);
+		flog_err(EC_BGP_ATTR_FLAG,
+			 "Tunnel Encap attribute flag isn't optional and transitive %d", flag);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
@@ -3100,8 +3099,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		uint16_t tlv_length;
 
 		if (length < 4) {
-			zlog_err(
-				"Tunnel Encap attribute not long enough to contain outer T,L");
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Tunnel Encap attribute not long enough to contain outer T,L");
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 						  args->total);
@@ -3139,7 +3138,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		}
 
 		if (sublength > length) {
-			zlog_err("Tunnel Encap attribute sub-tlv length %d exceeds remaining length %d",
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Tunnel Encap attribute sub-tlv length %d exceeds remaining length %d",
 				 sublength, length);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
@@ -3147,7 +3147,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		}
 
 		if (STREAM_READABLE(BGP_INPUT(connection)) < sublength) {
-			zlog_err("Tunnel Encap attribute sub-tlv length %d exceeds remaining stream length %zu",
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Tunnel Encap attribute sub-tlv length %d exceeds remaining stream length %zu",
 				 sublength, STREAM_READABLE(BGP_INPUT(connection)));
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
@@ -3199,8 +3200,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 
 	if (length) {
 		/* spurious leftover data */
-		zlog_err("Tunnel Encap attribute length is bad: %d leftover octets",
-			 length);
+		flog_err(EC_BGP_ATTR_LEN,
+			 "Tunnel Encap attribute length is bad: %d leftover octets", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
@@ -4180,65 +4181,17 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				peer->host, type, length, size, attr_endp,
 				endp);
 
-			/* Only relax error handling for eBGP peers */
-			if (peer->sort != BGP_PEER_EBGP) {
-				/*
-				 * RFC 4271 6.3
-				 * If any recognized attribute has an Attribute
-				 * Length that conflicts with the expected length
-				 * (based on the attribute type code), then the
-				 * Error Subcode MUST be set to Attribute Length
-				 * Error.  The Data field MUST contain the erroneous
-				 * attribute (type, length, and value).
-				 * ----------
-				 * We do not currently have a good way to determine the
-				 * length of the attribute independent of the length
-				 * received in the message. Instead we send the
-				 * minimum between the amount of data we have and the
-				 * amount specified by the attribute length field.
-				 *
-				 * Instead of directly passing in the packet buffer and
-				 * offset we use the stream_get* functions to read into
-				 * a stack buffer, since they perform bounds checking
-				 * and we are working with untrusted data.
-				 */
-				unsigned char ndata[peer->max_packet_size];
-
-				memset(ndata, 0x00, sizeof(ndata));
-				size_t lfl =
-					CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN) ? 2 : 1;
-				/* Rewind to end of flag field */
-				stream_rewind_getp(BGP_INPUT(connection), (1 + lfl));
-				/* Type */
-				stream_get(&ndata[0], BGP_INPUT(connection), 1);
-				/* Length */
-				stream_get(&ndata[1], BGP_INPUT(connection), lfl);
-				/* Value */
-				size_t atl = attr_endp - startp;
-				size_t ndl = MIN(atl, STREAM_READABLE(BGP_INPUT(connection)));
-
-				stream_get(&ndata[lfl + 1], BGP_INPUT(connection), ndl);
-
-				bgp_notify_send_with_data(connection, BGP_NOTIFY_UPDATE_ERR,
-							  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, ndata,
-							  ndl + lfl + 1);
-
-				ret = BGP_ATTR_PARSE_ERROR;
-				goto done;
-			} else {
-				/* Handling as per RFC7606 section 4, treat-as-withdraw approach
-				 * must be followed when the total attribute length is in conflict
-				 * with the enclosed path attribute length.
-				 */
-				flog_warn(
-					EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
-					"%s: Attribute %s, parse error - treating as withdrawal",
-					peer->host, lookup_msg(attr_str, type, NULL));
-				ret = BGP_ATTR_PARSE_WITHDRAW;
-				stream_forward_getp(BGP_INPUT(connection),
-						    endp - BGP_INPUT_PNT(connection));
-				goto done;
-			}
+			/* Handling as per RFC7606 section 4, treat-as-withdraw approach
+			 * must be followed when the total attribute length is in conflict
+			 * with the enclosed path attribute length.
+			 */
+			flog_warn(EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
+				  "%s: Attribute %s, parse error - treating as withdrawal",
+				  peer->host, lookup_msg(attr_str, type, NULL));
+			ret = BGP_ATTR_PARSE_WITHDRAW;
+			stream_forward_getp(BGP_INPUT(connection),
+					    endp - BGP_INPUT_PNT(connection));
+			goto done;
 		}
 
 		/* If attribute appears more than once in the UPDATE message,
@@ -4749,12 +4702,12 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	if (!bpi)
 		return;
 
-	if (bgp_path_info_mpath_count(bpi) < 2 && !nhc)
+	if (bgp_path_info_mpath_count(bpi->net) < 2 && !nhc)
 		return;
 
 	prefix = bgp_dest_get_prefix(bpi->net);
 
-	total = bgp_path_info_mpath_count(bpi) * IPV4_MAX_BYTELEN;
+	total = bgp_path_info_mpath_count(bpi->net) * IPV4_MAX_BYTELEN;
 	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
@@ -4796,7 +4749,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	 * |               Next-next-hop BGP IDs (variable)                |
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	if (bgp_path_info_mpath_count(bpi) > 1) {
+	if (bgp_path_info_mpath_count(bpi->net) > 1) {
 		if (bgp_debug_update(peer, NULL, NULL, 1))
 			zlog_debug("%pBP: Sending NHC TLV (%d) for %pFX", peer,
 				   BGP_ATTR_NHC_TLV_NNHN, prefix);

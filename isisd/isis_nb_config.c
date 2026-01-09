@@ -86,7 +86,7 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 	isis = area->isis;
 	isis_area_destroy(area);
 
-	if (listcount(isis->area_list) == 0)
+	if (isis_area_list_count(&isis->area_list) == 0)
 		isis_finish(isis);
 
 	return NB_OK;
@@ -139,7 +139,6 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	struct iso_address addr, *addrr = NULL, *addrp = NULL;
-	struct listnode *node;
 	struct sysid_iter iter;
 	uint8_t buff[255];
 	const char *net_title = yang_dnode_get_string(args->dnode, NULL);
@@ -149,28 +148,24 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"nsel byte (last byte) in area address must be 0");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "nsel byte (last byte) in area address must be 0");
 			return NB_ERR_VALIDATION;
 		}
 
 		iter.addr = &addr;
 		iter.same = true;
 
-		yang_dnode_iterate(sysid_iter_cb, &iter, args->dnode,
-				   "../area-address");
+		yang_dnode_iterate(sysid_iter_cb, &iter, args->dnode, "../area-address");
 
 		if (!iter.same) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"System ID must not change when defining additional area addresses");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "System ID must not change when defining additional area addresses");
 			return NB_ERR_VALIDATION;
 		}
 		break;
 	case NB_EV_PREPARE:
-		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR,
-				sizeof(struct iso_address));
+		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
 		addrr->addr_len = dotformat2buff(buff, net_title);
 		memcpy(addrr->area_addr, buff, addrr->addr_len);
 		args->resource->ptr = addrr;
@@ -187,19 +182,15 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 			/*
 			 * First area address - get the SystemID for this router
 			 */
-			memcpy(area->isis->sysid, GETSYSID(addrr),
-			       ISIS_SYS_ID_LEN);
+			memcpy(area->isis->sysid, GETSYSID(addrr), ISIS_SYS_ID_LEN);
 			area->isis->sysid_set = 1;
 		} else {
 			/* check that we don't already have this address */
-			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node,
-						  addrp)) {
-				if ((addrp->addr_len + ISIS_SYS_ID_LEN
-				     + ISIS_NSEL_LEN)
-				    != (addrr->addr_len))
+			frr_each (iso_address_list, &area->area_addrs, addrp) {
+				if ((addrp->addr_len + ISIS_SYS_ID_LEN + ISIS_NSEL_LEN) !=
+				    (addrr->addr_len))
 					continue;
-				if (!memcmp(addrp->area_addr, addrr->area_addr,
-					    addrr->addr_len)) {
+				if (!memcmp(addrp->area_addr, addrr->area_addr, addrr->addr_len)) {
 					XFREE(MTYPE_ISIS_AREA_ADDR, addrr);
 					return NB_OK; /* silent fail */
 				}
@@ -208,11 +199,10 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 		/*Forget the systemID part of the address */
 		addrr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
-		assert(area->area_addrs); /* to silence scan-build sillyness */
-		listnode_add(area->area_addrs, addrr);
+		iso_address_list_add_tail(&area->area_addrs, addrr);
 
 		/* only now we can safely generate our LSPs for this area */
-		if (listcount(area->area_addrs) > 0) {
+		if (iso_address_list_count(&area->area_addrs) > 0) {
 			if (area->is_type & IS_LEVEL_1)
 				lsp_generate(area, IS_LEVEL_1);
 			if (area->is_type & IS_LEVEL_2)
@@ -227,11 +217,9 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 {
 	struct iso_address addr, *addrp = NULL;
-	struct listnode *node;
 	uint8_t buff[255];
 	struct isis_area *area;
 	const char *net_title;
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 	int lvl;
 
@@ -243,22 +231,21 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
-		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len
-		    && !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
+	frr_each (iso_address_list, &area->area_addrs, addrp) {
+		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len &&
+		    !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
 			break;
 	}
 	if (!addrp)
 		return NB_ERR_INCONSISTENCY;
 
-	listnode_delete(area->area_addrs, addrp);
+	iso_address_list_del(&area->area_addrs, addrp);
 	/*
 	 * Last area address - reset the SystemID for this router
 	 */
-	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid,
-		    ISIS_SYS_ID_LEN) &&
-	    listcount(area->area_addrs) == 0) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid, ISIS_SYS_ID_LEN) &&
+	    iso_address_list_count(&area->area_addrs) == 0) {
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
 				if (circuit->u.bc.is_dr[lvl - 1])
 					isis_dr_resign(circuit, lvl);
@@ -397,8 +384,7 @@ int isis_instance_metric_style_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	bool old_metric, new_metric;
-	enum isis_metric_style metric_style =
-		yang_dnode_get_enum(args->dnode, NULL);
+	enum isis_metric_style metric_style = yang_dnode_get_enum(args->dnode, NULL);
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -445,28 +431,20 @@ int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args)
 	area->admin_group_send_zero = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->admin_group_send_zero) {
-		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
-					  fa)) {
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_exclude_any);
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_include_any);
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_include_all);
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa)) {
+			admin_group_allow_explicit_zero(&fa->admin_group_exclude_any);
+			admin_group_allow_explicit_zero(&fa->admin_group_include_any);
+			admin_group_allow_explicit_zero(&fa->admin_group_include_all);
 		}
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
-					  fa)) {
-			admin_group_disallow_explicit_zero(
-				&fa->admin_group_exclude_any);
-			admin_group_disallow_explicit_zero(
-				&fa->admin_group_include_any);
-			admin_group_disallow_explicit_zero(
-				&fa->admin_group_include_all);
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa)) {
+			admin_group_disallow_explicit_zero(&fa->admin_group_exclude_any);
+			admin_group_disallow_explicit_zero(&fa->admin_group_include_any);
+			admin_group_disallow_explicit_zero(&fa->admin_group_include_all);
 		}
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	frr_each (isis_circuit_list, &area->circuit_list, circuit)
 		isis_link_params_update(circuit, circuit->interface);
 
 	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
@@ -537,8 +515,7 @@ int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval
  */
-int isis_instance_lsp_refresh_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_refresh_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t refr_int;
@@ -556,8 +533,7 @@ int isis_instance_lsp_refresh_interval_level_1_modify(
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/refresh-interval
  */
-int isis_instance_lsp_refresh_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_refresh_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t refr_int;
@@ -575,8 +551,7 @@ int isis_instance_lsp_refresh_interval_level_2_modify(
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/maximum-lifetime
  */
-int isis_instance_lsp_maximum_lifetime_level_1_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_maximum_lifetime_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t max_lt;
@@ -594,8 +569,7 @@ int isis_instance_lsp_maximum_lifetime_level_1_modify(
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/maximum-lifetime
  */
-int isis_instance_lsp_maximum_lifetime_level_2_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_maximum_lifetime_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t max_lt;
@@ -613,8 +587,7 @@ int isis_instance_lsp_maximum_lifetime_level_2_modify(
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/generation-interval
  */
-int isis_instance_lsp_generation_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_generation_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t gen_int;
@@ -632,8 +605,7 @@ int isis_instance_lsp_generation_interval_level_1_modify(
 /*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/generation-interval
  */
-int isis_instance_lsp_generation_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_lsp_generation_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t gen_int;
@@ -657,23 +629,20 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
 	long short_delay = yang_dnode_get_uint16(args->dnode, "short-delay");
 	long long_delay = yang_dnode_get_uint16(args->dnode, "long-delay");
 	long holddown = yang_dnode_get_uint16(args->dnode, "hold-down");
-	long timetolearn =
-		yang_dnode_get_uint16(args->dnode, "time-to-learn");
+	long timetolearn = yang_dnode_get_uint16(args->dnode, "time-to-learn");
 	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
 	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
 
 	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
 	spf_backoff_free(area->spf_delay_ietf[0]);
-	area->spf_delay_ietf[0] =
-		spf_backoff_new(master, buf, init_delay, short_delay,
-				long_delay, holddown, timetolearn);
+	area->spf_delay_ietf[0] = spf_backoff_new(master, buf, init_delay, short_delay, long_delay,
+						  holddown, timetolearn);
 
 	snprintf(buf, bufsiz, "IS-IS %s L2", area->area_tag);
 	spf_backoff_free(area->spf_delay_ietf[1]);
-	area->spf_delay_ietf[1] =
-		spf_backoff_new(master, buf, init_delay, short_delay,
-				long_delay, holddown, timetolearn);
+	area->spf_delay_ietf[1] = spf_backoff_new(master, buf, init_delay, short_delay, long_delay,
+						  holddown, timetolearn);
 
 	XFREE(MTYPE_TMP, buf);
 }
@@ -684,8 +653,7 @@ int isis_instance_spf_ietf_backoff_delay_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int isis_instance_spf_ietf_backoff_delay_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_spf_ietf_backoff_delay_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -704,8 +672,7 @@ int isis_instance_spf_ietf_backoff_delay_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay/init-delay
  */
-int isis_instance_spf_ietf_backoff_delay_init_delay_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_ietf_backoff_delay_init_delay_modify(struct nb_cb_modify_args *args)
 {
 	/* All the work is done in the apply_finish */
 	return NB_OK;
@@ -714,8 +681,7 @@ int isis_instance_spf_ietf_backoff_delay_init_delay_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay/short-delay
  */
-int isis_instance_spf_ietf_backoff_delay_short_delay_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_ietf_backoff_delay_short_delay_modify(struct nb_cb_modify_args *args)
 {
 	/* All the work is done in the apply_finish */
 	return NB_OK;
@@ -724,8 +690,7 @@ int isis_instance_spf_ietf_backoff_delay_short_delay_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay/long-delay
  */
-int isis_instance_spf_ietf_backoff_delay_long_delay_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_ietf_backoff_delay_long_delay_modify(struct nb_cb_modify_args *args)
 {
 	/* All the work is done in the apply_finish */
 	return NB_OK;
@@ -734,8 +699,7 @@ int isis_instance_spf_ietf_backoff_delay_long_delay_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay/hold-down
  */
-int isis_instance_spf_ietf_backoff_delay_hold_down_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_ietf_backoff_delay_hold_down_modify(struct nb_cb_modify_args *args)
 {
 	/* All the work is done in the apply_finish */
 	return NB_OK;
@@ -744,8 +708,7 @@ int isis_instance_spf_ietf_backoff_delay_hold_down_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay/time-to-learn
  */
-int isis_instance_spf_ietf_backoff_delay_time_to_learn_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_ietf_backoff_delay_time_to_learn_modify(struct nb_cb_modify_args *args)
 {
 	/* All the work is done in the apply_finish */
 	return NB_OK;
@@ -754,8 +717,7 @@ int isis_instance_spf_ietf_backoff_delay_time_to_learn_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/minimum-interval/level-1
  */
-int isis_instance_spf_minimum_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_minimum_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -771,8 +733,7 @@ int isis_instance_spf_minimum_interval_level_1_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/minimum-interval/level-2
  */
-int isis_instance_spf_minimum_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_minimum_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -835,8 +796,7 @@ int isis_instance_spf_prefix_priorities_critical_access_list_name_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/spf/prefix-priorities/high/access-list-name
  */
-int isis_instance_spf_prefix_priorities_high_access_list_name_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_prefix_priorities_high_access_list_name_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *acl_name;
@@ -858,8 +818,7 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_modify(
 	return NB_OK;
 }
 
-int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	struct spf_prefix_priority_acl *ppa;
@@ -881,8 +840,7 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/spf/prefix-priorities/medium/access-list-name
  */
-int isis_instance_spf_prefix_priorities_medium_access_list_name_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_spf_prefix_priorities_medium_access_list_name_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *acl_name;
@@ -932,17 +890,14 @@ void area_password_apply_finish(struct nb_cb_apply_finish_args *args)
 	const char *password = yang_dnode_get_string(args->dnode, "password");
 	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
 	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
-	uint8_t snp_auth =
-		yang_dnode_get_enum(args->dnode, "authenticate-snp");
+	uint8_t snp_auth = yang_dnode_get_enum(args->dnode, "authenticate-snp");
 
 	switch (pass_type) {
 	case ISIS_PASSWD_TYPE_CLEARTXT:
-		isis_area_passwd_cleartext_set(area, IS_LEVEL_1, password,
-					       snp_auth);
+		isis_area_passwd_cleartext_set(area, IS_LEVEL_1, password, snp_auth);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_1, password,
-					      snp_auth);
+		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_1, password, snp_auth);
 		break;
 	}
 }
@@ -978,8 +933,7 @@ int isis_instance_area_password_password_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/area-password/password-type
  */
-int isis_instance_area_password_password_type_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_area_password_password_type_modify(struct nb_cb_modify_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -988,8 +942,7 @@ int isis_instance_area_password_password_type_modify(
 /*
  * XPath: /frr-isisd:isis/instance/area-password/authenticate-snp
  */
-int isis_instance_area_password_authenticate_snp_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_area_password_authenticate_snp_modify(struct nb_cb_modify_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -1003,17 +956,14 @@ void domain_password_apply_finish(struct nb_cb_apply_finish_args *args)
 	const char *password = yang_dnode_get_string(args->dnode, "password");
 	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
 	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
-	uint8_t snp_auth =
-		yang_dnode_get_enum(args->dnode, "authenticate-snp");
+	uint8_t snp_auth = yang_dnode_get_enum(args->dnode, "authenticate-snp");
 
 	switch (pass_type) {
 	case ISIS_PASSWD_TYPE_CLEARTXT:
-		isis_area_passwd_cleartext_set(area, IS_LEVEL_2, password,
-					       snp_auth);
+		isis_area_passwd_cleartext_set(area, IS_LEVEL_2, password, snp_auth);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_2, password,
-					      snp_auth);
+		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_2, password, snp_auth);
 		break;
 	}
 }
@@ -1040,8 +990,7 @@ int isis_instance_domain_password_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/domain-password/password
  */
-int isis_instance_domain_password_password_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_domain_password_password_modify(struct nb_cb_modify_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -1050,8 +999,7 @@ int isis_instance_domain_password_password_modify(
 /*
  * XPath: /frr-isisd:isis/instance/domain-password/password-type
  */
-int isis_instance_domain_password_password_type_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_domain_password_password_type_modify(struct nb_cb_modify_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -1060,8 +1008,7 @@ int isis_instance_domain_password_password_type_modify(
 /*
  * XPath: /frr-isisd:isis/instance/domain-password/authenticate-snp
  */
-int isis_instance_domain_password_authenticate_snp_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_domain_password_authenticate_snp_modify(struct nb_cb_modify_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -1081,9 +1028,8 @@ void default_info_origin_apply_finish(const struct lyd_node *dnode, int family)
 	if (yang_dnode_get_bool(dnode, "always")) {
 		originate_type = DEFAULT_ORIGINATE_ALWAYS;
 	} else if (family == AF_INET6) {
-		zlog_warn(
-			"%s: Zebra doesn't implement default-originate for IPv6 yet, so use with care or use default-originate always.",
-			__func__);
+		zlog_warn("%s: Zebra doesn't implement default-originate for IPv6 yet, so use with care or use default-originate always.",
+			  __func__);
 	}
 
 	if (yang_dnode_exists(dnode, "metric"))
@@ -1091,8 +1037,7 @@ void default_info_origin_apply_finish(const struct lyd_node *dnode, int family)
 	if (yang_dnode_exists(dnode, "route-map"))
 		routemap = yang_dnode_get_string(dnode, "route-map");
 
-	isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap,
-			originate_type, 0);
+	isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type, 0);
 }
 
 void default_info_origin_ipv4_apply_finish(struct nb_cb_apply_finish_args *args)
@@ -1105,15 +1050,13 @@ void default_info_origin_ipv6_apply_finish(struct nb_cb_apply_finish_args *args)
 	default_info_origin_apply_finish(args->dnode, AF_INET6);
 }
 
-int isis_instance_default_information_originate_ipv4_create(
-	struct nb_cb_create_args *args)
+int isis_instance_default_information_originate_ipv4_create(struct nb_cb_create_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
-int isis_instance_default_information_originate_ipv4_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_default_information_originate_ipv4_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	int level;
@@ -1131,8 +1074,7 @@ int isis_instance_default_information_originate_ipv4_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv4/always
  */
-int isis_instance_default_information_originate_ipv4_always_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv4_always_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1141,8 +1083,7 @@ int isis_instance_default_information_originate_ipv4_always_modify(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv4/route-map
  */
-int isis_instance_default_information_originate_ipv4_route_map_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv4_route_map_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1158,8 +1099,7 @@ int isis_instance_default_information_originate_ipv4_route_map_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv4/metric
  */
-int isis_instance_default_information_originate_ipv4_metric_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv4_metric_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1168,15 +1108,13 @@ int isis_instance_default_information_originate_ipv4_metric_modify(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6
  */
-int isis_instance_default_information_originate_ipv6_create(
-	struct nb_cb_create_args *args)
+int isis_instance_default_information_originate_ipv6_create(struct nb_cb_create_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
-int isis_instance_default_information_originate_ipv6_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_default_information_originate_ipv6_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	int level;
@@ -1194,8 +1132,7 @@ int isis_instance_default_information_originate_ipv6_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6/always
  */
-int isis_instance_default_information_originate_ipv6_always_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv6_always_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1204,8 +1141,7 @@ int isis_instance_default_information_originate_ipv6_always_modify(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6/route-map
  */
-int isis_instance_default_information_originate_ipv6_route_map_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv6_route_map_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1221,8 +1157,7 @@ int isis_instance_default_information_originate_ipv6_route_map_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6/metric
  */
-int isis_instance_default_information_originate_ipv6_metric_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_default_information_originate_ipv6_metric_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1287,15 +1222,13 @@ int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args)
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/route-map
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/route-map
  */
-int isis_instance_redistribute_ipv4_route_map_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_redistribute_ipv4_route_map_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
-int isis_instance_redistribute_ipv4_route_map_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_redistribute_ipv4_route_map_destroy(struct nb_cb_destroy_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
@@ -1305,8 +1238,7 @@ int isis_instance_redistribute_ipv4_route_map_destroy(
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/metric
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/metric
  */
-int isis_instance_redistribute_ipv4_metric_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_redistribute_ipv4_metric_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
@@ -1392,15 +1324,13 @@ int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv6/route-map
  */
-int isis_instance_redistribute_ipv6_route_map_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_redistribute_ipv6_route_map_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
-int isis_instance_redistribute_ipv6_route_map_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_redistribute_ipv6_route_map_destroy(struct nb_cb_destroy_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
@@ -1409,8 +1339,7 @@ int isis_instance_redistribute_ipv6_route_map_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv6/metric
  */
-int isis_instance_redistribute_ipv6_metric_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_redistribute_ipv6_metric_modify(struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
@@ -1446,10 +1375,9 @@ int isis_instance_redistribute_ipv6_table_destroy(struct nb_cb_destroy_args *arg
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-multicast
  */
-static int isis_multi_topology_common(enum nb_event event,
-				      const struct lyd_node *dnode,
-				      char *errmsg, size_t errmsg_len,
-				      const char *topology, bool create)
+static int isis_multi_topology_common(enum nb_event event, const struct lyd_node *dnode,
+				      char *errmsg, size_t errmsg_len, const char *topology,
+				      bool create)
 {
 	struct isis_area *area;
 	struct isis_area_mt_setting *setting;
@@ -1458,8 +1386,7 @@ static int isis_multi_topology_common(enum nb_event event,
 	switch (event) {
 	case NB_EV_VALIDATE:
 		if (mtid == (uint16_t)-1) {
-			snprintf(errmsg, errmsg_len, "Unknown topology %s",
-				 topology);
+			snprintf(errmsg, errmsg_len, "Unknown topology %s", topology);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1477,8 +1404,7 @@ static int isis_multi_topology_common(enum nb_event event,
 	return NB_OK;
 }
 
-static int isis_multi_topology_overload_common(enum nb_event event,
-					       const struct lyd_node *dnode,
+static int isis_multi_topology_overload_common(enum nb_event event, const struct lyd_node *dnode,
 					       const char *topology)
 {
 	struct isis_area *area;
@@ -1498,182 +1424,145 @@ static int isis_multi_topology_overload_common(enum nb_event event,
 	return NB_OK;
 }
 
-int isis_instance_multi_topology_ipv4_multicast_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv4_multicast_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", true);
 }
 
-int isis_instance_multi_topology_ipv4_multicast_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv4_multicast_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-multicast/overload
  */
-int isis_instance_multi_topology_ipv4_multicast_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv4_multicast_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv4-multicast");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv4-multicast");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-management
  */
-int isis_instance_multi_topology_ipv4_management_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv4_management_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv4-mgmt", true);
 }
 
-int isis_instance_multi_topology_ipv4_management_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv4_management_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv4-mgmt", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-management/overload
  */
-int isis_instance_multi_topology_ipv4_management_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv4_management_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv4-mgmt");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv4-mgmt");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-unicast
  */
-int isis_instance_multi_topology_ipv6_unicast_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv6_unicast_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", true);
 }
 
-int isis_instance_multi_topology_ipv6_unicast_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv6_unicast_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-unicast/overload
  */
-int isis_instance_multi_topology_ipv6_unicast_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv6_unicast_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv6-unicast");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv6-unicast");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-multicast
  */
-int isis_instance_multi_topology_ipv6_multicast_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv6_multicast_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", true);
 }
 
-int isis_instance_multi_topology_ipv6_multicast_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv6_multicast_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-multicast/overload
  */
-int isis_instance_multi_topology_ipv6_multicast_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv6_multicast_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv6-multicast");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv6-multicast");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-management
  */
-int isis_instance_multi_topology_ipv6_management_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv6_management_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-mgmt", true);
 }
 
-int isis_instance_multi_topology_ipv6_management_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv6_management_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-mgmt", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-management/overload
  */
-int isis_instance_multi_topology_ipv6_management_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv6_management_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv6-mgmt");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv6-mgmt");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-dstsrc
  */
-int isis_instance_multi_topology_ipv6_dstsrc_create(
-	struct nb_cb_create_args *args)
+int isis_instance_multi_topology_ipv6_dstsrc_create(struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", true);
 }
 
-int isis_instance_multi_topology_ipv6_dstsrc_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_multi_topology_ipv6_dstsrc_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode,
-					  args->errmsg, args->errmsg_len,
+	return isis_multi_topology_common(args->event, args->dnode, args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", false);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-dstsrc/overload
  */
-int isis_instance_multi_topology_ipv6_dstsrc_overload_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_multi_topology_ipv6_dstsrc_overload_modify(struct nb_cb_modify_args *args)
 {
-	return isis_multi_topology_overload_common(args->event, args->dnode,
-						   "ipv6-dstsrc");
+	return isis_multi_topology_overload_common(args->event, args->dnode, "ipv6-dstsrc");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/lfa/load-sharing
  */
-int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -1690,8 +1579,7 @@ int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/lfa/priority-limit
  */
-int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -1705,8 +1593,7 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -1723,8 +1610,7 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/lfa/tiebreaker
  */
-int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(
-	struct nb_cb_create_args *args)
+int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	uint8_t index;
@@ -1745,8 +1631,7 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(struct nb_cb_destroy_args *args)
 {
 	struct lfa_tiebreaker *tie_b;
 	struct isis_area *area;
@@ -1765,8 +1650,7 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/remote-lfa/prefix-list
  */
-int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *plist_name;
@@ -1784,8 +1668,7 @@ int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -1804,8 +1687,7 @@ int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing
  */
-int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -1821,8 +1703,7 @@ int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/lfa/priority-limit
  */
-int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -1835,8 +1716,7 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -1852,8 +1732,7 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/lfa/tiebreaker
  */
-int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(
-	struct nb_cb_create_args *args)
+int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	uint8_t index;
@@ -1874,8 +1753,7 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(struct nb_cb_destroy_args *args)
 {
 	struct lfa_tiebreaker *tie_b;
 	struct isis_area *area;
@@ -1894,8 +1772,7 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/remote-lfa/prefix-list
  */
-int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *plist_name;
@@ -1913,8 +1790,7 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 	return NB_OK;
 }
 
-int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -1999,8 +1875,7 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 	/* Reoriginate STD_TE & GMPLS circuits */
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
-	zlog_debug("ISIS-TE(%s): Disabled MPLS Traffic Engineering",
-		   area->area_tag);
+	zlog_debug("ISIS-TE(%s): Disabled MPLS Traffic Engineering", area->area_tag);
 
 	return NB_OK;
 }
@@ -2031,8 +1906,7 @@ int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int isis_instance_mpls_te_router_address_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_mpls_te_router_address_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -2056,8 +1930,7 @@ int isis_instance_mpls_te_router_address_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
  */
-int isis_instance_mpls_te_router_address_ipv6_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_mpls_te_router_address_ipv6_modify(struct nb_cb_modify_args *args)
 {
 	struct in6_addr value;
 	struct isis_area *area;
@@ -2082,8 +1955,7 @@ int isis_instance_mpls_te_router_address_ipv6_modify(
 	return NB_OK;
 }
 
-int isis_instance_mpls_te_router_address_ipv6_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_mpls_te_router_address_ipv6_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -2138,8 +2010,7 @@ int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/enabled
  */
-int isis_instance_segment_routing_enabled_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -2167,8 +2038,7 @@ int isis_instance_segment_routing_enabled_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks
  */
-int isis_instance_segment_routing_label_blocks_pre_validate(
-	struct nb_cb_pre_validate_args *args)
+int isis_instance_segment_routing_label_blocks_pre_validate(struct nb_cb_pre_validate_args *args)
 {
 	uint32_t srgb_lbound;
 	uint32_t srgb_ubound;
@@ -2182,25 +2052,23 @@ int isis_instance_segment_routing_label_blocks_pre_validate(
 
 	/* Check that the block size does not exceed 65535 */
 	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
-		snprintf(
-			args->errmsg, args->errmsg_len,
-			"New SR Global Block (%u/%u) exceed the limit of 65535",
-			srgb_lbound, srgb_ubound);
+		snprintf(args->errmsg, args->errmsg_len,
+			 "New SR Global Block (%u/%u) exceed the limit of 65535", srgb_lbound,
+			 srgb_ubound);
 		return NB_ERR_VALIDATION;
 	}
 	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
 		snprintf(args->errmsg, args->errmsg_len,
-			 "New SR Local Block (%u/%u) exceed the limit of 65535",
-			 srlb_lbound, srlb_ubound);
+			 "New SR Local Block (%u/%u) exceed the limit of 65535", srlb_lbound,
+			 srlb_ubound);
 		return NB_ERR_VALIDATION;
 	}
 
 	/* Validate SRGB against SRLB */
 	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
-		snprintf(
-			args->errmsg, args->errmsg_len,
-			"SR Global Block (%u/%u) conflicts with Local Block (%u/%u)",
-			srgb_lbound, srgb_ubound, srlb_lbound, srlb_ubound);
+		snprintf(args->errmsg, args->errmsg_len,
+			 "SR Global Block (%u/%u) conflicts with Local Block (%u/%u)", srgb_lbound,
+			 srgb_ubound, srlb_lbound, srlb_ubound);
 		return NB_ERR_VALIDATION;
 	}
 
@@ -2211,8 +2079,7 @@ int isis_instance_segment_routing_label_blocks_pre_validate(
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb
  */
 
-void isis_instance_segment_routing_srgb_apply_finish(
-	struct nb_cb_apply_finish_args *args)
+void isis_instance_segment_routing_srgb_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
@@ -2227,16 +2094,15 @@ void isis_instance_segment_routing_srgb_apply_finish(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb/lower-bound
  */
-int isis_instance_segment_routing_srgb_lower_bound_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srgb_lower_bound_modify(struct nb_cb_modify_args *args)
 {
 	uint32_t lower_bound = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid SRGB lower bound: %u", lower_bound);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid SRGB lower bound: %u",
+				 lower_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2252,16 +2118,15 @@ int isis_instance_segment_routing_srgb_lower_bound_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb/upper-bound
  */
-int isis_instance_segment_routing_srgb_upper_bound_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srgb_upper_bound_modify(struct nb_cb_modify_args *args)
 {
 	uint32_t upper_bound = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid SRGB upper bound: %u", upper_bound);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid SRGB upper bound: %u",
+				 upper_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2277,8 +2142,7 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb
  */
-void isis_instance_segment_routing_srlb_apply_finish(
-	struct nb_cb_apply_finish_args *args)
+void isis_instance_segment_routing_srlb_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
@@ -2293,16 +2157,15 @@ void isis_instance_segment_routing_srlb_apply_finish(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb/lower-bound
  */
-int isis_instance_segment_routing_srlb_lower_bound_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srlb_lower_bound_modify(struct nb_cb_modify_args *args)
 {
 	uint32_t lower_bound = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid SRLB lower bound: %u", lower_bound);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid SRLB lower bound: %u",
+				 lower_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2318,16 +2181,15 @@ int isis_instance_segment_routing_srlb_lower_bound_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb/upper-bound
  */
-int isis_instance_segment_routing_srlb_upper_bound_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srlb_upper_bound_modify(struct nb_cb_modify_args *args)
 {
 	uint32_t upper_bound = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid SRLB upper bound: %u", upper_bound);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid SRLB upper bound: %u",
+				 upper_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2343,8 +2205,7 @@ int isis_instance_segment_routing_srlb_upper_bound_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/msd/node-msd
  */
-int isis_instance_segment_routing_msd_node_msd_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_msd_node_msd_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -2360,8 +2221,7 @@ int isis_instance_segment_routing_msd_node_msd_modify(
 	return NB_OK;
 }
 
-int isis_instance_segment_routing_msd_node_msd_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_segment_routing_msd_node_msd_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 
@@ -2380,8 +2240,7 @@ int isis_instance_segment_routing_msd_node_msd_destroy(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid
  */
-int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
-	struct nb_cb_create_args *args)
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	struct prefix prefix;
@@ -2399,8 +2258,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
 	return NB_OK;
 }
 
-int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(struct nb_cb_destroy_args *args)
 {
 	struct sr_prefix_cfg *pcfg;
 	struct isis_area *area;
@@ -2430,10 +2288,8 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	struct isis_prefix_sid psid = {};
 
 	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
-	srgb_lbound = yang_dnode_get_uint32(
-		args->dnode, "../../label-blocks/srgb/lower-bound");
-	srgb_ubound = yang_dnode_get_uint32(
-		args->dnode, "../../label-blocks/srgb/upper-bound");
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "../../label-blocks/srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "../../label-blocks/srgb/upper-bound");
 	sid = yang_dnode_get_uint32(args->dnode, "sid-value");
 	sid_type = yang_dnode_get_enum(args->dnode, "sid-value-type");
 
@@ -2444,15 +2300,13 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	case SR_SID_VALUE_TYPE_INDEX:
 		if (sid >= srgb_range) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "SID index %u falls outside local SRGB range",
-				 sid);
+				 "SID index %u falls outside local SRGB range", sid);
 			return NB_ERR_VALIDATION;
 		}
 		break;
 	case SR_SID_VALUE_TYPE_ABSOLUTE:
 		if (!IS_MPLS_UNRESERVED_LABEL(sid)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid absolute SID %u", sid);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid absolute SID %u", sid);
 			return NB_ERR_VALIDATION;
 		}
 		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
@@ -2465,8 +2319,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	area = nb_running_get_entry(area_dnode, NULL, false);
 	if (area) {
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2;
-			     level++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 				struct isis_spftree *spftree;
 				struct isis_vertex *vertex_psid;
 
@@ -2476,22 +2329,15 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 				if (!spftree)
 					continue;
 
-				vertex_psid = isis_spf_prefix_sid_lookup(
-					spftree, &psid);
-				if (vertex_psid
-				    && !prefix_same(&vertex_psid->N.ip.p.dest,
-						    &prefix)) {
-					snprintfrr(
-						args->errmsg, args->errmsg_len,
-						"Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
-						CHECK_FLAG(
-							psid.flags,
-							ISIS_PREFIX_SID_VALUE)
-							? "label"
-							: "index",
-						psid.value,
-						&vertex_psid->N.ip.p.dest,
-						level);
+				vertex_psid = isis_spf_prefix_sid_lookup(spftree, &psid);
+				if (vertex_psid &&
+				    !prefix_same(&vertex_psid->N.ip.p.dest, &prefix)) {
+					snprintfrr(args->errmsg, args->errmsg_len,
+						   "Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
+						   CHECK_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE)
+							   ? "label"
+							   : "index",
+						   psid.value, &vertex_psid->N.ip.p.dest, level);
 					return NB_ERR_VALIDATION;
 				}
 			}
@@ -2587,8 +2433,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
  * XPath:
  * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
  */
-int isis_instance_segment_routing_algorithm_prefix_sid_create(
-	struct nb_cb_create_args *args)
+int isis_instance_segment_routing_algorithm_prefix_sid_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	struct prefix prefix;
@@ -2609,8 +2454,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_create(
 	return NB_OK;
 }
 
-int isis_instance_segment_routing_algorithm_prefix_sid_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_segment_routing_algorithm_prefix_sid_destroy(struct nb_cb_destroy_args *args)
 {
 	struct sr_prefix_cfg *pcfg;
 	struct isis_area *area;
@@ -2640,10 +2484,8 @@ int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
 	struct isis_prefix_sid psid = {};
 
 	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
-	srgb_lbound = yang_dnode_get_uint32(
-		args->dnode, "../../label-blocks/srgb/lower-bound");
-	srgb_ubound = yang_dnode_get_uint32(
-		args->dnode, "../../label-blocks/srgb/upper-bound");
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "../../label-blocks/srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "../../label-blocks/srgb/upper-bound");
 	sid = yang_dnode_get_uint32(args->dnode, "sid-value");
 	sid_type = yang_dnode_get_enum(args->dnode, "sid-value-type");
 
@@ -2654,15 +2496,13 @@ int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
 	case SR_SID_VALUE_TYPE_INDEX:
 		if (sid >= srgb_range) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "SID index %u falls outside local SRGB range",
-				 sid);
+				 "SID index %u falls outside local SRGB range", sid);
 			return NB_ERR_VALIDATION;
 		}
 		break;
 	case SR_SID_VALUE_TYPE_ABSOLUTE:
 		if (!IS_MPLS_UNRESERVED_LABEL(sid)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid absolute SID %u", sid);
+			snprintf(args->errmsg, args->errmsg_len, "Invalid absolute SID %u", sid);
 			return NB_ERR_VALIDATION;
 		}
 		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
@@ -2687,19 +2527,13 @@ int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
 			if (!spftree)
 				continue;
 
-			vertex_psid =
-				isis_spf_prefix_sid_lookup(spftree, &psid);
-			if (vertex_psid &&
-			    !prefix_same(&vertex_psid->N.ip.p.dest, &prefix)) {
-				snprintfrr(
-					args->errmsg, args->errmsg_len,
-					"Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
-					CHECK_FLAG(psid.flags,
-						   ISIS_PREFIX_SID_VALUE)
-						? "label"
-						: "index",
-					psid.value, &vertex_psid->N.ip.p.dest,
-					level);
+			vertex_psid = isis_spf_prefix_sid_lookup(spftree, &psid);
+			if (vertex_psid && !prefix_same(&vertex_psid->N.ip.p.dest, &prefix)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
+					   CHECK_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE) ? "label"
+											 : "index",
+					   psid.value, &vertex_psid->N.ip.p.dest, level);
 				return NB_ERR_VALIDATION;
 			}
 		}
@@ -2800,7 +2634,6 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 	struct flex_algo *fa;
 	bool advertise, update_te;
 	struct isis_circuit *circuit;
-	struct listnode *node;
 	uint32_t algorithm;
 	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
 	struct isis_flex_algo_alloc_arg arg;
@@ -2818,18 +2651,13 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 		fa->priority = priority;
 		fa->advertise_definition = advertise;
 		if (area->admin_group_send_zero) {
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_exclude_any);
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_include_any);
-			admin_group_allow_explicit_zero(
-				&fa->admin_group_include_all);
+			admin_group_allow_explicit_zero(&fa->admin_group_exclude_any);
+			admin_group_allow_explicit_zero(&fa->admin_group_include_any);
+			admin_group_allow_explicit_zero(&fa->admin_group_include_all);
 		}
 		if (update_te) {
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node,
-						  circuit))
-				isis_link_params_update_asla(circuit,
-							     circuit->interface);
+			frr_each (isis_circuit_list, &area->circuit_list, circuit)
+				isis_link_params_update_asla(circuit, circuit->interface);
 		}
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
@@ -2861,9 +2689,8 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 			flex_algo_free(area->flex_algos, fa);
 	}
 	if (list_isempty(area->flex_algos->flex_algos)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-			isis_link_params_update_asla(circuit,
-						     circuit->interface);
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
+			isis_link_params_update_asla(circuit, circuit->interface);
 	}
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
@@ -2873,8 +2700,7 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/advertise-definition
  */
-int isis_instance_flex_algo_advertise_definition_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_flex_algo_advertise_definition_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
@@ -2890,8 +2716,7 @@ int isis_instance_flex_algo_advertise_definition_modify(
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		fa->advertise_definition = advertise;
@@ -2906,8 +2731,7 @@ int isis_instance_flex_algo_advertise_definition_modify(
 	return NB_OK;
 }
 
-int isis_instance_flex_algo_advertise_definition_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_advertise_definition_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
@@ -2923,8 +2747,7 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 
 	fa = flex_algo_lookup(area->flex_algos, algorithm);
 	if (!fa) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "flex-algo object not found");
+		snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 		return NB_ERR_RESOURCE;
 	}
 	fa->advertise_definition = false;
@@ -2933,8 +2756,7 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 	return NB_OK;
 }
 
-static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
-						int type)
+static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args, int type)
 {
 	char xpathr[XPATH_MAXLEN];
 	struct lyd_node *dnode;
@@ -2950,11 +2772,10 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		snprintf(xpathr, sizeof(xpathr),
-			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
-			 val);
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value", val);
 		if (!yang_dnode_get(args->dnode, xpathr)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity map %s isn't found", val);
+			snprintf(args->errmsg, args->errmsg_len, "affinity map %s isn't found",
+				 val);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2962,22 +2783,19 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		algorithm = yang_dnode_get_uint32(args->dnode,
-						  "../../flex-algo");
+		algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		snprintf(xpathr, sizeof(xpathr),
-			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
-			 val);
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value", val);
 		dnode = yang_dnode_get(args->dnode, xpathr);
 		if (!dnode) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity map %s isn't found", val);
+			snprintf(args->errmsg, args->errmsg_len, "affinity map %s isn't found",
+				 val);
 			return NB_ERR_RESOURCE;
 		}
 		if (type == AFFINITY_INCLUDE_ANY)
@@ -2998,9 +2816,7 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	return NB_OK;
 }
 
-static int
-isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
-				       int type)
+static int isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args, int type)
 {
 	struct affinity_map *map;
 	struct isis_area *area;
@@ -3015,8 +2831,8 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	case NB_EV_VALIDATE:
 		map = affinity_map_get(val);
 		if (!map) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity map %s isn't found", val);
+			snprintf(args->errmsg, args->errmsg_len, "affinity map %s isn't found",
+				 val);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -3024,19 +2840,17 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		algorithm = yang_dnode_get_uint32(args->dnode,
-						  "../../flex-algo");
+		algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		map = affinity_map_get(val);
 		if (!map) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "affinity map %s isn't found", val);
+			snprintf(args->errmsg, args->errmsg_len, "affinity map %s isn't found",
+				 val);
 			return NB_ERR_RESOURCE;
 		}
 		if (type == AFFINITY_INCLUDE_ANY)
@@ -3062,51 +2876,42 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
  * XPath:
  * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-anies/affinity-include-any
  */
-int isis_instance_flex_algo_affinity_include_any_create(
-	struct nb_cb_create_args *args)
+int isis_instance_flex_algo_affinity_include_any_create(struct nb_cb_create_args *args)
 {
 	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ANY);
 }
 
-int isis_instance_flex_algo_affinity_include_any_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_affinity_include_any_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_instance_flex_algo_affinity_unset(args,
-						      AFFINITY_INCLUDE_ANY);
+	return isis_instance_flex_algo_affinity_unset(args, AFFINITY_INCLUDE_ANY);
 }
 
 /*
  * XPath:
  * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-alls/affinity-include-all
  */
-int isis_instance_flex_algo_affinity_include_all_create(
-	struct nb_cb_create_args *args)
+int isis_instance_flex_algo_affinity_include_all_create(struct nb_cb_create_args *args)
 {
 	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ALL);
 }
 
-int isis_instance_flex_algo_affinity_include_all_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_affinity_include_all_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_instance_flex_algo_affinity_unset(args,
-						      AFFINITY_INCLUDE_ALL);
+	return isis_instance_flex_algo_affinity_unset(args, AFFINITY_INCLUDE_ALL);
 }
 
 /*
  * XPath:
  * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-exclude-anies/affinity-exclude-any
  */
-int isis_instance_flex_algo_affinity_exclude_any_create(
-	struct nb_cb_create_args *args)
+int isis_instance_flex_algo_affinity_exclude_any_create(struct nb_cb_create_args *args)
 {
 	return isis_instance_flex_algo_affinity_set(args, AFFINITY_EXCLUDE_ANY);
 }
 
-int isis_instance_flex_algo_affinity_exclude_any_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_affinity_exclude_any_destroy(struct nb_cb_destroy_args *args)
 {
-	return isis_instance_flex_algo_affinity_unset(args,
-						      AFFINITY_EXCLUDE_ANY);
+	return isis_instance_flex_algo_affinity_unset(args, AFFINITY_EXCLUDE_ANY);
 }
 
 /*
@@ -3128,8 +2933,7 @@ int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 			return NB_ERR_RESOURCE;
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		SET_FLAG(fa->flags, FAD_FLAG_M);
@@ -3144,8 +2948,7 @@ int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int isis_instance_flex_algo_prefix_metric_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_prefix_metric_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
@@ -3161,8 +2964,7 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		UNSET_FLAG(fa->flags, FAD_FLAG_M);
@@ -3177,8 +2979,7 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 	return NB_OK;
 }
 
-static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
-					      int type)
+static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args, int type)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
@@ -3194,8 +2995,7 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		SET_FLAG(fa->dataplanes, type);
@@ -3217,8 +3017,7 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 	return NB_OK;
 }
 
-static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
-						int type)
+static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args, int type)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
@@ -3234,8 +3033,7 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		UNSET_FLAG(fa->dataplanes, type);
@@ -3254,14 +3052,12 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
  * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/dplane-sr-mpls
  */
 
-int isis_instance_flex_algo_dplane_sr_mpls_create(
-	struct nb_cb_create_args *args)
+int isis_instance_flex_algo_dplane_sr_mpls_create(struct nb_cb_create_args *args)
 {
 	return isis_instance_flex_algo_dplane_set(args, FLEX_ALGO_SR_MPLS);
 }
 
-int isis_instance_flex_algo_dplane_sr_mpls_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_flex_algo_dplane_sr_mpls_destroy(struct nb_cb_destroy_args *args)
 {
 	return isis_instance_flex_algo_dplane_unset(args, FLEX_ALGO_SR_MPLS);
 }
@@ -3316,8 +3112,7 @@ int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		fa->metric_type = metric_type;
@@ -3354,8 +3149,7 @@ int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		fa->priority = priority;
@@ -3388,8 +3182,7 @@ int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
 		fa->priority = priority;
@@ -3407,8 +3200,7 @@ int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
  */
-int isis_instance_segment_routing_srv6_enabled_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srv6_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -3420,12 +3212,10 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 
 	if (area->srv6db.config.enabled) {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug(
-				"Segment Routing over IPv6 (SRv6): OFF -> ON");
+			zlog_debug("Segment Routing over IPv6 (SRv6): OFF -> ON");
 	} else {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug(
-				"Segment Routing over IPv6 (SRv6): ON -> OFF");
+			zlog_debug("Segment Routing over IPv6 (SRv6): ON -> OFF");
 	}
 
 	/* Regenerate LSPs to advertise SRv6 capabilities or signal that the
@@ -3438,8 +3228,7 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
  */
-int isis_instance_segment_routing_srv6_locator_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srv6_locator_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *loc_name;
@@ -3447,15 +3236,14 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
 
 	loc_name = yang_dnode_get_string(args->dnode, NULL);
 
 	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
 		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "SRv6 locator %s is already configured", loc_name);
+		snprintf(args->errmsg, args->errmsg_len, "SRv6 locator %s is already configured",
+			 loc_name);
 		return NB_ERR_NO_CHANGES;
 	}
 
@@ -3472,11 +3260,9 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	strlcpy(area->srv6db.config.srv6_locator_name, loc_name,
 		sizeof(area->srv6db.config.srv6_locator_name));
 
-	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name,
-		 area->area_tag);
+	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name, area->area_tag);
 
-	sr_debug("Trying to get locator %s for IS-IS area %s", loc_name,
-		 area->area_tag);
+	sr_debug("Trying to get locator %s for IS-IS area %s", loc_name, area->area_tag);
 
 	if (isis_zebra_srv6_manager_get_locator(loc_name) < 0)
 		return NB_ERR;
@@ -3484,8 +3270,7 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	return NB_OK;
 }
 
-int isis_instance_segment_routing_srv6_locator_destroy(
-	struct nb_cb_destroy_args *args)
+int isis_instance_segment_routing_srv6_locator_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
 	const char *loc_name;
@@ -3493,8 +3278,7 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
 
 	loc_name = yang_dnode_get_string(args->dnode, NULL);
 
@@ -3503,8 +3287,8 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
 		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
 		sr_debug("SRv6 locator %s is not configured", loc_name);
-		snprintf(args->errmsg, args->errmsg_len,
-			 "SRv6 locator %s is not configured", loc_name);
+		snprintf(args->errmsg, args->errmsg_len, "SRv6 locator %s is not configured",
+			 loc_name);
 		return NB_ERR_NO_CHANGES;
 	}
 
@@ -3513,8 +3297,7 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 		return NB_ERR;
 	}
 
-	sr_debug("Deleted SRv6 locator %s for IS-IS area %s", loc_name,
-		 area->area_tag);
+	sr_debug("Deleted SRv6 locator %s for IS-IS area %s", loc_name, area->area_tag);
 
 	return NB_OK;
 }
@@ -3531,8 +3314,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	area->srv6db.config.max_seg_left_msd = yang_dnode_get_uint8(args->dnode,
-								    NULL);
+	area->srv6db.config.max_seg_left_msd = yang_dnode_get_uint8(args->dnode, NULL);
 
 	/* Update and regenerate LSP */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -3543,8 +3325,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop
  */
-int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -3552,8 +3333,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	area->srv6db.config.max_end_pop_msd = yang_dnode_get_uint8(args->dnode,
-								   NULL);
+	area->srv6db.config.max_end_pop_msd = yang_dnode_get_uint8(args->dnode, NULL);
 
 	/* Update and regenerate LSP */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -3573,8 +3353,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	area->srv6db.config.max_h_encaps_msd = yang_dnode_get_uint8(args->dnode,
-								    NULL);
+	area->srv6db.config.max_h_encaps_msd = yang_dnode_get_uint8(args->dnode, NULL);
 
 	/* Update and regenerate LSP */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -3585,8 +3364,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d
  */
-int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 
@@ -3594,8 +3372,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	area->srv6db.config.max_end_d_msd = yang_dnode_get_uint8(args->dnode,
-								 NULL);
+	area->srv6db.config.max_end_d_msd = yang_dnode_get_uint8(args->dnode, NULL);
 
 	/* Update and regenerate LSP */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -3606,8 +3383,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/interface
  */
-int isis_instance_segment_routing_srv6_interface_modify(
-	struct nb_cb_modify_args *args)
+int isis_instance_segment_routing_srv6_interface_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	const char *ifname;
@@ -3615,13 +3391,11 @@ int isis_instance_segment_routing_srv6_interface_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
 
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
-	sr_debug("Changing SRv6 interface for IS-IS area %s to %s",
-		 area->area_tag, ifname);
+	sr_debug("Changing SRv6 interface for IS-IS area %s to %s", area->area_tag, ifname);
 
 	isis_srv6_interface_set(area, ifname);
 
@@ -3638,8 +3412,7 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
+		vrfname = yang_dnode_get_string(lyd_parent(lyd_parent(args->dnode)), "./vrf");
 
 		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3682,9 +3455,8 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
+		vrfname = yang_dnode_get_string(lyd_parent(lyd_parent(lyd_parent(args->dnode))),
+						"./vrf");
 
 		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3750,8 +3522,7 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 
 	if (args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode),
-						       NULL, false);
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL, false);
 		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Changing area tag is not allowed");
@@ -3827,8 +3598,7 @@ int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
  */
-void lib_interface_isis_bfd_monitoring_apply_finish(
-	struct nb_cb_apply_finish_args *args)
+void lib_interface_isis_bfd_monitoring_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3839,8 +3609,7 @@ void lib_interface_isis_bfd_monitoring_apply_finish(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/enabled
  */
-int lib_interface_isis_bfd_monitoring_enabled_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_bfd_monitoring_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3856,8 +3625,7 @@ int lib_interface_isis_bfd_monitoring_enabled_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile
  */
-int lib_interface_isis_bfd_monitoring_profile_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_bfd_monitoring_profile_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3866,14 +3634,12 @@ int lib_interface_isis_bfd_monitoring_profile_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
-	circuit->bfd_config.profile =
-		XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
+	circuit->bfd_config.profile = XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
 
 	return NB_OK;
 }
 
-int lib_interface_isis_bfd_monitoring_profile_destroy(
-	struct nb_cb_destroy_args *args)
+int lib_interface_isis_bfd_monitoring_profile_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3889,8 +3655,7 @@ int lib_interface_isis_bfd_monitoring_profile_destroy(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1
  */
-int lib_interface_isis_csnp_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_csnp_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3906,8 +3671,7 @@ int lib_interface_isis_csnp_interval_level_1_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-2
  */
-int lib_interface_isis_csnp_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_csnp_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3923,8 +3687,7 @@ int lib_interface_isis_csnp_interval_level_2_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-1
  */
-int lib_interface_isis_psnp_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_psnp_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3940,8 +3703,7 @@ int lib_interface_isis_psnp_interval_level_1_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-2
  */
-int lib_interface_isis_psnp_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_psnp_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -3973,8 +3735,7 @@ int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-1
  */
-int lib_interface_isis_hello_interval_level_1_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_hello_interval_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 	uint32_t interval;
@@ -3992,8 +3753,7 @@ int lib_interface_isis_hello_interval_level_1_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-2
  */
-int lib_interface_isis_hello_interval_level_2_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_hello_interval_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 	uint32_t interval;
@@ -4011,8 +3771,7 @@ int lib_interface_isis_hello_interval_level_2_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-1
  */
-int lib_interface_isis_hello_multiplier_level_1_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_hello_multiplier_level_1_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 	uint16_t multi;
@@ -4030,8 +3789,7 @@ int lib_interface_isis_hello_multiplier_level_1_modify(
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-2
  */
-int lib_interface_isis_hello_multiplier_level_2_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_hello_multiplier_level_2_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 	uint16_t multi;
@@ -4128,17 +3886,14 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 		if (!circuit)
 			break;
 		if (circuit->circ_type == CIRCUIT_T_LOOPBACK) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Cannot change network type on loopback interface");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Cannot change network type on loopback interface");
 			return NB_ERR_VALIDATION;
 		}
-		if (net_type == CIRCUIT_T_BROADCAST
-		    && circuit->state == C_STATE_UP
-		    && !if_is_broadcast(circuit->interface)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Cannot configure non-broadcast interface for broadcast operation");
+		if (net_type == CIRCUIT_T_BROADCAST && circuit->state == C_STATE_UP &&
+		    !if_is_broadcast(circuit->interface)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Cannot configure non-broadcast interface for broadcast operation");
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -4214,8 +3969,7 @@ int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password/password-type
  */
-int lib_interface_isis_password_password_type_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 	uint8_t pass_type;
@@ -4234,8 +3988,7 @@ int lib_interface_isis_password_password_type_modify(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake
  */
-int lib_interface_isis_disable_three_way_handshake_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
 
@@ -4248,9 +4001,9 @@ int lib_interface_isis_disable_three_way_handshake_modify(
 	return NB_OK;
 }
 
-static int lib_interface_isis_multi_topology_common(
-	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
-	size_t errmsg_len, uint16_t mtid)
+static int lib_interface_isis_multi_topology_common(enum nb_event event,
+						    const struct lyd_node *dnode, char *errmsg,
+						    size_t errmsg_len, uint16_t mtid)
 {
 	struct isis_circuit *circuit;
 	bool value;
@@ -4274,83 +4027,69 @@ static int lib_interface_isis_multi_topology_common(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard
  */
-int lib_interface_isis_multi_topology_standard_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_standard_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_STANDARD);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_STANDARD);
 }
 
 /*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-multicast
  */
-int lib_interface_isis_multi_topology_ipv4_multicast_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv4_multicast_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV4_MULTICAST);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV4_MULTICAST);
 }
 
 /*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-management
  */
-int lib_interface_isis_multi_topology_ipv4_management_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv4_management_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV4_MGMT);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV4_MGMT);
 }
 
 /*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-unicast
  */
-int lib_interface_isis_multi_topology_ipv6_unicast_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv6_unicast_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV6_UNICAST);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV6_UNICAST);
 }
 
 /*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-multicast
  */
-int lib_interface_isis_multi_topology_ipv6_multicast_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv6_multicast_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV6_MULTICAST);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV6_MULTICAST);
 }
 
 /*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-management
  */
-int lib_interface_isis_multi_topology_ipv6_management_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv6_management_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV6_MGMT);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV6_MGMT);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-dstsrc
  */
-int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(struct nb_cb_modify_args *args)
 {
-	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV6_DSTSRC);
+	return lib_interface_isis_multi_topology_common(args->event, args->dnode, args->errmsg,
+							args->errmsg_len, ISIS_MT_IPV6_DSTSRC);
 }
 
 /*
@@ -4442,8 +4181,7 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4519,8 +4257,7 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4592,8 +4329,7 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4633,8 +4369,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->tilfa_node_protection[0] =
-		yang_dnode_get_bool(args->dnode, NULL);
+	circuit->tilfa_node_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
 	if (area)
@@ -4657,8 +4392,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->tilfa_link_fallback[0] =
-		yang_dnode_get_bool(args->dnode, NULL);
+	circuit->tilfa_link_fallback[0] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
 	if (area)
@@ -4671,8 +4405,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4748,8 +4481,7 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4821,8 +4553,7 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable
  */
-int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	struct isis_circuit *circuit;
@@ -4862,8 +4593,7 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->tilfa_node_protection[1] =
-		yang_dnode_get_bool(args->dnode, NULL);
+	circuit->tilfa_node_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
 	if (area)
@@ -4886,8 +4616,7 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->tilfa_link_fallback[1] =
-		yang_dnode_get_bool(args->dnode, NULL);
+	circuit->tilfa_link_fallback[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
 	if (area)

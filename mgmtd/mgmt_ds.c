@@ -242,13 +242,13 @@ int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 	assert(ds_ctx);
 
 	if (ds_ctx->locked) {
-		_log_err("LOCK already taken on DS:%s by session-id %Lu",
-			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
+		_log_err("LOCK already taken on DS:%s by session-id %Lu (requesting session-id %Lu)",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, session_id);
 		return -EBUSY;
 	}
 	if (ds_ctx->txn_locked) {
-		_log_err("LOCK already taken on DS:%s by session-less txn-id %Lu",
-			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked);
+		_log_err("LOCK already taken on DS:%s by session-less txn-id %Lu (requesting session-id %Lu)",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked, session_id);
 		return -EBUSY;
 	}
 	_dbg("LOCK on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id), session_id);

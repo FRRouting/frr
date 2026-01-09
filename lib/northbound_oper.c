@@ -442,8 +442,8 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 
 	ly_temp_log_options(&llopts);
 	for (;;) {
-		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
-				    LYD_NEW_PATH_UPDATE, NULL, trunk);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, LYD_NEW_PATH_UPDATE,
+				     NULL, trunk);
 		if (err == LY_SUCCESS)
 			break;
 
@@ -2405,8 +2405,8 @@ enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *pare
 	size_t size;
 
 	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
-	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
-			     NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, valuep, size,
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -2423,8 +2423,8 @@ enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *pare
 	size_t size;
 
 	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
-	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
-			     NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, valuep, size,
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
