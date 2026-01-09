@@ -1900,8 +1900,12 @@ def test_vtysh_timeout():
         if retcode == None:
             p1.terminate()
             errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
-    except Exception as e:
+    except subprocess.TimeoutExpired:
         errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except OSError as e:
+        errmsg = "Vtysh process encountered an error: {}".format(e)
+    except Exception as e:
+        errmsg = "An unexpected error occurred: {}".format(e)
 
     if errmsg != None:
         assert None, errmsg
