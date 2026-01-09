@@ -578,8 +578,10 @@ static void zserv_process_messages(struct event *event)
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
 	/* Don't continue if zclient is being freed/shut */
-	if (client->pthread == NULL)
+	if (client->pthread == NULL) {
+		stream_free(msg);
 		goto done;
+	}
 
 	frr_with_mutex (&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
