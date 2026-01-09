@@ -49,9 +49,8 @@ static bool known_ae(int ae)
 static inline bool is_all_zero(const unsigned char *data, int len)
 {
 	for (int j = 0; j < len; j++) {
-		if (data[j] != 0) {
+		if (data[j] != 0)
 			return false;
-		}
 	}
 	return true;
 }
@@ -562,6 +561,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			/* handling of ack-req sub-TLVs could go here */
 			if (len > 6) {
 				int ret = parse_subtlv_no_special_action(message + 8, len - 6);
+
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
 					debugf(BABEL_DEBUG_COMMON,
@@ -577,6 +577,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			/* Handling of ack sub-TLVs could go here */
 			if (len > 2) {
 				int ret = parse_subtlv_no_special_action(message + 4, len - 2);
+
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
 					debugf(BABEL_DEBUG_COMMON,
@@ -646,6 +647,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			unsigned short txcost, interval;
 			unsigned char address[16];
 			int rc;
+
 			DO_NTOHS(txcost, message + 4);
 			DO_NTOHS(interval, message + 6);
 			rc = network_address(message[2], message + 8, len - 6, address);
@@ -656,6 +658,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			       format_address(address));
 			if (message[2] == 0 || is_interface_ll_address(ifp, address)) {
 				int ret = -3;
+
 				if (len > 10 + rc)
 					ret = parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
 							       &hello_send_us,
@@ -678,9 +681,6 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			}
 		} else if (type == MESSAGE_ROUTER_ID) {
 			memcpy(router_id, message + 4, 8);
-			have_router_id = 1;
-			debugf(BABEL_DEBUG_COMMON, "Received router-id %s from %s on %s.",
-			       format_eui64(router_id), format_address(from), ifp->name);
 			if (is_all_zero(router_id, 8)) {
 				flog_err(EC_BABEL_PACKET,
 					 "Received router id with all-zero value.");
@@ -691,6 +691,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					 "Received router id with all-ones value.");
 				goto fail;
 			}
+			have_router_id = 1;
+			debugf(BABEL_DEBUG_COMMON, "Received router-id %s from %s on %s.",
+			       format_eui64(router_id), format_address(from), ifp->name);
 			/* handle sub-TLVs */
 			if (len > 10) {
 				int ret = parse_subtlv_no_special_action(message + 12, len - 10);
@@ -703,6 +706,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			}
 		} else if (type == MESSAGE_NH) {
 			unsigned char nh[16];
+
 			int rc;
 			if (message[2] != 1 && message[2] != 3) {
 				debugf(BABEL_DEBUG_COMMON, "Received NH with incorrect AE %d.",
@@ -844,7 +848,6 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				nh = neigh->address;
 			}
 
-			// Add check that if AE (message[2]) is 3 (link-local IPv6), then Omitted (message[5]) must be 0
 			if (message[2] == 3 && message[5] != 0) {
 				flog_err(EC_BABEL_PACKET,
 					 "Received link-local IPv6 update with non-zero Omitted.");
