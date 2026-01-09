@@ -1688,12 +1688,11 @@ Configuring Peers
 
    Set description of the peer.
 
-.. clicmd:: neighbor PEER interface IFNAME
+.. clicmd:: neighbor PEER interface [peer-group NAME]
 
-   When you connect to a BGP peer over an IPv6 link-local address, you have to
-   specify the IFNAME of the interface used for the connection. To specify
-   IPv4 session addresses, see the ``neighbor PEER update-source`` command
-   below.
+   Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
+   session will be established via IPv6 link locals. To specify IPv4 session
+   addresses, see the ``neighbor PEER update-source`` command below.
 
 .. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
 
