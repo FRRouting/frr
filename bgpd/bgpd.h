@@ -2380,7 +2380,6 @@ struct bgp_nlri {
 #define BGP_NOTIFY_UPDATE_OPT_ATTR_ERR           9
 #define BGP_NOTIFY_UPDATE_INVAL_NETWORK         10
 #define BGP_NOTIFY_UPDATE_MAL_AS_PATH           11
-#define BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP	 12 /* draft-white-linklocal-capability */
 
 /* BGP_NOTIFY_CEASE sub codes (RFC 4486).  */
 #define BGP_NOTIFY_CEASE_MAX_PREFIX              1

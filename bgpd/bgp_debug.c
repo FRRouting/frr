@@ -150,7 +150,6 @@ static const struct message bgp_notify_update_msg[] = {
 	{BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, "/Optional Attribute Error"},
 	{BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field"},
 	{BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH"},
-	{BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP, "/Unreachable Link-Local Address"},
 	{0}};
 
 static const struct message bgp_notify_cease_msg[] = {
