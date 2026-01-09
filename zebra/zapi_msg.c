@@ -683,7 +683,7 @@ static int zsend_nexthop_lookup(struct zserv *client, struct ipaddr *addr, struc
 		stream_putw(s, 0);
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			if (rnh_nexthop_valid(re, nexthop))
+			if (rnh_nexthop_valid(re, nexthop, false))
 				num += zserv_encode_nexthop(s, nexthop);
 		}
 
