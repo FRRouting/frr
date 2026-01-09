@@ -7243,7 +7243,6 @@ static int peer_tcp_user_timeout_set_vty(struct vty *vty, const char *ip_str,
 {
     struct peer *peer;
     uint32_t timeout_sec;
-    uint32_t timeout_ms;
     int ret;
 
     peer = peer_and_group_lookup_vty(vty, ip_str);
@@ -7257,10 +7256,7 @@ static int peer_tcp_user_timeout_set_vty(struct vty *vty, const char *ip_str,
         return CMD_WARNING_CONFIG_FAILED;
     }
 
-    timeout_ms = timeout_sec * 1000;
-
-
-    ret = peer_tcp_user_timeout_set(peer, timeout_ms);
+    ret = peer_tcp_user_timeout_set(peer, timeout_sec);
     return bgp_vty_return(vty, ret);
 }
 
@@ -17476,6 +17472,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_TIMER))
 		vty_out(vty, " neighbor %s timers %u %u\n", addr,
 			peer->keepalive, peer->holdtime);
+
+        if (peergroup_flag_check(peer, PEER_FLAG_TCP_USER_TIMEOUT))
+                vty_out(vty, " neighbor %s tcp-user-timeout %u \n", addr,
+                        peer->tcpusrto);
 
 	/* timers connect */
 	if (peergroup_flag_check(peer, PEER_FLAG_TIMER_CONNECT))
