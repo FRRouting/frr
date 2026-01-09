@@ -706,8 +706,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			}
 		} else if (type == MESSAGE_NH) {
 			unsigned char nh[16];
-
 			int rc;
+
 			if (message[2] != 1 && message[2] != 3) {
 				debugf(BABEL_DEBUG_COMMON, "Received NH with incorrect AE %d.",
 				       message[2]);
