@@ -332,7 +332,7 @@ static const char *const zebra_config_xpaths[] = {
 static const char *const zebra_oper_xpaths[] = {
 	"/frr-backend:clients",
 	"/frr-interface:lib/interface",
-	"/frr-vrf:lib/vrf/frr-zebra:zebra",
+	"/frr-vrf:lib/vrf",
 	"/frr-zebra:zebra",
 };
 
