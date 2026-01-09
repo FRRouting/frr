@@ -1,0 +1,374 @@
+# GDB macros for use with FRR.
+#
+# Macros in this file are specific to pimd/. Definitions here depend on the
+# lib.txt macros file, which must also be loaded.
+#
+# The macro files can be loaded with 'source <filename>'. They can then be
+# called by the user. Macros that explore more complicated structs generally
+# take pointer arguments.
+#
+# Example:
+#
+# (gdb) source gdb/lib.txt
+# (gdb) source gdb/pim.txt
+# (gdb) dump_pim_upstream up
+# (gdb) dump_neighbor_jp_agg neigh
+
+define dump_pim_jp_agg_list
+  set $_list = (struct list *)$arg0
+  set $_node = $_list->head
+  set $_count = 0
+  
+  if $_list == 0
+    printf "List pointer is NULL\n"
+  else
+    printf "JP Aggregation List: count=%u\n", $_list->count
+    
+    while $_node != 0
+      set $_jag = (struct pim_jp_agg_group *)$_node->data
+      set $_count = $_count + 1
+      
+      printf "\n[%u] Group: ", $_count
+      # Print group address (pim_addr is either in_addr or in6_addr depending on PIM_IPV)
+      if sizeof($_jag->group) == 4
+        # IPv4
+        set $_ga = (unsigned char *)&$_jag->group
+        printf "%u.%u.%u.%u\n", $_ga[0], $_ga[1], $_ga[2], $_ga[3]
+      else
+        # IPv6
+        dump_s6_addr &$_jag->group
+        printf "\n"
+      end
+      
+      # Walk sources list
+      set $_src_node = $_jag->sources->head
+      set $_src_count = 0
+      printf "  Sources (count=%u):\n", $_jag->sources->count
+      
+      while $_src_node != 0
+        set $_js = (struct pim_jp_sources *)$_src_node->data
+        set $_src_count = $_src_count + 1
+        
+        printf "    [%u] ", $_src_count
+        if $_js->up != 0
+          printf "upstream=%p sg=%s is_join=%d\n", $_js->up, $_js->up->sg_str, $_js->is_join
+        else
+          printf "upstream=NULL (DANGLING!) is_join=%d\n", $_js->is_join
+        end
+        
+        set $_src_node = $_src_node->next
+      end
+      
+      set $_node = $_node->next
+    end
+    printf "\nTotal groups: %u\n", $_count
+  end
+end
+document dump_pim_jp_agg_list
+Dump the contents of a PIM JP aggregation list (neighbor->upstream_jp_agg).
+
+This walks through the list of pim_jp_agg_group structures and for each group,
+displays the group address and all sources with their upstream pointer, sg string,
+and join/prune state.
+
+Arguments:
+  (struct list *) pointer to the JP aggregation list (e.g., neigh->upstream_jp_agg)
+
+Example usage:
+  (gdb) dump_pim_jp_agg_list neigh->upstream_jp_agg
+  (gdb) p neigh->upstream_jp_agg
+  (gdb) dump_pim_jp_agg_list $
+end
+
+define dump_neighbor_jp_agg
+  set $_neigh = (struct pim_neighbor *)$arg0
+  
+  if $_neigh == 0
+    printf "Neighbor pointer is NULL\n"
+  else
+    printf "Neighbor: "
+    # Print neighbor address
+    if sizeof($_neigh->source_addr) == 4
+      # IPv4
+      set $_na = (unsigned char *)&$_neigh->source_addr
+      printf "%u.%u.%u.%u", $_na[0], $_na[1], $_na[2], $_na[3]
+    else
+      # IPv6
+      dump_s6_addr &$_neigh->source_addr
+    end
+    printf " on interface %s\n", $_neigh->interface->name
+    
+    dump_pim_jp_agg_list $_neigh->upstream_jp_agg
+  end
+end
+document dump_neighbor_jp_agg
+Dump the JP aggregation list for a given PIM neighbor.
+
+This is a convenience wrapper around dump_pim_jp_agg_list that also shows
+the neighbor's address and interface.
+
+Arguments:
+  (struct pim_neighbor *) pointer to the neighbor structure
+
+Example usage:
+  (gdb) dump_neighbor_jp_agg neigh
+  (gdb) p pim_ifp->pim_neighbor_list->head->data
+  (gdb) dump_neighbor_jp_agg $
+end
+
+define dump_pim_upstream_flags
+  set $_flags = $arg0
+  
+  printf "flags=0x%08x: ", $_flags
+  
+  if $_flags & 0x1
+    printf "DR_JOIN_DESIRED "
+  end
+  if $_flags & 0x2
+    printf "DR_JOIN_DESIRED_UPDATED "
+  end
+  if $_flags & 0x4
+    printf "FHR "
+  end
+  if $_flags & 0x8
+    printf "SRC_IGMP "
+  end
+  if $_flags & 0x10
+    printf "SRC_PIM "
+  end
+  if $_flags & 0x20
+    printf "SRC_STREAM "
+  end
+  if $_flags & 0x40
+    printf "SRC_MSDP "
+  end
+  if $_flags & 0x80
+    printf "SEND_SG_RPT_PRUNE "
+  end
+  if $_flags & 0x100
+    printf "SRC_LHR "
+  end
+  if $_flags & 0x200
+    printf "DISABLE_KAT_EXPIRY "
+  end
+  if $_flags & 0x400
+    printf "STATIC_IIF "
+  end
+  if $_flags & 0x800
+    printf "ALLOW_IIF_IN_OIL "
+  end
+  if $_flags & 0x1000
+    printf "NO_PIMREG_DATA "
+  end
+  if $_flags & 0x2000
+    printf "FORCE_PIMREG "
+  end
+  if $_flags & 0x4000
+    printf "SRC_VXLAN_ORIG "
+  end
+  if $_flags & 0x8000
+    printf "SRC_VXLAN_TERM "
+  end
+  if $_flags & 0x10000
+    printf "MLAG_VXLAN "
+  end
+  if $_flags & 0x20000
+    printf "MLAG_NON_DF "
+  end
+  if $_flags & 0x40000
+    printf "MLAG_PEER "
+  end
+  if $_flags & 0x80000
+    printf "SRC_NOCACHE "
+  end
+  if $_flags & 0x100000
+    printf "USE_RPT "
+  end
+  if $_flags & 0x200000
+    printf "MLAG_INTERFACE "
+  end
+  if $_flags & 0x400000
+    printf "DM_INTERFACE "
+  end
+  if $_flags & 0x800000
+    printf "DM_PRUNE "
+  end
+  printf "\n"
+end
+document dump_pim_upstream_flags
+Print human-readable PIM upstream flags.
+
+Arguments:
+  (uint32_t) flags value
+
+Example usage:
+  (gdb) dump_pim_upstream_flags up->flags
+end
+
+define dump_pim_upstream
+  set $_up = (struct pim_upstream *)$arg0
+  
+  if $_up == 0
+    printf "Upstream pointer is NULL\n"
+  else
+    printf "========== PIM Upstream %p ==========\n", $_up
+    printf "S,G: %s\n", $_up->sg_str
+    
+    # Source address
+    printf "Source: "
+    if sizeof($_up->sg.src) == 4
+      set $_sa = (unsigned char *)&$_up->sg.src
+      printf "%u.%u.%u.%u", $_sa[0], $_sa[1], $_sa[2], $_sa[3]
+    else
+      dump_s6_addr &$_up->sg.src
+    end
+    printf "\n"
+    
+    # Group address
+    printf "Group:  "
+    if sizeof($_up->sg.grp) == 4
+      set $_ga = (unsigned char *)&$_up->sg.grp
+      printf "%u.%u.%u.%u", $_ga[0], $_ga[1], $_ga[2], $_ga[3]
+    else
+      dump_s6_addr &$_up->sg.grp
+    end
+    printf "\n"
+    
+    # Upstream address
+    printf "Upstream addr: "
+    if sizeof($_up->upstream_addr) == 4
+      set $_ua = (unsigned char *)&$_up->upstream_addr
+      printf "%u.%u.%u.%u", $_ua[0], $_ua[1], $_ua[2], $_ua[3]
+    else
+      dump_s6_addr &$_up->upstream_addr
+    end
+    printf "\n"
+    
+    # States
+    printf "Join state: "
+    if $_up->join_state == 0
+      printf "NOTJOINED"
+    end
+    if $_up->join_state == 1
+      printf "JOINED"
+    end
+    printf " (%d)\n", $_up->join_state
+    
+    printf "Reg state:  "
+    if $_up->reg_state == 0
+      printf "NOINFO"
+    end
+    if $_up->reg_state == 1
+      printf "JOIN"
+    end
+    if $_up->reg_state == 2
+      printf "JOIN_PENDING"
+    end
+    if $_up->reg_state == 3
+      printf "PRUNE"
+    end
+    printf " (%d)\n", $_up->reg_state
+    
+    printf "SPT bit:    "
+    if $_up->sptbit == 0
+      printf "FALSE"
+    end
+    if $_up->sptbit == 1
+      printf "TRUE"
+    end
+    printf " (%d)\n", $_up->sptbit
+    
+    # Reference count
+    printf "Ref count:  %d\n", $_up->ref_count
+    
+    # Flags
+    dump_pim_upstream_flags $_up->flags
+    
+    # RPF info
+    printf "\nRPF Information:\n"
+    printf "  RPF addr: "
+    if sizeof($_up->rpf.rpf_addr) == 4
+      set $_ra = (unsigned char *)&$_up->rpf.rpf_addr
+      printf "%u.%u.%u.%u", $_ra[0], $_ra[1], $_ra[2], $_ra[3]
+    else
+      dump_s6_addr &$_up->rpf.rpf_addr
+    end
+    printf "\n"
+    
+    if $_up->rpf.source_nexthop.interface != 0
+      printf "  RPF iface: %s\n", $_up->rpf.source_nexthop.interface->name
+      printf "  MRIB nexthop: "
+      if sizeof($_up->rpf.source_nexthop.mrib_nexthop_addr) == 4
+        set $_mna = (unsigned char *)&$_up->rpf.source_nexthop.mrib_nexthop_addr
+        printf "%u.%u.%u.%u", $_mna[0], $_mna[1], $_mna[2], $_mna[3]
+      else
+        dump_s6_addr &$_up->rpf.source_nexthop.mrib_nexthop_addr
+      end
+      printf "\n"
+      printf "  MRIB metric pref: %u\n", $_up->rpf.source_nexthop.mrib_metric_preference
+      printf "  MRIB metric:      %u\n", $_up->rpf.source_nexthop.mrib_route_metric
+    else
+      printf "  RPF iface: NULL\n"
+    end
+    
+    # Parent
+    if $_up->parent != 0
+      printf "\nParent upstream: %p (%s)\n", $_up->parent, $_up->parent->sg_str
+    else
+      printf "\nParent upstream: NULL\n"
+    end
+    
+    # Channel oil
+    if $_up->channel_oil != 0
+      printf "Channel oil: %p (ref_count=%d, installed=%d)\n", \
+        $_up->channel_oil, $_up->channel_oil->oil_ref_count, $_up->channel_oil->installed
+    else
+      printf "Channel oil: NULL\n"
+    end
+    
+    # Lists
+    if $_up->sources != 0
+      printf "Sources list: %p (count=%u)\n", $_up->sources, $_up->sources->count
+    else
+      printf "Sources list: NULL\n"
+    end
+    
+    if $_up->ifchannels != 0
+      printf "Ifchannels list: %p (count=%u)\n", $_up->ifchannels, $_up->ifchannels->count
+    else
+      printf "Ifchannels list: NULL\n"
+    end
+    
+    # Timers
+    printf "\nTimers:\n"
+    printf "  t_join_timer:   %s\n", $_up->t_join_timer != 0 ? "RUNNING" : "stopped"
+    printf "  t_prune_timer:  %s\n", $_up->t_prune_timer != 0 ? "RUNNING" : "stopped"
+    printf "  t_ka_timer:     %s\n", $_up->t_ka_timer != 0 ? "RUNNING" : "stopped"
+    printf "  t_rs_timer:     %s\n", $_up->t_rs_timer != 0 ? "RUNNING" : "stopped"
+    
+    printf "========================================\n"
+  end
+end
+document dump_pim_upstream
+Dump detailed information about a PIM upstream structure.
+
+This displays comprehensive information including:
+- Source and Group addresses
+- Upstream address
+- Join state, Register state, SPT bit
+- Reference count
+- All flags (decoded)
+- RPF information (interface, nexthop, metrics)
+- Parent upstream
+- Channel oil status
+- Source and ifchannel list counts
+- Timer states
+
+Arguments:
+  (struct pim_upstream *) pointer to the upstream structure
+
+Example usage:
+  (gdb) dump_pim_upstream up
+  (gdb) p pim->upstream_head.rr.rbt_root
+  (gdb) dump_pim_upstream $
+end
