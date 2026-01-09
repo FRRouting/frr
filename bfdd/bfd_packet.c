@@ -849,11 +849,10 @@ static int match_ip_address(const struct sockaddr_any *a, const struct sockaddr_
 {
 	if (a->sa_sin.sin_family != b->sa_sin.sin_family)
 		return 0;
-	if (a->sa_sin.sin_family == AF_INET) {
+	if (a->sa_sin.sin_family == AF_INET)
 		return IPV4_ADDR_SAME(&a->sa_sin.sin_addr, &b->sa_sin.sin_addr);
-	} else if (a->sa_sin.sin_family == AF_INET6) {
+	else if (a->sa_sin.sin_family == AF_INET6)
 		return IPV6_ADDR_SAME(&a->sa_sin6.sin6_addr, &b->sa_sin6.sin6_addr);
-	}
 	return 0;
 }
 
