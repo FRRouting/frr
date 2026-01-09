@@ -1,0 +1,13 @@
+{
+  "frr-vrf:lib": {
+    "vrf": [
+      {
+        "name": "red",
+        "state": {
+          "id": "rubout",
+          "active": true
+        }
+      }
+    ]
+  }
+}
