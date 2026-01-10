@@ -908,7 +908,7 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/frr-pim-route-map:list-name"));
 	} else if (IS_MATCH_MULTICAST_INTERFACE(condition)) {
-		vty_out(vty, " match ipv6 multicast-interface %s\n",
+		vty_out(vty, " match multicast-interface %s\n",
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-pim-route-map:multicast-interface"));
