@@ -450,7 +450,7 @@ void bfd_session_disable(struct bfd_session *bs)
 	bs->ifp = NULL;
 
 	/* Set session down so it doesn't report UP and disabled. */
-	ptm_bfd_sess_dn(bs, BD_PATH_DOWN);
+	ptm_bfd_sess_dn(bs, BD_PATH_DOWN, false);
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -607,7 +607,17 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	}
 }
 
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
+/*
+ * Transition BFD session to DOWN state.
+ *
+ * @param bfd BFD session
+ * @param diag Diagnostic code explaining reason for transition
+ * @param notify_admin_down If true, notify clients with ADMIN_DOWN status
+ *                          instead of DOWN. This is used when remote peer
+ *                          sends Admin Down - local state goes to DOWN but
+ *                          clients should not tear down protocol sessions.
+ */
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_down)
 {
 	int old_state = bfd->ses_state;
 
@@ -631,8 +641,17 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bs_set_slow_timers(bfd);
 
 	/* only signal clients when going from up->down state */
-	if (old_state == PTM_BFD_UP)
-		ptm_bfd_notify(bfd, PTM_BFD_DOWN);
+	if (old_state == PTM_BFD_UP) {
+		/*
+		 * If remote peer sent Admin Down, notify clients with
+		 * ADMIN_DOWN status so they don't tear down protocol sessions.
+		 * Otherwise, notify with DOWN status as usual.
+		 */
+		if (notify_admin_down)
+			ptm_bfd_notify(bfd, PTM_BFD_ADM_DOWN);
+		else
+			ptm_bfd_notify(bfd, PTM_BFD_DOWN);
+	}
 
 	/* Stop echo packet transmission if they are active */
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -840,7 +859,7 @@ void bfd_recvtimer_cb(struct event *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
+		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED, false);
 		break;
 	}
 }
@@ -858,7 +877,7 @@ void bfd_echo_recvtimer_cb(struct event *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
+		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED, false);
 		break;
 	}
 }
@@ -1262,10 +1281,11 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
 		/*
-		 * Remote peer doesn't want to talk, so lets make the
-		 * connection down.
+		 * Remote peer sent Admin Down.
+		 * Go to DOWN state but notify clients with ADMIN_DOWN
+		 * so they don't tear down their protocol sessions.
 		 */
-		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN, true);
 		break;
 
 	case PTM_BFD_DOWN:
@@ -1290,9 +1310,16 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
+		/*
+		 * Remote peer sent Admin Down.
+		 * Go to DOWN state but notify clients with ADMIN_DOWN
+		 * so they don't tear down their protocol sessions.
+		 */
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN, true);
+		break;
 	case PTM_BFD_DOWN:
-		/* Peer lost or asked to shutdown connection. */
-		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
+		/* Peer lost connection - bring session down normally. */
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN, false);
 		break;
 
 	case PTM_BFD_INIT:
