@@ -437,8 +437,7 @@ int rip_if_down(struct interface *ifp)
 	struct route_node *rp;
 	struct rip_info *rinfo;
 	struct rip_interface *ri = NULL;
-	struct list *list = NULL;
-	struct listnode *listnode = NULL, *nextnode = NULL;
+	struct rip_info_list_head *list = NULL;
 
 	ri = ifp->info;
 
@@ -448,8 +447,7 @@ int rip_if_down(struct interface *ifp)
 	if (rip) {
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL)
-				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
-						       rinfo))
+				frr_each_safe (rip_info_list, list, rinfo)
 					if (rinfo->nh.ifindex == ifp->ifindex)
 						rip_ecmp_delete(rip, rinfo);
 

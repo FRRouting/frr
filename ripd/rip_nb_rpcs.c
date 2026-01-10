@@ -33,15 +33,14 @@ static void clear_rip_route(struct rip *rip)
 
 	/* Clear received RIP routes */
 	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
-		struct list *list;
-		struct listnode *listnode;
+		struct rip_info_list_head *list;
 		struct rip_info *rinfo;
 
 		list = rp->info;
 		if (!list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+		frr_each (rip_info_list, list, rinfo) {
 			if (!rip_route_rte(rinfo))
 				continue;
 
@@ -53,13 +52,13 @@ static void clear_rip_route(struct rip *rip)
 		if (rinfo) {
 			event_cancel(&rinfo->t_timeout);
 			event_cancel(&rinfo->t_garbage_collect);
-			listnode_delete(list, rinfo);
+			rip_info_list_del(list, rinfo);
 			rip_info_free(rinfo);
 		}
 
-		if (list_isempty(list)) {
-			list_delete(&list);
-			rp->info = NULL;
+		if (rip_info_list_count(list) == 0) {
+			rip_info_list_fini(list);
+			XFREE(MTYPE_RIP_INFO_LIST, rp->info);
 			route_unlock_node(rp);
 		}
 	}
