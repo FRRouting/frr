@@ -4,8 +4,7 @@
   "r1-eth3":{
     "192.168.101.12":{
       "interface":"r1-eth3",
-      "neighbor":"192.168.101.12",
-      "drPriority":1
+      "neighbor":"192.168.101.12"
     }
   },
   "red":{
