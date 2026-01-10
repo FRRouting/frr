@@ -294,6 +294,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_SID_EXPLICIT     (1 << 6)
 /* Is this value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
+#define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -982,6 +983,7 @@ struct bgp {
 /* per-VRF toVPN SID */
 #define BGP_VRF_TOVPN_SID_AUTO              (1 << 7)
 #define BGP_VRF_TOVPN_SID_EXPLICIT	    (1 << 8)
+#define BGP_VRF_TOVPN_SID_FUNC_WIDE	    (1 << 9)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
