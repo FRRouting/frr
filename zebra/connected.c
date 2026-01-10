@@ -236,6 +236,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	uint32_t count = 0;
 	struct connected *c;
 	bool install_local = true;
+	bool p_same;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -326,7 +327,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 	}
 
-	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+	p_same = prefix_same(&p, &plocal);
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE) || p_same) {
 		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
@@ -339,7 +341,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			zvrf->table_id, metric, 0, 0, 0, false);
 	}
 
-	if (install_local) {
+	if (install_local && !p_same) {
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
 			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
 			0, 0, false);
@@ -443,6 +445,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	uint32_t count = 0;
 	struct connected *c;
 	bool remove_local = true;
+	bool p_same;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -531,7 +534,8 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * Same logic as for connected_up(): push the changes into the
 	 * head.
 	 */
-	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+	p_same = prefix_same(&p, &plocal);
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE) || p_same) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
 			   zvrf->table_id, 0, 0, false);
@@ -541,7 +545,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 			   zvrf->table_id, 0, 0, false);
 	}
 
-	if (remove_local) {
+	if (remove_local && !p_same) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
 			   zvrf->table_id, 0, 0, false);
