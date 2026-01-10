@@ -157,6 +157,16 @@ PIMv6 Router
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
+.. clicmd:: ip pim assert-interval (1000-86400000)
+
+   Modify the PIM assert interval in milliseconds on this interface
+   (defaults to 18000).
+
+.. clicmd:: ip pim assert-override-interval (1000-86400000)
+
+   Modify the PIM assert override interval in milliseconds on this
+   interface (defaults to 3000).
+
 .. clicmd:: keep-alive-timer (1-65535)
    :daemon: pimv6
 
