@@ -191,8 +191,8 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				if (sr)
 					nh->sr = *sr;
-				nh->label_stack = label_stack;
-				nh->srv6_seg_stack = srv6_seg_stack;
+				nh->label_stack = label_stack_dup(label_stack);
+				nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -209,8 +209,8 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				if (sr)
 					nh->sr = *sr;
-				nh->label_stack = label_stack;
-				nh->srv6_seg_stack = srv6_seg_stack;
+				nh->label_stack = label_stack_dup(label_stack);
+				nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -224,14 +224,16 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 
 static void isis_route_add_dummy_nexthops(struct isis_route_info *rinfo, const uint8_t *sysid,
 					  struct isis_sr_psid_info *sr,
-					  struct mpls_label_stack *label_stack)
+					  struct mpls_label_stack *label_stack,
+					  struct isis_srv6_seg_stack *srv6_seg_stack)
 {
 	struct isis_nexthop *nh;
 
 	nh = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
 	memcpy(nh->sysid, sysid, sizeof(nh->sysid));
 	nh->sr = *sr;
-	nh->label_stack = label_stack;
+	nh->label_stack = label_stack_dup(label_stack);
+	nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
 	listnode_add(rinfo->nexthops, nh);
 }
 
@@ -259,7 +261,8 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 		 * environment.
 		 */
 		if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST)) {
-			isis_route_add_dummy_nexthops(rinfo, sadj->id, vsr, label_stack);
+			isis_route_add_dummy_nexthops(rinfo, sadj->id, vsr, label_stack,
+						      srv6_seg_stack);
 			if (!allow_ecmp)
 				break;
 			continue;
