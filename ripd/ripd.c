@@ -503,13 +503,12 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	   adding the cost of the network on which the message
 	   arrived. If the result is greater than infinity, use infinity
 	   (RFC2453 Sec. 3.9.2) */
-	/* Zebra ripd can handle offset-list in. */
-	ret = rip_offset_list_apply_in(&p, ifp, &rte->metric);
+	/* Add interface metric. */
+	rte->metric += ifp->metric ? ifp->metric : 1;
 
-	/* If offset-list does not modify the metric use interface's
-	   metric. */
-	if (!ret)
-		rte->metric += ifp->metric ? ifp->metric : 1;
+	/* Apply offset-list */
+	if (rte->metric != RIP_METRIC_INFINITY)
+		rip_offset_list_apply_in(&p, ifp, &rte->metric);
 
 	if (rte->metric > RIP_METRIC_INFINITY)
 		rte->metric = RIP_METRIC_INFINITY;
