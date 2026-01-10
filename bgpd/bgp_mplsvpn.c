@@ -1411,6 +1411,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
 			to_bgp->peer_self, new_attr, bn);
 
+	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
+		SET_FLAG(new->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+
 	bgp_path_info_extra_get(new);
 	if (!new->extra->vrfleak)
 		new->extra->vrfleak =
