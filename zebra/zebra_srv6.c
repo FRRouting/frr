@@ -1576,9 +1576,47 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 							    ctx),
 					   &zctx->sid->value);
 
+<<<<<<< HEAD
 			release_srv6_sid_func_dynamic(block, zctx->sid->func);
 			zebra_srv6_sid_free(zctx->sid);
 			zctx->sid = NULL;
+=======
+		release_srv6_sid_func(zctx);
+
+		zebra_srv6_sid_clients_release_notify_all(zctx->sid);
+		zebra_srv6_sid_entry_delete_all(zctx->sid);
+
+		zctx->sid->block = block;
+		zctx->sid->func = sid_func;
+		zctx->sid->wide_func = sid_func_wide;
+		zctx->sid->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+
+		*sid = zctx->sid;
+		(*sid)->ctx = zctx;
+	} else {
+		/* Allocate an explicit SID function for the SID */
+		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
+			if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
+				flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
+					 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+					 __func__, sid_func, &block->prefix);
+				return -1;
+			}
+
+		/* If we don't have a zebra SID context for this context, allocate a new one */
+		zctx = zebra_srv6_sid_ctx_alloc();
+		zctx->ctx = *ctx;
+
+		/* Allocate the SID to store SID information */
+		*sid = zebra_srv6_sid_alloc(zctx, locator, block, sid_func,
+					    SRV6_SID_ALLOC_MODE_EXPLICIT);
+		if (!(*sid)) {
+			flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
+				 "%s: failed to create SRv6 SID %s (%pI6)", __func__,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value);
+			zebra_srv6_sid_ctx_free(zctx);
+			return -1;
+>>>>>>> b57cb20ea (zebra: Fix memory leak when SRv6 explicit SID allocation fails)
 		}
 	}
 
