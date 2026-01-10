@@ -1723,6 +1723,9 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 		if (vadj->sr.present && vadj->sr.label != MPLS_LABEL_IMPLICIT_NULL)
 			num_labels++;
 
+		/* Free any existing label stack before allocating new one. */
+		XFREE(MTYPE_ISIS_NEXTHOP_LABELS, vadj->label_stack);
+
 		/* Allocate label stack. */
 		label_stack = XCALLOC(MTYPE_ISIS_NEXTHOP_LABELS,
 				      sizeof(struct mpls_label_stack) +
