@@ -1522,6 +1522,12 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
+		/* Ensure adv_router is set to current router-id for self-originated routes.
+		 * This is needed for proper self-originated route filtering when
+		 * sending routes to zebra, especially if router-id has changed.
+		 */
+		match->path.origin.adv_router = ospf6->router_id;
+		match->path.origin.type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 		match->path.origin.id = htonl(info->id);
 		ospf6_handle_external_lsa_origination(ospf6, match, prefix);
 
@@ -1570,6 +1576,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop, &info->forwarding);
 	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
+
+	/* Set adv_router to current router-id for self-originated routes.
+	 * This is needed for proper self-originated route filtering when
+	 * sending routes to zebra.
+	 */
+	route->path.origin.adv_router = ospf6->router_id;
+	route->path.origin.type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 
 	route = ospf6_route_add(route, ospf6->external_table);
 	ospf6_handle_external_lsa_origination(ospf6, route, prefix);
