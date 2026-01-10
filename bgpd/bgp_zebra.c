@@ -3325,11 +3325,11 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
 		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);
 
-		bgp_evpn_local_es_evi_add(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_add(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG, NULL);
 	} else {
 		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &esi, vni);
 
-		bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_del(bgp, &esi, vni, BGP_EVPN_AD_EVI_ETH_TAG);
 	}
 
 	return 0;
