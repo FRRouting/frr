@@ -1564,8 +1564,11 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 				return;
 
 			adj = isis_adj_find(area, level, vertex->N.id);
-			if (adj)
+			if (adj && area->srdb.enabled)
 				sr_adj_sid_add_single(adj, spftree->family, true, vertex->Adj_N);
+			else if (adj && area->srv6db.config.enabled)
+				isis_zebra_request_srv6_sid_endx((struct isis_adjacency *)adj,
+								 true);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug("ISIS-SPF: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
 				   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
@@ -2569,8 +2572,7 @@ static void isis_format_nexthop_labels(struct isis_nexthop *nexthop, char *buf, 
 		for (int i = 0; i < nexthop->label_stack->num_labels; i++) {
 			char buf_label[BUFSIZ];
 
-			label2str(nexthop->label_stack->label[i], 0, buf_label,
-				  sizeof(buf_label));
+			label2str(nexthop->label_stack->label[i], 0, buf_label, sizeof(buf_label));
 			if (i != 0)
 				strlcat(buf, "/", size);
 			strlcat(buf, buf_label, size);
@@ -2651,8 +2653,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			} else {
 				char buf_labels[BUFSIZ];
 
-				isis_format_nexthop_labels(nexthop, buf_labels,
-							   sizeof(buf_labels));
+				isis_format_nexthop_labels(nexthop, buf_labels, sizeof(buf_labels));
 
 				if (first || json) {
 					ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,
