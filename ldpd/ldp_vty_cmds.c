@@ -32,29 +32,6 @@ DEFPY  (no_ldp_mpls_ldp,
 	return (ldp_vty_mpls_ldp(vty, "no"));
 }
 
-DEFPY_NOSH(ldp_l2vpn,
-	ldp_l2vpn_cmd,
-	"l2vpn WORD$l2vpn_name type vpls",
-	"Configure l2vpn commands\n"
-	"L2VPN name\n"
-	"L2VPN type\n"
-	"Virtual Private LAN Service\n")
-{
-	return (ldp_vty_l2vpn(vty, NULL, l2vpn_name));
-}
-
-DEFPY  (no_ldp_l2vpn,
-	no_ldp_l2vpn_cmd,
-	"no l2vpn WORD$l2vpn_name type vpls",
-	NO_STR
-	"Configure l2vpn commands\n"
-	"L2VPN name\n"
-	"L2VPN type\n"
-	"Virtual Private LAN Service\n")
-{
-	return (ldp_vty_l2vpn(vty, "no", l2vpn_name));
-}
-
 DEFPY_NOSH(ldp_address_family,
 	ldp_address_family_cmd,
 	"address-family <ipv4|ipv6>$af",
@@ -399,124 +376,6 @@ DEFPY  (ldp_neighbor_ipv6_targeted,
 	return (ldp_vty_neighbor_targeted(vty, no, address_str));
 }
 
-DEFPY  (ldp_bridge,
-	ldp_bridge_cmd,
-	"[no] bridge IFNAME$ifname",
-	NO_STR
-	"Bridge interface\n"
-	"Interface's name\n")
-{
-	return (ldp_vty_l2vpn_bridge(vty, no, ifname));
-}
-
-DEFPY  (ldp_mtu,
-	ldp_mtu_cmd,
-	"[no] mtu (1500-9180)$mtu",
-	NO_STR
-	"Set Maximum Transmission Unit\n"
-	"Maximum Transmission Unit value\n")
-{
-	return (ldp_vty_l2vpn_mtu(vty, no, mtu));
-}
-
-DEFPY  (ldp_member_interface,
-	ldp_member_interface_cmd,
-	"[no] member interface IFNAME$ifname",
-	NO_STR
-	"L2VPN member configuration\n"
-	"Local interface\n"
-	"Interface's name\n")
-{
-	return (ldp_vty_l2vpn_interface(vty, no, ifname));
-}
-
-DEFPY_NOSH(ldp_member_pseudowire,
-	ldp_member_pseudowire_cmd,
-	"member pseudowire IFNAME$ifname",
-	"L2VPN member configuration\n"
-	"Pseudowire interface\n"
-	"Interface's name\n")
-{
-	return (ldp_vty_l2vpn_pseudowire(vty, NULL, ifname));
-}
-
-DEFPY  (no_ldp_member_pseudowire,
-	no_ldp_member_pseudowire_cmd,
-	"no member pseudowire IFNAME$ifname",
-	NO_STR
-	"L2VPN member configuration\n"
-	"Pseudowire interface\n"
-	"Interface's name\n")
-{
-	return (ldp_vty_l2vpn_pseudowire(vty, "no", ifname));
-}
-
-DEFPY  (ldp_vc_type,
-	ldp_vc_type_cmd,
-	"[no] vc type <ethernet|ethernet-tagged>$vc_type",
-	NO_STR
-	"Virtual Circuit options\n"
-	"Virtual Circuit type to use\n"
-	"Ethernet (type 5)\n"
-	"Ethernet-tagged (type 4)\n")
-{
-	return (ldp_vty_l2vpn_pwtype(vty, no, vc_type));
-}
-
-DEFPY  (ldp_control_word,
-	ldp_control_word_cmd,
-	"[no] control-word <exclude|include>$preference",
-	NO_STR
-	"Control-word options\n"
-	"Exclude control-word in pseudowire packets\n"
-	"Include control-word in pseudowire packets\n")
-{
-	return (ldp_vty_l2vpn_pw_cword(vty, no, preference));
-}
-
-DEFPY  (ldp_neighbor_address,
-	ldp_neighbor_address_cmd,
-	"[no] neighbor address <A.B.C.D|X:X::X:X>$pw_address",
-	NO_STR
-	"Remote endpoint configuration\n"
-	"Specify the IPv4 or IPv6 address of the remote endpoint\n"
-	"IPv4 address\n"
-	"IPv6 address\n")
-{
-	return (ldp_vty_l2vpn_pw_nbr_addr(vty, no, pw_address_str));
-}
-
-DEFPY  (ldp_neighbor_lsr_id,
-	ldp_neighbor_lsr_id_cmd,
-	"[no] neighbor lsr-id A.B.C.D$address",
-	NO_STR
-	"Remote endpoint configuration\n"
-	"Specify the LSR-ID of the remote endpoint\n"
-	"IPv4 address\n")
-{
-	return (ldp_vty_l2vpn_pw_nbr_id(vty, no, address));
-}
-
-DEFPY  (ldp_pw_id,
-	ldp_pw_id_cmd,
-	"[no] pw-id (1-4294967295)$pwid",
-	NO_STR
-	"Set the Virtual Circuit ID\n"
-	"Virtual Circuit ID value\n")
-{
-	return (ldp_vty_l2vpn_pw_pwid(vty, no, pwid));
-}
-
-DEFPY  (ldp_pw_status_disable,
-	ldp_pw_status_disable_cmd,
-	"[no] pw-status disable",
-	NO_STR
-	"Configure PW status\n"
-	"Disable PW status\n")
-{
-	return (ldp_vty_l2vpn_pw_pwstatus(vty, no));
-}
-
 DEFPY  (ldp_clear_mpls_ldp_neighbor,
 	ldp_clear_mpls_ldp_neighbor_cmd,
 	"clear mpls ldp neighbor [<A.B.C.D|X:X::X:X>]$address",
@@ -774,50 +633,23 @@ DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	return CMD_SUCCESS;
 }
 
-static void
-l2vpn_autocomplete(vector comps, struct cmd_token *token)
-{
-	struct l2vpn	*l2vpn;
-
-	RB_FOREACH(l2vpn, l2vpn_head, &vty_conf->l2vpn_tree)
-		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, l2vpn->name));
-}
-
-static const struct cmd_variable_handler l2vpn_var_handlers[] = {
-	{
-		.varname = "l2vpn_name",
-		.completions = l2vpn_autocomplete
-	},
-	{
-		.completions = NULL
-	}
-};
-
 void
 ldp_vty_init (void)
 {
-	cmd_variable_handler_register(l2vpn_var_handlers);
-
 	install_node(&ldp_node);
 	install_node(&ldp_ipv4_node);
 	install_node(&ldp_ipv6_node);
 	install_node(&ldp_ipv4_iface_node);
 	install_node(&ldp_ipv6_iface_node);
-	install_node(&ldp_l2vpn_node);
-	install_node(&ldp_pseudowire_node);
 	install_node(&ldp_debug_node);
 	install_default(LDP_NODE);
 	install_default(LDP_IPV4_NODE);
 	install_default(LDP_IPV6_NODE);
 	install_default(LDP_IPV4_IFACE_NODE);
 	install_default(LDP_IPV6_IFACE_NODE);
-	install_default(LDP_L2VPN_NODE);
-	install_default(LDP_PSEUDOWIRE_NODE);
 
 	install_element(CONFIG_NODE, &ldp_mpls_ldp_cmd);
 	install_element(CONFIG_NODE, &no_ldp_mpls_ldp_cmd);
-	install_element(CONFIG_NODE, &ldp_l2vpn_cmd);
-	install_element(CONFIG_NODE, &no_ldp_l2vpn_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_discovery_hello_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_type_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_messages_recv_cmd);
@@ -880,19 +712,6 @@ ldp_vty_init (void)
 	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_interval_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &ldp_disable_establish_hello_cmd);
-
-	install_element(LDP_L2VPN_NODE, &ldp_bridge_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_mtu_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_member_interface_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_member_pseudowire_cmd);
-	install_element(LDP_L2VPN_NODE, &no_ldp_member_pseudowire_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_vc_type_cmd);
-
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_control_word_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_neighbor_address_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_neighbor_lsr_id_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_pw_id_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_pw_status_disable_cmd);
 
 	install_element(ENABLE_NODE, &ldp_clear_mpls_ldp_neighbor_cmd);
 	install_element(ENABLE_NODE, &ldp_debug_mpls_ldp_discovery_hello_cmd);
