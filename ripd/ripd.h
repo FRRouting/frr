@@ -87,6 +87,7 @@
 DECLARE_MGROUP(RIPD);
 
 PREDECL_SORTLIST_UNIQ(rip_offset_list);
+PREDECL_SORTLIST_UNIQ(rip_peer_list);
 
 /* RIP structure. */
 struct rip {
@@ -118,7 +119,7 @@ struct rip {
 	struct route_table *neighbor;
 
 	/* Linked list of RIP peers. */
-	struct list *peer_list;
+	struct rip_peer_list_head peer_list;
 
 	/* RIP threads. */
 	struct event *t_read;
@@ -338,6 +339,8 @@ struct rip_interface {
 
 /* RIP peer information. */
 struct rip_peer {
+	struct rip_peer_list_item item;
+
 	/* Parent routing instance. */
 	struct rip *rip;
 
@@ -366,6 +369,9 @@ struct rip_peer {
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
 };
+
+int rip_peer_list_cmp(const struct rip_peer *p1, const struct rip_peer *p2);
+DECLARE_SORTLIST_UNIQ(rip_peer_list, struct rip_peer, item, rip_peer_list_cmp);
 
 struct rip_distance {
 	/* Distance value for the IP source prefix. */
@@ -501,8 +507,6 @@ extern void rip_peer_display(struct vty *vty, struct rip *rip);
 extern struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr);
 extern struct rip_peer *rip_peer_lookup_next(struct rip *rip,
 					     struct in_addr *addr);
-extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
-extern void rip_peer_list_del(void *arg);
 void rip_peer_delete_routes(const struct rip_peer *peer);
 
 extern void rip_info_free(struct rip_info *rinfo);
