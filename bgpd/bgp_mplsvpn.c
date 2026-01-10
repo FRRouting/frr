@@ -2508,6 +2508,14 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(path_vpn);
 
+	/* Certain switch ASIC do not have capability for vrf leaked routes
+	 * to point to another VRF and perform second route lookup via chaining
+	 * multiple tables.
+	 * The routes need proper l3 interface in order to do forwarding in
+	 * ASIC in target VRF table.
+	 * Hence, moving the setting the nexthop as source vrf to a specific flag.
+	 */
+#ifdef ENABLE_VRF_IFACE_NEXTHOP
 	/* The nh ifindex may not be defined (when the route is
 	 * imported from the network statement => BGP_ROUTE_STATIC)
 	 * or to the real interface.
@@ -2522,6 +2530,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		if (ifp)
 			static_attr.nh_ifindex = ifp->ifindex;
 	}
+#endif
 
 	switch (nhfamily) {
 	case AF_INET:
