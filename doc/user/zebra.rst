@@ -1594,7 +1594,7 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
-.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [json] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]]
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [json] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed]
 
    Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
 
@@ -1611,6 +1611,7 @@ zebra Terminal Mode Commands
      - ``lt``: Show routes with ECMP count less than N
      - ``eq``: Show routes with ECMP count equal to N
    - ``json``: Display output in JSON format
+   - ``failed``: Show only routes that failed to install in the FIB (kernel). This is useful for troubleshooting route installation issues.
 
    The detailed output includes:
 
@@ -1704,6 +1705,24 @@ zebra Terminal Mode Commands
    - Troubleshooting nexthop group installation issues
    - Monitoring ECMP load-balancing configurations
    - Verifying routes have the expected number of paths
+
+   **Viewing Failed Routes**
+
+   The ``failed`` option filters the output to show only routes that have failed
+   to install in the FIB. This is useful for troubleshooting route installation
+   issues.
+
+   ::
+
+      Router# show ip route failed
+      Codes: K - kernel route, C - connected, L - local, S - static,
+             R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+             T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+             f - OpenFabric, t - Table-Direct,
+             > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+             t - trapped, o - offload failure
+
+      r>* 0.0.0.0/0 [20/0] via 10.0.0.1, Ethernet120, rejected
 
 .. clicmd:: show [ip|ipv6] route summary
 
