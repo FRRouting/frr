@@ -2728,9 +2728,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->table = route_table_init();
 	route_table_set_info(rip->table, rip);
 	rip->neighbor = route_table_init();
-	rip->peer_list = list_new();
-	rip->peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
-	rip->peer_list->del = rip_peer_list_del;
+	rip_peer_list_init(&rip->peer_list);
 	rip->distance_table = route_table_init();
 	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
 	rip->enable_interface = vector_init(1);
@@ -3360,7 +3358,12 @@ void rip_clean(struct rip *rip)
 
 	route_table_finish(rip->table);
 	route_table_finish(rip->neighbor);
-	list_delete(&rip->peer_list);
+
+	struct rip_peer *peer;
+	while ((peer = rip_peer_list_pop(&rip->peer_list)))
+		rip_peer_free(peer);
+	rip_peer_list_fini(&rip->peer_list);
+
 	distribute_list_delete(&rip->distribute_ctx);
 	if_rmap_ctx_delete(rip->if_rmap_ctx);
 
@@ -3549,7 +3552,9 @@ static void rip_instance_disable(struct rip *rip)
 	rip->sock = -1;
 
 	/* Clear existing peers. */
-	list_delete_all_node(rip->peer_list);
+	struct rip_peer *peer;
+	while ((peer = rip_peer_list_pop(&rip->peer_list)))
+		rip_peer_free(peer);
 
 	rip_zebra_vrf_deregister(vrf);
 
