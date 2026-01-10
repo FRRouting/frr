@@ -1,1 +1,23 @@
-{}
+{
+  "fc00:0:6::/48":[
+    {
+      "prefix":"fc00:0:6::/48",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":0,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "interfaceName":"sr0",
+          "active":true,
+          "seg6local":{
+            "action":"uN"
+          }
+        }
+      ]
+    }
+  ]
+}
