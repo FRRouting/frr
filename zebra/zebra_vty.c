@@ -1430,7 +1430,9 @@ struct nhe_show_context {
 	vrf_id_t vrf_id;
 	afi_t afi;
 	int type;
+	int counter;
 	json_object *json;
+	json_object *json_top;
 };
 
 static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
@@ -1451,6 +1453,15 @@ static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
 
 	show_nexthop_group_out(ctx->vty, nhe, ctx->json);
 
+	if (ctx->json) {
+		ctx->counter++;
+		if (ctx->counter > 5) {
+			/* Output and reset counter */
+			frr_json_vty_out(ctx->vty, ctx->json_top);
+			ctx->counter = 0;
+		}
+	}
+
 done:
 	return HASHWALK_CONTINUE;
 }
@@ -1460,14 +1471,31 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 					  int type, json_object *json)
 {
 	struct nhe_show_context ctx;
+	struct json_object *jvrf = NULL;
+
+	if (json) {
+		jvrf = json_object_new_object();
+
+		frr_json_set_open(jvrf);
+
+		json_object_object_add(json, zvrf->vrf->name, jvrf);
+	}
 
 	ctx.vty = vty;
 	ctx.afi = afi;
 	ctx.vrf_id = zvrf->vrf->vrf_id;
 	ctx.type = type;
-	ctx.json = json;
+	ctx.json = jvrf;
+	ctx.json_top = json;
+	ctx.counter = 0;
 
 	hash_walk(zrouter.nhgs_id, nhe_show_walker, &ctx);
+
+	/* Finish with the json vrf object */
+	if (json) {
+		frr_json_set_complete(jvrf);
+		frr_json_vty_out(vty, json);
+	}
 }
 
 static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
@@ -1546,7 +1574,6 @@ DEFPY(show_nexthop_group,
 	uint8_t type = 0;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
-	json_object *json_vrf = NULL;
 
 	if (uj)
 		json = json_object_new_object();
@@ -1579,24 +1606,24 @@ DEFPY(show_nexthop_group,
 	if (vrf_all) {
 		struct vrf *vrf;
 
+		if (json)
+			frr_json_set_open(json);
+
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			zvrf = vrf->info;
 			if (!zvrf)
 				continue;
-			if (uj)
-				json_vrf = json_object_new_object();
-			else
+			if (!uj)
 				vty_out(vty, "VRF: %s\n", vrf->name);
 
 			show_nexthop_group_cmd_helper(vty, zvrf, afi, type,
-						      json_vrf);
-			if (uj)
-				json_object_object_add(json, vrf->name,
-						       json_vrf);
+						      json);
 		}
 
-		if (uj)
-			vty_json(vty, json);
+		if (uj) {
+			frr_json_set_complete(json);
+			frr_json_vty_out(vty, json);
+		}
 
 		return CMD_SUCCESS;
 	}
@@ -1615,11 +1642,15 @@ DEFPY(show_nexthop_group,
 		return CMD_WARNING;
 	}
 
+	if (json)
+		frr_json_set_open(json);
+
 	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json);
 
-	if (uj)
-		vty_json(vty, json);
-
+	if (uj) {
+		frr_json_set_complete(json);
+		frr_json_vty_out(vty, json);
+	}
 	return CMD_SUCCESS;
 }
 
