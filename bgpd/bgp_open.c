@@ -1481,12 +1481,13 @@ int bgp_open_option_parse(struct peer *peer, struct peer_connection *connection,
 		}
 	}
 
-	/* Extended Message Support */
-	peer->max_packet_size =
-		(CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
-		 && CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
-			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
-			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+	/* Extended Message Support: set to MAX_PACKET_SIZE
+	 * if peer is capable and dont-capability-negotiate is not set
+	 */
+	peer->max_packet_size = CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV) &&
+						!CHECK_FLAG(peer->flags, PEER_FLAG_DONT_CAPABILITY)
+					? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
+					: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
 	/* Check that roles are corresponding to each other */
 	if (bgp_role_violation(peer, connection))
