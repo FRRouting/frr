@@ -13,6 +13,7 @@
 #include "lib/libfrr.h"
 #include "lib/debug.h"
 #include "lib/lib_errors.h"
+#include "lib/if.h"
 #include "lib/frratomic.h"
 #include "lib/frr_pthread.h"
 #include "lib/memory.h"
@@ -36,6 +37,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_ALTNAME, "Altname");
 
 DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
 
@@ -241,6 +243,9 @@ struct dplane_intf_info {
 	bool protodown;
 	bool protodown_set;
 	bool pd_reason_val;
+
+	/* Altnames for this interface */
+	struct altnames_dplane_head altnames;
 
 #define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
 #define DPLANE_INTF_SECONDARY   (1 << 1)
@@ -739,6 +744,8 @@ void dplane_enable_sys_route_notifs(void)
 static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 {
 	struct dplane_intf_extra *if_extra;
+	struct altname *item;
+	struct altname *delete_item;
 
 	/*
 	 * Some internal allocations may need to be freed, depending on
@@ -889,8 +896,20 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			XFREE(MTYPE_TMP, ctx->u.intf.vniarray);
 		if (ctx->u.intf.bvarray)
 			XFREE(MTYPE_TMP, ctx->u.intf.bvarray);
+
+		while (altnames_dplane_count(&ctx->u.intf.altnames) != 0) {
+			item = altnames_dplane_pop(&ctx->u.intf.altnames);
+			XFREE(MTYPE_ZEBRA_ALTNAME, item);
+		}
+		altnames_dplane_fini(&ctx->u.intf.altnames);
 		break;
 	case DPLANE_OP_INTF_DELETE:
+		while (altnames_dplane_count(&ctx->u.intf.altnames) != 0) {
+			delete_item = altnames_dplane_pop(&ctx->u.intf.altnames);
+			XFREE(MTYPE_ZEBRA_ALTNAME, delete_item);
+		}
+		altnames_dplane_fini(&ctx->u.intf.altnames);
+		break;
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:
 	case DPLANE_OP_TC_CLASS_ADD:
@@ -1354,6 +1373,32 @@ dplane_ctx_get_ifp_bridge_vlan_info_array(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.bvarray;
+}
+
+void dplane_ctx_set_ifp_altnames(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	altnames_dplane_init(&ctx->u.intf.altnames);
+}
+
+void dplane_ctx_add_ifp_altname(struct zebra_dplane_ctx *ctx, const char *altname)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	struct altname *to_insert;
+
+	to_insert = XCALLOC(MTYPE_ZEBRA_ALTNAME, sizeof(*to_insert));
+	strlcpy(to_insert->name, altname, sizeof(to_insert->name));
+
+	altnames_dplane_add_tail(&ctx->u.intf.altnames, to_insert);
+}
+
+struct altnames_dplane_head dplane_ctx_get_ifp_altnames(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.altnames;
 }
 
 void dplane_ctx_set_ifp_vxlan_vni_array(struct zebra_dplane_ctx *ctx,
