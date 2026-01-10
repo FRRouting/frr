@@ -3991,12 +3991,36 @@ int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *a
 int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
+	bool disable;
 
+	/* Check if we're in the apply phase */
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->disable_threeway_adj = yang_dnode_get_bool(args->dnode, NULL);
+	disable = yang_dnode_get_bool(args->dnode, NULL);
+
+	/* If configuration hasn't changed, do nothing */
+	if (circuit->disable_threeway_adj == disable)
+		return NB_OK;
+
+	/* Update configuration value */
+	circuit->disable_threeway_adj = disable;
+
+	/* 
+     * Only send additional hello under specific conditions:
+     * 1. It's a point-to-point circuit
+     * 2. The circuit is in active state
+     * 3. The circuit currently has no neighbors
+     */
+	if (circuit->circ_type == CIRCUIT_T_P2P && circuit->state == C_STATE_UP &&
+	    !circuit->u.p2p.neighbor) {
+		zlog_debug("ISIS-Evt: Sending hello on %s due to three-way-handshake config change",
+			   circuit->interface->name);
+
+		/* Send a hello message to accelerate adjacency establishment */
+		send_hello(circuit, 0);
+	}
 
 	return NB_OK;
 }
