@@ -3400,6 +3400,87 @@ int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
 #endif
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-enable
+ */
+int lib_interface_zebra_neigh_throttle_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	bool set_p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	set_p = yang_dnode_get_bool(args->dnode, NULL);
+	if (set_p)
+		SET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE);
+	else
+		UNSET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_neigh_throttle_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (args->event == NB_EV_APPLY) {
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		zif = ifp->info;
+
+		if (zif)
+			UNSET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-disable
+ */
+int lib_interface_zebra_neigh_throttle_disable_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	bool set_p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	set_p = yang_dnode_get_bool(args->dnode, NULL);
+	if (set_p)
+		SET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE_DISABLE);
+	else
+		UNSET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE_DISABLE);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_neigh_throttle_disable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (args->event == NB_EV_APPLY) {
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		zif = ifp->info;
+
+		if (zif)
+			UNSET_FLAG(zif->flags, ZIF_FLAG_NEIGH_THROTTLE_DISABLE);
+	}
+
+	return NB_OK;
+}
+
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/router-id
  */
 int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args)

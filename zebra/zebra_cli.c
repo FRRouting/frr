@@ -1968,6 +1968,62 @@ static void lib_interface_zebra_ptm_enable_cli_write(
 }
 #endif /* HAVE_BFDD == 0 */
 
+DEFPY_YANG (intf_neigh_throttle,
+	    intf_neigh_throttle_cmd,
+	    "[no] neighbor throttle <enable$enable_p | disable$disable_p>",
+	    NO_STR
+	    "Neighbor commands\n"
+	    "Neighbor throttling\n"
+	    "Enable for this interface\n"
+	    "Disable for this interface\n")
+{
+	/*
+	 * Enable and disable are exclusive, so if we set one, we unset/clear
+	 * the other.
+	 */
+	if (enable_p) {
+		if (no) {
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-enable",
+					      NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-enable",
+					      NB_OP_MODIFY, "true");
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-disable",
+					      NB_OP_DESTROY, NULL);
+		}
+	} else if (disable_p) {
+		if (no) {
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-disable",
+					      NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-disable",
+					      NB_OP_MODIFY, "true");
+			nb_cli_enqueue_change(vty, "./frr-zebra:zebra/neigh-throttle-enable",
+					      NB_OP_DESTROY, NULL);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_neigh_throttle_enable_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool set_p = yang_dnode_get_bool(dnode, NULL);
+
+	if (set_p)
+		vty_out(vty, " neighbor throttle enable\n");
+}
+
+static void lib_interface_zebra_neigh_throttle_disable_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool set_p = yang_dnode_get_bool(dnode, NULL);
+
+	if (set_p)
+		vty_out(vty, " neighbor throttle disable\n");
+}
+
 /*
  * VRF commands
  */
@@ -2991,6 +3047,16 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 		},
 #endif
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-enable",
+			.cbs.cli_show = lib_interface_zebra_neigh_throttle_enable_cli_write,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-disable",
+			.cbs.cli_show = lib_interface_zebra_neigh_throttle_disable_cli_write,
+		},
+
+
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
 			.cbs.cli_show = lib_vrf_zebra_router_id_cli_write,
 		},
@@ -3101,6 +3167,7 @@ void zebra_cli_init(void)
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
 #endif
+	install_element(INTERFACE_NODE, &intf_neigh_throttle_cmd);
 
 	install_element(CONFIG_NODE, &ip_forwarding_cmd);
 	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
