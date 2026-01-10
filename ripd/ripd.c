@@ -2736,9 +2736,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->enable_interface = vector_init(1);
 	rip->enable_network = route_table_init();
 	rip->passive_nondefault = vector_init(1);
-	rip->offset_list_master = list_new();
-	rip->offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
-	rip->offset_list_master->del = (void (*)(void *))offset_list_free;
+	rip_offset_list_init(&rip->offset_list_master);
 
 	/* Distribute list install. */
 	rip->distribute_ctx = distribute_list_ctx_create(vrf);
@@ -3371,7 +3369,12 @@ void rip_clean(struct rip *rip)
 	vector_free(rip->enable_interface);
 	route_table_finish(rip->enable_network);
 	vector_free(rip->passive_nondefault);
-	list_delete(&rip->offset_list_master);
+
+	struct rip_offset_list *offset;
+	while ((offset = rip_offset_list_pop(&rip->offset_list_master)))
+		offset_list_free(offset);
+	rip_offset_list_fini(&rip->offset_list_master);
+
 	route_table_finish(rip->distance_table);
 
 	RB_REMOVE(rip_instance_head, &rip_instances, rip);
