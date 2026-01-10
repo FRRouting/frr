@@ -270,6 +270,33 @@ def test_zebra_kernel_route_interface_linkdown():
     result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result, "Kernel Route should be selected:\n{}".format(_)
 
+    # delete route, bring link down, add route fresh - verify linkdown flag
+    router.run("ip route del 5.5.6.7/32 via 10.0.1.66 dev r1-eth2")
+    router2.run("ip link set dev r2-eth2 down")
+    router.run("ip route add 5.5.6.7/32 via 10.0.1.66 dev r1-eth2")
+
+    kernel = "{}/{}/ip_route_kernel_interface_down.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 5.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Kernel Route added when link down should show linkdown:\n{}".format(_)
+
+    # link up - verify linkdown flag is cleared
+    router2.run("ip link set dev r2-eth2 up")
+
+    kernel = "{}/{}/ip_route_kernel_interface_up.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 5.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Kernel Route should be active after link up:\n{}".format(_)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
