@@ -12,6 +12,7 @@
 #include "memory.h"
 #include "bfd.h"
 #include "lib/vector.h"
+#include "typesafe.h"
 
 /* RIP version number. */
 #define RIPv1                            1
@@ -85,6 +86,8 @@
 
 DECLARE_MGROUP(RIPD);
 
+PREDECL_SORTLIST_UNIQ(rip_offset_list);
+
 /* RIP structure. */
 struct rip {
 	RB_ENTRY(rip) entry;
@@ -156,7 +159,7 @@ struct rip {
 	vector passive_nondefault;
 
 	/* RIP offset-lists. */
-	struct list *offset_list_master;
+	struct rip_offset_list_head offset_list_master;
 
 	/* RIP redistribute configuration. */
 	struct {
@@ -413,6 +416,8 @@ enum rip_event {
 #define RIP_OFFSET_LIST_MAX 2
 
 struct rip_offset_list {
+	struct rip_offset_list_item item;
+
 	/* Parent routing instance. */
 	struct rip *rip;
 
@@ -424,6 +429,11 @@ struct rip_offset_list {
 		uint8_t metric;
 	} direct[RIP_OFFSET_LIST_MAX];
 };
+
+int rip_offset_list_cmp(const struct rip_offset_list *a,
+			const struct rip_offset_list *b);
+DECLARE_SORTLIST_UNIQ(rip_offset_list, struct rip_offset_list, item,
+		      rip_offset_list_cmp);
 
 /* Prototypes. */
 extern void rip_init(void);
@@ -520,8 +530,6 @@ extern struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
 extern int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp, uint32_t *metric);
 extern int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
 				     uint32_t *metric);
-extern int offset_list_cmp(struct rip_offset_list *o1,
-			   struct rip_offset_list *o2);
 
 extern void rip_vrf_init(void);
 extern void rip_vrf_terminate(void);
