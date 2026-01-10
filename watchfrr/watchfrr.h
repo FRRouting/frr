@@ -36,4 +36,5 @@ extern bool check_all_up(void);
 
 extern void watchfrr_set_ignore_daemon(struct vty *vty, const char *dname,
 				       bool ignore);
+extern void watchfrr_set_restart_sig(struct vty *vty, const char *sigstr);
 #endif /* FRR_WATCHFRR_H */
