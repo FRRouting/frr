@@ -199,7 +199,7 @@ struct yang_data *ripd_instance_state_routes_route_prefix_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	assert(rinfo);
 	return yang_data_new_ipv4p(args->xpath, &rinfo->rp->p);
@@ -212,19 +212,18 @@ const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	const struct route_node *rn = args->parent_list_entry;
-	const struct listnode *node = args->list_entry;
+	const struct rip_info *rinfo = args->list_entry;
 
 	assert(rn);
-	if (node)
-		return listnextnode(node);
+	if (rinfo)
+		return rip_info_list_const_next(rn->info, rinfo);
 	assert(rn->info);
-	return listhead((struct list *)rn->info);
+	return rip_info_list_const_first(rn->info);
 }
 
 static inline const struct rip_info *get_rip_info(const void *info)
 {
-	return (const struct rip_info *)listgetdata(
-		(const struct listnode *)info);
+	return (const struct rip_info *)info;
 }
 
 /*
@@ -372,7 +371,7 @@ struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	switch (rinfo->nh.type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -396,7 +395,7 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 	const struct rip *rip = rip_info_get_instance(rinfo);
 
 	switch (rinfo->nh.type) {
@@ -423,7 +422,7 @@ struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	return yang_data_new_uint8(args->xpath, rinfo->metric);
 }

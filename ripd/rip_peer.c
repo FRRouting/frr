@@ -165,28 +165,26 @@ void rip_peer_delete_routes(const struct rip_peer *peer)
 	for (route_node = route_top(peer->rip->table); route_node;
 	     route_node = route_next(route_node)) {
 		struct rip_info *route_entry;
-		struct listnode *listnode;
-		struct listnode *listnode_next;
-		struct list *list;
+		struct rip_info_list_head *list;
 
 		list = route_node->info;
 		if (list == NULL)
 			continue;
 
-		for (ALL_LIST_ELEMENTS(list, listnode, listnode_next,
-				       route_entry)) {
+		frr_each_safe (rip_info_list, list, route_entry) {
 			if (!rip_route_rte(route_entry))
 				continue;
 			if (route_entry->from.s_addr != peer->addr.s_addr)
 				continue;
 
-			if (listcount(list) == 1) {
+			if (rip_info_list_count(list) == 1) {
 				event_cancel(&route_entry->t_timeout);
 				event_cancel(&route_entry->t_garbage_collect);
-				listnode_delete(list, route_entry);
-				if (list_isempty(list)) {
-					list_delete((struct list **)&route_node
-							    ->info);
+				rip_info_list_del(list, route_entry);
+				if (rip_info_list_count(list) == 0) {
+					rip_info_list_fini(list);
+					XFREE(MTYPE_RIP_INFO_LIST,
+					      route_node->info);
 					route_unlock_node(route_node);
 				}
 				rip_info_free(route_entry);

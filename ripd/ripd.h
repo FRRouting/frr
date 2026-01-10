@@ -85,9 +85,11 @@
 #define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
 
 DECLARE_MGROUP(RIPD);
+DECLARE_MTYPE(RIP_INFO_LIST);
 
 PREDECL_SORTLIST_UNIQ(rip_offset_list);
 PREDECL_SORTLIST_UNIQ(rip_peer_list);
+PREDECL_DLIST(rip_info_list);
 
 /* RIP structure. */
 struct rip {
@@ -221,6 +223,9 @@ union rip_buf {
 
 /* RIP route information. */
 struct rip_info {
+	/* List linkage - not copied by rip_info_cpy() */
+	struct rip_info_list_item item;
+
 	/* This route's type. */
 	int type;
 
@@ -246,7 +251,7 @@ struct rip_info {
 #define RIP_RTF_CHANGED  2
 	uint8_t flags;
 
-	/* Garbage collect timer. */
+	/* Garbage collect timer - not copied by rip_info_cpy() */
 	struct event *t_timeout;
 	struct event *t_garbage_collect;
 
@@ -261,6 +266,19 @@ struct rip_info {
 
 	uint8_t distance;
 };
+
+/* Copy route data from src to dst, preserving dst's list linkage.
+ * The item field (DLIST linkage) must not be overwritten when dst is in a list.
+ */
+static inline void rip_info_cpy(struct rip_info *dst, const struct rip_info *src)
+{
+	struct rip_info_list_item item_save = dst->item;
+
+	memcpy(dst, src, sizeof(struct rip_info));
+	dst->item = item_save;
+}
+
+DECLARE_DLIST(rip_info_list, struct rip_info, item);
 
 typedef enum {
 	RIP_NO_SPLIT_HORIZON = 0,
