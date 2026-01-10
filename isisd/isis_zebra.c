@@ -651,7 +651,7 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
  *
  * @param adj	   IS-IS Adjacency
  */
-void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
+void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj, bool backup)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -672,6 +672,7 @@ void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 	ctx.nh6 = nexthop;
 	ctx.ifindex = circuit->interface->ifindex;
+	ctx.backup = backup;
 	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
 					  area->srv6db.config.srv6_locator_name);
 	if (!ret) {
@@ -706,7 +707,7 @@ static void request_srv6_sids(struct isis_area *area)
 	/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
 	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ll_ipv6_count > 0)
-			isis_zebra_request_srv6_sid_endx(adj);
+			isis_zebra_request_srv6_sid_endx(adj, false);
 	}
 }
 
@@ -1538,9 +1539,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 						srv6_endx_sid_del(sra);
 
 					/* Allocate new End.X SID for the adjacency */
-					srv6_endx_sid_add_single(adj, false,
-								 NULL,
-								 &sid_addr);
+					srv6_endx_sid_add_single(adj, ctx.backup, NULL, &sid_addr);
 				}
 			} else {
 				zlog_warn("%s: unsupported behavior %u",

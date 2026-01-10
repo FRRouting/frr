@@ -381,6 +381,9 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+
+	/* Backup SID flag (for TI-LFA) */
+	bool backup;
 };
 
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,

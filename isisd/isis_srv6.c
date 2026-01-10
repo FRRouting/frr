@@ -497,7 +497,7 @@ static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family, bool glob
 	if (!adj->circuit->area->srv6db.config.enabled || global || family != AF_INET6)
 		return 0;
 
-	isis_zebra_request_srv6_sid_endx(adj);
+	isis_zebra_request_srv6_sid_endx(adj, false);
 
 	return 0;
 }
