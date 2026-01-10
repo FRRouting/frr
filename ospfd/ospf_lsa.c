@@ -2528,8 +2528,9 @@ void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		if (area->external_routing == OSPF_AREA_NSSA) {
-			lsa = ospf_lsa_lookup(ospf, area, OSPF_AS_NSSA_LSA,
-					      p->prefix, ospf->router_id);
+			lsa = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_AS_NSSA_LSA, p,
+							ospf->router_id);
+
 			if (!lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
