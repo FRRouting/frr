@@ -25,10 +25,9 @@ struct zclient *ripng_zclient = NULL;
 static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 				  uint8_t cmd)
 {
-	struct list *list = (struct list *)rp->info;
+	struct ripng_info_list_head *list = rp->info;
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	struct listnode *listnode = NULL;
 	struct ripng_info *rinfo = NULL;
 	uint32_t count = 0;
 	const struct prefix *p = agg_node_get_prefix(rp);
@@ -40,7 +39,7 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 	api.prefix = *p;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+	frr_each (ripng_info_list, list, rinfo) {
 		if (count >= zebra_ecmp_count)
 			break;
 		api_nh = &api.nexthops[count];
@@ -59,7 +58,7 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 
 	api.nexthop_num = count;
 
-	rinfo = listgetdata(listhead(list));
+	rinfo = ripng_info_list_first(list);
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = rinfo->metric;
