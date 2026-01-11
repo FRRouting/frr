@@ -1881,9 +1881,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 	/* Initialize RIPng data structures. */
 	ripng->table = agg_table_init();
 	agg_set_table_info(ripng->table, ripng);
-	ripng->peer_list = list_new();
-	ripng->peer_list->cmp = (int (*)(void *, void *))ripng_peer_list_cmp;
-	ripng->peer_list->del = ripng_peer_list_del;
+	ripng_peer_list_init(&ripng->peer_list);
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
 	ripng->passive_interface = vector_init(1);
@@ -2367,7 +2365,13 @@ void ripng_clean(struct ripng *ripng)
 			free(ripng->redist[i].route_map.name);
 
 	agg_table_finish(ripng->table);
-	list_delete(&ripng->peer_list);
+
+	struct ripng_peer *peer;
+
+	while ((peer = ripng_peer_list_pop(&ripng->peer_list)))
+		ripng_peer_free(peer);
+	ripng_peer_list_fini(&ripng->peer_list);
+
 	distribute_list_delete(&ripng->distribute_ctx);
 	if_rmap_ctx_delete(ripng->if_rmap_ctx);
 
@@ -2568,7 +2572,10 @@ static void ripng_instance_disable(struct ripng *ripng)
 	}
 
 	/* Clear existing peers. */
-	list_delete_all_node(ripng->peer_list);
+	struct ripng_peer *peer;
+
+	while ((peer = ripng_peer_list_pop(&ripng->peer_list)))
+		ripng_peer_free(peer);
 
 	ripng_zebra_vrf_deregister(vrf);
 
