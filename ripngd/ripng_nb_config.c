@@ -287,7 +287,7 @@ int ripngd_instance_offset_list_destroy(struct nb_cb_destroy_args *args)
 	}
 	if (offset->direct[RIPNG_OFFSET_LIST_IN].alist_name == NULL
 	    && offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name == NULL)
-		ripng_offset_list_del(offset);
+		offset_list_del(offset);
 
 	return NB_OK;
 }

@@ -35,14 +35,14 @@ struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 		      sizeof(struct ripng_offset_list));
 	new->ripng = ripng;
 	new->ifname = strdup(ifname);
-	listnode_add_sort(ripng->offset_list_master, new);
+	ripng_offset_list_add(&ripng->offset_list_master, new);
 
 	return new;
 }
 
-void ripng_offset_list_del(struct ripng_offset_list *offset)
+void offset_list_del(struct ripng_offset_list *offset)
 {
-	listnode_delete(offset->ripng->offset_list_master, offset);
+	ripng_offset_list_del(&offset->ripng->offset_list_master, offset);
 	ripng_offset_list_free(offset);
 }
 
@@ -60,10 +60,8 @@ struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
 						   const char *ifname)
 {
 	struct ripng_offset_list *offset;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(ripng->offset_list_master, node, nnode,
-			       offset)) {
+	frr_each (ripng_offset_list, &ripng->offset_list_master, offset) {
 		if (strcmp(offset->ifname, ifname) == 0)
 			return offset;
 	}
@@ -143,7 +141,8 @@ int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 	return 0;
 }
 
-int offset_list_cmp(struct ripng_offset_list *o1, struct ripng_offset_list *o2)
+int ripng_offset_list_cmp(const struct ripng_offset_list *o1,
+			  const struct ripng_offset_list *o2)
 {
 	return strcmp(o1->ifname, o2->ifname);
 }
