@@ -35,15 +35,14 @@ static void clear_ripng_route(struct ripng *ripng)
 
 	/* Clear received RIPng routes */
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
-		struct list *list;
-		struct listnode *listnode;
+		struct ripng_info_list_head *list;
 		struct ripng_info *rinfo;
 
 		list = rp->info;
 		if (list == NULL)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+		frr_each (ripng_info_list, list, rinfo) {
 			if (!ripng_route_rte(rinfo))
 				continue;
 
@@ -55,12 +54,12 @@ static void clear_ripng_route(struct ripng *ripng)
 		if (rinfo) {
 			event_cancel(&rinfo->t_timeout);
 			event_cancel(&rinfo->t_garbage_collect);
-			listnode_delete(list, rinfo);
+			ripng_info_list_del(list, rinfo);
 			ripng_info_free(rinfo);
 		}
 
-		if (list_isempty(list)) {
-			list_delete(&list);
+		if (ripng_info_list_count(list) == 0) {
+			XFREE(MTYPE_RIPNG_INFO_LIST, list);
 			rp->info = NULL;
 			agg_unlock_node(rp);
 		}
