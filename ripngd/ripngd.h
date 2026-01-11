@@ -74,6 +74,7 @@
 DECLARE_MGROUP(RIPNGD);
 
 PREDECL_SORTLIST_UNIQ(ripng_offset_list);
+PREDECL_SORTLIST_UNIQ(ripng_peer_list);
 
 /* RIPng structure. */
 struct ripng {
@@ -108,7 +109,7 @@ struct ripng {
 	struct agg_table *table;
 
 	/* Linked list of RIPng peers. */
-	struct list *peer_list;
+	struct ripng_peer_list_head peer_list;
 
 	/* RIPng enabled interfaces. */
 	vector enable_if;
@@ -264,6 +265,8 @@ struct ripng_interface {
 
 /* RIPng peer information. */
 struct ripng_peer {
+	struct ripng_peer_list_item item;
+
 	/* Parent routing instance. */
 	struct ripng *ripng;
 
@@ -286,6 +289,12 @@ struct ripng_peer {
 	/* Timeout thread. */
 	struct event *t_timeout;
 };
+
+extern int ripng_peer_list_cmp(const struct ripng_peer *p1,
+			       const struct ripng_peer *p2);
+
+DECLARE_SORTLIST_UNIQ(ripng_peer_list, struct ripng_peer, item,
+		      ripng_peer_list_cmp);
 
 /* All RIPng events. */
 enum ripng_event {
@@ -363,8 +372,7 @@ extern struct ripng_peer *ripng_peer_lookup(struct ripng *ripng,
 					    struct in6_addr *addr);
 extern struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 						 struct in6_addr *addr);
-extern int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2);
-extern void ripng_peer_list_del(void *arg);
+extern void ripng_peer_free(struct ripng_peer *peer);
 
 extern struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 						       const char *ifname);
