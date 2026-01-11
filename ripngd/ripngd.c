@@ -1887,11 +1887,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
 	ripng->passive_interface = vector_init(1);
-	ripng->offset_list_master = list_new();
-	ripng->offset_list_master->cmp =
-		(int (*)(void *, void *))offset_list_cmp;
-	ripng->offset_list_master->del =
-		(void (*)(void *))ripng_offset_list_free;
+	ripng_offset_list_init(&ripng->offset_list_master);
 	ripng->distribute_ctx = distribute_list_ctx_create(vrf);
 	distribute_list_add_hook(ripng->distribute_ctx,
 				 ripng_distribute_update);
@@ -2383,7 +2379,12 @@ void ripng_clean(struct ripng *ripng)
 	vector_free(ripng->enable_if);
 	agg_table_finish(ripng->enable_network);
 	vector_free(ripng->passive_interface);
-	list_delete(&ripng->offset_list_master);
+
+	struct ripng_offset_list *offset;
+
+	while ((offset = ripng_offset_list_pop(&ripng->offset_list_master)))
+		ripng_offset_list_free(offset);
+	ripng_offset_list_fini(&ripng->offset_list_master);
 
 	RB_REMOVE(ripng_instance_head, &ripng_instances, ripng);
 	XFREE(MTYPE_RIPNG_VRF_NAME, ripng->vrf_name);

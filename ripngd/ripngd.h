@@ -12,6 +12,7 @@
 #include <distribute.h>
 #include <vector.h>
 #include <memory.h>
+#include "typesafe.h"
 
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
@@ -72,6 +73,8 @@
 
 DECLARE_MGROUP(RIPNGD);
 
+PREDECL_SORTLIST_UNIQ(ripng_offset_list);
+
 /* RIPng structure. */
 struct ripng {
 	RB_ENTRY(ripng) entry;
@@ -117,7 +120,7 @@ struct ripng {
 	vector passive_interface;
 
 	/* RIPng offset-lists. */
-	struct list *offset_list_master;
+	struct ripng_offset_list_head offset_list_master;
 
 	/* RIPng threads. */
 	struct event *t_read;
@@ -301,6 +304,7 @@ enum ripng_event {
 #define RIPNG_OFFSET_LIST_MAX 2
 
 struct ripng_offset_list {
+	struct ripng_offset_list_item item;
 	/* Parent routing instance. */
 	struct ripng *ripng;
 
@@ -312,6 +316,12 @@ struct ripng_offset_list {
 		uint8_t metric;
 	} direct[RIPNG_OFFSET_LIST_MAX];
 };
+
+extern int ripng_offset_list_cmp(const struct ripng_offset_list *o1,
+				 const struct ripng_offset_list *o2);
+
+DECLARE_SORTLIST_UNIQ(ripng_offset_list, struct ripng_offset_list, item,
+		      ripng_offset_list_cmp);
 
 /* Extern variables. */
 extern struct zebra_privs_t ripngd_privs;
@@ -358,7 +368,7 @@ extern void ripng_peer_list_del(void *arg);
 
 extern struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 						       const char *ifname);
-extern void ripng_offset_list_del(struct ripng_offset_list *offset);
+extern void offset_list_del(struct ripng_offset_list *offset);
 extern void ripng_offset_list_free(struct ripng_offset_list *offset);
 extern struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
 							  const char *ifname);
@@ -368,8 +378,6 @@ extern int ripng_offset_list_apply_in(struct ripng *ripng,
 extern int ripng_offset_list_apply_out(struct ripng *ripng,
 				       struct prefix_ipv6 *p,
 				       struct interface *ifp, uint8_t *metric);
-extern int offset_list_cmp(struct ripng_offset_list *o1,
-			   struct ripng_offset_list *o2);
 
 extern int ripng_route_rte(struct ripng_info *rinfo);
 extern struct ripng_info *ripng_info_new(void);
