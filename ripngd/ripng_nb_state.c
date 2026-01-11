@@ -169,7 +169,7 @@ struct yang_data *ripngd_instance_state_routes_route_prefix_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_ipv6p(args->xpath, agg_node_get_prefix(rinfo->rp));
 }
@@ -181,7 +181,7 @@ struct yang_data *ripngd_instance_state_routes_route_next_hop_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_ipv6(args->xpath, &rinfo->nexthop);
 }
@@ -193,7 +193,7 @@ struct yang_data *ripngd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 	const struct ripng *ripng = ripng_info_get_instance(rinfo);
 
 	return yang_data_new_string(
@@ -208,7 +208,7 @@ struct yang_data *ripngd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_uint8(args->xpath, rinfo->metric);
 }

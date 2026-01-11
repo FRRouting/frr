@@ -72,9 +72,11 @@
 #define RIPNG_IFACE	"/frr-interface:lib/interface/frr-ripngd:ripng"
 
 DECLARE_MGROUP(RIPNGD);
+DECLARE_MTYPE(RIPNG_INFO_LIST);
 
 PREDECL_SORTLIST_UNIQ(ripng_offset_list);
 PREDECL_SORTLIST_UNIQ(ripng_peer_list);
+PREDECL_DLIST(ripng_info_list);
 
 /* RIPng structure. */
 struct ripng {
@@ -175,6 +177,9 @@ struct ripng_packet {
 
 /* Each route's information. */
 struct ripng_info {
+	/* List linkage - not copied by ripng_info_cpy() */
+	struct ripng_info_list_item item;
+
 	/* This route's type.  Static, ripng or aggregate. */
 	uint8_t type;
 
@@ -202,7 +207,7 @@ struct ripng_info {
 #define RIPNG_RTF_CHANGED  2
 	uint8_t flags;
 
-	/* Garbage collect timer. */
+	/* Garbage collect timer - not copied by ripng_info_cpy() */
 	struct event *t_timeout;
 	struct event *t_garbage_collect;
 
@@ -214,6 +219,17 @@ struct ripng_info {
 
 	struct agg_node *rp;
 };
+
+DECLARE_DLIST(ripng_info_list, struct ripng_info, item);
+
+static inline void ripng_info_cpy(struct ripng_info *dst,
+				  const struct ripng_info *src)
+{
+	struct ripng_info_list_item item_save = dst->item;
+
+	memcpy(dst, src, sizeof(struct ripng_info));
+	dst->item = item_save;
+}
 
 typedef enum {
 	RIPNG_NO_SPLIT_HORIZON = 0,
