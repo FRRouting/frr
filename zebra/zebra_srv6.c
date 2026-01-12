@@ -1708,6 +1708,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid,
 		flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
 			 "%s: failed to create SRv6 SID ctx %s (%pI6)", __func__,
 			 srv6_sid_ctx2str(buf, sizeof(buf), ctx), &sid_value);
+		zebra_srv6_sid_ctx_free(zctx);
 		return -1;
 	}
 	(*sid)->ctx = zctx;
