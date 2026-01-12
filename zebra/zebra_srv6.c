@@ -2131,7 +2131,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
  * @param sid_func SID function to be released
  * @return 0 on success, -1 otherwise
  */
-static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
+static int release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 					   uint32_t sid_func,
 					   uint32_t sid_wide_func)
 {
