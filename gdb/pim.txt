@@ -12,6 +12,7 @@
 # (gdb) source gdb/lib.txt
 # (gdb) source gdb/pim.txt
 # (gdb) dump_pim_upstream up
+# (gdb) dump_pim_neighbor neigh
 # (gdb) dump_neighbor_jp_agg neigh
 
 define dump_pim_jp_agg_list
@@ -78,6 +79,137 @@ Example usage:
   (gdb) dump_pim_jp_agg_list neigh->upstream_jp_agg
   (gdb) p neigh->upstream_jp_agg
   (gdb) dump_pim_jp_agg_list $
+end
+
+define dump_pim_neighbor
+  set $_neigh = (struct pim_neighbor *)$arg0
+  
+  if $_neigh == 0
+    printf "Neighbor pointer is NULL\n"
+  else
+    printf "========== PIM Neighbor %p ==========\n", $_neigh
+    
+    # Source address
+    printf "Source Address: "
+    if sizeof($_neigh->source_addr) == 4
+      # IPv4
+      set $_na = (unsigned char *)&$_neigh->source_addr
+      printf "%u.%u.%u.%u", $_na[0], $_na[1], $_na[2], $_na[3]
+    else
+      # IPv6
+      dump_s6_addr &$_neigh->source_addr
+    end
+    printf "\n"
+    
+    # Interface
+    if $_neigh->interface != 0
+      printf "Interface:      %s\n", $_neigh->interface->name
+    else
+      printf "Interface:      NULL\n"
+    end
+    
+    # Creation timestamp
+    printf "Creation time:  %ld\n", $_neigh->creation
+    
+    # Hello options (bit flags)
+    printf "Hello options:  0x%08x ", $_neigh->hello_options
+    if $_neigh->hello_options & 0x1
+      printf "HOLDTIME "
+    end
+    if $_neigh->hello_options & 0x2
+      printf "LAN_PRUNE_DELAY "
+    end
+    if $_neigh->hello_options & 0x4
+      printf "DR_PRIORITY "
+    end
+    if $_neigh->hello_options & 0x8
+      printf "GENERATION_ID "
+    end
+    if $_neigh->hello_options & 0x10
+      printf "ADDRESS_LIST "
+    end
+    printf "\n"
+    
+    # Timers and parameters
+    printf "Holdtime:       %u sec\n", $_neigh->holdtime
+    printf "Propagation delay: %u msec\n", $_neigh->propagation_delay_msec
+    printf "Override interval: %u msec\n", $_neigh->override_interval_msec
+    printf "DR priority:    %u\n", $_neigh->dr_priority
+    printf "Generation ID:  0x%08x\n", $_neigh->generation_id
+    
+    # Prefix list (secondary addresses)
+    if $_neigh->prefix_list != 0
+      printf "Secondary addresses: count=%u\n", $_neigh->prefix_list->count
+      if $_neigh->prefix_list->count > 0
+        set $_pnode = $_neigh->prefix_list->head
+        set $_pcount = 0
+        while $_pnode != 0 && $_pcount < 10
+          set $_prefix = (struct prefix *)$_pnode->data
+          printf "  [%u] family=%u prefixlen=%u\n", $_pcount, $_prefix->family, $_prefix->prefixlen
+          set $_pnode = $_pnode->next
+          set $_pcount = $_pcount + 1
+        end
+        if $_neigh->prefix_list->count > 10
+          printf "  ... (%u more)\n", $_neigh->prefix_list->count - 10
+        end
+      end
+    else
+      printf "Secondary addresses: NULL\n"
+    end
+    
+    # Timers
+    printf "\nTimers:\n"
+    if $_neigh->t_expire_timer != 0
+      printf "  Expire timer: RUNNING (expires at %ld.%06ld)\n", $_neigh->t_expire_timer->u.sands.tv_sec, $_neigh->t_expire_timer->u.sands.tv_usec
+    else
+      printf "  Expire timer: stopped\n"
+    end
+    if $_neigh->jp_timer != 0
+      printf "  JP timer:     RUNNING (expires at %ld.%06ld)\n", $_neigh->jp_timer->u.sands.tv_sec, $_neigh->jp_timer->u.sands.tv_usec
+    else
+      printf "  JP timer:     stopped\n"
+    end
+    
+    # JP Aggregation list
+    if $_neigh->upstream_jp_agg != 0
+      printf "\nJP Aggregation: count=%u\n", $_neigh->upstream_jp_agg->count
+    else
+      printf "\nJP Aggregation: NULL\n"
+    end
+    
+    # BFD session
+    if $_neigh->bfd_session != 0
+      printf "BFD session:    %p (configured)\n", $_neigh->bfd_session
+    else
+      printf "BFD session:    NULL\n"
+    end
+    
+    printf "========================================\n"
+  end
+end
+document dump_pim_neighbor
+Dump detailed information about a PIM neighbor structure.
+
+This displays comprehensive information including:
+- Source address and interface
+- Creation timestamp
+- Hello options (decoded bit flags)
+- Holdtime, propagation delay, override interval
+- DR priority and generation ID
+- Secondary address list
+- Timer states
+- JP aggregation list count
+- BFD session status
+
+Arguments:
+  (struct pim_neighbor *) pointer to the neighbor structure
+
+Example usage:
+  (gdb) dump_pim_neighbor neigh
+  (gdb) p pim_ifp->pim_neighbor_list->head->data
+  (gdb) dump_pim_neighbor $
+  
+To also dump the JP aggregation details, use dump_neighbor_jp_agg.
 end
 
 define dump_neighbor_jp_agg
