@@ -17,52 +17,65 @@
 
 define dump_pim_jp_agg_list
   set $_list = (struct list *)$arg0
-  set $_node = $_list->head
-  set $_count = 0
   
   if $_list == 0
     printf "List pointer is NULL\n"
   else
-    printf "JP Aggregation List: count=%u\n", $_list->count
-    
-    while $_node != 0
-      set $_jag = (struct pim_jp_agg_group *)$_node->data
-      set $_count = $_count + 1
+    # Validate that count is reasonable (sanity check)
+    if $_list->count > 10000
+      printf "ERROR: Invalid list pointer or corrupted list (count=%u is too large)\n", $_list->count
+      printf "       Make sure you pass the list pointer, not the neighbor pointer.\n"
+      printf "       Use: dump_pim_jp_agg_list neigh->upstream_jp_agg\n"
+      printf "       Or:  dump_neighbor_jp_agg neigh\n"
+    else
+      printf "JP Aggregation List: count=%u\n", $_list->count
       
-      printf "\n[%u] Group: ", $_count
-      # Print group address (pim_addr is either in_addr or in6_addr depending on PIM_IPV)
-      if sizeof($_jag->group) == 4
-        # IPv4
-        set $_ga = (unsigned char *)&$_jag->group
-        printf "%u.%u.%u.%u\n", $_ga[0], $_ga[1], $_ga[2], $_ga[3]
-      else
-        # IPv6
-        dump_s6_addr &$_jag->group
-        printf "\n"
-      end
+      set $_node = $_list->head
+      set $_count = 0
       
-      # Walk sources list
-      set $_src_node = $_jag->sources->head
-      set $_src_count = 0
-      printf "  Sources (count=%u):\n", $_jag->sources->count
-      
-      while $_src_node != 0
-        set $_js = (struct pim_jp_sources *)$_src_node->data
-        set $_src_count = $_src_count + 1
+      while $_node != 0 && $_count < $_list->count
+        set $_jag = (struct pim_jp_agg_group *)$_node->data
+        set $_count = $_count + 1
         
-        printf "    [%u] ", $_src_count
-        if $_js->up != 0
-          printf "upstream=%p sg=%s is_join=%d\n", $_js->up, $_js->up->sg_str, $_js->is_join
+        printf "\n[%u] Group: ", $_count
+        # Print group address (pim_addr is either in_addr or in6_addr depending on PIM_IPV)
+        if sizeof($_jag->group) == 4
+          # IPv4
+          set $_ga = (unsigned char *)&$_jag->group
+          printf "%u.%u.%u.%u\n", $_ga[0], $_ga[1], $_ga[2], $_ga[3]
         else
-          printf "upstream=NULL (DANGLING!) is_join=%d\n", $_js->is_join
+          # IPv6
+          dump_s6_addr &$_jag->group
+          printf "\n"
         end
         
-        set $_src_node = $_src_node->next
+        # Walk sources list
+        if $_jag->sources != 0
+          set $_src_node = $_jag->sources->head
+          set $_src_count = 0
+          printf "  Sources (count=%u):\n", $_jag->sources->count
+          
+          while $_src_node != 0 && $_src_count < $_jag->sources->count
+            set $_js = (struct pim_jp_sources *)$_src_node->data
+            set $_src_count = $_src_count + 1
+            
+            printf "    [%u] ", $_src_count
+            if $_js->up != 0
+              printf "upstream=%p sg=%s is_join=%d\n", $_js->up, $_js->up->sg_str, $_js->is_join
+            else
+              printf "upstream=NULL (DANGLING!) is_join=%d\n", $_js->is_join
+            end
+            
+            set $_src_node = $_src_node->next
+          end
+        else
+          printf "  Sources: NULL\n"
+        end
+        
+        set $_node = $_node->next
       end
-      
-      set $_node = $_node->next
+      printf "\nTotal groups: %u\n", $_count
     end
-    printf "\nTotal groups: %u\n", $_count
   end
 end
 document dump_pim_jp_agg_list
@@ -73,12 +86,15 @@ displays the group address and all sources with their upstream pointer, sg strin
 and join/prune state.
 
 Arguments:
-  (struct list *) pointer to the JP aggregation list (e.g., neigh->upstream_jp_agg)
+  (struct list *) pointer to the JP aggregation list (NOT the neighbor pointer!)
 
 Example usage:
   (gdb) dump_pim_jp_agg_list neigh->upstream_jp_agg
   (gdb) p neigh->upstream_jp_agg
   (gdb) dump_pim_jp_agg_list $
+  
+IMPORTANT: Pass the list pointer (neigh->upstream_jp_agg), NOT the neighbor pointer.
+If you want to pass the neighbor pointer directly, use dump_neighbor_jp_agg instead.
 end
 
 define dump_pim_neighbor
