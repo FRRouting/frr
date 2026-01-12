@@ -12,6 +12,7 @@
 #include <distribute.h>
 #include <vector.h>
 #include <memory.h>
+#include "typesafe.h"
 
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
@@ -71,6 +72,11 @@
 #define RIPNG_IFACE	"/frr-interface:lib/interface/frr-ripngd:ripng"
 
 DECLARE_MGROUP(RIPNGD);
+DECLARE_MTYPE(RIPNG_INFO_LIST);
+
+PREDECL_SORTLIST_UNIQ(ripng_offset_list);
+PREDECL_SORTLIST_UNIQ(ripng_peer_list);
+PREDECL_DLIST(ripng_info_list);
 
 /* RIPng structure. */
 struct ripng {
@@ -105,7 +111,7 @@ struct ripng {
 	struct agg_table *table;
 
 	/* Linked list of RIPng peers. */
-	struct list *peer_list;
+	struct ripng_peer_list_head peer_list;
 
 	/* RIPng enabled interfaces. */
 	vector enable_if;
@@ -117,7 +123,7 @@ struct ripng {
 	vector passive_interface;
 
 	/* RIPng offset-lists. */
-	struct list *offset_list_master;
+	struct ripng_offset_list_head offset_list_master;
 
 	/* RIPng threads. */
 	struct event *t_read;
@@ -171,6 +177,9 @@ struct ripng_packet {
 
 /* Each route's information. */
 struct ripng_info {
+	/* List linkage - not copied by ripng_info_cpy() */
+	struct ripng_info_list_item item;
+
 	/* This route's type.  Static, ripng or aggregate. */
 	uint8_t type;
 
@@ -198,7 +207,7 @@ struct ripng_info {
 #define RIPNG_RTF_CHANGED  2
 	uint8_t flags;
 
-	/* Garbage collect timer. */
+	/* Garbage collect timer - not copied by ripng_info_cpy() */
 	struct event *t_timeout;
 	struct event *t_garbage_collect;
 
@@ -210,6 +219,17 @@ struct ripng_info {
 
 	struct agg_node *rp;
 };
+
+DECLARE_DLIST(ripng_info_list, struct ripng_info, item);
+
+static inline void ripng_info_cpy(struct ripng_info *dst,
+				  const struct ripng_info *src)
+{
+	struct ripng_info_list_item item_save = dst->item;
+
+	memcpy(dst, src, sizeof(struct ripng_info));
+	dst->item = item_save;
+}
 
 typedef enum {
 	RIPNG_NO_SPLIT_HORIZON = 0,
@@ -261,6 +281,8 @@ struct ripng_interface {
 
 /* RIPng peer information. */
 struct ripng_peer {
+	struct ripng_peer_list_item item;
+
 	/* Parent routing instance. */
 	struct ripng *ripng;
 
@@ -284,6 +306,12 @@ struct ripng_peer {
 	struct event *t_timeout;
 };
 
+extern int ripng_peer_list_cmp(const struct ripng_peer *p1,
+			       const struct ripng_peer *p2);
+
+DECLARE_SORTLIST_UNIQ(ripng_peer_list, struct ripng_peer, item,
+		      ripng_peer_list_cmp);
+
 /* All RIPng events. */
 enum ripng_event {
 	RIPNG_READ,
@@ -301,6 +329,7 @@ enum ripng_event {
 #define RIPNG_OFFSET_LIST_MAX 2
 
 struct ripng_offset_list {
+	struct ripng_offset_list_item item;
 	/* Parent routing instance. */
 	struct ripng *ripng;
 
@@ -312,6 +341,12 @@ struct ripng_offset_list {
 		uint8_t metric;
 	} direct[RIPNG_OFFSET_LIST_MAX];
 };
+
+extern int ripng_offset_list_cmp(const struct ripng_offset_list *o1,
+				 const struct ripng_offset_list *o2);
+
+DECLARE_SORTLIST_UNIQ(ripng_offset_list, struct ripng_offset_list, item,
+		      ripng_offset_list_cmp);
 
 /* Extern variables. */
 extern struct zebra_privs_t ripngd_privs;
@@ -353,12 +388,11 @@ extern struct ripng_peer *ripng_peer_lookup(struct ripng *ripng,
 					    struct in6_addr *addr);
 extern struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 						 struct in6_addr *addr);
-extern int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2);
-extern void ripng_peer_list_del(void *arg);
+extern void ripng_peer_free(struct ripng_peer *peer);
 
 extern struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 						       const char *ifname);
-extern void ripng_offset_list_del(struct ripng_offset_list *offset);
+extern void offset_list_del(struct ripng_offset_list *offset);
 extern void ripng_offset_list_free(struct ripng_offset_list *offset);
 extern struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
 							  const char *ifname);
@@ -368,8 +402,6 @@ extern int ripng_offset_list_apply_in(struct ripng *ripng,
 extern int ripng_offset_list_apply_out(struct ripng *ripng,
 				       struct prefix_ipv6 *p,
 				       struct interface *ifp, uint8_t *metric);
-extern int offset_list_cmp(struct ripng_offset_list *o1,
-			   struct ripng_offset_list *o2);
 
 extern int ripng_route_rte(struct ripng_info *rinfo);
 extern struct ripng_info *ripng_info_new(void);
