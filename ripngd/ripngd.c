@@ -1864,9 +1864,12 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 
 	/* Default version and timer values. */
 	ripng->version = RIPNG_V1;
-	ripng->update_time = yang_get_default_uint16("%s/timers/update-interval", RIPNG_INSTANCE);
-	ripng->timeout_time = yang_get_default_uint16("%s/timers/holddown-interval", RIPNG_INSTANCE);
-	ripng->garbage_time = yang_get_default_uint16("%s/timers/flush-interval", RIPNG_INSTANCE);
+	ripng->update_time = yang_get_default_uint32(
+		"%s/timers/update-interval", RIPNG_INSTANCE);
+	ripng->timeout_time = yang_get_default_uint32(
+		"%s/timers/holddown-interval", RIPNG_INSTANCE);
+	ripng->garbage_time = yang_get_default_uint32(
+		"%s/timers/flush-interval", RIPNG_INSTANCE);
 	ripng->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIPNG_INSTANCE);
 	ripng->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIPNG_INSTANCE);
