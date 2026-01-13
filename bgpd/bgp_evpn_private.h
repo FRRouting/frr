@@ -530,8 +530,13 @@ static inline void build_evpn_type4_prefix(struct prefix_evpn *p, esi_t *esi,
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_ES_ROUTE;
 	/* Set IP prefix length and address based on originator_ip type */
-	p->prefix.es_addr.ip_prefix_length = IS_IPADDR_V4(&originator_ip) ? IPV4_MAX_BITLEN
-									  : IPV6_MAX_BITLEN;
+	if (IS_IPADDR_V4(&originator_ip))
+		p->prefix.es_addr.ip_prefix_length = IPV4_MAX_BITLEN;
+	else if (IS_IPADDR_V6(&originator_ip))
+		p->prefix.es_addr.ip_prefix_length = IPV6_MAX_BITLEN;
+	else
+		p->prefix.es_addr.ip_prefix_length = IPADDR_NONE;
+
 	p->prefix.es_addr.ip = originator_ip;
 	memcpy(&p->prefix.es_addr.esi, esi, sizeof(esi_t));
 }
