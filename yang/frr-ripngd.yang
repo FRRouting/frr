@@ -225,17 +225,17 @@ module frr-ripngd {
           "Settings of basic timers";
         leaf flush-interval {
           type uint16 {
-            range "1..32767";
+            range "1..65535";
           }
           units "seconds";
-          default "240";
+          default "120";
           description
             "Interval before a route is flushed from the routing
              table.";
         }
         leaf holddown-interval {
           type uint16 {
-            range "1..32767";
+            range "1..65535";
           }
           units "seconds";
           default "180";
@@ -244,7 +244,7 @@ module frr-ripngd {
         }
         leaf update-interval {
           type uint16 {
-            range "1..32767";
+            range "1..65535";
           }
           units "seconds";
           default "30";
