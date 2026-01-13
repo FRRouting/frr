@@ -617,6 +617,35 @@ void bgp_path_info_restore(struct bgp_dest *dest, struct bgp_path_info *pi)
 	SET_FLAG(pi->flags, BGP_PATH_VALID);
 }
 
+/*
+ * Move a path_info to the front of the destination's path list.
+ * This is used when a path needs to be re-evaluated (e.g., peer
+ * re-established) to ensure the unsorted path collection loop
+ * finds it at the head of the list.
+ */
+static void bgp_path_info_move_to_front(struct bgp_dest *dest,
+					 struct bgp_path_info *pi)
+{
+	struct bgp_path_info *top = bgp_dest_get_bgp_path_info(dest);
+
+	/* Already at front */
+	if (pi == top)
+		return;
+
+	/* Unlink from current position */
+	if (pi->prev)
+		pi->prev->next = pi->next;
+	if (pi->next)
+		pi->next->prev = pi->prev;
+
+	/* Link at front */
+	pi->next = top;
+	pi->prev = NULL;
+	if (top)
+		top->prev = pi;
+	bgp_dest_set_bgp_path_info(dest, pi);
+}
+
 /* Adjust pcount as required */
 static void bgp_pcount_adjust(struct bgp_dest *dest, struct bgp_path_info *pi)
 {
@@ -3315,8 +3344,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 					unsorted_holddown = first;
 				} else
 					unsorted_holddown = first;
-
-				UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
 			}
 			continue;
 		}
@@ -3339,8 +3366,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				unsorted_holddown = first;
 			} else
 				unsorted_holddown = first;
-
-			UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
 
 			continue;
 		}
@@ -5955,6 +5980,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_path_info_unset_flag(
 						dest, pi, BGP_PATH_STALE);
 					bgp_dest_set_defer_flag(dest, false);
+					bgp_process(bgp, dest, pi, afi, safi);
+				}
+
+				/*
+				 * Path was previously skipped during bestpath
+				 * selection because peer was not established.
+				 * Move to front of list so unsorted collection
+				 * loop will find it, then trigger re-evaluation.
+				 */
+				if (CHECK_FLAG(pi->flags, BGP_PATH_UNSORTED)) {
+					bgp_path_info_move_to_front(dest, pi);
 					bgp_process(bgp, dest, pi, afi, safi);
 				}
 			}
