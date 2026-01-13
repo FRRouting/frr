@@ -49,6 +49,10 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_zebra.h"
 
+#ifndef FABRICD
+#include "isisd/isis_te_clippy.c"
+#endif
+
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE, "ISIS MPLS_TE parameters");
 
 static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
@@ -2183,19 +2187,14 @@ static void show_isis_srlg_common(struct vty *vty, struct json_object *json, str
 	}
 }
 
-DEFUN(show_isis_srlg,
+DEFPY(show_isis_srlg,
       show_isis_srlg_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] srlg [level-1|level-2] [json]",
+      "show isis [vrf <NAME$vrf_name|all$all>] srlg [level-1$l1|level-2$l2] [json$uj]",
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR "All VRFs\n"
       "Shared Risk Link Group information\n"
       "Level-1 SRLG\n" "Level-2 SRLG\n" JSON_STR)
 {
-	int idx_vrf = 0;
-	int idx = 0;
 	int levels;
-	const char *vrf_name = VRF_DEFAULT_NAME;
-	bool all_vrf = false;
-	bool uj = use_json(argc, argv);
 	struct isis *isis;
 	struct json_object *json = NULL;
 
@@ -2204,11 +2203,9 @@ DEFUN(show_isis_srlg,
 		return CMD_SUCCESS;
 	}
 
-	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-
-	if (argv_find(argv, argc, "level-1", &idx))
+	if (l1)
 		levels = ISIS_LEVEL1;
-	else if (argv_find(argv, argc, "level-2", &idx))
+	else if (l2)
 		levels = ISIS_LEVEL2;
 	else
 		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
@@ -2216,11 +2213,11 @@ DEFUN(show_isis_srlg,
 	if (uj)
 		json = json_object_new_object();
 
-	if (all_vrf) {
+	if (all) {
 		frr_each (isis_instance_list, &im->isis, isis)
 			show_isis_srlg_common(vty, json, isis, levels);
 	} else {
-		isis = isis_lookup_by_vrfname(vrf_name);
+		isis = isis_lookup_by_vrfname(vrf_name ? vrf_name : VRF_DEFAULT_NAME);
 		if (isis)
 			show_isis_srlg_common(vty, json, isis, levels);
 	}

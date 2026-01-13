@@ -113,6 +113,7 @@ isisd_libisis_a_SOURCES = \
 
 clippy_scan += \
 	isisd/isis_cli.c \
+	isisd/isis_te.c \
 	# end
 
 isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)
