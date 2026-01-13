@@ -544,7 +544,7 @@ DEFPY_YANG (rip_timers,
        "Basic routing protocol update timers\n"
        "Routing table update timer value in second. Default is 30.\n"
        "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 240.\n")
+       "Garbage collection timer. Default is 120.\n")
 {
 	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY,
 			      update_str);
@@ -564,7 +564,7 @@ DEFPY_YANG (no_rip_timers,
        "Basic routing protocol update timers\n"
        "Routing table update timer value in second. Default is 30.\n"
        "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 240.\n")
+       "Garbage collection timer. Default is 120.\n")
 {
 	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY, NULL);
 	nb_cli_enqueue_change(vty, "./holddown-interval", NB_OP_MODIFY, NULL);
