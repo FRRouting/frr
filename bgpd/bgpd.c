@@ -4300,9 +4300,13 @@ int bgp_delete(struct bgp *bgp)
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT &&
 	    (bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]) ||
 	     bgp_table_top(bgp->rib[AFI_IP6][SAFI_MPLS_VPN]))) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug(
-				"Marking the deleting default bgp instance as hidden");
+		if (BGP_DEBUG(zebra, ZEBRA)) {
+			uint32_t afi_ip_count = bgp_table_count(bgp->rib[AFI_IP][SAFI_MPLS_VPN]);
+			uint32_t afi_ip6_count = bgp_table_count(bgp->rib[AFI_IP6][SAFI_MPLS_VPN]);
+
+			zlog_debug("Marking the deleting default bgp instance as hidden, %u IPv4 routes and %u IPv6 routes",
+				   afi_ip_count, afi_ip6_count);
+		}
 		SET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
