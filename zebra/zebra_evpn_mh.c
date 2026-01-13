@@ -472,7 +472,7 @@ void zebra_evpn_update_all_es(struct zebra_evpn *zevpn)
 	struct zebra_if *vxlan_zif;
 	struct zebra_vxlan_vni *vni;
 
-	/* the EVPN is now elgible as a base for EVPN-MH */
+	/* the EVPN is now eligible as a base for EVPN-MH */
 	if (zebra_evpn_send_to_client_ok(zevpn))
 		zebra_evpn_es_set_base_evpn(zevpn);
 	else
@@ -618,7 +618,7 @@ static void zebra_evpn_acc_vl_cleanup_all(struct hash_bucket *bucket, void *arg)
 	zebra_evpn_acc_vl_free(acc_bd);
 }
 
-/* called when a bd mbr is removed or VxLAN_IF is diassociated from the access
+/* called when a bd mbr is removed or VxLAN_IF is disassociated from the access
  * VLAN
  */
 static void zebra_evpn_acc_bd_free_on_deref(struct zebra_evpn_access_bd *acc_bd)
