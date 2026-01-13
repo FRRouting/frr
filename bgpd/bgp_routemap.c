@@ -6316,7 +6316,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/frr-bgp-route-map:as-path-count", xpath);
 
 	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, count_str);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 
