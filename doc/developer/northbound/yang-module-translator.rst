@@ -177,9 +177,9 @@ deviations. Example:
           +--rw default-metric?            uint8 <1>
           +--rw distance?                  uint8 <0>
           +--rw timers
-          |  +--rw update-interval?     uint16 <30>
-          |  +--rw holddown-interval?   uint16 <180>
-          |  +--rw flush-interval?      uint16 <240>
+          |  +--rw update-interval?     uint32 <30>
+          |  +--rw holddown-interval?   uint32 <180>
+          |  +--rw flush-interval?      uint32 <120>
           +--rw interfaces
           |  +--rw interface* [interface]
           |     +--rw interface        ietf-interfaces:interface-ref
