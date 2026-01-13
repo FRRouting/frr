@@ -33,7 +33,7 @@ DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 static int zebra_pw_enabled(struct zebra_pw *);
 static void zebra_pw_install(struct zebra_pw *);
 static void zebra_pw_uninstall(struct zebra_pw *);
-static void zebra_pw_install_retry(struct event *thread);
+static void zebra_pw_install_retry(struct event *event);
 static int zebra_pw_check_reachability(const struct zebra_pw *);
 static void zebra_pw_update_status(struct zebra_pw *, int);
 
@@ -239,9 +239,9 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 	zebra_pw_update_status(pw, pwstatus);
 }
 
-static void zebra_pw_install_retry(struct event *thread)
+static void zebra_pw_install_retry(struct event *event)
 {
-	struct zebra_pw *pw = EVENT_ARG(thread);
+	struct zebra_pw *pw = EVENT_ARG(event);
 
 	zebra_pw_install(pw);
 }
@@ -283,28 +283,6 @@ static int zebra_pw_check_reachability_strict(const struct zebra_pw *pw,
 			}
 		}
 	}
-
-	if (fail_p)
-		goto done;
-
-	nhg = rib_get_fib_backup_nhg(re);
-	if (nhg && nhg->nexthop) {
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				if (nexthop->nh_label != NULL)
-					found_p = true;
-				else {
-					fail_p = true;
-					break;
-				}
-			}
-		}
-	}
-
-done:
 
 	if (fail_p || !found_p) {
 		if (IS_ZEBRA_DEBUG_PW)
@@ -360,28 +338,9 @@ static int zebra_pw_check_reachability(const struct zebra_pw *pw)
 	if (found_p)
 		return 0;
 
-	nhg = rib_get_fib_backup_nhg(re);
-	if (nhg && nhg->nexthop) {
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) &&
-			    nexthop->nh_label != NULL) {
-				found_p = true;
-				break;
-			}
-		}
-	}
-
-	if (!found_p) {
-		if (IS_ZEBRA_DEBUG_PW)
-			zlog_debug("%s: unlabeled route for %s",
-				   __func__, pw->ifname);
-		return -1;
-	}
-
-	return 0;
+	if (IS_ZEBRA_DEBUG_PW)
+		zlog_debug("%s: unlabeled route for %s", __func__, pw->ifname);
+	return -1;
 }
 
 static int zebra_pw_client_close(struct zserv *client)
@@ -672,23 +631,6 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 				vty_out(vty, "  Next Hop label: %s\n",
 					"-");
 		}
-
-		/* Include any installed backups */
-		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg == NULL)
-			continue;
-
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv",
-				   nexthop);
-			vty_out(vty, "  Next Hop: %s\n", buf_nh);
-			if (nexthop->nh_label)
-				vty_out(vty, "  Next Hop label: %u\n",
-					nexthop->nh_label->label[0]);
-			else
-				vty_out(vty, "  Next Hop label: %s\n",
-					"-");
-		}
 	}
 }
 
@@ -735,26 +677,6 @@ static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
 		goto done;
 
 	nhg = rib_get_fib_nhg(re);
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		json_nexthop = json_object_new_object();
-		snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv", nexthop);
-		json_object_string_add(json_nexthop, "nexthop", buf_nh);
-		if (nexthop->nh_label)
-			json_object_int_add(
-				json_nexthop, "nhLabel",
-				nexthop->nh_label->label[0]);
-		else
-			json_object_string_add(json_nexthop, "nhLabel",
-					       "-");
-
-		json_object_array_add(json_nexthops, json_nexthop);
-	}
-
-	/* Include installed backup nexthops also */
-	nhg = rib_get_fib_backup_nhg(re);
-	if (nhg == NULL)
-		goto done;
-
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		json_nexthop = json_object_new_object();
 		snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv", nexthop);

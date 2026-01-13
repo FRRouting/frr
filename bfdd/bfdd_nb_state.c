@@ -208,12 +208,11 @@ struct yang_data *bfdd_bfd_sessions_single_hop_stats_detection_mode_get_elem(
 struct yang_data *bfdd_bfd_sessions_single_hop_stats_last_down_time_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	/*
-	 * TODO: implement me.
-	 *
-	 * No yang support for time elements yet.
-	 */
-	return NULL;
+	const struct bfd_session *bs = args->list_entry;
+
+	time_t last_down_time = monotime_to_realtime(&bs->downtime, NULL);
+
+	return yang_data_new_date_and_time(args->xpath, last_down_time, false);
 }
 
 /*
@@ -222,12 +221,11 @@ struct yang_data *bfdd_bfd_sessions_single_hop_stats_last_down_time_get_elem(
 struct yang_data *bfdd_bfd_sessions_single_hop_stats_last_up_time_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	/*
-	 * TODO: implement me.
-	 *
-	 * No yang support for time elements yet.
-	 */
-	return NULL;
+	const struct bfd_session *bs = args->list_entry;
+
+	time_t last_up_time = monotime_to_realtime(&bs->uptime, NULL);
+
+	return yang_data_new_date_and_time(args->xpath, last_up_time, false);
 }
 
 /*

@@ -158,10 +158,9 @@ static int fabricd_handle_adj_state_change(struct isis_adjacency *arg)
 	while (!skiplist_empty(f->neighbors))
 		skiplist_delete_first(f->neighbors);
 
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(f->area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &f->area->circuit_list, circuit) {
 		if (circuit->state != C_STATE_UP)
 			continue;
 
@@ -237,9 +236,9 @@ void fabricd_finish(struct fabricd *f)
 	hash_free(f->neighbors_neighbors);
 }
 
-static void fabricd_initial_sync_timeout(struct event *thread)
+static void fabricd_initial_sync_timeout(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 
 	if (IS_DEBUG_ADJ_PACKETS)
 		zlog_debug(
@@ -261,7 +260,7 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 
 	f->initial_sync_state = FABRICD_SYNC_STARTED;
 
-	long timeout = 2 * circuit->hello_interval[1] * circuit->hello_multiplier[1];
+	long timeout = 2L * circuit->hello_interval[1] * circuit->hello_multiplier[1];
 
 	f->initial_sync_circuit = circuit;
 	if (f->initial_sync_timeout)
@@ -392,16 +391,16 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 	return tier;
 }
 
-static void fabricd_tier_set_timer(struct event *thread)
+static void fabricd_tier_set_timer(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 
 	fabricd_set_tier(f, f->tier_pending);
 }
 
-static void fabricd_tier_calculation_cb(struct event *thread)
+static void fabricd_tier_calculation_cb(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 	uint8_t tier = ISIS_TIER_UNDEFINED;
 
 	tier = fabricd_calculate_fabric_tier(f->area);
@@ -705,10 +704,9 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 	if (!circuit_scoped && !f->always_send_csnp)
 		return;
 
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!circuit->t_send_csnp[1])
 			continue;
 
@@ -724,13 +722,12 @@ struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 	if (listcount(circuit->ip_addrs))
 		return circuit->ip_addrs;
 
-	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
+	if (!fabricd || !circuit->area)
 		return NULL;
 
-	struct listnode *node;
 	struct isis_circuit *c;
 
-	for (ALL_LIST_ELEMENTS_RO(circuit->area->circuit_list, node, c)) {
+	frr_each (isis_circuit_list, &circuit->area->circuit_list, c) {
 		if (c->circ_type != CIRCUIT_T_LOOPBACK)
 			continue;
 

@@ -313,14 +313,18 @@ Basic Config Commands
 
 .. clicmd:: allow-reserved-ranges
 
-   Allow using reserved ranges (e.g. 127.0.0.0/8, 0.0.0.0/8, 240.0.0.0/4).
+   Allow using reserved ranges (e.g. 127.0.0.0/8, 0.0.0.0/8).
 
    For example, this is necessary in case of multiple FRR instances
    (or FRR + any other daemon) peering via loopback interfaces
    running on the same router.
 
-   Another example is when you need to annouce a reserved range via
+   Another example is when you need to announce a reserved range via
    RIP protocol.
+
+   ``240.0.0.0/4`` is a reserved range too, but it's allowed by default,
+   because it's already widely used in private networks
+   (especially in data centers).
 
    Default: off.
 
@@ -678,6 +682,9 @@ Terminal Mode Commands
 
    POSIX Extended Regular Expressions are supported.
 
+.. clicmd:: clear
+
+   Clear the terminal display.
 
 .. _common-show-commands:
 
@@ -874,6 +881,22 @@ The module expects its argument to be either ``Netlink`` or ``protobuf``,
 specifying the encapsulation to use. ``Netlink`` is the default, and
 ``protobuf`` may not be available if the module was built without protobuf
 support. Refer to :ref:`zebra-fib-push-interface` for more information.
+
+
+tcmalloc CLI Options
+====================
+
+If tcmalloc support is enabled (see the build instructions),
+additional CLI commands are available.
+
+.. clicmd:: show tcmalloc stats
+
+   Display memory utilization and stats from the tcmalloc library.
+
+.. clicmd:: memory release rate (0-100)
+
+   Configure the rate at which each FRR daemon will release free
+   memory back to the host OS, in MB/sec.
 
 
 .. _virtual-terminal-interfaces:

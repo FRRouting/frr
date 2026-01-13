@@ -180,13 +180,13 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	return lsa;
 }
 
-void ospf6_orig_as_external_lsa(struct event *thread)
+void ospf6_orig_as_external_lsa(struct event *event)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_lsa *lsa;
 	uint32_t type, adv_router;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 
 	if (oi->state == OSPF6_INTERFACE_DOWN)
 		return;
@@ -1062,13 +1062,13 @@ static void ospf6_asbr_routemap_unset(struct ospf6_redist *red)
 	ROUTEMAP(red) = NULL;
 }
 
-static void ospf6_asbr_routemap_update_timer(struct event *thread)
+static void ospf6_asbr_routemap_update_timer(struct event *event)
 {
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(event);
 	struct ospf6_redist *red;
 	int type;
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 		red = ospf6_redist_lookup(ospf6, type, 0);
 
 		if (!red)
@@ -1122,7 +1122,7 @@ void ospf6_asbr_routemap_update(const char *mapname)
 		return;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			red = ospf6_redist_lookup(ospf6, type, 0);
 			if (!red || (ROUTEMAP_NAME(red) == NULL))
 				continue;
@@ -1176,7 +1176,7 @@ static void ospf6_asbr_routemap_event(const char *name)
 	if (om6 == NULL)
 		return;
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			red = ospf6_redist_lookup(ospf6, type, 0);
 			if (red && ROUTEMAP_NAME(red)
 			    && (strcmp(ROUTEMAP_NAME(red), name) == 0))
@@ -1516,8 +1516,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		if (nexthop_num && nexthop) {
 			ospf6_route_add_nexthop(match, ifindex, nexthop);
-			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
-							&info->forwarding);
+			/* Only set the forwarding address if not explicitly configured */
+			if (IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
+				ospf6_external_lsa_fwd_addr_set(ospf6, nexthop, &info->forwarding);
 		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
@@ -1564,8 +1565,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	info->type = type;
 	if (nexthop_num && nexthop) {
 		ospf6_route_add_nexthop(route, ifindex, nexthop);
-		ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
-						&info->forwarding);
+		/* Only set the forwarding address if not explicitly configured */
+		if (IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
+			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop, &info->forwarding);
 	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
 
@@ -1707,7 +1709,7 @@ DEFPY (ospf6_redistribute,
        "Route map reference\n"
        "Route map name\n")
 {
-	int type;
+	uint8_t type;
 	struct ospf6_redist *red;
 	int idx_protocol = 1;
 	char *proto = argv[idx_protocol]->text;
@@ -1715,7 +1717,7 @@ DEFPY (ospf6_redistribute,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	type = proto_redistnum(AFI_IP6, proto);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!metric_str)
@@ -1762,7 +1764,7 @@ DEFUN (no_ospf6_redistribute,
        "Route map reference\n"
        "Route map name\n")
 {
-	int type;
+	uint8_t type;
 	struct ospf6_redist *red;
 	int idx_protocol = 2;
 	char *proto = argv[idx_protocol]->text;
@@ -1770,7 +1772,7 @@ DEFUN (no_ospf6_redistribute,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	type = proto_redistnum(AFI_IP6, proto);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
@@ -1788,7 +1790,7 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 	int type;
 	struct ospf6_redist *red;
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 		red = ospf6_redist_lookup(ospf6, type, 0);
 		if (!red)
 			continue;
@@ -1813,7 +1815,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 					   json_object *json, bool use_json)
 {
 	int type;
-	int nroute[ZEBRA_ROUTE_MAX];
+	int nroute[ZEBRA_ROUTE_MAX + 1];
 	int total;
 	struct ospf6_route *route;
 	struct ospf6_external_info *info;
@@ -1832,7 +1834,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 	if (!use_json)
 		vty_out(vty, "Redistributing External Routes from:\n");
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 
 		red = ospf6_redist_lookup(ospf6, type, 0);
 
@@ -3423,9 +3425,9 @@ ospf6_handle_external_aggr_add(struct ospf6 *ospf6)
 	}
 }
 
-static void ospf6_asbr_summary_process(struct event *thread)
+static void ospf6_asbr_summary_process(struct event *event)
 {
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(event);
 	int operation = 0;
 
 	operation = ospf6->aggr_action;
@@ -3461,6 +3463,7 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug("%s: Not required to restart timer,set is already added.",
 					__func__);
+			ospf6->aggr_action = operation;
 			return;
 		}
 

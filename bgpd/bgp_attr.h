@@ -9,6 +9,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_attr_srv6.h"
 #include "srte.h"
 
 /* Simple bit mapping. */
@@ -118,24 +119,6 @@ struct bgp_attr_srv6_vpn {
 	struct in6_addr sid;
 };
 
-/*
- * Prefix-SID type-5
- * SRv6-L3VPN-Service-TLV
- * draft-dawra-idr-srv6-vpn-05
- */
-struct bgp_attr_srv6_l3vpn {
-	unsigned long refcnt;
-	uint8_t sid_flags;
-	uint16_t endpoint_behavior;
-	struct in6_addr sid;
-	uint8_t loc_block_len;
-	uint8_t loc_node_len;
-	uint8_t func_len;
-	uint8_t arg_len;
-	uint8_t transposition_len;
-	uint8_t transposition_offset;
-};
-
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -199,6 +182,17 @@ struct attr {
 
 	/* Distance as applied by Route map */
 	uint8_t distance;
+
+	/* Cache to avoid repeated interning within a single UPDATE section */
+	struct {
+		bool valid;
+
+		/* interned attr(reference) to reuse during prefix parsing */
+		struct attr *interned;
+
+		/* parsed attr pointer for equality check */
+		struct attr *parsed_attr;
+	} attr_intern_reuse;
 
 	/* EVPN DF preference for DF election on local ESs */
 	uint8_t df_alg;
@@ -269,8 +263,8 @@ struct attr {
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
-	/* SRv6 L3VPN SID */
-	struct bgp_attr_srv6_l3vpn *srv6_l3vpn;
+	/* SRv6 L3 service SID */
+	struct bgp_attr_srv6_l3service *srv6_l3service;
 
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
@@ -334,6 +328,7 @@ struct attr {
 #define BATTR_RMAP_L3VPN_ACCEPT_GRE (1 << 8)
 #define BATTR_RMAP_VPNV4_NHOP_CHANGED (1 << 9)
 #define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
+#define BATTR_RMAP_L3VPN_ACCEPT_GRETAP	      (1 << 11)
 
 /* Router Reflector related structure. */
 struct cluster_list {
@@ -354,6 +349,10 @@ struct transit {
 #define ATTR_FLAG_BIT(X)                                                       \
 	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
+#define bgp_attr_exists(attr, id) CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+#define bgp_attr_set(attr, id) SET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+#define bgp_attr_unset(attr, id) UNSET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))        \
 		 ? bgp_attr_get_cluster((attr))->length                        \
@@ -363,11 +362,16 @@ enum bgp_attr_parse_ret {
 	BGP_ATTR_PARSE_PROCEED = 0,
 	BGP_ATTR_PARSE_ERROR = -1,
 	BGP_ATTR_PARSE_WITHDRAW = -2,
+	/* Treat as withdraw, but do not complain in the logs.
+	 * This is used in bgp_attr_ignore() when we want to
+	 * withdraw the paths having the specified attribute.
+	 */
+	BGP_ATTR_PARSE_WITHDRAW_IGNORE = -3,
 
 	/* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR
 	 */
-	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
-	BGP_ATTR_PARSE_MISSING_MANDATORY = -4,
+	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -4,
+	BGP_ATTR_PARSE_MISSING_MANDATORY = -5,
 };
 
 struct bpacket_attr_vec_arr;
@@ -379,9 +383,13 @@ extern enum bgp_attr_parse_ret
 bgp_attr_parse(struct peer *peer, struct attr *attr, bgp_size_t size,
 	       struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw);
 extern struct attr *bgp_attr_intern(struct attr *attr);
+extern struct bgp_attr_srv6_l3service *
+bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);
+extern void bgp_attr_srv6_l3service_free(struct bgp_attr_srv6_l3service *vpn);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
+extern void bgp_attr_unintern_clear_reuse(struct attr *parsed_attr, struct attr **p);
 extern struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 					 uint8_t origin);
 extern struct attr *bgp_attr_aggregate_intern(
@@ -389,12 +397,12 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s,
-				       struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
-				       struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
-				       struct prefix_rd *prd, mpls_label_t *label,
-				       uint8_t num_labels, bool addpath_capable,
-				       uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern bgp_size_t
+bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
+		     struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi, safi_t safi,
+		     struct peer *from, struct prefix_rd *prd, mpls_label_t *label,
+		     uint8_t num_labels, struct bgp_attr_srv6_l3service *srv6_unicast,
+		     bool addpath_capable, uint32_t addpath_tx_id, struct bgp_path_info *bpi);
 extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
@@ -415,7 +423,7 @@ extern bool cluster_loop_check(struct cluster_list *cluster,
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
-	struct peer *peer;
+	struct peer_connection *connection;
 	bgp_size_t length; /* attribute data length; */
 	bgp_size_t total;  /* total length, inc header */
 	struct attr *attr;
@@ -449,11 +457,9 @@ extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
 				      struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
-				     const struct prefix *p,
-				     const struct prefix_rd *prd,
-				     mpls_label_t *label, uint8_t num_labels,
-				     bool addpath_capable,
-				     uint32_t addpath_tx_id, struct attr *);
+				     const struct prefix *p, const struct prefix_rd *prd,
+				     mpls_label_t *label, uint8_t num_labels, bool addpath_capable,
+				     uint32_t addpath_tx_id, struct attr *attr);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 					    const struct prefix *p);
 extern void bgp_packet_mpattr_end(struct stream *s, size_t sizep);
@@ -683,5 +689,16 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
 extern void evpn_overlay_free(struct bgp_route_evpn *bre);
+extern struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre);
+
+extern int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
+					      mpls_label_t *labels, uint8_t num_labels,
+					      bool addpath_capable, uint32_t addpath_tx_id);
+
+static inline int bgp_attr_stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
+						     bool addpath_capable, uint32_t addpath_tx_id)
+{
+	return bgp_attr_stream_put_labeled_prefix(s, p, NULL, 0, addpath_capable, addpath_tx_id);
+}
 
 #endif /* _QUAGGA_BGP_ATTR_H */

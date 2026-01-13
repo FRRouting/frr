@@ -469,8 +469,9 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	return ospf6;
 }
 
-void ospf6_delete(struct ospf6 *o)
+void ospf6_delete(struct ospf6 **po)
 {
+	struct ospf6 *o;
 	struct listnode *node, *nnode;
 	struct route_node *rn = NULL;
 	struct ospf6_area *oa;
@@ -478,6 +479,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct ospf6_external_aggr_rt *aggr;
 	uint32_t i;
 
+	o = *po;
 	QOBJ_UNREG(o);
 
 	ospf6_gr_helper_deinit(o);
@@ -532,6 +534,8 @@ void ospf6_delete(struct ospf6 *o)
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
+
+	*po = NULL;
 }
 
 static void ospf6_disable(struct ospf6 *o)
@@ -579,9 +583,9 @@ void ospf6_master_delete(void)
 	list_delete(&om6->ospf6);
 }
 
-static void ospf6_maxage_remover(struct event *thread)
+static void ospf6_maxage_remover(struct event *event)
 {
-	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
+	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(event);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;
@@ -702,8 +706,7 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 		if (ospf6->gr_info.restart_support)
 			ospf6_gr_nvm_delete(ospf6);
 
-		ospf6_delete(ospf6);
-		ospf6 = NULL;
+		ospf6_delete(&ospf6);
 	}
 
 	/* return to config node . */

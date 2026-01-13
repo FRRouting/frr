@@ -64,6 +64,8 @@ extern void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
 		   va_list ap) PRINTFRR(3, 0);
 #define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
+extern void ezlog(int prio, const char *fmt, ...) PRINTFRR(2, 3);
+
 PRINTFRR(2, 3)
 static inline void zlog(int prio, const char *fmt, ...)
 {
@@ -282,6 +284,9 @@ extern void zlog_set_immediate(bool set_p);
 bool zlog_get_immediate_mode(void);
 
 extern const char *zlog_priority_str(int priority);
+
+/* Remove temp dirs at shutdown */
+void zlog_tmpdir_fini(void);
 
 #ifdef __cplusplus
 }

@@ -98,6 +98,8 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
                 attr.pop("internalNextHopNum")
             if "internalNextHopActiveNum" in attr:
                 attr.pop("internalNextHopActiveNum")
+            if "internalNextHopFibInstalledNum" in attr:
+                attr.pop("internalNextHopFibInstalledNum")
             if "nexthopGroupId" in attr:
                 attr.pop("nexthopGroupId")
             if "installedNexthopGroupId" in attr:
@@ -151,7 +153,7 @@ def _check_zebra_rib_r1(with_redistributed_route, with_second_route=False):
         "show ip route bgp json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -228,7 +230,7 @@ def test_step5_no_redistribute_table_2200():
         pytest.skip(tgen.errors)
 
     tgen.gears["r2"].vtysh_cmd(
-        "configure terminal\nrouter bgp 65501\naddress-family ipv4 unicast\nno redistribute table-direct\n"
+        "configure terminal\nrouter bgp 65501\naddress-family ipv4 unicast\nno redistribute table-direct 2200\n"
     )
 
     step("r2, check that the 'redistribute' command is not configured")

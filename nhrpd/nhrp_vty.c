@@ -570,7 +570,7 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
-	union sockunion proto_addr, nbma_addr;
+	union sockunion proto_addr, nbma_addr = { 0 };
 	struct nhrp_cache_config *cc;
 	struct nhrp_cache *c;
 	enum nhrp_cache_type type;

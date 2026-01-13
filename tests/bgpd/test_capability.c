@@ -813,14 +813,14 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	int len = t->len;
 #define RANDOM_FUZZ 35
 
-	stream_reset(peer->curr);
-	stream_put(peer->curr, NULL, RANDOM_FUZZ);
-	stream_set_getp(peer->curr, RANDOM_FUZZ);
+	stream_reset(peer->connection->curr);
+	stream_put(peer->connection->curr, NULL, RANDOM_FUZZ);
+	stream_set_getp(peer->connection->curr, RANDOM_FUZZ);
 
 	switch (type) {
 	case CAPABILITY:
-		stream_putc(peer->curr, BGP_OPEN_OPT_CAP);
-		stream_putc(peer->curr, t->len);
+		stream_putc(peer->connection->curr, BGP_OPEN_OPT_CAP);
+		stream_putc(peer->connection->curr, t->len);
 		break;
 	case DYNCAP:
 		/*        for (i = 0; i < BGP_MARKER_SIZE; i++)
@@ -829,7 +829,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 			stream_putc (s, BGP_MSG_CAPABILITY);*/
 		break;
 	}
-	stream_write(peer->curr, t->data, t->len);
+	stream_write(peer->connection->curr, t->data, t->len);
 
 	printf("%s: %s\n", t->name, t->desc);
 
@@ -840,12 +840,12 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	case OPT_PARAM:
 		printf("len: %u\n", len);
 		/* peek_for_as4 wants getp at capibility*/
-		as4 = peek_for_as4_capability(peer, len);
+		as4 = peek_for_as4_capability(peer->connection, len);
 		printf("peek_for_as4: as4 is %u\n", as4);
 		/* and it should leave getp as it found it */
-		assert(stream_get_getp(peer->curr) == RANDOM_FUZZ);
+		assert(stream_get_getp(peer->connection->curr) == RANDOM_FUZZ);
 
-		ret = bgp_open_option_parse(peer, len, &capability);
+		ret = bgp_open_option_parse(peer, peer->connection, len, &capability);
 		break;
 	case DYNCAP:
 		ret = bgp_capability_receive(peer->connection, peer, t->len);
@@ -942,7 +942,7 @@ int main(void)
 		    ASNOTATION_PLAIN) < 0)
 		return -1;
 
-	peer = peer_create_accept(bgp);
+	peer = peer_create_accept(bgp, NULL);
 	peer->host = (char *)"foo";
 
 	for (i = AFI_IP; i < AFI_MAX; i++)
@@ -951,7 +951,7 @@ int main(void)
 			peer->afc_adv[i][j] = 1;
 		}
 
-	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (mp_segments[i].name)
@@ -973,8 +973,9 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection = bgp_peer_connection_new(peer, NULL, UNKNOWN);
 	peer->connection->status = Established;
+	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)

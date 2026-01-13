@@ -26,6 +26,7 @@ Configuration Commands
    Set router's Router-ID.
 
 .. clicmd:: log-adjacency-changes [detail]
+   :daemon: ospf6d
 
    Log changes in adjacency state. The optional `detail` parameter logs all state changes.
 
@@ -38,6 +39,7 @@ Configuration Commands
    Set minimum delay in receiving new version of a LSA in milliseconds.
 
 .. clicmd:: distance (1-255)
+   :daemon: ospf6d
 
    Set administrative distance for OSPFv3 routes.
 
@@ -50,6 +52,7 @@ Configuration Commands
    Make router a stub router administratively applied for an indefinite period.
 
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
+   :daemon: ospf6d
 
    This command sets the initial `delay`, the `initial-holdtime`
    and the `maximum-holdtime` between when SPF is calculated and the
@@ -97,11 +100,13 @@ Configuration Commands
    within the OSPF domain.
 
 .. clicmd:: maximum-paths (1-64)
+   :daemon: ospf6d
 
    Use this command to control the maximum number of parallel routes that
    OSPFv3 can support. The default is 64.
 
 .. clicmd:: write-multiplier (1-100)
+   :daemon: ospf6d
 
    Use this command to tune the amount of work done in the packet read and
    write threads before relinquishing control. The parameter is the number
@@ -177,6 +182,7 @@ ASBR Summarisation Support in OSPFv3
    falling under the configured range.
 
 .. clicmd:: aggregation timer (5-1800)
+   :daemon: ospf6d
 
    The summarisation command takes effect after the aggregation timer expires.
    By default the value of this timer is 5 seconds. User can modify the time
@@ -256,8 +262,10 @@ OSPF6 area
     being advertised, effectively filtering the summarized routes.
 
 .. clicmd:: area A.B.C.D export-list NAME
+   :daemon: ospf6d
 
 .. clicmd:: area (0-4294967295) export-list NAME
+   :daemon: ospf6d
 
    Filter Type-3 summary-LSAs announced to other areas originated from intra-
    area paths from specified area.
@@ -279,19 +287,25 @@ OSPF6 area
    area.
 
 .. clicmd:: area A.B.C.D import-list NAME
+   :daemon: ospf6d
 
 .. clicmd:: area (0-4294967295) import-list NAME
+   :daemon: ospf6d
 
    Same as export-list, but it applies to paths announced into specified area
    as Type-3 summary-LSAs.
 
 .. clicmd:: area A.B.C.D filter-list prefix NAME in
+   :daemon: ospf6d
 
 .. clicmd:: area A.B.C.D filter-list prefix NAME out
+   :daemon: ospf6d
 
 .. clicmd:: area (0-4294967295) filter-list prefix NAME in
+   :daemon: ospf6d
 
 .. clicmd:: area (0-4294967295) filter-list prefix NAME out
+   :daemon: ospf6d
 
    Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
    makes sense in ABR only.
@@ -493,6 +507,7 @@ OSPF6 route-map
 Usage of *ospfd6*'s route-map support.
 
 .. clicmd:: set metric [+|-](0-4294967295)
+   :daemon: ospf6d
 
    Set a metric for matched route when sending announcement. Use plus (+) sign
    to add a metric value to an existing metric. Use minus (-) sign to
@@ -519,7 +534,7 @@ Graceful Restart
 ================
 
 .. clicmd:: graceful-restart [grace-period (1-1800)]
-
+   :daemon: ospf6d
 
    Configure Graceful Restart (RFC 5187) restarting support.
    When enabled, the default grace period is 120 seconds.
@@ -532,7 +547,7 @@ Graceful Restart
    it restarts.
 
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
-
+   :daemon: ospf6d
 
    Configure Graceful Restart (RFC 5187) helper support.
    By default, helper support is disabled for all neighbors.
@@ -542,7 +557,7 @@ Graceful Restart
    neighbor, the router-id (A.B.C.D) has to be specified.
 
 .. clicmd:: graceful-restart helper strict-lsa-checking
-
+   :daemon: ospf6d
 
    If 'strict-lsa-checking' is configured then the helper will
    abort the Graceful Restart when a LSA change occurs which
@@ -550,12 +565,12 @@ Graceful Restart
    By default 'strict-lsa-checking' is enabled"
 
 .. clicmd:: graceful-restart helper supported-grace-time (10-1800)
-
+   :daemon: ospf6d
 
    Supports as HELPER for configured grace period.
 
 .. clicmd:: graceful-restart helper planned-only
-
+   :daemon: ospf6d
 
    It helps to support as HELPER only for planned
    restarts. By default, it supports both planned and
@@ -791,9 +806,8 @@ that is sent out of router, so sequence number is maintained per ospf6 process.
 Debug command:
 --------------
 Below command can be used to enable ospfv3 authentication trailer
-specific logs if you have to debug the feature.
-
-.. clicmd:: debug ospf6 authentication [<tx|rx>]
+specific logs if you have to debug the feature. See the ``debug ospf6 authentication``
+command in the debugging section.
 
 Feature supports authentication trailer tx/rx drop counters for debugging,
 which can be used to see if packets are getting dropped due to error in

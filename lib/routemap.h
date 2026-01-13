@@ -277,6 +277,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
+#define IS_MATCH_VPN_DATAPLANE(C) (strmatch(C, "frr-bgp-route-map:match-vpn-dataplane"))
 #define IS_MATCH_LOCAL_PREF(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-local-preference"))
 #define IS_MATCH_ALIAS(C) (strmatch(C, "frr-bgp-route-map:match-alias"))
@@ -294,6 +295,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_PEER(C) (strmatch(C, "frr-bgp-route-map:src-peer"))
 #define IS_MATCH_AS_LIST(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:as-path-list"))
+#define IS_MATCH_ASPATH_COUNT(C) (strmatch(C, "frr-bgp-route-map:match-as-path-count"))
 #define IS_MATCH_MAC_LIST(C)                                                   \
 	(strmatch(C, "frr-bgp-route-map:mac-address-list"))
 #define IS_MATCH_EVPN_ROUTE_TYPE(C)                                            \

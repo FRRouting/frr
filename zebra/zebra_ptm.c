@@ -85,7 +85,7 @@ static ptm_lib_handle_t *ptm_hdl;
 struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
-void zebra_ptm_sock_read(struct event *thread);
+void zebra_ptm_sock_read(struct event *event);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
@@ -151,7 +151,7 @@ void zebra_ptm_finish(void)
 		close(ptm_cb.ptm_sock);
 }
 
-static void zebra_ptm_flush_messages(struct event *thread)
+static void zebra_ptm_flush_messages(struct event *event)
 {
 	ptm_cb.t_write = NULL;
 
@@ -588,13 +588,13 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 }
 
-void zebra_ptm_sock_read(struct event *thread)
+void zebra_ptm_sock_read(struct event *event)
 {
 	int sock;
 	int rc;
 
 	errno = 0;
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	if (sock == -1)
 		return;
@@ -1279,8 +1279,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	/* Find daemon pid by zebra connection pointer. */
 	pp = pp_lookup_byzs(zs);
 	if (pp == NULL) {
-		zlog_err("%s:%d failed to find process pid registration",
-			 __FILE__, __LINE__);
+		flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED,
+			 "%s:%d failed to find process pid registration", __FILE__, __LINE__);
 		return -1;
 	}
 
@@ -1372,7 +1372,8 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 stream_failure:
 	if (msgc)
 		stream_free(msgc);
-	zlog_err("%s:%d failed to registrate client pid", __FILE__, __LINE__);
+	flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED, "%s:%d failed to registrate client pid",
+		 __FILE__, __LINE__);
 }
 
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)

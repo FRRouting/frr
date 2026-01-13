@@ -313,7 +313,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
             if gr_data.setdefault("delete", False):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
-        elif "helper enable" in gr_data and type(gr_data["helper enable"]) is list:
+        elif "helper enable" in gr_data and isinstance(gr_data["helper enable"], list):
             for rtrs in gr_data["helper enable"]:
                 cmd = "graceful-restart helper enable {}".format(rtrs)
                 if gr_data.setdefault("delete", False):
@@ -321,7 +321,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 config_data.append(cmd)
 
         if "helper" in gr_data:
-            if type(gr_data["helper"]) is not list:
+            if not isinstance(gr_data["helper"], list):
                 gr_data["helper"] = list(gr_data["helper"])
             for helper_role in gr_data["helper"]:
                 cmd = "graceful-restart helper {}".format(helper_role)
@@ -1098,7 +1098,7 @@ def verify_ospf_rib(
                             found_routes.append(st_rt)
 
                             if fib and next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 for mnh in range(0, len(ospf_rib_json[st_rt])):
@@ -1146,7 +1146,7 @@ def verify_ospf_rib(
                                         nh_found = True
 
                             elif next_hop and fib is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                 found_hops = [
                                     rib_r["ip"]
@@ -1777,7 +1777,7 @@ def verify_ospf6_rib(
                                 route_data = route_data[0]
 
                             if fib and next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 # Handle the case where ospf_rib_json[st_rt] is now an array
@@ -1827,7 +1827,7 @@ def verify_ospf6_rib(
                                         nh_found = True
 
                             elif next_hop and fib is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 # Handle the case where ospf_rib_json[st_rt] is now an array

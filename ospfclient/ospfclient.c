@@ -138,7 +138,7 @@ static void lsa_inject(struct event *t)
 
 /* This thread handles asynchronous messages coming in from the OSPF
    API server */
-static void lsa_read(struct event *thread)
+static void lsa_read(struct event *event)
 {
 	struct ospf_apiclient *oclient;
 	int fd;
@@ -146,8 +146,8 @@ static void lsa_read(struct event *thread)
 
 	printf("lsa_read called\n");
 
-	oclient = EVENT_ARG(thread);
-	fd = EVENT_FD(thread);
+	oclient = EVENT_ARG(event);
+	fd = EVENT_FD(event);
 
 	/* Handle asynchronous message */
 	ret = ospf_apiclient_handle_async(oclient);
@@ -156,7 +156,7 @@ static void lsa_read(struct event *thread)
 		exit(0);
 	}
 
-	/* Reschedule read thread */
+	/* Reschedule read event */
 	event_add_read(master, lsa_read, oclient, fd, NULL);
 }
 

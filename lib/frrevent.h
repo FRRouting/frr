@@ -6,10 +6,19 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#if defined(USE_EPOLL) && defined(HAVE_EPOLL_PWAIT)
+#define EPOLL_ENABLED 1
+#else
+#define EPOLL_ENABLED 0
+#endif
+
 #include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
+#if EPOLL_ENABLED
+#include <sys/epoll.h>
+#endif
 #include "monotime.h"
 #include "frratomic.h"
 #include "typesafe.h"
@@ -39,23 +48,6 @@ struct rusage_t {
 PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
 
-struct fd_handler {
-	/* number of pfd that fit in the allocated space of pfds. This is a
-	 * constant and is the same for both pfds and copy.
-	 */
-	nfds_t pfdsize;
-
-	/* file descriptors to monitor for i/o */
-	struct pollfd *pfds;
-	/* number of pollfds stored in pfds */
-	nfds_t pfdcount;
-
-	/* chunk used for temp copy of pollfds */
-	struct pollfd *copy;
-	/* number of pollfds stored in copy */
-	nfds_t copycount;
-};
-
 struct xref_eventsched {
 	struct xref xref;
 
@@ -65,34 +57,6 @@ struct xref_eventsched {
 };
 
 PREDECL_HASH(cpu_records);
-
-/* Master of the theads. */
-struct event_loop {
-	char *name;
-
-	struct event **read;
-	struct event **write;
-	struct event_timer_list_head timer;
-	struct event_list_head event, ready, unuse;
-	struct list *cancel_req;
-	bool canceled;
-	pthread_cond_t cancel_cond;
-	struct cpu_records_head cpu_records[1];
-	int io_pipe[2];
-	int fd_limit;
-	struct fd_handler handler;
-	long selectpoll_timeout;
-	bool spin;
-	bool handle_signals;
-	pthread_mutex_t mtx;
-	pthread_t owner;
-
-	nfds_t last_read;
-
-	bool ready_run_loop;
-	RUSAGE_T last_getrusage;
-	struct timeval last_tardy_warning;
-};
 
 /* Event types. */
 enum event_types {
@@ -107,8 +71,8 @@ enum event_types {
 
 /* Event itself. */
 struct event {
-	enum event_types type;	   /* event type */
-	enum event_types add_type; /* event type */
+	enum event_types type;	   /* event type as it moves through the event system*/
+	enum event_types add_type; /* event type as it was created */
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
@@ -288,9 +252,9 @@ extern pthread_key_t thread_current;
 extern char *event_timer_to_hhmmss(char *buf, int buf_size,
 				   struct event *t_timer);
 
-static inline bool event_is_scheduled(struct event *thread)
+static inline bool event_is_scheduled(struct event *event)
 {
-	if (thread)
+	if (event)
 		return true;
 
 	return false;
@@ -311,6 +275,13 @@ static inline void event_ignore_late_timer(struct event *event)
 {
 	event->tardy_threshold = 0;
 }
+
+/* Accessors for event loop pthread */
+pthread_t frr_event_loop_get_pthread_owner(struct event_loop *loop);
+void frr_event_loop_set_pthread_owner(struct event_loop *loop, pthread_t pth);
+
+/* Control whether 'loop' is the signal-handler for a process */
+void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p);
 
 #ifdef __cplusplus
 }

@@ -80,7 +80,15 @@ NETWORK2 = {
         "12.0.20.5/32",
     ]
 }
-SUMMARY = {"ipv4": ["11.0.0.0/8", "12.0.0.0/8", "11.0.0.0/24"]}
+
+NETWORK3 = {
+    "ipv4": [
+        "13.0.0.0/16",
+    ]
+}
+
+SUMMARY = {"ipv4": ["11.0.0.0/8", "12.0.0.0/8", "11.0.0.0/24", "13.0.0.0/8"]}
+
 """
 TOPOOLOGY =
       Please view in a fixed-width font such as Courier.
@@ -676,6 +684,7 @@ def test_ospf_type5_summary_tc42_p0(request):
             "static_routes": [
                 {"network": NETWORK["ipv4"], "next_hop": "blackhole"},
                 {"network": NETWORK2["ipv4"], "next_hop": "blackhole"},
+                {"network": NETWORK3["ipv4"], "next_hop": "blackhole"},
             ]
         }
     }
@@ -704,7 +713,8 @@ def test_ospf_type5_summary_tc42_p0(request):
         "r0": {
             "ospf": {
                 "summary-address": [
-                    {"prefix": SUMMARY["ipv4"][0].split("/")[0], "mask": "8"}
+                    {"prefix": SUMMARY["ipv4"][0].split("/")[0], "mask": "8"},
+                    {"prefix": SUMMARY["ipv4"][3].split("/")[0], "mask": "8"},
                 ],
                 "aggr_timer": 6,
             }
@@ -764,6 +774,31 @@ def test_ospf_type5_summary_tc42_p0(request):
         "Error: Routes still present in RIB".format(tc_name)
     )
 
+    input_dict_summary3 = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][3]}]}}
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict_summary3)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv4", dut, input_dict_summary3, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed. Error: Routes is missing in RIB".format(tc_name)
+
+    input_dict3 = {"r0": {"static_routes": [{"network": NETWORK3["ipv4"]}]}}
+    result = verify_ospf_rib(tgen, dut, input_dict3, expected=False)
+    assert result is not True, (
+        "Testcase {} : Failed\n Expected: Routes should not be present in OSPF RIB. \n Error: "
+        "Routes still present in OSPF RIB {}".format(tc_name, result)
+    )
+
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict3, protocol=protocol, expected=False
+    )
+    assert result is not True, (
+        "Testcase {} : Failed \n Expected: Routes should not be present in RIB"
+        "Error: Routes still present in RIB".format(tc_name)
+    )
+
     step("Delete the configured summary")
     ospf_summ_r1 = {
         "r0": {
@@ -774,7 +809,13 @@ def test_ospf_type5_summary_tc42_p0(request):
                         "mask": "8",
                         "del_aggr_timer": True,
                         "delete": True,
-                    }
+                    },
+                    {
+                        "prefix": SUMMARY["ipv4"][3].split("/")[0],
+                        "mask": "8",
+                        "del_aggr_timer": True,
+                        "delete": True,
+                    },
                 ]
             }
         }

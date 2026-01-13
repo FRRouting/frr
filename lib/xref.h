@@ -138,7 +138,10 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * of variables here.  kinda breaks things if there's redzones between each
  * array item.
  */
+#ifdef __clang__
+/* GCC doesn't allow no_sanitize on variables, and warns about it :( */
 #define xref_array_attr used, section("xref_array"), no_sanitize("address")
+#endif
 #endif
 #endif
 #ifndef xref_array_attr

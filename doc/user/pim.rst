@@ -97,6 +97,7 @@ PIM Routers
    0 will disable expiration of the candidate RP information, defaults to 3 * interval.
 
 .. clicmd:: rp keep-alive-timer (1-65535)
+   :daemon: pim
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
@@ -151,6 +152,7 @@ PIM Routers
    register packet a register stop message is sent to the source.
 
 .. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
+   :daemon: pim
 
    On the last hop router if it is desired to not switch over to the SPT tree
    configure this command. Optional parameter prefix-list can be use to control
@@ -176,6 +178,7 @@ PIM Routers
    the router pim block.
 
 .. clicmd:: join-prune-interval (1-65535)
+   :daemon: pim
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -184,6 +187,7 @@ PIM Routers
    convergence at scale.
 
 .. clicmd:: keep-alive-timer (1-65535)
+   :daemon: pim
 
    Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
@@ -191,6 +195,7 @@ PIM Routers
    configure for a vrf, specify the vrf in the router pim block.
 
 .. clicmd:: packets (1-255)
+   :daemon: pim
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
@@ -199,6 +204,7 @@ PIM Routers
    configure for a vrf, specify the vrf in the router pim block.
 
 .. clicmd:: register-suppress-time (1-65535)
+   :daemon: pim
 
    Modify the time that pim will register suppress a FHR will send register
    notifications to the kernel. This command is vrf aware, to configure for a
@@ -212,6 +218,7 @@ PIM Routers
    a vrf, specify the vrf in the router pim block.
 
 .. clicmd:: ssm prefix-list WORD
+   :daemon: pim
 
    Specify a range of group addresses via a prefix-list that forces pim to
    never do SM over. This command is vrf aware, to configure for a vrf, specify

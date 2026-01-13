@@ -39,7 +39,6 @@ static void rip_enable_apply(struct interface *);
 static void rip_passive_interface_apply(struct interface *);
 static int rip_if_down(struct interface *ifp);
 static int rip_enable_if_lookup(struct rip *rip, const char *ifname);
-static int rip_enable_network_lookup2(struct connected *connected);
 static void rip_enable_apply_all(struct rip *rip);
 
 const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
@@ -438,8 +437,7 @@ int rip_if_down(struct interface *ifp)
 	struct route_node *rp;
 	struct rip_info *rinfo;
 	struct rip_interface *ri = NULL;
-	struct list *list = NULL;
-	struct listnode *listnode = NULL, *nextnode = NULL;
+	struct rip_info_list_head *list = NULL;
 
 	ri = ifp->info;
 
@@ -449,8 +447,7 @@ int rip_if_down(struct interface *ifp)
 	if (rip) {
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL)
-				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
-						       rinfo))
+				frr_each_safe (rip_info_list, list, rinfo)
 					if (rinfo->nh.ifindex == ifp->ifindex)
 						rip_ecmp_delete(rip, rinfo);
 
@@ -619,7 +616,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 }
 
 /* Check whether connected is within the ripng_enable_network table. */
-static int rip_enable_network_lookup2(struct connected *connected)
+int rip_enable_network_lookup2(struct connected *connected)
 {
 	struct rip_interface *ri = connected->ifp->info;
 	struct rip *rip = ri->rip;

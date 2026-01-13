@@ -9,7 +9,6 @@
 #define __NEXTHOP_GROUP__
 
 #include <vty.h>
-#include "json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,12 +144,17 @@ extern void nexthop_group_write_nexthop_simple(struct vty *vty,
 extern void nexthop_group_write_nexthop(struct vty *vty,
 					const struct nexthop *nh);
 
-extern void nexthop_group_json_nexthop(json_object *j,
+struct json_object;
+extern void nexthop_group_json_nexthop(struct json_object *j,
 				       const struct nexthop *nh);
 
 /* Return the number of nexthops in this nhg */
 extern uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+extern uint16_t nexthop_group_fib_nexthop_num(const struct nexthop_group *nhg);
+
+/* Return TRUE if the NHG is Singleton (has only one nexthop) */
+#define NHG_IS_SINGLETON(nhg) ((nhg)->nexthop && !(nhg)->nexthop->next)
 
 extern bool nexthop_group_has_label(const struct nexthop_group *nhg);
 extern uint16_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg);

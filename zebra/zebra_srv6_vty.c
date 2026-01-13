@@ -464,7 +464,7 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 				json_object_string_add(json_sid_ctx, "vrfName", vrf->name);
 
 			zvrf = vrf_info_lookup(sid_ctx->ctx.vrf_id);
-			if (vrf)
+			if (zvrf)
 				json_object_int_add(json_sid_ctx, "table", zvrf->table_id);
 		}
 		if (sid_ctx->ctx.ifindex) {
@@ -771,6 +771,11 @@ DEFUN (no_srv6,
 
 		zebra_srv6_locator_delete(locator);
 	}
+
+	/* Unset SRv6 encapsulation source address */
+	zebra_srv6_encap_src_addr_unset();
+	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+
 	return CMD_SUCCESS;
 }
 
@@ -938,21 +943,9 @@ DEFPY (locator_prefix,
 
 	if (prefix->prefixlen + func_bit_len + 0 > 128) {
 		vty_out(vty,
-			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+			"%% prefix-len + function-len + arg-len (%" PRId64
+			") cannot be greater than 128\n",
 			prefix->prefixlen + func_bit_len + 0);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/*
-	 * Currently, the SID transposition algorithm implemented in bgpd
-	 * handles incorrectly the SRv6 locators with function length greater
-	 * than 20 bits. To prevent issues, we currently limit the function
-	 * length to 20 bits.
-	 * This limit will be removed when the bgpd SID transposition is fixed.
-	 */
-	if (func_bit_len > 20) {
-		vty_out(vty,
-			"%% currently func_bit_len > 20 is not supported\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1597,6 +1590,7 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  encapsulation\n");
 			vty_out(vty, "   source-address %pI6\n",
 				&srv6->encap_src_addr);
+			vty_out(vty, "  exit\n");
 		}
 	}
 	if (srv6 && zebra_srv6_is_enable()) {

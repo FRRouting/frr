@@ -12,6 +12,9 @@ for rtr in rtrs:
     found = luLast()
     if ret != False and found != None:
         val = found.group(1)
+        # Skip Connection Collision Resolution notifications as they are normal
+        if "Cease/Connection Collision Resolution" in val:
+            continue
         ret = luCommand(
             rtr,
             'vtysh -c "show bgp neigh"',

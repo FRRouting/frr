@@ -20,6 +20,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_evpn_mh.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -265,7 +266,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 	},
 	{
 		.cmd = "capability software-version",
-		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
+		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
@@ -420,6 +421,18 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED
 			| PEER_FLAG_NEXTHOP_UNCHANGED
 			| PEER_FLAG_MED_UNCHANGED,
+	},
+	{
+		.cmd = "encapsulation-mpls",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_CONFIG_ENCAPSULATION_MPLS,
+	},
+	{
+		.cmd = "encapsulation-srv6",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6,
 	},
 	{
 		.cmd = "capability orf prefix-list send",
@@ -1378,6 +1391,8 @@ static void bgp_shutdown(void)
 	bgp_route_map_terminate();
 	bgp_attr_finish();
 	bgp_labels_finish();
+	bgp_lp_finish();
+	bgp_evpn_mh_finish();
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);
@@ -1397,6 +1412,7 @@ static void bgp_shutdown(void)
 
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
+	list_delete(&bm->addresses);
 	memset(bm, 0, sizeof(*bm));
 
 	vty_terminate();

@@ -150,6 +150,7 @@ static struct zebra_vrf *rtadv_interface_get_zvrf(const struct interface *ifp)
 	if (!vrf_is_backend_netns())
 		return vrf_info_lookup(VRF_DEFAULT);
 
+	assert(ifp->vrf->info);
 	return ifp->vrf->info;
 }
 
@@ -548,9 +549,9 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static void start_icmpv6_join_timer(struct event *thread)
+static void start_icmpv6_join_timer(struct event *event)
 {
-	struct interface *ifp = EVENT_ARG(thread);
+	struct interface *ifp = EVENT_ARG(event);
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
 
@@ -602,9 +603,9 @@ void process_rtadv(void *arg)
 	}
 }
 
-static void rtadv_timer(struct event *thread)
+static void rtadv_timer(struct event *event)
 {
-	struct zebra_vrf *zvrf = EVENT_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(event);
 	struct vrf *vrf;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -669,6 +670,12 @@ static void rtadv_timer(struct event *thread)
 		}
 }
 
+static void rtsolicit_increment_received(struct zebra_if *zif)
+{
+	if (zif)
+		zif->rs_rcvd++;
+}
+
 static void rtadv_process_solicit(struct interface *ifp)
 {
 	struct zebra_vrf *zvrf;
@@ -678,6 +685,7 @@ static void rtadv_process_solicit(struct interface *ifp)
 	assert(zvrf);
 	zif = ifp->info;
 
+	rtsolicit_increment_received(zif);
 	/*
 	 * If FastRetransmit is enabled, send the RA immediately.
 	 * If not enabled but it has been more than MIN_DELAY_BETWEEN_RAS
@@ -944,7 +952,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static void rtadv_read(struct event *thread)
+static void rtadv_read(struct event *event)
 {
 	int sock;
 	int len;
@@ -952,9 +960,9 @@ static void rtadv_read(struct event *thread)
 	struct sockaddr_in6 from;
 	ifindex_t ifindex = 0;
 	int hoplimit = -1;
-	struct zebra_vrf *zvrf = EVENT_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(event);
 
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 	zvrf->rtadv.ra_read = NULL;
 
 	/* Register myself. */
@@ -1292,7 +1300,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
 		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
@@ -1303,7 +1311,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else {
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH) {
 			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 			rtadv_prefix_set_defaults(rprefix);
 		}
@@ -1332,10 +1340,17 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 				rtadv_prefix_set_defaults(rprefix);
 				return;
-			}
+			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
+				return;
 		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
+				return;
+			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
+				/*
+				 * The address might not be added, so jump
+				 * out here.
+				 */
 				return;
 			}
 		}
@@ -1863,6 +1878,7 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 			rtadv->AdvRetransTimer);
 		vty_out(vty, "  ND advertised hop-count limit is %d hops\n",
 			rtadv->AdvCurHopLimit);
+		vty_out(vty, "  ND router solicit rcvd: %d\n", zif->rs_rcvd);
 		vty_out(vty, "  ND router advertisements sent: %d rcvd: %d\n",
 			zif->ra_sent, zif->ra_rcvd);
 		interval = rtadv->MaxRtrAdvInterval;
@@ -1918,6 +1934,7 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 		json_object_int_add(json_if, "ndAdvertisedRetransmitIntervalMsecs",
 				    rtadv->AdvRetransTimer);
 		json_object_int_add(json_if, "ndAdvertisedHopCountLimitHops", rtadv->AdvCurHopLimit);
+		json_object_int_add(json_if, "ndRouterSolicitsRcvd", zif->rs_rcvd);
 		json_object_int_add(json_if, "ndRouterAdvertisementsSent", zif->ra_sent);
 		json_object_int_add(json_if, "ndRouterAdvertisementsRcvd", zif->ra_rcvd);
 
@@ -2171,7 +2188,12 @@ static bool is_interface_in_group(const char *ifname_in, const char *mcast_addr_
 
 	/* Convert binary to hex format */
 	while (fgets(line, sizeof(line), fp)) {
-		sscanf(line, "%d %s %s", &if_index, ifname_found, mcast_addr_found_hex_str);
+		if (sscanf(line, "%d %s %s", &if_index, ifname_found, mcast_addr_found_hex_str) !=
+		    3) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL, "sscanf failed to properly scan: %s",
+				     line);
+			continue;
+		}
 
 		ifname_in_len = strlen(ifname_in);
 		ifname_found_len = strlen(ifname_found);

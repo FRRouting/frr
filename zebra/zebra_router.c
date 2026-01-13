@@ -7,6 +7,7 @@
 
 #include <pthread.h>
 #include "lib/frratomic.h"
+#include "lib/hook.h"
 
 #include "zebra_router.h"
 #include "zebra_pbr.h"
@@ -23,8 +24,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
-	.multipath_num = MULTIPATH_NUM,
+	.zav.multipath_num = MULTIPATH_NUM,
 };
+
+DEFINE_HOOK(nos_initialize_data, (struct zebra_architectural_values *zav), (zav));
 
 static inline int
 zebra_router_table_entry_compare(const struct zebra_router_table *e1,
@@ -83,6 +86,9 @@ struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
 	finder.tableid = tableid;
 	finder.ns_id = zvrf->zns->ns_id;
 	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (!zrt)
+		return NULL;
+
 	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
 	    zrt->ns_id == finder.ns_id)
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
@@ -275,11 +281,11 @@ void zebra_router_terminate(void)
 
 bool zebra_router_notify_on_ack(void)
 {
-	return !zrouter.asic_offloaded || zrouter.notify_on_ack;
+	return !zrouter.zav.asic_offloaded || zrouter.zav.notify_on_ack;
 }
 
-void zebra_router_init(bool asic_offload, bool notify_on_ack,
-		       bool v6_with_v4_nexthop)
+void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
+		       bool nexthop_weight_16_bit)
 {
 	zrouter.sequence_num = 0;
 
@@ -290,6 +296,9 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
+
+	zrouter.gr_stale_cleanup_time_recorded = false;
+	zrouter.gr_update_pending_time_recorded = false;
 
 	/* Initialize the red-black tree for router tables */
 	RB_INIT(zebra_router_table_head, &zrouter.tables);
@@ -336,21 +345,19 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 					       zebra_tc_filter_hash_equal,
 					       "TC (filter) Hash");
 
-	zrouter.asic_offloaded = asic_offload;
-	zrouter.notify_on_ack = notify_on_ack;
-	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
-	/*
-	 * If you start using asic_notification_nexthop_control
-	 * come talk to the FRR community about what you are doing
-	 * We would like to know.
-	 */
-#if CONFDATE > 20251231
-	CPP_NOTICE(
-		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
-#endif
-	zrouter.asic_notification_nexthop_control = false;
+	zrouter.zav.asic_offloaded = asic_offload;
+	zrouter.zav.notify_on_ack = notify_on_ack;
+	zrouter.zav.v6_with_v4_nexthop = v6_with_v4_nexthop;
+	zrouter.zav.nexthop_weight_is_16bit = nexthop_weight_16_bit;
 
-	zrouter.nexthop_weight_scale_value = 254;
+	zrouter.backup_nhs_installed = false;
+
+	hook_call(nos_initialize_data, &zrouter.zav);
+
+	if (!zrouter.zav.nexthop_weight_is_16bit)
+		zrouter.nexthop_weight_scale_value = 255;
+	else
+		zrouter.nexthop_weight_scale_value = 0xFFFF;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

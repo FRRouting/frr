@@ -42,8 +42,7 @@ struct zebra_evpn_show {
  */
 struct zebra_vtep {
 	/* Remote IP. */
-	/* NOTE: Can only be IPv4 right now. */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 	/* Flood mode (one of enum vxlan_flood_control) based on the PMSI
 	 * tunnel type advertised by the remote VTEP
 	 */
@@ -52,6 +51,12 @@ struct zebra_vtep {
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
@@ -91,7 +96,7 @@ struct zebra_evpn {
 	struct zebra_vtep *vteps;
 
 	/* Local IP */
-	struct in_addr local_vtep_ip;
+	struct ipaddr local_vtep_ip;
 
 	/* PIM-SM MDT group for BUM flooding */
 	struct in_addr mcast_grp;
@@ -149,6 +154,11 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
 	return zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
 }
 
+struct l2vni_walk_ctx {
+	bool gr_stale_cleanup;
+	uint64_t gr_cleanup_time;
+};
+
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
 int advertise_svi_macip_enabled(struct zebra_evpn *zevpn);
 void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt);
@@ -188,26 +198,21 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni);
 int zebra_evpn_del(struct zebra_evpn *zevpn);
 int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn);
 int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn);
-struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
-					struct in_addr *vtep_ip);
-struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
-				       struct in_addr *vtep_ip,
+struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
+struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip,
 				       int flood_control);
 int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
-int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall);
+int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall,
+			    struct l2vni_walk_ctx *l2_wctx);
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
-int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn,
-			      struct in_addr *vtep_ip);
-void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,
-					     void *zvrf);
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
+void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[]);
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg);
-void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
-			      uint16_t ipa_len, const struct ipaddr *ipaddr,
-			      uint8_t flags, uint32_t seq,
-			      struct in_addr vtep_ip, const esi_t *esi);
-void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-			      uint16_t ipa_len, const struct ipaddr *ipaddr,
-			      struct in_addr vtep_ip);
+void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
+			      const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
+			      struct ipaddr *vtep_ip, const esi_t *esi);
+void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
+			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);
 
 #ifdef __cplusplus

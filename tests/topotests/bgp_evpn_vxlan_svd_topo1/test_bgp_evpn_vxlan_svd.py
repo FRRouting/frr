@@ -444,53 +444,68 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     # print(host_output)
 
     # check we have a local association between the MAC and IP
-    local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    # print(local_output)
-    local_output_json = json.loads(local_output)
-    mac_type = local_output_json[mac]["type"]
+    def check_local_ip_learned():
+        try:
+            local_output = local.vtysh_cmd(
+                "show evpn mac vni 101 mac {} json".format(mac)
+            )
+            # print(local_output)
+            local_output_json = json.loads(local_output)
+            mac_type = local_output_json[mac]["type"]
+            if local_output_json[mac]["neighbors"] == "none":
+                return False
+            learned_ip = local_output_json[mac]["neighbors"]["active"][0]
+
+            if mac_type != "local":
+                return False
+
+            if ip_addr != learned_ip:
+                return False
+
+            return True
+        except (KeyError, IndexError, json.JSONDecodeError):
+            return False
+
+    # Wait for local IP learning to converge
+    _, result = topotest.run_and_expect(check_local_ip_learned, True, count=30, wait=1)
     assertmsg = "Failed to learn local IP address on host {}".format(host.name)
-    assert local_output_json[mac]["neighbors"] != "none", assertmsg
-    learned_ip = local_output_json[mac]["neighbors"]["active"][0]
-
-    assertmsg = "local learned mac wrong type: {} ".format(mac_type)
-    assert mac_type == "local", assertmsg
-
-    assertmsg = (
-        "learned address mismatch with configured address host: {} learned: {}".format(
-            ip_addr, learned_ip
-        )
-    )
-    assert ip_addr == learned_ip, assertmsg
+    assert result, assertmsg
 
     # now lets check the remote
-    count = 0
-    converged = False
-    while count < 30:
-        remote_output = remote.vtysh_cmd(
-            "show evpn mac vni 101 mac {} json".format(mac)
-        )
-        # print(remote_output)
-        remote_output_json = json.loads(remote_output)
-        type = remote_output_json[mac]["type"]
-        if not remote_output_json[mac]["neighbors"] == "none":
+    def check_remote_ip_learned():
+        try:
+            remote_output = remote.vtysh_cmd(
+                "show evpn mac vni 101 mac {} json".format(mac)
+            )
+            # print(remote_output)
+            remote_output_json = json.loads(remote_output)
+            type = remote_output_json[mac]["type"]
+            if remote_output_json[mac]["neighbors"] == "none":
+                return False
             # due to a kernel quirk, learned IPs can be inactive
-            if (
+            if not (
                 remote_output_json[mac]["neighbors"]["active"]
                 or remote_output_json[mac]["neighbors"]["inactive"]
             ):
-                converged = True
-                break
-        count += 1
-        sleep(1)
+                return False
+            return True
+        except (KeyError, IndexError, json.JSONDecodeError):
+            return False
 
-    # print("tries: {}".format(count))
+    # Wait for remote IP learning to converge
+    _, result = topotest.run_and_expect(check_remote_ip_learned, True, count=30, wait=1)
     assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
     # some debug for this failure
-    if not converged == True:
+    if not result:
         log_output = remote.run("cat zebra.log")
         # print(log_output)
 
-    assert converged == True, assertmsg
+    assert result, assertmsg
+
+    # Now verify the learned IP details
+    remote_output = remote.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
+    remote_output_json = json.loads(remote_output)
+    type = remote_output_json[mac]["type"]
     if remote_output_json[mac]["neighbors"]["active"]:
         learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
     else:

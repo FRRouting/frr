@@ -67,7 +67,7 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_staticd_info,   &frr_vrf_info,
 };
 
-static void grpc_thread_stop(struct event *thread);
+static void grpc_thread_stop(struct event *event);
 
 static void _err_print(const void *cookie, const char *errstr)
 {
@@ -480,7 +480,7 @@ void grpc_client_run_test(void)
 void *grpc_client_test_start(void *arg)
 {
 	struct frr_pthread *fpt = (struct frr_pthread *)arg;
-	fpt->master->owner = pthread_self();
+	frr_event_loop_set_pthread_owner(master, pthread_self());
 	frr_pthread_set_name(fpt);
 	frr_pthread_notify_running(fpt);
 
@@ -500,19 +500,19 @@ void *grpc_client_test_start(void *arg)
 	return NULL;
 }
 
-static void grpc_thread_start(struct event *thread)
+static void grpc_thread_start(struct event *event)
 {
 	struct frr_pthread_attr client = {
 		.start = grpc_client_test_start,
 		.stop = grpc_client_test_stop,
 	};
 
-	auto pth = frr_pthread_new(&client, "GRPC Client thread", "grpc");
+	auto pth = frr_pthread_new(&client, "GRPC Client event", "grpc");
 	frr_pthread_run(pth, NULL);
 	frr_pthread_wait_running(pth);
 }
 
-static void grpc_thread_stop(struct event *thread)
+static void grpc_thread_stop(struct event *event)
 {
 	std::cout << __func__ << ": frr_pthread_stop_all" << std::endl;
 	frr_pthread_stop_all();

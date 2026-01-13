@@ -31,7 +31,7 @@ static struct vty *lp_vty;
 
 extern struct event_loop *master;
 
-static void logpump_done(struct event *thread)
+static void logpump_done(struct event *event)
 {
 	double x;
 

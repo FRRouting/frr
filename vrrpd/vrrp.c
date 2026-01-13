@@ -673,8 +673,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static void vrrp_adver_timer_expire(struct event *thread);
-static void vrrp_master_down_timer_expire(struct event *thread);
+static void vrrp_adver_timer_expire(struct event *event);
+static void vrrp_master_down_timer_expire(struct event *event);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -975,9 +975,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static void vrrp_read(struct event *thread)
+static void vrrp_read(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1232,10 +1232,17 @@ static int vrrp_socket(struct vrrp_router *r)
 		}
 
 		/* Set Tx socket DSCP byte */
-		setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		ret = setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				  "Failed to set DSCP value on socket %d",
+				  r->vr->vrid, family2str(r->family), r->sock_tx);
+			failed = true;
+			goto done;
+		}
 
 		/* Request hop limit delivery */
-		setsockopt_ipv6_hoplimit(r->sock_rx, 1);
+		ret = setsockopt_ipv6_hoplimit(r->sock_rx, 1);
 		if (ret < 0) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 				  "Failed to request IPv6 Hop Limit delivery",
@@ -1484,9 +1491,9 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static void vrrp_adver_timer_expire(struct event *thread)
+static void vrrp_adver_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1512,9 +1519,9 @@ static void vrrp_adver_timer_expire(struct event *thread)
 /*
  * Called when Master_Down_Timer expires.
  */
-static void vrrp_master_down_timer_expire(struct event *thread)
+static void vrrp_master_down_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",

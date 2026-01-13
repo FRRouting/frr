@@ -71,6 +71,12 @@ static void test_lsp_build_list_nonzero_ht(void)
 	assert(listgetdata(listhead(list)) == lsp1);
 	assert(listgetdata(listtail(list)) == lsp2);
 	list_delete_all_node(list);
+
+	list_delete(&list);
+
+	lsp_free(lsp2);
+	lsp_free(lsp1);
+	free(area);
 }
 
 int main(int argc, char **argv)
@@ -78,5 +84,6 @@ int main(int argc, char **argv)
 	struct isis *isis = NULL;
 	isis = calloc(1, sizeof(*isis));
 	test_lsp_build_list_nonzero_ht();
+	free(isis);
 	return 0;
 }

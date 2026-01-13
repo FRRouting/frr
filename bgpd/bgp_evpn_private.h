@@ -87,7 +87,7 @@ struct bgpevpn {
 	char *prd_pretty;
 
 	/* Route type 3 field */
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip;
 
 	/* PIM-SM MDT group for BUM flooding */
 	struct in_addr mcast_grp;
@@ -117,6 +117,8 @@ struct bgpevpn {
 	struct list *local_es_evi_list;
 
 	struct zebra_l2_vni_item zl2vni;
+
+	enum vxlan_flood_control vxlan_flood_ctrl;
 
 	QOBJ_FIELDS;
 };
@@ -184,8 +186,8 @@ struct bgp_evpn_info {
 	/* PIP feature knob */
 	bool advertise_pip;
 	/* PIP IP (sys ip) */
-	struct in_addr pip_ip;
-	struct in_addr pip_ip_static;
+	struct ipaddr pip_ip;
+	struct ipaddr pip_ip_static;
 	/* PIP MAC (sys MAC) */
 	struct ethaddr pip_rmac;
 	struct ethaddr pip_rmac_static;
@@ -278,8 +280,13 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	if (vpn->bgp_vrf)
 		return;
 
+	/* bail if VRF still doesn't exist */
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
 	if (!bgp_vrf)
+		return;
+
+	/* or if there is no l3vni */
+	if (!bgp_vrf->l3vni)
 		return;
 
 	/* associate the vpn to the bgp_vrf instance */
@@ -287,11 +294,9 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
 	/*
-	 * If L3VNI is configured,
 	 * check if we are advertising two labels for this vpn
 	 */
-	if (bgp_vrf->l3vni &&
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 
 	bgp_evpn_es_evi_vrf_ref(vpn);
@@ -422,13 +427,20 @@ static inline void ip_prefix_from_type5_prefix(const struct prefix_evpn *evp,
 	}
 }
 
-static inline int is_evpn_prefix_default(const struct prefix *evp)
+static inline bool is_evpn_prefix_default(const struct prefix *evp)
 {
 	if (evp->family != AF_EVPN)
-		return 0;
+		return false;
 
-	return ((evp->u.prefix_evpn.prefix_addr.ip_prefix_length  == 0) ?
-		1 : 0);
+	/*
+	 * EVPN default type-5 route
+	 * RD:[5]:[0]:[0.0.0.0/0]/352 or RD:[5]:[0]:[::/0]/352
+	 */
+	if ((evp->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) &&
+	    (evp->u.prefix_evpn.prefix_addr.ip_prefix_length == 0))
+		return true;
+
+	return false;
 }
 
 static inline void ip_prefix_from_type2_prefix(const struct prefix_evpn *evp,
@@ -497,14 +509,17 @@ build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
 }
 
 static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
-					   struct in_addr originator_ip)
+					   struct ipaddr *originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_IMET_ROUTE;
-	p->prefix.imet_addr.ip.ipa_type = IPADDR_V4;
-	p->prefix.imet_addr.ip.ipaddr_v4 = originator_ip;
+	if (IS_IPADDR_V4(originator_ip))
+		p->prefix.imet_addr.ip_prefix_length = IPV4_MAX_BITLEN;
+	else if (IS_IPADDR_V6(originator_ip))
+		p->prefix.imet_addr.ip_prefix_length = IPV6_MAX_BITLEN;
+	p->prefix.imet_addr.ip = *originator_ip;
 }
 
 static inline void build_evpn_type4_prefix(struct prefix_evpn *p,
@@ -673,9 +688,8 @@ static inline bool bgp_evpn_is_path_local(struct bgp *bgp,
 			&& pi->sub_type == BGP_ROUTE_STATIC);
 }
 
-extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
-						     afi_t afi, safi_t safi,
-						     bool add);
+extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+						     struct bgp_path_info *originator, bool add);
 extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 				bool is_l3);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -714,16 +728,17 @@ extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-		struct in_addr originator_ip,
+		struct ipaddr *originator_ip,
 		vrf_id_t tenant_vrf_id,
 		struct in_addr mcast_grp,
 		ifindex_t svi_ifindex);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
-extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
-				    struct bgp_dest *dest,
-				    struct bgp_path_info **pi);
+extern struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
+						     struct bgp_dest *dest,
+						     const struct bgp_path_info *originator,
+						     uint32_t addpaht_id);
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				     struct bgp_dest *dest,
@@ -771,4 +786,9 @@ extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_xxport_delete_ecomm(void *val);
 extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
 				     struct ecommunity *ecom2);
+extern void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt);
+extern uint16_t bgp_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi,
+					    struct bgp_table *table, uint16_t cnt,
+					    struct bgpevpn *vpn, bool evpn_select);
+
 #endif /* _BGP_EVPN_PRIVATE_H */

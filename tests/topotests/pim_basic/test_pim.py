@@ -247,6 +247,49 @@ def test_memory_leak():
     tgen.report_memory_leaks()
 
 
+def test_pim_static_mroute():
+    "Test Static routes add/remove cycle"
+    logger.info("Testing static routes")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
+    assert "239.1.1.1" not in ip_mroute_json.keys()
+
+    # Add ip mroute with iif=r1-eth0 oil=r1-eth1
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth1 239.1.1.1 10.0.0.1")
+
+    # Expect to find oil=[r1-eth1] in ip mroute command
+    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
+    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == ["r1-eth1"]
+
+    # Add ip mroute with iif=r1-eth0 oil=r1-eth2
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth2 239.1.1.1 10.0.0.1")
+
+    # Expect to find oil=[r1-eth1,r1-eth2] in ip mroute command
+    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
+    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == [
+        "r1-eth1",
+        "r1-eth2",
+    ]
+
+    # Remove ip mroute with oil=r1-eth1
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth1 239.1.1.1 10.0.0.1")
+    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
+    # This assert right here would break back in the day because only one oif was handled by the datamodel
+    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == ["r1-eth2"]
+
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth2 239.1.1.1 10.0.0.1")
+    # Expect a clean state
+    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
+    assert "239.1.1.1" not in ip_mroute_json.keys()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

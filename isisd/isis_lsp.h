@@ -52,8 +52,8 @@ DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare);
 
 void lsp_db_init(struct lspdb_head *head);
 void lsp_db_fini(struct lspdb_head *head);
-void lsp_tick(struct event *thread);
-void set_overload_on_start_timer(struct event *thread);
+void lsp_tick(struct event *event);
+void set_overload_on_start_timer(struct event *event);
 
 int lsp_generate(struct isis_area *area, int level);
 #define lsp_regenerate_schedule(area, level, all_pseudo) \
@@ -75,6 +75,8 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 				   struct isis_tlvs *tlvs,
 				   struct stream *stream, struct isis_lsp *lsp0,
 				   struct isis_area *area, int level);
+void lsp_free(struct isis_lsp *lsp);
+
 void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp);
 struct isis_lsp *lsp_search(struct lspdb_head *head, const uint8_t *id);
 

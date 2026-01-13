@@ -10,8 +10,13 @@
 #include "table.h"
 #include "queue.h"
 #include "linklist.h"
+#include "typesafe.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
+#include "bgp_attr_srv6.h"
+
+/* Typesafe hash for bgp_path_info lookup */
+PREDECL_HASH(bgp_pi_hash);
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -22,6 +27,9 @@ struct bgp_table {
 	safi_t safi;
 
 	int lock;
+
+	/* Hash for bgp_path_info lookups across all prefixes in this table */
+	struct bgp_pi_hash_head pi_hash;
 
 	/* soft_reconfig_table in progress */
 	bool soft_reconfig_init;
@@ -42,6 +50,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_evpn_local_path,
 	bgp_path_selection_evpn_non_proxy,
 	bgp_path_selection_evpn_lower_ip,
+	bgp_path_selection_admin_distance,
 	bgp_path_selection_weight,
 	bgp_path_selection_local_pref,
 	bgp_path_selection_accept_own,
@@ -85,6 +94,8 @@ struct bgp_dest {
 
 	mpls_label_t local_label;
 
+	struct bgp_attr_srv6_l3service *srv6_unicast;
+
 	uint16_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
@@ -103,6 +114,9 @@ struct bgp_dest {
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
+
+	/* Multipath information */
+	struct bgp_path_info_mpath *mpath;
 };
 
 DECLARE_LIST(zebra_announce, struct bgp_dest, zai);
@@ -118,10 +132,10 @@ typedef struct bgp_table_iter_t_ {
 	route_table_iter_t rt_iter;
 } bgp_table_iter_t;
 
-extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
-extern void bgp_table_lock(struct bgp_table *);
-extern void bgp_table_unlock(struct bgp_table *);
-extern void bgp_table_finish(struct bgp_table **);
+extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_table_lock(struct bgp_table *rt);
+extern void bgp_table_unlock(struct bgp_table *rt);
+extern void bgp_table_finish(struct bgp_table **table);
 extern struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest);
 extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
 extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);

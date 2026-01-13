@@ -54,7 +54,9 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_msdp_exit(pim);
 #endif /* PIM_IPV == 4 */
 
-	close(pim->reg_sock);
+	if (pim->reg_sock > 0)
+		close(pim->reg_sock);
+	pim->reg_sock = -1;
 
 	pim_mroute_socket_disable(pim);
 
@@ -199,6 +201,10 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 		pim_if_create_pimreg(pim);
 		break;
+	}
+
+	frr_with_privs (&pimd_privs) {
+		vrf_bind(pim->vrf->vrf_id, pim->global_scope.unicast_sock, NULL);
 	}
 
 	return 0;

@@ -40,8 +40,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information");
 
 static void sr_local_block_delete(struct isis_area *area);
 static int sr_local_block_init(struct isis_area *area);
-static void sr_adj_sid_update(struct sr_adjacency *sra,
-			      struct sr_local_block *srlb);
+static void sr_adj_sid_update(struct sr_adjacency *sra, struct sr_local_block *srlb);
 static void sr_adj_sid_del(struct sr_adjacency *sra);
 
 /* --- RB-Tree Management functions ----------------------------------------- */
@@ -69,8 +68,7 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 
 	return 0;
 }
-DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
-		    sr_prefix_sid_cfg_compare);
+DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry, sr_prefix_sid_cfg_compare);
 
 /**
  * Find SRGB associated to a System ID.
@@ -80,8 +78,7 @@ DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
  *
  * @return	Pointer to SRGB if found, NULL otherwise
  */
-struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb,
-					const uint8_t *sysid)
+struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb, const uint8_t *sysid)
 {
 	struct isis_lsp *lsp;
 
@@ -89,8 +86,7 @@ struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb,
 	if (!lsp)
 		return NULL;
 
-	if (!lsp->tlvs->router_cap
-	    || lsp->tlvs->router_cap->srgb.range_size == 0)
+	if (!lsp->tlvs->router_cap || lsp->tlvs->router_cap->srgb.range_size == 0)
 		return NULL;
 
 	return &lsp->tlvs->router_cap->srgb;
@@ -105,28 +101,24 @@ struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb,
  *
  * @return	MPLS label or MPLS_INVALID_LABEL in case of SRGB overflow
  */
-mpls_label_t sr_prefix_in_label(struct isis_area *area,
-				struct isis_prefix_sid *psid, bool local)
+mpls_label_t sr_prefix_in_label(struct isis_area *area, struct isis_prefix_sid *psid, bool local)
 {
 	/*
 	 * No need to assign a label for local Prefix-SIDs unless the no-PHP
 	 * flag is set.
 	 */
-	if (local
-	    && (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NO_PHP)
-		|| CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_EXPLICIT_NULL)))
+	if (local && (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NO_PHP) ||
+		      CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_EXPLICIT_NULL)))
 		return MPLS_INVALID_LABEL;
 
 	/* Return SID value as MPLS label if it is an Absolute SID */
-	if (CHECK_FLAG(psid->flags,
-		       ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL))
+	if (CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL))
 		return psid->value;
 
 	/* Check that SID index falls inside the SRGB */
-	if (psid->value >= (area->srdb.config.srgb_upper_bound
-			    - area->srdb.config.srgb_lower_bound + 1)) {
-		flog_warn(EC_ISIS_SID_OVERFLOW,
-			  "%s: SID index %u falls outside local SRGB range",
+	if (psid->value >=
+	    (area->srdb.config.srgb_upper_bound - area->srdb.config.srgb_lower_bound + 1)) {
+		flog_warn(EC_ISIS_SID_OVERFLOW, "%s: SID index %u falls outside local SRGB range",
 			  __func__, psid->value);
 		return MPLS_INVALID_LABEL;
 	}
@@ -146,8 +138,7 @@ mpls_label_t sr_prefix_in_label(struct isis_area *area,
  *
  * @return		MPLS label or MPLS_INVALID_LABEL in case of error
  */
-mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
-				 struct isis_prefix_sid *psid,
+mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family, struct isis_prefix_sid *psid,
 				 const uint8_t *nh_sysid, bool last_hop)
 {
 	struct isis_sr_block *nh_srgb;
@@ -166,8 +157,7 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
 	}
 
 	/* Return SID value as MPLS label if it is an Absolute SID */
-	if (CHECK_FLAG(psid->flags,
-		       ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL)) {
+	if (CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL)) {
 		/*
 		 * V/L SIDs have local significance, so only adjacent routers
 		 * can use them (RFC8667 section #2.1.1.1)
@@ -186,13 +176,12 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
 	 * Check if the nexthop can handle SR-MPLS encapsulated IPv4 or
 	 * IPv6 packets.
 	 */
-	if ((family == AF_INET && !IS_SR_IPV4(nh_srgb))
-	    || (family == AF_INET6 && !IS_SR_IPV6(nh_srgb)))
+	if ((family == AF_INET && !IS_SR_IPV4(nh_srgb)) ||
+	    (family == AF_INET6 && !IS_SR_IPV6(nh_srgb)))
 		return MPLS_INVALID_LABEL;
 
 	if (psid->value >= nh_srgb->range_size) {
-		flog_warn(EC_ISIS_SID_OVERFLOW,
-			  "%s: SID index %u falls outside remote SRGB range",
+		flog_warn(EC_ISIS_SID_OVERFLOW, "%s: SID index %u falls outside remote SRGB range",
 			  __func__, psid->value);
 		return MPLS_INVALID_LABEL;
 	}
@@ -211,8 +200,7 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
  *
  * @return	  True if the interface/address pair corresponds to a Node-SID
  */
-static bool sr_prefix_is_node_sid(const struct interface *ifp,
-				  const struct prefix *prefix)
+static bool sr_prefix_is_node_sid(const struct interface *ifp, const struct prefix *prefix)
 {
 	return (if_is_loopback(ifp) && is_host_route(prefix));
 }
@@ -227,13 +215,12 @@ static bool sr_prefix_is_node_sid(const struct interface *ifp,
  *
  * @return		0 on success, -1 otherwise
  */
-int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
-			    uint32_t upper_bound)
+int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound, uint32_t upper_bound)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 
-	sr_debug("ISIS-Sr (%s): Update SRGB with new range [%u/%u]",
-		 area->area_tag, lower_bound, upper_bound);
+	sr_debug("ISIS-Sr (%s): Update SRGB with new range [%u/%u]", area->area_tag, lower_bound,
+		 upper_bound);
 
 	/* Just store new SRGB values if Label Manager is not available.
 	 * SRGB will be configured later when SR start */
@@ -245,9 +232,9 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 
 	/* Label Manager is ready, start by releasing the old SRGB. */
 	if (srdb->srgb_active) {
-	        isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
+		isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
 					       srdb->config.srgb_upper_bound);
-	        srdb->srgb_active = false;
+		srdb->srgb_active = false;
 	}
 
 	srdb->config.srgb_lower_bound = lower_bound;
@@ -255,18 +242,16 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 
 	if (srdb->enabled) {
 		/* then request new SRGB if SR is enabled. */
-		if (isis_zebra_request_label_range(
-			    srdb->config.srgb_lower_bound,
-			    srdb->config.srgb_upper_bound
-				    - srdb->config.srgb_lower_bound + 1) < 0) {
+		if (isis_zebra_request_label_range(srdb->config.srgb_lower_bound,
+						   srdb->config.srgb_upper_bound -
+							   srdb->config.srgb_lower_bound + 1) < 0) {
 			srdb->srgb_active = false;
 			return -1;
 		} else
 			srdb->srgb_active = true;
 
 
-		sr_debug("  |- Got new SRGB [%u/%u]",
-			 srdb->config.srgb_lower_bound,
+		sr_debug("  |- Got new SRGB [%u/%u]", srdb->config.srgb_lower_bound,
 			 srdb->config.srgb_upper_bound);
 
 		lsp_regenerate_schedule(area, area->is_type, 0);
@@ -289,15 +274,14 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
  *
  * @return		0 on success, -1 otherwise
  */
-int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
-			    uint32_t upper_bound)
+int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound, uint32_t upper_bound)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 	struct listnode *node;
 	struct sr_adjacency *sra;
 
-	sr_debug("ISIS-Sr (%s): Update SRLB with new range [%u/%u]",
-		 area->area_tag, lower_bound, upper_bound);
+	sr_debug("ISIS-Sr (%s): Update SRLB with new range [%u/%u]", area->area_tag, lower_bound,
+		 upper_bound);
 
 	/* Just store new SRLB values if Label Manager is not available.
 	 * SRLB will be configured later when SR start */
@@ -340,8 +324,7 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
  *
  * @return	  Newly added Prefix-SID configuration structure
  */
-struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
-					     const struct prefix *prefix,
+struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area, const struct prefix *prefix,
 					     uint8_t algorithm)
 {
 	struct sr_prefix_cfg *pcfg;
@@ -355,10 +338,10 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg->algorithm = algorithm;
 
 	/* Pull defaults from the YANG module. */
-	pcfg->sid_type = yang_get_default_enum(
-		"%s/prefix-sid-map/prefix-sid/sid-value-type", ISIS_SR);
-	pcfg->last_hop_behavior = yang_get_default_enum(
-		"%s/prefix-sid-map/prefix-sid/last-hop-behavior", ISIS_SR);
+	pcfg->sid_type = yang_get_default_enum("%s/prefix-sid-map/prefix-sid/sid-value-type",
+					       ISIS_SR);
+	pcfg->last_hop_behavior =
+		yang_get_default_enum("%s/prefix-sid-map/prefix-sid/last-hop-behavior", ISIS_SR);
 
 	/* Mark as node Sid if the prefix is host and configured in loopback */
 	ifp = if_lookup_prefix(prefix, VRF_DEFAULT);
@@ -380,10 +363,8 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 {
 	struct isis_area *area = pcfg->area;
 
-	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u",
-		 area->area_tag, &pcfg->prefix,
-		 pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label",
-		 pcfg->sid);
+	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u", area->area_tag, &pcfg->prefix,
+		 pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label", pcfg->sid);
 
 	srdb_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);
 	XFREE(MTYPE_ISIS_SR_INFO, pcfg);
@@ -397,8 +378,7 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
  *
  * @return	  Configured Prefix-SID structure if found, NULL otherwise
  */
-struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
-					      union prefixconstptr prefix,
+struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area, union prefixconstptr prefix,
 					      uint8_t algorithm)
 {
 	struct sr_prefix_cfg pcfg = {};
@@ -487,10 +467,9 @@ static int sr_local_block_init(struct isis_area *area)
 	 * Request SRLB to the label manager. If the allocation fails, return
 	 * an error to disable SR until a new SRLB is successfully allocated.
 	 */
-	if (isis_zebra_request_label_range(
-		    srdb->config.srlb_lower_bound,
-		    srdb->config.srlb_upper_bound
-			    - srdb->config.srlb_lower_bound + 1)) {
+	if (isis_zebra_request_label_range(srdb->config.srlb_lower_bound,
+					   srdb->config.srlb_upper_bound -
+						   srdb->config.srlb_lower_bound + 1)) {
 		srlb->active = false;
 		return -1;
 	}
@@ -506,8 +485,7 @@ static int sr_local_block_init(struct isis_area *area)
 	srlb->max_block = (srlb->end - srlb->start + 1) / SRLB_BLOCK_SIZE;
 	if (((srlb->end - srlb->start + 1) % SRLB_BLOCK_SIZE) != 0)
 		srlb->max_block++;
-	srlb->used_mark = XCALLOC(MTYPE_ISIS_SR_INFO,
-				  srlb->max_block * SRLB_BLOCK_SIZE);
+	srlb->used_mark = XCALLOC(MTYPE_ISIS_SR_INFO, srlb->max_block * SRLB_BLOCK_SIZE);
 	srlb->active = true;
 
 	return 0;
@@ -527,8 +505,7 @@ static void sr_local_block_delete(struct isis_area *area)
 	if (!srlb->active)
 		return;
 
-	sr_debug("ISIS-Sr (%s): Remove SRLB [%u/%u]", area->area_tag,
-		 srlb->start, srlb->end);
+	sr_debug("ISIS-Sr (%s): Remove SRLB [%u/%u]", area->area_tag, srlb->start, srlb->end);
 
 	/* First release the label block */
 	isis_zebra_release_label_range(srdb->config.srlb_lower_bound,
@@ -552,7 +529,7 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 {
 	mpls_label_t label;
 	uint32_t index;
-	uint32_t pos;
+	uint64_t pos;
 	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
@@ -580,8 +557,7 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 	}
 
 	if (srlb->current == size)
-		zlog_warn(
-			"SR: Warning, SRLB is depleted and next label request will fail");
+		zlog_warn("SR: Warning, SRLB is depleted and next label request will fail");
 
 	return label;
 }
@@ -594,17 +570,15 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
  *
  * @return	0 on success or -1 if label falls outside SRLB
  */
-static int sr_local_block_release_label(struct sr_local_block *srlb,
-					mpls_label_t label)
+static int sr_local_block_release_label(struct sr_local_block *srlb, mpls_label_t label)
 {
 	uint32_t index;
-	uint32_t pos;
+	uint64_t pos;
 
 	/* Check that label falls inside the SRLB */
 	if ((label < srlb->start) || (label > srlb->end)) {
-		flog_warn(EC_ISIS_SID_OVERFLOW,
-			"%s: Returning label %u is outside SRLB [%u/%u]",
-			__func__, label, srlb->start, srlb->end);
+		flog_warn(EC_ISIS_SID_OVERFLOW, "%s: Returning label %u is outside SRLB [%u/%u]",
+			  __func__, label, srlb->start, srlb->end);
 		return -1;
 	}
 
@@ -616,8 +590,7 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 		if (srlb->used_mark[index] != 0xFFFFFFFFFFFFFFFF) {
 			for (pos = 0; pos < SRLB_BLOCK_SIZE; pos++)
 				if (!((1ULL << pos) & srlb->used_mark[index])) {
-					srlb->current =
-						index * SRLB_BLOCK_SIZE + pos;
+					srlb->current = index * SRLB_BLOCK_SIZE + pos;
 					break;
 				}
 			break;
@@ -627,8 +600,7 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 	return 0;
 }
 
-static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4,
-				    struct isis_circuit *circuit)
+static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4, struct isis_circuit *circuit)
 {
 	struct listnode *node;
 	struct prefix ipv4_adj;
@@ -646,8 +618,7 @@ static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4,
 	return false;
 }
 
-static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6,
-				    struct isis_circuit *circuit)
+static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6, struct isis_circuit *circuit)
 {
 	struct listnode *node;
 	struct prefix ipv6_adj;
@@ -681,8 +652,8 @@ static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6,
  * @param backup   True to initialize backup Adjacency SID
  * @param nexthops List of backup nexthops (for backup Adj-SIDs only)
  */
-void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
-			   struct list *nexthops)
+void sr_adj_sid_add_single(const struct isis_adjacency *adj, int family,
+			   bool backup, struct list *nexthops)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -717,8 +688,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT,
-			 "%s: unexpected address-family: %u", __func__, family);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected address-family: %u", __func__, family);
 		exit(1);
 	}
 
@@ -753,8 +723,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 			struct mpls_label_stack *label_stack;
 
 			label_stack = vadj->label_stack;
-			adjinfo2nexthop(family, sra->backup_nexthops, tadj, NULL,
-					label_stack);
+			adjinfo2nexthop(family, sra->backup_nexthops, tadj, NULL, label_stack);
 		}
 	}
 
@@ -765,8 +734,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		ladj_sid->family = family;
 		ladj_sid->flags = flags;
 		ladj_sid->weight = 0;
-		memcpy(ladj_sid->neighbor_id, adj->sysid,
-		       sizeof(ladj_sid->neighbor_id));
+		memcpy(ladj_sid->neighbor_id, adj->sysid, sizeof(ladj_sid->neighbor_id));
 		ladj_sid->sid = input_label;
 		isis_tlvs_add_lan_adj_sid(circuit->ext, ladj_sid);
 		sra->u.ladj_sid = ladj_sid;
@@ -782,8 +750,8 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		sra->u.adj_sid = adj_sid;
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
-			 __func__, circuit->circ_type);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
+			 circuit->circ_type);
 		exit(1);
 	}
 
@@ -806,8 +774,7 @@ static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
 	sr_adj_sid_add_single(adj, family, false, NULL);
 }
 
-static void sr_adj_sid_update(struct sr_adjacency *sra,
-			      struct sr_local_block *srlb)
+static void sr_adj_sid_update(struct sr_adjacency *sra, struct sr_local_block *srlb)
 {
 	struct isis_circuit *circuit = sra->adj->circuit;
 
@@ -827,8 +794,8 @@ static void sr_adj_sid_update(struct sr_adjacency *sra,
 		sra->u.adj_sid->sid = sra->input_label;
 		break;
 	default:
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
-			  __func__, circuit->circ_type);
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
+			  circuit->circ_type);
 		break;
 	}
 
@@ -853,24 +820,21 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 	/* Release dynamic label and remove subTLVs */
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
-		sr_local_block_release_label(&area->srdb.srlb,
-					     sra->u.ladj_sid->sid);
+		sr_local_block_release_label(&area->srdb.srlb, sra->u.ladj_sid->sid);
 		isis_tlvs_del_lan_adj_sid(circuit->ext, sra->u.ladj_sid);
 		break;
 	case CIRCUIT_T_P2P:
-		sr_local_block_release_label(&area->srdb.srlb,
-					     sra->u.adj_sid->sid);
+		sr_local_block_release_label(&area->srdb.srlb, sra->u.adj_sid->sid);
 		isis_tlvs_del_adj_sid(circuit->ext, sra->u.adj_sid);
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
-			 __func__, circuit->circ_type);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
+			 circuit->circ_type);
 		exit(1);
 	}
 
 	if (sra->type == ISIS_SR_ADJ_BACKUP && sra->backup_nexthops) {
-		sra->backup_nexthops->del =
-			(void (*)(void *))isis_nexthop_delete;
+		sra->backup_nexthops->del = (void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);
 	}
 
@@ -887,7 +851,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
  * @param family  Inet Family (IPv4 or IPv6)
  * @param type    Adjacency SID type
  */
-struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
+struct sr_adjacency *isis_sr_adj_sid_find(const struct isis_adjacency *adj,
 					  int family, enum sr_adj_type type)
 {
 	struct sr_adjacency *sra;
@@ -934,8 +898,7 @@ static int sr_adj_state_change(struct isis_adjacency *adj)
  *
  * @return	  0
  */
-static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family,
-			     bool global)
+static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
 {
 	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
@@ -955,8 +918,7 @@ static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family,
  *
  * @return	  0
  */
-static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
-			      bool global)
+static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family, bool global)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
@@ -981,7 +943,7 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
  */
 int sr_if_addr_update(struct interface *ifp)
 {
-	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
+	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = { NULL };
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
@@ -998,8 +960,7 @@ int sr_if_addr_update(struct interface *ifp)
 
 	frr_each (if_connected, ifp->connected, connected) {
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
-			pcfgs[i] = isis_sr_cfg_prefix_find(
-				area, connected->address, i);
+			pcfgs[i] = isis_sr_cfg_prefix_find(area, connected->address, i);
 
 			if (!pcfgs[i])
 				continue;
@@ -1027,8 +988,7 @@ int sr_if_addr_update(struct interface *ifp)
  *
  * @return	     String containing LFIB operation in human readable format
  */
-char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
-		mpls_label_t label_out)
+char *sr_op2str(char *buf, size_t size, mpls_label_t label_in, mpls_label_t label_out)
 {
 	if (size < 24)
 		return NULL;
@@ -1063,8 +1023,7 @@ char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_node(struct vty *vty, struct isis_area *area, int level,
-		      uint8_t algo)
+static void show_node(struct vty *vty, struct isis_area *area, int level, uint8_t algo)
 {
 	struct isis_lsp *lsp;
 	struct ttable *tt;
@@ -1098,12 +1057,11 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 			snprintf(buf, sizeof(buf), "Flex-Algo %d", algo);
 #endif /* ifndef FABRICD */
 
-		ttable_add_row(tt, "%pSY|%u - %u|%u - %u|%s|%u",
-			       lsp->hdr.lsp_id, cap->srgb.lower_bound,
+		ttable_add_row(tt, "%pSY|%u - %u|%u - %u|%s|%u", lsp->hdr.lsp_id,
+			       cap->srgb.lower_bound,
 			       cap->srgb.lower_bound + cap->srgb.range_size - 1,
 			       cap->srlb.lower_bound,
-			       cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			       buf, cap->msd);
+			       cap->srlb.lower_bound + cap->srlb.range_size - 1, buf, cap->msd);
 	}
 
 	/* Dump the generated table. */
@@ -1135,7 +1093,6 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 #endif /* ifndef FABRICD */
 )
 {
-	struct listnode *node, *inode;
 	struct isis_area *area;
 	uint16_t algorithm = SR_ALGORITHM_SPF;
 	bool all_algorithm = false;
@@ -1151,25 +1108,20 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 	}
 #endif /* ifndef FABRICD */
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			vty_out(vty, "Area %s:\n",
-				area->area_tag ? area->area_tag : "null");
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
+			vty_out(vty, "Area %s:\n", area->area_tag ? area->area_tag : "null");
 			if (!area->srdb.enabled) {
 				vty_out(vty, " Segment Routing is disabled\n");
 				continue;
 			}
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
-			     level++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 				if (all_algorithm) {
 					for (algorithm = SR_ALGORITHM_FLEX_MIN;
-					     algorithm <= SR_ALGORITHM_FLEX_MAX;
-					     algorithm++)
-						show_node(vty, area, level,
-							  (uint8_t)algorithm);
+					     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++)
+						show_node(vty, area, level, (uint8_t)algorithm);
 				} else
-					show_node(vty, area, level,
-						  (uint8_t)algorithm);
+					show_node(vty, area, level, (uint8_t)algorithm);
 			}
 		}
 	}
@@ -1208,14 +1160,12 @@ int isis_sr_start(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 	struct isis_adjacency *adj;
-	struct listnode *node;
 
 	/* First start Label Manager if not ready */
 	if (!isis_zebra_label_manager_ready())
 		if (isis_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			event_add_timer(master, sr_start_label_manager, area, 1,
-					&srdb->t_start_lm);
+			event_add_timer(master, sr_start_label_manager, area, 1, &srdb->t_start_lm);
 			return -1;
 		}
 
@@ -1229,22 +1179,19 @@ int isis_sr_start(struct isis_area *area)
 	 * is successfully allocated.
 	 */
 	if (!srdb->srgb_active) {
-		if (isis_zebra_request_label_range(
-			    srdb->config.srgb_lower_bound,
-			    srdb->config.srgb_upper_bound
-				    - srdb->config.srgb_lower_bound + 1)
-		    < 0) {
+		if (isis_zebra_request_label_range(srdb->config.srgb_lower_bound,
+						   srdb->config.srgb_upper_bound -
+							   srdb->config.srgb_lower_bound + 1) < 0) {
 			srdb->srgb_active = false;
 			return -1;
 		} else
 			srdb->srgb_active = true;
 	}
 
-	sr_debug("ISIS-Sr: Starting Segment Routing for area %s",
-		 area->area_tag);
+	sr_debug("ISIS-Sr: Starting Segment Routing for area %s", area->area_tag);
 
 	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ipv4_address_count > 0)
 			sr_adj_sid_add(adj, AF_INET);
 		if (adj->ll_ipv6_count > 0)
@@ -1270,8 +1217,7 @@ void isis_sr_stop(struct isis_area *area)
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	sr_debug("ISIS-Sr: Stopping Segment Routing for area %s",
-		 area->area_tag);
+	sr_debug("ISIS-Sr: Stopping Segment Routing for area %s", area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
 	event_cancel(&srdb->t_start_lm);
@@ -1305,8 +1251,7 @@ void isis_sr_area_init(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 
-	sr_debug("ISIS-Sr (%s): Initialize Segment Routing SRDB",
-		 area->area_tag);
+	sr_debug("ISIS-Sr (%s): Initialize Segment Routing SRDB", area->area_tag);
 
 	/* Initialize Segment Routing Data Base */
 	memset(srdb, 0, sizeof(*srdb));
@@ -1315,14 +1260,14 @@ void isis_sr_area_init(struct isis_area *area)
 	/* Pull defaults from the YANG module. */
 #ifndef FABRICD
 	srdb->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SR);
-	srdb->config.srgb_lower_bound = yang_get_default_uint32(
-		"%s/label-blocks/srgb/lower-bound", ISIS_SR);
-	srdb->config.srgb_upper_bound = yang_get_default_uint32(
-		"%s/label-blocks/srgb/upper-bound", ISIS_SR);
-	srdb->config.srlb_lower_bound = yang_get_default_uint32(
-		"%s/label-blocks/srlb/lower-bound", ISIS_SR);
-	srdb->config.srlb_upper_bound = yang_get_default_uint32(
-		"%s/label-blocks/srlb/upper-bound", ISIS_SR);
+	srdb->config.srgb_lower_bound = yang_get_default_uint32("%s/label-blocks/srgb/lower-bound",
+								ISIS_SR);
+	srdb->config.srgb_upper_bound = yang_get_default_uint32("%s/label-blocks/srgb/upper-bound",
+								ISIS_SR);
+	srdb->config.srlb_lower_bound = yang_get_default_uint32("%s/label-blocks/srlb/lower-bound",
+								ISIS_SR);
+	srdb->config.srlb_upper_bound = yang_get_default_uint32("%s/label-blocks/srlb/upper-bound",
+								ISIS_SR);
 #else
 	srdb->config.enabled = false;
 	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;

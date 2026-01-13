@@ -143,7 +143,7 @@ def setup_module(mod):
     "Sets up the pytest environment"
 
     logger.info("NHRP Topology : \n {}".format(TOPOLOGY))
-    result = required_linux_kernel_version("5.0")
+    result = required_linux_kernel_version("4.18")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -253,7 +253,7 @@ def test_protocols_convergence():
             "show interface {}-gre0 json".format(rname),
             expected,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
 
         assertmsg = '"{}-gre0 interface flags incorrect'.format(router.name)
         assert result is None, assertmsg

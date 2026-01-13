@@ -72,8 +72,7 @@ def test_bgp_evpn_maximum_prefix():
         expected = {
             "peers": {
                 "192.168.1.1": {
-                    "lastNotificationReason": "Cease/Maximum Number of Prefixes Reached",
-                    "lastResetDueTo": "BGP Notification send",
+                    "lastResetDueTo": "Reached received prefix count",
                 }
             },
         }

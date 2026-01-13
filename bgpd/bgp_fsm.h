@@ -118,21 +118,22 @@ extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer_connection *connection,
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
-extern void bgp_update_delay_end(struct bgp *);
-extern void bgp_maxmed_update(struct bgp *);
-extern bool bgp_maxmed_onstartup_configured(struct bgp *);
-extern bool bgp_maxmed_onstartup_active(struct bgp *);
+extern void bgp_update_delay_end(struct bgp *bgp);
+extern void bgp_maxmed_update(struct bgp *bgp);
+extern bool bgp_maxmed_onstartup_configured(struct bgp *bgp);
+extern bool bgp_maxmed_onstartup_active(struct bgp *bgp);
 extern int bgp_fsm_error_subcode(int status);
 extern enum bgp_fsm_state_progress
 bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
 		     uint8_t sub_code);
+extern void bgp_start_tier2_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi);
 
 /**
  * Start the route advertisement timer (that honors MRAI) for all the
  * peers. Typically called at the end of initial convergence, coming
  * out of read-only mode.
  */
-extern void bgp_start_routeadv(struct bgp *);
+extern void bgp_start_routeadv(struct bgp *bgp);
 
 /**
  * See if the route advertisement timer needs to be adjusted for a
@@ -141,7 +142,7 @@ extern void bgp_start_routeadv(struct bgp *);
  * timer to expire to send the new set of prefixes. It should fire
  * instantly and updates should go out sooner.
  */
-extern void bgp_adjust_routeadv(struct peer *);
+extern void bgp_adjust_routeadv(struct peer *peer);
 
 #include "hook.h"
 DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer));
@@ -166,5 +167,7 @@ const char *print_peer_gr_mode(enum peer_mode pr_mode);
 const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
 const char *print_global_gr_mode(enum global_mode gl_mode);
 const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd);
-int bgp_peer_reg_with_nht(struct peer *peer);
+int bgp_peer_connection_reg_with_nht(struct peer_connection *connection);
+void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi);
+void bgp_gr_start_all_deferral_timers(struct bgp *bgp);
 #endif /* _QUAGGA_BGP_FSM_H */

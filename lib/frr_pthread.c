@@ -297,14 +297,14 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
  */
 
 /* dummy task for sleeper pipe */
-static void fpt_dummy(struct event *thread)
+static void fpt_dummy(struct event *event)
 {
 }
 
 /* poison pill task to end event loop */
-static void fpt_finish(struct event *thread)
+static void fpt_finish(struct event *event)
 {
-	struct frr_pthread *fpt = EVENT_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(event);
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 }
@@ -348,7 +348,7 @@ static int fpt_halt(struct frr_pthread *fpt, void **res)
 static void *fpt_run(void *arg)
 {
 	struct frr_pthread *fpt = arg;
-	fpt->master->owner = pthread_self();
+	frr_event_loop_set_pthread_owner(fpt->master, pthread_self());
 
 	zlog_tls_buffer_init();
 
@@ -356,7 +356,7 @@ static void *fpt_run(void *arg)
 	pipe(sleeper);
 	event_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
 
-	fpt->master->handle_signals = false;
+	frr_event_loop_set_handle_sigs(fpt->master, false);
 
 	frr_pthread_set_name(fpt);
 

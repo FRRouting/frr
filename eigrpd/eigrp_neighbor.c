@@ -184,9 +184,9 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 	XFREE(MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 
-void holddown_timer_expired(struct event *thread)
+void holddown_timer_expired(struct event *event)
 {
-	struct eigrp_neighbor *nbr = EVENT_ARG(thread);
+	struct eigrp_neighbor *nbr = EVENT_ARG(event);
 	struct eigrp *eigrp = nbr->ei->eigrp;
 
 	zlog_info("Neighbor %pI4 (%s) is down: holding time expired", &nbr->src,

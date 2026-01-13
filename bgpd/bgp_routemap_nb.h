@@ -14,6 +14,10 @@ extern "C" {
 extern const struct frr_yang_module_info frr_bgp_route_map_info;
 
 /* prototypes */
+int lib_route_map_entry_match_condition_rmap_match_condition_vpn_dataplane_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_vpn_dataplane_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_local_preference_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_local_preference_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_alias_modify(
@@ -72,6 +76,10 @@ int lib_route_map_entry_match_condition_rmap_match_condition_evpn_route_type_mod
 int lib_route_map_entry_match_condition_rmap_match_condition_evpn_route_type_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_aspath_count_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_aspath_count_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_community_limit_modify(
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_community_limit_destroy(

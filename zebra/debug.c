@@ -122,8 +122,14 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_PBR)
 		vty_out(vty, "  Zebra PBR debugging is on\n");
 
+	if (IS_ZEBRA_DEBUG_NEIGH)
+		vty_out(vty, "  Zebra neighbor debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_TC)
+		vty_out(vty, "  Zebra TC debugging is on\n");
+
 	if (IS_ZEBRA_DEBUG_SRV6)
-		vty_out(vty, "  Zebra SRv6 is on\n");
+		vty_out(vty, "  Zebra SRv6 debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 
@@ -140,6 +146,8 @@ DEFUN (debug_zebra_events,
        "Debug option set for zebra events\n")
 {
 	zebra_debug_event = ZEBRA_DEBUG_EVENT;
+
+	vty_out(vty, "Zebra event debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -155,8 +163,12 @@ DEFUN (debug_zebra_nht,
 
 	zebra_debug_nht = ZEBRA_DEBUG_NHT;
 
-	if (argv_find(argv, argc, "detailed", &idx))
+	if (argv_find(argv, argc, "detailed", &idx)) {
 		zebra_debug_nht |= ZEBRA_DEBUG_NHT_DETAILED;
+		vty_out(vty, "Zebra detailed next-hop tracking debugging is on\n");
+	} else {
+		vty_out(vty, "Zebra next-hop tracking debugging is on\n");
+	}
 
 	return CMD_SUCCESS;
 }
@@ -171,8 +183,12 @@ DEFPY (debug_zebra_mpls,
 {
 	zebra_debug_mpls = ZEBRA_DEBUG_MPLS;
 
-	if (detail)
+	if (detail) {
 		zebra_debug_mpls |= ZEBRA_DEBUG_MPLS_DETAILED;
+		vty_out(vty, "Zebra detailed MPLS debugging is on\n");
+	} else {
+		vty_out(vty, "Zebra MPLS debugging is on\n");
+	}
 
 	return CMD_SUCCESS;
 }
@@ -185,6 +201,8 @@ DEFPY (debug_zebra_vxlan,
        "Debug option set for zebra VxLAN (EVPN)\n")
 {
 	zebra_debug_vxlan = ZEBRA_DEBUG_VXLAN;
+
+	vty_out(vty, "Zebra VXLAN debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -196,10 +214,13 @@ DEFUN (debug_zebra_pw,
        "Zebra configuration\n"
        "Debug option set for zebra pseudowires\n")
 {
-	if (strmatch(argv[0]->text, "no"))
+	if (strmatch(argv[0]->text, "no")) {
 		UNSET_FLAG(zebra_debug_pw, ZEBRA_DEBUG_PW);
-	else
+		vty_out(vty, "Zebra Pseudowires debugging is off\n");
+	} else {
 		SET_FLAG(zebra_debug_pw, ZEBRA_DEBUG_PW);
+		vty_out(vty, "Zebra Pseudowires debugging is on\n");
+	}
 	return CMD_SUCCESS;
 }
 
@@ -216,17 +237,22 @@ DEFUN (debug_zebra_packet,
 	int idx = 0;
 	zebra_debug_packet = ZEBRA_DEBUG_PACKET;
 
-	if (argv_find(argv, argc, "send", &idx))
+	if (argv_find(argv, argc, "send", &idx)) {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-	else if (argv_find(argv, argc, "recv", &idx))
+		vty_out(vty, "Zebra packet send debugging is on\n");
+	} else if (argv_find(argv, argc, "recv", &idx)) {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-	else {
+		vty_out(vty, "Zebra packet recv debugging is on\n");
+	} else {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
+		vty_out(vty, "Zebra packet send and recv debugging is on\n");
 	}
 
-	if (argv_find(argv, argc, "detail", &idx))
+	if (argv_find(argv, argc, "detail", &idx)) {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
+		vty_out(vty, "Zebra detailed packet debugging is on\n");
+	}
 
 	return CMD_SUCCESS;
 }
@@ -240,6 +266,7 @@ DEFUN (debug_zebra_kernel,
 {
 	SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
 
+	vty_out(vty, "Zebra kernel debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -256,13 +283,17 @@ DEFUN (debug_zebra_kernel_msgdump,
 {
 	int idx = 0;
 
-	if (argv_find(argv, argc, "recv", &idx))
+	if (argv_find(argv, argc, "recv", &idx)) {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-	else if (argv_find(argv, argc, "send", &idx))
+		vty_out(vty, "Zebra kernel netlink message dumps (recv) are on\n");
+	} else if (argv_find(argv, argc, "send", &idx)) {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-	else {
+		vty_out(vty, "Zebra kernel netlink message dumps (send) are on\n");
+	} else {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+		vty_out(vty, "Zebra kernel netlink message dumps (recv) are on\n");
+		vty_out(vty, "Zebra kernel netlink message dumps (send) are on\n");
 	}
 
 	return CMD_SUCCESS;
@@ -280,8 +311,12 @@ DEFUN (debug_zebra_rib,
 	int idx = 0;
 	SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB);
 
-	if (argv_find(argv, argc, "detailed", &idx))
+	if (argv_find(argv, argc, "detailed", &idx)) {
 		SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED);
+		vty_out(vty, "Zebra RIB detailed debugging is on\n");
+	} else {
+		vty_out(vty, "Zebra RIB debugging is on\n");
+	}
 
 	return CMD_SUCCESS;
 }
@@ -294,6 +329,7 @@ DEFUN (debug_zebra_fpm,
        "Debug zebra FPM events\n")
 {
 	SET_FLAG(zebra_debug_fpm, ZEBRA_DEBUG_FPM);
+	vty_out(vty, "Zebra FPM debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -309,8 +345,11 @@ DEFUN (debug_zebra_dplane,
 
 	SET_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE);
 
-	if (argv_find(argv, argc, "detailed", &idx))
+	if (argv_find(argv, argc, "detailed", &idx)) {
 		SET_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DETAILED);
+		vty_out(vty, "Zebra detailed dataplane debugging is on\n");
+	} else
+		vty_out(vty, "Zebra dataplane debugging is on\n");
 
 	return CMD_SUCCESS;
 }
@@ -327,12 +366,18 @@ DEFPY(debug_zebra_dplane_dpdk, debug_zebra_dplane_dpdk_cmd,
 		UNSET_FLAG(zebra_debug_dplane_dpdk, ZEBRA_DEBUG_DPLANE_DPDK);
 		UNSET_FLAG(zebra_debug_dplane_dpdk,
 			   ZEBRA_DEBUG_DPLANE_DPDK_DETAIL);
+		vty_out(vty, "Zebra dpdk dataplane debugging is off\n");
+		vty_out(vty, "Zebra detailed dpdk dataplane debugging is off\n");
 	} else {
 		SET_FLAG(zebra_debug_dplane_dpdk, ZEBRA_DEBUG_DPLANE_DPDK);
 
-		if (detail)
+		if (detail) {
 			SET_FLAG(zebra_debug_dplane_dpdk,
 				 ZEBRA_DEBUG_DPLANE_DPDK_DETAIL);
+			vty_out(vty, "Zebra detailed dpdk dataplane debugging is on\n");
+		} else {
+			vty_out(vty, "Zebra dpdk dataplane debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -346,6 +391,7 @@ DEFUN (debug_zebra_pbr,
        "Debug zebra pbr events\n")
 {
 	SET_FLAG(zebra_debug_pbr, ZEBRA_DEBUG_PBR);
+	vty_out(vty, "Zebra PBR debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -357,10 +403,13 @@ DEFPY (debug_zebra_neigh,
        "Zebra configuration\n"
        "Debug zebra neigh events\n")
 {
-	if (no)
+	if (no) {
 		UNSET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
-	else
+		vty_out(vty, "Zebra neighbor debugging is off\n");
+	} else {
 		SET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
+		vty_out(vty, "Zebra neighbor debugging is on\n");
+	}
 
 	return CMD_SUCCESS;
 }
@@ -373,6 +422,7 @@ DEFUN (debug_zebra_tc,
        "Debug zebra tc events\n")
 {
 	SET_FLAG(zebra_debug_tc, ZEBRA_DEBUG_TC);
+	vty_out(vty, "Zebra TC debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -384,10 +434,13 @@ DEFPY(debug_zebra_srv6,
       "Zebra configuration\n"
       "Debug zebra SRv6 events\n")
 {
-	if (no)
+	if (no) {
 		UNSET_FLAG(zebra_debug_srv6, ZEBRA_DEBUG_SRV6);
-	else
+		vty_out(vty, "Zebra SRv6 debugging is off\n");
+	} else {
 		SET_FLAG(zebra_debug_srv6, ZEBRA_DEBUG_SRV6);
+		vty_out(vty, "Zebra SRv6 debugging is on\n");
+	}
 	return CMD_SUCCESS;
 }
 
@@ -399,10 +452,13 @@ DEFPY (debug_zebra_mlag,
        "Zebra configuration\n"
        "Debug option set for mlag events\n")
 {
-	if (no)
+	if (no) {
 		UNSET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
-	else
+		vty_out(vty, "Zebra mlag debugging is off\n");
+	} else {
 		SET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
+		vty_out(vty, "Zebra mlag debugging is on\n");
+	}
 	return CMD_SUCCESS;
 }
 
@@ -420,34 +476,46 @@ DEFPY (debug_zebra_evpn_mh,
        "Nexthop Debugging\n")
 {
 	if (es) {
-		if (no)
+		if (no) {
 			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
-		else
+			vty_out(vty, "Zebra EVPN-MH ethernet segment debugging is off\n");
+		} else {
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
+			vty_out(vty, "Zebra EVPN-MH ethernet segment debugging is on\n");
+		}
 	}
 
 	if (mac) {
-		if (no)
+		if (no) {
 			UNSET_FLAG(zebra_debug_evpn_mh,
 					ZEBRA_DEBUG_EVPN_MH_MAC);
-		else
+			vty_out(vty, "Zebra EVPN-MH MAC debugging is off\n");
+		} else {
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_MAC);
+			vty_out(vty, "Zebra EVPN-MH MAC debugging is on\n");
+		}
 	}
 
 	if (neigh) {
-		if (no)
+		if (no) {
 			UNSET_FLAG(zebra_debug_evpn_mh,
 					ZEBRA_DEBUG_EVPN_MH_NEIGH);
-		else
+			vty_out(vty, "Zebra EVPN-MH Neigh debugging is off\n");
+		} else {
 			SET_FLAG(zebra_debug_evpn_mh,
 					ZEBRA_DEBUG_EVPN_MH_NEIGH);
+			vty_out(vty, "Zebra EVPN-MH Neigh debugging is on\n");
+		}
 	}
 
 	if (nh) {
-		if (no)
+		if (no) {
 			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
-		else
+			vty_out(vty, "Zebra EVPN-MH nexthop debugging is off\n");
+		} else {
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
+			vty_out(vty, "Zebra EVPN-MH nexthop debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -462,6 +530,7 @@ DEFUN (no_debug_zebra_events,
        "Debug option set for zebra events\n")
 {
 	zebra_debug_event = 0;
+	vty_out(vty, "Zebra event debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -475,6 +544,7 @@ DEFUN (no_debug_zebra_nht,
        "Debug option set for detailed info\n")
 {
 	zebra_debug_nht = 0;
+	vty_out(vty, "Zebra next-hop tracking debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -488,6 +558,7 @@ DEFUN (no_debug_zebra_mpls,
        "Debug option for zebra detailed info\n")
 {
 	zebra_debug_mpls = 0;
+	vty_out(vty, "Zebra MPLS debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -500,6 +571,7 @@ DEFUN (no_debug_zebra_vxlan,
        "Debug option set for zebra VxLAN (EVPN)\n")
 {
 	zebra_debug_vxlan = 0;
+	vty_out(vty, "Zebra VXLAN debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -515,6 +587,7 @@ DEFUN (no_debug_zebra_packet,
        "Debug option set for detailed info\n")
 {
 	zebra_debug_packet = 0;
+	vty_out(vty, "Zebra packet debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -527,7 +600,7 @@ DEFUN (no_debug_zebra_kernel,
        "Debug option set for zebra between kernel interface\n")
 {
 	UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
-
+	vty_out(vty, "Zebra kernel debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -545,13 +618,17 @@ DEFUN (no_debug_zebra_kernel_msgdump,
 {
 	int idx = 0;
 
-	if (argv_find(argv, argc, "recv", &idx))
+	if (argv_find(argv, argc, "recv", &idx)) {
 		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-	else if (argv_find(argv, argc, "send", &idx))
+		vty_out(vty, "Zebra kernel netlink message dumps (recv) are off\n");
+	} else if (argv_find(argv, argc, "send", &idx)) {
 		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-	else {
+		vty_out(vty, "Zebra kernel netlink message dumps (send) are off\n");
+	} else {
 		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
 		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+		vty_out(vty, "Zebra kernel netlink message dumps (recv) are off\n");
+		vty_out(vty, "Zebra kernel netlink message dumps (send) are off\n");
 	}
 
 	return CMD_SUCCESS;
@@ -568,6 +645,7 @@ DEFUN (no_debug_zebra_rib,
        "Detailed debugs\n")
 {
 	zebra_debug_rib = 0;
+	vty_out(vty, "Zebra RIB debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -580,6 +658,7 @@ DEFUN (no_debug_zebra_fpm,
        "Debug zebra FPM events\n")
 {
 	zebra_debug_fpm = 0;
+	vty_out(vty, "Zebra FPM debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -592,6 +671,7 @@ DEFUN (no_debug_zebra_dplane,
        "Debug zebra dataplane events\n")
 {
 	zebra_debug_dplane = 0;
+	vty_out(vty, "Zebra dataplane debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -604,6 +684,7 @@ DEFUN (no_debug_zebra_pbr,
        "Debug zebra pbr events\n")
 {
 	zebra_debug_pbr = 0;
+	vty_out(vty, "Zebra PBR debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -616,14 +697,19 @@ DEFPY (debug_zebra_nexthop,
        "Debug zebra nexthop events\n"
        "Detailed information\n")
 {
-	if (no)
+	if (no) {
 		zebra_debug_nexthop = 0;
-	else {
+		vty_out(vty, "Zebra nexthop debugging is off\n");
+	} else {
 		SET_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG);
 
-		if (detail)
+		if (detail) {
 			SET_FLAG(zebra_debug_nexthop,
 				 ZEBRA_DEBUG_NHG_DETAILED);
+			vty_out(vty, "Zebra detailed nexthop debugging is on\n");
+		} else {
+			vty_out(vty, "Zebra nexthop debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;

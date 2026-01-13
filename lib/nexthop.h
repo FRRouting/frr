@@ -98,7 +98,7 @@ struct nexthop {
 	char _hash_end[0];
 
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
-	uint8_t weight;
+	uint16_t weight;
 
 	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
@@ -201,7 +201,7 @@ void nexthops_free(struct nexthop *nexthop);
 
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
-void nexthop_del_labels(struct nexthop *);
+void nexthop_del_labels(struct nexthop *nexthop);
 void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack);
 
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
@@ -292,7 +292,7 @@ extern bool nexthop_is_blackhole(const struct nexthop *nh);
 int nexthop_str2backups(const char *str, int *num_backups,
 			uint8_t *backups);
 
-void nexthop_json_helper(json_object *json_nexthop,
+void nexthop_json_helper(struct json_object *json_nexthop,
 			 const struct nexthop *nexthop, bool display_vrfid,
 			 uint8_t rn_family);
 void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,

@@ -33,6 +33,17 @@ static inline int is_evpn_enabled(void)
 	return EVPN_ENABLED(zebra_vrf_get_evpn());
 }
 
+#ifndef INET6_GUA_ADDRSTRLEN
+/* Use this for GUA IPv6 address len
+ * NOTE: ideal place can be lib/prefix.h where
+ * INET6_ADDRSTRLEN is defined.
+ * It is used for column width of gloabl IPv6
+ * address rendering.
+ * dead:beef:dead:beef:dead:beef:dead:beef + \0
+ */
+#define INET6_GUA_ADDRSTRLEN 40
+#endif /* INET6_GUA_ADDRSTRLEN */
+
 static inline int
 is_vxlan_flooding_head_end(void)
 {
@@ -59,10 +70,9 @@ extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS);
-void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
-				 struct in_addr vtep_ip, int flood_control);
-extern void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
-					struct in_addr vtep_ip);
+void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
+				 int flood_control);
+extern void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip);
 extern void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS);
@@ -96,18 +106,14 @@ extern void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
 						  struct zebra_vrf *zvrf,
 						  bool print_dup,
 						  bool use_json);
-extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
-						struct zebra_vrf *zvrf,
-						struct in_addr vtep_ip,
-						bool use_json);
+extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
+						struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_specific_mac_vni(struct vty *vty,
 					       struct zebra_vrf *zvrf,
 					       vni_t vni, struct ethaddr *mac,
 					       bool use_json);
-extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty,
-					    struct zebra_vrf *zvrf, vni_t vni,
-					    struct in_addr vtep_ip,
-					    bool use_json);
+extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
+					    struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 					   struct zebra_vrf *zvrf, vni_t vni,
 					   bool use_json);
@@ -125,10 +131,8 @@ extern void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 						 struct zebra_vrf *zvrf,
 						 vni_t vni, struct ipaddr *ip,
 						 bool use_json);
-extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty,
-					     struct zebra_vrf *zvrf, vni_t vni,
-					     struct in_addr vtep_ip,
-					     bool use_json);
+extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
+					     struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 					struct zebra_vrf *zvrf, vni_t vni,
 					bool use_json);
@@ -155,10 +159,10 @@ extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp,
 extern int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if);
 extern int zebra_vxlan_svi_down(struct interface *ifp,
 				struct interface *link_if);
-extern int zebra_vxlan_handle_kernel_neigh_update(
-	struct interface *ifp, struct interface *link_if, struct ipaddr *ip,
-	struct ethaddr *macaddr, uint16_t state, bool is_ext,
-	bool is_router, bool local_inactive, bool dp_static);
+extern int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interface *link_if,
+						  struct ipaddr *ip, struct ethaddr *macaddr,
+						  uint16_t state, bool is_own, bool is_router,
+						  bool local_inactive, bool dp_static);
 extern int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);
@@ -170,8 +174,7 @@ extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);
-extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni,
-					struct in_addr vtep_ip);
+extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni, struct ipaddr *vtep_ip);
 extern int zebra_vxlan_if_up(struct interface *ifp);
 extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
@@ -181,8 +184,8 @@ extern int zebra_vxlan_if_del(struct interface *ifp);
 extern void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					    int filter, int add);
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
-extern void zebra_vxlan_close_tables(struct zebra_vrf *);
-extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
+extern void zebra_vxlan_close_tables(struct zebra_vrf *zvrf);
+extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_init(void);
 extern void zebra_vxlan_terminate(void);
 extern void zebra_vxlan_disable(void);
@@ -222,6 +225,10 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
 extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+extern void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni);
+extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
+					     bool sticky, vni_t vni);
+extern void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time);
 #ifdef __cplusplus
 }
 #endif

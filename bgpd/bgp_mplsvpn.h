@@ -29,13 +29,12 @@
 #define V4_HEADER_OVERLAY                                                      \
 	"   Network          Next Hop      EthTag    Overlay Index   RouterMac\n"
 
-#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH 20
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL 20
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP	  32
 
 extern void bgp_mplsvpn_init(void);
 extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
-extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
-extern uint32_t decode_label(mpls_label_t *);
-extern void encode_label(mpls_label_t, mpls_label_t *);
+extern int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr, struct bgp_nlri *packet);
 
 extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
 				     int *index, afi_t *afi);
@@ -89,12 +88,13 @@ extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
-extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
-			  uint8_t size);
-extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset, uint8_t size,
+			  uint8_t size_max);
+extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 				afi_t afi, safi_t safi);
-void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 			   afi_t afi, safi_t safi);
+bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func);
 
 static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 {
@@ -188,6 +188,15 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
 
+	/* Is there an export SID that isn't allocted yet? */
+	if ((CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	     CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+	     bgp_vrf->vpn_policy[afi].tovpn_sid_index) &&
+	    !bgp_vrf->vpn_policy[afi].tovpn_sid) {
+		if (pmsg)
+			*pmsg = "SID could not be allocated";
+		return 0;
+	}
 	return 1;
 }
 
@@ -355,8 +364,8 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_nexthop, afi_t afi,
 				    safi_t safi)
 {
-	if (!pi->attr->srv6_l3vpn && !pi->attr->srv6_vpn)
-		return false;
+	if (!pi->attr->srv6_l3service && !pi->attr->srv6_vpn)
+		return !bgp_nexthop->srv6_only;
 
 	/* imported paths from VPN: srv6 enabled and nht reachability
 	 * are enough to know if that path is valid
@@ -376,6 +385,36 @@ static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_ne
 		return false;
 
 	return true;
+}
+
+static inline bool is_srv6_vpn_afi_enabled(struct bgp *bgp, afi_t afi)
+{
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+	    bgp->vpn_policy[afi].tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+static inline bool is_srv6_vpn_vrf_enabled(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) || bgp->tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+static inline bool is_srv6_vpn_enabled(struct bgp *bgp)
+{
+	if (is_srv6_vpn_vrf_enabled(bgp))
+		return true;
+
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6))
+		return true;
+
+	return false;
 }
 
 extern void vpn_policy_routemap_event(const char *rmap_name);

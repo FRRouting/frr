@@ -958,8 +958,8 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		*var_len = strnlen(rd_buf, RD_ADDRSTRLEN);
 		return (uint8_t *)rd_buf;
 	case MPLSL3VPNVRFCREATIONTIME:
-		return SNMP_INTEGER(
-			(uint32_t)l3vpn_bgp->snmp_stats->creation_time);
+		return SNMP_INTEGER(frr_time_t_to_uint32_t(
+			l3vpn_bgp->snmp_stats->creation_time));
 	case MPLSL3VPNVRFOPERSTATUS:
 		if (l3vpn_bgp->snmp_stats->active)
 			return SNMP_INTEGER(1);

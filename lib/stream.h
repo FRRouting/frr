@@ -134,7 +134,7 @@ struct stream_fifo {
  */
 extern struct stream *stream_new(size_t);
 extern struct stream *stream_new_expandable(size_t);
-extern void stream_free(struct stream *);
+extern void stream_free(struct stream *s);
 /* Copy 'src' into 'dest', returns 'dest' */
 extern struct stream *stream_copy(struct stream *dest,
 				  const struct stream *src);
@@ -154,73 +154,66 @@ extern size_t stream_get_size(const struct stream *s);
 extern struct stream *stream_dupcat(const struct stream *s1,
 				    const struct stream *s2, size_t offset);
 
-extern void stream_set_getp(struct stream *, size_t);
-extern void stream_set_endp(struct stream *, size_t);
-extern void stream_forward_getp(struct stream *, size_t);
-extern bool stream_forward_getp2(struct stream *, size_t);
+extern void stream_set_getp(struct stream *s, size_t pos);
+extern void stream_set_endp(struct stream *s, size_t pos);
+extern void stream_forward_getp(struct stream *s, size_t size);
+extern bool stream_forward_getp2(struct stream *s, size_t size);
 extern void stream_rewind_getp(struct stream *s, size_t size);
 extern bool stream_rewind_getp2(struct stream *s, size_t size);
-extern void stream_forward_endp(struct stream *, size_t);
-extern bool stream_forward_endp2(struct stream *, size_t);
+extern void stream_forward_endp(struct stream *s, size_t size);
+extern bool stream_forward_endp2(struct stream *s, size_t size);
 
 /* steam_put: NULL source zeroes out size_t bytes of stream */
-extern void stream_put(struct stream *, const void *, size_t);
-extern int stream_putc(struct stream *, uint8_t);
-extern int stream_putc_at(struct stream *, size_t, uint8_t);
-extern int stream_putw(struct stream *, uint16_t);
-extern int stream_putw_at(struct stream *, size_t, uint16_t);
-extern int stream_put3(struct stream *, uint32_t);
-extern int stream_put3_at(struct stream *, size_t, uint32_t);
-extern int stream_putl(struct stream *, uint32_t);
-extern int stream_putl_at(struct stream *, size_t, uint32_t);
-extern int stream_putq(struct stream *, uint64_t);
-extern int stream_putq_at(struct stream *, size_t, uint64_t);
-extern int stream_put_ipv4(struct stream *, uint32_t);
+extern void stream_put(struct stream *s, const void *src, size_t size);
+extern int stream_putc(struct stream *s, uint8_t c);
+extern int stream_putc_at(struct stream *s, size_t putp, uint8_t c);
+extern int stream_putw(struct stream *s, uint16_t w);
+extern int stream_putw_at(struct stream *s, size_t putp, uint16_t w);
+extern int stream_put3(struct stream *s, uint32_t l);
+extern int stream_put3_at(struct stream *s, size_t putp, uint32_t l);
+extern int stream_putl(struct stream *s, uint32_t l);
+extern int stream_putl_at(struct stream *s, size_t putp, uint32_t l);
+extern int stream_putq(struct stream *s, uint64_t q);
+extern int stream_putq_at(struct stream *s, size_t putp, uint64_t q);
+extern int stream_put_ipv4(struct stream *s, uint32_t l);
 extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
 extern bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip);
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
-extern int stream_put_in6_addr_at(struct stream *s, size_t putp,
-				  const struct in6_addr *addr);
-extern int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
-				     bool addpath_capable,
-				     uint32_t addpath_tx_id);
+extern int stream_put_in6_addr_at(struct stream *s, size_t putp, const struct in6_addr *addr);
 extern int stream_put_prefix(struct stream *s, const struct prefix *p);
-extern int stream_put_labeled_prefix(struct stream *, const struct prefix *,
-				     mpls_label_t *, bool addpath_capable,
-				     uint32_t addpath_tx_id);
-extern void stream_get(void *, struct stream *, size_t);
+extern void stream_get(void *dst, struct stream *s, size_t size);
 extern bool stream_get2(void *data, struct stream *s, size_t size);
-extern void stream_get_from(void *, struct stream *, size_t, size_t);
-extern uint8_t stream_getc(struct stream *);
+extern void stream_get_from(void *dst, struct stream *s, size_t from, size_t size);
+extern uint8_t stream_getc(struct stream *s);
 extern bool stream_getc2(struct stream *s, uint8_t *byte);
-extern uint8_t stream_getc_from(struct stream *, size_t);
-extern uint16_t stream_getw(struct stream *);
+extern uint8_t stream_getc_from(struct stream *s, size_t from);
+extern uint16_t stream_getw(struct stream *s);
 extern bool stream_getw2(struct stream *s, uint16_t *word);
-extern uint16_t stream_getw_from(struct stream *, size_t);
-extern uint32_t stream_get3(struct stream *);
-extern uint32_t stream_get3_from(struct stream *, size_t);
-extern uint32_t stream_getl(struct stream *);
+extern uint16_t stream_getw_from(struct stream *s, size_t from);
+extern uint32_t stream_get3(struct stream *s);
+extern uint32_t stream_get3_from(struct stream *s, size_t from);
+extern uint32_t stream_getl(struct stream *s);
 extern bool stream_getl2(struct stream *s, uint32_t *l);
-extern uint32_t stream_getl_from(struct stream *, size_t);
-extern uint64_t stream_getq(struct stream *);
-extern uint64_t stream_getq_from(struct stream *, size_t);
+extern uint32_t stream_getl_from(struct stream *s, size_t from);
+extern uint64_t stream_getq(struct stream *s);
+extern uint64_t stream_getq_from(struct stream *s, size_t from);
 bool stream_getq2(struct stream *s, uint64_t *q);
-extern uint32_t stream_get_ipv4(struct stream *);
+extern uint32_t stream_get_ipv4(struct stream *s);
 extern bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip);
 
 /* IEEE-754 floats */
-extern float stream_getf(struct stream *);
-extern double stream_getd(struct stream *);
-extern int stream_putf(struct stream *, float);
-extern int stream_putd(struct stream *, double);
+extern float stream_getf(struct stream *s);
+extern double stream_getd(struct stream *s);
+extern int stream_putf(struct stream *s, float f);
+extern int stream_putd(struct stream *s, double d);
 
 #undef stream_read
 #undef stream_write
 
 /* Deprecated: assumes blocking I/O.  Will be removed.
    Use stream_read_try instead.  */
-extern int stream_read(struct stream *, int, size_t);
+extern int stream_read(struct stream *s, int fd, size_t size);
 
 /* Read up to size bytes into the stream.
    Return code:
@@ -232,16 +225,16 @@ extern int stream_read(struct stream *, int, size_t);
  */
 extern ssize_t stream_read_try(struct stream *s, int fd, size_t size);
 
-extern ssize_t stream_recvmsg(struct stream *s, int fd, struct msghdr *,
-			      int flags, size_t size);
+extern ssize_t stream_recvmsg(struct stream *s, int fd, struct msghdr *msgh, int flags,
+			      size_t size);
 extern ssize_t stream_recvfrom(struct stream *s, int fd, size_t len, int flags,
 			       struct sockaddr *from, socklen_t *fromlen);
-extern size_t stream_write(struct stream *, const void *, size_t);
+extern size_t stream_write(struct stream *s, const void *ptr, size_t size);
 
 /* reset the stream. See Note above */
-extern void stream_reset(struct stream *);
-extern int stream_flush(struct stream *, int);
-extern int stream_empty(struct stream *); /* is the stream empty? */
+extern void stream_reset(struct stream *s);
+extern int stream_flush(struct stream *s, int fd);
+extern int stream_empty(struct stream *s); /* is the stream empty? */
 
 /* debugging */
 extern void stream_hexdump(const struct stream *s);

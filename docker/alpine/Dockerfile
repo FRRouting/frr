@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Create a basic stage set up to build APKs
-FROM alpine:3.20 as alpine-builder
+FROM alpine:3.22 as alpine-builder
 RUN apk add \
 		--update-cache \
 		abuild \
@@ -17,14 +17,15 @@ FROM alpine-builder as alpine-apk-builder-libyang
 RUN mkdir -p /src/libyang
 COPY docker/alpine/libyang/APKBUILD /src/libyang
 RUN chown -R builder /pkgs /src
+RUN source /src/libyang/APKBUILD && apk add $makedepends
 USER builder
 RUN cd /src/libyang \
 	&& abuild checksum \
 	&& git init \
-	&& abuild -r -P /pkgs/apk
+	&& abuild -P /pkgs/apk
 
 # This stage builds a dist tarball from the source
-FROM alpine:3.20 as source-builder
+FROM alpine:3.22 as source-builder
 RUN mkdir -p /src/alpine /pkgs/apk
 COPY alpine/APKBUILD.in /src/alpine
 COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
@@ -51,14 +52,20 @@ COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
 RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
 RUN chown -R builder /dist /pkgs
+RUN source /dist/APKBUILD.in \
+	&& apk add \
+		--no-cache \
+		--update-cache \
+		$makedepends \
+		$depends
 USER builder
 RUN cd /dist \
 	&& abuild checksum \
 	&& git init \
-	&& abuild -r -P /pkgs/apk
+	&& abuild -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:3.20
+FROM alpine:3.22
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \

@@ -600,7 +600,7 @@ static void restart_done(struct daemon *dmn)
 		SET_WAKEUP_DOWN(dmn);
 }
 
-static void daemon_restarting_operational(struct event *thread)
+static void daemon_restarting_operational(struct event *event)
 {
 	systemd_send_status("FRR Operational");
 }
@@ -1275,12 +1275,12 @@ static FRR_NORETURN void netns_setup(const char *nsname)
 }
 #endif
 
-static void watchfrr_start_config(void)
+static void watchfrr_start_config(struct vty *vty)
 {
 	gs.reading_configuration = true;
 }
 
-static void watchfrr_end_config(void)
+static void watchfrr_end_config(struct vty *vty)
 {
 	gs.reading_configuration = false;
 }
@@ -1471,6 +1471,8 @@ int main(int argc, char **argv)
 		case 'i': {
 			char garbage[3];
 			int period;
+
+			assert(optarg);
 			if ((sscanf(optarg, "%d%1s", &period, garbage) != 1)
 			    || (gs.period < 1)) {
 				fprintf(stderr,
@@ -1478,7 +1480,7 @@ int main(int argc, char **argv)
 					optarg);
 				frr_help_exit(1);
 			}
-			gs.period = 1000 * period;
+			gs.period = 1000UL * period;
 		} break;
 		case 'p':
 			watchfrr_di.pid_file = optarg;

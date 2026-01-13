@@ -39,8 +39,8 @@ DEFPY_YANG_NOSH(
 		 "/frr-route-map:lib/route-map[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%lu']",
-		 xpath, sequence);
+	snprintfrr(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%" PRIu64 "']", xpath,
+		   sequence);
 	nb_cli_enqueue_change(vty, xpath_index, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_action, sizeof(xpath_action), "%s/action", xpath_index);
@@ -78,9 +78,9 @@ DEFPY_YANG(
 {
 	char xpath[XPATH_MAXLEN];
 
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%lu']",
-		 name, sequence);
+	snprintfrr(xpath, sizeof(xpath),
+		   "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%" PRIu64 "']", name,
+		   sequence);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -572,7 +572,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/tag", xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintfrr(value, sizeof(value), "%" PRIu64, tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -643,6 +643,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/ipv4-next-hop-type"));
+	} else if (IS_MATCH_ASPATH_COUNT(condition)) {
+		vty_out(vty, " match as-path-count %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:as-path-count"));
 	} else if (IS_MATCH_IPv6_NEXTHOP_TYPE(condition)) {
 		vty_out(vty, " match ipv6 next-hop type %s\n",
 			yang_dnode_get_string(
@@ -677,8 +681,7 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length"));
-	} else if (IS_MATCH_SRC_PROTO(condition) ||
-		   IS_MATCH_BGP_SRC_PROTO(condition)) {
+	} else if (IS_MATCH_SRC_PROTO(condition) || IS_MATCH_BGP_SRC_PROTO(condition)) {
 		vty_out(vty, " match source-protocol %s\n",
 			yang_dnode_get_string(
 				dnode,
@@ -690,6 +693,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:source-instance"));
+	} else if (IS_MATCH_VPN_DATAPLANE(condition)) {
+		vty_out(vty, " match vpn dataplane %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:vpn-dataplane"));
 	} else if (IS_MATCH_LOCAL_PREF(condition)) {
 		vty_out(vty, " match local-preference %s\n",
 			yang_dnode_get_string(
@@ -1136,7 +1143,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/tag",
 		 xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintfrr(value, sizeof(value), "%" PRIu64, tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);

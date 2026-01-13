@@ -544,10 +544,10 @@ int proto_name2num(const char *s)
 	return -1;
 }
 
-int proto_redistnum(int afi, const char *s)
+uint8_t proto_redistnum(int afi, const char *s)
 {
 	if (!s)
-		return -1;
+		return ZEBRA_ROUTE_ERROR;
 
 	if (afi == AFI_IP) {
 		if (strmatch(s, "kernel"))
@@ -619,7 +619,7 @@ int proto_redistnum(int afi, const char *s)
 		else if (strmatch(s, "table-direct"))
 			return ZEBRA_ROUTE_TABLE_DIRECT;
 	}
-	return -1;
+	return ZEBRA_ROUTE_ERROR;
 }
 
 void zlog_hexdump(const void *mem, size_t len)
@@ -663,6 +663,21 @@ void zlog_hexdump(const void *mem, size_t len)
 
 		zlog_debug("%.*s", (int)(fb.pos - fb.buf), fb.buf);
 	}
+}
+
+/*
+ * There are historical reasons why time since the epoch is 32
+ * bit.  Since we need the backwards compatabilty, let's convert
+ * the time since the epoch(a time_t value ) to a uint32_t
+ * We know that this is going to eventually never work right
+ * but there is not much we can do since we cannot go
+ * backwards(HA!) to fix poorly choosen data types
+ */
+uint32_t frr_time_t_to_uint32_t(time_t value)
+{
+	if (value > (time_t)UINT32_MAX)
+		return UINT32_MAX;
+	return (uint32_t)value;
 }
 
 const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen)

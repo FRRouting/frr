@@ -541,10 +541,16 @@ def test_msdp_sa_limit():
 
     def test_sa_limit_log():
         r4_log = tgen.gears["r4"].net.getLog("log", "pimd")
-        return re.search(r"MSDP peer .+ reject SA (.+, .+): SA limit \d+ of 4", r4_log)
+        if (
+            re.search(r"MSDP peer .+ reject SA (.+, .+): SA limit \d+ of 4", r4_log)
+            is None
+        ):
+            return False
+        else:
+            return True
 
-    _, val = topotest.run_and_expect(test_sa_limit_log, None, count=30, wait=1)
-    assert val is None, "SA limit check failed"
+    _, val = topotest.run_and_expect(test_sa_limit_log, True, count=30, wait=1)
+    assert val is True, "SA limit check failed"
 
 
 def test_msdp_log_events():

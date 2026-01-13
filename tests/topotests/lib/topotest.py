@@ -124,11 +124,61 @@ disassemble /m
     )
     btdump = p.stdout
 
+    # Get full backtraces for all threads
+    gdbcmds = r"""
+set print elements 1024
+echo -------------------------\n
+echo all threads backtraces\n
+echo -------------------------\n
+info threads
+"""
+    # Extract thread numbers from the info threads output
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch", "-ex", "info threads"],
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    threads_output = p.stdout
+
+    # Parse thread numbers from the output - look for the actual thread IDs, not just "Thread X"
+    # The format is typically: "  Id   Target Id                           Frame"
+    # followed by lines like: "* 1    Thread 0x77295ecbea40 (LWP 1123543) ..."
+    thread_numbers = re.findall(r"^\s*(\d+)\s+Thread", threads_output, re.MULTILINE)
+
+    if thread_numbers:
+        gdbcmds += "\n"
+        # Skip the first thread since it was already dumped earlier
+        for thread_num in thread_numbers:
+            gdbcmds += f"""echo -------------------------\n
+echo Thread {thread_num} full backtrace\n
+echo -------------------------\n
+thread {thread_num}
+bt full
+"""
+        # Also add a final command to show which threads we processed
+        gdbcmds += f"""echo -------------------------\n
+echo processed threads: {thread_numbers}\n
+echo -------------------------\n
+"""
+
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    all_threads_dump = p.stdout
+
     # sys.stderr.write(
     #     "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
     # )
 
-    return backtrace + btdump
+    return backtrace + btdump + all_threads_dump
 
 
 class json_cmp_result(object):

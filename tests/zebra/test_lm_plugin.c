@@ -7,8 +7,11 @@
 
 
 #include <zebra.h>
+#include "lib/command.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/label_manager.h"
+
+extern struct label_manager lbl_mgr;
 
 /* shim out unused functions/variables to allow the lablemanager to compile*/
 DEFINE_KOOH(zserv_client_close, (struct zserv * client), (client));
@@ -94,6 +97,7 @@ static void test_lp_plugin(void)
 		"chunk: start %u end %u proto %u instance %u session %u keep %s\n",
 		lmc->start, lmc->end, lmc->proto, lmc->instance,
 		lmc->session_id, lmc->keep ? "yes" : "no");
+	list_delete_node(lbl_mgr.lc_list, listnode_lookup(lbl_mgr.lc_list, lmc));
 	delete_label_chunk(lmc);
 
 	lmc = assign_label_chunk(10, 55, 0, 1, 50, 100);
@@ -106,6 +110,9 @@ static void test_lp_plugin(void)
 
 int main(int argc, char **argv)
 {
+	qobj_init();
+	cmd_init(1);
+
 	/* set up label manager and release it's hooks */
 	label_manager_init();
 	lm_hooks_unregister();

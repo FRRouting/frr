@@ -236,9 +236,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			break;
 
 #if PIM_IPV == 4
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s",
-				   &ip_hdr->ip_src, &ip_hdr->ip_dst, ifp->name);
+		if (PIM_DEBUG_PIM_PACKETS) {
+			struct in_addr srcaddr = ip_hdr->ip_src;
+			struct in_addr dstaddr = ip_hdr->ip_dst;
+
+			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s", &srcaddr,
+				   &dstaddr, ifp->name);
+		}
 #else
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug("neighbor filter rejects packet %pI6 -> %pI6 on %s", &sg.src,
@@ -737,7 +741,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	if (ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 
-		if (pim_ifp->pim_passive_enable) {
+		if (pim_ifp && pim_ifp->pim_passive_enable) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("skip sending PIM message on passive interface %s",
 					   ifp->name);
@@ -814,9 +818,9 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
-	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
-			   tolen, ifp ? ifp->name : "*");
-	return 0;
+	return pim_msg_send_frame(fd, (char *)buffer, sendlen,
+				  (struct sockaddr *)&to, tolen,
+				  ifp ? ifp->name : "*");
 
 #else
 	struct iovec iovector[2];
@@ -824,9 +828,8 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
-	pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
-
-	return 0;
+	return pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0,
+				  &iovector[0], fd);
 #endif
 }
 

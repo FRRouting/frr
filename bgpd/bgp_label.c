@@ -198,19 +198,20 @@ int bgp_parse_fec_update(void)
 	return 1;
 }
 
-mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
-			   struct peer *to, afi_t afi, safi_t safi)
+void bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi, struct peer *to, afi_t afi,
+		   safi_t safi, mpls_label_t *labels, uint8_t *num_labels)
 {
 	struct peer *from;
-	mpls_label_t remote_label;
 	int reflect;
+	uint8_t i;
+	bool use_local_label = true;
 
-	if (!dest || !pi || !to)
-		return MPLS_INVALID_LABEL;
+	labels[0] = MPLS_INVALID_LABEL;
+	if (!dest || !pi || !to) {
+		*num_labels = 0;
+		return;
+	}
 
-	remote_label = BGP_PATH_INFO_NUM_LABELS(pi)
-			       ? pi->extra->labels->label[0]
-			       : MPLS_INVALID_LABEL;
 	from = pi->peer;
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
@@ -218,12 +219,19 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (reflect
 	    && !CHECK_FLAG(to->af_flags[afi][safi],
 			   PEER_FLAG_FORCE_NEXTHOP_SELF))
-		return remote_label;
+		use_local_label = false;
 
 	if (CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
-		return remote_label;
+		use_local_label = false;
 
-	return dest->local_label;
+	if (use_local_label) {
+		*num_labels = 1;
+		labels[0] = dest->local_label;
+	} else {
+		*num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
+		for (i = 0; i < *num_labels; i++)
+			labels[i] = pi->extra->labels->label[i];
+	}
 }
 
 static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
@@ -269,10 +277,10 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (reg) {
 		/* label index takes precedence over auto-assigned label. */
 		if (label_index != 0) {
-			flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
+			SET_FLAG(flags, ZEBRA_FEC_REGISTER_LABEL_INDEX);
 			stream_putl(s, label_index);
 		} else if (have_label_to_reg) {
-			flags |= ZEBRA_FEC_REGISTER_LABEL;
+			SET_FLAG(flags, ZEBRA_FEC_REGISTER_LABEL);
 			stream_putl(s, label);
 		}
 		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
@@ -374,9 +382,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * Determine if we will let zebra should derive label from
 		 * label index instead of bgpd requesting from label pool
 		 */
-		if (CHECK_FLAG(pi->attr->flag,
-			    ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))
-			&& pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
+		if (bgp_attr_exists(pi->attr, BGP_ATTR_PREFIX_SID) &&
+		    pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
 			with_label_index = true;
 			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
 		} else {
@@ -407,42 +414,58 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
-		bgp_lp_release(LP_TYPE_BGP_LU, dest, label);
+		bgp_lu_lp_release(dest, label);
 	}
 
 	bgp_send_fec_register_label_msg(
 		dest, reg, with_label_index ? pi->attr->label_index : 0);
 }
 
-static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
-			       mpls_label_t *label)
+/* Labels must have BGP_MAX_LABELS elements */
+static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mpls_label_t *labels,
+			       uint8_t *num_labels_pnt)
 {
 	uint8_t *data = pnt;
 	uint8_t *lim = pnt + plen;
 	uint8_t llen = 0;
 	uint8_t label_depth = 0;
+	uint8_t num_labels = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+	mpls_label_t *label_pnt = &label;
 
 	if (plen < BGP_LABEL_BYTES)
 		return 0;
 
-	for (; data < lim; data += BGP_LABEL_BYTES) {
-		memcpy(label, data, BGP_LABEL_BYTES);
+	for (; (data + BGP_LABEL_BYTES) <= lim; data += BGP_LABEL_BYTES) {
+		/*
+		 * Support only BGP_MAX_LABELS, read rest to local variable and
+		 * discard, shouldn't be possible - see comment to BGP_MAX_LABELS
+		 */
+		if (num_labels < BGP_MAX_LABELS)
+			label_pnt = &labels[num_labels++];
+		else
+			label_pnt = &label;
+
+		memcpy(label_pnt, data, BGP_LABEL_BYTES);
 		llen += BGP_LABEL_BYTES;
 
-		bgp_set_valid_label(label);
+		bgp_set_valid_label(label_pnt);
+
 		label_depth += 1;
 
-		if (bgp_is_withdraw_label(label) || label_bos(label))
+		if (bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt))
 			break;
 	}
 
-	/* If we RX multiple labels we will end up keeping only the last
-	 * one. We do not yet support a label stack greater than 1. */
-	if (label_depth > 1)
-		zlog_info("%pBP rcvd UPDATE with label stack %d deep", peer,
-			  label_depth);
+	*num_labels_pnt = num_labels;
 
-	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
+	if (label_depth > BGP_MAX_LABELS) {
+		label_set_bos(&labels[num_labels - 1]);
+		zlog_info("%pBP rcvd UPDATE with label stack %d deep, using only first %d labels",
+			  peer, label_depth, num_labels);
+	}
+
+	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt)))
 		flog_warn(
 			EC_BGP_INVALID_LABEL_STACK,
 			"%pBP rcvd UPDATE with invalid label stack - no bottom of stack",
@@ -463,7 +486,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	safi_t safi;
 	bool addpath_capable;
 	uint32_t addpath_id;
-	mpls_label_t label = MPLS_INVALID_LABEL;
+	mpls_label_t labels[MPLS_MAX_LABELS] = { MPLS_INVALID_LABEL };
+	uint8_t num_labels = 0;
 	uint8_t llen;
 
 	pnt = packet->nlri;
@@ -507,7 +531,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		}
 
 		/* Fill in the labels */
-		llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
+		llen = bgp_nlri_get_labels(peer, pnt, psize, labels, &num_labels);
 		if (llen == 0) {
 			flog_err(
 				EC_BGP_UPDATE_RCV,
@@ -574,13 +598,11 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		}
 
 		if (attr) {
-			bgp_update(peer, &p, addpath_id, attr, packet->afi,
-				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				   NULL, &label, 1, 0, NULL);
+			bgp_update(peer, &p, addpath_id, attr, packet->afi, safi, ZEBRA_ROUTE_BGP,
+				   BGP_ROUTE_NORMAL, NULL, labels, num_labels, 0, NULL);
 		} else {
-			bgp_withdraw(peer, &p, addpath_id, packet->afi,
-				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, &label, 1);
+			bgp_withdraw(peer, &p, addpath_id, packet->afi, SAFI_UNICAST,
+				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, labels, num_labels);
 		}
 	}
 
@@ -594,6 +616,37 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+uint32_t decode_label(mpls_label_t *label_pnt)
+{
+	uint32_t l;
+	uint8_t *pnt = (uint8_t *)label_pnt;
+
+	l = ((uint32_t)*pnt++ << 12);
+	l |= (uint32_t)*pnt++ << 4;
+	l |= (uint32_t)((*pnt & 0xf0) >> 4);
+	return l;
+}
+
+void encode_label_bos(mpls_label_t label, mpls_label_t *label_pnt, bool bos)
+{
+	uint8_t *pnt = (uint8_t *)label_pnt;
+
+	if (pnt == NULL)
+		return;
+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK) {
+		*label_pnt = label;
+		return;
+	}
+	*pnt++ = (label >> 12) & 0xff;
+	*pnt++ = (label >> 4) & 0xff;
+	*pnt++ = ((label << 4) + (bos ? 1 : 0)) & 0xff;
+}
+
+void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
+{
+	encode_label_bos(label, label_pnt, true);
 }
 
 bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
@@ -611,4 +664,40 @@ bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
 			return false;
 	}
 	return true;
+}
+
+bool bgp_labels_is_implicit_null(struct bgp_path_info *pi)
+{
+	if (BGP_PATH_INFO_NUM_LABELS(pi) != 1)
+		return false;
+	if (decode_label(&pi->extra->labels->label[0]) == MPLS_LABEL_IMPLICIT_NULL)
+		return true;
+	return false;
+}
+
+char *mpls_labels2str(mpls_label_t *labels, uint8_t num_labels, const char *prefix, char *buf,
+		      int size)
+{
+	uint32_t label_value;
+	uint32_t len = 0;
+	uint8_t i;
+
+	buf[0] = '\0';
+	if (!num_labels)
+		return buf;
+
+	if (prefix) {
+		strlcat(buf + len, prefix, size - len);
+		len = strlen(buf);
+	}
+
+	label_value = decode_label(&labels[0]);
+	len += snprintf(buf + len, size - len, "%u", label_value);
+
+	for (i = 1; i < num_labels; i++) {
+		label_value = decode_label(&labels[i]);
+		len += snprintf(buf + len, size - len, "/%u", label_value);
+	}
+
+	return buf;
 }

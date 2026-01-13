@@ -20,7 +20,7 @@ import pytest
 from lib.common_config import generate_support_bundle
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
-from lib.topotest import json_cmp_result, gdb_core
+from lib.topotest import gdb_core, json_cmp_result
 from munet import cli
 from munet.base import BaseMunet, Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
@@ -265,6 +265,12 @@ def pytest_addoption(parser):
         help="Spawn vtysh on all routers on test failure",
     )
 
+    parser.addoption(
+        "--ignore-backtraces",
+        action="store_true",
+        help="Ignore backtrace detection during test execution",
+    )
+
 
 def check_for_valgrind_memleaks():
     assert topotest.g_pytest_config.option.valgrind_memleaks
@@ -351,7 +357,9 @@ def check_for_core_dumps():
         tgen.existing_core_files = set()
     existing = tgen.existing_core_files
 
-    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    cores = glob.glob(f"{tgen.logdir}/**/*.dmp", recursive=True)
+    if cores:
+        logging.info("Found core dumps: %s", cores)
     latest = {x for x in cores if x not in existing}
     if latest:
         existing |= latest
@@ -469,7 +477,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     # Let the default pytest_runtest_call execute the test function
     yield
 
-    check_for_backtraces()
+    if not item.config.option.ignore_backtraces:
+        check_for_backtraces()
     check_for_core_dumps()
 
     # Check for leaks if requested

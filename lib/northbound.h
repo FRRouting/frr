@@ -839,9 +839,9 @@ typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 
 /**
  * nb_oper_data_finish_cb() - finish a portion or all of a oper data walk.
- * @tree - r/o copy of the tree created during this portion of the walk.
- * @arg - finish arg passed to nb_op_iterate_yielding.
- * @ret - NB_OK if done with walk, NB_YIELD if done with portion, otherwise an
+ * @tree: r/o copy of the tree created during this portion of the walk.
+ * @arg: finish arg passed to nb_op_iterate_yielding.
+ * @ret: NB_OK if done with walk, NB_YIELD if done with portion, otherwise an
  *        error.
  *
  * If nb_op_iterate_yielding() was passed with @should_batch set then this
@@ -1569,14 +1569,15 @@ extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
 
 /**
  * nb_oper_walk() - walk the schema building operational state.
- * @xpath -
- * @translator -
- * @flags -
- * @should_batch - should allow yielding and processing portions of the tree.
- * @cb - callback invoked for each non-list, non-container node.
- * @arg - arg to pass to @cb.
- * @finish - function to call when done with portion or all of walk.
- * @finish_arg - arg to pass to @finish.
+ * @xpath: data path of the YANG data we want to iterate over.
+ * @translator: YANG module translator (might be NULL).
+ * @flags: NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
+ * @should_batch: should allow yielding and processing portions of the tree.
+ * @cb: callback invoked for each non-list, non-container node.
+ * @arg: arg to pass to @cb.
+ * @finish: function to call when done with portion or all of walk.
+ * @finish_arg: arg to pass to @finish.
+ * @tree: if non-NULL will be used to copy state data from during the walk.
  *
  * Return: walk - a cookie that can be used to cancel the walk.
  */
@@ -1587,7 +1588,7 @@ extern void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 
 /**
  * nb_oper_cancel_walk() - cancel the in progress walk.
- * @walk - value returned from nb_op_iterate_yielding()
+ * @walk: value returned from nb_op_iterate_yielding()
  *
  * Should only be called on an in-progress walk. It is invalid to cancel and
  * already finished walk. The walks `finish` callback will not be called.
@@ -1910,14 +1911,14 @@ extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, 
 				       va_list ap);
 /**
  * nb_notif_add() - Notice that the value at `path` has changed.
- * @path - Absolute path in the state tree that has changed (either added or
- *	   updated).
+ * @path: Absolute path in the state tree that has changed (either added or
+ *	  updated).
  */
 void nb_notif_add(const char *path);
 
 /**
  * nb_notif_delete() - Notice that the value at `path` has been deleted.
- * @path - Absolute path in the state tree that has been deleted.
+ * @path: Absolute path in the state tree that has been deleted.
  */
 void nb_notif_delete(const char *path);
 

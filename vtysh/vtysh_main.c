@@ -288,9 +288,9 @@ bool vtysh_loop_exited;
 
 static struct event *vtysh_rl_read_thread;
 
-static void vtysh_rl_read(struct event *thread)
+static void vtysh_rl_read(struct event *event)
 {
-	bool *suppress_warnings = EVENT_ARG(thread);
+	bool *suppress_warnings = EVENT_ARG(event);
 
 	disable_exec_timeout();
 

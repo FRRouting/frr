@@ -23,6 +23,20 @@ void bgp_nhc_tlv_add(struct bgp_nhc *nhc, struct bgp_nhc_tlv *tlv)
 	nhc->tlvs_length += tlv->length + BGP_NHC_TLV_MIN_LEN;
 }
 
+struct bgp_nhc_tlv *bgp_nhc_tlv_new(uint16_t code, uint16_t length, const void *value)
+{
+	struct bgp_nhc_tlv *tlv;
+
+	tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv) + IPV4_MAX_BYTELEN);
+	tlv->code = code;
+	tlv->length = length;
+	tlv->value = XCALLOC(MTYPE_BGP_NHC_TLV_VAL, length);
+
+	memcpy(tlv->value, value, length);
+
+	return tlv;
+}
+
 struct bgp_nhc_tlv *bgp_nhc_tlv_find(struct bgp_nhc *nhc, uint16_t code)
 {
 	struct bgp_nhc_tlv *tlv = NULL;
@@ -35,7 +49,7 @@ struct bgp_nhc_tlv *bgp_nhc_tlv_find(struct bgp_nhc *nhc, uint16_t code)
 			return tlv;
 	}
 
-	return tlv;
+	return NULL;
 }
 
 void bgp_nhc_tlv_free(struct bgp_nhc_tlv *tlv)
@@ -62,6 +76,31 @@ void bgp_nhc_tlvs_free(struct bgp_nhc_tlv *tlv)
 
 void bgp_nhc_free(struct bgp_nhc *nhc)
 {
+	if (!nhc)
+		return;
+
 	bgp_nhc_tlvs_free(nhc->tlvs);
 	XFREE(MTYPE_BGP_NHC, nhc);
+}
+
+uint64_t bgp_nhc_nnhn_count(struct bgp_nhc *nhc)
+{
+	uint64_t count = 0;
+	struct bgp_nhc_tlv *tlv;
+
+	for (tlv = nhc->tlvs; tlv; tlv = tlv->next) {
+		if (tlv->code == BGP_ATTR_NHC_TLV_NNHN) {
+			/* BGP Identifier is always 4-bytes (yet...) */
+			count = tlv->length / IPV4_MAX_BYTELEN;
+			if (count <= 1)
+				return 0;
+
+			/* -1 is to exclude the next-hop BGP ID.
+			 * We care only about Next-next hops here.
+			 */
+			return count - 1;
+		}
+	}
+
+	return 0;
 }

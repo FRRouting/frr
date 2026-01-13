@@ -247,26 +247,26 @@ int pim_msdp_sock_auth_listen(struct pim_msdp_peer *mp)
 }
 
 /* passive peer socket accept */
-static void pim_msdp_sock_accept(struct event *thread)
+static void pim_msdp_sock_accept(struct event *event)
 {
 	union sockunion su;
-	struct pim_instance *pim = EVENT_ARG(thread);
+	struct pim_instance *pim = EVENT_ARG(event);
 	int accept_sock;
 	int msdp_sock;
 	struct pim_msdp_peer *mp;
 
 	sockunion_init(&su);
 
-	/* re-register accept thread */
-	accept_sock = EVENT_FD(thread);
+	/* re-register accept event */
+	accept_sock = EVENT_FD(event);
 	if (accept_sock < 0) {
 		flog_err(EC_LIB_DEVELOPMENT, "accept_sock is negative value %d",
 			 accept_sock);
 		return;
 	}
-	pim->msdp.listener.thread = NULL;
+	pim->msdp.listener.event = NULL;
 	event_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
-		       &pim->msdp.listener.thread);
+		       &pim->msdp.listener.event);
 
 	/* accept client connection. */
 	msdp_sock = sockunion_accept(accept_sock, &su);
@@ -349,8 +349,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 
 	/* add accept thread */
 	listener->fd = sock;
-	event_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
-		       &listener->thread);
+	event_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock, &listener->event);
 
 	pim->msdp.flags |= PIM_MSDPF_LISTENER;
 	return 0;

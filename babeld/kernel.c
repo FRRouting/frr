@@ -102,8 +102,6 @@ static int zebra_route(int add, int family, const unsigned char *pref, unsigned 
 	union g_addr babel_prefix_addr; /* babeld's prefix addr */
 	struct zapi_nexthop *api_nh;	/* next router to go - no ECMP */
 
-	api_nh = &api.nexthops[0];
-
 	/* convert to be understandable by quagga */
 	/* convert given addresses */
 	switch (family) {
@@ -131,11 +129,14 @@ static int zebra_route(int add, int family, const unsigned char *pref, unsigned 
 	}
 	apply_mask(&quagga_prefix);
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.type = ZEBRA_ROUTE_BABEL;
 	api.safi = SAFI_UNICAST;
 	api.vrf_id = VRF_DEFAULT;
 	api.prefix = quagga_prefix;
+
+	api_nh = &api.nexthops[0];
+	zapi_nexthop_init(api_nh);
 
 	if (metric >= KERNEL_INFINITY) {
 		zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);

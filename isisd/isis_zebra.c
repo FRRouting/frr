@@ -52,7 +52,6 @@ static struct zclient *zclient_sync;
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_area *area;
-	struct listnode *node;
 	struct prefix router_id;
 	struct isis *isis = NULL;
 
@@ -67,8 +66,8 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	isis->router_id = router_id.u.prefix4.s_addr;
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
-		if (listcount(area->area_addrs) > 0)
+	frr_each (isis_area_list, &isis->area_list, area)
+		if (iso_address_list_count(&area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
@@ -171,6 +170,9 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &zapi_nexthops[count];
+
+		zapi_nexthop_init(api_nh);
+
 		if (fabricd)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
@@ -263,7 +265,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
@@ -683,7 +685,6 @@ static void request_srv6_sids(struct isis_area *area)
 {
 	struct srv6_sid_ctx ctx = {};
 	struct in6_addr sid_value = {};
-	struct listnode *node;
 	struct isis_adjacency *adj;
 	bool ret;
 
@@ -703,7 +704,7 @@ static void request_srv6_sids(struct isis_area *area)
 	}
 
 	/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 		if (adj->ll_ipv6_count > 0)
 			isis_zebra_request_srv6_sid_endx(adj);
 	}
@@ -890,73 +891,6 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 }
 
 /**
- * Send SRv6 SID to ZEBRA for installation or deletion.
- *
- * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
- * @param sid		SRv6 SID to install or delete
- * @param prefixlen	Prefix length
- * @param oif		Outgoing interface
- * @param action	SID action
- * @param context	SID context
- */
-static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
-				     uint16_t prefixlen, ifindex_t oif,
-				     enum seg6local_action_t action,
-				     const struct seg6local_context *context)
-{
-	struct prefix_ipv6 p = {};
-	struct zapi_route api = {};
-	struct zapi_nexthop *znh;
-
-	if (cmd != ZEBRA_ROUTE_ADD && cmd != ZEBRA_ROUTE_DELETE) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
-			  __func__);
-		return;
-	}
-
-	if (prefixlen > IPV6_MAX_BITLEN) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u",
-			  __func__, prefixlen);
-		return;
-	}
-
-	sr_debug("  |- %s SRv6 SID %pI6 behavior %s",
-		 cmd == ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid,
-		 seg6local_action2str(action));
-
-	p.family = AF_INET6;
-	p.prefixlen = prefixlen;
-	p.prefix = *sid;
-
-	api.vrf_id = VRF_DEFAULT;
-	api.type = PROTO_TYPE;
-	api.instance = 0;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, &p, sizeof(p));
-
-	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, isis_zclient,
-						&api);
-
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	znh = &api.nexthops[0];
-
-	memset(znh, 0, sizeof(*znh));
-
-	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
-	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	znh->seg6local_action = action;
-	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
-
-	api.nexthop_num = 1;
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, isis_zclient, &api);
-}
-
-/**
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param area		IS-IS area
@@ -1040,8 +974,8 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	}
 
 	/* Send the SID to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sid->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 /**
@@ -1108,8 +1042,8 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	}
 
 	/* Send delete request to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
@@ -1135,6 +1069,7 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		prefixlen = IPV6_MAX_BITLEN;
 		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->adj->circuit->interface->ifindex;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
@@ -1142,6 +1077,7 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 			    sra->locator->node_bits_length +
 			    sra->locator->function_bits_length;
 		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->adj->circuit->interface->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.flv.lcblock_len = sra->locator->block_bits_length;
@@ -1178,8 +1114,8 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 
 	ifp = sra->adj->circuit->interface;
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
@@ -1239,8 +1175,8 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
 		 &sra->sid);
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 /**
@@ -1252,7 +1188,6 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	struct isis_area *area;
-	struct listnode *node;
 
 	if (!isis || !locator)
 		return -1;
@@ -1263,7 +1198,7 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 		  locator->function_bits_length, locator->argument_bits_length);
 
 	/* Walk through all areas of the ISIS instance */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		/*
 		 * Check if the IS-IS area is configured to use the received
 		 * locator
@@ -1341,7 +1276,7 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		loc.argument_bits_length);
 
 	/* Walk through all areas of the ISIS instance */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (strncmp(area->srv6db.config.srv6_locator_name, loc.name,
 			    sizeof(area->srv6db.config.srv6_locator_name)) != 0)
 			continue;
@@ -1506,7 +1441,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	enum zapi_srv6_sid_notify note;
 	uint32_t sid_func;
 	struct isis_area *area;
-	struct listnode *node, *nnode, *n;
+	struct listnode *node, *nnode;
 	char buf[256];
 	struct srv6_locator *locator;
 	struct prefix_ipv6 tmp_prefix;
@@ -1529,7 +1464,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
 		 sid_func, zapi_srv6_sid_notify2str(note));
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!area->srv6db.config.enabled || !area->srv6db.srv6_locator)
 			continue;
 
@@ -1589,8 +1524,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 			} else if (ctx.behavior ==
 				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
-				for (ALL_LIST_ELEMENTS_RO(area->adjacency_list,
-							  n, adj)) {
+				frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
 					/* Check if the End.X SID is for this adjacecny */
 					if (adj->ll_ipv6_count == 0 ||
 					    memcmp(&adj->ll_ipv6_addrs[0],

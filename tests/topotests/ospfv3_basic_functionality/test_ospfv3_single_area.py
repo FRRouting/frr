@@ -1057,7 +1057,9 @@ def test_ospfv3_tc4_mtu_ignore_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     dut = "r0"
-    input_dict = {"r0": {"links": {"r1": {"ospf6": {"mtuMismatchDetection": True}}}}}
+    input_dict = {
+        "r0": {"links": {"r1": {"ospf6": {"mtuMismatchDetection": "disabled"}}}}
+    }
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 

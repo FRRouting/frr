@@ -50,7 +50,7 @@ extern int Debug_Radix;
 
 /* Prototypes. */
 extern void bgp_debug_init(void);
-extern void bgp_packet_dump(struct stream *);
+extern void bgp_packet_dump(struct stream *s);
 
 extern int debug(unsigned int option);
 
@@ -114,6 +114,7 @@ struct bgp_debug_filter {
 
 #define BGP_DEBUG_BESTPATH            0x01
 #define BGP_DEBUG_NEIGHBOR_EVENTS     0x01
+#define BGP_DEBUG_NEIGHBOR_EVENTS_DETAIL 0x02
 #define BGP_DEBUG_PACKET              0x01
 #define BGP_DEBUG_KEEPALIVE           0x01
 #define BGP_DEBUG_UPDATE_IN           0x01
@@ -161,6 +162,7 @@ struct bgp_debug_filter {
 #define CONF_BGP_DEBUG(a, b) (unlikely(conf_bgp_debug_##a & BGP_DEBUG_##b))
 
 extern const char *const bgp_type_str[];
+extern const char *const bgp_global_gr_mode_str[];
 
 extern bool bgp_dump_attr(struct attr *attr, char *buf, size_t size);
 extern bool bgp_debug_peer_updout_enabled(char *host);

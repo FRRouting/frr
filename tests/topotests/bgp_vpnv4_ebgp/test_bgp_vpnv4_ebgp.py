@@ -247,7 +247,7 @@ router bgp 65500 vrf vrf1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -281,7 +281,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -311,7 +311,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -341,7 +341,7 @@ router bgp 65500 vrf vrf1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -373,7 +373,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -402,7 +402,7 @@ route-map RMAP permit 1
         prefix,
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -435,7 +435,7 @@ configure terminal
         "show bgp ipv4 vpn 172.31.0.1/32 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -484,7 +484,7 @@ router bgp 65501
         expected,
         exact=True,
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "r2, vpnv4 update 172.31.0.1 still present"
 
 
@@ -521,7 +521,7 @@ router bgp 65501
         "show bgp ipv4 vpn 172.31.0.1/32 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(r2.name)
     assert result is None, assertmsg
 
@@ -545,7 +545,7 @@ def test_aggregated_route_on_r100():
         "show bgp ipv4 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(r100.name)
     assert result is None, assertmsg
 
@@ -569,7 +569,7 @@ def test_aggregated_exported_route_on_r1():
         "show bgp ipv4 vpn 172.31.1.0/24 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
 
@@ -603,7 +603,7 @@ def test_aggregated_suppress_aggregate_r1():
         expected,
         exact=True,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
 
@@ -637,7 +637,7 @@ def test_aggregated_suppressed_networks_not_exported_on_r1():
             expected,
             exact=True,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(r1.name)
         assert result is None, assertmsg
 

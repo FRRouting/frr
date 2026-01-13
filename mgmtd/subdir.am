@@ -34,7 +34,9 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_history.c \
 	mgmtd/mgmt_memory.c \
 	mgmtd/mgmt_txn.c \
+	mgmtd/mgmt_txn_cfg.c \
 	mgmtd/mgmt_vty.c \
+	mgmtd/mgmt_vty_frontend.c \
 	# end
 
 noinst_HEADERS += \
@@ -45,6 +47,7 @@ noinst_HEADERS += \
 	mgmtd/mgmt_history.h \
 	mgmtd/mgmt_memory.h \
 	mgmtd/mgmt_txn.h \
+	mgmtd/mgmt_txn_priv.h \
 	zebra/zebra_cli.h \
 	# end
 

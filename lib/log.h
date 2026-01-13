@@ -110,7 +110,7 @@ extern int proto_name2num(const char *s);
 /* Map redistribute X argument to protocol number.
  * unlike proto_name2num, this accepts shorthands and takes
  * an AFI value to restrict input */
-extern int proto_redistnum(int afi, const char *s);
+extern uint8_t proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
 extern const char *zserv_gr_client_cap_string(unsigned int zcc);
@@ -176,6 +176,7 @@ struct timestamp_control {
 extern struct frr_yang_module_info frr_logging_nb_info;
 extern void frr_logging_merge_cli_to_nb_info(void);
 
+extern uint32_t frr_time_t_to_uint32_t(time_t value);
 #ifdef __cplusplus
 }
 #endif

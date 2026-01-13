@@ -96,7 +96,7 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_rib(name, cmd, expected_file, count=10, wait=0.5):
+def check_rib(name, cmd, expected_file, count=15, wait=1):
     def _check(router, cmd, expected):
         logger.info("polling")
         tgen = get_topogen()
@@ -235,10 +235,11 @@ def test_locator_delete():
             no locator loc1
         """
     )
-    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_deleted.json")
-    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
-    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
-    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
+    # expectation is that VPN prefixes are not selected
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_zebra_deleted.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_zebra_deleted.json")
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_zebra_deleted.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_zebra_deleted.json")
     check_ping("ce1", "192.168.2.2", False, 10, 0.5)
     check_ping("ce1", "2001:2::2", False, 10, 1)
 
@@ -275,6 +276,7 @@ def test_bgp_locator_unset():
            no locator loc1
         """
     )
+    # expectation is that VPN prefixes are still selected, but with a label set to 3
     check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")

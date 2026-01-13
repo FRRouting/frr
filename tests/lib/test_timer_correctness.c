@@ -63,16 +63,16 @@ static void terminate_test(void)
 	exit(exit_code);
 }
 
-static void timer_func(struct event *thread)
+static void timer_func(struct event *event)
 {
 	int rv;
 
 	rv = snprintf(log_buf + log_buf_pos, log_buf_len - log_buf_pos, "%s\n",
-		      (char *)thread->arg);
+		      (char *)event->arg);
 	assert(rv >= 0);
 	log_buf_pos += rv;
 	assert(log_buf_pos < log_buf_len);
-	XFREE(MTYPE_TMP, thread->arg);
+	XFREE(MTYPE_TMP, event->arg);
 
 	timers_pending--;
 	if (!timers_pending)

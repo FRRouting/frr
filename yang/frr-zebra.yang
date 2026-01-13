@@ -95,13 +95,6 @@ module frr-zebra {
       "Using an external PTM daemon that implements BFD.";
   }
 
-  typedef unix-timestamp {
-    type uint32;
-    units "seconds";
-    description
-      "An absolute time in seconds since the unix epoch.";
-  }
-
   identity zebra-interface-type {
     description
       "zebra interface type.";
@@ -159,6 +152,24 @@ module frr-zebra {
     base zebra-interface-type;
     description
       "Zebra interface type gre.";
+  }
+
+  identity zif-ip6gre {
+    base zebra-interface-type;
+    description
+      "Zebra interface type ip6gre.";
+  }
+
+  identity zif-gretap {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gretap.";
+  }
+
+  identity zif-ip6gretap {
+    base zebra-interface-type;
+    description
+      "Zebra interface type ip6gretap.";
   }
 
   identity zif-dummy {
@@ -1492,7 +1503,7 @@ module frr-zebra {
         }
 
         leaf dup-detect-time {
-          type unix-timestamp;
+          type frr-rt:unix-timestamp;
           description
             "If a duplicate, the detection time.";
         }
@@ -1502,7 +1513,7 @@ module frr-zebra {
             "Container for duplicate detection process start time and count.";
 
           leaf dup-detect-start {
-            type unix-timestamp;
+            type frr-rt:unix-timestamp;
             description
               "Duplicate detection process start time.";
           }

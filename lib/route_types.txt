@@ -67,7 +67,7 @@ ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, 1,     "NHRP",          nh
 # possible).
 ZEBRA_ROUTE_HSLS,       hsls,      hslsd,  'H', 0, 0, 0,     "HSLS",          hslsd
 ZEBRA_ROUTE_OLSR,       olsr,      olsrd,  'o', 0, 0, 0,     "OLSR",          olsrd
-ZEBRA_ROUTE_TABLE,      table,     zebra,  'T', 1, 1, 1,     "Table",         zebra
+ZEBRA_ROUTE_TABLE,      table,     zebra,  'T', 1, 1, 0,     "Table",         zebra
 ZEBRA_ROUTE_LDP,        ldp,       ldpd,   'L', 0, 0, 0,     "LDP",           ldpd
 #vnc when sent to zebra 
 ZEBRA_ROUTE_VNC,        vnc,       NULL,   'v', 1, 1, 1,     "VNC",           bgpd-vnc
@@ -87,7 +87,7 @@ ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1,  "OpenFabric",    fa
 ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vrrpd
 ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
-ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 1,     "Table-Direct",         zebra
+ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 0,     "Table-Direct",         zebra
 ZEBRA_ROUTE_ALL,        any,       none,   '-', 0, 0, 0,     "-",             none
 
 

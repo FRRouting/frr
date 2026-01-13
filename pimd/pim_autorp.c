@@ -66,7 +66,9 @@ static void pim_autorp_rp_free(struct pim_autorp_rp *rp, bool installed)
 	if (installed) {
 		if (pim_rp_del(rp->autorp->pim, rp->addr, rp->grp,
 			       (strlen(rp->grplist) ? rp->grplist : NULL), RP_SRC_AUTORP)) {
-			zlog_warn("%s: Failed to delete RP %pI4", __func__, &rp->addr);
+			if (PIM_DEBUG_AUTORP)
+				zlog_debug("%s: Failed to delete RP %pI4, it may have been replaced and already deleted.",
+					   __func__, &rp->addr);
 		}
 
 		if (strlen(rp->grplist)) {
@@ -334,8 +336,6 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		if (trp == NULL) {
 			/* RP was brand new, finish initializing */
 			ma_rp->autorp = autorp;
-			ma_rp->holdtime = holdtime;
-			ma_rp->hold_timer = NULL;
 			ma_rp->grplist[0] = '\0';
 			memset(&(ma_rp->grp), 0, sizeof(ma_rp->grp));
 			pim_autorp_grppfix_init(&ma_rp->grp_pfix_list);
@@ -350,6 +350,7 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			pim_autorp_grppfix_free(&ma_rp->grp_pfix_list);
 		}
 
+		ma_rp->holdtime = holdtime;
 		/* Cancel any existing timer and restart it */
 		event_cancel(&ma_rp->hold_timer);
 		if (holdtime > 0)

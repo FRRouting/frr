@@ -127,7 +127,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 
 
 	/* Associated LSA */
-	v->lsa = lsa;
+	v->lsa = ospf6_lsa_lock(lsa);
 
 	/* capability bits + options */
 	v->capability = *(uint8_t *)(ospf6_lsa_header_end(lsa->header));
@@ -150,6 +150,7 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 {
 	list_delete(&v->nh_list);
 	list_delete(&v->child_list);
+	ospf6_lsa_unlock(&v->lsa);
 	XFREE(MTYPE_OSPF6_VERTEX, v);
 }
 
@@ -692,7 +693,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	elapsed = monotime_since(&ospf6->ts_spf, NULL) / 1000LL;
-	ht = ospf6->spf_holdtime * ospf6->spf_hold_multiplier;
+	ht = (uint64_t)(ospf6->spf_holdtime) * ospf6->spf_hold_multiplier;
 
 	if (ht > ospf6->spf_max_holdtime)
 		ht = ospf6->spf_max_holdtime;

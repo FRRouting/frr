@@ -58,6 +58,7 @@ void bgp_writes_on(struct peer_connection *connection)
 
 	event_add_write(fpt->master, bgp_process_writes, connection,
 			connection->fd, &connection->t_write);
+
 	SET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
@@ -65,12 +66,22 @@ void bgp_writes_off(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
+	struct stream *s;
+
 	assert(fpt->running);
+
+	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
+
+	/* Clear out the write fifo */
+	frr_with_mutex (&connection->io_mtx) {
+		if (connection->obuf != NULL) {
+			while ((s = stream_fifo_pop(connection->obuf)) != NULL)
+				stream_free(s);
+		}
+	}
 
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
 	event_cancel(&connection->t_generate_updgrp_packets);
-
-	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
 void bgp_reads_on(struct peer_connection *connection)
@@ -113,20 +124,23 @@ void bgp_reads_off(struct peer_connection *connection)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static void bgp_process_writes(struct event *thread)
+static void bgp_process_writes(struct event *event)
 {
 	static struct peer *peer;
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	uint16_t status;
-	bool reschedule;
+	bool reschedule = false;
 	bool fatal = false;
+	struct frr_pthread *fpt = bgp_pth_io;
 
 	peer = connection->peer;
 
 	if (connection->fd < 0)
 		return;
 
-	struct frr_pthread *fpt = bgp_pth_io;
+	/* Anticipate rescheduling */
+	event_add_write(fpt->master, bgp_process_writes, connection, connection->fd,
+			&connection->t_write);
 
 	frr_with_mutex (&connection->io_mtx) {
 		status = bgp_write(connection);
@@ -148,12 +162,12 @@ static void bgp_process_writes(struct event *thread)
 	 * to update group packet generate which will allow more routes to be
 	 * sent in the update message
 	 */
-	if (reschedule) {
-		event_add_write(fpt->master, bgp_process_writes, connection,
-				connection->fd, &connection->t_write);
-	} else if (!fatal) {
-		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
-					  bgp_generate_updgrp_packets);
+	if (!reschedule) {
+		event_cancel(&connection->t_write);
+
+		if (!fatal)
+			BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+						  bgp_generate_updgrp_packets);
 	}
 }
 
@@ -218,10 +232,10 @@ static int read_ibuf_work(struct peer_connection *connection)
  * place them on peer->connection.ibuf for secondary processing by the main
  * thread.
  */
-static void bgp_process_reads(struct event *thread)
+static void bgp_process_reads(struct event *event)
 {
 	/* clang-format off */
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	static struct peer *peer;       /* peer to read from */
 	uint16_t status;                /* bgp_read status code */
 	bool fatal = false;             /* whether fatal error occurred */

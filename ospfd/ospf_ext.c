@@ -583,11 +583,11 @@ static void ospf_ext_link_delete_adj_sid(struct ext_itf *exti)
 
 	/* Release Primary & Backup Labels from Label Manager */
 	if (exti->stype == ADJ_SID) {
-		ospf_sr_local_block_release_label(exti->adj_sid[0].value);
-		ospf_sr_local_block_release_label(exti->adj_sid[1].value);
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->adj_sid[0].value)));
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->adj_sid[1].value)));
 	} else {
-		ospf_sr_local_block_release_label(exti->lan_sid[0].value);
-		ospf_sr_local_block_release_label(exti->lan_sid[1].value);
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->lan_sid[0].value)));
+		ospf_sr_local_block_release_label(GET_LABEL(ntohl(exti->lan_sid[1].value)));
 	}
 	/* And reset corresponding TLV */
 	unset_adjacency_sid(exti);
@@ -1418,7 +1418,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 			"EXT (%s): Segment Routing functionality is Disabled",
 			__func__);
 		/* Flush it anyway. */
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* Lookup this lsa corresponding Extended parameters */
@@ -1427,7 +1427,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Invalid parameter LSA ID", __func__);
 		/* Flush it anyway. */
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* Check if Interface was not disable in the interval */
@@ -1436,7 +1436,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 			  "EXT (%s): Interface was Disabled: Flush it!",
 			  __func__);
 		/* Flush it anyway. */
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure. */
@@ -1504,7 +1504,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		zlog_info("EXT (%s): Segment Routing functionality is Disabled",
 			  __func__);
 		/* Flush it anyway. */
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* Lookup this LSA corresponding Extended parameters */
@@ -1513,7 +1513,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Invalid parameter LSA ID", __func__);
 		/* Flush it anyway. */
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* Check if Interface was not disable in the interval */
@@ -1521,7 +1521,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Interface was Disabled: Flush it!",
 			  __func__);
-		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure */
@@ -1705,13 +1705,19 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
  * ------------------------------------
  */
 
-#define check_tlv_size(size, msg)                                              \
-	do {                                                                   \
-		if (ntohs(tlvh->length) != size) {                             \
-			vty_out(vty, "  Wrong %s TLV size: %d(%d). Abort!\n",  \
-				msg, ntohs(tlvh->length), size);               \
-			return size + TLV_HDR_SIZE;                            \
-		}                                                              \
+/* Check NULL for vty. If vty is not available, dump info via zlog */
+#define check_tlv_size(size, msg)                                                                           \
+	do {                                                                                                \
+		if (ntohs(tlvh->length) != size) {                                                          \
+			if (vty != NULL)                                                                    \
+				vty_out(vty,                                                                \
+					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
+					msg, ntohs(tlvh->length), size);                                    \
+			else                                                                                \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!", \
+					   msg, ntohs(tlvh->length), size);                                 \
+			return OSPF_MAX_LSA_SIZE + 1;                                                       \
+		}                                                                                           \
 	} while (0)
 
 /* Cisco experimental SubTLV */
@@ -1725,9 +1731,15 @@ static uint16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
 	check_tlv_size(EXT_SUBTLV_RMT_ITF_ADDR_SIZE, "Remote Itf. Address");
 
 	if (!json)
-		vty_out(vty,
-			"  Remote Interface Address Sub-TLV: Length %u\n	Address: %pI4\n",
-			ntohs(top->header.length), &top->value);
+		if (vty != NULL) {
+			vty_out(vty,
+				"  Remote Interface Address Sub-TLV: Length %u\n	Address: %pI4\n",
+				ntohs(top->header.length), &top->value);
+		} else {
+			zlog_debug("  Remote Interface Address Sub-TLV: Length %u",
+				   ntohs(top->header.length));
+			zlog_debug("  Address: %pI4", &top->value);
+		}
 	else
 		json_object_string_addf(json, "remoteInterfaceAddress", "%pI4",
 					&top->value);
@@ -1748,18 +1760,30 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "Adjacency SID");
 
-	if (!json)
-		vty_out(vty,
-			"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
-			ntohs(top->header.length), top->flags, top->mtid,
-			top->weight,
-			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
-				? "Label"
-				: "Index",
-			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
-				? GET_LABEL(ntohl(top->value))
-				: ntohl(top->value));
-	else {
+	if (!json) {
+		/* Add security check for vty_out. If vty is not available, dump info via zlog.*/
+		if (vty != NULL)
+			vty_out(vty,
+				"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
+				ntohs(top->header.length), top->flags, top->mtid, top->weight,
+				CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
+										     : "Index",
+				CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+					? GET_LABEL(ntohl(top->value))
+					: ntohl(top->value));
+		else {
+			zlog_debug("  Adj-SID Sub-TLV: Length %u", ntohs(top->header.length));
+			zlog_debug("    Flags: 0x%x", top->flags);
+			zlog_debug("    MT-ID:0x%x", top->mtid);
+			zlog_debug("    Weight: 0x%x", top->weight);
+			zlog_debug("    %s: %u",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
+											: "Index",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+					   ? GET_LABEL(ntohl(top->value))
+					   : ntohl(top->value));
+		}
+	} else {
 		json_object_string_addf(json, "flags", "0x%x", top->flags);
 		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
 		json_object_string_addf(json, "weight", "0x%x", top->weight);
@@ -1787,18 +1811,32 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "LAN-Adjacency SID");
 
-	if (!json)
-		vty_out(vty,
-			"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
-			ntohs(top->header.length), top->flags, top->mtid,
-			top->weight, &top->neighbor_id,
-			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
-				? "Label"
-				: "Index",
-			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
-				? GET_LABEL(ntohl(top->value))
-				: ntohl(top->value));
-	else {
+	if (!json) {
+		/* Add security check for vty_out. If vty is not available, dump info via zlog. */
+		if (vty != NULL) {
+			vty_out(vty,
+				"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
+				ntohs(top->header.length), top->flags, top->mtid, top->weight,
+				&top->neighbor_id,
+				CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
+										     : "Index",
+				CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+					? GET_LABEL(ntohl(top->value))
+					: ntohl(top->value));
+		} else {
+			zlog_debug("  LAN-Adj-SID Sub-TLV: Length %u", ntohs(top->header.length));
+			zlog_debug("    Flags: 0x%x", top->flags);
+			zlog_debug("    MT-ID:0x%x", top->mtid);
+			zlog_debug("    Weight: 0x%x", top->weight);
+			zlog_debug("    Neighbor ID: %pI4", &top->neighbor_id);
+			zlog_debug("    %s: %u",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
+											: "Index",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+					   ? GET_LABEL(ntohl(top->value))
+					   : ntohl(top->value));
+		}
+	} else {
 		json_object_string_addf(json, "flags", "0x%x", top->flags);
 		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
 		json_object_string_addf(json, "weight", "0x%x", top->weight);
@@ -1819,14 +1857,23 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 {
 	json_object *obj;
 
+	/* Add security check for vty_out. If vty is not available, dump info via zlog. */
 	if (TLV_SIZE(tlvh) > buf_size) {
-		vty_out(vty, "    TLV size %d exceeds buffer size. Abort!",
-			TLV_SIZE(tlvh));
+		if (vty != NULL)
+			vty_out(vty, "    TLV size %d exceeds buffer size. Abort!", TLV_SIZE(tlvh));
+		else
+			zlog_debug("    TLV size %d exceeds buffer size. Abort!", TLV_SIZE(tlvh));
+
 		return buf_size;
 	}
 	if (!json)
-		vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
-			ntohs(tlvh->type), ntohs(tlvh->length));
+		if (vty != NULL) {
+			vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
+				ntohs(tlvh->type), ntohs(tlvh->length));
+		} else {
+			zlog_debug("    Unknown TLV: [type(0x%x), length(0x%x)]",
+				   ntohs(tlvh->type), ntohs(tlvh->length));
+		}
 	else {
 		obj = json_object_new_object();
 		json_object_string_addf(obj, "type", "0x%x",
@@ -1851,19 +1898,31 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
-		vty_out(vty,
-			"  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-			length);
+		/* Add security check for vty_out. If vty is not available, dump info via zlog. */
+		if (vty != NULL) {
+			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
+				length);
+		} else {
+			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
+				   length);
+		}
 		return buf_size;
 	}
 
 	if (!json) {
-		vty_out(vty,
-			"  Extended Link TLV: Length %u\n	Link Type: 0x%x\n"
-			"	Link ID: %pI4\n",
-			ntohs(top->header.length), top->link_type,
-			&top->link_id);
-		vty_out(vty, "	Link data: %pI4\n", &top->link_data);
+		/* Add security check for vty_out. If vty is not available, dump info via zlog. */
+		if (vty != NULL) {
+			vty_out(vty,
+				"  Extended Link TLV: Length %u\n	Link Type: 0x%x\n"
+				"	Link ID: %pI4\n",
+				ntohs(top->header.length), top->link_type, &top->link_id);
+			vty_out(vty, "	Link data: %pI4\n", &top->link_data);
+		} else {
+			zlog_debug("  Extended Link TLV: Length %u", ntohs(top->header.length));
+			zlog_debug("    Link Type: 0x%x", top->link_type);
+			zlog_debug("    Link ID: %pI4", &top->link_id);
+			zlog_debug("    Link data: %pI4", &top->link_data);
+		}
 	} else {
 		json_object_string_addf(json, "linkType", "0x%x",
 					top->link_type);
@@ -1955,18 +2014,29 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE);
 	check_tlv_size(tlv_size, "Prefix SID");
 
-	if (!json)
-		vty_out(vty,
-			"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
-			ntohs(top->header.length), top->algorithm, top->flags,
-			top->mtid,
-			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
-				? "Label"
-				: "Index",
-			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
-				? GET_LABEL(ntohl(top->value))
-				: ntohl(top->value));
-	else {
+	if (!json) {
+		if (vty != NULL) {
+			vty_out(vty,
+				"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
+				ntohs(top->header.length), top->algorithm, top->flags, top->mtid,
+				CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG) ? "Label"
+										   : "Index",
+				CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+					? GET_LABEL(ntohl(top->value))
+					: ntohl(top->value));
+		} else {
+			zlog_debug("  Prefix SID Sub-TLV: Length %u", ntohs(top->header.length));
+			zlog_debug("    Algorithm: %u", top->algorithm);
+			zlog_debug("    Flags: 0x%x", top->flags);
+			zlog_debug("    MT-ID:0x%x", top->mtid);
+			zlog_debug("    %s: %u",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG) ? "Label"
+										      : "Index",
+				   CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+					   ? GET_LABEL(ntohl(top->value))
+					   : ntohl(top->value));
+		}
+	} else {
 		json_object_int_add(json, "algorithm", top->algorithm);
 		json_object_string_addf(json, "flags", "0x%x", top->flags);
 		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
@@ -1991,19 +2061,31 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
-		vty_out(vty,
-			"  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-			length);
+		if (vty != NULL) {
+			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
+				length);
+		} else {
+			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
+				   length);
+		}
 		return buf_size;
 	}
 
-	if (!json)
-		vty_out(vty,
-			"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
-			"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
-			ntohs(top->header.length), top->route_type, top->af,
-			top->flags, &top->address, top->pref_length);
-	else {
+	if (!json) {
+		if (vty != NULL) {
+			vty_out(vty,
+				"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
+				"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
+				ntohs(top->header.length), top->route_type, top->af, top->flags,
+				&top->address, top->pref_length);
+		} else {
+			zlog_debug("  Extended Prefix TLV: Length %u", ntohs(top->header.length));
+			zlog_debug("    Route Type: %u", top->route_type);
+			zlog_debug("    Address Family: 0x%x", top->af);
+			zlog_debug("    Flags: 0x%x", top->flags);
+			zlog_debug("    Address: %pI4/%u", &top->address, top->pref_length);
+		}
+	} else {
 		json_object_int_add(json, "routeType", top->route_type);
 		json_object_string_addf(json, "addressFamily", "0x%x", top->af);
 		json_object_string_addf(json, "flags", "0x%x", top->flags);

@@ -41,21 +41,20 @@ struct lcommunity_val {
 
 extern void lcommunity_init(void);
 extern void lcommunity_finish(void);
-extern void lcommunity_free(struct lcommunity **);
-extern struct lcommunity *lcommunity_parse(uint8_t *, unsigned short);
-extern struct lcommunity *lcommunity_dup(struct lcommunity *);
-extern struct lcommunity *lcommunity_merge(struct lcommunity *,
-					   struct lcommunity *);
-extern struct lcommunity *lcommunity_uniq_sort(struct lcommunity *);
-extern struct lcommunity *lcommunity_intern(struct lcommunity *);
+extern void lcommunity_free(struct lcommunity **lcom);
+extern struct lcommunity *lcommunity_parse(uint8_t *buf, unsigned short length);
+extern struct lcommunity *lcommunity_dup(struct lcommunity *lcom);
+extern struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
+					   struct lcommunity *lcom2);
+extern struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom);
+extern struct lcommunity *lcommunity_intern(struct lcommunity *lcom);
 extern bool lcommunity_cmp(const void *arg1, const void *arg2);
-extern void lcommunity_unintern(struct lcommunity **);
-extern unsigned int lcommunity_hash_make(const void *);
+extern void lcommunity_unintern(struct lcommunity **lcom);
+extern unsigned int lcommunity_hash_make(const void *arg);
 extern struct hash *lcommunity_hash(void);
-extern struct lcommunity *lcommunity_str2com(const char *);
-extern bool lcommunity_match(const struct lcommunity *,
-			     const struct lcommunity *);
-extern char *lcommunity_str(struct lcommunity *, bool make_json,
+extern struct lcommunity *lcommunity_str2com(const char *str);
+extern bool lcommunity_match(const struct lcommunity *lcom1, const struct lcommunity *lcom2);
+extern char *lcommunity_str(struct lcommunity *lcom, bool make_json,
 			    bool translate_alias);
 extern bool lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);

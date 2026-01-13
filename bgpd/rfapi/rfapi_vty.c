@@ -53,9 +53,9 @@
 #define FMT_DAY     (24  * FMT_HOUR)
 #define FMT_YEAR    (365 * FMT_DAY)
 
-char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len)
+char *rfapiFormatSeconds(time_t seconds, char *buf, size_t len)
 {
-	int year, day, hour, min;
+	time_t year, day, hour, min;
 
 	if (seconds >= FMT_YEAR) {
 		year = seconds / FMT_YEAR;
@@ -82,11 +82,11 @@ char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len)
 		min = 0;
 
 	if (year > 0) {
-		snprintf(buf, len, "%dy%dd%dh", year, day, hour);
+		snprintf(buf, len, "%ldy%ldd%ldh", (long)year, (long)day, (long)hour);
 	} else if (day > 0) {
-		snprintf(buf, len, "%dd%dh%dm", day, hour, min);
+		snprintf(buf, len, "%ldd%ldh%ldm", (long)day, (long)hour, (long)min);
 	} else {
-		snprintf(buf, len, "%02d:%02d:%02d", hour, min, seconds);
+		snprintf(buf, len, "%02ld:%02ld:%02ld", (long)hour, (long)min, (long)seconds);
 	}
 
 	return buf;
@@ -421,19 +421,18 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 				decode_label(&bpi->extra->labels->label[0]));
 	}
 
-	if (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn) {
-		struct in6_addr *sid_tmp =
-			bpi->attr->srv6_l3vpn ? (&bpi->attr->srv6_l3vpn->sid)
-					      : (&bpi->attr->srv6_vpn->sid);
+	if (bpi->attr->srv6_l3service || bpi->attr->srv6_vpn) {
+		struct in6_addr *sid_tmp = bpi->attr->srv6_l3service
+						   ? (&bpi->attr->srv6_l3service->sid)
+						   : (&bpi->attr->srv6_vpn->sid);
 		vty_out(vty, " sid=%pI6", sid_tmp);
 
-		if (bpi->attr->srv6_l3vpn &&
-		    bpi->attr->srv6_l3vpn->loc_block_len != 0) {
+		if (bpi->attr->srv6_l3service && bpi->attr->srv6_l3service->loc_block_len != 0) {
 			vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
-				bpi->attr->srv6_l3vpn->loc_block_len,
-				bpi->attr->srv6_l3vpn->loc_node_len,
-				bpi->attr->srv6_l3vpn->func_len,
-				bpi->attr->srv6_l3vpn->arg_len);
+				bpi->attr->srv6_l3service->loc_block_len,
+				bpi->attr->srv6_l3service->loc_node_len,
+				bpi->attr->srv6_l3service->func_len,
+				bpi->attr->srv6_l3service->arg_len);
 		}
 	}
 

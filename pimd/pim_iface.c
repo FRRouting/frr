@@ -956,7 +956,7 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 }
 
 /*
-  pim_if_add_vif() uses ifindex as vif_index
+  pim_if_add_vif() uses ifindex as mroute_vif_index
 
   see also pim_if_find_vifindex_by_ifindex()
  */
@@ -1039,6 +1039,10 @@ int pim_if_del_vif(struct interface *ifp)
 			  ifp->ifindex);
 		return -1;
 	}
+
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: vif_index=%d  on interface %s ifindex=%d", __func__,
+			   pim_ifp->mroute_vif_index, ifp->name, ifp->ifindex);
 
 	/* if the device was a pim_vxlan iif/oif update vxlan mroute entries */
 	pim_vxlan_del_vif(ifp);
@@ -1206,7 +1210,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
 	ramount = 1100 + (frr_weak_random() % (1400 - 1100 + 1));
-	t_suppressed_msec = router->t_periodic * ramount;
+	t_suppressed_msec = (long)(router->t_periodic) * ramount;
 
 	return t_suppressed_msec;
 }
@@ -1716,6 +1720,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
+		pim_reg_sock_bind(pim);
 		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
 					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
@@ -1886,6 +1891,13 @@ static int pim_ifp_up(struct interface *ifp)
 	  PIM
 	*/
 	pim_if_addr_add_all(ifp);
+
+	/*pimreg interface might not be created in pim_ifp_create as
+	 * operational state may  be down at that moment, create one now if
+	 * not created.
+	 */
+	if (if_is_operative(ifp) && (!pim->regiface))
+		pim_if_create_pimreg(pim);
 
 	/*
 	 * If we have a pimreg device callback and it's for a specific

@@ -421,8 +421,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					pim_ifp->gm_query_max_response_time_dsec) *
 				100;
 
-			qri_msec =
-				pim_ifp->gm_query_max_response_time_dsec * 100;
+			qri_msec = pim_ifp->gm_query_max_response_time_dsec * 100L;
 			lmqc = pim_ifp->gm_last_member_query_count;
 
 			if (uj) {
@@ -5851,7 +5850,7 @@ DEFPY (interface_ip_pim_activeactive,
        NO_STR
        IP_STR
        PIM_STR
-       "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+       "Mark interface as Active-Active for MLAG operations\n")
 {
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }

@@ -14,9 +14,6 @@
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
 
-struct mgmt_fe_client_adapter;
-struct mgmt_master;
-
 struct mgmt_commit_stats {
 	struct timeval last_start;
 	struct timeval prep_cfg_start;
@@ -36,24 +33,13 @@ struct mgmt_commit_stats {
 	unsigned long commit_cnt;
 };
 
-PREDECL_LIST(mgmt_fe_sessions);
-
-PREDECL_LIST(mgmt_fe_adapters);
-
-struct mgmt_fe_client_adapter {
-	struct msg_conn *conn;
-	char name[MGMTD_CLIENT_NAME_MAX_LEN];
-
-	/* List of sessions created and being maintained for this client. */
-	struct mgmt_fe_sessions_head fe_sessions;
-
-	int refcount;
-	struct mgmt_commit_stats cmt_stats;
-
-	struct mgmt_fe_adapters_item list_linkage;
+struct mgmt_edit_req {
+	char xpath_created[XPATH_MAXLEN];
+	struct nb_config *nb_backup;
+	bool created;
+	bool unlock_candidate;
+	bool unlock_running;
 };
-
-DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
 /* Initialise frontend adapter module */
 extern void mgmt_fe_adapter_init(struct event_loop *tm);
@@ -61,19 +47,10 @@ extern void mgmt_fe_adapter_init(struct event_loop *tm);
 /* Destroy frontend adapter module */
 extern void mgmt_fe_adapter_destroy(void);
 
-/* Acquire lock for frontend adapter */
-extern void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter);
-
-/* Remove lock from frontend adapter */
-extern void
-mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter);
-
-/* Create frontend adapter */
-extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
-					       union sockunion *su);
-
 /*
  * Send commit-config reply to the frontend client.
+ *
+ * This also cleans up and frees the transaction.
  */
 extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
 					 enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
@@ -94,16 +71,11 @@ extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
  *	tree: the results.
  *	partial_error: if there were errors while gather results.
  *	short_circuit_ok: True if OK to short-circuit the call.
- *
- * Return:
- *	the return value from the underlying send function.
- *
  */
-extern int
-mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
-			       uint64_t req_id, LYD_FORMAT result_type,
-			       uint32_t wd_options, const struct lyd_node *tree,
-			       int partial_error, bool short_circuit_ok);
+extern void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, uint32_t wd_options,
+					   const struct lyd_node *tree, int partial_error,
+					   bool short_circuit_ok);
 
 /**
  * Send RPC reply back to client.
@@ -115,15 +87,12 @@ mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
  *	txn_id: the txn_id this data pertains to
  *	req_id: the req id for the rpc message
  *	result_type: the format of the result data.
+ *	restconf: true if the RPC is formatted from RESTCONF operation.
  *	result: the results.
- *
- * Return:
- *	the return value from the underlying send function.
  */
-extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
-					  uint64_t req_id,
-					  LYD_FORMAT result_type,
-					  const struct lyd_node *result);
+extern void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, bool restconf,
+					   const struct lyd_node *result);
 
 /**
  * Send edit reply back to client. If error is not 0, a native error is sent.
@@ -134,18 +103,20 @@ extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
  *     session_id: the session.
  *     txn_id: the txn_id this data pertains to
  *     req_id: the req id for the edit message
- *     unlock: implicit-lock flag was set in the request
- *     commit: implicit-commit flag was set in the request
- *     created: true if the node was just created
- *     xpath: the xpath of the data node that was created/updated
- *     error: >0 LY_ERR, < 0 -errno
+ *     edit: the edit request info created when processing the edit
+ *     error: mgmt result code
  *     errstr: the error string, if error is non-zero
  */
-extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
-					   uint64_t req_id, bool unlock,
-					   bool commit, bool created,
-					   const char *xpath, int16_t error,
+extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   struct mgmt_edit_req **edit, enum mgmt_result error,
 					   const char *errstr);
+
+/**
+ * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @msg: the notify message from the backend client.
+ * @msglen: the length of the notify message.
+ */
+extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen);
 
 /**
  * Send an error back to the FE client using native messaging.
@@ -163,10 +134,8 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
  *	the return value from the underlying send function.
  *
  */
-extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
-				     bool short_circuit_ok, int16_t error,
-				     const char *errstr);
-
+extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
+				     int16_t error, const char *errstr);
 
 /**
  * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.

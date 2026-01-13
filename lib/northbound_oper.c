@@ -442,8 +442,8 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 
 	ly_temp_log_options(&llopts);
 	for (;;) {
-		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
-				    LYD_NEW_PATH_UPDATE, NULL, trunk);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, LYD_NEW_PATH_UPDATE,
+				     NULL, trunk);
 		if (err == LY_SUCCESS)
 			break;
 
@@ -919,9 +919,9 @@ static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_n
 
 /**
  * nb_op_add_leaf() - Add leaf data to the get tree results
- * @ys - the yield state for this tree walk.
- * @nb_node - the northbound node representing this leaf.
- * @xpath - the xpath (with key predicates) to this leaf value.
+ * @ys: the yield state for this tree walk.
+ * @nb_node: the northbound node representing this leaf.
+ * @xpath: the xpath (with key predicates) to this leaf value.
  *
  * Return: northbound return value (enum nb_error)
  */
@@ -1065,9 +1065,9 @@ static bool nb_op_empty_container_ok(const struct lysc_node *snode,
 
 /**
  * nb_op_get_child_path() - add child node name to the xpath.
- * @xpath_parent - a darr string for the parent node.
- * @schild - the child schema node.
- * @xpath_child - a previous return value from this function to reuse.
+ * @xpath_parent: a darr string for the parent node.
+ * @schild: the child schema node.
+ * @xpath_child: a previous return value from this function to reuse.
  */
 static char *nb_op_get_child_path(const char *xpath_parent,
 				  const struct lysc_node *schild,
@@ -1868,9 +1868,9 @@ done:
 	return ret;
 }
 
-static void nb_op_walk_continue(struct event *thread)
+static void nb_op_walk_continue(struct event *event)
 {
-	struct nb_op_yield_state *ys = EVENT_ARG(thread);
+	struct nb_op_yield_state *ys = EVENT_ARG(event);
 	enum nb_error ret = NB_OK;
 
 	DEBUGD(&nb_dbg_cbs_state, "northbound oper-state: resuming %s",
@@ -2198,9 +2198,9 @@ static const struct lysc_node *_next_top_level_node(struct nb_op_yield_state *ys
 	return NULL;
 }
 
-static void nb_op_root_walk_continue(struct event *thread)
+static void nb_op_root_walk_continue(struct event *event)
 {
-	struct nb_op_yield_state *ys = EVENT_ARG(thread);
+	struct nb_op_yield_state *ys = EVENT_ARG(event);
 
 	nb_op_root_walk_branch_finished(ys, NB_OK);
 }
@@ -2405,8 +2405,8 @@ enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *pare
 	size_t size;
 
 	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
-	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
-			     NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, valuep, size,
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -2423,8 +2423,8 @@ enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *pare
 	size_t size;
 
 	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
-	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
-			     NULL))
+	if (yang_new_term_bin(parent, snode->module, snode->name, valuep, size,
+			      LYD_NEW_PATH_UPDATE, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }

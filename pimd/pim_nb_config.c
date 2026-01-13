@@ -2903,65 +2903,10 @@ int lib_interface_pim_address_family_mroute_create(
 	return NB_OK;
 }
 
-int lib_interface_pim_address_family_mroute_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct pim_instance *pim;
-	struct pim_interface *pim_iifp;
-	struct interface *iif;
-	struct interface *oif;
-	const char *oifname;
-	pim_addr source_addr;
-	pim_addr group_addr;
-	const struct lyd_node *if_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		if (!is_pim_interface(if_dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Enable PIM and/or IGMP on this interface first");
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		iif = nb_running_get_entry(args->dnode, NULL, true);
-		pim_iifp = iif->info;
-		pim = pim_iifp->pim;
-
-		oifname = yang_dnode_get_string(args->dnode, "oif");
-		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
-
-		if (!oif) {
-			snprintf(args->errmsg, args->errmsg_len,
-					"No such interface name %s",
-					oifname);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		yang_dnode_get_pimaddr(&source_addr, args->dnode, "source-addr");
-		yang_dnode_get_pimaddr(&group_addr, args->dnode, "group-addr");
-
-		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
-			snprintf(args->errmsg, args->errmsg_len,
-					"Failed to remove static mroute");
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/mroute/oif
  */
-int lib_interface_pim_address_family_mroute_oif_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_mroute_oif_create(struct nb_cb_create_args *args)
 {
 	struct pim_instance *pim;
 	struct pim_interface *pim_iifp;
@@ -3004,15 +2949,19 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		iif = nb_running_get_entry(args->dnode, NULL, true);
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+
+		iif = nb_running_get_entry(if_dnode, NULL, true);
+		if (!iif)
+			return NB_ERR_INCONSISTENCY;
+
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 		if (!oif) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "No such interface name %s",
+			snprintf(args->errmsg, args->errmsg_len, "No such interface name %s",
 				 oifname);
 			return NB_ERR_INCONSISTENCY;
 		}
@@ -3021,8 +2970,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
 		if (pim_static_add(pim, iif, oif, group_addr, source_addr)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Failed to add static mroute");
+			snprintf(args->errmsg, args->errmsg_len, "Failed to add static mroute");
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -3032,14 +2980,55 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	return NB_OK;
 }
 
-int lib_interface_pim_address_family_mroute_oif_destroy(
-	struct nb_cb_destroy_args *args)
+int lib_interface_pim_address_family_mroute_oif_destroy(struct nb_cb_destroy_args *args)
 {
+	struct pim_instance *pim;
+	struct pim_interface *pim_iifp;
+	struct interface *iif;
+	struct interface *oif;
+	const char *oifname;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+
+		iif = nb_running_get_entry(if_dnode, NULL, true);
+		if (!iif)
+			return NB_ERR_INCONSISTENCY;
+
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+		if (!oif) {
+			snprintf(args->errmsg, args->errmsg_len, "No such interface name %s",
+				 oifname);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
+
+		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
+			snprintf(args->errmsg, args->errmsg_len, "Failed to del static mroute");
+			return NB_ERR_INCONSISTENCY;
+		}
 		break;
 	}
 
@@ -4699,6 +4688,11 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
+
 		pim_ifp->gmp_immediate_leave = yang_dnode_get_bool(args->dnode, NULL);
 		break;
 	}
@@ -4720,6 +4714,10 @@ int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
 
 		rmap = yang_dnode_get_string(args->dnode, NULL);
 		pim_filter_ref_set_rmap(&pim_ifp->gmp_filter, rmap);
@@ -4742,6 +4740,9 @@ int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
 		pim_filter_ref_set_rmap(&pim_ifp->gmp_filter, NULL);
 		break;
 	}
@@ -4765,6 +4766,10 @@ int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->gmp_require_ra = yang_dnode_get_bool(args->dnode, NULL);
 		break;
 	}

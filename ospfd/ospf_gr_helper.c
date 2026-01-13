@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "log.h"
 #include "jhash.h"
+#include "lib/lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -329,9 +330,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf_handle_grace_timer_expiry(struct event *thread)
+static void ospf_handle_grace_timer_expiry(struct event *event)
 {
-	struct ospf_neighbor *nbr = EVENT_ARG(thread);
+	struct ospf_neighbor *nbr = EVENT_ARG(event);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
@@ -463,11 +464,11 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	}
 
 	/*LSA age must be less than the grace period */
-	if (ntohs(lsa->data->ls_age) >= grace_interval) {
+	if (LS_AGE_RAW(lsa) >= grace_interval) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
 				"%s, Grace LSA age(%d) is more than the grace interval(%d)",
-				__func__, lsa->data->ls_age, grace_interval);
+				__func__, LS_AGE_RAW(lsa), grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_LSA_AGE_MORE;
 		return OSPF_GR_NOT_HELPER;
@@ -688,8 +689,8 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	ospf->last_exit_reason = reason;
 
 	if (ospf->active_restarter_cnt <= 0) {
-		zlog_err(
-			"OSPF GR-Helper: active_restarter_cnt should be greater than zero here.");
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "OSPF GR-Helper: active_restarter_cnt should be greater than zero here.");
 		return;
 	}
 	/* Decrement active Restarter count */

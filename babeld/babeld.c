@@ -37,11 +37,11 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
-static void babel_init_routing_process(struct event *thread);
+static void babel_init_routing_process(struct event *event);
 static void babel_get_myid(void);
 static void babel_initial_noise(void);
-static void babel_read_protocol(struct event *thread);
-static void babel_main_loop(struct event *thread);
+static void babel_read_protocol(struct event *event);
+static void babel_main_loop(struct event *event);
 static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void babel_distribute_update(struct distribute_ctx *ctx, struct distribute *dist);
@@ -156,7 +156,7 @@ fail:
 }
 
 /* thread reading entries form others babel daemons */
-static void babel_read_protocol(struct event *thread)
+static void babel_read_protocol(struct event *event)
 {
 	int rc;
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -188,7 +188,7 @@ static void babel_read_protocol(struct event *thread)
 		}
 	}
 
-	/* re-add thread */
+	/* re-add event */
 	event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
 		       &babel_routing_process->t_read);
 }
@@ -196,14 +196,14 @@ static void babel_read_protocol(struct event *thread)
 /* Zebra will give some information, especially about interfaces. This function
  must be call with a litte timeout wich may give zebra the time to do his job,
  making these inits have sense. */
-static void babel_init_routing_process(struct event *thread)
+static void babel_init_routing_process(struct event *event)
 {
 	myseqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
 	babel_get_myid();
 	babel_load_state_file();
 	debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
 	babel_initial_noise();
-	babel_main_loop(thread); /* this function self-add to the t_update thread */
+	babel_main_loop(event); /* this function self-add to the t_update event */
 }
 
 /* fill "myid" with an unique id (only if myid != {0} and myid != {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -312,7 +312,7 @@ void babel_clean_routing_process(void)
 }
 
 /* Function used with timeout. */
-static void babel_main_loop(struct event *thread)
+static void babel_main_loop(struct event *event)
 {
 	struct timeval tv;
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);

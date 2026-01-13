@@ -57,6 +57,8 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 #define log_pkt_src(msg)                                                       \
 	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name,    \
 		&pkt_src->sin6_addr
+#define log_pkt_dst(msg)                                                       \
+	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name, pkt_dst
 #define log_sg(sg, msg)                                                        \
 	"[MLD %s:%s %pSG] " msg, sg->iface->ifp->vrf->name,                    \
 		sg->iface->ifp->name, &sg->sgaddr
@@ -827,11 +829,13 @@ static void gm_handle_v2_pass2_incl(struct gm_packet_state *pkt, size_t i)
 	/* EXCLUDE state was already dropped in pass1 */
 	assert(!gm_packet_sg_find(sg, GM_SUB_NEG, pkt->subscriber));
 
+	/* if repeated MLD records are in a packet, pkt == old is possible */
+	pkt->n_active++;
+
 	old = gm_packet_sg_find(sg, GM_SUB_POS, pkt->subscriber);
 	if (old)
 		gm_packet_sg_drop(old);
 
-	pkt->n_active++;
 	gm_packet_sg_subs_add(sg->subs_positive, item);
 
 	sg->most_recent = item;
@@ -845,6 +849,9 @@ static void gm_handle_v2_pass2_excl(struct gm_packet_state *pkt, size_t offs)
 	struct gm_packet_sg *old_grp, *item_dup;
 	struct gm_sg *sg_grp = item->sg;
 	size_t i;
+
+	/* if repeated MLD records are in a packet, pkt == old is possible */
+	pkt->n_active++;
 
 	old_grp = gm_packet_sg_find(sg_grp, GM_SUB_POS, pkt->subscriber);
 	if (old_grp) {
@@ -890,7 +897,6 @@ static void gm_handle_v2_pass2_excl(struct gm_packet_state *pkt, size_t offs)
 
 	item_dup = gm_packet_sg_subs_add(sg_grp->subs_positive, item);
 	assert(!item_dup);
-	pkt->n_active++;
 
 	sg_grp->most_recent = item;
 	gm_sg_expiry_cancel(sg_grp);
@@ -1036,9 +1042,8 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		gm_packet_free(pkt);
 }
 
-static void gm_handle_v1_report(struct gm_if *gm_ifp,
-				const struct sockaddr_in6 *pkt_src, char *data,
-				size_t len)
+static void gm_handle_v1_report(struct gm_if *gm_ifp, const struct sockaddr_in6 *pkt_src,
+				pim_addr *pkt_dst, char *data, size_t len)
 {
 	struct mld_v1_pkt *hdr;
 	struct gm_packet_state *pkt;
@@ -1057,6 +1062,14 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	gm_ifp->stats.rx_old_report++;
 
 	hdr = (struct mld_v1_pkt *)data;
+	if (pim_addr_cmp(hdr->grp, *pkt_dst)) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug(log_pkt_dst(
+					   "malformed MLDv1 report (destination address should be %pI6)"),
+				   &hdr->grp);
+		gm_ifp->stats.rx_drop_malformed++;
+		return;
+	}
 
 	if (gm_sg_filter_match(gm_ifp, PIMADDR_ANY, hdr->grp))
 		return;
@@ -1705,7 +1718,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 		gm_handle_query(gm_ifp, pkt_src, pkt_dst, data, pktlen);
 		break;
 	case ICMP6_MLD_V1_REPORT:
-		gm_handle_v1_report(gm_ifp, pkt_src, data, pktlen);
+		gm_handle_v1_report(gm_ifp, pkt_src, pkt_dst, data, pktlen);
 		break;
 	case ICMP6_MLD_V1_DONE:
 		gm_handle_v1_leave(gm_ifp, pkt_src, data, pktlen);

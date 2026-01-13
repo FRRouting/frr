@@ -56,47 +56,39 @@ def test_bgp_nhc():
         expected = {
             "routes": {
                 "10.0.0.1/32": {
+                    "pathCount": 2,
                     "paths": [
                         {
-                            "aspath": {
-                                "string": "65002 65003",
-                            },
-                            "valid": True,
                             "nextNextHopNodes": [
-                                "10.254.0.3",
-                                "10.254.0.4",
-                                "10.254.0.5",
-                            ],
-                            "nexthops": [
-                                {
-                                    "ip": "10.255.0.2",
-                                    "hostname": "r2",
-                                    "afi": "ipv4",
-                                }
+                                "10.255.0.3",
+                                "10.255.0.4",
+                                "10.255.0.5",
                             ],
                         },
                         {
-                            "aspath": {
-                                "string": "65006 65007",
-                            },
-                            "valid": True,
-                            "nextNextHopNodes": [
-                                "10.254.0.7",
-                                "10.254.0.8",
-                            ],
-                            "nexthops": [
-                                {
-                                    "ip": "10.255.16.6",
-                                    "hostname": "r6",
-                                    "afi": "ipv4",
-                                }
-                            ],
+                            "nextNextHopNodes": ["10.255.0.7", "10.255.0.8"],
                         },
                     ],
-                }
+                },
+                "10.0.0.2/32": {
+                    "pathCount": 1,
+                    "paths": [
+                        {
+                            "bgpId": "10.255.0.2",
+                        }
+                    ],
+                },
+                "10.0.0.3/32": {
+                    "pathCount": 1,
+                    "paths": [
+                        {
+                            "bgpId": "10.255.0.3",
+                        }
+                    ],
+                },
             },
-            "totalRoutes": 1,
-            "totalPaths": 2,
+            "totalRoutes": 3,
+            "totalPaths": 4,
         }
 
         return topotest.json_cmp(output, expected)
@@ -104,10 +96,29 @@ def test_bgp_nhc():
     test_func = functools.partial(
         _bgp_converge,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "Can't see Next-next hop Nodes (NHC attribute) for 10.0.0.1/32"
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assert result is None, "Can't see NHC attributes as expected"
+
+    def check_weighted_ecmp_with_nnhn():
+        output = json.loads(r1.vtysh_cmd("show ip route 10.0.0.1/32 json"))
+        expected = {
+            "10.0.0.1/32": [
+                {
+                    "nexthops": [
+                        {"ip": "10.255.16.6", "weight": 170},
+                        {"ip": "10.255.0.2", "weight": 255},
+                    ]
+                }
+            ]
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        check_weighted_ecmp_with_nnhn,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assert result is None, "Can't see weighted ECMP with NNHN as expected"
 
 
 if __name__ == "__main__":

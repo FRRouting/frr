@@ -11,6 +11,8 @@
 #include "distribute.h"
 #include "memory.h"
 #include "bfd.h"
+#include "lib/vector.h"
+#include "typesafe.h"
 
 /* RIP version number. */
 #define RIPv1                            1
@@ -83,6 +85,11 @@
 #define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
 
 DECLARE_MGROUP(RIPD);
+DECLARE_MTYPE(RIP_INFO_LIST);
+
+PREDECL_SORTLIST_UNIQ(rip_offset_list);
+PREDECL_SORTLIST_UNIQ(rip_peer_list);
+PREDECL_DLIST(rip_info_list);
 
 /* RIP structure. */
 struct rip {
@@ -114,7 +121,7 @@ struct rip {
 	struct route_table *neighbor;
 
 	/* Linked list of RIP peers. */
-	struct list *peer_list;
+	struct rip_peer_list_head peer_list;
 
 	/* RIP threads. */
 	struct event *t_read;
@@ -155,7 +162,7 @@ struct rip {
 	vector passive_nondefault;
 
 	/* RIP offset-lists. */
-	struct list *offset_list_master;
+	struct rip_offset_list_head offset_list_master;
 
 	/* RIP redistribute configuration. */
 	struct {
@@ -216,6 +223,9 @@ union rip_buf {
 
 /* RIP route information. */
 struct rip_info {
+	/* List linkage - not copied by rip_info_cpy() */
+	struct rip_info_list_item item;
+
 	/* This route's type. */
 	int type;
 
@@ -241,7 +251,7 @@ struct rip_info {
 #define RIP_RTF_CHANGED  2
 	uint8_t flags;
 
-	/* Garbage collect timer. */
+	/* Garbage collect timer - not copied by rip_info_cpy() */
 	struct event *t_timeout;
 	struct event *t_garbage_collect;
 
@@ -256,6 +266,19 @@ struct rip_info {
 
 	uint8_t distance;
 };
+
+/* Copy route data from src to dst, preserving dst's list linkage.
+ * The item field (DLIST linkage) must not be overwritten when dst is in a list.
+ */
+static inline void rip_info_cpy(struct rip_info *dst, const struct rip_info *src)
+{
+	struct rip_info_list_item item_save = dst->item;
+
+	memcpy(dst, src, sizeof(struct rip_info));
+	dst->item = item_save;
+}
+
+DECLARE_DLIST(rip_info_list, struct rip_info, item);
 
 typedef enum {
 	RIP_NO_SPLIT_HORIZON = 0,
@@ -334,6 +357,8 @@ struct rip_interface {
 
 /* RIP peer information. */
 struct rip_peer {
+	struct rip_peer_list_item item;
+
 	/* Parent routing instance. */
 	struct rip *rip;
 
@@ -362,6 +387,9 @@ struct rip_peer {
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
 };
+
+int rip_peer_list_cmp(const struct rip_peer *p1, const struct rip_peer *p2);
+DECLARE_SORTLIST_UNIQ(rip_peer_list, struct rip_peer, item, rip_peer_list_cmp);
 
 struct rip_distance {
 	/* Distance value for the IP source prefix. */
@@ -412,6 +440,8 @@ enum rip_event {
 #define RIP_OFFSET_LIST_MAX 2
 
 struct rip_offset_list {
+	struct rip_offset_list_item item;
+
 	/* Parent routing instance. */
 	struct rip *rip;
 
@@ -423,6 +453,11 @@ struct rip_offset_list {
 		uint8_t metric;
 	} direct[RIP_OFFSET_LIST_MAX];
 };
+
+int rip_offset_list_cmp(const struct rip_offset_list *a,
+			const struct rip_offset_list *b);
+DECLARE_SORTLIST_UNIQ(rip_offset_list, struct rip_offset_list, item,
+		      rip_offset_list_cmp);
 
 /* Prototypes. */
 extern void rip_init(void);
@@ -444,8 +479,8 @@ extern struct rip *rip_lookup_by_vrf_name(const char *vrf_name);
 extern struct rip *rip_create(const char *vrf_name, struct vrf *vrf,
 			      int socket);
 
-extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
-			    struct connected *);
+extern int rip_request_send(struct sockaddr_in *to, struct interface *ifp, uint8_t version,
+			    struct connected *connected);
 extern int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from);
 extern int rip_neighbor_add(struct rip *rip, struct prefix_ipv4 *p);
 extern int rip_neighbor_delete(struct rip *rip, struct prefix_ipv4 *p);
@@ -472,8 +507,8 @@ extern void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 extern void rip_redistribute_withdraw(struct rip *rip, int type);
 extern void rip_zebra_ipv4_add(struct rip *rip, struct route_node *rp);
 extern void rip_zebra_ipv4_delete(struct rip *rip, struct route_node *rp);
-extern void rip_interface_multicast_set(int, struct connected *);
-extern void rip_distribute_update_interface(struct interface *);
+extern void rip_interface_multicast_set(int sock, struct connected *connected);
+extern void rip_distribute_update_interface(struct interface *ifp);
 extern void rip_if_rmap_update_interface(struct interface *ifp);
 
 extern int rip_show_network_config(struct vty *vty, struct rip *rip);
@@ -490,11 +525,9 @@ extern void rip_peer_display(struct vty *vty, struct rip *rip);
 extern struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr);
 extern struct rip_peer *rip_peer_lookup_next(struct rip *rip,
 					     struct in_addr *addr);
-extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
-extern void rip_peer_list_del(void *arg);
 void rip_peer_delete_routes(const struct rip_peer *peer);
 
-extern void rip_info_free(struct rip_info *);
+extern void rip_info_free(struct rip_info *rinfo);
 extern struct rip *rip_info_get_instance(const struct rip_info *rinfo);
 extern struct rip_distance *rip_distance_new(void);
 extern void rip_distance_free(struct rip_distance *rdistance);
@@ -516,12 +549,9 @@ extern void offset_list_del(struct rip_offset_list *offset);
 extern void offset_list_free(struct rip_offset_list *offset);
 extern struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
 						      const char *ifname);
-extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
-				    uint32_t *);
-extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
-				     uint32_t *);
-extern int offset_list_cmp(struct rip_offset_list *o1,
-			   struct rip_offset_list *o2);
+extern int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp, uint32_t *metric);
+extern int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
+				     uint32_t *metric);
 
 extern void rip_vrf_init(void);
 extern void rip_vrf_terminate(void);

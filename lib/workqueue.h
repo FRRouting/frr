@@ -46,7 +46,7 @@ struct work_queue {
 	 * the following may be read
 	 */
 	struct event_loop *master;    /* thread master */
-	struct event *thread;	      /* thread, if one is active */
+	struct event *event;	      /* thread, if one is active */
 	char *name;		      /* work queue name */
 
 	/* Specification for this work queue.
@@ -60,14 +60,14 @@ struct work_queue {
 		 * First argument is the workqueue queue.
 		 * Second argument is the item data
 		 */
-		wq_item_status (*workfunc)(struct work_queue *, void *);
+		wq_item_status (*workfunc)(struct work_queue *wq, void *data);
 
 		/* callback to delete user specific item data */
-		void (*del_item_data)(struct work_queue *, void *);
+		void (*del_item_data)(struct work_queue *wq, void *data);
 
 		/* completion callback, called when queue is emptied, optional
 		 */
-		void (*completion_func)(struct work_queue *);
+		void (*completion_func)(struct work_queue *wq);
 
 		/* max number of retries to make for item that errors */
 		unsigned int max_retries;
@@ -140,7 +140,7 @@ extern void work_queue_unplug(struct work_queue *wq);
 bool work_queue_is_scheduled(struct work_queue *wq);
 
 /* Helpers, exported for thread.c and command.c */
-extern void work_queue_run(struct event *thread);
+extern void work_queue_run(struct event *event);
 
 /* Function to initialize the workqueue cli */
 extern void workqueue_cmd_init(void);

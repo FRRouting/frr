@@ -1733,11 +1733,11 @@ bool ospf_check_fr_enabled_all(struct ospf *ospf)
  *  @param thread
  *  @return 0.
  */
-static void ospf_abr_announce_non_dna_routers(struct event *thread)
+static void ospf_abr_announce_non_dna_routers(struct event *event)
 {
 	struct ospf_area *area;
 	struct listnode *node;
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 
 	event_cancel(&ospf->t_abr_fr);
 
@@ -2151,9 +2151,9 @@ void ospf_abr_task(struct ospf *ospf)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void ospf_abr_task_timer(struct event *thread)
+static void ospf_abr_task_timer(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 
 	ospf->t_abr_task = 0;
 

@@ -56,30 +56,6 @@ static struct frr_daemon_info mgmtd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received, ignoring");
-
-	return;
-
-	/*
-	 * This is turned off for the moment.  There is all
-	 * sorts of config turned off by mgmt_terminate
-	 * that is not setup properly again in mgmt_reset.
-	 * I see no easy way to do this nor do I see that
-	 * this is a desirable way to reload config
-	 * given the yang work.
-	 */
-	/* Terminate all thread. */
-	mgmt_terminate();
-
-	/*
-	 * mgmt_reset();
-	 */
-	zlog_info("MGMTD restarting!");
-
-	/*
-	 * Reload config file.
-	 * vty_read_config(NULL, mgmtd_di.config_file, config_default);
-	 */
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
@@ -113,6 +89,11 @@ static FRR_NORETURN void mgmt_exit(int status)
 {
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
+
+	/* frr_fini() calls this but we need our vtys close before we terminate the client */
+	vty_terminate();
+
+	vty_mgmt_terminate();
 
 	frr_early_fini();
 
@@ -161,12 +142,6 @@ const struct frr_yang_module_info ietf_netconf_with_defaults_info = {
  * clients into mgmtd. The modules are used by libyang in order to support
  * parsing binary data returns from the backend.
  */
-const struct frr_yang_module_info frr_backend_client_info = {
-	.name = "frr-backend",
-	.ignore_cfg_cbs = true,
-	.nodes = { { .xpath = NULL } },
-};
-
 const struct frr_yang_module_info zebra_route_map_info = {
 	.name = "frr-zebra-route-map",
 	.ignore_cfg_cbs = true,
@@ -178,6 +153,7 @@ const struct frr_yang_module_info zebra_route_map_info = {
  * MGMTd.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_cli_info,
 	&frr_host_cli_info,
 	&frr_interface_cli_info,
@@ -193,7 +169,6 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	/*
 	 * YANG module info used by backend clients get added here.
 	 */
-	&frr_backend_client_info,
 
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,

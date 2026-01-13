@@ -584,8 +584,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 	unsigned int old_rp_ka_time;
 
 	/* stash the old one so we know which values were manually configured */
-	old_rp_ka_time =  (3 * router->register_suppress_time
-			   + router->register_probe_time);
+	old_rp_ka_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	router->register_suppress_time = suppress_time;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -595,7 +594,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 
 		/* Only adjust if not manually configured */
 		if (pim->rp_keep_alive_time == old_rp_ka_time)
-			pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+			pim->rp_keep_alive_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	}
 }
 
@@ -944,6 +943,15 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		bool new_use_rpt;
 		bool send_xg_jp = false;
 
+		/*
+		 * In FHR pimreg interface is needed all the time
+		 * inorder to send register packets.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && up->reg_state == PIM_REG_NOINFO &&
+		    pim->regiface->configured) {
+			pim_channel_add_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
+					    __func__);
+		}
 		forward_off(up);
 		/*
 		 * RFC 4601 Sec 4.5.7:
@@ -2239,6 +2247,10 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return false;
 
 	pim_ifp = ifp->info;
+
+	if (!pim_ifp || !c_oil)
+		return false;
+
 	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
 		return false;
 

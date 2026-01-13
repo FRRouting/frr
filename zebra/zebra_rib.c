@@ -48,7 +48,9 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
@@ -208,7 +210,7 @@ struct wq_evpn_wrapper {
 	struct ipaddr ip;
 	struct ethaddr macaddr;
 	struct prefix prefix;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 };
 
 #define WQ_EVPN_WRAPPER_TYPE_VRFROUTE     0x01
@@ -387,30 +389,21 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 			  VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);        \
 	} while (0)
 
-static char *_dump_re_status(const struct route_entry *re, char *buf,
-			     size_t len)
+char *zebra_rib_dump_re_status(const struct route_entry *re, char *buf, size_t len)
 {
 	if (re->status == 0) {
 		snprintfrr(buf, len, "None ");
 		return buf;
 	}
 
-	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s%s",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)
-			? "Label Changed "
-			: "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING)
-			? "Replacing "
-			: "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed "
-							      : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "",
-		CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG) ? "Fib NHG "
-								: "");
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ? "Label Changed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING) ? "Replacing " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "");
 	return buf;
 }
 
@@ -690,13 +683,6 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		if (old) {
 			SET_FLAG(old->status, ROUTE_ENTRY_QUEUED);
 			SET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
-
-			/* Free old FIB nexthop group */
-			UNSET_FLAG(old->status, ROUTE_ENTRY_USE_FIB_NHG);
-			if (old->fib_ng.nexthop) {
-				nexthops_free(old->fib_ng.nexthop);
-				old->fib_ng.nexthop = NULL;
-			}
 		}
 
 		if (zvrf)
@@ -723,13 +709,20 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
+	__attribute__((unused)) char buf[PREFIX2STR_BUFFER] = { 0 };
+
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
 
-	switch (dplane_route_delete(rn, re)) {
+	enum zebra_dplane_result result = dplane_route_delete(rn, re);
+
+	frrtrace(3, frr_zebra, rib_uninstall_kernel_route, srcdest_rnode2str(rn, buf, sizeof(buf)),
+		 re->nhe, result);
+
+	switch (result) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		if (zvrf)
 			zvrf->removals_queued++;
@@ -1313,8 +1306,9 @@ static void rib_process(struct route_node *rn)
 			zlog_debug("%s(%u:%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
 				   VRF_LOGNAME(vrf), vrf_id, re->table, safi, rn, re,
 				   zebra_route_string(re->type),
-				   _dump_re_status(re, status_buf, sizeof(status_buf)),
-				   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+				   zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf)),
+				   zclient_dump_route_flags(re->flags, flags_buf,
+							    sizeof(flags_buf)),
 				   re->distance, re->metric);
 		}
 
@@ -1497,7 +1491,7 @@ static void rib_process(struct route_node *rn)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
 	else if (new_fib)
 		rib_process_add_fib(zvrf, rn, new_fib);
-	else if (old_fib && !RIB_SYSTEM_ROUTE(old_fib))
+	else if (old_fib && !RIB_KERNEL_ROUTE(old_fib))
 		rib_process_del_fib(zvrf, rn, old_fib);
 
 	/* Remove all RE entries queued for removal */
@@ -1758,10 +1752,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				   struct route_node *rn,
 				   struct zebra_dplane_ctx *ctx)
 {
-	struct nexthop *nexthop;
 	bool matched;
 	const struct nexthop_group *ctxnhg;
-	struct nexthop_group *re_nhg;
 	bool is_selected = false; /* Is 're' currently the selected re? */
 	bool changed_p = false; /* Change to nexthops? */
 	rib_dest_t *dest;
@@ -1783,176 +1775,24 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 * we use the fib-specific nexthop-group to record the actual FIB
 	 * status.
 	 */
-	matched = false;
 	ctxnhg = dplane_ctx_get_ng(ctx);
 
-	/* Check route's fib group and incoming notif group for equivalence.
-	 *
-	 * Let's assume the nexthops are ordered here to save time.
-	 */
-	/* TODO -- this isn't testing or comparing the FIB flags; we should
-	 * do a more explicit loop, checking the incoming notification's flags.
-	 */
-	if (re->fib_ng.nexthop && ctxnhg->nexthop &&
-	    nexthop_group_equal(&re->fib_ng, ctxnhg))
-		matched = true;
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s(%u:%u):%pRN update_from_ctx()", VRF_LOGNAME(vrf), re->vrf_id,
+			   re->table, rn);
 
-	/* If the new FIB set matches the existing FIB set, we're done. */
-	if (matched) {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u:%u):%pRN update_from_ctx(): existing fib nhg, no change",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
-		goto check_backups;
-
-	} else if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG)) {
-		/*
-		 * Free stale fib list and move on to check the rib nhg.
-		 */
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u:%u):%pRN update_from_ctx(): replacing fib nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
-		nexthops_free(re->fib_ng.nexthop);
-		re->fib_ng.nexthop = NULL;
-
-		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
-
-		/* Note that the installed nexthops have changed */
-		changed_p = true;
-	} else {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u:%u):%pRN update_from_ctx(): no fib nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
-	}
-
-	/*
-	 * Compare with the rib nexthop group. The comparison here is different:
-	 * the RIB group may be a superset of the list installed in the FIB. We
-	 * walk the RIB group, looking for the 'installable' candidate
-	 * nexthops, and then check those against the set
-	 * that is actually installed.
-	 *
-	 * Assume nexthops are ordered here as well.
-	 */
-
-	/* If nothing is installed, we can skip some of the checking/comparison
-	 * of nexthops.
-	 */
-	if (ctxnhg->nexthop == NULL) {
-		changed_p = true;
-		goto no_nexthops;
-	}
+	if (ctxnhg->nexthop == NULL)
+		return true;
 
 	matched = rib_update_nhg_from_ctx(&(re->nhe->nhg), ctxnhg, &changed_p);
 
-	/* If all nexthops were processed, we're done */
 	if (matched) {
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
 				"%s(%u:%u):%pRN update_from_ctx(): rib nhg matched, changed '%s'",
 				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
 				(changed_p ? "true" : "false"));
-		goto check_backups;
 	}
-
-no_nexthops:
-
-	/* FIB nexthop set differs from the RIB set:
-	 * create a fib-specific nexthop-group
-	 */
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug(
-			"%s(%u:%u):%pRN update_from_ctx(): changed %s, adding new fib nhg%s",
-			VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
-			(changed_p ? "true" : "false"),
-			ctxnhg->nexthop != NULL ? "" : " (empty)");
-
-	/* Set the flag about the dedicated fib list */
-	if (zrouter.asic_notification_nexthop_control) {
-		SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
-		if (ctxnhg->nexthop)
-			copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop,
-				      NULL);
-	}
-
-check_backups:
-
-	/*
-	 * Check the status of the route's backup nexthops, if any.
-	 * The logic for backups is somewhat different: if any backup is
-	 * installed, a new fib nhg will be attached to the route.
-	 */
-	re_nhg = zebra_nhg_get_backup_nhg(re->nhe);
-	if (re_nhg == NULL)
-		goto done;	/* No backup nexthops */
-
-	/* First check the route's 'fib' list of backups, if it's present
-	 * from some previous event.
-	 */
-	re_nhg = &re->fib_backup_ng;
-	ctxnhg = dplane_ctx_get_backup_ng(ctx);
-
-	matched = false;
-	if (re_nhg->nexthop && ctxnhg && nexthop_group_equal(re_nhg, ctxnhg))
-		matched = true;
-
-	/* If the new FIB set matches an existing FIB set, we're done. */
-	if (matched) {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u):%pRN update_from_ctx(): existing fib backup nhg, no change",
-				VRF_LOGNAME(vrf), re->vrf_id, rn);
-		goto done;
-
-	} else if (re->fib_backup_ng.nexthop) {
-		/*
-		 * Free stale fib backup list and move on to check
-		 * the route's backups.
-		 */
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u):%pRN update_from_ctx(): replacing fib backup nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, rn);
-		nexthops_free(re->fib_backup_ng.nexthop);
-		re->fib_backup_ng.nexthop = NULL;
-
-		/* Note that the installed nexthops have changed */
-		changed_p = true;
-	} else {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u):%pRN update_from_ctx(): no fib backup nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, rn);
-	}
-
-	/*
-	 * If a FIB backup nexthop set exists, attach a copy
-	 * to the route if any backup is installed
-	 */
-	if (ctxnhg && ctxnhg->nexthop) {
-
-		for (ALL_NEXTHOPS_PTR(ctxnhg, nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				break;
-		}
-
-		/* If no installed backups, we're done */
-		if (nexthop == NULL)
-			goto done;
-
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug(
-				"%s(%u):%pRN update_from_ctx(): changed %s, adding new backup fib nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, rn,
-				(changed_p ? "true" : "false"));
-
-		copy_nexthops(&(re->fib_backup_ng.nexthop), ctxnhg->nexthop,
-			      NULL);
-	}
-
-done:
 
 	return changed_p;
 }
@@ -1976,9 +1816,10 @@ struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u",
+			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u Prefix: %pFX",
 				   dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx),
-				   vrf_id_to_name(vrf_id), vrf_id, tableid);
+				   vrf_id_to_name(vrf_id), vrf_id, tableid,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -1992,7 +1833,6 @@ struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 done:
 	return rn;
 }
-
 
 
 /*
@@ -2020,9 +1860,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug(
-				"Failed to process dplane results: no route for %s(%u):%pRN",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn);
+			zlog_debug("Failed to process dplane results: no route for %s(%u):%pRN prefix: %pFX",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -2090,13 +1930,12 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			 * a second async response to the request.  In this case we know
 			 * that we should just mark it as no longer queued at all.
 			 */
-			if (zrouter.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
+			if (zrouter.zav.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
 				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
-			if (!zrouter.asic_offloaded ||
+			if (!zrouter.zav.asic_offloaded ||
 			    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
-			     CHECK_FLAG(re->flags,
-					ZEBRA_FLAG_OFFLOAD_FAILED))) {
+			     CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))) {
 				UNSET_FLAG(re->status,
 					   ROUTE_ENTRY_ROUTE_REPLACING);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
@@ -2267,41 +2106,6 @@ done:
 }
 
 /*
- * Count installed/FIB nexthops
- */
-static int rib_count_installed_nh(struct route_entry *re)
-{
-	int count = 0;
-	struct nexthop *nexthop;
-	struct nexthop_group *nhg;
-
-	nhg = rib_get_fib_nhg(re);
-
-	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		/* The meaningful flag depends on where the installed
-		 * nexthops reside.
-		 */
-		if (nhg == &(re->fib_ng)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				count++;
-		} else {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-				count++;
-		}
-	}
-
-	nhg = rib_get_fib_backup_nhg(re);
-	if (nhg) {
-		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				count++;
-		}
-	}
-
-	return count;
-}
-
-/*
  * Handle notification from async dataplane: the dataplane has detected
  * some change to a route, and notifies zebra so that the control plane
  * can reflect that change.
@@ -2315,17 +2119,16 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	rib_dest_t *dest;
 	bool fib_changed = false;
 	bool debug_p = IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_RIB;
-	int start_count, end_count;
+	int end_count;
 	uint32_t tableid = dplane_ctx_get_table(ctx);
 
 	/* Locate rn and re(s) from ctx */
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (debug_p) {
-			zlog_debug(
-				"Failed to process dplane notification: no routes for %s(%u:%u):%pRN",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				tableid, rn);
+			zlog_debug("Failed to process dplane notification: no routes for %s(%u:%u):%pRN prefix %pFX",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), tableid, rn,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -2418,15 +2221,6 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			SET_FLAG(re->flags, ZEBRA_FLAG_TRAPPED);
 	}
 
-	/* We'll want to determine whether the installation status of the
-	 * route has changed: we'll check the status before processing,
-	 * and then again if there's been a change.
-	 */
-	start_count = 0;
-
-	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-		start_count = rib_count_installed_nh(re);
-
 	/* Update zebra's nexthop FIB flags based on the context struct's
 	 * nexthops.
 	 */
@@ -2438,73 +2232,6 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 				"%s(%u:%u):%pRN dplane notification: rib_update returns FALSE",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
 				tableid, rn);
-	}
-
-	/*
-	 * Perform follow-up work if the actual status of the prefix
-	 * changed.
-	 */
-	end_count = rib_count_installed_nh(re);
-
-	/* Various fib transitions: changed nexthops; from installed to
-	 * not-installed; or not-installed to installed.
-	 */
-	if (zrouter.asic_notification_nexthop_control) {
-		if (start_count > 0 && end_count > 0) {
-			if (debug_p)
-				zlog_debug(
-					"%s(%u:%u):%pRN applied nexthop changes from dplane notification",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx),
-					tableid, rn);
-
-			/* Changed nexthops - update kernel/others */
-			dplane_route_notif_update(rn, re,
-						  DPLANE_OP_ROUTE_UPDATE, ctx);
-
-		} else if (start_count == 0 && end_count > 0) {
-			if (debug_p)
-				zlog_debug(
-					"%s(%u:%u):%pRN installed transition from dplane notification",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx),
-					tableid, rn);
-
-			/* We expect this to be the selected route, so we want
-			 * to tell others about this transition.
-			 */
-			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-
-			/* Changed nexthops - update kernel/others */
-			dplane_route_notif_update(rn, re,
-						  DPLANE_OP_ROUTE_UPDATE, ctx);
-
-			/* Redistribute, lsp, and nht update */
-			redistribute_update(rn, re, NULL);
-
-		} else if (start_count > 0 && end_count == 0) {
-			if (debug_p)
-				zlog_debug(
-					"%s(%u:%u):%pRN un-installed transition from dplane notification",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx),
-					tableid, rn);
-
-			/* Transition from _something_ installed to _nothing_
-			 * installed.
-			 */
-			/* We expect this to be the selected route, so we want
-			 * to tell others about this transistion.
-			 */
-			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-
-			/* Changed nexthops - update kernel/others */
-			dplane_route_notif_update(rn, re,
-						  DPLANE_OP_ROUTE_DELETE, ctx);
-
-			/* Redistribute, lsp, and nht update */
-			redistribute_delete(rn, re, NULL);
-		}
 	}
 
 	if (!zebra_router_notify_on_ack()) {
@@ -2549,11 +2276,10 @@ static void process_subq_evpn(struct listnode *lnode)
 						       &w->prefix);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_ES) {
 		if (w->add_p)
-			zebra_evpn_remote_es_add(&w->esi, w->ip.ipaddr_v4,
-						 w->esr_rxed, w->df_alg,
+			zebra_evpn_remote_es_add(&w->esi, &w->ip, w->esr_rxed, w->df_alg,
 						 w->df_pref);
 		else
-			zebra_evpn_remote_es_del(&w->esi, w->ip.ipaddr_v4);
+			zebra_evpn_remote_es_del(&w->esi, &w->ip);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_MACIP) {
 		uint16_t ipa_len = 0;
 
@@ -2563,19 +2289,15 @@ static void process_subq_evpn(struct listnode *lnode)
 			ipa_len = IPV6_MAX_BYTELEN;
 
 		if (w->add_p)
-			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len,
-						 &w->ip, w->flags, w->seq,
-						 w->vtep_ip, &w->esi);
+			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len, &w->ip, w->flags,
+						 w->seq, &w->vtep_ip, &w->esi);
 		else
-			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len,
-						 &w->ip, w->vtep_ip);
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
-			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni,
-						    w->vtep_ip, w->flags);
+			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
 		else
-			zebra_vxlan_remote_vtep_del(w->vrf_id, w->vni,
-						    w->vtep_ip);
+			zebra_vxlan_remote_vtep_del(w->vrf_id, w->vni, &w->vtep_ip);
 	}
 
 
@@ -2728,8 +2450,6 @@ static void rib_re_nhg_free(struct route_entry *re)
 	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
-	nexthops_free(re->fib_ng.nexthop);
-
 	if (re->nhe_received) {
 		zebra_nhg_decrement_ref(re->nhe_received);
 		re->nhe_received = NULL;
@@ -2823,12 +2543,20 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				struct ipaddr vtep_ip = {};
 
-				if (ere->afi == AFI_IP) {
+				switch (tmp_nh->type) {
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					vtep_ip.ipa_type = IPADDR_V4;
 					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
-				} else {
+					break;
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
 					vtep_ip.ipa_type = IPADDR_V6;
 					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+					break;
+				case NEXTHOP_TYPE_IFINDEX:
+				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV6:
+				case NEXTHOP_TYPE_BLACKHOLE:
+					continue;
 				}
 				zebra_rib_queue_evpn_route_add(tmp_nh->vrf_id, &tmp_nh->rmac,
 							       &vtep_ip, &ere->p);
@@ -2877,8 +2605,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 	same = first_same;
 
-	if (!ere->startup && (re->flags & ZEBRA_FLAG_SELFROUTE) &&
-	    zrouter.asic_offloaded) {
+	if (!ere->startup && (re->flags & ZEBRA_FLAG_SELFROUTE) && zrouter.zav.asic_offloaded) {
 		struct route_entry *entry;
 
 		if (!same) {
@@ -3053,9 +2780,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				src_buf[0] = '\0';
 
 			zlog_debug("%s[%d]:%pRN%s%s doesn't exist in rib",
-				   vrf->name, ere->re->table, rn,
-				   (src_buf[0] != '\0') ? " from " : "",
-				   src_buf);
+				   vrf ? vrf->name : "Unknown", ere->re->table, rn,
+				   (src_buf[0] != '\0') ? " from " : "", src_buf);
 		}
 		early_route_memory_free(ere);
 		return;
@@ -3215,14 +2941,10 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (ere->afi == AFI_IP) {
 					vtep_ip.ipa_type = IPADDR_V4;
-					memcpy(&(vtep_ip.ipaddr_v4),
-					       &(tmp_nh->gate.ipv4),
-					       sizeof(struct in_addr));
+					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
 				} else {
 					vtep_ip.ipa_type = IPADDR_V6;
-					memcpy(&(vtep_ip.ipaddr_v6),
-					       &(tmp_nh->gate.ipv6),
-					       sizeof(struct in6_addr));
+					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
 				}
 				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
@@ -3263,14 +2985,17 @@ struct meta_q_gr_run {
 	uint8_t proto;
 	uint8_t instance;
 	time_t restart_time;
+	time_t update_pending_time;
+	bool stale_client_cleanup;
 };
 
 static void process_subq_gr_run(struct listnode *lnode)
 {
 	struct meta_q_gr_run *gr_run = listgetdata(lnode);
 
-	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto,
-				gr_run->instance, gr_run->restart_time);
+	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto, gr_run->instance,
+				gr_run->restart_time, gr_run->update_pending_time,
+				gr_run->stale_client_cleanup);
 
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
@@ -3312,7 +3037,7 @@ static unsigned int process_subq(struct list *subq,
 		process_subq_gr_run(lnode);
 		break;
 	}
-
+	frrtrace(1, frr_zebra, rib_process_subq_dequeue, qindex);
 	list_delete_node(subq, lnode);
 
 	return 1;
@@ -3723,10 +3448,8 @@ int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
 }
 
 /* Enqueue EVPN remote ES for processing */
-int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
-				    const struct in_addr *vtep_ip,
-				    bool esr_rxed, uint8_t df_alg,
-				    uint16_t df_pref)
+int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi, const struct ipaddr *vtep_ip, bool esr_rxed,
+				    uint8_t df_alg, uint16_t df_pref)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3736,21 +3459,19 @@ int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_ES;
 	w->add_p = true;
 	w->esi = *esi;
-	w->ip.ipa_type = IPADDR_V4;
-	w->ip.ipaddr_v4 = *vtep_ip;
+	w->ip = *vtep_ip;
 	w->esr_rxed = esr_rxed;
 	w->df_alg = df_alg;
 	w->df_pref = df_pref;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: vtep %pI4, esi %s enqueued", __func__, vtep_ip,
+		zlog_debug("%s: vtep %pIA, esi %s enqueued", __func__, vtep_ip,
 			   esi_to_str(esi, buf, sizeof(buf)));
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
-int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
-				    const struct in_addr *vtep_ip)
+int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_ip)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3760,8 +3481,7 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_ES;
 	w->add_p = false;
 	w->esi = *esi;
-	w->ip.ipa_type = IPADDR_V4;
-	w->ip.ipaddr_v4 = *vtep_ip;
+	w->ip = *vtep_ip;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		if (memcmp(esi, zero_esi, sizeof(esi_t)) != 0)
@@ -3769,8 +3489,7 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
 		else
 			strlcpy(buf, "-", sizeof(buf));
 
-		zlog_debug("%s: vtep %pI4, esi %s enqueued", __func__, vtep_ip,
-			   buf);
+		zlog_debug("%s: vtep %pIA, esi %s enqueued", __func__, vtep_ip, buf);
 	}
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
@@ -3780,9 +3499,8 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
  * Enqueue EVPN remote macip update for processing
  */
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ipaddr,
-				       uint8_t flags, uint32_t seq,
-				       struct in_addr vtep_ip, const esi_t *esi)
+				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
+				       struct ipaddr *vtep_ip, const esi_t *esi)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3796,7 +3514,7 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	w->ip = *ipaddr;
 	w->flags = flags;
 	w->seq = seq;
-	w->vtep_ip = vtep_ip;
+	w->vtep_ip = *vtep_ip;
 	w->esi = *esi;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
@@ -3805,16 +3523,15 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 		else
 			strlcpy(buf, "-", sizeof(buf));
 
-		zlog_debug("%s: mac %pEA, vtep %pI4, esi %s enqueued", __func__,
-			   macaddr, &vtep_ip, buf);
+		zlog_debug("%s: mac %pEA, vtep %pIA, esi %s enqueued", __func__, macaddr, vtep_ip,
+			   buf);
 	}
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip,
-				       struct in_addr vtep_ip)
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3825,11 +3542,10 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	w->vni = vni;
 	w->macaddr = *macaddr;
 	w->ip = *ip;
-	w->vtep_ip = vtep_ip;
+	w->vtep_ip = *vtep_ip;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: mac %pEA, vtep %pI4 enqueued", __func__,
-			   macaddr, &vtep_ip);
+		zlog_debug("%s: mac %pEA, vtep %pIA enqueued", __func__, macaddr, vtep_ip);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
@@ -3837,8 +3553,8 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 /*
  * Enqueue remote VTEP address for processing
  */
-int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
-				      struct in_addr vtep_ip, int flood_control)
+int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
+				      int flood_control)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3848,18 +3564,16 @@ int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	w->add_p = true;
 	w->vrf_id = vrf_id;
 	w->vni = vni;
-	w->vtep_ip = vtep_ip;
+	w->vtep_ip = *vtep_ip;
 	w->flags = flood_control;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
-			   &vtep_ip);
+		zlog_debug("%s: vrf %u, vtep %pIA enqueued", __func__, vrf_id, vtep_ip);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
-int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
-				      struct in_addr vtep_ip)
+int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3869,11 +3583,10 @@ int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
 	w->add_p = false;
 	w->vrf_id = vrf_id;
 	w->vni = vni;
-	w->vtep_ip = vtep_ip;
+	w->vtep_ip = *vtep_ip;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
-			   &vtep_ip);
+		zlog_debug("%s: vrf %u, vtep %pIA enqueued", __func__, vrf_id, vtep_ip);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
@@ -4376,9 +4089,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   re->type, re->instance, re->table);
 	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
 		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
-		   zclient_dump_route_flags(re->flags, flags_buf,
-					    sizeof(flags_buf)),
-		   _dump_re_status(re, status_buf, sizeof(status_buf)));
+		   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+		   zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf)));
 	zlog_debug("%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
 		   straddr, VRF_LOGNAME(vrf), re->tag,
 		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
@@ -4388,11 +4100,11 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 		route_entry_dump_nh(re, straddr, vrf, nexthop);
 
-	if (zebra_nhg_get_backup_nhg(re->nhe)) {
+	nhg = zebra_nhg_get_backup_nhg(re->nhe);
+	if (nhg) {
 		zlog_debug("%s(%s): backup nexthops:", straddr,
 			   VRF_LOGNAME(vrf));
 
-		nhg = zebra_nhg_get_backup_nhg(re->nhe);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
 			route_entry_dump_nh(re, straddr, vrf, nexthop);
 	}
@@ -4451,8 +4163,40 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
+{
+	struct listnode *node, *nnode;
+	struct zebra_early_route *ere;
+
+	/* Iterate through the early route subqueue */
+	for (ALL_LIST_ELEMENTS(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, nnode, ere)) {
+		/* Check if this entry matches the prefix and route type */
+		if (prefix_same(&ere->p, p) && ere->re->type == route_type) {
+			/* Remove from the list */
+			list_delete_node(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node);
+
+			/* Update counters */
+			zrouter.mq->size--;
+			atomic_fetch_sub_explicit(&zrouter.mq->total_metaq, 1,
+						  memory_order_relaxed);
+			atomic_fetch_sub_explicit(&zrouter.mq->total_subq[META_QUEUE_EARLY_ROUTE],
+						  1, memory_order_relaxed);
+
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
+
+				zlog_debug("Route %pFX(%s) type %d removed from early route queue",
+					   p, VRF_LOGNAME(vrf), route_type);
+			}
+
+			/* Free the early route memory */
+			early_route_memory_free(ere);
+		}
+	}
+}
+
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-		   time_t restart_time)
+		   time_t restart_time, time_t update_pending_time, bool stale_client_cleanup)
 {
 	struct meta_q_gr_run *gr_run;
 
@@ -4463,6 +4207,8 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 	gr_run->vrf_id = vrf_id;
 	gr_run->instance = instance;
 	gr_run->restart_time = restart_time;
+	gr_run->update_pending_time = update_pending_time;
+	gr_run->stale_client_cleanup = stale_client_cleanup;
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
 }
@@ -4861,11 +4607,11 @@ static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
 	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
 }
 
-static void rib_update_handler(struct event *thread)
+static void rib_update_handler(struct event *event)
 {
 	struct rib_update_ctx *ctx;
 
-	ctx = EVENT_ARG(thread);
+	ctx = EVENT_ARG(event);
 
 	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
 
@@ -5000,6 +4746,7 @@ void rib_sweep_route(struct event *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
+	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 
 /* Remove specific by protocol routes from 'table'. */
@@ -5102,10 +4849,63 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
 }
 
 /*
+ * Process system route updates from the dataplane context.
+ * These are routes learned from the kernel that need to be
+ * added to or deleted from the zebra RIB.
+ */
+static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	const struct prefix *prefix = dplane_ctx_get_dest(ctx);
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	struct nexthop_group *ng = NULL;
+	struct nexthop *nexthop;
+	struct route_entry *re = NULL;
+
+	/* Look up interface by name if specified */
+	if (ifname && ifname[0] != '\0') {
+		struct interface *ifp = if_lookup_by_name(ifname, vrf_id);
+
+		if (ifp)
+			ifindex = ifp->ifindex;
+	}
+
+	if (op == DPLANE_OP_SYS_ROUTE_ADD) {
+		/* Create route entry */
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, 0, table, 0, 0, distance,
+					       0);
+
+		/* Create nexthop group and copy nexthops from context */
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, dplane_ctx_get_ng(ctx)->nexthop, NULL);
+
+		/* Resolve IFINDEX_INTERNAL placeholders if we found the interface */
+		if (ifindex > 0) {
+			for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+				if (nexthop->ifindex == IFINDEX_INTERNAL)
+					nexthop->ifindex = ifindex;
+			}
+		}
+
+		rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)prefix, NULL, re, ng, false);
+	} else if (op == DPLANE_OP_SYS_ROUTE_DELETE) {
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, prefix, NULL, NULL, 0,
+			   table, 0, distance, false);
+	}
+}
+
+/*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
-static void rib_process_dplane_results(struct event *thread)
+static void rib_process_dplane_results(struct event *event)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_list_head ctxlist;
@@ -5214,6 +5014,7 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
 			case DPLANE_OP_SYS_ROUTE_DELETE:
+				rib_process_sys_route(ctx);
 				break;
 
 			case DPLANE_OP_MAC_INSTALL:
@@ -5255,14 +5056,8 @@ static void rib_process_dplane_results(struct event *thread)
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
-			case DPLANE_OP_NEIGH_INSTALL:
-			case DPLANE_OP_NEIGH_UPDATE:
-			case DPLANE_OP_NEIGH_DELETE:
-			case DPLANE_OP_NEIGH_IP_INSTALL:
-			case DPLANE_OP_NEIGH_IP_DELETE:
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
-			case DPLANE_OP_NEIGH_DISCOVER:
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
@@ -5275,6 +5070,15 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_VLAN_INSTALL:
 				zebra_vlan_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_NEIGH_IP_INSTALL:
+			case DPLANE_OP_NEIGH_IP_DELETE:
+			case DPLANE_OP_NEIGH_INSTALL:
+			case DPLANE_OP_NEIGH_UPDATE:
+			case DPLANE_OP_NEIGH_DELETE:
+			case DPLANE_OP_NEIGH_DISCOVER:
+				zebra_neigh_dplane_update(ctx);
 				break;
 			} /* Dispatch by op code */
 

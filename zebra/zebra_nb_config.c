@@ -1459,11 +1459,16 @@ int lib_interface_zebra_link_params_max_bandwidth_modify(
 int lib_interface_zebra_link_params_max_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1494,11 +1499,16 @@ int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
 int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-reservable-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1532,11 +1542,20 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_c
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing unreserved-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint8_t priority;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	priority = yang_dnode_get_uint8(args->dnode, "priority");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
+					 iflp->default_bw);
 
 	return NB_OK;
 }
@@ -2583,12 +2602,21 @@ int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 {
 	struct interface *ifp;
 	uint32_t interval;
+	struct zebra_if *zif;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
+	zif = ifp->info;
+
+	if (zif->rtadv.AdvDefaultLifetime > 0 &&
+	    interval > (unsigned int)zif->rtadv.AdvDefaultLifetime * 1000) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "This ra-interval would conflict with configured ra-lifetime");
+		return NB_ERR;
+	}
 
 	ipv6_nd_interval_set(ifp, interval);
 

@@ -187,6 +187,13 @@ module frr-routing {
 
   /* Type Definitions */
 
+  typedef unix-timestamp {
+    type uint64;
+    units "seconds";
+    description
+      "An absolute time in seconds since the unix epoch.";
+  }
+
   typedef administrative-distance {
     type uint8 {
       range "1..255";

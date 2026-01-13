@@ -53,7 +53,7 @@ from lib.bgp import (
 def check_port_179_open(vrf):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
-    output = r1.cmd("ss -tuplen | grep :179 ")
+    output = r1.cmd("ss -tuplen | grep ':179 '")
     logger.info(output)
     if vrf == "default":
         match = re.search("0.0.0.0", output)
@@ -61,9 +61,9 @@ def check_port_179_open(vrf):
         match = re.search(vrf, output)
     logger.info(match)
     if match is not None:
-       return match.group()
+        return match.group()
     else:
-       return None
+        return None
 
 
 def build_topo(tgen):
@@ -225,7 +225,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "r1-cust")
     _, res = topotest.run_and_expect(test_func, "r1-cust", count=30, wait=1)
     assertmsg = "BGP port related to r1-cust not listening when a neighbor is set"
-    assert res == 'r1-cust', assertmsg
+    assert res == "r1-cust", assertmsg
 
     step("remove the neighbor from r1-cust")
 
@@ -237,7 +237,7 @@ def test_add_vrf():
         """
     )
 
-    test_func = functools.partial(check_port_179_open,"r1-cust")
+    test_func = functools.partial(check_port_179_open, "r1-cust")
     _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = "BGP port related to r1-cust listening when neighbor is removed"
     assert res is None, assertmsg
@@ -255,7 +255,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "r1-cust")
     _, res = topotest.run_and_expect(test_func, "r1-cust", count=30, wait=1)
     assertmsg = "BGP port related to r1-cust not listening when a neighbor is set for the second time"
-    assert res == 'r1-cust', assertmsg
+    assert res == "r1-cust", assertmsg
 
     step("remove the neighbor from r1-cust for the second time")
 
@@ -287,7 +287,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "r1-cust")
     _, res = topotest.run_and_expect(test_func, "r1-cust", count=30, wait=1)
     assertmsg = "BGP port related to r1-cust not listening when a listen range is set "
-    assert res == 'r1-cust', assertmsg
+    assert res == "r1-cust", assertmsg
 
     step("remove the listen range on r1-cust")
 
@@ -304,14 +304,12 @@ def test_add_vrf():
     assertmsg = "BGP port related to r1-cust listening when listen range is removed"
     assert res is None, assertmsg
 
-
     step("remove bgp on vrf default")
 
     test_func = functools.partial(check_port_179_open, "default")
     _, res = topotest.run_and_expect(test_func, "0.0.0.0", count=15, wait=1)
     assertmsg = "default BGP port not listening when default bgp is set"
-    assert res == '0.0.0.0', assertmsg
-
+    assert res == "0.0.0.0", assertmsg
 
     r1.vtysh_cmd(
         """
@@ -320,10 +318,38 @@ def test_add_vrf():
         """
     )
 
-    test_func = functools.partial(check_port_179_open,"default")
+    test_func = functools.partial(check_port_179_open, "default")
     _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = "default BGP port listening when default bgp is removed"
-    assert res is None , assertmsg
+    assert res is None, assertmsg
+
+    step("add bgp on vrf default")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 64500
+        """
+    )
+
+    test_func = functools.partial(check_port_179_open, "default")
+    _, res = topotest.run_and_expect(test_func, "0.0.0.0", count=15, wait=1)
+    assertmsg = "default BGP port not listening when default bgp is set"
+    assert res == "0.0.0.0", assertmsg
+
+    step("remove bgp on vrf default again")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         no router bgp 64500
+        """
+    )
+
+    test_func = functools.partial(check_port_179_open, "default")
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = "default BGP port listening when default bgp is removed"
+    assert res is None, assertmsg
 
     step("add one bgp view")
 
@@ -344,7 +370,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "default")
     _, res = topotest.run_and_expect(test_func, "0.0.0.0", count=30, wait=1)
     assertmsg = "default BGP port not listening when one bgp view set"
-    assert res == '0.0.0.0', assertmsg
+    assert res == "0.0.0.0", assertmsg
 
     step("add second bgp view")
 
@@ -365,8 +391,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "default")
     _, res = topotest.run_and_expect(test_func, "0.0.0.0", count=15, wait=1)
     assertmsg = "default BGP port not listening when two bgp view set"
-    assert res == '0.0.0.0', assertmsg
-
+    assert res == "0.0.0.0", assertmsg
 
     step("remove neighbor on first bgp view")
 
@@ -380,7 +405,7 @@ def test_add_vrf():
     test_func = functools.partial(check_port_179_open, "default")
     _, res = topotest.run_and_expect(test_func, "0.0.0.0", count=30, wait=1)
     assertmsg = "default BGP port not listening when one of two bgp view removed"
-    assert res == '0.0.0.0', assertmsg
+    assert res == "0.0.0.0", assertmsg
 
     step("remove second  bgp view")
 

@@ -20,6 +20,7 @@
 #include "lib/stream.h"
 #include "lib/zclient.h"
 #include "lib/libfrr.h"
+#include "lib/json.h"
 
 //#include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
@@ -240,7 +241,8 @@ DEFPY(mpls_label_dynamic_block, mpls_label_dynamic_block_cmd,
 	}
 	if (start > end) {
 		vty_out(vty,
-			"%% label dynamic-block, wrong range (%ld > %ld), aborting\n",
+			"%% label dynamic-block, wrong range ( %" PRId64 " >  %" PRId64
+			"), aborting\n",
 			start, end);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -345,8 +347,8 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 	/* sanities */
 	if ((base < MPLS_LABEL_UNRESERVED_MIN)
 	    || (end > MPLS_LABEL_UNRESERVED_MAX)) {
-		zlog_err("Invalid LM request arguments: base: %u, size: %u",
-			 base, size);
+		flog_err(EC_ZEBRA_LM_INVALID_REQUEST,
+			 "Invalid LM request arguments: base: %u, size: %u", base, size);
 		return NULL;
 	}
 

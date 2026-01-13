@@ -2,7 +2,51 @@
   "frr-interface:lib": {
     "interface": [
       {
+        "name": "lo",
+        "state": {
+          "if-index": "rubout",
+          "mtu": "rubout",
+          "mtu6": "rubout",
+          "speed": "rubout",
+          "metric": 0,
+          "phy-address": "rubout"
+        }
+      },
+      {
+        "name": "lo-red",
+        "state": {
+          "if-index": "rubout",
+          "mtu": "rubout",
+          "mtu6": "rubout",
+          "speed": "rubout",
+          "metric": 0,
+          "phy-address": "rubout"
+        }
+      },
+      {
         "name": "r1-eth0",
+        "state": {
+          "if-index": "rubout",
+          "mtu": "rubout",
+          "mtu6": "rubout",
+          "speed": "rubout",
+          "metric": 0,
+          "phy-address": "rubout"
+        }
+      },
+      {
+        "name": "r1-eth1",
+        "state": {
+          "if-index": "rubout",
+          "mtu": "rubout",
+          "mtu6": "rubout",
+          "speed": "rubout",
+          "metric": 0,
+          "phy-address": "rubout"
+        }
+      },
+      {
+        "name": "red",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -15,4 +59,3 @@
     ]
   }
 }
-

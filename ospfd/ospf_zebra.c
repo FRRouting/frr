@@ -173,6 +173,8 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 	/* TI-LFA backup path label stack comes first, if present */
 	if (path->srni.backup_label_stack) {
 		api_nh_backup = &api->backup_nexthops[api->backup_nexthop_num];
+		zapi_nexthop_init(api_nh_backup);
+
 		api_nh_backup->vrf_id = ospf->vrf_id;
 
 		api_nh_backup->type = NEXTHOP_TYPE_IPV4;
@@ -189,6 +191,7 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 
 	/* And here comes the primary nexthop */
 	api_nh = &api->nexthops[api->nexthop_num];
+	zapi_nexthop_init(api_nh);
 #ifdef HAVE_NETLINK
 	if (path->unnumbered
 	    || (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0)) {
@@ -267,7 +270,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -357,7 +360,7 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -382,7 +385,7 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -408,7 +411,7 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -509,10 +512,10 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
  * Function to originate or flush default after applying
  * route-map on all ei.
  */
-static void ospf_external_lsa_default_routemap_timer(struct event *thread)
+static void ospf_external_lsa_default_routemap_timer(struct event *event)
 {
 	struct list *ext_list;
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct prefix_ipv4 p;
 	int type;
 	int ret = 0;
@@ -1281,8 +1284,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 	struct prefix_ipv4 p;
 	struct prefix pgen = {};
-	unsigned long ifindex;
-	struct in_addr nexthop;
+	unsigned long ifindex = 0;
+	struct in_addr nexthop = {};
 	struct external_info *ei;
 	struct ospf *ospf;
 	int i;
@@ -1295,8 +1298,10 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
-	ifindex = api.nexthops[0].ifindex;
-	nexthop = api.nexthops[0].gate.ipv4;
+	if (api.nexthop_num > 0) {
+		ifindex = api.nexthops[0].ifindex;
+		nexthop = api.nexthops[0].gate.ipv4;
+	}
 	rt_type = api.type;
 
 	memcpy(&p, &api.prefix, sizeof(p));
@@ -1576,14 +1581,14 @@ int ospf_distribute_list_out_unset(struct ospf *ospf, int type,
 }
 
 /* distribute-list update timer. */
-static void ospf_distribute_list_update_timer(struct event *thread)
+static void ospf_distribute_list_update_timer(struct event *event)
 {
 	struct route_node *rn;
 	struct external_info *ei;
 	struct route_table *rt;
 	struct ospf_lsa *lsa;
 	int type, default_refresh = 0;
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 
 	if (ospf == NULL)
 		return;

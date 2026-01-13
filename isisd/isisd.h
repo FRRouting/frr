@@ -12,6 +12,7 @@
 
 #include "vty.h"
 #include "memory.h"
+#include "typesafe.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -29,10 +30,16 @@
 
 DECLARE_MGROUP(ISISD);
 
+/* Typesafe list declarations */
+PREDECL_DLIST(isis_instance_list);
+PREDECL_DLIST(isis_area_list);
+PREDECL_DLIST(isis_area_adj_list);
+
 #ifdef FABRICD
 static const bool fabricd = true;
 #define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
 #define PROTO_NAME "openfabric"
+#define PROTO_NICE_NAME "OpenFabric"
 #define PROTO_HELP "OpenFabric routing protocol\n"
 #define PROTO_REDIST_STR FRR_REDIST_STR_FABRICD
 #define PROTO_IP_REDIST_STR FRR_IP_REDIST_STR_FABRICD
@@ -45,6 +52,7 @@ static const bool fabricd = true;
 static const bool fabricd = false;
 #define PROTO_TYPE ZEBRA_ROUTE_ISIS
 #define PROTO_NAME "isis"
+#define PROTO_NICE_NAME "ISIS"
 #define PROTO_HELP "IS-IS routing protocol\n"
 #define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
 #define PROTO_IP_REDIST_STR FRR_IP_REDIST_STR_ISISD
@@ -72,7 +80,7 @@ struct fabricd;
 
 struct isis_master {
 	/* ISIS instance. */
-	struct list *isis;
+	struct isis_instance_list_head isis;
 	/* ISIS thread master. */
 	struct event_loop *master;
 	/* Various global options */
@@ -90,7 +98,7 @@ struct isis {
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
-	struct list *area_list;	/* list of IS-IS areas */
+	struct isis_area_list_head area_list; /* list of IS-IS areas */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct iso_address *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
@@ -100,7 +108,13 @@ struct isis {
 	struct list *dyn_cache;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
+
+	/* Typesafe list membership for im->isis */
+	struct isis_instance_list_item instance_list_item;
 };
+
+/* Typesafe list definition for instance_list */
+DECLARE_DLIST(isis_instance_list, struct isis, instance_list_item);
 
 extern struct isis_master *im;
 
@@ -131,8 +145,8 @@ struct isis_area {
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
-	struct list *circuit_list; /* IS-IS circuits */
-	struct list *adjacency_list; /* IS-IS adjacencies */
+	struct isis_circuit_list_head circuit_list;    /* IS-IS circuits */
+	struct isis_area_adj_list_head adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
 	struct event *t_tick; /* LSP walker */
 	struct event *t_lsp_refresh[ISIS_LEVELS];
@@ -174,7 +188,7 @@ struct isis_area {
 	/* identifies the routing instance   */
 	char *area_tag;
 	/* area addresses for this area      */
-	struct list *area_addrs;
+	struct iso_address_list_head area_addrs;
 	uint16_t max_lsp_lifetime[ISIS_LEVELS];
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
@@ -259,9 +273,15 @@ struct isis_area {
 	uint64_t id_len_mismatches[2];
 	uint64_t lsp_error_counter[2];
 
+	/* Typesafe list membership for isis->area_list */
+	struct isis_area_list_item area_list_item;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_area);
+
+/* Typesafe list definition for area_list */
+DECLARE_DLIST(isis_area_list, struct isis_area, area_list_item);
 
 DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
 DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
@@ -301,7 +321,9 @@ int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
 void isis_prefix_list_update(struct prefix_list *plist);
-void print_debug(struct vty *, int, int);
+void print_debug_line(struct vty *vty, const char *config, int onoff, bool indent);
+void print_debug_with_indentation(struct vty *vty, int flags, int onoff, bool indent);
+void print_debug(struct vty *vty, int flags, int onoff);
 struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
 			       struct isis *isis);
 

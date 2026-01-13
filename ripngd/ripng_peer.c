@@ -27,7 +27,7 @@ static struct ripng_peer *ripng_peer_new(void)
 	return XCALLOC(MTYPE_RIPNG_PEER, sizeof(struct ripng_peer));
 }
 
-static void ripng_peer_free(struct ripng_peer *peer)
+void ripng_peer_free(struct ripng_peer *peer)
 {
 	event_cancel(&peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
@@ -36,9 +36,8 @@ static void ripng_peer_free(struct ripng_peer *peer)
 struct ripng_peer *ripng_peer_lookup(struct ripng *ripng, struct in6_addr *addr)
 {
 	struct ripng_peer *peer;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
+	frr_each (ripng_peer_list, &ripng->peer_list, peer) {
 		if (IPV6_ADDR_SAME(&peer->addr, addr))
 			return peer;
 	}
@@ -49,9 +48,8 @@ struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 					  struct in6_addr *addr)
 {
 	struct ripng_peer *peer;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
+	frr_each (ripng_peer_list, &ripng->peer_list, peer) {
 		if (addr6_cmp(&peer->addr, addr) > 0)
 			return peer;
 	}
@@ -66,7 +64,7 @@ static void ripng_peer_timeout(struct event *t)
 	struct ripng_peer *peer;
 
 	peer = EVENT_ARG(t);
-	listnode_delete(peer->ripng->peer_list, peer);
+	ripng_peer_list_del(&peer->ripng->peer_list, peer);
 	ripng_peer_free(peer);
 }
 
@@ -84,7 +82,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 		peer = ripng_peer_new();
 		peer->ripng = ripng;
 		peer->addr = *addr;
-		listnode_add_sort(ripng->peer_list, peer);
+		ripng_peer_list_add(&ripng->peer_list, peer);
 	}
 
 	/* Update timeout thread. */
@@ -120,7 +118,8 @@ void ripng_peer_bad_packet(struct ripng *ripng, struct sockaddr_in6 *from)
 }
 
 /* Display peer uptime. */
-static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
+static char *ripng_peer_uptime(const struct ripng_peer *peer, char *buf,
+			       size_t len)
 {
 	time_t uptime;
 
@@ -141,12 +140,11 @@ static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 
 void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 {
-	struct ripng_peer *peer;
-	struct listnode *node, *nnode;
+	const struct ripng_peer *peer;
 #define RIPNG_UPTIME_LEN 25
 	char timebuf[RIPNG_UPTIME_LEN];
 
-	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
+	frr_each (ripng_peer_list_const, &ripng->peer_list, peer) {
 		vty_out(vty, "    %pI6 \n%14s %10d %10d %10d      %s\n",
 			&peer->addr, " ", peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIPNG_DISTANCE_DEFAULT,
@@ -154,12 +152,8 @@ void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 	}
 }
 
-int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2)
+int ripng_peer_list_cmp(const struct ripng_peer *p1,
+			const struct ripng_peer *p2)
 {
 	return memcmp(&p1->addr, &p2->addr, sizeof(struct in6_addr));
-}
-
-void ripng_peer_list_del(void *arg)
-{
-	ripng_peer_free(arg);
 }

@@ -140,6 +140,11 @@ static inline void json_object_object_addf(struct json_object *parent,
 #define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
 #endif
 
+/* This api is deprecated, don't use it, use the _ex() version instead */
+#ifndef json_object_object_get
+#define json_object_object_get THIS IS DEPRECATED
+#endif
+
 #ifdef __cplusplus
 }
 #endif

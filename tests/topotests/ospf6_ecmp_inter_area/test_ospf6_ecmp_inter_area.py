@@ -3,7 +3,7 @@
 
 # test_ospf6_ecmp_inter_area.py
 #
-# Copyright (c) 2021, 2022, 2024 by Martin Buck
+# Copyright (c) 2021, 2022, 2024, 2025 by Martin Buck
 # Copyright (c) 2016 by
 # Network Device Education Foundation, Inc. ("NetDEF")
 #
@@ -20,33 +20,52 @@ without ospf6d having to do anything.
 
 Useful as a regression test for #9720 and #15777.
 
+Also checks summary LSA origination/updates in case of topology changes in
+remote areas via route nexthop checks.
+
+Useful as a regression test for #16197.
+
 Topology:
-                  .
-           Area 0 . Area 1
-                  .
-    -- R2 ------ R5 -----
-   /              .\     \
-  /               . |     \
-R1 --- R3 ------ R6 ------ R7
-  \            / |. |
-   \          /  |. |
-    -- R4 ----   |. |
-                / ./
-              R8 --
-                  .
+                   .
+            Area 0 . Area 1
+                   .
+     -- R2 ------ R5 ---
+    /            / .    \
+   /           R8  .     R7
+  /              \ .    /
+R1 ---- R3 ------ R6 ---
+  \              / .\
+   \            /  . \
+    \          /   .  \
+     -- R4 ----    .   R9
+                   .
 
-We check routes on R1, primarily those towards R7/8. Those to R7 are
+We check routes on R1, primarily those towards R7/8/9. Those to R7/9 are
 inter-area routes with R5/6 being ABRs, those to R8 are intra-area routes
-and are used for reference. R7/R8 announce one internal and one external
-route each.
+and are used for reference. R7/8/9 announce one internal and one external
+route each. With all links up, we expect 3 ECMP paths and 3 nexthops on R1
+towards R7/8 and 2 ECMP paths/nexthops towards R9.
 
-With all links up, we expect 3 ECMP paths and 3 nexthops on R1 towards each
-of R7/8. Then we bring down the R3-R6 link, causing only 2 remaining
-paths and 2 nexthops on R1. Then we bring down the R2-R5 link, causing only
-1 remaining path and 1 nexthop on R1.
+Then we bring down the R3-R6 link, causing only 2 remaining paths and 2
+nexthops on R1 towards R7/8 and 1 towards R9. Then we bring down the R2-R5
+link, causing only 1 remaining path and 1 nexthop towards R7/8/9 on R1.
 
 The test is successful if the number of nexthops and their interfaces for
 the routes on R1 is as expected.
+
+
+To check summary LSA origination after topology changes, we start again with
+the original topology and disconnect R3 and R8 from it to simplify it and to
+avoid unwanted shortcuts (LSAs between R5 and R6 via area 0 should travel
+via R2/1/4 and not take the shortcut via R8). We also bring down the R6-R7
+link initially so R5 and R6 can't exchange their area 1 LSAs. Initially, we
+expect 1 path/nexthop on R1 towards R7 (via R2) and R9 (via R4).
+
+Then we bring up the R6-R7 link, causing 2 paths/nexthops on R1 towards R7
+(via R2 and R4) and still 1 path/nexthop towards R9 (still via R4). With
+#16197, we would see 1 path/nexthop towards R9 but via R2 instead of R4,
+because R6 doesn't re-originate the summary LSAs towards area 0 properly
+after the topology change.
 """
 
 import json
@@ -73,8 +92,8 @@ pytestmark = [pytest.mark.ospf6d]
 def build_topo(tgen):
     "Build function"
 
-    # Create 8 routers
-    for routern in range(1, 9):
+    # Create 9 routers
+    for routern in range(1, 10):
         tgen.add_router("r{}".format(routern))
     tgen.gears["r1"].add_link(tgen.gears["r2"])
     tgen.gears["r1"].add_link(tgen.gears["r3"])
@@ -86,11 +105,13 @@ def build_topo(tgen):
     tgen.gears["r5"].add_link(tgen.gears["r8"])
     tgen.gears["r6"].add_link(tgen.gears["r7"])
     tgen.gears["r6"].add_link(tgen.gears["r8"])
+    tgen.gears["r6"].add_link(tgen.gears["r9"])
     # Additional "loopback" interfaces. Not used for communication, just to
     # hold an address we use to inject intra-/inter-area routes (the one on
     # the real "lo" loopback is used for external routes).
     tgen.gears["r7"].add_link(tgen.gears["r7"])
     tgen.gears["r8"].add_link(tgen.gears["r8"])
+    tgen.gears["r9"].add_link(tgen.gears["r9"])
 
 
 def setup_module(mod):
@@ -100,13 +121,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
-        if os.path.isfile(daemon_file):
-            router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
-
-        daemon_file = "{}/{}/ospf6d.conf".format(CWD, rname)
-        if os.path.isfile(daemon_file):
-            router.load_config(TopoRouter.RD_OSPF6, daemon_file)
+        router.load_frr_config(os.path.join(CWD, rname, "frr.conf"))
 
     # Initialize all routers.
     tgen.start_router()
@@ -205,6 +220,46 @@ def test_ecmp_inter_area(request):
     tgen.gears["r2"].run("ip link set r2-eth1 down")
 
     expect_routes_json("r1", "show_ipv6_routes_ospf6-3.json", "post-R2-R5-link-down")
+
+    step("restoring links R2-R5/R3-R6")
+    tgen.gears["r3"].run("ip link set r3-eth1 up")
+    tgen.gears["r2"].run("ip link set r2-eth1 up")
+
+    expect_routes_json(
+        "r1", "show_ipv6_routes_ospf6-1.json", "post-R2-R5/R3-R6-link-up"
+    )
+
+    write_test_footer(tc_name)
+
+
+def test_multipath_inter_area(request):
+    """
+    Test OSPFv3 routes with (non-equal) multipath and topology changes in
+    non-backbone area requiring summary LSA updates
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("links R1-R3/R3-R6/R5-R8/R6-R8 down (simplify topology, disconnect R3/R8)")
+    tgen.gears["r3"].run("ip link set r3-eth0 down")
+    tgen.gears["r3"].run("ip link set r3-eth1 down")
+    tgen.gears["r8"].run("ip link set r8-eth0 down")
+    tgen.gears["r8"].run("ip link set r8-eth1 down")
+    step("link R6-R7 down (initial summary LSAs)")
+    tgen.gears["r6"].run("ip link set r6-eth2 down")
+
+    expect_routes_json(
+        "r1", "show_ipv6_routes_ospf6-4.json", "post-R3-R6/R6-R7-link-down"
+    )
+
+    step("triggering R6-R7 link up")
+    tgen.gears["r6"].run("ip link set r6-eth2 up")
+
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-5.json", "post-R6-R7-link-up")
 
     write_test_footer(tc_name)
 

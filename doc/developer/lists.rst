@@ -48,7 +48,10 @@ unique and non-unique items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
 Conversely, the heap always has non-unique items, but iterating while modifying
-doesn't work either.
+doesn't work either.  Hash tables also have a property of auto-growing
+and auto-shrinking.  If you are using the hash table as a way to temporarily
+hold data, consider the costs associated with growing and shrinking of the
+data structure before using.
 
 
 The following sorted structures are likely to be implemented at some point
@@ -124,6 +127,8 @@ Functions provided:
 | _member                            | yes   | yes  | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
 | _del, _pop                         | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+|  _pop_all                          | --    | --   | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
 | _find, _const_find                 | --    | --   | yes  | yes     | --         |
 +------------------------------------+-------+------+------+---------+------------+
@@ -322,8 +327,9 @@ The following documentation assumes that a container has been defined using
 .. c:function:: itemtype *Z_pop(struct Z_head *)
 
    Remove and return the first item in the structure, or ``NULL`` if the
-   structure is empty.  Like :c:func:`Z_first`, this is O(1) for all
-   data structures except red-black trees where it is O(log n) again.
+   structure is empty.  Like :c:func:`Z_first`, this is O(1) for most
+   data structures except red-black trees where it is O(log n) again,
+   and hash tables where it is O(n).
 
    This function can be used to build queues (with unsorted structures) or
    priority queues (with sorted structures.)
@@ -337,9 +343,10 @@ The following documentation assumes that a container has been defined using
 
    .. note::
 
-      This function can - and should - be used with hash tables.  It is not
-      affected by the "modification while iterating" problem.  To remove
-      all items from a hash table, use the loop demonstrated above.
+      This function can be used with hash tables. While it is not
+      affected by the "modification while iterating" problem, removing
+      items from the table can trigger "shrink" operations. See the
+      hash API section for a hash-specific variant.
 
 .. c:function:: const itemtype *Z_const_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
@@ -575,9 +582,34 @@ API for hash tables
    Same as :c:func:`Z_init()` but preset the minimum hash table to
    ``size``.
 
+.. c:function:: itemtype *Z_pop_all(struct Z_head *, uint32_t *idx)
+
+   Remove and return the first item in the structure, or ``NULL`` if the
+   structure is empty.  This is specifically designed for use when
+   clearing/cleaning an entire hash table.  The ``idx`` parameter
+   tracks the most-recently-seen cell in the underlying hash table; it
+   should be initialized to zero before the first invocation. This is
+   close to O(1); it does not invoke any "shrink" operation on the
+   underlying hash table.
+
+   Example use when deleting all items:
+
+   .. code-block:: c
+
+      idx = 0;
+      while ((item = Z_pop_all(head, &idx)))
+          item_free(item);
+
+   .. note::
+
+      This function can - and should - be used with hash tables.  It is not
+      affected by the "modification while iterating" problem.  To remove
+      all items from a hash table, use the loop demonstrated above.
+
 Hash tables also support :c:func:`Z_add()` and :c:func:`Z_find()` with
 the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
+
 
 Hash table invariants
 ^^^^^^^^^^^^^^^^^^^^^

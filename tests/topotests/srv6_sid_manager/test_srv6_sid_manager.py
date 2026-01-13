@@ -29,12 +29,12 @@ test_srv6_sid_manager.py:
   10.0.2.0/24|  |10.0.3.0/24      10.0.4.0/24|  |10.0.5.0/24
              |  |                            |  |
     eth-rt2-1|  |eth-rt2-2          eth-rt3-1|  |eth-rt3-2
-         +---------+                     +---------+
-         |         |                     |         |
-         |   RT4   |     10.0.6.0/24     |   RT5   |
-         | 4.4.4.4 +---------------------+ 5.5.5.5 |
-         |         |eth-rt5       eth-rt4|         |
-         +---------+                     +---------+
+         +---------+                     +---------+             +---------+
+         |         |                     |         |             |         |
+         |   RT4   |     10.0.6.0/24     |   RT5   |eth-dst2     |   DST2  |
+         | 4.4.4.4 +---------------------+ 5.5.5.5 |-------------+ 9.9.9.5 |
+         |         |eth-rt5       eth-rt4|         |      eth-rt5|         |
+         +---------+                     +---------+             +---------+
        eth-rt6|                                |eth-rt6
               |                                |
    10.0.7.0/24|                                |10.0.8.0/24
@@ -99,6 +99,8 @@ def build_topo(tgen):
     tgen.add_router("ce4")
     tgen.add_router("ce5")
     tgen.add_router("ce6")
+    tgen.add_router("ce7")
+    tgen.add_router("dst2")
 
     # Define connections
     switch = tgen.add_switch("s1")
@@ -138,12 +140,17 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["rt6"], nodeif="eth-dst")
     switch.add_link(tgen.gears["dst"], nodeif="eth-rt6")
 
+    switch = tgen.add_switch("s10")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-dst2")
+    switch.add_link(tgen.gears["dst2"], nodeif="eth-rt5")
+
     tgen.add_link(tgen.gears["ce1"], tgen.gears["rt1"], "eth-rt1", "eth-ce1")
     tgen.add_link(tgen.gears["ce2"], tgen.gears["rt6"], "eth-rt6", "eth-ce2")
     tgen.add_link(tgen.gears["ce3"], tgen.gears["rt1"], "eth-rt1", "eth-ce3")
     tgen.add_link(tgen.gears["ce4"], tgen.gears["rt6"], "eth-rt6", "eth-ce4")
     tgen.add_link(tgen.gears["ce5"], tgen.gears["rt1"], "eth-rt1", "eth-ce5")
     tgen.add_link(tgen.gears["ce6"], tgen.gears["rt6"], "eth-rt6", "eth-ce6")
+    tgen.add_link(tgen.gears["ce7"], tgen.gears["rt5"], "eth-rt5", "eth-ce7")
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt1"].run("ip link set vrf10 up")
@@ -152,6 +159,13 @@ def build_topo(tgen):
     tgen.gears["rt1"].run("ip link set eth-ce1 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce3 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce5 master vrf20")
+
+    tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
+    tgen.gears["rt5"].run("ip link set vrf10 up")
+    tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
+    tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
+    tgen.gears["rt5"].run("ip link set vrf20 up")
+    tgen.gears["rt5"].run("ip link set eth-ce7 master vrf20")
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt6"].run("ip link set vrf10 up")
@@ -226,15 +240,19 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra and isis configuration files
     for rname, router in tgen.routers().items():
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_ISIS,
-                           os.path.join(CWD, '{}/isisd.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
-        if (os.path.exists('{}/sharpd.conf'.format(rname))):
-            router.load_config(TopoRouter.RD_SHARP,
-                            os.path.join(CWD, '{}/sharpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        if os.path.exists("{}/sharpd.conf".format(rname)):
+            router.load_config(
+                TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
 
     # Start routers
     tgen.start_router()
@@ -258,7 +276,9 @@ def router_compare_json_output(rname, command, reference):
     expected = json.loads(open(filename).read())
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = functools.partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    test_func = functools.partial(
+        topotest.router_json_cmp, tgen.gears[rname], command, expected
+    )
     _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
@@ -284,7 +304,7 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    success, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
 
 
@@ -332,9 +352,7 @@ def test_rib_ipv6():
         pytest.skip(tgen.errors)
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
-        router_compare_json_output(
-            rname, "show ipv6 route json", "show_ipv6_route.ref"
-        )
+        router_compare_json_output(rname, "show ipv6 route json", "show_ipv6_route.ref")
 
 
 def test_srv6_locator():
@@ -347,8 +365,10 @@ def test_srv6_locator():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "show_srv6_locator_table.ref",
+        )
 
 
 def test_vpn_rib():
@@ -381,7 +401,9 @@ def test_ping():
 
     # Setup encap route on rt1, decap route on rt2
     # tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:fe00:: 1")
-    tgen.gears["rt1"].cmd("ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2")
+    tgen.gears["rt1"].cmd(
+        "ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2"
+    )
     # tgen.gears["rt6"].vtysh_cmd("sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1")
     tgen.gears["rt6"].cmd("ip -6 r a fc00:0:9::1/128 via 2001:db8:10::2 vrf vrf10")
     tgen.gears["dst"].cmd("ip -6 r a 2001:db8:1::1/128 via 2001:db8:10::1")

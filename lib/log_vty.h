@@ -47,6 +47,7 @@ extern struct zlog_cfg_5424 zt_stdout_journald;
 extern bool stdout_journald_in_use;
 
 void log_stdout_apply_level(void);
+void clear_cmdline_targets(void);
 
 extern struct frr_yang_module_info frr_logging_cli_info;
 

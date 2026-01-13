@@ -20,6 +20,7 @@
 #include "routing_nb.h"
 #include "northbound_cli.h"
 #include "frrdistance.h"
+#include "lib/json.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
@@ -434,6 +435,32 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			vty_out(vty,
 				"%% Refusing to remove a non-existent route\n");
 			return CMD_SUCCESS;
+		}
+
+		if (args->flag) {
+			enum blackhole_type bh_type_new;
+			enum blackhole_type bh_type_exist = yang_dnode_get_enum(dnode, "bh-type");
+
+			switch (args->flag[0]) {
+			case 'r':
+				bh_type_new = BLACKHOLE_REJECT;
+				break;
+			case 'b':
+				bh_type_new = BLACKHOLE_UNSPEC;
+				break;
+			case 'N':
+				bh_type_new = BLACKHOLE_NULL;
+				break;
+			default:
+				bh_type_new = BLACKHOLE_UNSPEC;
+				break;
+			}
+
+			if (bh_type_new != bh_type_exist) {
+				vty_out(vty,
+					"%% Refusing to remove a non-existent route (blackhole type mismatch)\n");
+				return CMD_SUCCESS;
+			}
 		}
 
 		dnode = yang_get_subtree_with_no_sibling(dnode);
@@ -2014,7 +2041,7 @@ DEFUN_NOSH (show_debugging_static,
 	    DEBUG_STR
 	    "Static Information\n")
 {
-	vty_out(vty, "Staticd debugging status\n");
+	vty_out(vty, "StaticD debugging status:\n");
 
 	cmd_show_lib_debugs(vty);
 

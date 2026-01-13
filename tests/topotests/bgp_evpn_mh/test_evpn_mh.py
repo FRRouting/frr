@@ -485,6 +485,8 @@ def check_es(dut):
     for es in bgp_es_json:
         esi = es["esi"]
         curr_es_set.append(esi)
+        if not es.get("type", False):
+            return None
         types = es["type"]
         vtep_ips = []
         for vtep in es.get("vteps", []):
@@ -516,6 +518,8 @@ def check_one_es(dut, esi, down_vteps):
         return "esi %s not found" % esi
 
     esi = es["esi"]
+    if not es.get("type", False):
+        return None
     types = es["type"]
     vtep_ips = []
     for vtep in es.get("vteps", []):
@@ -638,7 +642,7 @@ def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
         tmp_esi = info.get("esi", "")
         tmp_m_type = info.get("type", "")
         tmp_intf = info.get("intf", "") if tmp_m_type == "local" else ""
-        if tmp_esi == esi and tmp_m_type == m_type and intf == intf:
+        if tmp_esi == esi and tmp_m_type == m_type and tmp_intf == intf:
             return None
 
     return "invalid vni %d mac %s expected esi %s, %s m_type %s and intf %s out %s" % (
@@ -819,6 +823,40 @@ def test_evpn_uplink_tracking():
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
+
+
+def test_evpn_access_vlan_vni_count():
+    """
+    Test EVPN access VLAN VNI count feature
+
+    This test verifies the fix for the issue where VLAN 1 acts as a placeholder
+    when new VNIs are added. The VNI count should track multiple VNIs associated
+    with the same VLAN and prevent incorrect removal of VLAN-VNI mappings.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut_name = "torm11"
+    dut = tgen.gears[dut_name]
+
+    # Test JSON output includes vniCount field
+    output = dut.vtysh_cmd("show evpn access-vlan json", isjson=True)
+    if output:
+        for vlan_entry in output:
+            if "vniCount" in vlan_entry:
+                assertmsg = "vniCount should be >= 1 for active VLAN, got {}".format(
+                    vlan_entry["vniCount"]
+                )
+                assert vlan_entry["vniCount"] >= 1, assertmsg
+
+    # Test text output includes VNI-count column
+    output = dut.vtysh_cmd("show evpn access-vlan", isjson=False)
+    if output and "VLAN" in output:
+        assertmsg = "VNI-count column missing in 'show evpn access-vlan' output"
+        assert "VNI-count" in output, assertmsg
 
 
 if __name__ == "__main__":

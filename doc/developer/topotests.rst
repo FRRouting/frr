@@ -10,7 +10,7 @@ Installation and Setup
 
 Topotests run under python3.
 
-Tested with Ubuntu 22.04,Ubuntu 20.04, and Debian 12.
+Tested with Ubuntu 22.04/24.04, and Debian 12/13.
 
 Python protobuf version < 4 is required b/c python protobuf >= 4 requires a
 protoc >= 3.19, and older package versions are shipped by in the above distros.
@@ -21,6 +21,10 @@ BGP tests.
 Tshark is only required if you enable any packet captures on test runs.
 
 Valgrind is only required if you enable valgrind on test runs.
+
+Using multipath values of 256 is recommended due to tests starting to utilize
+greater values of ecmp.  There are some tests that require 512 but they are
+not part of the regular run of CI.
 
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -40,6 +44,7 @@ Installing Topotest Requirements
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
    python3 -m pip install 'scapy>=2.4.5'
+   python3 -m pip install 'libyang<4'
    python3 -m pip install pyyaml xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
@@ -85,7 +90,7 @@ SNMP Utilities Installation
 
 To run SNMP test you need to install SNMP utilities and MIBs. Unfortunately
 there are some errors in the upstream MIBS which need to be patched up. The
-following steps will get you there on Ubuntu 20.04.
+following steps will get you there on Ubuntu 22.04/24.04.
 
 .. code:: shell
 
@@ -97,6 +102,18 @@ following steps will get you there on Ubuntu 20.04.
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
    wget https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB
+
+   # Ubuntu 24.04 and Debian 13 only
+   wget https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib -O /usr/share/snmp/mibs/iana/IANA-SMF-MIB
+   wget https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib -O /usr/share/snmp/mibs/iana/IANA-ENTITY-MIB
+   wget https://www.iana.org/assignments/ianapowerstateset-mib/ianapowerstateset-mib -O /usr/share/snmp/mibs/iana/IANAPowerStateSet-MIB
+   wget https://www.iana.org/assignments/ianaolsrv2linkmetrictype-mib/ianaolsrv2linkmetrictype-mib -O /usr/share/snmp/mibs/iana/IANA-OLSRv2-LINK-METRIC-TYPE-MIB
+   wget https://www.iana.org/assignments/ianaenergyrelation-mib/ianaenergyrelation-mib -O /usr/share/snmp/mibs/iana/IANA-ENERGY-RELATION-MIB
+   wget https://www.iana.org/assignments/ianabfdtcstd-mib/ianabfdtcstd-mib -O /usr/share/snmp/mibs/iana/IANA-BFD-TC-STD-MIB
+   wget https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB
+   wget https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib -O /usr/share/snmp/mibs/IEEE8021-CFM-MIB
+   wget https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib -O /usr/share/snmp/mibs/LLDP-MIB
+
    edit /etc/snmp/snmp.conf to look like this
    # As the snmp packages come without MIB files due to license reasons, loading
    # of MIBs is disabled by default. If you added the MIBs you can reenable
@@ -141,6 +158,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --enable-group=frr \
        --enable-vty-group=frrvty \
        --enable-snmp \
+       --enable-multipath=256 \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:
@@ -587,6 +605,25 @@ Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 .. code:: shell
 
    sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
+
+Ignoring Backtrace Detection
+""""""""""""""""""""""""""""
+
+By default, topotests automatically check for backtraces in daemon log files after
+each test execution. If backtraces are detected, the test will fail. However, in
+some scenarios you may want to disable this automatic backtrace detection.
+
+To disable backtrace detection during test execution, use the ``--ignore-backtraces``
+CLI option:
+
+.. code:: shell
+
+   sudo -E pytest --ignore-backtraces all-protocol-startup
+
+This option is useful when:
+- Running tests in environments where backtraces are expected or acceptable
+- Debugging specific issues where backtrace detection interferes with test execution
+- Running tests with known issues that produce backtraces but are not critical
 
 .. _debug_with_gdb:
 

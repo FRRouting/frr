@@ -127,6 +127,9 @@ static int static_ifp_down(struct interface *ifp)
 
 	static_ifp_srv6_sids_update(ifp, false);
 
+	/* Clean up neighbor table entries for this interface */
+	static_srv6_neigh_cleanup_interface(ifp);
+
 	return 0;
 }
 
@@ -421,7 +424,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	p = src_pp = NULL;
 	srcdest_rnode_prefixes(rn, &p, &src_pp);
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = si->svrf->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_STATIC;
 	api.safi = si->safi;
@@ -458,6 +461,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		if (nh->path_down)
 			continue;
 
+		zapi_nexthop_init(api_nh);
 		api_nh->vrf_id = nh->nh_vrf_id;
 		if (nh->onlink)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
@@ -557,68 +561,6 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 }
 
 /**
- * Send SRv6 SID to ZEBRA for installation or deletion.
- *
- * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
- * @param sid		SRv6 SID to install or delete
- * @param prefixlen	Prefix length
- * @param oif		Outgoing interface
- * @param action	SID action
- * @param context	SID context
- */
-static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint16_t prefixlen,
-				       ifindex_t oif, enum seg6local_action_t action,
-				       const struct seg6local_context *context)
-{
-	struct prefix_ipv6 p = {};
-	struct zapi_route api = {};
-	struct zapi_nexthop *znh;
-
-	if (cmd != ZEBRA_ROUTE_ADD && cmd != ZEBRA_ROUTE_DELETE) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command", __func__);
-		return;
-	}
-
-	if (prefixlen > IPV6_MAX_BITLEN) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
-		return;
-	}
-
-	DEBUGD(&static_dbg_srv6, "%s:  |- %s SRv6 SID %pI6 behavior %s", __func__,
-	       cmd == ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid, seg6local_action2str(action));
-
-	p.family = AF_INET6;
-	p.prefixlen = prefixlen;
-	p.prefix = *sid;
-
-	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_STATIC;
-	api.instance = 0;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, &p, sizeof(p));
-
-	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, static_zclient, &api);
-
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	znh = &api.nexthops[0];
-
-	memset(znh, 0, sizeof(*znh));
-
-	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
-	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	znh->seg6local_action = action;
-	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
-
-	api.nexthop_num = 1;
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, static_zclient, &api);
-}
-
-/**
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param sid		SRv6 SID
@@ -630,6 +572,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	struct interface *ifp = NULL;
 	struct vrf *vrf;
 	struct prefix_ipv6 sid_locator = {};
+	const struct in6_addr *nexthop;
 
 	if (!sid)
 		return;
@@ -760,13 +703,25 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sid->attributes.nh6;
+
+		/* Get effective nexthop (resolved or configured) */
+		nexthop = static_srv6_sid_get_nexthop(sid);
+		if (!nexthop) {
+			DEBUGD(&static_dbg_srv6,
+			       "%s: Cannot install SID %pFX - nexthop not available", __func__,
+			       &sid->addr);
+			return;
+		}
+		ctx.nh6 = *nexthop;
+
+		/* Lookup interface */
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get interface %s",
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+		ctx.ifindex = ifp->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
@@ -810,8 +765,8 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	}
 
 	/* Send the SID to zebra */
-	static_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->addr.prefix, sid->addr.prefixlen,
-				   ifp->ifindex, action, &ctx);
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_ADD, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
 
 	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
@@ -825,6 +780,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	struct prefix_ipv6 sid_block = {};
 	struct prefix_ipv6 locator_block = {};
 	struct prefix_ipv6 sid_locator = {};
+	const struct in6_addr *nexthop;
 
 	if (!sid)
 		return;
@@ -955,13 +911,19 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sid->attributes.nh6;
+
+		/* Use same nexthop that was used during installation */
+		nexthop = static_srv6_sid_get_nexthop(sid);
+		assert(nexthop != NULL);
+		ctx.nh6 = *nexthop;
+
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get interface %s",
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+		ctx.ifindex = ifp->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
@@ -1019,8 +981,11 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	ctx.flv.lcblock_len = sid->locator->block_bits_length;
 	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
 
-	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
-				   ifp->ifindex, action, &ctx);
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_DELETE, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
+
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION))
+		static_srv6_sid_clear_resolution(sid);
 
 	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
@@ -1402,10 +1367,8 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		 * Uninstall the SRv6 SID from the forwarding plane
 		 * through Zebra
 		 */
-		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 			static_zebra_srv6_sid_uninstall(sid);
-			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-		}
 	}
 
 	listnode_delete(srv6_locators, locator);
@@ -1472,8 +1435,6 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		 */
 		static_zebra_srv6_sid_install(sid);
 
-		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-
 		break;
 	case ZAPI_SRV6_SID_RELEASED:
 
@@ -1495,10 +1456,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 
-		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 			static_zebra_srv6_sid_uninstall(sid);
-			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-		}
 
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
@@ -1518,6 +1477,113 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Handle neighbor notifications from zebra
+ */
+static int static_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_neigh_ip api = {};
+	struct in6_addr addr;
+	ifindex_t ifindex;
+	uint32_t ndm_state;
+	struct interface *ifp;
+
+	DEBUGD(&static_dbg_events, "%s: Received neighbor event, cmd=%s", __func__,
+	       zserv_command_string(cmd));
+
+	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	/* Only handle IPv6 neighbors for now */
+	if (api.ip_in.ipa_type != AF_INET6) {
+		DEBUGD(&static_dbg_events, "%s: Ignoring non-IPv6 neighbor (ipa_type=%u)",
+		       __func__, api.ip_in.ipa_type);
+		return 0;
+	}
+
+	memcpy(&addr, &api.ip_in.ip.addr, sizeof(struct in6_addr));
+	ifindex = api.index;
+	ndm_state = api.ndm_state;
+
+	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	if (!ifp) {
+		DEBUGD(&static_dbg_events, "%s: Ignoring neighbor on unknown interface index %u",
+		       __func__, ifindex);
+		return 0;
+	}
+
+	DEBUGD(&static_dbg_events,
+	       "%s: Processing IPv6 neighbor %pI6 on interface %s (index %u) with state 0x%x",
+	       __func__, &addr, ifp->name, ifindex, ndm_state);
+
+	switch (cmd) {
+	case ZEBRA_NEIGH_ADDED:
+		DEBUGD(&static_dbg_events, "%s: Received neighbor added notification", __func__);
+		if (ndm_state == ZEBRA_NEIGH_STATE_FAILED)
+			static_srv6_neigh_remove(ifp, &addr);
+		else
+			static_srv6_neigh_add(ifp, &addr, ndm_state);
+		break;
+	case ZEBRA_NEIGH_REMOVED:
+		DEBUGD(&static_dbg_events, "%s: Received neighbor removed notification", __func__);
+		static_srv6_neigh_remove(ifp, &addr);
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Request neighbor discovery from zebra for a specific neighbor
+ */
+void static_zebra_send_neigh_discovery_req(struct interface *ifp, struct ipaddr *addr)
+{
+	struct prefix p = {};
+
+	DEBUGD(&static_dbg_events,
+	       "%s: Sending neighbor discovery request for %pIA on interface %s (index %u)",
+	       __func__, addr, ifp->name, ifp->ifindex);
+
+	if (addr->ipa_type != IPADDR_V6) {
+		zlog_err("%s: Unsupported address family %d for neighbor discovery request",
+			 __func__, addr->ipa_type);
+		return;
+	}
+
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	memcpy(&p.u.prefix6, &addr->ipaddr_v6, sizeof(struct in6_addr));
+
+	/* Send neighbor discovery request to zebra */
+	zclient_send_neigh_discovery_req(static_zclient, ifp, &p);
+}
+
+void static_zebra_neigh_get(struct interface *ifp, afi_t afi)
+{
+	if (!static_zclient || static_zclient->sock < 0) {
+		zlog_err("%s: Cannot send neighbor GET request - zclient not connected", __func__);
+		return;
+	}
+
+	if (!ifp) {
+		zlog_err("%s: Cannot send neighbor GET request - interface is NULL", __func__);
+		return;
+	}
+
+	DEBUGD(&static_dbg_events,
+	       "%s: Sending neighbor GET request for interface %s (index %u), afi %u", __func__,
+	       ifp->name, ifp->ifindex, afi);
+
+	zclient_neigh_get(static_zclient, ifp, afi);
+}
+
+void static_zebra_neigh_register(afi_t afi, bool reg)
+{
+	DEBUGD(&static_dbg_events, "%s: Sending neighbor %s request for afi %u", __func__,
+	       reg ? "register" : "unregister", afi);
+
+	zclient_register_neigh(static_zclient, VRF_DEFAULT, afi, reg);
+}
+
 static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
@@ -1525,6 +1591,8 @@ static zclient_handler *const static_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_ADD] = static_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = static_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_SID_NOTIFY] = static_zebra_srv6_sid_notify,
+	[ZEBRA_NEIGH_ADDED] = static_zebra_process_neigh,
+	[ZEBRA_NEIGH_REMOVED] = static_zebra_process_neigh,
 };
 
 void static_zebra_init(void)

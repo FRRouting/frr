@@ -1453,16 +1453,14 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		 * It seems a slip among routers in the routing domain.
 		 */
 		ote_debug("MPLS-TE (%s): MPLS-TE is disabled now", __func__);
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* At first, resolve lsa/lp relationship. */
 	if ((lp = lookup_linkparams_by_instance(lsa)) == NULL) {
 		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE (%s): Invalid parameter?", __func__);
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
 		ospf_opaque_lsa_flush_schedule(lsa);
 		return NULL;
 	}
@@ -1471,8 +1469,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)) {
 		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE (%s): lp was disabled: Flush it!", __func__);
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure. */
@@ -3157,17 +3154,18 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 /*------------------------------------------------------------------------*
  * Following are vty session control functions.
  *------------------------------------------------------------------------*/
-#define check_tlv_size(size, msg)                                              \
-	do {                                                                   \
-		if (ntohs(tlvh->length) > size) {                              \
-			if (vty != NULL)                                       \
-				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
-					msg, ntohs(tlvh->length), size);       \
-			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(%d)",    \
-					   msg, ntohs(tlvh->length), size);    \
-			return size + TLV_HDR_SIZE;                            \
-		}                                                              \
+#define check_tlv_size(size, msg)                                                                           \
+	do {                                                                                                \
+		if (ntohs(tlvh->length) > size) {                                                           \
+			if (vty != NULL)                                                                    \
+				vty_out(vty,                                                                \
+					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
+					msg, ntohs(tlvh->length), size);                                    \
+			else                                                                                \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!", \
+					   msg, ntohs(tlvh->length), size);                                 \
+			return OSPF_MAX_LSA_SIZE + 1;                                                       \
+		}                                                                                           \
 	} while (0)
 
 static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh,

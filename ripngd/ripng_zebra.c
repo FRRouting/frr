@@ -25,25 +25,26 @@ struct zclient *ripng_zclient = NULL;
 static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 				  uint8_t cmd)
 {
-	struct list *list = (struct list *)rp->info;
+	struct ripng_info_list_head *list = rp->info;
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	struct listnode *listnode = NULL;
 	struct ripng_info *rinfo = NULL;
 	uint32_t count = 0;
 	const struct prefix *p = agg_node_get_prefix(rp);
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ripng->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_RIPNG;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *p;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+	frr_each (ripng_info_list, list, rinfo) {
 		if (count >= zebra_ecmp_count)
 			break;
 		api_nh = &api.nexthops[count];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = ripng->vrf->vrf_id;
 		api_nh->gate.ipv6 = rinfo->nexthop;
 		api_nh->ifindex = rinfo->ifindex;
@@ -57,7 +58,7 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 
 	api.nexthop_num = count;
 
-	rinfo = listgetdata(listhead(list));
+	rinfo = ripng_info_list_first(list);
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = rinfo->metric;
@@ -102,8 +103,8 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct ripng *ripng;
 	struct zapi_route api;
-	struct in6_addr nexthop;
-	unsigned long ifindex;
+	struct in6_addr nexthop = {};
+	unsigned long ifindex = 0;
 
 	ripng = ripng_lookup_by_vrf_id(vrf_id);
 	if (!ripng)
@@ -119,8 +120,10 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
 		return 0;
 
-	nexthop = api.nexthops[0].gate.ipv6;
-	ifindex = api.nexthops[0].ifindex;
+	if (api.nexthop_num > 0) {
+		nexthop = api.nexthops[0].gate.ipv6;
+		ifindex = api.nexthops[0].ifindex;
+	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ripng_redistribute_add(ripng, api.type,

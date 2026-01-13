@@ -127,7 +127,7 @@ struct zebra_evpn_es_evi {
  * nexthop
  */
 struct zebra_evpn_l2_nh {
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	/* MAC nexthop id */
 	uint32_t nh_id;
@@ -139,7 +139,7 @@ struct zebra_evpn_l2_nh {
 /* PE attached to an ES */
 struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	uint32_t flags;
 	/* Rxed Type-4 route from this VTEP */
@@ -178,6 +178,8 @@ struct zebra_evpn_access_bd {
 	struct zebra_evpn *zevpn;
 	/* SVI associated with the VLAN */
 	struct zebra_if *vlan_zif;
+	/* VNI count */
+	uint8_t vni_refcnt;
 };
 
 /* multihoming information stored in zrouter */
@@ -217,7 +219,7 @@ struct zebra_evpn_mh_info {
 	 * not be necessary
 	 */
 	struct zebra_evpn *es_base_evpn;
-	struct in_addr es_originator_ip;
+	struct ipaddr es_originator_ip;
 
 	/* L2 NH and NHG ids -
 	 * Most significant 4 bits is type. Lower 28 bits is the value
@@ -324,9 +326,9 @@ extern void zebra_evpn_es_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
 extern void zebra_evpn_update_all_es(struct zebra_evpn *zevpn);
 extern void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS);
-int zebra_evpn_remote_es_add(const esi_t *esi, struct in_addr vtep_ip,
-			     bool esr_rxed, uint8_t df_alg, uint16_t df_pref);
-int zebra_evpn_remote_es_del(const esi_t *esi, struct in_addr vtep_ip);
+int zebra_evpn_remote_es_add(const esi_t *esi, struct ipaddr *vtep_ip, bool esr_rxed,
+			     uint8_t df_alg, uint16_t df_pref);
+int zebra_evpn_remote_es_del(const esi_t *esi, struct ipaddr *vtep_ip);
 extern void zebra_evpn_es_evi_show(struct vty *vty, bool uj, int detail);
 extern void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj,
 		vni_t vni, int detail);

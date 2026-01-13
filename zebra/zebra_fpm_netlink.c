@@ -31,6 +31,7 @@
 #include "zebra/zebra_fpm_private.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/interface.h"
+#include "lib/netlink_parser.h"
 
 /*
  * af_addr_size
@@ -285,7 +286,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 	ri->metric = &re->metric;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		if (ri->num_nhs >= zrouter.multipath_num)
+		if (ri->num_nhs >= zrouter.zav.multipath_num)
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -388,21 +389,30 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		req->r.rtm_table = ri->rtm_table;
 	else {
 		req->r.rtm_table = RT_TABLE_UNSPEC;
-		nl_attr_put32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
+		if (!nl_attr_put32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table)) {
+			zlog_err("%s: Failed to add RTA_TABLE nl attribute", __func__);
+			return 0;
+		}
 	}
 
 	req->r.rtm_dst_len = ri->prefix->prefixlen;
 	req->r.rtm_protocol = ri->rtm_protocol;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-	nl_attr_put(&req->n, in_buf_len, RTA_DST, &ri->prefix->u.prefix,
-		    bytelen);
+	if (!nl_attr_put(&req->n, in_buf_len, RTA_DST, &ri->prefix->u.prefix, bytelen)) {
+		zlog_err("%s: Failed to add RTA_DST nl attribute", __func__);
+		return 0;
+	}
 
 	req->r.rtm_type = ri->rtm_type;
 
 	/* Metric. */
-	if (ri->metric)
-		nl_attr_put32(&req->n, in_buf_len, RTA_PRIORITY, *ri->metric);
+	if (ri->metric) {
+		if (!nl_attr_put32(&req->n, in_buf_len, RTA_PRIORITY, *ri->metric)) {
+			zlog_err("%s: Failed to add RTA_PRIORITY nl attribute", __func__);
+			return 0;
+		}
+	}
 
 	if (ri->num_nhs == 0)
 		goto done;
@@ -415,16 +425,26 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			    && ri->af == AF_INET6) {
 				ipv4_to_ipv4_mapped_ipv6(&ipv6,
 							 nhi->gateway->ipv4);
-				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-					    &ipv6, bytelen);
-			} else
-				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-					    nhi->gateway, bytelen);
+				if (!nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY, &ipv6, bytelen)) {
+					zlog_err("%s: Failed to add RTA_GATEWAY(IPv4-mapped IPv6) nl attribute",
+						 __func__);
+					return 0;
+				}
+			} else {
+				if (!nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY, nhi->gateway,
+						 bytelen)) {
+					zlog_err("%s: Failed to add RTA_GATEWAY nl attribute",
+						 __func__);
+					return 0;
+				}
+			}
 		}
 
 		if (nhi->if_index) {
-			nl_attr_put32(&req->n, in_buf_len, RTA_OIF,
-				      nhi->if_index);
+			if (!nl_attr_put32(&req->n, in_buf_len, RTA_OIF, nhi->if_index)) {
+				zlog_err("%s: Failed to add RTA_OIF nl attribute", __func__);
+				return 0;
+			}
 		}
 
 		encap = nhi->encap_info.encap_type;
@@ -433,12 +453,19 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
-			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
-				      encap);
+			if (!nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE, encap)) {
+				zlog_err("%s: Failed to add RTA_ENCAP_TYPE nl attribute", __func__);
+				return 0;
+			}
 			vxlan = &nhi->encap_info.vxlan_encap;
 			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
-			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
-				      vxlan->vni);
+			if (!nest)
+				return 0;
+
+			if (!nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI, vxlan->vni)) {
+				zlog_err("%s: Failed to add VXLAN_VNI nl attribute", __func__);
+				return 0;
+			}
 			nl_attr_nest_end(&req->n, nest);
 			break;
 		}
@@ -450,14 +477,22 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 	 * Multipath case.
 	 */
 	nest = nl_attr_nest(&req->n, in_buf_len, RTA_MULTIPATH);
+	if (!nest) {
+		zlog_err("%s: Failed to add RTA_MULTIPATH nl attribute", __func__);
+		return 0;
+	}
 
 	for (nexthop_num = 0; nexthop_num < ri->num_nhs; nexthop_num++) {
 		rtnh = nl_attr_rtnh(&req->n, in_buf_len);
 		nhi = &ri->nhs[nexthop_num];
 
-		if (nhi->gateway)
-			nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-				    nhi->gateway, bytelen);
+		if (nhi->gateway) {
+			if (!nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY, nhi->gateway, bytelen)) {
+				zlog_err("%s: Failed to add RTA_GATEWAY multipath nl attribute",
+					 __func__);
+				return 0;
+			}
+		}
 
 		if (nhi->if_index) {
 			rtnh->rtnh_ifindex = nhi->if_index;
@@ -471,13 +506,24 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
-			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
-				      encap);
+			if (!nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE, encap)) {
+				zlog_err("%s: Failed to add RTA_ENCAP_TYPE multipath nl attribute",
+					 __func__);
+				return 0;
+			}
 			vxlan = &nhi->encap_info.vxlan_encap;
-			inner_nest =
-				nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
-			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
-				      vxlan->vni);
+			inner_nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+			if (!inner_nest) {
+				zlog_err("%s: Failed to add RTA_ENCAP multipath nl attribute",
+					 __func__);
+				return 0;
+			}
+
+			if (!nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI, vxlan->vni)) {
+				zlog_err("%s: Failed to add VXLAN_VNI multipath nl attribute",
+					 __func__);
+				return 0;
+			}
 			nl_attr_nest_end(&req->n, inner_nest);
 			break;
 		}
@@ -491,8 +537,10 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 done:
 
 	if (ri->pref_src) {
-		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, ri->pref_src,
-			    bytelen);
+		if (!nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, ri->pref_src, bytelen)) {
+			zlog_err("%s: Failed to add RTA_PREFSRC nl attribute", __func__);
+			return 0;
+		}
 	}
 
 	assert(req->n.nlmsg_len < in_buf_len);
@@ -607,10 +655,25 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 		SET_FLAG(req->ndm.ndm_flags, NTF_EXT_LEARNED);
 
 	/* Add attributes */
-	nl_attr_put(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);
-	nl_attr_put(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4);
-	nl_attr_put32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if);
-	nl_attr_put32(&req->hdr, in_buf_len, NDA_VNI, mac->vni);
+	if (!nl_attr_put(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6)) {
+		zlog_err("%s: Failed to add NDA_LLADDR nl attribute", __func__);
+		return 0;
+	}
+
+	if (!nl_attr_put(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4)) {
+		zlog_err("%s: Failed to add NDA_DST nl attribute", __func__);
+		return 0;
+	}
+
+	if (!nl_attr_put32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if)) {
+		zlog_err("%s: Failed to add NDA_MASTER nl attribute", __func__);
+		return 0;
+	}
+
+	if (!nl_attr_put32(&req->hdr, in_buf_len, NDA_VNI, mac->vni)) {
+		zlog_err("%s: Failed to add NDA_VNI nl attribute", __func__);
+		return 0;
+	}
 
 	assert(req->hdr.nlmsg_len < in_buf_len);
 

@@ -33,8 +33,12 @@ pytestmark = [pytest.mark.bgpd]
 def build_topo(tgen):
     "Build function"
 
-    for routern in range(1, 2):
+    for routern in range(1, 3):
         tgen.add_router("r{}".format(routern))
+
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -72,7 +76,37 @@ def test_router_bgp_as_pretty():
         pytest.skip(tgen.errors)
 
     output = tgen.gears["r1"].vtysh_cmd("show run")
-    assert "router bgp 99\n" in output, "router bgp 99 not found in show run"
+    assert "router bgp 65500\n" in output, "router bgp 65500 not found in show run"
+
+
+def test_vrf_bgp_list():
+    logger.info("Ensure that BGP list does not include non existing VRFs")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Configure a VRF that is not going to be used
+    r1.cmd("ip link add MARIA type vrf table 1009")
+
+    # Attempt to remove ANNA VRF that is not present
+    r1.vtysh_cmd(
+        """
+configure
+
+router bgp 99 vrf DONNA
+  address-family ipv4 unicast
+    no import vrf ANNA
+"""
+    )
+
+    expect = {"vrfs": {"DONNA": {}, "default": {}, "EVA": {}}, "totalVrfs": 3}
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp vrfs json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result, "BGP VRF list check failed:\n{}".format(diff)
 
 
 def test_vrf_route_leak_donna():
@@ -140,7 +174,7 @@ def test_vrf_route_leak_donna():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 
@@ -199,7 +233,7 @@ def test_vrf_route_leak_eva():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf EVA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF EVA check failed:\n{}".format(diff)
 
 
@@ -250,7 +284,7 @@ def test_vrf_route_leak_default():
     }
 
     test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expect)
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF default check failed:\n{}".format(diff)
 
 
@@ -294,7 +328,7 @@ interface EVA
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
     """
@@ -309,7 +343,7 @@ interface EVA
         return topotest.json_cmp(vrf_table, expect)
 
     test_func = partial(check_vrf_table, r1, "DONNA", expect)
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 
@@ -364,7 +398,7 @@ interface EVA
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 
@@ -378,6 +412,18 @@ def test_vrf_route_leak_donna_add_vrf_zita():
     r1 = tgen.gears["r1"]
     r1.cmd("ip link add ZITA type vrf table 1003")
 
+    r1.vtysh_cmd(
+        """
+configure
+
+router bgp 65500 vrf ZITA
+  no bgp ebgp-requires-policy
+  no bgp network import-check
+  address-family ipv4 unicast
+    network 172.16.101.0/24
+"""
+    )
+
     # Test DONNA VRF.
     expect = {
         "172.16.101.0/24": None,
@@ -386,8 +432,17 @@ def test_vrf_route_leak_donna_add_vrf_zita():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+    expect = {
+        "vrfs": {"DONNA": {}, "default": {}, "EVA": {}, "ZITA": {}},
+        "totalVrfs": 4,
+    }
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp vrfs json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result, "BGP VRF list check failed:\n{}".format(diff)
 
 
 def test_vrf_route_leak_donna_set_zita_up():
@@ -427,7 +482,7 @@ interface ZITA
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 
@@ -449,7 +504,7 @@ def test_vrf_route_leak_donna_delete_vrf_zita():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
-    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
 

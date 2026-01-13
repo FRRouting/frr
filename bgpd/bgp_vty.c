@@ -66,6 +66,7 @@
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_conditional_adv.h"
+#include "bgpd/bgp_srv6.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
@@ -111,12 +112,14 @@ FRR_CFG_DEFAULT_BOOL(BGP_HARD_ADMIN_RESET,
 	{ .val_bool = false, .match_version = "< 8.3", },
 	{ .val_bool = true },
 );
-FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_OLD,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY_NEW,
+	{ .val_bool = false },
+);
 FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
-	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_DYNAMIC_CAPABILITY,
@@ -155,16 +158,6 @@ enum show_type {
 	show_ipv4_peer,
 	show_ipv6_peer
 };
-
-static struct peer_group *listen_range_exists(struct bgp *bgp,
-					      struct prefix *range, int exact);
-
-static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
-						      struct bgp *bgp);
-
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
-						      enum show_type type, const char *ip_str,
-						      afi_t afi, bool use_json);
 
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 {
@@ -299,13 +292,53 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	return "Unknown";
 }
 
-/* unset srv6 locator */
-static int bgp_srv6_locator_unset(struct bgp *bgp)
+static void bgp_srv6_sids_unset(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
+	struct srv6_sid_ctx ctx = {};
+
+	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		if (is_srv6_unicast_enabled(bgp, AFI_IP)) {
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP);
+			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
+			/* locator deleted after this call, free the sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
+			srv6_locator_free(bgp->srv6_unicast[AFI_IP].sid_locator);
+			bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
+		}
+		if (is_srv6_unicast_enabled(bgp, AFI_IP6)) {
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
+			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
+			/* locator deleted after this call, free the sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
+			srv6_locator_free(bgp->srv6_unicast[AFI_IP6].sid_locator);
+			bgp->srv6_unicast[AFI_IP6].sid_locator = NULL;
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp != bgp_vrf &&
+		    bgp_vrf->srv6_locator)
+			/* bgp_vrf has an active locator, we have to keep it */
+			continue;
+
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid || bgp_vrf->tovpn_sid)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+					   bgp_vrf);
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid || bgp_vrf->tovpn_sid)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+					   bgp_vrf);
+	}
 
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
@@ -321,28 +354,45 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 
 	/* refresh tovpn_sid */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
 			continue;
 
-		/* refresh vpnv4 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-
-		/* refresh vpnv6 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-
-		/* refresh per-vrf tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-	}
-
-	/* update vpn bgp processes */
-	vpn_leak_postchange_all();
-
-	/* refresh tovpn_sid_locator */
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			/* TODO: accept SRv6 entries on default VRF */
 			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp != bgp_vrf &&
+		    bgp_vrf->srv6_locator)
+			/* bgp_vrf has an active locator, we have to keep it */
+			continue;
+
+		ctx.vrf_id = bgp_vrf->vrf_id;
+
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid) {
+			/* release vpnv4 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv4 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
+		}
+
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid) {
+			/* release vpnv6 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP6]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv6 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		}
+
+		if (bgp_vrf->tovpn_sid) {
+			/* release vpnvx tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
+			/* refresh per-vrf tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		}
 
 		/* refresh vpnv4 tovpn_sid_locator */
 		srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
@@ -357,6 +407,13 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 		bgp_vrf->tovpn_sid_locator = NULL;
 	}
+}
+
+/* unset srv6 locator */
+static int bgp_srv6_locator_unset(struct bgp *bgp)
+{
+	/* clear function, sids */
+	bgp_srv6_sids_unset(bgp);
 
 	/* clear locator name */
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
@@ -366,7 +423,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
 	}
-
+	vpn_leak_postchange_all();
 	return 0;
 }
 
@@ -626,9 +683,10 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 		if (DFLT_BGP_HARD_ADMIN_RESET)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_HARD_ADMIN_RESET);
-		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
-			SET_FLAG((*bgp)->flags,
-				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
+		if (DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
 		if (DFLT_BGP_LINK_LOCAL_CAPABILITY)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
 		if (DFLT_BGP_DYNAMIC_CAPABILITY)
@@ -707,7 +765,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 		if (strmatch(vrf_name, "all"))
 			*bgp = NULL;
 		else {
-			*bgp = bgp_lookup_by_name(vrf_name);
+			*bgp = bgp_lookup_by_name_filter(vrf_name, false);
 			if (!*bgp) {
 				if (use_json) {
 					json_object *json = NULL;
@@ -1186,6 +1244,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			}
 		}
 
+		bgp_peer_gr_flags_update(peer);
 		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
 		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
 
@@ -1414,6 +1473,24 @@ static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
 
+static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		if (listener->bgp == bgp)
+			break;
+	}
+	if (listener == NULL) {
+		struct vrf *vrf;
+
+		SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
+		vrf = bgp_vrf_lookup_by_instance_type(bgp);
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+	}
+}
+
 #include "bgpd/bgp_vty_clippy.c"
 
 DEFUN_HIDDEN (bgp_local_mac,
@@ -1611,8 +1688,10 @@ DEFUN_NOSH (router_bgp,
 		 * any pending VRF-VPN leaking that was configured via
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			bgp_need_listening(bgp, vty);
 			vpn_leak_postchange_all();
+		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
@@ -1705,13 +1784,7 @@ DEFUN (no_router_bgp,
 		}
 
 		if (bgp->l3vni) {
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE))
-				vty_out(vty,
-					"%% L3VNI %u is scheduled to be deleted. Please give it few secs and retry the command\n",
-					bgp->l3vni);
-			else
-				vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
-
+			vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -2574,6 +2647,22 @@ DEFUN (no_bgp_coalesce_time,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_use_underlying_nexthop_weight,
+       bgp_use_underlying_nexthop_weight_cmd,
+       "[no] use-underlays-nexthop-weight",
+       NO_STR
+       "Tell Zebra when resolving a route to use the underlays nexthop weight for when nexthops are resolved\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
+
+	return CMD_SUCCESS;
+}
+
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
@@ -2883,11 +2972,25 @@ DEFPY(bgp_enforce_first_as,
       "Enforce the first AS for EBGP routes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
 
-	if (no)
+	if (no) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
-	else
+	} else {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return CMD_SUCCESS;
 		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_on_policy_change(peer, afi, safi, 0);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2953,7 +3056,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	 * with aspath containing AS_SET or AS_CONFED_SET.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
 		peer_notify_config_change(peer->connection);
 	}
 
@@ -2976,7 +3079,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	 * with aspath containing AS_SET or AS_CONFED_SET.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
 		peer_notify_config_change(peer->connection);
 	}
 
@@ -3046,6 +3149,14 @@ static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 				  bool disable)
 {
 	int ret = BGP_GR_FAILURE;
+
+	/*
+	 * Reset gr_select_defer_evaluated if startup timer is running
+	 * so that deferred path selection can be reevaluated once
+	 * sessions come back up after BGP session reset
+	 */
+	if (event_is_scheduled(bgp->t_startup))
+		bgp->gr_select_defer_evaluated = false;
 
 	/*
 	 * Update the instance and all its peers, if appropriate.
@@ -3209,6 +3320,41 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Reset the BGP session since there's a change
+ * in GR capability
+ */
+static void bgp_update_graceful_restart_capability(struct peer *peer)
+{
+	enum peer_mode peer_gr_mode;
+	enum global_mode global_gr_mode;
+
+	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	peer_gr_mode = bgp_peer_gr_mode_get(peer);
+
+	/*
+	 * Skip if peer is not in graceful restart mode
+	 */
+	if (!((peer_gr_mode == PEER_GR) ||
+	      (peer_gr_mode == PEER_GLOBAL_INHERIT && global_gr_mode == GLOBAL_GR)))
+		return;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("Resetting session for %s: Peer GR mode %s, Global GR mode %s",
+			   peer->host, print_peer_gr_mode(peer_gr_mode),
+			   print_global_gr_mode(global_gr_mode));
+
+	/*
+	 * Reset the session so that the updated capability can be
+	 * exchanged again
+	 */
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
+		peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
+		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	}
+}
+
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (0-4095)",
@@ -3230,18 +3376,27 @@ DEFUN (bgp_graceful_restart_restart_time,
 		bm->restart_time = restart;
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = restart;
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_SET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_SET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_SET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -3326,19 +3481,29 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_UNSET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_UNSET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_UNSET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART,
+						    CAPABILITY_ACTION_UNSET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -4459,18 +4624,22 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
 
 DEFPY (bgp_default_software_version_capability,
        bgp_default_software_version_capability_cmd,
-       "[no] bgp default software-version-capability",
+       "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
-       "Advertise software version capability for all neighbors\n")
+       "Advertise software version capability for all neighbors\n"
+       "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	uint64_t encoding = latest_encoding ? BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW
+					    : BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD;
+
 	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		UNSET_FLAG(bgp->flags, encoding);
 	else
-		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		SET_FLAG(bgp->flags, encoding);
 
 	return CMD_SUCCESS;
 }
@@ -4741,25 +4910,6 @@ static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
-}
-
-
-static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
-{
-	struct listnode *node;
-	struct bgp_listener *listener;
-
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
-		if (listener->bgp == bgp)
-			break;
-	}
-	if (listener == NULL) {
-		struct vrf *vrf;
-
-		SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
-		vrf = bgp_vrf_lookup_by_instance_type(bgp);
-		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
-	}
 }
 
 DEFUN (bgp_listen_range,
@@ -5187,8 +5337,8 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
 					     as_str);
 	} else {
-		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type,
-				   NULL, true, as_str);
+		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type, NULL, true, as_str,
+				   CONNECTION_OUTGOING);
 
 		if (!peer) {
 			vty_out(vty, "%% BGP failed to create peer\n");
@@ -5217,7 +5367,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		else
 			peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
 
-		peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
+		peer_set_last_reset(peer, PEER_DOWN_V6ONLY_CHANGE);
 
 		/* v6only flag changed. Reset bgp seesion */
 		if (!peer_notify_config_change(peer->connection))
@@ -5229,11 +5379,6 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
 		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
-
-	/* For unnumbered peers enable Link-Local Next Hop
-	 * capability implicitly.
-	 */
-	peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
 
 	if (peer_group_name) {
 		group = peer_group_lookup(bgp, peer_group_name);
@@ -6169,31 +6314,30 @@ DEFUN (no_neighbor_capability_enhe,
 /* neighbor capability software-version */
 DEFPY(neighbor_capability_software_version,
       neighbor_capability_software_version_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version",
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version [latest-encoding$latest_encoding]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "Advertise capability to the peer\n"
-      "Advertise Software Version capability to the peer\n")
+      "Advertise Software Version capability to the peer\n"
+      "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
 	struct peer *peer;
 	int ret;
+	uint64_t encoding = latest_encoding ? PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW
+					    : PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_unset_vty(vty, neighbor, encoding);
 	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_set_vty(vty, neighbor, encoding);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-			    CAPABILITY_CODE_SOFT_VERSION,
-			    no ? CAPABILITY_ACTION_UNSET
-			       : CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -9407,6 +9551,46 @@ DEFUN (no_neighbor_ttl_security,
 	return bgp_vty_return(vty, peer_ttl_security_hops_unset(peer));
 }
 
+/* "neighbor encapsulation-srv6|encapsulation-mpls" */
+DEFPY (neighbor_encapsulation_srv6_or_mpls,
+       neighbor_encapsulation_srv6_or_mpls_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str <encapsulation-srv6$srv6|encapsulation-mpls$mpls>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Distribute L3VPN updates with SRv6 prefix SID\n"
+       "Distribute L3VPN updates with MPLS prefix SID\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (srv6) {
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+		return ret;
+	}
+	if (mpls) {
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
+		return ret;
+	}
+	return CMD_WARNING_CONFIG_FAILED;
+}
+
 /* disable-addpath-rx */
 DEFUN(neighbor_disable_addpath_rx,
       neighbor_disable_addpath_rx_cmd,
@@ -9800,6 +9984,172 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_encap_srv6,
+      neighbor_encap_srv6_cmd,
+      "[no] neighbor <X:X::X:X|WORD>$neighbor <encapsulation-srv6|encapsulation-srv6-relax>$encap",
+      NO_STR
+      NEIGHBOR_STR
+      "Neighbor IPv6 address\n"
+      "Neighbor tag\n"
+      "Advertise routes with SRv6 prefix SID to the neighbor\n"
+      "Advertise routes with and without SRv6 prefix SID the neighbor\n")
+{
+	int ret;
+	afi_t afi;
+	uint64_t flag;
+	struct peer *peer;
+	safi_t safi = SAFI_UNICAST;
+
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	afi = bgp_node_afi(vty);
+	if (strncmp(encap, "encapsulation-srv6-relax", 25))
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+	else
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX;
+
+	if (no) {
+		if (!peergroup_af_flag_check(peer, afi, safi, flag)) {
+			vty_out(vty, "%% Peer is not configured.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi, flag);
+
+		return ret;
+	}
+
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
+	    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)) {
+		vty_out(vty, "%% Peer is already configured, unset it first.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = peer_af_flag_set_vty(vty, neighbor, afi, safi, flag);
+
+	return ret;
+}
+
+DEFPY(sid_export,
+      sid_export_cmd,
+      "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [route-map RMAP$rmap_str]",
+      NO_STR
+      "Sid value for VRF\n"
+      "Encapsulation SRv6 over default vrf\n"
+      "Sid allocation index\n"
+      "Automatically assign a label\n"
+      "Explicitly assign a sid value\n"
+      "Sid value\n"
+      "Specify route-map name\n"
+      "Name of route-map\n")
+{
+	safi_t safi = SAFI_UNICAST;
+	afi_t afi = bgp_node_afi(vty);
+	struct in6_addr *unicast_sid_explicit = NULL;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "SRv6 unicast is only supported on default vrf");
+
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_vpn_afi_enabled(bgp, afi)) {
+		vty_out(vty,
+			"sid vpn per afi is configured.\n"
+			"Remove it first before configuring encapsulation SRv6 over default vrf");
+
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_vpn_vrf_enabled(bgp)) {
+		vty_out(vty,
+			"sid vpn per-vrf is configured.\n"
+			"Remove it first before configuring encapsulation SRv6 over default vrf.\n");
+
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no) {
+		if (!is_srv6_unicast_enabled(bgp, afi))
+			return CMD_SUCCESS;
+
+		if (bgp->srv6_unicast[afi].rmap_name) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+			route_map_counter_decrement(
+				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+			bgp->srv6_unicast[afi].rmap_name = NULL;
+		}
+		if (bgp->srv6_unicast[afi].sid_explicit) {
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
+			bgp->srv6_unicast[afi].sid_explicit = NULL;
+		}
+		bgp->srv6_unicast[afi].sid_index = 0;
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+
+		bgp_srv6_unicast_sid_withdraw(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+
+	/* configured */
+	if ((sid_auto && CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
+	    (sid_idx != 0 && bgp->srv6_unicast[afi].sid_index != 0) ||
+	    (sid_explicit && bgp->srv6_unicast[afi].sid_explicit)) {
+		/* no rmap change */
+		if (!rmap_str || (bgp->srv6_unicast[afi].rmap_name &&
+				  !strcmp(rmap_str, bgp->srv6_unicast[afi].rmap_name)))
+			return CMD_SUCCESS;
+
+		/* apply route-map change */
+		bgp_srv6_unicast_announce(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
+	if ((sid_auto || sid_explicit) && bgp->srv6_unicast[afi].sid_index != 0) {
+		vty_out(vty, "it's already configured as idx-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_auto || sid_idx != 0) && bgp->srv6_unicast[afi].sid_explicit) {
+		vty_out(vty, "it's already configured as explicit-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_idx != 0 || sid_explicit) &&
+	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) {
+		vty_out(vty, "it's already configured as auto-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (rmap_str) {
+		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		route_map_counter_increment(
+			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+	}
+
+	if (sid_auto) {
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	} else if (sid_idx) {
+		bgp->srv6_unicast[afi].sid_index = sid_idx;
+	} else if (sid_explicit) {
+		unicast_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+		IPV6_ADDR_COPY(unicast_sid_explicit, &sid_value);
+		bgp->srv6_unicast[afi].sid_explicit = unicast_sid_explicit;
+	}
+
+	/* request srv6 sid */
+	bgp_srv6_unicast_ensure_afi_sid(bgp, afi);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(neighbor_damp,
       neighbor_damp_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [(1-45)$half [(1-20000)$reuse (1-20000)$suppress (1-255)$max]]",
@@ -10019,11 +10369,13 @@ DEFPY (af_rd_vpn_export,
 		bgp->vpn_policy[afi].tovpn_rd = prd;
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
 	} else {
 		XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
 		bgp->vpn_policy[afi].tovpn_rd_pretty = NULL;
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_RD_SET);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
 	}
 	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
 
@@ -10194,7 +10546,7 @@ DEFPY (af_label_vpn_export,
 
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
+       "[no] sid vpn export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current address-family and vpn\n"
@@ -10222,9 +10574,7 @@ DEFPY (af_sid_vpn_export,
 
 	if (!yes) {
 		/* when SID is not set, do nothing */
-		if ((bgp->vpn_policy[afi].tovpn_sid_index == 0) &&
-		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
-		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
+		if (!is_srv6_vpn_afi_enabled(bgp, afi))
 			return CMD_SUCCESS;
 
 		/* pre-change */
@@ -10242,11 +10592,17 @@ DEFPY (af_sid_vpn_export,
 		return CMD_SUCCESS;
 	}
 
-	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
-	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+	if (is_srv6_vpn_vrf_enabled(bgp)) {
 		vty_out(vty,
-			"per-vrf sid and per-af sid are mutually exclusive\n"
+			"sid vpn per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_unicast_enabled(bgp, afi)) {
+		vty_out(vty, "sid export is configured on unicast\n"
+			     "Remove it before configuring sid vpn");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10266,12 +10622,12 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_auto || sid_idx != 0) &&
-	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT)) {
 		vty_out(vty, "it's already configured as explicit-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_idx != 0 || sid_explicit) &&
-	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_AUTO)) {
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
 		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -10289,7 +10645,7 @@ DEFPY (af_sid_vpn_export,
 	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
+			zlog_debug("%s: idx %" PRId64 " sid alloc.", __func__, sid_idx);
 		bgp->vpn_policy[afi].tovpn_sid_index = sid_idx;
 	} else if (sid_explicit) {
 		/* SID allocation explicit-mode */
@@ -10311,7 +10667,7 @@ DEFPY (af_sid_vpn_export,
 
 DEFPY (bgp_sid_vpn_export,
        bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
+       "[no] sid vpn per-vrf export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current vrf and vpn\n"
@@ -10331,9 +10687,7 @@ DEFPY (bgp_sid_vpn_export,
 
 	if (no) {
 		/* when per-VRF SID is not set, do nothing */
-		if (bgp->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+		if (!is_srv6_vpn_vrf_enabled(bgp))
 			return CMD_SUCCESS;
 
 		sid_idx = 0;
@@ -10344,15 +10698,17 @@ DEFPY (bgp_sid_vpn_export,
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
-	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags,
-		       BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
-	    bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags,
-		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6)) {
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_unicast_enabled(bgp, AFI_IP) || is_srv6_unicast_enabled(bgp, AFI_IP6)) {
+		vty_out(vty, "sid export is configured on unicast\n"
+			     "Remove it before configuring sid vpn");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10393,8 +10749,7 @@ DEFPY (bgp_sid_vpn_export,
 	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
-				   sid_idx);
+			zlog_debug("%s: idx %" PRId64 " per-vrf sid alloc.", __func__, sid_idx);
 		bgp->tovpn_sid_index = sid_idx;
 	} else if (sid_explicit) {
 		/* SID allocation explicit-mode */
@@ -10693,11 +11048,11 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 	bgp->vpn_policy[afi].rmap[dir] =
 		route_map_lookup_warn_noexist(vty, rmap_str);
-	if (!bgp->vpn_policy[afi].rmap[dir])
-		return CMD_SUCCESS;
 
 	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		 BGP_CONFIG_VRF_TO_VRF_IMPORT);
+	if (!bgp->vpn_policy[afi].rmap[dir])
+		return CMD_SUCCESS;
 
 	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 
@@ -10752,7 +11107,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
-	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
 	safi_t safi;
 	afi_t afi;
 
@@ -10801,35 +11155,13 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
-	if (!vrf_bgp) {
-		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
-			vrf_bgp = bgp_default;
-		} else {
-			as = AS_UNSPECIFIED;
-
-			/* Auto-create with AS_UNSPECIFIED, fill in later */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
-					  NULL, ASNOTATION_UNDEFINED);
-			if (ret) {
-				vty_out(vty,
-					"VRF %s is not configured as a bgp instance\n",
-					import_name);
-				return CMD_WARNING;
-			}
-
-			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
-
-			/* Auto created VRF instances should be marked
-			 * properly, otherwise we have a state after bgpd
-			 * restart where VRF instance has default VRF's ASN.
-			 */
-			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
-		}
-	}
+	if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 
 	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	} else {
 		/* Already importing from "import_vrf"? */
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
@@ -10838,7 +11170,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 				return CMD_WARNING;
 		}
 
-		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	}
 
 	return CMD_SUCCESS;
@@ -11086,9 +11418,6 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
-		if (!bgp_fibupd_safi(SAFI_UNICAST))
-			continue;
-
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
 
@@ -11096,6 +11425,20 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
 	}
 }
+
+static void bgp_srv6_only_change(struct bgp *bgp, bool enable)
+{
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+
+	bgp->srv6_only = enable;
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+}
+
 DEFUN (no_bgp_segment_routing_srv6,
        no_bgp_segment_routing_srv6_cmd,
        "no segment-routing srv6",
@@ -11113,6 +11456,9 @@ DEFUN (no_bgp_segment_routing_srv6,
 		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 		bgp_segment_routing_srv6_hencaps_refresh(bgp);
 	}
+
+	if (bgp->srv6_only)
+		bgp_srv6_only_change(bgp, false);
 
 	return CMD_SUCCESS;
 }
@@ -11168,6 +11514,8 @@ DEFPY (bgp_srv6_locator,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	bgp_srv6_sids_unset(bgp);
+
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
 
@@ -11175,6 +11523,20 @@ DEFPY (bgp_srv6_locator,
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_srv6_only,
+       bgp_srv6_only_cmd,
+       "[no] srv6-only",
+       NO_STR
+       "Only allow SRv6 and disallow MPLS routes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if ((!no && bgp->srv6_only) || (no && !bgp->srv6_only))
+		return CMD_SUCCESS;
+	bgp_srv6_only_change(bgp, !no);
 	return CMD_SUCCESS;
 }
 
@@ -11259,6 +11621,8 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
 			bgp->vpn_policy[AFI_IP6].tovpn_sid);
 		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
+		vty_out(vty, "  srv6_unicast[AFI_IP].sid: %pI6\n", bgp->srv6_unicast[AFI_IP].sid);
+		vty_out(vty, "  srv6_unicast[AFI_IP6].sid: %pI6\n", bgp->srv6_unicast[AFI_IP6].sid);
 	}
 
 	return CMD_SUCCESS;
@@ -11596,7 +11960,7 @@ static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 
 	*peers_cfgd = *peers_estbd = 0;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 		(*peers_cfgd)++;
 		if (peer_established(peer->connection))
@@ -11615,6 +11979,7 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
 					    ? -1
 					    : (int64_t)bgp->vrf_id;
+
 		json_object_string_add(json, "type", type);
 		json_object_int_add(json, "vrfId", vrf_id_ui);
 		json_object_string_addf(json, "routerId", "%pI4",
@@ -11626,6 +11991,36 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		json_object_string_add(
 			json, "interface",
 			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+			afi_t afi;
+			safi_t safi = SAFI_UNICAST;
+			struct graceful_restart_info *gr_info;
+
+			json_object *json_gr = NULL;
+			json_object *json_grs = NULL;
+
+			json_grs = json_object_new_array();
+
+			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				json_gr = json_object_new_object();
+				json_object_string_add(json_gr, "addressFamily",
+						       get_afi_safi_str(afi, safi, false));
+				gr_info = &(bgp->gr_info[afi][safi]);
+				json_object_boolean_add(json_gr, "grEnabled", gr_info->af_enabled);
+				json_object_boolean_add(json_gr, "grPathSelectionDeferral",
+							event_is_scheduled(
+								gr_info->t_select_deferral));
+				if (gr_info->t_select_deferral)
+					json_object_int_add(json_gr, "grDeferralRemainingTimeSec",
+							    event_timer_remain_second(
+								    gr_info->t_select_deferral));
+				json_object_array_add(json_grs, json_gr);
+			}
+			json_object_boolean_add(json, "grRouteSyncPending",
+						bgp->gr_route_sync_pending);
+			json_object_object_add(json, "grs", json_grs);
+		}
 	}
 }
 
@@ -11638,6 +12033,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
 
 	if (use_vrf) {
+		enum global_mode gr_mode = bgp_global_gr_mode_get(bgp);
+
 		if (json) {
 			print_bgp_vrfs(bgp, vty, json, type);
 		} else {
@@ -11649,6 +12046,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"Num Configured Peers %d, Established %d\n",
 				peers_cfg, peers_estb);
+			vty_out(vty, "Global graceful restart mode is %s\n",
+				bgp_global_gr_mode_str[gr_mode]);
 			if (bgp->l3vni) {
 				vty_out(vty,
 					"L3VNI %u, L3VNI-SVI %s, Router MAC %pEA\n",
@@ -11656,6 +12055,29 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 					ifindex2ifname(bgp->l3vni_svi_ifindex,
 						       bgp->vrf_id),
 					&bgp->rmac);
+			}
+			if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+				afi_t afi;
+				safi_t safi = SAFI_UNICAST;
+				struct graceful_restart_info *gr_info;
+
+				for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+					vty_out(vty, "For address-family %s:\n",
+						get_afi_safi_str(afi, safi, false));
+					gr_info = &(bgp->gr_info[afi][safi]);
+					vty_out(vty, "  GR enabled %s Path Selection Deferral %s\n",
+						gr_info->af_enabled ? "YES" : "NO",
+						event_is_scheduled(gr_info->t_select_deferral)
+							? "DONE"
+							: "IN-PROGRESS");
+					if (gr_info->t_select_deferral)
+						vty_out(vty,
+							"  Path selection deferral timer running, remaining time %lds\n",
+							event_timer_remain_second(
+								gr_info->t_select_deferral));
+				}
+				vty_out(vty, "Route sync with zebra %s\n",
+					bgp->gr_route_sync_pending ? "pending" : "completed");
 			}
 		}
 	} else {
@@ -11870,7 +12292,7 @@ static void show_tip_entry(struct hash_bucket *bucket, void *args)
 	struct vty *vty = (struct vty *)args;
 	struct tip_addr *tip = (struct tip_addr *)bucket->data;
 
-	vty_out(vty, "addr: %pI4, count: %d\n", &tip->addr, tip->refcnt);
+	vty_out(vty, "addr: %pIA, count: %d\n", &tip->addr, tip->refcnt);
 }
 
 static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
@@ -12154,6 +12576,13 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 				       peer_down_str[(int)peer->last_reset]);
 		json_object_int_add(json_peer, "lastResetCode",
 				    peer->last_reset);
+		if (peer->down_last_reset != PEER_DOWN_NONE) {
+			json_object_string_add(json_peer, "downLastResetDueTo",
+					       peer_down_str[peer->down_last_reset]);
+			json_object_int_add(json_peer, "downLastResetCode", peer->down_last_reset);
+			json_object_int_add(json_peer, "downLastResetTimeSecs",
+					    monotime(NULL) - peer->down_resettime);
+		}
 		json_object_string_add(json_peer, "softwareVersion",
 				       peer->soft_version ? peer->soft_version
 							  : "n/a");
@@ -12178,6 +12607,10 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 			vty_out(vty, " %s (%s)\n",
 				peer_down_str[(int)peer->last_reset],
 				peer->soft_version ? peer->soft_version : "n/a");
+			if (peer->down_last_reset != PEER_DOWN_NONE)
+				vty_out(vty, "  Down last reset: %s, %u seconds ago\n",
+					peer_down_str[peer->down_last_reset],
+					(unsigned int)(monotime(NULL) - peer->down_resettime));
 		}
 	}
 }
@@ -12213,11 +12646,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 				    peer->dropped);
 		peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
 			    use_json, json_peer);
-		if (peer_established(peer->connection))
-			json_object_string_add(json_peer, "lastResetDueTo",
-					       "AFI/SAFI Not Negotiated");
-		else
-			bgp_show_peer_reset(NULL, peer, json_peer, true);
+		bgp_show_peer_reset(NULL, peer, json_peer, true);
 	} else {
 		dn_flag[1] = '\0';
 		dn_flag[0] = peer_dynamic_neighbor(peer) ? '*' : '\0';
@@ -12236,11 +12665,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 			peer->dropped,
 			peer_uptime(peer->uptime, timebuf,
 				    BGP_UPTIME_LEN, 0, NULL));
-		if (peer_established(peer->connection))
-			vty_out(vty, "  AFI/SAFI Not Negotiated\n");
-		else
-			bgp_show_peer_reset(vty, peer, NULL,
-					    false);
+		bgp_show_peer_reset(vty, peer, NULL, false);
 	}
 }
 
@@ -12350,7 +12775,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12376,7 +12801,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				continue;
 			}
 
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (!peer_is_config_node(peer))
 				continue;
 
 			if (peer->afc[afi][safi]) {
@@ -12434,7 +12859,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	filtered_count = 0;
 	dn_count = 0;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer->afc[afi][safi])
@@ -13411,9 +13836,6 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(struct vty *vty,
 {
 	const char *mode = "NotApplicable";
 
-	if (!json)
-		vty_out(vty, "\n    Remote GR Mode: ");
-
 	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
 	    (peer_established(peer->connection))) {
 		if ((peer->nsf_af_count == 0)
@@ -13436,7 +13858,7 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(struct vty *vty,
 	if (json)
 		json_object_string_add(json, "remoteGrMode", mode);
 	else
-		vty_out(vty, "%s", mode);
+		vty_out(vty, "    Remote GR Mode: %s\n", mode);
 }
 
 static void bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
@@ -13444,9 +13866,6 @@ static void bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
 							  json_object *json)
 {
 	const char *mode = "Invalid";
-
-	if (!json)
-		vty_out(vty, "    Local GR Mode: ");
 
 	if (bgp_peer_gr_mode_get(p) == PEER_HELPER)
 		mode = "Helper";
@@ -13468,11 +13887,11 @@ static void bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
 	if (json)
 		json_object_string_add(json, "localGrMode", mode);
 	else
-		vty_out(vty, "%s", mode);
+		vty_out(vty, "    Local GR Mode: %s\n", mode);
 }
 
-static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
-	struct vty *vty, struct peer *peer, json_object *json)
+static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, bool use_json,
+					   json_object *json)
 {
 	afi_t afi;
 	safi_t safi;
@@ -13608,6 +14027,20 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
+
+			if (peer->bgp->gr_multihop_peer_exists) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2Timer",
+							    peer->bgp->select_defer_time);
+
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2TimerRemaining",
+							    event_timer_remain_second(
+								    peer->bgp->gr_info[afi][safi]
+									    .t_select_deferral_tier2));
+			}
 		} else {
 			vty_out(vty, "      Timers:\n");
 			vty_out(vty,
@@ -13638,6 +14071,15 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
+			if (peer->bgp->gr_multihop_peer_exists) {
+				vty_out(vty, "        Multihop GR peer exists\n");
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					vty_out(vty,
+						"        Selection Deferral Tier2 Time Remaining(sec): %ld\n",
+						event_timer_remain_second(
+							peer->bgp->gr_info[afi][safi]
+								.t_select_deferral_tier2));
+			}
 		}
 		if (json) {
 			json_object_object_add(json_afi_safi, "endOfRibStatus",
@@ -13672,6 +14114,9 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 			json_object_int_add(json_timer, "restartTimerRemaining",
 					    event_timer_remain_second(
 						    p->connection->t_gr_restart));
+		if (p->connection->t_gr_stale)
+			json_object_int_add(json_timer, "gracefulStalepathTimerSec",
+					    event_timer_remain_second(p->connection->t_gr_stale));
 
 		json_object_object_add(json, "timers", json_timer);
 	} else {
@@ -13691,42 +14136,11 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 	}
 }
 
-static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
-				    json_object *json)
-{
-	char dn_flag[2] = {0};
-	/* '*' + v6 address of neighbor */
-	char neighborAddr[INET6_ADDRSTRLEN + 1] = {0};
-
-	if (!p->conf_if && peer_dynamic_neighbor(p))
-		dn_flag[0] = '*';
-
-	if (p->conf_if) {
-		if (json)
-			json_object_string_addf(json, "neighborAddr", "%pSU",
-						&p->connection->su);
-		else
-			vty_out(vty, "BGP neighbor on %s: %pSU\n", p->conf_if,
-				&p->connection->su);
-	} else {
-		snprintf(neighborAddr, sizeof(neighborAddr), "%s%s", dn_flag,
-			 p->host);
-
-		if (json)
-			json_object_string_add(json, "neighborAddr",
-					       neighborAddr);
-		else
-			vty_out(vty, "BGP neighbor is %s\n", neighborAddr);
-	}
-
-	/* more gr info in new format */
-	BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json);
-}
-
 static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			      safi_t safi, bool use_json,
 			      json_object *json_neigh)
 {
+	int pfx_rcd_safi;
 	struct bgp_filter *filter;
 	struct peer_af *paf;
 	char orf_pfx_name[BUFSIZ];
@@ -13735,6 +14149,11 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	json_object *json_prefA = NULL;
 	json_object *json_addr = NULL;
 	json_object *json_advmap = NULL;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		pfx_rcd_safi = SAFI_UNICAST;
+	else
+		pfx_rcd_safi = safi;
 
 	if (use_json) {
 		json_addr = json_object_new_object();
@@ -14018,7 +14437,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		/* Receive prefix count */
 		json_object_int_add(json_addr, "acceptedPrefixCounter",
-				    p->pcount[afi][safi]);
+				    p->pcount[afi][pfx_rcd_safi]);
 		if (paf && PAF_SUBGRP(paf))
 			json_object_int_add(json_addr, "sentPrefixCounter",
 						(PAF_SUBGRP(paf))->scount);
@@ -14321,10 +14740,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		paf = peer_af_find(p, afi, safi);
 		if (paf && PAF_SUBGRP(paf))
 			vty_out(vty, "  %u accepted, %u sent prefixes\n",
-				p->pcount[afi][safi], PAF_SUBGRP(paf)->scount);
+				p->pcount[afi][pfx_rcd_safi], PAF_SUBGRP(paf)->scount);
 		else
-			vty_out(vty, "  %u accepted prefixes\n",
-				p->pcount[afi][safi]);
+			vty_out(vty, "  %u accepted prefixes\n", p->pcount[afi][pfx_rcd_safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
@@ -14354,18 +14772,269 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	}
 }
 
-static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
+static void bgp_show_peer_status(struct vty *vty, struct peer *p, bool use_json,
+				 json_object *json_neigh)
+{
+	char timebuf[BGP_UPTIME_LEN];
+
+	if (use_json)
+		json_object_string_add(json_neigh, "bgpState",
+				       lookup_msg(bgp_status_msg, p->connection->status, NULL));
+	else
+		vty_out(vty, "  BGP state = %s",
+			lookup_msg(bgp_status_msg, p->connection->status, NULL));
+
+	if (peer_established(p->connection)) {
+		if (use_json) {
+			time_t uptime;
+			time_t epoch_tbuf;
+
+			uptime = monotime(NULL);
+			uptime -= p->uptime;
+			epoch_tbuf = time(NULL) - uptime;
+
+			json_object_int_add(json_neigh, "bgpTimerUpMsec", uptime * 1000);
+			json_object_string_add(json_neigh, "bgpTimerUpString",
+					       peer_uptime(p->uptime, timebuf, BGP_UPTIME_LEN, 0,
+							   NULL));
+			json_object_int_add(json_neigh, "bgpTimerUpEstablishedEpoch", epoch_tbuf);
+		} else
+			vty_out(vty, ", up for %8s",
+				peer_uptime(p->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+	} else if (p->connection->status == Active) {
+		if (use_json) {
+			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
+				json_object_string_add(json_neigh, "bgpStateIs", "passive");
+			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
+				json_object_string_add(json_neigh, "bgpStateIs", "passiveNSF");
+		} else {
+			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
+				vty_out(vty, " (passive)");
+			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
+				vty_out(vty, " (NSF passive)");
+		}
+	}
+	if (!use_json)
+		vty_out(vty, "\n");
+}
+
+static void bgp_show_peer_gr_capability(struct vty *vty, struct peer *p, bool use_json,
+					json_object *json_cap)
+{
+	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) && CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
+		if (use_json)
+			json_object_string_add(json_cap, "gracefulRestart",
+					       "advertisedAndReceived");
+		else
+			vty_out(vty, "    Graceful Restart Capability: advertised and received\n");
+	} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
+		if (use_json)
+			json_object_string_add(json_cap, "gracefulRestart", "advertised");
+		else
+			vty_out(vty, "    Graceful Restart Capability: advertised\n");
+	} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+		if (use_json)
+			json_object_string_add(json_cap, "gracefulRestart", "received");
+		else
+			vty_out(vty, "    Graceful Restart Capability: received\n");
+	}
+
+	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+		int r_afc = 0;
+		afi_t afi;
+		safi_t safi;
+		json_object *json_restart = NULL;
+
+		if (use_json) {
+			json_restart = json_object_new_object();
+			json_object_int_add(json_cap, "gracefulRestartRemoteTimerSec",
+					    p->v_gr_restart);
+		} else
+			vty_out(vty, "      Remote Restart timer is %d seconds\n", p->v_gr_restart);
+
+		if (CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
+			if (use_json)
+				json_object_boolean_true_add(json_cap, "rBitReceived");
+			else
+				vty_out(vty, "      Peer has restarted (R-bit is set)\n");
+		}
+
+		if (CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)) {
+			if (use_json)
+				json_object_boolean_true_add(json_cap, "nBitReceived");
+			else
+				vty_out(vty, "      Peer has restarted (N-bit is set)\n");
+		}
+
+		if (!use_json)
+			vty_out(vty, "      Address families by peer:\n        ");
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (CHECK_FLAG(p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV)) {
+				bool f_bit;
+
+				f_bit = CHECK_FLAG(p->af_cap[afi][safi],
+						   PEER_CAP_RESTART_AF_PRESERVE_RCV);
+
+				if (use_json) {
+					json_object *json_sub = NULL;
+
+					json_sub = json_object_new_object();
+					if (f_bit)
+						json_object_boolean_true_add(json_sub, "preserved");
+					json_object_object_add(json_restart,
+							       get_afi_safi_str(afi, safi, true),
+							       json_sub);
+				} else {
+					vty_out(vty, "%s%s(%s)", r_afc ? ", " : "",
+						get_afi_safi_str(afi, safi, false),
+						f_bit ? "preserved" : "not preserved");
+				}
+				r_afc++;
+			}
+		}
+		if (!r_afc) {
+			if (use_json) {
+				json_object_string_add(json_cap, "addressFamiliesByPeer", "none");
+				json_object_free(json_restart);
+			} else
+				vty_out(vty, "none\n");
+		} else {
+			if (use_json)
+				json_object_object_add(json_cap, "addressFamiliesByPeer",
+						       json_restart);
+			else
+				vty_out(vty, "\n");
+		}
+	}
+}
+
+static void bgp_show_peer_gr_extra_info(struct vty *vty, struct peer *p, bool use_json,
+					json_object *json_neigh)
+{
+	json_object *json_grace = NULL;
+	json_object *json_grace_send = NULL;
+	json_object *json_grace_recv = NULL;
+	int eor_send_af_count = 0;
+	int eor_receive_af_count = 0;
+	afi_t afi;
+	safi_t safi;
+
+	if (use_json) {
+		json_grace = json_object_new_object();
+		json_grace_send = json_object_new_object();
+		json_grace_recv = json_object_new_object();
+
+		if (peer_established(p->connection) && CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND)) {
+					json_object_boolean_true_add(json_grace_send,
+								     get_afi_safi_str(afi, safi,
+										      true));
+					eor_send_af_count++;
+				}
+
+				if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+					json_object_boolean_true_add(json_grace_recv,
+								     get_afi_safi_str(afi, safi,
+										      true));
+					eor_receive_af_count++;
+				}
+			}
+		}
+		json_object_object_add(json_grace, "endOfRibSend", json_grace_send);
+		json_object_object_add(json_grace, "endOfRibRecv", json_grace_recv);
+
+
+		if (p->connection->t_gr_restart)
+			json_object_int_add(json_grace, "gracefulRestartTimerSec",
+					    event_timer_remain_second(p->connection->t_gr_restart));
+
+		if (p->connection->t_gr_stale)
+			json_object_int_add(json_grace, "gracefulStalepathTimerSec",
+					    event_timer_remain_second(p->connection->t_gr_stale));
+		/* more gr info in new format */
+		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json_grace);
+		json_object_object_add(json_neigh, "gracefulRestartInfo", json_grace);
+	} else {
+		vty_out(vty, "  Graceful restart information:\n");
+		if (peer_established(p->connection) && CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+			vty_out(vty, "    End-of-RIB send: ");
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND)) {
+					vty_out(vty, "%s%s", eor_send_af_count ? ", " : "",
+						get_afi_safi_str(afi, safi, false));
+					eor_send_af_count++;
+				}
+			}
+			vty_out(vty, "\n");
+			vty_out(vty, "    End-of-RIB received: ");
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+					vty_out(vty, "%s%s", eor_receive_af_count ? ", " : "",
+						get_afi_safi_str(afi, safi, false));
+					eor_receive_af_count++;
+				}
+			}
+			vty_out(vty, "\n");
+		}
+
+		if (p->connection->t_gr_restart)
+			vty_out(vty, "    The remaining time of restart timer is %ld\n",
+				event_timer_remain_second(p->connection->t_gr_restart));
+
+		if (p->connection->t_gr_stale)
+			vty_out(vty, "    The remaining time of stalepath timer is %ld\n",
+				event_timer_remain_second(p->connection->t_gr_stale));
+
+		/* more gr info in new format */
+		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, NULL);
+	}
+}
+
+static void bgp_show_peer_gr_info(struct vty *vty, struct peer *p, bool use_json,
+				  json_object *json_neigh)
+{
+	json_object *json_cap = NULL;
+
+	if (use_json) {
+		/* Administrative shutdown. */
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+			json_object_boolean_true_add(json_neigh, "adminShutDown");
+	} else {
+		/* Administrative shutdown. */
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+			vty_out(vty, " Administratively shut down\n");
+	}
+
+	/* Status. */
+	bgp_show_peer_status(vty, p, use_json, json_neigh);
+
+	/* GR capability info */
+	if (use_json)
+		json_cap = json_object_new_object();
+	else
+		vty_out(vty, "  Neighbor GR capabilities:\n");
+	bgp_show_peer_gr_capability(vty, p, use_json, json_cap);
+	if (use_json)
+		json_object_object_add(json_neigh, "neighborCapabilities", json_cap);
+
+	/* more gr info */
+	bgp_show_peer_gr_extra_info(vty, p, use_json, json_neigh);
+}
+
+static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bool use_json,
 			  json_object *json)
 {
 	struct bgp *bgp;
+	char buf[PREFIX2STR_BUFFER];
 	char timebuf[BGP_UPTIME_LEN];
-	char dn_flag[2];
+	char dn_flag[2] = {};
 	afi_t afi;
 	safi_t safi;
 	uint16_t i;
 	uint8_t *msg;
 	json_object *json_neigh = NULL;
-	time_t epoch_tbuf;
 	uint32_t sync_tcp_mss;
 
 	bgp = p->bgp;
@@ -14373,11 +15042,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	if (use_json)
 		json_neigh = json_object_new_object();
 
-	memset(dn_flag, '\0', sizeof(dn_flag));
 	if (!p->conf_if && peer_dynamic_neighbor(p))
 		dn_flag[0] = '*';
 
-	if (!use_json) {
+	if (use_json) {
+		if (p->conf_if && BGP_CONNECTION_SU_UNSPEC(p->connection))
+			json_object_string_add(json_neigh, "bgpNeighborAddr", "none");
+		else if (p->conf_if && !BGP_CONNECTION_SU_UNSPEC(p->connection))
+			json_object_string_add(json_neigh, "bgpNeighborAddr",
+					       sockunion2str(&p->connection->su, buf,
+							     SU_ADDRSTRLEN));
+
+		if (p->conf_if)
+			json_object_string_addf(json_neigh, "neighborAddr", "%pSU",
+						&p->connection->su);
+		else {
+			char neighborAddr[INET6_ADDRSTRLEN + 1] = { 0 };
+
+			snprintf(neighborAddr, sizeof(neighborAddr), "%s%s", dn_flag, p->host);
+
+			json_object_string_add(json_neigh, "neighborAddr", neighborAddr);
+		}
+	} else {
 		if (p->conf_if) /* Configured interface name. */
 			vty_out(vty, "BGP neighbor on %s: %pSU, ", p->conf_if,
 				&p->connection->su);
@@ -14489,6 +15175,21 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			bgp_get_name_by_role(p->remote_role));
 	}
 
+	/* Are we showing specific information? */
+	if (sh_flags) {
+		if (sh_flags & VTY_BGP_PEER_SHOW_GR_INFO)
+			bgp_show_peer_gr_info(vty, p, use_json, json_neigh);
+
+		/* Finish JSON, if needed. */
+		if (use_json) {
+			if (p->conf_if) /* Configured interface name. */
+				json_object_object_add(json, p->conf_if, json_neigh);
+			else /* Configured IP address. */
+				json_object_object_add(json, p->host, json_neigh);
+		}
+
+		return;
+	}
 
 	/* Description. */
 	if (p->desc) {
@@ -14583,34 +15284,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						     "nbrCommonAdmin");
 
 		/* Status. */
-		json_object_string_add(json_neigh, "bgpState",
-				       lookup_msg(bgp_status_msg,
-						  p->connection->status, NULL));
-
-		if (peer_established(p->connection)) {
-			time_t uptime;
-
-			uptime = monotime(NULL);
-			uptime -= p->uptime;
-			epoch_tbuf = time(NULL) - uptime;
-
-			json_object_int_add(json_neigh, "bgpTimerUpMsec",
-					    uptime * 1000);
-			json_object_string_add(json_neigh, "bgpTimerUpString",
-					       peer_uptime(p->uptime, timebuf,
-							   BGP_UPTIME_LEN, 0,
-							   NULL));
-			json_object_int_add(json_neigh,
-					    "bgpTimerUpEstablishedEpoch",
-					    epoch_tbuf);
-		} else if (p->connection->status == Active) {
-			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
-				json_object_string_add(json_neigh, "bgpStateIs",
-						       "passive");
-			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
-				json_object_string_add(json_neigh, "bgpStateIs",
-						       "passiveNSF");
-		}
+		bgp_show_peer_status(vty, p, use_json, json_neigh);
 
 		/* read timer */
 		time_t uptime;
@@ -14705,20 +15379,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				"  Neighbor under common administration\n");
 
 		/* Status. */
-		vty_out(vty, "  BGP state = %s",
-			lookup_msg(bgp_status_msg, p->connection->status, NULL));
-
-		if (peer_established(p->connection))
-			vty_out(vty, ", up for %8s",
-				peer_uptime(p->uptime, timebuf, BGP_UPTIME_LEN,
-					    0, NULL));
-		else if (p->connection->status == Active) {
-			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
-				vty_out(vty, " (passive)");
-			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
-				vty_out(vty, " (NSF passive)");
-		}
-		vty_out(vty, "\n");
+		bgp_show_peer_status(vty, p, use_json, json_neigh);
 
 		/* read timer */
 		vty_out(vty, "  Last read %s",
@@ -15261,72 +15922,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_object_add(json_cap, "linkLocalNextHop", json_link_local);
 
 			/* Graceful Restart */
-			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
-			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
-				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
-				    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-					json_object_string_add(
-						json_cap, "gracefulRestart",
-						"advertisedAndReceived");
-				} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
-					json_object_string_add(json_cap, "gracefulRestart",
-							       "advertised");
-				} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-					json_object_string_add(json_cap, "gracefulRestart",
-							       "received");
-				}
-
-				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-					int restart_af_count = 0;
-					json_object *json_restart = NULL;
-					json_restart = json_object_new_object();
-
-					json_object_int_add(
-						json_cap,
-						"gracefulRestartRemoteTimerMsecs",
-						p->v_gr_restart * 1000);
-
-					FOREACH_AFI_SAFI (afi, safi) {
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_RESTART_AF_RCV)) {
-							json_object *json_sub =
-								NULL;
-							json_sub =
-								json_object_new_object();
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_RESTART_AF_PRESERVE_RCV))
-								json_object_boolean_true_add(
-									json_sub,
-									"preserved");
-							restart_af_count++;
-							json_object_object_add(
-								json_restart,
-								get_afi_safi_str(
-									afi,
-									safi,
-									true),
-								json_sub);
-						}
-					}
-					if (!restart_af_count) {
-						json_object_string_add(
-							json_cap,
-							"addressFamiliesByPeer",
-							"none");
-						json_object_free(json_restart);
-					} else
-						json_object_object_add(
-							json_cap,
-							"addressFamiliesByPeer",
-							json_restart);
-				}
-			}
+			bgp_show_peer_gr_capability(vty, p, use_json, json_cap);
 			json_object_object_add(
 				json_neigh, "neighborCapabilities", json_cap);
 		} else {
@@ -15704,148 +16300,21 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				vty_out(vty, "\n");
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-					int restart_af_count = 0;
-
 					vty_out(vty,
 						"      Remote Restart timer is %d seconds\n",
 						p->v_gr_restart);
 					vty_out(vty,
 						"      Address families by peer:\n        ");
 
-					FOREACH_AFI_SAFI (afi, safi)
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_RESTART_AF_RCV)) {
-							vty_out(vty, "%s%s(%s)",
-								restart_af_count
-									? ", "
-									: "",
-								get_afi_safi_str(
-									afi,
-									safi,
-									false),
-								CHECK_FLAG(
-									p->af_cap
-										[afi]
-										[safi],
-									PEER_CAP_RESTART_AF_PRESERVE_RCV)
-									? "preserved"
-									: "not preserved");
-							restart_af_count++;
-						}
-					if (!restart_af_count)
-						vty_out(vty, "none");
-					vty_out(vty, "\n");
+					/* Graceful Restart */
+					bgp_show_peer_gr_capability(vty, p, use_json, NULL);
 				}
-			} /* Graceful Restart */
+			}
 		}
 	}
 
 	/* graceful restart information */
-	json_object *json_grace = NULL;
-	json_object *json_grace_send = NULL;
-	json_object *json_grace_recv = NULL;
-	int eor_send_af_count = 0;
-	int eor_receive_af_count = 0;
-
-	if (use_json) {
-		json_grace = json_object_new_object();
-		json_grace_send = json_object_new_object();
-		json_grace_recv = json_object_new_object();
-
-		if ((peer_established(p->connection)) &&
-		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (CHECK_FLAG(p->af_sflags[afi][safi],
-					       PEER_STATUS_EOR_SEND)) {
-					json_object_boolean_true_add(
-						json_grace_send,
-						get_afi_safi_str(afi, safi,
-								 true));
-					eor_send_af_count++;
-				}
-			}
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (CHECK_FLAG(p->af_sflags[afi][safi],
-					       PEER_STATUS_EOR_RECEIVED)) {
-					json_object_boolean_true_add(
-						json_grace_recv,
-						get_afi_safi_str(afi, safi,
-								 true));
-					eor_receive_af_count++;
-				}
-			}
-		}
-		json_object_object_add(json_grace, "endOfRibSend",
-				       json_grace_send);
-		json_object_object_add(json_grace, "endOfRibRecv",
-				       json_grace_recv);
-
-
-		if (p->connection->t_gr_restart)
-			json_object_int_add(json_grace,
-					    "gracefulRestartTimerMsecs",
-					    event_timer_remain_second(
-						    p->connection->t_gr_restart) *
-						    1000);
-
-		if (p->connection->t_gr_stale)
-			json_object_int_add(json_grace,
-					    "gracefulStalepathTimerMsecs",
-					    event_timer_remain_second(
-						    p->connection->t_gr_stale) *
-						    1000);
-		/* more gr info in new format */
-		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json_grace);
-		json_object_object_add(json_neigh, "gracefulRestartInfo",
-				       json_grace);
-	} else {
-		vty_out(vty, "  Graceful restart information:\n");
-		if ((peer_established(p->connection)) &&
-		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-			vty_out(vty, "    End-of-RIB send: ");
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (CHECK_FLAG(p->af_sflags[afi][safi],
-					       PEER_STATUS_EOR_SEND)) {
-					vty_out(vty, "%s%s",
-						eor_send_af_count ? ", " : "",
-						get_afi_safi_str(afi, safi,
-								 false));
-					eor_send_af_count++;
-				}
-			}
-			vty_out(vty, "\n");
-			vty_out(vty, "    End-of-RIB received: ");
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (CHECK_FLAG(p->af_sflags[afi][safi],
-					       PEER_STATUS_EOR_RECEIVED)) {
-					vty_out(vty, "%s%s",
-						eor_receive_af_count ? ", "
-								     : "",
-						get_afi_safi_str(afi, safi,
-								 false));
-					eor_receive_af_count++;
-				}
-			}
-			vty_out(vty, "\n");
-		}
-
-		if (p->connection->t_gr_restart)
-			vty_out(vty,
-				"    The remaining time of restart timer is %ld\n",
-				event_timer_remain_second(
-					p->connection->t_gr_restart));
-
-		if (p->connection->t_gr_stale)
-			vty_out(vty,
-				"    The remaining time of stalepath timer is %ld\n",
-				event_timer_remain_second(
-					p->connection->t_gr_stale));
-
-		/* more gr info in new format */
-		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, NULL);
-	}
+	bgp_show_peer_gr_extra_info(vty, p, use_json, json_neigh);
 
 	if (use_json) {
 		json_object *json_stat = NULL;
@@ -16047,12 +16516,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty, "  Connections established %d; dropped %d\n",
 			p->established, p->dropped);
 
-	if (!p->last_reset) {
+	if (p->last_reset == PEER_DOWN_NONE) {
 		if (use_json)
 			json_object_string_add(json_neigh, "lastReset",
-					       "never");
+					       peer_down_str[PEER_DOWN_NONE]);
 		else
-			vty_out(vty, "  Last reset never\n");
+			vty_out(vty, "  Last reset %s\n", peer_down_str[PEER_DOWN_NONE]);
 	} else {
 		if (use_json) {
 			time_t uptime;
@@ -16371,83 +16840,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	}
 }
 
-static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
-					      enum show_type type,
-					      union sockunion *su,
-					      const char *conf_if, afi_t afi,
-					      json_object *json)
-{
-	struct listnode *node, *nnode;
-	struct peer *peer;
-	bool found = false;
-	safi_t safi = SAFI_UNICAST;
-	json_object *json_neighbor = NULL;
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-			continue;
-
-		if ((peer->afc[afi][safi]) == 0)
-			continue;
-
-		if (json)
-			json_neighbor = json_object_new_object();
-
-		if (type == show_all) {
-			bgp_show_peer_gr_status(vty, peer, json_neighbor);
-
-			if (json)
-				json_object_object_add(json, peer->host,
-						       json_neighbor);
-
-		} else if (type == show_peer) {
-			if (conf_if) {
-				if ((peer->conf_if
-				     && !strcmp(peer->conf_if, conf_if))
-				    || (peer->hostname
-					&& !strcmp(peer->hostname, conf_if))) {
-					found = true;
-					bgp_show_peer_gr_status(vty, peer,
-								json_neighbor);
-				}
-			} else {
-				if (sockunion_same(&peer->connection->su, su)) {
-					found = true;
-					bgp_show_peer_gr_status(vty, peer,
-								json_neighbor);
-				}
-			}
-			if (json) {
-				if (found)
-					json_object_object_add(json, peer->host,
-							       json_neighbor);
-				else
-					json_object_free(json_neighbor);
-			}
-		}
-
-		if (found)
-			break;
-	}
-
-	if (type == show_peer && !found) {
-		if (json)
-			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
-		else
-			vty_out(vty, "%% No such neighbor\n");
-	}
-
-	if (!json)
-		vty_out(vty, "\n");
-
-	return CMD_SUCCESS;
-}
-
-static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
-			     enum show_type type, union sockunion *su,
-			     const char *conf_if, bool use_json,
-			     json_object *json)
+static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp, enum show_type type,
+			     union sockunion *su, const char *conf_if, uint16_t sh_flags,
+			     bool use_json, json_object *json)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -16463,12 +16858,12 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		switch (type) {
 		case show_all:
-			bgp_show_peer(vty, peer, use_json, json);
+			bgp_show_peer(vty, peer, sh_flags, use_json, json);
 			nbr_output = true;
 			break;
 		case show_peer:
@@ -16478,14 +16873,12 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 				    || (peer->hostname
 					&& !strcmp(peer->hostname, conf_if))) {
 					find = 1;
-					bgp_show_peer(vty, peer, use_json,
-						      json);
+					bgp_show_peer(vty, peer, sh_flags, use_json, json);
 				}
 			} else {
 				if (sockunion_same(&peer->connection->su, su)) {
 					find = 1;
-					bgp_show_peer(vty, peer, use_json,
-						      json);
+					bgp_show_peer(vty, peer, sh_flags, use_json, json);
 				}
 			}
 			break;
@@ -16499,8 +16892,8 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 						    || (peer->hostname
 							&& !strcmp(peer->hostname, conf_if))) {
 							find = 1;
-							bgp_show_peer(vty, peer, use_json,
-								      json);
+							bgp_show_peer(vty, peer, sh_flags,
+								      use_json, json);
 							break;
 						}
 					} else {
@@ -16508,8 +16901,8 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 									    ->su,
 								   su)) {
 							find = 1;
-							bgp_show_peer(vty, peer, use_json,
-								      json);
+							bgp_show_peer(vty, peer, sh_flags,
+								      use_json, json);
 							break;
 						}
 					}
@@ -16520,7 +16913,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 		case show_ipv6_all:
 			FOREACH_SAFI (safi) {
 				if (peer->afc[afi][safi]) {
-					bgp_show_peer(vty, peer, use_json, json);
+					bgp_show_peer(vty, peer, sh_flags, use_json, json);
 					nbr_output = true;
 					break;
 				}
@@ -16551,32 +16944,8 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	return CMD_SUCCESS;
 }
 
-static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty, struct bgp *bgp,
-						   enum show_type type, const char *ip_str,
-						   afi_t afi, json_object *json)
-{
-	int ret;
-	union sockunion su;
-
-	if (!json)
-		bgp_show_global_graceful_restart_mode_vty(vty, bgp);
-
-	if (ip_str) {
-		ret = str2sockunion(ip_str, &su);
-		if (ret < 0)
-			bgp_show_neighbor_graceful_restart(vty, bgp, type, NULL,
-							   ip_str, afi, json);
-		else
-			bgp_show_neighbor_graceful_restart(vty, bgp, type, &su,
-							   NULL, afi, json);
-	} else
-		bgp_show_neighbor_graceful_restart(vty, bgp, type, NULL, NULL,
-						   afi, json);
-}
-
-static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
-						 enum show_type type,
-						 const char *ip_str,
+static void bgp_show_all_instances_neighbors_vty(struct vty *vty, enum show_type type,
+						 const char *ip_str, uint16_t sh_flags,
 						 bool use_json)
 {
 	struct listnode *node, *nnode;
@@ -16633,18 +17002,23 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 					: bgp->name);
 		}
 
+		if (!use_json && sh_flags) {
+			/* Any special header text for non-JSON */
+			if (sh_flags & VTY_BGP_PEER_SHOW_GR_INFO)
+				vty_out(vty, "\n%s", SHOW_GR_HEADER);
+		}
+
 		if (type == show_peer || type == show_ipv4_peer ||
 		    type == show_ipv6_peer) {
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
-				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
-						  use_json, json);
+				bgp_show_neighbor(vty, bgp, type, NULL, ip_str, sh_flags, use_json,
+						  json);
 			else
-				bgp_show_neighbor(vty, bgp, type, &su, NULL,
-						  use_json, json);
+				bgp_show_neighbor(vty, bgp, type, &su, NULL, sh_flags, use_json,
+						  json);
 		} else {
-			bgp_show_neighbor(vty, bgp, type, NULL, NULL,
-					  use_json, json);
+			bgp_show_neighbor(vty, bgp, type, NULL, NULL, sh_flags, use_json, json);
 		}
 		json_object_free(json);
 		json = NULL;
@@ -16656,9 +17030,8 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 		vty_out(vty, "%% BGP instance not found\n");
 }
 
-static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
-				 enum show_type type, const char *ip_str,
-				 bool use_json)
+static int bgp_show_neighbor_vty(struct vty *vty, const char *name, enum show_type type,
+				 const char *ip_str, uint16_t sh_flags, bool use_json)
 {
 	int ret;
 	struct bgp *bgp;
@@ -16667,8 +17040,7 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 
 	if (name) {
 		if (strmatch(name, "all")) {
-			bgp_show_all_instances_neighbors_vty(vty, type, ip_str,
-							     use_json);
+			bgp_show_all_instances_neighbors_vty(vty, type, ip_str, sh_flags, use_json);
 			return CMD_SUCCESS;
 		} else {
 			bgp = bgp_lookup_by_name(name);
@@ -16688,18 +17060,22 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	}
 
 	if (bgp) {
+		if (!use_json && sh_flags) {
+			/* Any special header text for non-JSON */
+			if (sh_flags & VTY_BGP_PEER_SHOW_GR_INFO)
+				vty_out(vty, "\n%s", SHOW_GR_HEADER);
+		}
 		json = json_object_new_object();
 		if (ip_str) {
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
-				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
-						  use_json, json);
+				bgp_show_neighbor(vty, bgp, type, NULL, ip_str, sh_flags, use_json,
+						  json);
 			else
-				bgp_show_neighbor(vty, bgp, type, &su, NULL,
-						  use_json, json);
+				bgp_show_neighbor(vty, bgp, type, &su, NULL, sh_flags, use_json,
+						  json);
 		} else {
-			bgp_show_neighbor(vty, bgp, type, NULL, NULL, use_json,
-					  json);
+			bgp_show_neighbor(vty, bgp, type, NULL, NULL, sh_flags, use_json, json);
 		}
 		json_object_free(json);
 	} else {
@@ -16712,58 +17088,15 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	return CMD_SUCCESS;
 }
 
-/* "show [ip] bgp neighbors graceful-restart" commands.  */
-DEFPY (show_ip_bgp_neighbors_graceful_restart,
-       show_ip_bgp_neighbors_graceful_restart_cmd,
-       "show bgp [<ipv4|ipv6>]$afi [<view|vrf> VIEWVRFNAME$vrf] neighbors [<A.B.C.D|X:X::X:X|WORD>$neigh] graceful-restart [json]$json",
-       SHOW_STR
-       BGP_STR
-       IP_STR
-       IPV6_STR
-       BGP_INSTANCE_HELP_STR
-       NEIGHBOR_STR
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on BGP configured interface\n"
-       GR_SHOW
-       JSON_STR)
-{
-	enum show_type sh_type = show_all;
-	afi_t afiz = AFI_IP;
-	bool uj = !!json;
-	struct bgp *bgp;
-
-	if (afi)
-		afiz = bgp_vty_afi_from_str(afi);
-
-	if (neigh)
-		sh_type = show_peer;
-
-	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
-
-	if (!bgp) {
-		vty_out(vty, "No such bgp instance %s", vrf ? vrf : "");
-		return CMD_WARNING;
-	}
-
-	return bgp_show_neighbor_graceful_restart_afi_all(vty, bgp, sh_type, neigh, afiz, uj);
-}
-
 /* "show [ip] bgp neighbors" commands.  */
-DEFUN (show_ip_bgp_neighbors,
-       show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AF_STR
-       BGP_AF_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on BGP configured interface\n"
-       JSON_STR)
+DEFUN(show_ip_bgp_neighbors, show_ip_bgp_neighbors_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [graceful-restart] [json]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AF_STR BGP_AF_STR
+      "Detailed information on TCP and BGP neighbor connections\n"
+      "Neighbor to display information about\n"
+      "Neighbor to display information about\n"
+      "Neighbor on BGP configured interface\n"
+      "Neighbor graceful restart information\n" JSON_STR)
 {
 	char *vrf = NULL;
 	char *sh_arg = NULL;
@@ -16771,8 +17104,10 @@ DEFUN (show_ip_bgp_neighbors,
 	afi_t afi = AFI_MAX;
 
 	bool uj = use_json(argc, argv);
-
 	int idx = 0;
+	int gr_idx = 0;
+	bool show_gr = false;
+	uint16_t peer_show_flags = 0;
 
 	/* [<vrf> VIEWVRFNAME] */
 	if (argv_find(argv, argc, "vrf", &idx)) {
@@ -16785,14 +17120,24 @@ DEFUN (show_ip_bgp_neighbors,
 
 	idx++;
 
-	if (argv_find(argv, argc, "ipv4", &idx)) {
-		sh_type = show_ipv4_all;
-		afi = AFI_IP;
-	} else if (argv_find(argv, argc, "ipv6", &idx)) {
-		sh_type = show_ipv6_all;
-		afi = AFI_IP6;
-	} else {
+	if (argv_find(argv, argc, "graceful-restart", &gr_idx))
+		show_gr = true;
+
+	/* If operator wants to see GR information for a neighbor or all
+	 * neighbors, the AFI negotiation is ignored.
+	 */
+	if (show_gr)
 		sh_type = show_all;
+	else {
+		if (argv_find(argv, argc, "ipv4", &idx)) {
+			sh_type = show_ipv4_all;
+			afi = AFI_IP;
+		} else if (argv_find(argv, argc, "ipv6", &idx)) {
+			sh_type = show_ipv6_all;
+			afi = AFI_IP6;
+		} else {
+			sh_type = show_all;
+		}
 	}
 
 	if (argv_find(argv, argc, "A.B.C.D", &idx)
@@ -16802,13 +17147,17 @@ DEFUN (show_ip_bgp_neighbors,
 		sh_arg = argv[idx]->arg;
 	}
 
-	if (sh_type == show_peer && afi == AFI_IP) {
-		sh_type = show_ipv4_peer;
-	} else if (sh_type == show_peer && afi == AFI_IP6) {
-		sh_type = show_ipv6_peer;
+	if (!show_gr) {
+		if (sh_type == show_peer && afi == AFI_IP)
+			sh_type = show_ipv4_peer;
+		else if (sh_type == show_peer && afi == AFI_IP6)
+			sh_type = show_ipv6_peer;
 	}
 
-	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, uj);
+	if (show_gr)
+		peer_show_flags |= VTY_BGP_PEER_SHOW_GR_INFO;
+
+	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, peer_show_flags, uj);
 }
 
 /* Show BGP's AS paths internal data.  There are both `show [ip] bgp
@@ -16887,69 +17236,6 @@ DEFUN (show_ip_bgp_lcommunity_info,
 
 	return CMD_SUCCESS;
 }
-/* Graceful Restart */
-
-static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
-						      struct bgp *bgp)
-{
-
-
-	vty_out(vty, "\n%s", SHOW_GR_HEADER);
-
-	enum global_mode bgp_global_gr_mode = bgp_global_gr_mode_get(bgp);
-
-	switch (bgp_global_gr_mode) {
-
-	case GLOBAL_HELPER:
-		vty_out(vty, "Global BGP GR Mode :  Helper\n");
-		break;
-
-	case GLOBAL_GR:
-		vty_out(vty, "Global BGP GR Mode :  Restart\n");
-		break;
-
-	case GLOBAL_DISABLE:
-		vty_out(vty, "Global BGP GR Mode :  Disable\n");
-		break;
-
-	case GLOBAL_INVALID:
-		vty_out(vty,
-			"Global BGP GR Mode  Invalid\n");
-		break;
-	}
-	vty_out(vty, "\n");
-}
-
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
-						      enum show_type type, const char *ip_str,
-						      afi_t afi, bool use_json)
-{
-	json_object *json = NULL;
-
-	if (use_json)
-		json = json_object_new_object();
-
-	if ((afi == AFI_MAX) && (ip_str == NULL)) {
-		afi = AFI_IP;
-
-		while ((afi != AFI_L2VPN) && (afi < AFI_MAX)) {
-			bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
-			afi++;
-		}
-	} else if (afi != AFI_MAX) {
-		bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
-	} else {
-		if (json)
-			json_object_free(json);
-		return CMD_ERR_INCOMPLETE;
-	}
-
-	if (json)
-		vty_json(vty, json);
-
-	return CMD_SUCCESS;
-}
-/* Graceful Restart */
 
 DEFPY (show_ip_bgp_attr_info,
        show_ip_bgp_attr_info_cmd,
@@ -17732,10 +18018,10 @@ DEFUN (bgp_redistribute_ipv4,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17760,14 +18046,14 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
+	uint8_t type;
 	struct bgp_redist *red;
 	bool changed;
 	struct route_map *route_map = route_map_lookup_warn_noexist(
 		vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17796,13 +18082,13 @@ DEFUN (bgp_redistribute_ipv4_metric,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17834,7 +18120,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -17842,7 +18128,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17880,7 +18166,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int idx_word = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -17888,7 +18174,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18283,10 +18569,10 @@ DEFUN (no_bgp_redistribute_ipv4,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18313,10 +18599,10 @@ DEFUN (bgp_redistribute_ipv6,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18336,14 +18622,14 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
+	uint8_t type;
 	struct bgp_redist *red;
 	bool changed;
 	struct route_map *route_map =
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18365,13 +18651,13 @@ DEFUN (bgp_redistribute_ipv6_metric,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18396,7 +18682,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -18404,7 +18690,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18442,8 +18728,7 @@ DEFPY(bgp_redistribute_ipv6_table, bgp_redistribute_ipv6_table_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (table_id == RT_TABLE_MAIN || table_id == RT_TABLE_LOCAL) {
-		vty_out(vty,
-			"%% 'table-direct', can not use %lu routing table\n",
+		vty_out(vty, "%% 'table-direct', can not use %" PRIu64 " routing table\n",
 			table_id);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18478,8 +18763,7 @@ DEFPY(no_bgp_redistribute_ipv6_table, no_bgp_redistribute_ipv6_table_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (table_id == RT_TABLE_MAIN || table_id == RT_TABLE_LOCAL) {
-		vty_out(vty,
-			"%% 'table-direct', can not use %lu routing table\n",
+		vty_out(vty, "%% 'table-direct', can not use %" PRIu64 " routing table\n",
 			table_id);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18502,7 +18786,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int idx_word = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -18510,7 +18794,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18537,10 +18821,10 @@ DEFUN (no_bgp_redistribute_ipv6,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18635,6 +18919,9 @@ DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
 {
 	bool check;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
 
 	check = CHECK_FLAG(bgp->af_flags[bgp_node_afi(vty)][bgp_node_safi(vty)],
 			   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
@@ -18836,8 +19123,7 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "%*ssid vpn export explicit %pI6\n", indent, "",
 			bgp->vpn_policy[afi].tovpn_sid_explicit);
 	} else if (tovpn_sid_index != 0) {
-		vty_out(vty, "%*ssid vpn export %d\n", indent, "",
-			tovpn_sid_index);
+		vty_out(vty, "%*ssid vpn export %u\n", indent, "", tovpn_sid_index);
 	}
 
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET))
@@ -19292,17 +19578,27 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* capability software-version */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY)) {
-		if (!peergroup_flag_check(peer,
-					  PEER_FLAG_CAPABILITY_SOFT_VERSION))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" no neighbor %s capability software-version\n",
 				addr);
 	} else {
-		if (peergroup_flag_check(peer,
-					 PEER_FLAG_CAPABILITY_SOFT_VERSION))
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD))
 			vty_out(vty,
 				" neighbor %s capability software-version\n",
+				addr);
+	}
+
+	/* capability software-version latest-encoding */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty,
+				" no neighbor %s capability software-version latest-encoding\n",
+				addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
+			vty_out(vty, " neighbor %s capability software-version latest-encoding\n",
 				addr);
 	}
 
@@ -19652,6 +19948,15 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "  neighbor %s weight %lu\n", addr,
 			peer->weight[afi][safi]);
 
+	/* encapsulation-srv6|encapsulation-mpls */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+	else if (peergroup_af_flag_check(peer, afi, safi,
+					 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
+		vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
+
 	/* Filter. */
 	bgp_config_write_filter(vty, peer, afi, safi);
 
@@ -19756,9 +20061,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				       PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
-		    peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer_is_config_node(peer) &&
+		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
@@ -19766,7 +20070,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		/* Do not display doppelganger peers */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bgp_config_write_peer_af(vty, bgp, peer, afi, safi);
 	}
 
@@ -19802,6 +20106,19 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				     bgp->vpn_policy[afi].import_vrf, node,
 				     name))
 				vty_out(vty, "  import vrf %s\n", name);
+		}
+
+		if (is_srv6_unicast_enabled(bgp, afi)) {
+			if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO))
+				vty_out(vty, "  sid export auto");
+			else if (bgp->srv6_unicast[afi].sid_explicit)
+				vty_out(vty, "  sid export explicit %pI6",
+					bgp->srv6_unicast[afi].sid_explicit);
+			else if (bgp->srv6_unicast[afi].sid_index)
+				vty_out(vty, "  sid export %u", bgp->srv6_unicast[afi].sid_index);
+			if (bgp->srv6_unicast[afi].rmap_name)
+				vty_out(vty, " route-map %s", bgp->srv6_unicast[afi].rmap_name);
+			vty_out(vty, "\n");
 		}
 	}
 
@@ -20024,12 +20341,17 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY) !=
-		    SAVE_BGP_SOFT_VERSION_CAPABILITY)
-			vty_out(vty,
-				" %sbgp default software-version-capability\n",
-				CHECK_FLAG(bgp->flags,
-					   BGP_FLAG_SOFT_VERSION_CAPABILITY)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD)
+			vty_out(vty, " %sbgp default software-version-capability\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD)
+					? ""
+					: "no ");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW) !=
+		    SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW)
+			vty_out(vty, " %sbgp default software-version-capability latest-encoding\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW)
 					? ""
 					: "no ");
 
@@ -20283,7 +20605,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* Normal neighbor configuration. */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			if (peer_is_config_node(peer))
 				bgp_config_write_peer_global(vty, bgp, peer);
 		}
 
@@ -20312,10 +20634,13 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->allow_martian)
 			vty_out(vty, " bgp allow-martian-nexthop\n");
 
+		if (CHECK_FLAG(bgp->flags, BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE))
+			vty_out(vty, " use-underlays-nexthop-weight\n");
+
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
-		if (bgp_srv6_locator_is_configured(bgp) ||
+		if (bgp_srv6_locator_is_configured(bgp) || bgp->srv6_only == false ||
 		    bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
 			if (strlen(bgp->srv6_locator_name))
@@ -20324,6 +20649,9 @@ int bgp_config_write(struct vty *vty)
 			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, "  encap-behavior %s\n",
 					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
+			if (bgp->srv6_only == false)
+				vty_out(vty, "  no srv6-only\n");
+
 			vty_endframe(vty, " exit\n");
 		}
 
@@ -20334,8 +20662,7 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " sid vpn per-vrf export explicit %pI6\n",
 				bgp->tovpn_sid_explicit);
 		} else if (tovpn_sid_index != 0) {
-			vty_out(vty, " sid vpn per-vrf export %d\n",
-				tovpn_sid_index);
+			vty_out(vty, " sid vpn per-vrf export %u\n", tovpn_sid_index);
 		}
 
 		/* IPv4 unicast configuration.  */
@@ -20588,12 +20915,12 @@ static void bgp_config_finish(struct event *t)
 
 static void bgp_config_end_timeout(struct event *t)
 {
-	zlog_err("BGP configuration end timer expired after %d seconds.",
+	flog_err(EC_BGP_CONFIG_TIMEOUT, "BGP configuration end timer expired after %d seconds.",
 		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
 	bgp_config_finish(t);
 }
 
-static void bgp_config_start(void)
+static void bgp_config_start(struct vty *vty)
 {
 	event_cancel(&t_bgp_cfg);
 	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
@@ -20605,7 +20932,7 @@ static void bgp_config_start(void)
  * EoR before route-maps are processed.
  * This is especially valid if using `bgp route-map delay-timer`.
  */
-static void bgp_config_end(void)
+static void bgp_config_end(struct vty *vty)
 {
 #define BGP_POST_CONFIG_DELAY_SECONDS 1
 	uint32_t bgp_post_config_delay =
@@ -20618,6 +20945,11 @@ static void bgp_config_end(void)
 	 */
 	if (!bgp_config_inprocess())
 		return;
+
+	SET_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED);
+
+	if (bgp_in_graceful_restart())
+		bgp_gr_start_peers();
 
 	event_cancel(&t_bgp_cfg);
 
@@ -20959,6 +21291,8 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &bgp_coalesce_time_cmd);
 	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);
+
+	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_cmd);
 
 	/* "maximum-paths" commands. */
 	install_element(BGP_NODE, &bgp_maxpaths_hidden_cmd);
@@ -21655,6 +21989,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_disable_addpath_rx_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_disable_addpath_rx_cmd);
 
 	/* "neighbor addpath-tx-all-paths" commands.*/
 	install_element(BGP_NODE, &neighbor_addpath_tx_all_paths_hidden_cmd);
@@ -21675,6 +22011,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_all_paths_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 
 	/* "neighbor addpath-tx-best-selected" commands.*/
 	install_element(BGP_IPV4_NODE,
@@ -21709,6 +22047,8 @@ void bgp_vty_init(void)
 			&neighbor_addpath_tx_best_selected_paths_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_best_selected_paths_cmd);
 
 	/* "neighbor addpath-tx-bestpath-per-AS" commands.*/
 	install_element(BGP_NODE,
@@ -21747,6 +22087,8 @@ void bgp_vty_init(void)
 			&neighbor_addpath_tx_bestpath_per_as_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
 
 	/* "neighbor addpath-rx-paths-limit" commands.*/
 	install_element(BGP_NODE, &neighbor_addpath_paths_limit_cmd);
@@ -21767,6 +22109,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_paths_limit_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_addpath_paths_limit_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_paths_limit_cmd);
 
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
@@ -21920,6 +22264,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_weight_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_weight_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_weight_cmd);
+
+	/* "neighbor encapsulation-srv6|encapsulation-mpls" commands. */
+	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
 
 	/* "neighbor override-capability" commands. */
 	install_element(BGP_NODE, &neighbor_override_capability_cmd);
@@ -22301,8 +22649,6 @@ void bgp_vty_init(void)
 	/* "show [ip] bgp neighbors" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_neighbors_cmd);
 
-	install_element(VIEW_NODE, &show_ip_bgp_neighbors_graceful_restart_cmd);
-
 	/* "show [ip] bgp peer-group" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
 
@@ -22441,10 +22787,15 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_only_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
+	install_element(BGP_IPV4_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();

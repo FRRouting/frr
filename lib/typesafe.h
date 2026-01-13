@@ -18,6 +18,32 @@
 extern "C" {
 #endif
 
+/* clang-format off */
+
+#ifdef __clang_analyzer__
+/* so.  The _add typesafe calls on unique containers are defined to return
+ * either NULL if the item was added to the container (i.e. it was "consumed"),
+ * or non-NULL == other item's address if the "same" unique item is already
+ * on the list.
+ * However, the typesafe containers don't store the address of the item but
+ * rather the address of the container's embedded intrinsic "tracker" struct.
+ * clang-SA doesn't understand that this is a reference to the item.  So for
+ * the normal case (NULL return) it doesn't understand that we do in fact have
+ * held a reference to the item.  And it proceeds to complain about a missing
+ * free().
+ * So, the following macro is here to do a dummy store of the item pointer to
+ * the global variable, just to tell clang-SA that we still have a reference
+ * to the pointer.  It's never read, just written to as a SA hint.
+ */
+static void *_sa_global_dummy;
+#define _sa_dummy_store(x) _sa_global_dummy = (x)
+#define _sa_assert(x) assert(x)
+
+#else /* !__clang_analyzer__ */
+#define _sa_dummy_store(x) do { } while (0)
+#define _sa_assert(x) do { } while (0)
+#endif
+
 /* generic macros for all list-like types */
 
 /* to iterate using the const variants of the functions, append "_const" to
@@ -325,7 +351,8 @@ static inline void typesafe_dlist_add(struct dlist_head *head,
 	assume(prev->next != NULL);
 
 	item->next = prev->next;
-	item->next->prev = item;
+	if (item->next)
+		item->next->prev = item;
 	item->prev = prev;
 	prev->next = item;
 	head->count++;
@@ -411,7 +438,7 @@ macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
 	struct dlist_item *ditem = h->dh.hitem.next;                           \
-	if (ditem == &h->dh.hitem)                                             \
+	if (!ditem || ditem == &h->dh.hitem)                                   \
 		return NULL;                                                   \
 	ditem->prev->next = ditem->next;                                       \
 	ditem->next->prev = ditem->prev;                                       \
@@ -663,10 +690,13 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	while (*np && (c = cmpfn_uq(                                           \
 			container_of(*np, type, field.si), item)) < 0)         \
 		np = &(*np)->next;                                             \
-	if (c == 0)                                                            \
+	if (c == 0) {                                                          \
+		_sa_assert(*np);                                               \
 		return container_of(*np, type, field.si);                      \
+	}                                                                      \
 	item->field.si.next = *np;                                             \
 	*np = &item->field.si;                                                 \
+	_sa_dummy_store(item);                                                 \
 	h->sh.count++;                                                         \
 	return NULL;                                                           \
 }                                                                              \
@@ -862,12 +892,14 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	while (*np && (*np)->hashval == hval) {                                \
 		if (cmpfn(container_of(*np, type, field.hi), item) == 0) {     \
 			h->hh.count--;                                         \
+			_sa_assert(*np);                                       \
 			return container_of(*np, type, field.hi);              \
 		}                                                              \
 		np = &(*np)->next;                                             \
 	}                                                                      \
 	item->field.hi.next = *np;                                             \
 	*np = &item->field.hi;                                                 \
+	_sa_dummy_store(item);                                                 \
 	return NULL;                                                           \
 }                                                                              \
 macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
@@ -919,6 +951,21 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 				typesafe_hash_shrink(&h->hh);                  \
 			return container_of(hitem, type, field.hi);            \
 		}                                                              \
+	return NULL;                                                           \
+}                                                                              \
+macro_inline type *prefix ## _pop_all(struct prefix##_head *h, uint32_t *pi)   \
+{                                                                              \
+	uint32_t i = *pi;                                                      \
+	for ( ; i < HASH_SIZE(h->hh); i++) {                                   \
+		if (h->hh.entries[i]) {                                        \
+			struct thash_item *hitem = h->hh.entries[i];           \
+			h->hh.entries[i] = hitem->next;                        \
+			h->hh.count--;                                         \
+			hitem->next = NULL;                                    \
+			*pi = i;                                               \
+			return container_of(hitem, type, field.hi);            \
+		}                                                              \
+	}                                                                      \
 	return NULL;                                                           \
 }                                                                              \
 TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
@@ -1025,6 +1072,8 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct sskip_item *si;                                                 \
 	si = typesafe_skiplist_add(&h->sh, &item->field.si, cmpfn_uq);         \
+	if (!si)                                                               \
+		_sa_dummy_store(item);                                         \
 	return container_of_null(si, type, field.si);                          \
 }                                                                              \
 macro_inline const type *prefix ## _const_find_gteq(                           \
@@ -1141,7 +1190,6 @@ _DECLARE_SKIPLIST(prefix, type, field,                                         \
 TYPESAFE_MEMBER_VIA_FIND_GTEQ(prefix, type, cmpfn)                             \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
-
 extern struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 		struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
@@ -1166,6 +1214,8 @@ extern struct sskip_item *typesafe_skiplist_del(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
 extern struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head);
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }

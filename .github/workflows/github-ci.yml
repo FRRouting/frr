@@ -1,0 +1,181 @@
+name: github-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+      - 'stable/**'
+      - 'rc/**'
+      - 'ci/**'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  Build:
+    runs-on: ${{ matrix.cfg.os }}
+    name: ${{ matrix.cfg.name }}
+    strategy:
+      matrix:
+        cfg:
+        -  { os: 'ubuntu-latest', rel: '22.04',  name: 'Ubuntu 22.04 amd64 Build',platform : 'amd64_u22' }
+        -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 Build',platform : 'amd64_u24' }
+        -  { os: 'ubuntu-22.04-arm' ,rel: '22.04',  name: 'Ubuntu 22.04 arm64 Build',platform : 'arm64_u22' }
+        -  { os: 'ubuntu-22.04-arm' ,rel: '24.04',  name: 'Ubuntu 24.04 arm64 Build',platform : 'arm64_u24' }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build docker image
+        run: |
+          docker build --no-cache -t frr-${{ matrix.cfg.platform }} --build-arg=UBUNTU_VERSION=${{ matrix.cfg.rel }} -f docker/ubuntu-ci/Dockerfile .
+          docker save --output /tmp/frr-${{ matrix.cfg.platform }}.tar frr-${{ matrix.cfg.platform }}
+      - name: Upload docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.cfg.platform }}-image
+          path: /tmp/frr-${{ matrix.cfg.platform }}.tar
+      - name: Clear any previous results
+        # So if all jobs are re-run then all tests will be re-run
+        run: |
+          rm -rf test-results-${{ matrix.cfg.platform }}*
+          mkdir -p test-results-${{ matrix.cfg.platform }}
+          touch test-results-${{ matrix.cfg.platform }}/cleared-results.txt
+      - name: Save cleared previous results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.cfg.platform }}
+          path: test-results-${{ matrix.cfg.platform }}
+          overwrite: true
+      - name: Cleanup
+        if: ${{ always() }}
+        run: rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
+
+  Test:
+    runs-on: ${{ matrix.cfg.os }}
+    needs: Build
+    name: ${{ matrix.cfg.name }}
+    strategy:
+      matrix:
+        cfg:
+        -  { os: 'ubuntu-latest', rel: '22.04',  name: 'Ubuntu 22.04 amd64 Test',platform : 'amd64_u22' }
+        -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 Test',platform : 'amd64_u24' }
+        -  { os: 'ubuntu-22.04-arm' ,rel: '22.04',  name: 'Ubuntu 22.04 arm64 Test',platform : 'arm64_u22' }
+        -  { os: 'ubuntu-22.04-arm' ,rel: '24.04',  name: 'Ubuntu 24.04 arm64 Test',platform : 'arm64_u24' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Fetch docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.cfg.platform }}-image
+          path: /tmp
+      - name: Fetch previous results
+        if: ${{ github.run_attempt > 1 }}
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-${{ matrix.cfg.platform }}
+          path: test-results-${{ matrix.cfg.platform }}
+      - name: Run topotests
+        run: |
+          uname -a
+          MODPKGVER=$(uname -r)
+          # Retry loop for apt-get update in case of transient mirror failures
+          APT_RETRIES=3
+          for i in $(seq 1 ${APT_RETRIES}); do sudo apt-get update -y && break || sleep 10; done
+          # Github is running old kernels but installing newer packages :(
+          sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
+          sudo modprobe vrf || true
+          sudo modprobe mpls-iptunnel
+          sudo modprobe mpls-router
+          docker load --input /tmp/frr-${{ matrix.cfg.platform }}.tar
+
+          if ! grep CONFIG_IP_MROUTE_MULTIPLE_TABLES=y /boot/config*; then
+            ADD_DOCKER_ENV+="-e MROUTE_VRF_MISSING=1"
+          fi
+          echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
+
+          if [ -f test-results-${{ matrix.cfg.platform }}/topotests.xml ]; then
+            ./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }}
+            ls -l test-results-${{ matrix.cfg.platform }}/topotests.xml
+            run_tests=$(./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }}| cut -f1 -d: | sort -u)
+          else
+            echo "No test results dir"
+            run_tests=""
+          fi
+          rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/topotests
+
+          echo RUN_TESTS: $run_tests
+          if docker run --init -i --privileged --name frr-${{ matrix.cfg.platform }}-cont ${ADD_DOCKER_ENV} -v /lib/modules:/lib/modules frr-${{ matrix.cfg.platform }} \
+            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest -n$(($(nproc) * 5 / 2)) --dist=loadfile '$run_tests; then
+            echo "All tests passed."
+            exit 0
+          fi
+
+          # Grab the results from the container
+          if ! ./tests/topotests/analyze.py -Ar test-results-${{ matrix.cfg.platform }} -C frr-${{ matrix.cfg.platform }}-cont; then
+            if [ ! -d test-results-${{ matrix.cfg.platform }} ]; then
+              echo "ERROR: Basic failure in docker run, no test results directory available." >&2
+              exit 1;
+            fi
+            if [ ! -f test-results-${{ matrix.cfg.platform }}/topotests.xml ]; then
+            # In this case we may be missing topotests.xml
+              echo "ERROR: No topotests.xml available perhaps docker run aborted?" >&2
+              exit 1;
+            fi
+            echo "WARNING: analyyze.py returned error but grabbed results anyway." >&2
+          fi
+
+          # Save some information useful for debugging
+          cp /boot/config* test-results-${{ matrix.cfg.platform }}/
+          sysctl -a > test-results-${{ matrix.cfg.platform }}/sysctl.out 2> /dev/null
+
+          # Now get the failed tests (if any) from the archived results directory.
+          rerun_tests=$(./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }} | cut -f1 -d: | sort -u)
+          if [ -z "$rerun_tests" ]; then
+            echo "All tests passed during parallel run."
+            exit 0
+          fi
+
+          echo "ERROR: Some tests failed during parallel run, rerunning serially." >&2
+          echo RERUN_TESTS: $rerun_tests >&2
+          docker stop frr-${{ matrix.cfg.platform }}-cont
+          docker rm frr-${{ matrix.cfg.platform }}-cont
+
+          mv test-results-${{ matrix.cfg.platform }} test-results-${{ matrix.cfg.platform }}-initial
+          if docker run --init -i --privileged --name frr-${{ matrix.cfg.platform }}-cont ${ADD_DOCKER_ENV} -v /lib/modules:/lib/modules frr-${{ matrix.cfg.platform }} \
+            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest '$rerun_tests; then
+            echo "All rerun tests passed."
+            exit 0
+          fi
+          echo "Some rerun tests still failed."
+          exit 1
+      - name: Gather results
+        if: ${{ always() }}
+        run: |
+          if [ ! -d test-results-${{ matrix.cfg.platform }} ]; then
+            if ! ./tests/topotests/analyze.py -Ar test-results-${{ matrix.cfg.platform }} -C frr-${{ matrix.cfg.platform }}-cont; then
+              echo "ERROR: gathering results produced an error, perhaps due earlier run cancellation." >&2
+            fi
+          fi
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.cfg.platform }}
+          path: |
+            test-results-${{ matrix.cfg.platform }}
+            test-results-${{ matrix.cfg.platform }}-initial
+          overwrite: true
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
+          docker stop frr-${{ matrix.cfg.platform }}-cont || true
+          docker rm frr-${{ matrix.cfg.platform }}-cont || true

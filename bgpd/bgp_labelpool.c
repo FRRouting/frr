@@ -19,6 +19,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_labelpool.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_route.h"
@@ -37,6 +38,9 @@ static void lptest_finish(void);
 #endif
 
 static void bgp_sync_label_manager(struct event *e);
+static void lp_chunk_free(void *goner);
+static void bgp_lp_release(mpls_label_t label, void *labelid, int type, bool check_type,
+			   bool debug_enabled);
 
 /*
  * Remember where pool data are kept
@@ -120,8 +124,16 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 		return WQ_SUCCESS;
 	}
 
-	if (!bgp)
+	if (!bgp) {
+		/*
+		 * If we can't find the BGP instance, we should still release
+		 * the label back to the pool since we can't process the callback
+		 */
+		if (lcbq->allocated)
+			bgp_lp_release(lcbq->label, lcbq->labelid, 0, false, debug);
+
 		return WQ_SUCCESS;
+	}
 
 	rc = (*(lcbq->cbfunc))(lcbq->label, lcbq->labelid, lcbq->allocated);
 
@@ -137,28 +149,7 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 			zlog_debug("%s: callback rejected allocation, releasing labelid=%p label=%u",
 				__func__, lcbq->labelid, lcbq->label);
 
-		uintptr_t lbl = lcbq->label;
-		void *labelid;
-		struct lp_lcb *lcb;
-
-		/*
-		 * If the rejected label was marked inuse by this labelid,
-		 * release the label back to the pool.
-		 *
-		 * Further, if the rejected label was still assigned to
-		 * this labelid in the LCB, delete the LCB.
-		 */
-		if (!skiplist_search(lp->inuse, (void *)lbl, &labelid)) {
-			if (labelid == lcbq->labelid) {
-				if (!skiplist_search(lp->ledger, labelid,
-					(void **)&lcb)) {
-					if (lcbq->label == lcb->label)
-						skiplist_delete(lp->ledger,
-							labelid, NULL);
-				}
-				skiplist_delete(lp->inuse, (void *)lbl, NULL);
-			}
-		}
+		bgp_lp_release(lcbq->label, lcbq->labelid, 0, false, debug);
 	}
 
 	return WQ_SUCCESS;
@@ -305,8 +296,9 @@ static mpls_label_t get_label_from_pool(void *labelid)
 		lbl = chunk->first + index;
 		if (skiplist_insert(lp->inuse, (void *)lbl, labelid)) {
 			/* something is very wrong */
-			zlog_err("%s: unable to insert inuse label %u (id %p)",
-				 __func__, (uint32_t)lbl, labelid);
+			flog_err(EC_BGP_LABEL_POOL_INSERT_FAIL,
+				 "%s: unable to insert inuse label %u (id %p)", __func__,
+				 (uint32_t)lbl, labelid);
 			return MPLS_LABEL_NONE;
 		}
 
@@ -466,57 +458,109 @@ void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
 			&bm->t_bgp_sync_label_manager);
 }
 
-void bgp_lp_release(
-	int		type,
-	void		*labelid,
-	mpls_label_t	label)
+/* Label release logic - releases label from skiplists and chunk bitfield */
+static void bgp_lp_release(mpls_label_t label, void *labelid, int type, bool check_type,
+			   bool debug_enabled)
 {
+	struct listnode *node;
+	struct lp_chunk *chunk;
+	uintptr_t lbl = label;
+	void *found_labelid;
 	struct lp_lcb *lcb;
+	bool deallocated = false;
+	bool found = false;
 
-	if (!skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
-		if (label == lcb->label && type == lcb->type) {
-			struct listnode *node;
-			struct lp_chunk *chunk;
-			uintptr_t lbl = label;
-			bool deallocated = false;
+	/*
+	 * Find the label in the skiplists and validate it matches
+	 */
+	if (!skiplist_search(lp->inuse, (void *)lbl, &found_labelid) && labelid == found_labelid) {
+		if (!skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
+			/* Additional validation for normal release */
+			if (check_type && (label != lcb->label || type != lcb->type))
+				return;
 
-			/* no longer in use */
-			skiplist_delete(lp->inuse, (void *)lbl, NULL);
+			if (label == lcb->label) {
+				skiplist_delete(lp->ledger, labelid, NULL);
+				found = true;
+			}
+		}
+		skiplist_delete(lp->inuse, (void *)lbl, NULL);
 
-			/* no longer requested */
-			skiplist_delete(lp->ledger, labelid, NULL);
+		/*
+		 * Find the chunk this label belongs to and
+		 * deallocate the label in the chunk's bitfield
+		 */
+		for (ALL_LIST_ELEMENTS_RO(lp->chunks, node, chunk)) {
+			uint32_t index;
 
-			/*
-			 * Find the chunk this label belongs to and
-			 * deallocate the label
-			 */
-			for (ALL_LIST_ELEMENTS_RO(lp->chunks, node, chunk)) {
-				uint32_t index;
+			if ((label < chunk->first) || (label > chunk->last))
+				continue;
 
-				if ((label < chunk->first) ||
-				    (label > chunk->last))
-					continue;
-
-				index = label - chunk->first;
-				assert(bf_test_index(chunk->allocated_map,
-						     index));
+			index = label - chunk->first;
+			if (bf_test_index(chunk->allocated_map, index)) {
 				bf_release_index(chunk->allocated_map, index);
 				chunk->nfree += 1;
 				deallocated = true;
-				break;
+				if (debug_enabled)
+					zlog_debug("%s: released label %u from chunk, nfree now %u",
+						   __func__, label, chunk->nfree);
 			}
-			assert(deallocated);
-			if (deallocated &&
-			    chunk->nfree == chunk->last - chunk->first + 1 &&
-			    lp_fifo_count(&lp->requests) == 0) {
-				bgp_zebra_release_label_range(chunk->first,
-							      chunk->last);
-				list_delete_node(lp->chunks, node);
-				lp_chunk_free(chunk);
-				lp->next_chunksize = LP_CHUNK_SIZE_MIN;
-			}
+			break;
+		}
+
+		if (!deallocated && debug_enabled) {
+			zlog_debug("%s: warning: could not find chunk for label %u", __func__,
+				   label);
+		}
+
+		/*
+		 * Handle chunk deletion for normal release
+		 */
+		if (found && deallocated && check_type &&
+		    chunk->nfree == chunk->last - chunk->first + 1 &&
+		    lp_fifo_count(&lp->requests) == 0) {
+			bgp_zebra_release_label_range(chunk->first, chunk->last);
+			list_delete_node(lp->chunks, node);
+			lp_chunk_free(chunk);
+			lp->next_chunksize = LP_CHUNK_SIZE_MIN;
 		}
 	}
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_lu_lp_release(struct bgp_dest *dest, mpls_label_t label)
+{
+	bgp_lp_release(label, dest, LP_TYPE_BGP_LU, true, false);
+	bgp_unset_valid_label(&dest->local_label);
+}
+
+/*
+ * Typed release api
+ */
+static void bgp_nh_lp_release(struct bgp_label_per_nexthop_cache *blnc,
+			      mpls_label_t label)
+{
+	bgp_lp_release(label, blnc, LP_TYPE_NEXTHOP, true, false);
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_vpn_lp_release(struct vpn_policy *policy, mpls_label_t label)
+{
+	bgp_lp_release(label, policy, LP_TYPE_VRF, true, false);
+	policy->tovpn_label = MPLS_LABEL_NONE;
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_vpn_nh_lp_release(struct bgp_mplsvpn_nh_label_bind_cache *bmnc,
+			   mpls_label_t label)
+{
+	bgp_lp_release(label, bmnc, LP_TYPE_BGP_L3VPN_BIND, true, false);
 }
 
 static void bgp_sync_label_manager(struct event *e)
@@ -1307,7 +1351,7 @@ static int test_cb(mpls_label_t label, void *labelid, bool allocated)
 	return 0;
 }
 
-static void labelpool_test_event_handler(struct event *thread)
+static void labelpool_test_event_handler(struct event *event)
 {
 	struct lp_test *tcb;
 
@@ -1739,7 +1783,7 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 					     blnc->label, blnc->nh->ifindex,
 					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
 					     &blnc->nexthop, 0, NULL);
-		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
+		bgp_nh_lp_release(blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
 	if (blnc->nh)

@@ -83,8 +83,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
-		ospf6_delete(ospf6);
-		ospf6 = NULL;
+		ospf6_delete(&ospf6);
 		FOR_ALL_INTERFACES (vrf, ifp)
 			if (ifp->info != NULL)
 				ospf6_interface_delete(ifp->info);
@@ -210,7 +209,7 @@ static void ospf6_config_finish(struct event *t)
 		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
 }
 
-static void ospf6_config_start(void)
+static void ospf6_config_start(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config start received");
@@ -219,7 +218,7 @@ static void ospf6_config_start(void)
 			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
 }
 
-static void ospf6_config_end(void)
+static void ospf6_config_end(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config end received");

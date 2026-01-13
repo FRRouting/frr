@@ -103,14 +103,14 @@ accept_unarm(void)
 		event_cancel(&av->ev);
 }
 
-static void accept_cb(struct event *thread)
+static void accept_cb(struct event *event)
 {
-	struct accept_ev *av = EVENT_ARG(thread);
+	struct accept_ev *av = EVENT_ARG(event);
 	event_add_read(master, accept_cb, av, av->fd, &av->ev);
-	av->accept_cb(thread);
+	av->accept_cb(event);
 }
 
-static void accept_timeout(struct event *thread)
+static void accept_timeout(struct event *event)
 {
 	accept_queue.evt = NULL;
 

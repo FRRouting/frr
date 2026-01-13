@@ -26,10 +26,10 @@
 #include "zlog_live.h"
 
 static FRR_NORETURN void ldpe_shutdown(void);
-static void ldpe_dispatch_main(struct event *thread);
-static void ldpe_dispatch_lde(struct event *thread);
+static void ldpe_dispatch_main(struct event *event);
+static void ldpe_dispatch_lde(struct event *event);
 #ifdef __OpenBSD__
-static void ldpe_dispatch_pfkey(struct event *thread);
+static void ldpe_dispatch_pfkey(struct event *event);
 #endif
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
@@ -264,7 +264,7 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_main(struct event *thread)
+static void ldpe_dispatch_main(struct event *event)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -275,7 +275,7 @@ static void ldpe_dispatch_main(struct event *thread)
 	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
 	int			 fd;
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct iface		*iface = NULL;
 	struct kif		*kif;
@@ -611,9 +611,9 @@ static void ldpe_dispatch_main(struct event *thread)
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_lde(struct event *thread)
+static void ldpe_dispatch_lde(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct map		*map;
@@ -745,9 +745,9 @@ static void ldpe_dispatch_lde(struct event *thread)
 
 #ifdef __OpenBSD__
 /* ARGSUSED */
-static void ldpe_dispatch_pfkey(struct event *thread)
+static void ldpe_dispatch_pfkey(struct event *event)
 {
-	int fd = EVENT_FD(thread);
+	int fd = EVENT_FD(event);
 
 	event_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
 		       &pfkey_ev);

@@ -49,6 +49,12 @@ void zebra_ns_link_ifp(struct zebra_ns *zns, struct interface *ifp)
 	struct zebra_if *zif;
 	struct ifp_tree_link *link, tlink = {};
 
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: interface %s not ready, ignoring", __func__, ifp->name);
+		return;
+	}
+
 	zif = ifp->info;
 	assert(zif != NULL);
 
@@ -290,7 +296,7 @@ void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
 	enum zebra_dplane_startup_notifications spot;
 
 	if (!zns) {
-		zlog_err("%s: No Namespace associated with %u", __func__,
+		flog_err(EC_ZEBRA_NS_NO_DEFAULT, "%s: No Namespace associated with %u", __func__,
 			 dplane_ctx_get_ns_id(ctx));
 		return;
 	}

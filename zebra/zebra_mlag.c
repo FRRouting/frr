@@ -37,7 +37,7 @@ static bool test_mlag_in_progress;
 
 static int zebra_mlag_signal_write_thread(void);
 static void zebra_mlag_terminate_pthread(struct event *event);
-static void zebra_mlag_post_data_from_main_thread(struct event *thread);
+static void zebra_mlag_post_data_from_main_thread(struct event *event);
 static void zebra_mlag_publish_process_state(struct zserv *client,
 					     zebra_message_types_t msg_type);
 
@@ -105,8 +105,8 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
 	if (msg_type <= 0) {
 		/* Something went wrong in decoding */
 		stream_free(s);
-		zlog_err("%s: failed to process mlag data-%d, %u", __func__,
-			 msg_type, len);
+		flog_err(EC_ZEBRA_MLAG_DATA_PROCESS_FAIL, "%s: failed to process mlag data-%d, %u",
+			 __func__, msg_type, len);
 		return;
 	}
 
@@ -292,9 +292,9 @@ static void zebra_mlag_publish_process_state(struct zserv *client,
  * main thread, because for that access was needed for clients list.
  * so instead of forcing the locks, messages will be posted from main thread.
  */
-static void zebra_mlag_post_data_from_main_thread(struct event *thread)
+static void zebra_mlag_post_data_from_main_thread(struct event *event)
 {
-	struct stream *s = EVENT_ARG(thread);
+	struct stream *s = EVENT_ARG(event);
 	struct stream *zebra_s = NULL;
 	struct zserv *client;
 	uint32_t msg_type = 0;

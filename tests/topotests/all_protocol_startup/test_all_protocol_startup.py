@@ -1253,55 +1253,61 @@ def test_nht():
         pytest.skip(fatal_error)
 
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
-
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     for i in range(1, 2):
-        nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
-        with open(nhtFile) as file:
-            expected = file.read().rstrip()
-        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (
-            net["r{}".format(i)].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
-        )
-        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
-        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+        def _test_ip_nht():
+            nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
+            with open(nhtFile) as file:
+                expected = file.read().rstrip()
+            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(
-            actual,
-            expected,
-            title1="Actual `show ip nht`",
-            title2="Expected `show ip nht`",
-        )
+            actual = (
+                net["r{}".format(i)].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
+            )
+            actual = re.sub(r"fd [0-9]+", "fd XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            logger.info(actual)
+            diff = topotest.get_textdiff(
+                actual,
+                expected,
+                title1="Actual `show ip nht`",
+                title2="Expected `show ip nht`",
+            )
+            logger.info("DIFF IS HERE")
+            logger.info(diff)
+            return diff
 
-        if diff:
-            assert 0, "r{} failed ip nht check:\n{}\n".format(i, diff)
-        else:
-            print("show ip nht is ok\n")
+        _, result = topotest.run_and_expect(_test_ip_nht, "", count=30, wait=1)
+        assert not result, "r{} failed ip nht check".format(i)
+        print("show ip nht is ok\n")
 
-        nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
-        with open(nhtFile) as file:
-            expected = file.read().rstrip()
-        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+        def _test_ipv6_nht():
+            nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
+            with open(nhtFile) as file:
+                expected = file.read().rstrip()
+            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (
-            net["r{}".format(i)].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
-        )
-        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
-        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            actual = (
+                net["r{}".format(i)]
+                .cmd('vtysh -c "show ipv6 nht" 2> /dev/null')
+                .rstrip()
+            )
+            actual = re.sub(r"fd [0-9]+", "fd XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(
-            actual,
-            expected,
-            title1="Actual `show ip nht`",
-            title2="Expected `show ip nht`",
-        )
+            diff = topotest.get_textdiff(
+                actual,
+                expected,
+                title1="Actual `show ipv6 nht`",
+                title2="Expected `show ipv6 nht`",
+            )
+            return diff
 
-        if diff:
-            assert 0, "r{} failed ipv6 nht check:\n{}\n".format(i, diff)
-        else:
-            print("show ipv6 nht is ok\n")
+        _, result = topotest.run_and_expect(_test_ipv6_nht, "", count=30, wait=1)
+        assert not result, "r{} failed ipv6 nht check".format(i)
+        print("show ipv6 nht is ok\n")
 
 
 def test_bgp_ipv4():
@@ -1532,9 +1538,14 @@ def test_nexthop_groups_with_route_maps():
 
     # Only a valid test on linux using nexthop objects
     if sys.platform.startswith("linux"):
-        output = net["r1"].cmd("ip route show {}/32".format(route_str))
-        match = re.search(r"src {}".format(src_str), output)
-        assert match is not None, "Route {}/32 not installed with src {}".format(
+
+        def _test_route_src():
+            output = net["r1"].cmd("ip route show {}/32".format(route_str))
+            match = re.search(r"src {}".format(src_str), output)
+            return match is not None
+
+        _, result = topotest.run_and_expect(_test_route_src, True, count=30, wait=1)
+        assert result, "Route {}/32 not installed with src {}".format(
             route_str,
             src_str,
         )
@@ -1889,8 +1900,12 @@ def test_vtysh_timeout():
         if retcode == None:
             p1.terminate()
             errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
-    except Exception as e:
+    except subprocess.TimeoutExpired:
         errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except OSError as e:
+        errmsg = "Vtysh process encountered an error: {}".format(e)
+    except Exception as e:
+        errmsg = "An unexpected error occurred: {}".format(e)
 
     if errmsg != None:
         assert None, errmsg

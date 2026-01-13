@@ -301,11 +301,11 @@ static int need_adjacency(struct ospf6_neighbor *on)
 	return 0;
 }
 
-void hello_received(struct event *thread)
+void hello_received(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
@@ -321,11 +321,11 @@ void hello_received(struct event *thread)
 					    OSPF6_NEIGHBOR_EVENT_HELLO_RCVD);
 }
 
-void twoway_received(struct event *thread)
+void twoway_received(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state > OSPF6_NEIGHBOR_INIT)
@@ -353,12 +353,12 @@ void twoway_received(struct event *thread)
 			&on->thread_send_dbdesc);
 }
 
-void negotiation_done(struct event *thread)
+void negotiation_done(struct event *event)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXSTART)
@@ -402,19 +402,19 @@ void negotiation_done(struct event *thread)
 				    OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE);
 }
 
-static void ospf6_neighbor_last_dbdesc_release(struct event *thread)
+static void ospf6_neighbor_last_dbdesc_release(struct event *event)
 {
-	struct ospf6_neighbor *on = EVENT_ARG(thread);
+	struct ospf6_neighbor *on = EVENT_ARG(event);
 
 	assert(on);
 	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
 }
 
-void exchange_done(struct event *thread)
+void exchange_done(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE)
@@ -466,11 +466,11 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 	}
 }
 
-void loading_done(struct event *thread)
+void loading_done(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_LOADING)
@@ -485,11 +485,11 @@ void loading_done(struct event *thread)
 				    OSPF6_NEIGHBOR_EVENT_LOADING_DONE);
 }
 
-void adj_ok(struct event *thread)
+void adj_ok(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
@@ -513,11 +513,11 @@ void adj_ok(struct event *thread)
 	}
 }
 
-void seqnumber_mismatch(struct event *thread)
+void seqnumber_mismatch(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
@@ -541,11 +541,11 @@ void seqnumber_mismatch(struct event *thread)
 			&on->thread_send_dbdesc);
 }
 
-void bad_lsreq(struct event *thread)
+void bad_lsreq(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
@@ -569,11 +569,11 @@ void bad_lsreq(struct event *thread)
 			&on->thread_send_dbdesc);
 }
 
-void oneway_received(struct event *thread)
+void oneway_received(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_TWOWAY)
@@ -596,11 +596,11 @@ void oneway_received(struct event *thread)
 	event_cancel(&on->thread_adj_ok);
 }
 
-void inactivity_timer(struct event *thread)
+void inactivity_timer(struct event *event)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(event);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))

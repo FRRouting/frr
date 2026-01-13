@@ -2,7 +2,31 @@
   "frr-interface:lib": {
     "interface": [
       {
+        "name": "lo",
+        "state": {
+          "mtu": "rubout"
+        }
+      },
+      {
+        "name": "lo-red",
+        "state": {
+          "mtu": "rubout"
+        }
+      },
+      {
         "name": "r1-eth0",
+        "state": {
+          "mtu": "rubout"
+        }
+      },
+      {
+        "name": "r1-eth1",
+        "state": {
+          "mtu": "rubout"
+        }
+      },
+      {
+        "name": "red",
         "state": {
           "mtu": "rubout"
         }
@@ -10,4 +34,3 @@
     ]
   }
 }
-

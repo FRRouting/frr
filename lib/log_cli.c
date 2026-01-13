@@ -345,6 +345,17 @@ DEFPY_YANG (log_immediate_mode,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG (clear_log_cmdline,
+	    clear_log_cmdline_cmd,
+	    "clear log cmdline-targets",
+	    CLEAR_STR
+	    "Logging control\n"
+	    "Disable log targets specified at startup by --log option\n")
+{
+	return nb_cli_rpc(vty, "/frr-logging:clear-cmdline-targets", NULL);
+}
+
 void log_cli_init(void)
 {
 	install_element(CONFIG_NODE, &config_log_stdout_cmd);
@@ -370,6 +381,8 @@ void log_cli_init(void)
 	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
 
 	install_element(CONFIG_NODE, &debug_uid_backtrace_cmd);
+
+	install_element(ENABLE_NODE, &clear_log_cmdline_cmd);
 }
 
 
@@ -430,7 +443,7 @@ static void logging_daemon_file_filename_cli_write(struct vty *vty, const struct
 
 static void logging_facility_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, "log facility %s\n", yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, "log facility %s\n", yang_dnode_get_identity(dnode));
 }
 
 static void logging_record_priority_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)

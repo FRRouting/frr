@@ -40,6 +40,7 @@ writing, *isisd* does not support multiple ISIS processes.
    for interface (see command :clicmd:`ip router isis WORD`).
 
 .. clicmd:: net XX.XXXX. ... .XXX.XX
+   :daemon: isisd
 
    Set/Unset network entity title (NET) provided in ISO format.
 
@@ -50,11 +51,13 @@ writing, *isisd* does not support multiple ISIS processes.
 .. clicmd:: area-password [clear | md5] <password>
 
 .. clicmd:: domain-password [clear | md5] <password>
+   :daemon: isisd
 
    Configure the authentication password for an area, respectively a domain, as
    clear text or md5 one.
 
 .. clicmd:: attached-bit [receive ignore | send]
+   :daemon: isisd
 
    Set attached bit for inter-area traffic:
 
@@ -64,6 +67,7 @@ writing, *isisd* does not support multiple ISIS processes.
      If L1|L2 router, set attached bit in LSP sent to L1 router
 
 .. clicmd:: log-adjacency-changes
+   :daemon: isisd
 
    Log changes in adjacency state.
 
@@ -89,6 +93,7 @@ writing, *isisd* does not support multiple ISIS processes.
    For narrow metrics, the high metric value is 63; for wide metrics, 16777215; for transition metrics, 62.
 
 .. clicmd:: set-overload-bit
+   :daemon: isisd
 
    Set overload bit to avoid any transit traffic.
 
@@ -97,6 +102,7 @@ writing, *isisd* does not support multiple ISIS processes.
    Set overload bit on startup for the specified duration, in seconds. Reference: :rfc:`3277`
 
 .. clicmd:: purge-originator
+   :daemon: isisd
 
    Enable or disable :rfc:`6232` purge originator identification.
 
@@ -241,7 +247,7 @@ ISIS interface
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: isis metric [level-1 | level-2] [(0-255) | (0-16777215)]
+.. clicmd:: isis metric [level-1 | level-2] [(0-63) | (0-16777215)]
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
@@ -614,10 +620,12 @@ This feature enables extensions in IS-IS to support Segment Routing over IPv6
 data plane (SRv6) as per RFC 9352.
 
 .. clicmd:: segment-routing srv6
+   :daemon: isisd
 
    Enable Segment Routing over IPv6 data plane (SRv6).
 
 .. clicmd:: locator NAME
+   :daemon: isisd
 
    Specify the SRv6 locator to use for SRv6. The locator must be configured in
    Zebra. Once the locator is configured, IS-IS automatically allocates prefix
@@ -684,6 +692,14 @@ Debugging ISIS
 
 
    IS-IS LFA events.
+
+.. clicmd:: debug isis flooding
+
+.. clicmd:: debug isis bfd
+
+.. clicmd:: debug isis ldp-sync
+
+.. clicmd:: debug isis tx-queue
 
 .. clicmd:: show debugging isis
 
@@ -814,20 +830,20 @@ An SRv6 configuration:
    !
    !
    interface eth0
-   ipv6 router isis FOO
-   ip router isis FOO
-   isis hello-interval 5
+    ipv6 router isis FOO
+    ip router isis FOO
+    isis hello-interval 5
    !
    interface eth1
-   ip router isis FOO
+    ip router isis FOO
    !
    !
    router isis FOO
-   net 49.0001.1111.1111.1111.00
-   is-type level-2-only
-   metric-style wide
-   segment-routing srv6
-      locator loc1
+    net 49.0001.1111.1111.1111.00
+    is-type level-2-only
+    metric-style wide
+    segment-routing srv6
+     locator loc1
    !
    line vty
 

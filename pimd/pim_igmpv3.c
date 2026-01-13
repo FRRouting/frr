@@ -1081,7 +1081,7 @@ static void group_retransmit_group(struct gm_group *group)
 	char query_buf[query_buf_size];
 
 	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1151,7 +1151,7 @@ static int group_retransmit_sources(struct gm_group *group,
 	pim_ifp = group->interface->info;
 
 	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/* Scan all group sources */
@@ -1340,7 +1340,7 @@ static void group_retransmit_timer_on(struct gm_group *group)
 
 	pim_ifp = group->interface->info;
 
-	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1409,7 +1409,7 @@ static void source_query_send_by_flag(struct gm_group *group,
 	pim_ifp = group->interface->info;
 
 	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1825,9 +1825,9 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 		if (group_addr.s_addr == INADDR_ANY) {
 			/* this is a general query */
 			/* log that general query should have the s_flag set */
-			zlog_warn(
-				"General IGMP query v3 from %s on %s: Suppress Router-Side Processing flag is clear",
-				from_str, ifp->name);
+			if (PIM_DEBUG_GM_TRACE)
+				zlog_debug("General IGMP query v3 from %s on %s: Suppress Router-Side Processing flag is clear",
+					   from_str, ifp->name);
 		} else {
 			struct gm_group *group;
 

@@ -1075,34 +1075,79 @@ static const char *prefixevpn2str(const struct prefix_evpn *p, char *str,
 	return str;
 }
 
+/* Helper function to format the prefix length in the format /xx */
+static size_t format_prefixlen(char *buf, size_t l, int prefixlen, size_t buf_size)
+{
+	int byte, tmp, a, b;
+	bool z = false;
+
+	/*
+	 * Ensure buffer has enough space for the maximum prefix length case.
+	 * For IPv6 with prefix length 128, we need:
+	 * - 1 byte for '/'
+	 * - 1 byte for '1' (hundreds place)
+	 * - 1 byte for '2' (tens place)
+	 * - 1 byte for '8' (ones place)
+	 * - 1 byte for the null terminator
+	 * Total: 5 bytes from the current position
+	 */
+	if (l + 4 >= buf_size)
+		return l;
+
+	buf[l++] = '/';
+	byte = prefixlen;
+	tmp = prefixlen - 100;
+	if (tmp >= 0) {
+		buf[l++] = '1';
+		z = true;
+		byte = tmp;
+	}
+	b = byte % 10;
+	a = byte / 10;
+	if (a || z)
+		buf[l++] = '0' + a;
+	buf[l++] = '0' + b;
+
+	buf[l] = '\0';
+	return l;
+}
+
 const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
-	int byte, tmp, a, b;
-	bool z = false;
-	size_t l;
 
 	switch (p->family) {
 	case AF_INET:
-	case AF_INET6:
 		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
-		l = strlen(buf);
-		buf[l++] = '/';
-		byte = p->prefixlen;
-		tmp = p->prefixlen - 100;
-		if (tmp >= 0) {
-			buf[l++] = '1';
-			z = true;
-			byte = tmp;
-		}
-		b = byte % 10;
-		a = byte / 10;
-		if (a || z)
-			buf[l++] = '0' + a;
-		buf[l++] = '0' + b;
-		buf[l] = '\0';
+		format_prefixlen(buf, strlen(buf), p->prefixlen, sizeof(buf));
 		strlcpy(str, buf, size);
+		break;
+
+	case AF_INET6:
+		/* Check if it's an IPv4-mapped IPv6 address */
+		if (IN6_IS_ADDR_V4MAPPED(&p->u.prefix6)) {
+			struct in_addr ipv4;
+			char ipv4str[INET_ADDRSTRLEN];
+
+			ipv4_mapped_ipv6_to_ipv4(&p->u.prefix6, &ipv4);
+
+			/* Format as ::ffff:a.b.c.d/plen format */
+			inet_ntop(AF_INET, &ipv4, ipv4str, sizeof(ipv4str));
+			/*
+			 * 1. Copy prefix (7 chars for "::ffff:")
+			 * 2. Append IPv4 address safely with strlcat
+			 */
+			snprintf(buf, sizeof(buf), "::ffff:");
+			strlcat(buf, ipv4str, sizeof(buf));
+			format_prefixlen(buf, strlen(buf), p->prefixlen, sizeof(buf));
+			strlcpy(str, buf, size);
+		} else {
+			/* Regular IPv6 address */
+			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+			format_prefixlen(buf, strlen(buf), p->prefixlen, sizeof(buf));
+			strlcpy(str, buf, size);
+		}
 		break;
 
 	case AF_ETHERNET:
@@ -1183,6 +1228,18 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
 
 	return sg_str;
+}
+
+void prefix_flowspec_ptr_free(struct prefix *p)
+{
+	void *temp;
+
+	if (!p || p->family != AF_FLOWSPEC || !p->u.prefix_flowspec.ptr)
+		return;
+
+	temp = (void *)p->u.prefix_flowspec.ptr;
+	XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
+	p->u.prefix_flowspec.ptr = (uintptr_t)NULL;
 }
 
 struct prefix *prefix_new(void)
@@ -1337,7 +1394,6 @@ unsigned prefix_hash_key(const void *pp)
 
 	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
 		uint32_t len;
-		void *temp;
 
 		/* make sure *all* unused bits are zero,
 		 * particularly including alignment /
@@ -1348,9 +1404,7 @@ unsigned prefix_hash_key(const void *pp)
 		len = jhash((void *)copy.u.prefix_flowspec.ptr,
 			    copy.u.prefix_flowspec.prefixlen,
 			    0x55aa5a5a);
-		temp = (void *)copy.u.prefix_flowspec.ptr;
-		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
-		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
+		prefix_flowspec_ptr_free(&copy);
 		return len;
 	}
 	/* make sure *all* unused bits are zero, particularly including
@@ -1436,6 +1490,37 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	}
 
 	return buf;
+}
+
+bool ipv4_ietf_unicast_valid(const struct in_addr *addr)
+{
+	/* New reserved ranges:
+	 * draft-schoen-intarea-unicast-0
+	 * draft-schoen-intarea-unicast-127
+	 * draft-schoen-intarea-unicast-240
+	 */
+	in_addr_t ip = ntohl(addr->s_addr);
+
+	/* draft-schoen-intarea-unicast-0 */
+	if (ip == INADDR_ANY)
+		return false;
+
+	/* draft-schoen-intarea-unicast-240 */
+	if (IPV4_CLASS_E(ip))
+		return true;
+
+	/* draft-schoen-intarea-unicast-127 */
+	if (IPV4_NET127(ip)) {
+		if (!IPV4_NET127_16(ip) && ip != INADDR_LOOPBACK)
+			return true;
+		else
+			return false;
+	}
+
+	if (IPV4_CLASS_D(ip))
+		return false;
+
+	return true;
 }
 
 bool ipv4_unicast_valid(const struct in_addr *addr)
@@ -1614,7 +1699,29 @@ static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
 		return bputch(buf, '*');
 
-	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
+	/* Handle IPv4-mapped IPv6 addresses specially */
+	const struct in6_addr *addr = ptr;
+
+	if (IN6_IS_ADDR_V4MAPPED(addr)) {
+		struct in_addr ipv4;
+		char ipv4str[INET_ADDRSTRLEN];
+
+		/* Extract the IPv4 address from the mapped IPv6 address */
+		ipv4_mapped_ipv6_to_ipv4(addr, &ipv4);
+
+		/* Format as ::ffff:a.b.c.d */
+		inet_ntop(AF_INET, &ipv4, ipv4str, sizeof(ipv4str));
+		/*
+		 * 1. Copy prefix (7 chars for "::ffff:")
+		 * 2. Append IPv4 address safely with strlcat
+		 */
+		snprintf(cbuf, sizeof(cbuf), "::ffff:");
+		strlcat(cbuf, ipv4str, sizeof(cbuf));
+	} else {
+		/* Regular IPv6 address formatting */
+		inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
+	}
+
 	return bputs(buf, cbuf);
 }
 

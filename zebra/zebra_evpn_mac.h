@@ -84,7 +84,7 @@ struct zebra_mac {
 			vlanid_t vid;
 		} local;
 
-		struct in_addr r_vtep_ip;
+		struct ipaddr r_vtep_ip;
 	} fwd_info;
 
 	/* Local or remote ES */
@@ -130,6 +130,12 @@ struct zebra_mac {
 	uint32_t sync_neigh_cnt;
 
 	time_t uptime;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
@@ -148,12 +154,14 @@ struct mac_walk_ctx {
 #define DEL_REMOTE_MAC_FROM_VTEP 0x4
 #define SHOW_REMOTE_MAC_FROM_VTEP 0x8
 
-	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
+	struct ipaddr r_vtep_ip; /* To walk MACs from specific VTEP */
 
 	struct vty *vty;	  /* Used by VTY handlers */
 	uint32_t count;		  /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
 	bool print_dup;		  /* Used to print dup addr list */
+	bool gr_stale_cleanup;	  /* Used for cleaning up stale entries for GR */
+	uint64_t gr_cleanup_time;
 };
 
 struct rmac_walk_ctx {
@@ -223,8 +231,8 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
 					   bool old_bgp_ready,
 					   bool new_bgp_ready);
 
-void zebra_evpn_mac_del_all(struct zebra_evpn *zevi, int uninstall,
-			    int upd_client, uint32_t flags);
+void zebra_evpn_mac_del_all(struct zebra_evpn *zevi, int uninstall, int upd_client, uint32_t flags,
+			    struct l2vni_walk_ctx *l2_wctx);
 int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t mac_flags, uint32_t seq,
 				      struct zebra_evpn_es *es);
@@ -242,11 +250,9 @@ void zebra_evpn_rem_mac_del(struct zebra_evpn *zevi, struct zebra_mac *mac);
 void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
-int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
-				    struct zebra_vrf *zvrf,
-				    const struct ethaddr *macaddr,
-				    struct in_addr vtep_ip, uint8_t flags,
-				    uint32_t seq, const esi_t *esi);
+int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *zvrf,
+				    const struct ethaddr *macaddr, struct ipaddr *vtep_ip,
+				    uint8_t flags, uint32_t seq, const esi_t *esi);
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    struct zebra_evpn *zevpn,
@@ -266,6 +272,8 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_ifp_del(struct interface *ifp);
 void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac);
+extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
+					     bool sticky, vni_t vni);
 
 #ifdef __cplusplus
 }

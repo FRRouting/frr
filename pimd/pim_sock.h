@@ -21,6 +21,8 @@
 #define PIM_SOCK_ERR_NONBLOCK_SETFL (-9) /* Set O_NONBLOCK */
 #define PIM_SOCK_ERR_NAME    (-10) /* Socket name (getsockname) */
 #define PIM_SOCK_ERR_BIND    (-11) /* Can't bind to interface */
+#define PIM_SOCK_ERR_PKTINFO	    (-12) /* Can't set IP_PKTINFO */
+#define PIM_SOCK_ERR_MCAST_HOPS	    (-13) /* Can't set IP_MULTICAST_HOPS */
 
 struct pim_instance;
 
@@ -42,5 +44,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen);
 
 int pim_reg_sock(void);
+int pim_reg_sock_bind(struct pim_instance *pim);
 
 #endif /* PIM_SOCK_H */

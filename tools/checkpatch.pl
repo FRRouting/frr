@@ -563,8 +563,7 @@ our $Iterators	= qr{
 			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
 			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
 			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
-                        FOREACH_BE_CLIENT_BITS|FOREACH_MGMTD_BE_CLIENT_ID|
-                        FOREACH_SESSION_IN_LIST|
+                        FOREACH_BE_CLIENT_BITS|FOREACH_BE_ADAPTER_BITS|FOREACH_SESSION_IN_LIST|
 			LSDB_LOOP
 		  }x;
 
@@ -5542,7 +5541,7 @@ sub process {
 			my $to = $4;
 			my $newcomp = $comp;
 			if ($lead !~ /(?:$Operators|\.)\s*$/ &&
-			    $to !~ /^(?:Constant|[A-Z_][A-Z0-9_]*)$/ &&
+			    $to !~ /^(?:Constant|[A-Z_][A-Z0-9_]*)\s*$/ &&
 			    WARN("CONSTANT_COMPARISON",
 				 "Comparisons should place the constant on the right side of the test\n" . $herecurr) &&
 			    $fix) {

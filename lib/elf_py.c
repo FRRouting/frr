@@ -56,8 +56,6 @@
 #define _FILE_OFFSET_BITS 32
 #endif
 
-#include <elf.h>
-#include <libelf.h>
 #include <gelf.h>
 
 #include "typesafe.h"

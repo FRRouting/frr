@@ -127,12 +127,13 @@ clippy_scan += \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
+	zebra/zserv.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	zebra/label_manager.c \
 	zebra/zebra_cli.c \
 	# end
 
-noinst_HEADERS += \
+nobase_pkginclude_HEADERS += \
 	zebra/connected.h \
 	zebra/debug.h \
 	zebra/if_netlink.h \
@@ -196,6 +197,9 @@ noinst_HEADERS += \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
+	# end
+
+noinst_HEADERS += \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	# end

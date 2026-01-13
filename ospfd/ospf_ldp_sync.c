@@ -20,6 +20,7 @@
 #include <lib/json.h>
 #include "defaults.h"
 #include "ldp_sync.h"
+#include "ospfd/ospf_errors.h"
 
 #include "ospfd.h"
 #include "ospf_interface.h"
@@ -213,7 +214,7 @@ void ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	zlog_err("%s: LDP down", __func__);
+	flog_err(EC_OSPF_LDP_SYNC_DOWN, "%s: LDP down", __func__);
 
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -337,7 +338,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static void ospf_ldp_sync_holddown_timer(struct event *thread)
+static void ospf_ldp_sync_holddown_timer(struct event *event)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -347,7 +348,7 @@ static void ospf_ldp_sync_holddown_timer(struct event *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	ifp = EVENT_ARG(thread);
+	ifp = EVENT_ARG(event);
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info) {
 		ldp_sync_info = params->ldp_sync_info;

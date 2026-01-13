@@ -34,6 +34,7 @@
 
 extern struct nb_config *running_config;
 
+struct mgmt_master;
 struct mgmt_ds_ctx;
 
 /***************************************************************
@@ -178,10 +179,10 @@ extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm, enum mg
 extern bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Check if a given datastore is locked by a session, if so return that session
- * ID if session_id is not NULL.
+ * Check if a given datastore is locked. If so return that session
+ * ID if session_id is not NULL. Also return txn_id if locked by a config txn.
  */
-extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id);
+extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id, uint64_t *txn_id);
 
 /*
  * Acquire write lock to a ds given a ds_handle
@@ -190,8 +191,11 @@ extern int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Remove a lock from ds given a ds_handle
+ *
+ * session_id
+ *    Session ID that holds the lock.
  */
-extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
+extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Copy from source to destination datastore.
@@ -214,6 +218,11 @@ extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bo
  * Fetch northbound configuration for a given datastore context.
  */
 extern struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx);
+
+/*
+ * Restore configuration for a given datastore context from a backup.
+ */
+extern void mgmt_ds_restore_nb_config(struct mgmt_ds_ctx *ds_ctx, struct nb_config *backup);
 
 /*
  * Find YANG data node given a datastore handle YANG xpath.
@@ -328,5 +337,14 @@ extern void mgmt_ds_status_write(struct vty *vty);
  * Reset the candidate DS to empty state
  */
 void mgmt_ds_reset_candidate(void);
+
+
+/*
+ * Private TXN-Lock functions.
+ */
+
+extern bool mgmt_ds_is_txn_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *txn_id);
+extern uint64_t mgmt_ds_txn_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id);
+extern void mgmt_ds_txn_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id);
 
 #endif /* _FRR_MGMTD_DS_H_ */

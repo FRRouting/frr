@@ -50,9 +50,9 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
-static void lsp_refresh(struct event *thread);
-static void lsp_l1_refresh_pseudo(struct event *thread);
-static void lsp_l2_refresh_pseudo(struct event *thread);
+static void lsp_refresh(struct event *event);
+static void lsp_l1_refresh_pseudo(struct event *event);
+static void lsp_l2_refresh_pseudo(struct event *event);
 
 static void lsp_destroy(struct isis_lsp *lsp);
 
@@ -103,13 +103,12 @@ static void lsp_remove_frags(struct lspdb_head *head, struct list *frags);
 
 static void lsp_destroy(struct isis_lsp *lsp)
 {
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 
 	if (!lsp)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit))
+	frr_each (isis_circuit_list, &lsp->area->circuit_list, circuit)
 		isis_tx_queue_del(circuit->tx_queue, lsp);
 
 	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
@@ -123,11 +122,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
 			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
 
-		if (lsp->lspu.frags) {
-			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
-					lsp->lspu.frags);
-			list_delete(&lsp->lspu.frags);
-		}
+		if (lsp->lspu.frags)
+			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1], lsp->lspu.frags);
 	} else {
 		if (lsp->lspu.zero_lsp
 		    && lsp->lspu.zero_lsp->lspu.frags) {
@@ -137,10 +133,19 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	isis_spf_schedule(lsp->area, lsp->level);
 
+	fabricd_lsp_free(lsp);
+	lsp_free(lsp);
+}
+
+void lsp_free(struct isis_lsp *lsp)
+{
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		if (lsp->lspu.frags)
+			list_delete(&lsp->lspu.frags);
+
 	if (lsp->pdu)
 		stream_free(lsp->pdu);
 
-	fabricd_lsp_free(lsp);
 	XFREE(MTYPE_ISIS_LSP, lsp);
 }
 
@@ -400,7 +405,7 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 
 bool isis_level2_adj_up(struct isis_area *area)
 {
-	struct listnode *node, *cnode;
+	struct listnode *node;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
 	struct isis_adjacency *adj;
@@ -408,7 +413,7 @@ bool isis_level2_adj_up(struct isis_area *area)
 	if (area->is_type == IS_LEVEL_1)
 		return false;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 			adjdb = circuit->u.bc.adjdb[1];
 			if (!adjdb || !adjdb->count)
@@ -434,9 +439,9 @@ bool isis_level2_adj_up(struct isis_area *area)
 /*
  * Unset the overload bit after the timer expires
  */
-void set_overload_on_start_timer(struct event *thread)
+void set_overload_on_start_timer(struct event *event)
 {
-	struct isis_area *area = EVENT_ARG(thread);
+	struct isis_area *area = EVENT_ARG(event);
 	assert(area);
 
 	area->t_overload_on_startup_timer = NULL;
@@ -1069,7 +1074,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 	lsp_add_auth(lsp);
 
-	isis_tlvs_add_area_addresses(lsp->tlvs, area->area_addrs);
+	isis_tlvs_add_area_addresses(lsp->tlvs, &area->area_addrs);
 
 	/* Protocols Supported */
 	if (area->ip_circuits > 0 || area->ipv6_circuits > 0) {
@@ -1230,7 +1235,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			listnode_add(locator.srv6_sid, sid);
 		}
 
-		isis_tlvs_add_srv6_locator(lsp->tlvs, 0, &locator);
+		isis_tlvs_add_srv6_locator(lsp->tlvs, isis_area_ipv6_topology(area), &locator);
 		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
 			  area->area_tag);
 
@@ -1292,7 +1297,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	struct isis_circuit *circuit;
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (!circuit->interface)
 			lsp_debug(
 				"ISIS (%s): Processing %s circuit %p with unknown interface",
@@ -1311,37 +1316,30 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			continue;
 		}
 
-		if (area->advertise_passive_only && !circuit->is_passive) {
-			lsp_debug(
-				"ISIS (%s): Circuit is not passive, ignoring.",
-				area->area_tag);
-			continue;
-		}
-
 		uint32_t metric = area->oldmetric
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];
 
-		if (circuit->ip_router && circuit->ip_addrs->count > 0) {
-			lsp_debug(
-				"ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
-				area->area_tag);
-			struct listnode *ipnode;
-			struct prefix_ipv4 *ipv4;
-			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, ipnode,
-						  ipv4))
-				lsp_build_internal_reach_ipv4(lsp, area, ipv4,
-							      metric);
-		}
+		if (area->advertise_passive_only && !circuit->is_passive) {
+			lsp_debug("ISIS (%s): Circuit is not passive, don't add prefixes.",
+				  area->area_tag);
+		} else {
+			if (circuit->ip_router && circuit->ip_addrs->count > 0) {
+				lsp_debug("ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
+					  area->area_tag);
+				struct listnode *ipnode;
+				struct prefix_ipv4 *ipv4;
+				for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, ipnode, ipv4))
+					lsp_build_internal_reach_ipv4(lsp, area, ipv4, metric);
+			}
 
-		if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
-			struct listnode *ipnode;
-			struct prefix_ipv6 *ipv6;
+			if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
+				struct listnode *ipnode;
+				struct prefix_ipv6 *ipv6;
 
-			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link,
-						  ipnode, ipv6))
-				lsp_build_internal_reach_ipv6(lsp, area, ipv6,
-							      metric);
+				for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, ipnode, ipv6))
+					lsp_build_internal_reach_ipv6(lsp, area, ipv6, metric);
+			}
 		}
 
 		switch (circuit->circ_type) {
@@ -1623,9 +1621,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
-static void lsp_refresh(struct event *thread)
+static void lsp_refresh(struct event *event)
 {
-	struct lsp_refresh_arg *arg = EVENT_ARG(thread);
+	struct lsp_refresh_arg *arg = EVENT_ARG(event);
 
 	assert(arg);
 
@@ -1670,7 +1668,6 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 	time_t now, diff;
 	long timeout;
-	struct listnode *cnode;
 	struct isis_circuit *circuit;
 	int lvl;
 
@@ -1774,7 +1771,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	}
 
 	if (all_pseudo) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			lsp_regenerate_schedule_pseudo(circuit, level);
 	}
 
@@ -1994,12 +1991,12 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 /*
  * Something has changed or periodic refresh -> regenerate pseudo LSP
  */
-static void lsp_l1_refresh_pseudo(struct event *thread)
+static void lsp_l1_refresh_pseudo(struct event *event)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[0] = NULL;
 	circuit->lsp_regenerate_pending[0] = 0;
@@ -2016,12 +2013,12 @@ static void lsp_l1_refresh_pseudo(struct event *thread)
 	lsp_regenerate_pseudo(circuit, IS_LEVEL_1);
 }
 
-static void lsp_l2_refresh_pseudo(struct event *thread)
+static void lsp_l2_refresh_pseudo(struct event *event)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[1] = NULL;
 	circuit->lsp_regenerate_pending[1] = 0;
@@ -2140,7 +2137,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
  * Walk through LSPs for an area
  *  - set remaining lifetime
  */
-void lsp_tick(struct event *thread)
+void lsp_tick(struct event *event)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
@@ -2148,7 +2145,7 @@ void lsp_tick(struct event *thread)
 	uint16_t rem_lifetime;
 	bool fabricd_sync_incomplete = false;
 
-	area = EVENT_ARG(thread);
+	area = EVENT_ARG(event);
 	assert(area);
 	area->t_tick = NULL;
 	event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
@@ -2277,7 +2274,6 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 {
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
 	assert(lsp);
@@ -2285,8 +2281,7 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 	if (!lsp->area)
 		return;
 
-	struct list *circuit_list = lsp->area->circuit_list;
-	for (ALL_LIST_ELEMENTS_RO(circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &lsp->area->circuit_list, circuit) {
 		if (set) {
 			isis_tx_queue_add(circuit->tx_queue, lsp,
 					  TX_LSP_NORMAL);

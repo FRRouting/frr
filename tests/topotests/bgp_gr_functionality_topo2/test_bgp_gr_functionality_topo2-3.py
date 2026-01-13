@@ -73,6 +73,7 @@ import os
 import sys
 import time
 import pytest
+import json
 from time import sleep
 
 # Save the Current Working Directory to find configuration files.
@@ -84,6 +85,7 @@ sys.path.append(os.path.join("../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib import topotest
 
 # Required to instantiate the topology builder class.
 
@@ -115,6 +117,7 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,
 )
+import functools
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -957,6 +960,9 @@ def test_BGP_GR_15_p2(request):
     input_dict = {
         "r1": {
             "bgp": {
+                "graceful-restart": {
+                    "preserve-fw-state": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -972,7 +978,7 @@ def test_BGP_GR_15_p2(request):
                             }
                         }
                     },
-                }
+                },
             }
         },
         "r6": {
@@ -1023,6 +1029,9 @@ def test_BGP_GR_15_p2(request):
     input_dict = {
         "r1": {
             "bgp": {
+                "graceful-restart": {
+                    "preserve-fw-state": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -1038,7 +1047,7 @@ def test_BGP_GR_15_p2(request):
                             }
                         }
                     },
-                }
+                },
             }
         },
         "r2": {
@@ -1126,9 +1135,47 @@ def test_BGP_GR_15_p2(request):
     # Start BGPd daemon on R1
     start_router_daemons(tgen, "r1", ["bgpd"])
 
+    r1 = tgen.gears["r1"]
+
+    def _verify_v4_eor_rcvd():
+        for nbr in ["192.168.0.2", "192.168.3.2"]:
+            output = json.loads(
+                r1.vtysh_cmd("show ip bgp neighbor {} json".format(nbr))
+            )
+            expected = {
+                "{}".format(nbr): {
+                    "bgpState": "Established",
+                    "gracefulRestartInfo": {"endOfRibRecv": {"ipv4Unicast": True}},
+                }
+            }
+            result = topotest.json_cmp(output, expected)
+            if result is not None:
+                return result
+
+    def _verify_v6_eor_rcvd():
+        for nbr in ["fd00::2", "fd00:0:0:3::2"]:
+            output = json.loads(r1.vtysh_cmd("show bgp neighbor {} json".format(nbr)))
+            expected = {
+                "{}".format(nbr): {
+                    "bgpState": "Established",
+                    "gracefulRestartInfo": {"endOfRibRecv": {"ipv6Unicast": True}},
+                }
+            }
+            result = topotest.json_cmp(output, expected)
+            if result is not None:
+                return result
+
     for addr_type in ADDR_TYPES:
         result = verify_bgp_convergence(tgen, topo)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        logger.info("Check if eors are received")
+        if addr_type == "ipv4":
+            test_func = functools.partial(_verify_v4_eor_rcvd)
+        else:
+            test_func = functools.partial(_verify_v6_eor_rcvd)
+        _, result = topotest.run_and_expect(test_func, None, count=120, wait=1)
+        assert result is None, "EORs not received on R1 from helpers"
 
         # Verifying BGP RIB routes
         dut = "r6"

@@ -586,6 +586,8 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_TABLEID 0x800
 
+#define ZEBRA_FLAG_USE_RECURSIVE_WEIGHT 0x1000
+
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
 
@@ -597,13 +599,6 @@ struct zapi_route {
 
 	struct prefix prefix;
 	struct prefix_ipv6 src_prefix;
-
-	uint16_t nexthop_num;
-	struct zapi_nexthop nexthops[MULTIPATH_NUM];
-
-	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
-	uint16_t backup_nexthop_num;
-	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 
 	uint32_t nhgid;
 
@@ -621,6 +616,23 @@ struct zapi_route {
 
 	/* SR-TE color (used for nexthop updates only). */
 	uint32_t srte_color;
+
+	/*
+	 * Note well: this field marks the end of the part of the struct
+	 * that is memset to zero to initialize. We avoid memset of the entire
+	 * struct because that can be very expensive if we have a large ecmp
+	 * scale. We hand-init the counters associated with the large
+	 * embedded fields.
+	 * If you add an attribute before this one, it will be memset;
+	 * if you add a very large field, everyone will suffer.
+	 */
+
+	uint16_t nexthop_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 
 #define ZAPI_MESSAGE_OPAQUE_LENGTH 1024
 	struct {
@@ -931,19 +943,18 @@ extern struct zclient *zclient_new(struct event_loop *m,
 				   zclient_handler *const *handlers,
 				   size_t n_handlers);
 
-extern void zclient_init(struct zclient *, int, unsigned short,
+extern void zclient_init(struct zclient *zc, int redist_default, unsigned short instance,
 			 struct zebra_privs_t *privs);
-extern int zclient_start(struct zclient *);
-extern void zclient_stop(struct zclient *);
-extern void zclient_reset(struct zclient *);
-extern void zclient_free(struct zclient *);
+extern int zclient_start(struct zclient *zclient);
+extern void zclient_stop(struct zclient *zclient);
+extern void zclient_reset(struct zclient *zclient);
+extern void zclient_free(struct zclient *zclient);
 
-extern int zclient_socket_connect(struct zclient *);
+extern int zclient_socket_connect(struct zclient *zclient);
 
-extern unsigned short *redist_check_instance(struct redist_proto *,
-					     unsigned short);
-extern void redist_add_instance(struct redist_proto *, unsigned short);
-extern void redist_del_instance(struct redist_proto *, unsigned short);
+extern unsigned short *redist_check_instance(struct redist_proto *red, unsigned short instance);
+extern void redist_add_instance(struct redist_proto *red, unsigned short instance);
+extern void redist_del_instance(struct redist_proto *red, unsigned short instance);
 extern void redist_del_all_instances(struct redist_proto *red);
 
 extern struct redist_table_direct *
@@ -972,13 +983,14 @@ extern enum zclient_send_status
 zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 		       mpls_label_t label, enum lsp_types_t ltype);
 
-extern enum zclient_send_status
-zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
-		      vrf_id_t vrf_id, enum seg6local_action_t action,
-		      const struct seg6local_context *context);
+extern enum zclient_send_status zclient_send_localsid(struct zclient *zclient, uint8_t cmd,
+						      const struct in6_addr *sid,
+						      uint16_t prefixlen, ifindex_t oif,
+						      enum seg6local_action_t action,
+						      const struct seg6local_context *context);
 
-extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
-extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
+extern void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id);
+extern void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id);
 extern enum zclient_send_status
 zclient_send_router_id_update(struct zclient *zclient,
 			      zebra_message_types_t type, afi_t afi,
@@ -1006,12 +1018,12 @@ extern int zebra_route_notify_send(int command, struct zclient *zclient,
 				   bool set);
 
 /* If state has changed, update state and call zebra_redistribute_send. */
-extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,
+extern void zclient_redistribute(int command, struct zclient *zclient, afi_t afi, int type,
 				 unsigned short instance, vrf_id_t vrf_id);
 
 /* If state has changed, update state and send the command to zebra. */
-extern void zclient_redistribute_default(int command, struct zclient *,
-					 afi_t, vrf_id_t vrf_id);
+extern void zclient_redistribute_default(int command, struct zclient *zclient, afi_t afi,
+					 vrf_id_t vrf_id);
 
 /*
  * Send the message in zclient->obuf to the zebra daemon (or enqueue it).
@@ -1020,10 +1032,10 @@ extern void zclient_redistribute_default(int command, struct zclient *,
  *  0 data was successfully sent
  *  1 data was buffered for future usage
  */
-extern enum zclient_send_status zclient_send_message(struct zclient *);
+extern enum zclient_send_status zclient_send_message(struct zclient *zclient);
 
 /* create header for command, length to be filled in by user later */
-extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
+extern void zclient_create_header(struct stream *s, uint16_t command, vrf_id_t vrf_id);
 /*
  * Read sizeof(struct zmsghdr) bytes from the provided socket and parse the
  * received data into the specified fields. If this is successful, read the
@@ -1084,8 +1096,8 @@ extern enum zclient_send_status
 zclient_interface_set_master(struct zclient *client, struct interface *master,
 			     struct interface *slave);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
-extern struct connected *zebra_interface_address_read(int, struct stream *,
-						      vrf_id_t);
+extern struct connected *zebra_interface_address_read(int type, struct stream *s,
+						      vrf_id_t vrf_id);
 extern struct nbr_connected *
 zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
 extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
@@ -1093,8 +1105,7 @@ extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id,
 							  bool *changed);
-extern size_t zebra_interface_link_params_write(struct stream *,
-						struct interface *);
+extern size_t zebra_interface_link_params_write(struct stream *s, struct interface *ifp);
 extern enum zclient_send_status
 zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			     uint32_t chunk_size, uint32_t base);
@@ -1157,15 +1168,22 @@ extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
 				       struct zapi_pw_status *pw);
 
-extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
-						   struct zapi_route *);
+extern enum zclient_send_status zclient_route_send(uint8_t cmd, struct zclient *zclient,
+						   struct zapi_route *api);
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
 		 safi_t safi, bool connected, bool resolve_via_default,
 		 vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
-extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
+
+/* Init apis for the route and nexthop: these are more efficient than
+ * blind memset, so ... use them.
+ */
+void zapi_route_init(struct zapi_route *zr);
+void zapi_nexthop_init(struct zapi_nexthop *znh);
+
+extern int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api);
 extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
 extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			       uint32_t api_flags, uint32_t api_message);
@@ -1226,6 +1244,7 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)
 {
 	api->nexthop_num = 1;
+	zapi_nexthop_init(&api->nexthops[0]);
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
 	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
@@ -1390,6 +1409,8 @@ extern enum zclient_send_status zclient_send_hello(struct zclient *client);
 
 extern void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id,
 				   afi_t afi, bool reg);
+
+extern void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi);
 
 extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,

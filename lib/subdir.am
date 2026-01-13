@@ -49,8 +49,6 @@ lib_libfrr_la_SOURCES = \
 	lib/id_alloc.c \
 	lib/if.c \
 	lib/if_rmap.c \
-	lib/imsg-buffer.c \
-	lib/imsg.c \
 	lib/iso.c \
 	lib/jhash.c \
 	lib/json.c \
@@ -80,6 +78,7 @@ lib_libfrr_la_SOURCES = \
 	lib/module.c \
 	lib/mpls.c \
 	lib/srv6.c \
+	lib/netlink_parser.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
@@ -197,7 +196,7 @@ clippy_scan += \
 	lib/zlog_5424_cli.c \
 	# end
 
-pkginclude_HEADERS += \
+nobase_pkginclude_HEADERS += \
 	lib/admin_group.h \
 	lib/affinitymap.h \
 	lib/agg_table.h \
@@ -240,7 +239,6 @@ pkginclude_HEADERS += \
 	lib/id_alloc.h \
 	lib/if.h \
 	lib/if_rmap.h \
-	lib/imsg.h \
 	lib/ipaddr.h \
 	lib/iso.h \
 	lib/jhash.h \
@@ -268,6 +266,7 @@ pkginclude_HEADERS += \
 	lib/monotime.h \
 	lib/mpls.h \
 	lib/srv6.h \
+	lib/netlink_parser.h \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
@@ -337,7 +336,7 @@ pkginclude_HEADERS += \
 	# end
 
 
-nodist_pkginclude_HEADERS += \
+nobase_nodist_pkginclude_HEADERS += \
 	lib/route_types.h \
 	lib/version.h \
 	# end
@@ -382,7 +381,7 @@ lib_libfrrsnmp_la_SOURCES = \
 #
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
-pkginclude_HEADERS += lib/resolver.h
+nobase_pkginclude_HEADERS += lib/resolver.h
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
@@ -397,7 +396,7 @@ lib_libfrrcares_la_SOURCES = \
 #
 if ZEROMQ
 lib_LTLIBRARIES += lib/libfrrzmq.la
-pkginclude_HEADERS += lib/frr_zmq.h
+nobase_pkginclude_HEADERS += lib/frr_zmq.h
 endif
 
 lib_libfrrzmq_la_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)

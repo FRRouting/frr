@@ -20,6 +20,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <libgen.h>
+#include <string.h>
+#include <limits.h>
 
 #ifdef GNU_LINUX
 #include <stdint.h>
@@ -40,6 +43,7 @@
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 
 XREF_SETUP();
 
@@ -694,12 +698,14 @@ static int parse_nexthop_msg(struct nlmsghdr *hdr)
 				if (i > 0)
 					nexthop_buf[buf_pos++] = ',';
 
-				if (nhg[i].weight > 1)
+				if (nhg[i].weight > 1) {
+					uint16_t weight;
+
+					weight = nhg[i].weight_high << 8 | nhg[i].weight;
 					len_written = snprintf(nexthop_buf + buf_pos,
 							       sizeof(nexthop_buf) - buf_pos,
-							       " %u(w:%u)", nhg[i].id,
-							       nhg[i].weight);
-				else
+							       " %u(w:%u)", nhg[i].id, weight + 1);
+				} else
 					len_written = snprintf(nexthop_buf + buf_pos,
 							       sizeof(nexthop_buf) - buf_pos, " %u",
 							       nhg[i].id);
@@ -967,8 +973,11 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 				struct nexthop_grp *nhgrp =
 					(struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
 				for (size_t i = 0; i < nhg_count; i++) {
+					uint16_t weight;
+
 					existing->nexthops[i].id = nhgrp[i].id;
-					existing->nexthops[i].weight = nhgrp[i].weight;
+					weight = nhgrp[i].weight_high << 8 | nhgrp[i].weight;
+					existing->nexthops[i].weight = weight + 1;
 				}
 			}
 		} else {
@@ -1244,6 +1253,25 @@ int main(int argc, char **argv)
 
 		if (daemon)
 			exit(0);
+
+		/* Write PID file if dump_file is specified */
+		if (glob->dump_file) {
+			char *dump_file_copy = strdup(glob->dump_file);
+			char *dir = dirname(dump_file_copy);
+			char pid_file_path[PATH_MAX];
+			FILE *pid_file;
+
+			snprintf(pid_file_path, sizeof(pid_file_path), "%s/fpm_listener.pid", dir);
+			pid_file = fopen(pid_file_path, "w");
+			if (pid_file) {
+				fprintf(pid_file, "%d\n", getpid());
+				fclose(pid_file);
+			} else {
+				fprintf(stderr, "Warning: Failed to write PID file %s: %s\n",
+					pid_file_path, strerror(errno));
+			}
+			free(dump_file_copy);
+		}
 	}
 
 	if (!create_listen_sock(FPM_DEFAULT_PORT, &glob->server_sock))

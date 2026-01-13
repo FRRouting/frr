@@ -9,7 +9,6 @@
 
 #include <zebra.h>
 #include "prefix.h"
-#include "json.h"
 #include "vrf.h"
 
 #include <arpa/inet.h>
@@ -121,6 +120,7 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	ifindex_t ifindex;
 	struct seg6local_flavors_info flv;
 	uint8_t block_len;
 	uint8_t node_len;
@@ -149,6 +149,8 @@ struct srv6_locator {
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 #define SRV6_LOCATOR_PSP  (1 << 1) /* The SRv6 Locator has the PSP flavor */
+#define SRV6_LOCATOR_F3216 (1 << 2) /* The SRv6 Locator has F3216 format */
+#define SRV6_LOCATOR_F4816 (1 << 3) /* The SRv6 Locator has F4816 format */
 
 	/* Pointer to the SID format. */
 	struct srv6_sid_format *sid_format;
@@ -464,9 +466,12 @@ seg6local_action2str(uint32_t action);
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
-void seg6local_context2json(const struct seg6local_context *ctx,
-			    uint32_t action, json_object *json);
-void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json);
+
+struct json_object;
+
+void seg6local_context2json(const struct seg6local_context *ctx, uint32_t action,
+			    struct json_object *json);
+void srv6_sid_structure2json(const struct seg6local_context *ctx, struct json_object *json);
 
 static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 					   const struct srv6_sid_ctx *ctx)
@@ -528,10 +533,10 @@ extern void srv6_locator_chunk_list_free(void *data);
 extern void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk);
 extern void srv6_locator_copy(struct srv6_locator *copy,
 			      const struct srv6_locator *locator);
-json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
-json_object *srv6_locator_json(const struct srv6_locator *loc);
-json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
-json_object *
+struct json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
+struct json_object *srv6_locator_json(const struct srv6_locator *loc);
+struct json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
+struct json_object *
 srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
 
 extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);

@@ -22,7 +22,7 @@ extern "C" {
  */
 struct nh_grp {
 	uint32_t id;
-	uint8_t weight;
+	uint16_t weight;
 };
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
@@ -189,6 +189,9 @@ enum nhg_type {
 #define ZEBRA_OWNED(NHE) (NHE->type == ZEBRA_ROUTE_NHG)
 
 #define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
+
+/* Wrapper macro for zebra-specific usage */
+#define ZEBRA_NHG_IS_SINGLETON(NHE) NHG_IS_SINGLETON(&((NHE)->nhg))
 
 /*
  * Backup nexthops: this is a group object itself, so
@@ -406,6 +409,9 @@ extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
 extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
+
+/* Format NHG flags into a comma-separated string for display */
+extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

@@ -168,6 +168,7 @@ struct bfd_echo_pkt {
 #define BFD_DEMANDBIT 0x02
 #define BFD_MBIT	      0x01
 #define BFD_GETMBIT(flags)    (CHECK_FLAG(flags, BFD_MBIT))
+#define BFD_GETDEMANDBIT(flags) (CHECK_FLAG(flags, BFD_DEMANDBIT))
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
@@ -357,7 +358,9 @@ struct bfd_session {
 	struct event *echo_recvtimer_ev;
 	struct event *recvtimer_ev;
 	uint64_t xmt_TO;
+	uint64_t xmt_TO_actual; /* Actual transmit timeout with jitter applied */
 	uint64_t echo_xmt_TO;
+	uint64_t echo_xmt_TO_actual; /* Actual echo transmit timeout with jitter applied */
 	struct event *xmttimer_ev;
 	struct event *echo_xmttimer_ev;
 	uint64_t echo_detect_TO;
@@ -530,17 +533,6 @@ extern const struct bfd_diag_str_list diag_list[];
 extern const struct bfd_state_str_list state_list[];
 
 void socket_close(int *s);
-
-
-/*
- * logging - alias to zebra log
- */
-#define zlog_fatal(msg, ...)                                                   \
-	do {                                                                   \
-		zlog_err(msg, ##__VA_ARGS__);                                  \
-		assert(!msg);                                                  \
-		abort();                                                       \
-	} while (0)
 
 
 /*

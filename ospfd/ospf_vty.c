@@ -849,6 +849,12 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	vty = vl_config->vty;
 	area_id = vl_config->area_id;
 
+	if (!CHECK_FLAG(ospf->flags, OSPF_FLAG_ABR)) {
+		vty_out(vty,
+			"Configuring VLs on non-ABRs is not allowed\n");
+		return NULL;
+	}
+
 	if (area_id.s_addr == OSPF_AREA_BACKBONE) {
 		vty_out(vty,
 			"Configuring VLs over the backbone is not allowed\n");
@@ -3226,6 +3232,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 				    ospf->distance_all
 					    ? ospf->distance_all
 					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
+
+		json_object_boolean_add(json_vrf, "forwardingAddressSelf",
+					ospf->forwarding_address_self);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3248,6 +3257,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* show max multipath */
 		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		if (ospf->forwarding_address_self)
+			vty_out(vty, " Forwarding address is set to self for external LSAs\n");
 
 		/* show administrative distance */
 		vty_out(vty, " Administrative distance %u\n",
@@ -3696,9 +3708,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					       ospf_area_desc_string(oi->area));
 
 			if (OSPF_IF_PARAM(oi, mtu_ignore))
-				json_object_boolean_true_add(
-					json_interface_sub,
-					"mtuMismatchDetect");
+				json_object_boolean_false_add(json_interface_sub,
+							      "mtuMismatchDetect");
 
 			json_object_string_addf(json_interface_sub, "routerId",
 						"%pI4", &ospf->router_id);
@@ -6317,14 +6328,10 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa,
 	if (!json) {
 		if (IS_LSA_SELF(lsa))
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
-					? "(S-DNA)"
-					: "");
+				IS_LSA_AGE_DNA(lsa) ? "(S-DNA)" : "");
 		else
 			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
-				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
-					? "(DNA)"
-					: "");
+				IS_LSA_AGE_DNA(lsa) ? "(DNA)" : "");
 		vty_out(vty, "  Options: 0x%-2x : %s\n", lsa->data->options,
 			ospf_options_dump(lsa->data->options));
 		vty_out(vty, "  LS Flags: 0x%-2x %s\n", lsa->flags,
@@ -7697,8 +7704,10 @@ DEFUN (ip_ospf_authentication_key,
 		ospf_if_update_params(ifp, addr);
 	}
 
-	strlcpy((char *)params->auth_simple, argv[3]->arg,
-		sizeof(params->auth_simple));
+	if (!argv_find(argv, argc, "AUTH_KEY", &idx))
+		return CMD_WARNING;
+
+	strlcpy((char *)params->auth_simple, argv[idx]->arg, sizeof(params->auth_simple));
 	SET_IF_PARAM(params, auth_simple);
 
 	return CMD_SUCCESS;
@@ -9221,7 +9230,7 @@ DEFUN (ospf_redistribute_source,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_protocol = 1;
-	int source;
+	uint8_t source;
 	int type = -1;
 	int metric = -1;
 	struct ospf_redist *red;
@@ -9230,7 +9239,7 @@ DEFUN (ospf_redistribute_source,
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get metric value. */
@@ -9281,11 +9290,11 @@ DEFUN (no_ospf_redistribute_source,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_protocol = 2;
-	int source;
+	uint8_t source;
 	struct ospf_redist *red;
 
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf_redist_lookup(ospf, source, 0);
@@ -9300,10 +9309,11 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute <ospf|table> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
+       "redistribute <ospf|table|table-direct> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - Direct\n"
        "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
@@ -9316,7 +9326,7 @@ DEFUN (ospf_redistribute_instance_source,
 	int idx_ospf_table = 1;
 	int idx_number = 2;
 	int idx = 3;
-	int source;
+	uint8_t source;
 	int type = -1;
 	int metric = -1;
 	unsigned short instance;
@@ -9325,7 +9335,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
-	if (source < 0) {
+	if (source == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "Unknown instance redistribution\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -9376,11 +9386,12 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute <ospf|table> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
+       "no redistribute <ospf|table|table-direct> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - Direct\n"
        "Instance ID/Table Id\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
@@ -9394,12 +9405,9 @@ DEFUN (no_ospf_redistribute_instance_source,
 	int idx_number = 3;
 	unsigned int instance;
 	struct ospf_redist *red;
-	int source;
+	uint8_t source;
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		source = ZEBRA_ROUTE_OSPF;
-	else
-		source = ZEBRA_ROUTE_TABLE;
+	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -9434,13 +9442,13 @@ DEFUN (ospf_distribute_list_out,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_word = 1;
-	int source;
+	uint8_t source;
 
 	char *proto = argv[argc - 1]->text;
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, proto);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	return ospf_distribute_list_out_set(ospf, source, argv[idx_word]->arg);
@@ -9457,11 +9465,11 @@ DEFUN (no_ospf_distribute_list_out,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_word = 2;
-	int source;
+	uint8_t source;
 
 	char *proto = argv[argc - 1]->text;
 	source = proto_redistnum(AFI_IP, proto);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	return ospf_distribute_list_out_unset(ospf, source,
@@ -9601,6 +9609,22 @@ DEFUN (no_ospf_default_metric,
 	ospf->default_metric = -1;
 
 	ospf_schedule_asbr_redist_update(ospf);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (ospf_forwarding_address_self,
+       ospf_forwarding_address_self_cmd,
+       "[no$no] forwarding-address-self",
+        NO_STR
+       "Set forwarding address to self for external LSAs\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (no)
+		ospf->forwarding_address_self = false;
+	else
+		ospf->forwarding_address_self = true;
 
 	return CMD_SUCCESS;
 }
@@ -11761,18 +11785,19 @@ DEFUN (show_ip_ospf_vrfs,
 
 	return CMD_SUCCESS;
 }
-DEFPY (clear_ip_ospf_neighbor,
-       clear_ip_ospf_neighbor_cmd,
-       "clear ip ospf [(1-65535)]$instance neighbor [A.B.C.D$nbr_id]",
-       CLEAR_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Reset OSPF Neighbor\n"
-       "Neighbor ID\n")
+
+DEFPY(clear_ip_ospf_neighbor, clear_ip_ospf_neighbor_cmd,
+      "clear ip ospf [{(1-65535)$instance|vrf NAME$vrf_name}] neighbor [A.B.C.D$nbr_id]",
+      CLEAR_STR IP_STR
+      "OSPF information\n"
+      "Instance ID\n"
+      VRF_CMD_HELP_STR
+      "Reset OSPF Neighbor\n"
+      "Neighbor ID\n")
 {
 	struct listnode *node;
 	struct ospf *ospf = NULL;
+	struct vrf *vrf = NULL;
 
 	/* If user does not specify the arguments,
 	 * instance = 0 and nbr_id = 0.0.0.0
@@ -11783,8 +11808,25 @@ DEFPY (clear_ip_ospf_neighbor,
 			return CMD_NOT_MY_INSTANCE;
 	}
 
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (!vrf)
+			return CMD_WARNING;
+	}
+
 	/* Clear all the ospf processes */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (vrf && (ospf->vrf_id == vrf->vrf_id)) {
+			if (nbr_id_str && IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
+				vty_out(vty, "Self router-id is not allowed.\r\n ");
+				return CMD_SUCCESS;
+			}
+
+			if (ospf->oi_running)
+				ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
+			return CMD_SUCCESS;
+		}
+
 		if (!ospf->oi_running)
 			continue;
 
@@ -11799,17 +11841,17 @@ DEFPY (clear_ip_ospf_neighbor,
 	return CMD_SUCCESS;
 }
 
-DEFPY (clear_ip_ospf_process,
-       clear_ip_ospf_process_cmd,
-       "clear ip ospf [(1-65535)]$instance process",
-       CLEAR_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Reset OSPF Process\n")
+DEFPY(clear_ip_ospf_process, clear_ip_ospf_process_cmd,
+      "clear ip ospf [{(1-65535)$instance|vrf NAME$vrf_name}] process",
+      CLEAR_STR IP_STR
+      "OSPF information\n"
+      "Instance ID\n"
+      VRF_CMD_HELP_STR
+      "Reset OSPF Process\n")
 {
 	struct listnode *node;
 	struct ospf *ospf = NULL;
+	struct vrf *vrf = NULL;
 
 	/* Check if instance is not passed as an argument */
 	if (instance != 0) {
@@ -11818,8 +11860,20 @@ DEFPY (clear_ip_ospf_process,
 			return CMD_NOT_MY_INSTANCE;
 	}
 
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (!vrf)
+			return CMD_WARNING;
+	}
+
 	/* Clear all the ospf processes */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (vrf && (ospf->vrf_id == vrf->vrf_id)) {
+			if (ospf->oi_running)
+				ospf_process_reset(ospf);
+			return CMD_SUCCESS;
+		}
+
 		if (!ospf->oi_running)
 			continue;
 
@@ -12994,6 +13048,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
+	if (ospf->forwarding_address_self)
+		vty_out(vty, " forwarding-address-self\n");
+
 	/* proactive-arp print. */
 	if (ospf->proactive_arp != OSPF_PROACTIVE_ARP_DEFAULT) {
 		if (ospf->proactive_arp)
@@ -13254,6 +13311,8 @@ static void ospf_vty_zebra_init(void)
 
 	install_element(OSPF_NODE, &ospf_default_metric_cmd);
 	install_element(OSPF_NODE, &no_ospf_default_metric_cmd);
+
+	install_element(OSPF_NODE, &ospf_forwarding_address_self_cmd);
 
 	install_element(OSPF_NODE, &ospf_distance_cmd);
 	install_element(OSPF_NODE, &no_ospf_distance_cmd);

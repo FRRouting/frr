@@ -164,8 +164,8 @@ DECLARE_LIST(bmp_session, struct bmp, bsi);
 
 DECLARE_DLIST(bmp_qlist, struct bmp_queue_entry, bli);
 
-static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
-		const struct bmp_queue_entry *b)
+static int bmp_rbtree_cmp(const struct bmp_queue_entry *a,
+			  const struct bmp_queue_entry *b)
 {
 	int ret;
 	if (a->afi == AFI_L2VPN && a->safi == SAFI_EVPN && b->afi == AFI_L2VPN
@@ -197,28 +197,7 @@ static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 	return ret;
 }
 
-static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
-{
-	uint32_t key;
-
-	key = prefix_hash_key((void *)&e->p);
-	key = jhash(&e->peerid,
-		    offsetof(struct bmp_queue_entry, refcount)
-			    - offsetof(struct bmp_queue_entry, peerid),
-		    key);
-	if ((e->afi == AFI_L2VPN && e->safi == SAFI_EVPN) ||
-	    (e->safi == SAFI_MPLS_VPN))
-		key = jhash(&e->rd,
-			    offsetof(struct bmp_queue_entry, rd)
-				    - offsetof(struct bmp_queue_entry, refcount)
-				    + PSIZE(e->rd.prefixlen),
-			    key);
-
-	return key;
-}
-
-DECLARE_HASH(bmp_qhash, struct bmp_queue_entry, bhi,
-		bmp_qhash_cmp, bmp_qhash_hkey);
+DECLARE_RBTREE_UNIQ(bmp_rbtree, struct bmp_queue_entry, bhi, bmp_rbtree_cmp);
 
 static int bmp_active_cmp(const struct bmp_active *a,
 		const struct bmp_active *b)
@@ -1139,7 +1118,7 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
-					      NULL, NULL, 0, 0, 0, NULL);
+					      NULL, NULL, 0, 0, 0, 0, NULL);
 
 	/* space check? */
 
@@ -1545,7 +1524,7 @@ afibreak:
 }
 
 static struct bmp_queue_entry *
-bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_qhash_head *hash,
+bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_rbtree_head *hash,
 		    struct bmp_queue_entry **queuepos_ptr)
 {
 	struct bmp_queue_entry *bqe;
@@ -1558,7 +1537,7 @@ bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_qhash_head *hash,
 
 	bqe->refcount--;
 	if (!bqe->refcount) {
-		bmp_qhash_del(hash, bqe);
+		bmp_rbtree_del(hash, bqe);
 		bmp_qlist_del(list, bqe);
 	}
 	return bqe;
@@ -1663,6 +1642,9 @@ out:
 	if (bn)
 		bgp_dest_unlock_node(bn);
 
+	if (!written && bmp->locrib_queuepos)
+		pullwr_bump(bmp->pullwr);
+
 	return written;
 }
 
@@ -1756,6 +1738,9 @@ out:
 	if (bn)
 		bgp_dest_unlock_node(bn);
 
+	if (!written && bmp->queuepos)
+		pullwr_bump(bmp->pullwr);
+
 	return written;
 }
 
@@ -1799,7 +1784,7 @@ static void bmp_wrerr(struct bmp *bmp, struct pullwr *pullwr, bool eof)
 }
 
 static struct bmp_queue_entry *
-bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
+bmp_process_one(struct bmp_targets *bt, struct bmp_rbtree_head *updhash,
 		struct bmp_qlist_head *updlist, struct bgp *bgp, afi_t afi,
 		safi_t safi, struct bgp_dest *bn, struct peer *peer)
 {
@@ -1821,7 +1806,7 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
 		prefix_copy(&bqeref.rd,
 			    (struct prefix_rd *)bgp_dest_get_prefix(bn->pdest));
 
-	bqe = bmp_qhash_find(updhash, &bqeref);
+	bqe = bmp_rbtree_find(updhash, &bqeref);
 	if (bqe) {
 		if (bqe->refcount >= refcount)
 			/* nothing to do here */
@@ -1832,7 +1817,7 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
 		bqe = XMALLOC(MTYPE_BMP_QUEUE, sizeof(*bqe));
 		memcpy(bqe, &bqeref, sizeof(*bqe));
 
-		bmp_qhash_add(updhash, bqe);
+		bmp_rbtree_add(updhash, bqe);
 	}
 
 	bqe->refcount = refcount;
@@ -1976,9 +1961,9 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	bmp_send_all(bt->bmpbgp, s);
 }
 
-static void bmp_stats(struct event *thread)
+static void bmp_stats(struct event *event)
 {
-	struct bmp_targets *bt = EVENT_ARG(thread);
+	struct bmp_targets *bt = EVENT_ARG(event);
 	struct bmp_imported_bgp *bib;
 	struct bgp *bgp;
 
@@ -2114,10 +2099,10 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 }
 
 /* Accept BMP connection. */
-static void bmp_accept(struct event *thread)
+static void bmp_accept(struct event *event)
 {
 	union sockunion su;
-	struct bmp_listener *bl = EVENT_ARG(thread);
+	struct bmp_listener *bl = EVENT_ARG(event);
 	int bmp_sock;
 
 	/* We continue hearing BMP socket. */
@@ -2230,7 +2215,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	else
 		local_as = peer->local_as;
 
-	s = bgp_open_make(peer, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer, peer->connection, send_holdtime, local_as, &peer->local_id);
 	open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
@@ -2242,7 +2227,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	stream_free(s);
 
 	/* rfc9069#section-5.2 : Received OPEN Message: Repeat of the same sent OPEN message */
-	s = bgp_open_make(peer, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer, peer->connection, send_holdtime, local_as, &peer->local_id);
 	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)
@@ -2289,7 +2274,6 @@ bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
 			if (bbpeer) {
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 				bmp_peerh_del(&bmp_peerh, bbpeer);
 				XFREE(MTYPE_BMP_PEER, bbpeer);
 			}
@@ -2349,9 +2333,9 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	FOREACH_AFI_SAFI (afi, safi)
 		bt->bgp_request_sync[afi][safi] = false;
 	bmp_session_init(&bt->sessions);
-	bmp_qhash_init(&bt->updhash);
+	bmp_rbtree_init(&bt->updhash);
 	bmp_qlist_init(&bt->updlist);
-	bmp_qhash_init(&bt->locupdhash);
+	bmp_rbtree_init(&bt->locupdhash);
 	bmp_qlist_init(&bt->locupdlist);
 	bmp_actives_init(&bt->actives);
 	bmp_listeners_init(&bt->listeners);
@@ -2394,9 +2378,9 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	bmp_imported_bgps_fini(&bt->imported_bgps);
 	bmp_listeners_fini(&bt->listeners);
 	bmp_actives_fini(&bt->actives);
-	bmp_qhash_fini(&bt->updhash);
+	bmp_rbtree_fini(&bt->updhash);
 	bmp_qlist_fini(&bt->updlist);
-	bmp_qhash_fini(&bt->locupdhash);
+	bmp_rbtree_fini(&bt->locupdhash);
 	bmp_qlist_fini(&bt->locupdlist);
 
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl_name);
@@ -3297,7 +3281,6 @@ DEFPY(show_bmp,
 					       state_str,
 					       ba->last_err ? ba->last_err : "",
 					       uptime, &ba->addrsrc);
-				continue;
 			}
 			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);

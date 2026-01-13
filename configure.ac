@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [10.5-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [10.6-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -202,6 +202,13 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 	moduledir="\${libdir}/frr/modules"
 ])
 AC_SUBST([moduledir], [$moduledir])
+
+AC_ARG_WITH([pkgconfigdir], [AS_HELP_STRING([--with-pkgconfigdir=DIR], [pkg-config directory (${libdir}/pkgconfig)])], [
+	pkgconfigdir="$withval"
+], [
+	pkgconfigdir="\${libdir}/pkgconfig"
+])
+AC_SUBST([pkgconfigdir], [$pkgconfigdir])
 
 AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
 	scriptdir="$withval"
@@ -469,6 +476,7 @@ AC_C_FLAG([-Wundef])
 AC_C_FLAG([-Wimplicit-fallthrough])
 AC_C_FLAG([-Wshadow])
 AC_C_FLAG([-Wmissing-noreturn])
+AC_C_FLAG([-Wformat-extra-args])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wmissing-format-attribute])
@@ -482,6 +490,7 @@ AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
 AC_C_FLAG([-Wno-microsoft-anon-tag])
 AC_C_FLAG([-Wno-error=deprecated-declarations])
+AC_C_FLAG([-Waddress-of-packed-member])
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
@@ -892,6 +901,24 @@ AC_ARG_ENABLE([version_build_config],
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
+##
+## gperftools tcmalloc version, more complete than "minimal"
+##
+AC_ARG_ENABLE(gperf-tcmalloc,
+	AS_HELP_STRING([--enable-gperf-tcmalloc], [Use gperftools tcmalloc]),
+[case "${enableval}" in
+  yes)
+  AC_MSG_CHECKING([for gperftools tcmalloc])
+  AC_CHECK_LIB([tcmalloc], [MallocExtension_ReleaseToSystem], [
+gperf_tcmalloc_enabled=true
+LIBS="$LIBS -ltcmalloc"
+AC_DEFINE([HAVE_TCMALLOC], [1], [Enable tcmalloc])
+  ], [AC_MSG_ERROR([tcmalloc specified but libtcmalloc not found, or missing apis])])
+ ;;
+  no)  gperf_tcmalloc_enabled=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-gperf-tcmalloc]) ;;
+esac],[gperf_tcmalloc_enabled=false])
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -1055,6 +1082,7 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
+AC_SUBST([MULTIPATH_NUM], [$MPATH_NUM])
 
 case "${with_log_timestamp_precision}" in
 [[0-9]|1[012]])
@@ -1066,11 +1094,6 @@ AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
 ;;
 esac
 with_log_timestamp_precision=${with_log_timestamp_precision:-0}
-if test "${with_log_timestamp_precision}" != 0; then
-AC_SUBST([LOG_TIMESTAMP_PRECISION_CLI], ["
-log timestamp precision ${with_log_timestamp_precision}"])
-AM_SUBST_NOTMAKE([LOG_TIMESTAMP_PRECISION_CLI])
-fi
 AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
@@ -1367,6 +1390,7 @@ dnl ---------------
 AC_CHECK_FUNCS([ \
 	strlcat strlcpy \
 	getgrouplist \
+	getloadavg \
 	openat \
 	unlinkat \
 	posix_fallocate \
@@ -1382,21 +1406,33 @@ dnl yes this might include stddef.h 3 times but who cares
 AH_VERBATIM(HAVE_STRLCAT_, [
 #ifndef HAVE_STRLCAT
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcat(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_STRLCPY_, [
 #ifndef HAVE_STRLCPY
 #include <stddef.h>
+#ifndef __cplusplus
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcpy(char *dest, const char *src, size_t destsize);
+#endif
 #endif
 ])
 AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
 #ifndef HAVE_EXPLICIT_BZERO
 #include <stddef.h>
+#ifndef __cplusplus
 void explicit_bzero(void *buf, size_t len);
+#else
+extern "C" void explicit_bzero(void *buf, size_t len);
+#endif
 #endif
 ])
 
@@ -1574,6 +1610,17 @@ AC_CHECK_FUNCS([ppoll], [
 AC_CHECK_FUNCS([pollts], [
   AC_DEFINE([HAVE_POLLTS], [1], [have NetBSD pollts()])
 ])
+
+AC_CHECK_FUNC([epoll_pwait], [AC_DEFINE([HAVE_EPOLL_PWAIT], [1],
+			     [Define if you have epoll_pwait])])
+# Define USE_EPOLL if any of the above is found
+AC_MSG_CHECKING([for epoll API support])
+if test "x$ac_cv_func_epoll_pwait" = "xyes" ; then
+    AC_DEFINE([USE_EPOLL], [1], [Define if any epoll API is supported])
+    AC_MSG_RESULT([yes])
+else
+    AC_MSG_RESULT([no])
+fi
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -2039,6 +2086,20 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+LIBYANG_MAJOR=$(pkg-config --modversion libyang | cut -f1 -d.)
+if test "$LIBYANG_MAJOR" -ge 4; then
+  dnl NOTE: binary encoding (LYD_LYB) is no longer supported in v4,
+  dnl so v3 may be more efficient for certain use cases
+  AC_MSG_WARN([m4_normalize([
+    Libyang v4 is supported; however libyang v3 use is still suggested. Libyang
+    v4 has changed its binary encoding (LYD_LYB) format to a very restricted
+    subset of users which does not include FRR. This mean FRR will always use
+    JSON or XML even when passing intermediate results internally.
+    ])
+  ])
+fi
+
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -2087,7 +2148,6 @@ dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
   AC_LANG_PUSH([C++])
-  AX_CXX_COMPILE_STDCXX([11], [ext])
   PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
     if test "$PROTOC" = "/bin/false"; then
@@ -2698,6 +2758,7 @@ AX_SUBST_EXPANDED([frr_sysconfdir])
 AX_SUBST_EXPANDED([frr_runstatedir])
 AX_SUBST_EXPANDED([frr_libstatedir])
 AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([pkgconfigdir])
 AX_SUBST_EXPANDED([yangmodelsdir])
 AX_SUBST_EXPANDED([scriptdir])
 
@@ -2793,6 +2854,7 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+AC_CONFIG_FILES([tools/frr.pc])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
@@ -2873,6 +2935,7 @@ local state file dir    : ${e_frr_libstatedir}
 run state file dir      : ${e_frr_runstatedir}
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
+pkgconfig directory     : ${e_pkgconfigdir}
 script directory        : ${e_scriptdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}

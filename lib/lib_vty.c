@@ -34,12 +34,26 @@
 #if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
 static int show_memory_mallinfo(struct vty *vty)
 {
+	char buf[MTYPE_MEMSTR_LEN];
 #if defined(HAVE_MALLINFO2)
 	struct mallinfo2 minfo = mallinfo2();
 #elif defined(HAVE_MALLINFO)
 	struct mallinfo minfo = mallinfo();
+
+	/* If any 'int' values have rolled over, coerce them back */
+	if (minfo.arena < 0)
+		minfo.arena = 0x7fffffff;
+	if (minfo.hblkhd < 0)
+		minfo.hblkhd = 0x7fffffff;
+	if (minfo.usmblks < 0)
+		minfo.usmblks = 0x7fffffff;
+	if (minfo.uordblks < 0)
+		minfo.uordblks = 0x7fffffff;
+	if (minfo.fsmblks < 0)
+		minfo.fsmblks = 0x7fffffff;
+	if (minfo.fordblks < 0)
+		minfo.fordblks = 0x7fffffff;
 #endif
-	char buf[MTYPE_MEMSTR_LEN];
 
 	vty_out(vty, "System allocator statistics:\n");
 	vty_out(vty, "  Total heap allocated:  %s\n",
@@ -207,8 +221,8 @@ DEFUN (frr_version,
 static struct call_back {
 	time_t readin_time;
 
-	void (*start_config)(void);
-	void (*end_config)(void);
+	void (*start_config)(struct vty *vty);
+	void (*end_config)(struct vty *vty);
 } callback;
 
 
@@ -220,7 +234,7 @@ DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 	vty->pending_allowed = 1;
 
 	if (callback.start_config)
-		(*callback.start_config)();
+		(*callback.start_config)(vty);
 
 	return CMD_SUCCESS;
 }
@@ -238,6 +252,7 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	frrtime_to_interval(readin_time, readin_time_str,
 			    sizeof(readin_time_str));
 
+	/* This is also getting cleared in the config node exit */
 	vty->pending_allowed = 0;
 	ret = nb_cli_pending_commit_check(vty);
 
@@ -245,23 +260,14 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,
 		   (uint32_t)vty->mgmt_num_pending_setcfg);
 
-	/*
-	 * If (and only if) we have sent any CLI config commands to MGMTd
-	 * FE interface using vty_mgmt_send_config_data() without implicit
-	 * commit before, should we need to send an explicit COMMIT-REQ now
-	 * to apply all those commands at once.
-	 */
-	if (vty->mgmt_num_pending_setcfg && vty_mgmt_fe_enabled())
-		vty_mgmt_send_commit_config(vty, false, false, false);
-
 	if (callback.end_config)
-		(*callback.end_config)();
+		(*callback.end_config)(vty);
 
 	return ret;
 }
 
-void cmd_init_config_callbacks(void (*start_config_cb)(void),
-			       void (*end_config_cb)(void))
+void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
+			       void (*end_config_cb)(struct vty *vty))
 {
 	callback.start_config = start_config_cb;
 	callback.end_config = end_config_cb;
@@ -305,7 +311,7 @@ void lib_cmd_init(void)
  */
 const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 {
-	unsigned int m, k;
+	unsigned int g, m, k;
 
 	/* easy cases */
 	if (!bytes)
@@ -313,20 +319,15 @@ const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 	if (bytes == 1)
 		return "1 byte";
 
-	/*
-	 * When we pass the 2gb barrier mallinfo() can no longer report
-	 * correct data so it just does something odd...
-	 * Reporting like Terrabytes of data.  Which makes users...
-	 * edgy.. yes edgy that's the term for it.
-	 * So let's just give up gracefully
-	 */
-	if (bytes > 0x7fffffff)
-		return "> 2GB";
-
+	g = bytes >> 30;
 	m = bytes >> 20;
 	k = bytes >> 10;
 
-	if (m > 10) {
+	if (g > 10) {
+		if (bytes & (1 << 29))
+			g++;
+		snprintf(buf, len, "%d GB", g);
+	} else if (m > 10) {
 		if (bytes & (1 << 19))
 			m++;
 		snprintf(buf, len, "%d MiB", m);

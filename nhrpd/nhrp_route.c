@@ -98,7 +98,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 	if (nhrp_zclient->sock < 0)
 		return;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.type = ZEBRA_ROUTE_NHRP;
 	api.safi = SAFI_UNICAST;
 	api.vrf_id = VRF_DEFAULT;
@@ -136,6 +136,8 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = 1;
 	api_nh = &api.nexthops[0];
+	zapi_nexthop_init(api_nh);
+
 	api_nh->vrf_id = VRF_DEFAULT;
 
 	switch (api.prefix.family) {

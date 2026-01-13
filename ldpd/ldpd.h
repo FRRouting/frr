@@ -484,6 +484,8 @@ DECLARE_QOBJ_TYPE(l2vpn_pw);
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
 #define F_PW_CWORD		0x08	/* control word negotiated */
 #define F_PW_STATIC_NBR_ADDR	0x10	/* static neighbor address configured */
+#define F_PW_SEND_REMOTE	0x20	/* send pw message to remote */
+
 
 #define F_PW_NO_ERR             0x00	/* no error reported */
 #define F_PW_LOCAL_NOT_FWD      0x01	/* locally can't forward over PW */
@@ -744,68 +746,62 @@ extern struct ldpd_init ldp_init;
 
 /* parse.y */
 struct ldpd_conf	*parse_config(char *);
-int			 cmdline_symset(char *);
+int cmdline_symset(char *s);
 
 /* kroute.c */
-void		 pw2zpw(struct l2vpn_pw *, struct zapi_pw *);
-void		 kif_redistribute(const char *);
-int		 kr_change(struct kroute *);
-int		 kr_delete(struct kroute *);
-int		 kmpw_add(struct zapi_pw *);
-int		 kmpw_del(struct zapi_pw *);
-int		 kmpw_set(struct zapi_pw *);
-int		 kmpw_unset(struct zapi_pw *);
+void pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw);
+void kif_redistribute(const char *ifname);
+int kr_change(struct kroute *kr);
+int kr_delete(struct kroute *kr);
+int kmpw_add(struct zapi_pw *zpw);
+int kmpw_del(struct zapi_pw *zpw);
+int kmpw_set(struct zapi_pw *zpw);
+int kmpw_unset(struct zapi_pw *zpw);
 
 /* util.c */
-uint8_t		 mask2prefixlen(in_addr_t);
-uint8_t		 mask2prefixlen6(struct sockaddr_in6 *);
-in_addr_t	 prefixlen2mask(uint8_t);
+uint8_t mask2prefixlen(in_addr_t ina);
+uint8_t mask2prefixlen6(struct sockaddr_in6 *sa_in6);
+in_addr_t prefixlen2mask(uint8_t prefixlen);
 struct in6_addr	*prefixlen2mask6(uint8_t);
-void		 ldp_applymask(int, union ldpd_addr *,
-		    const union ldpd_addr *, int);
-int		 ldp_addrcmp(int, const union ldpd_addr *,
-		    const union ldpd_addr *);
-int		 ldp_addrisset(int, const union ldpd_addr *);
-int		 ldp_prefixcmp(int, const union ldpd_addr *,
-		    const union ldpd_addr *, uint8_t);
-int		 bad_addr_v4(struct in_addr);
-int		 bad_addr_v6(struct in6_addr *);
-int		 bad_addr(int, union ldpd_addr *);
-void		 embedscope(struct sockaddr_in6 *);
-void		 recoverscope(struct sockaddr_in6 *);
-void		 addscope(struct sockaddr_in6 *, uint32_t);
-void		 clearscope(struct in6_addr *);
-void		 addr2sa(int af, const union ldpd_addr *, uint16_t,
-		    union sockunion *su);
-void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
-		    in_port_t *);
-socklen_t	 sockaddr_len(struct sockaddr *);
+void ldp_applymask(int af, union ldpd_addr *dest, const union ldpd_addr *src, int prefixlen);
+int ldp_addrcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b);
+int ldp_addrisset(int af, const union ldpd_addr *addr);
+int ldp_prefixcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b, uint8_t prefixlen);
+int bad_addr_v4(struct in_addr addr);
+int bad_addr_v6(struct in6_addr *addr);
+int bad_addr(int af, union ldpd_addr *addr);
+void embedscope(struct sockaddr_in6 *sin6);
+void recoverscope(struct sockaddr_in6 *sin6);
+void addscope(struct sockaddr_in6 *sin6, uint32_t id);
+void clearscope(struct in6_addr *in6);
+void addr2sa(int af, const union ldpd_addr *addr, uint16_t port, union sockunion *su);
+void sa2addr(struct sockaddr *sa, int *af, union ldpd_addr *addr, in_port_t *port);
+socklen_t sockaddr_len(struct sockaddr *sa);
 
 /* ldpd.c */
-void ldp_write_handler(struct event *thread);
-void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
-void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
-int			 main_imsg_compose_both(enum imsg_type, void *,
-			    uint16_t);
-void			 imsg_event_add(struct imsgev *);
-int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
-			    pid_t, int, void *, uint16_t);
-void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
-void			 evbuf_event_add(struct evbuf *);
-void evbuf_init(struct evbuf *, int, void (*)(struct event *), void *);
-void			 evbuf_clear(struct evbuf *);
-int			 ldp_acl_request(struct imsgev *, char *, int,
-			    union ldpd_addr *, uint8_t);
-void			 ldp_acl_reply(struct imsgev *, struct acl_check *);
+void ldp_write_handler(struct event *event);
+void main_imsg_compose_ldpe(int type, pid_t pid, void *data, uint16_t datalen);
+void main_imsg_compose_lde(int type, pid_t pid, void *data, uint16_t datalen);
+int main_imsg_compose_both(enum imsg_type type, void *buf, uint16_t len);
+void imsg_event_add(struct imsgev *iev);
+int imsg_compose_event(struct imsgev *iev, uint16_t type, uint32_t peerid, pid_t pid, int fd,
+		       void *data, uint16_t datalen);
+void evbuf_enqueue(struct evbuf *eb, struct ibuf *buf);
+void evbuf_event_add(struct evbuf *eb);
+void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct event *), void *arg);
+void evbuf_clear(struct evbuf *eb);
+int ldp_acl_request(struct imsgev *iev, char *acl_name, int af, union ldpd_addr *addr,
+		    uint8_t prefixlen);
+void ldp_acl_reply(struct imsgev *iev, struct acl_check *acl_check);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
 struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
-int			 ldp_is_dual_stack(struct ldpd_conf *);
-in_addr_t		 ldp_rtr_id_get(struct ldpd_conf *);
-int			 ldp_config_apply(struct vty *, struct ldpd_conf *);
-void			 ldp_clear_config(struct ldpd_conf *);
-void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
+int ldp_is_dual_stack(struct ldpd_conf *xconf);
+in_addr_t ldp_rtr_id_get(struct ldpd_conf *xconf);
+int ldp_config_apply(struct vty *vty, struct ldpd_conf *xconf);
+void ldp_clear_config(struct ldpd_conf *xconf);
+void merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf);
 struct ldpd_conf	*config_new_empty(void);
-void			 config_clear(struct ldpd_conf *);
+void config_clear(struct ldpd_conf *conf);
 
 /* ldp_vty_conf.c */
 /* NOTE: the parameters' names should be preserved because of codegen */
@@ -833,29 +829,29 @@ void			 l2vpn_pw_del_api(struct l2vpn *l2vpn,
 			    struct l2vpn_pw *pw);
 
 /* socket.c */
-int		 ldp_create_socket(int, enum socket_type);
-void		 sock_set_nonblock(int);
-void		 sock_set_cloexec(int);
-void		 sock_set_recvbuf(int);
-int		 sock_set_reuse(int, int);
-int		 sock_set_bindany(int, int);
-int		 sock_set_md5sig(int, int, union ldpd_addr *, const char *);
-int		 sock_set_ipv4_tos(int, int);
-int		 sock_set_ipv4_pktinfo(int, int);
+int ldp_create_socket(int af, enum socket_type type);
+void sock_set_nonblock(int fd);
+void sock_set_cloexec(int fd);
+void sock_set_recvbuf(int fd);
+int sock_set_reuse(int fd, int enable);
+int sock_set_bindany(int fd, int enable);
+int sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password);
+int sock_set_ipv4_tos(int fd, int tos);
+int sock_set_ipv4_pktinfo(int fd, int enable);
 int		 sock_set_ipv4_recvdstaddr(int fd, ifindex_t ifindex);
-int		 sock_set_ipv4_recvif(int, int);
-int		 sock_set_ipv4_minttl(int, int);
-int		 sock_set_ipv4_ucast_ttl(int fd, int);
-int		 sock_set_ipv4_mcast_ttl(int, uint8_t);
-int		 sock_set_ipv4_mcast(struct iface *);
-int		 sock_set_ipv4_mcast_loop(int);
-int		 sock_set_ipv6_dscp(int, int);
-int		 sock_set_ipv6_pktinfo(int, int);
-int		 sock_set_ipv6_minhopcount(int, int);
-int		 sock_set_ipv6_ucast_hops(int, int);
-int		 sock_set_ipv6_mcast_hops(int, int);
-int		 sock_set_ipv6_mcast(struct iface *);
-int		 sock_set_ipv6_mcast_loop(int);
+int sock_set_ipv4_recvif(int fd, int enable);
+int sock_set_ipv4_minttl(int fd, int ttl);
+int sock_set_ipv4_ucast_ttl(int fd, int ttl);
+int sock_set_ipv4_mcast_ttl(int fd, uint8_t ttl);
+int sock_set_ipv4_mcast(struct iface *iface);
+int sock_set_ipv4_mcast_loop(int fd);
+int sock_set_ipv6_dscp(int fd, int dscp);
+int sock_set_ipv6_pktinfo(int fd, int enable);
+int sock_set_ipv6_minhopcount(int fd, int hoplimit);
+int sock_set_ipv6_ucast_hops(int fd, int hoplimit);
+int sock_set_ipv6_mcast_hops(int fd, int hoplimit);
+int sock_set_ipv6_mcast(struct iface *iface);
+int sock_set_ipv6_mcast_loop(int fd);
 
 /* logmsg.h */
 struct in6_addr;
@@ -890,7 +886,7 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 /* ldp_zebra.c */
 void ldp_zebra_init(struct event_loop *m);
 void		 ldp_zebra_destroy(void);
-int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
+int ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state);
 int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
 		    rlfa_labels);
 

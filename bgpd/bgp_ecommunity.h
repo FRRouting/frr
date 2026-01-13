@@ -361,20 +361,21 @@ static inline void encode_color(uint32_t color_id, uint32_t flags, struct ecommu
 
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
-extern void ecommunity_free(struct ecommunity **);
-extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short,
+extern void ecommunity_free(struct ecommunity **ecom);
+extern struct ecommunity *ecommunity_parse(uint8_t *pnt, unsigned short length,
 					   bool disable_ieee_floating);
 extern struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt,
 						unsigned short length);
 extern struct ecommunity *ecommunity_dup(struct ecommunity *);
-extern struct ecommunity *ecommunity_merge(struct ecommunity *,
-					   struct ecommunity *);
+extern struct ecommunity *ecommunity_merge(struct ecommunity *ecom1,
+					   struct ecommunity *ecom2);
 extern struct ecommunity *ecommunity_uniq_sort(struct ecommunity *);
 extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **ecommunity);
-extern unsigned int ecommunity_hash_make(const void *);
-extern struct ecommunity *ecommunity_str2com(const char *, int, int);
+extern unsigned int ecommunity_hash_make(const void *arg);
+extern struct ecommunity *ecommunity_str2com(const char *str, int type,
+					     int keyword_included);
 extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter);
@@ -383,11 +384,10 @@ extern bool ecommunity_has_route_target(struct ecommunity *ecom);
 extern void ecommunity_strfree(char **s);
 extern bool ecommunity_include_one(struct ecommunity *ecom, uint8_t *ptr);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
-extern bool ecommunity_match(const struct ecommunity *,
-			     const struct ecommunity *);
+extern bool ecommunity_match(const struct ecommunity *ecom1, const struct ecommunity *ecom2);
 extern const char *ecommunity_str(struct ecommunity *ecom);
-extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
-						uint8_t, uint8_t);
+extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
+						uint8_t type, uint8_t subtype);
 
 extern uint32_t ecommunity_select_color(const struct ecommunity *ecom);
 extern bool ecommunity_add_val(struct ecommunity *ecom,

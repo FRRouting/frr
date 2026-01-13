@@ -27,6 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.staticd]
 
@@ -40,7 +41,7 @@ def open_json_file(filename):
 
 
 def setup_module(mod):
-    tgen = Topogen({None: "r1"}, mod.__name__)
+    tgen = Topogen({"s1": ("r1", "r2")}, mod.__name__)
     tgen.start_topology()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
@@ -308,6 +309,9 @@ def test_srv6_static_sids_sid_readd_all():
             sid fcbb:bbbb:1:fe20::/64 locator MAIN behavior uDT6 vrf Vrf20
             sid fcbb:bbbb:1:fe30::/64 locator MAIN behavior uDT46 vrf Vrf30
             sid fcbb:bbbb:1:fe40::/64 locator MAIN behavior uA interface sr0 nexthop 2001::2
+            sid fcbb:bbbb:1:fe60::/64 locator MAIN behavior uDT4 vrf default
+            sid fcbb:bbbb:1:fe70::/64 locator MAIN behavior uDT6 vrf default
+            sid fcbb:bbbb:1:fe80::/64 locator MAIN behavior uDT46 vrf default
         """
     )
 
@@ -391,6 +395,9 @@ def test_srv6_static_sids_srv6_reenable():
             sid fcbb:bbbb:1:fe20::/64 locator MAIN behavior uDT6 vrf Vrf20
             sid fcbb:bbbb:1:fe30::/64 locator MAIN behavior uDT46 vrf Vrf30
             sid fcbb:bbbb:1:fe40::/64 locator MAIN behavior uA interface sr0 nexthop 2001::2
+            sid fcbb:bbbb:1:fe60::/64 locator MAIN behavior uDT4 vrf default
+            sid fcbb:bbbb:1:fe70::/64 locator MAIN behavior uDT6 vrf default
+            sid fcbb:bbbb:1:fe80::/64 locator MAIN behavior uDT46 vrf default
         """
     )
 
@@ -440,6 +447,223 @@ def test_srv6_static_sids_interface_down_up():
 
     # Verify routes are restored
     logger.info("Verifying routes are restored")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+def test_srv6_static_sids_overlapping_locators():
+    """
+    Test SRv6 SID allocation with overlapping locators.
+
+    This test creates a secondary locator with overlapping prefix:
+    - MAIN: fcbb:bbbb:1::/48 (already configured)
+    - LOC2: fcbb:bbbb:1:1::/64 (more specific prefix within MAIN)
+
+    When allocating an explicit SID fcbb:bbbb:1:1:fe00::/80 with locator LOC2,
+    the SID Manager should respect the specified locator and not allocate
+    from MAIN even though MAIN also matches the SID prefix.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Add LOC2 locator with overlapping prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator LOC2
+             prefix fcbb:bbbb:1:1::/64
+             format usid-f4816
+            !
+           !
+        """
+    )
+
+    # Add a SID that could potentially match both locators, but explicitly specify LOC2
+    # The SID Manager should allocate the SID from LOC2 (the specified locator)
+    # and not from MAIN, even though MAIN also matches the SID prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:1:1:fe00::/80 locator LOC2 behavior uDT46 vrf Vrf10
+        """
+    )
+
+    # Verify the SID is correctly allocated from the LOC2 locator
+    logger.info("Test for SRv6 SID allocation with overlapping locators")
+    check_srv6_static_sids(router, "expected_srv6_sids_overlapping_locators.json")
+
+    # Clean up
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bbbb:1:1:fe00::/80 locator LOC2 behavior uDT46 vrf Vrf10
+           !
+           locators
+            no locator LOC2
+           !
+        """
+    )
+
+
+def test_srv6_static_sids_ua_basic_resolution():
+    """Test that uA SID resolves neighbor when interface is up and neighbor is present"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Configure uA SID without explicit nexthop
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:1:fe41::/64 locator MAIN behavior uA interface r1-eth0
+        """
+    )
+
+    # Ensure r2 interface is up and reachable
+    check_ping("r1", "2001::2", True, 10, 1)
+
+    # Verify SID is installed with resolved nexthop
+    logger.info("Test uA SID resolution with available neighbor")
+    check_srv6_static_sids(router, "expected_srv6_sids_and_ua.json")
+
+
+def test_srv6_static_sids_ua_neighbor_down():
+    """Test that uA SID is removed when neighbor becomes unreachable"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Start with neighbor up and SID configured (from previous test)
+    check_ping("r1", "2001::2", True, 10, 1)
+    check_srv6_static_sids(router, "expected_srv6_sids_and_ua.json")
+
+    # Bring down r2 interface
+    logger.info("Taking down r2-eth0 interface")
+    tgen.gears["r2"].run("ip link set r2-eth0 down")
+
+    # Flush neighbor entry on r1 to simulate neighbor unreachable
+    logger.info("Flushing neighbor entry on r1")
+    router.vtysh_cmd("ip neigh flush 2001::2 dev r1-eth0")
+
+    # Ensure neighbor is unreachable
+    check_ping("r1", "2001::2", False, 10, 1)
+
+    # Wait for neighbor to expire and verify SID is removed
+    logger.info("Verify uA SID is removed when neighbor goes down")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+def test_srv6_static_sids_ua_neighbor_recovery():
+    """Test that uA SID is reinstalled when neighbor recovers"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Start with neighbor down and SID configured but not installed
+    check_ping("r1", "2001::2", False, 10, 1)
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+    # Bring up r2 interface
+    logger.info("Bringing up r2-eth0 interface")
+    tgen.gears["r2"].run("ip link set r2-eth0 up")
+
+    # Wait for neighbor discovery and verify SID is installed
+    check_ping("r1", "2001::2", True, 10, 1)
+
+    logger.info("Verify uA SID is installed after neighbor recovery")
+    check_srv6_static_sids(router, "expected_srv6_sids_and_ua.json")
+
+
+def test_srv6_static_sids_ua_sid_removal():
+    """Test cleanup when uA SID with resolution is removed"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Remove the SID
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bbbb:1:fe41::/64
+        """
+    )
+
+    # Verify SID is removed and neighbor notifications unregistered
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 

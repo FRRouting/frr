@@ -119,7 +119,8 @@ void command_setup_early_logging(const char *dest, const char *level)
 	}
 	if (strcmp(type, "file") == 0 && sep) {
 		sep++;
-		set_log_file(&zt_file_cmdline, NULL, sep, nlevel);
+		if (!set_log_file(&zt_file_cmdline, NULL, sep, nlevel))
+			fprintf(stderr, "Unable to set log file: %s\n", sep);
 		return;
 	}
 	if (strcmp(type, "monitor") == 0 && sep) {
@@ -658,10 +659,27 @@ static int logging_uid_backtrace_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+
+/*
+ * XPath: /frr-logging:logging/clear-cmdline-targets
+ */
+static int clear_cmdline_targets_rpc(struct nb_cb_rpc_args *args)
+{
+	clear_cmdline_targets();
+	return NB_OK;
+}
+
+
 /* clang-format off */
 struct frr_yang_module_info frr_logging_nb_info = {
 	.name = "frr-logging",
 	.nodes = {
+		{
+			.xpath = "/frr-logging:clear-cmdline-targets",
+			.cbs = {
+				.rpc = clear_cmdline_targets_rpc,
+			}
+		},
 		{
 			.xpath = "/frr-logging:logging/stdout",
 			.cbs = {

@@ -212,12 +212,8 @@ struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
 	struct nhrp_peer key, *p;
 	struct nhrp_vc *vc;
 
-	if (!nifp->peer_hash) {
-		nifp->peer_hash = hash_create(nhrp_peer_key, nhrp_peer_cmp,
-					      "NHRP Peer Hash");
-		if (!nifp->peer_hash)
-			return NULL;
-	}
+	if (!nifp->peer_hash)
+		nifp->peer_hash = hash_create(nhrp_peer_key, nhrp_peer_cmp, "NHRP Peer Hash");
 
 	vc = nhrp_vc_get(&nifp->nbma, remote_nbma, 1);
 	if (!vc)

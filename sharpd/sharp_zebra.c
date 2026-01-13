@@ -239,7 +239,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	struct nexthop *nh;
 	int i = 0;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = vrf_id;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.instance = instance;
@@ -247,6 +247,9 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
+
+	if (sg.use_underlying_nexthop_group_weight)
+		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
 
 	/* Only send via ID if nhgroup has been successfully installed */
 	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
@@ -308,7 +311,7 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 {
 	struct zapi_route api;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = vrf_id;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.safi = SAFI_UNICAST;

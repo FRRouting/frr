@@ -1008,7 +1008,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
-	new = info_make(type, sub_type, 0, rfd->peer, new_attr, NULL);
+	new = info_make(type, sub_type, 0, rfd->peer, new_attr, bn);
 	SET_FLAG(new->flags, BGP_PATH_VALID);
 
 	/* save backref to rfapi handle */
@@ -1228,7 +1228,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	/*
 	 * Fill in BGP peer structure
 	 */
-	rfd->peer = peer_new(bgp);
+	rfd->peer = peer_new(bgp, NULL, UNKNOWN);
 	rfd->peer->connection->status = Established; /* keep bgp core happy */
 
 	bgp_peer_connection_buffers_free(rfd->peer->connection);
