@@ -572,7 +572,8 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 		global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
 	} else if (IS_IPADDR_V6(&vni_p->prefix.ead_addr.ip)) {
 		global_p->prefix.ead_addr.ip.ipa_type = IPADDR_V6;
-		memset(&global_p->prefix.ead_addr.ip.ipaddr_v6, 0, sizeof(struct in6_addr));
+		/* Use standard IPv6 "any" address (::) via IN6ADDR_ANY_INIT */
+		global_p->prefix.ead_addr.ip.ipaddr_v6 = (struct in6_addr)IN6ADDR_ANY_INIT;
 	} else {
 		global_p->prefix.ead_addr.ip.ipa_type = IPADDR_NONE;
 		/* ipa_type is IPADDR_NONE, zero everything */
