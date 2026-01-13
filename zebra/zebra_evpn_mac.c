@@ -414,7 +414,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 			   mac->dad_count, listcount(mac->neigh_list));
 	}
 
-	/* Remove all IPs as duplicate associcated with this MAC */
+	/* Remove all IPs as duplicate associated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
 		if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
@@ -551,10 +551,10 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf, struct ze
 		mac->dad_dup_detect_time = monotime(NULL);
 
 		/* Mark all IPs/Neighs as duplicate
-		 * associcated with this MAC
+		 * associated with this MAC
 		 */
 		for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
-			/* Ony Mark IPs which are Local */
+			/* Only Mark IPs which are Local */
 			if (!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				continue;
 
@@ -1350,7 +1350,7 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 			return 0;
 
 		/* Duplicate detect action is freeze enabled and
-		 * Local MAC is duplicate deteced, this local
+		 * Local MAC is duplicate detected, this local
 		 * mobility event is not known to bgpd.
 		 * Upon receiving local delete ask bgp to reinstall
 		 * the best route (remote entry).
@@ -1528,11 +1528,9 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("sync-mac vni %u mac %pEA es %s %shold expired",
-			   mac->zevpn->vni, &mac->macaddr,
-			   mac->es ? mac->es->esi_str : "-",
-			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
-							  sizeof(mac_buf)));
+		zlog_debug("sync-mac vni %u mac %pEA es %s %s hold expired", mac->zevpn->vni,
+			   &mac->macaddr, mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf, sizeof(mac_buf)));
 	}
 
 	/* re-program the local mac in the dataplane if the mac is no
@@ -1555,11 +1553,9 @@ static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("sync-mac vni %u mac %pEA es %s %shold started",
-			   mac->zevpn->vni, &mac->macaddr,
-			   mac->es ? mac->es->esi_str : "-",
-			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
-							  sizeof(mac_buf)));
+		zlog_debug("sync-mac vni %u mac %pEA es %s %s hold started", mac->zevpn->vni,
+			   &mac->macaddr, mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf, sizeof(mac_buf)));
 	}
 	event_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
 			zmh_info->mac_hold_time, &mac->hold_timer);
@@ -1573,11 +1569,9 @@ void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("sync-mac vni %u mac %pEA es %s %shold stopped",
-			   mac->zevpn->vni, &mac->macaddr,
-			   mac->es ? mac->es->esi_str : "-",
-			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
-							  sizeof(mac_buf)));
+		zlog_debug("sync-mac vni %u mac %pEA es %s %s hold stopped", mac->zevpn->vni,
+			   &mac->macaddr, mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf, sizeof(mac_buf)));
 	}
 
 	event_cancel(&mac->hold_timer);
@@ -2054,7 +2048,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			old_es_present = !!mac->es;
 			zebra_evpn_es_mac_ref(mac, esi);
 			new_es_present = !!mac->es;
-			/* XXX - dataplane is curently not able to handle a MAC
+			/* XXX - dataplane is currently not able to handle a MAC
 			 * replace if the destination changes from L2-NHG to
 			 * single VTEP and vice-versa. So delete the old entry
 			 * and re-install
@@ -2063,7 +2057,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 				zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
 		}
 
-		/* Check MAC's curent state is local (this is the case
+		/* Check MAC's current state is local (this is the case
 		 * where MAC has moved from L->R) and check previous
 		 * detection started via local learning.
 		 * RFC-7432: A PE/VTEP that detects a MAC mobility
