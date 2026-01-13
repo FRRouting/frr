@@ -7927,6 +7927,9 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			assert(dest);
 		}
 	}
+
+	if (IS_BGP_INSTANCE_HIDDEN(bgp) && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 }
 
 bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
