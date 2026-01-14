@@ -825,6 +825,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 {
 	json_object *json_bfd = NULL;
 	char time_buf[64];
+	const char *profile_name;
 
 	if (!bsp)
 		return;
@@ -853,6 +854,15 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 			"  Detect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
 			bsp->args.detection_multiplier, bsp->args.min_rx,
 			bsp->args.min_tx);
+	}
+
+	/* Show profile if configured. */
+	profile_name = bfd_sess_profile(bsp);
+	if (profile_name) {
+		if (json)
+			json_object_string_add(json_bfd, "profile", profile_name);
+		else
+			vty_out(vty, "  Profile: %s\n", profile_name);
 	}
 
 	bfd_last_update(bsp->bss.last_event, time_buf, sizeof(time_buf));
