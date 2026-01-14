@@ -1987,8 +1987,7 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_ADD, zebra_vrf_get_evpn_id());
 	stream_put(s, &es->esi, sizeof(esi_t));
-	/* TODO_V6_VTEP FIXME v6 support */
-	stream_put_ipv4(s, zmh_info->es_originator_ip.ipaddr_v4.s_addr);
+	stream_put_ipaddr(s, &zmh_info->es_originator_ip);
 	oper_up = !!(es->flags & ZEBRA_EVPNES_OPER_UP);
 	stream_putc(s, oper_up);
 	stream_putw(s, es->df_pref);
@@ -2595,9 +2594,7 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	STREAM_GET(&esi, s, sizeof(esi_t));
-	/* Temporary until BGP supports IPv6 VTEP */
-	SET_IPADDR_V4(&vtep_ip);
-	STREAM_GET(&vtep_ip.ipaddr_v4.s_addr, s, sizeof(vtep_ip.ipaddr_v4.s_addr));
+	STREAM_GET_IPADDR(s, &vtep_ip);
 
 	if (hdr->command == ZEBRA_REMOTE_ES_VTEP_ADD) {
 		uint32_t zapi_flags;
