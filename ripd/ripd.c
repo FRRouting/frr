@@ -806,7 +806,11 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
    check net 0 because we accept default route. */
 static int rip_destination_check(struct in_addr addr)
 {
-	return ipv4_unicast_valid(&addr);
+	if (addr.s_addr == INADDR_ANY)
+		/* default route allowed */
+		return 1;
+	else
+		return ipv4_unicast_valid(&addr);
 }
 
 /* RIP version 2 authentication. */
