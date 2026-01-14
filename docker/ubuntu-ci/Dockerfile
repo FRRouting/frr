@@ -8,6 +8,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Number of retries for transient network failures
 ARG APT_RETRIES=3
 
+# LTTng tracing support (optional)
+ARG ENABLE_LTTNG=false
+
 # Configure apt to retry on transient network failures
 RUN echo "Acquire::Retries \"${APT_RETRIES}\";" > /etc/apt/apt.conf.d/80-retries && \
     echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries && \
@@ -99,6 +102,11 @@ RUN for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; do
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
+# LTTng tracing dependencies (conditional)
+RUN if [ "$ENABLE_LTTNG" = "true" ]; then \
+        apt-get install -y liblttng-ust-dev; \
+    fi
+
     RUN if [ "$UBUNTU_VERSION" = "24.04" ]; then \
             wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib -O /usr/share/snmp/mibs/iana/IANA-SMF-MIB && \
             wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib -O /usr/share/snmp/mibs/iana/IANA-ENTITY-MIB && \
@@ -146,10 +154,15 @@ RUN python3 -m pip install 'libyang<4'
 
 USER frr:frr
 
+# Re-declare ARG after USER to make it available
+ARG ENABLE_LTTNG=false
+
 COPY --chown=frr:frr . /home/frr/frr/
 
 RUN cd ~/frr && \
     ./bootstrap.sh && \
+    LTTNG_OPT="" && \
+    if [ "$ENABLE_LTTNG" = "true" ]; then LTTNG_OPT="--enable-lttng"; fi && \
     ./configure \
        --prefix=/usr \
        --sysconfdir=/etc \
@@ -169,6 +182,7 @@ RUN cd ~/frr && \
        --enable-vty-group=frrvty \
        --enable-snmp \
        --enable-scripting \
+       $LTTNG_OPT \
        --with-pkg-extra-version=-my-manual-build && \
     make -j $(nproc) && \
     sudo make install
