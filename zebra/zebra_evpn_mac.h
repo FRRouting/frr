@@ -9,6 +9,8 @@
 #ifndef _ZEBRA_EVPN_MAC_H
 #define _ZEBRA_EVPN_MAC_H
 
+#include "zebra/zebra_evpn.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
