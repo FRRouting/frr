@@ -320,7 +320,7 @@ static int zebra_l2vpn_svc_check_reachability(const struct zebra_l2vpn_svc *svc)
 	const struct nexthop_group *nhg;
 	bool found_p = false;
 
-	/* TODO: consider GRE/L2TPv3 tunnels in addition to MPLS LSPs */
+	/* TODO: consider VXLAN/GRE/L2TPv3 tunnels in addition to MPLS LSPs */
 
 	/* Find route to the remote end of the pseudowire */
 	re = rib_match(family2afi(svc->af), SAFI_UNICAST, svc->vrf_id, &svc->nexthop, NULL);

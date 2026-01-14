@@ -4532,6 +4532,23 @@ static int bgp_zebra_label_chunk_free_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Receive L2VPN EVPN status update from Zebra
+ */
+static int bgp_zebra_read_evpn_status_update(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_l2vpn_status evpn_status;
+
+	zebra_read_l2vpn_status_update(cmd, zclient, length, vrf_id, &evpn_status);
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: EVPN %s status 0x%x", evpn_status.ifname,
+			   (evpn_status.status == EVPN_FORWARDING) ? "up" : "down",
+			   evpn_status.status);
+	/* update status in L2VPN */
+	return 0;
+}
+
 static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = bgp_router_id_update,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = bgp_interface_address_add,
@@ -4568,6 +4585,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_TRACKER_DEL] = bgp_zebra_tracker,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
 	[ZEBRA_SRV6_ACT_REDIRECT] = bgp_zebra_srv6_act_redirect,
+	[ZEBRA_L2VPN_SVC_STATUS_UPDATE] = bgp_zebra_read_evpn_status_update,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)
