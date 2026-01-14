@@ -1412,9 +1412,6 @@ enum netlink_msg_status netlink_batch_add_msg(
 static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 					  struct zebra_dplane_ctx *ctx)
 {
-	if (dplane_ctx_is_skip_kernel(ctx))
-		return FRR_NETLINK_SUCCESS;
-
 	switch (dplane_ctx_get_op(ctx)) {
 
 	case DPLANE_OP_ROUTE_INSTALL:

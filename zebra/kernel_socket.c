@@ -1599,16 +1599,6 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		ctx = dplane_ctx_dequeue(ctx_list);
 		if (ctx == NULL)
 			break;
-
-		/*
-		 * A previous provider plugin may have asked to skip the
-		 * kernel update.
-		 */
-		if (dplane_ctx_is_skip_kernel(ctx)) {
-			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
-			goto skip_one;
-		}
-
 		switch (dplane_ctx_get_op(ctx)) {
 
 		case DPLANE_OP_ROUTE_INSTALL:
@@ -1710,7 +1700,6 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 
-	skip_one:
 		dplane_ctx_set_status(ctx, res);
 
 		dplane_ctx_enqueue_tail(&handled_list, ctx);
