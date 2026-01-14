@@ -4,194 +4,62 @@
     "algorithm":0,
     "level-1":{
       "area":"1",
-      "ipv4-paths":[
-        {
-          "vertex":"r1",
-          "type":"",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":""
-        },
-        {
-          "vertex":"10.0.1.0\/24",
-          "type":"IP internal",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"10.0.2.0\/24",
-          "type":"IP internal",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"1.1.1.1\/32",
-          "type":"IP internal",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"r2",
-          "type":"TE-IS",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"r3",
-          "type":"TE-IS",
-          "metric":10,
-          "nextHop":"r3",
-          "interface":"r1-eth2",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"2.2.2.2\/32",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r2(4)"
-        },
-        {
-          "vertex":"10.0.1.0\/24",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r2(4)"
-        },
-        {
-          "vertex":"10.0.3.0\/24",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r2(4)"
-        },
-        {
-          "vertex":"",
-          "type":"",
-          "metric":0,
-          "nextHop":"r3",
-          "interface":"r1-eth2",
-          "parent":"r3(4)"
-        },
-        {
-          "vertex":"172.16.1.0\/24",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r2(4)"
-        },
-        {
-          "vertex":"3.3.3.3\/32",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r3",
-          "interface":"r1-eth2",
-          "parent":"r3(4)"
-        },
-        {
-          "vertex":"10.0.2.0\/24",
-          "type":"IP TE",
-          "metric":10,
-          "nextHop":"r3",
-          "interface":"r1-eth2",
-          "parent":"r3(4)"
-        }
-      ],
       "ipv4":[
         {
-          "prefix":"1.1.1.1\/32",
-          "metric":0,
-          "interface":"-",
-          "nextHop":"-",
-          "label(s)":"-"
+          "Prefix":"1.1.1.1\/32",
+          "Metric":0,
+          "Interface":"-",
+          "Nexthop":"-",
+          "Label(s)":"-"
         },
         {
-          "prefix":"2.2.2.2\/32",
-          "metric":10,
-          "interface":"r1-eth1",
-          "nextHop":"10.0.1.2",
-          "label(s)":"-"
+          "Prefix":"2.2.2.2\/32",
+          "Metric":10,
+          "Interface":"r1-eth1",
+          "Nexthop":"10.0.1.2",
+          "Label(s)":"-"
         },
         {
-          "prefix":"3.3.3.3\/32",
-          "metric":10,
-          "interface":"r1-eth2",
-          "nextHop":"10.0.2.3",
-          "label(s)":"-"
+          "Prefix":"3.3.3.3\/32",
+          "Metric":10,
+          "Interface":"r1-eth2",
+          "Nexthop":"10.0.2.3",
+          "Label(s)":"-"
         },
         {
-          "prefix":"10.0.1.0\/24",
-          "metric":10,
-          "interface":"r1-eth1",
-          "nextHop":"10.0.1.2",
-          "label(s)":"-"
+          "Prefix":"10.0.1.0\/24",
+          "Metric":10,
+          "Interface":"r1-eth1",
+          "Nexthop":"10.0.1.2",
+          "Label(s)":"-"
         },
         {
-          "prefix":"10.0.2.0\/24",
-          "metric":10,
-          "interface":"r1-eth2",
-          "nextHop":"10.0.2.3",
-          "label(s)":"-"
+          "Prefix":"10.0.2.0\/24",
+          "Metric":10,
+          "Interface":"r1-eth2",
+          "Nexthop":"10.0.2.3",
+          "Label(s)":"-"
         },
         {
-          "prefix":"10.0.3.0\/24",
-          "metric":10,
-          "interface":"r1-eth1",
-          "nextHop":"10.0.1.2",
-          "label(s)":"-"
+          "Prefix":"10.0.3.0\/24",
+          "Metric":10,
+          "Interface":"r1-eth1",
+          "Nexthop":"10.0.1.2",
+          "Label(s)":"-"
         },
         {
-          "prefix":"10.0.3.0\/24",
-          "metric":10,
-          "interface":"r1-eth2",
-          "nextHop":"10.0.2.3",
-          "label(s)":"-"
+          "Prefix":"10.0.3.0\/24",
+          "Metric":10,
+          "Interface":"r1-eth2",
+          "Nexthop":"10.0.2.3",
+          "Label(s)":"-"
         },
         {
-          "prefix":"172.16.1.0\/24",
-          "metric":10,
-          "interface":"r1-eth1",
-          "nextHop":"10.0.1.2",
-          "label(s)":"-"
-        }
-      ],
-      "ipv6-paths":[
-        {
-          "vertex":"r1",
-          "type":"",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":""
-        },
-        {
-          "vertex":"r2",
-          "type":"TE-IS",
-          "metric":10,
-          "nextHop":"r2",
-          "interface":"r1-eth1",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"r3",
-          "type":"TE-IS",
-          "metric":10,
-          "nextHop":"r3",
-          "interface":"r1-eth2",
-          "parent":"r1(4)"
+          "Prefix":"172.16.1.0\/24",
+          "Metric":10,
+          "Interface":"r1-eth1",
+          "Nexthop":"10.0.1.2",
+          "Label(s)":"-"
         }
       ],
       "ipv6":[
@@ -199,56 +67,20 @@
     },
     "level-2":{
       "area":"1",
-      "ipv4-paths":[
-        {
-          "vertex":"r1",
-          "type":"",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":""
-        },
-        {
-          "vertex":"10.0.1.0\/24",
-          "type":"IP internal",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":"r1(4)"
-        },
-        {
-          "vertex":"10.0.2.0\/24",
-          "type":"IP internal",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":"r1(4)"
-        }
-      ],
       "ipv4":[
         {
-          "prefix":"10.0.1.0\/24",
-          "metric":0,
-          "interface":"-",
-          "nextHop":"-",
-          "label(s)":"-"
+          "Prefix":"10.0.1.0\/24",
+          "Metric":0,
+          "Interface":"-",
+          "Nexthop":"-",
+          "Label(s)":"-"
         },
         {
-          "prefix":"10.0.2.0\/24",
-          "metric":0,
-          "interface":"-",
-          "nextHop":"-",
-          "label(s)":"-"
-        }
-      ],
-      "ipv6-paths":[
-        {
-          "vertex":"r1",
-          "type":"",
-          "metric":0,
-          "nextHop":"",
-          "interface":"",
-          "parent":""
+          "Prefix":"10.0.2.0\/24",
+          "Metric":0,
+          "Interface":"-",
+          "Nexthop":"-",
+          "Label(s)":"-"
         }
       ],
       "ipv6":[
