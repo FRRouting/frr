@@ -927,7 +927,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				   metric_type(ospf, DEFAULT_ROUTE, 0),
 				   metric_value(ospf, DEFAULT_ROUTE, 0));
 
-		ospf_external_lsa_refresh_default(ospf);
+		ospf_external_lsa_refresh_default(ospf, NULL);
 		return CMD_SUCCESS;
 	}
 
@@ -971,7 +971,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 			   metric_type(ospf, DEFAULT_ROUTE, 0),
 			   metric_value(ospf, DEFAULT_ROUTE, 0));
 
-	ospf_external_lsa_refresh_default(ospf);
+	ospf_external_lsa_refresh_default(ospf, NULL);
 	ospf_asbr_status_update(ospf, ospf->redistribute);
 	return CMD_SUCCESS;
 }
@@ -1057,8 +1057,6 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 {
 	struct external_info *default_ei;
 	struct prefix_ipv4 p;
-	struct ospf_lsa *lsa;
-	int ret;
 
 	p.family = AF_INET;
 	p.prefixlen = 0;
@@ -1078,65 +1076,7 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 			   &ei->p.prefix, ospf_vrf_id_to_name(ospf->vrf_id),
 			   cmd);
 
-	ret = ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
-
-	/* If deny then nothing to be done both in add and del case. */
-	if (!ret) {
-		if (IS_DEBUG_OSPF_DEFAULT_INFO)
-			zlog_debug("Default originte routemap deny for ei: %pI4(%s)",
-				   &ei->p.prefix,
-				   ospf_vrf_id_to_name(ospf->vrf_id));
-		return false;
-	}
-
-	/* Get the default LSA. */
-	lsa = ospf_external_info_find_lsa(ospf, &p);
-
-	/* If this is add route and permit then ooriginate default. */
-	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
-		/* If permit and default already advertise then return. */
-		if (lsa && !IS_LSA_MAXAGE(lsa)) {
-			if (IS_DEBUG_OSPF_DEFAULT_INFO)
-				zlog_debug("Default lsa already originated(%s)",
-					   ospf_vrf_id_to_name(ospf->vrf_id));
-			return true;
-		}
-
-		if (IS_DEBUG_OSPF_DEFAULT_INFO)
-			zlog_debug("Originating/Refreshing default lsa(%s)",
-				   ospf_vrf_id_to_name(ospf->vrf_id));
-
-		if (lsa && IS_LSA_MAXAGE(lsa))
-			/* Refresh lsa.*/
-			ospf_external_lsa_refresh(ospf, lsa, default_ei, true,
-						  false);
-		else
-			/* If permit and default not advertised then advertise.
-			 */
-			ospf_external_lsa_originate(ospf, default_ei);
-
-	} else if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) {
-		/* If deny and lsa is not originated then nothing to be done.*/
-		if (!lsa) {
-			if (IS_DEBUG_OSPF_DEFAULT_INFO)
-				zlog_debug("Default lsa not originated, not flushing(%s)",
-					   ospf_vrf_id_to_name(ospf->vrf_id));
-			return true;
-		}
-
-		if (IS_DEBUG_OSPF_DEFAULT_INFO)
-			zlog_debug("Running default route-map again as ei: %pI4(%s) deleted",
-				   &ei->p.prefix,
-				   ospf_vrf_id_to_name(ospf->vrf_id));
-		/*
-		 * if this route delete was permitted then we need to check
-		 * there are any other external info which can still trigger
-		 * default route origination else flush it.
-		 */
-		event_add_event(master,
-				ospf_external_lsa_default_routemap_timer, ospf,
-				0, &ospf->t_default_routemap_timer);
-	}
+	ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
 
 	return true;
 }
@@ -1360,9 +1300,15 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			return 0;
 		}
 		if (ospf->router_id.s_addr != INADDR_ANY) {
-			if (is_default_prefix4(&p))
-				ospf_external_lsa_refresh_default(ospf);
-			else {
+			if (is_default_prefix4(&p)) {
+				/*
+				 * Check if default-information originate is
+				 * with some routemap prefix/access list match.
+				 */
+				ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
+
+				ospf_external_lsa_refresh_default(ospf, ei);
+			} else {
 				struct ospf_external_aggr_rt *aggr;
 				struct as_external_lsa *al;
 				struct ospf_lsa *lsa = NULL;
@@ -1453,12 +1399,6 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			}
 		}
 
-		/*
-		 * Check if default-information originate is
-		 * with some routemap prefix/access list match.
-		 */
-		ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
-
 	} else { /* if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 		struct ospf_external_aggr_rt *aggr;
 
@@ -1485,7 +1425,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 						  p);
 
 			if (is_default_prefix4(&p))
-				ospf_external_lsa_refresh_default(ospf);
+				ospf_external_lsa_refresh_default(ospf, NULL);
 			else
 				ospf_external_lsa_flush(ospf, rt_type, &p,
 							ifindex /*, nexthop */);
@@ -1700,7 +1640,7 @@ static void ospf_distribute_list_update_timer(struct event *event)
 		}
 	}
 	if (default_refresh)
-		ospf_external_lsa_refresh_default(ospf);
+		ospf_external_lsa_refresh_default(ospf, NULL);
 }
 
 /* Update distribute-list and set timer to apply access-list. */
