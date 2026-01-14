@@ -4,10 +4,6 @@ module frr-isisd {
   namespace "http://frrouting.org/yang/isisd";
   prefix frr-isisd;
 
-  import ietf-yang-types {
-    prefix yang;
-  }
-
   import ietf-inet-types {
     prefix inet;
   }
