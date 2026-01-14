@@ -12,6 +12,10 @@ module frr-l2vpn {
     prefix frr-interface;
   }
 
+  import frr-zebra {
+   prefix frr-zebra;
+  }
+
   organization
     "FRRouting";
   contact
@@ -136,6 +140,62 @@ module frr-l2vpn {
         }
       }
 
+      list member-evpn {
+        key "interface";
+        description
+          "Member interface considered as point-to-point";
+
+        leaf interface {
+          type frr-interface:interface-ref;
+          description
+            "L2VPN EVPN interface name.";
+        }
+
+        leaf vni {
+          must "../../type = 'vpws'";
+          type uint32 {
+            range "0..16777215";
+          }
+          description "The VNI indentifier for BGP EVPN.";
+        }
+
+        container neighbor-evpn {
+          presence "Configure a neighbor using BGP EVPN information.";
+          must "../../type = 'vpws'";
+          description "Tell that L2VPN information should be collected from BGP EVPN
+                       neighbor.";
+          leaf evi {
+            type uint32 {
+              range "1..16777215";
+            }
+            description "EVPN instance identifier. This identifies VPWS service,
+                         the remote endpoint must set use the same EVI to match
+                         this service.";
+          }
+          leaf local-ac-id {
+            type uint32 {
+              range "1..16777215";
+            }
+            description
+              "Local identifier that represents the local interface attached to that
+               EVPN entry. When used with VPWS, this identifier is mapped to
+               to the EVPN Ethernet tag identifier. The 0 value is reserved for EVPN
+               cases with learning of MAC addresses enabled.";
+          }
+          leaf remote-ac-id {
+            type uint32 {
+              range "1..16777215";
+            }
+            description
+              "Remote identifier that represents the shared interface of the remote device
+               to connect to the local interface in a single EVPN instance. When used with
+               VPWS, this identifier is mapped to the EVPN Ethernet tag identifier. The
+               expectation is to receive an EVPN RT1 update that includes the configured
+               Ethernet tag identifier.";
+          }
+        }
+      }
+
       list member-pseudowire {
         key "interface";
         description
@@ -149,11 +209,13 @@ module frr-l2vpn {
 
         leaf neighbor-lsr-id {
           type inet:ipv4-address;
+          must "../../type = 'vpls'";
           description "Specify the LSR-ID of the remote endpoint.";
         }
 
         leaf neighbor-address {
           type inet:ip-address;
+          must "../../type = 'vpls'";
           description "Specify the IPv4 or IPv6 address of the remote endpoint.";
         }
 

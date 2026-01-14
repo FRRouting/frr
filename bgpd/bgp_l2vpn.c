@@ -16,6 +16,11 @@ static void bgp_l2vpn_entry_added(const char *l2vpn_name)
 
 static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
 {
+	struct l2vpn *l2vpn;
+
+	l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name, L2VPN_TYPE_VPWS);
+	if (!l2vpn)
+		return;
 	/* XXX handle l2vpn entry deletion */
 }
 
@@ -26,6 +31,11 @@ static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire/pw-status
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire/neighbor-address
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire/neighbor-lsr-id
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/evi
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-ac-id
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-ac-id
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni
  */
 static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 {

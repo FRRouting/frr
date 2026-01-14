@@ -41,9 +41,13 @@ struct l2vpn_svc {
 	struct in_addr lsr_id;
 	int af;
 	union g_addr addr;
-	uint32_t pwid;
+	union {
+		uint32_t pwid;
+		uint32_t evi;
+	};
 	uint32_t local_ac_id;
 	uint32_t remote_ac_id;
+	vni_t vni;
 	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	bool	 enabled;
@@ -59,6 +63,8 @@ struct l2vpn_svc {
 #define F_PW_CWORD              (1 << 3) /* control word negotiated */
 #define F_PW_STATIC_NBR_ADDR    (1 << 4) /* static neighbor address configured */
 #define F_PW_SEND_REMOTE        (1 << 5) /* send pw message to remote */
+	/* EVPN flags */
+#define F_EVPN_NBR_ADDR         (1 << 6) /* EVPN neighbor configured */
 	uint8_t	 flags;
 
 	/* L2VPN reason code */

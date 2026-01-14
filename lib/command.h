@@ -133,6 +133,7 @@ enum node_type {
 	LDP_IPV6_IFACE_NODE,     /* LDP IPv6 Interface */
 	L2VPN_NODE,		 /* L2VPN node */
 	L2VPN_PSEUDOWIRE_NODE,   /* L2VPN Pseudowire node */
+	L2VPN_EVPN_NODE,         /* L2VPN EVPN node */
 	ISIS_NODE,		 /* ISIS protocol mode */
 	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */

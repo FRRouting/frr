@@ -1627,6 +1627,13 @@ static struct cmd_node l2vpn_pseudowire_node = {
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
+static struct cmd_node l2vpn_evpn_node = {
+	.name = "evpn",
+	.node = L2VPN_EVPN_NODE,
+	.parent_node = L2VPN_NODE,
+	.prompt = "%s(config-l2vpn-evpn)# ",
+};
+
 static struct cmd_node keychain_node = {
 	.name = "keychain",
 	.node = KEYCHAIN_NODE,
@@ -2236,11 +2243,21 @@ DEFUNSH(VTYSH_L2VPN, l2vpn_word_type, l2vpn_word_type_cmd,
 
 DEFUNSH(VTYSH_L2VPN, ldp_member_pseudowire_ifname,
 	ldp_member_pseudowire_ifname_cmd, "member pseudowire IFNAME",
-	"L2VPN member configuration\n"
+	"L2VPN PW member configuration\n"
 	"Pseudowire interface\n"
 	"Interface's name\n")
 {
 	vty->node = L2VPN_PSEUDOWIRE_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_L2VPN, l2vpn_member_evpn_ifname,
+	l2vpn_member_evpn_ifname_cmd, "member evpn IFNAME",
+	"L2VPN EVPN member configuration\n"
+	"EVPN interface\n"
+	"Interface's name\n")
+{
+	vty->node = L2VPN_EVPN_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -4975,6 +4992,7 @@ void vtysh_init_vty(void)
 	install_node(&ldp_ipv6_iface_node);
 	install_node(&l2vpn_node);
 	install_node(&l2vpn_pseudowire_node);
+	install_node(&l2vpn_evpn_node);
 	install_node(&eigrp_node);
 	install_node(&isis_node);
 	install_node(&isis_flex_algo_node);
@@ -5235,9 +5253,14 @@ void vtysh_init_vty(void)
 	install_element(L2VPN_NODE, &vtysh_end_all_cmd);
 
 	install_element(L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
+	install_element(L2VPN_NODE, &l2vpn_member_evpn_ifname_cmd);
 	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_end_all_cmd);
+
+	install_element(L2VPN_EVPN_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(L2VPN_EVPN_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(L2VPN_EVPN_NODE, &vtysh_end_all_cmd);
 
 	/* eigrpd */
 #ifdef HAVE_EIGRPD
