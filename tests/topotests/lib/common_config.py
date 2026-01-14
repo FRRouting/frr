@@ -3973,6 +3973,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=
     return True
 
 
+@retry(retry_timeout=30)
 def verify_admin_distance_for_static_routes(tgen, input_dict):
     """
     API to verify admin distance for static routes as defined in input_dict/
