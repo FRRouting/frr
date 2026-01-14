@@ -2706,9 +2706,12 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 		yang_get_default_uint8("%s/distance/default", RIP_INSTANCE);
 	rip->passive_default =
 		yang_get_default_bool("%s/passive-default", RIP_INSTANCE);
-	rip->garbage_time = yang_get_default_uint16("%s/timers/flush-interval", RIP_INSTANCE);
-	rip->timeout_time = yang_get_default_uint16("%s/timers/holddown-interval", RIP_INSTANCE);
-	rip->update_time = yang_get_default_uint16("%s/timers/update-interval", RIP_INSTANCE);
+	rip->garbage_time = yang_get_default_uint32("%s/timers/flush-interval",
+						    RIP_INSTANCE);
+	rip->timeout_time = yang_get_default_uint32(
+		"%s/timers/holddown-interval", RIP_INSTANCE);
+	rip->update_time = yang_get_default_uint32("%s/timers/update-interval",
+						   RIP_INSTANCE);
 	rip->version_send =
 		yang_get_default_enum("%s/version/send", RIP_INSTANCE);
 	rip->version_recv =
