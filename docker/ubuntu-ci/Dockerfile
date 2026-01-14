@@ -17,9 +17,10 @@ RUN echo "Acquire::Retries \"${APT_RETRIES}\";" > /etc/apt/apt.conf.d/80-retries
     echo 'Acquire::https::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries
 
 # Update and install build requirements.
-# Retry loop for apt-get update in case of transient mirror failures
-RUN for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; done && \
-    apt-get upgrade -y && \
+# Retry loop for apt-get update/upgrade/install in case of transient mirror failures
+RUN for i in $(seq 1 ${APT_RETRIES}); do \
+        apt-get update && \
+        apt-get upgrade -y && \
     # Basic build requirements from documentation
     apt-get install -y \
             autoconf \
@@ -88,7 +89,8 @@ RUN for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; do
         tshark \
         valgrind \
         yodl \
-      && \
+        && break || sleep 10; \
+    done && \
     download-mibs && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
