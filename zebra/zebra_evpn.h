@@ -18,6 +18,7 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 
 #ifdef __cplusplus
 extern "C" {
