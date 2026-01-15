@@ -8,6 +8,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h" /* Include this explicitly */
+#include "zebra/zebra_memory.h"
 #endif
 
 #include "lib/libfrr.h"

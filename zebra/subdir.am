@@ -164,6 +164,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
+	zebra/zebra_memory.h \
 	zebra/zebra_mlag.h \
 	zebra/zebra_mlag_vty.h \
 	zebra/zebra_mpls.h \

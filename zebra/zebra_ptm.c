@@ -5,6 +5,8 @@
 
 #include <zebra.h>
 
+#include "zebra/zebra_memory.h"
+
 #include <sys/un.h> /* for sockaddr_un */
 #include <net/if.h>
 

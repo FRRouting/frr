@@ -6,6 +6,8 @@
  */
 #include <zebra.h>
 
+#include "zebra/zebra_memory.h"
+
 #include "lib/nexthop.h"
 #include "lib/nexthop_group_private.h"
 #include "lib/routemap.h"

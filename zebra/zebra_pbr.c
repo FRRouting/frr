@@ -8,6 +8,8 @@
 
 #include <zebra.h>
 
+#include "zebra/zebra_memory.h"
+
 #include <jhash.h>
 #include <hash.h>
 #include <memory.h>
