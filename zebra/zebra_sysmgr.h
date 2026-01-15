@@ -43,6 +43,8 @@ extern "C" {
 enum sysmgr_op_e {
 	SM_OP_NONE = 0,
 	SM_OP_TEST_SEND,
+	SM_OP_PORTS_DOWN,
+	SM_OP_PORTS_UP,
 };
 
 /*

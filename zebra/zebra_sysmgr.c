@@ -55,6 +55,10 @@ const char *zebra_sysmgr_op2str(enum sysmgr_op_e op)
 		return "NONE";
 	case SM_OP_TEST_SEND:
 		return "TEST_SEND";
+	case SM_OP_PORTS_DOWN:
+		return "PORTS_DOWN";
+	case SM_OP_PORTS_UP:
+		return "PORTS_UP";
 	}
 
 	return "UNKNOWN";
@@ -166,6 +170,12 @@ static void sysmgr_thread_loop(struct event *event)
 					   zebra_sysmgr_op2str(ctx->op),
 					   zebra_sysmgr_op2str(ctx->u.test.send_op));
 			break;
+		case SM_OP_PORTS_DOWN:
+		case SM_OP_PORTS_UP:
+			if (IS_ZEBRA_DEBUG_SYSMGR)
+				zlog_debug("sysmgr: received %s this is a dev escape, the sysmgr pthread should never receive this",
+					   zebra_sysmgr_op2str(ctx->op));
+			break;
 		case SM_OP_NONE:
 		default:
 			break;
@@ -226,6 +236,12 @@ static void zebra_sysmgr_process_from_sysmgr_in_master(struct event *event)
 		case SM_OP_TEST_SEND:
 			if (IS_ZEBRA_DEBUG_SYSMGR)
 				zlog_debug("sysmgr: main received response op %s",
+					   zebra_sysmgr_op2str(ctx->op));
+			break;
+		case SM_OP_PORTS_DOWN:
+		case SM_OP_PORTS_UP:
+			if (IS_ZEBRA_DEBUG_SYSMGR)
+				zlog_debug("sysmgr: main received op %s",
 					   zebra_sysmgr_op2str(ctx->op));
 			break;
 		case SM_OP_NONE:

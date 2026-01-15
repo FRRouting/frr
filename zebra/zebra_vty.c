@@ -3816,13 +3816,21 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 
 DEFPY_HIDDEN (zebra_send_sysmgr_test,
        zebra_send_sysmgr_test_cmd,
-       "zebra send sysmgr test",
+       "zebra send sysmgr test [port <up$port_up|down$port_down>]",
        ZEBRA_STR
        "Send\n"
        "System manager\n"
-       "Send test message\n")
+       "Send test message\n"
+       "Ports\n"
+       "Ports up\n"
+       "Ports down\n")
 {
-	zebra_sysmgr_test_send(SM_OP_TEST_SEND);
+	if (port_up)
+		zebra_sysmgr_test_send(SM_OP_PORTS_UP);
+	else if (port_down)
+		zebra_sysmgr_test_send(SM_OP_PORTS_DOWN);
+	else
+		zebra_sysmgr_test_send(SM_OP_TEST_SEND);
 	return CMD_SUCCESS;
 }
 
