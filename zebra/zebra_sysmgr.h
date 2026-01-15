@@ -42,6 +42,7 @@ extern "C" {
  */
 enum sysmgr_op_e {
 	SM_OP_NONE = 0,
+	SM_OP_TEST_SEND,
 };
 
 /*
@@ -86,6 +87,18 @@ void zebra_sysmgr_ctx_q_enqueue(struct zebra_sysmgr_ctx_q *q, struct zebra_sysmg
 struct zebra_sysmgr_ctx *zebra_sysmgr_ctx_q_dequeue(struct zebra_sysmgr_ctx_q *q);
 void zebra_sysmgr_ctx_q_append(struct zebra_sysmgr_ctx_q *to, struct sysmgr_ctx_list_head *from);
 uint32_t zebra_sysmgr_ctx_q_count(struct zebra_sysmgr_ctx_q *q);
+
+/*
+ * Enqueue a context for processing by the sysmgr pthread.
+ */
+void zebra_sysmgr_enqueue_ctx(struct zebra_sysmgr_ctx *ctx);
+
+const char *zebra_sysmgr_op2str(enum sysmgr_op_e op);
+
+/*
+ * Send a test message to the sysmgr pthread.
+ */
+void zebra_sysmgr_test_send(enum sysmgr_op_e op);
 
 #ifdef __cplusplus
 }

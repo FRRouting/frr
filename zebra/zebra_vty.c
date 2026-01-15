@@ -53,6 +53,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_sysmgr.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -3813,6 +3814,18 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN (zebra_send_sysmgr_test,
+       zebra_send_sysmgr_test_cmd,
+       "zebra send sysmgr test",
+       ZEBRA_STR
+       "Send\n"
+       "System manager\n"
+       "Send test message\n")
+{
+	zebra_sysmgr_test_send(SM_OP_TEST_SEND);
+	return CMD_SUCCESS;
+}
+
 DEFPY (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
@@ -4367,6 +4380,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
+	install_element(ENABLE_NODE, &zebra_send_sysmgr_test_cmd);
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);

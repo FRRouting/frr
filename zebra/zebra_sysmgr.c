@@ -7,11 +7,13 @@
 #include <zebra.h>
 
 #include "lib/frr_pthread.h"
+#include "log.h"
 #include "memory.h"
 #include "frrevent.h"
 
 #include "zebra/zebra_sysmgr.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zebra_router.h"
 
 static struct zebra_sysmgr_globals {
 	_Atomic uint32_t run;
@@ -20,9 +22,12 @@ static struct zebra_sysmgr_globals {
 	struct event *t_work;
 	struct zebra_sysmgr_ctx_q in_q;
 	struct zebra_sysmgr_ctx_q out_q;
+	struct event *t_results;
 } zsysmgr;
 
 DEFINE_MTYPE_STATIC(ZEBRA, SYSMGR_CTX, "System manager context");
+
+static void zebra_sysmgr_process_from_sysmgr_in_master(struct event *event);
 
 struct zebra_sysmgr_ctx {
 	enum sysmgr_op_e op;
@@ -32,12 +37,27 @@ struct zebra_sysmgr_ctx {
 		struct {
 			uint32_t flags;
 		} generic;
+		struct {
+			enum sysmgr_op_e send_op;
+		} test;
 	} u;
 
 	struct sysmgr_ctx_list_item entries;
 };
 
 DECLARE_DLIST(sysmgr_ctx_list, struct zebra_sysmgr_ctx, entries);
+
+const char *zebra_sysmgr_op2str(enum sysmgr_op_e op)
+{
+	switch (op) {
+	case SM_OP_NONE:
+		return "NONE";
+	case SM_OP_TEST_SEND:
+		return "TEST_SEND";
+	}
+
+	return "UNKNOWN";
+}
 
 struct zebra_sysmgr_ctx *zebra_sysmgr_ctx_alloc(void)
 {
@@ -121,10 +141,36 @@ uint32_t zebra_sysmgr_ctx_q_count(struct zebra_sysmgr_ctx_q *q)
 
 static void sysmgr_thread_loop(struct event *event)
 {
+	struct zebra_sysmgr_ctx *ctx;
+
 	if (!atomic_load_explicit(&zsysmgr.run, memory_order_relaxed))
 		return;
 
-	/* Placeholder until work queues are introduced. */
+	while ((ctx = zebra_sysmgr_ctx_q_dequeue(&zsysmgr.in_q)) != NULL) {
+		switch (ctx->op) {
+		case SM_OP_TEST_SEND: {
+			struct zebra_sysmgr_ctx *reply = zebra_sysmgr_ctx_alloc();
+
+			reply->op = ctx->u.test.send_op;
+			reply->status = ZEBRA_SYSMGR_REQUEST_SUCCESS;
+			reply->corr_id = ctx->corr_id;
+			reply->u = ctx->u;
+
+			zebra_sysmgr_ctx_q_enqueue(&zsysmgr.out_q, reply);
+			event_add_event(zrouter.master, zebra_sysmgr_process_from_sysmgr_in_master,
+					NULL, 0, &zsysmgr.t_results);
+		}
+			zlog_debug("sysmgr: received %s (response op %s)",
+				   zebra_sysmgr_op2str(ctx->op),
+				   zebra_sysmgr_op2str(ctx->u.test.send_op));
+			break;
+		case SM_OP_NONE:
+		default:
+			break;
+		}
+
+		zebra_sysmgr_ctx_fini(&ctx);
+	}
 }
 
 void zebra_sysmgr_init(void)
@@ -167,4 +213,45 @@ void zebra_sysmgr_finish(void)
 {
 	zebra_sysmgr_ctx_q_fini(&zsysmgr.in_q);
 	zebra_sysmgr_ctx_q_fini(&zsysmgr.out_q);
+}
+
+static void zebra_sysmgr_process_from_sysmgr_in_master(struct event *event)
+{
+	struct zebra_sysmgr_ctx *ctx;
+
+	while ((ctx = zebra_sysmgr_ctx_q_dequeue(&zsysmgr.out_q)) != NULL) {
+		switch (ctx->op) {
+		case SM_OP_TEST_SEND:
+			zlog_debug("sysmgr: main received response op %s",
+				   zebra_sysmgr_op2str(ctx->op));
+			break;
+		case SM_OP_NONE:
+		default:
+			break;
+		}
+
+		zebra_sysmgr_ctx_fini(&ctx);
+	}
+}
+
+void zebra_sysmgr_enqueue_ctx(struct zebra_sysmgr_ctx *ctx)
+{
+	if (!ctx)
+		return;
+
+	zebra_sysmgr_ctx_q_enqueue(&zsysmgr.in_q, ctx);
+
+	if (zsysmgr.master)
+		event_add_event(zsysmgr.master, sysmgr_thread_loop, NULL, 0, &zsysmgr.t_work);
+}
+
+void zebra_sysmgr_test_send(enum sysmgr_op_e op)
+{
+	struct zebra_sysmgr_ctx *ctx = zebra_sysmgr_ctx_alloc();
+
+	ctx->op = SM_OP_TEST_SEND;
+	ctx->status = ZEBRA_SYSMGR_REQUEST_QUEUED;
+	ctx->u.test.send_op = op;
+
+	zebra_sysmgr_enqueue_ctx(ctx);
 }
