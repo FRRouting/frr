@@ -15,6 +15,7 @@
 #include "zebra/zebra_sysmgr.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zapi_msg.h"
 
 static struct zebra_sysmgr_globals {
 	_Atomic uint32_t run;
@@ -239,7 +240,13 @@ static void zebra_sysmgr_process_from_sysmgr_in_master(struct event *event)
 					   zebra_sysmgr_op2str(ctx->op));
 			break;
 		case SM_OP_PORTS_DOWN:
+			zsend_ports_state_notify(ZEBRA_PORTS_DOWN);
+			if (IS_ZEBRA_DEBUG_SYSMGR)
+				zlog_debug("sysmgr: main received op %s",
+					   zebra_sysmgr_op2str(ctx->op));
+			break;
 		case SM_OP_PORTS_UP:
+			zsend_ports_state_notify(ZEBRA_PORTS_UP);
 			if (IS_ZEBRA_DEBUG_SYSMGR)
 				zlog_debug("sysmgr: main received op %s",
 					   zebra_sysmgr_op2str(ctx->op));

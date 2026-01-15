@@ -243,6 +243,32 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 	return zserv_send_message(client, s);
 }
 
+static int zsend_ports_state(struct zserv *client, int cmd)
+{
+	struct stream *s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
+void zsend_ports_state_notify(int cmd)
+{
+	struct zserv *client;
+
+	if (cmd != ZEBRA_PORTS_UP && cmd != ZEBRA_PORTS_DOWN)
+		return;
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
+		zsend_ports_state(client, cmd);
+	}
+}
+
 /* Interface address is added/deleted. Send ZEBRA_INTERFACE_ADDRESS_ADD or
  * ZEBRA_INTERFACE_ADDRESS_DELETE to the client.
  *
