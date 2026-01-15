@@ -114,16 +114,14 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        # Don't start ospfd and ldpd in the CE nodes
         if router.name[0] == "r":
+            router.load_frr_config(
+                os.path.join(CWD, "{}/frr.conf".format(rname)),
+                [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_OSPF, None),
+                (TopoRouter.RD_LDP, None)])
+        else:
             router.load_config(
-                TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-            )
-            router.load_config(
-                TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname))
+                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
             )
 
     tgen.start_router()
