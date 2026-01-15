@@ -6611,8 +6611,26 @@ static struct bgp_dest *clearing_dest_helper(struct bgp_table *table,
 				/* if 'dest' matches or precedes the 'last' prefix
 				 * visited, then advance.
 				 */
+<<<<<<< HEAD
 				while (dest && (prefix_cmp(&(dest->rn->p), pfx) <= 0))
 					dest = bgp_route_next(dest);
+=======
+				if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL)) {
+					prefix_rd2str((struct prefix_rd *)pfx, buf, sizeof(buf),
+						      ASNOTATION_PLAIN);
+					zlog_debug("%s: using RESUME%s prefix %s", __func__,
+						   inner_p ? " inner" : "", buf);
+				}
+
+				dest = bgp_node_get(table, pfx);
+			} else {
+				/* Normal prefix: look for next prefix */
+				if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL))
+					zlog_debug("%s: using RESUME%s prefix %pFX", __func__,
+						   inner_p ? " inner" : "", pfx);
+
+				dest = bgp_node_get(table, pfx);
+>>>>>>> a2fc3f19c (bgpd: In batch clearing do not skip around)
 			}
 		}
 	}
