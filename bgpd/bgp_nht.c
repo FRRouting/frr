@@ -767,7 +767,9 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
-		if (bnc->ifindex_ipv6_ll != ifp->ifindex)
+		if ((bnc->nexthop_num == 1 && bnc->nexthop &&
+		     bnc->nexthop->ifindex != ifp->ifindex) &&
+		    (bnc->ifindex_ipv6_ll != ifp->ifindex))
 			continue;
 
 		bnc->last_update = monotime(NULL);
