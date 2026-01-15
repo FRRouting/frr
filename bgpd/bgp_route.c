@@ -16665,8 +16665,13 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				vty_json(vty, json);
 			}
 			json_object_free(json_ar);
-		} else
-			vty_out(vty, "%% No such neighbor or address family\n");
+		} else {
+			if (!peer)
+				vty_out(vty, "%% No such neighbor\n");
+			else
+				vty_out(vty, "%% %s is not enabled for this neighbor\n",
+					get_afi_safi_str(afi, safi, false));
+		}
 
 		return CMD_WARNING;
 	}
