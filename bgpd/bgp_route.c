@@ -3220,12 +3220,21 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			old_select ? old_select->peer->host : "NONE");
 	}
 
+	if (new_select) {
+		if (debug)
+			zlog_debug("%pBD(%s): %s is the bestpath, add to the multipath list", dest,
+				   bgp->name_pretty, path_buf);
+		SET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_NEW);
+		num_candidates++;
+	}
+
 	if (do_mpath && new_select) {
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (debug)
 				bgp_path_info_path_with_addpath_rx_str(
 					pi, path_buf, sizeof(path_buf));
 
+<<<<<<< HEAD
 			if (pi == new_select) {
 				if (debug)
 					zlog_debug(
@@ -3233,8 +3242,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 						dest, bgp->name_pretty,
 						path_buf);
 				bgp_mp_list_add(&mp_list, pi);
+=======
+			if (pi == new_select)
+>>>>>>> 06c6aeca1 (bgpd: Fix multipath decision when multipath is 1)
 				continue;
-			}
 
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
