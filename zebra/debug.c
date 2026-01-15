@@ -468,7 +468,7 @@ DEFPY (debug_zebra_evpn_mh,
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "EVPN\n"
+       "Debug zebra EVPN events\n"
        "Multihoming\n"
        "Ethernet Segment Debugging\n"
        "MAC Debugging\n"
