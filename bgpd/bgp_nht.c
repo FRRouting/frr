@@ -761,6 +761,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
+<<<<<<< HEAD
 		other_nh_count = 0;
 		nhop_ll_found = bnc->ifindex_ipv6_ll == ifp->ifindex;
 		for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
@@ -781,6 +782,11 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 		if (!nhop_found && !nhop_ll_found)
 			/* The event interface does not match the nexthop cache
 			 * entry */
+=======
+		if ((bnc->nexthop_num == 1 && bnc->nexthop &&
+		     bnc->nexthop->ifindex != ifp->ifindex) &&
+		    (bnc->ifindex_ipv6_ll != ifp->ifindex))
+>>>>>>> d1252ec2a (bgpd: On interface up/down events allow for more interfaces to be affected)
 			continue;
 
 		if (!up && other_nh_count > 0)
