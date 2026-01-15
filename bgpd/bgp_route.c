@@ -6794,21 +6794,14 @@ static struct bgp_dest *clearing_dest_helper(struct bgp_table *table,
 						   inner_p ? " inner" : "", buf);
 				}
 
-				dest = bgp_node_match(table, pfx);
+				dest = bgp_node_get(table, pfx);
 			} else {
 				/* Normal prefix: look for next prefix */
 				if (bgp_debug_neighbor_events(NULL))
 					zlog_debug("%s: using RESUME%s prefix %pFX", __func__,
 						   inner_p ? " inner" : "", pfx);
 
-				dest = bgp_node_match(table, pfx);
-				if (dest) {
-					/* if 'dest' matches or precedes the 'last' prefix
-					 * visited, then advance.
-					 */
-					while (dest && (prefix_cmp(&(dest->rn->p), pfx) <= 0))
-						dest = bgp_route_next(dest);
-				}
+				dest = bgp_node_get(table, pfx);
 			}
 		}
 	}
