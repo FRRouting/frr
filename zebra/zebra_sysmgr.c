@@ -10,6 +10,7 @@
 #include "log.h"
 #include "memory.h"
 #include "frrevent.h"
+#include "zebra/debug.h"
 
 #include "zebra/zebra_sysmgr.h"
 #include "zebra/zebra_memory.h"
@@ -160,9 +161,10 @@ static void sysmgr_thread_loop(struct event *event)
 			event_add_event(zrouter.master, zebra_sysmgr_process_from_sysmgr_in_master,
 					NULL, 0, &zsysmgr.t_results);
 		}
-			zlog_debug("sysmgr: received %s (response op %s)",
-				   zebra_sysmgr_op2str(ctx->op),
-				   zebra_sysmgr_op2str(ctx->u.test.send_op));
+			if (IS_ZEBRA_DEBUG_SYSMGR)
+				zlog_debug("sysmgr: received %s (response op %s)",
+					   zebra_sysmgr_op2str(ctx->op),
+					   zebra_sysmgr_op2str(ctx->u.test.send_op));
 			break;
 		case SM_OP_NONE:
 		default:
@@ -222,8 +224,9 @@ static void zebra_sysmgr_process_from_sysmgr_in_master(struct event *event)
 	while ((ctx = zebra_sysmgr_ctx_q_dequeue(&zsysmgr.out_q)) != NULL) {
 		switch (ctx->op) {
 		case SM_OP_TEST_SEND:
-			zlog_debug("sysmgr: main received response op %s",
-				   zebra_sysmgr_op2str(ctx->op));
+			if (IS_ZEBRA_DEBUG_SYSMGR)
+				zlog_debug("sysmgr: main received response op %s",
+					   zebra_sysmgr_op2str(ctx->op));
 			break;
 		case SM_OP_NONE:
 		default:
