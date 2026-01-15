@@ -61,6 +61,10 @@ struct sharp_global {
 	struct list *srv6_locators;
 
 	bool use_underlying_nexthop_group_weight;
+
+	uint64_t sysmgr_event_count;
+	unsigned int sysmgr_last_cmd;
+	bool sysmgr_last_cmd_valid;
 };
 
 extern struct sharp_global sg;

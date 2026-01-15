@@ -63,6 +63,22 @@ DEFPY(watch_sysmgr, watch_sysmgr_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_sharp_sysmgr,
+       show_sharp_sysmgr_cmd,
+       "show sharp sysmgr",
+       SHOW_STR
+       SHARP_STR
+       "System manager notifications\n")
+{
+	vty_out(vty, "Sysmgr events: %llu\n", (unsigned long long)sg.sysmgr_event_count);
+	if (sg.sysmgr_last_cmd_valid)
+		vty_out(vty, "Last sysmgr command: %s\n", zserv_command_string(sg.sysmgr_last_cmd));
+	else
+		vty_out(vty, "Last sysmgr command: none\n");
+
+	return CMD_SUCCESS;
+}
+
 
 DEFPY(watch_redistribute, watch_redistribute_cmd,
       "[no] sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
@@ -1706,6 +1722,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &import_te_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
+	install_element(ENABLE_NODE, &show_sharp_sysmgr_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
 	install_element(ENABLE_NODE, &show_sharp_cspf_cmd);
 

@@ -96,6 +96,10 @@ static int sharp_sysmgr_ports_state(ZAPI_CALLBACK_ARGS)
 	if (zapi_ports_state_decode(zclient->ibuf, length) != 0)
 		return -1;
 
+	sg.sysmgr_event_count++;
+	sg.sysmgr_last_cmd = cmd;
+	sg.sysmgr_last_cmd_valid = true;
+
 	zlog_debug("sharp sysmgr: received %s", zserv_command_string(cmd));
 	return 0;
 }
