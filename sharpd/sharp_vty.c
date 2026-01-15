@@ -53,6 +53,16 @@ DEFPY(watch_neighbor, watch_neighbor_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(watch_sysmgr, watch_sysmgr_cmd,
+      "sharp watch sysmgr",
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "System manager notifications\n")
+{
+	sharp_zebra_watch_sysmgr(true);
+	return CMD_SUCCESS;
+}
+
 
 DEFPY(watch_redistribute, watch_redistribute_cmd,
       "[no] sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
@@ -1679,6 +1689,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
 	install_element(ENABLE_NODE, &watch_neighbor_cmd);
+	install_element(ENABLE_NODE, &watch_sysmgr_cmd);
 	install_element(ENABLE_NODE, &watch_redistribute_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);

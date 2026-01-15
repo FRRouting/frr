@@ -91,6 +91,15 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int sharp_sysmgr_ports_state(ZAPI_CALLBACK_ARGS)
+{
+	if (zapi_ports_state_decode(zclient->ibuf, length) != 0)
+		return -1;
+
+	zlog_debug("sharp sysmgr: received %s", zserv_command_string(cmd));
+	return 0;
+}
+
 static int sharp_ifp_up(struct interface *ifp)
 {
 	return 0;
@@ -1105,7 +1114,7 @@ void sharp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
 }
 
 
-static zclient_handler *const sharp_handlers[] = {
+static zclient_handler *sharp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
@@ -1134,6 +1143,17 @@ void sharp_zebra_init(void)
 	g_zclient->zebra_connected = zebra_connected;
 	g_zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
 	g_zclient->nexthop_update = sharp_nexthop_update;
+}
+
+void sharp_zebra_watch_sysmgr(bool enable)
+{
+	if (enable) {
+		sharp_handlers[ZEBRA_PORTS_UP] = sharp_sysmgr_ports_state;
+		sharp_handlers[ZEBRA_PORTS_DOWN] = sharp_sysmgr_ports_state;
+	} else {
+		sharp_handlers[ZEBRA_PORTS_UP] = NULL;
+		sharp_handlers[ZEBRA_PORTS_DOWN] = NULL;
+	}
 }
 
 void sharp_zebra_terminate(void)
