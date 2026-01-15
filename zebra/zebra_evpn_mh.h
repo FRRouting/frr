@@ -26,7 +26,7 @@
  *   access port is associated with an ES-ID
  * - Remotes ESs are added by BGP based on received/remote EAD/Type-1 routes
  *   (ZEBRA_EVPNES_REMOTE)
- * - An ES can be simultaneously LOCAL and REMOTE; infact all LOCAL ESs are
+ * - An ES can be simultaneously LOCAL and REMOTE; in fact all LOCAL ESs are
  *   expected to have REMOTE ES peers.
  */
 struct zebra_evpn_es {
@@ -94,7 +94,7 @@ RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
 /* ES per-EVI info
  * - ES-EVIs are maintained per-EVPN (vni->es_evi_rb_tree)
  * - Local ES-EVIs are linked to per-EVPN list for quick access
- * - Although some infrastucture is present for remote ES-EVIs, currently
+ * - Although some infrastructure is present for remote ES-EVIs, currently
  *   BGP does NOT send remote ES-EVIs to zebra. This may change in the
  *   future (but must be changed thoughtfully and only if needed as ES-EVI
  *   can get prolific and come in the way of rapid failovers)
