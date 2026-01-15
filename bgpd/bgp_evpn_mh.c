@@ -5084,11 +5084,7 @@ void bgp_evpn_mh_finish(void)
 	 * that prevent freeing structures with REMOTE flags set. We force
 	 * cleanup here to ensure no memory leaks.
 	 */
-	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree,
-			 es_next) {
-		/* Clear local info first (attempts normal cleanup) */
-		bgp_evpn_es_local_info_clear(es, true);
-
+	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es_next) {
 		/* Force cleanup of any remaining structures that couldn't be
 		 * freed due to REMOTE flags or other guard conditions
 		 */
@@ -5106,6 +5102,9 @@ void bgp_evpn_mh_finish(void)
 				bgp_evpn_es_evi_free_internal(es_evi, true);
 			}
 		}
+
+		/* Clear local info (attempts normal cleanup and may free es) */
+		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
 		event_cancel(&bgp_mh_info->t_cons_check);
