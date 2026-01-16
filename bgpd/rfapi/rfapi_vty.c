@@ -3108,8 +3108,6 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 				/* if mac addr present in advert,  make l2o vn
 				 * option */
 				if (adb->u.s.prefix_eth.family == AF_ETHERNET) {
-					if (opt != NULL)
-						opt->next = &optary[cur_opt];
 					opt = &optary[cur_opt++];
 					opt->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
 					opt->v.l2addr.macaddr =
