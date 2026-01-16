@@ -1275,6 +1275,13 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 	    || !(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC)))
 		return 0;
 
+	if (!zl3vni->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("RMAC %pEA on L3-VNI %u install in dplane failed as vni has no vxlan_if",
+				   &zrmac->macaddr, zl3vni->vni);
+		return -1;
+	}
+
 	zif = zl3vni->vxlan_if->info;
 	if (!zif)
 		return -1;
