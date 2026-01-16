@@ -1178,6 +1178,7 @@ int zsend_l2vpn_svc_update(struct zserv *client, struct zebra_l2vpn_svc *svc)
 	if (svc->protocol == ZEBRA_ROUTE_BGP) {
 		stream_put(s, &svc->data.bgp.esi, sizeof(esi_t));
 		stream_put(s, svc->data.bgp.local_ac, IFNAMSIZ);
+		stream_putl(s, svc->data.bgp.mtu);
 	}
 
 	/* Put length at the first point of the stream. */

@@ -73,6 +73,7 @@ void zebra_l2vpn_svc_exit_vrf(struct zebra_vrf *zvrf);
 void zebra_l2vpn_svc_terminate(void);
 void zebra_pw_vty_init(void);
 void zebra_l2vpn_svc_handle_dplane_results(struct zebra_dplane_ctx *ctx);
+void zebra_l2vpn_ac_updated(struct interface *ifp, ifindex_t old_bridge_ifindex);
 
 #ifdef __cplusplus
 }

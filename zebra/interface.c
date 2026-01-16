@@ -40,6 +40,7 @@
 #endif
 #include "zebra/zebra_defaults.h"
 #include "zebra/zebra_nhrp.h"
+#include "zebra/zebra_l2vpn_svc.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -1969,6 +1970,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 	ifindex_t bond_ifindex = dplane_ctx_get_ifp_bond_ifindex(ctx);
 	uint32_t tableid = dplane_ctx_get_ifp_table_id(ctx);
 	enum zebra_iftype zif_type = dplane_ctx_get_ifp_zif_type(ctx);
+	enum zebra_slave_iftype zif_slave_type = dplane_ctx_get_ifp_zif_slave_type(ctx);
 	struct interface *ifp;
 	struct zebra_ns *zns;
 
@@ -1996,20 +1998,21 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			zebra_l2if_update_bond(ifp, false);
 		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 			zebra_l2if_update_bond_slave(ifp, bond_ifindex, false);
-		/* Special handling for bridge or VxLAN interfaces. */
+		/* Special handling for bridge or VxLAN interfaces or Attachment Circuits */
 		if (IS_ZEBRA_IF_BRIDGE(ifp))
 			zebra_l2_bridge_del(ifp);
 		else if (IS_ZEBRA_IF_VXLAN(ifp))
 			zebra_l2_vxlanif_del(ifp);
-
 		if_delete_update(&ifp);
+		if (zif_slave_type == ZEBRA_IF_SLAVE_BRIDGE)
+			/* call L2VPN to inform an AC may have been suppressed */
+			zebra_l2vpn_ac_updated(ifp, IFINDEX_INTERNAL);
 
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
 			interface_vrf_change(op, ifindex, name, tableid, ns_id);
 	} else {
 		ifindex_t master_ifindex, bridge_ifindex, bond_ifindex,
 			link_ifindex;
-		enum zebra_slave_iftype zif_slave_type;
 		uint8_t bypass;
 		uint64_t flags;
 		vrf_id_t vrf_id;
@@ -2021,6 +2024,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 		char *desc;
 		uint8_t family;
+		bool mtu_changed = false;
 
 		/* If VRF, create or update the VRF structure itself. */
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
@@ -2159,6 +2163,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					master_ifindex);
 
 			set_ifindex(ifp, ifindex, zns);
+			if (mtu != ifp->mtu)
+				mtu_changed = true;
 			ifp->mtu6 = ifp->mtu = mtu;
 			ifp->metric = 0;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
@@ -2277,6 +2283,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 				zebra_l2if_update_bridge(ifp, chgflags);
 			if (IS_ZEBRA_IF_BOND(ifp))
 				zebra_l2if_update_bond(ifp, true);
+			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) && was_bridge_slave && mtu_changed)
+				/* call L2VPN to inform an AC may have the mtu changed */
+				zebra_l2vpn_ac_updated(ifp, IFINDEX_INTERNAL);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(
 					ifp, bridge_ifindex, ns_id, chgflags);

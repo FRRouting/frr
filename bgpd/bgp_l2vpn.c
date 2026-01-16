@@ -187,6 +187,7 @@ static void svc_to_zebra_l2vpn(struct l2vpn_svc *svc, struct zapi_l2vpn_svc *zeb
 	if (CHECK_FLAG(svc->flags, F_PW_CWORD))
 		zebra_l2vpn->flags = F_PSEUDOWIRE_CWORD;
 	zebra_l2vpn->data.bgp.vni = svc->vni;
+	zebra_l2vpn->data.bgp.mtu = svc->mtu;
 	strlcpy(zebra_l2vpn->data.bgp.local_ac, svc->local_ac, IFNAMSIZ);
 	strlcpy(zebra_l2vpn->data.bgp.vpn_name, svc->l2vpn->name,
 		sizeof(zebra_l2vpn->data.bgp.vpn_name));
@@ -312,7 +313,7 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 		/* TODO  MH*/
 	}
 
-	encode_l2attr_extcomm(&eval, l2vpn_svc->l2vpn->mtu, flag);
+	encode_l2attr_extcomm(&eval, l2vpn_svc->mtu, flag);
 	bgp_evpn_local_es_evi_add(bgp, &l2vpn_svc->esi, vpn->vni, l2vpn_svc->evi, &eval);
 	SET_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE);
 
@@ -493,6 +494,7 @@ uint32_t bgp_evpn_vpws_vni_del(struct bgp *bgp, struct bgpevpn *vpn)
  * Update is need:
  *  - evpn vpws local status switching from EVPN_LOCAL_TX_FAULT to EVPN_NOT_FORWARDING.
  *  - evpn vpws local status is fell back to EVPN_LOCAL_TX_FAULT.
+ *  - local attachment circuit's mtu changed.
  */
 void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 {
@@ -545,6 +547,17 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 				update_needed = true;
 			}
 			strlcpy(l2vpn_svc->local_ac, zapi->local_ac, IFNAMSIZ);
+		}
+
+		/* update MTU regardless current status */
+		if (l2vpn_svc->mtu != zapi->mtu) {
+			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+				zlog_debug("VPWS local-ac %u remote-ac %u, MTU changed from %u to %u",
+					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+					   l2vpn_svc->mtu, zapi->mtu);
+			if (zapi->status != EVPN_LOCAL_TX_FAULT)
+				update_needed = true;
+			l2vpn_svc->mtu = zapi->mtu;
 		}
 
 		/* run VPWS EVPN_LOCAL_TX_FAULT -> EVPN_NOT_FORWARDING */

@@ -57,6 +57,7 @@ struct l2vpn_svc {
 	bool	 enabled;
 	uint32_t remote_group;
 	uint16_t remote_mtu;
+	uint16_t mtu;
 	uint32_t local_status;
 	uint32_t remote_status;
 

@@ -3863,9 +3863,11 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni,
 	es_evi = bgp_evpn_es_evi_find(es, vpn, eth_tag);
 
 	if (es_evi) {
-		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL) &&
+		    0 == memcmp(&es_evi->l2attr, ecom_l2attr, ECOMMUNITY_SIZE)) {
 			/* dup */
 			return 0;
+		}
 	} else {
 		es_evi = bgp_evpn_es_evi_new(es, vpn, eth_tag);
 		if (!es_evi) {

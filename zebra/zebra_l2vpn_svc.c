@@ -272,6 +272,90 @@ static void zebra_l2vpn_svc_update_status(struct zebra_l2vpn_svc *svc, int statu
 		zsend_l2vpn_svc_update(svc->client, svc);
 }
 
+/* Called to inform an AC or a vxlan interface may have changed
+ * - mtu of vxlan or AC changed
+ * - AC attached or detached
+ */
+void zebra_l2vpn_ac_updated(struct interface *ifp, ifindex_t old_bridge_ifindex)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	struct zebra_l2vpn_svc *svc;
+	struct zebra_evpn *zevpn;
+	struct interface *br_if;
+	struct zebra_if *zif;
+	enum zebra_slave_iftype zif_slave_type;
+	unsigned int mtu;
+	struct interface *ifp2;
+
+	zif = (struct zebra_if *)ifp->info;
+	if (!zif)
+		return;
+	zif_slave_type = zif->zif_slave_type;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
+			if (!svc->data.bgp.vni)
+				continue;
+			zevpn = zebra_evpn_lookup(svc->data.bgp.vni);
+			if (!zevpn)
+				continue;
+			if (!zevpn->vxlan_if)
+				continue;
+			br_if = zevpn->bridge_if;
+			if (!br_if)
+				continue;
+			if (zif_slave_type == ZEBRA_IF_SLAVE_BRIDGE &&
+			    zif->brslave_info.bridge_ifindex == br_if->ifindex) {
+				if (!IS_ZEBRA_IF_VXLAN(ifp) &&
+				    strcmp(svc->data.bgp.local_ac, ifp->name)) {
+					/* - new interface attached */
+					if (IS_ZEBRA_DEBUG_PW)
+						zlog_debug("VPWS VXLAN: AC %s attached to VNI %u",
+							   ifp->name, svc->data.bgp.vni);
+					zebra_evpn_bgp_vni_check(svc);
+					return;
+				}
+				if (IS_ZEBRA_IF_VXLAN(ifp) &&
+				    zevpn->vxlan_if->ifindex != ifp->ifindex)
+					/* case where a vxlan interface is an AC is not handled */
+					continue;
+				if (IS_ZEBRA_IF_VXLAN(ifp)) {
+					ifp2 = if_lookup_by_name_all_vrf(svc->data.bgp.local_ac);
+					if (!ifp2)
+						continue;
+					mtu = zevpn->vxlan_if->mtu > ifp2->mtu
+						      ? ifp2->mtu
+						      : zevpn->vxlan_if->mtu;
+				} else
+					mtu = zevpn->vxlan_if->mtu > ifp->mtu
+						      ? ifp->mtu
+						      : zevpn->vxlan_if->mtu;
+				if (svc->data.bgp.mtu != mtu) {
+					if (IS_ZEBRA_DEBUG_PW)
+						zlog_debug("VPWS VXLAN: VNI %u, if %s new MTU %u",
+							   svc->data.bgp.vni, ifp->name,
+							   mtu);
+					svc->data.bgp.mtu = mtu;
+				}
+				zebra_l2vpn_svc_update_status(svc, svc->status);
+			} else if (zif_slave_type == ZEBRA_IF_SLAVE_NONE) {
+				/* local AC interface detached */
+				if (!strcmp(svc->data.bgp.local_ac, ifp->name)) {
+					if (IS_ZEBRA_DEBUG_PW)
+						zlog_debug("VPWS VXLAN: AC %s detached from VNI %u",
+							   ifp->name, svc->data.bgp.vni);
+
+					memset(&svc->data.bgp.local_ac, 0, IFNAMSIZ);
+					zebra_l2vpn_svc_uninstall(svc);
+				} else if (old_bridge_ifindex == br_if->ifindex)
+					zebra_evpn_bgp_vni_check(svc);
+			}
+		}
+	}
+}
+
 static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc)
 {
 	int status;
@@ -348,6 +432,8 @@ static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc)
 
 		goto out;
 	}
+	svc->data.bgp.mtu = zevpn->vxlan_if->mtu > ifp_match->mtu ? ifp_match->mtu
+								  : zevpn->vxlan_if->mtu;
 
 	/* Check AC status */
 	strlcpy(svc->data.bgp.local_ac, ifp_match->name, IFNAMSIZ);

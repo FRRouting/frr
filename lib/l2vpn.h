@@ -78,6 +78,7 @@ union l2vpn_protocol_fields {
 		char local_ac[IFNAMSIZ];
 		uint32_t vni;
 		esi_t esi;
+		uint16_t mtu; /* minimum MTU from (AC/Vxlan) */
 	} bgp;
 };
 
