@@ -6045,6 +6045,55 @@ ALIAS (interface_ip_pim_neighbor_prefix_list,
        "Restrict allowed PIM neighbors\n"
        "Use prefix-list to filter neighbors\n")
 
+DEFPY_YANG(interface_ip_pim_joinprune_time,
+           interface_ip_pim_joinprune_time_cmd,
+           "[no] ip pim join-prune-interval ![(5-600)$jpt]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Join Prune Send Interval\n"
+           "Seconds\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_MODIFY, jpt_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_pim_assert_interval, interface_ip_pim_assert_interval_cmd,
+           "[no] ip pim assert-interval ![(1000-86400000)$at]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Assert timer\n"
+           "Milliseconds, default 180000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_MODIFY, at_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_pim_assert_override, interface_ip_pim_assert_override_cmd,
+           "[no] ip pim assert-override-interval ![(1000-86400000)$ao]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Assert override interval\n"
+           "Milliseconds, default calculated as 3000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_MODIFY, ao_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (debug_igmp,
        debug_igmp_cmd,
        "debug igmp",
@@ -9361,12 +9410,15 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_joinprune_time_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_neighbor_prefix_list_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_assert_interval_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_assert_override_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);

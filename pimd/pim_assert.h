@@ -35,8 +35,11 @@ struct pim_assert_metric {
   Holdtime field.  Thus, changing the Assert Time from the default
   value is not recommended.
  */
-#define PIM_ASSERT_OVERRIDE_INTERVAL (3)   /* seconds */
-#define PIM_ASSERT_TIME              (180) /* seconds */
+#define PIM_ASSERT_TIME (180000) /* milliseconds */
+/* override timer calculated as (assert / 75 + 600ms) in pim_assert.c;  yields
+ * spec default of 3s for 180s;  (the linear add of 600ms makes much more
+ * sense for relatively low values of the assert timer.)
+ */
 
 #define PIM_ASSERT_METRIC_PREFERENCE_MAX (0xFFFFFFFF)
 #define PIM_ASSERT_ROUTE_METRIC_MAX      (0xFFFFFFFF)
