@@ -624,7 +624,6 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 			/* The ADD message implies the update. */
 			ripng_zebra_ipv6_add(ripng, rp);
 		ripng_info_free(rinfo);
-		rinfo = NULL;
 	} else {
 		assert(rinfo == ripng_info_list_first(list));
 
