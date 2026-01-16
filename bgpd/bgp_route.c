@@ -3348,6 +3348,14 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			old_select ? old_select->peer->host : "NONE");
 	}
 
+	if (new_select) {
+		if (debug)
+			zlog_debug("%pBD(%s): %s is the bestpath, add to the multipath list", dest,
+				   bgp->name_pretty, path_buf);
+		SET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_NEW);
+		num_candidates++;
+	}
+
 	if (do_mpath && new_select) {
 		bool first_reason = true;
 		enum bgp_path_selection_reason ignore;
@@ -3357,16 +3365,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_path_with_addpath_rx_str(
 					pi, path_buf, sizeof(path_buf));
 
-			if (pi == new_select) {
-				if (debug)
-					zlog_debug(
-						"%pBD(%s): %s is the bestpath, add to the multipath list",
-						dest, bgp->name_pretty,
-						path_buf);
-				SET_FLAG(pi->flags, BGP_PATH_MULTIPATH_NEW);
-				num_candidates++;
+			if (pi == new_select)
 				continue;
-			}
 
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
