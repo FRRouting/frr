@@ -587,7 +587,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	}
 
 	/* First, locate the route node within the ESI or VNI.
-	 * If it doesn't exist, ther is nothing to do.
+	 * If it doesn't exist, there is nothing to do.
 	 * Note: there is no RD here.
 	 */
 	dest = bgp_node_lookup(rt_table, (struct prefix *)p);
@@ -990,7 +990,7 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 						 &ecom_esi_label));
 
 	/* Add export RTs for all L2-VNIs associated with this ES */
-	/* XXX - suppress EAD-ES advertisment if there are no EVIs associated
+	/* XXX - suppress EAD-ES advertisement if there are no EVIs associated
 	 * with it.
 	 */
 	if (listcount(bgp_mh_info->ead_es_export_rtl)) {
@@ -1652,7 +1652,7 @@ static enum zclient_send_status bgp_evpn_es_vtep_del(struct bgp *bgp,
  * destination ES (macip_evi_path_list) for efficient updates on ES oper
  * state changes.
  * 2. Non-local MAC-IP routes in the global routing table are linked to
- * the detination for efficient updates on -
+ * the destination for efficient updates on -
  * a. VTEP add/del - this results in a L3NHG update.
  * b. ES-VRF add/del - this may result in the host route being migrated to
  *    L3NHG or vice versa (flat multipath list).
@@ -1753,7 +1753,7 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	if (!bgp_evpn)
 		return;
 
-	/* setup es_info against the path if it doesn't aleady exist */
+	/* setup es_info against the path if it doesn't already exist */
 	if (!es_info)
 		es_info = bgp_evpn_path_es_info_new(pi, vni);
 
@@ -1795,7 +1795,7 @@ static bool bgp_evpn_is_macip_path(struct bgp_path_info *pi)
 }
 
 /* When a remote ES is added to a VRF, routes using that as
- * a destination need to be migrated to a L3NHG or viceversa.
+ * a destination need to be migrated to a L3NHG or vice versa.
  * This is done indirectly by re-attempting an install of the
  * route in the associated VRFs. As a part of the VRF install use
  * of l3 NHG is evaluated and this results in the
@@ -3579,7 +3579,7 @@ bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 		 */
 		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD;
 	else
-		/* EAD-per-ES is sufficent to activate the PE */
+		/* EAD-per-ES is sufficient to activate the PE */
 		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD_PER_ES;
 
 	if (CHECK_FLAG(evi_vtep->flags, ead_activity_flags) ==
@@ -3971,7 +3971,7 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 		bgp_evpn_ead_evi_route_update(bgp, es, vpn, &p);
 	}
 
-	bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(es, es_evi);
+	bgp_evpn_local_es_evi_uninstall_local_routes_in_vrfs(es, es_evi);
 	/* update EAD-ES */
 	if (bgp_evpn_local_es_is_active(es))
 		bgp_evpn_ead_es_route_update(bgp, es);
@@ -3980,7 +3980,7 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 }
 
 /* Add remote ES-EVI entry. This is actually the remote VTEP add and the
- * ES-EVI is implicity created on first VTEP's reference.
+ * ES-EVI is implicitly created on first VTEP's reference.
  */
 enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 						    struct bgpevpn *vpn,
@@ -4531,7 +4531,7 @@ static void bgp_evpn_es_evi_set_inconsistent(struct bgp_evpn_es_evi *es_evi)
 					es_evi->vpn->vni);
 		SET_FLAG(es_evi->flags, BGP_EVPNES_EVI_INCONS_VTEP_LIST);
 
-		/* update parent ES with the incosistency setting */
+		/* update parent ES with the inconsistency setting */
 		if (!es_evi->es->incons_evi_vtep_cnt &&
 				BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 			zlog_debug("inconsistency detected - es %s vtep list mismatch",
@@ -4983,7 +4983,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 		return;
 	}
 
-	/* setup nh_info against the path if it doesn't aleady exist */
+	/* setup nh_info against the path if it doesn't already exist */
 	if (!nh_info)
 		nh_info = bgp_evpn_path_nh_info_new(pi);
 
@@ -5249,8 +5249,8 @@ void bgp_evpn_switch_ead_evi_rx(void)
 	}
 }
 
-void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
-							 struct bgp_evpn_es_evi *es_evi)
+void bgp_evpn_local_es_evi_uninstall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+							  struct bgp_evpn_es_evi *es_evi)
 {
 	struct listnode *node;
 	struct bgp_path_es_info *es_info;
