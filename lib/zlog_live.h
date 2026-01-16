@@ -44,6 +44,10 @@ struct zlog_live_hdr {
 	/* EC value */
 	uint32_t ec;
 
+	/* timestamp sub-second precision (digits, 0-9) */
+	uint8_t ts_subsec;
+	uint8_t _pad[3];
+
 	/* recorded printf formatting argument positions (variable length) */
 	uint32_t n_argpos;
 	struct fmt_outpos argpos[0];
