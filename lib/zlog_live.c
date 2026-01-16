@@ -12,6 +12,8 @@
 #include "memory.h"
 #include "frrcu.h"
 #include "zlog.h"
+#include "log.h"
+#include "log_vty.h"
 #include "printfrr.h"
 #include "network.h"
 
@@ -95,6 +97,7 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 						      memory_order_relaxed);
 		hdr->prio = prio;
 		hdr->flags = 0;
+		hdr->ts_subsec = zt_file.ts_subsec;
 		hdr->textlen = textlen;
 		hdr->texthdrlen = texthdrlen;
 		hdr->n_argpos = n_argpos;
@@ -164,6 +167,7 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 	hdr->ts_sec = ts.tv_sec;
 	hdr->ts_nsec = ts.tv_nsec;
 	hdr->prio = LOG_CRIT;
+	hdr->ts_subsec = zt_file.ts_subsec;
 	hdr->textlen = len;
 
 	iov->iov_base = (char *)hdr;

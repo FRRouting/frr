@@ -544,6 +544,8 @@ static int logging_timestamp_precision_modify(struct nb_cb_modify_args *args)
 	val = yang_dnode_get_uint8(args->dnode, NULL);
 	zt_file.ts_subsec = val;
 	zlog_file_set_other(&zt_file);
+	zt_file_cmdline.ts_subsec = val;
+	zlog_file_set_other(&zt_file_cmdline);
 	if (!stdout_journald_in_use) {
 		zt_stdout_file.ts_subsec = val;
 		zlog_file_set_other(&zt_stdout_file);
