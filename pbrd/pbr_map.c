@@ -215,14 +215,14 @@ void pbr_map_interface_delete(struct pbr_map *pbrm, struct interface *ifp_del)
 		pbr_map_policy_delete(pbrm, pmi);
 }
 
-void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
+bool pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
 {
 	struct listnode *node;
 	struct pbr_map_interface *pmi;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi)) {
 		if (ifp_add == pmi->ifp)
-			return;
+			return true; /* Already added */
 	}
 
 	/*
@@ -232,7 +232,7 @@ void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
 		zlog_warn("%s: PBR map %s has reached maximum interface limit (%d), cannot add interface %s",
 			  __func__, pbrm->name, PBR_MAP_INTERFACE_MAX,
 			  ifp_add->name);
-		return;
+		return false; /* Limit reached */
 	}
 
 	pmi = XCALLOC(MTYPE_PBR_MAP_INTERFACE, sizeof(*pmi));
@@ -244,6 +244,8 @@ void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
 	pbr_map_check_valid(pbrm->name);
 	if (pbrm->valid)
 		pbr_map_install(pbrm);
+
+	return true; /* Success */
 }
 
 static int

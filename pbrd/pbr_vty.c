@@ -1459,15 +1459,24 @@ DEFPY  (pbr_policy,
 			if (old_pbrm && old_pbrm != pbrm)
 				pbr_map_interface_delete(old_pbrm, ifp);
 		}
-		snprintf(pbr_ifp->mapname, sizeof(pbr_ifp->mapname),
-			 "%s", mapname);
 
 		/*
 		 * So only reinstall if the old_pbrm and this pbrm are
-		 * different.
+		 * different. Only set mapname if we successfully add
+		 * the interface (or if the map doesn't exist yet for
+		 * deferred application).
 		 */
-		if (pbrm && pbrm != old_pbrm)
-			pbr_map_add_interface(pbrm, ifp);
+		if (pbrm && pbrm != old_pbrm) {
+			if (!pbr_map_add_interface(pbrm, ifp)) {
+				vty_out(vty,
+					"%% PBR map %s has reached maximum interface limit (%d)\n",
+					mapname, PBR_MAP_INTERFACE_MAX);
+				return CMD_WARNING;
+			}
+		}
+
+		snprintf(pbr_ifp->mapname, sizeof(pbr_ifp->mapname),
+			 "%s", mapname);
 	}
 
 	return CMD_SUCCESS;

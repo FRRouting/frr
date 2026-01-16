@@ -212,7 +212,7 @@ extern struct pbr_map *pbrm_find(const char *name);
 extern void pbr_map_delete(struct pbr_map_sequence *pbrms);
 extern void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms);
 extern void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms);
-extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
+extern bool pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
 
