@@ -245,7 +245,7 @@ static int zebra_mlag_private_close_channel(void)
 	}
 
 	/*
-	 * Post the De-register to MLAG, so that it can do necesasry cleanup
+	 * Post the De-register to MLAG, so that it can do necessary cleanup
 	 */
 	zebra_mlag_send_deregister();
 

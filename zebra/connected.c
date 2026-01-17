@@ -141,7 +141,7 @@ static int connected_same(struct connected *ifc1, struct connected *ifc2)
 	return 1;
 }
 
-/* Handle changes to addresses and send the neccesary announcements
+/* Handle changes to addresses and send the necessary announcements
  * to clients. */
 static void connected_update(struct interface *ifp, struct connected *ifc)
 {
@@ -181,7 +181,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
  * This function goes through and handles the deletion of a kernel route that happened
  * to be the exact same as the connected route, so that the connected route wins.
  * This can happen during processing if we happen to receive events in a slightly
- * unexpected order.  This is similiar to code in the other direction where if we
+ * unexpected order.  This is similar to code in the other direction where if we
  * have a kernel route don't install it if it perfectly matches a connected route.
  */
 static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct zebra_vrf *zvrf,

@@ -1207,7 +1207,7 @@ static void zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, struct 
 			*is_dup_detect = true;
 
 		/* warn-only action, neigh will be installed.
-		 * freeze action, it wil not be installed.
+		 * freeze action, it will not be installed.
 		 */
 		return;
 	}
@@ -2199,9 +2199,9 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vr
 				listnode_add_sort(mac->neigh_list, n);
 				memcpy(&n->emac, &mac->macaddr, ETH_ALEN);
 
-				/* Check Neigh's curent state is local
+				/* Check Neigh's current state is local
 				 * (this is the case where neigh/host has  moved
-				 * from L->R) and check previous detction
+				 * from L->R) and check previous detection
 				 * started via local learning.
 				 *
 				 * RFC-7432: A PE/VTEP that detects a MAC

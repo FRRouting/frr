@@ -153,7 +153,7 @@ nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
 		 */
 		remove = nhg_connected_tree_del(head, remove);
 
-	/* If the entry was sucessfully removed, free the 'connected` struct */
+	/* If the entry was successfully removed, free the 'connected` struct */
 	if (remove) {
 		removed_nhe = remove->nhe;
 		nhg_connected_free(remove);
@@ -1121,7 +1121,7 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 
-	/* If anthing else in the group is valid, the group is valid */
+	/* If anything else in the group is valid, the group is valid */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
 			valid = true;
@@ -1153,7 +1153,7 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 
 	/*
 	 * If its not zebra owned, we didn't store it here and have to be
-	 * sure we don't clear one thats actually being used.
+	 * sure we don't clear one that's actually being used.
 	 */
 	if (nhe->id < ZEBRA_NHG_PROTO_LOWER)
 		hash_release(zrouter.nhgs, nhe);
@@ -1254,7 +1254,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 
 	if (lookup) {
 		/* This is already present in our table, hence an update
-		 * that we did not initate.
+		 * that we did not initiate.
 		 */
 		zebra_nhg_handle_kernel_state_change(lookup, false);
 		return 0;
@@ -1414,7 +1414,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp, u
 	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
-	/* Under statup conditions, we need to handle them immediately
+	/* Under startup conditions, we need to handle them immediately
 	 * like we do for routes. Otherwise, we are going to get a route
 	 * with a nhe_id that we have not handled.
 	 */
@@ -2524,7 +2524,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			 * Imagine a route A and route B( that depends on A )
 			 * for recursive resolution and A already exists in the
 			 * zebra rib.  If zebra receives the routes
-			 * for resolution at aproximately the same time in the [
+			 * for resolution at approximately the same time in the [
 			 * B, A ] order on the workQ.  If this happens then
 			 * normal route resolution will happen and B will be
 			 * resolved successfully and then A will be resolved
@@ -3403,7 +3403,7 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 			if (!found) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED ||
 				    IS_ZEBRA_DEBUG_NHG)
-					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Gropu Entry, something is terribly wrong",
+					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Group Entry, something is terribly wrong",
 						   __func__, depend->id);
 				continue;
 			}

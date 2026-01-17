@@ -274,7 +274,7 @@ static void zebra_mlag_publish_process_state(struct zserv *client,
 
 
 	/*
-	 * additional four bytes are for mesasge type
+	 * additional four bytes are for message type
 	 */
 	s = stream_new(ZEBRA_HEADER_SIZE + ZEBRA_MLAG_METADATA_LEN);
 	stream_putl(s, ZEBRA_MLAG_MSG_BCAST);
@@ -526,7 +526,7 @@ void zebra_mlag_client_unregister(ZAPI_HANDLER_ARGS)
  * Does following things.
  * 1) allocated new local stream, and copies the client data and enqueue
  *    to MLAG Thread
- *  2) MLAG Thread after dequeing, encode the client data using protobuf
+ *  2) MLAG Thread after dequeuing, encode the client data using protobuf
  *     and write on to MLAG
  */
 void zebra_mlag_forward_client_msg(ZAPI_HANDLER_ARGS)
@@ -896,7 +896,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 	}
 
 	/*
-	 * ProtoBuf Infra will not support to demarc the pointers whem multiple
+	 * ProtoBuf Infra will not support to demarc the pointers when multiple
 	 * messages are posted inside a single Buffer.
 	 * 2 -solutions exist to solve this
 	 * 1. add Unenoced length at the beginning of every message, this will
