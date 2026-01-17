@@ -61,7 +61,7 @@ enum protodown_reasons {
 	ZEBRA_PROTODOWN_VRRP = (1 << 3),
 	/* This reason used exclusively for testing */
 	ZEBRA_PROTODOWN_SHARP = (1 << 4),
-	/* Just used to clear our fields on shutdown, externel not included */
+	/* Just used to clear our fields on shutdown, external not included */
 	ZEBRA_PROTODOWN_ALL = (ZEBRA_PROTODOWN_EVPN_ALL | ZEBRA_PROTODOWN_VRRP |
 			       ZEBRA_PROTODOWN_SHARP)
 };
@@ -96,7 +96,7 @@ struct zebra_mlag_info {
 	/*
 	 * A new Kernel thread will be created to post the data to MCLAGD.
 	 * where as, read will be performed from the zebra main thread, because
-	 * read involves accessing client registartion data structures.
+	 * read involves accessing client registration data structures.
 	 */
 	struct frr_pthread *zebra_pth_mlag;
 

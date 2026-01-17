@@ -119,8 +119,7 @@ struct zebra_vxlan_vni_info {
 	int iftype;
 	union {
 		struct zebra_vxlan_vni vni; /* per vni vxlan device vni info */
-		struct hash
-			*vni_table; /* table of vni's assocated with this if */
+		struct hash *vni_table;	    /* table of vni's associated with this if */
 	};
 };
 

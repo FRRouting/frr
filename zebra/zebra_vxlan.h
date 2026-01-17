@@ -37,7 +37,7 @@ static inline int is_evpn_enabled(void)
 /* Use this for GUA IPv6 address len
  * NOTE: ideal place can be lib/prefix.h where
  * INET6_ADDRSTRLEN is defined.
- * It is used for column width of gloabl IPv6
+ * It is used for column width of global IPv6
  * address rendering.
  * dead:beef:dead:beef:dead:beef:dead:beef + \0
  */

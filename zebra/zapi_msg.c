@@ -642,7 +642,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
  * so it'd be rather complex to do NHT for.)
  *
  * 9/19/24 NEB I've updated this API to include the SAFI in the lookup
- * request and response. This allows PIM to do a syncronous lookup for the
+ * request and response. This allows PIM to do a synchronous lookup for the
  * correct table along side NHT.
  * This also makes this a more generic synchronous lookup not specifically
  * tied to the mrib.
@@ -1959,7 +1959,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 	}
 
 
-	/* succesfully read, set caller pointers now */
+	/* successfully read, set caller pointers now */
 	if (png)
 		*png = ng;
 
@@ -2244,7 +2244,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 * If we have an ID, this proto owns the NHG it sent along with the
 	 * route, so we just send the ID into rib code with it.
 	 *
-	 * Havent figured out how to handle backup NHs with this yet, so lets
+	 * Haven't figured out how to handle backup NHs with this yet, so lets
 	 * keep that separate.
 	 * Include backup info with the route. We use a temporary nhe here;
 	 * if this is a new/unknown nhe, a new copy will be allocated
@@ -2351,7 +2351,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	}
 }
 
-/* Syncronous Nexthop lookup. */
+/* Synchronous Nexthop lookup. */
 static void zread_nexthop_lookup(ZAPI_HANDLER_ARGS)
 {
 	struct ipaddr addr;

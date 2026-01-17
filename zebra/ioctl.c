@@ -156,7 +156,7 @@ void if_get_mtu(struct interface *ifp)
 
 	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
 
-	/* propogate */
+	/* propagate */
 	zebra_interface_up_update(ifp);
 
 #else
@@ -312,7 +312,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 #else
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
@@ -365,7 +365,7 @@ int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {

@@ -960,7 +960,7 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 		zlog_debug("Build vni table for vni %u for Intf %s", vni,
 			   ifp->name);
 
-	/* L3-VNI and L2-VNI are handled seperately */
+	/* L3-VNI and L2-VNI are handled separately */
 	zl3vni = zl3vni_lookup(vni);
 	if (zl3vni) {
 
@@ -3642,7 +3642,7 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
 		return -1;
 	}
 
-	/* Remove all IPs as duplicate associcated with this MAC */
+	/* Remove all IPs as duplicate associated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
 		/* For local neigh mark inactive so MACIP update is generated
 		 * to BGP. This is a scenario where MAC update received
@@ -3790,7 +3790,7 @@ static void zevpn_clear_dup_mac_hash(struct hash_bucket *bucket, void *ctxt)
 	mac->dad_dup_detect_time = 0;
 	event_cancel(&mac->dad_mac_auto_recovery_timer);
 
-	/* Remove all IPs as duplicate associcated with this MAC */
+	/* Remove all IPs as duplicate associated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
 		if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)
 		    && nbr->dad_count)
@@ -3999,7 +3999,7 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 	if (use_json) {
 		/*
 		 * Each "json" object contains info about 1 VNI.
-		 * When "json_array" is non-null, we aggreggate the json output
+		 * When "json_array" is non-null, we aggregate the json output
 		 * into json_array and print it as a JSON array.
 		 */
 		if (json_array)
@@ -4645,7 +4645,7 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 	if (!is_evpn_enabled())
 		return 0;
 
-	/* check if this is a remote RMAC and readd simillar to remote macs */
+	/* check if this is a remote RMAC and readd similar to remote macs */
 	zl3vni = zl3vni_lookup(vni);
 	if (zl3vni)
 		return zebra_vxlan_readd_remote_rmac(zl3vni, macaddr);
@@ -5200,7 +5200,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
  * Handle SVI interface coming up.
  * SVI can be associated to L3-VNI (l3vni vxlan interface) or L2-VNI (l2-vni
  * vxlan intf).
- * For L2-VNI: we need to install any remote neighbors entried (used for
+ * For L2-VNI: we need to install any remote neighbors entries (used for
  * arp-suppression)
  * For L3-VNI: SVI will be used to get the rmac to be used with L3-VNI
  */

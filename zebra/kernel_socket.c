@@ -1195,7 +1195,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	caddr_t pnt;
 	struct interface *ifp;
 
-	/* Sequencial number of routing message. */
+	/* Sequential number of routing message. */
 	static int msg_seq = 0;
 
 	/* Struct of rt_msghdr and buffer for storing socket's data. */
