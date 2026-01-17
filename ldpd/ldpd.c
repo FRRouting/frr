@@ -903,6 +903,7 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 {
 	struct imsg	 imsg;
 	struct acl_check acl_check;
+	int result;
 
 	if (acl_name[0] == '\0')
 		return FILTER_PERMIT;
@@ -929,7 +930,9 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int))
 		fatalx("ldp_acl_request: invalid response");
 
-	return (*((int *)imsg.data));
+	result = (*((int *)imsg.data));
+	imsg_free(&imsg);
+	return result;
 }
 
 void
