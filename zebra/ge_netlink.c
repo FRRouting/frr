@@ -241,7 +241,7 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
  * netlink_sr_tunsrc_reply_read() - Read in SR tunsrc reply from the kernel
  *
  * @h:			Netlink message header
- * @ns_id:		Namspace id
+ * @ns_id:		Namespace id
  * @startup:	Are we reading under startup conditions?
  *
  * Return:	Result status

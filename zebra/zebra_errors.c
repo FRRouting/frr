@@ -789,7 +789,7 @@ static struct log_ref ferr_zebra_err[] = {
 		.title =
 			"Zebra failed to update interface in the kernel",
 		.description =
-			"Zebra made an attempt to update an interfce in the kernel, but it was not successful.",
+			"Zebra made an attempt to update an interface in the kernel, but it was not successful.",
 		.suggestion =
 			"Wait for Zebra to reattempt update.",
 	},

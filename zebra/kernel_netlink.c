@@ -1055,7 +1055,7 @@ static int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t,
 
 	/*
 	 * Get reply from netlink socket.
-	 * The reply should either be an acknowlegement or an error.
+	 * The reply should either be an acknowledgement or an error.
 	 */
 	return netlink_parse_info(filter, nl, dp_info, 0, startup);
 }

@@ -588,8 +588,8 @@ void process_rtadv(void *arg)
 		 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
 		 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
 		 * expiry time is 10 ms and, AdvIntervalTimer == 1005 ms. Allowing 
-		 * AdvIntervalTimer to go negative and checking, gurantees that
-		 * we have waited Wait atleast AdvIntervalTimer, so RA can be 
+		 * AdvIntervalTimer to go negative and checking, guarantees that
+		 * we have waited Wait at least AdvIntervalTimer, so RA can be
 		 * sent now.
 		*/
 		if (zif->rtadv.AdvIntervalTimer <= 0) {
@@ -1596,7 +1596,7 @@ stream_failure:
 /*
  * send router lifetime value of zero in RAs on this interface since we're
  * ceasing to advertise and want to let our neighbors know.
- * RFC 4861 secion 6.2.5
+ * RFC 4861 section 6.2.5
  */
 void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 {
@@ -1628,7 +1628,7 @@ void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 /*
  * Send router lifetime value of zero in RAs on all interfaces since we're
  * ceasing to advertise globally and want to let all of our neighbors know
- * RFC 4861 secion 6.2.5
+ * RFC 4861 section 6.2.5
  *
  * Delete all ipv6 global prefixes added to the router advertisement prefix
  * lists prior to ceasing.
@@ -2234,7 +2234,7 @@ static int if_join_all_router(int sock, struct interface *ifp)
 	struct ipv6_mreq mreq;
 
 	if (is_interface_in_group(ifp->name, ALLROUTER))
-		/* Interface is already part of the group, so return sucess */
+		/* Interface is already part of the group, so return success */
 		return 0;
 
 	memset(&mreq, 0, sizeof(mreq));

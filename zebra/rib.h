@@ -148,7 +148,7 @@ struct route_entry {
 /*
  * Route entries that are going to the dplane for a Route Replace
  * let's note the fact that this is happening.  This will
- * be useful when zebra is determing if a route can be
+ * be useful when zebra is determining if a route can be
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
@@ -351,7 +351,7 @@ void rib_update_finish(void);
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
 
-/* NHG replace has happend, we have to update route_entry pointers to new one */
+/* NHG replace has happened, we have to update route_entry pointers to new one */
 int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 			   struct nhg_hash_entry *new_entry);
 

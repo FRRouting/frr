@@ -2668,7 +2668,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	/*
 	 * Always install blackhole routes without using nexthops, because of
 	 * the following kernel problems:
-	 * 1. Kernel nexthops don't suport unreachable/prohibit route types.
+	 * 1. Kernel nexthops don't support unreachable/prohibit route types.
 	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
 	 */
 	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
@@ -3499,7 +3499,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 }
 
 /**
- * netlink_nexthop_process_nh() - Parse the gatway/if info from a new nexthop
+ * netlink_nexthop_process_nh() - Parse the gateway/if info from a new nexthop
  *
  * @tb:		Netlink RTA data
  * @family:	Address family in the nhmsg
@@ -3827,7 +3827,7 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 				 &dp_info, 0, true);
 
 	if (!ret)
-		/* If we succesfully read in nexthop objects,
+		/* If we successfully read in nexthop objects,
 		 * this kernel must support them.
 		 */
 		supports_nh = true;
@@ -3861,7 +3861,7 @@ int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
  * @llalen:		Length of the pointer to neighbor cache link layer
  * address
  * @ip:		A neighbor cache n/w layer destination address
- *			In the case of bridge FDB, this represnts the remote
+ *			In the case of bridge FDB, this represents the remote
  *			VTEP IP.
  * @replace_obj:	Whether NEW request should replace existing object or
  *			add to the end of the list

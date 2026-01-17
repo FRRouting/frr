@@ -1134,7 +1134,7 @@ DEFPY_YANG (zebra_evpn_es_id,
 	"10-byte ID - 00:AA:BB:CC:DD:EE:FF:GG:HH:II\n")
 {
 	if (no) {
-		/* We don't know which one is configured, so detroy both types. */
+		/* We don't know which one is configured, so destroy both types. */
 		nb_cli_enqueue_change(vty,
 				      "./frr-zebra:zebra/evpn-mh/type-0/esi",
 				      NB_OP_DESTROY, NULL);
@@ -1578,7 +1578,7 @@ DEFPY_YANG (ipv6_nd_other_config_flag,
 	NO_STR
 	"Interface IPv6 config commands\n"
 	"Neighbor discovery\n"
-	"Other statefull configuration flag\n")
+	"Other stateful configuration flag\n")
 {
 	if (!no)
 		nb_cli_enqueue_change(vty,
