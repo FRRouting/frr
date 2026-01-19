@@ -1693,7 +1693,8 @@ static void fe_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_msg_notify_data *msg,
 							    size_t msglen, struct lyd_node **tree,
 							    uint8_t format,
-							    struct mgmt_msg_notify_data **cache)
+							    struct mgmt_msg_notify_data **cache,
+							    size_t *send_msglen)
 
 {
 	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
@@ -1703,8 +1704,13 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 	const char *data, *xpath;
 	LY_ERR err;
 
-	if (cache[format])
+	if (cache[format] == msg) {
+		*send_msglen = msglen;
 		return cache[format];
+	} else if (cache[format]) {
+		*send_msglen = mgmt_msg_native_get_msg_len(cache[format]);
+		return cache[format];
+	}
 
 	_dbg("creating notify msg cache for format %u", format);
 
@@ -1746,6 +1752,7 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 	assert(err == LY_SUCCESS);
 
 	cache[format] = new_msg;
+	*send_msglen = mgmt_msg_native_get_msg_len(new_msg);
 	return new_msg;
 }
 
@@ -1766,15 +1773,32 @@ static void cleanup_notify_msg_cache(struct mgmt_msg_notify_data *msg, struct ly
 	}
 }
 
-void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen)
+static struct msg_conn *_get_notify_conn(uint64_t session_id, LYD_FORMAT *format)
+{
+	struct mgmt_fe_session_ctx *session;
+
+	if (session_id < MGMT_FE_SESSION_ID_MIN)
+		return mgmt_be_get_notify_conn(MGMT_FE_SESSION_TO_CLIENT_ID(session_id), format);
+
+	session = fe_session_lookup(session_id);
+	if (!session)
+		return NULL;
+	*format = session->notify_format;
+	return session->adapter->conn;
+}
+
+void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg, size_t msglen)
 {
 	struct mgmt_msg_notify_data *cache[MGMT_MSG_FORMAT_LAST + 1] = {};
 	struct mgmt_msg_notify_data *send_msg;
 	struct mgmt_fe_client_adapter *adapter;
-	uint64_t *session_ids = NULL;
 	struct mgmt_fe_session_ctx *session;
 	struct nb_node *nb_node = NULL;
 	struct lyd_node *tree = NULL;
+	struct msg_conn *conn = NULL;
+	LYD_FORMAT format = LYD_JSON;
+	uint64_t *session_ids = NULL;
+	size_t send_len;
 	const char *notif;
 	uint i;
 
@@ -1800,38 +1824,35 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	}
 
 	/*
-	 * Handle notify "get" data case. When a FE session subscribes to DS
-	 * notifications it first gets a dump of all the subscribed state.
+	 * Handle notify "get" data case. When a FE session or BE client
+	 * subscribes to DS notifications they first get a dump of all the
+	 * subscribed state.
 	 */
 	if (msg->refer_id != MGMTD_SESSION_ID_NONE) {
-		/* XXX need to add backends here too */
-		session = fe_session_lookup(msg->refer_id);
-		if (!session || !session->notify_xpaths) {
-			_dbg("No session listening for notify 'get' data: %Lu", msg->refer_id);
+		conn = _get_notify_conn(msg->refer_id, &format);
+		if (!conn) {
+			_dbg("No session or client (id: %Lu) exists to send notify 'get' data to: %s",
+			     msg->refer_id, notif);
 			return;
 		}
-
-		send_msg = assure_notify_msg_cache(msg, msglen, &tree, session->notify_format,
-						   cache);
-		(void)fe_adapter_send_msg(session->adapter, send_msg, msglen, false);
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
+		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 		goto done;
 	}
 
-	/*
-	 * Normal notification case.
-	 */
+	/* Send to all interested sessions/clients */
 	session_ids = mgmt_fe_ns_string_select(nb_node, notif);
-
-	/* Send to all interested sessions */
 	darr_foreach_i (session_ids, i) {
-		session = fe_session_lookup(session_ids[i]);
-		if (!session)
+		conn = _get_notify_conn(session_ids[i], &format);
+		if (!conn) {
+			_log_err("No session or client (id: %Lu) exists to send notify: %s",
+				 session_ids[i], notif);
 			continue;
+		}
 		/* See if session has selectors and if so if any match */
-		send_msg = assure_notify_msg_cache(msg, msglen, &tree, session->notify_format,
-						   cache);
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
 		send_msg->refer_id = session_ids[i];
-		(void)fe_adapter_send_msg(session->adapter, send_msg, msglen, false);
+		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 	}
 
 	/*
@@ -1845,16 +1866,15 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 				if (session->notify_xpaths)
 					continue;
 				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
-								   session->notify_format, cache);
+								   session->notify_format, cache,
+								   &send_len);
 				send_msg->refer_id = session->session_id;
-				(void)fe_adapter_send_msg(adapter, send_msg, msglen, false);
+				(void)fe_adapter_send_msg(adapter, send_msg, send_len, false);
 			}
 		}
 	}
-
-	msg->refer_id = 0;
-
 done:
+	darr_free(session_ids);
 	cleanup_notify_msg_cache(msg, &tree, cache);
 }
 

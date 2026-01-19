@@ -113,10 +113,12 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 
 /**
  * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @from_id: the adapter id the notification is from.
  * @msg: the notify message from the backend client.
  * @msglen: the length of the notify message.
  */
-extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen);
+extern void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
+					size_t msglen);
 
 /**
  * Send an error back to the FE client using native messaging.

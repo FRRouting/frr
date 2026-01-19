@@ -406,53 +406,14 @@ int mgmt_be_adapter_send(struct mgmt_be_client_adapter *adapter, void *_msg)
 	return ret;
 }
 
-/*
- * Send notification to back-ends that subscribed for them.
- */
-static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen,
-					struct mgmt_be_client_adapter *from_adapter)
+struct msg_conn *mgmt_be_get_notify_conn(uint client_id, LYD_FORMAT *format)
 {
-	struct mgmt_be_client_adapter *adapter;
-	struct mgmt_be_xpath_map *map;
-	struct nb_node *nb_node = NULL;
-	const char *notif;
-	bool is_root;
-	uint id, len;
+	struct mgmt_be_client_adapter *adapter = mgmt_be_get_adapter_by_id(client_id);
 
-	if (!darr_len(be_notif_xpath_map))
-		return;
-
-	notif = mgmt_msg_native_xpath_decode(msg, msglen);
-	if (!notif) {
-		_log_err("Corrupt notify msg");
-		return;
-	}
-
-	is_root = !strcmp(notif, "/");
-	if (!is_root) {
-		nb_node = nb_node_find(notif);
-		if (!nb_node) {
-			_log_err("No schema found for notification: %s", notif);
-			return;
-		}
-	}
-
-	darr_foreach_p (be_notif_xpath_map, map) {
-		if (!is_root) {
-			len = strlen(map->xpath_prefix);
-			if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
-			    strncmp(map->xpath_prefix, notif, len))
-				continue;
-		}
-		FOREACH_BE_CLIENT_BITS (id, map->clients) {
-			adapter = mgmt_be_get_adapter_by_id(id);
-			if (!adapter || adapter == from_adapter)
-				continue;
-
-			msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE,
-					  msg, msglen, NULL, false);
-		}
-	}
+	*format = LYD_JSON;
+	if (!adapter)
+		return NULL;
+	return adapter->conn;
 }
 
 static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t msg_len,
@@ -545,7 +506,6 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 {
 	struct mgmt_be_client_adapter *adapter = conn->user;
 	struct mgmt_msg_header *msg = (typeof(msg))data;
-	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_error *error_msg;
 
 	if (version != MGMT_MSG_VERSION_NATIVE) {
@@ -568,6 +528,14 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 
 	_dbg("Got %s from '%s' txn-id %Lu", mgmt_msg_code_name(msg->code), adapter->name,
 	     msg->refer_id);
+
+	assert(adapter->id != MGMTD_BE_CLIENT_ID_MAX || msg->code == MGMT_MSG_CODE_SUBSCRIBE);
+	if (adapter->id == MGMTD_BE_CLIENT_ID_MAX && msg->code != MGMT_MSG_CODE_SUBSCRIBE) {
+		_log_err("backend client '%s' sent message type %s without subscribing first",
+			 adapter->name, mgmt_msg_code_name(msg->code));
+		msg_conn_disconnect(adapter->conn, false);
+		return;
+	}
 
 	switch (msg->code) {
 	case MGMT_MSG_CODE_SUBSCRIBE:
@@ -594,12 +562,8 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 		mgmt_txn_handle_rpc_reply(adapter, (struct mgmt_msg_rpc_reply *)msg, msg_len);
 		return;
 	case MGMT_MSG_CODE_NOTIFY:
-		/*
-		 * Handle notify message from a back-end client no TXN for this.
-		 */
-		notify_msg = (typeof(notify_msg))msg;
-		mgmt_be_adapter_send_notify(notify_msg, msg_len, adapter);
-		mgmt_fe_adapter_send_notify(notify_msg, msg_len);
+		mgmt_fe_adapter_send_notify(adapter->id, (struct mgmt_msg_notify_data *)msg,
+					    msg_len);
 		return;
 	default:
 		_log_err("unknown native message txn-id %" PRIu64 " req-id %" PRIu64
