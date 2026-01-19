@@ -45,6 +45,7 @@ void pim_filter_ref_fini(struct pim_filter_ref *ref)
 {
 	pim_filter_refs_del(refs, ref);
 
+	XFREE(MTYPE_PIM_ACL_REF, ref->alistname);
 	XFREE(MTYPE_PIM_ACL_REF, ref->rmapname);
 }
 
@@ -59,11 +60,23 @@ void pim_filter_ref_set_rmap(struct pim_filter_ref *ref, const char *rmapname)
 	}
 }
 
+void pim_filter_ref_set_alist(struct pim_filter_ref *ref, const char *alistname)
+{
+	XFREE(MTYPE_PIM_ACL_REF, ref->alistname);
+	ref->alist = NULL;
+
+	if (alistname) {
+		ref->alistname = XSTRDUP(MTYPE_PIM_ACL_REF, alistname);
+		ref->alist = access_list_lookup(PIM_AFI, ref->alistname);
+	}
+}
+
 void pim_filter_ref_update(void)
 {
 	struct pim_filter_ref *ref;
 
 	frr_each (pim_filter_refs, refs, ref) {
+		ref->alist = access_list_lookup(PIM_AFI, ref->alistname);
 		ref->rmap = route_map_lookup_by_name(ref->rmapname);
 	}
 }
@@ -106,6 +119,27 @@ bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *
 	if (sg->src.ipaddr_v6.s6_addr[0] && pim_addr_is_multicast(sg->src.ipaddr_v6))
 		return false;
 #endif
+
+	if (ref->alistname) {
+		enum filter_type result;
+		struct prefix src, dst;
+
+		if (!ref->alist)
+			return false;
+
+		src.family = dst.family = PIM_AF;
+		src.prefixlen = dst.prefixlen = PIM_MAX_BITLEN;
+#if PIM_IPV == 4
+		src.u.prefix4 = sg->src.ipaddr_v4;
+		dst.u.prefix4 = sg->grp.ipaddr_v4;
+#else
+		src.u.prefix6 = sg->src.ipaddr_v6;
+		dst.u.prefix6 = sg->grp.ipaddr_v6;
+#endif
+		result = access_list_apply_sadr(ref->alist, &src, &dst, NULL);
+		if (result != FILTER_PERMIT)
+			return false;
+	}
 
 	if (ref->rmapname) {
 		route_map_result_t result;

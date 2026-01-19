@@ -5,6 +5,10 @@ module frr-gmp {
 
   prefix frr-gmp;
 
+  import frr-filter {
+    prefix filter;
+  }
+
   import frr-routing {
     prefix "frr-rt";
   }
@@ -209,6 +213,12 @@ module frr-gmp {
       type frr-route-map:route-map-ref;
       description
         "Filter multicast with referenced route-map.";
+    }
+
+    leaf access-list {
+      type filter:access-list-ref;
+      description
+        "Filter multicast with referenced access-list.";
     }
 
     list static-group {
