@@ -1,0 +1,8 @@
+ZEBRA:
+route-map: foo-map-in Invoked: 0 (X milliseconds total) Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 0 (X milliseconds total)
+  Match clauses:
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
