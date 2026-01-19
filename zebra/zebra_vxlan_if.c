@@ -296,6 +296,7 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
 			zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
 			zebra_evpn_vtep_del_all(zevpn, 1);
+			zevpn_bridge_if_set(zevpn, zevpn->bridge_if, false /* unset */);
 			return 0;
 		}
 
