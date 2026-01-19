@@ -2867,6 +2867,9 @@ int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 
 	update_type1_routes_for_evi(bgp, vpn);
 
+	if (CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS))
+		return 0;
+
 	/* Update and advertise the type-3 route (only one) followed by the
 	 * locally learnt type-2 routes (MACIP) - for this VNI.
 	 *
@@ -4666,6 +4669,13 @@ static void update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 
+	/* EVPN VPWS VNI */
+	if (CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
+		bgp_l2vpn_vpws_vni_rd_update(bgp, vpn, false);
+
+		return;
+	}
+
 	/* Locate type-3 route for VNI in the per-VNI table and use its
 	 * attributes to create and advertise the type-3 route for this VNI
 	 * in the global table.
@@ -4725,6 +4735,13 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	struct bgp_path_info *pi;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
+
+	/* EVPN VPWS VNI */
+	if (CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
+		bgp_l2vpn_vpws_vni_rd_update(bgp, vpn, true);
+
+		return 0;
+	}
 
 	/* Delete and withdraw locally learnt type-2 routes (MACIP)
 	 * for this VNI - from the global table.

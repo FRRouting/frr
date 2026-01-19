@@ -162,7 +162,7 @@ def check_es_evi_route(router, rd, evi, esi, iplen, vtep, nexthop, fragid=0):
     return True
 
 @retry(retry_timeout=10)
-def check_show_l2vpn_vpws(router, name, evi, acs, pw_iface, proto):
+def check_show_l2vpn_vpws(router, name, evi, acs, pw_iface, proto, status):
     """
     Check show l2vpn <name> vpws
     EVI    local/remote AC    PW    Status    PROTO
@@ -170,10 +170,10 @@ def check_show_l2vpn_vpws(router, name, evi, acs, pw_iface, proto):
     """
 
     res = router.vtysh_cmd(f"show l2vpn {name} vpws")
-    if re.search(rf"{evi}\s+{acs}\s+{pw_iface}\s+Up\s+{proto}", res):
+    if re.search(rf"{evi}\s+{acs}\s+{pw_iface}\s+{status}\s+{proto}", res):
         return True
 
-    return f"{router.name}: VPWS EVI {evi} is not up"
+    return f"{router.name}: VPWS EVI {evi} is not {status}"
 
 
 def test_converge_evpn_vpws():
@@ -208,10 +208,10 @@ def test_converge_evpn_vpws():
     # check EVPN VPWS state is up
     logger.info("Checking EVPN VPWS status")
     res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
-                                "BGP")
+                                "BGP", "Up")
     assert res is True, res
     res = check_show_l2vpn_vpws(pe2, "test", EVI, f"{AC_PE2}/{AC_PE1}", "vxlan101",
-                                "BGP")
+                                "BGP", "Up")
     assert res is True, res
 
 
@@ -223,7 +223,58 @@ def test_ping():
     check_ping("host2", "10.10.1.55", True, 10, 3)
 
 
-def test_memory_leak():
+def test_rd():
+    "Change RD/RT configs and check EVPN VPWS status"
+
+    tgen = get_topogen()
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    logger.info("PE1: change RD to 10.10.10.10:111 and RT to 65000:111")
+    pe1.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 65000
+         address-family l2vpn evpn
+          vni 101
+           rd 10.10.10.10:111
+           no route-target both 65000:1
+           route-target both 65000:100
+        """)
+
+    logger.info("PE1: checking local es-evi route")
+    res = check_es_evi_route(
+        pe1, "10.10.10.10:111", EVI, ESI, 128, "::", "0.0.0.0")
+    assert res is True, res
+
+    logger.info("Checking EVPN VPWS status is Down")
+    res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
+                                "BGP", "Down")
+    assert res is True, res
+
+    logger.info("PE2: change RD to 10.30.30.30:222 and RT to 65000:100")
+    pe2.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 65000
+         address-family l2vpn evpn
+          vni 101
+           rd 10.30.30.30:222
+           no route-target both 65000:1
+           route-target both 65000:100
+        """)
+
+    logger.info("PE2: checking local es-evi route")
+    res = check_es_evi_route(
+        pe2, "10.30.30.30:222", EVI, ESI, 128, "::", "0.0.0.0")
+    assert res is True, res
+
+    logger.info("Checking EVPN VPWS status is Up")
+    res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
+                                "BGP", "Up")
+    assert res is True, res
+
+def _memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
