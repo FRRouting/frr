@@ -164,6 +164,15 @@ enum mgmt_be_xpath_subscr_type {
 extern uint64_t mgmt_be_interested_clients(const char *xpath,
 					   enum mgmt_be_xpath_subscr_type type, const char *dbg_user);
 
+/**
+ * mgmt_be_get_notify_conn() - Get the connetion associated with the special session_id.
+ * @client_id: The client id to get the backend client connection for.
+ * @format: The notification data format to use for this connection.
+ *
+ * Returns: The connection to use for sending notifications for the given session_id.
+ */
+extern struct msg_conn *mgmt_be_get_notify_conn(uint client_id, LYD_FORMAT *format);
+
 /*
  * Dump backend client information for a given xpath to vty.
  */
