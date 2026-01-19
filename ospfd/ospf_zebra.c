@@ -1057,6 +1057,8 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 {
 	struct external_info *default_ei;
 	struct prefix_ipv4 p;
+	struct ospf_lsa *lsa;
+	int ret;
 
 	p.family = AF_INET;
 	p.prefixlen = 0;
@@ -1076,7 +1078,61 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 			   &ei->p.prefix, ospf_vrf_id_to_name(ospf->vrf_id),
 			   cmd);
 
-	ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
+	ret = ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
+
+	/* If deny then nothing to be done both in add and del case. */
+	if (!ret) {
+		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+			zlog_debug("Default originte routemap deny for ei: %pI4(%s)",
+				   &ei->p.prefix, ospf_vrf_id_to_name(ospf->vrf_id));
+		return false;
+	}
+
+	/* Get the default LSA. */
+	lsa = ospf_external_info_find_lsa(ospf, &p);
+
+	/* If this is add route and permit then ooriginate default. */
+	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
+		/* If permit and default already advertise then return. */
+		if (lsa && !IS_LSA_MAXAGE(lsa)) {
+			if (IS_DEBUG_OSPF_DEFAULT_INFO)
+				zlog_debug("Default lsa already originated(%s)",
+					   ospf_vrf_id_to_name(ospf->vrf_id));
+			return true;
+		}
+
+		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+			zlog_debug("Originating/Refreshing default lsa(%s)",
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+
+		if (lsa && IS_LSA_MAXAGE(lsa))
+			/* Refresh lsa.*/
+			ospf_external_lsa_refresh(ospf, lsa, default_ei, true, false);
+		else
+			/* If permit and default not advertised then advertise.
+                         */
+			ospf_external_lsa_originate(ospf, default_ei);
+
+	} else if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) {
+		/* If deny and lsa is not originated then nothing to be done.*/
+		if (!lsa) {
+			if (IS_DEBUG_OSPF_DEFAULT_INFO)
+				zlog_debug("Default lsa not originated, not flushing(%s)",
+					   ospf_vrf_id_to_name(ospf->vrf_id));
+			return true;
+		}
+
+		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+			zlog_debug("Running default route-map again as ei: %pI4(%s) deleted",
+				   &ei->p.prefix, ospf_vrf_id_to_name(ospf->vrf_id));
+		/*
+                 * if this route delete was permitted then we need to check
+                 * there are any other external info which can still trigger
+                 * default route origination else flush it.
+                 */
+		event_add_event(master, ospf_external_lsa_default_routemap_timer, ospf, 0,
+				&ospf->t_default_routemap_timer);
+	}
 
 	return true;
 }
