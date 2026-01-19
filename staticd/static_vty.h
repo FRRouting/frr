@@ -53,6 +53,7 @@ struct static_route_args {
 	const char *label;
 	const char *table;
 	const char *color;
+	const char *weight;
 
 	bool bfd;
 	bool bfd_multi_hop;

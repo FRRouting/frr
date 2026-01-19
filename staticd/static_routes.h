@@ -140,6 +140,9 @@ struct static_nexthop {
 	/* SRv6 Seg information */
 	struct static_nh_seg snh_seg;
 
+	/* Weight to be used by the nexthop for purposes of ECMP */
+	uint16_t weight;
+
 	/*
 	 * Whether to pretend the nexthop is directly attached to the specified
 	 * link. Only meaningful when both a gateway address and interface name
