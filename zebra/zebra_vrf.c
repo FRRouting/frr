@@ -324,6 +324,9 @@ struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
 	struct other_route_table *otable;
 	struct route_table *table;
 
+	if (!zvrf)
+		return NULL;
+
 	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
 						     table_id);
 
