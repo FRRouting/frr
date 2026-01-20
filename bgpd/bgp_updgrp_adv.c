@@ -711,10 +711,10 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 {
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
-	bool trigger_write;
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
+	struct peer_af *paf;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -741,9 +741,14 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			adv->dest = dest;
 			adv->adj = adj;
 
-			/* Note if we need to trigger a packet write */
-			trigger_write =
-				!bgp_adv_fifo_count(&subgrp->sync->withdraw);
+			/*
+			 * If the update withdraw list is empty, trigger the MRAI
+			 * timer for socket writes.
+			 */
+			if (!bgp_adv_fifo_count(&subgrp->sync->withdraw)) {
+				SUBGRP_FOREACH_PEER(subgrp, paf)
+					bgp_adjust_routeadv(PAF_PEER(paf));
+			}
 
 			/* Add to synchronization entry for withdraw
 			 * announcement.  */
@@ -757,9 +762,6 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 				zlog_debug("%s queue UPDATE (withdraw) %pBD, afi=%s, safi=%s",
 					   peer->host, dest, afi2str(afi), safi2str(safi));
 			}
-
-			if (trigger_write)
-				subgroup_trigger_write(subgrp);
 		} else {
 			/* Free allocated information.  */
 			adj_free(adj);
