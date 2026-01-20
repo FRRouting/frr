@@ -1288,7 +1288,7 @@ def _sysctl_assure(commander, variable, value):
         else:
             valstr = str(value)
         logger.debug("Changing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"'.format(variable, valstr))
 
 
 def sysctl_atleast(commander, variable, min_value, raises=False):
