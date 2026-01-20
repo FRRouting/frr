@@ -158,6 +158,8 @@ static void sigusr1(void)
 
 static FRR_NORETURN void quit(int exit_code)
 {
+	mgmt_be_client_destroy(mgmt_be_client);
+
 	event_cancel(&event_timeout);
 	darr_free(_client_cbs.config_xpaths);
 	darr_free(_client_cbs.oper_xpaths);
