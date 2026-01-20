@@ -1275,6 +1275,25 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
 			   ifp->ifindex, addr);
 
+	/* Handle tentative IPv6 addresses:
+	 * - On UP interfaces: skip tentative addresses (DAD in progress)
+	 * - On DOWN interfaces: accept tentative addresses (DAD cannot run)
+	 */
+	if (op == DPLANE_OP_INTF_ADDR_ADD && addr->family == AF_INET6 &&
+	    dplane_ctx_intf_is_tentative(ctx)) {
+		if (if_is_operative(ifp)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: %s: Tentative addr %pFX on UP interface %s, skipping",
+					   __func__,
+					   dplane_op2str(op), addr, ifp->name);
+			return;
+		}
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s: Tentative addr %pFX on DOWN interface %s - accepted (DAD cannot run)",
+				   __func__, dplane_op2str(op), addr,
+				   ifp->name);
+	}
+
 	/* Is there a peer or broadcast address? */
 	dest = dplane_ctx_get_intf_dest(ctx);
 	if (dest->prefixlen == 0)
