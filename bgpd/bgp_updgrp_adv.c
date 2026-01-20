@@ -544,7 +544,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			      struct update_subgroup *subgrp, struct attr *attr,
 			      struct bgp_path_info *path)
 {
-	struct bgp_adj_out *adj = NULL;
+	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
 	struct peer *peer;
 	afi_t afi;
@@ -552,7 +552,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *adv_peer;
 	struct peer_af *paf;
 	struct bgp *bgp;
-	uint32_t attr_hash = 0;
+	struct attr *attr_new;
+	bool debug;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -561,6 +562,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
+
+	debug = BGP_DEBUG(update, UPDATE_OUT);
 
 	/* Look for adjacency information. */
 	adj = adj_lookup(
@@ -586,15 +589,18 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * at egress, neighbors will see duplicate UPDATES despite
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
+	 *
+	 * It's a duplicate UPDATE if the new attribute is the same as
+	 * the one that was sent out, or the one that has been queued.
 	 */
-	if (likely(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)))
-		attr_hash = attrhash_key_make(attr);
+	attr_new = bgp_attr_intern(attr);
 
-	if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
-	    attr_hash && adj->attr_hash == attr_hash &&
-	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
-			   adj->labels)) {
-		if (BGP_DEBUG(update, UPDATE_OUT)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    ((attr_new == adj->attr) ||
+	     (adj->adv && adj->adv->baa && (attr_new == adj->adv->baa->attr))) &&
+	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels)) {
+		if (debug) {
 			char attr_str[BUFSIZ] = {0};
 
 			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
@@ -602,6 +608,22 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s, afi=%s, safi=%s",
 				   peer->host, dest, attr_str, afi2str(afi), safi2str(safi));
 		}
+
+		/*
+		 * If this is a duplicate of the update that was sent out,
+		 * clean up the queued update, regardless whether it is a
+		 * withdraw or an advertisement.
+		 */
+		if (adj->adv && (attr_new == adj->attr)) {
+			if (debug) {
+				zlog_debug("%s delete queued UPDATE %pBD, afi=%s, safi=%s",
+					   peer->host, dest, afi2str(afi), safi2str(safi));
+			}
+
+			bgp_advertise_clean_subgroup(subgrp, adj);
+		}
+
+		bgp_attr_unintern(&attr_new);
 
 		/*
 		 * If BGP is skipping sending this value to it's peers
@@ -632,9 +654,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
+	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr_new);
 	adv->adj = adj;
-	adj->attr_hash = attr_hash;
 	if (path->extra)
 		adj->labels = bgp_labels_intern(path->extra->labels);
 	else
@@ -642,6 +663,11 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
+
+	if (debug) {
+		zlog_debug("%s queue UPDATE %pBD, afi=%s, safi=%s", peer->host, dest, afi2str(afi),
+			   safi2str(safi));
+	}
 
 	/*
 	 * If the update adv list is empty, trigger the member peers'
@@ -686,6 +712,9 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
 	bool trigger_write;
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -719,6 +748,15 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			/* Add to synchronization entry for withdraw
 			 * announcement.  */
 			bgp_adv_fifo_add_tail(&subgrp->sync->withdraw, adv);
+
+			if (BGP_DEBUG(update, UPDATE_OUT)) {
+				peer = SUBGRP_PEER(subgrp);
+				afi = SUBGRP_AFI(subgrp);
+				safi = SUBGRP_SAFI(subgrp);
+
+				zlog_debug("%s queue UPDATE (withdraw) %pBD, afi=%s, safi=%s",
+					   peer->host, dest, afi2str(afi), safi2str(safi));
+			}
 
 			if (trigger_write)
 				subgroup_trigger_write(subgrp);
@@ -850,6 +888,7 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 	struct peer *onlypeer;
+	bool force_update;
 
 	if (update_subgroup_needs_refresh(subgrp)) {
 		update_subgroup_set_needs_refresh(subgrp, 0);
@@ -865,6 +904,8 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
 
+	force_update = !!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
 	if (SUBGRP_SAFI(subgrp) != SAFI_MPLS_VPN
 	    && SUBGRP_SAFI(subgrp) != SAFI_ENCAP
 	    && SUBGRP_SAFI(subgrp) != SAFI_EVPN)
@@ -872,8 +913,11 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	else {
 		struct bgp_table *rib = update_subgroup_rib(subgrp);
 
-		if (!rib)
+		if (!rib) {
+			if (force_update)
+				UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 			return;
+		}
 
 		for (dest = bgp_table_top(rib); dest; dest = bgp_route_next(dest)) {
 			table = bgp_dest_get_bgp_table_info(dest);
@@ -882,6 +926,9 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 			subgroup_announce_table(subgrp, table);
 		}
 	}
+
+	if (force_update)
+		UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 }
 
 void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
