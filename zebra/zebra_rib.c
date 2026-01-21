@@ -2805,6 +2805,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (re->instance != ere->re->instance)
 			continue;
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
+		    !ere->fromkernel &&
 		    ere->re->distance != re->distance)
 			continue;
 
