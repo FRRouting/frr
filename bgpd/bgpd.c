@@ -9208,8 +9208,9 @@ static void bgp_clearing_batch_end(struct bgp *bgp)
 		return;
 
 	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+	if (!cinfo)
+		return; /* Nothing to do */
 
-	assert(cinfo != NULL);
 	assert(CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN));
 
 	/* Batch is closed */
