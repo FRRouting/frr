@@ -422,6 +422,11 @@ keyword at the end.
    Modify the PIM assert override interval in milliseconds on this
    interface (defaults to 3000).
 
+.. clicmd:: ip pim override-interval (0-65535)
+
+   Modify the PIM LAN prune delay override interval in milliseconds on this
+   interface (defaults to 2500).
+
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
    Enable PIM on this interface. PIM will use this interface to form PIM
