@@ -556,6 +556,12 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	if (pim_ifp->pim_override_interval_msec != PIM_DEFAULT_OVERRIDE_INTERVAL_MSEC) {
+		vty_out(vty, " " PIM_AF_NAME " pim override-interval %u\n",
+			pim_ifp->pim_override_interval_msec);
+		++writes;
+	}
+
 	/* update source */
 	if (!pim_addr_is_any(pim_ifp->update_source)) {
 		vty_out(vty, " " PIM_AF_NAME " pim use-source %pPA\n",

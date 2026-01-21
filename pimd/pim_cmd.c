@@ -6110,6 +6110,23 @@ DEFPY_YANG(interface_ip_pim_assert_override, interface_ip_pim_assert_override_cm
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
+DEFPY_YANG(interface_ip_pim_override_interval,
+           interface_ip_pim_override_interval_cmd,
+           "[no] ip pim override-interval ![(0-65535)$oi]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "LAN prune delay override interval\n"
+           "Milliseconds, default 2500\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./override-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./override-interval", NB_OP_MODIFY, oi_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (debug_igmp,
        debug_igmp_cmd,
        "debug igmp",
@@ -9436,6 +9453,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_assert_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_assert_override_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_override_interval_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);

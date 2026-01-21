@@ -589,6 +589,15 @@ module frr-pim {
         "Assert override interval in milliseconds. (calculated from assert interval by default)";
     }
 
+    leaf override-interval {
+      type uint16 {
+        range "0..65535";
+      }
+      default "2500";
+      description
+        "LAN prune delay override interval in milliseconds.";
+    }
+
     container bfd {
       presence
         "Enable BFD support on the interface.";

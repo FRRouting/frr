@@ -363,6 +363,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/override-interval",
+			.cbs = {
+				.modify = lib_interface_pim_override_interval_modify,
+				.destroy = lib_interface_pim_override_interval_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd",
 			.cbs = {
 				.create = lib_interface_pim_address_family_bfd_create,
