@@ -2901,6 +2901,7 @@ void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *vpn_from,
 		struct bgp_table *table;
 		struct bgp_dest *bn;
 		struct bgp_path_info *bpi;
+		struct peer *orig_peer;
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_dest_get_bgp_table_info(pdest);
@@ -2912,12 +2913,18 @@ void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *vpn_from,
 
 			for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
 			     bpi = bpi->next) {
-				if (bpi->extra && bpi->extra->vrfleak &&
-				    bpi->extra->vrfleak->bgp_orig == to_bgp)
-					continue;
+				orig_peer = bpi->peer;
+
+				if (bpi->extra && bpi->extra->vrfleak) {
+					if (bpi->extra->vrfleak->bgp_orig == to_bgp)
+						continue;
+
+					if (bpi->extra->vrfleak->peer_orig)
+						orig_peer = bpi->extra->vrfleak->peer_orig;
+				}
 
 				vpn_leak_to_vrf_update_onevrf(to_bgp, vpn_from, bpi, NULL,
-							      bpi->peer);
+							      orig_peer);
 			}
 		}
 	}
