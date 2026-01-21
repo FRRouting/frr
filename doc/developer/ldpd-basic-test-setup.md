@@ -577,7 +577,7 @@ linux# show mpls ldp binding
 
 Check if the pseudowires are up:
 ```
-linux# show l2vpn atom vc
+linux# show ldp l2vpn atom vc
 Interface Peer ID         VC ID      Name             Status
 --------- --------------- ---------- ---------------- ----------
 mpw1      3.3.3.3         100        ENG              UP
@@ -586,7 +586,7 @@ mpw0      1.1.1.1         100        ENG              UP
 
 Check the label bindings of the pseudowires:
 ```
-linux# show l2vpn atom binding
+linux# show ldp l2vpn atom binding
   Destination Address: 1.1.1.1, VC ID: 100
     Local Label:  25
         Cbit: 1,    VC Type: Ethernet,    GroupID: 0

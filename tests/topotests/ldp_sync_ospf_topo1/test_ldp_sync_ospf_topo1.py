@@ -230,7 +230,7 @@ def test_ldp_pwid_bindings():
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show l2vpn atom binding json", "show_l2vpn_binding.ref"
+            rname, "show ldp l2vpn atom binding json", "show_l2vpn_binding.ref"
         )
 
 
@@ -244,7 +244,7 @@ def test_ldp_pseudowires():
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref"
+            rname, "show ldp l2vpn atom vc json", "show_l2vpn_vc.ref"
         )
 
 
@@ -297,7 +297,7 @@ def test_r1_eth1_shutdown():
     # check if the pseudowire is still up (using an alternate path for nexthop resolution)
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref"
+            rname, "show ldp l2vpn atom vc json", "show_l2vpn_vc.ref"
         )
 
     for rname in ["r1", "r2", "r3"]:
