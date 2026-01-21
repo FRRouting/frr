@@ -137,8 +137,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				    is_default_prefix(dest_p))
 					break;
 
-				bgp_adj_out_unset_subgroup(
-					dest, subgrp, 1,
+				bgp_adj_out_unset_subgroup(dest, subgrp,
 					bgp_addpath_id_for_peer(
 						peer, afi, safi,
 						&pi->tx_addpath));

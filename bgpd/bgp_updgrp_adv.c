@@ -701,12 +701,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	return true;
 }
 
-/* The only time 'withdraw' will be false is if we are sending
- * the "neighbor x.x.x.x default-originate" default and need to clear
- * bgp_adj_out for the 0.0.0.0/0 route in the BGP table.
- */
-void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
-				struct update_subgroup *subgrp, char withdraw,
+void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *subgrp,
 				uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
@@ -734,7 +729,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 		    && is_default_prefix(bgp_dest_get_prefix(dest)))
 			return;
 
-		if (adj->attr && withdraw) {
+		if (adj->attr) {
 			/* We need advertisement structure.  */
 			adj->adv = bgp_advertise_new();
 			adv = adj->adv;

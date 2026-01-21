@@ -442,7 +442,7 @@ extern bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 				     struct bgp_path_info *path);
 extern void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 				       struct update_subgroup *subgrp,
-				       char withdraw, uint32_t addpath_tx_id);
+				       uint32_t addpath_tx_id);
 void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table);
 extern void subgroup_trigger_write(struct update_subgroup *subgrp);
