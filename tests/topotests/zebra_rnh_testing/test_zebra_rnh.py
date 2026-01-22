@@ -93,6 +93,41 @@ def test_zebra_rnh_setup(request):
 
     r1 = tgen.gears["r1"]
 
+    expected_route_192_168_1_1 = {
+        "192.168.1.1/32": [
+            {
+                "prefix": "192.168.1.1/32",
+                "prefixLen": 32,
+                "protocol": "local",
+                "vrfName": "default",
+                "selected": True,
+                "destSelected": True,
+                "distance": 0,
+                "metric": 0,
+                "installed": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "directlyConnected": True,
+                        "interfaceName": "r1-eth0",
+                        "active": True,
+                        "weight": 1,
+                    }
+                ],
+            }
+        ]
+    }
+
+    logger.info("Waiting for connected route 192.168.1.1/32")
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route 192.168.1.1 json",
+        expected_route_192_168_1_1,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Route 192.168.1.1/32 not present before sharp install"
+
     # Install a sharp route and watch nexthop with connected flag
     logger.info("Installing sharp route and watching nexthop")
     r1.vtysh_cmd("sharp install route 192.168.4.4 nexthop 192.168.1.1 1")
