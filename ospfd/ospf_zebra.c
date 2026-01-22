@@ -1363,7 +1363,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 				 */
 				ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
 
-				ospf_external_lsa_refresh_default(ospf, ei);
+				ospf_external_lsa_refresh_default(ospf, NULL);
 			} else {
 				struct ospf_external_aggr_rt *aggr;
 				struct as_external_lsa *al;
