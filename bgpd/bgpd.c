@@ -1231,7 +1231,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	 * UPDATE.
 	 */
 	connection->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+		ringbuf_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE / 2);
 
 	connection->status = Idle;
 	connection->ostatus = Idle;
