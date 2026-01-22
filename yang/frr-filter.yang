@@ -278,20 +278,20 @@ module frr-filter {
             when "../type = 'ipv6'";
 
             choice style {
-              description "Access list entry style selection: zebra or cisco.";
               mandatory true;
+              description "Access list entry style selection: zebra or cisco.";
 
               case zebra {
                 leaf ipv6-prefix {
-                  description "Configure IPv6 prefix to match";
                   type inet:ipv6-prefix;
                   mandatory true;
+                  description "Configure IPv6 prefix to match";
                 }
 
                 leaf ipv6-exact-match {
-                  description "Exact match of prefix";
                   type boolean;
                   default false;
+                  description "Exact match of prefix";
                 }
               }
 
@@ -300,19 +300,21 @@ module frr-filter {
                   description "Source value to match";
 
                   leaf ipv6-host {
-                    description "Host to match";
                     type inet:ipv6-address;
+                    description "Host to match";
                   }
                   container ipv6-network {
+                    description "Container for IPv6 network configuration.";
+
                     leaf address {
+                      type inet:ipv6-address;
                       mandatory true;
                       description "Network address part.";
-                      type inet:ipv6-address;
                     }
                     leaf mask {
+                      type inet:ipv6-address;
                       mandatory true;
                       description "Network mask/wildcard part.";
-                      type inet:ipv6-address;
                     }
                   }
                   leaf ipv6-source-any {
@@ -320,8 +322,8 @@ module frr-filter {
                      * Was `any`, however it conflicts with `any` leaf
                      * outside this choice.
                      */
-                    description "Match any";
                     type empty;
+                    description "Match any";
                   }
                 }
 
@@ -329,24 +331,26 @@ module frr-filter {
                   description "Destination value to match";
 
                   leaf ipv6-destination-host {
-                    description "Host to match";
                     type inet:ipv6-address;
+                    description "Host to match";
                   }
                   container ipv6-destination-network {
+                    description "Container for IPv6 destination network configuration.";
+
                     leaf address {
+                      type inet:ipv6-address;
                       mandatory true;
                       description "Network address part.";
-                      type inet:ipv6-address;
                     }
                     leaf mask {
+                      type inet:ipv6-address;
                       mandatory true;
                       description "Network mask/wildcard part.";
-                      type inet:ipv6-address;
                     }
                   }
                   leaf ipv6-destination-any {
-                    description "Match any";
                     type empty;
+                    description "Match any";
                   }
                 }
 
