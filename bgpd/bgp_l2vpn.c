@@ -253,6 +253,7 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 {
 	bool mh;
 	uint8_t flag;
+	uint16_t mtu;
 	struct bgp *bgp;
 	struct bgpevpn *vpn;
 	struct bgp_evpn_es *es;
@@ -314,7 +315,11 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 		/* TODO  MH*/
 	}
 
-	encode_l2attr_extcomm(&eval, l2vpn_svc->mtu, flag);
+	if (l2vpn_svc->ignore_mtu_mismatch)
+		mtu = 0;
+	else
+		mtu = l2vpn_svc->mtu;
+	encode_l2attr_extcomm(&eval, mtu, flag);
 	bgp_evpn_local_es_evi_add(bgp, &l2vpn_svc->esi, vpn->vni, l2vpn_svc->evi, &eval);
 	SET_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE);
 
@@ -336,9 +341,19 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 			return;
 		}
 		es_evi_vtep = listgetdata(listhead(evi_match->es_evi_vtep_list));
+		memcpy(&l2vpn_svc->remote_mtu, es_evi_vtep->eval_l2attr.val + 4, 2);
+		l2vpn_svc->remote_mtu = ntohs(l2vpn_svc->remote_mtu);
+		if (l2vpn_svc->remote_mtu && l2vpn_svc->mtu != l2vpn_svc->remote_mtu) {
+			zlog_info("EVPN VPWS: remote EVI %u, mtu mismatch remote %u local %u",
+				  l2vpn_svc->evi, l2vpn_svc->remote_mtu, l2vpn_svc->mtu);
+
+			l2vpn_svc->remote_status = EVPN_NOT_FORWARDING;
+			l2vpn_svc->reason = F_L2VPN_MTU_MISMATCH;
+			return;
+		}
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(evi_match->es_evi_vtep_list, node, es_evi_vtep)) {
-			/* TODO  MH */
+			/* TODO MH: find the P flag across es_evi_vtep*/
 		}
 	}
 
