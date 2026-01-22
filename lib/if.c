@@ -604,9 +604,9 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		frr_each (if_connected, ifp->connected, c) {
-			if (c->address && (c->address->family == AF_INET)
-			    && prefix_match(CONNECTED_PREFIX(c), &addr)
-			    && (c->address->prefixlen > bestlen)) {
+			if (c->address && (c->address->family == family) &&
+			    prefix_match(CONNECTED_PREFIX(c), &addr) &&
+			    (c->address->prefixlen > bestlen)) {
 				bestlen = c->address->prefixlen;
 				match = c;
 			}
