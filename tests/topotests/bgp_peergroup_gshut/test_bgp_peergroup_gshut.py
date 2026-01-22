@@ -536,6 +536,8 @@ def test_peer_group_graceful_shutdown_move_peer():
             return False
         if "172.16.2.2" not in output["PEER-GROUP2"].get("members", []):
             return False
+        if output["PEER-GROUP2"].get("memberCount") != 2:
+            return False
         return True
 
     success, result = topotest.run_and_expect(
