@@ -928,8 +928,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
 	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("%s: Table id=%d not found", __func__,
-				   table_id);
+			zlog_debug("%s: Table id=%d not found for VRF %s(%u)", __func__, table_id,
+				   zvrf->vrf->name, zvrf->vrf->vrf_id);
 		return;
 	}
 
@@ -984,6 +984,9 @@ void zebra_import_table_rm_update(const char *rmap)
 		zvrf = vrf->info;
 
 		if (!zvrf)
+			continue;
+
+		if (!vrf_is_enabled(vrf))
 			continue;
 
 		zebra_import_table_rm_update_vrf(zvrf, rmap);
