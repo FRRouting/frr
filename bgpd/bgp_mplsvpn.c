@@ -2183,6 +2183,12 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 		return;
 	}
 
+	if (path_vrf->srv6_vpn.bslc &&  !path_vrf->srv6_vpn.bslc->sid_policy.tovpn_sid_locator) {
+		if (debug)
+			zlog_debug("%s: skipping: route-map locator matching, but SID allocated", __func__);
+		return;
+	}
+
 	bn = bgp_safi_node_lookup(to_bgp->rib[afi][safi], safi, p,
 				  &(from_bgp->vpn_policy[afi].tovpn_rd));
 
