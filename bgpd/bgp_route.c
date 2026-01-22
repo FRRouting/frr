@@ -3707,28 +3707,26 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 							if (!adj->adv &&
 							    adj->addpath_tx_id != addpath_tx_id) {
 								bgp_adj_out_unset_subgroup(dest,
-											   subgrp, 1,
+											   subgrp,
 											   adj->addpath_tx_id);
 							}
 						}
 					}
 				} else {
-					bgp_adj_out_unset_subgroup(
-						dest, subgrp, 1, addpath_tx_id);
+					bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 					bgp_attr_flush(pattr);
 				}
 			} else
 				bgp_attr_flush(pattr);
 		} else {
-			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
-						   addpath_tx_id);
+			bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 			bgp_attr_flush(pattr);
 		}
 	}
 
 	/* If selected is NULL we must withdraw the path using addpath_tx_id */
 	else {
-		bgp_adj_out_unset_subgroup(dest, subgrp, 1, addpath_tx_id);
+		bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 	}
 }
 
