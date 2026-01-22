@@ -557,10 +557,6 @@ error:
 	} else {
 		_dbg("Done with oper-path collection for path: %s", path);
 
-		/* Do we need this? */
-		while (tree->parent)
-			tree = lyd_parent(tree);
-
 		/* Send the add (replace) notification */
 		if (mgmt_be_send_ds_replace_notification(path, tree, group->refer_id)) {
 			_log_err("Error sending notification message for path: %s", path);
