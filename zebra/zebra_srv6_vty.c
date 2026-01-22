@@ -788,7 +788,7 @@ static int show_srv6_sid_custom(struct vty *vty, const char *locator_name,
 		}
 	}
 
-	if (legacy)
+	if (legacy && json)
 		json = json_object_new_array();
 	if (!IPV6_ADDR_SAME(sid_value, &in6addr_any))
 		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx, sid_value,
