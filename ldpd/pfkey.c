@@ -23,13 +23,13 @@
 #include "log.h"
 
 static int	 pfkey_send(int, uint8_t, uint8_t, uint8_t,
-		    int, union ldpd_addr *, union ldpd_addr *,
+		    int, union g_addr *, union g_addr *,
 		    uint32_t, uint8_t, int, char *, uint8_t, int, char *,
 		    uint16_t, uint16_t);
 static int	 pfkey_reply(int, uint32_t *);
-static int	 pfkey_sa_add(int, union ldpd_addr *, union ldpd_addr *,
+static int	 pfkey_sa_add(int, union g_addr *, union g_addr *,
 		    uint8_t, char *, uint32_t *);
-static int	 pfkey_sa_remove(int, union ldpd_addr *, union ldpd_addr *,
+static int	 pfkey_sa_remove(int, union g_addr *, union g_addr *,
 		    uint32_t *);
 static int	 pfkey_md5sig_establish(struct nbr *, struct nbr_params *nbrp);
 static int	 pfkey_md5sig_remove(struct nbr *);
@@ -44,7 +44,7 @@ static int	 fd;
 
 static int
 pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
-    int af, union ldpd_addr *src, union ldpd_addr *dst, uint32_t spi,
+    int af, union g_addr *src, union g_addr *dst, uint32_t spi,
     uint8_t aalg, int alen, char *akey, uint8_t ealg, int elen, char *ekey,
     uint16_t sport, uint16_t dport)
 {
@@ -336,7 +336,7 @@ pfkey_reply(int sd, uint32_t *spi)
 }
 
 static int
-pfkey_sa_add(int af, union ldpd_addr *src, union ldpd_addr *dst, uint8_t keylen,
+pfkey_sa_add(int af, union g_addr *src, union g_addr *dst, uint8_t keylen,
     char *key, uint32_t *spi)
 {
 	if (pfkey_send(fd, SADB_X_SATYPE_TCPSIGNATURE, SADB_GETSPI, 0,
@@ -353,7 +353,7 @@ pfkey_sa_add(int af, union ldpd_addr *src, union ldpd_addr *dst, uint8_t keylen,
 }
 
 static int
-pfkey_sa_remove(int af, union ldpd_addr *src, union ldpd_addr *dst,
+pfkey_sa_remove(int af, union g_addr *src, union g_addr *dst,
     uint32_t *spi)
 {
 	if (pfkey_send(fd, SADB_X_SATYPE_TCPSIGNATURE, SADB_DELETE, 0,
