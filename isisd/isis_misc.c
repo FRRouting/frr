@@ -320,7 +320,6 @@ const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
 	struct isis *isis = NULL;
-	struct listnode *node;
 	struct isis_area *area = NULL;
 
 	if (!sysid)
@@ -331,7 +330,7 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	if (area && area->dynhostname && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+	frr_each (isis_instance_list, &im->isis, isis) {
 		area = isis_area_lookup_by_sysid(isis->sysid);
 		dyn = dynhn_find_by_id(isis, sysid);
 		if (area && area->dynhostname && dyn)

@@ -52,7 +52,8 @@ struct fpm_mac_info_t {
 
 	uint8_t fpm_flags;
 
-#define ZEBRA_MAC_UPDATE_FPM 0x1 /* This flag indicates if we want to upadte
+#define ZEBRA_MAC_UPDATE_FPM                                                                      \
+	0x1			 /* This flag indicates if we want to update
 				  * data plane for this MAC. If a MAC is added
 				  * and then deleted immediately, we do not want
 				  * to update data plane for such operation.

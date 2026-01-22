@@ -173,6 +173,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:as-path-count",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_aspath_count_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_aspath_count_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:community-limit",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_community_limit_modify,

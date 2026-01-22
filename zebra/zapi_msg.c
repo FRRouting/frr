@@ -642,7 +642,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
  * so it'd be rather complex to do NHT for.)
  *
  * 9/19/24 NEB I've updated this API to include the SAFI in the lookup
- * request and response. This allows PIM to do a syncronous lookup for the
+ * request and response. This allows PIM to do a synchronous lookup for the
  * correct table along side NHT.
  * This also makes this a more generic synchronous lookup not specifically
  * tied to the mrib.
@@ -1303,29 +1303,36 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, client, &exist);
 		if (!rnh)
 			return;
 
 		orig_flags = rnh->flags;
-		if (connected && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+
+		/* Set flags specific to this client's registration */
+		if (connected)
 			SET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
-		else if (!connected
-			 && CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+		else
 			UNSET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
 
 		if (resolve_via_default)
 			SET_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT);
+		else
+			UNSET_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT);
 
 		if (orig_flags != rnh->flags)
 			flag_changed = true;
 
-		/* Anything not AF_INET/INET6 has been filtered out above */
+		/* zebra_add_rnh_client will send the update, so only evaluate
+		 * if we're not adding/notifying the client
+		 */
 		if (!exist || flag_changed)
 			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p,
 					   safi);
-
-		zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
+		else {
+			/* This will send an RNH update to the client */
+			zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
+		}
 	}
 
 stream_failure:
@@ -1390,7 +1397,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
+		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi, client);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
 			zebra_remove_rnh_client(rnh, client);
@@ -1952,7 +1959,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 	}
 
 
-	/* succesfully read, set caller pointers now */
+	/* successfully read, set caller pointers now */
 	if (png)
 		*png = ng;
 
@@ -2237,7 +2244,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 * If we have an ID, this proto owns the NHG it sent along with the
 	 * route, so we just send the ID into rib code with it.
 	 *
-	 * Havent figured out how to handle backup NHs with this yet, so lets
+	 * Haven't figured out how to handle backup NHs with this yet, so lets
 	 * keep that separate.
 	 * Include backup info with the route. We use a temporary nhe here;
 	 * if this is a new/unknown nhe, a new copy will be allocated
@@ -2344,7 +2351,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	}
 }
 
-/* Syncronous Nexthop lookup. */
+/* Synchronous Nexthop lookup. */
 static void zread_nexthop_lookup(ZAPI_HANDLER_ARGS)
 {
 	struct ipaddr addr;
@@ -3207,7 +3214,8 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 		zread_srv6_manager_get_locator(client, msg);
 		break;
 	default:
-		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		flog_err(EC_ZEBRA_SRV6_MANAGER_UNKNOWN_COMMAND, "%s: unknown SRv6 Manager command",
+			 __func__);
 		break;
 	}
 }

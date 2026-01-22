@@ -839,18 +839,17 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 	size_t addr_len;
 	struct isis_area *area = NULL;
 	struct iso_address *addr = NULL;
-	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
 	if (isis == NULL)
 		return 0;
 
-	if (list_isempty(isis->area_list)) {
+	if (isis_area_list_count(&isis->area_list) == 0) {
 		/* Area is not configured yet */
 		return 0;
 	}
 
-	area = listgetdata(listhead(isis->area_list));
+	area = isis_area_list_first(&isis->area_list);
 
 	int res = isis_snmp_conv_exact(cmp_buf, sizeof(cmp_buf), &addr_len,
 				       oid_idx, oid_idx_len);
@@ -861,7 +860,7 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 		return 0;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, addr_node, addr)) {
+	frr_each (iso_address_list, &area->area_addrs, addr) {
 		if (addr->addr_len != addr_len)
 			continue;
 
@@ -889,18 +888,17 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 	struct isis_area *area = NULL;
 	struct iso_address *found_addr = NULL;
 	struct iso_address *addr = NULL;
-	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
 	if (isis == NULL)
 		return 0;
 
-	if (list_isempty(isis->area_list)) {
+	if (isis_area_list_count(&isis->area_list) == 0) {
 		/* Area is not configured yet */
 		return 0;
 	}
 
-	area = listgetdata(listhead(isis->area_list));
+	area = isis_area_list_first(&isis->area_list);
 
 	int res = isis_snmp_conv_next(cmp_buf, sizeof(cmp_buf), &addr_len,
 				      &try_exact, oid_idx, oid_idx_len);
@@ -908,7 +906,7 @@ static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 	if (!res)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, addr_node, addr)) {
+	frr_each (iso_address_list, &area->area_addrs, addr) {
 		if (addr->addr_len < addr_len)
 			continue;
 
@@ -1415,8 +1413,8 @@ static uint8_t *isis_snmp_find_sys_object(struct variable *v, oid *name,
 	if (isis == NULL)
 		return NULL;
 
-	if (!list_isempty(isis->area_list))
-		area = listgetdata(listhead(isis->area_list));
+	if (isis_area_list_count(&isis->area_list) > 0)
+		area = isis_area_list_first(&isis->area_list);
 
 	/* Check whether the instance identifier is valid */
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
@@ -1816,8 +1814,8 @@ static uint8_t *isis_snmp_find_sys_level(struct variable *v, oid *name,
 
 	area = NULL;
 
-	if (!list_isempty(isis->area_list))
-		area = listgetdata(listhead(isis->area_list));
+	if (isis_area_list_count(&isis->area_list) > 0)
+		area = isis_area_list_first(&isis->area_list);
 
 	level_match = 0;
 
@@ -1951,8 +1949,8 @@ static uint8_t *isis_snmp_find_system_counter(struct variable *v, oid *name,
 
 	area = NULL;
 
-	if (!list_isempty(isis->area_list))
-		area = listgetdata(listhead(isis->area_list));
+	if (isis_area_list_count(&isis->area_list) > 0)
+		area = isis_area_list_first(&isis->area_list);
 
 	level_match = 0;
 

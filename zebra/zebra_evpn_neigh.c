@@ -565,6 +565,7 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 	n->dad_ip_auto_recovery_timer = NULL;
 	n->flags = n_flags;
 	n->uptime = monotime(NULL);
+	n->gr_refresh_time = monotime(NULL);
 
 	if (!zmac)
 		zmac = zebra_evpn_mac_lookup(zevpn, mac);
@@ -798,6 +799,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		}
 
 		n->uptime = monotime(NULL);
+		n->gr_refresh_time = monotime(NULL);
 	}
 
 	/* update the neigh seq. we don't bother with the mac seq as
@@ -885,6 +887,14 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 	    ((wctx->flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE)) ||
 	    ((wctx->flags & DEL_REMOTE_NEIGH_FROM_VTEP) && (n->flags & ZEBRA_NEIGH_REMOTE) &&
 	     ipaddr_is_same(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
+		/*
+		 * If we are doing stale cleanup of remote neighs
+		 * and if this neigh is not marked stale, then don't delete it.
+		 */
+		if (wctx->gr_stale_cleanup && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+		    (n->gr_refresh_time > wctx->gr_cleanup_time))
+			return;
+
 		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
 			zebra_evpn_neigh_send_del_to_client(
 				wctx->zevpn->vni, &n->ip, &n->emac, n->flags,
@@ -909,8 +919,8 @@ static void zebra_evpn_neigh_del_hash_entry(struct hash_bucket *bucket,
 /*
  * Delete all neighbor entries for this EVPN.
  */
-void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
-			      int upd_client, uint32_t flags)
+void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct neigh_walk_ctx wctx;
 
@@ -922,6 +932,10 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
+	if (l2_wctx) {
+		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
+		wctx.gr_cleanup_time = l2_wctx->gr_cleanup_time;
+	}
 
 	hash_iterate(zevpn->neigh_table, zebra_evpn_neigh_del_hash_entry,
 		     &wctx);
@@ -1193,7 +1207,7 @@ static void zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, struct 
 			*is_dup_detect = true;
 
 		/* warn-only action, neigh will be installed.
-		 * freeze action, it wil not be installed.
+		 * freeze action, it will not be installed.
 		 */
 		return;
 	}
@@ -1349,6 +1363,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 		n->ifindex = ifp->ifindex;
 		created = true;
 	} else {
+		n->gr_refresh_time = monotime(NULL);
+
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 			bool mac_different;
 			bool cur_is_router;
@@ -1614,19 +1630,63 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	return 0;
 }
 
-int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
-				   struct interface *ifp,
-				   const struct ipaddr *ip,
-				   const struct ethaddr *macaddr,
-				   uint16_t state)
+static void zebra_evpn_stale_remote_neigh_add(struct zebra_evpn *zevpn, const struct ipaddr *ip,
+					      const struct ethaddr *macaddr, bool is_router)
+{
+	struct zebra_neigh *n = NULL;
+	struct zebra_mac *zmac = NULL;
+
+	/* Nothing to do if the entry already exists */
+	if (zebra_evpn_neigh_lookup(zevpn, ip))
+		return;
+
+	/* Check if the MAC exists. */
+	zmac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!zmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: zmac for MAC %pEA not found. L2VNI %u", macaddr,
+				   zevpn->vni);
+		return;
+	}
+
+	/* New neighbor - create */
+	n = zebra_evpn_neigh_add(zevpn, ip, macaddr, zmac, 0);
+	if (!n) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN-GR: Can't create neigh entry for IP %pIA MAC %pEA, L2VNI %u",
+				   ip, macaddr, zevpn->vni);
+		return;
+	}
+
+	/* Set "remote" forwarding info. */
+	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
+	ZEBRA_NEIGH_SET_ACTIVE(n);
+	n->r_vtep_ip = zmac->fwd_info.r_vtep_ip;
+
+	if (is_router)
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+	else
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN-GR: Added stale remote %sneigh entry IP %pIA MAC %pEA, L2VNI %u",
+			   is_router ? "router " : "", ip, macaddr, zevpn->vni);
+}
+
+int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
+				   const struct ipaddr *ip, const struct ethaddr *macaddr,
+				   uint16_t state, bool is_router)
 {
 	struct zebra_neigh *n = NULL;
 	struct zebra_mac *zmac = NULL;
 
 	/* If the neighbor is unknown, there is no further action. */
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
-	if (!n)
+	if (!n) {
+		if (zrouter.graceful_restart)
+			zebra_evpn_stale_remote_neigh_add(zevpn, ip, macaddr, is_router);
 		return 0;
+	}
 
 	/* If a remote entry, see if it needs to be refreshed */
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
@@ -2081,6 +2141,11 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vr
 	 * change. If so, create or update and then install the entry.
 	 */
 	n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
+	if (n) {
+		/* Refresh entry */
+		n->gr_refresh_time = monotime(NULL);
+	}
+
 	if (!n || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) ||
 	    is_router != !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) ||
 	    (memcmp(&n->emac, &mac->macaddr, sizeof(struct ethaddr)) != 0) ||
@@ -2134,9 +2199,9 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vr
 				listnode_add_sort(mac->neigh_list, n);
 				memcpy(&n->emac, &mac->macaddr, ETH_ALEN);
 
-				/* Check Neigh's curent state is local
+				/* Check Neigh's current state is local
 				 * (this is the case where neigh/host has  moved
-				 * from L->R) and check previous detction
+				 * from L->R) and check previous detection
 				 * started via local learning.
 				 *
 				 * RFC-7432: A PE/VTEP that detects a MAC
@@ -2198,6 +2263,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
 	if (!n)
 		n = zebra_evpn_neigh_add(zevpn, ip, &mac->macaddr, mac, 0);
+	else
+		n->gr_refresh_time = monotime(NULL);
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);

@@ -9,7 +9,6 @@
 #include "prefix.h"
 #include "filter.h"
 #include "command.h"
-#include "linklist.h"
 #include "memory.h"
 
 #include "ripd/ripd.h"
@@ -29,14 +28,14 @@ struct rip_offset_list *rip_offset_list_new(struct rip *rip, const char *ifname)
 	offset = XCALLOC(MTYPE_RIP_OFFSET_LIST, sizeof(struct rip_offset_list));
 	offset->rip = rip;
 	offset->ifname = strdup(ifname);
-	listnode_add_sort(rip->offset_list_master, offset);
+	rip_offset_list_add(&rip->offset_list_master, offset);
 
 	return offset;
 }
 
 void offset_list_del(struct rip_offset_list *offset)
 {
-	listnode_delete(offset->rip->offset_list_master, offset);
+	rip_offset_list_del(&offset->rip->offset_list_master, offset);
 	offset_list_free(offset);
 }
 
@@ -54,9 +53,8 @@ struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
 					       const char *ifname)
 {
 	struct rip_offset_list *offset;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(rip->offset_list_master, node, nnode, offset)) {
+	frr_each (rip_offset_list, &rip->offset_list_master, offset) {
 		if (strcmp(offset->ifname, ifname) == 0)
 			return offset;
 	}
@@ -140,7 +138,8 @@ int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
 	return 0;
 }
 
-int offset_list_cmp(struct rip_offset_list *o1, struct rip_offset_list *o2)
+int rip_offset_list_cmp(const struct rip_offset_list *a,
+			const struct rip_offset_list *b)
 {
-	return strcmp(o1->ifname, o2->ifname);
+	return strcmp(a->ifname, b->ifname);
 }

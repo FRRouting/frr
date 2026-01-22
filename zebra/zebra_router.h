@@ -61,7 +61,7 @@ enum protodown_reasons {
 	ZEBRA_PROTODOWN_VRRP = (1 << 3),
 	/* This reason used exclusively for testing */
 	ZEBRA_PROTODOWN_SHARP = (1 << 4),
-	/* Just used to clear our fields on shutdown, externel not included */
+	/* Just used to clear our fields on shutdown, external not included */
 	ZEBRA_PROTODOWN_ALL = (ZEBRA_PROTODOWN_EVPN_ALL | ZEBRA_PROTODOWN_VRRP |
 			       ZEBRA_PROTODOWN_SHARP)
 };
@@ -96,7 +96,7 @@ struct zebra_mlag_info {
 	/*
 	 * A new Kernel thread will be created to post the data to MCLAGD.
 	 * where as, read will be performed from the zebra main thread, because
-	 * read involves accessing client registartion data structures.
+	 * read involves accessing client registration data structures.
 	 */
 	struct frr_pthread *zebra_pth_mlag;
 
@@ -133,13 +133,6 @@ struct zebra_architectural_values {
 
 	bool supports_nhgs;
 
-	/*
-	 * If the asic is notifying us about successful nexthop
-	 * allocation/control.  Some developers have made their
-	 * asic take control of how many nexthops/ecmp they can
-	 * have and will report what is successfull or not
-	 */
-	bool asic_notification_nexthop_control;
 	bool nexthop_weight_is_16bit;
 
 };
@@ -210,6 +203,8 @@ struct zebra_router {
 	struct zebra_vrf *evpn_vrf;
 
 	struct zebra_architectural_values zav;
+	bool gr_stale_cleanup_time_recorded;
+	bool gr_update_pending_time_recorded;
 
 	/*
 	 * zebra start time and time of sweeping RIB of old routes

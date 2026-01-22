@@ -17,6 +17,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgp_addpath.h"
 #include "bgp_trace.h"
+#include "bgp_mpath.h"
 
 void bgp_table_lock(struct bgp_table *rt)
 {
@@ -31,6 +32,9 @@ void bgp_table_unlock(struct bgp_table *rt)
 	if (rt->lock != 0) {
 		return;
 	}
+
+	/* Cleanup pi_hash in bgp_table */
+	bgp_pi_hash_fini(&rt->pi_hash);
 
 	route_table_finish(rt->route_table);
 	rt->route_table = NULL;
@@ -83,11 +87,18 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 
 	if (rn->lock == 1) {
 		struct bgp_table *rt = bgp_dest_table(dest);
+
+
 		if (rt->bgp) {
 			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
 						   &dest->tx_addpath, rt->afi,
 						   rt->safi);
 		}
+
+		/* Free mpath if exists */
+		if (dest->mpath)
+			bgp_path_info_mpath_free(&dest->mpath);
+
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
 		rn->info = NULL;
@@ -113,6 +124,11 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 						   &dest->tx_addpath,
 						   rt->afi, rt->safi);
 		}
+
+		/* Free mpath if exists */
+		if (dest->mpath)
+			bgp_path_info_mpath_free(&dest->mpath);
+
 		XFREE(MTYPE_BGP_NODE, dest);
 		node->info = NULL;
 	}
@@ -154,6 +170,7 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 	bgp_table_lock(rt);
 	rt->afi = afi;
 	rt->safi = safi;
+	bgp_pi_hash_init(&rt->pi_hash);
 
 	return rt;
 }

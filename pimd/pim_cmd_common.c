@@ -2611,6 +2611,13 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 					    pim_ifp->pim_hello_period);
 			json_object_int_add(json_row, "holdTime",
 					    PIM_IF_DEFAULT_HOLDTIME(pim_ifp));
+			json_object_int_add(json_row, "joinPruneInterval",
+					    pim_if_jp_period(pim_ifp));
+			json_object_int_add(json_row, "assertInterval", pim_ifp->assert_msec);
+			json_object_int_add(json_row, "assertOverrideInterval",
+					    (pim_ifp->assert_override_msec != -1)
+						    ? pim_ifp->assert_override_msec
+						    : pim_ifp->assert_msec / 75 + 600);
 			json_object_string_add(json_row, "helloTimer",
 					       hello_timer);
 			json_object_string_add(json_row, "helloStatStart",

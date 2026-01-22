@@ -34,9 +34,8 @@ void rip_peer_free(struct rip_peer *peer)
 struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr)
 {
 	struct rip_peer *peer;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
+	frr_each (rip_peer_list, &rip->peer_list, peer) {
 		if (IPV4_ADDR_SAME(&peer->addr, addr))
 			return peer;
 	}
@@ -46,9 +45,8 @@ struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr)
 struct rip_peer *rip_peer_lookup_next(struct rip *rip, struct in_addr *addr)
 {
 	struct rip_peer *peer;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
+	frr_each (rip_peer_list, &rip->peer_list, peer) {
 		if (htonl(peer->addr.s_addr) > htonl(addr->s_addr))
 			return peer;
 	}
@@ -61,7 +59,7 @@ static void rip_peer_timeout(struct event *t)
 	struct rip_peer *peer;
 
 	peer = EVENT_ARG(t);
-	listnode_delete(peer->rip->peer_list, peer);
+	rip_peer_list_del(&peer->rip->peer_list, peer);
 	rip_peer_free(peer);
 }
 
@@ -81,7 +79,7 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct rip_interface *ri,
 		peer->ri = ri;
 		peer->addr = *addr;
 		rip_bfd_session_update(peer);
-		listnode_add_sort(rip->peer_list, peer);
+		rip_peer_list_add(&rip->peer_list, peer);
 	}
 
 	/* Update timeout thread. */
@@ -141,11 +139,10 @@ static char *rip_peer_uptime(struct rip_peer *peer, char *buf, size_t len)
 void rip_peer_display(struct vty *vty, struct rip *rip)
 {
 	struct rip_peer *peer;
-	struct listnode *node, *nnode;
 #define RIP_UPTIME_LEN 25
 	char timebuf[RIP_UPTIME_LEN];
 
-	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
+	frr_each (rip_peer_list, &rip->peer_list, peer) {
 		vty_out(vty, "    %-17pI4 %9d %9d %9d %11s\n",
 			&peer->addr, peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIP_DISTANCE_DEFAULT,
@@ -153,17 +150,12 @@ void rip_peer_display(struct vty *vty, struct rip *rip)
 	}
 }
 
-int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2)
+int rip_peer_list_cmp(const struct rip_peer *p1, const struct rip_peer *p2)
 {
-	if (p2->addr.s_addr == p1->addr.s_addr)
+	if (p1->addr.s_addr == p2->addr.s_addr)
 		return 0;
 
 	return (htonl(p1->addr.s_addr) < htonl(p2->addr.s_addr)) ? -1 : 1;
-}
-
-void rip_peer_list_del(void *arg)
-{
-	rip_peer_free(arg);
 }
 
 void rip_peer_delete_routes(const struct rip_peer *peer)
@@ -173,28 +165,26 @@ void rip_peer_delete_routes(const struct rip_peer *peer)
 	for (route_node = route_top(peer->rip->table); route_node;
 	     route_node = route_next(route_node)) {
 		struct rip_info *route_entry;
-		struct listnode *listnode;
-		struct listnode *listnode_next;
-		struct list *list;
+		struct rip_info_list_head *list;
 
 		list = route_node->info;
 		if (list == NULL)
 			continue;
 
-		for (ALL_LIST_ELEMENTS(list, listnode, listnode_next,
-				       route_entry)) {
+		frr_each_safe (rip_info_list, list, route_entry) {
 			if (!rip_route_rte(route_entry))
 				continue;
 			if (route_entry->from.s_addr != peer->addr.s_addr)
 				continue;
 
-			if (listcount(list) == 1) {
+			if (rip_info_list_count(list) == 1) {
 				event_cancel(&route_entry->t_timeout);
 				event_cancel(&route_entry->t_garbage_collect);
-				listnode_delete(list, route_entry);
-				if (list_isempty(list)) {
-					list_delete((struct list **)&route_node
-							    ->info);
+				rip_info_list_del(list, route_entry);
+				if (rip_info_list_count(list) == 0) {
+					rip_info_list_fini(list);
+					XFREE(MTYPE_RIP_INFO_LIST,
+					      route_node->info);
 					route_unlock_node(route_node);
 				}
 				rip_info_free(route_entry);

@@ -8,7 +8,7 @@ This program
 - reads a frr configuration text file
 - reads frr's current running configuration via "vtysh -c 'show running'"
 - compares the two configs and determines what commands to execute to
-  synchronize frr's running configuration with the configuation in the
+  synchronize frr's running configuration with the configuration in the
   text file
 """
 
@@ -549,7 +549,7 @@ class Config(object):
                         )
                         newlines.append(line)
                     except ValueError:
-                        # Really this should be an error. Whats a network
+                        # Really this should be an error. What's a network
                         # without an IP Address following it ?
                         newlines.append(line)
                 else:
@@ -884,7 +884,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
     found_pg_cmd = False
 
     # Find all peer-group commands; create dict of each peer-group
-    # to store assoicated neighbor as value
+    # to store associated neighbor as value
     for ctx_keys, line in lines_to_add:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -910,6 +910,8 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
 
     # Find peer-group with remote-as command, also search neighbor
     # associated to peer-group and store into peer-group dict
+    pg_rmtas = r"neighbor (\S+) remote-as (\S+)"
+    nb_pg = r"neighbor (\S+) peer-group (\S+)$"
     for ctx_keys, line in lines_to_add:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -917,21 +919,22 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             and line.startswith("neighbor ")
         ):
             if ctx_keys[0] in pg_dict:
-                for pg_key in pg_dict[ctx_keys[0]]:
-                    # Find 'neighbor <pg_name> remote-as'
-                    pg_rmtas = r"neighbor %s remote-as (\S+)" % pg_key
-                    re_pg_rmtas = re.search(pg_rmtas, line)
-                    if re_pg_rmtas:
-                        pg_dict[ctx_keys[0]][pg_key]["remoteas"] = True
+                # Find 'neighbor <pg_name> remote-as'
+                re_pg_rmtas = re.search(pg_rmtas, line)
+                if (
+                    re_pg_rmtas
+                    and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]
+                ):
+                    pg_dict[ctx_keys[0]][re_pg_rmtas.group(1)]["remoteas"] = True
 
-                    # Find 'neighbor <peer> [interface] peer-group <pg_name>'
-                    nb_pg = r"neighbor (\S+) peer-group %s$" % pg_key
-                    re_nbr_pg = re.search(nb_pg, line)
-                    if (
-                        re_nbr_pg
-                        and re_nbr_pg.group(1) not in pg_dict[ctx_keys[0]][pg_key]
-                    ):
-                        pg_dict[ctx_keys[0]][pg_key]["nbr"].append(re_nbr_pg.group(1))
+                # Find 'neighbor <peer> [interface] peer-group <pg_name>'
+                re_nbr_pg = re.search(nb_pg, line)
+                if (
+                    re_nbr_pg
+                    and re_nbr_pg.group(1) in pg_dict[ctx_keys[0]]
+                    and re_nbr_pg.group(2) not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
+                ):
+                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(re_nbr_pg.group(2))
 
     # Find any neighbor <nbr> remote-as config line check if the nbr
     # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
@@ -960,7 +963,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
     # This method handles deletion of bgp neighbor configs,
     # if there is neighbor to peer-group cmd is in delete list.
     # As 'no neighbor .* peer-group' deletes the neighbor,
-    # subsequent neighbor speciic config line deletion results
+    # subsequent neighbor specific config line deletion results
     # in error.
     lines_to_del_to_del = []
 
@@ -1167,7 +1170,7 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # Under interface context, if 'no ip pim' is present
     # remove subsequent 'no ip pim <blah>' options as it
     # they are implicitly deleted by 'no ip pim'.
-    # Remove all such depdendent options from delete
+    # Remove all such dependent options from delete
     # pending list.
     pim_disable = []
     lines_to_del_to_del = []
@@ -2180,7 +2183,7 @@ if __name__ == "__main__":
     if args.reload and not args.stdout:
         # Additionally send errors and above to STDOUT, with no metadata,
         # when we are logging to a file. This specifically does not follow
-        # args.log_level, and is analagous to behaviour in earlier versions
+        # args.log_level, and is analogous to behaviour in earlier versions
         # which additionally logged most errors using print().
 
         stdout_hdlr = logging.StreamHandler(sys.stdout)
@@ -2298,7 +2301,7 @@ if __name__ == "__main__":
                 nolines = lines_to_config(ctx_keys, line, True)
 
                 if args.test_reset:
-                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # For topotests the original code stripped the lines, and omitted blank lines
                     # after, do that here
                     nolines = [x.strip() for x in nolines]
                     # For topotests leave these lines in (don't delete them)
@@ -2324,7 +2327,7 @@ if __name__ == "__main__":
                 lines = lines_to_config(ctx_keys, line, False)
 
                 if args.test_reset:
-                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # For topotests the original code stripped the lines, and omitted blank lines
                     # after, do that here
                     lines = [x.strip() for x in lines if x.strip()]
                     if not lines:

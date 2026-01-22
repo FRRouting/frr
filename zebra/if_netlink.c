@@ -1228,9 +1228,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 		 * time, FRR does query for and will receive all addresses.
 		 */
 		if (h->nlmsg_type == RTM_NEWADDR
-		    && (kernel_flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))) {
+		    && (kernel_flags & IFA_F_DADFAILED)) {
+			/* DAD failed - always skip these addresses */
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: Invalid/tentative addr",
+				zlog_debug("%s: %s: DAD failed addr",
 					   __func__,
 					   nl_msg_type_to_str(h->nlmsg_type));
 
@@ -1239,6 +1240,9 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 
 			return 0;
 		}
+		/* Note: IFA_F_TENTATIVE is passed via context to main pthread
+		 * for handling - we cannot access interface pointers here.
+		 */
 	}
 
 	/* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
@@ -1316,6 +1320,9 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (kernel_flags & IFA_F_NOPREFIXROUTE)
 		dplane_ctx_intf_set_noprefixroute(ctx);
 
+	if (kernel_flags & IFA_F_TENTATIVE)
+		dplane_ctx_intf_set_tentative(ctx);
+
 	/* Label */
 	if (tb[IFA_LABEL]) {
 		label = (char *)RTA_DATA(tb[IFA_LABEL]);
@@ -1378,10 +1385,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
 		return -1;
 	}
 
@@ -1521,6 +1527,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			dplane_ctx_set_ifp_vrf_id(ctx, ns_id);
 
 		dplane_ctx_set_ifp_flags(ctx, ifi->ifi_flags & 0x0000fffff);
+		dplane_ctx_set_ifp_change_flags(ctx, ifi->ifi_change & 0x0000fffff);
 
 		if (tb[IFLA_PROTO_DOWN]) {
 			dplane_ctx_set_ifp_protodown_set(ctx, true);
@@ -1751,7 +1758,7 @@ static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
  * netlink_vlan_change() - Read in change about vlans from the kernel
  *
  * @h:		Netlink message header
- * @ns_id:	Namspace id
+ * @ns_id:	Namespace id
  * @startup:	Are we reading under startup conditions?
  *
  * Return:	Result status
@@ -1911,7 +1918,7 @@ int netlink_vlan_read(struct zebra_ns *zns)
 
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
-	/* Get bridg vlan info */
+	/* Get bridge vlan info */
 	ret = netlink_request_vlan(zns, PF_BRIDGE, RTM_GETVLAN);
 	if (ret < 0)
 		return ret;

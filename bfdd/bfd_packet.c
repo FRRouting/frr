@@ -36,6 +36,7 @@
 #include "lib/network.h"
 
 #include "bfd.h"
+#include "bfd_trace.h"
 #define BUF_SIZ		   1024
 #define SOCK_OPT_PRIO_HIGH 6
 
@@ -136,12 +137,14 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		if (bglobal.debug_network)
 			zlog_debug("packet-send: send failure: %s",
 				   strerror(errno));
+		frrtrace(6, frr_bfd, packet_send_error, 1, bs, sd, rv, datalen, errno);
 		return -1;
 	}
 	if (rv < (ssize_t)datalen) {
 		if (bglobal.debug_network)
 			zlog_debug("packet-send: send partial: %s",
 				   strerror(errno));
+		frrtrace(6, frr_bfd, packet_send_error, 2, bs, sd, rv, datalen, errno);
 	}
 
 	return 0;
@@ -416,8 +419,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	/* Check for passive mode with zero discriminator */
-	if (bfd->discrs.remote_discr == 0 && 
-		CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE))
+	if (bfd->discrs.remote_discr == 0 && CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE))
 		return;
 
 	struct bfd_pkt cp = {};
@@ -500,9 +502,11 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN || errno != EWOULDBLOCK || errno != EINTR)
+		if (errno != EAGAIN || errno != EWOULDBLOCK || errno != EINTR) {
+			frrtrace(3, frr_bfd, socket_error, 4, 0, errno);
 			zlog_err("%s: recv failed: %s", __func__,
 				 strerror(errno));
+		}
 
 		return -1;
 	}
@@ -578,8 +582,10 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN)
+		if (errno != EAGAIN) {
+			frrtrace(3, frr_bfd, socket_error, 4, 2, errno);
 			zlog_err("ipv4-recv: recv failed: %s", strerror(errno));
+		}
 
 		return -1;
 	}
@@ -690,8 +696,10 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN)
+		if (errno != EAGAIN) {
+			frrtrace(3, frr_bfd, socket_error, 4, 4, errno);
 			zlog_err("ipv6-recv: recv failed: %s", strerror(errno));
+		}
 
 		return -1;
 	}
@@ -906,6 +914,8 @@ void bfd_recv_cb(struct event *t)
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
+		frrtrace(8, frr_bfd, packet_validation_error, 1, is_mhop, &peer, &local, ifindex,
+			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%zd bytes)", mlen);
 		return;
@@ -913,6 +923,8 @@ void bfd_recv_cb(struct event *t)
 
 	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
+		frrtrace(8, frr_bfd, packet_validation_error, 2, is_mhop, &peer, &local, ifindex,
+			 vrfid, ttl, BFD_TTL_VAL);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
 		return;
@@ -927,29 +939,40 @@ void bfd_recv_cb(struct event *t)
 	 */
 	cp = (struct bfd_pkt *)(msgbuf);
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
+		frrtrace(8, frr_bfd, packet_validation_error, 3, is_mhop, &peer, &local, ifindex,
+			 vrfid, BFD_GETVER(cp->diag), BFD_VERSION);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "bad version %d", BFD_GETVER(cp->diag));
 		return;
 	}
 
 	if (cp->detect_mult == 0) {
+		frrtrace(8, frr_bfd, packet_validation_error, 4, is_mhop, &peer, &local, ifindex,
+			 vrfid, 0, 1); /* actual=0, expected>=1 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect multiplier set to zero");
 		return;
 	}
 
 	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
+		frrtrace(8, frr_bfd, packet_validation_error, 5, is_mhop, &peer, &local, ifindex,
+			 vrfid, cp->len, (uint32_t)mlen);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
 		return;
 	}
 
 	if (BFD_GETMBIT(cp->flags)) {
+		frrtrace(8, frr_bfd, packet_validation_error, 6, is_mhop, &peer, &local, ifindex,
+			 vrfid, 1, 0); /* actual=1 (M bit set), expected=0 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect non-zero Multipoint (M) flag");
 		return;
 	}
 
 	if (cp->discrs.my_discr == 0) {
+		frrtrace(8, frr_bfd, packet_validation_error, 7, is_mhop, &peer, &local, ifindex,
+			 vrfid, ntohl(cp->discrs.my_discr),
+			 1); /* actual discriminator from packet, expected!=0 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
 		return;
@@ -958,6 +981,8 @@ void bfd_recv_cb(struct event *t)
 	/* Find the session that this packet belongs. */
 	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
 	if (bfd == NULL) {
+		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
+			 vrfid, ntohl(cp->discrs.my_discr));
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "no session found");
 		return;
@@ -966,6 +991,8 @@ void bfd_recv_cb(struct event *t)
 	 * We may have a situation where received packet is on wrong vrf
 	 */
 	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
+		frrtrace(8, frr_bfd, packet_validation_error, 8, is_mhop, &peer, &local, ifindex,
+			 vrfid, vrfid, bfd->vrf->vrf_id); /* actual pkt vrf, expected session vrf */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
 		return;
@@ -974,6 +1001,8 @@ void bfd_recv_cb(struct event *t)
 	/* Ensure that existing good sessions are not overridden. */
 	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
 	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+		frrtrace(6, frr_bfd, packet_remote_discr_zero, is_mhop, &peer, &local, ifindex,
+			 vrfid, bfd->ses_state);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'remote discriminator' is zero, not overridden");
 		return;
@@ -986,6 +1015,8 @@ void bfd_recv_cb(struct event *t)
 	 */
 	if (is_mhop) {
 		if (ttl < bfd->mh_ttl) {
+			frrtrace(7, frr_bfd, packet_ttl_exceeded, is_mhop, &peer, &local, ifindex,
+				 vrfid, ttl, bfd->mh_ttl);
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
 				 bfd->mh_ttl, ttl);
@@ -1011,16 +1042,32 @@ void bfd_recv_cb(struct event *t)
 		bfd->ifp = ifp;
 
 	/* Log remote discriminator changes. */
-	if ((bfd->discrs.remote_discr != 0)
-	    && (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr)))
+	if ((bfd->discrs.remote_discr != 0) &&
+	    (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr))) {
+		frrtrace(8, frr_bfd, remote_discriminator_change, bfd, bfd->discrs.remote_discr,
+			 ntohl(cp->discrs.my_discr), is_mhop, &peer, &local, ifindex, vrfid);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "remote discriminator mismatch (expected %u, got %u)",
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
+	}
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
 	/* Check authentication. */
 	if (!bfd_check_auth(bfd, cp)) {
+		/* Extract auth type from packet for tracing */
+		uint8_t auth_type __attribute__((unused)) = BFD_AUTH_NULL;
+
+		if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
+			if (cp->len >= BFD_PKT_LEN + sizeof(struct bfd_auth)) {
+				struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
+
+				auth_type = auth->type;
+			}
+		}
+
+		frrtrace(8, frr_bfd, auth_event, false, bfd, auth_type, is_mhop, &peer, &local,
+			 ifindex, vrfid);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "Authentication failed");
 		return;
@@ -1155,6 +1202,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*bep)) {
+		frrtrace(6, frr_bfd, echo_packet_error, 1, &peer, &local, ifindex, vrfid, rlen);
 		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "small echo packet");
 		return -1;
@@ -1173,6 +1221,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
 	*my_discr = ntohl(bep->my_discr);
 	if (*my_discr == 0) {
+		frrtrace(6, frr_bfd, echo_packet_error, 2, &peer, &local, ifindex, vrfid, rlen);
 		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "invalid echo packet discriminator (zero)");
 		return -1;
@@ -1482,6 +1531,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
+		frrtrace(3, frr_bfd, socket_error, 1, 2, errno);
 		zlog_err("ipv4-new: failed to create socket: %s",
 			 strerror(errno));
 		return -1;
@@ -1513,6 +1563,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
+			frrtrace(3, frr_bfd, socket_error, 2, 2, errno);
 			zlog_err("ipv4-new: failed to bind port: %s",
 				 strerror(errno));
 			close(sd);
@@ -1550,6 +1601,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
+		frrtrace(3, frr_bfd, socket_error, 1, 4, errno);
 		zlog_err("ipv6-new: failed to create socket: %s",
 			 strerror(errno));
 		return -1;
@@ -1583,6 +1635,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
+			frrtrace(3, frr_bfd, socket_error, 2, 4, errno);
 			zlog_err("ipv6-new: failed to bind port: %s",
 				 strerror(errno));
 			close(sd);

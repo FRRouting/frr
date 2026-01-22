@@ -4397,6 +4397,8 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 	struct visual_prio *vis;
 	struct tm tm;
 	char ts_buf[32];
+	char ts_frac[16] = "";
+	int ts_prec = hdr->ts_subsec;
 
 	if (hdr->prio >= array_size(visual_prios))
 		vis = &visual_prios[LOG_CRIT];
@@ -4405,20 +4407,27 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 
 	localtime_r(&ts, &tm);
 	strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", &tm);
+	if (ts_prec > 0) {
+		uint32_t frac = hdr->ts_nsec;
+
+		if (ts_prec > 9)
+			ts_prec = 9;
+		for (int i = ts_prec; i < 9; i++)
+			frac /= 10;
+		snprintf(ts_frac, sizeof(ts_frac), ".%0*u", ts_prec, frac);
+	}
 
 	if (!stderr_tty) {
 		const char *label = vis->label + strlen(vis->label) - 4;
 
-		fprintf(stderr, "%s.%03u [%s] %s: %.*s\n", ts_buf,
-			hdr->ts_nsec / 1000000U, label, vclient->name,
+		fprintf(stderr, "%s%s [%s] %s: %.*s\n", ts_buf, ts_frac, label, vclient->name,
 			(int)textlen, text);
 		return;
 	}
 
 	fprintf(stderr,
-		"\e[48;5;%dm\e[38;5;247m%s.%03u [%s\e[38;5;247m] \e[38;5;255m%s\e[38;5;247m: \e[38;5;251m",
-		vis->c256_background, ts_buf, hdr->ts_nsec / 1000000U,
-		vis->label, vclient->name);
+		"\e[48;5;%dm\e[38;5;247m%s%s [%s\e[38;5;247m] \e[38;5;255m%s\e[38;5;247m: \e[38;5;251m",
+		vis->c256_background, ts_buf, ts_frac, vis->label, vclient->name);
 
 	for (size_t fmtpos = 0; fmtpos < hdr->n_argpos; fmtpos++) {
 		struct fmt_outpos *fmt = &hdr->argpos[fmtpos];
@@ -4492,6 +4501,7 @@ static void vtysh_log_read(struct event *event)
 		buf.hdr.ts_nsec = ts.tv_nsec;
 		buf.hdr.prio = LOG_ERR;
 		buf.hdr.flags = 0;
+		buf.hdr.ts_subsec = 3;
 		buf.hdr.texthdrlen = 0;
 		buf.hdr.n_argpos = 0;
 	} else {

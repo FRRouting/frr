@@ -60,21 +60,18 @@ const void *ripd_instance_state_neighbors_neighbor_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	const struct rip *rip = args->parent_list_entry;
-	struct listnode *node;
+	const struct rip_peer *peer = args->list_entry;
 
-	if (args->list_entry == NULL)
-		node = listhead(rip->peer_list);
-	else
-		node = listnextnode((struct listnode *)args->list_entry);
+	if (peer == NULL)
+		return rip_peer_list_const_first(&rip->peer_list);
 
-	return node;
+	return rip_peer_list_const_next(&rip->peer_list, peer);
 }
 
 int ripd_instance_state_neighbors_neighbor_get_keys(
 	struct nb_cb_get_keys_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct rip_peer *peer = listgetdata(node);
+	const struct rip_peer *peer = args->list_entry;
 
 	args->keys->num = 1;
 	(void)inet_ntop(AF_INET, &peer->addr, args->keys->key[0],
@@ -88,14 +85,13 @@ const void *ripd_instance_state_neighbors_neighbor_lookup_entry(
 {
 	const struct rip *rip = args->parent_list_entry;
 	struct in_addr address;
-	struct rip_peer *peer;
-	struct listnode *node;
+	const struct rip_peer *peer;
 
 	yang_str2ipv4(args->keys->key[0], &address);
 
-	for (ALL_LIST_ELEMENTS_RO(rip->peer_list, node, peer)) {
+	frr_each (rip_peer_list_const, &rip->peer_list, peer) {
 		if (IPV4_ADDR_SAME(&peer->addr, &address))
-			return node;
+			return peer;
 	}
 
 	return NULL;
@@ -107,8 +103,7 @@ const void *ripd_instance_state_neighbors_neighbor_lookup_entry(
 struct yang_data *ripd_instance_state_neighbors_neighbor_address_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct rip_peer *peer = listgetdata(node);
+	const struct rip_peer *peer = args->list_entry;
 
 	return yang_data_new_ipv4(args->xpath, &peer->addr);
 }
@@ -119,8 +114,7 @@ struct yang_data *ripd_instance_state_neighbors_neighbor_address_get_elem(
 struct yang_data *ripd_instance_state_neighbors_neighbor_last_update_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct rip_peer *peer = listgetdata(node);
+	const struct rip_peer *peer = args->list_entry;
 
 	return yang_data_new_date_and_time(args->xpath, peer->uptime, false);
 }
@@ -132,8 +126,7 @@ struct yang_data *
 ripd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct rip_peer *peer = listgetdata(node);
+	const struct rip_peer *peer = args->list_entry;
 
 	return yang_data_new_uint32(args->xpath, peer->recv_badpackets);
 }
@@ -145,8 +138,7 @@ struct yang_data *
 ripd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct rip_peer *peer = listgetdata(node);
+	const struct rip_peer *peer = args->list_entry;
 
 	return yang_data_new_uint32(args->xpath, peer->recv_badroutes);
 }
@@ -207,7 +199,7 @@ struct yang_data *ripd_instance_state_routes_route_prefix_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	assert(rinfo);
 	return yang_data_new_ipv4p(args->xpath, &rinfo->rp->p);
@@ -220,19 +212,18 @@ const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	const struct route_node *rn = args->parent_list_entry;
-	const struct listnode *node = args->list_entry;
+	const struct rip_info *rinfo = args->list_entry;
 
 	assert(rn);
-	if (node)
-		return listnextnode(node);
+	if (rinfo)
+		return rip_info_list_const_next(rn->info, rinfo);
 	assert(rn->info);
-	return listhead((struct list *)rn->info);
+	return rip_info_list_const_first(rn->info);
 }
 
 static inline const struct rip_info *get_rip_info(const void *info)
 {
-	return (const struct rip_info *)listgetdata(
-		(const struct listnode *)info);
+	return (const struct rip_info *)info;
 }
 
 /*
@@ -380,7 +371,7 @@ struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	switch (rinfo->nh.type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -404,7 +395,7 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 	const struct rip *rip = rip_info_get_instance(rinfo);
 
 	switch (rinfo->nh.type) {
@@ -431,7 +422,7 @@ struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct route_node *rn = args->list_entry;
-	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip_info *rinfo = rip_info_list_const_first(rn->info);
 
 	return yang_data_new_uint8(args->xpath, rinfo->metric);
 }

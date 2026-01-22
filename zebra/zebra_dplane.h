@@ -418,6 +418,8 @@ void dplane_ctx_set_ifp_bypass(struct zebra_dplane_ctx *ctx, uint8_t bypass);
 uint8_t dplane_ctx_get_ifp_bypass(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_flags(struct zebra_dplane_ctx *ctx, uint64_t flags);
 uint64_t dplane_ctx_get_ifp_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_change_flags(struct zebra_dplane_ctx *ctx, uint64_t change_flags);
+uint64_t dplane_ctx_get_ifp_change_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_protodown(struct zebra_dplane_ctx *ctx, bool protodown);
 bool dplane_ctx_get_ifp_protodown(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup);
@@ -703,6 +705,8 @@ bool dplane_ctx_intf_is_noprefixroute(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_noprefixroute(struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_tentative(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
 const struct in6_addr *

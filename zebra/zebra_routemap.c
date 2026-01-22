@@ -755,7 +755,7 @@ static void *route_match_address_prefix_len_compile(const char *arg)
 	char *endptr = NULL;
 	unsigned long tmpval;
 
-	/* prefix len value shoud be integer. */
+	/* prefix len value should be integer. */
 	if (!all_digit(arg))
 		return NULL;
 

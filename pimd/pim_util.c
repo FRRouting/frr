@@ -150,11 +150,12 @@ static bool pim_cisco_match(const struct filter *filter, const struct in_addr *s
 	uint32_t source_addr;
 	uint32_t group_addr;
 
-	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
+	group_addr = group->s_addr & ~cfilter->wtf.mask_mask.s_addr;
 
 	if (cfilter->extended) {
-		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
-		if (group_addr == cfilter->mask.s_addr && source_addr == cfilter->addr.s_addr)
+		source_addr = source->s_addr & ~cfilter->wtf.addr_mask.s_addr;
+		if (group_addr == cfilter->wtf.mask.s_addr &&
+		    source_addr == cfilter->wtf.addr.s_addr)
 			return true;
 	} else if (group_addr == cfilter->addr.s_addr)
 		return true;

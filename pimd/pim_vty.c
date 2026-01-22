@@ -474,6 +474,8 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 			vty_out(vty, " " PIM_AF_NAME " pim dm\n");
 		else if (pim_ifp->pim_mode == PIM_MODE_SPARSE_DENSE)
 			vty_out(vty, " " PIM_AF_NAME " pim sm-dm\n");
+		else if (pim_ifp->pim_mode == PIM_MODE_SSM)
+			vty_out(vty, " " PIM_AF_NAME " pim ssm\n");
 		else
 			vty_out(vty, " " PIM_AF_NAME " pim\n");
 		++writes;
@@ -483,6 +485,13 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	if (pim_ifp->gmp_filter.rmapname) {
 		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " route-map %s\n",
 			pim_ifp->gmp_filter.rmapname);
+		++writes;
+	}
+
+	/* IF igmp/mld access-list */
+	if (pim_ifp->gmp_filter.alistname) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " access-list %s\n",
+			pim_ifp->gmp_filter.alistname);
 		++writes;
 	}
 
@@ -529,6 +538,23 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	}
 
 	writes += gm_config_write(vty, writes, pim_ifp);
+
+	if (pim_ifp->periodic_jp_sec != -1) {
+		vty_out(vty, " " PIM_AF_NAME " pim join-prune-interval %d\n",
+			pim_ifp->periodic_jp_sec);
+		++writes;
+	}
+
+	if (pim_ifp->assert_msec != PIM_ASSERT_TIME) {
+		vty_out(vty, " " PIM_AF_NAME " pim assert-interval %d\n", pim_ifp->assert_msec);
+		++writes;
+	}
+
+	if (pim_ifp->assert_override_msec != -1) {
+		vty_out(vty, " " PIM_AF_NAME " pim assert-override-interval %d\n",
+			pim_ifp->assert_override_msec);
+		++writes;
+	}
 
 	/* update source */
 	if (!pim_addr_is_any(pim_ifp->update_source)) {

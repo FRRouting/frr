@@ -313,14 +313,18 @@ Basic Config Commands
 
 .. clicmd:: allow-reserved-ranges
 
-   Allow using reserved ranges (e.g. 127.0.0.0/8, 0.0.0.0/8, 240.0.0.0/4).
+   Allow using reserved ranges (e.g. 127.0.0.0/8, 0.0.0.0/8).
 
    For example, this is necessary in case of multiple FRR instances
    (or FRR + any other daemon) peering via loopback interfaces
    running on the same router.
 
-   Another example is when you need to annouce a reserved range via
+   Another example is when you need to announce a reserved range via
    RIP protocol.
+
+   ``240.0.0.0/4`` is a reserved range too, but it's allowed by default,
+   because it's already widely used in private networks
+   (especially in data centers).
 
    Default: off.
 

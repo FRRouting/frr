@@ -250,7 +250,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 			else
 				nl_errno = err->error;
 			if (nl_errno == 0) {
-				/* request NEWNSID was successfull
+				/* request NEWNSID was successful
 				 * return EEXIST error to get GETNSID
 				 */
 				nl_errno = EEXIST;

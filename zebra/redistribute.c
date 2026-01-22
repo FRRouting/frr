@@ -41,7 +41,7 @@ static uint32_t zebra_import_table_distance[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABL
 int is_zebra_import_table_enabled(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_id)
 {
 	/*
-	 * Make sure that what we are called with actualy makes sense
+	 * Make sure that what we are called with actually makes sense
 	 */
 	if (afi == AFI_MAX)
 		return 0;

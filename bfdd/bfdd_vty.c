@@ -13,6 +13,7 @@
 #include "lib/vty.h"
 
 #include "bfd.h"
+#include "bfd_trace.h"
 
 #include "bfdd/bfdd_vty_clippy.c"
 
@@ -208,6 +209,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		_display_rtt(&min, &avg, &max, bs);
 		vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
 	}
+	if (bs->profile_name)
+		vty_out(vty, "\t\tProfile: %s\n", bs->profile_name);
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
@@ -216,15 +219,26 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		bs->timers.required_min_rx / 1000);
 	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->timers.desired_min_tx / 1000);
+	if (bs->xmt_TO_actual > 0)
+		vty_out(vty, "\t\t\tTransmission interval (actual with jitter): %" PRIu64 "ms\n",
+			bs->xmt_TO_actual / 1000);
+	if (bs->detect_TO > 0)
+		vty_out(vty, "\t\t\tDetection timeout: %" PRIu64 "ms\n",
+			bs->detect_TO / 1000);
 	if (bs->timers.required_min_echo_rx != 0)
 		vty_out(vty, "\t\t\tEcho receive interval: %ums\n",
 			bs->timers.required_min_echo_rx / 1000);
 	else
 		vty_out(vty, "\t\t\tEcho receive interval: disabled\n");
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
 		vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 			bs->timers.desired_min_echo_tx / 1000);
-	else
+		if (bs->echo_xmt_TO_actual > 0)
+			vty_out(vty,
+				"\t\t\tEcho transmission interval (actual with jitter): %" PRIu64
+				"ms\n",
+				bs->echo_xmt_TO_actual / 1000);
+	} else
 		vty_out(vty, "\t\t\tEcho transmission interval: disabled\n");
 
 
@@ -329,10 +343,19 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	else
 		json_object_string_add(jo, "type", "dynamic");
 
+	if (bs->profile_name)
+		json_object_string_add(jo, "profile", bs->profile_name);
+
 	json_object_int_add(jo, "receive-interval",
 			    bs->timers.required_min_rx / 1000);
 	json_object_int_add(jo, "transmit-interval",
 			    bs->timers.desired_min_tx / 1000);
+	if (bs->xmt_TO_actual > 0)
+		json_object_int_add(jo, "transmit-interval-actual",
+				    bs->xmt_TO_actual / 1000);
+	if (bs->detect_TO > 0)
+		json_object_int_add(jo, "detection-timeout",
+				    bs->detect_TO / 1000);
 	json_object_int_add(jo, "echo-receive-interval",
 			    bs->timers.required_min_echo_rx / 1000);
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
@@ -525,9 +548,11 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 	_display_peer_header(vty, bs);
 
 	/* Ask data plane for updated counters. */
-	if (bfd_dplane_update_session_counters(bs) == -1)
+	if (bfd_dplane_update_session_counters(bs) == -1) {
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
+		frrtrace(3, frr_bfd, stats_error, 1, bs->discrs.my_discr, -1);
+	}
 
 	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tControl packet input: %" PRIu64 " packets\n",
@@ -553,9 +578,11 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 	struct json_object *jo = _peer_json_header(bs);
 
 	/* Ask data plane for updated counters. */
-	if (bfd_dplane_update_session_counters(bs) == -1)
+	if (bfd_dplane_update_session_counters(bs) == -1) {
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
+		frrtrace(3, frr_bfd, stats_error, 1, bs->discrs.my_discr, -1);
+	}
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "control-packet-input", bs->stats.rx_ctrl_pkt);
@@ -766,14 +793,16 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " %-40s", addr_buf);
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+		vty_out(vty, "%-15s", state_list[bs->ses_state].str);
+		vty_out(vty, " %-20s\n", bs->profile_name ? bs->profile_name : "-");
 	} else {
 		vty_out(vty, "%-10u", bs->discrs.my_discr);
 		vty_out(vty, " %-40s", satostr(&bs->local_address));
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
 
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+		vty_out(vty, "%-15s", state_list[bs->ses_state].str);
+		vty_out(vty, " %-20s\n", bs->profile_name ? bs->profile_name : "-");
 	}
 }
 
@@ -810,12 +839,14 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 		vty_out(vty, "%-10s", "SessionId");
 		vty_out(vty, " %-40s", "LocalAddress");
 		vty_out(vty, " %-40s", "PeerAddress");
-		vty_out(vty, "%-15s\n", "Status");
+		vty_out(vty, "%-15s", "Status");
+		vty_out(vty, " %-20s\n", "Profile");
 
 		vty_out(vty, "%-10s", "=========");
 		vty_out(vty, " %-40s", "============");
 		vty_out(vty, " %-40s", "===========");
-		vty_out(vty, "%-15s\n", "======");
+		vty_out(vty, "%-15s", "======");
+		vty_out(vty, " %-20s\n", "=======");
 
 		bfd_id_iterate(_display_peer_brief_iter, &bvt);
 		return;

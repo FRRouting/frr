@@ -723,8 +723,8 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 	struct lyd_node *dnode;
 	LY_ERR err;
 
-	err = lyd_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
-			    &dnode);
+	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
+			     &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
 			  __func__, xpath, err);
@@ -892,8 +892,8 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	 * merged later with candidate.
 	 */
 	if (parent_xpath) {
-		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
-				    0, 0, &tree, &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, &tree,
+				     &parent);
 		if (err) {
 			yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 			ret = NB_ERR;
@@ -2301,7 +2301,12 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			if (sleaf->when)
 				return true;
 			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
-			    || sleaf->dflt)
+#if (LY_VERSION_MAJOR < 4)
+			    || sleaf->dflt
+#else
+			    || sleaf->dflt.str
+#endif
+			)
 				return false;
 			break;
 		case LYS_CONTAINER:

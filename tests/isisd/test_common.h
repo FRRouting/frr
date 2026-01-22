@@ -11,13 +11,13 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
 
-#define MAX_HOSTNAME 16
-#define MAX_NETWORKS 8
+#define MAX_HOSTNAME	16
+#define MAX_NETWORKS	8
 #define MAX_ADJACENCIES 8
-#define MAX_NODES 12
+#define MAX_NODES	12
 
 #define SRGB_DFTL_LOWER_BOUND 16000
-#define SRGB_DFTL_RANGE_SIZE 8000
+#define SRGB_DFTL_RANGE_SIZE  8000
 
 struct isis_test_adj {
 	char hostname[MAX_HOSTNAME];
@@ -52,16 +52,14 @@ struct isis_topology {
 
 /* Prototypes. */
 extern int isis_sock_init(struct isis_circuit *circuit);
-extern const struct isis_test_node *
-test_topology_find_node(const struct isis_topology *topology,
-			const char *hostname, uint8_t pseudonode_id);
-extern const struct isis_topology *
-test_topology_find(struct isis_topology *test_topologies, uint16_t number);
-extern mpls_label_t
-test_topology_node_ldp_label(const struct isis_topology *topology,
-			     struct in_addr router_id);
-extern int test_topology_load(const struct isis_topology *topology,
-			      struct isis_area *area,
+extern const struct isis_test_node *test_topology_find_node(const struct isis_topology *topology,
+							    const char *hostname,
+							    uint8_t pseudonode_id);
+extern const struct isis_topology *test_topology_find(struct isis_topology *test_topologies,
+						      uint16_t number);
+extern mpls_label_t test_topology_node_ldp_label(const struct isis_topology *topology,
+						 struct in_addr router_id);
+extern int test_topology_load(const struct isis_topology *topology, struct isis_area *area,
 			      struct lspdb_head lspdb[]);
 
 /* Global variables. */

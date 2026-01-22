@@ -182,9 +182,9 @@ PIM Routers
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
-   enter the vrf submode.  The default time is 60 seconds.  If you enter
-   a value smaller than 60 seconds be aware that this can and will affect
-   convergence at scale.
+   enter the vrf submode.  This command is also be set per-interface level.
+   The default time is 60 seconds.  If you enter a value smaller than 60
+   seconds be aware that this can and will affect convergence at scale.
 
 .. clicmd:: keep-alive-timer (1-65535)
    :daemon: pim
@@ -391,6 +391,23 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the pim hello and hold interval for a interface.
 
+.. clicmd:: ip pim join-prune-interval (5-600)
+
+   Modify the join/prune interval that pim uses on this interface.  Defaults
+   to the globally configured value (which in turn defaults to 60 seconds.)
+   If you enter a value smaller than 60 seconds be aware that this can and
+   will affect convergence at scale.
+
+.. clicmd:: ip pim assert-interval (1000-86400000)
+
+   Modify the PIM assert interval in milliseconds on this interface
+   (defaults to 18000).
+
+.. clicmd:: ip pim assert-override-interval (1000-86400000)
+
+   Modify the PIM assert override interval in milliseconds on this
+   interface (defaults to 3000).
+
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
    Enable pim on this interface. pim will use this interface to form pim neighbors,
@@ -535,6 +552,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set a static multicast route for a traffic coming on the current interface to
    be forwarded on the given interface if the traffic matches the group address
    and optionally the source address.
+
+.. clicmd:: ip igmp access-list ACCESSLIST4_NAME
+
+   Apply the indicated access list to filter incoming IGMP joins.
 
 .. clicmd:: ip igmp route-map ROUTE-MAP
 

@@ -484,8 +484,9 @@ int main(int argc, char **argv)
 		case 'I':
 			instance = atoi(optarg);
 			if (instance > (unsigned short)-1)
-				zlog_err("Instance %i out of range (0..%u)",
-					 instance, (unsigned short)-1);
+				flog_err(EC_BGP_INVALID_BGP_INSTANCE_ID,
+					 "Instance %i out of range (0..%u)", instance,
+					 (unsigned short)-1);
 			break;
 		case 's':
 			buffer_size = atoi(optarg);
