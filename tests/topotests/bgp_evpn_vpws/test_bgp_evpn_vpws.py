@@ -132,7 +132,7 @@ def teardown_module(mod):
 
 
 @retry(retry_timeout=60)
-def check_es_evi_route(router, rd, evi, esi, iplen, vtep, nexthop, fragid=0):
+def check_es_evi_route(router, rd, evi, esi, iplen, vtep, nexthop, ecomm=None, fragid=0):
     "Check EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]"
     #fragid in global table is always 0
     #vtep is null in global table
@@ -151,6 +151,7 @@ def check_es_evi_route(router, rd, evi, esi, iplen, vtep, nexthop, fragid=0):
     paths = res["paths"]
 
     for path in paths:
+        ecomm_str = path.get("extendedCommunity", {}).get("string", "")
         for n in path["nexthops"]:
             if n["ip"] == nexthop:
                 found = True
@@ -159,7 +160,12 @@ def check_es_evi_route(router, rd, evi, esi, iplen, vtep, nexthop, fragid=0):
     if not found:
         return f"{router.name}: can not find nexthop {nexthop} for route {route}"
 
+    if ecomm:
+        if ecomm not in ecomm_str:
+            return f"{router.name}: can not find {ecomm} in {ecomm_str}"
+
     return True
+
 
 @retry(retry_timeout=10)
 def check_show_l2vpn_vpws(router, name, evi, acs, pw_iface, proto, status):
@@ -273,6 +279,61 @@ def test_rd():
     res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
                                 "BGP", "Up")
     assert res is True, res
+
+
+def test_mtu():
+    "Check dataplane MTU and ignore-mtu-mismatch config changes"
+
+    tgen = get_topogen()
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    logger.info("PE1: change PE1-eth0 MTU to 1200 to trigger to trigger new EVI"
+                " per A-D route")
+    pe1.run("ip link set mtu 1200 PE1-eth0")
+    res = check_es_evi_route(
+        pe1, "10.10.10.10:111", EVI, ESI, 128, "::", "0.0.0.0", ecomm="MTU 0")
+    assert res is True, res
+
+    logger.info("PE2: check new es-evi route from PE1")
+    res = check_es_evi_route(
+        pe2, "10.10.10.10:111", EVI, ESI, 32, "0.0.0.0", "10.10.10.10",
+        ecomm="MTU 0")
+    assert res is True, res
+
+    logger.info("Checking EVPN VPWS status is Up")
+    res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
+                                "BGP", "Up")
+    assert res is True, res
+
+    logger.info("PE2: Disable ignore-mtu-mismatch")
+    pe2.vtysh_multicmd(
+        """
+        configure terminal
+        l2vpn test type vpws
+         member evpn vxlan101
+          ignore-mtu-mismatch disable
+        """)
+
+    logger.info("PE1: check new es-evi route from PE2 MTU 1500")
+    res = check_es_evi_route(
+        pe1, "10.30.30.30:222", EVI, ESI, 32, "0.0.0.0", "10.30.30.30",
+        ecomm="MTU 1500")
+    assert res is True, res
+
+    logger.info("Checking EVPN VPWS status is Down")
+    res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
+                                "BGP", "Down")
+    assert res is True, res
+
+    logger.info("PE1: restore PE1-eth0 mtu to 1500")
+    pe1.run("ip link set mtu 1500 PE1-eth0")
+
+    logger.info("Checking EVPN VPWS status is Up")
+    res = check_show_l2vpn_vpws(pe1, "test", EVI, f"{AC_PE1}/{AC_PE2}", "vxlan101",
+                                "BGP", "Up")
+    assert res is True, res
+
 
 def _memory_leak():
     "Run the memory leak test and report results."
