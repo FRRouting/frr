@@ -115,6 +115,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
 #define NEXTHOP_FLAG_EVPN       (1 << 8) /* nexthop is EVPN */
 #define NEXTHOP_FLAG_LINKDOWN   (1 << 9) /* is not removed on link down */
+#define NEXTHOP_FLAG_IFDOWN	   (1 << 10) /* inactive due to interface down */
 
 	/* which flags are part of nexthop_hash().  Should probably be split
 	 * off into a separate field...
