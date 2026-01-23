@@ -31,11 +31,11 @@ void pim_get_all_mcast_group(struct prefix *prefix);
 bool pim_addr_is_multicast(pim_addr addr);
 
 /*
- * For 'ip pim allow-rp'. This checks if a given RP address is allowed by the
- * configured RP-filtering prefix list.
+ * For 'ip pim allow-rp'. This checks if a given RP address is allowed.
  *
- * Asserts that accept_rp is enabled; if it's not, there's no reason to call
- * this.
+ * Returns false if allow-rp is not enabled on the interface.
+ * Returns true if allow-rp is enabled and no prefix-list is configured.
+ * Returns true/false based on prefix-list match if one is configured.
  *
  * pim_ifp
  *    The PIM interface the (*,G) JOIN with the RP address being checked was
