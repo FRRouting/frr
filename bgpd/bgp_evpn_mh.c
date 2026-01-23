@@ -2447,6 +2447,9 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	}
 	bgp_evpn_es_local_info_set(bgp, es);
 
+	if (bgp_l2vpn_vpws_es_add(es->esi))
+		return 0;
+
 	/* import all remote Type-4 routes in the ES table */
 	if (new_es)
 		bgp_evpn_type4_remote_routes_import(bgp, es,
