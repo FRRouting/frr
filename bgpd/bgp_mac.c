@@ -196,10 +196,9 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 				continue;
 			}
 
-			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
-				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, label_pnt, num_labels,
-				   1, bgp_attr_get_evpn_overlay(pi->attr));
+			bgp_update(peer, p, pi->addpath_rx_id, pi->attr, AFI_L2VPN, SAFI_EVPN,
+				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, label_pnt, num_labels,
+				   1, bgp_attr_get_evpn_overlay(pi->attr), NULL);
 		}
 	}
 }

@@ -184,9 +184,8 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		}
 		/* Process the route. */
 		if (!withdraw) {
-			bgp_update(peer, &p, 0, attr, afi, safi,
-				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				   NULL, 0, 0, NULL);
+			bgp_update(peer, &p, 0, attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+				   NULL, NULL, 0, 0, NULL, NULL);
 		} else {
 			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0);

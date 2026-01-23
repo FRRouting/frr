@@ -83,6 +83,7 @@
 #include "bgpd/bgp_pbr.h"
 
 #include "bgpd/bgp_route_clippy.c"
+#include "bgpd/bgp_ls_nlri.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
@@ -368,6 +369,9 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->labels)
 		bgp_labels_unintern(&e->labels);
 
+	if (e->ls_nlri)
+		bgp_ls_nlri_unintern(&e->ls_nlri);
+
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 }
 
@@ -417,6 +421,21 @@ bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
 
 	return bgp_labels_same(bpi_label, bpi_num_labels,
 			       (const mpls_label_t *)label, n);
+}
+
+static bool bgp_path_info_ls_nlri_same(const struct bgp_path_info *bpi,
+				       const struct bgp_ls_nlri *ls_nlri)
+{
+	if (!bpi || !bpi->extra)
+		return false;
+
+	if (!bpi->extra->ls_nlri && !ls_nlri)
+		return true;
+
+	if (!bpi->extra->ls_nlri || !ls_nlri)
+		return false;
+
+	return bgp_ls_nlri_cmp(bpi->extra->ls_nlri, ls_nlri) != 0;
 }
 
 /* Free bgp route information. */
@@ -5604,11 +5623,10 @@ void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp
 	}
 }
 
-void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
-		struct attr *attr, afi_t afi, safi_t safi, int type,
-		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-		uint8_t num_labels, int soft_reconfig,
-		struct bgp_route_evpn *evpn)
+void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id, struct attr *attr,
+		afi_t afi, safi_t safi, int type, int sub_type, struct prefix_rd *prd,
+		mpls_label_t *label, uint8_t num_labels, int soft_reconfig,
+		struct bgp_route_evpn *evpn, struct bgp_ls_nlri *ls_nlri)
 {
 	int ret;
 	struct bgp_dest *dest;
@@ -5977,8 +5995,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
 		    (!bgp_labels.num_labels ||
-		     bgp_path_info_labels_same(pi, bgp_labels.label,
-					       bgp_labels.num_labels))) {
+		     bgp_path_info_labels_same(pi, bgp_labels.label, bgp_labels.num_labels)) &&
+		    bgp_path_info_ls_nlri_same(pi, ls_nlri)) {
 			if (get_active_bdc_from_pi(pi, afi, safi) &&
 			    peer->sort == BGP_PEER_EBGP &&
 			    CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
@@ -6178,6 +6196,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			pi->extra->labels = bgp_labels_intern(&bgp_labels);
 		}
 
+		/* Update BGP-LS NLRI */
+		if (!bgp_path_info_ls_nlri_same(pi, ls_nlri)) {
+			bgp_path_info_extra_get(pi);
+			bgp_ls_nlri_unintern(&pi->extra->ls_nlri);
+			pi->extra->ls_nlri = bgp_ls_nlri_intern(ls_nlri);
+		}
+
 #ifdef ENABLE_BGP_VNC
 		if ((afi == AFI_IP || afi == AFI_IP6)
 		    && (safi == SAFI_UNICAST)) {
@@ -6325,6 +6350,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Update MPLS label */
 	bgp_path_info_extra_get(new);
 	new->extra->labels = bgp_labels_intern(&bgp_labels);
+
+	/* Update BGP-LS NLRI */
+	new->extra->ls_nlri = bgp_ls_nlri_intern(ls_nlri);
 
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
@@ -6715,9 +6743,8 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 	if (pi)
 		bre = bgp_attr_get_evpn_overlay(pi->attr);
 
-	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
-		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, bre);
+	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id, ain->attr, afi, safi,
+		   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd, label_pnt, num_labels, 1, bre, NULL);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -8056,9 +8083,8 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 
 		/* Normal process. */
 		if (attr)
-			bgp_update(peer, &p, addpath_id, attr, afi, safi,
-				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				   NULL, 0, 0, NULL);
+			bgp_update(peer, &p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
+				   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL, NULL);
 		else
 			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
