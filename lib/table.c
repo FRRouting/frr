@@ -25,8 +25,16 @@ static int route_table_hash_cmp(const struct route_node *a,
 	return prefix_cmp(&a->p, &b->p);
 }
 
+static int rt_tree_cmp(const struct route_node *a, const struct route_node *b)
+{
+	return prefix_cmp(&a->p, &b->p);
+}
+
 DECLARE_HASH(rn_hash_node, struct route_node, nodehash, route_table_hash_cmp,
 	     prefix_hash_key);
+
+DECLARE_RBTREE_UNIQ(rn_tree, struct route_node, rbitem, rt_tree_cmp);
+
 /*
  * route_table_init_with_delegate
  */
@@ -38,12 +46,24 @@ route_table_init_with_delegate(route_table_delegate_t *delegate)
 	rt = XCALLOC(MTYPE_ROUTE_TABLE, sizeof(struct route_table));
 	rt->delegate = delegate;
 	rn_hash_node_init(&rt->hash);
+	rn_tree_init(&rt->tree);
 	return rt;
 }
 
 void route_table_finish(struct route_table *rt)
 {
 	route_table_free(rt);
+}
+
+/*
+ * Just after init, put table into hash/unique mode. In this mode, the
+ * table only maintains unique lookups for its nodes, via hash or rbtree.
+ * The table won't maintain the "contains" property required for IP
+ * prefixes.
+ */
+void route_table_set_unique_mode(struct route_table *table)
+{
+	table->unique_mode = true;
 }
 
 /* Allocate new route node. */
@@ -123,6 +143,7 @@ static void route_table_free(struct route_table *rt)
 	assert(rt->count == 0);
 
 	rn_hash_node_fini(&rt->hash);
+	rn_tree_fini(&rt->tree);
 	XFREE(MTYPE_ROUTE_TABLE, rt);
 	return;
 }
@@ -184,9 +205,23 @@ struct route_node *route_node_match(struct route_table *table,
 	const struct prefix *p = pu.p;
 	struct route_node *node;
 	struct route_node *matched;
+	struct route_node rn;
 
 	matched = NULL;
 	node = table->top;
+
+	/* For unique mode, just do a lookup */
+	if (table->unique_mode) {
+		memset(&rn, 0, sizeof(rn));
+		prefix_copy(&rn.p, pu.p);
+		apply_mask(&rn.p);
+
+		matched = rn_hash_node_find(&table->hash, &rn);
+		if (matched && matched->info == NULL)
+			matched = NULL;
+
+		goto done;
+	}
 
 	/* Walk down tree.  If there is matched route then store it to
 	   matched. */
@@ -201,6 +236,7 @@ struct route_node *route_node_match(struct route_table *table,
 		node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
 	}
 
+done:
 	/* If matched route found, return it. */
 	if (matched)
 		return route_lock_node(matched);
@@ -261,6 +297,20 @@ struct route_node *route_node_get(struct route_table *table,
 		return route_lock_node(node);
 	}
 
+	/* For unique-mode, just add an entry directly */
+	if (table->unique_mode) {
+		new = route_node_new(table);
+		prefix_copy(&new->p, p);
+		new->p.family = p->family;
+		new->table = table;
+		rn_hash_node_add(&table->hash, new);
+
+		/* Add to rbtree also */
+		rn_tree_add(&table->tree, new);
+
+		goto done;
+	}
+
 	match = NULL;
 	node = table->top;
 	while (node && node->p.prefixlen <= prefixlen
@@ -301,6 +351,8 @@ struct route_node *route_node_get(struct route_table *table,
 			table->count++;
 		}
 	}
+
+done:
 	table->count++;
 	route_lock_node(new);
 
@@ -314,9 +366,18 @@ struct route_node *route_node_get(struct route_table *table,
 void route_node_delete(struct route_node *node)
 {
 	struct route_node *child;
-	struct route_node *parent;
+	struct route_node *parent = NULL;
+	struct route_table *table;
 
 	assert(node->lock == 0);
+
+	table = node->table;
+
+	/* For unique-mode tables, remove node from tree then continue */
+	if (table->unique_mode) {
+		rn_tree_del(&table->tree, node);
+		goto skip_tree;
+	}
 
 	if (node->l_left && node->l_right)
 		return;
@@ -339,6 +400,7 @@ void route_node_delete(struct route_node *node)
 	} else
 		node->table->top = child;
 
+skip_tree:
 	node->table->count--;
 
 	rn_hash_node_del(&node->table->hash, node);
@@ -351,11 +413,11 @@ void route_node_delete(struct route_node *node)
 	 * to
 	 * delete a now-stale parent below.
 	 *
-	 * cf. srcdest_srcnode_destroy() in zebra/zebra_rib.c */
+	 * cf. srcdest_srcnode_destroy() in lib/srcdest_table.c */
 
 	route_node_free(node->table, node);
 
-	/* If parent node is stub then delete it also. */
+	/* If parent node exists and is stub then delete it also. */
 	if (parent && parent->lock == 0)
 		route_node_delete(parent);
 }
@@ -364,13 +426,17 @@ void route_node_delete(struct route_node *node)
    to lookup all the node exist in the routing table. */
 struct route_node *route_top(struct route_table *table)
 {
-	/* If there is no node in the routing table return NULL. */
-	if (table->top == NULL)
-		return NULL;
+	struct route_node *node;
+
+	if (table->unique_mode)
+		node = rn_tree_first(&table->tree);
+	else
+		node = table->top;
 
 	/* Lock the top node and return it. */
-	route_lock_node(table->top);
-	return table->top;
+	if (node)
+		route_lock_node(node);
+	return node;
 }
 
 /* Unlock current node and lock next node then return it. */
@@ -378,6 +444,17 @@ struct route_node *route_next(struct route_node *node)
 {
 	struct route_node *next;
 	struct route_node *start;
+	struct route_table *table;
+
+	table = node->table;
+
+	if (table->unique_mode) {
+		next = rn_tree_next(&table->tree, node);
+		if (next)
+			route_lock_node(next);
+		route_unlock_node(node);
+		return next;
+	}
 
 	/* Node may be deleted from route_unlock_node so we have to preserve
 	   next node's pointer. */
@@ -415,6 +492,21 @@ struct route_node *route_next_until(struct route_node *node,
 {
 	struct route_node *next;
 	struct route_node *start;
+	struct route_table *table;
+
+	table = node->table;
+
+	if (table->unique_mode) {
+		next = rn_tree_next(&table->tree, node);
+		if (next) {
+			if (next != limit)
+				route_lock_node(next);
+			else
+				next = NULL;
+		}
+		route_unlock_node(node);
+		return next;
+	}
 
 	/* Node may be deleted from route_unlock_node so we have to preserve
 	   next node's pointer. */
@@ -585,7 +677,21 @@ route_table_get_next_internal(struct route_table *table,
 			      const struct prefix *p)
 {
 	struct route_node *node, *tmp_node;
+	struct route_node lookup;
 	int cmp;
+
+	/* Handle unique mode tables */
+	if (table->unique_mode) {
+		memset(&lookup, 0, sizeof(lookup));
+		prefix_copy(&lookup.p, p);
+		node = rn_tree_find_gteq(&table->tree, &lookup);
+		if (node != NULL) {
+			if (prefix_cmp(&node->p, p) == 0)
+				node = rn_tree_next(&table->tree, node);
+		}
+
+		return node;
+	}
 
 	node = table->top;
 
