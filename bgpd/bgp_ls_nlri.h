@@ -621,4 +621,7 @@ extern void bgp_ls_attr_prefix_free(struct bgp_ls_prefix_attr **attr);
 /* NLRI validation functions */
 extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
 
+/* NLRI size calculation helpers */
+extern size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri);
+
 #endif /* _FRR_BGP_LS_NLRI_H */

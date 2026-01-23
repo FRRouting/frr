@@ -556,3 +556,111 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 
 	return false;
 }
+
+/*
+ * ===========================================================================
+ * NLRI Size Calculation Functions
+ * ===========================================================================
+ */
+
+/* Calculate size of node descriptor TLV */
+static size_t bgp_ls_node_descriptor_size(const struct bgp_ls_node_descriptor *desc)
+{
+	size_t size = BGP_LS_TLV_HDR_SIZE; /* Descriptor TLV header */
+
+	/* AS Number TLV */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT))
+		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_AS_NUMBER_SIZE;
+	/* BGP-LS ID TLV */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
+		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_BGP_LS_ID_SIZE;
+	/* OSPF Area ID TLV */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT))
+		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_OSPF_AREA_ID_SIZE;
+	/* IGP Router ID TLV */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		size += BGP_LS_TLV_HDR_SIZE + desc->igp_router_id_len;
+
+	return size;
+}
+
+/* Calculate wire format size of NLRI */
+size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
+{
+	size_t size = 0;
+
+	if (!nlri)
+		return 0;
+
+	/* Common NLRI header: Protocol-ID + Identifier */
+	size += BGP_LS_NLRI_HDR_SIZE;
+
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE: {
+		const struct bgp_ls_node_nlri *n = &nlri->nlri_data.node;
+
+		/* Local Node Descriptor */
+		size += bgp_ls_node_descriptor_size(&n->local_node);
+
+		break;
+	}
+
+	case BGP_LS_NLRI_TYPE_LINK: {
+		const struct bgp_ls_link_nlri *l = &nlri->nlri_data.link;
+
+		/* Local Node Descriptor */
+		size += bgp_ls_node_descriptor_size(&l->local_node);
+
+		/* Remote Node Descriptor */
+		size += bgp_ls_node_descriptor_size(&l->remote_node);
+
+		/* Link Descriptor */
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_LINK_ID_SIZE;
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_IPV4_ADDR_SIZE;
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_IPV4_ADDR_SIZE;
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_IPV6_ADDR_SIZE;
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_IPV6_ADDR_SIZE;
+		if (BGP_LS_TLV_CHECK(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT))
+			size += BGP_LS_TLV_HDR_SIZE +
+				(l->link_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+
+		break;
+	}
+
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX: {
+		const struct bgp_ls_prefix_nlri *p = &nlri->nlri_data.prefix;
+
+		/* Local Node Descriptor */
+		size += bgp_ls_node_descriptor_size(&p->local_node);
+
+		/* Prefix Descriptor */
+		if (BGP_LS_TLV_CHECK(p->prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT))
+			size += BGP_LS_TLV_HDR_SIZE +
+				(p->prefix_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+		if (BGP_LS_TLV_CHECK(p->prefix_desc.present_tlvs,
+				     BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_OSPF_ROUTE_TYPE_SIZE;
+
+		/* IP Reachability Info TLV */
+		if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX)
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_PREFIX_LEN_SIZE +
+				BGP_LS_IPV4_ADDR_SIZE;
+		else
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_PREFIX_LEN_SIZE +
+				BGP_LS_IPV6_ADDR_SIZE;
+
+		break;
+	}
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return 0;
+	}
+
+	return size;
+}
