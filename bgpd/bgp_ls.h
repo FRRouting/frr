@@ -29,6 +29,38 @@ struct bgp_ls {
 
 /* Function prototypes */
 
+/*
+ * ===========================================================================
+ * RIB Operations
+ * ===========================================================================
+ */
+
+/*
+ * Install or update BGP-LS route in RIB
+ *
+ * This function handles locally originated BGP-LS routes from IGP.
+ * It creates a synthetic prefix in the standard BGP RIB and stores
+ * the full NLRI in bgp_path_info_extra->ls_nlri.
+ *
+ * @param bgp - BGP instance
+ * @param nlri - Decoded BGP-LS NLRI
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri);
+
+/*
+ * Remove BGP-LS route from RIB
+ *
+ * This function handles withdrawal of locally originated BGP-LS routes.
+ * It marks the route as removed and triggers BGP processing for
+ * withdrawal advertisement to peers.
+ *
+ * @param bgp - BGP instance
+ * @param nlri - Decoded BGP-LS NLRI
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_withdraw(struct bgp *bgp, struct bgp_ls_nlri *nlri);
+
 /* BGP-LS registration with link-state database */
 extern bool bgp_ls_register(struct bgp *bgp);
 extern bool bgp_ls_unregister(struct bgp *bgp);
