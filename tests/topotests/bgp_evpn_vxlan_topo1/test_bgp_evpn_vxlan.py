@@ -423,6 +423,28 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     assert ip_addr == learned_ip, assertmsg
 
 
+def _ip_neigh_has_entry(router, dev, ip_addr, require_extern=True):
+    output = router.cmd("ip neigh show dev {}".format(dev))
+    for line in output.splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0] == ip_addr:
+            if require_extern and "extern_learn" not in line:
+                return False
+            return True
+    return False
+
+
+def _ip_neigh_missing(router, dev, ip_addr):
+    output = router.cmd("ip neigh show dev {}".format(dev))
+    for line in output.splitlines():
+        parts = line.split()
+        if parts and parts[0] == ip_addr:
+            return False
+    return True
+
+
 def test_ip_pe1_learn():
     "run the IP learn test for PE1"
 
@@ -619,6 +641,32 @@ def test_evpn_l3vni_vlan_bridge():
 
         assertmsg = "L3 VNI 999 (PE2): text output should contain 'Type: L3'"
         assert "Type: L3" in output, assertmsg
+
+
+def test_remote_neigh_uninstall_on_vxlan_down():
+    "Ensure remote neighs are removed when VxLAN if is down"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    host1 = tgen.gears["host1"]
+    pe1 = tgen.gears["PE1"]
+
+    # Trigger ARP/neighbor learning for the remote host
+    host1.run("ping -c1 10.10.1.56")
+
+    test_func = partial(_ip_neigh_has_entry, pe1, "br101", "10.10.1.56", True)
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+    assertmsg = "PE1 missing extern_learn neighbor 10.10.1.56 on br101"
+    assert result, assertmsg
+
+    # Remove VxLAN device to trigger L2VNI cleanup
+    pe1.run("ip link del vxlan101")
+
+    test_func = partial(_ip_neigh_missing, pe1, "br101", "10.10.1.56")
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+    assertmsg = "PE1 still has neighbor 10.10.1.56 after VxLAN down"
+    assert result, assertmsg
 
 
 def test_memory_leak():
