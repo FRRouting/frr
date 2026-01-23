@@ -610,6 +610,8 @@ extern struct bgp_ls_nlri *bgp_ls_nlri_alloc(void);
 extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
 extern struct bgp_ls_attr *bgp_ls_attr_alloc(void);
 extern void bgp_ls_attr_free(struct bgp_ls_attr *attr);
+extern struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri);
+struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src);
 
 /* NLRI validation functions */
 extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
