@@ -512,6 +512,111 @@ void bgp_ls_attr_free(struct bgp_ls_attr *attr)
 	XFREE(MTYPE_BGP_LS_ATTR, attr);
 }
 
+/* Deep copy BGP-LS NLRI (including dynamic fields) */
+struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri)
+{
+	struct bgp_ls_nlri *nlri_copy;
+
+	if (!nlri)
+		return NULL;
+
+	/* Allocate and copy NLRI */
+	nlri_copy = XCALLOC(MTYPE_BGP_LS_NLRI, sizeof(*nlri_copy));
+	memcpy(nlri_copy, nlri, sizeof(*nlri_copy));
+
+	/* Copy type-specific dynamically allocated fields */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		break;
+
+	case BGP_LS_NLRI_TYPE_LINK:
+		/* Copy link descriptor mt_id */
+		if (nlri->nlri_data.link.link_desc.mt_id) {
+			size_t mt_size = nlri->nlri_data.link.link_desc.mt_id_count *
+					 sizeof(uint16_t);
+			nlri_copy->nlri_data.link.link_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
+									    mt_size);
+			memcpy(nlri_copy->nlri_data.link.link_desc.mt_id,
+			       nlri->nlri_data.link.link_desc.mt_id, mt_size);
+		}
+		break;
+
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		/* Copy prefix descriptor mt_id */
+		if (nlri->nlri_data.prefix.prefix_desc.mt_id) {
+			size_t mt_size = nlri->nlri_data.prefix.prefix_desc.mt_id_count *
+					 sizeof(uint16_t);
+			nlri_copy->nlri_data.prefix.prefix_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
+										mt_size);
+			memcpy(nlri_copy->nlri_data.prefix.prefix_desc.mt_id,
+			       nlri->nlri_data.prefix.prefix_desc.mt_id, mt_size);
+		}
+		break;
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		break;
+	}
+
+	return nlri_copy;
+}
+
+struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src)
+{
+	struct bgp_ls_attr *dst;
+	size_t mt_size;
+	size_t srlg_size;
+	size_t tag_size;
+
+	if (!src)
+		return NULL;
+
+	dst = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(*dst));
+	memcpy(dst, src, sizeof(*dst));
+
+	if (src->node_name)
+		dst->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, src->node_name);
+
+	if (src->isis_area_id) {
+		dst->isis_area_id = XCALLOC(MTYPE_BGP_LS_ATTR, src->isis_area_id_len);
+		memcpy(dst->isis_area_id, src->isis_area_id, src->isis_area_id_len);
+	}
+
+	if (src->mt_id) {
+		mt_size = src->mt_id_count * sizeof(uint16_t);
+		dst->mt_id = XCALLOC(MTYPE_BGP_LS_ATTR, mt_size);
+		memcpy(dst->mt_id, src->mt_id, mt_size);
+	}
+
+	if (src->srlg_values) {
+		srlg_size = src->srlg_count * sizeof(uint32_t);
+		dst->srlg_values = XCALLOC(MTYPE_BGP_LS_ATTR, srlg_size);
+		memcpy(dst->srlg_values, src->srlg_values, srlg_size);
+	}
+
+	if (src->link_name)
+		dst->link_name = XSTRDUP(MTYPE_BGP_LS_ATTR, src->link_name);
+
+	if (src->route_tags) {
+		tag_size = src->route_tag_count * sizeof(uint32_t);
+		dst->route_tags = XCALLOC(MTYPE_BGP_LS_ATTR, tag_size);
+		memcpy(dst->route_tags, src->route_tags, tag_size);
+	}
+
+	if (src->extended_tags) {
+		tag_size = src->extended_tag_count * sizeof(uint64_t);
+		dst->extended_tags = XCALLOC(MTYPE_BGP_LS_ATTR, tag_size);
+		memcpy(dst->extended_tags, src->extended_tags, tag_size);
+	}
+
+	if (src->opaque_data) {
+		dst->opaque_data = XCALLOC(MTYPE_BGP_LS_ATTR, src->opaque_len);
+		memcpy(dst->opaque_data, src->opaque_data, src->opaque_len);
+	}
+
+	return dst;
+}
+
 /*
  * ===========================================================================
  * NLRI Validation Functions
