@@ -781,7 +781,6 @@ const char	*if_type_name(enum iface_type);
 const char	*msg_name(uint16_t);
 const char	*status_code_name(uint32_t);
 const char	*pw_type_name(uint16_t);
-const char	*pw_error_code(uint8_t);
 
 /* quagga */
 extern struct event_loop *master;

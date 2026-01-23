@@ -209,3 +209,24 @@ void l2vpn_init(void)
 	RB_INIT(l2vpn_head, &l2vpn_tree_config);
 	l2vpn_cli_init();
 }
+
+const char *l2vpn_svc_error_code(uint32_t status)
+{
+	static char buf[16];
+
+	switch (status) {
+	case F_L2VPN_NO_ERR:
+		return ("No Error");
+	case F_L2VPN_LOCAL_NOT_FWD:
+		return ("local not forwarding");
+	case F_L2VPN_REMOTE_NOT_FWD:
+		return ("remote not forwarding");
+	case F_L2VPN_NO_REMOTE_LABEL:
+		return ("no remote label");
+	case F_L2VPN_MTU_MISMATCH:
+		return ("mtu mismatch between peers");
+	default:
+		snprintf(buf, sizeof(buf), "[%0x]", status);
+		return buf;
+	}
+}

@@ -1333,7 +1333,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 			    pw_type_name(pw->type),pw->local_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
 			vty_out (vty, "%-8sLast failure: %s\n", "",
-			    pw_error_code(pw->reason));
+			    l2vpn_svc_error_code(pw->reason));
 		} else
 			vty_out (vty,"    Local Label: unassigned\n");
 
@@ -1387,7 +1387,7 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			json_object_int_add(json_pw, "localIfMtu",
 			    pw->local_ifmtu);
 			json_object_string_add(json_pw, "lastFailureReason",
-			    pw_error_code(pw->reason));
+			    l2vpn_svc_error_code(pw->reason));
 		} else
 			json_object_string_add(json_pw, "localLabel",
 			    "unassigned");

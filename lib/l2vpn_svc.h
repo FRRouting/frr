@@ -97,6 +97,7 @@ DECLARE_QOBJ_TYPE(l2vpn);
 /* clang-format on */
 
 extern void l2vpn_init(void);
+extern const char *l2vpn_svc_error_code(uint32_t status);
 
 struct l2vpn *l2vpn_new(const char *name);
 struct l2vpn *l2vpn_find(struct l2vpn_head *conf, const char *name, int type);
