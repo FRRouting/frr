@@ -45,6 +45,7 @@
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
+#include "bgpd/bgp_ls_nlri.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -4685,7 +4686,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_putc(s, 0); /* no nexthop for flowspec */
 			break;
 		case SAFI_BGP_LS:
-			/* TODO */
+			stream_putc(s, 4);
+			stream_put_ipv4(s, attr->nexthop.s_addr);
 			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -4807,11 +4809,52 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	stream_putc_at(s, sizep, (stream_get_endp(s) - sizep) - 1);
 }
 
-void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
-			      const struct prefix *p,
-			      const struct prefix_rd *prd, mpls_label_t *label,
-			      uint8_t num_labels, bool addpath_capable,
-			      uint32_t addpath_tx_id, struct attr *attr)
+static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct attr *attr,
+				    struct bgp_path_info *bpi)
+{
+	struct bgp_ls_nlri *ls_nlri = bpi->extra->ls_nlri;
+	size_t attr_start, len_pos, attr_len;
+	int ret = -1;
+
+	/* Write BGP-LS attribute header (RFC 9552 Section 4) */
+	attr_start = stream_get_endp(s);
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+	stream_putc(s, BGP_ATTR_LINK_STATE);
+	len_pos = stream_get_endp(s);
+	stream_putc(s, 0); /* Placeholder for length */
+
+	/* Encode the attribute data based on NLRI type. */
+	switch (ls_nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		ret = bgp_ls_encode_node_attr(s, ls_nlri->nlri_data.node.attr);
+		break;
+	case BGP_LS_NLRI_TYPE_LINK:
+		ret = bgp_ls_encode_link_attr(s, ls_nlri->nlri_data.link.attr);
+		break;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		ret = bgp_ls_encode_prefix_attr(s, ls_nlri->nlri_data.prefix.attr);
+		break;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		break;
+	}
+
+	if (ret < 0) {
+		/* No attributes or encoding failed - rollback the stream */
+		stream_set_endp(s, attr_start);
+		return;
+	}
+
+	/* Update the length field */
+	attr_len = stream_get_endp(s) - len_pos - 1;
+
+	stream_putc_at(s, len_pos, attr_len);
+}
+
+void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const struct prefix *p,
+			      const struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
+			      bool addpath_capable, uint32_t addpath_tx_id, struct attr *attr,
+			      struct bgp_ls_nlri *ls_nlri)
 {
 	switch (safi) {
 	case SAFI_UNSPEC:
@@ -4837,7 +4880,7 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			assert(!"Add encoding bits here for other AFI's");
 		break;
 	case SAFI_BGP_LS:
-		/* TODO */
+		bgp_ls_encode_nlri(s, ls_nlri);
 		break;
 	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
@@ -4897,7 +4940,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
 		break;
 	case SAFI_BGP_LS:
-		/* TODO */
+		/* TODO: add explaination */
+		size = 0;
 		break;
 	}
 
@@ -5049,7 +5093,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
 				struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
 				struct bgp_attr_srv6_l3service *srv6_unicast, bool addpath_capable,
-				uint32_t addpath_tx_id, struct bgp_path_info *bpi)
+				uint32_t addpath_tx_id, struct bgp_path_info *bpi,
+				struct bgp_ls_nlri *ls_nlri)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -5072,9 +5117,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
-					 num_labels, addpath_capable,
-					 addpath_tx_id, attr);
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
+					 addpath_tx_id, attr, ls_nlri);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
@@ -5536,6 +5580,10 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
 	}
 
+	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bpi && bpi->extra && bpi->extra->ls_nlri)
+		bgp_packet_ls_attribute(s, bgp, attr, bpi);
+
 	/* draft-ietf-idr-entropy-label */
 	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
 		bgp_packet_nhc(s, peer, afi, safi, attr, bpi);
@@ -5572,12 +5620,10 @@ size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 	return attrlen_pnt;
 }
 
-void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
-				 afi_t afi, safi_t safi,
-				 const struct prefix_rd *prd,
-				 mpls_label_t *label, uint8_t num_labels,
-				 bool addpath_capable, uint32_t addpath_tx_id,
-				 struct attr *attr)
+void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p, afi_t afi, safi_t safi,
+				 const struct prefix_rd *prd, mpls_label_t *label,
+				 uint8_t num_labels, bool addpath_capable, uint32_t addpath_tx_id,
+				 struct attr *attr, struct bgp_ls_nlri *ls_nlri)
 {
 	uint8_t wlabel[4] = {0x80, 0x00, 0x00};
 
@@ -5592,8 +5638,8 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 		num_labels = 1;
 	}
 
-	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-				 addpath_capable, addpath_tx_id, attr);
+	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
+				 addpath_tx_id, attr, ls_nlri);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)
