@@ -597,6 +597,17 @@ struct bgp_ls_nlri {
 
 /* Function prototypes */
 
+/* Descriptor comparison functions */
+extern int bgp_ls_node_descriptor_cmp(const struct bgp_ls_node_descriptor *d1,
+				      const struct bgp_ls_node_descriptor *d2);
+extern int bgp_ls_link_descriptor_cmp(const struct bgp_ls_link_descriptor *d1,
+				      const struct bgp_ls_link_descriptor *d2);
+extern int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
+					const struct bgp_ls_prefix_descriptor *d2);
+
+/* NLRI comparison functions */
+extern int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *nlri2);
+
 /* NLRI memory management functions */
 extern struct bgp_ls_nlri *bgp_ls_nlri_alloc(void);
 extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
