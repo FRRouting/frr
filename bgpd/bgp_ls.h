@@ -8,10 +8,17 @@
 #define _FRR_BGP_LS_H
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_ls_nlri.h"
 
 struct bgp_ls {
 	/* Back-pointer to parent BGP instance */
 	struct bgp *bgp;
+
+	/* Hash table for BGP-LS NLRIs (nodes, links, prefixes) */
+	struct bgp_ls_nlri_hash_head nlri_hash;
+
+	/* NLRI ID allocator */
+	struct id_alloc *allocator;
 };
 
 /* Function prototypes */
