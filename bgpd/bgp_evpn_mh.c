@@ -3974,7 +3974,17 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 		eval_l2 = ecommunity_lookup(bgp_attr_get_ecommunity(pi->attr),
 					    ECOMMUNITY_ENCODE_EVPN,
 					    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR);
-		if (eval_l2) {
+		/* Signle-homed */
+		if (!memcmp(&evpn_vpws->esi, zero_esi, sizeof(esi_t))) {
+			if (listcount(es_evi->es_evi_vtep_list) > 1 ||
+			    !eval_l2) {
+				bgp_l2vpn_vpws_zebra_set(bgp, evpn_vpws, false);
+				evpn_vpws->reason = F_L2VPN_AD_MISMATCH;
+				evpn_vpws->local_status = EVPN_NOT_FORWARDING;
+
+				return ret;
+			}
+
 			memcpy(&evpn_vpws->remote_mtu, eval_l2->val + 4, 2);
 			evpn_vpws->remote_mtu = ntohs(evpn_vpws->remote_mtu);
 			if (evpn_vpws->remote_mtu && evpn_vpws->remote_mtu != evpn_vpws->mtu) {
@@ -3985,8 +3995,9 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 				evpn_vpws->reason = F_L2VPN_MTU_MISMATCH;
 				return ret;
 			}
-			/* TODO MH */
 		}
+		/* TODO MH: Find P flag across es_evi_vtep_list */
+
 		evpn_vpws->remote_status = EVPN_NOT_FORWARDING;
 		evpn_vpws->reason = F_L2VPN_REMOTE_NOT_FWD;
 		IPV4_ADDR_COPY(&evpn_vpws->addr.ipv4, &p->prefix.ead_addr.ip.ipaddr_v4);
