@@ -1096,8 +1096,25 @@ static int zevpn_build_hash_table_zns(struct interface *ifp, void *arg)
 		goto done;
 
 	vxl = &zif->l2info.vxl;
-	/* link of VXLAN interface should be in zebra_evpn_vrf */
-	if (zvrf->zns->ns_id != vxl->link_nsid) {
+
+	/* Get the VXLAN interface's actual namespace */
+	ns_id_t ifp_ns_id = NS_UNKNOWN;
+
+	if (ifp->vrf && ifp->vrf->info) {
+		struct zebra_vrf *ifp_zvrf = (struct zebra_vrf *)ifp->vrf->info;
+
+		if (ifp_zvrf->zns)
+			ifp_ns_id = ifp_zvrf->zns->ns_id;
+	}
+
+	/*
+	 * Allow if interface is in the EVPN VRF's namespace,
+	 * even if the underlay link is in a different namespace.
+	 * This handles pre-existing VXLAN interfaces in netns setups.
+	 * Fixes GitHub issue #19403.
+	 */
+	if (zvrf->zns->ns_id != ifp_ns_id &&
+	    zvrf->zns->ns_id != vxl->link_nsid) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) link not in same namespace as BGP EVPN core instance",
 				   ifp->name, ifp->ifindex);
@@ -2094,8 +2111,24 @@ static int zl3vni_map_to_vxlan_if_ns(struct interface *ifp, void *arg)
 	if (!vni || vni->vni != zl3vni->vni)
 		goto done;
 
-	/* link of VXLAN interface should be in zebra_evpn_vrf */
-	if (zvrf->zns->ns_id != vxl->link_nsid) {
+	/* Get the VXLAN interface's actual namespace */
+	ns_id_t ifp_ns_id = NS_UNKNOWN;
+
+	if (ifp->vrf && ifp->vrf->info) {
+		struct zebra_vrf *ifp_zvrf = (struct zebra_vrf *)ifp->vrf->info;
+
+		if (ifp_zvrf->zns)
+			ifp_ns_id = ifp_zvrf->zns->ns_id;
+	}
+
+	/*
+	 * Allow if interface is in the EVPN VRF's namespace,
+	 * even if the underlay link is in a different namespace.
+	 * This handles pre-existing VXLAN interfaces in netns setups.
+	 * Fixes GitHub issue #19403.
+	 */
+	if (zvrf->zns->ns_id != ifp_ns_id &&
+	    zvrf->zns->ns_id != vxl->link_nsid) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) VNI %u, link not in same namespace as BGP EVPN core instance",
 				   ifp->name, ifp->ifindex, vni->vni);
