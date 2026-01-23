@@ -14296,6 +14296,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_ENCAP:
 	case SAFI_EVPN:
 		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
+	case SAFI_BGP_LS:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
@@ -15565,6 +15566,8 @@ static void bgp_table_stats_walker(struct event *t)
 	case AFI_L2VPN:
 		space = EVPN_ROUTE_PREFIXLEN;
 		break;
+	case AFI_BGP_LS:
+		/* TODO */
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		return;
@@ -15827,6 +15830,8 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 	case AFI_L2VPN:
 		bitlen = EVPN_ROUTE_PREFIXLEN;
 		break;
+	case AFI_BGP_LS:
+		/* TODO */
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		break;

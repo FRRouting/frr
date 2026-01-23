@@ -4607,6 +4607,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
+		case SAFI_BGP_LS:
 			stream_putc(s, 4);
 			stream_put_ipv4(s, attr->nexthop.s_addr);
 			break;
@@ -4683,6 +4684,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_FLOWSPEC:
 			stream_putc(s, 0); /* no nexthop for flowspec */
 			break;
+		case SAFI_BGP_LS:
+			/* TODO */
+			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
@@ -4696,9 +4700,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
 				peer->host, afi, safi, attr->mp_nexthop_len);
 		break;
+	case AFI_BGP_LS:
 	case AFI_UNSPEC:
 	case AFI_MAX:
-		assert(!"DEV ESCAPE: AFI_UNSPEC or AFI_MAX should not be used here");
+		assert(!"DEV ESCAPE: AFI_BGP_LS, AFI_UNSPEC or AFI_MAX should not be used here");
 		break;
 	}
 
@@ -4831,6 +4836,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		else
 			assert(!"Add encoding bits here for other AFI's");
 		break;
+	case SAFI_BGP_LS:
+		/* TODO */
+		break;
 	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
 		bgp_attr_stream_put_labeled_prefix(s, p, label, num_labels, addpath_capable,
@@ -4887,6 +4895,9 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		break;
+	case SAFI_BGP_LS:
+		/* TODO */
 		break;
 	}
 

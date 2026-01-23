@@ -95,6 +95,7 @@ enum bgp_af_index {
 	BGP_AF_IPV6_LBL_UNICAST,
 	BGP_AF_IPV4_FLOWSPEC,
 	BGP_AF_IPV6_FLOWSPEC,
+	BGP_AF_BGP_LS,
 	BGP_AF_MAX
 };
 
@@ -2926,6 +2927,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
+		case SAFI_BGP_LS:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2946,6 +2948,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
+		case SAFI_BGP_LS:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2956,11 +2959,28 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return BGP_AF_L2VPN_EVPN;
+		case SAFI_BGP_LS:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
 		case SAFI_MPLS_VPN:
 		case SAFI_ENCAP:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			return BGP_AF_MAX;
+		}
+		break;
+	case AFI_BGP_LS:
+		switch (safi) {
+		case SAFI_BGP_LS:
+			return BGP_AF_BGP_LS;
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_EVPN:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
