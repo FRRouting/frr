@@ -146,7 +146,9 @@ struct nexthop {
 
 	/* Encapsulation information. */
 	enum nh_encap_type nh_encap_type;
-	vni_t nh_encap_vni;
+	union {
+		vni_t vni;
+	} nh_encap;
 	/* use for LWT tunnel src field */
 	struct ipaddr nh_encap_src_ip;
 

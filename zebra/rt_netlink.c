@@ -2248,7 +2248,7 @@ static int netlink_route_nexthop_encap(bool fpm, struct nlmsghdr *n,
 		if (!nest)
 			return false;
 
-		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap_vni))
+		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap.vni))
 			return false;
 		nl_attr_nest_end(n, nest);
 		break;
