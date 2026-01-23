@@ -455,6 +455,9 @@ struct bgp_ls_prefix_nlri {
 	struct bgp_ls_prefix_descriptor prefix_desc; /* Prefix identity */
 };
 
+/* Forward declare the hash table */
+PREDECL_HASH(bgp_ls_nlri_hash);
+
 /*
  * Top-level BGP-LS NLRI structure (RFC 9552 Section 5.2)
  *
@@ -484,6 +487,12 @@ struct bgp_ls_nlri {
 		struct bgp_ls_link_nlri link;	  /* Link NLRI (Type 2) */
 		struct bgp_ls_prefix_nlri prefix; /* Prefix NLRI (Type 3/4) */
 	} nlri_data;
+
+	unsigned long refcnt; /* Reference count */
+	uint32_t id;
+
+	/* Hash table linkage */
+	struct bgp_ls_nlri_hash_item hash_item;
 };
 
 /* BGP-LS Attribute (Type 29) */
@@ -629,5 +638,36 @@ extern const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_
 
 /* Json conversion helpers */
 extern const char *bgp_ls_ospf_route_type_str_json(enum bgp_ls_ospf_route_type route_type);
+
+/*
+ * ===========================================================================
+ * Hash Table Management
+ * ===========================================================================
+ */
+
+/* Unified hash functions - dispatch internally based on nlri_type */
+extern unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri);
+extern int bgp_ls_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2);
+
+/* Declare the typesafe hash table */
+DECLARE_HASH(bgp_ls_nlri_hash, struct bgp_ls_nlri, hash_item, bgp_ls_hash_cmp, bgp_ls_hash_key);
+
+/*
+ * ===========================================================================
+ * BGP-LS NLRI Hash Table Management Functions
+ * ===========================================================================
+ */
+
+/* Insert NLRI into unified hash table */
+extern struct bgp_ls_nlri *bgp_ls_nlri_get(struct bgp_ls_nlri_hash_head *hash, struct bgp *bgp,
+					   struct bgp_ls_nlri *nlri);
+
+/* Lookup NLRI in unified hash table */
+extern struct bgp_ls_nlri *bgp_ls_nlri_lookup(struct bgp_ls_nlri_hash_head *hash,
+					      struct bgp_ls_nlri *nlri);
+
+/* NLRI interning (lookup + lock/unlock) */
+extern struct bgp_ls_nlri *bgp_ls_nlri_intern(struct bgp_ls_nlri *ls_nlri);
+extern void bgp_ls_nlri_unintern(struct bgp_ls_nlri **pls_nlri);
 
 #endif /* _FRR_BGP_LS_NLRI_H */
