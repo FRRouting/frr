@@ -611,4 +611,7 @@ extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
 extern struct bgp_ls_attr *bgp_ls_attr_alloc(void);
 extern void bgp_ls_attr_free(struct bgp_ls_attr *attr);
 
+/* NLRI validation functions */
+extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
+
 #endif /* _FRR_BGP_LS_NLRI_H */
