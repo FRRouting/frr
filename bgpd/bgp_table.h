@@ -94,6 +94,8 @@ struct bgp_dest {
 
 	mpls_label_t local_label;
 
+	struct bgp_ls_nlri *ls_nlri;
+
 	struct bgp_attr_srv6_l3service *srv6_unicast;
 
 	uint16_t flags;
