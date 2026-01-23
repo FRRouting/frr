@@ -28,6 +28,8 @@ void bgp_ls_init(struct bgp *bgp)
 
 	bgp->ls_info = XCALLOC(MTYPE_BGP_LS, sizeof(struct bgp_ls));
 	bgp->ls_info->bgp = bgp;
+	bgp->ls_info->allocator = idalloc_new("BGP-LS NLRI ID Allocator");
+	bgp_ls_nlri_hash_init(&bgp->ls_info->nlri_hash);
 
 	zlog_info("BGP-LS: Module initialized for instance %s", bgp->name_pretty);
 }
@@ -38,8 +40,18 @@ void bgp_ls_init(struct bgp *bgp)
  */
 void bgp_ls_cleanup(struct bgp *bgp)
 {
+	struct bgp_ls_nlri *entry;
+
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
+
+	frr_each_safe (bgp_ls_nlri_hash, &bgp->ls_info->nlri_hash, entry) {
+		bgp_ls_nlri_hash_del(&bgp->ls_info->nlri_hash, entry);
+		bgp_ls_nlri_free(entry);
+	}
+	bgp_ls_nlri_hash_fini(&bgp->ls_info->nlri_hash);
+
+	idalloc_destroy(bgp->ls_info->allocator);
 
 	XFREE(MTYPE_BGP_LS, bgp->ls_info);
 

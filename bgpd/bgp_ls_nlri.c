@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 
+#include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_nlri.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS_NLRI, "BGP-LS NLRI");
@@ -939,4 +940,226 @@ const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_type)
 	}
 
 	return "Unknown";
+}
+
+/*
+ * ===========================================================================
+ * Hash Key Functions
+ * ===========================================================================
+ */
+
+/* Hash a node descriptor */
+static unsigned int bgp_ls_node_descriptor_hash(const struct bgp_ls_node_descriptor *desc,
+						uint32_t key)
+{
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT))
+		key = jhash_1word(desc->asn, key);
+
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
+		key = jhash_1word(desc->bgp_ls_id, key);
+
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT))
+		key = jhash_1word(desc->ospf_area_id, key);
+
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		key = jhash(desc->igp_router_id, desc->igp_router_id_len, key);
+
+	return key;
+}
+
+/* Hash key generation for Node NLRI */
+static unsigned int bgp_ls_node_hash_key_internal(const struct bgp_ls_nlri *nlri)
+{
+	const struct bgp_ls_node_nlri *node = &nlri->nlri_data.node;
+	uint32_t key = 0;
+
+	/* Hash protocol_id and identifier */
+	key = jhash_2words(node->protocol_id, (uint32_t)(node->identifier >> 32), key);
+	key = jhash_1word((uint32_t)node->identifier, key);
+
+	/* Hash node descriptor */
+	key = bgp_ls_node_descriptor_hash(&node->local_node, key);
+
+	return key;
+}
+
+/* Hash key generation for Link NLRI */
+static unsigned int bgp_ls_link_hash_key_internal(const struct bgp_ls_nlri *nlri)
+{
+	const struct bgp_ls_link_nlri *link = &nlri->nlri_data.link;
+	uint32_t key = 0;
+
+	/* Hash protocol_id and identifier */
+	key = jhash_2words(link->protocol_id, (uint32_t)(link->identifier >> 32), key);
+	key = jhash_1word((uint32_t)link->identifier, key);
+
+	/* Hash local and remote node descriptors */
+	key = bgp_ls_node_descriptor_hash(&link->local_node, key);
+	key = bgp_ls_node_descriptor_hash(&link->remote_node, key);
+
+	/* Hash link descriptor */
+	if (BGP_LS_TLV_CHECK(link->link_desc.present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT))
+		key = jhash_2words(link->link_desc.link_local_id, link->link_desc.link_remote_id,
+				   key);
+
+	if (BGP_LS_TLV_CHECK(link->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT))
+		key = jhash_1word(link->link_desc.ipv4_intf_addr.s_addr, key);
+
+	if (BGP_LS_TLV_CHECK(link->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT))
+		key = jhash_1word(link->link_desc.ipv4_neigh_addr.s_addr, key);
+
+	if (BGP_LS_TLV_CHECK(link->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT))
+		key = jhash(&link->link_desc.ipv6_intf_addr, sizeof(struct in6_addr), key);
+
+	if (BGP_LS_TLV_CHECK(link->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT))
+		key = jhash(&link->link_desc.ipv6_neigh_addr, sizeof(struct in6_addr), key);
+
+	return key;
+}
+
+/* Hash key generation for Prefix NLRI (IPv4 and IPv6) */
+static unsigned int bgp_ls_prefix_hash_key_internal(const struct bgp_ls_nlri *nlri)
+{
+	const struct bgp_ls_prefix_nlri *prefix = &nlri->nlri_data.prefix;
+	uint32_t key = 0;
+
+	/* Hash protocol_id and identifier */
+	key = jhash_2words(prefix->protocol_id, (uint32_t)(prefix->identifier >> 32), key);
+	key = jhash_1word((uint32_t)prefix->identifier, key);
+
+	/* Hash local node descriptor */
+	key = bgp_ls_node_descriptor_hash(&prefix->local_node, key);
+
+	/* Hash prefix descriptor */
+	key = jhash_1word(prefix->prefix_desc.prefix.prefixlen, key);
+
+	if (prefix->prefix_desc.prefix.family == AF_INET)
+		key = jhash_1word(prefix->prefix_desc.prefix.u.prefix4.s_addr, key);
+	else if (prefix->prefix_desc.prefix.family == AF_INET6)
+		key = jhash(&prefix->prefix_desc.prefix.u.prefix6, sizeof(struct in6_addr), key);
+
+	/* Hash OSPF route type if present */
+	if (BGP_LS_TLV_CHECK(prefix->prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT))
+		key = jhash_1word(prefix->prefix_desc.ospf_route_type, key);
+
+	return key;
+}
+
+/* Hash key generation for BGP-LS NLRI */
+unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri)
+{
+	/* Include NLRI type in hash to ensure different types don't collide */
+	uint32_t key = jhash_1word(nlri->nlri_type, 0);
+
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		return key ^ bgp_ls_node_hash_key_internal(nlri);
+	case BGP_LS_NLRI_TYPE_LINK:
+		return key ^ bgp_ls_link_hash_key_internal(nlri);
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		return key ^ bgp_ls_prefix_hash_key_internal(nlri);
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return key;
+	}
+
+	return key;
+}
+
+/*
+ * ===========================================================================
+ * Hash Comparison Functions
+ * ===========================================================================
+ */
+
+/*
+ * Hash table comparison function for BGP-LS NLRI
+ * Returns 0 if equal, non-zero if not equal
+ */
+int bgp_ls_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2)
+{
+	return bgp_ls_nlri_cmp(n1, n2);
+}
+
+/*
+ * ===========================================================================
+ * BGP-LS NLRI Hash Table Management Functions
+ * ===========================================================================
+ */
+
+/* Insert or lookup NLRI in hash table */
+struct bgp_ls_nlri *bgp_ls_nlri_get(struct bgp_ls_nlri_hash_head *hash, struct bgp *bgp,
+				    struct bgp_ls_nlri *nlri)
+{
+	struct bgp_ls_nlri *ls_nlri;
+
+	ls_nlri = bgp_ls_nlri_lookup(hash, nlri);
+	if (!ls_nlri) {
+		ls_nlri = bgp_ls_nlri_copy(nlri);
+		ls_nlri->id = idalloc_allocate(bgp->ls_info->allocator);
+
+		bgp_ls_nlri_hash_add(hash, ls_nlri);
+	}
+
+	ls_nlri->refcnt++;
+	return ls_nlri;
+}
+
+/* Lookup NLRI in BGP-LS NLRI hash table */
+struct bgp_ls_nlri *bgp_ls_nlri_lookup(struct bgp_ls_nlri_hash_head *hash, struct bgp_ls_nlri *nlri)
+{
+	struct bgp_ls_nlri lookup;
+
+	if (!hash)
+		return NULL;
+
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nlri_type = nlri->nlri_type;
+	lookup.nlri_data = nlri->nlri_data;
+
+	return bgp_ls_nlri_hash_find(hash, &lookup);
+}
+
+/*
+ * ===========================================================================
+ * NLRI Interning (Lookup + Lock/Unlock)
+ * ===========================================================================
+ */
+
+/*
+ * Intern BGP-LS NLRI (lookup and lock)
+ *
+ * Looks up an existing NLRI in the hash table and increments its reference count.
+ * Returns the NLRI if found, NULL otherwise.
+ */
+struct bgp_ls_nlri *bgp_ls_nlri_intern(struct bgp_ls_nlri *ls_nlri)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->ls_info || !ls_nlri)
+		return NULL;
+
+	return bgp_ls_nlri_get(&bgp->ls_info->nlri_hash, bgp, ls_nlri);
+}
+
+/*
+ * Unintern BGP-LS NLRI (unlock and potentially free)
+ *
+ * Decrements the reference count and frees the NLRI if it reaches zero.
+ */
+void bgp_ls_nlri_unintern(struct bgp_ls_nlri **pls_nlri)
+{
+	struct bgp_ls_nlri *ls_nlri = *pls_nlri;
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->ls_info || !ls_nlri)
+		return;
+
+	ls_nlri->refcnt--;
+
+	if (ls_nlri->refcnt == 0) {
+		bgp_ls_nlri_hash_del(&bgp->ls_info->nlri_hash, ls_nlri);
+		bgp_ls_nlri_free(ls_nlri);
+		*pls_nlri = NULL;
+	}
 }
