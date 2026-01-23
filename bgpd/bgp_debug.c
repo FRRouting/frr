@@ -62,6 +62,7 @@ unsigned long conf_bgp_debug_evpn_mh;
 unsigned long conf_bgp_debug_bfd;
 unsigned long conf_bgp_debug_cond_adv;
 unsigned long conf_bgp_debug_aggregate;
+unsigned long conf_bgp_debug_linkstate;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -83,6 +84,7 @@ unsigned long term_bgp_debug_evpn_mh;
 unsigned long term_bgp_debug_bfd;
 unsigned long term_bgp_debug_cond_adv;
 unsigned long term_bgp_debug_aggregate;
+unsigned long term_bgp_debug_linkstate;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -2284,6 +2286,41 @@ DEFPY (debug_bgp_cond_adv,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_bgp_linkstate,
+       debug_bgp_linkstate_cmd,
+       "debug bgp link-state",
+       DEBUG_STR
+       BGP_STR
+       "BGP Link-State\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_ON(linkstate, LINKSTATE);
+	else {
+		TERM_DEBUG_ON(linkstate, LINKSTATE);
+		vty_out(vty, "BGP Link-State debugging is on\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_debug_bgp_linkstate,
+       no_debug_bgp_linkstate_cmd,
+       "no debug bgp link-state",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP Link-State\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_OFF(linkstate, LINKSTATE);
+	else {
+		TERM_DEBUG_OFF(linkstate, LINKSTATE);
+		vty_out(vty, "BGP Link-State debugging is off\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_bgp,
        no_debug_bgp_cmd,
        "no debug bgp",
@@ -2329,6 +2366,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(cond_adv, COND_ADV);
+	TERM_DEBUG_OFF(linkstate, LINKSTATE);
 
 	vty_out(vty, "All possible debugging has been turned off\n");
 
@@ -2428,6 +2466,9 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(cond_adv, COND_ADV))
 		vty_out(vty,
 			"  BGP conditional advertisement debugging is on\n");
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty, "  BGP Link-State debugging is on\n");
 
 	cmd_show_lib_debugs(vty);
 
@@ -2569,6 +2610,11 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(cond_adv, COND_ADV)) {
 		vty_out(vty, "debug bgp conditional-advertisement\n");
+		write++;
+	}
+
+	if (CONF_BGP_DEBUG(linkstate, LINKSTATE)) {
+		vty_out(vty, "debug bgp link-state\n");
 		write++;
 	}
 
@@ -2731,6 +2777,12 @@ void bgp_debug_init(void)
 	/* debug bgp conditional advertisement */
 	install_element(ENABLE_NODE, &debug_bgp_cond_adv_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_cond_adv_cmd);
+
+	/* debug bgp link-state */
+	install_element(ENABLE_NODE, &debug_bgp_linkstate_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_linkstate_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_linkstate_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_linkstate_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug
