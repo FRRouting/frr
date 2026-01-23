@@ -57,6 +57,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls_ted.h"
+#include "bgpd/bgp_ls.h"
 
 /* All information about zebra. */
 struct zclient *bgp_zclient = NULL;

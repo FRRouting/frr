@@ -70,6 +70,7 @@
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
+#include "bgpd/bgp_ls.h"
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
@@ -19427,6 +19428,57 @@ DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(bgp_ls_distribute_linkstate,
+      bgp_ls_distribute_linkstate_cmd,
+      "distribute link-state",
+      "Distribute routing information to external services\n"
+      "Distribute the link-state database to external services\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	// bgp_redist_add(bgp, AFI_BGP_LS, ZEBRA_ROUTE_BGP, 0);
+
+	if (bgp && bgp->ls_info)
+		bgp->ls_info->enable_distribution = true;
+
+	/* Trigger BGP topology export if there are active BGP-LS neighbors */
+	// if (bgp_ls_has_active_neighbors(bgp)) {
+	if (bgp_ls_export_bgp_topology(bgp) != 0) {
+		vty_out(vty, "%% Failed to export BGP topology\n");
+		return CMD_WARNING;
+	}
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty, "BGP-LS: BGP topology exported\n");
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty, "BGP-LS: BGP redistribution enabled\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_ls_distribute_linkstate,
+      no_bgp_ls_distribute_linkstate_cmd,
+      "no distribute link-state",
+      NO_STR
+      "Distribute routing information to external services\n"
+      "Distribute the link-state database to external services\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (bgp && bgp->ls_info)
+		bgp->ls_info->enable_distribution = false;
+
+	// bgp_redist_del(bgp, AFI_BGP_LS, ZEBRA_ROUTE_BGP, 0);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty, "BGP-LS: BGP redistribution disabled\n");
+
+	// TODO: Withdraw previously advertised BGP topology NLRIs?
+	// TODO: Save status of bgp ls into bgp ls data structure?
+
+	return CMD_SUCCESS;
+}
+
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 					  afi_t afi, safi_t safi)
 {
@@ -21155,6 +21207,10 @@ int bgp_config_write(struct vty *vty)
 		} else if (tovpn_sid_index != 0) {
 			vty_out(vty, " sid vpn per-vrf export %u\n", tovpn_sid_index);
 		}
+
+		/* BGP-LS configuration */
+		if (bgp->ls_info && bgp->ls_info->enable_distribution)
+			vty_out(vty, " distribute link-state\n");
 
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
@@ -22899,6 +22955,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_map_cmd);
+	install_element(BGP_LS_NODE, &neighbor_route_map_cmd);
+	install_element(BGP_LS_NODE, &no_neighbor_route_map_cmd);
 
 	/* "neighbor unsuppress-map" commands. */
 	install_element(BGP_NODE, &neighbor_unsuppress_map_hidden_cmd);
@@ -23314,6 +23372,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
+
+	/* BGP-LS commands */
+	install_element(BGP_NODE, &bgp_ls_distribute_linkstate_cmd);
+	install_element(BGP_NODE, &no_bgp_ls_distribute_linkstate_cmd);
 
 	bgp_vty_if_init();
 }

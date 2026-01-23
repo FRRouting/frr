@@ -44,6 +44,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls_nlri.h"
+#include "bgpd/bgp_ls.h"
 
 /********************
  * PRIVATE FUNCTIONS
