@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "routemap.h"
 #include "log.h"
+#include "libfrr.h"
 #include "plist.h"
 #include "linklist.h"
 #include "workqueue.h"
@@ -82,6 +83,202 @@
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
+
+/* Assign or restore a unique rd id for auto derivation of vrf's RD */
+static void bgp_assign_or_restore_vrf_rd_id(struct bgp *bgp, const char *vrf_name)
+{
+	struct vrf_rd_state_entry key = { .name = (char *)vrf_name, .rd_id = 0 };
+	struct vrf_rd_state_entry *found = NULL;
+
+	if (bm->vrf_rd_state)
+		found = hash_lookup(bm->vrf_rd_state, &key);
+
+	if (found) {
+		/* reuse rd_id from state and mark bit as used */
+		bgp->vrf_rd_id = found->rd_id;
+		if (!bf_test_index(bm->rd_idspace, bgp->vrf_rd_id))
+			bf_set_bit(bm->rd_idspace, bgp->vrf_rd_id);
+		return;
+	}
+
+	/* Allocate new rd_id and persist mapping to statefile */
+	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+	bgp_log_vrf_rd_to_statefile(vrf_name, bgp->vrf_rd_id);
+
+	/* Also cache in memory for subsequent lookups */
+	if (bm->vrf_rd_state) {
+		struct vrf_rd_state_entry *entry = XCALLOC(MTYPE_BGP,
+							   sizeof(struct vrf_rd_state_entry));
+		entry->name = XSTRDUP(MTYPE_BGP_NAME, vrf_name);
+		entry->rd_id = bgp->vrf_rd_id;
+		(void)hash_get(bm->vrf_rd_state, entry, hash_alloc_intern);
+	}
+}
+
+static unsigned int vrf_rd_state_hash_key_make(const void *p)
+{
+	const struct vrf_rd_state_entry *e = p;
+	return jhash(e->name, strlen(e->name), 0x5abc1234);
+}
+
+static bool vrf_rd_state_hash_cmp(const void *p1, const void *p2)
+{
+	const struct vrf_rd_state_entry *e1 = p1;
+	const struct vrf_rd_state_entry *e2 = p2;
+	return strcmp(e1->name, e2->name) == 0;
+}
+
+static void bgp_load_vrf_rd_statefile(void)
+{
+	char path[512];
+	FILE *fp;
+
+	if (!bm)
+		return;
+
+	if (!bm->vrf_rd_state)
+		bm->vrf_rd_state = hash_create(vrf_rd_state_hash_key_make, vrf_rd_state_hash_cmp,
+					       "VRF RD state");
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+	fp = fopen(path, "r");
+	if (!fp)
+		return;
+
+	char line[512];
+	while (fgets(line, sizeof(line), fp)) {
+		char namebuf[256] = { 0 };
+		unsigned int rd = 0;
+		if (sscanf(line, "%255s %u", namebuf, &rd) != 2)
+			continue;
+
+		struct vrf_rd_state_entry *entry = XCALLOC(MTYPE_BGP,
+							   sizeof(struct vrf_rd_state_entry));
+		entry->name = XSTRDUP(MTYPE_BGP_NAME, namebuf);
+		entry->rd_id = (uint16_t)rd;
+		(void)hash_get(bm->vrf_rd_state, entry, hash_alloc_intern);
+	}
+	fclose(fp);
+}
+
+static unsigned int vni_rd_state_hash_key_make(const void *p)
+{
+	const struct vni_rd_state_entry *e = p;
+	return jhash_1word(e->vni, 0);
+}
+
+static bool vni_rd_state_hash_cmp(const void *p1, const void *p2)
+{
+	const struct vni_rd_state_entry *e1 = p1;
+	const struct vni_rd_state_entry *e2 = p2;
+	return e1->vni == e2->vni;
+}
+
+static void bgp_load_vni_rd_statefile(void)
+{
+	char path[512];
+	FILE *fp;
+
+	if (!bm)
+		return;
+
+	if (!bm->vni_rd_state)
+		bm->vni_rd_state = hash_create(vni_rd_state_hash_key_make, vni_rd_state_hash_cmp,
+					       "VNI RD state");
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_EVPN_VNI_RD_STATEFILE);
+	fp = fopen(path, "r");
+	if (!fp)
+		return;
+
+	char line[256];
+	while (fgets(line, sizeof(line), fp)) {
+		unsigned int vni = 0;
+		unsigned int rd = 0;
+
+		if (sscanf(line, "%u %u", &vni, &rd) != 2) {
+			continue;
+		}
+
+		struct vni_rd_state_entry *entry = XCALLOC(MTYPE_BGP,
+							   sizeof(struct vni_rd_state_entry));
+		entry->vni = vni;
+		entry->rd_id = (uint16_t)rd;
+		(void)hash_get(bm->vni_rd_state, entry, hash_alloc_intern);
+	}
+	fclose(fp);
+}
+
+static void bgp_log_vrf_rd_to_statefile(const char *vrf_name, uint16_t vrf_rd_id)
+{
+	char path[512];
+	FILE *fp;
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+
+	fp = fopen(path, "a");
+	if (!fp) {
+		zlog_err("BGP: failed to open %s for append: %s", path, safe_strerror(errno));
+		return;
+	}
+
+	fprintf(fp, "%s %hu\n", vrf_name, vrf_rd_id);
+	fclose(fp);
+}
+
+static void bgp_remove_vrf_rd_from_statefile(const char *vrf_name, uint16_t vrf_rd_id)
+{
+	char path[512];
+	char tmp[512];
+	FILE *in;
+	FILE *out;
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+	snprintf(tmp, sizeof(tmp), "%s/%s.tmp", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+
+	in = fopen(path, "r");
+	if (!in)
+		return;
+
+	out = fopen(tmp, "w");
+	if (!out) {
+		zlog_err("BGP: failed to open %s for write: %s", tmp, safe_strerror(errno));
+		fclose(in);
+		return;
+	}
+
+	char line[512];
+	while (fgets(line, sizeof(line), in)) {
+		char namebuf[256] = { 0 };
+		unsigned int rd = 0;
+
+		if (sscanf(line, "%255s %u", namebuf, &rd) == 2) {
+			if (strcmp(namebuf, vrf_name) == 0 && rd == (unsigned int)vrf_rd_id)
+				continue;
+		}
+		fputs(line, out);
+	}
+
+	fclose(in);
+	if (fclose(out) != 0) {
+		remove(tmp);
+		return;
+	}
+
+	if (rename(tmp, path) != 0) {
+		zlog_err("BGP: failed to replace %s: %s", path, safe_strerror(errno));
+		remove(tmp);
+	}
+}
+
+static void hash_vrf_rd_state_entry_free(struct vrf_rd_state_entry *entry)
+{
+	if (!entry)
+		return;
+	if (entry->name)
+		XFREE(MTYPE_BGP_NAME, entry->name);
+	XFREE(MTYPE_BGP, entry);
+}
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -3882,8 +4079,11 @@ peer_init:
 	update_bgp_group_init(bgp);
 
 	if (!hidden) {
-		/* assign a unique rd id for auto derivation of vrf's RD */
-		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+		/* assign or restore a unique rd id for auto derivation of vrf's RD */
+		const char *vrf_name = (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+					       ? "default"
+					       : (name ? name : "?");
+		bgp_assign_or_restore_vrf_rd_id(bgp, vrf_name);
 
 		bgp_evpn_init(bgp);
 		bgp_evpn_vrf_es_init(bgp);
@@ -4640,6 +4840,31 @@ void bgp_free(struct bgp *bgp)
 	struct bgp_dest *dest;
 	struct bgp_rmap *rmap;
 
+	/* If we're not shutting down due to SIGINT/SIGTERM, remove VRF RD mapping */
+	if (!bm->terminating) {
+		const char *vrf_name = (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+					       ? "default"
+					       : (bgp->name ? bgp->name : "?");
+		/* remove from statefile */
+		bgp_remove_vrf_rd_from_statefile(vrf_name, bgp->vrf_rd_id);
+		/* remove from in-memory cache */
+		if (bm->vrf_rd_state) {
+			struct vrf_rd_state_entry key = { .name = (char *)vrf_name, .rd_id = 0 };
+			struct vrf_rd_state_entry *found = hash_lookup(bm->vrf_rd_state, &key);
+			if (found) {
+				hash_release(bm->vrf_rd_state, found);
+				XFREE(MTYPE_BGP_NAME, found->name);
+				XFREE(MTYPE_BGP, found);
+			}
+		}
+	} else {
+		/* On terminating shutdown, free entire state hash once but preserve the entries in file */
+		if (bm->vrf_rd_state) {
+			hash_clean_and_free(&bm->vrf_rd_state,
+					    (void (*)(void *))hash_vrf_rd_state_entry_free);
+		}
+	}
+
 	QOBJ_UNREG(bgp);
 
 	list_delete(&bgp->group);
@@ -4679,7 +4904,6 @@ void bgp_free(struct bgp *bgp)
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
 	bgp_tip_hash_destroy(bgp);
-
 	/* release the auto RD id */
 	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 
@@ -9088,6 +9312,11 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bgp_nhg_init();
 	bgp_evpn_mh_init();
 	QOBJ_REG(bm, bgp_master);
+
+	/* Load existing VRF->RD-ID state from file before reading configs */
+	bgp_load_vrf_rd_statefile();
+	/* Load existing L2 VNI->RD-ID state from file before reading configs */
+	bgp_load_vni_rd_statefile();
 }
 
 /*

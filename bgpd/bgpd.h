@@ -145,6 +145,12 @@ struct bgp_master {
 	/* The Mac table */
 	struct hash *self_mac_hash;
 
+	/* Cached VRF_NAME->RD-ID state loaded at startup from libstatedir */
+	struct hash *vrf_rd_state;
+
+	/* Cached VNI->RD-ID state loaded at startup from libstatedir */
+	struct hash *vni_rd_state;
+
 	/* BGP start time.  */
 	time_t start_time;
 
@@ -247,6 +253,21 @@ struct bgp_master {
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
+
+/* State file names (under frr_libstatedir) */
+#define BGP_VRF_RD_STATEFILE	  ".bgp_vrf_rd.txt"
+#define BGP_EVPN_VNI_RD_STATEFILE ".bgp_vni_rd.txt"
+
+/* Startup state cache entries */
+struct vrf_rd_state_entry {
+	char *name;
+	uint16_t rd_id;
+};
+
+struct vni_rd_state_entry {
+	uint32_t vni;
+	uint16_t rd_id;
+};
 
 /* BGP route-map structure.  */
 struct bgp_rmap {

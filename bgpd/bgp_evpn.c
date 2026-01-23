@@ -17,6 +17,7 @@
 #include "zclient.h"
 
 #include "lib/printfrr.h"
+#include "libfrr.h"
 
 #include "bgpd/bgp_attr_evpn.h"
 #include "bgpd/bgpd.h"
@@ -42,6 +43,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
+#include "bitfield.h"
 
 /*
  * Definitions and external declarations.
@@ -55,6 +57,8 @@ DEFINE_MTYPE_STATIC(BGPD, VRF_ROUTE_TARGET, "L3 Route Target");
 /*
  * Static function declarations
  */
+static void bgp_evpn_log_vni_rd_to_statefile(uint32_t vni, uint16_t rd_id);
+void bgp_evpn_remove_vni_rd_from_statefile(uint32_t vni, uint16_t rd_id);
 static void bgp_evpn_remote_ip_hash_init(struct bgpevpn *evpn);
 static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *evpn);
 static void bgp_evpn_remote_ip_hash_add(struct bgpevpn *vpn,
@@ -100,6 +104,134 @@ static const char *vxlan_flood_control_str(enum vxlan_flood_control flood_ctrl)
 		return "Inherit Global";
 	default:
 		return "unknown";
+	}
+}
+
+/* Remove VNI mapping from statefile and cache */
+static void bgp_evpn_remove_vni_mapping(struct bgpevpn *vpn)
+{
+	/* remove from state file */
+	bgp_evpn_remove_vni_rd_from_statefile(vpn->vni, vpn->rd_id);
+
+	/* remove from cached hash */
+	if (bm->vni_rd_state) {
+		struct vni_rd_state_entry key = { .vni = vpn->vni, .rd_id = 0 };
+		struct vni_rd_state_entry *found = hash_lookup(bm->vni_rd_state, &key);
+		if (found) {
+			hash_release(bm->vni_rd_state, found);
+			XFREE(MTYPE_BGP, found);
+		}
+	}
+}
+
+static void hash_vni_rd_state_entry_free(struct vni_rd_state_entry *entry)
+{
+	if (!entry)
+		return;
+	XFREE(MTYPE_BGP, entry);
+}
+
+/* Ensure vpn->rd_id is restored from cache or allocated and persisted */
+static void bgp_evpn_assign_rd_id_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct vni_rd_state_entry key = { .vni = vpn->vni, .rd_id = 0 };
+	struct vni_rd_state_entry *found = NULL;
+
+	if (bm->vni_rd_state)
+		found = hash_lookup(bm->vni_rd_state, &key);
+
+	if (found) {
+		vpn->rd_id = found->rd_id;
+		if (!bf_test_index(bm->rd_idspace, vpn->rd_id))
+			bf_set_bit(bm->rd_idspace, vpn->rd_id);
+		return;
+	}
+
+	bf_assign_index(bm->rd_idspace, vpn->rd_id);
+	bgp_evpn_log_vni_rd_to_statefile(vpn->vni, vpn->rd_id);
+	if (bm->vni_rd_state) {
+		struct vni_rd_state_entry *entry = XCALLOC(MTYPE_BGP,
+							   sizeof(struct vni_rd_state_entry));
+		entry->vni = vpn->vni;
+		entry->rd_id = vpn->rd_id;
+		(void)hash_get(bm->vni_rd_state, entry, hash_alloc_intern);
+	}
+}
+
+/*
+ * Append a single line with L2 VNI and RD-ID info to a file in frr_libstatedir.
+ * Line format: "<vni> <rd_id>\n".
+ */
+static void bgp_evpn_log_vni_rd_to_statefile(uint32_t vni, uint16_t rd_id)
+{
+	char path[512];
+	FILE *fp;
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_EVPN_VNI_RD_STATEFILE);
+
+	fp = fopen(path, "a");
+	if (!fp) {
+		zlog_err("EVPN: failed to open %s for append: %s", path, safe_strerror(errno));
+		return;
+	}
+
+	fprintf(fp, "%u %hu\n", vni, rd_id);
+	fclose(fp);
+}
+
+/*
+ * Remove any lines for the given VNI/RD-ID pair from the state file.
+ */
+void bgp_evpn_remove_vni_rd_from_statefile(uint32_t vni, uint16_t rd_id)
+{
+	char path[512];
+	char tmp[512];
+	FILE *in;
+	FILE *out;
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_EVPN_VNI_RD_STATEFILE);
+	snprintf(tmp, sizeof(tmp), "%s/%s.tmp", frr_libstatedir, BGP_EVPN_VNI_RD_STATEFILE);
+
+	in = fopen(path, "r");
+	if (!in)
+		return;
+
+	out = fopen(tmp, "w");
+	if (!out) {
+		zlog_err("EVPN: failed to open %s for write: %s", tmp, safe_strerror(errno));
+		fclose(in);
+		return;
+	}
+
+	char line[256];
+	while (fgets(line, sizeof(line), in)) {
+		unsigned int lvni = 0;
+		unsigned int lrd = 0;
+
+		/* Support both old format: "L2 <vni> <rd>" and new: "<vni> <rd>" */
+		{
+			char type[8] = { 0 };
+			if (sscanf(line, "%7s %u %u", type, &lvni, &lrd) == 3) {
+				if (strcmp(type, "L2") == 0 && lvni == vni &&
+				    lrd == (unsigned int)rd_id)
+					continue;
+			} else if (sscanf(line, "%u %u", &lvni, &lrd) == 2) {
+				if (lvni == vni && lrd == (unsigned int)rd_id)
+					continue;
+			}
+		}
+		fputs(line, out);
+	}
+
+	fclose(in);
+	if (fclose(out) != 0) {
+		remove(tmp);
+		return;
+	}
+
+	if (rename(tmp, path) != 0) {
+		zlog_err("EVPN: failed to replace %s: %s", path, safe_strerror(errno));
+		remove(tmp);
 	}
 }
 
@@ -6721,7 +6853,8 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->export_rtl->cmp =
 		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
 	vpn->export_rtl->del = bgp_evpn_xxport_delete_ecomm;
-	bf_assign_index(bm->rd_idspace, vpn->rd_id);
+	/* Restore or allocate RD-ID for this VNI */
+	bgp_evpn_assign_rd_id_for_vni(bgp, vpn);
 	derive_rd_rt_for_vni(bgp, vpn);
 
 	/* Initialize EVPN route tables. */
@@ -6759,6 +6892,16 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
 	list_delete(&vpn->import_rtl);
 	list_delete(&vpn->export_rtl);
+	/* Remove VNI mapping only for non-terminating shutdowns */
+	if (!bm->terminating)
+		bgp_evpn_remove_vni_mapping(vpn);
+	else {
+		/* On terminating shutdown, free entire VNI RD-ID state hash once but preserve the entries in file */
+		if (bm->vni_rd_state) {
+			hash_clean_and_free(&bm->vni_rd_state,
+					    (void (*)(void *))hash_vni_rd_state_entry_free);
+		}
+	}
 	bf_release_index(bm->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vni_svi_hash, vpn);
 	hash_release(bgp->vnihash, vpn);
