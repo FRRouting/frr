@@ -43,11 +43,12 @@ Test Execution Order:
 4. test_evpn_local_vtep_ip              - Verify local VTEP source IP
 5. test_vni_state                       - Verify VNI state (L2 and L3)
 6. test_l3vni_rmacs                     - Verify L3VNI RMACs
-7. test_vrf_routes                      - Display VRF routes (informational)
-8. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
-9. test_evpn_check_overlay_route        - Verify EVPN Type-5 overlay route in VRF RIB
-10. test_host_to_host_ping              - Verify end-to-end connectivity
-11. test_memory_leak                    - Memory leak detection
+7. test_l3vni_rmac_change               - Verify RMAC cleanup on router MAC change (commits 1-3)
+8. test_vrf_routes                      - Display VRF routes (informational)
+9. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
+10. test_evpn_check_overlay_route       - Verify EVPN Type-5 overlay route in VRF RIB
+11. test_host_to_host_ping              - Verify end-to-end connectivity
+12. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -1668,6 +1669,161 @@ def test_l3vni_rmacs(tgen_and_ip_version):
 
     # Use library function to discover VTEP IPs and verify L3VNI remote RMACs
     evpn_verify_l3vni_remote_rmacs(tgen, vtep_routers, l3vni_list)
+
+
+def test_l3vni_rmac_change(tgen_and_ip_version):
+    """
+    Test RMAC cleanup when router MAC changes on a remote VTEP.
+
+    This test validates fixes for RMAC management when a VTEP's router MAC
+    changes (e.g., due to system MAC change). The fixes ensure:
+    1. Old RMAC is properly uninstalled from remote VTEPs' RMAC cache
+    2. New RMAC is correctly installed
+    3. No duplicate RMACs exist for the same VTEP
+    4. RMAC nexthop list (nh_list) is properly managed
+
+    Expected behavior:
+    - WITHOUT FIX: Old RMAC remains in cache, causing duplicate RMACs for same VTEP
+    - WITH FIX: Old RMAC is properly cleaned up, only new RMAC exists
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(f"Testing RMAC cleanup on router MAC change ({ip_version} underlay)")
+
+    tor21 = tgen.gears["tor-21"]
+    bordertor11 = tgen.gears["bordertor-11"]
+    l3vni = "104001"
+
+    # Get VTEP IP for tor-21 based on IP version
+    vtep_ips = VTEP_IPS[ip_version]
+    tor21_vtep_ip = vtep_ips["tor-21"]
+
+    def get_rmacs_for_vtep(router, vni, vtep_ip):
+        """Get ALL RMACs associated with a specific VTEP IP (to detect duplicates)"""
+        output = router.vtysh_cmd(f"show evpn rmac vni {vni} json", isjson=True)
+        rmacs = []
+        if output:
+            for key, value in output.items():
+                if isinstance(value, dict) and value.get("vtepIp") == vtep_ip:
+                    rmacs.append(key)
+        return rmacs
+
+    # Step 1: Capture initial RMAC state
+    logger.info("Step 1: Capturing initial RMAC state")
+
+    initial_rmacs = get_rmacs_for_vtep(bordertor11, l3vni, tor21_vtep_ip)
+    assert (
+        len(initial_rmacs) > 0
+    ), f"No RMAC found for tor-21 VTEP {tor21_vtep_ip} on bordertor-11"
+    initial_rmac = initial_rmacs[0]
+    logger.info(f"Initial RMAC for tor-21 ({tor21_vtep_ip}): {initial_rmac}")
+
+    # Get original MAC of vlan4001 on tor-21 for restoration
+    original_mac_output = tor21.run("ip link show vlan4001 | grep ether")
+    original_mac = (
+        original_mac_output.strip().split()[1] if original_mac_output else None
+    )
+
+    # Step 2: Change the MAC address (trigger RMAC change)
+    logger.info("Step 2: Changing router MAC on tor-21")
+
+    new_mac = initial_rmac[:-2] + "99"  # Change last byte to 99
+    logger.info(f"Changing vlan4001 MAC from {original_mac} to {new_mac}")
+
+    tor21.run(f"ip link set dev vlan4001 down")
+    tor21.run(f"ip link set dev vlan4001 address {new_mac}")
+    tor21.run(f"ip link set dev vlan4001 up")
+
+    # Step 3: Verify RMAC update and check for duplicates
+    logger.info("Step 3: Verifying RMAC update (checking for duplicates)")
+
+    def check_rmac_updated_no_duplicates(router, vni, vtep_ip, old_rmac):
+        """
+        Check that:
+        1. New RMAC exists for the VTEP
+        2. Old RMAC is REMOVED (not duplicate)
+        3. Only ONE RMAC exists for this VTEP
+
+        WITHOUT FIX: This will FAIL because old RMAC remains (duplicate)
+        WITH FIX: This will PASS because old RMAC is cleaned up
+        """
+        output = router.vtysh_cmd(f"show evpn rmac vni {vni} json", isjson=True)
+        if not output:
+            return "No RMAC output"
+
+        # Find all RMACs for this VTEP
+        rmacs_for_vtep = []
+        for key, value in output.items():
+            if isinstance(value, dict) and value.get("vtepIp") == vtep_ip:
+                rmacs_for_vtep.append(key)
+
+        logger.info(
+            f"VTEP {vtep_ip}: found {len(rmacs_for_vtep)} RMAC(s): {rmacs_for_vtep}"
+        )
+
+        # Check for duplicates - THIS IS THE KEY TEST
+        if len(rmacs_for_vtep) > 1:
+            logger.error(
+                f"DUPLICATE RMACS DETECTED! Old RMAC {old_rmac} not cleaned up"
+            )
+            return (
+                f"DUPLICATE RMACs for VTEP {vtep_ip}: {rmacs_for_vtep}. "
+                f"Old RMAC {old_rmac} was not cleaned up!"
+            )
+
+        if len(rmacs_for_vtep) == 0:
+            return f"No RMAC found for VTEP {vtep_ip} (waiting for new RMAC)"
+
+        # Verify the old RMAC is gone
+        if rmacs_for_vtep[0] == old_rmac:
+            return f"Old RMAC {old_rmac} still present, waiting for new RMAC"
+
+        logger.info(f"SUCCESS: RMAC updated from {old_rmac} to {rmacs_for_vtep[0]}")
+        return None
+
+    test_func = partial(
+        check_rmac_updated_no_duplicates,
+        bordertor11,
+        l3vni,
+        tor21_vtep_ip,
+        initial_rmac,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    # Step 4: Restore original MAC
+    logger.info("Step 4: Restoring original MAC on tor-21")
+
+    if original_mac:
+        tor21.run(f"ip link set dev vlan4001 down")
+        tor21.run(f"ip link set dev vlan4001 address {original_mac}")
+        tor21.run(f"ip link set dev vlan4001 up")
+
+    def check_rmac_restored(router, vni, vtep_ip):
+        """Check that RMAC exists for the VTEP after restoration"""
+        output = router.vtysh_cmd(f"show evpn rmac vni {vni} json", isjson=True)
+        if not output:
+            return "No RMAC output"
+
+        for key, value in output.items():
+            if isinstance(value, dict) and value.get("vtepIp") == vtep_ip:
+                logger.info(f"RMAC restored: {key} for VTEP {vtep_ip}")
+                return None
+
+        return f"No RMAC found for VTEP {vtep_ip} after restoration"
+
+    test_func = partial(check_rmac_restored, bordertor11, l3vni, tor21_vtep_ip)
+    _, restore_result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    # Final assertions
+    assert result is None, (
+        f"RMAC change verification failed: {result}\n"
+        f"This indicates duplicate RMACs exist - the fix is not working!"
+    )
+    assert restore_result is None, f"RMAC restoration check failed: {restore_result}"
+
+    logger.info("RMAC cleanup test completed successfully")
 
 
 def test_vrf_routes(tgen_and_ip_version):
