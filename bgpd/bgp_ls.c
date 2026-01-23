@@ -8,6 +8,9 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ls.h"
+#define UNKNOWN LS_UNKNOWN
+#include "lib/link_state.h"
+#undef UNKNOWN
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 
@@ -31,6 +34,8 @@ void bgp_ls_init(struct bgp *bgp)
 	bgp->ls_info->allocator = idalloc_new("BGP-LS NLRI ID Allocator");
 	bgp_ls_nlri_hash_init(&bgp->ls_info->nlri_hash);
 
+	bgp->ls_info->ted = ls_ted_new(bgp->as, "BGP-LS TED", bgp->as);
+
 	zlog_info("BGP-LS: Module initialized for instance %s", bgp->name_pretty);
 }
 
@@ -50,6 +55,8 @@ void bgp_ls_cleanup(struct bgp *bgp)
 		bgp_ls_nlri_free(entry);
 	}
 	bgp_ls_nlri_hash_fini(&bgp->ls_info->nlri_hash);
+
+	ls_ted_del_all(&bgp->ls_info->ted);
 
 	idalloc_destroy(bgp->ls_info->allocator);
 

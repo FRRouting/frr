@@ -17,6 +17,9 @@ struct bgp_ls {
 	/* Hash table for BGP-LS NLRIs (nodes, links, prefixes) */
 	struct bgp_ls_nlri_hash_head nlri_hash;
 
+	/* Traffic Engineering Database */
+	struct ls_ted *ted;
+
 	/* NLRI ID allocator */
 	struct id_alloc *allocator;
 };
