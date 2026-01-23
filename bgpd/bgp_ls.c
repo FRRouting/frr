@@ -8,11 +8,77 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_zebra.h"
 #define UNKNOWN LS_UNKNOWN
 #include "lib/link_state.h"
 #undef UNKNOWN
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
+
+/*
+ * ===========================================================================
+ * BGP-LS Link State Database Registration
+ * ===========================================================================
+ */
+
+/*
+ * Register BGP with zebra link-state database to receive updates from IGPs
+ *
+ * @return true on success, false on failure
+ */
+bool bgp_ls_register(struct bgp *bgp)
+{
+	/* Already registered */
+	if (bgp_ls_is_registered(bgp))
+		return true;
+
+	if (ls_register(bgp_zclient, false) != 0) {
+		zlog_err("BGP-LS: Failed to register with Link State database");
+		return false;
+	}
+
+	bgp->ls_info->registered_ls_db = true;
+
+	zlog_info("BGP-LS: Registered with Link State database for BGP instance %s",
+		  bgp->name_pretty);
+	return true;
+}
+
+/*
+ * Unregister BGP from zebra link-state database
+ *
+ * @return true on success, false on failure
+ */
+bool bgp_ls_unregister(struct bgp *bgp)
+{
+	/* Not registered */
+	if (!bgp_ls_is_registered(bgp))
+		return true;
+
+	if (ls_unregister(bgp_zclient, false) != 0) {
+		zlog_err("BGP-LS: Failed to unregister from Link State database");
+		return false;
+	}
+
+	bgp->ls_info->registered_ls_db = false;
+
+	zlog_info("BGP-LS: Unregistered from Link State database for BGP instance %s",
+		  bgp->name_pretty);
+	return true;
+}
+
+/*
+ * Check if BGP is registered with zebra link-state database
+ * Returns true if registered, false otherwise
+ */
+bool bgp_ls_is_registered(struct bgp *bgp)
+{
+	if (!bgp || !bgp->ls_info)
+		return false;
+
+	return bgp->ls_info->registered_ls_db;
+}
 
 /*
  * ===========================================================================

@@ -22,9 +22,17 @@ struct bgp_ls {
 
 	/* NLRI ID allocator */
 	struct id_alloc *allocator;
+
+	/* Link-state database registration status */
+	bool registered_ls_db;
 };
 
 /* Function prototypes */
+
+/* BGP-LS registration with link-state database */
+extern bool bgp_ls_register(struct bgp *bgp);
+extern bool bgp_ls_unregister(struct bgp *bgp);
+extern bool bgp_ls_is_registered(struct bgp *bgp);
 
 /* Module initialization and cleanup */
 extern void bgp_ls_init(struct bgp *bgp);
