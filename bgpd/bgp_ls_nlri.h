@@ -698,4 +698,39 @@ extern struct bgp_ls_attr *bgp_ls_attr_lookup(struct bgp_ls_attr_hash_head *hash
 extern struct bgp_ls_attr *bgp_ls_attr_intern(struct bgp_ls_attr *ls_attr);
 extern void bgp_ls_attr_unintern(struct bgp_ls_attr **pls_attr);
 
+/*
+ * ===========================================================================
+ * NLRI Encoding Functions
+ * ===========================================================================
+ */
+
+/* Encode Node Descriptor TLVs into stream */
+extern int bgp_ls_encode_node_descriptor(struct stream *s,
+					 const struct bgp_ls_node_descriptor *desc,
+					 uint16_t tlv_type);
+
+/* Encode Link Descriptor TLVs into stream */
+extern int bgp_ls_encode_link_descriptor(struct stream *s,
+					 const struct bgp_ls_link_descriptor *desc);
+
+/* Encode Prefix Descriptor TLVs into stream */
+extern int bgp_ls_encode_prefix_descriptor(struct stream *s,
+					   const struct bgp_ls_prefix_descriptor *desc);
+
+/* Encode Node NLRI to wire format */
+extern int bgp_ls_encode_node_nlri(struct stream *s, const struct bgp_ls_node_nlri *nlri);
+
+/* Encode Link NLRI to wire format */
+extern int bgp_ls_encode_link_nlri(struct stream *s, const struct bgp_ls_link_nlri *nlri);
+
+/* Encode Prefix NLRI to wire format */
+extern int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri *nlri,
+				     enum bgp_ls_nlri_type nlri_type);
+
+/* Encode complete NLRI */
+extern int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri);
+
+/* Encode BGP-LS Attributes (Type 29 TLVs) */
+extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr);
+
 #endif /* _FRR_BGP_LS_NLRI_H */
