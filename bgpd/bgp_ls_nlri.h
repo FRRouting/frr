@@ -624,4 +624,12 @@ extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
 /* NLRI size calculation helpers */
 extern size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri);
 
+/* String conversion helpers */
+extern const char *bgp_ls_protocol_id_str(enum bgp_ls_protocol_id proto_id);
+extern const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type);
+extern const char *bgp_ls_node_descriptor_tlv_str(enum bgp_ls_node_descriptor_tlv tlv_type);
+extern const char *bgp_ls_link_descriptor_tlv_str(enum bgp_ls_link_descriptor_tlv tlv_type);
+extern const char *bgp_ls_prefix_descriptor_tlv_str(enum bgp_ls_prefix_descriptor_tlv tlv_type);
+extern const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_type);
+
 #endif /* _FRR_BGP_LS_NLRI_H */

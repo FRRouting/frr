@@ -664,3 +664,123 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 
 	return size;
 }
+
+/*
+ * ===========================================================================
+ * String Conversion Functions
+ * ===========================================================================
+ */
+
+const char *bgp_ls_protocol_id_str(enum bgp_ls_protocol_id proto_id)
+{
+	switch (proto_id) {
+	case BGP_LS_PROTO_RESERVED:
+		return "Reserved";
+	case BGP_LS_PROTO_ISIS_L1:
+		return "IS-IS Level 1";
+	case BGP_LS_PROTO_ISIS_L2:
+		return "IS-IS Level 2";
+	case BGP_LS_PROTO_OSPFV2:
+		return "OSPFv2";
+	case BGP_LS_PROTO_DIRECT:
+		return "Direct";
+	case BGP_LS_PROTO_STATIC:
+		return "Static";
+	case BGP_LS_PROTO_OSPFV3:
+		return "OSPFv3";
+	case BGP_LS_PROTO_BGP:
+		return "BGP";
+	}
+
+	return "Unknown";
+}
+
+const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type)
+{
+	switch (nlri_type) {
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return "Reserved";
+	case BGP_LS_NLRI_TYPE_NODE:
+		return "Node";
+	case BGP_LS_NLRI_TYPE_LINK:
+		return "Link";
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+		return "IPv4 Prefix";
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		return "IPv6 Prefix";
+	}
+
+	return "Unknown";
+}
+
+const char *bgp_ls_node_descriptor_tlv_str(enum bgp_ls_node_descriptor_tlv tlv_type)
+{
+	switch (tlv_type) {
+	case BGP_LS_TLV_LOCAL_NODE_DESC:
+		return "Local Node Descriptors";
+	case BGP_LS_TLV_REMOTE_NODE_DESC:
+		return "Remote Node Descriptors";
+	case BGP_LS_TLV_AS_NUMBER:
+		return "Autonomous System";
+	case BGP_LS_TLV_BGP_LS_ID:
+		return "BGP-LS Identifier";
+	case BGP_LS_TLV_OSPF_AREA_ID:
+		return "OSPF Area-ID";
+	case BGP_LS_TLV_IGP_ROUTER_ID:
+		return "IGP Router-ID";
+	}
+
+	return "Unknown";
+}
+
+const char *bgp_ls_link_descriptor_tlv_str(enum bgp_ls_link_descriptor_tlv tlv_type)
+{
+	switch (tlv_type) {
+	case BGP_LS_TLV_LINK_ID:
+		return "Link Local/Remote Identifiers";
+	case BGP_LS_TLV_IPV4_INTF_ADDR:
+		return "IPv4 Interface Address";
+	case BGP_LS_TLV_IPV4_NEIGH_ADDR:
+		return "IPv4 Neighbor Address";
+	case BGP_LS_TLV_IPV6_INTF_ADDR:
+		return "IPv6 Interface Address";
+	case BGP_LS_TLV_IPV6_NEIGH_ADDR:
+		return "IPv6 Neighbor Address";
+	case BGP_LS_TLV_MT_ID:
+		return "Multi-Topology Identifier";
+	}
+
+	return "Unknown";
+}
+
+const char *bgp_ls_prefix_descriptor_tlv_str(enum bgp_ls_prefix_descriptor_tlv tlv_type)
+{
+	switch (tlv_type) {
+	case BGP_LS_TLV_OSPF_ROUTE_TYPE:
+		return "OSPF Route Type";
+	case BGP_LS_TLV_IP_REACH_INFO:
+		return "IP Reachability Information";
+	}
+
+	return "Unknown";
+}
+
+const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_type)
+{
+	switch (route_type) {
+	case BGP_LS_OSPF_RT_INTRA_AREA:
+		return "Intra-Area";
+	case BGP_LS_OSPF_RT_INTER_AREA:
+		return "Inter-Area";
+	case BGP_LS_OSPF_RT_EXTERNAL_1:
+		return "External Type 1";
+	case BGP_LS_OSPF_RT_EXTERNAL_2:
+		return "External Type 2";
+	case BGP_LS_OSPF_RT_NSSA_1:
+		return "NSSA Type 1";
+	case BGP_LS_OSPF_RT_NSSA_2:
+		return "NSSA Type 2";
+	}
+
+	return "Unknown";
+}
