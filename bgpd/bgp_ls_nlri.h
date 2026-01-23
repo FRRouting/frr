@@ -611,6 +611,7 @@ extern int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_
 /* NLRI memory management functions */
 extern struct bgp_ls_nlri *bgp_ls_nlri_alloc(void);
 extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
+extern struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri);
 extern void bgp_ls_attr_node_init(struct bgp_ls_node_attr *attr);
 extern void bgp_ls_attr_link_init(struct bgp_ls_link_attr *attr);
 extern void bgp_ls_attr_prefix_init(struct bgp_ls_prefix_attr *attr);
