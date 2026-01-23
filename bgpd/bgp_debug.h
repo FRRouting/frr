@@ -72,6 +72,7 @@ extern unsigned long conf_bgp_debug_evpn_mh;
 extern unsigned long conf_bgp_debug_bfd;
 extern unsigned long conf_bgp_debug_cond_adv;
 extern unsigned long conf_bgp_debug_aggregate;
+extern unsigned long conf_bgp_debug_linkstate;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_neighbor_events;
@@ -91,6 +92,7 @@ extern unsigned long term_bgp_debug_evpn_mh;
 extern unsigned long term_bgp_debug_bfd;
 extern unsigned long term_bgp_debug_cond_adv;
 extern unsigned long term_bgp_debug_aggregate;
+extern unsigned long term_bgp_debug_linkstate;
 
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
@@ -140,6 +142,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_BFD_LIB             0x01
 #define BGP_DEBUG_COND_ADV 0x01
 #define BGP_DEBUG_AGGREGATE	      0x01
+#define BGP_DEBUG_LINKSTATE	      0x01
 
 #define CONF_DEBUG_ON(a, b)	(conf_bgp_debug_ ## a |= (BGP_DEBUG_ ## b))
 #define CONF_DEBUG_OFF(a, b)	(conf_bgp_debug_ ## a &= ~(BGP_DEBUG_ ## b))
