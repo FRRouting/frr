@@ -10,6 +10,12 @@
 #include "prefix.h"
 #include "bgpd/bgpd.h"
 
+/* Memory types */
+DECLARE_MTYPE(BGP_LS_NODE_ATTR);
+DECLARE_MTYPE(BGP_LS_LINK_ATTR);
+DECLARE_MTYPE(BGP_LS_PREFIX_ATTR);
+DECLARE_MTYPE(BGP_LS_ATTR_DATA);
+
 /*
  * ===========================================================================
  * Protocol and NLRI Type Definitions
@@ -588,5 +594,17 @@ struct bgp_ls_nlri {
 		struct bgp_ls_prefix_nlri prefix; /* Prefix NLRI (Type 3/4) */
 	} nlri_data;
 };
+
+/* Function prototypes */
+
+/* NLRI memory management functions */
+extern struct bgp_ls_nlri *bgp_ls_nlri_alloc(void);
+extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
+extern void bgp_ls_attr_node_init(struct bgp_ls_node_attr *attr);
+extern void bgp_ls_attr_link_init(struct bgp_ls_link_attr *attr);
+extern void bgp_ls_attr_prefix_init(struct bgp_ls_prefix_attr *attr);
+extern void bgp_ls_attr_node_free(struct bgp_ls_node_attr **attr);
+extern void bgp_ls_attr_link_free(struct bgp_ls_link_attr **attr);
+extern void bgp_ls_attr_prefix_free(struct bgp_ls_prefix_attr **attr);
 
 #endif /* _FRR_BGP_LS_NLRI_H */
