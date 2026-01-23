@@ -1163,3 +1163,800 @@ void bgp_ls_nlri_unintern(struct bgp_ls_nlri **pls_nlri)
 		*pls_nlri = NULL;
 	}
 }
+
+/*
+ * ===========================================================================
+ * NLRI Encoding Functions
+ * ===========================================================================
+ */
+
+/*
+ * Write TLV header (Type + Length) to stream
+ *
+ * Wire format (RFC 9552 Section 3.1):
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |              Type             |            Length             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns number of bytes written
+ */
+static inline int stream_put_tlv_hdr(struct stream *s, uint16_t type, uint16_t length)
+{
+	stream_putw(s, type);
+	stream_putw(s, length);
+	return BGP_LS_TLV_HDR_SIZE;
+}
+
+/*
+ * Put a complete TLV (Type + Length + Value) into stream
+ * Returns 0 on success, -1 on error
+ */
+static inline int stream_put_tlv(struct stream *s, uint16_t type, uint16_t length,
+				 const void *value)
+{
+	if (stream_put_tlv_hdr(s, type, length) < 0)
+		return -1;
+
+	if (length > 0) {
+		if (STREAM_WRITEABLE(s) < length)
+			return -1;
+		stream_put(s, value, length);
+	}
+
+	return 0;
+}
+
+/*
+ * Encode Node Attributes (BGP-LS Attribute Type 29 for Node NLRI)
+ * RFC 9552 Section 4.3.1
+ *
+ * Returns number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_node_attr(struct stream *s, const struct bgp_ls_node_attr *attr)
+{
+	size_t start_pos;
+	uint32_t present;
+
+	if (!s || !attr)
+		return -1;
+
+	start_pos = stream_get_endp(s);
+	present = attr->present_tlvs;
+
+	/* Node Flag Bits (TLV 1024) */
+	if (present & (1 << BGP_LS_NODE_ATTR_NODE_FLAGS_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_NODE_FLAG_BITS, 1, &attr->node_flags) < 0)
+			return -1;
+	}
+
+	/* Node Name (TLV 1026) */
+	if (present & (1 << BGP_LS_NODE_ATTR_NODE_NAME_BIT)) {
+		if (attr->node_name) {
+			uint16_t len = strlen(attr->node_name);
+
+			if (stream_put_tlv(s, BGP_LS_ATTR_NODE_NAME, len, attr->node_name) < 0)
+				return -1;
+		}
+	}
+
+	/* IS-IS Area Identifier (TLV 1027) */
+	if (present & (1 << BGP_LS_NODE_ATTR_ISIS_AREA_BIT)) {
+		if (attr->isis_area_id && attr->isis_area_id_len > 0) {
+			if (stream_put_tlv(s, BGP_LS_ATTR_ISIS_AREA_ID, attr->isis_area_id_len,
+					   attr->isis_area_id) < 0)
+				return -1;
+		}
+	}
+
+	/* IPv4 Router-ID (TLV 1028) */
+	if (present & (1 << BGP_LS_NODE_ATTR_IPV4_ROUTER_ID_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV4_ROUTER_ID, 4, &attr->ipv4_router_id) < 0)
+			return -1;
+	}
+
+	/* IPv6 Router-ID (TLV 1029) */
+	if (present & (1 << BGP_LS_NODE_ATTR_IPV6_ROUTER_ID_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV6_ROUTER_ID, 16, &attr->ipv6_router_id) < 0)
+			return -1;
+	}
+
+	/* TODO: Add SR Capabilities, Algorithms, SRLBs, MSDs in future commits */
+
+	return stream_get_endp(s) - start_pos;
+}
+
+/*
+ * Encode Link Attributes (BGP-LS Attribute Type 29 for Link NLRI)
+ * RFC 9552 Section 4.3.2
+ *
+ * Returns number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_link_attr(struct stream *s, const struct bgp_ls_link_attr *attr)
+{
+	size_t start_pos;
+	uint32_t present;
+	uint8_t i;
+
+	if (!s || !attr)
+		return -1;
+
+	start_pos = stream_get_endp(s);
+	present = attr->present_tlvs;
+
+	/* IPv4 Router-ID of Local Node (TLV 1028) */
+	if (present & (1 << BGP_LS_LINK_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL, 4,
+				   &attr->ipv4_router_id_local) < 0)
+			return -1;
+	}
+
+	/* IPv6 Router-ID of Local Node (TLV 1029) */
+	if (present & (1 << BGP_LS_LINK_ATTR_IPV6_ROUTER_ID_LOCAL_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL, 16,
+				   &attr->ipv6_router_id_local) < 0)
+			return -1;
+	}
+
+	/* IPv4 Router-ID of Remote Node (TLV 1030) */
+	if (present & (1 << BGP_LS_LINK_ATTR_IPV4_ROUTER_ID_REMOTE_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE, 4,
+				   &attr->ipv4_router_id_remote) < 0)
+			return -1;
+	}
+
+	/* IPv6 Router-ID of Remote Node (TLV 1031) */
+	if (present & (1 << BGP_LS_LINK_ATTR_IPV6_ROUTER_ID_REMOTE_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE, 16,
+				   &attr->ipv6_router_id_remote) < 0)
+			return -1;
+	}
+
+	/* Administrative Group (TLV 1088) */
+	if (present & (1 << BGP_LS_LINK_ATTR_ADMIN_GROUP_BIT)) {
+		uint32_t admin_group_be = htonl(attr->admin_group);
+
+		if (stream_put_tlv(s, BGP_LS_ATTR_ADMIN_GROUP, 4, &admin_group_be) < 0)
+			return -1;
+	}
+
+	/* Maximum Link Bandwidth (TLV 1089) - IEEE 754 floating point */
+	if (present & (1 << BGP_LS_LINK_ATTR_MAX_LINK_BW_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_MAX_LINK_BW, 4, &attr->max_link_bw) < 0)
+			return -1;
+	}
+
+	/* Maximum Reservable Bandwidth (TLV 1090) */
+	if (present & (1 << BGP_LS_LINK_ATTR_MAX_RESV_BW_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_MAX_RESV_BW, 4, &attr->max_resv_bw) < 0)
+			return -1;
+	}
+
+	/* Unreserved Bandwidth (TLV 1091) - 8 priority levels */
+	if (present & (1 << BGP_LS_LINK_ATTR_UNRESV_BW_BIT)) {
+		if (stream_put_tlv_hdr(s, BGP_LS_ATTR_UNRESV_BW, 32) < 0)
+			return -1;
+		for (i = 0; i < BGP_LS_MAX_UNRESV_BW; i++) {
+			if (STREAM_WRITEABLE(s) < 4)
+				return -1;
+			stream_put(s, &attr->unreserved_bw[i], 4);
+		}
+	}
+
+	/* TE Default Metric (TLV 1092) */
+	if (present & (1 << BGP_LS_LINK_ATTR_TE_METRIC_BIT)) {
+		uint32_t te_metric_be = htonl(attr->te_metric);
+
+		if (stream_put_tlv(s, BGP_LS_ATTR_TE_DEFAULT_METRIC, 4, &te_metric_be) < 0)
+			return -1;
+	}
+
+	/* Link Protection Type (TLV 1093) */
+	if (present & (1 << BGP_LS_LINK_ATTR_LINK_PROTECTION_BIT)) {
+		uint16_t protection_be = htons(attr->link_protection);
+
+		if (stream_put_tlv(s, BGP_LS_ATTR_LINK_PROTECTION_TYPE, 2, &protection_be) < 0)
+			return -1;
+	}
+
+	/* MPLS Protocol Mask (TLV 1094) */
+	if (present & (1 << BGP_LS_LINK_ATTR_MPLS_PROTOCOL_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_MPLS_PROTOCOL_MASK, 1,
+				   &attr->mpls_protocol_mask) < 0)
+			return -1;
+	}
+
+	/* IGP Metric (TLV 1095) - Variable length 1-3 bytes */
+	if (present & (1 << BGP_LS_LINK_ATTR_IGP_METRIC_BIT)) {
+		uint8_t metric_buf[3];
+		uint8_t len = attr->igp_metric_len;
+
+		if (len > 0 && len <= BGP_LS_IGP_METRIC_MAX_LEN) {
+			/* Encode metric in big-endian */
+			if (len == 1) {
+				metric_buf[0] = attr->igp_metric & 0xFF;
+			} else if (len == 2) {
+				metric_buf[0] = (attr->igp_metric >> 8) & 0xFF;
+				metric_buf[1] = attr->igp_metric & 0xFF;
+			} else { /* len == 3 */
+				metric_buf[0] = (attr->igp_metric >> 16) & 0xFF;
+				metric_buf[1] = (attr->igp_metric >> 8) & 0xFF;
+				metric_buf[2] = attr->igp_metric & 0xFF;
+			}
+			if (stream_put_tlv(s, BGP_LS_ATTR_IGP_METRIC, len, metric_buf) < 0)
+				return -1;
+		}
+	}
+
+	/* Shared Risk Link Group (TLV 1096) */
+	if (present & (1 << BGP_LS_LINK_ATTR_SRLG_BIT)) {
+		if (attr->srlg_values && attr->srlg_count > 0) {
+			uint16_t srlg_len = attr->srlg_count * 4;
+
+			if (stream_put_tlv_hdr(s, BGP_LS_ATTR_SRLG, srlg_len) < 0)
+				return -1;
+			for (i = 0; i < attr->srlg_count; i++) {
+				uint32_t srlg_be = htonl(attr->srlg_values[i]);
+
+				if (STREAM_WRITEABLE(s) < 4)
+					return -1;
+				stream_put(s, &srlg_be, 4);
+			}
+		}
+	}
+
+	/* Link Name (TLV 1098) */
+	if (present & (1 << BGP_LS_LINK_ATTR_LINK_NAME_BIT)) {
+		if (attr->link_name) {
+			uint16_t len = strlen(attr->link_name);
+
+			if (stream_put_tlv(s, BGP_LS_ATTR_LINK_NAME, len, attr->link_name) < 0)
+				return -1;
+		}
+	}
+
+	return stream_get_endp(s) - start_pos;
+}
+
+/*
+ * Encode Prefix Attributes (BGP-LS Attribute Type 29 for Prefix NLRI)
+ * RFC 9552 Section 4.3.4
+ *
+ * Returns number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_prefix_attr(struct stream *s, const struct bgp_ls_prefix_attr *attr)
+{
+	size_t start_pos;
+	uint32_t present;
+	uint8_t i;
+
+	if (!s || !attr)
+		return -1;
+
+	start_pos = stream_get_endp(s);
+	present = attr->present_tlvs;
+
+	/* IGP Flags (TLV 1152) */
+	if (present & (1 << BGP_LS_PREFIX_ATTR_IGP_FLAGS_BIT)) {
+		if (stream_put_tlv(s, BGP_LS_ATTR_IGP_FLAGS, 1, &attr->igp_flags) < 0)
+			return -1;
+	}
+
+	/* Route Tags (TLV 1153) */
+	if (present & (1 << BGP_LS_PREFIX_ATTR_ROUTE_TAG_BIT)) {
+		if (attr->route_tags && attr->route_tag_count > 0) {
+			uint16_t tag_len = attr->route_tag_count * 4;
+
+			if (stream_put_tlv_hdr(s, BGP_LS_ATTR_ROUTE_TAG, tag_len) < 0)
+				return -1;
+			for (i = 0; i < attr->route_tag_count; i++) {
+				uint32_t tag_be = htonl(attr->route_tags[i]);
+
+				if (STREAM_WRITEABLE(s) < 4)
+					return -1;
+				stream_put(s, &tag_be, 4);
+			}
+		}
+	}
+
+	/* Extended Tags (TLV 1154) */
+	if (present & (1 << BGP_LS_PREFIX_ATTR_EXTENDED_TAG_BIT)) {
+		if (attr->extended_tags && attr->extended_tag_count > 0) {
+			uint16_t tag_len = attr->extended_tag_count * 8;
+
+			if (stream_put_tlv_hdr(s, BGP_LS_ATTR_EXTENDED_TAG, tag_len) < 0)
+				return -1;
+			for (i = 0; i < attr->extended_tag_count; i++) {
+				uint64_t tag_be = htonll(attr->extended_tags[i]);
+
+				if (STREAM_WRITEABLE(s) < 8)
+					return -1;
+				stream_put(s, &tag_be, 8);
+			}
+		}
+	}
+
+	/* Prefix Metric (TLV 1155) */
+	if (present & (1 << BGP_LS_PREFIX_ATTR_PREFIX_METRIC_BIT)) {
+		uint32_t metric_be = htonl(attr->prefix_metric);
+
+		if (stream_put_tlv(s, BGP_LS_ATTR_PREFIX_METRIC, 4, &metric_be) < 0)
+			return -1;
+	}
+
+	/* OSPF Forwarding Address (TLV 1156) - IPv4 or IPv6 */
+	if (present & (1 << BGP_LS_PREFIX_ATTR_OSPF_FWD_ADDR_BIT)) {
+		/* Check which address family is present */
+		if (attr->ospf_fwd_addr.s_addr != 0) {
+			/* IPv4 forwarding address */
+			if (stream_put_tlv(s, BGP_LS_ATTR_OSPF_FWD_ADDR, 4, &attr->ospf_fwd_addr) <
+			    0)
+				return -1;
+		} else if (!IN6_IS_ADDR_UNSPECIFIED(&attr->ospf_fwd_addr6)) {
+			/* IPv6 forwarding address */
+			if (stream_put_tlv(s, BGP_LS_ATTR_OSPF_FWD_ADDR, 16,
+					   &attr->ospf_fwd_addr6) < 0)
+				return -1;
+		}
+	}
+
+	return stream_get_endp(s) - start_pos;
+}
+
+/*
+ * Encode Node Descriptor to wire format (RFC 9552 Section 5.2.1)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |         Descriptor Type       |      Descriptor Length        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Node Descriptor Sub-TLVs (variable)            //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Node Descriptor Sub-TLVs (RFC 9552 Section 5.2.1.4):
+ *   - TLV 512: Autonomous System (4 bytes)
+ *   - TLV 513: BGP-LS Identifier (4 bytes, deprecated)
+ *   - TLV 514: OSPF Area-ID (4 bytes)
+ *   - TLV 515: IGP Router-ID (4-16 bytes, MANDATORY)
+ *
+ * tlv_type: BGP_LS_TLV_LOCAL_NODE_DESC or BGP_LS_TLV_REMOTE_NODE_DESC
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_descriptor *desc,
+				  uint16_t tlv_type)
+{
+	size_t len_pos, sub_tlv_start;
+	int written = 0;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Write TLV type and reserve space for length */
+	stream_putw(s, tlv_type);
+	len_pos = stream_get_endp(s);
+	stream_putw(s, 0); /* Placeholder for length */
+	written += BGP_LS_TLV_HDR_SIZE;
+
+	sub_tlv_start = stream_get_endp(s);
+
+	/* AS Number (TLV 512) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_AS_NUMBER, BGP_LS_AS_NUMBER_SIZE);
+		stream_putl(s, desc->asn);
+		written += BGP_LS_AS_NUMBER_SIZE;
+	}
+
+	/* BGP-LS Identifier (TLV 513) - deprecated but may be present */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_BGP_LS_ID, BGP_LS_BGP_LS_ID_SIZE);
+		stream_putl(s, desc->bgp_ls_id);
+		written += BGP_LS_BGP_LS_ID_SIZE;
+	}
+
+	/* OSPF Area ID (TLV 514) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_AREA_ID, BGP_LS_OSPF_AREA_ID_SIZE);
+		stream_putl(s, desc->ospf_area_id);
+		written += BGP_LS_OSPF_AREA_ID_SIZE;
+	}
+
+	/* IGP Router ID (TLV 515) - MANDATORY */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IGP_ROUTER_ID, desc->igp_router_id_len);
+		stream_put(s, desc->igp_router_id, desc->igp_router_id_len);
+		written += desc->igp_router_id_len;
+	}
+
+	/* Update length field */
+	uint16_t sub_tlv_len = stream_get_endp(s) - sub_tlv_start;
+
+	stream_putw_at(s, len_pos, sub_tlv_len);
+
+	return written;
+}
+
+/*
+ * Encode Link Descriptor to wire format (RFC 9552 Section 5.2.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //                Link Descriptor TLVs (variable)              //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Link Descriptor TLVs (RFC 9552 Section 5.2.2):
+ *   - TLV 258: Link Local/Remote Identifiers (8 bytes)
+ *   - TLV 259: IPv4 Interface Address (4 bytes)
+ *   - TLV 260: IPv4 Neighbor Address (4 bytes)
+ *   - TLV 261: IPv6 Interface Address (16 bytes)
+ *   - TLV 262: IPv6 Neighbor Address (16 bytes)
+ *   - TLV 263: Multi-Topology ID (2 bytes per MT-ID)
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_descriptor *desc)
+{
+	int written = 0;
+	uint16_t i;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Link Local/Remote Identifiers (TLV 258) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_LINK_ID, BGP_LS_LINK_ID_SIZE);
+		stream_putl(s, desc->link_local_id);
+		stream_putl(s, desc->link_remote_id);
+		written += BGP_LS_LINK_ID_SIZE;
+	}
+
+	/* IPv4 Interface Address (TLV 259) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_INTF_ADDR, BGP_LS_IPV4_ADDR_SIZE);
+		stream_put_ipv4(s, desc->ipv4_intf_addr.s_addr);
+		written += BGP_LS_IPV4_ADDR_SIZE;
+	}
+
+	/* IPv4 Neighbor Address (TLV 260) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_NEIGH_ADDR, BGP_LS_IPV4_ADDR_SIZE);
+		stream_put_ipv4(s, desc->ipv4_neigh_addr.s_addr);
+		written += BGP_LS_IPV4_ADDR_SIZE;
+	}
+
+	/* IPv6 Interface Address (TLV 261) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_INTF_ADDR, BGP_LS_IPV6_ADDR_SIZE);
+		stream_put(s, &desc->ipv6_intf_addr, BGP_LS_IPV6_ADDR_SIZE);
+		written += BGP_LS_IPV6_ADDR_SIZE;
+	}
+
+	/* IPv6 Neighbor Address (TLV 262) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_NEIGH_ADDR, BGP_LS_IPV6_ADDR_SIZE);
+		stream_put(s, &desc->ipv6_neigh_addr, BGP_LS_IPV6_ADDR_SIZE);
+		written += BGP_LS_IPV6_ADDR_SIZE;
+	}
+
+	/* Multi-Topology ID (TLV 263) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) &&
+	    desc->mt_id_count > 0) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
+					      desc->mt_id_count * BGP_LS_MT_ID_SIZE);
+		for (i = 0; i < desc->mt_id_count; i++)
+			stream_putw(s, desc->mt_id[i]);
+		written += desc->mt_id_count * BGP_LS_MT_ID_SIZE;
+	}
+
+	return written;
+}
+
+/*
+ * Encode Prefix Descriptor to wire format (RFC 9552 Section 5.2.3)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Prefix Descriptor TLVs (variable)             //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Prefix Descriptor TLVs (RFC 9552 Section 5.2.3):
+ *   - TLV 263: Multi-Topology ID (2 bytes per MT-ID)
+ *   - TLV 264: OSPF Route Type (1 byte)
+ *   - TLV 265: IP Reachability Information (1 + prefix bytes, MANDATORY)
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix_descriptor *desc)
+{
+	int written = 0;
+	uint16_t i;
+	uint8_t prefix_len_bytes;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Multi-Topology ID (TLV 263) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT) &&
+	    desc->mt_id_count > 0) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
+					      desc->mt_id_count * BGP_LS_MT_ID_SIZE);
+		for (i = 0; i < desc->mt_id_count; i++)
+			stream_putw(s, desc->mt_id[i]);
+		written += desc->mt_id_count * BGP_LS_MT_ID_SIZE;
+	}
+
+	/* OSPF Route Type (TLV 264) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT)) {
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_ROUTE_TYPE,
+					      BGP_LS_OSPF_ROUTE_TYPE_SIZE);
+		stream_putc(s, desc->ospf_route_type);
+		written += BGP_LS_OSPF_ROUTE_TYPE_SIZE;
+	}
+
+	/* IP Reachability Information (TLV 265) - MANDATORY */
+	if (desc->prefix.family == AF_INET) {
+		prefix_len_bytes = (desc->prefix.prefixlen + 7) / 8;
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
+					      BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes);
+		stream_putc(s, desc->prefix.prefixlen);
+		stream_put(s, &desc->prefix.u.prefix4, prefix_len_bytes);
+		written += BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes;
+	} else if (desc->prefix.family == AF_INET6) {
+		prefix_len_bytes = (desc->prefix.prefixlen + 7) / 8;
+		written += stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
+					      BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes);
+		stream_putc(s, desc->prefix.prefixlen);
+		stream_put(s, &desc->prefix.u.prefix6, prefix_len_bytes);
+		written += BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes;
+	}
+
+	return written;
+}
+
+/*
+ * Encode Node NLRI to wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+
+ * |  Protocol-ID  |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                           Identifier                          |
+ * |                            (64 bits)                          |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Local Node Descriptors (variable)             //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_node_nlri(struct stream *s, const struct bgp_ls_node_nlri *nlri)
+{
+	int written = 0;
+	int ret;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Protocol-ID (1 byte) */
+	stream_putc(s, nlri->protocol_id);
+	written += BGP_LS_PROTOCOL_ID_SIZE;
+
+	/* Identifier (8 bytes) */
+	stream_putq(s, nlri->identifier);
+	written += BGP_LS_IDENTIFIER_SIZE;
+
+	/* Local Node Descriptors */
+	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	return written;
+}
+
+/*
+ * Encode Link NLRI to wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+
+ * |  Protocol-ID  |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                           Identifier                          |
+ * |                            (64 bits)                          |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Local Node Descriptors (variable)             //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Remote Node Descriptors (variable)            //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //                  Link Descriptors (variable)                //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_link_nlri(struct stream *s, const struct bgp_ls_link_nlri *nlri)
+{
+	int written = 0;
+	int ret;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Protocol-ID (1 byte) */
+	stream_putc(s, nlri->protocol_id);
+	written += BGP_LS_PROTOCOL_ID_SIZE;
+
+	/* Identifier (8 bytes) */
+	stream_putq(s, nlri->identifier);
+	written += BGP_LS_IDENTIFIER_SIZE;
+
+	/* Local Node Descriptors */
+	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	/* Remote Node Descriptors */
+	ret = bgp_ls_encode_node_descriptor(s, &nlri->remote_node, BGP_LS_TLV_REMOTE_NODE_DESC);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	/* Link Descriptors */
+	ret = bgp_ls_encode_link_descriptor(s, &nlri->link_desc);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	return written;
+}
+
+/*
+ * Encode Prefix NLRI to wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+
+ * |  Protocol-ID  |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                           Identifier                          |
+ * |                            (64 bits)                          |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Local Node Descriptors (variable)             //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //                Prefix Descriptors (variable)                //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Note: Same structure for both IPv4 (Type 3) and IPv6 (Type 4)
+ *
+ * nlri_type: BGP_LS_NLRI_TYPE_IPV4_PREFIX or BGP_LS_NLRI_TYPE_IPV6_PREFIX
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri *nlri,
+			      enum bgp_ls_nlri_type nlri_type)
+{
+	int written = 0;
+	int ret;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Validate prefix family matches NLRI type */
+	if ((nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX &&
+	     nlri->prefix_desc.prefix.family != AF_INET) ||
+	    (nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX &&
+	     nlri->prefix_desc.prefix.family != AF_INET6))
+		return -1;
+
+	/* Protocol-ID (1 byte) */
+	stream_putc(s, nlri->protocol_id);
+	written += BGP_LS_PROTOCOL_ID_SIZE;
+
+	/* Identifier (8 bytes) */
+	stream_putq(s, nlri->identifier);
+	written += BGP_LS_IDENTIFIER_SIZE;
+
+	/* Local Node Descriptors */
+	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	/* Prefix Descriptors */
+	ret = bgp_ls_encode_prefix_descriptor(s, &nlri->prefix_desc);
+	if (ret < 0)
+		return -1;
+	written += ret;
+
+	return written;
+}
+
+/*
+ * Encode complete NLRI with Type-Length-Value header
+ *
+ * Wire format (RFC 9552 Section 5.2):
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |              Type             |            Length             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                                                               |
+ * //                   NLRI Value (variable)                     //
+ * |                                                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Where:
+ *   Type   = NLRI Type (1=Node, 2=Link, 3=IPv4 Prefix, 4=IPv6 Prefix)
+ *   Length = Length of NLRI Value in octets
+ *   Value  = Type-specific NLRI data (Protocol-ID + Identifier + Descriptors)
+ *
+ * This is the top-level encoding used in MP_REACH/MP_UNREACH attributes.
+ *
+ * Returns: Number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
+{
+	size_t len_pos, value_start;
+	int written = 0;
+	int ret = 0;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Validate NLRI */
+	if (!bgp_ls_nlri_validate(nlri))
+		return -1;
+
+	/* NLRI Type (2 bytes) */
+	stream_putw(s, nlri->nlri_type);
+	written += BGP_LS_NLRI_TYPE_SIZE;
+
+	/* Reserve space for NLRI Length */
+	len_pos = stream_get_endp(s);
+	stream_putw(s, 0); /* Placeholder */
+	written += BGP_LS_NLRI_LENGTH_SIZE;
+
+	value_start = stream_get_endp(s);
+
+	/* Encode NLRI Value based on type */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		ret = bgp_ls_encode_node_nlri(s, &nlri->nlri_data.node);
+		break;
+
+	case BGP_LS_NLRI_TYPE_LINK:
+		ret = bgp_ls_encode_link_nlri(s, &nlri->nlri_data.link);
+		break;
+
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		ret = bgp_ls_encode_prefix_nlri(s, &nlri->nlri_data.prefix, nlri->nlri_type);
+		break;
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return -1;
+	}
+
+	if (ret < 0)
+		return -1;
+
+	written += ret;
+
+	/* Update NLRI Length field */
+	uint16_t nlri_len = stream_get_endp(s) - value_start;
+
+	stream_putw_at(s, len_pos, nlri_len);
+
+	return written;
+}
