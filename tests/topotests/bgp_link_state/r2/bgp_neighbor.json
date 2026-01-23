@@ -1,0 +1,7 @@
+{
+	"10.0.3.4": {
+		"remoteAs": 65000,
+		"localAs": 65000,
+		"bgpState": "Established"
+	}
+}
