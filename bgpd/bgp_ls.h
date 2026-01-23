@@ -20,6 +20,9 @@ struct bgp_ls {
 	/* Hash table for BGP-LS Attributes */
 	struct bgp_ls_attr_hash_head ls_attr_hash;
 
+	/* Traffic Engineering Database */
+	struct ls_ted *ted;
+
 	/* NLRI ID allocator */
 	struct id_alloc *allocator;
 };
