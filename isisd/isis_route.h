@@ -51,7 +51,7 @@ DECLARE_HOOK(isis_route_update_hook,
 	     (area, prefix, route_info));
 
 void isis_nexthop_delete(struct isis_nexthop *nexthop);
-void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
+bool adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
 		     struct isis_sr_psid_info *sr, struct mpls_label_stack *label_stack,
 		     struct isis_srv6_seg_stack *srv6_seg_stack);
 struct isis_route_info *isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,

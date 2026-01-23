@@ -520,7 +520,7 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
-static struct interface *select_oif_for_localsid(ifindex_t candidate_oif)
+struct interface *select_oif_for_localsid(ifindex_t candidate_oif)
 {
 	struct interface *ifp;
 

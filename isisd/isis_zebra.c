@@ -650,8 +650,10 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
  * Request an End.X SID for an IS-IS adjacency.
  *
  * @param adj	   IS-IS Adjacency
+ * @param backup   Tell if SID is backup or not
+ * @param nexthops List of backup nexthops
  */
-void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj, bool backup)
+void isis_zebra_request_srv6_sid_endx(const struct isis_adjacency *adj, bool backup)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -1047,42 +1049,29 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 			      action, NULL);
 }
 
-void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
+
+static bool isis_zebra_fill_seg6local_context(struct seg6local_context *ctx,
+					      enum srv6_endpoint_behavior_codepoint behavior,
+					      struct in6_addr *nexthop, ifindex_t ifindex,
+					      struct srv6_locator *locator, uint16_t *prefixlen,
+					      enum seg6local_action_t *action)
 {
-	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context ctx = {};
-	uint16_t prefixlen = IPV6_MAX_BITLEN;
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-	struct isis_area *area;
-
-	if (!sra)
-		return;
-
-	circuit = sra->adj->circuit;
-	area = circuit->area;
-
-	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag,
-		 &sra->sid);
-
-	switch (sra->behavior) {
+	switch (behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
-		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		prefixlen = IPV6_MAX_BITLEN;
-		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->adj->circuit->interface->ifindex;
+		*action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		*prefixlen = IPV6_MAX_BITLEN;
+		IPV6_ADDR_COPY(&ctx->nh6, nexthop);
+		ctx->ifindex = ifindex;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
-		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		prefixlen = sra->locator->block_bits_length +
-			    sra->locator->node_bits_length +
-			    sra->locator->function_bits_length;
-		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->adj->circuit->interface->ifindex;
-		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
-				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
-		ctx.flv.lcblock_len = sra->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sra->locator->node_bits_length;
+		*action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		*prefixlen = locator->block_bits_length + locator->node_bits_length +
+			     locator->function_bits_length;
+		IPV6_ADDR_COPY(&ctx->nh6, nexthop);
+		ctx->ifindex = ifindex;
+		SET_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx->flv.lcblock_len = locator->block_bits_length;
+		ctx->flv.lcnode_func_len = locator->node_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_END:
@@ -1107,6 +1096,31 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	default:
+		return false;
+	}
+	return true;
+}
+
+void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context ctx = {};
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+
+	if (!sra)
+		return;
+
+	circuit = sra->adj->circuit;
+	area = circuit->area;
+
+	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag, &sra->sid);
+
+	if (isis_zebra_fill_seg6local_context(&ctx, sra->behavior, &sra->nexthop,
+					      sra->adj->circuit->interface->ifindex, sra->locator,
+					      &prefixlen, &action) == false) {
 		zlog_err(
 			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
 			area->area_tag, sra->behavior);
@@ -1115,8 +1129,110 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 
 	ifp = sra->adj->circuit->interface;
 
-	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
-			      action, &ctx);
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
+		return;
+	}
+
+	if (sra->type == ISIS_SRV6_ADJ_NORMAL) {
+		zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
+				      ifp->ifindex, action, &ctx);
+		return;
+	}
+
+	/* BACKUP */
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct zapi_nexthop *znh;
+	int count = 0;
+	struct isis_nexthop *nexthop;
+	struct listnode *node;
+
+	/*
+	 * Select a valid outgoing interface (oif) for attaching the SID.
+	 * If the provided oif is valid and not the loopback interface, it is used.
+	 * Otherwise, fall back to using the 'sr0' interface.
+	 */
+	ifp = select_oif_for_localsid(ifp->ifindex);
+	if (!ifp) {
+		zlog_err("Unable to obtain a valid outgoing interface for installing the SID.");
+		zlog_err(
+			"Please ensure that a dummy interface named 'sr0' exists and is operational.");
+		return;
+	}
+
+	p.family = AF_INET6;
+	p.prefixlen = prefixlen;
+	p.prefix = sra->sid;
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = isis_zclient->redist_default;
+	api.instance = 0;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	znh = &api.nexthops[0];
+
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = ifp->ifindex;
+
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	memcpy(&znh->seg6local_ctx, &ctx, sizeof(struct seg6local_context));
+
+	api.nexthop_num = 1;
+
+	/* Set backup nexthops. */
+	for (ALL_LIST_ELEMENTS_RO(sra->backup_nexthops, node, nexthop)) {
+		if (nexthop->family != AF_INET6)
+			continue;
+
+		if (!IN6_IS_ADDR_LINKLOCAL(&nexthop->ip.ipv6) &&
+		    !IN6_IS_ADDR_UNSPECIFIED(&nexthop->ip.ipv6)) {
+			continue;
+		}
+
+		if (isis_zebra_fill_seg6local_context(&ctx, sra->behavior, &nexthop->ip.ipv6,
+						      nexthop->ifindex, sra->locator, &prefixlen,
+						      &action) == false)
+			continue;
+
+		ifp = select_oif_for_localsid(nexthop->ifindex);
+		if (!ifp) {
+			zlog_err(
+				"Unable to obtain a valid outgoing interface for installing the SID.");
+			zlog_err(
+				"Please ensure that a dummy interface named 'sr0' exists and is operational.");
+			continue;
+		}
+		znh = &api.backup_nexthops[count];
+		zapi_nexthop_init(znh);
+
+		znh->gate.ipv6 = nexthop->ip.ipv6;
+		znh->type = NEXTHOP_TYPE_IFINDEX;
+		znh->ifindex = ifp->ifindex;
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+		memcpy(&znh->seg6local_ctx, &ctx, sizeof(struct seg6local_context));
+		znh->seg6local_action = action;
+		for (int i = 0; i < count; i++)
+			znh->backup_idx[i] = i;
+
+		count++;
+	}
+
+	if (count) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+		api.backup_nexthop_num = count;
+	}
+
+	zclient_route_send(ZEBRA_ROUTE_ADD, isis_zclient, &api);
 }
 
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
@@ -1437,12 +1553,13 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loc
 /**
  * Handle End.X SID allocation for a specific adjacency.
  */
-static void handle_srv6_endx_sid_allocated(struct isis_area *area,
-					   struct srv6_sid_ctx *ctx,
-					   struct in6_addr *sid_addr)
+static int handle_srv6_endx_sid_allocated(struct isis_area *area,
+					  struct srv6_sid_ctx *ctx,
+					  struct in6_addr *sid_addr,
+					  char *buf)
 {
 	struct isis_adjacency *adj;
-	struct srv6_adjacency *sra;
+	struct srv6_adjacency *sra, *sra_to_update = NULL;
 	struct listnode *node, *nnode;
 
 	frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
@@ -1458,11 +1575,34 @@ static void handle_srv6_endx_sid_allocated(struct isis_area *area,
 				continue;
 			if (ctx->backup && sra->type != ISIS_SRV6_ADJ_BACKUP)
 				continue;
+			if (sra->type == ISIS_SRV6_ADJ_BACKUP &&
+			    IN6_IS_ADDR_UNSPECIFIED(&sra->sid) &&
+			    sra->allocation_in_progress) {
+				/* Keep backup sra to update SID */
+				sra_to_update = sra;
+				continue;
+			}
 			srv6_endx_sid_del(sra);
 		}
-		/* Allocate new End.X SID for the adjacency */
+		if (sra_to_update) {
+			IPV6_ADDR_COPY(&sra_to_update->sid, sid_addr);
+			sra_to_update->allocation_in_progress = false;
+			isis_zebra_srv6_adj_sid_install(sra_to_update);
+			return 0;
+		}
+		if (ctx->backup) {
+			sr_debug("SRv6 SID %pI6 %s: SRA not found",
+				 sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+			return 0;
+		}
+		/*
+		 * For non backup adjacency: Allocate new End.X SID.
+		 * For backup adjacency: update the SID and install to zebra.
+		 */
 		srv6_endx_sid_add_single(adj, ctx->backup, NULL, sid_addr);
 	}
+	return 0;
 }
 
 static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
@@ -1554,8 +1694,9 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 			} else if (ctx.behavior ==
 				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
-				handle_srv6_endx_sid_allocated(area, &ctx,
-							       &sid_addr);
+				return handle_srv6_endx_sid_allocated(area, &ctx,
+								      &sid_addr,
+								      buf);
 			} else {
 				zlog_warn("%s: unsupported behavior %u",
 					  __func__, ctx.behavior);

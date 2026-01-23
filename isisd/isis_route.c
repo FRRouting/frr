@@ -172,7 +172,7 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family, uni
 	return NULL;
 }
 
-void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
+bool adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
 		     struct isis_sr_psid_info *sr, struct mpls_label_stack *label_stack,
 		     struct isis_srv6_seg_stack *srv6_seg_stack)
 {
@@ -191,10 +191,12 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				if (sr)
 					nh->sr = *sr;
-				nh->label_stack = label_stack_dup(label_stack);
-				nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
+				if (label_stack)
+					nh->label_stack = label_stack_dup(label_stack);
+				if (srv6_seg_stack)
+					nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
 				listnode_add(nexthops, nh);
-				break;
+				return true;
 			}
 		}
 		break;
@@ -209,10 +211,12 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				if (sr)
 					nh->sr = *sr;
-				nh->label_stack = label_stack_dup(label_stack);
-				nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
+				if (label_stack)
+					nh->label_stack = label_stack_dup(label_stack);
+				if (srv6_seg_stack)
+					nh->srv6_seg_stack = srv6_seg_stack_dup(srv6_seg_stack);
 				listnode_add(nexthops, nh);
-				break;
+				return true;
 			}
 		}
 		break;
@@ -220,6 +224,7 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown address family [%d]", __func__, family);
 		exit(1);
 	}
+	return false;
 }
 
 static void isis_route_add_dummy_nexthops(struct isis_route_info *rinfo, const uint8_t *sysid,

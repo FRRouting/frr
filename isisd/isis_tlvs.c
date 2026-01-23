@@ -277,6 +277,10 @@ static struct isis_ext_subtlvs *copy_item_ext_subtlvs(struct isis_ext_subtlvs *e
 		    ((mtid != ISIS_MT_IPV6_UNICAST)))
 			continue;
 
+		if (IN6_IS_ADDR_UNSPECIFIED(&srv6_adj->sid))
+			/* SID not allocated yet */
+			continue;
+
 		struct isis_srv6_endx_sid_subtlv *new;
 
 		new = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(struct isis_srv6_endx_sid_subtlv));
@@ -294,6 +298,10 @@ static struct isis_ext_subtlvs *copy_item_ext_subtlvs(struct isis_ext_subtlvs *e
 	     srv6_lan != NULL; srv6_lan = srv6_lan->next) {
 		if ((mtid != 65535) && (mtid != ISIS_MT_DISABLE) &&
 		    ((mtid != ISIS_MT_IPV6_UNICAST)))
+			continue;
+
+		if (IN6_IS_ADDR_UNSPECIFIED(&srv6_lan->sid))
+			/* SID not allocated yet */
 			continue;
 
 		struct isis_srv6_lan_endx_sid_subtlv *new;

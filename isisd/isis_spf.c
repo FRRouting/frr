@@ -1567,7 +1567,7 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 			if (adj && area->srdb.enabled)
 				sr_adj_sid_add_single(adj, spftree->family, true, vertex->Adj_N);
 			else if (adj && area->srv6db.config.enabled && adj->ll_ipv6_count > 0)
-				isis_zebra_request_srv6_sid_endx(adj, true);
+				srv6_endx_sid_add_single(adj, true, vertex->Adj_N, NULL);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug("ISIS-SPF: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
 				   vid2string(vertex, buff, sizeof(buff)), vertex->depth,

@@ -109,6 +109,8 @@ struct srv6_adjacency {
 
 	/* Back pointer to IS-IS adjacency. */
 	struct isis_adjacency *adj;
+
+	bool allocation_in_progress;
 };
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
@@ -178,7 +180,7 @@ void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
 
-void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct list *nexthops,
+void srv6_endx_sid_add_single(const struct isis_adjacency *adj, bool backup, struct list *nexthops,
 			      struct in6_addr *sid_value);
 void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value);
 void srv6_endx_sid_del(struct srv6_adjacency *sra);
