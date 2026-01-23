@@ -157,6 +157,10 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	rt->route_table = route_table_init_with_delegate(&bgp_table_delegate);
 
+	/* For EVPN, use a direct-lookup table mode, not an IP-oriented trie */
+	if (safi == SAFI_EVPN)
+		route_table_set_unique_mode(rt->route_table);
+
 	/*
 	 * Set up back pointer to bgp_table.
 	 */
@@ -210,12 +214,19 @@ void bgp_delete_listnode(struct bgp_dest *dest)
 struct bgp_dest *bgp_table_subtree_lookup(const struct bgp_table *table,
 					  const struct prefix *p)
 {
-	struct bgp_dest *dest = bgp_dest_from_rnode(table->route_table->top);
+	struct bgp_dest *dest;
 	struct bgp_dest *matched = NULL;
 
+	/* Unique-mode case is special; no iteration or prefix search */
+	if (route_table_is_unique_mode(table->route_table)) {
+		dest = bgp_node_lookup(table, p);
+		return dest;
+	}
+
+	/* Search in LPM table */
+	dest = bgp_dest_from_rnode(table->route_table->top);
 	if (dest == NULL)
 		return NULL;
-
 
 	while (dest) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
