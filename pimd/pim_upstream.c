@@ -2322,6 +2322,23 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 			pim_upstream_fhr_kat_start(up);
 		}
+
+		/*
+		 * Let's ensure that when we have an active source that we do not have any
+		 * register state for that is a FHR, that we allow the registration to
+		 * happen if it should be
+		 */
+		if (pim_upstream_could_register(up) && !pim_is_grp_ssm(pim, up->sg.grp) &&
+		    up->reg_state == PIM_REG_NOINFO && !event_is_scheduled(up->t_rs_timer) &&
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim->regiface &&
+		    pim->regiface->configured) {
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s: add pimreg to %s[%s]", __func__, up->sg_str,
+					   pim->vrf->name);
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+			pim_register_join(up);
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+		}
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 		rv = true;
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
