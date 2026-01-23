@@ -9,6 +9,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_ls_ted.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
@@ -325,6 +326,8 @@ void bgp_ls_cleanup(struct bgp *bgp)
 
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
+
+	bgp_ls_unregister(bgp);
 
 	frr_each_safe (bgp_ls_nlri_hash, &bgp->ls_info->nlri_hash, entry) {
 		bgp_ls_nlri_hash_del(&bgp->ls_info->nlri_hash, entry);
