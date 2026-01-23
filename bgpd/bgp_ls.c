@@ -12,6 +12,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_ls_nlri.h"
 #include "bgpd/bgp_ls_ted.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_attr.h"
@@ -617,6 +618,77 @@ int bgp_ls_withdraw(struct bgp *bgp, struct bgp_ls_nlri *nlri)
 	bgp_dest_unlock_node(dest);
 
 	return 0;
+}
+
+/*
+ * ===========================================================================
+ * BGP-LS NLRI Parsing
+ * ===========================================================================
+ */
+
+/*
+ * Parse BGP-LS NLRI from UPDATE/WITHDRAW messages
+ *
+ * Called from bgp_nlri_parse() for SAFI_BGP_LS packets.
+ * Decodes NLRIs from MP_REACH_NLRI or MP_UNREACH_NLRI and processes them.
+ *
+ * @param peer   - BGP peer sending the NLRI
+ * @param attr   - BGP path attributes (NULL for withdrawals)
+ * @param packet - NLRI packet containing AFI/SAFI and NLRI data
+ * @return BGP_NLRI_PARSE_OK on success, error code otherwise
+ */
+int bgp_nlri_parse_ls(struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
+{
+	struct stream *s;
+	struct bgp_ls_nlri nlri;
+	struct prefix p;
+	struct bgp_ls_nlri *ls_entry;
+	struct bgp_dest *dest;
+	int ret = BGP_NLRI_PARSE_OK;
+
+	s = stream_new(packet->length);
+	stream_put(s, packet->nlri, packet->length);
+	stream_set_getp(s, 0);
+
+	while (STREAM_READABLE(s) > 0) {
+		memset(&nlri, 0, sizeof(nlri));
+		ret = bgp_ls_decode_nlri(s, &nlri);
+
+		if (ret < 0) {
+			flog_warn(EC_BGP_LS_PACKET, "%s [Error] Failed to decode BGP-LS NLRI",
+				  peer->host);
+			ret = BGP_NLRI_PARSE_ERROR;
+			goto done;
+		}
+
+		ls_entry = bgp_ls_nlri_get(&peer->bgp->ls_info->nlri_hash, peer->bgp, &nlri);
+
+		memset(&p, 0, sizeof(p));
+		p.family = AF_UNSPEC;
+		p.prefixlen = 32;
+		p.u.val32[0] = ls_entry->id;
+
+		if (attr) {
+			dest = bgp_afi_node_get(bgp_get_default()->rib[AFI_BGP_LS][SAFI_BGP_LS],
+						AFI_BGP_LS, SAFI_BGP_LS, &p, NULL);
+			dest->ls_nlri = ls_entry;
+
+			bgp_update(peer, &p, 0, attr, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
+				   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL);
+
+			bgp_dest_unlock_node(dest);
+		} else
+			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
+				     BGP_ROUTE_NORMAL, NULL, NULL, 0);
+
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("%s processed BGP-LS %s NLRI type=%u", peer->host,
+				   attr ? "UPDATE" : "WITHDRAW", nlri.nlri_type);
+	}
+
+done:
+	stream_free(s);
+	return ret;
 }
 
 /*
