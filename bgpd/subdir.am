@@ -52,6 +52,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_lcommunity.c \
 	bgpd/bgp_ls.c \
+	bgpd/bgp_ls_nlri.c \
 	bgpd/bgp_mac.c \
 	bgpd/bgp_memory.c \
 	bgpd/bgp_mpath.c \
