@@ -714,4 +714,70 @@ extern int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefi
 /* Encode complete NLRI */
 extern int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri);
 
+/*
+ * ===========================================================================
+ * NLRI Decoding Functions
+ * ===========================================================================
+ */
+
+/*
+ * Parse BGP-LS Node Attributes (Type 29 TLVs for Node NLRI)
+ *
+ * @param s Stream containing the attribute TLVs
+ * @param total_length Total length of all TLVs in bytes
+ * @param attr Pointer to node attribute structure to populate
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_parse_node_attr(struct stream *s, uint16_t total_length,
+				  struct bgp_ls_node_attr *attr);
+
+/*
+ * Parse BGP-LS Link Attributes (Type 29 TLVs for Link NLRI)
+ *
+ * @param s Stream containing the attribute TLVs
+ * @param total_length Total length of all TLVs in bytes
+ * @param attr Pointer to link attribute structure to populate
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_parse_link_attr(struct stream *s, uint16_t total_length,
+				  struct bgp_ls_link_attr *attr);
+
+/*
+ * Parse BGP-LS Prefix Attributes (Type 29 TLVs for Prefix NLRI)
+ *
+ * @param s Stream containing the attribute TLVs
+ * @param total_length Total length of all TLVs in bytes
+ * @param attr Pointer to prefix attribute structure to populate
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_parse_prefix_attr(struct stream *s, uint16_t total_length,
+				    struct bgp_ls_prefix_attr *attr);
+
+/* Decode Node Descriptor TLVs from stream */
+extern int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descriptor *desc,
+					 uint16_t desc_length);
+
+/* Decode Link Descriptor TLVs from stream */
+extern int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descriptor *desc,
+					 size_t total_length);
+
+/* Decode Prefix Descriptor TLVs from stream */
+extern int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descriptor *desc,
+					   size_t total_length, bool is_ipv6);
+
+/* Decode Node NLRI from wire format */
+extern int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
+				   uint16_t nlri_length);
+
+/* Decode Link NLRI from wire format */
+extern int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
+				   uint16_t nlri_length);
+
+/* Decode Prefix NLRI from wire format */
+extern int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
+				     uint16_t nlri_type, uint16_t nlri_length);
+
+/* Decode complete NLRI */
+extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
+
 #endif /* _FRR_BGP_LS_NLRI_H */

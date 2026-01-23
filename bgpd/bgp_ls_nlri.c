@@ -8,6 +8,8 @@
 
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_nlri.h"
+#include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_debug.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS_NLRI, "BGP-LS NLRI");
 DEFINE_MTYPE(BGPD, BGP_LS_NODE_ATTR, "BGP-LS Node Attribute");
@@ -1959,4 +1961,1342 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
 	stream_putw_at(s, len_pos, nlri_len);
 
 	return written;
+}
+
+/*
+ * ===========================================================================
+ * NLRI Decoding Functions
+ * ===========================================================================
+ */
+
+/*
+ * Read TLV header (Type + Length) from stream
+ *
+ * Wire format (RFC 9552 Section 5.1):
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |              Type             |            Length             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns 0 on success, -1 on error
+ */
+static inline int stream_get_tlv_hdr(struct stream *s, uint16_t *type, uint16_t *length)
+{
+	if (STREAM_READABLE(s) < BGP_LS_TLV_HDR_SIZE) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for TLV header");
+		return -1;
+	}
+
+	*type = stream_getw(s);
+	*length = stream_getw(s);
+
+	/* Check if stream has enough data for TLV value */
+	if (STREAM_READABLE(s) < *length) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: TLV type=%u length=%u exceeds available data",
+			  *type, *length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Skip unknown TLV in stream (RFC 9552 Section 5.1)
+ * Unknown TLVs must be preserved and propagated
+ */
+static inline void stream_skip_tlv(struct stream *s, uint16_t length)
+{
+	stream_forward_getp(s, length);
+}
+
+/*
+ * Parse Node Flag Bits TLV (TLV 1024)
+ * RFC 9552 Section 5.3.1.1
+ */
+static int parse_node_flags(struct stream *s, uint16_t length, struct bgp_ls_node_attr *attr)
+{
+	if (length < 1) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Node Flags TLV too short (%u bytes)", length);
+		return -1;
+	}
+
+	attr->node_flags = stream_getc(s);
+	attr->present_tlvs |= (1 << BGP_LS_NODE_ATTR_NODE_FLAGS_BIT);
+
+	/* Skip any extra bytes */
+	if (length > 1)
+		stream_forward_getp(s, length - 1);
+
+	return 0;
+}
+
+/*
+ * Parse Node Name TLV (TLV 1026)
+ * RFC 9552 Section 5.3.1.3
+ */
+static int parse_node_name(struct stream *s, uint16_t length, struct bgp_ls_node_attr *attr)
+{
+	if (length == 0)
+		return 0;
+
+	/* Allocate space for node name (null-terminated) */
+	attr->node_name = XCALLOC(MTYPE_BGP_LS_ATTR_DATA, length + 1);
+	stream_get(attr->node_name, s, length);
+	attr->node_name[length] = '\0';
+	attr->present_tlvs |= (1 << BGP_LS_NODE_ATTR_NODE_NAME_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse IS-IS Area ID TLV (TLV 1027)
+ * RFC 9552 Section 5.3.1.4
+ */
+static int parse_isis_area_id(struct stream *s, uint16_t length, struct bgp_ls_node_attr *attr)
+{
+	if (length == 0 || length > 13) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid ISIS Area ID length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	attr->isis_area_id = XCALLOC(MTYPE_BGP_LS_ATTR_DATA, length);
+	stream_get(attr->isis_area_id, s, length);
+	attr->isis_area_id_len = length;
+	attr->present_tlvs |= (1 << BGP_LS_NODE_ATTR_ISIS_AREA_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse IPv4 Router-ID TLV (TLV 1028)
+ * RFC 9552 Section 5.3.1.5
+ */
+static int parse_ipv4_router_id(struct stream *s, uint16_t length, struct bgp_ls_node_attr *attr)
+{
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid IPv4 Router-ID length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	stream_get(&attr->ipv4_router_id, s, 4);
+	attr->present_tlvs |= (1 << BGP_LS_NODE_ATTR_IPV4_ROUTER_ID_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse IPv6 Router-ID TLV (TLV 1029)
+ * RFC 9552 Section 5.3.1.4
+ */
+static int parse_ipv6_router_id(struct stream *s, uint16_t length, struct bgp_ls_node_attr *attr)
+{
+	if (length != 16) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid IPv6 Router-ID length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	stream_get(&attr->ipv6_router_id, s, 16);
+	attr->present_tlvs |= (1 << BGP_LS_NODE_ATTR_IPV6_ROUTER_ID_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Node Attribute TLVs
+ * RFC 9552 Section 5.3.1
+ */
+int bgp_ls_parse_node_attr(struct stream *s, uint16_t total_length, struct bgp_ls_node_attr *attr)
+{
+	uint16_t type, length;
+	size_t end_pos = stream_get_getp(s) + total_length;
+
+	if (!attr)
+		return -1;
+
+	bgp_ls_attr_node_init(attr);
+
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &type, &length) < 0) {
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: Error parsing Node Attribute TLV header");
+			return -1;
+		}
+
+		switch (type) {
+		case BGP_LS_ATTR_NODE_FLAG_BITS:
+			if (parse_node_flags(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_NODE_NAME:
+			if (parse_node_name(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_ISIS_AREA_ID:
+			if (parse_isis_area_id(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_IPV4_ROUTER_ID:
+			if (parse_ipv4_router_id(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_IPV6_ROUTER_ID:
+			if (parse_ipv6_router_id(s, length, attr) < 0)
+				return -1;
+			break;
+
+		default:
+			/* Skip unrecognized TLVs */
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("BGP-LS: Skipping unrecognized Node Attribute TLV %u",
+					   type);
+			stream_skip_tlv(s, length);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Parse Administrative Group TLV (TLV 1088)
+ * RFC 5305 Section 3.1
+ */
+static int parse_admin_group(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Admin Group length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	attr->admin_group = stream_getl(s);
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_ADMIN_GROUP_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Maximum Link Bandwidth TLV (TLV 1089)
+ * RFC 5305 Section 3.4
+ */
+static int parse_max_link_bw(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	uint32_t bw_bits;
+
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Max Link BW length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	/* Read as 32-bit IEEE floating point */
+	bw_bits = stream_getl(s);
+	memcpy(&attr->max_link_bw, &bw_bits, 4);
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_MAX_LINK_BW_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Maximum Reservable Bandwidth TLV (TLV 1090)
+ * RFC 5305 Section 3.5
+ */
+static int parse_max_resv_bw(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	uint32_t bw_bits;
+
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Max Resv BW length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	bw_bits = stream_getl(s);
+	memcpy(&attr->max_resv_bw, &bw_bits, 4);
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_MAX_RESV_BW_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Unreserved Bandwidth TLV (TLV 1091)
+ * RFC 5305 Section 3.6
+ */
+static int parse_unresv_bw(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	uint32_t bw_bits;
+	int i;
+
+	if (length != 32) { /* 8 priorities * 4 bytes each */
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Unreserved BW length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	for (i = 0; i < BGP_LS_MAX_UNRESV_BW; i++) {
+		bw_bits = stream_getl(s);
+		memcpy(&attr->unreserved_bw[i], &bw_bits, 4);
+	}
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_UNRESV_BW_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse TE Default Metric TLV (TLV 1092)
+ * RFC 9552 Section 5.3.2.3
+ */
+static int parse_te_metric(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid TE Metric length (%u bytes)", length);
+		return -1;
+	}
+
+	attr->te_metric = stream_getl(s);
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_TE_METRIC_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse IGP Metric TLV (TLV 1095)
+ * RFC 9552 Section 5.3.2.4
+ */
+static int parse_igp_metric(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	if (length < 1 || length > BGP_LS_IGP_METRIC_MAX_LEN) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid IGP Metric length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	attr->igp_metric = 0;
+	for (int i = 0; i < length; i++)
+		attr->igp_metric = (attr->igp_metric << 8) | stream_getc(s);
+	attr->igp_metric_len = length;
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_IGP_METRIC_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse SRLG TLV (TLV 1096)
+ * RFC 9552 Section 5.3.2.5
+ */
+static int parse_srlg(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	uint8_t count;
+	int i;
+
+	if (length % 4 != 0) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid SRLG length (%u bytes)", length);
+		return -1;
+	}
+
+	count = length / 4;
+	if (count > BGP_LS_MAX_SRLG) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Too many SRLGs (%u, max %u)", count,
+			  BGP_LS_MAX_SRLG);
+		return -1;
+	}
+
+	attr->srlg_values = XMALLOC(MTYPE_BGP_LS_ATTR_DATA, count * sizeof(uint32_t));
+	for (i = 0; i < count; i++)
+		attr->srlg_values[i] = stream_getl(s);
+	attr->srlg_count = count;
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_SRLG_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Link Name TLV (TLV 1098)
+ * RFC 9552 Section 5.3.2.7
+ */
+static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_link_attr *attr)
+{
+	if (length == 0)
+		return 0;
+
+	attr->link_name = XCALLOC(MTYPE_BGP_LS_ATTR_DATA, length + 1);
+	stream_get(attr->link_name, s, length);
+	attr->link_name[length] = '\0';
+	attr->present_tlvs |= (1 << BGP_LS_LINK_ATTR_LINK_NAME_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Link Attribute TLVs
+ * RFC 9552 Section 5.3.2
+ */
+int bgp_ls_parse_link_attr(struct stream *s, uint16_t total_length, struct bgp_ls_link_attr *attr)
+{
+	uint16_t type, length;
+	size_t end_pos = stream_get_getp(s) + total_length;
+
+	if (!attr)
+		return -1;
+
+	bgp_ls_attr_link_init(attr);
+
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &type, &length) < 0) {
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: Error parsing Link Attribute TLV header");
+			return -1;
+		}
+
+		switch (type) {
+		case BGP_LS_ATTR_ADMIN_GROUP:
+			if (parse_admin_group(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_MAX_LINK_BW:
+			if (parse_max_link_bw(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_MAX_RESV_BW:
+			if (parse_max_resv_bw(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_UNRESV_BW:
+			if (parse_unresv_bw(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_TE_DEFAULT_METRIC:
+			if (parse_te_metric(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_IGP_METRIC:
+			if (parse_igp_metric(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRLG:
+			if (parse_srlg(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_LINK_NAME:
+			if (parse_link_name(s, length, attr) < 0)
+				return -1;
+			break;
+
+		default:
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("BGP-LS: Skipping unrecognized Link Attribute TLV %u",
+					   type);
+			stream_skip_tlv(s, length);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Parse IGP Flags TLV (TLV 1152)
+ * RFC 9552 Section 5.3.3.1
+ */
+static int parse_igp_flags(struct stream *s, uint16_t length, struct bgp_ls_prefix_attr *attr)
+{
+	if (length < 1) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: IGP Flags TLV too short (%u bytes)", length);
+		return -1;
+	}
+
+	attr->igp_flags = stream_getc(s);
+	attr->present_tlvs |= (1 << BGP_LS_PREFIX_ATTR_IGP_FLAGS_BIT);
+
+	if (length > 1)
+		stream_forward_getp(s, length - 1);
+
+	return 0;
+}
+
+/*
+ * Parse Route Tag TLV (TLV 1153)
+ * RFC 9552 Section 5.3.3.2
+ */
+static int parse_route_tag(struct stream *s, uint16_t length, struct bgp_ls_prefix_attr *attr)
+{
+	uint8_t count;
+	int i;
+
+	if (length % 4 != 0) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Route Tag length (%u bytes)", length);
+		return -1;
+	}
+
+	count = length / 4;
+	if (count > BGP_LS_MAX_ROUTE_TAGS) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Too many Route Tags (%u, max %u)", count,
+			  BGP_LS_MAX_ROUTE_TAGS);
+		return -1;
+	}
+
+	attr->route_tags = XMALLOC(MTYPE_BGP_LS_ATTR_DATA, count * sizeof(uint32_t));
+	for (i = 0; i < count; i++)
+		attr->route_tags[i] = stream_getl(s);
+	attr->route_tag_count = count;
+	attr->present_tlvs |= (1 << BGP_LS_PREFIX_ATTR_ROUTE_TAG_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Prefix Metric TLV (TLV 1155)
+ * RFC 9552 Section 5.3.3.4
+ */
+static int parse_prefix_metric(struct stream *s, uint16_t length, struct bgp_ls_prefix_attr *attr)
+{
+	if (length != 4) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Prefix Metric length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	attr->prefix_metric = stream_getl(s);
+	attr->present_tlvs |= (1 << BGP_LS_PREFIX_ATTR_PREFIX_METRIC_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse OSPF Forwarding Address TLV (TLV 1156)
+ * RFC 9552 Section 5.3.3.5
+ */
+static int parse_ospf_fwd_addr(struct stream *s, uint16_t length, struct bgp_ls_prefix_attr *attr)
+{
+	if (length == 4) {
+		/* IPv4 */
+		stream_get(&attr->ospf_fwd_addr, s, 4);
+	} else if (length == 16) {
+		/* IPv6 */
+		stream_get(&attr->ospf_fwd_addr6, s, 16);
+	} else {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid OSPF Fwd Addr length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	attr->present_tlvs |= (1 << BGP_LS_PREFIX_ATTR_OSPF_FWD_ADDR_BIT);
+	return 0;
+}
+
+/*
+ * Parse Prefix Attribute TLVs
+ * RFC 9552 Section 5.3.3
+ */
+int bgp_ls_parse_prefix_attr(struct stream *s, uint16_t total_length,
+			     struct bgp_ls_prefix_attr *attr)
+{
+	uint16_t type, length;
+	size_t end_pos = stream_get_getp(s) + total_length;
+
+	if (!attr)
+		return -1;
+
+	bgp_ls_attr_prefix_init(attr);
+
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &type, &length) < 0) {
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: Error parsing Prefix Attribute TLV header");
+			return -1;
+		}
+
+		switch (type) {
+		case BGP_LS_ATTR_IGP_FLAGS:
+			if (parse_igp_flags(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_ROUTE_TAG:
+			if (parse_route_tag(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_PREFIX_METRIC:
+			if (parse_prefix_metric(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_OSPF_FWD_ADDR:
+			if (parse_ospf_fwd_addr(s, length, attr) < 0)
+				return -1;
+			break;
+
+		default:
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("BGP-LS: Skipping unrecognized Prefix Attribute TLV %u",
+					   type);
+			stream_skip_tlv(s, length);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Node Descriptor from wire format (RFC 9552 Section 5.2.1)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |         Descriptor Type       |      Descriptor Length        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Node Descriptor Sub-TLVs (variable)            //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Node Descriptor Sub-TLVs (RFC 9552 Section 5.2.1.4):
+ *   - TLV 512: Autonomous System (4 bytes, OPTIONAL)
+ *   - TLV 513: BGP-LS Identifier (4 bytes, deprecated, OPTIONAL)
+ *   - TLV 514: OSPF Area-ID (4 bytes, CONDITIONAL)
+ *   - TLV 515: IGP Router-ID (variable, MANDATORY)
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descriptor *desc,
+				  uint16_t desc_length)
+{
+	size_t end_pos;
+	uint16_t sub_type, sub_len;
+	bool has_igp_router_id = false;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Clear descriptor */
+	memset(desc, 0, sizeof(*desc));
+
+	/* Save end position for bounds checking */
+	end_pos = stream_get_getp(s) + desc_length;
+
+	/* Parse sub-TLVs */
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &sub_type, &sub_len) < 0)
+			return -1;
+
+		switch (sub_type) {
+		case BGP_LS_TLV_AS_NUMBER:
+			if (sub_len != BGP_LS_AS_NUMBER_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid AS Number TLV length %u (expected %u)",
+					  sub_len, BGP_LS_AS_NUMBER_SIZE);
+				return -1;
+			}
+			desc->asn = stream_getl(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT);
+			break;
+
+		case BGP_LS_TLV_BGP_LS_ID:
+			if (sub_len != BGP_LS_BGP_LS_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid BGP-LS ID TLV length %u (expected %u)",
+					  sub_len, BGP_LS_BGP_LS_ID_SIZE);
+				return -1;
+			}
+			desc->bgp_ls_id = stream_getl(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT);
+			break;
+
+		case BGP_LS_TLV_OSPF_AREA_ID:
+			if (sub_len != BGP_LS_OSPF_AREA_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid OSPF Area ID TLV length %u (expected %u)",
+					  sub_len, BGP_LS_OSPF_AREA_ID_SIZE);
+				return -1;
+			}
+			desc->ospf_area_id = stream_getl(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT);
+			break;
+
+		case BGP_LS_TLV_IGP_ROUTER_ID:
+			/* Variable length: 4, 6, 7, or 8 bytes */
+			if (sub_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
+			    sub_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IGP Router-ID TLV length %u", sub_len);
+				return -1;
+			}
+			desc->igp_router_id_len = sub_len;
+			stream_get(desc->igp_router_id, s, sub_len);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
+			has_igp_router_id = true;
+			break;
+
+		default:
+			/* Unknown TLV - skip but preserve (RFC 9552 Section 5.1) */
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: Unknown Node Descriptor sub-TLV %u, length %u (skipping)",
+				  sub_type, sub_len);
+			stream_skip_tlv(s, sub_len);
+			break;
+		}
+	}
+
+	/* Verify mandatory TLV present */
+	if (!has_igp_router_id) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Mandatory IGP Router-ID TLV missing from Node Descriptor");
+		return -1;
+	}
+
+	/* Check we consumed exactly desc_length bytes */
+	if (stream_get_getp(s) != end_pos) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Node Descriptor length mismatch (consumed %zu, expected %u)",
+			  stream_get_getp(s) - (end_pos - desc_length), desc_length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Link Descriptor from wire format (RFC 9552 Section 5.2.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //                Link Descriptor TLVs (variable)              //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Link Descriptor TLVs (RFC 9552 Section 5.2.2):
+ *   - TLV 258: Link Local/Remote Identifiers (8 bytes)
+ *   - TLV 259: IPv4 Interface Address (4 bytes)
+ *   - TLV 260: IPv4 Neighbor Address (4 bytes)
+ *   - TLV 261: IPv6 Interface Address (16 bytes)
+ *   - TLV 262: IPv6 Neighbor Address (16 bytes)
+ *   - TLV 263: Multi-Topology ID (variable, 2 bytes per MT-ID)
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descriptor *desc,
+				  size_t total_length)
+{
+	size_t end_pos;
+	uint16_t tlv_type, tlv_len;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Clear descriptor */
+	memset(desc, 0, sizeof(*desc));
+
+	/* Save end position for bounds checking */
+	end_pos = stream_get_getp(s) + total_length;
+
+	/* Parse TLVs */
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len) < 0)
+			return -1;
+
+		switch (tlv_type) {
+		case BGP_LS_TLV_LINK_ID:
+			if (tlv_len != BGP_LS_LINK_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid Link ID TLV length %u (expected %u)",
+					  tlv_len, BGP_LS_LINK_ID_SIZE);
+				return -1;
+			}
+			desc->link_local_id = stream_getl(s);
+			desc->link_remote_id = stream_getl(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT);
+			break;
+
+		case BGP_LS_TLV_IPV4_INTF_ADDR:
+			if (tlv_len != BGP_LS_IPV4_ADDR_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IPv4 Interface Address TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			stream_get(&desc->ipv4_intf_addr.s_addr, s, BGP_LS_IPV4_ADDR_SIZE);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT);
+			break;
+
+		case BGP_LS_TLV_IPV4_NEIGH_ADDR:
+			if (tlv_len != BGP_LS_IPV4_ADDR_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IPv4 Neighbor Address TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			stream_get(&desc->ipv4_neigh_addr.s_addr, s, BGP_LS_IPV4_ADDR_SIZE);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
+			break;
+
+		case BGP_LS_TLV_IPV6_INTF_ADDR:
+			if (tlv_len != BGP_LS_IPV6_ADDR_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IPv6 Interface Address TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			stream_get(&desc->ipv6_intf_addr.s6_addr, s, BGP_LS_IPV6_ADDR_SIZE);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT);
+			break;
+
+		case BGP_LS_TLV_IPV6_NEIGH_ADDR:
+			if (tlv_len != BGP_LS_IPV6_ADDR_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IPv6 Neighbor Address TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			stream_get(&desc->ipv6_neigh_addr.s6_addr, s, BGP_LS_IPV6_ADDR_SIZE);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
+			break;
+
+		case BGP_LS_TLV_MT_ID:
+			/* Variable length: 2*n bytes where n is number of MT-IDs */
+			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
+				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			desc->mt_id_count = tlv_len / 2;
+			desc->mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, tlv_len);
+			for (uint16_t i = 0; i < desc->mt_id_count; i++)
+				desc->mt_id[i] = stream_getw(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT);
+			break;
+
+		default:
+			/* Unknown TLV - skip but preserve (RFC 9552 Section 5.1) */
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: Unknown Link Descriptor TLV %u, length %u (skipping)",
+				  tlv_type, tlv_len);
+			stream_skip_tlv(s, tlv_len);
+			break;
+		}
+	}
+
+	/* Check we consumed exactly total_length bytes */
+	if (stream_get_getp(s) != end_pos) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Link Descriptor length mismatch");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Prefix Descriptor from wire format (RFC 9552 Section 5.2.3)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //             Prefix Descriptor TLVs (variable)               //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Prefix Descriptor TLVs (RFC 9552 Section 5.2.3):
+ *   - TLV 263: Multi-Topology ID (2 bytes, CONDITIONAL)
+ *   - TLV 264: OSPF Route Type (1 byte, CONDITIONAL)
+ *   - TLV 265: IP Reachability Information (variable, MANDATORY)
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descriptor *desc,
+				    size_t total_length, bool is_ipv6)
+{
+	size_t end_pos;
+	uint16_t tlv_type, tlv_len;
+	bool has_ip_reach = false;
+
+	if (!s || !desc)
+		return -1;
+
+	/* Clear descriptor */
+	memset(desc, 0, sizeof(*desc));
+
+	/* Save end position for bounds checking */
+	end_pos = stream_get_getp(s) + total_length;
+
+	/* Parse TLVs */
+	while (stream_get_getp(s) < end_pos) {
+		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len) < 0)
+			return -1;
+
+		switch (tlv_type) {
+		case BGP_LS_TLV_MT_ID:
+			/* Variable length: 2*n bytes where n is number of MT-IDs */
+			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
+				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
+					  tlv_len);
+				return -1;
+			}
+			desc->mt_id_count = tlv_len / 2;
+			desc->mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, tlv_len);
+			for (uint16_t i = 0; i < desc->mt_id_count; i++)
+				desc->mt_id[i] = stream_getw(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT);
+			break;
+
+		case BGP_LS_TLV_OSPF_ROUTE_TYPE:
+			if (tlv_len != BGP_LS_OSPF_ROUTE_TYPE_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid OSPF Route Type TLV length %u", tlv_len);
+				return -1;
+			}
+			desc->ospf_route_type = stream_getc(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT);
+			break;
+
+		case BGP_LS_TLV_IP_REACH_INFO:
+			/* Variable length: prefix_len + ceil(prefix_len/8) */
+			if (tlv_len < 1) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid IP Reach Info TLV length %u", tlv_len);
+				return -1;
+			}
+			/* First byte is prefix length */
+			desc->prefix.prefixlen = stream_getc(s);
+
+			/* Calculate expected bytes for this prefix length */
+			uint16_t expected_bytes = (desc->prefix.prefixlen + 7) / 8;
+
+			if (tlv_len != 1 + expected_bytes) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: IP Reach Info TLV length %u mismatch (prefix len %u requires %u bytes)",
+					  tlv_len, desc->prefix.prefixlen, 1 + expected_bytes);
+				return -1;
+			}
+
+			/*
+			 * Read prefix bytes
+			 */
+			if (is_ipv6) {
+				desc->prefix.family = AF_INET6;
+				/* Validate prefix length is valid for IPv6 */
+				if (desc->prefix.prefixlen > IPV6_MAX_BITLEN) {
+					flog_warn(EC_BGP_LS_PACKET,
+						  "BGP-LS: Invalid IPv6 prefix length %u (max 128)",
+						  desc->prefix.prefixlen);
+					return -1;
+				}
+				if (expected_bytes > 0)
+					stream_get(&desc->prefix.u.prefix6.s6_addr, s,
+						   expected_bytes);
+			} else {
+				desc->prefix.family = AF_INET;
+				/* Validate prefix length is valid for IPv4 */
+				if (desc->prefix.prefixlen > IPV4_MAX_BITLEN) {
+					flog_warn(EC_BGP_LS_PACKET,
+						  "BGP-LS: Invalid IPv4 prefix length %u (max 32)",
+						  desc->prefix.prefixlen);
+					return -1;
+				}
+				if (expected_bytes > 0)
+					stream_get(&desc->prefix.u.prefix4.s_addr, s,
+						   expected_bytes);
+			}
+
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_PREFIX_DESC_IP_REACH_BIT);
+			has_ip_reach = true;
+			break;
+
+		default:
+			/* Unknown TLV - skip but preserve (RFC 9552 Section 5.1) */
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: Unknown Prefix Descriptor TLV %u, length %u (skipping)",
+				  tlv_type, tlv_len);
+			stream_skip_tlv(s, tlv_len);
+			break;
+		}
+	}
+
+	/* Verify mandatory TLV present */
+	if (!has_ip_reach) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Mandatory IP Reachability Info TLV missing from Prefix Descriptor");
+		return -1;
+	}
+
+	/* Check we consumed exactly total_length bytes */
+	if (stream_get_getp(s) != end_pos) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Prefix Descriptor length mismatch");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Node NLRI from wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |        NLRI Type = 1          |       Total NLRI Length       |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * | Protocol-ID   |
+ * +-+-+-+-+-+-+-+-+
+ *
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        Identifier                             |
+ * |                          (8 octets)                           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Local Node Descriptors TLV Type     |      Length           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Local Node Descriptor Sub-TLVs                 //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_length)
+{
+	uint16_t desc_type, desc_len;
+	size_t start_pos;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Save start position for length validation */
+	start_pos = stream_get_getp(s);
+
+	/* Check minimum length */
+	if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Node NLRI length %u too short (minimum %u)",
+			  nlri_length, BGP_LS_NLRI_MIN_LENGTH);
+		return -1;
+	}
+
+	/* Allocate NLRI structure */
+	nlri->nlri_type = BGP_LS_NLRI_TYPE_NODE;
+
+	/* Read Protocol-ID (1 byte) */
+	nlri->nlri_data.node.protocol_id = stream_getc(s);
+
+	/* Validate Protocol-ID */
+	if (nlri->nlri_data.node.protocol_id == BGP_LS_PROTO_RESERVED ||
+	    nlri->nlri_data.node.protocol_id > BGP_LS_PROTO_BGP) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid Protocol-ID %u",
+			  nlri->nlri_data.node.protocol_id);
+		return -1;
+	}
+
+	/* Read Identifier (8 bytes) */
+	nlri->nlri_data.node.identifier = stream_getq(s);
+
+	/* Read Local Node Descriptor TLV */
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+		return -1;
+
+	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Expected Local Node Descriptor TLV %u, got %u",
+			  BGP_LS_TLV_LOCAL_NODE_DESC, desc_type);
+		return -1;
+	}
+
+	if (bgp_ls_decode_node_descriptor(s, &nlri->nlri_data.node.local_node, desc_len) < 0)
+		return -1;
+
+	/* Verify we consumed exactly nlri_length bytes */
+	if (stream_get_getp(s) - start_pos != nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Node NLRI length mismatch (consumed %zu, expected %u)",
+			  stream_get_getp(s) - start_pos, nlri_length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Link NLRI from wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |        NLRI Type = 2          |       Total NLRI Length       |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * | Protocol-ID   |
+ * +-+-+-+-+-+-+-+-+
+ *
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        Identifier                             |
+ * |                          (8 octets)                           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Local Node Descriptors TLV Type     |      Length           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Local Node Descriptor Sub-TLVs                 //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Remote Node Descriptors TLV Type    |      Length           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Remote Node Descriptor Sub-TLVs                //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //                Link Descriptor TLVs                         //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_length)
+{
+	uint16_t desc_type, desc_len;
+	size_t start_pos, link_desc_start;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Save start position for length validation */
+	start_pos = stream_get_getp(s);
+
+	/* Check minimum length */
+	if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Link NLRI length %u too short (minimum %u)",
+			  nlri_length, BGP_LS_NLRI_MIN_LENGTH);
+		return -1;
+	}
+
+	/* Allocate NLRI structure */
+	nlri->nlri_type = BGP_LS_NLRI_TYPE_LINK;
+
+	/* Read Protocol-ID (1 byte) */
+	nlri->nlri_data.link.protocol_id = stream_getc(s);
+
+	/* Validate Protocol-ID */
+	if (nlri->nlri_data.link.protocol_id == BGP_LS_PROTO_RESERVED ||
+	    nlri->nlri_data.link.protocol_id > BGP_LS_PROTO_BGP) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid Protocol-ID %u",
+			  nlri->nlri_data.link.protocol_id);
+		return -1;
+	}
+
+	/* Read Identifier (8 bytes) */
+	nlri->nlri_data.link.identifier = stream_getq(s);
+
+	/* Read Local Node Descriptor TLV */
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+		return -1;
+
+	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Expected Local Node Descriptor TLV %u, got %u",
+			  BGP_LS_TLV_LOCAL_NODE_DESC, desc_type);
+		return -1;
+	}
+
+	if (bgp_ls_decode_node_descriptor(s, &nlri->nlri_data.link.local_node, desc_len) < 0)
+		return -1;
+
+	/* Read Remote Node Descriptor TLV */
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+		return -1;
+
+	if (desc_type != BGP_LS_TLV_REMOTE_NODE_DESC) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Expected Remote Node Descriptor TLV %u, got %u",
+			  BGP_LS_TLV_REMOTE_NODE_DESC, desc_type);
+		return -1;
+	}
+
+	if (bgp_ls_decode_node_descriptor(s, &nlri->nlri_data.link.remote_node, desc_len) < 0)
+		return -1;
+
+	/* Link Descriptors are remaining bytes */
+	link_desc_start = stream_get_getp(s);
+	size_t link_desc_len = nlri_length - (link_desc_start - start_pos);
+
+	if (link_desc_len > 0) {
+		if (bgp_ls_decode_link_descriptor(s, &nlri->nlri_data.link.link_desc,
+						  link_desc_len) < 0)
+			return -1;
+	}
+
+	/* Verify we consumed exactly nlri_length bytes */
+	if (stream_get_getp(s) - start_pos != nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Link NLRI length mismatch (consumed %zu, expected %u)",
+			  stream_get_getp(s) - start_pos, nlri_length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode Prefix NLRI from wire format (RFC 9552 Section 5.2)
+ *
+ * Wire format:
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      NLRI Type = 3/4          |       Total NLRI Length       |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * | Protocol-ID   |
+ * +-+-+-+-+-+-+-+-+
+ *
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        Identifier                             |
+ * |                          (8 octets)                           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Local Node Descriptors TLV Type     |      Length           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Local Node Descriptor Sub-TLVs                 //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //               Prefix Descriptor TLVs                        //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_type,
+			      uint16_t nlri_length)
+{
+	uint16_t desc_type, desc_len;
+	size_t start_pos, prefix_desc_start;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Validate NLRI type */
+	if (nlri_type != BGP_LS_NLRI_TYPE_IPV4_PREFIX && nlri_type != BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid Prefix NLRI type %u", nlri_type);
+		return -1;
+	}
+
+	/* Save start position for length validation */
+	start_pos = stream_get_getp(s);
+
+	/* Check minimum length */
+	if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Prefix NLRI length %u too short (minimum %u)",
+			  nlri_length, BGP_LS_NLRI_MIN_LENGTH);
+		return -1;
+	}
+
+	/* Allocate NLRI structure */
+	nlri->nlri_type = nlri_type;
+
+	/* Read Protocol-ID (1 byte) */
+	nlri->nlri_data.prefix.protocol_id = stream_getc(s);
+
+	/* Validate Protocol-ID */
+	if (nlri->nlri_data.prefix.protocol_id == BGP_LS_PROTO_RESERVED ||
+	    nlri->nlri_data.prefix.protocol_id > BGP_LS_PROTO_BGP) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid Protocol-ID %u",
+			  nlri->nlri_data.prefix.protocol_id);
+		return -1;
+	}
+
+	/* Read Identifier (8 bytes) */
+	nlri->nlri_data.prefix.identifier = stream_getq(s);
+
+	/* Read Local Node Descriptor TLV */
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+		return -1;
+
+	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Expected Local Node Descriptor TLV %u, got %u",
+			  BGP_LS_TLV_LOCAL_NODE_DESC, desc_type);
+		return -1;
+	}
+
+	if (bgp_ls_decode_node_descriptor(s, &nlri->nlri_data.prefix.local_node, desc_len) < 0)
+		return -1;
+
+	/* Prefix Descriptors are remaining bytes */
+	prefix_desc_start = stream_get_getp(s);
+	size_t prefix_desc_len = nlri_length - (prefix_desc_start - start_pos);
+
+	if (prefix_desc_len > 0) {
+		/* Determine if IPv6 based on NLRI type (RFC 9552 Section 3.2) */
+		bool is_ipv6 = (nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX);
+
+		if (bgp_ls_decode_prefix_descriptor(s, &nlri->nlri_data.prefix.prefix_desc,
+						    prefix_desc_len, is_ipv6) < 0)
+			return -1;
+	} else {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Prefix NLRI has no Prefix Descriptor TLVs");
+		return -1;
+	}
+
+	/* Verify we consumed exactly nlri_length bytes */
+	if (stream_get_getp(s) - start_pos != nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Prefix NLRI length mismatch (consumed %zu, expected %u)",
+			  stream_get_getp(s) - start_pos, nlri_length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Decode complete BGP-LS NLRI from UPDATE message (RFC 9552 Section 5.2)
+ *
+ * This is the main entry point for decoding NLRIs from MP_REACH_NLRI
+ * or MP_UNREACH_NLRI attributes.
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri)
+{
+	uint16_t nlri_type, nlri_length;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Read NLRI Type (2 bytes) */
+	if (STREAM_READABLE(s) < 2) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for NLRI type");
+		return -1;
+	}
+	nlri_type = stream_getw(s);
+
+	/* Read NLRI Length (2 bytes) */
+	if (STREAM_READABLE(s) < 2) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for NLRI length");
+		return -1;
+	}
+	nlri_length = stream_getw(s);
+
+	/* Check if stream has enough data for NLRI */
+	if (STREAM_READABLE(s) < nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: NLRI type=%u length=%u exceeds available data",
+			  nlri_type, nlri_length);
+		return -1;
+	}
+
+	/* Decode based on NLRI type */
+	switch (nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		return bgp_ls_decode_node_nlri(s, nlri, nlri_length);
+
+	case BGP_LS_NLRI_TYPE_LINK:
+		return bgp_ls_decode_link_nlri(s, nlri, nlri_length);
+
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		return bgp_ls_decode_prefix_nlri(s, nlri, nlri_type, nlri_length);
+
+	default:
+		/* Unknown NLRI type - preserve and propagate (RFC 9552 Section 5.2) */
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Unknown NLRI type %u, length %u (skipping)",
+			  nlri_type, nlri_length);
+		stream_forward_getp(s, nlri_length);
+		return -1;
+	}
 }
