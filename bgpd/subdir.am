@@ -138,6 +138,7 @@ noinst_HEADERS += \
 	bgpd/bgp_labelpool.h \
 	bgpd/bgp_lcommunity.h \
 	bgpd/bgp_ls.h \
+	bgpd/bgp_ls_nlri.h \
 	bgpd/bgp_mac.h \
 	bgpd/bgp_memory.h \
 	bgpd/bgp_mpath.h \
