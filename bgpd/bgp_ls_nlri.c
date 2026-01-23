@@ -407,3 +407,152 @@ void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri)
 
 	XFREE(MTYPE_BGP_LS_NLRI, nlri);
 }
+
+/*
+ * ===========================================================================
+ * NLRI Validation Functions
+ * ===========================================================================
+ */
+
+/*
+ * Validate IGP Router-ID length based on protocol (RFC 9552 Section 5.2.1.4)
+ *
+ * Valid lengths:
+ *   4 octets  - OSPFv2/v3 non-pseudonode, Direct/Static IPv4
+ *   6 octets  - IS-IS non-pseudonode
+ *   7 octets  - IS-IS pseudonode
+ *   8 octets  - OSPFv2/v3 pseudonode
+ *   16 octets - Direct/Static IPv6, BGP IPv6
+ */
+static bool bgp_ls_igp_router_id_len_valid(enum bgp_ls_protocol_id proto_id, uint8_t len)
+{
+	switch (proto_id) {
+	case BGP_LS_PROTO_ISIS_L1:
+	case BGP_LS_PROTO_ISIS_L2:
+		/* IS-IS: 6 octets (non-pseudonode) or 7 octets (pseudonode) */
+		return (len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN);
+
+	case BGP_LS_PROTO_OSPFV2:
+	case BGP_LS_PROTO_OSPFV3:
+		/* OSPF: 4 octets (non-pseudonode) or 8 octets (pseudonode) */
+		return (len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_OSPF_PSEUDO_LEN);
+
+	case BGP_LS_PROTO_DIRECT:
+	case BGP_LS_PROTO_STATIC:
+		/* Direct/Static: Accept IPv4 (4) or IPv6 (16), or IGP formats if IGP is running */
+		return (len == BGP_LS_IGP_ROUTER_ID_DIRECT_IPV4_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_DIRECT_IPV6_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_OSPF_PSEUDO_LEN);
+
+	case BGP_LS_PROTO_BGP:
+		/* BGP: Typically uses IPv4 (4) or IPv6 (16) Router-ID */
+		return (len == BGP_LS_IGP_ROUTER_ID_DIRECT_IPV4_LEN ||
+			len == BGP_LS_IGP_ROUTER_ID_DIRECT_IPV6_LEN);
+
+	case BGP_LS_PROTO_RESERVED:
+		return false;
+	}
+
+	return false;
+}
+
+bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
+{
+	if (!nlri)
+		return false;
+
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE: {
+		const struct bgp_ls_node_nlri *n = &nlri->nlri_data.node;
+
+		if (n->protocol_id == BGP_LS_PROTO_RESERVED)
+			return false;
+
+		/* IGP Router ID is mandatory (RFC 9552 Section 5.2.1.4) */
+		if (!BGP_LS_TLV_CHECK(n->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+			return false;
+
+		if (!bgp_ls_igp_router_id_len_valid(n->protocol_id,
+						    n->local_node.igp_router_id_len))
+			return false;
+
+		return true;
+	}
+
+	case BGP_LS_NLRI_TYPE_LINK: {
+		const struct bgp_ls_link_nlri *l = &nlri->nlri_data.link;
+
+		if (l->protocol_id == BGP_LS_PROTO_RESERVED)
+			return false;
+
+		/* Local node IGP Router ID is mandatory */
+		if (!BGP_LS_TLV_CHECK(l->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+			return false;
+
+		/* Remote node IGP Router ID is mandatory */
+		if (!BGP_LS_TLV_CHECK(l->remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+			return false;
+
+		if (!bgp_ls_igp_router_id_len_valid(l->protocol_id,
+						    l->local_node.igp_router_id_len) ||
+		    !bgp_ls_igp_router_id_len_valid(l->protocol_id,
+						    l->remote_node.igp_router_id_len))
+			return false;
+
+		return true;
+	}
+
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX: {
+		const struct bgp_ls_prefix_nlri *p = &nlri->nlri_data.prefix;
+
+		if (p->protocol_id == BGP_LS_PROTO_RESERVED)
+			return false;
+
+		/* Local node IGP Router ID is mandatory */
+		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+			return false;
+
+		if (!bgp_ls_igp_router_id_len_valid(p->protocol_id,
+						    p->local_node.igp_router_id_len))
+			return false;
+
+		/* Prefix family must be IPv4 */
+		if (p->prefix_desc.prefix.family != AF_INET)
+			return false;
+
+		return true;
+	}
+
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX: {
+		const struct bgp_ls_prefix_nlri *p = &nlri->nlri_data.prefix;
+
+		if (p->protocol_id == BGP_LS_PROTO_RESERVED)
+			return false;
+
+		/* Local node IGP Router ID is mandatory */
+		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+			return false;
+
+		if (!bgp_ls_igp_router_id_len_valid(p->protocol_id,
+						    p->local_node.igp_router_id_len))
+			return false;
+
+		/* Prefix family must be IPv6 */
+		if (p->prefix_desc.prefix.family != AF_INET6)
+			return false;
+
+		return true;
+	}
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		/* Reserved type is invalid */
+		return false;
+	}
+
+	return false;
+}
