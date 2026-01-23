@@ -262,9 +262,11 @@ bool pim_is_rp_allowed(struct pim_interface *pim_ifp, pim_addr *rp)
 	struct prefix rp_pfx;
 	struct prefix_list *pl;
 
-	/* No reason to call this if you're conforming to the RFC */
-	assert(pim_ifp->allow_rp);
+	/* If allow-rp is not enabled, don't allow mismatched RPs */
+	if (!pim_ifp->allow_rp)
+		return false;
 
+	/* allow-rp enabled with no prefix-list means allow all RPs */
 	if (!pim_ifp->allow_rp_plist)
 		return true;
 

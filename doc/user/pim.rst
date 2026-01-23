@@ -379,8 +379,8 @@ keyword at the end.
 
 .. clicmd:: ip pim allow-rp [rp-list PLIST]
 
-   When processing a (\*,G) source list entry for a particular gropu in a Join
-   message, :rfc:`7661` dictates that the source address must be set to the RP
+   When processing a (\*,G) source list entry for a particular group in a Join
+   message, :rfc:`7761` dictates that the source address must be set to the RP
    address. In some network designs, the sending router's idea of the RP for a
    particular group may not match ours. Enabling this knob disables checking
    that the source address in (\*,G) source list entries are equal to our RP
