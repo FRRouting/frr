@@ -381,6 +381,74 @@ struct l2vpn_svc *bgp_l2vpn_vpws_evi_match(uint32_t ethtag)
 	return NULL;
 }
 
+bool bgp_evpn_vpws_vni_changed(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	char errmsg[BUFSIZ];
+	struct l2vpn *l2vpn;
+	struct l2vpn_svc *l2vpn_svc, *l2vpn_svc_nxt;
+
+	RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
+		if (l2vpn->type != L2VPN_TYPE_VPWS)
+			continue;
+
+		RB_FOREACH_SAFE (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_inactive_tree,
+				 l2vpn_svc_nxt) {
+			if (vpn->vni != l2vpn_svc->vni)
+				continue;
+			SET_FLAG(vpn->flags, VNI_FLAG_VPWS);
+
+			if (!l2vpn_svc->enabled)
+				continue;
+			if (!is_l2vpn_vpws_ready(bgp, l2vpn, l2vpn_svc, errmsg, sizeof(errmsg))) {
+				if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+					zlog_debug("%s: VPWS local-ac %u, remote-ac %u no ready, reason: %s",
+						   __func__, l2vpn_svc->local_ac_id,
+						   l2vpn_svc->remote_ac_id, errmsg);
+				continue;
+			}
+
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, l2vpn_svc);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_tree, l2vpn_svc);
+			l2vpn_svc->local_status = EVPN_LOCAL_TX_FAULT;
+			l2vpn_svc->remote_status = EVPN_NOT_FORWARDING;
+			bgp_l2vpn_vpws_zebra_add(l2vpn_svc, true);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+uint32_t bgp_evpn_vpws_vni_del(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct l2vpn *l2vpn;
+	struct l2vpn_svc *l2vpn_svc, *l2vpn_svc_nxt;
+
+	RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
+		if (l2vpn->type != L2VPN_TYPE_VPWS)
+			continue;
+
+		RB_FOREACH_SAFE (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree, l2vpn_svc_nxt) {
+			if (vpn->vni != l2vpn_svc->vni)
+				continue;
+			UNSET_FLAG(vpn->flags, VNI_FLAG_VPWS);
+
+			if (!l2vpn_svc->enabled)
+				continue;
+
+			bgp_l2vpn_vpws_zebra_add(l2vpn_svc, false);
+			bgp_l2vpn_vpws_local_withdraw(bgp, l2vpn_svc, vpn);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, l2vpn_svc);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, l2vpn_svc);
+
+			return l2vpn_svc->evi;
+		}
+	}
+
+	return 0;
+}
+
 /* Read new evpn vpws status and data from zebra.
  * Update is need:
  *  - evpn vpws local status switching from EVPN_LOCAL_TX_FAULT to EVPN_NOT_FORWARDING.

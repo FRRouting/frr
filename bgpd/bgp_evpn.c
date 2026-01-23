@@ -7215,6 +7215,7 @@ static void bgp_evpn_l2vni_remote_route_processing(struct bgpevpn *vpn)
 int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
+	uint32_t evpn_vpws_changed = 0;
 
 	/* Locate VNI hash */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -7224,6 +7225,13 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	/* Remove the VPN from the bgp VPN FIFO (if exists) */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_ADD);
 	zebra_l2_vni_del(&bm->zebra_l2_vni_head, vpn);
+
+	if (CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
+		evpn_vpws_changed = bgp_evpn_vpws_vni_del(bgp, vpn);
+		if (evpn_vpws_changed && BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: EVPN VPWS EVI %u instance removed", __func__,
+				   evpn_vpws_changed);
+	}
 
 	/* Remove all local EVPN routes and schedule for processing (to
 	 * withdraw from peers).
@@ -7260,6 +7268,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
+	bool evpn_vpws_changed = false;
 	struct bgp *bgp_evpn = bgp_get_evpn();
 
 	/* Lookup VNI. If present and no change, exit. */
@@ -7364,6 +7373,17 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		 */
 		bgp_filter_evpn_routes_upon_martian_change(bgp_evpn,
 							   BGP_MARTIAN_TUN_IP);
+
+	/* try run bgp evpn vpws */
+	evpn_vpws_changed = bgp_evpn_vpws_vni_changed(bgp, vpn);
+	if (evpn_vpws_changed) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%u: vni %u, EVPN type changed from %s to %s",
+				   vpn->tenant_vrf_id,
+				   vpn->vni, CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS) ? "evpn" : "vpws",
+				   CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS) ? "vpws" : "evpn");
+		return 0;
+	}
 
 	/*
 	 * Create EVPN type-3 route and schedule for processing.
