@@ -10,6 +10,9 @@
 #include "prefix.h"
 #include "bgpd/bgpd.h"
 
+/* Memory types */
+DECLARE_MTYPE(BGP_LS_ATTR);
+
 /*
  * ===========================================================================
  * Protocol and NLRI Type Definitions
@@ -587,5 +590,12 @@ struct bgp_ls_attr {
 	uint8_t *opaque_data;
 };
 
+/* Function prototypes */
+
+/* NLRI memory management functions */
+extern struct bgp_ls_nlri *bgp_ls_nlri_alloc(void);
+extern void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri);
+extern struct bgp_ls_attr *bgp_ls_attr_alloc(void);
+extern void bgp_ls_attr_free(struct bgp_ls_attr *attr);
 
 #endif /* _FRR_BGP_LS_NLRI_H */
