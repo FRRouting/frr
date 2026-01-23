@@ -106,6 +106,7 @@ enum bgp_log_refs {
 	EC_BGP_CONFIG_TIMEOUT,
 	EC_BGP_LABEL_POOL_INSERT_FAIL,
 	EC_BGP_TTL_SECURITY_FAIL,
+	EC_BGP_LS_PACKET,
 };
 
 extern void bgp_error_init(void);
