@@ -806,6 +806,9 @@ struct bgp {
 	/* BGP routing information base.  */
 	struct bgp_table *rib[AFI_MAX][SAFI_MAX];
 
+	/* BGP-LS specific data */
+	struct bgp_ls *ls_info;
+
 	/* BGP table route-map.  */
 	struct bgp_rmap table_map[AFI_MAX][SAFI_MAX];
 
