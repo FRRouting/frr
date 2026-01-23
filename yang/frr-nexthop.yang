@@ -62,6 +62,11 @@ module frr-nexthop {
       "Initial revision.";
   }
 
+  revision 2026-01-23 {
+    description
+      "Add support for 16-bit weights.";
+  }
+
   typedef optional-ip-address {
     type union {
       type inet:ip-address;
@@ -245,7 +250,7 @@ module frr-nexthop {
     }
 
     leaf weight {
-      type uint8;
+      type uint16;
       config false;
       description
         "Weight to be used by the nexthop for purposes of ECMP";
@@ -351,7 +356,7 @@ module frr-nexthop {
    */
   augment "/frr-nexthop-group/nexthop-groups/frr-nexthops/nexthop" {
     leaf weight {
-      type uint8;
+      type uint16;
       description
         "Weight to be used by the nexthop for purposes of ECMP";
     }
