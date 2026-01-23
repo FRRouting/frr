@@ -61,6 +61,9 @@ extern int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri);
  */
 extern int bgp_ls_withdraw(struct bgp *bgp, struct bgp_ls_nlri *nlri);
 
+/* BGP-LS NLRI parsing */
+extern int bgp_nlri_parse_ls(struct peer *peer, struct attr *attr, struct bgp_nlri *packet);
+
 /* BGP-LS registration with link-state database */
 extern bool bgp_ls_register(struct bgp *bgp);
 extern bool bgp_ls_unregister(struct bgp *bgp);
