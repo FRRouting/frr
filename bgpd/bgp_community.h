@@ -24,7 +24,7 @@ struct community {
 	/* Communities as a json object */
 	json_object *json;
 
-	/* String of community attribute.  This sring is used by vty output
+	/* String of community attribute.  This string is used by vty output
 	   and expanded community-list for regular expression match.  */
 	char *str;
 };

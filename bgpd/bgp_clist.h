@@ -105,7 +105,7 @@ struct community_list_handler {
 	/* Community-list.  */
 	struct community_list_master community_list;
 
-	/* Exteded community-list.  */
+	/* Extended community-list.  */
 	struct community_list_master extcommunity_list;
 
 	/* Large community-list.  */

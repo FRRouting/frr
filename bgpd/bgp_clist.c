@@ -1420,7 +1420,7 @@ void extcommunity_list_unset(struct community_list_handler *ch,
 	route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
 }
 
-/* Initializa community-list.  Return community-list handler.  */
+/* Initialize community-list.  Return community-list handler.  */
 struct community_list_handler *community_list_init(void)
 {
 	struct community_list_handler *ch;
