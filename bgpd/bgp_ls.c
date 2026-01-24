@@ -6,6 +6,9 @@
 
 #include <zebra.h>
 
+#include "lib/json.h"
+
+#include "stream.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_ls.h"
@@ -19,6 +22,406 @@
 #undef UNKNOWN
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
+
+/*
+ * Helper Functions for NLRI Formatting
+ */
+
+/* Convert node descriptor to JSON */
+static json_object *node_desc_to_json(struct bgp_ls_node_descriptor *node)
+{
+	json_object *json_node = json_object_new_object();
+
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_AS_BIT))
+		json_object_int_add(json_node, "asn", node->asn);
+
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
+		json_object_int_add(json_node, "bgplsId", node->bgp_ls_id);
+
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT))
+		json_object_string_addf(json_node, "ospfAreaId", "%pI4",
+					(in_addr_t *)&node->ospf_area_id);
+
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+		char igp_router_id[256];
+		char *p = igp_router_id;
+
+		for (int i = 0; i < node->igp_router_id_len; i++) {
+			p += snprintfrr(p, sizeof(igp_router_id) - (p - igp_router_id), "%02x",
+					node->igp_router_id[i]);
+			if (i < node->igp_router_id_len - 1 && (i + 1) % 2 == 0) {
+				p += snprintfrr(p, sizeof(igp_router_id) - (p - igp_router_id),
+						".");
+			}
+		}
+		json_object_string_add(json_node, "igpRouterId", igp_router_id);
+	}
+
+	return json_node;
+}
+
+/* Convert link descriptor to JSON */
+static json_object *link_desc_to_json(struct bgp_ls_link_descriptor *link_desc)
+{
+	json_object *json_link = json_object_new_object();
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
+		json_object_int_add(json_link, "linkLocalId", link_desc->link_local_id);
+		json_object_int_add(json_link, "linkRemoteId", link_desc->link_remote_id);
+	}
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT))
+		json_object_string_addf(json_link, "ipv4InterfaceAddress", "%pI4",
+					&link_desc->ipv4_intf_addr);
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT))
+		json_object_string_addf(json_link, "ipv4NeighborAddress", "%pI4",
+					&link_desc->ipv4_neigh_addr);
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT))
+		json_object_string_addf(json_link, "ipv6InterfaceAddress", "%pI6",
+					&link_desc->ipv6_intf_addr);
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT))
+		json_object_string_addf(json_link, "ipv6NeighborAddress", "%pI6",
+					&link_desc->ipv6_neigh_addr);
+
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) &&
+	    link_desc->mt_id_count > 0)
+		json_object_int_add(json_link, "mtId", link_desc->mt_id[0]);
+
+	return json_link;
+}
+
+/* Convert prefix descriptor to JSON */
+static json_object *prefix_desc_to_json(struct bgp_ls_prefix_descriptor *prefix_desc,
+					enum bgp_ls_nlri_type nlri_type)
+{
+	json_object *json_prefix = json_object_new_object();
+
+	/* IP Reachability Information */
+	json_object_string_addf(json_prefix, "ipReachabilityInformation", "%pFX",
+				&prefix_desc->prefix);
+
+	/* OSPF Route Type */
+	if (BGP_LS_TLV_CHECK(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT))
+		json_object_string_addf(json_prefix, "ospfRouteType", "%s",
+					bgp_ls_ospf_route_type_str_json(
+						prefix_desc->ospf_route_type));
+
+	return json_prefix;
+}
+
+/* Convert NLRI to JSON */
+json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri)
+{
+	json_object *json_nlri = json_object_new_object();
+	const char *nlri_type_str = NULL;
+	enum bgp_ls_protocol_id protocol_id = 0;
+	uint64_t identifier = 0;
+
+	/* NLRI Type */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		nlri_type_str = "node";
+		protocol_id = nlri->nlri_data.node.protocol_id;
+		identifier = nlri->nlri_data.node.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_LINK:
+		nlri_type_str = "link";
+		protocol_id = nlri->nlri_data.link.protocol_id;
+		identifier = nlri->nlri_data.link.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+		nlri_type_str = "ipv4Prefix";
+		protocol_id = nlri->nlri_data.prefix.protocol_id;
+		identifier = nlri->nlri_data.prefix.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		nlri_type_str = "ipv6Prefix";
+		protocol_id = nlri->nlri_data.prefix.protocol_id;
+		identifier = nlri->nlri_data.prefix.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		nlri_type_str = "unknown";
+		break;
+	}
+	json_object_string_add(json_nlri, "nlriType", nlri_type_str);
+
+	/* Protocol ID */
+	json_object_int_add(json_nlri, "protocolId", protocol_id);
+
+	/* Identifier */
+	json_object_int_add(json_nlri, "identifier", identifier);
+
+	/* Type-specific descriptors */
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_NODE) {
+		json_object *json_local = node_desc_to_json(&nlri->nlri_data.node.local_node);
+
+		json_object_object_add(json_nlri, "localNodeDescriptors", json_local);
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_LINK) {
+		json_object *json_local = node_desc_to_json(&nlri->nlri_data.link.local_node);
+		json_object *json_remote = node_desc_to_json(&nlri->nlri_data.link.remote_node);
+		json_object *json_link = link_desc_to_json(&nlri->nlri_data.link.link_desc);
+
+		json_object_object_add(json_nlri, "localNodeDescriptors", json_local);
+		json_object_object_add(json_nlri, "remoteNodeDescriptors", json_remote);
+		json_object_object_add(json_nlri, "linkDescriptors", json_link);
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
+		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		json_object *json_local = node_desc_to_json(&nlri->nlri_data.prefix.local_node);
+		json_object *json_prefix = prefix_desc_to_json(&nlri->nlri_data.prefix.prefix_desc,
+							       nlri->nlri_type);
+		json_object_object_add(json_nlri, "localNodeDescriptors", json_local);
+		json_object_object_add(json_nlri, "prefixDescriptors", json_prefix);
+	}
+
+	return json_nlri;
+}
+
+/* Format node descriptor to string */
+static void format_node_desc(char **p, size_t *remain, struct bgp_ls_node_descriptor *node,
+			     const char *prefix_str)
+{
+	int len;
+
+	len = snprintfrr(*p, *remain, "[%s", prefix_str);
+	*p += len;
+	*remain -= len;
+
+	/* AS Number */
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_AS_BIT)) {
+		len = snprintfrr(*p, *remain, "[c%u]", node->asn);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* BGP-LS Identifier (deprecated but still used) */
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[b%u.%u.%u.%u]", (node->bgp_ls_id >> 24) & 0xFF,
+				 (node->bgp_ls_id >> 16) & 0xFF, (node->bgp_ls_id >> 8) & 0xFF,
+				 node->bgp_ls_id & 0xFF);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* IGP Router ID */
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+		len = snprintfrr(*p, *remain, "[s");
+		*p += len;
+		*remain -= len;
+		for (int i = 0; i < node->igp_router_id_len; i++) {
+			len = snprintfrr(*p, *remain, "%02x", node->igp_router_id[i]);
+			*p += len;
+			*remain -= len;
+			if (i < node->igp_router_id_len - 1 && (i + 1) % 2 == 0) {
+				len = snprintfrr(*p, *remain, ".");
+				*p += len;
+				*remain -= len;
+			}
+		}
+		len = snprintfrr(*p, *remain, "]");
+		*p += len;
+		*remain -= len;
+	}
+
+	len = snprintfrr(*p, *remain, "]");
+	*p += len;
+	*remain -= len;
+}
+
+/* Format link descriptor to string */
+static void format_link_desc(char **p, size_t *remain, struct bgp_ls_link_descriptor *link_desc)
+{
+	int len;
+
+	len = snprintfrr(*p, *remain, "[L");
+	*p += len;
+	*remain -= len;
+
+	/* Link Local/Remote Identifiers (TLV 258) */
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[l%u/%u]", link_desc->link_local_id,
+				 link_desc->link_remote_id);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* IPv4 Interface Address (TLV 259) */
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
+		len = snprintfrr(*p, *remain, "[i%pI4]", &link_desc->ipv4_intf_addr);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* IPv4 Neighbor Address (TLV 260) */
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
+		len = snprintfrr(*p, *remain, "[n%pI4]", &link_desc->ipv4_neigh_addr);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* IPv6 Interface Address (TLV 261) */
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
+		len = snprintfrr(*p, *remain, "[i%pI6]", &link_desc->ipv6_intf_addr);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* IPv6 Neighbor Address (TLV 262) */
+	if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
+		len = snprintfrr(*p, *remain, "[n%pI6]", &link_desc->ipv6_neigh_addr);
+		*p += len;
+		*remain -= len;
+	}
+
+	len = snprintfrr(*p, *remain, "]");
+	*p += len;
+	*remain -= len;
+}
+
+void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
+{
+	char tmp[512];
+	char *p = buf;
+	size_t remain = buf_len;
+	int len;
+
+	if (!nlri || !buf || buf_len == 0)
+		return;
+
+	/* NLRI Type prefix */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		len = snprintfrr(p, remain, "[R]");
+		break;
+	case BGP_LS_NLRI_TYPE_NODE:
+		len = snprintfrr(p, remain, "[V]");
+		break;
+	case BGP_LS_NLRI_TYPE_LINK:
+		len = snprintfrr(p, remain, "[E]");
+		break;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		len = snprintfrr(p, remain, "[T]");
+		break;
+	default:
+		len = snprintfrr(p, remain, "[U]");
+		break;
+	}
+	p += len;
+	remain -= len;
+
+	/* Protocol ID and Instance ID - directly from NLRI structures */
+	const char *proto_str = NULL;
+	uint64_t instance_id = 0;
+	enum bgp_ls_protocol_id protocol_id = 0;
+
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_NODE) {
+		protocol_id = nlri->nlri_data.node.protocol_id;
+		instance_id = nlri->nlri_data.node.identifier;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_LINK) {
+		protocol_id = nlri->nlri_data.link.protocol_id;
+		instance_id = nlri->nlri_data.link.identifier;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
+		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		protocol_id = nlri->nlri_data.prefix.protocol_id;
+		instance_id = nlri->nlri_data.prefix.identifier;
+	}
+
+	switch (protocol_id) {
+	case BGP_LS_PROTO_ISIS_L1:
+		proto_str = "L1";
+		break;
+	case BGP_LS_PROTO_ISIS_L2:
+		proto_str = "L2";
+		break;
+	case BGP_LS_PROTO_OSPFV2:
+		proto_str = "O";
+		break;
+	case BGP_LS_PROTO_OSPFV3:
+		proto_str = "O3";
+		break;
+	case BGP_LS_PROTO_DIRECT:
+		proto_str = "D";
+		break;
+	case BGP_LS_PROTO_STATIC:
+		proto_str = "S";
+		break;
+	case BGP_LS_PROTO_BGP:
+		proto_str = "B";
+		break;
+	case BGP_LS_PROTO_RESERVED:
+		proto_str = "U";
+		break;
+	}
+	len = snprintfrr(p, remain, "[%s][I0x%llx]", proto_str, (unsigned long long)instance_id);
+	p += len;
+	remain -= len;
+
+	/* Add NLRI type-specific descriptors */
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_NODE) {
+		format_node_desc(&p, &remain, &nlri->nlri_data.node.local_node, "N");
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_LINK) {
+		format_node_desc(&p, &remain, &nlri->nlri_data.link.local_node, "N");
+		format_node_desc(&p, &remain, &nlri->nlri_data.link.remote_node, "R");
+		format_link_desc(&p, &remain, &nlri->nlri_data.link.link_desc);
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
+		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		format_node_desc(&p, &remain, &nlri->nlri_data.prefix.local_node, "N");
+
+		/* Format prefix */
+		len = snprintfrr(p, remain, "[P[p");
+		p += len;
+		remain -= len;
+
+		if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX) {
+			inet_ntop(AF_INET, &nlri->nlri_data.prefix.prefix_desc.prefix.u.prefix4,
+				  tmp, sizeof(tmp));
+		} else {
+			inet_ntop(AF_INET6, &nlri->nlri_data.prefix.prefix_desc.prefix.u.prefix6,
+				  tmp, sizeof(tmp));
+		}
+		len = snprintfrr(p, remain, "%s/%u", tmp,
+				 nlri->nlri_data.prefix.prefix_desc.prefix.prefixlen);
+		p += len;
+		remain -= len;
+
+		len = snprintfrr(p, remain, "]]");
+		p += len;
+		remain -= len;
+	}
+}
+
+/*
+ * Helper function to lookup BGP-LS NLRI by string representation
+ */
+struct bgp_dest *bgp_ls_lookup_nlri_by_str(struct bgp *bgp, const char *nlri_str)
+{
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	char formatted_nlri[1024];
+	struct bgp_ls_nlri *entry;
+
+	if (!bgp || !bgp->ls_info)
+		return NULL;
+
+	table = bgp->rib[AFI_BGP_LS][SAFI_BGP_LS];
+	if (!table)
+		return NULL;
+
+	/* Iterate through the table and match formatted NLRI string */
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		entry = dest->ls_nlri;
+		if (!entry)
+			continue;
+		bgp_ls_nlri_format(entry, formatted_nlri, sizeof(formatted_nlri));
+		if (strcmp(formatted_nlri, nlri_str) == 0)
+			return dest;
+	}
+
+	return NULL;
+}
 
 /*
  * ===========================================================================

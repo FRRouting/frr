@@ -69,6 +69,13 @@ extern bool bgp_ls_register(struct bgp *bgp);
 extern bool bgp_ls_unregister(struct bgp *bgp);
 extern bool bgp_ls_is_registered(struct bgp *bgp);
 
+/* BGP-LS NLRI lookup helpers */
+extern struct bgp_dest *bgp_ls_lookup_nlri_by_str(struct bgp *bgp, const char *nlri_str);
+
+/* BGP-LS NLRI helpers */
+extern struct json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri);
+extern void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len);
+
 /* Module initialization and cleanup */
 extern void bgp_ls_init(struct bgp *bgp);
 extern void bgp_ls_cleanup(struct bgp *bgp);
