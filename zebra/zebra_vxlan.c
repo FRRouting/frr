@@ -1776,8 +1776,7 @@ static int svd_nh_uninstall(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 }
 
 /* Check for stale RMAC and delete if exists */
-static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
-				  const struct ethaddr old_rmac,
+static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethaddr old_rmac,
 				  const struct ipaddr *vtep_ip)
 {
 	struct zebra_mac *zrmac = NULL;
@@ -1785,13 +1784,14 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
 	if (!zrmac) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("L3VNI %u RMAC %pEA is deleted from cache",
-				   zl3vni->vni, &old_rmac);
+			zlog_debug("L3VNI %u RMAC %pEA is deleted from cache", zl3vni->vni,
+				   &old_rmac);
 		return;
 	}
 	if (listcount(zrmac->nh_list)) {
 		struct ipaddr *curr_vtep = NULL;
 		struct listnode *node = NULL, *nnode = NULL;
+
 		for (ALL_LIST_ELEMENTS(zrmac->nh_list, node, nnode, curr_vtep)) {
 			if (ipaddr_cmp(curr_vtep, vtep_ip) == 0)
 				break;
@@ -1817,14 +1817,12 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 
 	if (!listcount(zrmac->nh_list)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
-				zl3vni->vni, &old_rmac, vtep_ip);
+			zlog_debug("L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
+				   zl3vni->vni, &old_rmac, vtep_ip);
 		/* Uninstall from kernel and rmac table */
 		zl3vni_rmac_uninstall(zl3vni, zrmac);
 		zl3vni_rmac_del(zl3vni, zrmac);
 	}
-	return;
 }
 
 /* Add remote vtep as a neigh entry */
