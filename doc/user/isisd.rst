@@ -647,6 +647,292 @@ data plane (SRv6) as per RFC 9352.
 
    Show detailed information about all learned SRv6 Nodes.
 
+.. _isis-srv6-tilfa:
+
+SRv6 TI-LFA
+-----------
+
+Topology Independent Loop-Free Alternate (TI-LFA) provides fast reroute
+protection by pre-computing backup paths before failures occur. When a link
+or node fails, traffic is immediately switched to the backup path, achieving
+sub-50ms convergence. This is an implementation of
+`RFC 8402 <https://tools.ietf.org/html/rfc8402>`_ TI-LFA with SRv6 dataplane
+as specified in `RFC 9352 <https://tools.ietf.org/html/rfc9352>`_.
+
+TI-LFA uses Segment Routing to encode backup paths as a list of segments
+(SIDs). Unlike classic LFA which depends on favorable network topology,
+TI-LFA can protect any destination in any topology by steering traffic
+through intermediate nodes.
+
+With MPLS dataplane, TI-LFA uses label stacks where each label requires
+SRGB (Segment Routing Global Block) translation. With SRv6 dataplane,
+TI-LFA uses IPv6 addresses directly as segment identifiers:
+
+- End SID: identifies a node (similar to Prefix-SID in MPLS)
+
+- End.X SID: identifies an adjacency to a specific neighbor (similar to Adj-SID)
+
+A key difference is that SRv6 End.X SIDs are globally routable IPv6 addresses.
+Once traffic reaches the Q-node (the node adjacent to the destination on the
+post-convergence path), normal IPv6 routing delivers it to the destination.
+This means SRv6 TI-LFA does not need to push a destination SID, resulting in
+shorter segment lists compared to MPLS.
+
+TI-LFA supports three protection types:
+
+- Link protection
+  Protects against link failures. The backup path avoids the failed link but
+  may traverse the same next-hop node.
+
+- Node protection
+  Protects against node failures. The backup path avoids both the failed link
+  and the next-hop node entirely.
+
+- SRLG protection
+  Protects against shared risk failures. The backup path avoids all links that
+  share the same SRLG values as the protected link.
+
+Configuration
+^^^^^^^^^^^^^
+
+To enable SRv6 TI-LFA, configure both the global setting under
+``segment-routing srv6`` and per-interface settings.
+
+The following commands configure SRv6 TI-LFA at the ``segment-routing srv6``
+configuration level:
+
+.. clicmd:: fast-reroute ti-lfa
+
+   Enable TI-LFA computation with SRv6 dataplane. This must be configured
+   in addition to per-interface TI-LFA settings.
+
+.. clicmd:: node-msd
+
+   Enter Maximum SID Depth (MSD) configuration mode. MSD values are advertised
+   to neighbors and used during TI-LFA computation to ensure backup paths do
+   not exceed the router's segment processing capabilities.
+
+.. clicmd:: max-segs-left (0-255)
+
+   Specifies the maximum number of SIDs that can remain in the Segment Routing
+   Header (SRH) when a packet is received by this node. This limits the depth
+   of SRv6 segment stacks the router can process.
+
+.. clicmd:: max-end-pop (0-255)
+
+   Specifies the maximum number of SIDs that can be popped by the End.Pop
+   behavior at this node.
+
+.. clicmd:: max-h-encaps (0-255)
+
+   Specifies the maximum number of SIDs that can be pushed when this node
+   acts as a headend performing H.Encaps (SRv6 encapsulation).
+
+.. clicmd:: max-end-d (0-255)
+
+   Specifies the maximum number of SIDs in an SRH when applying End.DX
+   (decapsulation with cross-connect) or End.DT (decapsulation with table
+   lookup) behaviors.
+
+The following command configures TI-LFA at the interface level:
+
+.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection [link-fallback]] [srlg-protection]
+
+   Enable TI-LFA on the interface for the specified level (or both if not
+   specified).
+
+   - Without protection options: enables link protection only
+
+   - ``node-protection``: enables node protection, which computes backup paths
+     that avoid the next-hop node entirely
+
+   - ``link-fallback``: when used with node-protection, falls back to link
+     protection for destinations where node protection is not achievable
+
+   - ``srlg-protection``: enables SRLG-aware backup path computation (see
+     :ref:`isis-srlg-protection`)
+
+.. _isis-srlg-protection:
+
+SRLG Protection
+^^^^^^^^^^^^^^^
+
+Shared Risk Link Group (SRLG) identifies links that share a common physical
+resource and are likely to fail together. For example, two fiber links in the
+same conduit, or links crossing the same bridge, share failure risk. When one
+fails, the other is likely to fail simultaneously.
+
+SRLG protection extends TI-LFA to compute backup paths that avoid not only the
+failed link but also all other links sharing any SRLG value with it. This
+prevents backup path failures during correlated failure events. SRLG is
+specified in `RFC 5307 <https://tools.ietf.org/html/rfc5307>`_.
+
+Each interface is configured with one or more SRLG values (32-bit integers).
+These values are advertised in IS-IS LSPs using the SRLG sub-TLV. When
+computing TI-LFA backup paths with srlg-protection enabled, the algorithm
+excludes any link whose SRLG set intersects with the protected link's SRLG set.
+
+Configuration
+"""""""""""""
+
+.. clicmd:: isis srlg (0-16777215)
+
+   Assign an SRLG value to the interface. Multiple SRLG values can be assigned
+   by repeating the command. Each value represents membership in a shared risk
+   group.
+
+   Example: Two links in the same fiber conduit should be assigned the same
+   SRLG value so that TI-LFA avoids using one as backup for the other.
+
+To enable SRLG-aware TI-LFA, add the ``srlg-protection`` option to the
+interface TI-LFA configuration:
+
+.. code-block:: frr
+
+   interface eth0
+    isis fast-reroute ti-lfa level-1 srlg-protection
+    isis srlg 100
+    isis srlg 200
+   !
+   interface eth1
+    isis fast-reroute ti-lfa level-1 srlg-protection
+    isis srlg 100
+   !
+
+In this example, eth0 and eth1 share SRLG 100. If eth0 fails, TI-LFA will not
+use eth1 as part of the backup path because they share a common SRLG.
+
+Flex-Algo SRLG Constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+SRLG constraints can also be applied to Flexible Algorithm definitions,
+allowing Flex-Algo to exclude links with specific SRLG values from its
+topology.
+
+.. clicmd:: srlg exclude-any (0-16777215)
+
+   Under flex-algo configuration mode, exclude links that have the specified
+   SRLG value. Multiple values can be excluded by repeating the command.
+
+Show Commands
+^^^^^^^^^^^^^
+
+Use ``show isis fast-reroute summary`` (see :ref:`showing-isis-information`) to
+display FRR protection statistics. Example output with TI-LFA protection::
+
+   IS-IS Level-1 IPv4 Fast ReRoute summary:
+
+   Protection \ Priority  Critical  High      Medium    Low       Total
+   -------------------------------------------------------------------------
+   Classic LFA            0         0         0         0         0
+   Remote LFA             0         0         0         0         0
+   Topology Independent   0         0         1         8         9
+   ECMP                   0         0         0         0         0
+   Unprotected            0         0         0         0         0
+   Protection coverage    0.00%     0.00%     100.00%   100.00%   100.00%
+
+This output shows that TI-LFA is protecting 9 prefixes with 100% coverage.
+
+Use ``show isis route backup`` (see :ref:`showing-isis-information`) to display
+TI-LFA backup paths. For SRv6, backup paths display the segment stack as IPv6
+addresses separated by slashes. Example output::
+
+   IS-IS Level-1 IPv6 routing table:
+
+   Prefix            Metric  Interface  Nexthop          Label(s)
+   ----------------------------------------------------------------
+   fc00:0:3::1/128   20      eth-sw1    fe80::1          fc00:0:2:1::/fc00:0:3:42::
+
+The Label(s) column shows the SRv6 segment stack: first the End SID of the
+P-node (fc00:0:2:1::), then the End.X SID to reach the destination
+(fc00:0:3:42::).
+
+.. clicmd:: show isis [vrf <NAME|all>] srlg [level-1|level-2] [json]
+
+   Display SRLG information learned from the IS-IS link-state database.
+   Shows which links have SRLG values assigned and what those values are.
+
+   Example output::
+
+      Area FOO:
+        Level-1 SRLG information:
+          0000.0000.0001.00-00 -> 0000.0000.0002: 100 200
+          0000.0000.0002.00-00 -> 0000.0000.0001: 100 200
+          0000.0000.0002.00-00 -> 0000.0000.0003: 300
+
+   This shows that the link between nodes 0001 and 0002 has SRLG values 100
+   and 200, while the link from 0002 to 0003 has SRLG value 300.
+
+Configuration Example
+^^^^^^^^^^^^^^^^^^^^^
+
+Complete SRv6 TI-LFA configuration with node protection and SRLG:
+
+.. code-block:: frr
+
+   ! Create the SRv6 interface (run as root before starting FRR)
+   ! # ip link add sr0 type dummy
+   ! # ip link set sr0 up
+
+   ! Zebra configuration for SRv6 locator
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16
+       behavior usid
+   !
+   ! Interface configuration
+   interface lo
+    ip address 1.1.1.1/32
+    ipv6 address fc00:0:1::1/128
+    ip router isis FOO
+    ipv6 router isis FOO
+    isis passive
+   !
+   interface eth-sw1
+    ip address 10.0.1.1/24
+    ipv6 address 2001:db8:1::1/64
+    ip router isis FOO
+    ipv6 router isis FOO
+    isis hello-interval 1
+    isis hello-multiplier 10
+    isis fast-reroute ti-lfa level-1 node-protection link-fallback srlg-protection
+    isis srlg 100
+   !
+   interface eth-sw2
+    ip address 10.0.2.1/24
+    ipv6 address 2001:db8:2::1/64
+    ip router isis FOO
+    ipv6 router isis FOO
+    isis hello-interval 1
+    isis hello-multiplier 10
+    isis fast-reroute ti-lfa level-1 node-protection link-fallback srlg-protection
+    isis srlg 100
+   !
+   ! Router configuration
+   router isis FOO
+    net 49.0000.0000.0000.0001.00
+    is-type level-1
+    topology ipv6-unicast
+    segment-routing srv6
+     locator loc1
+     node-msd
+      max-segs-left 3
+      max-end-pop 3
+      max-h-encaps 2
+      max-end-d 5
+     fast-reroute ti-lfa
+
+In this example:
+
+- SRv6 is enabled with locator ``loc1`` using micro-SID (uSID) behavior
+- Node MSD values are configured to advertise segment processing capabilities
+- Both eth-sw1 and eth-sw2 have TI-LFA enabled with node protection, link
+  fallback, and SRLG protection
+- Both interfaces share SRLG 100, so neither will be used as backup for the
+  other during SRLG-protected failover
+
 Debugging ISIS
 ==============
 
