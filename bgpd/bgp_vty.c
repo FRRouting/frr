@@ -249,6 +249,9 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "L2VPN EVPN";
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			return "Link-State";
 	}
 
 	return "Unknown";
@@ -291,6 +294,9 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "l2VpnEvpn";
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			return "linkState";
 	}
 
 	return "Unknown";
@@ -20086,6 +20092,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			vty_frame(vty, "l2vpn evpn");
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			vty_frame(vty, "link-state link-state");
 	}
 	vty_frame(vty, "\n");
 
@@ -20746,6 +20755,9 @@ int bgp_config_write(struct vty *vty)
 
 		/* EVPN configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
+
+		/* BGP-LS configuration.  */
+		bgp_config_write_family(vty, bgp, AFI_BGP_LS, SAFI_BGP_LS);
 
 		hook_call(bgp_inst_config_write, bgp, vty);
 
