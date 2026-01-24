@@ -966,16 +966,40 @@ static void be_client_handle_notify_select(struct mgmt_be_client *client, void *
 					   size_t msg_len)
 {
 	struct mgmt_msg_notify_select *msg = msgbuf;
+	const char **proposed = NULL;
+	const char *const *oper, *const *eoper;
 	const char **selectors = NULL;
+	int plen, olen;
+	uint i;
 
 	debug_be_client("Received notify-select for client %s", client->name);
 
 	if (msg_len >= sizeof(*msg))
-		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
+		proposed = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
+
+	/* filter the selectors to only our operational state */
+	darr_foreach_i (proposed, i) {
+		plen = strlen(proposed[i]);
+		oper = client->cbs.oper_xpaths;
+		eoper = oper + client->cbs.noper_xpaths;
+		for (; oper < eoper; oper++) {
+			olen = strlen(*oper);
+			if (!strncmp(*oper, proposed[i], olen <= plen ? olen : plen)) {
+				*darr_append(selectors) = proposed[i];
+				break;
+			}
+		}
+		if (oper == eoper)
+			darr_free(proposed[i]);
+	}
+	darr_free(proposed);
+
 	if (!msg->get_only)
 		nb_notif_set_filters(selectors, msg->replace);
-	else
+	if (msg->get_only || msg->subscribing)
 		nb_notif_get_state(selectors, msg->refer_id);
+
+	darr_free_free(selectors);
 }
 
 /*
@@ -1116,9 +1140,12 @@ static int _notify_conenct_disconnect(struct msg_client *msg_client,
 							   client->user_data,
 							   connected);
 
-	/* Cleanup any in-progress TXN on disconnect */
-	if (!connected)
+	if (!connected) {
+		/* Remove all our notify selectors - they'll be added back on reconnect */
+		nb_notif_set_filters(NULL, true);
+		/* Cleanup any in-progress TXN on disconnect */
 		mgmt_be_cleanup_all_txns(client);
+	}
 
 	return 0;
 }

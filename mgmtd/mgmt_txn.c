@@ -588,7 +588,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 /* =========================== */
 
 void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64_t clients,
-				    const char **selectors)
+				    bool subscribing, const char **selectors)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_notify_select *msg;
@@ -603,6 +603,7 @@ void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64
 	msg->code = MGMT_MSG_CODE_NOTIFY_SELECT;
 	msg->replace = selectors == NULL;
 	msg->get_only = session_id != MGMTD_SESSION_ID_NONE;
+	msg->subscribing = subscribing;
 
 	if (selectors == NULL) {
 		/* Get selectors for all sessions */
