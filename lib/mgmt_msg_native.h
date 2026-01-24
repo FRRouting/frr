@@ -506,7 +506,8 @@ struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;
 	uint8_t replace;
 	uint8_t get_only;
-	uint8_t resv2[6];
+	uint8_t subscribing;
+	uint8_t resv2[5];
 
 	alignas(8) char selectors[];
 };
@@ -1020,8 +1021,7 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 	_mgmt_msg_native_strings_decode(sdata,                                 \
 					(msg_len) - ((sdata) - (char *)(msg)))
 
-extern const char **_mgmt_msg_native_strings_decode(const void *sdata,
-						    int sdlen);
+extern const char **_mgmt_msg_native_strings_decode(const void *sdata, int sdlen);
 
 #ifdef __cplusplus
 }
