@@ -64,6 +64,7 @@ of just protecting against the RT1-RT2 link failure.
 
 import os
 import sys
+import time
 import pytest
 import json
 from functools import partial
@@ -82,11 +83,38 @@ from lib.common_config import (
     check_kernel_seg6_support,
     enable_srv6_on_router,
 )
+from lib.srv6_helper import (
+    get_kernel_srv6_routes,
+    get_route_nexthop_info,
+    check_ping6,
+)
 
 pytestmark = [pytest.mark.isisd]
 
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}
+
+# Store baseline routes from step 1 for path verification
+baseline_routes = {}
+
+# SRv6 locator and loopback mappings
+LOCATORS = {
+    "rt1": "fc00:0:1::/48",
+    "rt2": "fc00:0:2::/48",
+    "rt3": "fc00:0:3::/48",
+    "rt4": "fc00:0:4::/48",
+    "rt5": "fc00:0:5::/48",
+    "rt6": "fc00:0:6::/48",
+}
+
+LOOPBACKS = {
+    "rt1": "fc00:0:1::1",
+    "rt2": "fc00:0:2::1",
+    "rt3": "fc00:0:3::1",
+    "rt4": "fc00:0:4::1",
+    "rt5": "fc00:0:5::1",
+    "rt6": "fc00:0:6::1",
+}
 
 
 def build_topo(tgen):
@@ -274,6 +302,69 @@ def test_rib_ipv6_step1():
         )
 
 
+def test_kernel_srv6_routes_step1():
+    """Verify SRv6 routes are correctly installed in the Linux kernel."""
+    logger.info("Test (step 1): verify SRv6 routes in kernel via iproute2")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router = tgen.gears[rname]
+        routes = get_kernel_srv6_routes(router)
+        local_locator = LOCATORS[rname]
+        assert local_locator in routes, f"{rname}: local SID {local_locator} not in kernel"
+        assert routes[local_locator].get("encap") == "seg6local", \
+            f"{rname}: local SID should have seg6local encap"
+
+
+def test_traffic_step1():
+    """Verify data plane connectivity using ping6 tests."""
+    logger.info("Test (step 1): verify traffic connectivity via ping6")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    for dest_name in ["rt2", "rt3", "rt4", "rt5", "rt6"]:
+        dest_addr = LOOPBACKS[dest_name]
+
+        # Retry ping to allow ISIS to converge on slower systems
+        max_retries = 10
+        success = False
+        output = ""
+        for attempt in range(max_retries):
+            success, output = check_ping6(router, dest_addr, count=3, timeout=5)
+            if success:
+                break
+            logger.info(f"Ping attempt {attempt + 1}/{max_retries} failed, retrying...")
+            time.sleep(1)
+
+        assert success, f"Ping from rt1 to {dest_name} failed:\n{output}"
+        logger.info(f"Ping rt1 -> {dest_name}: OK")
+
+
+def test_path_baseline_step1():
+    """Capture baseline route nexthops for path change verification."""
+    logger.info("Test (step 1): capture baseline route nexthops")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Capture RT1's routes to RT4 (will be affected by RT2's eth-sw1 shutdown)
+    # Path: RT1 -> RT2 -> RT4 (via eth-sw1 to RT2)
+    router = tgen.gears["rt1"]
+    baseline_routes["rt1_to_rt4"] = get_route_nexthop_info(router, LOCATORS["rt4"])
+    logger.info(f"RT1 -> RT4 baseline: {baseline_routes['rt1_to_rt4']}")
+
+    # Verify baseline route uses eth-sw1 (via RT2)
+    assert baseline_routes["rt1_to_rt4"]["dev"] == "eth-sw1", \
+        f"RT1 -> RT4 should use eth-sw1 in normal state, got {baseline_routes['rt1_to_rt4']['dev']}"
+
+
 #
 # Step 2
 #
@@ -319,6 +410,59 @@ def test_rib_ipv6_step2():
         )
 
 
+def test_kernel_srv6_routes_step2():
+    """Verify SRv6 routes in kernel after link failure."""
+    logger.info("Test (step 2): verify SRv6 routes in kernel after link failure")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router = tgen.gears[rname]
+        routes = get_kernel_srv6_routes(router)
+        local_locator = LOCATORS[rname]
+        assert local_locator in routes, f"{rname}: local SID missing after link failure"
+
+
+def test_traffic_step2():
+    """Verify traffic connectivity after link failure."""
+    logger.info("Test (step 2): verify traffic connectivity after link failure")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    for dest_name in ["rt3", "rt4", "rt5", "rt6"]:
+        dest_addr = LOOPBACKS[dest_name]
+        success, output = check_ping6(router, dest_addr, count=3, timeout=5)
+        assert success, f"Ping from rt1 to {dest_name} failed after link failure:\n{output}"
+        logger.info(f"Ping rt1 -> {dest_name}: OK")
+
+
+def test_path_changed_step2():
+    """Verify routes still exist after link failure (path may change)."""
+    logger.info("Test (step 2): verify routes exist after link failure")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Verify RT1 still has a route to RT4 after RT2's eth-sw1 goes down
+    router = tgen.gears["rt1"]
+    current_route = get_route_nexthop_info(router, LOCATORS["rt4"])
+    logger.info(f"RT1 -> RT4 after failure: {current_route}")
+
+    # Route should exist (via and dev should not be None)
+    assert current_route["via"] is not None, \
+        f"RT1 -> RT4 route should exist after link failure"
+    assert current_route["dev"] is not None, \
+        f"RT1 -> RT4 should have an outgoing device"
+
+    logger.info(f"Route exists: via={current_route['via']}, dev={current_route['dev']}")
+
+
 #
 # Step 3
 #
@@ -361,6 +505,61 @@ def test_rib_ipv6_step3():
         router_compare_json_output(
             rname, "show ipv6 route isis json", 3, "show_ipv6_route.ref"
         )
+
+
+def test_kernel_srv6_routes_step3():
+    """Verify SRv6 routes in kernel after link recovery."""
+    logger.info("Test (step 3): verify SRv6 routes in kernel after link restore")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router = tgen.gears[rname]
+        routes = get_kernel_srv6_routes(router)
+        for other_rname, other_locator in LOCATORS.items():
+            assert other_locator in routes, \
+                f"{rname}: route to {other_rname} missing after link restore"
+
+
+def test_traffic_step3():
+    """Verify traffic connectivity after link recovery."""
+    logger.info("Test (step 3): verify traffic connectivity after link restore")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    for dest_name in ["rt2", "rt3", "rt4", "rt5", "rt6"]:
+        dest_addr = LOOPBACKS[dest_name]
+        success, output = check_ping6(router, dest_addr, count=3, timeout=5)
+        assert success, f"Ping from rt1 to {dest_name} failed after link restore:\n{output}"
+        logger.info(f"Ping rt1 -> {dest_name}: OK")
+
+
+def test_path_restored_step3():
+    """Verify route nexthops restored to baseline after link recovery."""
+    logger.info("Test (step 3): verify route paths restored after link recovery")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # RT1's route to RT4 should be back to original path (via RT2)
+    router = tgen.gears["rt1"]
+    current_route = get_route_nexthop_info(router, LOCATORS["rt4"])
+    logger.info(f"RT1 -> RT4 after restore: {current_route}")
+
+    baseline = baseline_routes.get("rt1_to_rt4", {})
+    assert current_route["via"] == baseline.get("via"), \
+        f"RT1 -> RT4 nexthop should be restored. " \
+        f"Baseline: {baseline.get('via')}, Current: {current_route['via']}"
+    assert current_route["dev"] == "eth-sw1", \
+        f"RT1 -> RT4 should use eth-sw1 after restore, got {current_route['dev']}"
+
+    logger.info(f"Path restored: via={current_route['via']}, dev={current_route['dev']}")
 
 
 #
