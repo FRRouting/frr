@@ -526,6 +526,7 @@ struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri)
 	/* Allocate and copy NLRI */
 	nlri_copy = XCALLOC(MTYPE_BGP_LS_NLRI, sizeof(*nlri_copy));
 	memcpy(nlri_copy, nlri, sizeof(*nlri_copy));
+	nlri_copy->refcnt = 0;
 
 	/* Copy type-specific dynamically allocated fields */
 	switch (nlri->nlri_type) {
@@ -3839,4 +3840,431 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 	}
 
 	return 0;
+}
+
+/*
+ * Display BGP-LS Attributes to VTY output
+ * Used for "show bgp" commands to display link-state topology information
+ */
+void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
+{
+	int col = 0;
+	bool first_attr = true;
+
+#define COL_WIDTH   50
+#define INIT_INDENT "      Link-state: "
+#define CONT_INDENT "                   "
+#define CHECK_WRAP()                                                                              \
+	do {                                                                                      \
+		if (col > COL_WIDTH) {                                                            \
+			vty_out(vty, "\n" CONT_INDENT);                                           \
+			col = strlen(CONT_INDENT);                                                \
+		} else if (!first_attr) {                                                         \
+			vty_out(vty, ", ");                                                       \
+			col += 2;                                                                 \
+		}                                                                                 \
+		first_attr = false;                                                               \
+	} while (0)
+
+	vty_out(vty, INIT_INDENT);
+	col = strlen(INIT_INDENT);
+
+	/* Node Name */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Node Name: %s",
+			       ls_attr->node_name ? ls_attr->node_name : "(null)");
+	}
+
+	/* Local TE Router-ID (IPv4) */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Local TE Router-ID: %pI4", &ls_attr->ipv4_router_id_local);
+	}
+
+	/* Local TE Router-ID (IPv6) */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Local TE Router-ID: %pI6", &ls_attr->ipv6_router_id_local);
+	}
+
+	/* Link bandwidth */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_MAX_LINK_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Maximum Link BW (kbits/sec): %.0f",
+			       ls_attr->max_link_bw / 1000.0);
+	}
+
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_MAX_RESV_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Maximum Reserv Link BW (kbits/sec): %.0f",
+			       ls_attr->max_resv_bw / 1000.0);
+	}
+
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_UNRESV_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Maximum Unreserv Link BW (kbits/sec):");
+		for (int j = 0; j < 8; j++)
+			col += vty_out(vty, " %.0f", ls_attr->unreserved_bw[j] / 1000.0);
+	}
+
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "metric: %u", ls_attr->igp_metric);
+	}
+
+	/* TE Default Metric */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_TE_METRIC_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "TE Default Metric: %u", ls_attr->te_metric);
+	}
+
+	/* Administrative Group */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Administrative Group: 0x%08x", ls_attr->admin_group);
+	}
+
+	/* Link Protection Type */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_LINK_PROTECTION_BIT)) {
+		CHECK_WRAP();
+		vty_out(vty, "Link Protection Type: 0x%04x", ls_attr->link_protection);
+	}
+
+	/* MPLS Protocol Mask */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_MPLS_PROTOCOL_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "MPLS Protocol Mask: 0x%02x", ls_attr->mpls_protocol_mask);
+	}
+
+	/* SRLG */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_SRLG_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "SRLG:");
+		col += 5;
+		for (int j = 0; j < ls_attr->srlg_count; j++)
+			col += vty_out(vty, " %u", ls_attr->srlg_values[j]);
+	}
+
+	/* Link Name */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Link Name: %s", ls_attr->link_name);
+	}
+
+	/* Performance Metrics - Link Delay */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Link Delay: %u us", ls_attr->delay);
+	}
+
+	/* Min/Max Delay */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_MIN_MAX_DELAY_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Min Delay: %u us Max Delay: %u us", ls_attr->min_delay,
+			       ls_attr->max_delay);
+	}
+
+	/* Delay Variation */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_JITTER_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Delay Variation: %u us", ls_attr->jitter);
+	}
+
+	/* Packet Loss */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_PKT_LOSS_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Packet Loss: %u", ls_attr->pkt_loss);
+	}
+
+	/* Residual Bandwidth */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Residual BW (kbits/sec): %.0f", ls_attr->residual_bw / 1000.0);
+	}
+
+	/* Available Bandwidth */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Available BW (kbits/sec): %.0f",
+			       ls_attr->available_bw / 1000.0);
+	}
+
+	/* Utilized Bandwidth */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Utilized BW (kbits/sec): %.0f", ls_attr->utilized_bw / 1000.0);
+	}
+
+	/* IGP Flags (for prefixes) */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "IGP flags: 0x%02x", ls_attr->igp_flags);
+	}
+
+	/* Route Tags */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ROUTE_TAG_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Route tag:");
+		for (int j = 0; j < ls_attr->route_tag_count; j++)
+			col += vty_out(vty, " %u", ls_attr->route_tags[j]);
+	}
+
+	/* Extended Tags */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_EXTENDED_TAG_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Extended tag:");
+		for (int j = 0; j < ls_attr->extended_tag_count; j++)
+			col += vty_out(vty, " %" PRIu64, ls_attr->extended_tags[j]);
+	}
+
+	/* Prefix Metric */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_PREFIX_METRIC_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Metric: %u", ls_attr->prefix_metric);
+	}
+
+	/* OSPF Forwarding Address (IPv4) */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
+		if (ls_attr->ospf_fwd_addr.s_addr != INADDR_ANY) {
+			CHECK_WRAP();
+			vty_out(vty, "Forwarding addr: %pI4", &ls_attr->ospf_fwd_addr);
+		} else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6)) {
+			CHECK_WRAP();
+			vty_out(vty, "Forwarding addr: %pI6", &ls_attr->ospf_fwd_addr6);
+		}
+	}
+
+#undef CHECK_WRAP
+#undef COL_WIDTH
+#undef INIT_INDENT
+#undef CONT_INDENT
+
+	vty_out(vty, "\n");
+}
+
+/*
+ * Display BGP-LS NLRI to VTY output
+ * Used for "show bgp" commands to display link-state NLRI details
+ */
+void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
+{
+	char ipaddr_str[INET6_ADDRSTRLEN];
+	const char *nlri_type_str = NULL;
+	const char *protocol_str = NULL;
+
+	if (!nlri)
+		return;
+
+	/* Determine NLRI type string */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		nlri_type_str = "Node";
+		break;
+	case BGP_LS_NLRI_TYPE_LINK:
+		nlri_type_str = "Link";
+		break;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+		nlri_type_str = "Prefix";
+		break;
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		nlri_type_str = "Prefix";
+		break;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		nlri_type_str = "Unknown";
+		break;
+	}
+
+	/* Determine protocol string */
+	switch (nlri->nlri_data.node.protocol_id) {
+	case BGP_LS_PROTO_ISIS_L1:
+		protocol_str = "ISIS L1";
+		break;
+	case BGP_LS_PROTO_ISIS_L2:
+		protocol_str = "ISIS L2";
+		break;
+	case BGP_LS_PROTO_OSPFV2:
+		protocol_str = "OSPFv2";
+		break;
+	case BGP_LS_PROTO_OSPFV3:
+		protocol_str = "OSPFv3";
+		break;
+	case BGP_LS_PROTO_BGP:
+		protocol_str = "BGP";
+		break;
+	case BGP_LS_PROTO_DIRECT:
+		protocol_str = "Direct";
+		break;
+	case BGP_LS_PROTO_STATIC:
+		protocol_str = "Static";
+		break;
+	case BGP_LS_PROTO_RESERVED:
+		protocol_str = "Unknown";
+		break;
+	}
+
+	vty_out(vty, "NLRI Type: %s\n", nlri_type_str);
+	vty_out(vty, "Protocol: %s\n", protocol_str);
+	vty_out(vty, "Identifier: 0x%" PRIx64 "\n", nlri->nlri_data.node.identifier);
+
+	/* Display Local Node Descriptor */
+	vty_out(vty, "Local Node Descriptor:\n");
+	struct bgp_ls_node_descriptor *local_node = NULL;
+
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_NODE) {
+		local_node = &nlri->nlri_data.node.local_node;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_LINK) {
+		local_node = &nlri->nlri_data.link.local_node;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
+		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		local_node = &nlri->nlri_data.prefix.local_node;
+	}
+
+	if (local_node) {
+		if (BGP_LS_TLV_CHECK(local_node->present_tlvs, BGP_LS_NODE_DESC_AS_BIT))
+			vty_out(vty, "\tAS Number: %u\n", local_node->asn);
+		if (BGP_LS_TLV_CHECK(local_node->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT))
+			vty_out(vty, "\tArea ID: %pI4\n", (in_addr_t *)&local_node->ospf_area_id);
+		if (BGP_LS_TLV_CHECK(local_node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
+			vty_out(vty, "\tBGP Identifier: %u\n", local_node->bgp_ls_id);
+		if (BGP_LS_TLV_CHECK(local_node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+			if (local_node->igp_router_id_len == 4) {
+				vty_out(vty, "\tRouter ID IPv4: %pI4\n",
+					(struct in_addr *)local_node->igp_router_id);
+			} else if (local_node->igp_router_id_len == 6 ||
+				   local_node->igp_router_id_len == 7) {
+				vty_out(vty, "\tISO Node ID: %02x%02x.%02x%02x.%02x%02x.%02x\n",
+					local_node->igp_router_id[0], local_node->igp_router_id[1],
+					local_node->igp_router_id[2], local_node->igp_router_id[3],
+					local_node->igp_router_id[4], local_node->igp_router_id[5],
+					local_node->igp_router_id[6] >> 1);
+			} else if (local_node->igp_router_id_len == 16) {
+				inet_ntop(AF_INET6, local_node->igp_router_id, ipaddr_str,
+					  sizeof(ipaddr_str));
+				vty_out(vty, "\tRouter ID IPv6: %s\n", ipaddr_str);
+			}
+		}
+	}
+
+	/* Display Remote Node Descriptor for Link NLRI */
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_LINK) {
+		struct bgp_ls_node_descriptor *remote_node = &nlri->nlri_data.link.remote_node;
+
+		vty_out(vty, "Remote Node Descriptor:\n");
+
+		if (BGP_LS_TLV_CHECK(remote_node->present_tlvs, BGP_LS_NODE_DESC_AS_BIT))
+			vty_out(vty, "\tAS Number: %u\n", remote_node->asn);
+		if (BGP_LS_TLV_CHECK(remote_node->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT))
+			vty_out(vty, "\tArea ID: %pI4\n", (in_addr_t *)&remote_node->ospf_area_id);
+		if (BGP_LS_TLV_CHECK(remote_node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
+			vty_out(vty, "\tBGP Identifier: %u\n", remote_node->bgp_ls_id);
+		if (BGP_LS_TLV_CHECK(remote_node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+			if (remote_node->igp_router_id_len == 4) {
+				vty_out(vty, "\tRouter ID IPv4: %pI4\n",
+					(struct in_addr *)remote_node->igp_router_id);
+			} else if (remote_node->igp_router_id_len == 6 ||
+				   remote_node->igp_router_id_len == 7) {
+				vty_out(vty, "\tISO Node ID: %02x%02x.%02x%02x.%02x%02x.%02x\n",
+					remote_node->igp_router_id[0],
+					remote_node->igp_router_id[1],
+					remote_node->igp_router_id[2],
+					remote_node->igp_router_id[3],
+					remote_node->igp_router_id[4],
+					remote_node->igp_router_id[5],
+					remote_node->igp_router_id[6] >> 1);
+			} else if (remote_node->igp_router_id_len == 16) {
+				inet_ntop(AF_INET6, remote_node->igp_router_id, ipaddr_str,
+					  sizeof(ipaddr_str));
+				vty_out(vty, "\tRouter ID IPv6: %s\n", ipaddr_str);
+			}
+		}
+
+		/* Display Link Descriptor */
+		struct bgp_ls_link_descriptor *link_desc = &nlri->nlri_data.link.link_desc;
+
+		vty_out(vty, "Link Descriptor:\n");
+
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
+			vty_out(vty, "\tLink ID: %u.%u\n", link_desc->link_local_id,
+				link_desc->link_remote_id);
+		}
+
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
+			inet_ntop(AF_INET, &link_desc->ipv4_intf_addr, ipaddr_str,
+				  sizeof(ipaddr_str));
+			vty_out(vty, "\tLocal Interface Address IPv4: %s\n", ipaddr_str);
+		}
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
+			inet_ntop(AF_INET, &link_desc->ipv4_neigh_addr, ipaddr_str,
+				  sizeof(ipaddr_str));
+			vty_out(vty, "\tNeighbor Interface Address IPv4: %s\n", ipaddr_str);
+		}
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
+			inet_ntop(AF_INET6, &link_desc->ipv6_intf_addr, ipaddr_str,
+				  sizeof(ipaddr_str));
+			vty_out(vty, "\tLocal Interface Address IPv6: %s\n", ipaddr_str);
+		}
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
+			inet_ntop(AF_INET6, &link_desc->ipv6_neigh_addr, ipaddr_str,
+				  sizeof(ipaddr_str));
+			vty_out(vty, "\tNeighbor Interface Address IPv6: %s\n", ipaddr_str);
+		}
+
+		/* Display Link Descriptor Multi-Topology info */
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
+			vty_out(vty, "Multi-Topology:\n");
+			for (uint8_t i = 0; i < link_desc->mt_id_count; i++)
+				vty_out(vty, "\tMT-ID: %u\n", link_desc->mt_id[i]);
+		}
+	}
+
+	/* Display Prefix Descriptor for Prefix NLRI */
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
+	    nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
+		struct bgp_ls_prefix_descriptor *prefix_desc = &nlri->nlri_data.prefix.prefix_desc;
+
+		vty_out(vty, "Prefix Descriptor:\n");
+
+		char prefix_str[BUFSIZ];
+
+		prefix2str(&prefix_desc->prefix, prefix_str, sizeof(prefix_str));
+		vty_out(vty, "\tPrefix: %s\n", prefix_str);
+
+		/* OSPF Route Type */
+		if (BGP_LS_TLV_CHECK(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT)) {
+			const char *ospf_rt_str = NULL;
+
+			switch (prefix_desc->ospf_route_type) {
+			case BGP_LS_OSPF_RT_INTRA_AREA:
+				ospf_rt_str = "Intra-Area";
+				break;
+			case BGP_LS_OSPF_RT_INTER_AREA:
+				ospf_rt_str = "Inter-Area";
+				break;
+			case BGP_LS_OSPF_RT_EXTERNAL_1:
+				ospf_rt_str = "External Type 1";
+				break;
+			case BGP_LS_OSPF_RT_EXTERNAL_2:
+				ospf_rt_str = "External Type 2";
+				break;
+			case BGP_LS_OSPF_RT_NSSA_1:
+				ospf_rt_str = "NSSA Type 1";
+				break;
+			case BGP_LS_OSPF_RT_NSSA_2:
+				ospf_rt_str = "NSSA Type 2";
+				break;
+			default:
+				ospf_rt_str = "Unknown";
+				break;
+			}
+			vty_out(vty, "\tOSPF Route Type: %s\n", ospf_rt_str);
+		}
+
+		/* Multi-Topology */
+		if (BGP_LS_TLV_CHECK(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
+			vty_out(vty, "Multi-Topology:\n");
+			for (uint8_t i = 0; i < prefix_desc->mt_id_count; i++)
+				vty_out(vty, "\tMT-ID: %u\n", prefix_desc->mt_id[i]);
+		}
+	}
 }
