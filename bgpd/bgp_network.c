@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* BGP network related fucntions
+/* BGP network related functions
  * Copyright (C) 1999 Kunihiro Ishiguro
  */
 
@@ -587,7 +587,7 @@ static void bgp_accept(struct event *event)
 
 	/*
 	 * Do not accept incoming connections in Clearing state. This can result
-	 * in incorect state transitions - e.g., the connection goes back to
+	 * in incorrect state transitions - e.g., the connection goes back to
 	 * Established and then the Clearing_Completed event is generated. Also,
 	 * block incoming connection in Deleted state.
 	 */

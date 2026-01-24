@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* zebra connection and redistribute fucntions.
+/* zebra connection and redistribute functions.
  * Copyright (C) 1999 Kunihiro Ishiguro
  */
 
@@ -23,7 +23,7 @@ extern struct zclient *bgp_zclient;
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
 /*
- * Check if the path is eligible for annoucing to zebra.
+ * Check if the path is eligible for announcing to zebra.
  */
 static inline bool bgp_zebra_announce_eligible(struct bgp_path_info *pi)
 {

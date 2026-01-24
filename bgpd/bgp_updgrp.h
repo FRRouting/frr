@@ -588,7 +588,7 @@ static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 }
 
 /*
- * Immediate announce or coalsece multiple peers?
+ * Immediate announce or coalesce multiple peers?
  */
 static inline bool peer_immediate_announce(struct peer *peer, afi_t afi, safi_t safi)
 {

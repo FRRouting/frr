@@ -947,7 +947,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 		api->actions[0].action = ACTION_TRAFFICRATE;
 	}
 
-	/* validate if incoming matc/action is compatible
+	/* validate if incoming match/action is compatible
 	 * with our policy routing engine
 	 */
 	if (!bgp_pbr_validate_policy_route(api))

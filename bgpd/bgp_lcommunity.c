@@ -89,7 +89,7 @@ static bool lcommunity_add_val(struct lcommunity *lcom,
 	return true;
 }
 
-/* This function takes pointer to Large Communites structure then
+/* This function takes pointer to Large Communities structure then
    create a new Large Communities structure by uniq and sort each
    Large Communities value.  */
 struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom)
@@ -111,7 +111,7 @@ struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom)
 	return new;
 }
 
-/* Parse Large Communites Attribute in BGP packet.  */
+/* Parse Large Communities Attribute in BGP packet.  */
 struct lcommunity *lcommunity_parse(uint8_t *pnt, unsigned short length)
 {
 	struct lcommunity tmp;

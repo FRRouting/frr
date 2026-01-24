@@ -79,7 +79,7 @@ static void bgp_dump_interval_func(struct event *);
 /* BGP packet dump output buffer. */
 struct stream *bgp_dump_obuf;
 
-/* BGP dump strucuture for 'dump bgp all' */
+/* BGP dump structure for 'dump bgp all' */
 struct bgp_dump bgp_dump_all;
 
 /* BGP dump structure for 'dump bgp updates' */
@@ -344,7 +344,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 			     (p->prefixlen + 7) / 8);
 	}
 
-	/* Save where we are now, so we can overwride the entry count later */
+	/* Save where we are now, so we can overwrite the entry count later */
 	sizep = stream_get_endp(obuf);
 
 	/* Entry count */

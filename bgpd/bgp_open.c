@@ -91,15 +91,15 @@ const size_t cap_modsizes[] = {
 	[CAPABILITY_CODE_PATHS_LIMIT] = 5,
 };
 
-/* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
-   negotiate remote peer supports extentions or not. But if
+/* BGP-4 Multiprotocol Extensions lead us to the complex world. We can
+   negotiate remote peer supports extensions or not. But if
    remote-peer doesn't supports negotiation process itself.  We would
    like to do manual configuration.
 
    So there is many configurable point.  First of all we want set each
    peer whether we send capability negotiation to the peer or not.
    Next, if we send capability to the peer we want to set my capability
-   inforation at each peer. */
+   information at each peer. */
 
 void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 			    json_object *json_neigh)

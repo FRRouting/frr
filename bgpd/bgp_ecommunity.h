@@ -333,7 +333,7 @@ static inline void encode_node_target(struct in_addr *node_id,
 
 /*
  * Encode BGP Color extended community
- * is's a transitive opaque Extended community (RFC 9256  8.8.1)
+ * it's a transitive opaque Extended community (RFC 9256  8.8.1)
  * flag is set to 0
  *
  */

@@ -538,7 +538,7 @@ int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 			 */
 
 			/*
-			 * If we haven't recieved EORs from all the multihop
+			 * If we haven't received EORs from all the multihop
 			 * peers then defer bestpath calculation
 			 */
 			peer = old_pi->peer;
@@ -2415,8 +2415,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/*
 	 * If we are doing VRF 2 VRF leaking via the import
 	 * statement, we want to prevent the route going
-	 * off box as that the RT and RD created are localy
-	 * significant and globaly useless.
+	 * off box as that the RT and RD created are locally
+	 * significant and globally useless.
 	 */
 	if (safi == SAFI_MPLS_VPN && BGP_PATH_INFO_NUM_LABELS(pi) &&
 	    pi->extra->labels->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
@@ -4116,7 +4116,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		    CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) ||
 		    bgp_zebra_has_route_changed(old_select)) {
 			group_announce_route(bgp, afi, safi, dest, new_select);
-			/* unicast routes must also be annouced to
+			/* unicast routes must also be annonuced to
 			 * labeled-unicast update-groups */
 			if (safi == SAFI_UNICAST)
 				group_announce_route(bgp, afi,
@@ -4232,7 +4232,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 	group_announce_route(bgp, afi, safi, dest, new_select);
 
-	/* unicast routes must also be annouced to labeled-unicast update-groups
+	/* unicast routes must also be annonuced to labeled-unicast update-groups
 	 */
 	if (safi == SAFI_UNICAST)
 		group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, dest,
@@ -4785,7 +4785,7 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 	 * If the number of peers on the fifo is greater than 10
 	 * let's yield this run of the MetaQ  to allow the packet processing to make
 	 * progress against the incoming packets.  But we should also
-	 * attempt to allow this to run occassionally.  Let's run
+	 * attempt to allow this to run occasionally.  Let's run
 	 * something every 10 attempts to process the work queue.
 	 */
 	if (peers_on_fifo > 10 && total_runs % 10 != 0)
@@ -5386,7 +5386,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	 *
 	 * If we receive an UPDATE with nexthop length set to 32 bytes
 	 * we shouldn't discard an UPDATE if it's set to (::).
-	 * The link-local (2st) is validated along the code path later.
+	 * The link-local (2nd) is validated along the code path later.
 	 */
 	if (attr->mp_nexthop_len) {
 		switch (attr->mp_nexthop_len) {
@@ -6329,7 +6329,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
 	/* If maximum prefix count is configured and current prefix
-	 * count exeed it.
+	 * count exceed it.
 	 */
 	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
 		reason = "maximum-prefix overflow";
@@ -6801,7 +6801,7 @@ static void bgp_soft_reconfig_table_task(struct event *event)
 		return;
 	}
 	/* we're done, clean up the background iteration context info and
-	schedule route annoucement
+	schedule route announcement
 	*/
 	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer)) {
 		listnode_delete(table->soft_reconfig_peers, peer);
@@ -11056,7 +11056,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 
 	/*
 	 * For ENCAP and EVPN routes, nexthop address family is not
-	 * neccessarily the same as the prefix address family.
+	 * necessarily the same as the prefix address family.
 	 * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
 	 * EVPN routes are also exchanged with a MP nexthop. Currently,
 	 * this

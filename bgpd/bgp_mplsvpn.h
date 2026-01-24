@@ -188,7 +188,7 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
 
-	/* Is there an export SID that isn't allocted yet? */
+	/* Is there an export SID that isn't allocated yet? */
 	if ((CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
 	     CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
 	     bgp_vrf->vpn_policy[afi].tovpn_sid_index) &&

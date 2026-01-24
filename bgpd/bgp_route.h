@@ -532,7 +532,7 @@ struct bgp_aggregate {
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
 
-/* Flags which indicate a route is unuseable in some form */
+/* Flags which indicate a route is unusable in some form */
 #define BGP_PATH_UNUSEABLE                                                     \
 	(BGP_PATH_HISTORY | BGP_PATH_DAMPED | BGP_PATH_REMOVED)
 /* Macro to check BGP information is alive or not.  Sadly,

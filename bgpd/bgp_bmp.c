@@ -1408,7 +1408,7 @@ afibreak:
 					memset(&bmp->syncpos, 0,
 					       sizeof(bmp->syncpos));
 					bmp->syncpos.family = afi2family(afi);
-					/* check whethere there is a valid
+					/* check whether there is a valid
 					 * next mid-layer table, otherwise
 					 * declare table completed (eor)
 					 */
