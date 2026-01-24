@@ -14442,6 +14442,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			json_object_int_add(json_addr, "sentPrefixCounter",
 						(PAF_SUBGRP(paf))->scount);
 
+		json_object_int_add(json_addr, "receivedPrefixDup",
+				    p->pcount_dup[afi][pfx_rcd_safi]);
+
 		/* Maximum prefix */
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 			json_object_int_add(json_addr, "prefixOutAllowedMax",
@@ -14739,10 +14742,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		/* Receive and sent prefix count, if available */
 		paf = peer_af_find(p, afi, safi);
 		if (paf && PAF_SUBGRP(paf))
-			vty_out(vty, "  %u accepted, %u sent prefixes\n",
-				p->pcount[afi][pfx_rcd_safi], PAF_SUBGRP(paf)->scount);
+			vty_out(vty, "  %u accepted, %u sent prefixes, %u received duplicates\n",
+				p->pcount[afi][pfx_rcd_safi], PAF_SUBGRP(paf)->scount,
+				p->pcount_dup[afi][pfx_rcd_safi]);
 		else
-			vty_out(vty, "  %u accepted prefixes\n", p->pcount[afi][pfx_rcd_safi]);
+			vty_out(vty, "  %u accepted prefixes, %u received duplicates\n",
+				p->pcount[afi][pfx_rcd_safi], p->pcount_dup[afi][pfx_rcd_safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],

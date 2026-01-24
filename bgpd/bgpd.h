@@ -2055,6 +2055,9 @@ struct peer {
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
+	/* Duplicate update count */
+	uint32_t pcount_dup[AFI_MAX][SAFI_MAX];
+
 	/* Max prefix count. */
 	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];

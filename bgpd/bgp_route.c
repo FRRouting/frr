@@ -6002,6 +6002,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 			} else /* Duplicate - odd */
 			{
+				peer->pcount_dup[afi][safi]++;
 				if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 					if (!peer->rcvd_attr_printed) {
 						zlog_debug(
