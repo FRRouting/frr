@@ -54,6 +54,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_ls.c \
 	bgpd/bgp_ls_nlri.c \
 	bgpd/bgp_ls_ted.c \
+	bgpd/bgp_ls_vty.c \
 	bgpd/bgp_mac.c \
 	bgpd/bgp_memory.c \
 	bgpd/bgp_mpath.c \
@@ -222,6 +223,7 @@ clippy_scan += \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_labelpool.c \
+	bgpd/bgp_ls_vty.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \

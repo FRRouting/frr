@@ -66,6 +66,9 @@ extern bool bgp_ls_register(struct bgp *bgp);
 extern bool bgp_ls_unregister(struct bgp *bgp);
 extern bool bgp_ls_is_registered(struct bgp *bgp);
 
+/* VTY initialization */
+extern void bgp_ls_vty_init(void);
+
 /* Module initialization and cleanup */
 extern void bgp_ls_init(struct bgp *bgp);
 extern void bgp_ls_cleanup(struct bgp *bgp);

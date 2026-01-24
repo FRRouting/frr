@@ -9189,6 +9189,8 @@ void bgp_init(unsigned short instance)
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
 
+	bgp_ls_vty_init();
+
 	/* Access list initialize. */
 	access_list_init();
 	access_list_add_hook(peer_distribute_update);
