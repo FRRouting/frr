@@ -4507,6 +4507,26 @@ static void rib_update_route_node(struct route_node *rn, int type,
 		    type == ZEBRA_ROUTE_KERNEL)
 			rib_update_handle_kernel_route_down_possibility(rn, re);
 		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+			/*
+			 * For RIB_UPDATE_KERNEL events, skip routes if any
+			 * nexthop has IFDOWN flag set (marked down due to
+			 * interface down). The NHG has already been updated
+			 * in kernel, so no route processing needed.
+			 */
+			if (event == RIB_UPDATE_KERNEL && re->nhe) {
+				struct nexthop *nh;
+				bool any_ifdown = false;
+
+				for (ALL_NEXTHOPS(re->nhe->nhg, nh)) {
+					if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_IFDOWN)) {
+						any_ifdown = true;
+						break;
+					}
+				}
+				if (any_ifdown)
+					continue;
+			}
+
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			re_changed = true;
 		}

@@ -181,8 +181,24 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		struct nexthop *nh;
+
 		frrtrace(2, frr_zebra, if_down_nhg_dependents, ifp, rb_node_dep->nhe);
+
+		/* Mark nexthops as down due to interface down.
+		 * Must be done BEFORE zebra_nhg_check_valid() which clears ACTIVE.
+		 * Only set IFDOWN if nexthop was previously active.
+		 */
+		for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nh)) {
+			if (nh->ifindex == ifp->ifindex &&
+			    CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(nh->flags, NEXTHOP_FLAG_IFDOWN);
+		}
+
 		zebra_nhg_check_valid(rb_node_dep->nhe);
+
+		/* Update NHG in kernel with new active nexthop set */
+		zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
 	}
 }
 
