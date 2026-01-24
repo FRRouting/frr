@@ -154,7 +154,7 @@ void mgmt_fe_ns_string_remove_be_client(uint client_id)
 
 	UNSET_IDBIT(rm_clients, client_id);
 	if (rm_clients && !mm->terminating)
-		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, NULL);
+		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
 }
 
 static uint64_t ns_string_add_string(const char *path, size_t plen, uintptr_t session_id,
@@ -192,7 +192,7 @@ static uint64_t ns_string_add_string(const char *path, size_t plen, uintptr_t se
  * @selectors: (darr) array of selector strings
  * @session_id: the session id (or backend client id) to register the selectors for
  * @replaced: if true, existing selectors were removed for this session id
- * @upd_clients: clients that need their selector set updated
+ * @upd_clients: clients that need their selector set updated due to replace
  */
 static void ns_string_add_session(uint64_t req_id, const char **selectors, uint64_t session_id,
 				  bool replaced, uint64_t upd_clients)
@@ -225,7 +225,7 @@ static void ns_string_add_session(uint64_t req_id, const char **selectors, uint6
 		 * set to each BE
 		 */
 		mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
-					       (clients | upd_clients),
+					       (clients | upd_clients), false,
 					       replaced ? NULL : selectors);
 
 	if (!all_clients || !selectors)
@@ -234,7 +234,7 @@ static void ns_string_add_session(uint64_t req_id, const char **selectors, uint6
 	_dbg("Creating new data-push for session-id: %Lu", session_id);
 
 	/* Send a second message requesting a full state dump for the session */
-	mgmt_txn_send_notify_selectors(req_id, session_id, all_clients, selectors);
+	mgmt_txn_send_notify_selectors(req_id, session_id, all_clients, false, selectors);
 }
 
 void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors)
@@ -481,7 +481,7 @@ static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
 
 	rm_clients = ns_string_remove_session(session->session_id);
 	if (rm_clients && !mm->terminating)
-		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, NULL);
+		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
 	darr_free_free(session->notify_xpaths);
 	hash_release(mgmt_fe_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);

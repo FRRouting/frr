@@ -494,6 +494,12 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 	if (darr_len(adapter->notify_xpaths))
 		mgmt_fe_ns_string_add_be_client(id, (const char **)adapter->notify_xpaths);
 
+	/*
+	 * Need to update the backend with its notify selectors, it can then
+	 * resend it's operational state to keep everyone interested up-to-date.
+	 */
+	mgmt_txn_send_notify_selectors(0, 0, IDBIT_MASK(id), true, NULL);
+
 	zlog_notice("Backend daemon: %s registers with mgmtd (client-id: %u)", adapter->name,
 		    adapter->id);
 done:

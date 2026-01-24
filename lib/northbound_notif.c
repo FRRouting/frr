@@ -734,20 +734,16 @@ void nb_notif_set_filters(const char **selectors, bool replace)
 	/* Add in sorted, eliminating duplicates */
 	darr_foreach_p (selectors, csp) {
 		if (!darr_len(nb_notif_filters)) {
-			*darr_append(nb_notif_filters) = *csp;
+			*darr_append(nb_notif_filters) = darr_strdup(*csp);
 			continue;
 		}
 		exists = false;
 		before = darr_str_search_ceil(nb_notif_filters, *csp, &exists);
-		if (exists)
-			darr_free(*csp);
-		else
-			*darr_insert(nb_notif_filters, before) = *csp;
+		if (!exists)
+			*darr_insert(nb_notif_filters, before) = darr_strdup(*csp);
 	}
 
 	_dbg("new notif_filters: %pSAd", nb_notif_filters);
-
-	darr_free(selectors);
 }
 
 void nb_notif_get_state(const char **selectors, uint64_t refer_id)
@@ -769,8 +765,6 @@ void nb_notif_get_state(const char **selectors, uint64_t refer_id)
 
 	if (nb_notif_lock)
 		pthread_mutex_unlock(nb_notif_lock);
-
-	darr_free_free(selectors);
 }
 
 void nb_notif_enable_multi_thread(void)
