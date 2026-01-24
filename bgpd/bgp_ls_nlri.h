@@ -776,4 +776,25 @@ extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
  */
 extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr);
 
+/*
+ * Display BGP-LS Attributes to VTY output
+ *
+ * @param vty VTY output context
+ * @param ls_attr Pointer to BGP-LS attribute structure to display
+ *
+ * Used for "show bgp" commands to display link-state topology information
+ */
+extern void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr);
+
+/*
+ * Display BGP-LS NLRI details to VTY output
+ *
+ * @param vty VTY output context
+ * @param nlri Pointer to BGP-LS NLRI structure to display
+ *
+ * Displays Node/Link/Prefix NLRI information including descriptors,
+ * protocol information, and multi-topology details
+ */
+extern void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri);
+
 #endif /* _FRR_BGP_LS_NLRI_H */
