@@ -56,7 +56,7 @@ extern void bgp_peer_remove_bfd_config(struct peer *p);
 
 /**
  * Special function to handle the case of changing source address. This
- * happens when the peer/group is configured with `neigbor X update-source Y`.
+ * happens when the peer/group is configured with `neighbor X update-source Y`.
  */
 extern void bgp_peer_bfd_update_source(struct peer *p);
 

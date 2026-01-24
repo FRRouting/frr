@@ -3065,7 +3065,7 @@ static void *route_set_lcommunity_compile(const char *arg)
 		sp = strstr(arg, "additive");
 
 		if (sp && sp > arg) {
-			/* "additive" keyworkd is included.  */
+			/* "additive" keyword is included.  */
 			additive = 1;
 			*(sp - 1) = '\0';
 		}
