@@ -1533,7 +1533,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct bgp_route_evpn *bre;
 	struct bgp_nhc *nhc;
 
-	/* aspath refcount shoud be decrement. */
+	/* aspath refcount should be decrement. */
 	aspath_unintern(&attr->aspath);
 	bgp_attr_unset(attr, BGP_ATTR_AS_PATH);
 
@@ -1712,7 +1712,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	const uint8_t flags = args->flags;
 	/* startp and length must be special-cased, as whether or not to
 	 * send the attribute data with the NOTIFY depends on the error,
-	 * the caller therefore signals this with the seperate length argument
+	 * the caller therefore signals this with the separate length argument
 	 */
 	uint8_t *notify_datap = (length > 0 ? args->startp : NULL);
 
@@ -2198,7 +2198,7 @@ bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
-/* MED atrribute. */
+/* MED attribute. */
 static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 {
 	struct peer_connection *const connection = args->connection;
@@ -3020,7 +3020,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 
 	/* Handle scenario where router flag ecommunity is not
 	 * set but default gw ext community is present.
-	 * Use default gateway, set and propogate R-bit.
+	 * Use default gateway, set and propagate R-bit.
 	 */
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW))
 		SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
@@ -3253,7 +3253,7 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 
 	if (STREAM_READABLE(connection->curr) < headersz) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			 "Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficient data (need %zu for attribute header, have %zu remaining in UPDATE)",
 			 headersz, STREAM_READABLE(connection->curr));
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -3264,7 +3264,7 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 
 	if (STREAM_READABLE(connection->curr) < length) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			 "Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficient data (need %hu for attribute data, have %zu remaining in UPDATE)",
 			 length, STREAM_READABLE(connection->curr));
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -3347,7 +3347,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 
 	if (STREAM_READABLE(connection->curr) < headersz) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			 "Malformed SRv6 Service Sub-TLV attribute - insufficient data (need %zu for attribute header, have %zu remaining in UPDATE)",
 			 headersz, STREAM_READABLE(connection->curr));
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -3358,7 +3358,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 
 	if (STREAM_READABLE(connection->curr) < length) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			 "Malformed SRv6 Service Sub-TLV attribute - insufficient data (need %hu for attribute data, have %zu remaining in UPDATE)",
 			 length, STREAM_READABLE(connection->curr));
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -3368,7 +3368,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		if (STREAM_READABLE(connection->curr) <
 		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %d for attribute data, have %zu remaining in UPDATE)",
+				 "Malformed SRv6 Service Sub-TLV attribute - insufficient data (need %d for attribute data, have %zu remaining in UPDATE)",
 				 BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH,
 				 STREAM_READABLE(connection->curr));
 			return bgp_attr_malformed(
@@ -3633,7 +3633,7 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	while (STREAM_READABLE(connection->curr) > 0 && psid_parsed_length < args->length) {
 		if (STREAM_READABLE(connection->curr) < headersz) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Malformed Prefix SID attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+				 "Malformed Prefix SID attribute - insufficient data (need %zu for attribute header, have %zu remaining in UPDATE)",
 				 headersz, STREAM_READABLE(connection->curr));
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -4185,7 +4185,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 			goto done;
 		}
 
-		/* Check extended attribue length bit. */
+		/* Check extended attribute length bit. */
 		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN))
 			length = stream_getw(BGP_INPUT(connection));
 		else
@@ -4217,8 +4217,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		/* If attribute appears more than once in the UPDATE message,
 		 * for MP_REACH_NLRI & MP_UNREACH_NLRI attributes
 		 * the Error Subcode is set to Malformed Attribute List.
-		 * For all other attributes, all the occurances of the attribute
-		 * other than the first occurence is discarded. (RFC7606 3g)
+		 * For all other attributes, all the occurrences of the attribute
+		 * other than the first occurrence is discarded. (RFC7606 3g)
 		 */
 
 		if (CHECK_BITMAP(seen, type)) {
@@ -4484,7 +4484,7 @@ done:
 	/*
 	 * At this stage, we have done all fiddling with as4, and the
 	 * resulting info is in attr->aggregator resp. attr->aspath so
-	 * we can chuck as4_aggregator and as4_path alltogether in order
+	 * we can chuck as4_aggregator and as4_path altogether in order
 	 * to save memory
 	 */
 	/*

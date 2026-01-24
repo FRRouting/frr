@@ -456,7 +456,7 @@ extern void *rfapi_rfp_get_group_config_ptr_vty(void *rfp_start_val,
  * matches the search criteria
  *
  * input:
- *    criteria          RFAPI caller provided serach criteria
+ *    criteria          RFAPI caller provided search criteria
  *    rfp_cfg_group     Pointer to configuration structure | NULL
  *
  * output:
@@ -479,7 +479,7 @@ typedef int(rfp_group_config_search_cb_t)(void *criteria, void *rfp_cfg_group);
  *    rfp_start_val     value returned by rfp_start
  *    type              group type
  *    name              group name
- *    criteria          RFAPI caller provided serach criteria
+ *    criteria          RFAPI caller provided search criteria
  *    search_cb         optional rfp_group_config_search_cb_t
  *
  * output:
@@ -503,7 +503,7 @@ extern void *rfapi_rfp_get_group_config_ptr_name(
  * input:
  *    rfp_start_val     value returned by rfp_start
  *    logical_net_id    group logical network identifier
- *    criteria          RFAPI caller provided serach criteria
+ *    criteria          RFAPI caller provided search criteria
  *    search_cb         optional rfp_group_config_search_cb_t
  *
  * output:
@@ -702,7 +702,7 @@ extern int rfapi_query_done_all(rfapi_handle rfd, int *count);
  *    rfd:		rfapi descriptor returned by rfapi_open
  *    prefix:           A prefix to be registered or deregistered
  *    lifetime		Prefix lifetime in seconds, host byte order
- *    options_un	underlay netowrk options, may include tunnel-type
+ *    options_un	underlay network options, may include tunnel-type
  *			Caller owns (rfapi_register() does not free).
  *    options_vn	virtual network options, may include layer 2 address
  *			option and local-nexthop option

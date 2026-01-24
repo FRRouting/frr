@@ -306,7 +306,7 @@ void bgp_option_norib_unset_runtime(void)
 	zlog_info("All routes have been installed in RIB (Zebra)");
 }
 
-/* Internal function to set BGP structure configureation flag.  */
+/* Internal function to set BGP structure configuration flag.  */
 static void bgp_config_set(struct bgp *bgp, int config)
 {
 	SET_FLAG(bgp->config, config);
@@ -677,7 +677,7 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 					bgp_session_reset_safe(peer, &nnode);
 			}
 		} else {
-			/* Not doign confederation before, so reset every
+			/* Not doing confederation before, so reset every
 			   non-local
 			   session */
 			if (ptype != BGP_PEER_IBGP) {
@@ -1622,7 +1622,7 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	return NULL;
 }
 
-/* Allocate new peer object, implicitely locked.  */
+/* Allocate new peer object, implicitly locked.  */
 struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir)
 {
 	afi_t afi;
@@ -2768,7 +2768,7 @@ void peer_nsf_stop(struct peer *peer)
 	bgp_clear_route_all(peer);
 }
 
-/* Delete peer from confguration.
+/* Delete peer from configuration.
  *
  * The peer is moved to a dead-end "Deleted" neighbour-state, to allow
  * it to "cool off" and refcounts to hit 0, at which state it is freed.
@@ -2950,7 +2950,7 @@ static int peer_group_cmp(struct peer_group *g1, struct peer_group *g2)
 	return strcmp(g1->name, g2->name);
 }
 
-/* Peer group cofiguration. */
+/* Peer group configuration. */
 static struct peer_group *peer_group_new(void)
 {
 	return XCALLOC(MTYPE_PEER_GROUP, sizeof(struct peer_group));
@@ -3763,7 +3763,7 @@ peer_init:
 		bgp_srv6_init(bgp);
 	}
 
-	/*initilize global GR FSM */
+	/*initialize global GR FSM */
 	bgp_global_gr_init(bgp);
 
 	memset(&bgp->ebgprequirespolicywarning, 0,
@@ -5052,7 +5052,7 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 	if (type == peer_change_best_path && safi == SAFI_MPLS_VPN)
-		/* re-run best path on incomin BGP updated from peer */
+		/* re-run best path on incoming BGP updated from peer */
 		peer_vpn_change_bestpath(peer, afi);
 	if (type == peer_change_reset_out || type == peer_change_best_path) {
 		paf = peer_af_find(peer, afi, safi);
@@ -6445,7 +6445,7 @@ void peer_tcp_mss_unset(struct peer *peer)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */

@@ -1567,7 +1567,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 		nh_pfx = &nh_gate;
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
-		/* the nexthop is direcly connected */
+		/* the nexthop is directly connected */
 		nh_pfx = &bnc->prefix;
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -3359,7 +3359,7 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char 
 	 * import_vrf and export_vrf must match in having
 	 * the in/out names as appropriate.
 	 * export_vrf list could have been cleaned up
-	 * as part of no router bgp source instnace.
+	 * as part of no router bgp source instance.
 	 */
 	if (!vname)
 		return;
@@ -4107,7 +4107,7 @@ void vpn_leak_postchange_all(void)
 
 /* When a bgp vrf instance is unconfigured, remove its routes
  * from the VPN table and this vrf could be importing routes from other
- * bgp vrf instnaces, unimport them.
+ * bgp vrf instances, unimport them.
  * VRF X and VRF Y are exporting routes to each other.
  * When VRF X is deleted, unimport its routes from all target vrfs,
  * also VRF Y should unimport its routes from VRF X table.

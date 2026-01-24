@@ -441,7 +441,7 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 	struct update_subgroup *subgrp;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* Avoid supressing duplicate routes later
+		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
 		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
@@ -1040,7 +1040,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			/*
 			 * If its a implicit withdraw due to routemap
 			 * deny operation need to set the flag back.
-			 * This is a convertion of update flow to
+			 * This is a conversion of update flow to
 			 * withdraw flow.
 			 */
 			if (!withdraw &&

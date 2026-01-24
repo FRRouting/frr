@@ -1119,7 +1119,7 @@ static void rfapiTunnelRouteAnnounce(struct bgp *bgp,
  *
  * return value:
  *	0		Success
- *	ENXIO		Unabled to locate configured BGP/VNC
+ *	ENXIO		Unable to locate configured BGP/VNC
 --------------------------------------------*/
 int rfapi_rfp_set_configuration(void *rfp_start_val, struct rfapi_rfp_cfg *new)
 {
@@ -1467,7 +1467,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 	if (bgp->rfapi->flags & RFAPI_INCALLBACK) {
 		vnc_zlog_debug_verbose(
-			"%s: Called during calback, returning EDEADLK",
+			"%s: Called during callback, returning EDEADLK",
 			__func__);
 		return EDEADLK;
 	}

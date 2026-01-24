@@ -45,7 +45,7 @@
 
 #define VNC_SHOW_STR "VNC information\n"
 
-/* format related utilies */
+/* format related utilities */
 
 
 #define FMT_MIN      60         /* seconds */
@@ -222,7 +222,7 @@ int rfapiRprefix2Qprefix(struct rfapi_ip_prefix *rprefix,
  * returns 1 if prefixes have same addr family, prefix len, and address
  * Note that host bits matter in this comparison!
  *
- * For paralellism with quagga/lib/prefix.c. if we need a comparison
+ * For parallelism with quagga/lib/prefix.c. if we need a comparison
  * where host bits are ignored, call that function rfapiRprefixCmp.
  */
 int rfapiRprefixSame(struct rfapi_ip_prefix *hp1, struct rfapi_ip_prefix *hp2)
@@ -761,7 +761,7 @@ void rfapiShowItNode(void *stream, struct agg_node *rn)
 		rfapiPrintBi(stream, bpi);
 	}
 
-	/* doesn't show montors */
+	/* doesn't show monitors */
 }
 
 void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
@@ -4359,9 +4359,9 @@ DEFUN (vnc_show_registrations_pfx,
        SHOW_STR
        VNC_SHOW_STR
        "List active prefix registrations\n"
-       "Limit output to a particualr IPV4 address\n"
+       "Limit output to a particular IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particualr IPV6 address\n"
+       "Limit output to a particular IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
        "Limit output to a particular MAC address\n")
 {
@@ -4392,9 +4392,9 @@ DEFUN (vnc_show_registrations_some_pfx,
          "show only imported prefixes\n"
          "show only local registrations\n"
          "show only remote registrations\n"
-         "Limit output to a particualr IPV4 address\n"
+         "Limit output to a particular IPV4 address\n"
          "Limit output to a particular IPv4 prefix\n"
-         "Limit output to a particualr IPV6 address\n"
+         "Limit output to a particular IPV6 address\n"
          "Limit output to a particular IPv6 prefix\n"
          "Limit output to a particular MAC address\n")
 {
@@ -4450,9 +4450,9 @@ DEFUN (vnc_show_responses_pfx,
        SHOW_STR
        VNC_SHOW_STR
        "List recent query responses\n"
-       "Limit output to a particualr IPV4 address\n"
+       "Limit output to a particular IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particualr IPV6 address\n"
+       "Limit output to a particular IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
        "Limit output to a particular MAC address\n" )
 {
@@ -4485,9 +4485,9 @@ DEFUN (vnc_show_responses_some_pfx,
        "List recent query responses\n"
        "show only active query responses\n"
        "show only removed query responses\n"
-       "Limit output to a particualr IPV4 address\n"
+       "Limit output to a particular IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particualr IPV6 address\n"
+       "Limit output to a particular IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
        "Limit output to a particular MAC address\n")
 {
@@ -4537,11 +4537,11 @@ DEFUN (show_vnc_queries_pfx,
        SHOW_STR
        VNC_SHOW_STR
        "List active queries\n"
-       "Limit output to a particualr IPV4 address\n"
+       "Limit output to a particular IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particualr IPV6 address\n"
+       "Limit output to a particular IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particualr MAC address\n")
+       "Limit output to a particular MAC address\n")
 {
 	struct prefix pfx;
 	struct prefix *p = NULL;
