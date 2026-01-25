@@ -436,7 +436,7 @@ int rfapi_rib_key_cmp(const void *k1, const void *k2)
  * that are not strictly needed.
  *
  * This function could be modified to compare option chains more
- * thoroughly, but it's not clear that the extra compuation would
+ * thoroughly, but it's not clear that the extra computaion would
  * be worth it.
  */
 static int bgp_tea_options_cmp(struct bgp_tea_options *a,

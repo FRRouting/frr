@@ -310,7 +310,7 @@ static void bgp_path_info_mpath_count_set(struct bgp_dest *dest, uint16_t count)
  *
  * This is set on mpath of the bgp_dest,
  * we should UNSET the flags when removing
- * to ensure nothing accidently happens
+ * to ensure nothing accidentally happens
  */
 static void bgp_path_info_mpath_lb_update(struct bgp_dest *dest, bool set, bool all_paths_lb,
 					  uint64_t cum_bw)
@@ -434,7 +434,7 @@ static void bgp_path_info_mpath_attr_set(struct bgp_dest *dest, struct attr *att
 /*
  * bgp_path_info_mpath_update
  *
- * Compare and sync up the multipath flags with what was choosen
+ * Compare and sync up the multipath flags with what was chosen
  * in best selection
  */
 void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,

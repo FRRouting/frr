@@ -835,7 +835,7 @@ struct bgp {
 	 * stand for the list of ipset sets, and table_ids in the kernel
 	 * - the arrow above between pbr_match and pbr_action indicate
 	 * that a backpointer permits match to find the action
-	 * - the arrow betwen match_entry and match is a hash list
+	 * - the arrow between match_entry and match is a hash list
 	 * contained in match, that lists the whole set of entries
 	 */
 	struct hash *pbr_match_hash;
@@ -1689,8 +1689,8 @@ struct peer {
 	 * flag is unset, the corresponding override flag would be unset.
 	 *
 	 * This can be used for attributes like *send-community*, which are
-	 * implicitely enabled and have to be disabled explicitely, compared to
-	 * 'normal' attributes like *next-hop-self* which are implicitely set.
+	 * implicitly enabled and have to be disabled explicitly, compared to
+	 * 'normal' attributes like *next-hop-self* which are implicitly set.
 	 *
 	 * All operations dealing with flags should apply the following boolean
 	 * logic to keep the internal flag system in a sane state:
@@ -1964,7 +1964,7 @@ struct peer {
 	_Atomic uint32_t open_in;	 /* Open message input count */
 	_Atomic uint32_t open_out;	/* Open message output count */
 	_Atomic uint32_t update_in;       /* Update message input count */
-	_Atomic uint32_t update_out;      /* Update message ouput count */
+	_Atomic uint32_t update_out;      /* Update message output count */
 	_Atomic time_t update_time;       /* Update message received time. */
 	_Atomic uint32_t keepalive_in;    /* Keepalive input count */
 	_Atomic uint32_t keepalive_out;   /* Keepalive output count */

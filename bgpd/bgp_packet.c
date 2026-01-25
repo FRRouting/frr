@@ -2532,7 +2532,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 	if (!update_len && !withdraw_len && nlris[NLRI_MP_UPDATE].length == 0) {
 		afi_t afi = 0;
 		safi_t safi;
-		/* Non-MP IPv4/Unicast is a completely emtpy UPDATE - already
+		/* Non-MP IPv4/Unicast is a completely empty UPDATE - already
 		 * checked
 		 * update and withdraw NLRI lengths are 0.
 		 */
@@ -2600,7 +2600,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 		inner = outer;
 	}
 
-	/* Preserv notify code and sub code. */
+	/* Preserve notify code and sub code. */
 	peer->notify.code = inner.code;
 	peer->notify.subcode = inner.subcode;
 	/* For further diagnostic record returned Data. */
@@ -2976,7 +2976,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 				peer->orf_plist[afi][safi];
 		}
 
-		/* Avoid supressing duplicate routes later
+		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
 		force_update = true;

@@ -5369,7 +5369,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 
 		peer_set_last_reset(peer, PEER_DOWN_V6ONLY_CHANGE);
 
-		/* v6only flag changed. Reset bgp seesion */
+		/* v6only flag changed. Reset bgp seession */
 		if (!peer_notify_config_change(peer->connection))
 			bgp_session_reset(peer);
 	}
@@ -12725,7 +12725,7 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
  * or not.
  *
  * When adding new columns to `show bgp summary` output, please make
- * sure `Desc` is the lastest column to show because it can contain
+ * sure `Desc` is the latest column to show because it can contain
  * whitespaces and the whole output will be tricky.
  */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
@@ -13501,7 +13501,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 					/*
 					 * So limit output to those afi/safi
 					 * pairs that
-					 * actualy have something interesting in
+					 * actually have something interesting in
 					 * them
 					 */
 					if (use_json) {
