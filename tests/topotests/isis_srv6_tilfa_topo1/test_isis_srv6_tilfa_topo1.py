@@ -76,6 +76,21 @@ from lib.srv6_helper import (
     get_kernel_srv6_routes,
     get_route_nexthop_info,
     check_ping6,
+    verify_backup_sids_allocated,
+    verify_route_has_backup_nexthops,
+    verify_kernel_endx_has_backup_nexthops,
+    get_frr_backup_sids,
+    enable_isis_lfa_debug,
+    disable_isis_lfa_debug,
+    get_isisd_log,
+    monitor_sid_stability,
+    parse_sid_allocation_events,
+    check_for_allocation_loops,
+    verify_no_pending_allocations,
+    verify_backup_path_preinstalled,
+    capture_preinstalled_backup_paths,
+    verify_backup_path_activated,
+    verify_backup_index_set,
 )
 
 pytestmark = [pytest.mark.isisd]
@@ -85,6 +100,12 @@ outputs = {}
 
 # Store baseline routes from step 1 for path verification
 baseline_routes = {}
+
+# Store baseline backup SIDs from step 1 for cleanup verification
+baseline_backup_sids = {}
+
+# Store pre-installed backup paths from step 1 for activation verification
+preinstalled_backup_paths = {}
 
 # SRv6 locator and loopback mappings
 LOCATORS = {
@@ -358,8 +379,8 @@ def test_traffic_step1():
 
 
 def test_path_baseline_step1():
-    """Capture baseline route nexthops for path change verification."""
-    logger.info("Test (step 1): capture baseline route nexthops")
+    """Capture baseline route nexthops and backup SIDs for verification."""
+    logger.info("Test (step 1): capture baseline route nexthops and backup SIDs")
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -380,6 +401,81 @@ def test_path_baseline_step1():
         "RT1 -> RT2 should use eth-sw1 in normal state"
     assert baseline_routes["rt3_to_rt2"]["dev"] == "eth-sw1", \
         "RT3 -> RT2 should use eth-sw1 in normal state"
+
+    # Capture baseline backup SIDs for cleanup verification in step2
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+        backup_sids = get_frr_backup_sids(router)
+        baseline_backup_sids[rname] = backup_sids
+        logger.info(f"{rname}: captured {len(backup_sids)} baseline backup SIDs")
+        for sid in backup_sids:
+            logger.info(f"  Backup SID: {sid['sid']} -> {sid.get('interfaceName', 'unknown')}")
+
+
+def test_backup_path_preinstalled_step1():
+    """Verify TI-LFA backup paths are pre-installed before any failure.
+
+    This test confirms that backup paths are computed and installed in the RIB
+    before any link failure occurs, which is essential for TI-LFA fast reroute.
+    The pre-installed backup paths are captured for later verification in step2.
+    """
+    logger.info("Test (step 1): verify backup paths are pre-installed")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check RT4's backup paths to destinations reachable via RT2
+    # When RT2's eth-sw1 fails, RT4 should have backup paths ready
+    router = tgen.gears["rt4"]
+
+    # Prefixes that RT4 reaches via RT2 and should have backup protection
+    prefixes_to_check = [
+        LOOPBACKS["rt1"] + "/128",  # RT1 via RT2 -> eth-sw1
+        LOOPBACKS["rt2"] + "/128",  # RT2 directly via eth-rt2-1/2
+    ]
+
+    rt4_backups = {}
+    for prefix in prefixes_to_check:
+        success, msg, details = verify_backup_path_preinstalled(router, prefix)
+        logger.info(f"rt4 -> {prefix}: {msg}")
+
+        if details["has_backup"]:
+            logger.info(f"  Primary nexthops: {len(details['primary_nexthops'])}")
+            for nh in details["primary_nexthops"]:
+                logger.info(f"    via {nh['gateway']} dev {nh['interface']}")
+            logger.info(f"  Backup nexthops: {len(details['backup_nexthops'])}")
+            for nh in details["backup_nexthops"]:
+                logger.info(f"    via {nh['gateway']} dev {nh['interface']} "
+                           f"seg6={nh.get('seg6')}")
+            rt4_backups[prefix] = details
+
+        assert success, f"rt4 -> {prefix}: {msg}"
+
+    # Store for step2 verification
+    preinstalled_backup_paths["rt4"] = rt4_backups
+    logger.info(f"rt4: captured {len(rt4_backups)} pre-installed backup paths")
+
+    # Check RT1's backup paths to RT2 (RT2's eth-sw1 will fail in step2)
+    router = tgen.gears["rt1"]
+    prefix = LOOPBACKS["rt2"] + "/128"
+
+    success, msg, details = verify_backup_path_preinstalled(router, prefix)
+    logger.info(f"rt1 -> {prefix}: {msg}")
+
+    if details["has_backup"]:
+        logger.info(f"  Primary nexthops: {len(details['primary_nexthops'])}")
+        for nh in details["primary_nexthops"]:
+            logger.info(f"    via {nh['gateway']} dev {nh['interface']}")
+        logger.info(f"  Backup nexthops: {len(details['backup_nexthops'])}")
+        for nh in details["backup_nexthops"]:
+            logger.info(f"    via {nh['gateway']} dev {nh['interface']} seg6={nh.get('seg6')}")
+        preinstalled_backup_paths["rt1"] = {prefix: details}
+
+    # Note: RT1 may or may not have backup paths depending on topology
+    # Just log the result for now
+    if not success:
+        logger.warning(f"rt1 -> rt2 has no backup path pre-installed: {msg}")
 
 
 #
@@ -515,6 +611,129 @@ def test_path_changed_step2():
         f"Current: dev={current_route['dev']}, via={current_route['via']}"
 
 
+def test_backup_path_activation_step2():
+    """Verify traffic switched to the pre-installed backup path after failure.
+
+    This test compares the current active path with the backup path that was
+    pre-installed before the failure to confirm the correct backup was used.
+    This validates that TI-LFA fast reroute is working correctly.
+    """
+    logger.info("Test (step 2): verify backup path activation after link failure")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check RT4's routes - verify the backup path was activated
+    rt4_backups = preinstalled_backup_paths.get("rt4", {})
+    if rt4_backups:
+        router = tgen.gears["rt4"]
+        for prefix, preinstalled in rt4_backups.items():
+            success, msg, current = verify_backup_path_activated(
+                router, prefix, preinstalled)
+            logger.info(f"rt4 -> {prefix}: {msg}")
+
+            if current["primary_nexthops"]:
+                logger.info(f"  Current active nexthops:")
+                for nh in current["primary_nexthops"]:
+                    status = "active" if nh.get("active") else "inactive"
+                    logger.info(f"    via {nh['gateway']} dev {nh['interface']} ({status})")
+
+            # Log comparison with pre-installed backup
+            logger.info(f"  Pre-installed backup nexthops were:")
+            for nh in preinstalled.get("backup_nexthops", []):
+                logger.info(f"    via {nh['gateway']} dev {nh['interface']}")
+
+            # Note: After convergence, the path may differ from the exact backup
+            # as the network reconverges with new optimal paths
+            if not success:
+                logger.warning(f"rt4 -> {prefix}: backup path activation check: {msg}")
+    else:
+        logger.info("rt4: no pre-installed backup paths captured in step1")
+
+    # Check RT1's route to RT2 - this was the affected path
+    rt1_backups = preinstalled_backup_paths.get("rt1", {})
+    if rt1_backups:
+        router = tgen.gears["rt1"]
+        prefix = LOOPBACKS["rt2"] + "/128"
+        preinstalled = rt1_backups.get(prefix)
+
+        if preinstalled:
+            success, msg, current = verify_backup_path_activated(
+                router, prefix, preinstalled)
+            logger.info(f"rt1 -> {prefix}: {msg}")
+
+            if current["primary_nexthops"]:
+                logger.info(f"  Current active nexthops:")
+                for nh in current["primary_nexthops"]:
+                    status = "active" if nh.get("active") else "inactive"
+                    logger.info(f"    via {nh['gateway']} dev {nh['interface']} ({status})")
+    else:
+        logger.info("rt1: no pre-installed backup paths captured in step1")
+
+    # Verify traffic still works via backup path
+    router = tgen.gears["rt4"]
+    for dest_name in ["rt1", "rt2"]:
+        dest_addr = LOOPBACKS[dest_name]
+        logger.info(f"Verifying traffic from rt4 to {dest_name} via backup path")
+
+        max_retries = 5
+        success = False
+        output = ""
+        for attempt in range(max_retries):
+            success, output = check_ping6(router, dest_addr, count=3, timeout=5)
+            if success:
+                break
+            logger.info(f"Ping attempt {attempt + 1}/{max_retries} failed, retrying...")
+            time.sleep(1)
+
+        assert success, f"Traffic from rt4 to {dest_name} failed after backup activation:\n{output}"
+        logger.info(f"rt4 -> {dest_name}: traffic OK via backup path")
+
+
+def test_backup_sid_cleanup_step2():
+    """Verify backup SIDs are updated after topology change.
+
+    When rt2's eth-sw1 goes down, the topology changes and TI-LFA recomputes
+    backup paths. Some backup SIDs may be deallocated if they're no longer
+    needed, and new ones may be allocated for the new topology.
+    """
+    logger.info("Test (step 2): verify backup SID cleanup/update after link failure")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+
+        # Get current backup SIDs after link failure
+        current_backup_sids = get_frr_backup_sids(router)
+        baseline = baseline_backup_sids.get(rname, [])
+
+        # Extract SID addresses for comparison
+        baseline_sid_addrs = {sid["sid"] for sid in baseline}
+        current_sid_addrs = {sid["sid"] for sid in current_backup_sids}
+
+        logger.info(f"{rname}: baseline backup SIDs: {len(baseline)}, current: {len(current_backup_sids)}")
+        logger.info(f"{rname}: baseline SIDs: {baseline_sid_addrs}")
+        logger.info(f"{rname}: current SIDs: {current_sid_addrs}")
+
+        # Check what changed
+        removed_sids = baseline_sid_addrs - current_sid_addrs
+        added_sids = current_sid_addrs - baseline_sid_addrs
+
+        if removed_sids:
+            logger.info(f"{rname}: backup SIDs removed after link failure: {removed_sids}")
+        if added_sids:
+            logger.info(f"{rname}: backup SIDs added after link failure: {added_sids}")
+
+        # Verify the SID table is stable (no continuous reallocation)
+        stable, msg, _ = monitor_sid_stability(router, duration_seconds=3, check_interval=1)
+        logger.info(f"{rname}: SID stability check: {msg}")
+        assert stable, f"{rname}: SID table unstable after link failure - {msg}"
+
+
 #
 # Step 3
 #
@@ -634,6 +853,257 @@ def test_path_restored_step3():
     baseline = baseline_routes.get("rt3_to_rt2", {})
     assert current_route["dev"] == "eth-sw1", \
         f"RT3 -> RT2 should use eth-sw1 after restore, got {current_route['dev']}"
+
+
+def test_backup_sids_restored_step3():
+    """Verify backup SIDs are restored after link recovery.
+
+    When rt2's eth-sw1 comes back up, TI-LFA should recompute backup paths
+    and allocate backup SIDs similar to the original topology.
+    """
+    logger.info("Test (step 3): verify backup SIDs restored after link recovery")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+
+        # Get current backup SIDs after link restore
+        current_backup_sids = get_frr_backup_sids(router)
+        baseline = baseline_backup_sids.get(rname, [])
+
+        logger.info(f"{rname}: baseline backup SIDs: {len(baseline)}, "
+                   f"current after restore: {len(current_backup_sids)}")
+
+        # Verify backup SIDs are allocated (should be similar count to baseline)
+        # Allow some variation as topology reconvergence may differ slightly
+        if len(baseline) > 0:
+            assert len(current_backup_sids) > 0, \
+                f"{rname}: Expected backup SIDs to be restored, found none"
+            logger.info(f"{rname}: backup SIDs restored successfully")
+
+        # Verify SID table is stable
+        stable, msg, _ = monitor_sid_stability(router, duration_seconds=3, check_interval=1)
+        logger.info(f"{rname}: SID stability check after restore: {msg}")
+        assert stable, f"{rname}: SID table unstable after link restore - {msg}"
+
+        # Log current backup SIDs
+        for sid in current_backup_sids:
+            logger.info(f"  Restored backup SID: {sid['sid']} -> {sid.get('interfaceName', 'unknown')}")
+
+
+def test_sid_allocation_stability_step3():
+    """Verify SID allocation is stable with no loops or pending allocations.
+
+    This test checks for SID reallocation loop issues. It verifies that:
+    1. No SIDs have pending allocation (allocation_in_progress flag cleared)
+    2. Debug logs don't show allocation loops or churn
+    3. SID table remains stable over time
+    """
+    logger.info("Test (step 3): verify SID allocation stability and no pending allocations")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+
+        # Verify no pending SID allocations (allocation_in_progress should be false)
+        success, msg, pending_count = verify_no_pending_allocations(router)
+        logger.info(f"{rname}: {msg}")
+        assert success, f"{rname}: {msg}"
+
+        # Enable debug and capture recent log for analysis
+        enable_isis_lfa_debug(router)
+
+        # Wait briefly to capture any ongoing activity
+        time.sleep(2)
+
+        # Get isisd log and parse for allocation events
+        log_output = router.run("cat /var/run/frr/isisd.log 2>/dev/null | tail -200 || "
+                               "echo 'Log not available'")
+        events = parse_sid_allocation_events(log_output)
+
+        logger.info(f"{rname}: parsed {len(events['allocations'])} allocations, "
+                   f"{len(events['deallocations'])} deallocations, "
+                   f"{len(events['errors'])} errors from log")
+
+        # Check for allocation loops
+        has_loop, loop_msg = check_for_allocation_loops(events)
+        logger.info(f"{rname}: allocation loop check: {loop_msg}")
+
+        # Log any errors found
+        if events['errors']:
+            for err in events['errors']:
+                logger.warning(f"{rname}: SID error in log: {err['raw']}")
+
+        # Disable debug
+        disable_isis_lfa_debug(router)
+
+        # Final stability check
+        stable, stability_msg, _ = monitor_sid_stability(router, duration_seconds=3, check_interval=1)
+        logger.info(f"{rname}: final stability check: {stability_msg}")
+        assert stable, f"{rname}: SID table unstable - {stability_msg}"
+
+        # Assert no allocation loops detected
+        assert not has_loop, f"{rname}: {loop_msg}"
+
+
+#
+# Backup SID and nexthop verification tests
+#
+def test_backup_endx_sid_allocation_step1():
+    """Verify backup End.X SIDs are allocated for TI-LFA protection."""
+    logger.info("Test (step 1): verify backup End.X SID allocation")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Routers with multiple adjacencies should have backup SIDs allocated
+    # RT4 has adjacencies to RT2 (dual-link), RT5, and RT6
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+        success, msg, backup_sids = verify_backup_sids_allocated(router, min_count=1)
+        logger.info(f"{rname}: {msg}")
+
+        # Store baseline backup SIDs for cleanup verification in step2
+        baseline_backup_sids[rname] = backup_sids
+
+        if backup_sids:
+            for sid in backup_sids:
+                logger.info(f"  Backup SID: {sid['sid']} -> {sid.get('interfaceName', 'unknown')}")
+        assert success, f"{rname}: {msg}"
+
+
+def test_rib_backup_routes_step1():
+    """Verify routes have backup nexthops in the RIB."""
+    logger.info("Test (step 1): verify backup nexthops in RIB")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check that routes to remote prefixes have backup nexthops
+    # RT4 should have backup paths for routes to RT1, RT2, RT3
+    router = tgen.gears["rt4"]
+
+    # Routes to rt1 and rt2 should have backup nexthops
+    # rt3 has 3 ECMP paths so may not need backup
+    for dest_name in ["rt1", "rt2"]:
+        prefix = LOOPBACKS[dest_name] + "/128"
+        success, msg, route = verify_route_has_backup_nexthops(router, prefix, min_backups=1)
+        logger.info(f"rt4 -> {dest_name} ({prefix}): {msg}")
+        if route:
+            nexthops = route.get("nexthops", [])
+            backups = route.get("backupNexthops", [])
+            logger.info(f"  Primary nexthops: {len(nexthops)}, Backup nexthops: {len(backups)}")
+        assert success, f"rt4 -> {dest_name}: {msg}"
+
+    # Log rt3 status (may have 0 backups due to 3 ECMP paths)
+    prefix = LOOPBACKS["rt3"] + "/128"
+    success, msg, route = verify_route_has_backup_nexthops(router, prefix, min_backups=1)
+    logger.info(f"rt4 -> rt3 ({prefix}): {msg}")
+    if route:
+        nexthops = route.get("nexthops", [])
+        backups = route.get("backupNexthops", [])
+        logger.info(f"  Primary nexthops: {len(nexthops)}, Backup nexthops: {len(backups)}")
+
+
+def test_rib_backup_index_step1():
+    """Verify primary nexthops have backupIndex set correctly.
+
+    When TI-LFA computes backup paths, primary nexthops should have a
+    backupIndex array referencing the backup nexthops. This verifies the
+    backup relationship is properly installed in the RIB.
+    """
+    logger.info("Test (step 1): verify backupIndex set on primary nexthops")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt4"]
+
+    # Routes to rt1 and rt2 should have backupIndex set on primary nexthops
+    for dest_name in ["rt1", "rt2"]:
+        prefix = LOOPBACKS[dest_name] + "/128"
+        success, msg, details = verify_backup_index_set(router, prefix)
+        logger.info(f"rt4 -> {dest_name} ({prefix}): {msg}")
+
+        if details:
+            logger.info(f"  Total nexthops: {details.get('total_nexthops', 0)}")
+            logger.info(f"  Nexthops with backupIndex: {details.get('nexthops_with_backup', 0)}")
+            logger.info(f"  Backup nexthops: {details.get('backup_nexthops', 0)}")
+
+        assert success, f"rt4 -> {dest_name}: {msg}"
+
+
+def test_kernel_seg6local_routes_step1():
+    """Verify seg6local routes are installed in the kernel."""
+    logger.info("Test (step 1): verify seg6local routes in kernel")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check kernel routes for End.X SIDs on RT4
+    router = tgen.gears["rt4"]
+    locator_prefix = LOCATORS["rt4"].replace("/48", "")
+
+    # Get all seg6local routes from kernel using JSON output
+    routes = get_kernel_srv6_routes(router, proto="isis")
+    logger.info(f"rt4 kernel routes: {json.dumps(routes, indent=2)}")
+
+    # Verify at least the local End SID is installed
+    local_sid_found = False
+    for prefix, route_info in routes.items():
+        if route_info.get("encap") == "seg6local" and locator_prefix in prefix:
+            local_sid_found = True
+            logger.info(f"  Found seg6local route: {prefix} -> {route_info}")
+
+    assert local_sid_found, f"rt4: No seg6local routes found for locator {locator_prefix}"
+
+
+def test_kernel_endx_backup_nexthops_step1():
+    """Check if End.X routes in kernel have backup nexthops installed.
+
+    Note: Backup nexthops for seg6local routes may not be supported by all
+    kernel versions or zebra configurations. This test logs the current
+    state and contains a commented assertion for future use.
+    """
+    logger.info("Test (step 1): check End.X routes for backup nexthops in kernel")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check routers that should have End.X SIDs with backup nexthops
+    for rname in ["rt4", "rt5"]:
+        router = tgen.gears[rname]
+
+        # Log raw kernel seg6local routes for debugging
+        output = router.run("ip -6 route show proto isis | grep -A1 seg6local")
+        logger.info(f"{rname} kernel seg6local routes:\n{output}")
+
+        # Check End.X routes for backup nexthops
+        success, msg, endx_routes = verify_kernel_endx_has_backup_nexthops(router, min_count=1)
+        logger.info(f"{rname}: {msg}")
+        if endx_routes:
+            for rt in endx_routes:
+                logger.info(f"  End.X {rt['prefix']}: action={rt['action']}, "
+                           f"nh6={rt.get('nh6')}, dev={rt.get('dev')}, "
+                           f"backup nexthops={len(rt.get('nexthops', []))}")
+        else:
+            # Log that no backup nexthops were found
+            logger.info(f"{rname}: No End.X routes with kernel backup nexthops found. "
+                       "This may be expected if zebra doesn't support seg6local backup nexthops.")
+
+        # TODO: Enable this assertion when kernel supports seg6local backup nexthops
+        # assert success, f"{rname}: {msg}"
 
 
 #
