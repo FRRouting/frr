@@ -607,6 +607,10 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
 		return false;
 
+	/* For aspath loop detection, the remote-as should match */
+	if (CHECK_FLAG(pe1->flags, PEER_FLAG_AS_LOOP_DETECTION) && (pe1->as != pe2->as))
+		return false;
+
 	if ((pe1->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS)
 	    != (pe2->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS))
 		return false;
