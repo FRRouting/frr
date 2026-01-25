@@ -482,6 +482,8 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 			json_object_string_addf(json_sid_ctx, "nexthopIpv6Address", "%pI6",
 						&sid_ctx->ctx.nh6);
 		}
+		if (sid_ctx->ctx.backup)
+			json_object_boolean_true_add(json_sid_ctx, "backup");
 		json_object_object_add(json_sid, "context", json_sid_ctx);
 
 		json_object_string_add(json_sid, "locator", entry->locator->name);
