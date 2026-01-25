@@ -406,6 +406,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	 * install routes as needed for all cases (sm/dm)
 	 */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
+	pim_upstream_update_join_desired(pim_ifp->pim, up);
 
 	/* we just got NOCACHE from the kernel, so...  MFC is not in the
 	 * kernel for some reason or another.  Try installing again.
