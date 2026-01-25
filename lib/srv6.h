@@ -126,6 +126,14 @@ struct seg6local_context {
 	uint8_t node_len;
 	uint8_t function_len;
 	uint8_t argument_len;
+
+	/* Backup path for TI-LFA fast reroute */
+	bool has_backup;
+	struct in6_addr nh6_backup;
+	ifindex_t ifindex_backup;
+	/* Backup segment list for TI-LFA repair path */
+	uint8_t backup_seg_count;
+	struct in6_addr backup_segs[SRV6_MAX_SEGS];
 };
 
 struct srv6_locator {
@@ -384,6 +392,14 @@ struct srv6_sid_ctx {
 
 	/* Backup SID flag (for TI-LFA) */
 	bool backup;
+
+	/* Backup path for TI-LFA fast reroute */
+	bool has_backup;
+	struct in6_addr nh6_backup;
+	ifindex_t ifindex_backup;
+	/* Backup segment list for TI-LFA repair path */
+	uint8_t backup_seg_count;
+	struct in6_addr backup_segs[SRV6_MAX_SEGS];
 };
 
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,

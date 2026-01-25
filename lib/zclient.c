@@ -602,6 +602,39 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient, uint8_t 
 
 	api.nexthop_num = 1;
 
+	/* Add backup nexthop for TI-LFA fast reroute if available */
+	if (context && context->has_backup) {
+		struct seg6local_context backup_ctx = {};
+		struct interface *backup_ifp;
+
+		backup_ifp = select_oif_for_localsid(context->ifindex_backup);
+		if (backup_ifp) {
+			/* Mark primary nexthop as having a backup */
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+			znh->backup_num = 1;
+			znh->backup_idx[0] = 0;
+
+			/* Set up backup nexthop */
+			znh = &api.backup_nexthops[0];
+			memset(znh, 0, sizeof(*znh));
+
+			znh->type = NEXTHOP_TYPE_IFINDEX;
+			znh->ifindex = backup_ifp->ifindex;
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+			znh->seg6local_action = action;
+
+			/* Copy context and update with backup path info */
+			memcpy(&backup_ctx, context, sizeof(backup_ctx));
+			backup_ctx.nh6 = context->nh6_backup;
+			backup_ctx.ifindex = context->ifindex_backup;
+			backup_ctx.has_backup = false;
+			memcpy(&znh->seg6local_ctx, &backup_ctx, sizeof(backup_ctx));
+
+			SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+			api.backup_nexthop_num = 1;
+		}
+	}
+
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 

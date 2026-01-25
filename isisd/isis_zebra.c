@@ -43,6 +43,7 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_ldp_sync.h"
 
 struct zclient *isis_zclient;
@@ -1135,6 +1136,27 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	}
 
 	if (sra->type == ISIS_SRV6_ADJ_NORMAL) {
+		struct srv6_adjacency *backup_sra;
+		struct isis_nexthop *backup_nh;
+
+		/*
+		 * For TI-LFA fast reroute: look up the backup End.X SID for this
+		 * adjacency and use its first backup nexthop as the backup path.
+		 */
+		backup_sra = isis_srv6_endx_sid_find(sra->adj, ISIS_SRV6_ADJ_BACKUP);
+		if (backup_sra && backup_sra->backup_nexthops &&
+		    listcount(backup_sra->backup_nexthops) > 0) {
+			backup_nh = listnode_head(backup_sra->backup_nexthops);
+			if (backup_nh && backup_nh->family == AF_INET6) {
+				ctx.has_backup = true;
+				ctx.nh6_backup = backup_nh->ip.ipv6;
+				ctx.ifindex_backup = backup_nh->ifindex;
+
+				sr_debug("ISIS-SRv6 (%s): End.X SID %pI6 has TI-LFA backup via %pI6",
+					 area->area_tag, &sra->sid, &backup_nh->ip.ipv6);
+			}
+		}
+
 		zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
 				      ifp->ifindex, action, &ctx);
 		return;
