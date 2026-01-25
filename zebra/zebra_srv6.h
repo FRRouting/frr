@@ -379,4 +379,73 @@ extern void delete_zebra_srv6_sid_ctx(void *val);
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
 							    struct zebra_srv6_sid_block *block);
 
+/*
+ * SRv6 seg6local route tracking for fast reroute.
+ *
+ * This structure tracks seg6local routes that have backup paths defined.
+ * When the primary interface goes down, zebra can quickly switch to the
+ * backup nexthop without waiting for ISIS to recalculate.
+ */
+PREDECL_DLIST(zebra_seg6local_route_list);
+PREDECL_DLIST(zebra_seg6local_route_backup_list);
+PREDECL_HASH(zebra_seg6local_route_hash);
+
+struct zebra_seg6local_route {
+	/* Route prefix (SID) */
+	struct prefix_ipv6 sid;
+
+	/* VRF and table for route operations */
+	vrf_id_t vrf_id;
+	uint32_t table_id;
+
+	/* Primary nexthop info */
+	ifindex_t primary_ifindex;
+	struct in6_addr primary_nh6;
+
+	/* Backup nexthop info */
+	bool has_backup;
+	ifindex_t backup_ifindex;
+	struct in6_addr backup_nh6;
+
+	/* Full contexts for reinstallation */
+	enum seg6local_action_t action;
+	struct seg6local_context primary_ctx;
+	struct seg6local_context backup_ctx;
+
+	/* State */
+	bool using_backup;
+
+	/* Owner info (protocol type and instance) */
+	int type;
+	uint16_t instance;
+
+	/* Linkage for interface-based lists */
+	struct zebra_seg6local_route_list_item primary_link;
+	struct zebra_seg6local_route_backup_list_item backup_link;
+
+	/* Linkage for global hash table */
+	struct zebra_seg6local_route_hash_item hash_item;
+};
+
+DECLARE_DLIST(zebra_seg6local_route_list, struct zebra_seg6local_route,
+	      primary_link);
+DECLARE_DLIST(zebra_seg6local_route_backup_list, struct zebra_seg6local_route,
+	      backup_link);
+
+/* seg6local fast reroute functions */
+extern struct zebra_seg6local_route *
+zebra_seg6local_route_alloc(const struct prefix_ipv6 *sid, vrf_id_t vrf_id,
+			    uint32_t table_id, enum seg6local_action_t action,
+			    int type, uint16_t instance);
+extern void zebra_seg6local_route_free(struct zebra_seg6local_route *route);
+extern void zebra_seg6local_route_track(const struct prefix_ipv6 *sid,
+					vrf_id_t vrf_id, uint32_t table_id,
+					enum seg6local_action_t action,
+					const struct seg6local_context *ctx,
+					int type, uint16_t instance);
+extern void zebra_seg6local_route_untrack(const struct prefix_ipv6 *sid,
+					  vrf_id_t vrf_id, uint32_t table_id);
+extern void zebra_seg6local_if_down(struct interface *ifp);
+extern void zebra_seg6local_if_up(struct interface *ifp);
+
 #endif /* _ZEBRA_SRV6_H */

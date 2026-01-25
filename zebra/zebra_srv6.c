@@ -11,6 +11,8 @@
 #include "prefix.h"
 #include "stream.h"
 #include "srv6.h"
+#include "hash.h"
+#include "nexthop.h"
 #include "zebra/debug.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zserv.h"
@@ -20,6 +22,8 @@
 #include "zebra/ge_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/rib.h"
+#include "zebra/zebra_nhg.h"
 #include "typesafe.h"
 
 #include <stdio.h>
@@ -2896,4 +2900,339 @@ bool zebra_srv6_is_enable(void)
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 
 	return listcount(srv6->locators);
+}
+
+/*
+ * SRv6 seg6local fast reroute implementation.
+ *
+ * This code tracks seg6local routes with backup paths and enables
+ * fast reroute when the primary interface goes down by switching
+ * to the backup nexthop without waiting for the routing protocol
+ * to recalculate.
+ */
+
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SEG6LOCAL_ROUTE,
+		    "SRv6 seg6local route for FRR");
+
+/* Hash helper prototypes */
+static uint32_t zebra_seg6local_route_hash_key(
+	const struct zebra_seg6local_route *route);
+static int zebra_seg6local_route_hash_cmp(
+	const struct zebra_seg6local_route *r1,
+	const struct zebra_seg6local_route *r2);
+
+DECLARE_HASH(zebra_seg6local_route_hash, struct zebra_seg6local_route,
+	     hash_item, zebra_seg6local_route_hash_cmp,
+	     zebra_seg6local_route_hash_key);
+
+/* Global hash table to track all seg6local routes by SID prefix */
+static struct zebra_seg6local_route_hash_head seg6local_routes_hash;
+
+static uint32_t zebra_seg6local_route_hash_key(
+	const struct zebra_seg6local_route *route)
+{
+	uint32_t key;
+
+	key = prefix_hash_key(&route->sid);
+	key = jhash_1word(route->vrf_id, key);
+	key = jhash_1word(route->table_id, key);
+
+	return key;
+}
+
+static int zebra_seg6local_route_hash_cmp(
+	const struct zebra_seg6local_route *r1,
+	const struct zebra_seg6local_route *r2)
+{
+	if (prefix_cmp(&r1->sid, &r2->sid) == 0 &&
+	    r1->vrf_id == r2->vrf_id && r1->table_id == r2->table_id)
+		return 0;
+	return -1;
+}
+
+struct zebra_seg6local_route *
+zebra_seg6local_route_alloc(const struct prefix_ipv6 *sid, vrf_id_t vrf_id,
+			    uint32_t table_id, enum seg6local_action_t action,
+			    int type, uint16_t instance)
+{
+	struct zebra_seg6local_route *route;
+
+	route = XCALLOC(MTYPE_ZEBRA_SEG6LOCAL_ROUTE, sizeof(*route));
+	prefix_copy(&route->sid, sid);
+	route->vrf_id = vrf_id;
+	route->table_id = table_id;
+	route->action = action;
+	route->type = type;
+	route->instance = instance;
+	route->using_backup = false;
+
+	return route;
+}
+
+void zebra_seg6local_route_free(struct zebra_seg6local_route *route)
+{
+	XFREE(MTYPE_ZEBRA_SEG6LOCAL_ROUTE, route);
+}
+
+static struct zebra_seg6local_route *
+zebra_seg6local_route_lookup(const struct prefix_ipv6 *sid, vrf_id_t vrf_id,
+			     uint32_t table_id)
+{
+	struct zebra_seg6local_route lookup;
+
+	memset(&lookup, 0, sizeof(lookup));
+	prefix_copy(&lookup.sid, sid);
+	lookup.vrf_id = vrf_id;
+	lookup.table_id = table_id;
+
+	return zebra_seg6local_route_hash_find(&seg6local_routes_hash, &lookup);
+}
+
+/*
+ * Activate backup nexthop for a seg6local route.
+ * This replaces the route in the kernel with the backup nexthop.
+ */
+static void zebra_seg6local_activate_backup(struct zebra_seg6local_route *route)
+{
+	struct route_entry *re;
+	struct nexthop_group *ng;
+	struct nexthop *nh;
+	struct nhg_hash_entry nhe, *n;
+
+	if (!route || !route->has_backup || route->using_backup)
+		return;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: activating backup for SID %pFX, switching to ifindex %u nh6 %pI6",
+			   __func__, &route->sid, route->backup_ifindex,
+			   &route->backup_nh6);
+
+	/* Create route entry */
+	re = zebra_rib_route_entry_new(route->vrf_id, route->type,
+				       route->instance, 0, 0, route->table_id,
+				       0, 0, 0, 0);
+
+	/* Create nexthop with backup context */
+	ng = nexthop_group_new();
+	nh = nexthop_from_ipv6_ifindex(&route->backup_nh6, route->backup_ifindex,
+				       route->vrf_id);
+	nexthop_add_srv6_seg6local(nh, route->action, &route->backup_ctx);
+	nexthop_group_add_sorted(ng, nh);
+
+	/* Create NHE and add route */
+	zebra_nhe_init(&nhe, AFI_IP6, ng->nexthop);
+	nhe.nhg.nexthop = ng->nexthop;
+	n = zebra_nhe_copy(&nhe, 0);
+
+	rib_add_multipath_nhe(AFI_IP6, SAFI_UNICAST, (struct prefix *)&route->sid,
+			      NULL, re, n, false);
+
+	nexthop_group_delete(&ng);
+
+	route->using_backup = true;
+}
+
+/*
+ * Revert to primary nexthop for a seg6local route.
+ * This replaces the route in the kernel with the primary nexthop.
+ */
+static void zebra_seg6local_revert_to_primary(struct zebra_seg6local_route *route)
+{
+	struct route_entry *re;
+	struct nexthop_group *ng;
+	struct nexthop *nh;
+	struct nhg_hash_entry nhe, *n;
+
+	if (!route || !route->using_backup)
+		return;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: reverting to primary for SID %pFX, switching to ifindex %u nh6 %pI6",
+			   __func__, &route->sid, route->primary_ifindex,
+			   &route->primary_nh6);
+
+	/* Create route entry */
+	re = zebra_rib_route_entry_new(route->vrf_id, route->type,
+				       route->instance, 0, 0, route->table_id,
+				       0, 0, 0, 0);
+
+	/* Create nexthop with primary context */
+	ng = nexthop_group_new();
+	nh = nexthop_from_ipv6_ifindex(&route->primary_nh6, route->primary_ifindex,
+				       route->vrf_id);
+	nexthop_add_srv6_seg6local(nh, route->action, &route->primary_ctx);
+	nexthop_group_add_sorted(ng, nh);
+
+	/* Create NHE and add route */
+	zebra_nhe_init(&nhe, AFI_IP6, ng->nexthop);
+	nhe.nhg.nexthop = ng->nexthop;
+	n = zebra_nhe_copy(&nhe, 0);
+
+	rib_add_multipath_nhe(AFI_IP6, SAFI_UNICAST, (struct prefix *)&route->sid,
+			      NULL, re, n, false);
+
+	nexthop_group_delete(&ng);
+
+	route->using_backup = false;
+}
+
+void zebra_seg6local_route_track(const struct prefix_ipv6 *sid,
+				 vrf_id_t vrf_id, uint32_t table_id,
+				 enum seg6local_action_t action,
+				 const struct seg6local_context *ctx,
+				 int type, uint16_t instance)
+{
+	struct zebra_seg6local_route *route;
+	struct interface *primary_ifp, *backup_ifp;
+	struct zebra_if *primary_zif, *backup_zif;
+
+	if (!ctx || !ctx->has_backup)
+		return;
+
+	/* Check if route already tracked */
+	route = zebra_seg6local_route_lookup(sid, vrf_id, table_id);
+	if (route) {
+		/* Update existing route */
+		route->primary_ifindex = ctx->ifindex;
+		route->primary_nh6 = ctx->nh6;
+		route->backup_ifindex = ctx->ifindex_backup;
+		route->backup_nh6 = ctx->nh6_backup;
+		route->primary_ctx = *ctx;
+		route->backup_ctx = *ctx;
+		route->backup_ctx.nh6 = ctx->nh6_backup;
+		route->backup_ctx.ifindex = ctx->ifindex_backup;
+		/* Copy backup segs to backup_ctx */
+		route->backup_ctx.backup_seg_count = ctx->backup_seg_count;
+		memcpy(route->backup_ctx.backup_segs, ctx->backup_segs,
+		       sizeof(ctx->backup_segs));
+		route->has_backup = true;
+		route->action = action;
+		route->type = type;
+		route->instance = instance;
+		return;
+	}
+
+	/* Create new route entry */
+	route = zebra_seg6local_route_alloc(sid, vrf_id, table_id, action, type,
+					    instance);
+	route->primary_ifindex = ctx->ifindex;
+	route->primary_nh6 = ctx->nh6;
+	route->backup_ifindex = ctx->ifindex_backup;
+	route->backup_nh6 = ctx->nh6_backup;
+	route->primary_ctx = *ctx;
+	route->backup_ctx = *ctx;
+	route->backup_ctx.nh6 = ctx->nh6_backup;
+	route->backup_ctx.ifindex = ctx->ifindex_backup;
+	route->backup_ctx.backup_seg_count = ctx->backup_seg_count;
+	memcpy(route->backup_ctx.backup_segs, ctx->backup_segs,
+	       sizeof(ctx->backup_segs));
+	route->has_backup = true;
+
+	/* Add to hash table */
+	zebra_seg6local_route_hash_add(&seg6local_routes_hash, route);
+
+	/* Link to primary interface */
+	primary_ifp = if_lookup_by_index(route->primary_ifindex, vrf_id);
+	if (primary_ifp) {
+		primary_zif = primary_ifp->info;
+		if (primary_zif)
+			zebra_seg6local_route_list_add_tail(
+				&primary_zif->seg6local_primary_routes, route);
+	}
+
+	/* Link to backup interface */
+	backup_ifp = if_lookup_by_index(route->backup_ifindex, vrf_id);
+	if (backup_ifp) {
+		backup_zif = backup_ifp->info;
+		if (backup_zif)
+			zebra_seg6local_route_backup_list_add_tail(
+				&backup_zif->seg6local_backup_routes, route);
+	}
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: tracking seg6local route SID %pFX, primary if %u, backup if %u",
+			   __func__, sid, route->primary_ifindex,
+			   route->backup_ifindex);
+}
+
+void zebra_seg6local_route_untrack(const struct prefix_ipv6 *sid,
+				   vrf_id_t vrf_id, uint32_t table_id)
+{
+	struct zebra_seg6local_route *route;
+	struct interface *primary_ifp, *backup_ifp;
+	struct zebra_if *primary_zif, *backup_zif;
+
+	route = zebra_seg6local_route_lookup(sid, vrf_id, table_id);
+	if (!route)
+		return;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: untracking seg6local route SID %pFX", __func__,
+			   sid);
+
+	/* Unlink from primary interface */
+	primary_ifp = if_lookup_by_index(route->primary_ifindex, vrf_id);
+	if (primary_ifp) {
+		primary_zif = primary_ifp->info;
+		if (primary_zif)
+			zebra_seg6local_route_list_del(
+				&primary_zif->seg6local_primary_routes, route);
+	}
+
+	/* Unlink from backup interface */
+	backup_ifp = if_lookup_by_index(route->backup_ifindex, vrf_id);
+	if (backup_ifp) {
+		backup_zif = backup_ifp->info;
+		if (backup_zif)
+			zebra_seg6local_route_backup_list_del(
+				&backup_zif->seg6local_backup_routes, route);
+	}
+
+	/* Remove from hash and free */
+	zebra_seg6local_route_hash_del(&seg6local_routes_hash, route);
+	zebra_seg6local_route_free(route);
+}
+
+void zebra_seg6local_if_down(struct interface *ifp)
+{
+	struct zebra_if *zif;
+	struct zebra_seg6local_route *route;
+
+	if (!ifp || !ifp->info)
+		return;
+
+	zif = ifp->info;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: interface %s down, checking seg6local routes",
+			   __func__, ifp->name);
+
+	/* Activate backup for all routes using this as primary */
+	frr_each (zebra_seg6local_route_list, &zif->seg6local_primary_routes,
+		  route) {
+		if (route->has_backup && !route->using_backup)
+			zebra_seg6local_activate_backup(route);
+	}
+}
+
+void zebra_seg6local_if_up(struct interface *ifp)
+{
+	struct zebra_if *zif;
+	struct zebra_seg6local_route *route;
+
+	if (!ifp || !ifp->info)
+		return;
+
+	zif = ifp->info;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: interface %s up, checking seg6local routes",
+			   __func__, ifp->name);
+
+	/* Revert to primary for all routes using this as primary */
+	frr_each (zebra_seg6local_route_list, &zif->seg6local_primary_routes,
+		  route) {
+		if (route->using_backup)
+			zebra_seg6local_revert_to_primary(route);
+	}
 }
