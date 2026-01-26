@@ -157,13 +157,14 @@ static ssize_t printfrr_be_mask(struct fbuf *buf, struct printfrr_eargs *ea, con
 /* ======================= */
 
 /*
- * Check if either path or xpath is a prefix of the other. Before checking the
- * xpath is converted to a regular path string (e..g, removing key value
- * specifiers).
+ * Check if either map_path or xpath is a prefix of the other along path
+ * boundaries (i.e., either module name ending with ':' or path segment ending
+ * with '/' or 0 byte). Before checking
+ * the xpath is converted to a regular path string (i.e., removing predicates).
  */
-static bool mgmt_be_xpath_prefix(const char *path, const char *xpath)
+static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 {
-	int xc, pc;
+	int xc, pc = 0;
 
 	while ((xc = *xpath++)) {
 		if (xc == '[') {
@@ -172,13 +173,16 @@ static bool mgmt_be_xpath_prefix(const char *path, const char *xpath)
 				return false;
 			continue;
 		}
-		pc = *path++;
+		pc = *map_path++;
 		if (!pc)
-			return true;
+			/* pc is done, if xpath ends at a path separator, it's a match */
+			return (xc == '/' || xc == ':');
 		if (pc != xc)
 			return false;
 	}
-	return true;
+	pc = *map_path++;
+	/* if they are equal, or map_path ends at a path separator, it's a match */
+	return (!pc || pc == '/' || pc == ':');
 }
 
 /*
@@ -251,17 +255,18 @@ bool mgmt_is_mgmtd_interested(const char *xpath)
  *
  * NOTE: Fix this when removing the global constant maps used for bootstrapping.
  */
-static bool be_is_client_interested(const char *xpath, mgmt_be_client_id_t id,
-				    enum mgmt_be_xpath_subscr_type type)
+static bool be_client_wants_cfg(const char *xpath, mgmt_be_client_id_t id)
 {
-	uint64_t clients;
+	struct mgmt_be_xpath_map *map;
 
-	clients = mgmt_be_interested_clients(xpath, type);
-	if (IS_IDBIT_SET(clients, id)) {
-		_dbg("client: %pMBI for xpath: '%s': interested", &id, xpath);
-		return true;
+	darr_foreach_p (be_cfg_xpath_map, map) {
+		if (IS_IDBIT_SET(map->clients, id) &&
+		    mgmt_be_xpath_prefix(map->xpath_prefix, xpath)) {
+			_dbg_nf("init-config: %pMBI: WANTS: %s", &id, xpath);
+			return true;
+		}
 	}
-	_dbg("client: %pMBI for xpath: '%s': not interested", &id, xpath);
+	_dbg_nf("init-config: %pMBI: unwanted: %s", &id, xpath);
 	return false;
 }
 
@@ -286,8 +291,7 @@ struct nb_config_cbs mgmt_be_adapter_get_config(struct mgmt_be_client_adapter *a
 				goto walk_cont;
 
 			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
-			if (be_is_client_interested(xpath, adapter->id,
-						    MGMT_BE_XPATH_SUBSCR_TYPE_CFG))
+			if (be_client_wants_cfg(xpath, adapter->id))
 				nb_config_diff_add_change(&changes, NB_CB_CREATE, &seq, dnode);
 			else
 				LYD_TREE_DFS_continue = 1; /* skip any subtree */
