@@ -11,6 +11,7 @@
 #include "hook.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "typesafe.h"
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
@@ -275,6 +276,9 @@ struct bgp_path_info {
 	struct bgp_path_info *next;
 	struct bgp_path_info *prev;
 
+	/* Hash linkage for pi_hash in bgp_table */
+	struct bgp_pi_hash_item pi_hash_link;
+
 	/* For nexthop linked list */
 	LIST_ENTRY(bgp_path_info) nh_thread;
 
@@ -295,10 +299,6 @@ struct bgp_path_info {
 
 	/* Extra information */
 	struct bgp_path_info_extra *extra;
-
-
-	/* Multipath information */
-	struct bgp_path_info_mpath *mpath;
 
 	/* Uptime.  */
 	time_t uptime;
@@ -532,7 +532,7 @@ struct bgp_aggregate {
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
 
-/* Flags which indicate a route is unuseable in some form */
+/* Flags which indicate a route is unusable in some form */
 #define BGP_PATH_UNUSEABLE                                                     \
 	(BGP_PATH_HISTORY | BGP_PATH_DAMPED | BGP_PATH_REMOVED)
 /* Macro to check BGP information is alive or not.  Sadly,
@@ -669,7 +669,6 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	dst_pi->flags = src_pi->flags;
 	dst_pi->type = src_pi->type;
 	dst_pi->sub_type = src_pi->sub_type;
-	dst_pi->mpath = src_pi->mpath;
 	if (src_pi->extra) {
 		memcpy(dst_pie, src_pi->extra,
 		       sizeof(struct bgp_path_info_extra));
@@ -743,6 +742,11 @@ DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct bgp_path_info *old_route, struct bgp_path_info *new_route),
 	     (bgp, afi, safi, bn, old_route, new_route));
+
+extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2);
+extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
+
+DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
@@ -1021,4 +1025,6 @@ extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
+extern int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete);
+extern void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */

@@ -44,7 +44,7 @@ nhg_connected_tree_is_empty(const struct nhg_connected_tree_head *head);
 extern struct nhg_connected *
 nhg_connected_tree_root(struct nhg_connected_tree_head *head);
 
-/* I realize _add/_del returns are backwords.
+/* I realize _add/_del returns are backwards.
  *
  * Currently the list APIs are not standardized for what happens in
  * the _del() function when the item isn't present.

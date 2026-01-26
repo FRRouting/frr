@@ -49,7 +49,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 				 safe_strerror(errno));
 			frr_exit_with_buffer_flush(1);
 		}
@@ -76,7 +76,7 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	frr_with_privs(&zserv_privs) {
 		sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 				 safe_strerror(errno));
 			frr_exit_with_buffer_flush(1);
 		}
@@ -103,7 +103,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create IPv6 datagram socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create IPv6 datagram socket: %s",
 				 safe_strerror(errno));
 			frr_exit_with_buffer_flush(1);
 		}
@@ -156,7 +156,7 @@ void if_get_mtu(struct interface *ifp)
 
 	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
 
-	/* propogate */
+	/* propagate */
 	zebra_interface_up_update(ifp);
 
 #else
@@ -312,7 +312,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 #else
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
@@ -365,7 +365,7 @@ int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {

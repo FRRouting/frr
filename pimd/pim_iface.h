@@ -143,6 +143,11 @@ struct pim_interface {
 	struct list *upstream_switch_list;
 	struct pim_ifchannel_rb ifchannel_rb;
 
+	/* Periodic join prune interval (-1 means `router->t_periodic`). */
+	int periodic_jp_sec;
+	int assert_msec;
+	int assert_override_msec;
+
 	/* neighbors without lan_delay */
 	int pim_number_of_nonlandelay_neighbors;
 	uint16_t pim_neighbors_highest_propagation_delay_msec;
@@ -238,6 +243,8 @@ int pim_if_lan_delay_enabled(struct interface *ifp);
 uint16_t pim_if_effective_propagation_delay_msec(struct interface *ifp);
 uint16_t pim_if_effective_override_interval_msec(struct interface *ifp);
 uint16_t pim_if_jp_override_interval_msec(struct interface *ifp);
+int pim_if_jp_period(const struct pim_interface *pim_interface);
+int pim_if_jp_hold(const struct pim_interface *pim_interface);
 struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr);
 
 long pim_if_t_suppressed_msec(struct interface *ifp);

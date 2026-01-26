@@ -451,12 +451,12 @@ struct community *community_intern(struct community *com)
 	/* Lookup community hash. */
 	find = (struct community *)hash_get(comhash, com, hash_alloc_intern);
 
-	/* Arguemnt com is allocated temporary.  So when it is not used in
+	/* Argument com is allocated temporary.  So when it is not used in
 	   hash, it should be freed.  */
 	if (find != com)
 		community_free(&com);
 
-	/* Increment refrence counter.  */
+	/* Increment reference counter.  */
 	find->refcnt++;
 
 	/* Make string.  */
@@ -870,7 +870,7 @@ struct hash *community_hash(void)
 	return comhash;
 }
 
-/* Initialize comminity related hash. */
+/* Initialize community related hash. */
 void community_init(void)
 {
 	comhash =

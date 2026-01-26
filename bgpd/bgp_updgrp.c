@@ -607,6 +607,10 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
 		return false;
 
+	/* For aspath loop detection, the remote-as should match */
+	if (CHECK_FLAG(pe1->flags, PEER_FLAG_AS_LOOP_DETECTION) && (pe1->as != pe2->as))
+		return false;
+
 	if ((pe1->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS)
 	    != (pe2->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS))
 		return false;
@@ -1738,7 +1742,7 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 	}
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* Avoid supressing duplicate routes later
+		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
 		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
@@ -2032,7 +2036,7 @@ void update_group_adjust_peer(struct peer_af *paf)
 		return;
 	}
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)) {
+	if (!peer_is_config_node(peer)) {
 		return;
 	}
 
@@ -2213,7 +2217,7 @@ void update_group_refresh_default_originate_route_map(struct event *event)
  *
  * If the combine parameter is true, then this function will try to
  * gather other peers in the subgroup for which a route announcement
- * is pending and efficently announce routes to all of them.
+ * is pending and efficiently announce routes to all of them.
  *
  * For now, the 'combine' option has an effect only if all peers in
  * the subgroup have a route announcement pending.
@@ -2252,7 +2256,7 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 	}
 	/*
 	 * Announce to the peer alone if we were not asked to combine peers,
-	 * or if some peers don't have a route annoucement pending.
+	 * or if some peers don't have a route announcement pending.
 	 */
 	if (!combine || !all_pending) {
 		update_subgroup_split_peer(paf, NULL);

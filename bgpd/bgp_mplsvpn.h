@@ -29,7 +29,8 @@
 #define V4_HEADER_OVERLAY                                                      \
 	"   Network          Next Hop      EthTag    Overlay Index   RouterMac\n"
 
-#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH 20
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL 20
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP	  32
 
 extern void bgp_mplsvpn_init(void);
 extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
@@ -87,11 +88,11 @@ extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
-extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
-			  uint8_t size);
-extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset, uint8_t size,
+			  uint8_t size_max);
+extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 				afi_t afi, safi_t safi);
-void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 			   afi_t afi, safi_t safi);
 bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func);
 
@@ -187,7 +188,7 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
 
-	/* Is there an export SID that isn't allocted yet? */
+	/* Is there an export SID that isn't allocated yet? */
 	if ((CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
 	     CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
 	     bgp_vrf->vpn_policy[afi].tovpn_sid_index) &&

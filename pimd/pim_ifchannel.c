@@ -1039,6 +1039,8 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 				PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
 
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+			pim_upstream_inherited_olist_decide(pim_ifp->pim, ch->upstream);
+
 			if (listcount(pim_ifp->pim_neighbor_list) > 1)
 				jp_override_interval_msec =
 					pim_if_jp_override_interval_msec(ifp);
@@ -1076,6 +1078,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		 * causing it to expire immediately.
 		 */
 
+		ch->ifjoin_creation = pim_time_monotonic_sec();
 		pim_ifchannel_ifjoin_switch(__func__, ch,
 					    PIM_IFJOIN_PRUNE_PENDING);
 
@@ -1131,6 +1134,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
+			ch->ifjoin_creation = pim_time_monotonic_sec();
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
 			event_cancel(&ch->t_ifjoin_expiry_timer);
 			event_add_timer(router->master, on_ifjoin_expiry_timer,

@@ -406,41 +406,57 @@ def evpn_verify_vni_state(router, vni_list, vni_type="L2", expected_state="Up"):
             if vni_type_field is not None and vni_type_field != "L2":
                 return f"VNI {vni}: Expected L2 VNI but found type: {vni_type_field}"
 
-            # Check remoteVteps field exists
-            if "remoteVteps" not in output:
-                return f"VNI {vni}: 'remoteVteps' field not found in output"
-
-            # Check numRemoteVteps field exists and is valid
+            # Check numRemoteVteps field exists first. Some FRR versions omit
+            # the 'remoteVteps' array entirely when the count is zero, so we
+            # must look at the counter before assuming the array will be
+            # present.
             if "numRemoteVteps" not in output:
                 return f"VNI {vni}: 'numRemoteVteps' field not found in output"
 
             num_remote_vteps = output.get("numRemoteVteps", 0)
-            remote_vteps = output.get("remoteVteps", [])
-            actual_remote_vtep_count = len(remote_vteps)
 
-            # Verify numRemoteVteps matches actual count
-            if num_remote_vteps != actual_remote_vtep_count:
-                return (
-                    f"VNI {vni}: numRemoteVteps mismatch. "
-                    f"Field says {num_remote_vteps}, but found {actual_remote_vtep_count} entries"
-                )
-
-            logger.info(
-                "%s: VNI %s (L2) has %s remote VTEPs",
-                router.name,
-                vni,
-                num_remote_vteps,
-            )
-
-            # Log remote VTEP IPs if available
-            if remote_vteps:
-                remote_vtep_ips = [vtep.get("ip", "unknown") for vtep in remote_vteps]
+            # If there are zero remote VTEPs, that's valid – just log and skip
+            # the detailed remoteVteps checks.
+            if num_remote_vteps == 0:
                 logger.info(
-                    "%s: VNI %s remote VTEPs: %s",
+                    "%s: VNI %s (L2) currently has 0 remote VTEPs",
                     router.name,
                     vni,
-                    remote_vtep_ips,
                 )
+            else:
+                # When numRemoteVteps is non-zero, the detailed 'remoteVteps'
+                # list must be present and consistent with the counter.
+                if "remoteVteps" not in output:
+                    return f"VNI {vni}: 'remoteVteps' field not found in output"
+
+                remote_vteps = output.get("remoteVteps", [])
+                actual_remote_vtep_count = len(remote_vteps)
+
+                # Verify numRemoteVteps matches actual count
+                if num_remote_vteps != actual_remote_vtep_count:
+                    return (
+                        f"VNI {vni}: numRemoteVteps mismatch. "
+                        f"Field says {num_remote_vteps}, but found {actual_remote_vtep_count} entries"
+                    )
+
+                logger.info(
+                    "%s: VNI %s (L2) has %s remote VTEPs",
+                    router.name,
+                    vni,
+                    num_remote_vteps,
+                )
+
+                # Log remote VTEP IPs if available
+                if remote_vteps:
+                    remote_vtep_ips = [
+                        vtep.get("ip", "unknown") for vtep in remote_vteps
+                    ]
+                    logger.info(
+                        "%s: VNI %s remote VTEPs: %s",
+                        router.name,
+                        vni,
+                        remote_vtep_ips,
+                    )
 
             # Validate VLAN and bridge for L2VNIs as well. These come from
             # zebra_evpn's JSON ("vlan", "bridge").
@@ -922,11 +938,11 @@ def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
 
         # Clean kernel message corruption from output
         # Remove any junk before JSON array starts
-        json_start = output.find('[')
+        json_start = output.find("[")
         if json_start > 0:
             output = output[json_start:]
         # Remove inline corruption strings (e.g., "id":0fan-map becomes "id":0)
-        output = output.replace('fan-map ', '')
+        output = output.replace("fan-map ", "")
 
         try:
             link_info = json.loads(output)
@@ -1185,7 +1201,9 @@ def _verify_type5_route_advertisement(tgen, vtep_routers, l3vni_list, rt_base="6
         for vni in l3vni_list:
             # Check if router is advertising Type-5 routes for this VNI
             # Look for Route Target RT:<rt_base>:<vni> in self-originated routes
-            cmd = f"show bgp l2vpn evpn route self-originate | grep 'RT:{rt_base}:{vni}'"
+            cmd = (
+                f"show bgp l2vpn evpn route self-originate | grep 'RT:{rt_base}:{vni}'"
+            )
             output = router.vtysh_cmd(cmd, isjson=False)
 
             has_routes = bool(output and output.strip())

@@ -119,6 +119,9 @@ int lib_interface_pim_address_family_dr_priority_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_nbr_plist_modify(struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_nbr_plist_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_pim_assert_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_assert_override_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_assert_override_interval_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_create(struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_pim_enable_modify(
@@ -132,6 +135,8 @@ int lib_interface_pim_address_family_hello_holdtime_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_holdtime_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_pim_address_family_join_prune_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_join_prune_interval_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_bfd_create(struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_bfd_destroy(
 	struct nb_cb_destroy_args *args);
@@ -308,6 +313,8 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_gm_alist_modify(struct nb_cb_modify_args *args);
+int lib_interface_gm_alist_destroy(struct nb_cb_destroy_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only

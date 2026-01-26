@@ -1032,8 +1032,8 @@ grpc::Status HandleUnaryExecute(
 				    "Unknown data path");
 
 	// Create input data tree.
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0,
-			    (LYD_ANYDATA_VALUETYPE)0, 0, NULL, &input_tree);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
+			     NULL, &input_tree);
 	if (err != LY_SUCCESS) {
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Invalid data path");
@@ -1061,8 +1061,8 @@ grpc::Status HandleUnaryExecute(
 	}
 
 	// Create output data tree.
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0,
-			    (LYD_ANYDATA_VALUETYPE)0, 0, NULL, &output_tree);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
+			     NULL, &output_tree);
 	if (err != LY_SUCCESS) {
 		lyd_free_tree(input_tree);
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,

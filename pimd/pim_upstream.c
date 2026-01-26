@@ -527,26 +527,38 @@ void staterefresh_timer_start(struct pim_upstream *up)
 
 void join_timer_start(struct pim_upstream *up)
 {
+	const struct pim_interface *pim_interface = NULL;
 	struct pim_neighbor *nbr = NULL;
 
 	if (up->rpf.source_nexthop.interface) {
+		pim_interface = up->rpf.source_nexthop.interface->info;
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
 					up->rpf.rpf_addr, true);
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_PIM_EVENTS) {
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s neighbor %pPA",
+				   __func__, pim_neigh_jp_period(nbr), up->sg_str,
+				   &nbr->source_addr);
+		}
+
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
+	} else {
+		int t_periodic = router->t_periodic;
+
+		if (pim_interface)
+			t_periodic = pim_if_jp_period(pim_interface);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
-			zlog_debug(
-				"%s: starting %d sec timer for upstream (S,G)=%s",
-				__func__, router->t_periodic, up->sg_str);
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+				   t_periodic, up->sg_str);
 		}
+
+		event_cancel(&up->t_join_timer);
+		event_add_timer(router->master, on_join_timer, up, t_periodic, &up->t_join_timer);
 	}
 
-	if (nbr)
-		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
-	else {
-		event_cancel(&up->t_join_timer);
-		event_add_timer(router->master, on_join_timer, up,
-				router->t_periodic, &up->t_join_timer);
-	}
 	pim_jp_agg_upstream_verification(up, true);
 }
 
@@ -2327,6 +2339,23 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 					 __func__);
 			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 			pim_upstream_fhr_kat_start(up);
+		}
+
+		/*
+		 * Let's ensure that when we have an active source that we do not have any
+		 * register state for that is a FHR, that we allow the registration to
+		 * happen if it should be
+		 */
+		if (pim_upstream_could_register(up) && !pim_is_grp_ssm(pim, up->sg.grp) &&
+		    up->reg_state == PIM_REG_NOINFO && !event_is_scheduled(up->t_rs_timer) &&
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim->regiface &&
+		    pim->regiface->configured) {
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s: add pimreg to %s[%s]", __func__, up->sg_str,
+					   pim->vrf->name);
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+			pim_register_join(up);
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 		}
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 		rv = true;

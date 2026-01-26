@@ -151,6 +151,7 @@ int main(int argc, char **argv, char **envp)
 	pim_router_init();
 
 	access_list_init();
+	access_list_add_hook(pim_access_list_update);
 	prefix_list_init();
 
 	/*

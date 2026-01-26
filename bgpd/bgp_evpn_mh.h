@@ -97,7 +97,7 @@ struct bgp_evpn_es {
 	struct bgp_evpn_es_frag *es_base_frag;
 
 	/* [EVPNES_LOCAL] originator ip address  */
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip;
 
 	/* [EVPNES_LOCAL] Route table for EVPN routes for this ESI-
 	 * - Type-4 local and remote routes
@@ -154,7 +154,7 @@ RB_PROTOTYPE(bgp_es_rb_head, bgp_evpn_es, rb_node, bgp_es_rb_cmp);
 /* PE attached to an ES */
 struct bgp_evpn_es_vtep {
 	struct bgp_evpn_es *es; /* parent ES */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	char vtep_str[INET6_ADDRSTRLEN];
 
@@ -252,7 +252,7 @@ struct bgp_evpn_es_evi {
  */
 struct bgp_evpn_es_evi_vtep {
 	struct bgp_evpn_es_evi *es_evi; /* parent ES-EVI */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	uint32_t flags;
 	/* Rxed an EAD-per-ES route from the PE */
@@ -315,10 +315,10 @@ struct bgp_evpn_mh_info {
 	 * can be turned off to activate a remote ES-PE when the EAD-per-ES
 	 * route is rxed i.e. not wait on the EAD-per-EVI route
 	 */
-	bool ead_evi_rx;
+	bool enable_ead_evi_rx;
 #define BGP_EVPN_MH_EAD_EVI_RX_DEF true
 	/* Skip EAD-EVI advertisements by turning off this knob */
-	bool ead_evi_tx;
+	bool enable_ead_evi_tx;
 #define BGP_EVPN_MH_EAD_EVI_TX_DEF true
 	/* If the Local ES is inactive we advertise the MAC-IP without the
 	 * L3 ecomm
@@ -412,18 +412,19 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);
-extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
-				 struct in_addr originator_ip, bool oper_up,
-				 uint16_t df_pref, bool bypass);
+extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_ip,
+				 bool oper_up, uint16_t df_pref, bool bypass);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
+			   const struct prefix_evpn *p,
+			   struct bgp_path_info *pi);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
+			   const struct prefix_evpn *p,
+			   struct bgp_path_info *pi);
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);
@@ -459,7 +460,11 @@ extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 					     struct ecommunity *ecom, bool del);
-extern void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
-								struct bgp_evpn_es_evi *es_evi);
+extern void bgp_evpn_local_es_evi_uninstall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+								 struct bgp_evpn_es_evi *es_evi);
+
+void bgp_evpn_vtep_ip_to_attr_nh(const struct ipaddr *vtep_ip, struct attr *attr);
+extern void bgp_evpn_switch_ead_evi_rx(void);
+extern void bgp_evpn_switch_ead_evi_tx(void);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

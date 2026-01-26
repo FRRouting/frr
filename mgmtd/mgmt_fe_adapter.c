@@ -129,7 +129,9 @@ static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
 			continue;
 		list_delete_node(ns->sessions, node);
 		if (list_isempty(ns->sessions)) {
-			clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+			_dbg("do not notify session-id: %Lu on %s", session->session_id, ns->s);
+			clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
+							      "add-notify-select");
 			ns_string_del(head, ns);
 			mgmt_fe_free_ns_string(ns);
 		}
@@ -147,7 +149,9 @@ static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *p
 	ns = XCALLOC(MTYPE_MGMTD_XPATH, sizeof(*ns) + plen + 1);
 	strlcpy(ns->s, path, plen + 1);
 
-	clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	_dbg("notify session-id: %Lu on %s", session->session_id, ns->s);
+	clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
+					     "add-notify-select");
 	*all_matched |= clients;
 
 	e = ns_string_add(head, ns);
@@ -908,7 +912,8 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	darr_free(snodes);
 
 	if (in_oper)
-		clients = mgmt_be_interested_clients(msg->xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+		clients = mgmt_be_interested_clients(msg->xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
+						     "GET-DATA");
 
 	if (!clients && !ylib && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		_dbg("No backends provide xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
@@ -1363,8 +1368,7 @@ static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 		return;
 	}
 
-	clients = mgmt_be_interested_clients(xpath,
-					     MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+	clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "RPC");
 	if (!clients) {
 		_dbg("No backends implement xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     xpath, session->txn_id, session->session_id);
@@ -1604,6 +1608,7 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 							    struct mgmt_msg_notify_data **cache)
 
 {
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	struct mgmt_msg_notify_data *new_msg;
 	const struct lyd_node *root;
 	uint8_t **darrp = NULL;
@@ -1619,8 +1624,12 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 
 	/* Get a libyang data tree if we haven't yet */
 	if (!*tree) {
-		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type,
-					 LYD_PARSE_STRICT | LYD_PARSE_ONLY, 0, tree);
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+		if (msg->result_type == LYD_LYB)
+			parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type, parse_options, 0,
+					 tree);
 		assert(err == LY_SUCCESS);
 	}
 

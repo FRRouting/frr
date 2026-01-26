@@ -347,8 +347,8 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 	/* sanities */
 	if ((base < MPLS_LABEL_UNRESERVED_MIN)
 	    || (end > MPLS_LABEL_UNRESERVED_MAX)) {
-		zlog_err("Invalid LM request arguments: base: %u, size: %u",
-			 base, size);
+		flog_err(EC_ZEBRA_LM_INVALID_REQUEST,
+			 "Invalid LM request arguments: base: %u, size: %u", base, size);
 		return NULL;
 	}
 

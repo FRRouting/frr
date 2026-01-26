@@ -24,6 +24,7 @@ jobs:
         -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 Build',platform : 'amd64_u24' }
         -  { os: 'ubuntu-22.04-arm' ,rel: '22.04',  name: 'Ubuntu 22.04 arm64 Build',platform : 'arm64_u22' }
         -  { os: 'ubuntu-22.04-arm' ,rel: '24.04',  name: 'Ubuntu 24.04 arm64 Build',platform : 'arm64_u24' }
+        -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 LTTng Build',platform : 'amd64_u24_lttng', lttng: 'true' }
 
     steps:
       - name: Checkout
@@ -32,7 +33,7 @@ jobs:
           fetch-depth: 1
       - name: Build docker image
         run: |
-          docker build --no-cache -t frr-${{ matrix.cfg.platform }} --build-arg=UBUNTU_VERSION=${{ matrix.cfg.rel }} -f docker/ubuntu-ci/Dockerfile .
+          docker build --no-cache -t frr-${{ matrix.cfg.platform }} --build-arg=UBUNTU_VERSION=${{ matrix.cfg.rel }} --build-arg=ENABLE_LTTNG=${{ matrix.cfg.lttng || 'false' }} -f docker/ubuntu-ci/Dockerfile .
           docker save --output /tmp/frr-${{ matrix.cfg.platform }}.tar frr-${{ matrix.cfg.platform }}
       - name: Upload docker image artifact
         uses: actions/upload-artifact@v4
@@ -86,7 +87,9 @@ jobs:
         run: |
           uname -a
           MODPKGVER=$(uname -r)
-          sudo apt-get update -y
+          # Retry loop for apt-get update in case of transient mirror failures
+          APT_RETRIES=3
+          for i in $(seq 1 ${APT_RETRIES}); do sudo apt-get update -y && break || sleep 10; done
           # Github is running old kernels but installing newer packages :(
           sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
           sudo modprobe vrf || true

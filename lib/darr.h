@@ -342,16 +342,18 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the (I)th element in `A`
  */
-#define darr_ensure_i_mt(A, I, MT)                                                                 \
-	({                                                                                         \
-		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                                     \
-		int _d__i = (int)(I);                                                              \
-		if (_d__i > darr_maxi(A))                                                          \
-			_darr_resize_mt((A), _d__i + 1, MT);                                       \
-		assert((A) != NULL);                                                               \
-		if ((uint)_d__i + 1 > _darr_len(A))                                                \
-			_darr_len(A) = _d__i + 1;                                                  \
-		&(A)[_d__i];                                                                       \
+#define darr_ensure_i_mt(A, I, MT)                                                                \
+	({                                                                                        \
+		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                                    \
+		int _d__i = (int)(I);                                                             \
+		if (_d__i > darr_maxi(A))                                                         \
+			_darr_resize_mt((A), _d__i + 1, MT);                                      \
+		assert((A) != NULL);                                                              \
+		if ((uint)_d__i + 1 > _darr_len(A)) {                                             \
+			memset(&(A)[darr_len(A)], 0, (_d__i + 1 - darr_len(A)) * _darr_esize(A)); \
+			_darr_len(A) = _d__i + 1;                                                 \
+		}                                                                                 \
+		&(A)[_d__i];                                                                      \
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 
@@ -613,12 +615,13 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_in_strcat(D, S)                                                                       \
 	({                                                                                         \
+		const char *_d__S = (S);                                                           \
 		uint _d__dlen = darr_strlen(D);                                                    \
-		uint _d__slen = strlen(S);                                                         \
+		uint _d__slen = strlen(_d__S);                                                     \
 		darr_ensure_cap_mt(D, _d__dlen + _d__slen + 1, MTYPE_DARR_STR);                    \
 		if (darr_len(D) == 0)                                                              \
 			*darr_append(D) = 0;                                                       \
-		memcpy(&(D)[darr_strlen(D)] /* darr_last(D) clangSA :( */, (S), _d__slen + 1);     \
+		memcpy(&(D)[darr_strlen(D)], _d__S, _d__slen + 1);                                 \
 		_darr_len(D) += _d__slen;                                                          \
 		(D);                                                                               \
 	})
@@ -662,16 +665,17 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_in_strcat_tail(D, S)                                                                  \
 	({                                                                                         \
+		const char *_d__S = (S);                                                           \
 		int _d__dsize, _d__ssize, _d__extra;                                               \
                                                                                                    \
 		if (darr_len(D) == 0)                                                              \
 			*darr_append(D) = 0;                                                       \
 		_d__dsize = darr_ilen(D);                                                          \
-		_d__ssize = darr_ilen(S);                                                          \
+		_d__ssize = darr_ilen(_d__S);                                                      \
 		_d__extra = _d__ssize - _d__dsize;                                                 \
 		if (_d__extra > 0) {                                                               \
 			darr_ensure_cap_mt(D, (uint)_d__ssize, MTYPE_DARR_STR);                    \
-			memcpy(darr_last(D), (S) + _d__dsize - 1, _d__extra + 1);                  \
+			memcpy(darr_last(D), _d__S + _d__dsize - 1, _d__extra + 1);                \
 			_darr_len(D) += _d__extra;                                                 \
 		}                                                                                  \
 		(D);                                                                               \
@@ -691,11 +695,12 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_in_strdup_cap(D, S, C)                                                                \
 	({                                                                                         \
-		size_t _d__size = strlen(S) + 1;                                                   \
+		const char *_d__S = (S);                                                           \
+		size_t _d__size = strlen(_d__S) + 1;                                               \
 		darr_reset(D);                                                                     \
 		darr_ensure_cap_mt(D, ((size_t)(C) > _d__size) ? (size_t)(C) : _d__size,           \
 				   MTYPE_DARR_STR);                                                \
-		strlcpy(D, (S), darr_cap(D));                                                      \
+		strlcpy(D, _d__S, darr_cap(D));                                                    \
 		darr_setlen((D), (size_t)_d__size);                                                \
 		(D);                                                                               \
 	})
@@ -757,13 +762,14 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_strdup_cap(S, C)                                                                      \
 	({                                                                                         \
-		size_t _d__size = strlen(S) + 1;                                                   \
+		const char *_d__S = (S);                                                           \
+		size_t _d__size = strlen(_d__S) + 1;                                               \
 		char *_d__s = NULL;                                                                \
 		/* Cast to ssize_t to avoid warning when C == 0 */                                 \
 		darr_ensure_cap_mt(_d__s,                                                          \
 				   ((ssize_t)(C) > (ssize_t)_d__size) ? (size_t)(C) : _d__size,    \
 				   MTYPE_DARR_STR);                                                \
-		strlcpy(_d__s, (S), darr_cap(_d__s));                                              \
+		strlcpy(_d__s, _d__S, darr_cap(_d__s));                                            \
 		darr_setlen(_d__s, (size_t)_d__size);                                              \
 		_d__s;                                                                             \
 	})

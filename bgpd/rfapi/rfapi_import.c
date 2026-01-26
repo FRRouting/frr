@@ -4133,7 +4133,7 @@ void rfapiProcessPeerDown(struct peer *peer)
 	struct rfapi_import_table *it;
 
 	/*
-	 * If this peer is a "dummy" peer structure atached to a RFAPI
+	 * If this peer is a "dummy" peer structure attached to a RFAPI
 	 * nve_descriptor, we don't need to walk the import tables
 	 * because the routes are already withdrawn by rfapi_close()
 	 */

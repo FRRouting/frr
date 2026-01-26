@@ -41,7 +41,7 @@ static uint32_t zebra_import_table_distance[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABL
 int is_zebra_import_table_enabled(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_id)
 {
 	/*
-	 * Make sure that what we are called with actualy makes sense
+	 * Make sure that what we are called with actually makes sense
 	 */
 	if (afi == AFI_MAX)
 		return 0;
@@ -917,8 +917,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
 	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("%s: Table id=%d not found", __func__,
-				   table_id);
+			zlog_debug("%s: Table id=%d not found for VRF %s(%u)", __func__, table_id,
+				   zvrf->vrf->name, zvrf->vrf->vrf_id);
 		return;
 	}
 
@@ -973,6 +973,9 @@ void zebra_import_table_rm_update(const char *rmap)
 		zvrf = vrf->info;
 
 		if (!zvrf)
+			continue;
+
+		if (!vrf_is_enabled(vrf))
 			continue;
 
 		zebra_import_table_rm_update_vrf(zvrf, rmap);

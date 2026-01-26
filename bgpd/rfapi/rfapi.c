@@ -1008,7 +1008,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
-	new = info_make(type, sub_type, 0, rfd->peer, new_attr, NULL);
+	new = info_make(type, sub_type, 0, rfd->peer, new_attr, bn);
 	SET_FLAG(new->flags, BGP_PATH_VALID);
 
 	/* save backref to rfapi handle */
@@ -1119,7 +1119,7 @@ static void rfapiTunnelRouteAnnounce(struct bgp *bgp,
  *
  * return value:
  *	0		Success
- *	ENXIO		Unabled to locate configured BGP/VNC
+ *	ENXIO		Unable to locate configured BGP/VNC
 --------------------------------------------*/
 int rfapi_rfp_set_configuration(void *rfp_start_val, struct rfapi_rfp_cfg *new)
 {
@@ -1228,7 +1228,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	/*
 	 * Fill in BGP peer structure
 	 */
-	rfd->peer = peer_new(bgp, NULL);
+	rfd->peer = peer_new(bgp, NULL, UNKNOWN);
 	rfd->peer->connection->status = Established; /* keep bgp core happy */
 
 	bgp_peer_connection_buffers_free(rfd->peer->connection);
@@ -1467,7 +1467,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 	if (bgp->rfapi->flags & RFAPI_INCALLBACK) {
 		vnc_zlog_debug_verbose(
-			"%s: Called during calback, returning EDEADLK",
+			"%s: Called during callback, returning EDEADLK",
 			__func__);
 		return EDEADLK;
 	}

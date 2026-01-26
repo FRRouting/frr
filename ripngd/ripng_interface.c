@@ -141,8 +141,7 @@ static int ripng_if_down(struct interface *ifp)
 	struct ripng_info *rinfo;
 	struct ripng_interface *ri;
 	struct ripng *ripng;
-	struct list *list = NULL;
-	struct listnode *listnode = NULL, *nextnode = NULL;
+	struct ripng_info_list_head *list = NULL;
 
 	ri = ifp->info;
 
@@ -154,8 +153,7 @@ static int ripng_if_down(struct interface *ifp)
 		for (rp = agg_route_top(ripng->table); rp;
 		     rp = agg_route_next(rp))
 			if ((list = rp->info) != NULL)
-				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
-						       rinfo))
+				frr_each_safe (ripng_info_list, list, rinfo)
 					if (rinfo->ifindex == ifp->ifindex)
 						ripng_ecmp_delete(ripng, rinfo);
 

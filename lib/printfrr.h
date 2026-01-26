@@ -265,6 +265,7 @@ struct va_format {
 };
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
+// clang-format off
 #pragma FRR printfrr_ext "%pFB" (struct fbuf *)
 #pragma FRR printfrr_ext "%pVA" (struct va_format *)
 
@@ -277,10 +278,12 @@ struct va_format {
 
 #pragma FRR printfrr_ext "%pSE" (char *)
 #pragma FRR printfrr_ext "%pSQ" (char *)
+#pragma FRR printfrr_ext "%pSA" (const char **)
 
 #pragma FRR printfrr_ext "%pTS" (struct timespec *)
 #pragma FRR printfrr_ext "%pTV" (struct timeval *)
 #pragma FRR printfrr_ext "%pTT" (time_t *)
+// clang-format on
 #endif
 
 /* when using non-ISO-C compatible extension specifiers... */

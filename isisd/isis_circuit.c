@@ -240,7 +240,7 @@ void isis_circuit_configure(struct isis_circuit *circuit,
 	/*
 	 * Add the circuit into area
 	 */
-	listnode_add(area->circuit_list, circuit);
+	isis_circuit_list_add_tail(&area->circuit_list, circuit);
 
 	circuit->idx = flags_get_index(&area->flags);
 
@@ -263,7 +263,7 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 
 	/* Remove circuit from area */
 	assert(circuit->area == area);
-	listnode_delete(area->circuit_list, circuit);
+	isis_circuit_list_del(&area->circuit_list, circuit);
 	circuit->area = NULL;
 	circuit->isis = NULL;
 
@@ -630,7 +630,7 @@ void isis_circuit_prepare(struct isis_circuit *circuit)
 		       &circuit->t_read);
 #else
 	event_add_timer_msec(master, isis_receive, circuit,
-			     listcount(circuit->area->circuit_list) * 100,
+			     isis_circuit_list_count(&circuit->area->circuit_list) * 100,
 			     &circuit->t_read);
 #endif
 }

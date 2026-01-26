@@ -182,7 +182,7 @@ def host_cmd_split(unet, line, toplevel):
     if not csplit:
         return hosts, "", "", True
 
-    return hosts, csplit[0], ' '.join(csplit[1:]), banner
+    return hosts, csplit[0], " ".join(csplit[1:]), banner
 
 
 def win_cmd_host_split(unet, cmd, kinds, defall):
@@ -490,6 +490,7 @@ class Completer:
                 done_set = set(tokens)
 
         # Determine the domain for completions
+        all_cmds = set()
         if not tokens or first_token:
             all_cmds = (
                 set(cli_builtins) | hosts | cli_run_cmds | cli_win_cmds | top_run_cmds

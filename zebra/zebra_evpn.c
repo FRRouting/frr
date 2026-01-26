@@ -39,6 +39,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");
@@ -368,6 +369,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
 			   vrf_id_to_name(vrf_id));
 
+	frrtrace(3, frr_zebra, ip_prefix_send_to_client, vrf_id, cmd, p);
 	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD)
 		client->prefixadd_cnt++;
 	else
@@ -1215,6 +1217,7 @@ struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *
 
 	zvtep->vtep_ip = *vtep_ip;
 	zvtep->flood_control = flood_control;
+	zvtep->gr_refresh_time = monotime(NULL);
 
 	if (zevpn->vteps)
 		zevpn->vteps->prev = zvtep;
@@ -1246,7 +1249,7 @@ int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
  * Delete all remote VTEPs for this EVPN (upon VNI delete). Also
  * uninstall from kernel if asked to.
  */
-int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
+int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct zebra_vtep *zvtep, *zvtep_next;
 
@@ -1255,8 +1258,17 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
 
 	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep_next) {
 		zvtep_next = zvtep->next;
+		/*
+		 * Skip if we are doing stale cleanup, but this entry is not
+		 * stale.
+		 */
+		if (l2_wctx && l2_wctx->gr_stale_cleanup &&
+		    (zvtep->gr_refresh_time > l2_wctx->gr_cleanup_time))
+			continue;
+
 		if (uninstall)
 			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);
+
 		zebra_evpn_vtep_del(zevpn, zvtep);
 	}
 
@@ -1336,11 +1348,11 @@ void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg)
 	zevpn = (struct zebra_evpn *)bucket->data;
 
 	/* Free up all neighbors and MACs, if any. */
-	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
-	zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
+	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+	zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 	/* Free up all remote VTEPs, if any. */
-	zebra_evpn_vtep_del_all(zevpn, 1);
+	zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 
 	/* Delete the hash entry. */
 	zebra_evpn_del(zevpn);
@@ -1472,6 +1484,8 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 			}
 
 			zebra_evpn_vtep_install(zevpn, zvtep);
+		} else {
+			zvtep->gr_refresh_time = monotime(NULL);
 		}
 	}
 
@@ -1617,15 +1631,17 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_evpn *zevpn = NULL;
+	struct l2vni_walk_ctx *wctx = ctxt;
 
 	zevpn = (struct zebra_evpn *)bucket->data;
-	zevpn->advertise_gw_macip = 0;
-	zevpn->advertise_svi_macip = 0;
-	zevpn->advertise_subnet = 0;
 
-	zebra_evpn_neigh_del_all(zevpn, 1, 0,
-				 DEL_REMOTE_NEIGH | DEL_REMOTE_NEIGH_FROM_VTEP);
-	zebra_evpn_mac_del_all(zevpn, 1, 0,
-			       DEL_REMOTE_MAC | DEL_REMOTE_MAC_FROM_VTEP);
-	zebra_evpn_vtep_del_all(zevpn, 1);
+	if (!wctx->gr_stale_cleanup) {
+		zevpn->advertise_gw_macip = 0;
+		zevpn->advertise_svi_macip = 0;
+		zevpn->advertise_subnet = 0;
+	}
+
+	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_REMOTE_NEIGH | DEL_REMOTE_NEIGH_FROM_VTEP, wctx);
+	zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_REMOTE_MAC | DEL_REMOTE_MAC_FROM_VTEP, wctx);
+	zebra_evpn_vtep_del_all(zevpn, 1, wctx);
 }

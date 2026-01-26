@@ -13,6 +13,7 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/asn.h"
+#include "lib/darr.h"
 
 static int errors;
 
@@ -117,6 +118,8 @@ static int printchk(const char *ref, const char *fmt, ...)
 	return 0;
 }
 
+const char *sarr[] = { "first", "second", "third", NULL };
+
 static void test_va(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
 static void test_va(const char *ref, const char *fmt, ...)
 {
@@ -145,7 +148,9 @@ int main(int argc, char **argv)
 	uint64_t ui64 = 0xfeed1278cafef00d;
 	uint16_t i16 = -23456;
 	int_fast8_t if8 = 123;
+	const char **sptr = sarr;
 	struct in_addr ip;
+	const char **sdarr = NULL;
 	char *p;
 	char buf[256];
 	as_t asn;
@@ -286,6 +291,24 @@ int main(int argc, char **argv)
 	printchk("\"\"", "%pSQqn", "");
 	printchk("\"\"", "%pSQqn", (char *)NULL);
 	printchk("(null)", "%pSQq", (char *)NULL);
+
+
+	printchk("first,second,third", "%pSA", sarr);
+	printchk("first,second,third", "%pSA", sptr);
+	printchk("first,second", "%2pSA", sptr);
+	printchk("first,second", "%*pSA", 2, sptr);
+	printchk("first", "%1pSA", sptr);
+	sarr[0] = NULL;
+	printchk("", "%pSA", sptr);
+	printchk("", "%pSA", NULL);
+
+	*darr_append(sdarr) = "first";
+	*darr_append(sdarr) = "second";
+	printchk("first,second", "%pSAd", sdarr);
+	sdarr[1] = NULL;
+	printchk("first,(null)", "%pSAd", sdarr);
+	printchk("first", "%*pSAd", 1, sdarr);
+	darr_free(sdarr);
 
 	/*
 	 * %pNH<foo> tests

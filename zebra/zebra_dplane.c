@@ -12,6 +12,7 @@
 
 #include "lib/libfrr.h"
 #include "lib/debug.h"
+#include "lib/lib_errors.h"
 #include "lib/frratomic.h"
 #include "lib/frr_pthread.h"
 #include "lib/memory.h"
@@ -26,6 +27,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_tc.h"
+#include "zebra/zebra_trace.h"
 #include "printfrr.h"
 
 /* Memory types */
@@ -234,6 +236,7 @@ struct dplane_intf_info {
 
 	uint32_t metric;
 	uint32_t flags;
+	uint32_t change_flags;
 
 	bool protodown;
 	bool protodown_set;
@@ -245,6 +248,7 @@ struct dplane_intf_info {
 #define DPLANE_INTF_HAS_DEST    DPLANE_INTF_CONNECTED
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
 #define DPLANE_INTF_NOPREFIXROUTE (1 << 5)
+#define DPLANE_INTF_TENTATIVE   (1 << 6) /* IPv6 address is tentative (DAD) */
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -1487,6 +1491,20 @@ uint64_t dplane_ctx_get_ifp_flags(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.intf.flags;
 }
 
+void dplane_ctx_set_ifp_change_flags(struct zebra_dplane_ctx *ctx, uint64_t change_flags)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.change_flags = change_flags;
+}
+
+uint64_t dplane_ctx_get_ifp_change_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.change_flags;
+}
+
 void dplane_ctx_set_ifp_bypass(struct zebra_dplane_ctx *ctx, uint8_t bypass)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2670,6 +2688,20 @@ void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx)
 	ctx->u.intf.flags |= DPLANE_INTF_BROADCAST;
 }
 
+bool dplane_ctx_intf_is_tentative(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_TENTATIVE);
+}
+
+void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_TENTATIVE;
+}
+
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx)
 {
@@ -3692,6 +3724,13 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
+	/* Set AFI/SAFI before checking re, as these are needed even
+	 * when creating a dplane context without a route entry (e.g. for
+	 * kernel routes).
+	 */
+	ctx->u.rinfo.zd_afi = afi;
+	ctx->u.rinfo.zd_safi = safi;
+
 	/* This function may be called to create/init a dplane context, not
 	 * necessarily to copy a route object. Let's return if there is no route
 	 * object to copy.
@@ -3721,9 +3760,6 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_tag = re->tag;
 	ctx->u.rinfo.zd_old_tag = re->tag;
 	ctx->u.rinfo.zd_distance = re->distance;
-
-	ctx->u.rinfo.zd_afi = afi;
-	ctx->u.rinfo.zd_safi = safi;
 
 	return AOK;
 }
@@ -4247,26 +4283,6 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 		nhg = rib_get_fib_nhg(re);
 		last_nh = NULL;
 
-		if (nhg && nhg->nexthop) {
-			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
-				    || CHECK_FLAG(nh->flags,
-						  NEXTHOP_FLAG_RECURSIVE)
-				    || nh->nh_label == NULL)
-					continue;
-
-				newnh = nexthop_dup(nh, NULL);
-
-				if (last_nh)
-					NEXTHOP_APPEND(last_nh, newnh);
-				else
-					ctx->u.pw.fib_nhg.nexthop = newnh;
-				last_nh = newnh;
-			}
-		}
-
-		/* Include any installed backup nexthops also. */
-		nhg = rib_get_fib_backup_nhg(re);
 		if (nhg && nhg->nexthop) {
 			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
@@ -4978,13 +4994,6 @@ dplane_route_notif_update(struct route_node *rn,
 		if (nhg && nhg->nexthop)
 			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
 				      nhg->nexthop, NULL);
-
-		/* Check for installed backup nexthops also */
-		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg && nhg->nexthop) {
-			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-				      nhg->nexthop, NULL);
-		}
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -5783,6 +5792,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const stru
 		zlog_debug("Install %pIA into flood list for VNI %u intf %s(%u)", ip, vni,
 			   ifp->name, ifp->ifindex);
 
+	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 1);
+
 	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac, AF_ETHERNET, ip, vni, 0, 0, 0,
 				       0);
 
@@ -5801,6 +5812,8 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const s
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Uninstall %pIA from flood list for VNI %u intf %s(%u)", ip, vni,
 			   ifp->name, ifp->ifindex);
+
+	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 2);
 
 	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE, ifp, (const void *)&mac, AF_ETHERNET,
 				       ip, vni, 0, 0, 0, 0);
@@ -7392,8 +7405,7 @@ static void dplane_provider_init(void)
 				       kernel_dplane_shutdown_func, NULL, NULL);
 
 	if (ret != AOK)
-		zlog_err("Unable to register kernel dplane provider: %d",
-			 ret);
+		flog_err(EC_LIB_DEVELOPMENT, "Unable to register kernel dplane provider: %d", ret);
 
 #ifdef DPLANE_TEST_PROVIDER
 	/* Optional test provider ... */
@@ -7405,8 +7417,7 @@ static void dplane_provider_init(void)
 				       NULL /* data */, NULL);
 
 	if (ret != AOK)
-		zlog_err("Unable to register test dplane provider: %d",
-			 ret);
+		flog_err(EC_LIB_DEVELOPMENT, "Unable to register test dplane provider: %d", ret);
 #endif	/* DPLANE_TEST_PROVIDER */
 }
 

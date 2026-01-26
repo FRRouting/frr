@@ -167,13 +167,35 @@ failure:
 	return -1;
 }
 
+/* Context structure for SR policy notification iterator */
+struct sr_policy_notif_ctx {
+	struct zebra_sr_policy *policy;
+	vrf_id_t vrf_id;
+};
+
+/* Callback to notify one client about SR policy update */
+static int zebra_sr_policy_notify_client_cb(struct rnh *rnh, void *arg)
+{
+	struct sr_policy_notif_ctx *ctx = arg;
+	struct zserv *client = rnh->client;
+
+	if (!client)
+		return 0;
+
+	if (ctx->policy->status == ZEBRA_SR_POLICY_UP)
+		zebra_sr_policy_notify_update_client(ctx->policy, client);
+	else
+		/* Fallback to the IGP shortest path. */
+		zebra_send_rnh_update(rnh, client, ctx->vrf_id, ctx->policy->color);
+
+	return 0;
+}
+
 static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 {
-	struct rnh *rnh;
 	struct prefix p = {};
 	struct zebra_vrf *zvrf;
-	struct listnode *node;
-	struct zserv *client;
+	struct sr_policy_notif_ctx ctx;
 
 	zvrf = policy->zvrf;
 	switch (policy->endpoint.ipa_type) {
@@ -194,18 +216,11 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		frr_exit_with_buffer_flush(1);
 	}
 
-	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
-	if (!rnh)
-		return;
-
-	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-		if (policy->status == ZEBRA_SR_POLICY_UP)
-			zebra_sr_policy_notify_update_client(policy, client);
-		else
-			/* Fallback to the IGP shortest path. */
-			zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
-					      policy->color);
-	}
+	/* Notify all clients tracking this prefix */
+	ctx.policy = policy;
+	ctx.vrf_id = zvrf_id(zvrf);
+	zebra_rnh_iterate_prefix(&p, zvrf_id(zvrf), SAFI_UNICAST, zebra_sr_policy_notify_client_cb,
+				 &ctx);
 }
 
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,

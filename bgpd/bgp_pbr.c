@@ -11,6 +11,7 @@
 #include "pbr.h"
 
 #include "lib/printfrr.h"
+#include "lib/lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_pbr.h"
@@ -946,7 +947,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 		api->actions[0].action = ACTION_TRAFFICRATE;
 	}
 
-	/* validate if incoming matc/action is compatible
+	/* validate if incoming match/action is compatible
 	 * with our policy routing engine
 	 */
 	if (!bgp_pbr_validate_policy_route(api))
@@ -2343,7 +2344,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			    listnode_lookup_nocheck(extra->flowspec->bgp_fs_iprule,
 						    bpr)) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
-					zlog_err("%s: entry %p/%p already installed in bgp pbr iprule",
+					flog_err(EC_LIB_DEVELOPMENT,
+						 "%s: entry %p/%p already installed in bgp pbr iprule",
 						 __func__, path, bpr);
 				return;
 			}
@@ -2501,9 +2503,9 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		if (extra && extra->flowspec &&
 		    listnode_lookup_nocheck(extra->flowspec->bgp_fs_pbr, bpme)) {
 			if (BGP_DEBUG(pbr, PBR_ERROR))
-				zlog_err(
-					"%s: entry %p/%p already installed in bgp pbr",
-					__func__, path, bpme);
+				flog_err(EC_LIB_DEVELOPMENT,
+					 "%s: entry %p/%p already installed in bgp pbr", __func__,
+					 path, bpme);
 			return;
 		}
 	}

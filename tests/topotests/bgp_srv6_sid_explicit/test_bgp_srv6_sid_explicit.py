@@ -43,17 +43,23 @@ def open_json_file(filename):
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     tgen.add_router("c11")
     tgen.add_router("c12")
     tgen.add_router("c21")
     tgen.add_router("c22")
+    tgen.add_router("c31")
+    tgen.add_router("c32")
 
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth10", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["c11"], "eth2", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["c12"], "eth3", "eth10")
     tgen.add_link(tgen.gears["r2"], tgen.gears["c21"], "eth1", "eth10")
     tgen.add_link(tgen.gears["r2"], tgen.gears["c22"], "eth2", "eth10")
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r3"], "eth20", "eth10")
+    tgen.add_link(tgen.gears["r3"], tgen.gears["c31"], "eth1", "eth10")
+    tgen.add_link(tgen.gears["r3"], tgen.gears["c32"], "eth2", "eth10")
 
 
 def setup_module(mod):
@@ -91,15 +97,17 @@ def check_explicit_srv6_sid_allocated(router, expected_file, exact=False):
     assert result is None, "Failed"
 
 
-def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file):
+def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file, prefix):
     logger.info("checking bgp vpn route with SRv6 SIDs in sending end")
-    output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
+    output = json.loads(router.vtysh_cmd(f"show bgp ipv4 vpn {prefix} json"))
     expected = open_json_file("{}/{}".format(CWD, expected_route_file))
     return topotest.json_cmp(output, expected)
 
 
-def check_sent_bgp_vpn_srv6_sid(router, expected_file):
-    func = functools.partial(_check_sent_bgp_vpn_srv6_sid, router, expected_file)
+def check_sent_bgp_vpn_srv6_sid(router, expected_file, prefix="192.168.1.0/24"):
+    func = functools.partial(
+        _check_sent_bgp_vpn_srv6_sid, router, expected_file, prefix
+    )
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
 
@@ -138,22 +146,28 @@ def check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_file):
     assert result is None, "Failed"
 
 
-def _check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_route_file):
+def _check_rcvd_zebra_vrf_srv6_sid(
+    router, vrf_name, expected_route_file, prefix, family
+):
     logger.info(
-        "checking zebra vrf {} ipv4 route with SRv6 SIDs in receiving end".format(
-            vrf_name
+        "checking zebra vrf {} {} route with SRv6 SIDs in receiving end".format(
+            vrf_name, family
         )
     )
     output = json.loads(
-        router.vtysh_cmd("show ip route vrf {} 192.168.1.0/24 json".format(vrf_name))
+        router.vtysh_cmd(
+            "show {} route vrf {} {} json".format(family, vrf_name, prefix)
+        )
     )
     expected = open_json_file("{}/{}".format(CWD, expected_route_file))
     return topotest.json_cmp(output, expected)
 
 
-def check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_file):
+def check_rcvd_zebra_vrf_srv6_sid(
+    router, vrf_name, expected_file, prefix="192.168.1.0/24", family="ip"
+):
     func = functools.partial(
-        _check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file
+        _check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file, prefix, family
     )
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
@@ -394,6 +408,112 @@ def test_explicit_srv6_sid_per_af_disabled():
     logger.info("--12--Test for bgp explicit srv6 sid disabled in zebra")
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_disabled.json", exact=True
+    )
+
+
+# Configure 'sid vpn per-vrf export 4294442571'
+# this value stands for FFF7FE4B
+# Demonstrate that when using the index value, the allocation
+# is possible on f3216 locator format
+def test_explicit_srv6_sid_explicit_wide_index_1():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65003 vrf Vrf10
+           sid vpn per-vrf export 4294442571
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--13--Test for bgp explicit srv6 sid with wide func allocated in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated_1.json"
+    )
+    check_rcvd_zebra_vrf_srv6_sid(
+        router,
+        "default",
+        "expected_allocated_srv6_sid_seg6local_wide_1.json",
+        "2001:db8:3:fff7:fe4b::/128",
+        "ipv6",
+    )
+    check_sent_bgp_vpn_srv6_sid(
+        router, "expected_sent_bgp_vpn_srv6_sid_wide_1.json", "192.168.3.0/24"
+    )
+
+
+# Configure 'sid vpn per-vrf export explicit X:X::X:X'
+# using wide func specifics
+# By command 'show segment-routing srv6 sid json'
+def test_explicit_srv6_sid_explicit_wide():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65003 vrf Vrf10
+           no sid vpn per-vrf export 4294442571
+           sid vpn per-vrf export explicit 2001:db8:3:fff7:fe50::
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--14--Test for bgp explicit srv6 sid with wide func allocated in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated.json"
+    )
+
+
+# Configure 'sid vpn per-vrf export 4294442578'
+# this value stands for FFF7FE52
+# Demonstrate that when using a func-bits of 32 bits, then
+# By command 'show segment-routing srv6 sid json' dumps 2 SIDs
+def test_explicit_srv6_sid_explicit_wide_index():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN
+              no format usid-f3216
+              behavior usid
+              prefix 2001:db8:3:2::/48 block-len 32 node-len 16 func-bits 32
+              end
+        configure terminal
+         router bgp 65003 vrf Vrf20
+           sid vpn per-vrf export 4294442578
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--15--Test for bgp explicit srv6 sid with 32 bit function space allocated in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated_2.json"
     )
 
 

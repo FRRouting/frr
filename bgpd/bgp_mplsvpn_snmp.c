@@ -595,7 +595,7 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 			return 0;
 		}
 
-		/* send relevent trap */
+		/* send relevant trap */
 		if (bgp->snmp_stats->active)
 			trap = MPLSL3VPNVRFUP;
 		else
@@ -938,7 +938,7 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		return (uint8_t *)l3vpn_bgp->name;
 	case MPLSL3VPNVRFRD:
 		/*
-		 * this is a horror show but the MIB dicates one RD per vrf
+		 * this is a horror show but the MIB dictates one RD per vrf
 		 * and not one RD per AFI as we (FRR) have. So this little gem
 		 * returns the V4 one if it's set OR the v6 one if it's set or
 		 * zero-length string id neither are set
@@ -1079,7 +1079,7 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 				if (*rt_type == MPLSVPNVRFRTTYPEEXPORT
 				    && !export)
 					continue;
-				/* ckeck for both */
+				/* check for both */
 				if (*rt_type == MPLSVPNVRFRTTYPEIMPORT && import
 				    && export
 				    && ecommunity_cmp(

@@ -12,6 +12,7 @@
 #include <zebra.h>
 
 #include "bfd.h"
+#include "bfd_trace.h"
 
 void tv_normalize(struct timeval *tv);
 
@@ -131,13 +132,17 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 {
 	struct timeval tv = {.tv_sec = 0, .tv_usec = jitter};
 
+	/* Store the actual transmit timeout with jitter applied */
+	bs->xmt_TO_actual = jitter;
+
 	/* Remove previous schedule if any. */
 	bfd_xmttimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
-	    bs->sock == -1)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) || bs->sock == -1) {
+		bs->xmt_TO_actual = 0; /* Timer not scheduled */
 		return;
+	}
 
 	tv_normalize(&tv);
 
@@ -149,13 +154,17 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 {
 	struct timeval tv = {.tv_sec = 0, .tv_usec = jitter};
 
+	/* Store the actual echo transmit timeout with jitter applied */
+	bs->echo_xmt_TO_actual = jitter;
+
 	/* Remove previous schedule if any. */
 	bfd_echo_xmttimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
-	    bs->sock == -1)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) || bs->sock == -1) {
+		bs->echo_xmt_TO_actual = 0; /* Timer not scheduled */
 		return;
+	}
 
 	tv_normalize(&tv);
 

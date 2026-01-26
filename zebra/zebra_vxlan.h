@@ -37,7 +37,7 @@ static inline int is_evpn_enabled(void)
 /* Use this for GUA IPv6 address len
  * NOTE: ideal place can be lib/prefix.h where
  * INET6_ADDRSTRLEN is defined.
- * It is used for column width of gloabl IPv6
+ * It is used for column width of global IPv6
  * address rendering.
  * dead:beef:dead:beef:dead:beef:dead:beef + \0
  */
@@ -225,6 +225,10 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
 extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+extern void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni);
+extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
+					     bool sticky, vni_t vni);
+extern void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time);
 #ifdef __cplusplus
 }
 #endif

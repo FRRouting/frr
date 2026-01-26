@@ -604,7 +604,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS2_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
@@ -700,7 +700,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS4_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
@@ -716,7 +716,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS4_DATA,
-		-1,
+		-2,
 		0,
 		{
 			COMMON_ATTRS,
@@ -1342,7 +1342,7 @@ static int handle_attr_test(struct aspath_tests *t)
 			  t->segment->asnotation);
 	bgp.asnotation = t->segment->asnotation;
 
-	peer.connection = bgp_peer_connection_new(&peer, NULL);
+	peer.connection = bgp_peer_connection_new(&peer, NULL, UNKNOWN);
 	peer.connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";

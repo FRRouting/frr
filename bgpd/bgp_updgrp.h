@@ -36,8 +36,9 @@
 #define BGP_MAX_SUBGROUP_COALESCE_TIME 10000
 #define BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME 50
 
-#define PEER_UPDGRP_FLAGS                                                      \
-	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS)
+#define PEER_UPDGRP_FLAGS                                                                         \
+	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS |                          \
+	 PEER_FLAG_AS_LOOP_DETECTION)
 
 #define PEER_UPDGRP_AF_FLAGS                                                                      \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |                                \
@@ -442,7 +443,7 @@ extern bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 				     struct bgp_path_info *path);
 extern void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 				       struct update_subgroup *subgrp,
-				       char withdraw, uint32_t addpath_tx_id);
+				       uint32_t addpath_tx_id);
 void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table);
 extern void subgroup_trigger_write(struct update_subgroup *subgrp);
@@ -588,7 +589,7 @@ static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 }
 
 /*
- * Immediate announce or coalsece multiple peers?
+ * Immediate announce or coalesce multiple peers?
  */
 static inline bool peer_immediate_announce(struct peer *peer, afi_t afi, safi_t safi)
 {

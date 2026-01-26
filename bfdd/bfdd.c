@@ -18,6 +18,7 @@
 #include "vrf.h"
 
 #include "bfd.h"
+#include "bfd_trace.h"
 #include "bfdd_nb.h"
 #include "bfddp_packet.h"
 #include "lib/version.h"
@@ -46,9 +47,11 @@ void socket_close(int *s)
 	if (*s <= 0)
 		return;
 
-	if (close(*s) != 0)
+	if (close(*s) != 0) {
+		frrtrace(3, frr_bfd, socket_error, 5, 0, errno);
 		zlog_err("%s: close(%d): (%d) %s", __func__, *s, errno,
 			 strerror(errno));
+	}
 
 	*s = -1;
 }

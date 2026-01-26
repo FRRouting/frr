@@ -301,9 +301,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_affinity_map_info,
 	&frr_zebra_route_map_info,
 };
-/* clang-format on */
 
-/* clang-format off */
 FRR_DAEMON_INFO(zebra, ZEBRA,
 	.vty_port = ZEBRA_VTY_PORT,
 	.proghelp =
@@ -319,6 +317,37 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 	.yang_modules = zebra_yang_modules,
 	.n_yang_modules = array_size(zebra_yang_modules),
 );
+
+static const char *const zebra_config_xpaths[] = {
+	"/frr-affinity-map:lib",
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-route-map:lib",
+	"/frr-zebra:zebra",
+	"/frr-interface:lib",
+	"/frr-vrf:lib",
+};
+
+static const char *const zebra_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-interface:lib/interface",
+	"/frr-vrf:lib/vrf",
+	"/frr-zebra:zebra",
+};
+
+static const char *const zebra_rpc_xpaths[] = {
+	"/frr-logging",
+};
+
+struct mgmt_be_client_cbs zebra_be_client_data = {
+	.config_xpaths = zebra_config_xpaths,
+	.nconfig_xpaths = array_size(zebra_config_xpaths),
+	.oper_xpaths = zebra_oper_xpaths,
+	.noper_xpaths = array_size(zebra_oper_xpaths),
+	.rpc_xpaths = zebra_rpc_xpaths,
+	.nrpc_xpaths = array_size(zebra_rpc_xpaths),
+};
 /* clang-format on */
 
 void zebra_main_router_started(void)
@@ -489,8 +518,7 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
-	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
-					       zrouter.master);
+	mgmt_be_client = mgmt_be_client_create("zebra", &zebra_be_client_data, 0, zrouter.master);
 	access_list_init_new(true);
 	prefix_list_init();
 

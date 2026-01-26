@@ -116,7 +116,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 	struct txn_req_commit *ccreq = as_commit(txn_req);
 	struct mgmt_be_client_adapter *adapter;
 	enum mgmt_commit_phase phase;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	uint64_t txn_id = txn_req->txn->txn_id;
 	uint64_t clients;
 
@@ -260,7 +260,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 	struct nb_config_change *chg;
 	struct nb_config_cbs mgmtd_changes = { 0 };
 	char *xpath = NULL, *value = NULL;
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *adapter;
 	struct txn_req *txn_req = &ccreq->req;
 	struct mgmt_msg_cfg_req **cfg_msgs = NULL;
@@ -298,7 +298,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 		if (init_client_mask)
 			clients = init_client_mask;
 		else
-			clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+			clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
+							     "SEND-CFG");
 		if (!clients)
 			_dbg("No backends interested in xpath: %s", xpath);
 
@@ -409,6 +410,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 
 	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
+		_dbg("Set timeout (%us) for txn-id: %Lu backend client CFG_REPLYs",
+		     MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, txn_req->txn->txn_id);
 		event_add_timer(mm->master, txn_cfg_timeout, txn_req,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
 	} else {
@@ -437,7 +440,7 @@ done:
  */
 static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq)
 {
-	enum mgmt_be_client_id id;
+	mgmt_be_client_id_t id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_cfg_apply_req *msg;
 	uint64_t txn_id = ccreq->req.txn->txn_id;
@@ -628,7 +631,7 @@ static void txn_cfg_adapter_acked(struct txn_req_commit *ccreq,
 	     mgmt_commit_phase_name[ccreq->phase]);
 
 	if (adapter) {
-		enum mgmt_be_client_id id = adapter->id;
+		mgmt_be_client_id_t id = adapter->id;
 
 		if (IS_IDBIT_SET(ccreq->clients_wait, id))
 			UNSET_IDBIT(ccreq->clients_wait, id);
@@ -843,8 +846,8 @@ int txn_cfg_be_client_connect(struct mgmt_be_client_adapter *adapter)
 	 */
 
 	if (!txn_init_readers++ && mgmt_ds_lock(ds_ctx, 0) != 0) {
-		_dbg("Failed to lock DS:%s for init of BE adapter '%s'",
-		     mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
+		_log_warn("Unable to lock DS:%s for init config of BE client '%s' will retry",
+			  mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
 		--txn_init_readers;
 		return -1;
 	}
@@ -863,8 +866,8 @@ int txn_cfg_be_client_connect(struct mgmt_be_client_adapter *adapter)
 	 */
 	txn = txn_create(MGMTD_TXN_TYPE_CONFIG);
 	if (!txn) {
-		_log_err("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
-			 adapter->name);
+		_log_warn("Unable to create init config txn for BE client '%s' will retry",
+			  adapter->name);
 		if (!--txn_init_readers)
 			mgmt_ds_unlock(ds_ctx, 0);
 		nb_config_diff_del_changes(&adapter_cfgs);

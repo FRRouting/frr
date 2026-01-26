@@ -176,7 +176,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 }
 
 /*
- * Gracefuly shut down a client connection.
+ * Gracefully shut down a client connection.
  *
  * Cancel any pending tasks for the client's thread. Then schedule a task on
  * the main thread to shut down the calling thread.
@@ -578,8 +578,11 @@ static void zserv_process_messages(struct event *event)
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
 	/* Don't continue if zclient is being freed/shut */
-	if (client->pthread == NULL)
-		goto done;
+	if (client->pthread == NULL) {
+		/* Client is shutting down, free the stream to prevent leak */
+		stream_free(msg);
+		return 0;
+	}
 
 	frr_with_mutex (&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
@@ -587,7 +590,6 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
-done:
 	return 0;
 }
 
@@ -599,8 +601,12 @@ int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 	struct stream *msg;
 
 	/* Don't continue if zclient is being freed/shut */
-	if (client->pthread == NULL)
-		goto done;
+	if (client->pthread == NULL) {
+		/* Client is shutting down, free all streams to prevent leak */
+		while ((msg = stream_fifo_pop(fifo)))
+			stream_free(msg);
+		return 0;
+	}
 
 	frr_with_mutex (&client->obuf_mtx) {
 		msg = stream_fifo_pop(fifo);
@@ -612,7 +618,6 @@ int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
-done:
 	return 0;
 }
 
@@ -624,7 +629,7 @@ DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
  * Deinitialize zebra client.
  *
  * - Deregister and deinitialize related internal resources
- * - Gracefuly close socket
+ * - Gracefully close socket
  * - Free associated resources
  * - Free client structure
  *
@@ -718,9 +723,8 @@ static void zserv_client_free(struct zserv *client)
 			zlog_debug("%s: client %s restart enabled", __func__,
 				   zebra_route_string(client->proto));
 		if (zebra_gr_client_disconnect(client) < 0)
-			zlog_err(
-				"%s: GR enabled but could not handle disconnect event",
-				__func__);
+			flog_err(EC_ZEBRA_GR_DISCONNECT_FAIL,
+				 "%s: GR enabled but could not handle disconnect event", __func__);
 	}
 }
 

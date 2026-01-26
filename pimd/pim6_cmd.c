@@ -192,6 +192,40 @@ DEFPY_ATTR(no_ipv6_pim_joinprune_time,
 	return ret;
 }
 
+DEFPY_YANG(if_ipv6_pim_assert_interval,
+           if_ipv6_pim_assert_interval_cmd,
+	   "[no] ipv6 pim assert-interval ![(1000-86400000)$at]",
+	   NO_STR
+	   IPV6_STR
+	   PIM_STR
+	   "Assert timer\n"
+	   "Milliseconds, default 180000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_MODIFY, at_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(if_ipv6_pim_assert_override_interval,
+           if_ipv6_pim_assert_override_interval_cmd,
+           "[no] ipv6 pim assert-override-interval ![(1000-86400000)$at]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Assert timer\n"
+           "Milliseconds, default 3000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_MODIFY, at_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFPY (pim6_spt_switchover_infinity,
        pim6_spt_switchover_infinity_cmd,
        "spt-switchover infinity-and-beyond",
@@ -878,6 +912,23 @@ DEFPY (interface_no_ipv6_pim_hello,
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_ip_pim_hello_cmd(vty);
+}
+
+DEFPY_YANG(if_ipv6_pim_joinprune_time,
+	   if_ipv6_pim_joinprune_time_cmd,
+           "[no] ipv6 pim join-prune-interval ![(5-600)$jpt]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Join Prune Send Interval\n"
+           "Seconds\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_MODIFY, jpt_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
 DEFPY (interface_ipv6_pim_activeactive,
@@ -1636,6 +1687,22 @@ DEFPY_YANG(interface_ipv6_mld_immediate_leave,
            "Immediately drop group memberships on receiving Leave (MLDv1 only)\n")
 {
 	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ipv6_mld_alist, interface_ipv6_mld_alist_cmd,
+           "[no] ipv6 mld access-list ![ACCESSLIST6_NAME]",
+           NO_STR
+           IPV6_STR
+           IFACE_MLD_STR
+           "Filter joins through access-list\n"
+           "Access list name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, accesslist6_name);
 
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
@@ -3036,6 +3103,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &if_ipv6_pim_joinprune_time_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_boundary_oil_cmd);
@@ -3043,6 +3111,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_limits_cmd);
 	install_element(INTERFACE_NODE, &no_interface_ipv6_mld_limits_cmd);
+	install_element(INTERFACE_NODE, &if_ipv6_pim_assert_interval_cmd);
+	install_element(INTERFACE_NODE, &if_ipv6_pim_assert_override_interval_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_use_source_cmd);
 
@@ -3061,6 +3131,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_rmap_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_alist_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);

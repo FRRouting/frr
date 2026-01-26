@@ -501,7 +501,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 		 * When we come back around we'll fix up this
 		 * data properly in replace_nexthop_by_peer
 		 */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (peer_is_config_node(peer))
 			bnc->nht_info = (void *)peer; /* NHT peer reference */
 	}
 
@@ -808,7 +808,9 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
-		if (bnc->ifindex_ipv6_ll != ifp->ifindex)
+		if ((bnc->nexthop_num == 1 && bnc->nexthop &&
+		     bnc->nexthop->ifindex != ifp->ifindex) &&
+		    (bnc->ifindex_ipv6_ll != ifp->ifindex))
 			continue;
 
 		bnc->last_update = monotime(NULL);
@@ -1111,7 +1113,8 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels->label[0]),
 					      pi->attr->srv6_l3service->transposition_offset,
-					      pi->attr->srv6_l3service->transposition_len);
+					      pi->attr->srv6_l3service->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			} else
 				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3service->sid));
 		} else if (is_bgp_static) {

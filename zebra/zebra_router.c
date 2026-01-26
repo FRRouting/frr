@@ -297,6 +297,9 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
+	zrouter.gr_stale_cleanup_time_recorded = false;
+	zrouter.gr_update_pending_time_recorded = false;
+
 	/* Initialize the red-black tree for router tables */
 	RB_INIT(zebra_router_table_head, &zrouter.tables);
 
@@ -346,17 +349,6 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.zav.notify_on_ack = notify_on_ack;
 	zrouter.zav.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	zrouter.zav.nexthop_weight_is_16bit = nexthop_weight_16_bit;
-
-	/*
-	 * If you start using asic_notification_nexthop_control
-	 * come talk to the FRR community about what you are doing
-	 * We would like to know.
-	 */
-#if CONFDATE > 20251231
-	CPP_NOTICE(
-		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
-#endif
-	zrouter.zav.asic_notification_nexthop_control = false;
 
 	zrouter.backup_nhs_installed = false;
 

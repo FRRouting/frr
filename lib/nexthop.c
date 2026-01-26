@@ -731,17 +731,18 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 {
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		snprintf(str, size, "if %u", nexthop->ifindex);
+		snprintf(str, size, "if %u (%s)", nexthop->ifindex,
+			 CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		snprintfrr(str, size, "%pI4 if %u", &nexthop->gate.ipv4,
-			   nexthop->ifindex);
+		snprintfrr(str, size, "%pI4 if %u (%s)", &nexthop->gate.ipv4, nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		snprintfrr(str, size, "%pI6 if %u", &nexthop->gate.ipv6,
-			   nexthop->ifindex);
+		snprintfrr(str, size, "%pI6 if %u (%s)", &nexthop->gate.ipv6, nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		snprintf(str, size, "blackhole");

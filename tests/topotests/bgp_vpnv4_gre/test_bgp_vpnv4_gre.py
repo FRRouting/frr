@@ -16,6 +16,8 @@ with route advertisements on a separate netns.
 import os
 import sys
 import json
+import re
+import time
 from functools import partial
 import pytest
 
@@ -199,6 +201,136 @@ def test_protocols_convergence():
         tgen.gears["r2"], "vrf1", "10.201.0.0/24"
     )
     assert success is True, "network 10.201.0.0/24 invalid for MPLS: not found on r2"
+
+
+def test_promiscuity_no_route_reset():
+    """
+    Test that promiscuity changes don't cause route resets on GRE tunnel interfaces
+    and that the PROMISC flag is correctly displayed.
+
+    This simulates running tcpdump on an interface which sets promiscuous mode.
+    Without the fix, this would cause routes to reset their timers.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Test that promiscuity changes (like tcpdump) don't reset routes on GRE interfaces"
+    )
+    router = tgen.gears["r1"]
+
+    # INTENTIONAL: Wait 3 seconds at the beginning for routes to age
+    logger.info("Waiting 3 seconds for routes to age")
+    time.sleep(3)
+
+    target_route = "10.201.0.0/24"
+    logger.info("Getting route timer before promiscuity change")
+    routes_before = router.vtysh_cmd("show ip route vrf vrf1 json")
+    routes_json_before = json.loads(routes_before)
+
+    uptime_before_promisc = None
+    if target_route in routes_json_before:
+        routes_list = routes_json_before[target_route]
+        if routes_list and isinstance(routes_list, list):
+            uptime_before_promisc = routes_list[0].get("uptime", None)
+            logger.info(
+                "Route {} timer before promiscuity: {}".format(
+                    target_route, uptime_before_promisc
+                )
+            )
+
+    if not uptime_before_promisc:
+        pytest.skip("Route {} not found in VRF vrf1".format(target_route))
+
+    # Toggle promiscuity on r1-eth1
+    logger.info("Setting promiscuity on r1-eth1")
+    router.run("ip link set r1-eth1 promisc on")
+
+    # Check that PROMISC flag is set on r1-eth1
+    def _check_promisc_on():
+        output = router.vtysh_cmd("show interface r1-eth1")
+        if "PROMISC" in output:
+            return None
+        return "PROMISC flag not found in output"
+
+    _, result = topotest.run_and_expect(_check_promisc_on, None, count=20, wait=3)
+    assert result is None, "PROMISC flag not set after enabling: {}".format(result)
+    logger.info("PROMISC flag correctly set on r1-eth1")
+
+    # Turn off promiscuity on r1-eth1
+    logger.info("Clearing promiscuity on r1-eth1")
+    router.run("ip link set r1-eth1 promisc off")
+
+    # Check that PROMISC flag is cleared
+    def _check_promisc_off():
+        output = router.vtysh_cmd("show interface r1-eth1")
+        flags_match = re.search(r"flags:\s*<([^>]+)>", output)
+        if flags_match:
+            flags = flags_match.group(1)
+            if "PROMISC" not in flags:
+                return None
+            return "PROMISC flag still present: {}".format(flags)
+        return "Could not find flags in output"
+
+    _, result = topotest.run_and_expect(_check_promisc_off, None, count=20, wait=3)
+    assert result is None, "PROMISC flag not cleared: {}".format(result)
+    logger.info("PROMISC flag correctly cleared on r1-eth1")
+
+    # INTENTIONAL: Wait 3 seconds at the beginning for routes to age
+    logger.info("Waiting 3 seconds for routes to age")
+    time.sleep(3)
+
+    # Get route timer after promiscuity changes and verify it didn't reset
+    logger.info("Verifying route {} timer was not reset".format(target_route))
+    routes_after = router.vtysh_cmd("show ip route vrf vrf1 json")
+    routes_json_after = json.loads(routes_after)
+
+    uptime_after_promisc = None
+    if target_route in routes_json_after:
+        routes_list = routes_json_after[target_route]
+        if routes_list and isinstance(routes_list, list):
+            uptime_after_promisc = routes_list[0].get("uptime", None)
+
+    if not uptime_after_promisc:
+        pytest.fail(
+            "Route {} disappeared after promiscuity changes".format(target_route)
+        )
+
+    logger.info(
+        "Route {} timer after promiscuity: {}".format(
+            target_route, uptime_after_promisc
+        )
+    )
+
+    def uptime_to_seconds(uptime_str):
+        parts = uptime_str.split(":")
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        return 0
+
+    before_seconds = uptime_to_seconds(uptime_before_promisc)
+    after_seconds = uptime_to_seconds(uptime_after_promisc)
+
+    logger.info(
+        "Timer before: {}s, Timer after: {}s".format(before_seconds, after_seconds)
+    )
+
+    assert (
+        after_seconds >= before_seconds
+    ), "Route {} timer was reset! Before: {}s ({}), After: {}s ({})".format(
+        target_route,
+        before_seconds,
+        uptime_before_promisc,
+        after_seconds,
+        uptime_after_promisc,
+    )
+
+    logger.info(
+        "Route {} remained stable - timer NOT reset by promiscuity changes".format(
+            target_route
+        )
+    )
 
 
 def test_memory_leak():

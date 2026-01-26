@@ -1288,7 +1288,7 @@ def _sysctl_assure(commander, variable, value):
         else:
             valstr = str(value)
         logger.debug("Changing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"'.format(variable, valstr))
 
 
 def sysctl_atleast(commander, variable, min_value, raises=False):
@@ -1489,6 +1489,17 @@ class Router(Node):
         self.hasmpls = False
         self.routertype = "frr"
         self.unified_config = False
+        # Control how unified configs are initially rendered. By default we
+        # render /etc/frr/frr.conf via "vtysh -f" after daemons are up.
+        # Individual tests can override this flag (e.g., to drive config via
+        # tools/frr-reload.py instead).
+        self.skip_unified_vtysh = False
+        # Control whether startRouter() flushes all IP addresses from kernel
+        # interfaces before daemons are started. Some tests intentionally
+        # manage all interface addresses via Linux iproute2 (not via FRR
+        # interface config); they can set this to True to prevent those
+        # addresses from being removed.
+        self.skip_remove_ips = False
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1811,8 +1822,16 @@ class Router(Node):
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
-        # Remove IP addresses from OS first - we have them in zebra.conf
-        self.removeIPs()
+        # Remove IP addresses from OS first - we have them in zebra.conf, unless
+        # this router is explicitly configured to manage addresses purely via
+        # Linux iproute2.
+        if not self.skip_remove_ips:
+            self.removeIPs()
+        else:
+            logger.info(
+                "%s: skipping initial IP address flush; addresses managed externally",
+                self.name,
+            )
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
         # No error - but return message and skip all the tests
         if self.daemons["ldpd"] == 1:
@@ -1902,7 +1921,18 @@ class Router(Node):
                 )
                 return "Datastores are locked, cannot proceed with config load"
 
-            self.cmd("vtysh -f /etc/frr/frr.conf")
+            # By default, render frr.conf into the running config via vtysh.
+            # Tests that want to drive config via frr-reload.py (or other
+            # mechanisms) can set skip_unified_vtysh = True on the router
+            # instance before calling start_router().
+            if not self.skip_unified_vtysh:
+                self.cmd("vtysh -f /etc/frr/frr.conf")
+            else:
+                logger.info(
+                    "%s: skipping initial 'vtysh -f /etc/frr/frr.conf'; "
+                    "config will be applied externally (e.g., via frr-reload.py)",
+                    self.name,
+                )
 
         return status
 

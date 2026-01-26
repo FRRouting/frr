@@ -1124,6 +1124,28 @@ BGP GR Peer Mode Commands
    This command will disable the entire BGP graceful restart functionality
    at the peer level.
 
+BGP GR Support For L2VPN EVPN
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To support GR for L2VPN EVPN AFI SAFI in BGP, following changes were made:
+
+1. If GR is enabled for a BGP instance, then GR select
+   deferral timer will be started for all GR supported AFI-SAFIs after
+   BGP is finished reading configs.This way, BGP will not have to wait
+   for the 1st peer to comeup to start the select-deferral-timer for
+   that VRF, AFI-SAFI
+2. All L2VPN route will be marked as deferred in default VRF,
+   imported into destination VRF/VNI table and then marked as deferred in
+   destination VRF/VNI as well
+3. Deferred bestpath selection will be skipped for IPv4 and IPv6 unicast in
+   non-default VRFs until L2VPN EVPN AFI-SAFI in default VRF completes GR.
+   This ensures that deferred bestpaths calculation in non-default VRF
+   is done only after paths are imported from default to non-default VRF
+4. On GR helper, when the peer that has GR enabled goes down,
+   BGP will mark all the L2VPN EVPN routes in default VRF as stale.
+   If the peer doesn't comeup before GR restart timer expires, then
+   the L2VPN EVPN routes in default VRF that were previously marked
+   stale needs to be unimported from all the VRFs and VNIs (IP and MAC
+   table) before deleting it in L2VPN EVPN table in default VRF
 
 BGP GR Show Commands
 ^^^^^^^^^^^^^^^^^^^^
@@ -1666,12 +1688,11 @@ Configuring Peers
 
    Set description of the peer.
 
-.. clicmd:: neighbor PEER interface IFNAME
+.. clicmd:: neighbor PEER interface [peer-group NAME]
 
-   When you connect to a BGP peer over an IPv6 link-local address, you have to
-   specify the IFNAME of the interface used for the connection. To specify
-   IPv4 session addresses, see the ``neighbor PEER update-source`` command
-   below.
+   Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
+   session will be established via IPv6 link locals. To specify IPv4 session
+   addresses, see the ``neighbor PEER update-source`` command below.
 
 .. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
 
@@ -2382,6 +2403,12 @@ Using AS Path in Route Map
    For a given as-path, WORD, match it on the BGP as-path given for the prefix
    and if it matches do normal route-map actions.  The no form of the command
    removes this match from the route-map.
+
+
+.. clicmd:: match as-path-count MAX_COUNT
+
+   This command allows filtering routes based on the number of AS entries in
+   their AS path.
 
 .. clicmd:: set as-path prepend AS-PATH
 

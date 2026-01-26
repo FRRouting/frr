@@ -57,18 +57,18 @@ void ripng_aggregate_decrement(struct agg_node *child, struct ripng_info *rinfo)
 }
 
 /* Aggregate count decrement check for a list. */
-void ripng_aggregate_decrement_list(struct agg_node *child, struct list *list)
+void ripng_aggregate_decrement_list(struct agg_node *child,
+				    struct ripng_info_list_head *list)
 {
 	struct agg_node *np;
 	struct ripng_aggregate *aggregate;
 	struct ripng_info *rinfo = NULL;
-	struct listnode *node = NULL;
 
 	for (np = child; np; np = agg_node_parent(np))
 		if ((aggregate = np->aggregate) != NULL)
-			aggregate->count -= listcount(list);
+			aggregate->count -= ripng_info_list_count(list);
 
-	for (ALL_LIST_ELEMENTS_RO(list, node, rinfo))
+	frr_each (ripng_info_list, list, rinfo)
 		rinfo->suppress--;
 }
 
@@ -80,8 +80,7 @@ int ripng_aggregate_add(struct ripng *ripng, struct prefix *p)
 	struct ripng_info *rinfo;
 	struct ripng_aggregate *aggregate;
 	struct ripng_aggregate *sub;
-	struct list *list = NULL;
-	struct listnode *node = NULL;
+	struct ripng_info_list_head *list = NULL;
 
 	/* Get top node for aggregation. */
 	top = agg_node_get(ripng->table, p);
@@ -96,7 +95,7 @@ int ripng_aggregate_add(struct ripng *ripng, struct prefix *p)
 	for (rp = agg_lock_node(top); rp; rp = agg_route_next_until(rp, top)) {
 		/* Suppress normal route. */
 		if ((list = rp->info) != NULL)
-			for (ALL_LIST_ELEMENTS_RO(list, node, rinfo)) {
+			frr_each (ripng_info_list, list, rinfo) {
 				aggregate->count++;
 				rinfo->suppress++;
 			}
@@ -118,8 +117,7 @@ int ripng_aggregate_delete(struct ripng *ripng, struct prefix *p)
 	struct ripng_info *rinfo;
 	struct ripng_aggregate *aggregate;
 	struct ripng_aggregate *sub;
-	struct list *list = NULL;
-	struct listnode *node = NULL;
+	struct ripng_info_list_head *list = NULL;
 
 	/* Get top node for aggregation. */
 	top = agg_node_get(ripng->table, p);
@@ -131,7 +129,7 @@ int ripng_aggregate_delete(struct ripng *ripng, struct prefix *p)
 	for (rp = agg_lock_node(top); rp; rp = agg_route_next_until(rp, top)) {
 		/* Suppress normal route. */
 		if ((list = rp->info) != NULL)
-			for (ALL_LIST_ELEMENTS_RO(list, node, rinfo)) {
+			frr_each (ripng_info_list, list, rinfo) {
 				aggregate->count--;
 				rinfo->suppress--;
 			}

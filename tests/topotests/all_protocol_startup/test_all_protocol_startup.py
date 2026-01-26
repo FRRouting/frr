@@ -712,8 +712,6 @@ def test_rip_status():
             # Read expected result from file
             with open(refTableFile) as file:
                 expected = file.read().rstrip()
-            # Drop trailing whitespaces for each line
-            expected = "\n".join(line.rstrip() for line in expected.splitlines())
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -727,8 +725,6 @@ def test_rip_status():
             actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
             # Drop time in last update
             actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
             # Fix newlines (make them all the same)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -778,8 +774,6 @@ def test_ripng_status():
             # Read expected result from file
             with open(refTableFile) as file:
                 expected = file.read().rstrip()
-            # Drop trailing whitespaces for each line
-            expected = "\n".join(line.rstrip() for line in expected.splitlines())
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -795,8 +789,6 @@ def test_ripng_status():
             actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
             # Drop time in last update
             actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
             # Fix newlines (make them all the same)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -1900,8 +1892,12 @@ def test_vtysh_timeout():
         if retcode == None:
             p1.terminate()
             errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
-    except Exception as e:
+    except subprocess.TimeoutExpired:
         errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except OSError as e:
+        errmsg = "Vtysh process encountered an error: {}".format(e)
+    except Exception as e:
+        errmsg = "An unexpected error occurred: {}".format(e)
 
     if errmsg != None:
         assert None, errmsg

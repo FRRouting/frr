@@ -137,6 +137,7 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 
 const char **_notif_xpaths;
 const char **_rpc_xpaths;
+const char **_oper_xpaths;
 
 struct mgmt_be_client_cbs _client_cbs = {};
 struct event *event_timeout;
@@ -157,6 +158,8 @@ static void sigusr1(void)
 
 static FRR_NORETURN void quit(int exit_code)
 {
+	mgmt_be_client_destroy(mgmt_be_client);
+
 	event_cancel(&event_timeout);
 	darr_free(_client_cbs.config_xpaths);
 	darr_free(_client_cbs.oper_xpaths);
@@ -330,6 +333,10 @@ int main(int argc, char **argv)
 		_client_cbs.notify_xpaths = _notif_xpaths;
 		_client_cbs.nnotify_xpaths = darr_len(_notif_xpaths);
 	}
+
+	darr_push(_oper_xpaths, "/frr-backend:clients");
+	_client_cbs.oper_xpaths = _oper_xpaths;
+	_client_cbs.noper_xpaths = darr_len(_oper_xpaths);
 
 	darr_push(_rpc_xpaths, "/frr-ripd:clear-rip-route");
 	_client_cbs.rpc_xpaths = _rpc_xpaths;

@@ -472,7 +472,7 @@ void zebra_evpn_update_all_es(struct zebra_evpn *zevpn)
 	struct zebra_if *vxlan_zif;
 	struct zebra_vxlan_vni *vni;
 
-	/* the EVPN is now elgible as a base for EVPN-MH */
+	/* the EVPN is now eligible as a base for EVPN-MH */
 	if (zebra_evpn_send_to_client_ok(zevpn))
 		zebra_evpn_es_set_base_evpn(zevpn);
 	else
@@ -618,7 +618,7 @@ static void zebra_evpn_acc_vl_cleanup_all(struct hash_bucket *bucket, void *arg)
 	zebra_evpn_acc_vl_free(acc_bd);
 }
 
-/* called when a bd mbr is removed or VxLAN_IF is diassociated from the access
+/* called when a bd mbr is removed or VxLAN_IF is disassociated from the access
  * VLAN
  */
 static void zebra_evpn_acc_bd_free_on_deref(struct zebra_evpn_access_bd *acc_bd)
@@ -779,6 +779,15 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
 	if (!acc_bd)
 		acc_bd = zebra_evpn_acc_bd_alloc_on_ref(vid, br_if);
+
+	old_vni = acc_bd->vni;
+	if (vni_id == old_vni) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("This is a duplicate msg for access_vlan %d VNI %d VNI Refcount: %d",
+				   vid, vni_id, acc_bd->vni_refcnt);
+
+		return;
+	}
 	/* Check if the current vni is active, if active then we have multiple
 	 * VNI's getting mapped to the same VLAN which is momentary hence
 	 * increment the vni count and return else continue processing as the
@@ -792,10 +801,6 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				   acc_bd->vni_refcnt);
 		return;
 	}
-	old_vni = acc_bd->vni;
-
-	if (vni_id == old_vni)
-		return;
 
 	acc_bd->vni = vni_id;
 	acc_bd->vxlan_zif = vxlan_zif;
@@ -1987,8 +1992,7 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_ADD, zebra_vrf_get_evpn_id());
 	stream_put(s, &es->esi, sizeof(esi_t));
-	/* TODO_V6_VTEP FIXME v6 support */
-	stream_put_ipv4(s, zmh_info->es_originator_ip.ipaddr_v4.s_addr);
+	stream_put_ipaddr(s, &zmh_info->es_originator_ip);
 	oper_up = !!(es->flags & ZEBRA_EVPNES_OPER_UP);
 	stream_putc(s, oper_up);
 	stream_putw(s, es->df_pref);
@@ -2595,9 +2599,7 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	STREAM_GET(&esi, s, sizeof(esi_t));
-	/* Temporary until BGP supports IPv6 VTEP */
-	SET_IPADDR_V4(&vtep_ip);
-	STREAM_GET(&vtep_ip.ipaddr_v4.s_addr, s, sizeof(vtep_ip.ipaddr_v4.s_addr));
+	STREAM_GET_IPADDR(s, &vtep_ip);
 
 	if (hdr->command == ZEBRA_REMOTE_ES_VTEP_ADD) {
 		uint32_t zapi_flags;

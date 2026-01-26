@@ -277,16 +277,84 @@ module frr-filter {
           case ipv6-prefix {
             when "../type = 'ipv6'";
 
-            leaf ipv6-prefix {
-              type inet:ipv6-prefix;
+            choice style {
               mandatory true;
-              description "Configure IPv6 prefix to match";
-            }
+              description "Access list entry style selection: zebra or cisco.";
 
-            leaf ipv6-exact-match {
-              type boolean;
-              default false;
-              description "Exact match of prefix";
+              case zebra {
+                leaf ipv6-prefix {
+                  type inet:ipv6-prefix;
+                  mandatory true;
+                  description "Configure IPv6 prefix to match";
+                }
+
+                leaf ipv6-exact-match {
+                  type boolean;
+                  default false;
+                  description "Exact match of prefix";
+                }
+              }
+
+              case cisco {
+                choice standard-value {
+                  description "Source value to match";
+
+                  leaf ipv6-host {
+                    type inet:ipv6-address;
+                    description "Host to match";
+                  }
+                  container ipv6-network {
+                    description "Container for IPv6 network configuration.";
+
+                    leaf address {
+                      type inet:ipv6-address;
+                      mandatory true;
+                      description "Network address part.";
+                    }
+                    leaf mask {
+                      type inet:ipv6-address;
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+                    }
+                  }
+                  leaf ipv6-source-any {
+                    /*
+                     * Was `any`, however it conflicts with `any` leaf
+                     * outside this choice.
+                     */
+                    type empty;
+                    description "Match any";
+                  }
+                }
+
+                choice extended-value {
+                  description "Destination value to match";
+
+                  leaf ipv6-destination-host {
+                    type inet:ipv6-address;
+                    description "Host to match";
+                  }
+                  container ipv6-destination-network {
+                    description "Container for IPv6 destination network configuration.";
+
+                    leaf address {
+                      type inet:ipv6-address;
+                      mandatory true;
+                      description "Network address part.";
+                    }
+                    leaf mask {
+                      type inet:ipv6-address;
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+                    }
+                  }
+                  leaf ipv6-destination-any {
+                    type empty;
+                    description "Match any";
+                  }
+                }
+
+              }
             }
           }
           case mac {

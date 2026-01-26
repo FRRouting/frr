@@ -9,8 +9,15 @@
 import asyncio
 import logging
 import re
+import time
 
 from pathlib import Path
+
+from .base import Timeout
+
+
+def _dbg(fmt, *args, **kwargs):
+    logging.debug("watchlog: " + fmt, *args, **kwargs)
 
 
 class MatchFoundError(Exception):
@@ -66,6 +73,7 @@ class WatchLog:
         )
 
     def reset(self):
+        self.stat = None
         self.content = ""
         self.last_user_mark = 0
         self.last_snap_mark = 0
@@ -75,40 +83,34 @@ class WatchLog:
         osize = ostat.st_size if ostat else 0
         oino = ostat.st_ino if ostat else -1
         if not self._stat_snapshot():
-            logging.debug("XXX logfile %s no stat change", self.path)
+            _dbg("%s no stat change", self.path)
             return ""
 
+        assert self.stat is not None
         nino = self.stat.st_ino
         # If the inode changed and we had content previously warn
         if oino != -1 and oino != nino and self.content:
             logging.warning(
-                "logfile %s replaced (new inode) resetting content", self.path
+                "watchlog: %s replaced (new inode) resetting content", self.path
             )
             self.reset()
             osize = 0
 
         nsize = self.stat.st_size
         if osize > nsize:
-            logging.warning("logfile %s shrunk resetting content", self.path)
+            logging.warning("watchlog: %s shrunk resetting content", self.path)
             self.reset()
             osize = 0
 
         if osize == nsize:
-            logging.debug(
-                "XXX watchlog: %s no update, osize == nsize == %s", self.path, osize
-            )
+            _dbg("%s no update, osize == nsize == %s", self.path, osize)
             return ""
 
         # Read non-blocking
         with open(self.path, "r", encoding=self.encoding) as f:
             if osize:
                 f.seek(osize)
-            logging.debug(
-                "XXX watchlog: %s reading new content from %s to %s",
-                self.path,
-                osize,
-                nsize,
-            )
+            _dbg("%s reading new content from %s to %s", self.path, osize, nsize)
             newcontent = f.read(nsize - osize)
 
         self.content += newcontent
@@ -122,18 +124,33 @@ class WatchLog:
         """
 
         async def scan_for_match(wl, regex):
+            cre = re.compile(regex)
+            _dbg("%s scan_for_match %s", wl.path, regex)
             while True:
-                logging.debug("watchlog: %s scan for updating content", wl.path)
                 wl.update_content()
-                if m := regex.search(wl.content):
-                    logging.error(
-                        "XXX watchlog: %s regexp FOUND raising exception!", wl.path
-                    )
+                if m := cre.search(wl.content):
+                    _dbg("%s scan_for_match %s FOUND", wl.path, regex)
                     raise MatchFoundError(wl, m)
                 await asyncio.sleep(2)
 
-        aw = scan_for_match(self, re.compile(match))
+        aw = scan_for_match(self, match)
         return asyncio.create_task(aw)
+
+    def wait_for_match(self, regex, timeout):
+        cre = re.compile(regex)
+        timeo = Timeout(timeout)
+        logging.debug("scanning %s for %s", self.path, regex)
+        while True:
+            content = self.peek_snapshot()
+            if m := cre.search(content):
+                logging.debug("found '%s' in %s", m.group(0), self.path)
+                return m
+            # Check timeo here so timeout=0 doesn't fail for existing data
+            if timeo:
+                break
+            _dbg("%s wait for '%s' remaining: %s", self.path, regex, timeo.remaining())
+            time.sleep(0.25)
+        raise TimeoutError(f"timeout waiting for {regex} in {self.path}")
 
     def from_mark(self, mark=None):
         """Return the file content starting from ``mark``.
@@ -158,30 +175,27 @@ class WatchLog:
         self.last_user_mark = len(self.content)
         return last_mark
 
-    def snapshot(self):
+    def snapshot(self, update=True):
         """Update the file content and return new text.
 
-        Returns any new text added since the last snapshot and updates the snapshot
-        mark.
+        If `update` is True adds new data from the file to the current snapshot.
 
-        Return:
-            Newly added text.
+        After calling, a new snapshot will be started from the current end of file.
+
+        Return: All the text added since the last snapshot().
         """
         # Update the content which may reset marks
-        self.update_content()
+        if update:
+            self.update_content()
 
         last_mark = self.last_snap_mark
         self.last_snap_mark = len(self.content)
         return self.content[last_mark:]
 
-    def snapshot_refresh(self):
-        """Update the file content and return the snapshot with this new content.
-
-        If the file has been replaced (inode changes) then the marks will reset to 0.
-
-        Return:
-            returns the content from the last snapshot plus any new content
-            added since ``snapshot()`` was called.
-        """
-        self.update_content()
+    def peek_snapshot(self, update=True):
+        """Same as ``snapshot()`` but does not create a new snapshot."""
+        if update:
+            self.update_content()
         return self.from_mark(self.last_snap_mark)
+
+    snapshot_refresh = peek_snapshot

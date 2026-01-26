@@ -35,6 +35,13 @@ struct pim_neighbor {
 	struct bfd_session_params *bfd_session;
 };
 
+static inline int pim_neigh_jp_period(const struct pim_neighbor *neigh)
+{
+	const struct pim_interface *pim_ifp = neigh->interface->info;
+
+	return pim_if_jp_period(pim_ifp);
+}
+
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
 void pim_neighbor_free(struct pim_neighbor *neigh);
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
