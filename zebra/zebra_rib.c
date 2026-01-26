@@ -238,8 +238,7 @@ struct wq_label_wrapper {
 	int afi;
 };
 
-static void rib_addnode(struct route_node *rn, struct route_entry *re,
-			int process);
+static void rib_addnode(struct route_node *rn, struct route_entry *re);
 
 /* %pRN is already a printer for route_nodes that just prints the prefix */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
@@ -2682,7 +2681,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	}
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-	rib_addnode(rn, re, 1);
+	rib_addnode(rn, re);
 
 	dest = rib_dest_from_rnode(rn);
 	/* Free implicit route.*/
@@ -3855,7 +3854,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
  */
 
 /* Add RE to head of the route node. */
-static void rib_link(struct route_node *rn, struct route_entry *re, int process)
+static void rib_link(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
 	afi_t afi;
@@ -3886,12 +3885,10 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		}
 	}
 
-	if (process)
-		rib_queue_add(rn);
+	rib_queue_add(rn);
 }
 
-static void rib_addnode(struct route_node *rn,
-			struct route_entry *re, int process)
+static void rib_addnode(struct route_node *rn, struct route_entry *re)
 {
 	/* RE node has been un-removed before route-node is processed.
 	 * route_node must hence already be on the queue for processing..
@@ -3904,7 +3901,7 @@ static void rib_addnode(struct route_node *rn,
 		UNSET_FLAG(re->status, ROUTE_ENTRY_REMOVED);
 		return;
 	}
-	rib_link(rn, re, process);
+	rib_link(rn, re);
 }
 
 /*
