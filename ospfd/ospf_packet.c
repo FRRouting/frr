@@ -1933,6 +1933,61 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (Flag)
 				continue;
 		}
+		/* Make sure that this is not a stale LSA (after a reboot) that originated from this
+		 * router. If that is the case, refresh the local LSA.
+		 * RFC 2328 Section 13.4:
+		 * https://datatracker.ietf.org/doc/html/rfc2328#page-151
+		 */
+		if (IPV4_ADDR_SAME(&lsa->data->adv_router, &oi->ospf->router_id)) {
+			if (current == NULL) {
+				/* RFC 2328 Section 13.4:
+				 * It may be the case the router no longer wishes to originate the
+				 * received LSA. ... Instead of updating the LSA, the LSA should be
+				 * flushed from the routing domain by incrementing the received
+				 * LSA's LS age to MaxAge and reflooding.
+				 */
+				struct ospf_lsa *ls_req;
+
+				if (IS_DEBUG_OSPF(lsa, LSA))
+					zlog_debug("%s: Link State Update[%s]: router-id is local, but no current LSA - setting to MaxAge",
+						   __func__, dump_lsa_key(lsa));
+
+				/* Immediately Ack to stop retransmitting the LSA */
+				ospf_ls_ack_send_direct(nbr, lsa);
+				/* Remove from request list, we are overriding */
+				ls_req = ospf_ls_request_lookup(nbr, lsa);
+				if (ls_req != NULL) {
+					ospf_ls_request_delete(nbr, ls_req);
+					ospf_check_nbr_loading(nbr);
+				}
+
+				/* Clear the received flag to indicate that this is a stale LSA */
+				UNSET_FLAG(lsa->flags, OSPF_LSA_RECEIVED);
+				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
+				/* Set LSA age to MaxAge to immediately expire it */
+				LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+
+			} else if (ospf_lsa_more_recent(lsa, current) > 0) {
+				/* RFC 2328 Section 13.4:
+				 * If the received self-originated LSA is newer than the
+				 * last instance that the router actually originated, the router
+				 * must take special action. ... the router must then advance the LSA's LS
+				 * sequence number one past the received LS sequence number, and
+				 * originate a new instance of the LSA.
+				 */
+				if (IS_DEBUG_OSPF(lsa, LSA))
+					zlog_debug("%s: Link State Update[%s]: router-id is local, but has higher seq num",
+						   __func__, dump_lsa_key(lsa));
+				current->data->ls_seqnum = lsa->data->ls_seqnum;
+				ospf_lsa_refresh(oi->ospf, current);
+				/* Discarding without ACK may cause neighbor to retransmit the stale LSA
+				 * until the refreshed LSA arrives, make sure that doesn't happen.
+				 */
+				ospf_ls_ack_send_direct(nbr, lsa);
+				DISCARD_LSA(lsa, 10);
+				continue;
+			}
+		}
 
 		/* (5) Find the instance of this LSA that is currently contained
 		   in the router's link state database.  If there is no
