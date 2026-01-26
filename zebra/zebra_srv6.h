@@ -316,7 +316,7 @@ void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
 						      const char *locator_name,
 						      struct in6_addr *sid_value,
-						      bool is_localonly);
+						      bool is_localonly, bool *created);
 
 extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
 				      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
