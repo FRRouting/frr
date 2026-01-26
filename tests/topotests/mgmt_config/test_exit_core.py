@@ -42,18 +42,6 @@ def tgen(request):
     tgen.stop_topology()
 
 
-def scan_for_match(wl, regex, timeout=30):
-    regex = re.compile(regex)
-    to = Timeout(timeout)
-    logging.debug("scanning %s for %s", wl.path, regex)
-    while to:
-        content = wl.snapshot_refresh()
-        if m := regex.search(content):
-            logging.debug("found '%s' in %s", m.group(0), wl.path)
-            return m
-        time.sleep(0.5)
-    raise TimeoutError(f"timeout waiting for {regex} in {wl.path}")
-
 def test_quit_during_config(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -81,7 +69,7 @@ def test_quit_during_config(tgen):
     try:
 
         # Wait for part of the configuration to start being applied
-        scan_for_match(wl, re.escape(r"ip route 1.0.1.0/30 101.0.0.2"))
+        wl.wait_for_match(re.escape(r"ip route 1.0.1.0/30 101.0.0.2"), timeout=30)
         logging.info("partial config applied, waiting for completion")
 
         # Now stop the router to see if we get any core files
