@@ -16,6 +16,9 @@ import subprocess
 import sys
 import tempfile
 
+from functools import cache
+from importlib.resources import as_file
+from importlib.resources import files
 from pathlib import Path
 
 
@@ -31,15 +34,14 @@ from .config import list_to_dict_with_key
 from .native import Munet
 
 
+@cache
 def get_schema():
-    if get_schema.schema is None:
-        with importlib.resources.path("munet", "munet-schema.json") as datapath:
-            search = [str(datapath.parent)]
-        get_schema.schema = get_config(basename="munet-schema", search=search)
-    return get_schema.schema
+    package_files = files("munet")
+    schema_file = package_files / "munet-schema.json"
+    with as_file(schema_file) as datapath:
+        search = [str(datapath.parent)]
+    return get_config(basename="munet-schema", search=search)
 
-
-get_schema.schema = None
 
 project_root_contains = [
     ".git",
@@ -131,7 +133,9 @@ def setup_logging(args, config_base="logconf"):
     os.chdir(args.rundir)
     try:
         search = [old]
-        with importlib.resources.path("munet", config_base + ".yaml") as datapath:
+        package_files = files("munet")
+        logconf_file = package_files / f"{config_base}.yaml"
+        with as_file(logconf_file) as datapath:
             search.append(str(datapath.parent))
 
         def logf(msg, *p, **k):
@@ -234,7 +238,9 @@ def load_kinds(args, search=None):
     try:
         if search is None:
             search = [cwd]
-        with importlib.resources.path("munet", "kinds.yaml") as datapath:
+        with importlib.resources.path(  # pylint: disable=deprecated-method
+            "munet", "kinds.yaml"
+        ) as datapath:
             search.insert(0, str(datapath.parent))
 
         configs = []

@@ -23,7 +23,6 @@ import pytest_asyncio
 
 from ..base import BaseMunet
 from ..base import Bridge
-from ..base import get_event_loop
 from ..cleanup import cleanup_current
 from ..native import L3NodeMixin
 from ..parser import async_build_topology
@@ -162,17 +161,6 @@ def module_autouse(request):
 
         if BaseMunet.g_unet:
             raise Exception("Base Munet was not cleaned up/deleted")
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the session."""
-    loop = get_event_loop()
-    try:
-        logging.info("event_loop_fixture: yielding with new event loop watcher")
-        yield loop
-    finally:
-        loop.close()
 
 
 @pytest.fixture(scope="module")
