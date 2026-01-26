@@ -1158,6 +1158,29 @@ DEFPY (no_srv6_src_addr,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_fast_reroute_grace_delay,
+       srv6_fast_reroute_grace_delay_cmd,
+       "fast-reroute grace-delay (0-60000)$delay",
+       "Fast reroute configuration\n"
+       "Grace delay before reverting to primary path\n"
+       "Delay in milliseconds (0 to disable)\n")
+{
+	zebra_seg6local_set_grace_delay(delay);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_fast_reroute_grace_delay,
+       no_srv6_fast_reroute_grace_delay_cmd,
+       "no fast-reroute grace-delay [(0-60000)]",
+       NO_STR
+       "Fast reroute configuration\n"
+       "Grace delay before reverting to primary path\n"
+       "Delay in milliseconds\n")
+{
+	zebra_seg6local_set_grace_delay(ZEBRA_SEG6LOCAL_GRACE_DELAY_DEFAULT);
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH(srv6_sid_formats,
            srv6_sid_formats_cmd,
            "formats",
@@ -1597,6 +1620,19 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  exit\n");
 		}
 	}
+	/* Write fast-reroute grace-delay if non-default */
+	if (zebra_seg6local_get_grace_delay() != ZEBRA_SEG6LOCAL_GRACE_DELAY_DEFAULT) {
+		if (!display_source_srv6 && !zebra_srv6_is_enable()) {
+			vty_out(vty, "segment-routing\n");
+			vty_out(vty, " srv6\n");
+			vty_out(vty, "  fast-reroute grace-delay %u\n",
+				zebra_seg6local_get_grace_delay());
+			vty_out(vty, " exit\n");
+		} else {
+			vty_out(vty, "  fast-reroute grace-delay %u\n",
+				zebra_seg6local_get_grace_delay());
+		}
+	}
 	if (srv6 && zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
@@ -1712,7 +1748,8 @@ static int zebra_sr_config(struct vty *vty)
 		vty_out(vty, " exit\n");
 		vty_out(vty, " !\n");
 	}
-	if (display_source_srv6 || zebra_srv6_is_enable()) {
+	if (display_source_srv6 || zebra_srv6_is_enable() ||
+	    zebra_seg6local_get_grace_delay() != ZEBRA_SEG6LOCAL_GRACE_DELAY_DEFAULT) {
 		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
@@ -1748,6 +1785,8 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_NODE, &srv6_sid_formats_cmd);
+	install_element(SRV6_NODE, &srv6_fast_reroute_grace_delay_cmd);
+	install_element(SRV6_NODE, &no_srv6_fast_reroute_grace_delay_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);
