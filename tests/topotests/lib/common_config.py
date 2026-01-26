@@ -4674,14 +4674,19 @@ def required_linux_kernel_version(required_version):
     return True
 
 
+# TODO: squash with former check_kernel_seg6_support() implementation
 def check_kernel_seg6_support():
     """
-    Check if the kernel supports SRv6 (seg6) and return status.
+    Check if the kernel supports SRv6 (seg6) and can install seg6local routes.
+
+    This function checks both:
+    1. If the seg6_enabled sysctl exists
+    2. If seg6local routes can actually be installed in the kernel
 
     Returns
     -------
     tuple (supported, enabled)
-        - supported: True if kernel has seg6 sysctl available
+        - supported: True if kernel can install seg6local routes
         - enabled: True if seg6 is already enabled
 
     Usage
@@ -4691,6 +4696,7 @@ def check_kernel_seg6_support():
         pytest.skip("Kernel does not support SRv6")
     """
     try:
+        # Check if seg6 sysctl exists
         result = subprocess.run(
             ["sysctl", "-n", "net.ipv6.conf.all.seg6_enabled"],
             capture_output=True,
@@ -4698,8 +4704,34 @@ def check_kernel_seg6_support():
         )
         if result.returncode != 0:
             return (False, False)
-        value = int(result.stdout.strip())
-        return (True, value == 1)
+        enabled = int(result.stdout.strip()) == 1
+
+        # Test if seg6local routes can actually be installed
+        # Enable seg6 on lo interface (required for seg6local routes)
+        subprocess.run(
+            ["sysctl", "-w", "net.ipv6.conf.lo.seg6_enabled=1"],
+            capture_output=True,
+        )
+
+        # Try to add a test seg6local route
+        test_sid = "fc00:ffff:ffff:ffff::1"
+        result = subprocess.run(
+            ["ip", "-6", "route", "add", test_sid, "encap", "seg6local",
+             "action", "End", "dev", "lo"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            # Kernel doesn't support seg6local routes
+            return (False, False)
+
+        # Clean up test route
+        subprocess.run(
+            ["ip", "-6", "route", "del", test_sid],
+            capture_output=True,
+        )
+        return (True, enabled)
+
     except (subprocess.SubprocessError, ValueError):
         return (False, False)
 
