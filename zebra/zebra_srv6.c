@@ -32,6 +32,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "frrevent.h"
 
 DEFINE_MGROUP(SRV6_MGR, "SRv6 Manager");
 DEFINE_MTYPE_STATIC(SRV6_MGR, SRV6M_CHUNK, "SRv6 Manager Chunk");
@@ -2928,6 +2929,19 @@ DECLARE_HASH(zebra_seg6local_route_hash, struct zebra_seg6local_route,
 /* Global hash table to track all seg6local routes by SID prefix */
 static struct zebra_seg6local_route_hash_head seg6local_routes_hash;
 
+/* Grace delay before reverting to primary (milliseconds) */
+static uint32_t seg6local_grace_delay_ms = ZEBRA_SEG6LOCAL_GRACE_DELAY_DEFAULT;
+
+void zebra_seg6local_set_grace_delay(uint32_t delay_ms)
+{
+	seg6local_grace_delay_ms = delay_ms;
+}
+
+uint32_t zebra_seg6local_get_grace_delay(void)
+{
+	return seg6local_grace_delay_ms;
+}
+
 static uint32_t zebra_seg6local_route_hash_key(
 	const struct zebra_seg6local_route *route)
 {
@@ -3193,6 +3207,34 @@ void zebra_seg6local_route_untrack(const struct prefix_ipv6 *sid,
 	zebra_seg6local_route_free(route);
 }
 
+/*
+ * Timer callback for grace delay expiry.
+ * Called after the grace delay to revert routes to primary nexthop.
+ */
+static void zebra_seg6local_grace_timer_expiry(struct event *event)
+{
+	struct interface *ifp = EVENT_ARG(event);
+	struct zebra_if *zif;
+	struct zebra_seg6local_route *route;
+
+	if (!ifp || !ifp->info)
+		return;
+
+	zif = ifp->info;
+	zif->seg6local_grace_timer = NULL;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: grace timer expired for interface %s, reverting to primary",
+			   __func__, ifp->name);
+
+	/* Revert to primary for all routes using this as primary */
+	frr_each (zebra_seg6local_route_list, &zif->seg6local_primary_routes,
+		  route) {
+		if (route->using_backup)
+			zebra_seg6local_revert_to_primary(route);
+	}
+}
+
 void zebra_seg6local_if_down(struct interface *ifp)
 {
 	struct zebra_if *zif;
@@ -3202,6 +3244,9 @@ void zebra_seg6local_if_down(struct interface *ifp)
 		return;
 
 	zif = ifp->info;
+
+	/* Cancel any pending grace timer */
+	event_cancel(&zif->seg6local_grace_timer);
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: interface %s down, checking seg6local routes",
@@ -3218,6 +3263,7 @@ void zebra_seg6local_if_down(struct interface *ifp)
 void zebra_seg6local_if_up(struct interface *ifp)
 {
 	struct zebra_if *zif;
+	bool has_routes_to_revert = false;
 	struct zebra_seg6local_route *route;
 
 	if (!ifp || !ifp->info)
@@ -3225,14 +3271,27 @@ void zebra_seg6local_if_up(struct interface *ifp)
 
 	zif = ifp->info;
 
-	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: interface %s up, checking seg6local routes",
-			   __func__, ifp->name);
-
-	/* Revert to primary for all routes using this as primary */
+	/* Check if there are any routes to revert */
 	frr_each (zebra_seg6local_route_list, &zif->seg6local_primary_routes,
 		  route) {
-		if (route->using_backup)
-			zebra_seg6local_revert_to_primary(route);
+		if (route->using_backup) {
+			has_routes_to_revert = true;
+			break;
+		}
 	}
+
+	if (!has_routes_to_revert)
+		return;
+
+	if (IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: interface %s up, scheduling grace timer (%u ms)",
+			   __func__, ifp->name, seg6local_grace_delay_ms);
+
+	/* Cancel any existing timer and start a new one */
+	event_cancel(&zif->seg6local_grace_timer);
+
+	/* Start grace delay timer before reverting to primary */
+	event_add_timer_msec(zrouter.master, zebra_seg6local_grace_timer_expiry,
+			     ifp, seg6local_grace_delay_ms,
+			     &zif->seg6local_grace_timer);
 }

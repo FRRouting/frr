@@ -432,6 +432,9 @@ DECLARE_DLIST(zebra_seg6local_route_list, struct zebra_seg6local_route,
 DECLARE_DLIST(zebra_seg6local_route_backup_list, struct zebra_seg6local_route,
 	      backup_link);
 
+/* seg6local fast reroute default grace delay (milliseconds) */
+#define ZEBRA_SEG6LOCAL_GRACE_DELAY_DEFAULT 1000
+
 /* seg6local fast reroute functions */
 extern struct zebra_seg6local_route *
 zebra_seg6local_route_alloc(const struct prefix_ipv6 *sid, vrf_id_t vrf_id,
@@ -447,5 +450,9 @@ extern void zebra_seg6local_route_untrack(const struct prefix_ipv6 *sid,
 					  vrf_id_t vrf_id, uint32_t table_id);
 extern void zebra_seg6local_if_down(struct interface *ifp);
 extern void zebra_seg6local_if_up(struct interface *ifp);
+
+/* Grace delay configuration */
+extern void zebra_seg6local_set_grace_delay(uint32_t delay_ms);
+extern uint32_t zebra_seg6local_get_grace_delay(void);
 
 #endif /* _ZEBRA_SRV6_H */

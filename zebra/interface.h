@@ -222,6 +222,13 @@ struct zebra_if {
 	 * Used for fast revert when interface comes back up.
 	 */
 	struct zebra_seg6local_route_backup_list_head seg6local_backup_routes;
+
+	/*
+	 * Grace delay timer for reverting seg6local routes to primary.
+	 * When interface comes up, we wait for this timer before reverting
+	 * to avoid flapping if the interface is unstable.
+	 */
+	struct event *seg6local_grace_timer;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),

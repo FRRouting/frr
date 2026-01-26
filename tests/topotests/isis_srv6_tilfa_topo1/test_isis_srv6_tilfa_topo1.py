@@ -1076,7 +1076,8 @@ def test_zebra_fast_reroute_step4():
     router.run("ip link set dev eth-rt2-1 up")
 
     # Allow time for zebra to revert to primary nexthop
-    # This may take longer as it needs to verify interface is stable
+    # Zebra has a grace delay (default 1000ms) before reverting to primary
+    # to avoid route flapping if the interface is unstable
     time.sleep(2)
 
     routes_after_up = router.run("ip -6 route show proto isis | grep seg6local")
