@@ -240,6 +240,18 @@ def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
         node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % bond_name)
 
 
+def attach_bond_to_bridge(node, bond_name):
+    """
+    Re-attach an existing bond to the bridge with VLAN settings.
+    """
+    node.run("ip link set dev %s master bridge" % bond_name)
+    node.run("/sbin/bridge link set dev %s priority 8" % bond_name)
+    node.run("/sbin/bridge vlan del vid 1 dev %s" % bond_name)
+    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev %s" % bond_name)
+    node.run("/sbin/bridge vlan add vid 1000 dev %s" % bond_name)
+    node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % bond_name)
+
+
 def config_mcast_tunnel_termination_device(node):
     """
     The kernel requires a device to terminate VxLAN multicast tunnels
@@ -857,6 +869,53 @@ def test_evpn_access_vlan_vni_count():
     if output and "VLAN" in output:
         assertmsg = "VNI-count column missing in 'show evpn access-vlan' output"
         assert "VNI-count" in output, assertmsg
+
+
+def test_evpn_es_config_without_bridge():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = tgen.gears["torm11"]
+    bond_name = "hostbond1"
+
+    try:
+        # Remove bond from bridge, then apply ES config on the interface.
+        dut.run(f"ip link set dev {bond_name} nomaster")
+
+        def _bond_detached():
+            out = dut.run(f"ip -o link show dev {bond_name}")
+            return None if "master bridge" not in out else "bond still bridged"
+
+        test_fn = partial(_bond_detached)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assertmsg = f'"{dut.name}" bond still has bridge master'
+        assert result is None, assertmsg
+
+        dut.vtysh_cmd(
+            f"""
+            conf
+              interface {bond_name}
+                evpn mh es-id 3883244
+                evpn mh es-sys-mac 02:00:5e:9e:e2:0d
+            """
+        )
+
+        status = dut.check_router_running()
+        assertmsg = f"Router {dut.name} has issues after ES config: {status}"
+        assert not status, assertmsg
+    finally:
+        # Restore original bond and EVPN MH config.
+        attach_bond_to_bridge(dut, bond_name)
+        dut.vtysh_cmd(
+            f"""
+            conf
+              interface {bond_name}
+                evpn mh es-id 1
+                evpn mh es-sys-mac 44:38:39:ff:ff:01
+            """
+        )
 
 
 if __name__ == "__main__":
