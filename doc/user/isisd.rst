@@ -933,6 +933,87 @@ In this example:
 - Both interfaces share SRLG 100, so neither will be used as backup for the
   other during SRLG-protected failover
 
+Data Plane Fast Reroute
+^^^^^^^^^^^^^^^^^^^^^^^
+
+When TI-LFA computes backup paths for SRv6, the backup information is passed
+to zebra along with the primary route. Zebra installs this information in
+the Linux kernel as seg6local routes with pre-computed backup nexthops.
+
+The fast reroute mechanism operates at two levels:
+
+**Protocol-level failover (ISIS reconvergence)**
+
+When an interface is administratively shut down through FRR (using the
+``shutdown`` command), ISIS detects the adjacency loss through hello
+timeouts. ISIS then performs a full SPF recomputation and installs new
+routes. This process takes several seconds as the protocol withdraws LSPs,
+floods updates to neighbors, and recomputes the shortest path tree.
+
+**Data plane fast reroute (zebra)**
+
+When an interface goes down at the kernel level (link failure, cable pull,
+or ``ip link set down``), zebra receives the notification directly through
+netlink. For seg6local routes that have backup nexthops pre-installed, zebra
+immediately switches to the backup path without waiting for ISIS to
+reconverge. This fast path completes in under 50 milliseconds.
+
+The fast reroute process works as follows:
+
+1. ISIS computes TI-LFA backup paths and allocates backup End.X SIDs
+
+2. When installing primary End.X SIDs, ISIS passes backup nexthop
+   information to zebra through the ZAPI interface
+
+3. Zebra tracks which seg6local routes use each interface as their primary
+   nexthop
+
+4. When an interface goes down, zebra iterates through all seg6local routes
+   using that interface and reinstalls them with their backup nexthops
+
+5. When the interface comes back up, zebra reverts routes to their primary
+   nexthops after verifying interface stability
+
+This mechanism provides sub-50ms failover for SRv6 traffic without requiring
+any protocol reconvergence, making it suitable for applications with strict
+availability requirements.
+
+The grace delay before reverting to primary can be configured in zebra under
+the ``segment-routing srv6`` configuration node:
+
+.. clicmd:: fast-reroute grace-delay (0-60000)
+
+   Configure the grace delay in milliseconds before reverting seg6local routes
+   from backup to primary nexthops when an interface comes back up. The default
+   is 1000 milliseconds. Setting to 0 disables the grace delay and reverts
+   immediately.
+
+Example configuration::
+
+   segment-routing
+    srv6
+     fast-reroute grace-delay 2000
+
+To verify backup End.X SIDs are allocated, use::
+
+   show segment-routing srv6 locator NAME sid
+
+The output includes a ``backup`` flag for SIDs that serve as backup paths::
+
+   SID                         Behavior    Context
+   --------------------------  ----------  --------------------------------------
+   fc00:0:4:40::               End.X       nh6 fe80::1 iface eth-rt2-1
+   fc00:0:4:41::               End.X       nh6 fe80::2 iface eth-rt2-2
+   fc00:0:4:42::               End.X       nh6 fe80::1 iface eth-rt2-1 [backup]
+
+In JSON output, the backup field indicates whether a SID is a backup path::
+
+   {
+     "sid": "fc00:0:4:42::",
+     "behavior": "End.X",
+     "backup": true
+   }
+
 Debugging ISIS
 ==============
 
