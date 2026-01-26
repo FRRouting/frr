@@ -89,6 +89,8 @@ struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *
 
 void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc)
 {
+	struct zebra_evpn *zevpn;
+
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug("%u: deleting L2VPN %s protocol %s", svc->vrf_id, svc->ifname,
 			   zebra_route_string(svc->protocol));
@@ -108,6 +110,14 @@ void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc)
 	RB_REMOVE(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree, svc);
 	if (svc->protocol == ZEBRA_ROUTE_STATIC)
 		RB_REMOVE(zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree, svc);
+
+	if (svc->protocol == ZEBRA_ROUTE_BGP && svc->data.bgp.vni) {
+		zevpn = zebra_evpn_lookup(svc->data.bgp.vni);
+		if (zevpn && if_is_operative(zevpn->vxlan_if))  {
+			zebra_evpn_send_add_to_client(zevpn);
+			zebra_evpn_read_mac_neigh(zevpn, zevpn->vxlan_if);
+		}
+	}
 
 	XFREE(MTYPE_L2VPN_SVC, svc);
 }

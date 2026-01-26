@@ -63,6 +63,7 @@ static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
 		RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, l2vpn_svc);
 		RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, l2vpn_svc);
 		UNSET_FLAG(vpn->flags, VNI_FLAG_VPWS);
+		UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 	}
 }
 
@@ -128,8 +129,11 @@ static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 	if (vpn) {
 		bgp_l2vpn_vpws_local_withdraw(bgp, l2vpn_svc, vpn);
 
-		if (!CHECK_FLAG(l2vpn_svc->flags, F_EVPN_VNI))
+		if (!CHECK_FLAG(l2vpn_svc->flags, F_EVPN_VNI)) {
 			UNSET_FLAG(vpn->flags, VNI_FLAG_VPWS);
+			/* Set down the vpn to be re-evaluated by VNI ADD */
+			UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
+		}
 	}
 }
 
