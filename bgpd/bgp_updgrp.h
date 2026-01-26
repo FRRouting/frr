@@ -36,8 +36,9 @@
 #define BGP_MAX_SUBGROUP_COALESCE_TIME 10000
 #define BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME 50
 
-#define PEER_UPDGRP_FLAGS                                                      \
-	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS)
+#define PEER_UPDGRP_FLAGS                                                                         \
+	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS |                          \
+	 PEER_FLAG_AS_LOOP_DETECTION)
 
 #define PEER_UPDGRP_AF_FLAGS                                                                      \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |                                \
