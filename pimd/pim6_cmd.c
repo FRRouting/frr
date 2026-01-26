@@ -3010,6 +3010,24 @@ DEFPY (debug_pimv6_bsm,
 	return CMD_SUCCESS;
 }
 
+DEFPY_YANG(pim6_join_filter_route_map, pim6_join_filter_route_map_cmd,
+	   "[no] join-filter route-map ![RMAP_NAME]$rmap",
+	   NO_STR
+	   "PIM join filter configuration\n"
+	   "Filter PIM joins via route-map\n"
+	   "Route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./pim-join-route-map");
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, rmap);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 struct cmd_node pim6_node = {
 	.name = "pim6",
 	.node = PIM6_NODE,
@@ -3091,6 +3109,8 @@ void pim_cmd_init(void)
 	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);
 	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_group_cmd);
 	install_element(PIM6_NODE, &pim6_bsr_candidate_bsr_cmd);
+
+	install_element(PIM6_NODE, &pim6_join_filter_route_map_cmd);
 
 	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
 	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);

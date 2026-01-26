@@ -13,6 +13,10 @@ module frr-pim {
     prefix frr-interface;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-routing {
     prefix "frr-rt";
   }
@@ -488,6 +492,12 @@ module frr-pim {
         type plist-ref;
         description
           "Only accept registers from a specific source prefix list.";
+    }
+
+    leaf pim-join-route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Pass PIM joins through specified route-map.";
     }
   } // global-pim-config-attributes
 
