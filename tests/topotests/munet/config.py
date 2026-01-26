@@ -94,13 +94,11 @@ def config_to_dict_with_key(c, ck, k):
 
 
 @overload
-def config_subst(config: str, **kwargs) -> str:
-    ...
+def config_subst(config: str, **kwargs) -> str: ...
 
 
 @overload
-def config_subst(config: Iterable, **kwargs) -> Iterable:
-    ...
+def config_subst(config: Iterable, **kwargs) -> Iterable: ...
 
 
 def config_subst(config: Iterable, **kwargs) -> Iterable:

@@ -9,6 +9,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 
 from pathlib import Path
@@ -89,14 +90,15 @@ def main(*args):
     ecmd = "/usr/bin/nsenter"
     eargs = [ecmd]
 
-    #start mucmd same way base process is started
-    eargs.append(f"--mount=/proc/{pid}/ns/mnt")
-    eargs.append(f"--net=/proc/{pid}/ns/net")
+    output = subprocess.check_output(["/usr/bin/nsenter", "--help"], encoding="utf-8")
+    # -U doesn't work, -C breaks in non-root podman
+    for flag in ["-u", "-i", "-m", "-n", "-T"]:
+        if f" {flag}," in output:
+            eargs.append(flag)
     eargs.append(f"--pid=/proc/{pid}/ns/pid_for_children")
-    eargs.append(f"--uts=/proc/{pid}/ns/uts")
     eargs.append(f"--wd={rundir}")
+    eargs.extend(["-t", pid])
     eargs += args.shellcmd
-    #print("Using ", eargs)
     return os.execvpe(ecmd, eargs, {**env, **envcfg})
 
 
