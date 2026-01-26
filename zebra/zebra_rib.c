@@ -443,8 +443,10 @@ int zebra_check_addr(const struct prefix *p)
 
 		addr = ntohl(p->u.prefix4.s_addr);
 
-		if (IPV4_NET127(addr) || IN_CLASSD(addr) ||
-		    (IPV4_LINKLOCAL(addr) && !IPV4_CLASS_E(addr)))
+		if ((IPV4_NET127(addr) || IN_CLASSD(addr)) && !cmd_allow_reserved_ranges_get())
+			return 0;
+
+		if (IPV4_LINKLOCAL(addr) && !IPV4_CLASS_E(addr))
 			return 0;
 	}
 	if (p->family == AF_INET6) {
