@@ -22,6 +22,7 @@ import socket
 import subprocess
 import time
 
+from copy import deepcopy
 from pathlib import Path
 
 
@@ -54,18 +55,31 @@ from .config import merge_kind_config
 from .watchlog import WatchLog
 
 
+AUTO_LOOPBACK_IPV4_BASE = ipaddress.ip_interface("10.255.0.0/32")
+AUTO_LOOPBACK_IPV6_BASE = ipaddress.ip_interface("fcfe::0/128")
+
+
 class L3ContainerNotRunningError(MunetError):
     """Exception if no running container exists."""
 
 
 def get_loopback_ips(c, nid):
+    ips = []
     if ip := c.get("ip"):
         if ip == "auto":
-            return [ipaddress.ip_interface("10.255.0.0/32") + nid]
-        if isinstance(ip, str):
-            return [ipaddress.ip_interface(ip)]
-        return [ipaddress.ip_interface(x) for x in ip]
-    return []
+            ips.append(AUTO_LOOPBACK_IPV4_BASE + nid)
+        elif isinstance(ip, str):
+            ips.append(ipaddress.ip_interface(ip))
+        else:
+            ips.extend([ipaddress.ip_interface(x) for x in ip])
+    if ipv6 := c.get("ipv6"):
+        if ipv6 == "auto":
+            ips.append(AUTO_LOOPBACK_IPV6_BASE + nid)
+        elif isinstance(ipv6, str):
+            ips.append(ipaddress.ip_interface(ipv6))
+        else:
+            ips.extend([ipaddress.ip_interface(x) for x in ipv6])
+    return ips
 
 
 def make_ip_network(net, inc):
@@ -94,6 +108,7 @@ def get_ip_network(c, brid, ipv6=False):
             return ifip
         except ValueError:
             return ipaddress.ip_network(ip)
+    assert brid < 0xFDFF  # Limited to 10.0.0.0/16 through 10.253.0.0/16 blocks
     if ipv6:
         return make_ip_interface("fc00::fe/64", brid)
     return make_ip_interface("10.0.0.254/24", brid)
@@ -266,15 +281,26 @@ class NodeMixin:
         commander.cmd_raises(f"rm -rf {self.rundir}")
         commander.cmd_raises(f"mkdir -p {self.rundir}")
 
-    def _shebang_prep(self, config_key):
-        cmd = self.config.get(config_key, "").strip()
+    def _shebang_prep(self, config_key, is_file=False):
+        shell_cmd = "/bin/bash"  # default shell
+        if not is_file:
+            cmd = self.config.get(config_key, "").strip()
+        else:
+            cmd_file = self.config.get(config_key, "").strip()
+            with open(cmd_file, "r", encoding="ascii") as f:
+                lines = f.readlines()
+                # We want to avoid overwriting the shebang if it already exists
+                if lines and lines[0].startswith("#!"):
+                    shell_cmd = lines.pop(0)[2:].strip()
+                cmd = "".join(lines).strip()
+
         if not cmd:
             return []
 
         script_name = fsafe_name(config_key)
 
         # shell_cmd is a union and can be boolean or string
-        shell_cmd = self.config.get("shell", "/bin/bash")
+        shell_cmd = self.config.get("shell", shell_cmd)
         if not isinstance(shell_cmd, str):
             if shell_cmd:
                 # i.e., "shell: true"
@@ -319,8 +345,8 @@ class NodeMixin:
 
         return cmds
 
-    async def _async_shebang_cmd(self, config_key, warn=True):
-        cmds = self._shebang_prep(config_key)
+    async def _async_shebang_cmd(self, config_key, warn=True, is_file=False):
+        cmds = self._shebang_prep(config_key, is_file)
         if not cmds:
             return 0
 
@@ -341,7 +367,9 @@ class NodeMixin:
         return rc
 
     def has_run_cmd(self) -> bool:
-        return bool(self.config.get("cmd", "").strip())
+        has_cmd = bool(self.config.get("cmd", "").strip())
+        has_cmd_file = bool(self.config.get("cmd-file", "").strip())
+        return has_cmd or has_cmd_file
 
     async def get_proc_child_pid(self, p):
         # commander is right for both unshare inline (our proc pidns)
@@ -376,7 +404,11 @@ class NodeMixin:
             "[rundir %s exists %s]", self.rundir, os.path.exists(self.rundir)
         )
 
-        cmds = self._shebang_prep("cmd")
+        if self.config.get("cmd-file"):
+            cmds = self._shebang_prep("cmd-file", is_file=True)
+        else:
+            cmds = self._shebang_prep("cmd")
+
         if not cmds:
             return
 
@@ -444,7 +476,6 @@ class NodeMixin:
             self.cmd_pid = None
             self.cmd_p = None
         except asyncio.CancelledError:
-            # Should we stop the container if we have one?
             self.logger.debug("%s: node cmd_p.wait() canceled", future)
 
     def pytest_hook_run_cmd(self, stdout, stderr):
@@ -762,12 +793,20 @@ class L3NodeMixin(NodeMixin):
             self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
             self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
 
-        assert self.id < 0xFF * (0xFF - 0x7F)  # Beyond this, ipv4 address is invalid
+        assert self.id < 0x7FFF  # Limited to 10.254.0.0/16 block
         self.next_p2p_network = ipaddress.ip_network(
             f"10.254.{self.id & 0xFF}.{(self.id & 0x7F00) >> 7}/31"
         )
         self.next_p2p_network6 = ipaddress.ip_network(f"fcff:ffff:{self.id:02x}::/127")
 
+        if "ip" not in self.config and self.unet.autonumber_loopbacks:
+            self.config["ip"] = "auto"
+        if (
+            "ipv6" not in self.config
+            and self.unet.autonumber_loopbacks
+            and self.unet.ipv6_enable
+        ):
+            self.config["ipv6"] = "auto"
         self.loopback_ip = None
         self.loopback_ips = get_loopback_ips(self.config, self.id)
         self.loopback_ip = self.loopback_ips[0] if self.loopback_ips else None
@@ -914,7 +953,12 @@ ff02::2\tip6-allrouters
         logfile_read = open(lfname, "a+", encoding="utf-8")
         logfile_read.write("-- start read logging for: '{}' --\n".format(sock))
 
-        p = self.spawn(sock, prompt, logfile=logfile, logfile_read=logfile_read)
+        p = await self.async_spawn(
+            sock,
+            prompt,
+            logfile=logfile,
+            logfile_read=logfile_read,
+        )
         from .base import ShellWrapper  # pylint: disable=C0415
 
         p.send("\n")
@@ -941,6 +985,31 @@ ff02::2\tip6-allrouters
             if c["to"] == netname:
                 return c["name"]
         return None
+
+    def set_dummy_addr(self, cconf):
+        if ip := cconf.get("ip"):
+            ipaddr = ipaddress.ip_interface(ip)
+            assert ipaddr.version == 4
+        else:
+            ipaddr = None
+
+        if ip := cconf.get("ipv6"):
+            ip6addr = ipaddress.ip_interface(ip)
+            assert ip6addr.version == 6
+        else:
+            ip6addr = None
+
+        if "physical" in cconf or self.is_vm:
+            return
+
+        ifname = cconf["name"]
+        for ip in (ipaddr, ip6addr):
+            if ip is None:
+                continue
+            self.set_intf_addr(ifname, ip)
+            ipcmd = "ip " if ip.version == 4 else "ip -6 "
+            self.logger.debug("%s: adding %s to unconnected intf %s", self, ip, ifname)
+            self.intf_ip_cmd(ifname, ipcmd + f"addr add {ip} dev {ifname}")
 
     def set_lan_addr(self, switch, cconf):
         if ip := cconf.get("ip"):
@@ -1017,20 +1086,42 @@ ff02::2\tip6-allrouters
                 return
 
         if ipaddr:
+            # Check if the two sides of this link are assigned
+            # different subnets.  If so, set the peer address.
+            set_peer = False
+            if oipaddr and ipaddr.network != oipaddr.network:
+                set_peer = True
             ifname = cconf["name"]
-            self.set_intf_addr(ifname, ipaddr)
+            self.set_intf_addr(ifname, ipaddr, oipaddr)
             self.logger.debug("%s: adding %s to p2p intf %s", self, ipaddr, ifname)
             if "physical" not in cconf and not self.is_vm:
-                self.intf_ip_cmd(ifname, f"ip addr add {ipaddr} dev {ifname}")
+                if set_peer:
+                    self.logger.debug("%s: setting peer address %s", self, oipaddr)
+                    self.intf_ip_cmd(
+                        ifname,
+                        f"ip addr add {ipaddr.ip} peer {oipaddr.network} dev {ifname}",
+                    )
+                else:
+                    self.intf_ip_cmd(ifname, f"ip addr add {ipaddr} dev {ifname}")
 
         if oipaddr:
+            set_peer = False
+            if ipaddr and ipaddr.network != oipaddr.network:
+                set_peer = True
             oifname = occonf["name"]
-            other.set_intf_addr(oifname, oipaddr)
+            other.set_intf_addr(oifname, oipaddr, ipaddr)
             self.logger.debug(
                 "%s: adding %s to other p2p intf %s", other, oipaddr, oifname
             )
             if "physical" not in occonf and not other.is_vm:
-                other.intf_ip_cmd(oifname, f"ip addr add {oipaddr} dev {oifname}")
+                if set_peer:
+                    other.logger.debug("%s: setting peer address %s", other, ipaddr)
+                    other.intf_ip_cmd(
+                        oifname,
+                        f"ip addr add {oipaddr.ip} peer {ipaddr.network} dev {oifname}",
+                    )
+                else:
+                    other.intf_ip_cmd(oifname, f"ip addr add {oipaddr} dev {oifname}")
 
     def set_p2p_addr(self, other, cconf, occonf):
         self._set_p2p_addr(other, cconf, occonf, ipv6=False)
@@ -1481,7 +1572,8 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
                     # u'--entrypoint=""',
                     f"--volume={shebang_cmdpath}:/tmp/{script_name}.shebang",
                 ]
-
+        if self.config.get("cmd-file", "").strip():
+            raise NotImplementedError("cmd-file is not yet supported for podman nodes")
         cmd = self.config.get("cmd", "").strip()
 
         # See if we have a custom update for this `kind`
@@ -1551,7 +1643,7 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
         # Now let's wait until container shows up
         # ---------------------------------------
         timeout = Timeout(30)
-        while self.cmd_p.returncode is None and not timeout.is_expired():
+        while self.cmd_p.returncode is None and not timeout:
             o = await self.async_cmd_raises_nsonly(
                 f"podman ps -q -f name={self.container_id}"
             )
@@ -1618,8 +1710,8 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
         return await self._async_cleanup_cmd()
 
     def cmd_completed(self, future):
+        log = self.logger.debug if self.deleting else self.logger.warning
         try:
-            log = self.logger.debug if self.deleting else self.logger.warning
             n = future.result()
             if self.deleting:
                 log("contianer `cmd:` result: %s", n)
@@ -1630,11 +1722,12 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
                     n,
                 )
         except asyncio.CancelledError as error:
-            # Should we stop the container if we have one? or since we are canceled
-            # we know we will be deleting soon?
-            self.logger.warning(
-                "node container cmd wait() canceled: %s:%s", future, error
-            )
+            if self.deleting:
+                log("contianer's self.cmd_p.wait() canceled during cleanup")
+            else:
+                # This should only happen if the user cancels the task which is waiting
+                # on self.cmd_p.wait(). Should not normally happen during runtime.
+                log("contianer's self.cmd_p.wait() canceled during runtime: %s", error)
         self.cmd_p = None
 
     async def _async_delete(self):
@@ -1860,7 +1953,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 continue
             s = m.split(":", 1)
             if len(s) == 1:
-                args.append(("", s[0], ""))
+                args.append(("", s[0], "", "tmpfs"))
             else:
                 spath = s[0]
                 spath = os.path.abspath(
@@ -1870,7 +1963,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 )
                 if not self.test_nsonly("-e", spath):
                     self.cmd_raises_nsonly(f"mkdir -p {spath}")
-                args.append((spath, s[1], ""))
+                args.append((spath, s[1], "", "bind"))
 
         for m in self.config.get("mounts", []):
             src = m.get("src", m.get("source", ""))
@@ -1885,34 +1978,50 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             dst = m.get("dst", m.get("destination"))
             assert dst, "destination path required for mount"
 
+            # Implicitly guess "bind" or "tmpfs". Alternatives are manually specified.
+            mtype = "tmpfs" if src == "" else "bind"
+
             margs = []
             for k, v in m.items():
                 if k in ["destination", "dst", "source", "src"]:
                     continue
                 if k == "type":
-                    assert v in ["bind", "tmpfs"]
+                    assert v in ["bind", "tmpfs", "usb"]
+                    mtype = v
                     continue
                 if not v:
                     margs.append(k)
                 else:
                     margs.append(f"{k}={v}")
-            args.append((src, dst, ",".join(margs)))
+            args.append((src, dst, ",".join(margs), mtype))
 
         if args:
             self.extra_mounts += args
 
-    async def _run_cmd(self, cmd_node):
+    async def _run_cmd(self, cmd_node, is_file=False, in_qemu_conf=False):
         """Run the configured commands for this node inside VM."""
         self.logger.debug(
             "[rundir %s exists %s]", self.rundir, os.path.exists(self.rundir)
         )
 
-        cmd = self.config.get(cmd_node, "").strip()
+        shell_cmd = "/bin/bash"  # default shell
+        if in_qemu_conf:
+            cmd = self.qemu_config.get(cmd_node, "").strip()
+        else:
+            cmd = self.config.get(cmd_node, "").strip()
+        if is_file:
+            with open(cmd, "r", encoding="ascii") as f:
+                lines = f.readlines()
+                # We want to avoid overwriting the shebang if it already exists
+                if lines and lines[0].startswith("#!"):
+                    shell_cmd = lines.pop(0)[2:].strip()
+                cmd = "".join(lines).strip()
+
         if not cmd:
             self.logger.debug("%s: no `%s` to run", self, cmd_node)
             return None
 
-        shell_cmd = self.config.get("shell", "/bin/bash")
+        shell_cmd = self.config.get("shell", shell_cmd)
         if not isinstance(shell_cmd, str):
             if shell_cmd:
                 shell_cmd = "/bin/bash"
@@ -1984,8 +2093,15 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
     async def run_cmd(self):
         if self.disk_created:
-            await self._run_cmd("initial-cmd")
-        await self._run_cmd("cmd")
+            if self.qemu_config.get("initial-cmd-file"):
+                await self._run_cmd("initial-cmd-file", is_file=True, in_qemu_conf=True)
+            else:
+                await self._run_cmd("initial-cmd", in_qemu_conf=True)
+
+        if self.config.get("cmd-file"):
+            await self._run_cmd("cmd-file", is_file=True)
+        else:
+            await self._run_cmd("cmd")
 
         # stdout and err both combined into logfile from the spawned repl
         if self.cmdrepl:
@@ -2088,21 +2204,55 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         """Mount any shared directories."""
         self.logger.info("Mounting shared directories")
         con = self.conrepl
+
+        # Mount (unordered) emulated USB devices
+        usb_devices = [d for d in self.extra_mounts if d[3] == "usb"]
+        if usb_devices:
+            # Retreive a list of ready QEMU USB blocks
+            rv = con.cmd_raises('lsblk -f | grep "QEMU.*FAT"')
+            devs = []
+            blks = rv.split("\n")
+            for blk in blks:
+                name = " ".join(blk.split())  # Strip excess whitespace
+                name = re.sub(r"[^a-zA-Z0-9_ ]", "", name)  # Strip unexpected chars
+                name = name.split(" ")[0]  # Finally, extract the name (e.g. sdb1)
+                devs += [name]
+            tmp_mnt = "/tmp/munet-mnt"
+            for dev in devs:
+                # Investigatory mount
+                self.logger.info("Temp. mounting USB dev %s to %s", dev, tmp_mnt)
+                con.cmd_raises(f"mkdir -p {tmp_mnt}")
+                con.cmd_raises(f"mount /dev/{dev} {tmp_mnt}")
+                dest = con.cmd_raises(f"cat {tmp_mnt}/.munet")
+                con.cmd_raises(f"rm -f {tmp_mnt}/.munet")
+                # Real mount
+                self.logger.info("Mounting USB dev %s to %s", dev, dest)
+                con.cmd_raises(f"umount {tmp_mnt}")
+                con.cmd_raises(f"mkdir -p {dest}")
+                con.cmd_raises(f"mount /dev/{dev} {dest}")
+
+        # Mount remaining directories
         for i, m in enumerate(self.extra_mounts):
-            outer, mp, uargs = m
-            if not outer:
+            outer, mp, uargs, mtype = m
+            if mtype == "tmpfs":
                 con.cmd_raises(f"mkdir -p {mp}")
                 margs = f"-o {uargs}" if uargs else ""
+                self.logger.info("Mounting tmpfs on %s with %s", mp, margs)
                 con.cmd_raises(f"mount {margs} -t tmpfs tmpfs {mp}")
-                continue
-
-            uargs = "" if uargs is None else uargs
-            margs = "trans=virtio"
-            if uargs:
-                margs += f",{uargs}"
-            self.logger.info("Mounting %s on %s with %s", outer, mp, margs)
-            con.cmd_raises(f"mkdir -p {mp}")
-            con.cmd_raises(f"mount -t 9p -o {margs} shared{i} {mp}")
+            elif mtype == "bind":
+                uargs = "" if uargs is None else uargs
+                margs = "trans=virtio"
+                if uargs:
+                    margs += f",{uargs}"
+                self.logger.info(
+                    "Mounting bind (9p) %s on %s with %s", outer, mp, margs
+                )
+                con.cmd_raises(f"mkdir -p {mp}")
+                con.cmd_raises(f"mount -t 9p -o {margs} shared{i} {mp}")
+            elif mtype == "usb":
+                con.cmd_raises(f"test -d {mp}")  # Directory should already exist!
+            else:
+                assert False, "Unknown L3QemuVM mount option"
 
     async def renumber_interfaces(self):
         """Re-number the interfaces.
@@ -2128,13 +2278,33 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             con.cmd_raises(f"ip -4 addr flush dev {ifname}")
             sw_is_nat = switch and hasattr(switch, "is_nat") and switch.is_nat
             if ifaddr := self.get_intf_addr(ifname, ipv6=False):
-                con.cmd_raises(f"ip addr add {ifaddr} dev {ifname}")
+                oifaddr = self.get_peer_intf_addr(ifname, ipv6=False)
+                if (
+                    not switch
+                    and oifaddr is not None
+                    and ifaddr.network != oifaddr.network
+                ):
+                    con.cmd_raises(
+                        f"ip addr add {ifaddr.ip} peer {oifaddr.network} dev {ifname}"
+                    )
+                else:
+                    con.cmd_raises(f"ip addr add {ifaddr} dev {ifname}")
                 if sw_is_nat:
                     # In case there was some preconfig e.g., cloud-init
                     con.cmd_raises("ip route flush exact default")
                     con.cmd_raises(f"ip route add default via {switch.ip_address}")
             if ifaddr := self.get_intf_addr(ifname, ipv6=True):
-                con.cmd_raises(f"ip -6 addr add {ifaddr} dev {ifname}")
+                oifaddr = self.get_peer_intf_addr(ifname, ipv6=True)
+                if (
+                    not switch
+                    and oifaddr is not None
+                    and ifaddr.network != oifaddr.network
+                ):
+                    con.cmd_raises(
+                        f"ip addr add {ifaddr.ip} peer {oifaddr.network} dev {ifname}"
+                    )
+                else:
+                    con.cmd_raises(f"ip -6 addr add {ifaddr} dev {ifname}")
                 if sw_is_nat:
                     # In case there was some preconfig e.g., cloud-init
                     con.cmd_raises("ip -6 route flush exact default")
@@ -2210,7 +2380,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             sockpath = os.path.join(self.sockdir, cname)
             connected = False
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            while self.launch_p.returncode is None and not timeo.is_expired():
+            while self.launch_p.returncode is None and not timeo:
                 try:
                     sock.connect(sockpath)
                     connected = True
@@ -2248,7 +2418,6 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                         expects=expects,
                         sends=sends,
                         timeout=timeout,
-                        init_newline=True,
                         trace=True,
                     )
                 )
@@ -2591,7 +2760,8 @@ users:
 
         use_stdio = cc.get("stdio", True)
         has_cmd = self.config.get("cmd")
-        use_cmdcon = has_cmd and use_stdio
+        has_cmd_file = self.config.get("cmd-file")
+        use_cmdcon = (has_cmd or has_cmd_file) and use_stdio
 
         #
         # Any extra serial/console ports beyond thw first, require entries in
@@ -2635,11 +2805,28 @@ users:
             f"unix:{_sd}/gdbserver,server,nowait",
         ]
 
+        usb_id = 0
         for i, m in enumerate(self.extra_mounts):
-            args += [
-                "-virtfs",
-                f"local,path={m[0]},mount_tag=shared{i},security_model=passthrough",
-            ]
+            src, mp, _, mtype = m
+            if mtype == "bind":
+                args += [
+                    "-virtfs",
+                    f"local,path={m[0]},mount_tag=shared{i},security_model=passthrough",
+                ]
+            elif mtype == "usb":
+                if usb_id == 0:
+                    args += ["-usb"]
+                drive_id = f"munet_fat32_id{usb_id}"
+                args += [
+                    "-device",
+                    f"usb-storage,drive={drive_id}",
+                    "-drive",
+                    f"file=fat:rw:{src},id={drive_id},format=raw,if=none",
+                ]
+                usb_id += 1
+                # tag the directory with its destination. We cannot assume mount order
+                with open(f"{src}/.munet", "w", encoding="ascii") as f:
+                    f.write(f"{mp}\n")
 
         args += ["-nographic"]
 
@@ -3090,13 +3277,24 @@ ff02::2\tip6-allrouters
             if "connections" not in nconf:
                 continue
             for cconf in nconf["connections"]:
-                # Eventually can add support for unconnected intf here.
                 if "to" not in cconf:
+                    # unconnected intf
+                    await self.add_dummy_link(node, cconf)
                     continue
                 to = cconf["to"]
                 if to in self.switches:
+                    # Use tc params present in the root of the switch config as the
+                    # default tc values for interfaces added to the bridge which aren't
+                    # present in `connections`.
                     switch = self.switches[to]
                     swconf = find_matching_net_config(name, cconf, switch.config)
+                    if not swconf:
+                        # "name" most important key to leave out, so it gets generated
+                        nontc = ("connections", "external", "ip", "ipv6", "name")
+                        swconf = {
+                            k: v for k, v in switch.config.items() if k not in nontc
+                        }
+                        swconf = deepcopy(swconf)
                     await self.add_native_link(switch, node, swconf, cconf)
                 elif cconf["name"] not in node.intfs:
                     # Only add the p2p interface if not already there.
@@ -3111,6 +3309,33 @@ ff02::2\tip6-allrouters
     @autonumber.setter
     def autonumber(self, value):
         self.topoconf["networks-autonumber"] = bool(value)
+
+    @property
+    def autonumber_loopbacks(self):
+        return self.topoconf.get("loopbacks-autonumber", False)
+
+    @autonumber_loopbacks.setter
+    def autonumber_loopbacks(self, value):
+        self.topoconf["loopbacks-autonumber"] = bool(value)
+
+    async def add_dummy_link(self, node1, c1=None):
+        c1 = {} if c1 is None else c1
+
+        if "name" not in c1:
+            c1["name"] = node1.get_next_intf_name()
+        if1 = c1["name"]
+
+        do_add_dummy = True
+        if "hostintf" in c1:
+            await node1.add_host_intf(c1["hostintf"], c1["name"], mtu=c1.get("mtu"))
+            do_add_dummy = False
+        elif "physical" in c1:
+            await node1.add_phy_intf(c1["physical"], c1["name"])
+            do_add_dummy = False
+
+        if do_add_dummy:
+            super().add_dummy(node1, if1, **c1)
+            node1.set_dummy_addr(c1)
 
     async def add_native_link(self, node1, node2, c1=None, c2=None):
         """Add a link between switch and node or 2 nodes."""
@@ -3306,11 +3531,12 @@ done"""
             self.coverage_setup()
 
         pcapopt = self.cfgopt.getoption("--pcap")
-        pcapopt = pcapopt if pcapopt else ""
-        if pcapopt == "all":
-            pcapopt = self.switches.keys()
+        pcapopt = set(pcapopt.split(",")) if pcapopt else set()
+        if "all" in pcapopt:
+            pcapopt.remove("all")
+            pcapopt.update(self.switches.keys())
         if pcapopt:
-            for pcap in pcapopt.split(","):
+            for pcap in pcapopt:
                 if ":" in pcap:
                     host, intf = pcap.split(":")
                     pcap = f"{host}-{intf}"

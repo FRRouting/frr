@@ -17,9 +17,18 @@ import select
 import sys
 import time
 
+from typing import Callable
+from typing import TypeVar
+
 from ..base import BaseMunet
 from ..base import Timeout
 from ..cli import async_cli
+
+
+try:
+    from typing import ParamSpec
+except ImportError:
+    from typing_extensions import ParamSpec
 
 
 # =================
@@ -59,9 +68,17 @@ def pause_test(desc=""):
     asyncio.run(async_pause_test(desc))
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
 def retry(
-    retry_timeout, initial_wait=0, retry_sleep=2, expected=True, assert_is_except=True
-):
+    retry_timeout: float,
+    initial_wait: float = 0.0,
+    retry_sleep: float = 2.0,
+    expected: bool = True,
+    assert_is_except: bool = True,
+) -> Callable[[Callable[P, R]], Callable[..., R]]:
     """Retry decorated function until it returns None, raises an exception, or timeout.
 
     * `retry_timeout`: Retry for at least this many seconds; after waiting
@@ -161,8 +178,7 @@ def readline(f, timeout=None):
         return f.munet_lines.pop(0)
 
     timeout = Timeout(timeout)
-    remaining = timeout.remaining()
-    while remaining > 0:
+    for remaining in timeout:
         ready, _, _ = select.select([fd], [], [], remaining)
         if not ready:
             return None
@@ -185,8 +201,6 @@ def readline(f, timeout=None):
 
         if f.munet_lines:
             return f.munet_lines.pop(0)
-
-        remaining = timeout.remaining()
     return None
 
 
@@ -199,7 +213,7 @@ def waitline(f, regex, timeout=120):
     Return: the match object or None.
     """
     timeo = Timeout(timeout)
-    while not timeo.is_expired():
+    while not timeo:
         line = readline(f, timeo.remaining())
         if line is None:
             break

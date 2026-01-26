@@ -99,6 +99,9 @@ class Timeout:
             raise StopIteration()
         return remaining
 
+    def __bool__(self):
+        return self.is_expired()
+
 
 def fsafe_name(name):
     return "".join(x if x.isalnum() else "_" for x in name)
@@ -136,11 +139,24 @@ def shorten(s):
     return s
 
 
-def comm_result(rc, o, e):
-    s = f"\n\treturncode {rc}" if rc else ""
-    o = "\n\tstdout: " + shorten(o) if o and o.strip() else ""
-    e = "\n\tstderr: " + shorten(e) if e and e.strip() else ""
-    return s + o + e
+def block_quote(s):
+    ss = s.strip()
+    if "\n" not in ss:
+        return " " + s.rstrip()
+    s = "\n\t" + s.replace("\n", "\n\t")
+    if s.endswith("\n\t"):
+        s = s[:-2]
+    else:
+        s += "<EOF-NO-NEWLINE>"
+    return s
+
+
+def comm_result(o, e):
+    o = "  stdout: " + block_quote(o) if o and o.strip() else ""
+    e = "  stderr: " + block_quote(e) if e and e.strip() else ""
+    if o and e:
+        return o + "\n" + e
+    return o + e
 
 
 def proc_str(p):
@@ -268,34 +284,34 @@ def _get_exec_path(binary, cmdf, cache):
     return None
 
 
-def get_event_loop():
-    """Configure and return our non-thread using event loop.
+def ensure_non_threaded_event_watcher():
+    # Skip all this if >= python 3.12
+    if sys.version_info >= (3, 12):
+        return
 
-    This function configures a new child watcher to not use threads.
-    Threads cannot be used when we inline unshare a PID namespace.
-    """
     policy = asyncio.get_event_loop_policy()
-    loop = policy.get_event_loop()
-    if not hasattr(os, "pidfd_open"):
-        return loop
-
     owatcher = policy.get_child_watcher()
+    try:
+        want_class = asyncio.PidfdChildWatcher  # pylint: disable=no-member
+    except Exception:
+        want_class = asyncio.SafeChildWatcher  # pylint: disable=deprecated-class
+
     logging.debug(
-        "event_loop_fixture: global policy %s, current loop %s, current watcher %s",
+        "ensure_non_threaded_event_watcher: global policy %s, current watcher %s",
         policy,
-        loop,
         owatcher,
     )
+
+    # It's already non-threaded
+    if isinstance(owatcher, (want_class, asyncio.SafeChildWatcher)):
+        return
 
     policy.set_child_watcher(None)
     owatcher.close()
 
-    try:
-        watcher = asyncio.PidfdChildWatcher()  # pylint: disable=no-member
-    except Exception:
-        watcher = asyncio.SafeChildWatcher()
+    watcher = want_class()
+    # Reget the loop (why, does it change with the watcher.close()?)
     loop = policy.get_event_loop()
-
     logging.debug(
         "event_loop_fixture: attaching new watcher %s to loop and setting in policy",
         watcher,
@@ -304,8 +320,6 @@ def get_event_loop():
     policy.set_child_watcher(watcher)
     policy.set_event_loop(loop)
     assert asyncio.get_event_loop_policy().get_child_watcher() is watcher
-
-    return loop
 
 
 class Commander:  # pylint: disable=R0904
@@ -603,6 +617,41 @@ class Commander:  # pylint: disable=R0904
             p = pexpect.spawn(actual_cmd[0], actual_cmd[1:], echo=echo, **defaults)
         return p, actual_cmd
 
+    def _spawn_with_logging(
+        self,
+        cmd,
+        use_pty=False,
+        logfile=None,
+        logfile_read=None,
+        logfile_send=None,
+        **kwargs,
+    ):
+        """Create a spawned process with logging to files configured."""
+        if is_file_like(cmd):
+            assert not use_pty
+            ac = "*socket*"
+            p = self._fdspawn(cmd, **kwargs)
+        else:
+            p, ac = self._spawn(cmd, use_pty=use_pty, **kwargs)
+
+        if logfile:
+            p.logfile = logfile
+        if logfile_read:
+            p.logfile_read = logfile_read
+        if logfile_send:
+            p.logfile_send = logfile_send
+
+        # for spawned shells (i.e., a direct command an not a console)
+        # this is wrong and will cause 2 prompts
+        if not use_pty:
+            # This isn't very nice looking
+            p.echo = False
+            if not is_file_like(cmd):
+                p.isalive = lambda: p.proc.poll() is None
+            if not hasattr(p, "close"):
+                p.close = p.wait
+        return p, ac
+
     def spawn(
         self,
         cmd,
@@ -638,29 +687,14 @@ class Commander:  # pylint: disable=R0904
             CalledProcessError if EOF is seen and `cmd` exited then
                 raises a CalledProcessError to indicate the failure.
         """
-        if is_file_like(cmd):
-            assert not use_pty
-            ac = "*socket*"
-            p = self._fdspawn(cmd, **kwargs)
-        else:
-            p, ac = self._spawn(cmd, use_pty=use_pty, **kwargs)
-
-        if logfile:
-            p.logfile = logfile
-        if logfile_read:
-            p.logfile_read = logfile_read
-        if logfile_send:
-            p.logfile_send = logfile_send
-
-        # for spawned shells (i.e., a direct command an not a console)
-        # this is wrong and will cause 2 prompts
-        if not use_pty:
-            # This isn't very nice looking
-            p.echo = False
-            if not is_file_like(cmd):
-                p.isalive = lambda: p.proc.poll() is None
-            if not hasattr(p, "close"):
-                p.close = p.wait
+        p, ac = self._spawn_with_logging(
+            cmd,
+            use_pty,
+            logfile,
+            logfile_read,
+            logfile_send,
+            **kwargs,
+        )
 
         # Do a quick check to see if we got the prompt right away, otherwise we may be
         # at a console so we send a \n to re-issue the prompt
@@ -727,6 +761,136 @@ class Commander:  # pylint: disable=R0904
             p.close()
             raise error from eoferr
 
+    async def async_spawn(
+        self,
+        cmd,
+        spawned_re,
+        expects=(),
+        sends=(),
+        use_pty=False,
+        logfile=None,
+        logfile_read=None,
+        logfile_send=None,
+        trace=None,
+        **kwargs,
+    ):
+        """Create an async spawned send/expect process.
+
+        Args:
+            cmd: list of args to exec/popen with, or an already open socket
+            spawned_re: what to look for to know when done, `spawn` returns when seen
+            expects: a list of regex other than `spawned_re` to look for. Commonly,
+                "ogin:" or "[Pp]assword:"r.
+            sends: what to send when an element of `expects` matches. So e.g., the
+                username or password if thats what corresponding expect matched. Can
+                be the empty string to send nothing.
+            use_pty: true for pty based expect, otherwise uses popen (pipes/files)
+            trace: if true then log send/expects
+            **kwargs - kwargs passed on the _spawn.
+
+        Returns:
+            A pexpect process.
+
+        Raises:
+            pexpect.TIMEOUT, pexpect.EOF as documented in `pexpect`
+            CalledProcessError if EOF is seen and `cmd` exited then
+                raises a CalledProcessError to indicate the failure.
+        """
+        p, ac = self._spawn_with_logging(
+            cmd,
+            use_pty,
+            logfile,
+            logfile_read,
+            logfile_send,
+            **kwargs,
+        )
+
+        # Do a quick check to see if we got the prompt right away, otherwise we may be
+        # at a console so we send a \n to re-issue the prompt
+        index = p.expect([spawned_re, pexpect.TIMEOUT, pexpect.EOF], timeout=0.1)
+        if index == 0:
+            assert p.match is not None
+            self.logger.debug(
+                "%s: got spawned_re quick: '%s' matching '%s'",
+                self,
+                p.match.group(0),
+                spawned_re,
+            )
+            return p
+
+        # Now send a CRLF to cause the prompt (or whatever else) to re-issue
+        p.send("\n")
+        try:
+            patterns = [spawned_re, *expects]
+
+            self.logger.debug("%s: expecting: %s", self, patterns)
+
+            # The timestamp is only used for the case of use_pty != True
+            timeout = kwargs.get("timeout", 120)
+            timeout_ts = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+            index = None
+            while True:
+                if use_pty is True:
+                    index = await p.expect(patterns, async_=True)
+                else:
+                    # Due to an upstream issue, async_=True cannot be mixed with
+                    # pipes (pexpect.popen_spawn.PopenSpawn). This hack is used
+                    # to bypass that problem.
+                    await asyncio.sleep(0)  # Avoid blocking other coroutines
+                    try:
+                        index = p.expect(patterns, timeout=0.1)
+                    except pexpect.TIMEOUT:
+                        # We must declare when a timeout occurs instead of pexpect
+                        if timeout_ts < datetime.datetime.now():
+                            raise
+                        continue
+                if index == 0:
+                    break
+
+                if trace:
+                    assert p.match is not None
+                    self.logger.debug(
+                        "%s: got expect: '%s' matching %d '%s', sending '%s'",
+                        self,
+                        p.match.group(0),
+                        index,
+                        patterns[index],
+                        sends[index - 1],
+                    )
+                if sends[index - 1]:
+                    p.send(sends[index - 1])
+
+                self.logger.debug("%s: expecting again: %s", self, patterns)
+            self.logger.debug(
+                "%s: got spawned_re: '%s' matching '%s'",
+                self,
+                p.match.group(0),
+                spawned_re,
+            )
+            return p
+        except pexpect.TIMEOUT:
+            self.logger.error(
+                "%s: TIMEOUT looking for spawned_re '%s' expect buffer so far:\n%s",
+                self,
+                spawned_re,
+                indent(p.buffer),
+            )
+            raise
+        except pexpect.EOF as eoferr:
+            if p.isalive():
+                raise
+            rc = p.status
+            before = indent(p.before)
+            error = CalledProcessError(rc, ac, output=before)
+            self.logger.error(
+                "%s: EOF looking for spawned_re '%s' before EOF:\n%s",
+                self,
+                spawned_re,
+                before,
+            )
+            p.close()
+            raise error from eoferr
+
     async def shell_spawn(
         self,
         cmd,
@@ -736,7 +900,6 @@ class Commander:  # pylint: disable=R0904
         use_pty=False,
         will_echo=False,
         is_bourne=True,
-        init_newline=False,
         **kwargs,
     ):
         """Create a shell REPL (read-eval-print-loop).
@@ -751,8 +914,6 @@ class Commander:  # pylint: disable=R0904
                 be the empty string to send nothing.
             is_bourne: if False then do not modify shell prompt for internal
                 parser friently format, and do not expect continuation prompts.
-            init_newline: send an initial newline for non-bourne shell spawns, otherwise
-                expect the prompt simply from running the command
             use_pty: true for pty based expect, otherwise uses popen (pipes/files)
             will_echo: bash is buggy in that it echo's to non-tty unlike any other
                 sh/ksh, set this value to true if running back
@@ -761,7 +922,7 @@ class Commander:  # pylint: disable=R0904
         combined_prompt = r"({}|{})".format(re.escape(PEXPECT_PROMPT), prompt)
 
         assert not is_file_like(cmd) or not use_pty
-        p = self.spawn(
+        p = await self.async_spawn(
             cmd,
             combined_prompt,
             expects=expects,
@@ -773,8 +934,6 @@ class Commander:  # pylint: disable=R0904
         assert not p.echo
 
         if not is_bourne:
-            if init_newline:
-                p.send("\n")
             return ShellWrapper(p, prompt, will_echo=will_echo)
 
         ps1 = PEXPECT_PROMPT
@@ -932,8 +1091,7 @@ class Commander:  # pylint: disable=R0904
         rc = p.returncode
         self.last = (rc, ac, c, o, e)
         if not rc:
-            resstr = comm_result(rc, o, e)
-            if resstr:
+            if resstr := comm_result(o, e):
                 self.logger.debug("%s", resstr)
         else:
             if warn:
@@ -1465,6 +1623,7 @@ class InterfaceMixin:
         # logging.warning("InterfaceMixin: args: %s kwargs: %s", args, kwargs)
 
         self._intf_addrs = defaultdict(lambda: [None, None])
+        self._peer_intf_addrs = defaultdict(lambda: [None, None])
         self.net_intfs = {}
         self.next_intf_index = 0
         self.basename = "eth"
@@ -1484,9 +1643,16 @@ class InterfaceMixin:
             return None
         return self._intf_addrs[ifname][bool(ipv6)]
 
-    def set_intf_addr(self, ifname, ifaddr):
+    def get_peer_intf_addr(self, ifname, ipv6=False):
+        if ifname not in self._peer_intf_addrs:
+            return None
+        return self._peer_intf_addrs[ifname][bool(ipv6)]
+
+    def set_intf_addr(self, ifname, ifaddr, peer_ifaddr=None):
         ifaddr = ipaddress.ip_interface(ifaddr)
         self._intf_addrs[ifname][ifaddr.version == 6] = ifaddr
+        if peer_ifaddr is not None:
+            self._peer_intf_addrs[ifname][peer_ifaddr.version == 6] = peer_ifaddr
 
     def net_addr(self, netname, ipv6=False):
         if netname not in self.net_intfs:
@@ -2043,11 +2209,16 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
             linux.unshare(uflags)
 
-            if not pid:
+            if not self.pid_ns:
                 p = None
                 self.pid = None
                 self.nsenter_fork = False
             else:
+                # If we are unsharing inline and creating a new pid namespace we need to
+                # ensure the default event loop watcher is a non-threaded version.
+                if not kvok or sys.version_info < (3, 12):
+                    ensure_non_threaded_event_watcher()
+
                 # Need to fork to create the PID namespace, but we need to continue
                 # running from the parent so that things like pytest work. We'll execute
                 # a mutini process to manage the child init 1 duties.
@@ -2136,7 +2307,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
         # -----------------------------------------------
         timeout = Timeout(30)
         if self.pid is not None and self.pid != our_pid:
-            while (not p or not p.poll()) and not timeout.is_expired():
+            while (not p or not p.poll()) and not timeout:
                 # check new namespace values against old (nsdict), unshare
                 # can actually take a bit to complete.
                 for fname in tuple(nslist):
@@ -2186,7 +2357,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
         # process using self.pid
         #
 
-        if pid:
+        if self.pid_ns:
             nsenter_fork = True
         elif unet and unet.nsenter_fork:
             # if unet created a pid namespace we need to enter it since we aren't
@@ -2231,7 +2402,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
         # We need to remount the procfs for the new PID namespace, since we aren't using
         # unshare(1) which does that for us.
-        if pid and unshare_inline:
+        if self.pid_ns and unshare_inline:
             assert mount
             self.cmd_raises_nsonly("mount -t proc proc /proc")
 
@@ -2248,7 +2419,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
                     f"mkdir {tmpmnt} && mount --rbind /sys/fs/cgroup {tmpmnt}"
                 )
                 rc = o = e = None
-                for i in range(0, 30):
+                for i in range(0, 10):
                     rc, o, e = self.cmd_status_nsonly(
                         "mount -t sysfs sysfs /sys", warn=False
                     )
@@ -2260,8 +2431,6 @@ class LinuxNamespace(Commander, InterfaceMixin):
                     )
                     time_mod.sleep(1)
                 else:
-                    rc1, o1, e1 = self.cmd_status_nsonly("dmesg", warn=False)
-                    self.logger.debug("DMESG: %s", o1)
                     raise Exception(cmd_error(rc, o, e))
 
                 self.cmd_status_nsonly(
@@ -2300,7 +2469,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
                     self.bind_mount(s[0], s[1])
 
         # this will fail if running inside the namespace with PID
-        if pid:
+        if self.pid_ns:
             o = self.cmd_nostatus_nsonly("ls -l /proc/1/ns")
         else:
             o = self.cmd_nostatus_nsonly("ls -l /proc/self/ns")
@@ -2733,6 +2902,33 @@ class BaseMunet(LinuxNamespace):
         self.hosts[name] = cls(name, unet=self, **kwargs)
 
         return self.hosts[name]
+
+    def add_dummy(self, node1, if1, mtu=None, **intf_constraints):
+        """Add a dummy for an interface with no link."""
+        try:
+            name1 = node1.name
+        except AttributeError:
+            if node1 in self.switches:
+                node1 = self.switches[node1]
+            else:
+                node1 = self.hosts[node1]
+            name1 = node1.name
+
+        lname = "{}:{}".format(name1, if1)
+        self.logger.debug("%s: add_dummy %s", self, lname)
+        lhost = self.hosts[name1]
+
+        nsif1 = lhost.get_ns_ifname(if1)
+        lhost.cmd_raises_nsonly(f"ip link add name {nsif1} type dummy")
+
+        if mtu:
+            lhost.cmd_raises_nsonly(f"ip link set {nsif1} mtu {mtu}")
+        lhost.cmd_raises_nsonly(f"ip link set {nsif1} up")
+        lhost.register_interface(if1)
+
+        # Setup interface constraints if provided
+        if intf_constraints:
+            node1.set_intf_constraints(if1, **intf_constraints)
 
     def add_link(self, node1, node2, if1, if2, mtu=None, **intf_constraints):
         """Add a link between switch and node or 2 nodes.
