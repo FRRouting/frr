@@ -172,8 +172,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	bgp_writes_off(going_away);
 	bgp_reads_off(going_away);
-	bgp_writes_off(keeper);
-	bgp_reads_off(keeper);
 
 	/*
 	 * Before exchanging FD remove doppelganger from
