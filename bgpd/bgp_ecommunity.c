@@ -2047,7 +2047,8 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		if (len < ecom->unit_size)
 			return NULL;
 
-		if ((type == ECOMMUNITY_ENCODE_AS) && sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+		if (CHECK_FLAG(type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) == ECOMMUNITY_ENCODE_AS &&
+		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
 			uint32_t bwval;
 
 			pnt += 2; /* bandwidth is encoded as AS:val */
@@ -2059,7 +2060,8 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 							 : ieee_float_uint32_to_uint32(
 								   bwval));
 			return data;
-		} else if (type == ECOMMUNITY_ENCODE_AS4 &&
+		} else if (CHECK_FLAG(type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) ==
+				   ECOMMUNITY_ENCODE_AS4 &&
 			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH) {
 			uint64_t bwval;
 
