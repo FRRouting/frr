@@ -599,9 +599,8 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf, struct ze
 /*
  * Print a specific MAC entry.
  */
-void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
+void zebra_evpn_print_mac(struct zebra_mac *mac, struct vty *vty, json_object *json)
 {
-	struct vty *vty;
 	struct zebra_neigh *n = NULL;
 	struct listnode *node = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
@@ -614,7 +613,6 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
 	uptime = monotime(NULL);
@@ -893,6 +891,14 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		}
 
 		wctx->count++;
+		wctx->json_counter++;
+
+		if (wctx->top_json && wctx->json_counter > 50) {
+			/* TODO -- find a better counter threshold */
+			/* Flush incremental output */
+			frr_json_vty_out(vty, wctx->top_json);
+			wctx->json_counter = 0;
+		}
 
 	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 		if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP) &&
@@ -951,7 +957,6 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 	json_object *json_mac_hdr = NULL;
 	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
-	char buf1[ETHER_ADDR_STRLEN];
 
 	vty = wctx->vty;
 	json_mac_hdr = wctx->json;
@@ -960,9 +965,16 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 		return;
 
 	wctx->count++;
-	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
+	wctx->json_counter++;
 
 	zebra_evpn_print_mac(mac, vty, json_mac_hdr);
+
+	/* TODO -- find a better counter threshold */
+	/* Periodically flush incremental json output */
+	if (json_mac_hdr && wctx->json_counter > 50) {
+		frr_json_vty_out(vty, wctx->top_json);
+		wctx->json_counter = 0;
+	}
 }
 
 /*
