@@ -1797,6 +1797,7 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				break;
 		}
 		if (node) {
+			l3vni_rmac_nh_free(curr_vtep);
 			list_delete_node(zrmac->nh_list, node);
 			/* Get the first node in the list */
 			node = listhead(zrmac->nh_list);
