@@ -1974,7 +1974,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
 	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
 	ifindex_t bond_ifindex = dplane_ctx_get_ifp_bond_ifindex(ctx);
-	uint32_t tableid = dplane_ctx_get_ifp_table_id(ctx);
 	enum zebra_iftype zif_type = dplane_ctx_get_ifp_zif_type(ctx);
 	struct interface *ifp;
 	struct zebra_ns *zns;
@@ -1990,6 +1989,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_name_per_ns(zns, name);
 	if (op == DPLANE_OP_INTF_DELETE) {
+		struct vrf *vrf = NULL;
+
 		/* Delete interface notification from kernel */
 		if (ifp == NULL) {
 			if (IS_ZEBRA_DEBUG_EVENT)
@@ -2011,10 +2012,13 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		else if (IS_ZEBRA_IF_VXLAN(ifp))
 			zebra_l2_vxlanif_del(ifp);
 
+		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
+			vrf = ifp->vrf;
+
 		if_delete_update(&ifp);
 
-		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
-			interface_vrf_change(op, ifindex, name, tableid, ns_id);
+		if (vrf)
+			interface_vrf_change(op, ifindex, name, vrf->data.l.table_id, ns_id);
 	} else {
 		ifindex_t master_ifindex, bridge_ifindex, link_ifindex;
 		enum zebra_slave_iftype zif_slave_type;
@@ -2032,8 +2036,11 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint64_t change_flags;
 
 		/* If VRF, create or update the VRF structure itself. */
-		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
+		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
+			uint32_t tableid = dplane_ctx_get_ifp_table_id(ctx);
+
 			interface_vrf_change(op, ifindex, name, tableid, ns_id);
+		}
 
 		master_ifindex = dplane_ctx_get_ifp_master_ifindex(ctx);
 		zif_slave_type = dplane_ctx_get_ifp_zif_slave_type(ctx);
