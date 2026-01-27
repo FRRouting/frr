@@ -3714,6 +3714,8 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	uint32_t sid_func, sid_wide_func = 0;
 	bool found = false;
 	char *loc_name;
+	bool bgp_is_automatic_mode;
+	bool bgp_is_unknown_mode = false;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
@@ -3783,6 +3785,63 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	/* Handle notification */
 	switch (note) {
 	case ZAPI_SRV6_SID_ALLOCATED:
+		/* enforce SID allocation matches BGP instance configuration with L3VPN */
+		if ((afi == AFI_UNSPEC && (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP) ||
+					   is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6))) ||
+		    (is_srv6_vpn_vrf_enabled(bgp_vrf) && (afi == AFI_IP || afi == AFI_IP6))) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s not configured, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
+		if (afi != AFI_UNSPEC && is_srv6_vpn_afi_enabled(bgp_vrf, afi)) {
+			if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_SID_AUTO))
+				bgp_is_automatic_mode = true;
+			else if (bgp_vrf->vpn_policy[afi].tovpn_sid_index ||
+				 CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+					    BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
+				bgp_is_automatic_mode = false;
+			else
+				bgp_is_unknown_mode = true;
+		} else if (afi != AFI_UNSPEC && is_srv6_unicast_enabled(bgp_vrf, afi)) {
+			if (CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+				       BGP_CONFIG_SRV6_UNICAST_SID_AUTO))
+				bgp_is_automatic_mode = true;
+			else if (bgp_vrf->srv6_unicast[afi].sid_explicit ||
+				 bgp_vrf->srv6_unicast[afi].sid_index)
+				bgp_is_automatic_mode = false;
+			else
+				bgp_is_unknown_mode = true;
+		} else if (afi == AFI_UNSPEC && is_srv6_vpn_vrf_enabled(bgp_vrf)) {
+			if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+				bgp_is_automatic_mode = true;
+			else if (bgp_vrf->tovpn_sid_index ||
+				 CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+				bgp_is_automatic_mode = false;
+			else
+				bgp_is_unknown_mode = true;
+		} else
+			bgp_is_unknown_mode = true;
+
+		/* enforce SID alloc mode against BGP and RMAP cases */
+		if (bgp_is_unknown_mode ||
+		    (ctx.alloc_mode == SRV6_SID_ALLOC_MODE_DYNAMIC &&
+		     bgp_is_automatic_mode == false) ||
+		    (ctx.alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT && bgp_is_automatic_mode)) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s configuration does not match incoming SID, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
