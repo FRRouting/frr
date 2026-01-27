@@ -3902,6 +3902,15 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	return 0;
 }
 
+static bool bgp_zebra_srv6_sid_is_configured(struct bgp *bgp, afi_t afi)
+{
+	if (afi != AFI_UNSPEC)
+		return is_srv6_vpn_afi_enabled(bgp, afi) || is_srv6_unicast_enabled(bgp, afi);
+
+	return is_srv6_vpn_vrf_enabled(bgp) || is_srv6_unicast_dt46_enabled(bgp, AFI_IP) ||
+	       is_srv6_unicast_dt46_enabled(bgp, AFI_IP6);
+}
+
 static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	afi_t afi = AFI_UNSPEC;
@@ -3983,6 +3992,29 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	/* Handle notification */
 	switch (note) {
 	case ZAPI_SRV6_SID_ALLOCATED:
+		/* enforce SID allocation matches BGP instance configuration with L3VPN */
+		if ((afi == AFI_UNSPEC && (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP) ||
+					   is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6))) ||
+		    (is_srv6_vpn_vrf_enabled(bgp_vrf) && (afi == AFI_IP || afi == AFI_IP6))) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s not configured, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
+		if (!bgp_zebra_srv6_sid_is_configured(bgp_vrf, afi)) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s SRv6 SID not configured, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
