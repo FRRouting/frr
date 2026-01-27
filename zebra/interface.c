@@ -1501,32 +1501,28 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			(*linkdown_set ? "ON" : "OFF"));
 }
 
-static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
-				 const char *name, uint32_t tableid,
-				 ns_id_t ns_id)
+static void interface_vrf_change(enum dplane_op_e op, vrf_id_t vrf_id, const char *name,
+				 uint32_t tableid, ns_id_t ns_id)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf = NULL;
 
 	if (op == DPLANE_OP_INTF_DELETE) {
 		if (IS_ZEBRA_DEBUG_DPLANE)
-			zlog_debug("DPLANE_OP_INTF_DELETE for VRF %s(%u)", name,
-				   ifindex);
+			zlog_debug("DPLANE_OP_INTF_DELETE for VRF %s(%u)", name, vrf_id);
 
-		vrf = vrf_lookup_by_id((vrf_id_t)ifindex);
+		vrf = vrf_lookup_by_id(vrf_id);
 		if (!vrf) {
-			flog_warn(EC_ZEBRA_VRF_NOT_FOUND,
-				  "%s(%u): vrf not found", name, ifindex);
+			flog_warn(EC_ZEBRA_VRF_NOT_FOUND, "%s(%u): vrf not found", name, vrf_id);
 			return;
 		}
 
-		frrtrace(4, frr_zebra, if_vrf_change, ifindex, name, tableid, 0);
+		frrtrace(4, frr_zebra, if_vrf_change, vrf_id, name, tableid, 0);
 		vrf_delete(vrf);
 	} else {
 		if (IS_ZEBRA_DEBUG_DPLANE)
-			zlog_debug(
-				"DPLANE_OP_INTF_UPDATE for VRF %s(%u) table %u",
-				name, ifindex, tableid);
+			zlog_debug("DPLANE_OP_INTF_UPDATE for VRF %s(%u) table %u", name, vrf_id,
+				   tableid);
 
 		/*
 		 * For a given tableid, if there already exists a vrf and it
@@ -1538,26 +1534,24 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 		if (exist_id != VRF_DEFAULT || strmatch(name, VRF_DEFAULT_NAME)) {
 			vrf = vrf_lookup_by_id(exist_id);
 
-			if (!vrf_lookup_by_id((vrf_id_t)ifindex) && !vrf) {
-				flog_err(EC_ZEBRA_VRF_NOT_FOUND,
-					 "VRF %s id %u does not exist", name,
-					 ifindex);
+			if (!vrf_lookup_by_id(vrf_id) && !vrf) {
+				flog_err(EC_ZEBRA_VRF_NOT_FOUND, "VRF %s id %u does not exist",
+					 name, vrf_id);
 				frr_exit_with_buffer_flush(-1);
 			}
 
 			if (vrf && strcmp(name, vrf->name)) {
 				flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
 					 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
-					 name, ifindex, vrf->name, vrf->vrf_id);
+					 name, vrf_id, vrf->name, vrf->vrf_id);
 				frr_exit_with_buffer_flush(-1);
 			}
 		}
 
-		frrtrace(4, frr_zebra, if_vrf_change, ifindex, name, tableid, 1);
-		vrf = vrf_update((vrf_id_t)ifindex, name);
+		frrtrace(4, frr_zebra, if_vrf_change, vrf_id, name, tableid, 1);
+		vrf = vrf_update(vrf_id, name);
 		if (!vrf) {
-			flog_err(EC_LIB_INTERFACE, "VRF %s id %u not created",
-				 name, ifindex);
+			flog_err(EC_LIB_INTERFACE, "VRF %s id %u not created", name, vrf_id);
 			return;
 		}
 
@@ -1578,9 +1572,7 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
-			flog_err(EC_LIB_INTERFACE,
-				 "Failed to enable VRF %s id %u", name,
-				 ifindex);
+			flog_err(EC_LIB_INTERFACE, "Failed to enable VRF %s id %u", name, vrf_id);
 			return;
 		}
 	}
@@ -2018,13 +2010,13 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if_delete_update(&ifp);
 
 		if (vrf)
-			interface_vrf_change(op, ifindex, name, vrf->data.l.table_id, ns_id);
+			interface_vrf_change(op, vrf->vrf_id, name, vrf->data.l.table_id, ns_id);
 	} else {
 		ifindex_t master_ifindex, bridge_ifindex, link_ifindex;
+		vrf_id_t vrf_id = dplane_ctx_get_ifp_vrf_id(ctx);
 		enum zebra_slave_iftype zif_slave_type;
 		uint8_t bypass;
 		uint64_t flags;
-		vrf_id_t vrf_id;
 		uint32_t mtu;
 		ns_id_t link_nsid;
 		struct zebra_if *zif;
@@ -2039,7 +2031,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
 			uint32_t tableid = dplane_ctx_get_ifp_table_id(ctx);
 
-			interface_vrf_change(op, ifindex, name, tableid, ns_id);
+			interface_vrf_change(op, vrf_id, name, tableid, ns_id);
 		}
 
 		master_ifindex = dplane_ctx_get_ifp_master_ifindex(ctx);
@@ -2048,7 +2040,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		bond_ifindex = dplane_ctx_get_ifp_bond_ifindex(ctx);
 		bypass = dplane_ctx_get_ifp_bypass(ctx);
 		flags = dplane_ctx_get_ifp_flags(ctx);
-		vrf_id = dplane_ctx_get_ifp_vrf_id(ctx);
 		mtu = dplane_ctx_get_ifp_mtu(ctx);
 		link_ifindex = dplane_ctx_get_ifp_link_ifindex(ctx);
 		link_nsid = dplane_ctx_get_ifp_link_nsid(ctx);
