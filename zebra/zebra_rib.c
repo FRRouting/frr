@@ -2915,9 +2915,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
-	}
-
-	if (same) {
+	} else {
 		struct nexthop *tmp_nh;
 
 		if (ere->fromkernel &&
