@@ -3871,6 +3871,26 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	return 0;
 }
 
+static enum srv6_sid_alloc_mode bgp_zebra_srv6_sid_alloc_mode_cfg(struct bgp *bgp, afi_t afi)
+{
+	bool sid_auto;
+
+	if (afi != AFI_UNSPEC && is_srv6_vpn_afi_enabled(bgp, afi))
+		sid_auto = CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
+	else if (afi != AFI_UNSPEC && is_srv6_unicast_enabled(bgp, afi))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_vpn_vrf_enabled(bgp))
+		sid_auto = CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_unicast_dt46_enabled(bgp, AFI_IP))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[AFI_IP].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_unicast_dt46_enabled(bgp, AFI_IP6))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[AFI_IP6].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else
+		return SRV6_SID_ALLOC_MODE_UNSPEC;
+
+	return sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
+}
+
 static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	afi_t afi = AFI_UNSPEC;
@@ -3889,6 +3909,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	uint32_t sid_func, sid_wide_func = 0;
 	bool found = false;
 	char loc_name[SRV6_LOCNAME_SIZE];
+	enum srv6_sid_alloc_mode bgp_alloc_mode;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
@@ -3958,6 +3979,34 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	/* Handle notification */
 	switch (note) {
 	case ZAPI_SRV6_SID_ALLOCATED:
+		/* enforce SID allocation matches BGP instance configuration with L3VPN */
+		if ((afi == AFI_UNSPEC && (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP) ||
+					   is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6))) ||
+		    (is_srv6_vpn_vrf_enabled(bgp_vrf) && (afi == AFI_IP || afi == AFI_IP6))) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s not configured, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
+		bgp_alloc_mode = bgp_zebra_srv6_sid_alloc_mode_cfg(bgp_vrf, afi);
+
+		/* enforce SID alloc mode against BGP and RMAP cases */
+		if (bgp_alloc_mode == SRV6_SID_ALLOC_MODE_UNSPEC ||
+		    (ctx.alloc_mode != SRV6_SID_ALLOC_MODE_UNSPEC &&
+		     ctx.alloc_mode != bgp_alloc_mode)) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: SRv6 SID %pI6 %s, BGP %s configuration does not match incoming SID, releasing SID.",
+					   __func__, &sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   bgp_vrf->name_pretty);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
