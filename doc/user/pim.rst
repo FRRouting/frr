@@ -552,10 +552,16 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
        ip multicast boundary pim-acl
       exit
 
+.. clicmd:: ip igmp robustness (1-255)
+
+   Set the IGMP robustness value. The default value is 2. 'no' form of
+   this command is used to to configure back to the default value.
+
 .. clicmd:: ip igmp last-member-query-count (1-255)
 
-   Set the IGMP last member query count. The default value is 2. 'no' form of
-   this command is used to to configure back to the default value.
+   Set the IGMP last member query count. The default value is the currently
+   configured robustness value. 'no' form of this command is used to to
+   configure back to the default value.
 
 .. clicmd:: ip igmp last-member-query-interval (1-65535)
 
