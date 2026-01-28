@@ -245,6 +245,164 @@ def test_pim6_assert_interval():
     ), "invalid interface assert override interval"
 
 
+def test_igmp_robustness():
+    """
+    Test robustness and last-member-query-count value changes.
+
+    If unspecified last-member-query-count defaults to robustness.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check the default value
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ip igmp interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "r1-eth0": {
+                    "timerRobustnessVariable": 2,
+                    "lastMemberQueryCount": 2,
+                }
+            },
+        )
+        is None
+    ), "invalid default robustness or last-member-query-count value"
+
+    # Check interface robustness value change and default last-member-query-count value change
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    interface r1-eth0
+     ip igmp robustness 3
+    """
+    )
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ip igmp interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "r1-eth0": {
+                    "timerRobustnessVariable": 3,
+                    "lastMemberQueryCount": 3,
+                }
+            },
+        )
+        is None
+    ), "invalid interface robustness or last-member-query-count value"
+
+    # Check interface last-member-query-count value override
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    interface r1-eth0
+     ip igmp last-member-query-count 4
+    """
+    )
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ip igmp interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "r1-eth0": {
+                    "timerRobustnessVariable": 3,
+                    "lastMemberQueryCount": 4,
+                }
+            },
+        )
+        is None
+    ), "invalid interface last-member-query-count override value"
+
+
+def test_mld_robustness():
+    """
+    Test robustness and last-member-query-count value changes.
+
+    If unspecified last-member-query-count defaults to robustness.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check the default value
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ipv6 mld interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "default": {
+                    "r1-eth0": {
+                        "timerRobustnessValue": 2,
+                        "lastMemberQueryCount": 2,
+                    }
+                }
+            },
+        )
+        is None
+    ), "invalid default robustness or last-member-query-count value"
+
+    # Check interface robustness value change and default last-member-query-count value change
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    interface r1-eth0
+     ipv6 mld robustness 3
+    """
+    )
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ipv6 mld interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "default": {
+                    "r1-eth0": {
+                        "timerRobustnessValue": 3,
+                        "lastMemberQueryCount": 3,
+                    }
+                }
+            },
+        )
+        is None
+    ), "invalid interface robustness or last-member-query-count value"
+
+    # Check interface last-member-query-count value override
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    interface r1-eth0
+     ipv6 mld last-member-query-count 4
+    """
+    )
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ipv6 mld interface r1-eth0 json", isjson=True
+    )
+    assert (
+        topotest.json_cmp(
+            output,
+            {
+                "default": {
+                    "r1-eth0": {
+                        "timerRobustnessValue": 3,
+                        "lastMemberQueryCount": 4,
+                    }
+                }
+            },
+        )
+        is None
+    ), "invalid interface last-member-query-count override value"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
