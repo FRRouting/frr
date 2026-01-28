@@ -192,12 +192,18 @@ struct bfd_echo_pkt {
 			SET_FLAG(flags, (CHECK_FLAG(val, 0x3) << 6));          \
 	}
 #define BFD_GETSTATE(flags) (CHECK_FLAG((flags >> 6), 0x3))
-#define BFD_SETCBIT(flags, val)                                                \
-	{                                                                      \
-		if ((val))                                                     \
-			SET_FLAG(flags, val);                                  \
+#define BFD_SETCBIT(flags, val)                                                                   \
+	{                                                                                         \
+		if ((val))                                                                        \
+			SET_FLAG(flags, BFD_CBIT);                                                \
 	}
 #define BFD_GETCBIT(flags) (CHECK_FLAG(flags, BFD_CBIT))
+#define BFD_SETABIT(flags, val)                                                                   \
+	{                                                                                         \
+		if ((val))                                                                        \
+			SET_FLAG(flags, BFD_ABIT);                                                \
+	}
+#define BFD_GETABIT(flags) (CHECK_FLAG(flags, BFD_ABIT))
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
