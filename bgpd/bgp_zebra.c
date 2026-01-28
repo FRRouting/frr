@@ -3859,16 +3859,10 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
 
 		if (sid_wide_func && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
-				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816))) {
-			if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
-				SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
-		} else if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
+				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816)))
+			locator_bgp->function_bits_length =
+				BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP;
+		else if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
 			label = sid_func
 				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
 
