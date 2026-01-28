@@ -1266,7 +1266,7 @@ int isis_instance_redistribute_ipv4_table_create(struct nb_cb_create_args *args)
 
 	type = yang_dnode_get_enum(args->dnode, "../protocol");
 	level = yang_dnode_get_enum(args->dnode, "../level");
-	area = nb_running_get_entry(args->dnode, "../.", true);
+	area = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 
 	if (yang_dnode_exists(args->dnode, "metric"))
 		metric = yang_dnode_get_uint32(args->dnode, "metric");
@@ -1287,7 +1287,7 @@ int isis_instance_redistribute_ipv4_table_destroy(struct nb_cb_destroy_args *arg
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, "../.", true);
+	area = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 	level = yang_dnode_get_enum(args->dnode, "../level");
 	type = yang_dnode_get_enum(args->dnode, "../protocol");
 	table = yang_dnode_get_uint16(args->dnode, "table");
