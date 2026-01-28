@@ -324,10 +324,16 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    join or MLD report is received on this interface and the Group is denied by
    the prefix-list, PIMv6 will ignore the join or report.
 
+.. clicmd:: ipv6 mld robustness (1-255)
+
+   Set the MLD robustness value. The default value is 2. 'no' form of
+   this command is used to configure back to the default value.
+
 .. clicmd:: ipv6 mld last-member-query-count (1-255)
 
-   Set the MLD last member query count. The default value is 2. 'no' form of
-   this command is used to configure back to the default value.
+   Set the MLD last member query count. The default value is the currently
+   configured robustness value. 'no' form of this command is used to
+   configure back to the default value.
 
 .. clicmd:: ipv6 mld last-member-query-interval (1-65535)
 
