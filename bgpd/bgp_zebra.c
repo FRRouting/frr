@@ -3978,17 +3978,17 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		/* Get label */
 		uint8_t func_len = locator_bgp->function_bits_length;
 		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
+		struct srv6_locator locator_wide = {};
 
 		if (sid_wide_func && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
 				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816))) {
-			if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
-				SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
+			/* the copies stored for this SID use the wide function length,
+			 * the locator shared with other SIDs is left unchanged
+			 */
+			srv6_locator_copy(&locator_wide, locator_bgp);
+			locator_wide.function_bits_length =
+				BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP;
+			locator_bgp = &locator_wide;
 		} else if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
 			label = sid_func
 				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
@@ -4227,8 +4227,6 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			/* Unregister the SID */
 			sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[AFI_IP6].sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP6].sid);
 		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4) {
@@ -4244,8 +4242,6 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			/* Unregister the SID */
 			sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[AFI_IP].sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP].sid);
 
@@ -4261,7 +4257,6 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				/* Unregister the SID */
 				sid_unregister(bgp, bgp_vrf->tovpn_sid);
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
 			}
 
 			if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) ||
@@ -4465,8 +4460,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-					   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 				/* refresh vpnv4 tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
@@ -4483,8 +4476,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-					   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 				/* refresh vpnv6 tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
@@ -4500,7 +4491,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			if (prefix_match((struct prefix *)&loc->prefix,
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
 				/* refresh per-vrf tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 				bgp_vrf->tovpn_sid_locator = NULL;
