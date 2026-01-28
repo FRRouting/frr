@@ -37,7 +37,7 @@
 #include "zebra/zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
-DEFINE_MTYPE_STATIC(ZEBRA, RNH_CONTAINER, "RNH container for per-client tracking");
+DEFINE_MTYPE_STATIC(ZEBRA, RNH_CONTAINER, "RNH per-client");
 
 /* Container for multiple rnh structures per prefix.
  * This is stored in route_node->info in the rnh_table.
