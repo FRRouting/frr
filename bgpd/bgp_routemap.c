@@ -8011,7 +8011,7 @@ DEFPY_YANG(set_srv6_locator,
 		 "%s/rmap-set-action/frr-bgp-route-map:srv6-locator", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFUN_YANG(no_set_srv6_locator,
@@ -8028,7 +8028,7 @@ DEFUN_YANG(no_set_srv6_locator,
 
 	/* locator name is ignored */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
