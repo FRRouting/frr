@@ -195,6 +195,22 @@ static inline void static_get_nh_type(enum static_nh_type stype, char *type,
 	};
 }
 
+static inline void static_get_blackhole_type(enum static_blackhole_type stype, char *type,
+				      size_t size)
+{
+	switch (stype) {
+	case STATIC_BLACKHOLE_DROP:
+		strlcpy(type, "drop", size);
+		break;
+	case STATIC_BLACKHOLE_NULL:
+		strlcpy(type, "null", size);
+		break;
+	case STATIC_BLACKHOLE_REJECT:
+		strlcpy(type, "reject", size);
+		break;
+	};
+}
+
 extern bool mpls_enabled;
 extern uint32_t zebra_ecmp_count;
 
@@ -266,6 +282,9 @@ extern void static_bfd_initialize(struct zclient *zc, struct event_loop *tm);
 extern void static_bfd_show(struct vty *vty, bool isjson);
 
 extern void static_install_nexthops_on_startup(void);
+
+extern void static_route_show(struct vty *vty, afi_t afi, const char *vrf_name, bool vrf_all, bool json);
+
 #ifdef __cplusplus
 }
 #endif
