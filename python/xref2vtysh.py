@@ -44,6 +44,7 @@ daemon_flags = {
     "lib/lib_vty.c": "VTYSH_ALL",
     "lib/log_cli.c": "VTYSH_NON_MGMTD",
     "lib/log_vty.c": "VTYSH_ALL",
+    "lib/l2vpn_cli.c": "VTYSH_L2VPN_CONFIG",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
     "lib/resolver.c": "VTYSH_NHRPD|VTYSH_BGPD",
     "lib/routemap.c": "VTYSH_RMAP_SHOW",

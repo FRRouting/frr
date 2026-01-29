@@ -21,6 +21,7 @@
 #include "routemap.h"
 #include "routing_nb.h"
 #include "srv6.h"
+#include "l2vpn.h"
 #include "zebra/zebra_cli.h"
 
 /* mgmt options, we use GNU getopt library. */
@@ -162,7 +163,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_routing_cli_info,
 	&frr_vrf_cli_info,
 	&frr_affinity_map_cli_info,
-
+	&frr_l2vpn_cli_info,
 	/* mgmtd-only modules */
 	&ietf_netconf_with_defaults_info,
 
