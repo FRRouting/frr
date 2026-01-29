@@ -1618,6 +1618,14 @@ preferably, using the newest template
 
 .. include:: topotests-snippets.rst
 
+Limiting exec.log file size
+---------------------------
+
+Some tests are generating very very large exec.log file sizes as that
+they are attempting to show real world situations.  To limit the
+exec.log cmd output size use the `set_cmd_output_limit` function.
+To turn it back on use `unset_cmd_output_limit`.
+
 License
 -------
 
