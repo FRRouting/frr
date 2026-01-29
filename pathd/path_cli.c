@@ -568,15 +568,17 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 					const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
 	if (yang_dnode_exists(dnode, "sid-value")) {
+		vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "sid-value"));
+		vty_out(vty, "\n");
 	}
 	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;
 		struct ipaddr addr_rmt;
 
+		vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
 		switch (yang_dnode_get_enum(dnode, "nai/type")) {
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
@@ -622,8 +624,8 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 				yang_dnode_get_string(dnode,
 						      "./nai/algorithm"));
 		}
+		vty_out(vty, "\n");
 	}
-	vty_out(vty, "\n");
 }
 
 /*
