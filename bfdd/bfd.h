@@ -441,7 +441,7 @@ struct sbfd_reflector {
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
 #define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
-#define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
+#define BFD_DEFDESIREDMINTX (1000 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
 #define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
 #define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
