@@ -2015,6 +2015,10 @@ if test "$enable_bgp_vnc" != "no";then
   AC_DEFINE([ENABLE_BGP_VNC], [1], [Enable BGP VNC support])
 fi
 
+if test "$enable_vrf_nexthop_support" != "no";then
+  AC_DEFINE([ENABLE_VRF_IFACE_NEXTHOP ], [1], [Enable BGP VRF nexthop support])
+fi
+
 bgpd_bmp=false
 case "${enable_bgp_bmp}" in
   no)
@@ -2773,6 +2777,7 @@ dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
+AM_CONDITIONAL([ENABLE_VRF_IFACE_NEXTHOP], [test "$enable_vrf_nexthop_support"" != "no"])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
