@@ -42,6 +42,7 @@ sys.path.append(os.path.join(CWD, "../"))
 pytestmark = [pytest.mark.sharpd]
 krel = platform.release()
 
+
 def build_topo(tgen):
     "Build function"
 
@@ -50,6 +51,7 @@ def build_topo(tgen):
     sw2 = tgen.add_switch("sw2")
     sw1.add_link(tgen.gears["r1"], "r1-eth0")
     sw2.add_link(tgen.gears["r1"], "r1-eth1")
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -88,10 +90,9 @@ def test_zebra_urib_import(request):
 
     step("Verify initial main routing table")
     initial_json_file = "{}/r1/import_init_table.json".format(CWD)
-    expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
-    )
+    with open(initial_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -99,13 +100,13 @@ def test_zebra_urib_import(request):
         """
         conf term
          ip import-table 10 
-        """)
-    
-    import_json_file = "{}/r1/import_table_2.json".format(CWD)
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
+        """
     )
+
+    import_json_file = "{}/r1/import_table_2.json".format(CWD)
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -118,10 +119,9 @@ def test_zebra_urib_import(request):
     )
 
     sync_json_file = "{}/r1/import_table_3.json".format(CWD)
-    expected = json.loads(open(sync_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
-    )
+    with open(sync_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -133,10 +133,9 @@ def test_zebra_urib_import(request):
         """
     )
 
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
-    )
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -148,10 +147,9 @@ def test_zebra_urib_import(request):
         """
     )
 
-    expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
-    )
+    with open(initial_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -160,15 +158,16 @@ def test_zebra_urib_import(request):
         """
         conf term
          ip import-table 10 distance 123
-        """)
-    
-    import_json_file = "{}/r1/import_table_4.json".format(CWD)
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route json", expected
+        """
     )
+
+    import_json_file = "{}/r1/import_table_4.json".format(CWD)
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
 
 def test_zebra_mrib_import(request):
     "Verify router starts with the initial MRIB"
@@ -183,10 +182,9 @@ def test_zebra_mrib_import(request):
 
     step("Verify initial main MRIB routing table")
     initial_json_file = "{}/r1/import_init_mrib_table.json".format(CWD)
-    expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
-    )
+    with open(initial_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -194,13 +192,13 @@ def test_zebra_mrib_import(request):
         """
         conf term
          ip import-table 10 mrib
-        """)
-    
-    import_json_file = "{}/r1/import_mrib_table_2.json".format(CWD)
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
+        """
     )
+
+    import_json_file = "{}/r1/import_mrib_table_2.json".format(CWD)
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -213,10 +211,9 @@ def test_zebra_mrib_import(request):
     )
 
     sync_json_file = "{}/r1/import_mrib_table_3.json".format(CWD)
-    expected = json.loads(open(sync_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
-    )
+    with open(sync_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -228,10 +225,9 @@ def test_zebra_mrib_import(request):
         """
     )
 
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
-    )
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -243,10 +239,9 @@ def test_zebra_mrib_import(request):
         """
     )
 
-    expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
-    )
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -255,13 +250,13 @@ def test_zebra_mrib_import(request):
         """
         conf term
          ip import-table 10 mrib distance 123
-        """)
-    
-    import_json_file = "{}/r1/import_mrib_table_4.json".format(CWD)
-    expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip rpf json", expected
+        """
     )
+
+    import_json_file = "{}/r1/import_mrib_table_4.json".format(CWD)
+    with open(import_json_file) as file:
+        expected = json.loads(file.read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
