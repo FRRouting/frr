@@ -1015,7 +1015,7 @@ DEFPY (pim6_rp,
        "ipv6 address of RP\n"
        "Group Address range to cover\n")
 {
-	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+	const char *group_str = (gp_str) ? gp_str : "ff00::/8";
 
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
@@ -1070,7 +1070,7 @@ DEFPY (no_pim6_rp,
        "ipv6 address of RP\n"
        "Group Address range to cover\n")
 {
-	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+	const char *group_str = (gp_str) ? gp_str : "ff00::/8";
 
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
