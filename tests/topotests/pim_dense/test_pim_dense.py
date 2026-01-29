@@ -673,6 +673,136 @@ def test_pim_dense_prune_r6(request):
     #     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
 
+def verify_mroute_pimreg_absent(tgen, router, group, group_type):
+    """
+    Verify that pimreg is NOT in the OIL for the given group.
+    Returns None if pimreg is absent (test passes), error string if present (test fails).
+    """
+    output = tgen.gears[router].vtysh_cmd(
+        "show ip mroute {} json".format(group), isjson=True
+    )
+
+    if group not in output:
+        return "No mroute found for {} group {}".format(group_type, group)
+
+    for source in output[group]:
+        mroute_data = output[group][source]
+
+        if "oil" in mroute_data:
+            oil = mroute_data["oil"]
+            if "pimreg" in oil:
+                return (
+                    "pimreg incorrectly present in OIL for {} group {}, OIL: {}".format(
+                        group_type, group, list(oil.keys())
+                    )
+                )
+
+    return None
+
+
+def test_pim_verify_pimreg_not_in_ssm_dense(request):
+    """
+    Verify that pimreg interface is NOT added to Dense mode groups.
+
+    Bug: In pim_upstream_switch(), when upstream transitions to NOT_JOINED on FHR,
+    pimreg was incorrectly added to Dense mode groups. pimreg should ONLY be
+    added for ASM (Any Source Multicast) groups, not for SSM or Dense mode.
+
+    Test flow:
+    1. Previous prune tests removed all receivers (upstream may still be JOINED
+    due to KATimer from ongoing traffic)
+    2. This test restarts traffic to trigger fresh upstream state
+    3. With no receivers, upstream transitions from JOINED to NOT_JOINED
+    4. Bug triggers during this transition - pimreg incorrectly added to OIL
+    5. Test detects pimreg in OIL and fails
+
+    Before fix (bug present):
+    Source      Group      Flags  Proto  Input    Output  TTL  Uptime
+    10.100.0.2  239.1.1.1  FDP    PIM    r1-eth1  pimreg  1    00:01:00
+
+    After fix:
+    Source      Group      Flags  Proto  Input    Output  TTL  Uptime
+    10.100.0.2  239.1.1.1  FDP    none   r1-eth1  none    0    --:--:--
+    """
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # ===== Restart traffic to trigger fresh state transition =====
+    # The bug triggers when upstream transitions to NOT_JOINED on FHR.
+    # Previous tests may have left traffic running with KATimer keeping upstream in JOINED.
+    # Restart traffic to ensure clean state transition.
+    step("Restart multicast traffic to trigger fresh state transition")
+    app_helper.stop_host("h1")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to restart multicast traffic"
+
+    # ===== Wait for upstream to transition to NOT_JOINED =====
+    # After traffic restarts with no receivers, upstream should transition to NOT_JOINED.
+    # The bug triggers during this transition - pimreg incorrectly added to OIL.
+    step("Wait for upstream to transition to NOT_JOINED state")
+
+    def check_upstream_not_joined():
+        output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        # JSON format: {group: {source: {joinState: "..."}}}
+        if DENSE_GROUP in output:
+            for source, data in output[DENSE_GROUP].items():
+                state = data.get("joinState", "")
+                if state == "NotJoined":
+                    return None  # Success - upstream is NOT_JOINED
+                else:
+                    return "Upstream {} -> {} state is '{}', waiting for 'NotJoined'".format(
+                        source, DENSE_GROUP, state
+                    )
+        return "Dense group {} not found in upstream".format(DENSE_GROUP)
+
+    _, result = topotest.run_and_expect(
+        check_upstream_not_joined, None, count=60, wait=1
+    )
+    assert (
+        result is None
+    ), "Upstream failed to transition to NOT_JOINED state: {}".format(result)
+
+    # Check OIL for Dense mode group - this is where bug would show pimreg
+    step("Check if pimreg was incorrectly added to Dense mode group OIL")
+
+    # Show upstream state
+    output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream")
+    logger.info("R1 upstream state:\n{}".format(output))
+
+    # Check OIL and show proof
+    output_json = tgen.gears["r1"].vtysh_cmd(
+        "show ip mroute {} json".format(DENSE_GROUP), isjson=True
+    )
+    if DENSE_GROUP in output_json:
+        for src in output_json[DENSE_GROUP]:
+            oil = output_json[DENSE_GROUP][src].get("oil", {})
+            logger.info("Dense group {} OIL: {}".format(DENSE_GROUP, list(oil.keys())))
+
+            # Show mroute proof output
+            output_cli = tgen.gears["r1"].vtysh_cmd(
+                "show ip mroute {}".format(DENSE_GROUP)
+            )
+            if "pimreg" in oil:
+                logger.info("*** BUG DETECTED: pimreg in OIL for Dense mode group! ***")
+                logger.info("PROOF (BUG - pimreg in Output):\n{}".format(output_cli))
+            else:
+                logger.info("*** OK: pimreg correctly excluded ***")
+                logger.info("PROOF (FIXED - no pimreg):\n{}".format(output_cli))
+    else:
+        logger.info("No mroute found for Dense group {}".format(DENSE_GROUP))
+
+    step("Verify pimreg is NOT in OIL for Dense mode group {}".format(DENSE_GROUP))
+    test_func = functools.partial(
+        verify_mroute_pimreg_absent, tgen, "r1", DENSE_GROUP, "Dense"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Dense mode test failed: {}".format(result)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
