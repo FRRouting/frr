@@ -16577,10 +16577,16 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 									  json_ar, wide);
 						} else {
 							for (bpi = bgp_dest_get_bgp_path_info(dest);
-							     bpi; bpi = bpi->next)
+							     bpi; bpi = bpi->next) {
+								if (peer->addpath_type[afi][safi] ==
+									    BGP_ADDPATH_NONE &&
+								    !CHECK_FLAG(bpi->flags,
+										BGP_PATH_SELECTED))
+									continue;
 								route_vty_out(vty, rn_p, bpi, 0,
 									      adj->attr, safi,
 									      NULL, wide, NULL);
+							}
 						}
 					}
 					(*output_count)++;
