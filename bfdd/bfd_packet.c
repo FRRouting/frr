@@ -852,6 +852,17 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 	return true;
 }
 
+static int match_ip_address(const struct sockaddr_any *a, const struct sockaddr_any *b)
+{
+	if (a->sa_sin.sin_family != b->sa_sin.sin_family)
+		return 0;
+	if (a->sa_sin.sin_family == AF_INET)
+		return IPV4_ADDR_SAME(&a->sa_sin.sin_addr, &b->sa_sin.sin_addr);
+	else if (a->sa_sin.sin_family == AF_INET6)
+		return IPV6_ADDR_SAME(&a->sa_sin6.sin6_addr, &b->sa_sin6.sin6_addr);
+	return 0;
+}
+
 void bfd_recv_cb(struct event *t)
 {
 	int sd = EVENT_FD(t);
@@ -954,7 +965,7 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
-	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
+	if ((cp->len < (BFD_GETABIT(cp->flags) ? BFD_PKT_LEN + 2 : BFD_PKT_LEN)) || (cp->len > mlen)) {
 		frrtrace(8, frr_bfd, packet_validation_error, 5, is_mhop, &peer, &local, ifindex,
 			 vrfid, cp->len, (uint32_t)mlen);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
@@ -999,12 +1010,27 @@ void bfd_recv_cb(struct event *t)
 	}
 
 	/* Ensure that existing good sessions are not overridden. */
-	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
-	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
-		frrtrace(6, frr_bfd, packet_remote_discr_zero, is_mhop, &peer, &local, ifindex,
-			 vrfid, bfd->ses_state);
+	/* Drop packet if address mismatch */
+	if (!cp->discrs.remote_discr) {
+		if (bfd->ses_state == PTM_BFD_UP) {
+			/* If address mismatch, drop the packet */
+			if (bfd->local_address.sa_sin.sin_family != AF_UNSPEC &&
+			    (match_ip_address(&bfd->local_address, &local) == 0)) {
+				frrtrace(6, frr_bfd, packet_remote_discr_zero, is_mhop, &peer,
+					 &local, ifindex, vrfid, bfd->ses_state);
+				cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+					 "local address mismatch");
+				return;
+			}
+		}
+	}
+
+	/* Implement RFC 5880 6.8.6 */
+	/* This is different from last check, because RFC requires checking of packet state too. */
+	if (!cp->discrs.remote_discr && BFD_GETSTATE(cp->flags) != PTM_BFD_DOWN &&
+	    BFD_GETSTATE(cp->flags) != PTM_BFD_ADM_DOWN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "'remote discriminator' is zero, not overridden");
+			 "'remote discriminator' is zero in non-DOWN state");
 		return;
 	}
 
@@ -1051,8 +1077,7 @@ void bfd_recv_cb(struct event *t)
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 	}
 
-	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
-
+	
 	/* Check authentication. */
 	if (!bfd_check_auth(bfd, cp)) {
 		/* Extract auth type from packet for tracing */
@@ -1072,6 +1097,9 @@ void bfd_recv_cb(struct event *t)
 			 "Authentication failed");
 		return;
 	}
+
+	/* Update remote discriminator after authentication check. */
+	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = CHECK_FLAG(cp->diag, BFD_DIAGMASK);
