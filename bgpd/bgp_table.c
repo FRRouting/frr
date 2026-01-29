@@ -157,6 +157,10 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	rt->route_table = route_table_init_with_delegate(&bgp_table_delegate);
 
+	/* For EVPN, use a direct-lookup table mode, not an IP-oriented trie */
+	if (safi == SAFI_EVPN)
+		route_table_set_unique_mode(rt->route_table);
+
 	/*
 	 * Set up back pointer to bgp_table.
 	 */

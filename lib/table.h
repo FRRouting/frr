@@ -45,17 +45,22 @@ struct route_table_delegate_t_ {
 };
 
 PREDECL_HASH(rn_hash_node);
+PREDECL_RBTREE_UNIQ(rn_tree);
 
 /* Routing table top structure. */
 struct route_table {
 	struct route_node *top;
 	struct rn_hash_node_head hash;
+	struct rn_tree_head tree;
 
 	/*
 	 * Delegate that performs certain functions for this table.
 	 */
 	route_table_delegate_t *delegate;
 	void (*cleanup)(struct route_table *, struct route_node *);
+
+	/* Table mode: prefix/route oriented or unique-data oriented */
+	bool unique_mode;
 
 	unsigned long count;
 
@@ -117,6 +122,8 @@ struct route_table {
 	unsigned int table_rdonly(lock);                                       \
                                                                                \
 	struct rn_hash_node_item nodehash;                                     \
+	struct rn_tree_item rbitem;                                            \
+                                                                               \
 	/* Each node of route. */                                              \
 	void *info;                                                            \
 
@@ -169,6 +176,14 @@ extern struct route_table *route_table_init(void);
 
 extern struct route_table *
 route_table_init_with_delegate(route_table_delegate_t *delegate);
+
+/*
+ * Just after init, put table into hash/unique mode. In this mode, the
+ * table only maintains unique lookups for its nodes, via hash or rbtree.
+ * The table won't maintain the "contains" property required for IP
+ * prefixes.
+ */
+void route_table_set_unique_mode(struct route_table *table);
 
 extern route_table_delegate_t *route_table_get_default_delegate(void);
 
