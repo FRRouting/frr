@@ -1188,7 +1188,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
 
 	if (nexthop->weight)
-		return yang_data_new_uint8(args->xpath, nexthop->weight);
+		return yang_data_new_uint16(args->xpath, nexthop->weight);
 
 	return NULL;
 }
