@@ -77,6 +77,7 @@ static struct static_route_args *static_args_find(struct static_vrf *svrf,
 
 		/* compare args attributes except values that can be overriden:
 		 * - labels,
+		 * - weight
 		 * - color,
 		 * - segs,
 		 * - tags
@@ -158,6 +159,8 @@ static struct static_route_args *static_args_copy(struct static_route_args *args
 		run_args->table = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->table);
 	if (args->color)
 		run_args->color = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->color);
+	if (args->weight)
+		run_args->weight = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->weight);
 	if (args->bfd_profile)
 		run_args->bfd_profile = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->bfd_profile);
 	if (args->bfd_source)
@@ -195,6 +198,7 @@ static void static_args_update(struct static_route_args *dst_args,
 	static_args_update_string((char **)&dst_args->bfd_source, src_args->bfd_source);
 	static_args_update_string((char **)&dst_args->bfd_profile, src_args->bfd_profile);
 	static_args_update_string((char **)&dst_args->color, src_args->color);
+	static_args_update_string((char **)&dst_args->weight, src_args->weight);
 	static_args_update_string((char **)&dst_args->label, src_args->label);
 	static_args_update_string((char **)&dst_args->segs, src_args->segs);
 	static_args_update_string((char **)&dst_args->srv6_encap_behavior,
@@ -225,6 +229,7 @@ void static_args_free(struct static_route_args *args)
 	static_args_free_arg((void **)&args->label);
 	static_args_free_arg((void **)&args->table);
 	static_args_free_arg((void **)&args->color);
+	static_args_free_arg((void **)&args->weight);
 	static_args_free_arg((void **)&args->bfd_profile);
 	static_args_free_arg((void **)&args->bfd_source);
 	static_args_free_arg((void **)&args->srv6_encap_behavior);
@@ -751,6 +756,7 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	struct route_node *rn;
 	struct ipaddr bfd_src_addr = {};
 	bool bfd = false;
+	uint16_t weight = 0;
 
 	if (args->source)
 		str2prefix_ipv6(args->source, &src);
@@ -808,6 +814,8 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 		/* fall through */
 	case STATIC_IFNAME:
 		/* no break was deliberately set before these cases */
+		if (args->weight)
+			weight = atoi(args->weight);
 		if (args->segs) {
 			orig_seg = ostr = XSTRDUP(MTYPE_TMP, args->segs);
 			for (segs_stack_id = 0;
@@ -878,6 +886,12 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 		     strcmp(run_args->srv6_encap_behavior, args->srv6_encap_behavior))) {
 			/* segments update */
 			memcpy(&run_args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+		if (run_args->nh->weight != weight) {
+			/* weight update */
+			run_args->nh->weight = weight;
 			run_args->nh->state = STATIC_START;
 			update_nexthop = true;
 		}
@@ -956,6 +970,7 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	args->nh = static_add_nexthop(pn, type, &gw, args->interface_name, args->nexthop_vrf, color,
 				      pm);
 	args->nh->bh_type = bh_type;
+	args->nh->weight = weight;
 	args->nh->onlink = onlink;
 	memcpy(&args->nh->snh_label, &snh_label, sizeof(struct static_nh_label));
 	memcpy(&args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));

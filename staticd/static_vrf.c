@@ -209,6 +209,8 @@ static int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi, sa
 			vty_out(vty, "%s ", args->flag);
 		if (args->tag)
 			vty_out(vty, "tag %s ", args->tag);
+		if (args->weight)
+			vty_out(vty, "weight %s ", args->weight);
 		if (args->distance)
 			vty_out(vty, "%s ", args->distance);
 		if (args->label)
