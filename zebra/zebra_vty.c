@@ -53,6 +53,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_neigh_throttle.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -2945,6 +2946,119 @@ DEFPY(show_evpn_l2_nh,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_neigh_throttle,
+       show_neigh_throttle_cmd,
+       "show " ZEBRA_NEIGH_THROTTLE_STR " [{detail$detail | json$json}]",
+       SHOW_STR
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Detailed output\n"
+       "JSON output\n")
+{
+	return zebra_neigh_throttle_show(vty, !!detail, !!json);
+}
+
+DEFPY (enable_neigh_throttle,
+       enable_neigh_throttle_cmd,
+       "[no] " ZEBRA_NEIGH_THROTTLE_STR,
+       NO_STR
+       "Neighbor data\n"
+       "Neighbor throttling\n")
+{
+	zebra_neigh_throttle_enable((argc == 2));
+	return CMD_SUCCESS;
+}
+
+DEFUN (neigh_throttle_timeout,
+       neigh_throttle_timeout_cmd,
+       ZEBRA_NEIGH_THROTTLE_STR " timeout " CMD_RANGE_STR(ZEBRA_NEIGH_THROTTLE_MIN_TIMEOUT, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) ,
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Set timeout in seconds\n"
+       "Timeout in seconds\n")
+{
+	uint32_t timeout = strtoul(argv[3]->arg, NULL, 10);
+
+	zebra_neigh_throttle_set_timeout(timeout, false /*reset*/);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_neigh_throttle_timeout,
+       no_neigh_throttle_timeout_cmd,
+       "no " ZEBRA_NEIGH_THROTTLE_STR " timeout [" CMD_RANGE_STR(ZEBRA_NEIGH_THROTTLE_MIN_TIMEOUT, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) "]" ,
+       NO_STR
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Set timeout in seconds\n"
+       "Timeout in seconds\n")
+{
+	zebra_neigh_throttle_set_timeout(0, true /*reset*/);
+	return CMD_SUCCESS;
+}
+
+DEFPY (neigh_throttle_limit,
+       neigh_throttle_limit_cmd,
+       ZEBRA_NEIGH_THROTTLE_STR " limit (0-100000)",
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Limit number of entries\n"
+       "Number of entries\n")
+{
+	zebra_neigh_throttle_set_limit(limit, false /*reset*/);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_neigh_throttle_limit,
+       no_neigh_throttle_limit_cmd,
+       "no " ZEBRA_NEIGH_THROTTLE_STR " limit [(0-100000)]",
+       NO_STR
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Limit number of entries\n"
+       "Number of entries\n")
+{
+	zebra_neigh_throttle_set_limit(0, true /*reset*/);
+	return CMD_SUCCESS;
+}
+
+DEFPY (neigh_throttle_del,
+       neigh_throttle_del_cmd,
+       ZEBRA_NEIGH_THROTTLE_STR " delete [vrf VRFNAME$vrf_p] \
+	    < <A.B.C.D|X:X::X:X>$address | all$all_p>",
+       "Neighbor data\n"
+       "Neighbor throttling data\n"
+       "Delete an entry\n"
+       "Specify a VRF name\n"
+       "The VRF name\n"
+       "IPv4 address\n"
+       "IPv6 address\n"
+       "Delete all entries\n")
+{
+	struct ipaddr addr;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+
+	if (vrf_p) {
+		if (!vrf_get_id(vty, &vrf_id, vrf_p, false))
+			return CMD_WARNING;
+	}
+
+	if (address) {
+		if (address->sa.sa_family == AF_INET) {
+			addr.ipa_type = IPADDR_V4;
+			addr.ipaddr_v4 = address->sin.sin_addr;
+		} else {
+			addr.ipa_type = IPADDR_V6;
+			addr.ipaddr_v6 = address->sin6.sin6_addr;
+		}
+
+		zebra_neigh_throttle_delete(vrf_id, &addr);
+	} else
+		zebra_neigh_throttle_delete_all();
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es,
       show_evpn_es_cmd,
       "show evpn es [NAME$esi_str|detail$detail] [json$json]",
@@ -3951,6 +4065,9 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_vxlan_get_accept_bgp_seq())
 		vty_out(vty, "no evpn accept-bgp-seq\n");
 
+	/* Neighbor-throttling config */
+	zebra_neigh_throttle_config_write(vty);
+
 	/* Include nexthop-group config */
 	if (!zebra_nhg_kernel_nexthops_enabled())
 		vty_out(vty, "no zebra nexthop kernel enable\n");
@@ -4517,4 +4634,12 @@ void zebra_vty_init(void)
 #endif /* HAVE_SCRIPTING */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
+
+	install_element(VIEW_NODE, &show_neigh_throttle_cmd);
+	install_element(ENABLE_NODE, &neigh_throttle_del_cmd);
+	install_element(CONFIG_NODE, &enable_neigh_throttle_cmd);
+	install_element(CONFIG_NODE, &neigh_throttle_timeout_cmd);
+	install_element(CONFIG_NODE, &no_neigh_throttle_timeout_cmd);
+	install_element(CONFIG_NODE, &neigh_throttle_limit_cmd);
+	install_element(CONFIG_NODE, &no_neigh_throttle_limit_cmd);
 }

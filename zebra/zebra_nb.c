@@ -783,6 +783,20 @@ const struct frr_yang_module_info frr_zebra_info = {
 		},
 #endif
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-enable",
+			.cbs = {
+				.modify = lib_interface_zebra_neigh_throttle_enable_modify,
+				.destroy = lib_interface_zebra_neigh_throttle_enable_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/neigh-throttle-disable",
+			.cbs = {
+				.modify = lib_interface_zebra_neigh_throttle_disable_modify,
+				.destroy = lib_interface_zebra_neigh_throttle_disable_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
 			.cbs = {
 				.get_elem = lib_interface_zebra_state_up_count_get_elem,
