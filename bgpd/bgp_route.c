@@ -16267,13 +16267,12 @@ static void show_adj_route_header(struct vty *vty, struct peer *peer,
 	}
 }
 
-static void
-show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
-	       afi_t afi, safi_t safi, enum bgp_show_adj_route_type type,
-	       const char *rmap_name, json_object *json, json_object *json_ar,
-	       uint16_t show_flags, int *header1, int *header2, char *rd_str,
-	       const struct prefix *match, unsigned long *output_count,
-	       unsigned long *filtered_count)
+static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table, afi_t afi,
+			   safi_t safi, enum bgp_show_adj_route_type type, const char *rmap_name,
+			   json_object *json, json_object *json_ar, uint16_t show_flags,
+			   int *header1, int *header2, char *rd_str, const struct prefix *match,
+			   unsigned long *output_count, unsigned long *filtered_count,
+			   unsigned long *paths_count)
 {
 	struct bgp_adj_in *ain = NULL;
 	struct bgp_adj_out *adj = NULL;
@@ -16572,6 +16571,15 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						 * This is for backward compatibility.
 						 */
 						if (use_json) {
+							for (bpi = bgp_dest_get_bgp_path_info(dest);
+							     bpi; bpi = bpi->next) {
+								if (peer->addpath_type[afi][safi] ==
+									    BGP_ADDPATH_NONE &&
+								    !CHECK_FLAG(bpi->flags,
+										BGP_PATH_SELECTED))
+									continue;
+								(*paths_count)++;
+							}
 							route_vty_out_tmp(vty, bgp, dest, rn_p,
 									  adj->attr, safi, use_json,
 									  json_ar, wide);
@@ -16583,6 +16591,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 								    !CHECK_FLAG(bpi->flags,
 										BGP_PATH_SELECTED))
 									continue;
+								(*paths_count)++;
 								route_vty_out(vty, rn_p, bpi, 0,
 									      adj->attr, safi,
 									      NULL, wide, NULL);
@@ -16663,8 +16672,10 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	 * maintained across multiple runs of show_adj_route()
 	 */
 	unsigned long output_count_per_rd;
+	unsigned long paths_count_per_rd;
 	unsigned long filtered_count_per_rd;
 	unsigned long output_count = 0;
+	unsigned long paths_count = 0;
 	unsigned long filtered_count = 0;
 
 	if (use_json) {
@@ -16777,11 +16788,10 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			prefix_rd2str(prd, rd_str, sizeof(rd_str),
 				      bgp->asnotation);
 
-			show_adj_route(vty, peer, table, afi, safi, type,
-				       rmap_name, json, json_routes, show_flags,
-				       &header1, &header2, rd_str, match,
-				       &output_count_per_rd,
-				       &filtered_count_per_rd);
+			show_adj_route(vty, peer, table, afi, safi, type, rmap_name, json,
+				       json_routes, show_flags, &header1, &header2, rd_str, match,
+				       &output_count_per_rd, &filtered_count_per_rd,
+				       &paths_count_per_rd);
 
 			/* Don't include an empty RD in the output! */
 			if (json_routes && (output_count_per_rd > 0) && use_json) {
@@ -16801,6 +16811,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				json_object_free(json_routes);
 
 			output_count += output_count_per_rd;
+			paths_count += paths_count_per_rd;
 			filtered_count += filtered_count_per_rd;
 		}
 		if (json_ar &&
@@ -16809,9 +16820,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		if (first == false && json_routes)
 			vty_out(vty, "}");
 	} else {
-		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
-			       json, json_ar, show_flags, &header1, &header2,
-			       rd_str, match, &output_count, &filtered_count);
+		show_adj_route(vty, peer, table, afi, safi, type, rmap_name, json, json_ar,
+			       show_flags, &header1, &header2, rd_str, match, &output_count,
+			       &filtered_count, &paths_count);
 
 		if (use_json) {
 			if (type == bgp_show_adj_route_advertised ||
@@ -16825,12 +16836,14 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
 			vty_out(vty, ",\"totalPrefixCounter\":%lu", output_count);
 			vty_out(vty, ",\"filteredPrefixCounter\":%lu", filtered_count);
+			vty_out(vty, ",\"totalPathsCount\":%lu", paths_count);
 			json_object_free(json);
 		} else {
 			/* for bgp_show_adj_route_filtered & bgp_show_adj_route_bestpath type */
 			json_object_object_add(json, "receivedRoutes", json_ar);
 			json_object_int_add(json, "totalPrefixCounter", output_count);
 			json_object_int_add(json, "filteredPrefixCounter", filtered_count);
+			json_object_int_add(json, "totalPathsCount", paths_count);
 		}
 
 		/*
@@ -16845,8 +16858,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				"\nTotal number of prefixes %ld (%ld filtered)\n",
 				output_count, filtered_count);
 		else
-			vty_out(vty, "\nTotal number of prefixes %ld\n",
-				output_count);
+			vty_out(vty, "\nTotal number of prefixes %ld, total number of paths %ld\n",
+				output_count, paths_count);
 	}
 
 	return CMD_SUCCESS;
