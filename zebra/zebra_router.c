@@ -24,6 +24,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
+	.global_nh_epoch = 1,
 	.zav.multipath_num = MULTIPATH_NUM,
 };
 
