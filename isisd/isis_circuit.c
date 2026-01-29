@@ -92,6 +92,31 @@ static void isis_circuit_disable(struct isis_circuit *circuit)
 		isis_area_del_circuit(area, circuit);
 }
 
+static void isis_circuit_set_high_metric(struct isis_circuit *circuit)
+{
+	uint32_t metric = 0;
+	struct isis_area *area = NULL;
+	struct interface *ifp = circuit->interface;
+
+	area = isis_area_lookup(circuit->tag, ifp->vrf->vrf_id);
+	if (!area)
+		return;
+
+	if (area->oldmetric && area->newmetric)
+		metric = ISIS_NARROW_METRIC_INFINITY;
+	else if (area->newmetric)
+		metric = MAX_WIDE_LINK_METRIC;
+	else
+		metric = MAX_NARROW_LINK_METRIC;
+	/* Check if high metrics should be advertised */
+	if (area->advertise_high_metrics) {
+		circuit->metric[0] = metric;
+		circuit->metric[1] = metric;
+		circuit->te_metric[0] = metric;
+		circuit->te_metric[1] = metric;
+	}
+}
+
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 {
 	struct isis_circuit *circuit;
@@ -178,8 +203,10 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	circuit->ipv6_link = list_new();
 	circuit->ipv6_non_link = list_new();
 
-	if (ifp->ifindex != IFINDEX_INTERNAL)
+	if (ifp->ifindex != IFINDEX_INTERNAL) {
+		isis_circuit_set_high_metric(circuit);
 		isis_circuit_enable(circuit);
+	}
 
 	return circuit;
 }
