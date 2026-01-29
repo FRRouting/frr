@@ -1754,6 +1754,33 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+def is_line_permutated(test_line, conf):
+    """
+    Verify if test_line permutations are present in conf
+    """
+
+    for conf_line in conf:
+        # If length of both strings is not same,
+        # then they cannot be Permutation
+        # Look for the lines with the same length!
+        if len(test_line) == len(conf_line):
+            # Sort both lines
+            test_line_sorted = sorted(
+                test_line
+            )  # This is not the fastest code, however, this is a rare action :)
+            conf_line_sorted = sorted(conf_line)
+            # Compare sorted lines
+            if test_line_sorted == conf_line_sorted:
+                log.info(
+                    "Skip line %s, because it is a permutation of configuration line %s.",
+                    line,
+                    conf_line,
+                )
+                return True
+
+    return False
+
+
 def compare_context_objects(newconf, running):
     """
     Create a context diff for the two specified contexts
@@ -1988,7 +2015,8 @@ def compare_context_objects(newconf, running):
 
             for line in running_ctx.lines:
                 if line not in newconf_ctx.dlines:
-                    lines_to_del.append((newconf_ctx_keys, line))
+                    if not is_line_permutated(line, newconf_ctx.dlines):
+                        lines_to_del.append((newconf_ctx_keys, line))
 
     for newconf_ctx_keys, newconf_ctx in iteritems(newconf.contexts):
         if newconf_ctx_keys not in running.contexts:
