@@ -45,7 +45,9 @@ static int segment_list_has_prefix(
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
+DEFINE_HOOK(pathd_srte_check_config_not_empty, (), ());
 DEFINE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
+DEFINE_HOOK(pathd_srte_no_srte, (), ());
 
 /* Vty node structures. */
 static struct cmd_node segment_routing_node = {
@@ -229,6 +231,26 @@ DEFPY_NOSH(
 {
 	VTY_PUSH_CONTEXT_NULL(SR_TRAFFIC_ENG_NODE);
 	return CMD_SUCCESS;
+}
+
+/*
+ * XPath: /frr-pathd:pathd/srte
+ */
+DEFPY_YANG(
+      sr_no_traffic_eng_list,
+      sr_no_traffic_eng_cmd,
+      "no traffic-eng",
+      NO_STR
+      "Configure SR traffic engineering\n")
+{
+	const char *xpath = "/frr-pathd:pathd/srte";
+
+	path_ted_mpls_te_off();
+	hook_call(pathd_srte_no_srte);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /*
@@ -1286,6 +1308,15 @@ static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 
 int config_write_segment_routing(struct vty *vty)
 {
+	/**
+	 * If no mpls-te, no children of srte node (currently 'segment-list' and 'policy'),
+	 * no modules with configuration - don't output anything
+	 */
+	if (!path_is_ted_enabled() &&
+	    !yang_dnode_exists(running_config->dnode, "/frr-pathd:pathd/srte/*") &&
+	    !hook_call(pathd_srte_check_config_not_empty))
+		return 1;
+
 	vty_out(vty, "segment-routing\n");
 	vty_out(vty, " traffic-eng\n");
 
@@ -1328,6 +1359,7 @@ void path_cli_init(void)
 
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &sr_no_traffic_eng_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_no_segment_list_cmd);
 	install_element(SR_SEGMENT_LIST_NODE,
