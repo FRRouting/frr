@@ -246,8 +246,10 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 		nbr = pim_neighbor_find(old->source_nexthop.interface,
 					old->rpf_addr, true);
 
-		if (nbr)
+		if (nbr) {
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
+			pim_jp_agg_upstream_verification(up, false);
+		}
 
 		/*
 		 * We have detected a case where we might need
@@ -302,6 +304,7 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 
 		if (up->join_state == PIM_UPSTREAM_JOINED)
 			pim_jp_agg_switch_interface(old, &up->rpf, up);
+
 
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
@@ -482,26 +485,29 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			mask, __func__);
 }
 
-void pim_forward_stop(struct pim_ifchannel *ch)
+void pim_forward_stop(struct pim_ifchannel *origch)
 {
-	struct pim_upstream *up = ch->upstream;
+	struct pim_upstream *up = origch->upstream;
+	struct pim_ifchannel *ch, *chrpt;
+
+	pim_ifchannel_find(origch->interface, &origch->sg, &ch, &chrpt);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s installed: %d",
-			   __func__, ch->sg_str, ch->interface->name,
-			   up->channel_oil->installed);
+		if (origch)
+			zlog_debug("%s: (S,G)=%s oif=%s installed: %d", __func__, origch->sg_str,
+				   origch->interface->name, up->channel_oil->installed);
 	}
 
 	/*
 	 * If a channel is being removed, check to see if we still need
 	 * to inherit the interface.  If so make sure it is added in
 	 */
-	if (pim_upstream_evaluate_join_desired_interface(up, ch, ch->parent))
-		pim_channel_add_oif(up->channel_oil, ch->interface,
-				    PIM_OIF_FLAG_PROTO_PIM, __func__);
+	if (pim_upstream_evaluate_join_desired_interface(up, ch, chrpt, origch->parent))
+		pim_channel_add_oif(up->channel_oil, origch->interface, PIM_OIF_FLAG_PROTO_PIM,
+				    __func__);
 	else
-		pim_channel_del_oif(up->channel_oil, ch->interface,
-				    PIM_OIF_FLAG_PROTO_PIM, __func__);
+		pim_channel_del_oif(up->channel_oil, origch->interface, PIM_OIF_FLAG_PROTO_PIM,
+				    __func__);
 }
 
 void pim_zebra_zclient_update(struct vty *vty)

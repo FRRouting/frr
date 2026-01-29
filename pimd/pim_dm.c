@@ -236,7 +236,7 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 	struct pim_upstream *up;
 	struct pim_interface *pim_ifp = ifp->info;
 	pim_addr group_addr = sg->grp;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 
 	if (!pim_ifp || !pim_ifp->pim_enable)
 		return;
@@ -256,7 +256,7 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 
-		ch = pim_ifchannel_find(ifp, sg);
+		pim_ifchannel_find(ifp, sg, &ch, &throwaway);
 
 		if (ch) {
 			PIM_UPSTREAM_DM_UNSET_PRUNE(ch->flags);
@@ -283,7 +283,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 	struct pim_upstream *up;
 	struct pim_interface *pim_ifp;
 	pim_addr group_addr = sg->grp;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 
 	struct interface *ifp2 = NULL;
 	struct pim_interface *pim_ifp2;
@@ -332,7 +332,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 			prune_timer_start(up);
 		}
 
-		ch = pim_ifchannel_find(ifp, sg);
+		pim_ifchannel_find(ifp, sg, &ch, &throwaway);
 		if (!ch)
 			ch = pim_ifchannel_add(ifp, sg, source_flags,
 					       PIM_UPSTREAM_DM_FLAG_MASK_PRUNE);
