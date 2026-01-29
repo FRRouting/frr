@@ -348,6 +348,38 @@ def test_modify_bandwidth_extended_community():
     ), "Route 10.1.1.1/32 on r1 does not have expected updated weights after bandwidth change"
 
 
+def test_show_bgp_redistribute_json():
+    """
+    Test that 'show bgp vrf default ipv4 unicast redistribute json' command
+    returns the correct redistribute information.
+
+    Since r1 has 'redistribute connected' configured, the JSON output
+    should show connected routes being redistributed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Verify 'show bgp vrf default ipv4 unicast redistribute json' output on r1")
+
+    output = json.loads(
+        r1.vtysh_cmd("show bgp vrf default ipv4 unicast redistribute json")
+    )
+
+    # r1 has 'redistribute connected' configured
+    # Check that the JSON output shows connected redistribution
+    # The command outputs redistribute info directly without VRF wrapper
+    expected = {"redistribute": {"connected": {}}}
+
+    result = topotest.json_cmp(output, expected)
+    assert (
+        result is None
+    ), "show bgp redistribute json output does not match expected: {}".format(result)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
