@@ -277,6 +277,43 @@ def test_use_of_underlay_route():
     ), "Route 10.1.1.1/32 on r1 does not have expected underlay weights"
 
 
+def test_show_bgp_bestpath_json():
+    """
+    Test that 'show bgp bestpath json' command returns the correct bestpath settings.
+
+    Since r1 has 'bgp bestpath as-path multipath-relax' configured, the JSON output
+    should show asPathMultiPathRelaxEnabled: true.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Verify 'show bgp bestpath json' output on r1")
+
+    output = json.loads(r1.vtysh_cmd("show bgp bestpath json"))
+
+    # r1 has 'bgp bestpath as-path multipath-relax' configured
+    # Check that the JSON output reflects this
+    expected = {
+        "vrfs": {
+            "default": {
+                "bestPath": {
+                    "asPathMultiPathRelaxEnabled": True,
+                    "deterministicMed": True,
+                }
+            }
+        }
+    }
+
+    result = topotest.json_cmp(output, expected)
+    assert result is None, "show bgp bestpath json output does not match expected: {}".format(
+        result
+    )
+
+
 def test_modify_bandwidth_extended_community():
     """
     Test that modifying the bandwidth extended community changes the underlay weights.
