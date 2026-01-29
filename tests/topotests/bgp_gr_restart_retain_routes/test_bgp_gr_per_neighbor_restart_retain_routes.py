@@ -61,6 +61,7 @@ def test_bgp_gr_restart_retain_routes():
         pytest.skip(tgen.errors)
 
     r4 = tgen.gears["r4"]
+    r3 = tgen.gears["r3"]
 
     def _bgp_converge():
         output = json.loads(r4.vtysh_cmd("show bgp ipv4 neighbors 192.168.34.3 json"))
@@ -88,6 +89,27 @@ def test_bgp_gr_restart_retain_routes():
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP convergence on R4"
+
+    step("Check GR fields in show bgp vrfs json before restart")
+
+    def _gr_vrfs_json_check():
+        output = json.loads(r3.vtysh_cmd("show bgp vrfs default json"))
+        expected = {
+            "default": {
+                "as": 65003,
+                "grRestartTime": 120,
+                "grStalePathTime": 360,
+                "grSelectDeferTime": 120,
+                "grMode": "Helper",
+                "waitForFibSet": False,
+                "gShutEnabled": False,
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_gr_vrfs_json_check)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "GR VRF JSON fields check failed on R3 before restart"
 
     step("Restart R3")
     stop_router(tgen, "r3")

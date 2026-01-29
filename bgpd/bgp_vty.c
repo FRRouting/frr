@@ -12000,6 +12000,7 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 	int peers_cfg, peers_estb;
 
 	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
+	enum global_mode gr_mode = bgp_global_gr_mode_get(bgp);
 
 	if (json) {
 		int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
@@ -12010,6 +12011,7 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		json_object_int_add(json, "vrfId", vrf_id_ui);
 		json_object_string_addf(json, "routerId", "%pI4",
 					&bgp->router_id);
+		json_object_int_add(json, "as", bgp->as);
 		json_object_int_add(json, "numConfiguredPeers", peers_cfg);
 		json_object_int_add(json, "numEstablishedPeers", peers_estb);
 		json_object_int_add(json, "l3vni", bgp->l3vni);
@@ -12047,6 +12049,14 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 						bgp->gr_route_sync_pending);
 			json_object_object_add(json, "grs", json_grs);
 		}
+		json_object_int_add(json, "grRestartTime", bgp->restart_time);
+		json_object_int_add(json, "grStalePathTime", bgp->stalepath_time);
+		json_object_int_add(json, "grSelectDeferTime", bgp->select_defer_time);
+		json_object_string_add(json, "grMode", bgp_global_gr_mode_str[gr_mode]);
+		json_object_boolean_add(json, "waitForFibSet",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING));
+		json_object_boolean_add(json, "gShutEnabled",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN));
 	}
 }
 
@@ -12069,6 +12079,7 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 				bgp->vrf_id == VRF_UNKNOWN ? -1
 							   : (int)bgp->vrf_id);
 			vty_out(vty, "Router Id %pI4\n", &bgp->router_id);
+			vty_out(vty, "AS number %u\n", bgp->as);
 			vty_out(vty,
 				"Num Configured Peers %d, Established %d\n",
 				peers_cfg, peers_estb);
@@ -12105,6 +12116,15 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, "Route sync with zebra %s\n",
 					bgp->gr_route_sync_pending ? "pending" : "completed");
 			}
+			vty_out(vty, "GR Restart Time Configured: %ds\n", bgp->restart_time);
+			vty_out(vty, "GR Stale Path Time Configured: %ds\n", bgp->stalepath_time);
+			vty_out(vty, "GR Select Defer Time Configured: %ds\n",
+				bgp->select_defer_time);
+			vty_out(vty, "Wait for install (FIB suppress pending) is set: %s\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING) ? "YES"
+										      : "NO");
+			vty_out(vty, "BGP Graceful Shutdown is enabled: %s\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN) ? "YES" : "NO");
 		}
 	} else {
 		if (json) {
@@ -17787,6 +17807,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 	json_object *json_peer_group_dynamic = NULL;
 	json_object *json_peer_group_dynamic_af = NULL;
 	json_object *json_peer_group_ranges = NULL;
+	uint16_t member_count = 0;
 
 	conf = group->conf;
 
@@ -17960,10 +17981,14 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 					dynamic ? "(dynamic)" : "",
 					peer_status);
 			}
+			member_count++;
 		}
-		if (json)
-			json_object_object_add(json_peer_group, "members",
-					       json_peer_group_members);
+	}
+
+	if (json) {
+		json_object_int_add(json_peer_group, "memberCount", member_count);
+		if (member_count)
+			json_object_object_add(json_peer_group, "members", json_peer_group_members);
 	}
 
 	if (json)
