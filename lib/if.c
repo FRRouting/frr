@@ -39,6 +39,7 @@ DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
 DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters");
+DEFINE_MTYPE(LIB, LIB_ALTNAME, "Interface altname");
 
 static void if_set_name(struct interface *ifp, const char *name);
 static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
@@ -48,6 +49,7 @@ static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2);
 RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
 RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
+RB_GENERATE(altnames_head, altname, entry, altname_cmp_func);
 
 DEFINE_QOBJ_TYPE(interface);
 
@@ -138,6 +140,11 @@ int if_cmp_name_func(const char *p1, const char *p2)
 int if_cmp_func(const struct interface *ifp1, const struct interface *ifp2)
 {
 	return if_cmp_name_func(ifp1->name, ifp2->name);
+}
+
+int altname_cmp_func(const struct altname *alt1, const struct altname *alt2)
+{
+	return strcmp(alt1->name, alt2->name);
 }
 
 static int if_cmp_index_func(const struct interface *ifp1,
@@ -375,6 +382,7 @@ void if_delete(struct interface **ifp)
 {
 	struct interface *ptr = *ifp;
 	struct vrf *vrf = ptr->vrf;
+	struct altname *item;
 
 	IFNAME_RB_REMOVE(vrf, ptr);
 	if (ptr->ifindex != IFINDEX_INTERNAL)
@@ -388,6 +396,13 @@ void if_delete(struct interface **ifp)
 	if_link_params_free(ptr);
 
 	XFREE(MTYPE_IFDESC, ptr->desc);
+
+	/* Clean up altnames list */
+	while (!RB_EMPTY(altnames_head, &ptr->altnames)) {
+		item = RB_ROOT(altnames_head, &ptr->altnames);
+		RB_REMOVE(altnames_head, &ptr->altnames, item);
+		XFREE(MTYPE_LIB_ALTNAME, item);
+	}
 
 	if_update_state_remove(ptr);
 
@@ -474,28 +489,71 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 		       : IFINDEX_INTERNAL;
 }
 
+static struct interface *if_lookup_by_altname_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		struct altname altname;
+
+		strlcpy(altname.name, name, sizeof(altname.name));
+		/* Check altnames */
+		struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+		if (result != NULL)
+			return ifp;
+	}
+	return NULL;
+}
+
 /* Interface existence check by interface name. */
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
+	struct interface *ifp;
 
-	if (!vrf || !name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!vrf || !name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	if (ENABLE_TRANSPARENT_ALTNAMES) {
+		/* If nothing has been found, search through all altnames */
+		return if_lookup_by_altname_vrf(name, vrf);
+	} else {
+		return NULL;
+	}
 }
 
 struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 {
 	struct interface if_tmp;
+	struct interface *ifp;
 
-	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	if (ENABLE_TRANSPARENT_ALTNAMES) {
+		/* If nothing has been found, search through all altnames */
+		return if_lookup_by_altname_vrf(name, vrf);
+	} else {
+		return NULL;
+	}
 }
 
 static struct interface *if_lookup_by_name_all_vrf(const char *name)
@@ -503,7 +561,7 @@ static struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1256,6 +1314,16 @@ static int vrfname_by_ifname(const char *ifname, const char **vrfname)
 			if (strmatch(ifp->name, ifname)) {
 				*vrfname = vrf->name;
 				count++;
+				continue;
+			}
+			if (ENABLE_TRANSPARENT_ALTNAMES) {
+				struct altname altname;
+				/* Check altnames */
+				strlcpy(altname.name, ifname, sizeof(altname.name));
+				struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+				if (result != NULL)
+					count++;
 			}
 		}
 	}
@@ -1553,7 +1621,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 
 			netns_ifname_split(ifname, ifname_ns, vrfname_ns);
 
-			if (strlen(ifname_ns) > 16) {
+			if (!ENABLE_TRANSPARENT_ALTNAMES && strlen(ifname_ns) > 16) {
 				snprintf(
 					args->errmsg, args->errmsg_len,
 					"Maximum interface name length is 16 characters");
@@ -1566,7 +1634,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 				return NB_ERR_VALIDATION;
 			}
 		} else {
-			if (strlen(ifname) > 16) {
+			if (!ENABLE_TRANSPARENT_ALTNAMES && strlen(ifname) > 16) {
 				snprintf(
 					args->errmsg, args->errmsg_len,
 					"Maximum interface name length is 16 characters");
@@ -1817,6 +1885,25 @@ static enum nb_error lib_interface_state_metric_get(const struct nb_node *nb_nod
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/state/altnames
+ */
+static enum nb_error lib_interface_state_altnames_get(const struct nb_node *nb_node,
+						      const void *list_entry,
+						      struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
+	struct altname *altname;
+
+	RB_FOREACH(altname, altnames_head, (struct altnames_head *)&ifp->altnames) {
+		if (lyd_new_term(parent, snode->module, snode->name, altname->name,
+				 LYD_NEW_PATH_UPDATE, NULL))
+			return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/state/phy-address
  */
 static struct yang_data *
@@ -1903,6 +1990,12 @@ const struct frr_yang_module_info frr_interface_info = {
 			.xpath = "/frr-interface:lib/interface/state/type",
 			.cbs = {
 				.get = __return_ok,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/altnames",
+			.cbs = {
+				.get = lib_interface_state_altnames_get,
 			}
 		},
 		{

@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 DECLARE_MTYPE(CONNECTED_LABEL);
+DECLARE_MTYPE(LIB_ALTNAME);
 
 /* Interface link-layer type, if known. Derived from:
  *
@@ -222,6 +223,23 @@ struct if_link_params {
 #define HAS_LINK_PARAMS(ifp)  ((ifp)->link_params != NULL)
 
 PREDECL_DLIST(if_connected);
+PREDECL_LIST(altnames_dplane);
+
+/* Length of interface altname.*/
+#define IF_ALTNAMESIZE 128
+
+struct altname {
+	RB_ENTRY(altname) entry;
+	struct altnames_dplane_item list_entry;
+
+	char name[IF_ALTNAMESIZE];
+};
+
+extern int altname_cmp_func(const struct altname *alt1, const struct altname *alt2);
+
+RB_HEAD(altnames_head, altname);
+RB_PROTOTYPE(altnames_head, altname, entry, altname_cmp_func)
+DECLARE_QOBJ_TYPE(altname);
 
 /* Interface structure */
 struct interface {
@@ -296,6 +314,9 @@ struct interface {
 
 	/* description of the interface. */
 	char *desc;
+
+	/* Altnames for this interface */
+	struct altnames_head altnames;
 
 	/* Connected address list. */
 	struct if_connected_head connected[1];
