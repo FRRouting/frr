@@ -246,6 +246,7 @@ static int frr_json_obj_to_vty(struct vty *vty, struct json_object *jobj,
 	enum json_type jtype;
 	const char *str;
 	bool pb_top = false;
+	bool increment;
 
 	/* Check object's FRR flags */
 	parent_flags = frr_json_get_flags(jobj);
@@ -352,7 +353,9 @@ static int frr_json_obj_to_vty(struct vty *vty, struct json_object *jobj,
 		}
 	} else {
 		/* Array/list type */
-		for (idx = 0; idx < json_object_array_length(jobj); idx++) {
+		idx = 0;
+		while (idx < json_object_array_length(jobj)) {
+			increment = true;
 			jval = json_object_array_get_idx(jobj, idx);
 
 			if (children_p)
@@ -381,7 +384,7 @@ static int frr_json_obj_to_vty(struct vty *vty, struct json_object *jobj,
 
 				/* Remove child after output */
 				json_object_array_del_idx(jobj, idx, 1);
-				idx--;
+				increment = false;
 			} else {
 				/* Flush any pending output */
 				vty_out(vty, "%s", pb->buf);
@@ -393,8 +396,11 @@ static int frr_json_obj_to_vty(struct vty *vty, struct json_object *jobj,
 
 				/* Remove child after output */
 				json_object_array_del_idx(jobj, idx, 1);
-				idx--;
+				increment = false;
 			}
+
+			if (increment)
+				idx++;
 		}
 
 		/* Close jobj output if not set OPEN */
