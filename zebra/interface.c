@@ -1921,8 +1921,12 @@ static void interface_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 
 	/* Could we have multiple bridge vlan infos? */
 	bvarray = dplane_ctx_get_ifp_bridge_vlan_info_array(ctx);
-	if (!bvarray)
+	if (!bvarray) {
+		bf_free(zif->vlan_bitmap);
+		zif->vlan_bitmap = old_vlan_bitmap;
+
 		return;
+	}
 
 	for (i = 0; i < bvarray->count; i++) {
 		bvinfo = bvarray->array[i];
