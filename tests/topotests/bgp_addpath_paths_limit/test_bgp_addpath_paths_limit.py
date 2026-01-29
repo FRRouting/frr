@@ -104,6 +104,25 @@ def test_bgp_addpath_paths_limit():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge initially"
 
+    def _bgp_check_advertised_routes(neighbor, total_prefixes, total_paths):
+        output = json.loads(
+            r2.vtysh_cmd(f"show ip bgp neighbors {neighbor} advertised-routes json")
+        )
+        expected = {
+            "totalPrefixCounter": total_prefixes,
+            "totalPathsCount": total_paths,
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_advertised_routes, "192.168.7.7", 3, 12)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Advertised routes count for 192.168.7.7 is not as expected"
+
+    test_func = functools.partial(_bgp_check_advertised_routes, "192.168.2.6", 2, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Advertised routes count for 192.168.2.6 is not as expected"
+
     def _bgp_check_received_routes(router, expected):
         output = json.loads(
             router.vtysh_cmd("show bgp ipv4 unicast 172.16.16.254/32 json")
