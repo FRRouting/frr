@@ -16671,9 +16671,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	/* For 2-tier tables, prefix counts need to be
 	 * maintained across multiple runs of show_adj_route()
 	 */
-	unsigned long output_count_per_rd;
-	unsigned long paths_count_per_rd;
-	unsigned long filtered_count_per_rd;
+	unsigned long output_count_per_rd = 0;
+	unsigned long paths_count_per_rd = 0;
+	unsigned long filtered_count_per_rd = 0;
 	unsigned long output_count = 0;
 	unsigned long paths_count = 0;
 	unsigned long filtered_count = 0;
