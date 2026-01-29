@@ -155,7 +155,7 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
 		return 0;
 
-	vlan_if = zevpn_map_to_svi(zevpn);
+	vlan_if = zevpn_map_to_svi(zevpn, true);
 	if (!vlan_if)
 		return -1;
 
@@ -677,7 +677,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 	ifindex_t ifindex = 0;
 
 	/* locate l3-svi */
-	ifp = zevpn_map_to_svi(zevpn);
+	ifp = zevpn_map_to_svi(zevpn, true);
 	if (ifp)
 		ifindex = ifp->ifindex;
 
@@ -862,7 +862,7 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
 		return 0;
 
-	vlan_if = zevpn_map_to_svi(zevpn);
+	vlan_if = zevpn_map_to_svi(zevpn, false);
 	if (!vlan_if)
 		return -1;
 
@@ -2315,7 +2315,7 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 	    && (memcmp(n->emac.octet, mac->macaddr.octet, ETH_ALEN) == 0)) {
 		struct interface *vlan_if;
 
-		vlan_if = zevpn_map_to_svi(zevpn);
+		vlan_if = zevpn_map_to_svi(zevpn, true);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: IP %pIA (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
