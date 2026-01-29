@@ -508,6 +508,8 @@ uint32_t zebra_nhg_id_key(const void *arg)
 static bool nhg_compare_nexthops(const struct nexthop *nh1,
 				 const struct nexthop *nh2)
 {
+	bool eff_active1, eff_active2;
+
 	assert(nh1 != NULL && nh2 != NULL);
 
 	/*
@@ -533,9 +535,17 @@ static bool nhg_compare_nexthops(const struct nexthop *nh1,
 	 * Without checking each individual one, they would hash to
 	 * the same group and both have 1.1.1.1 dummy1 marked inactive.
 	 *
+	 * Use effective_active for NHG hash comparison.
+	 * IFDOWN only matters when ACTIVE=0: it means "was active before
+	 * interface went down" so we treat it as active for NHG identity.
+	 * This prevents route update storms during interface flaps.
 	 */
-	if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_ACTIVE)
-	    != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_ACTIVE))
+	eff_active1 = CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_ACTIVE) ||
+		      CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_IFDOWN);
+	eff_active2 = CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_ACTIVE) ||
+		      CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_IFDOWN);
+
+	if (eff_active1 != eff_active2)
 		return false;
 
 	if (!nexthop_same(nh1, nh2))
@@ -4087,12 +4097,21 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			continue;
 		/*
-		 * The nexthop associated with this was set as !ACTIVE
-		 * so we need to turn it back to active when we get to
-		 * this point again
+		 * Only restore ACTIVE flag if IFDOWN was set (meaning it was
+		 * active before interface went down). This preserves nexthops
+		 * that were inactive for other reasons (e.g., loop avoidance).
+		 * Must iterate all nexthops - ECMP groups may have multiple.
 		 */
-		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nh)) {
+			if (nh->ifindex == ifp->ifindex &&
+			    CHECK_FLAG(nh->flags, NEXTHOP_FLAG_IFDOWN)) {
+				SET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+				UNSET_FLAG(nh->flags, NEXTHOP_FLAG_IFDOWN);
+			}
+		}
 		nh = rb_node_dep->nhe->nhg.nexthop;
+		if (!nh)
+			continue;
 
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			frrtrace(3, frr_zebra, zebra_interface_nhg_reinstall, ifp,
