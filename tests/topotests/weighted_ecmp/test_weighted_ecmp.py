@@ -104,13 +104,18 @@ def test_weighted_ecmp():
         """Check if the weighted nexthop group is properly configured"""
         output = r1.vtysh_cmd("show nexthop-group rib json", isjson=True)
 
+        if not isinstance(output, dict) or "default" not in output:
+            return "Default VRF nexthop-group data not found"
+
+        if not isinstance(output["default"], dict):
+            return "Default VRF nexthop-group data is not a dict"
+
+        vrf_map = output["default"]
+
         # Find the nexthop group with multiple nexthops (our weighted group)
         weighted_group = None
-        for group_id, group_data in output.items():
-            if (
-                group_data.get("nexthopCount", 0) > 1
-                and group_data.get("type") == "sharp"
-            ):
+        for group_id, group_data in vrf_map.items():
+            if group_data.get("nexthopCount", 0) > 1 and group_data.get("type") == "sharp":
                 weighted_group = group_data
                 break
 
