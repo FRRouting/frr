@@ -233,6 +233,7 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 			}
 			break;
 
+		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
@@ -2981,6 +2982,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		rt = import_table->imported_encap[afi];
 		break;
 
+	case AFI_BGP_LS:
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
 	case AFI_MAX:
@@ -3435,6 +3437,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		rt = import_table->imported_vpn[afi];
 		break;
 
+	case AFI_BGP_LS:
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
@@ -3831,6 +3834,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	case SAFI_ENCAP:
 		return rfapiBgpInfoFilteredImportEncap;
 
+	case SAFI_BGP_LS:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
@@ -4076,6 +4080,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		rt = import_table->imported_encap[afi];
 		timer_service_func = rfapiWithdrawTimerEncap;
 		break;
+	case SAFI_BGP_LS:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:

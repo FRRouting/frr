@@ -1,0 +1,18 @@
+{
+	"areas": [
+		{
+			"circuits": [
+				{
+					"adj": "r1",
+					"interface": "r2-eth0",
+					"state": "Up"
+				},
+				{
+					"adj": "r3",
+					"interface": "r2-eth1",
+					"state": "Up"
+				}
+			]
+		}
+	]
+}

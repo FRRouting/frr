@@ -1,0 +1,165 @@
+[
+	{
+		"nlri": {
+			"nlriType": "node",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0001"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "node",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0003"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "ipv4Prefix",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0001"
+			},
+			"prefixDescriptors": {
+				"ipReachabilityInformation": "10.0.1.0/24"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "node",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "link",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			},
+			"remoteNodeDescriptors": {
+				"igpRouterId": "0000.0000.0001"
+			},
+			"linkDescriptors": {}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "ipv4Prefix",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			},
+			"prefixDescriptors": {
+				"ipReachabilityInformation": "2.2.2.2/32"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "ipv4Prefix",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			},
+			"prefixDescriptors": {
+				"ipReachabilityInformation": "10.0.1.0/24"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "ipv4Prefix",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			},
+			"prefixDescriptors": {
+				"ipReachabilityInformation": "10.0.2.0/24"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "link",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0003"
+			},
+			"remoteNodeDescriptors": {
+				"igpRouterId": "0000.0000.0002"
+			},
+			"linkDescriptors": {}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	},
+	{
+		"nlri": {
+			"nlriType": "ipv4Prefix",
+			"protocolId": 2,
+			"identifier": 0,
+			"localNodeDescriptors": {
+				"igpRouterId": "0000.0000.0003"
+			},
+			"prefixDescriptors": {
+				"ipReachabilityInformation": "10.0.2.0/24"
+			}
+		},
+		"nextHop": "10.0.3.2",
+		"metric": 0,
+		"locPrf": 100,
+		"weight": 0
+	}
+]

@@ -599,7 +599,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi, safi, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, labels, num_labels, 0, NULL);
+				   BGP_ROUTE_NORMAL, NULL, labels, num_labels, 0, NULL, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi, SAFI_UNICAST,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, labels, num_labels);

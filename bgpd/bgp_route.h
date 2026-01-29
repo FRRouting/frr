@@ -15,6 +15,7 @@
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
+#include "bgp_ls_nlri.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
@@ -253,6 +254,9 @@ struct bgp_path_info_extra {
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
+
+	/* For BGP-LS NLRI (RFC 9552) */
+	struct bgp_ls_nlri *ls_nlri;
 };
 
 struct bgp_mplsvpn_label_nh {
@@ -855,12 +859,10 @@ extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  const char *routermac);
 
 /* this is primarily for MPLS-VPN */
-extern void bgp_update(struct peer *peer, const struct prefix *p,
-		       uint32_t addpath_id, struct attr *attr, afi_t afi,
-		       safi_t safi, int type, int sub_type,
-		       struct prefix_rd *prd, mpls_label_t *label,
-		       uint8_t num_labels, int soft_reconfig,
-		       struct bgp_route_evpn *evpn);
+extern void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+		       struct attr *attr, afi_t afi, safi_t safi, int type, int sub_type,
+		       struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
+		       int soft_reconfig, struct bgp_route_evpn *evpn, struct bgp_ls_nlri *ls_nlri);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,

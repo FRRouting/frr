@@ -43,6 +43,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_ls_nlri.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -685,6 +686,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	mpls_label_t *label_pnt = NULL;
 	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
 	uint8_t num_labels = 0;
+	struct bgp_ls_nlri *ls_nlri = NULL;
 
 	if (!subgrp)
 		return NULL;
@@ -760,8 +762,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
 							      &vecarr, NULL, afi, safi, from, NULL,
 							      NULL, 0, dest->srv6_unicast, 0, 0,
-							      path);
-
+							      path, NULL);
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
@@ -831,7 +832,40 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				labels[0] = bgp_mplsvpn_nh_label_bind_get_label(path);
 				label_pnt = &labels[0];
 				num_labels = 1;
-			} else {
+			} else if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS) {
+				if (path && path->extra->ls_nlri)
+					ls_nlri = path->extra->ls_nlri;
+				else {
+					flog_err(EC_BGP_UPDATE_SND,
+						 "BGP-LS path missing ls_nlri data");
+					adv = bgp_advertise_clean_subgroup(subgrp, adj);
+					continue;
+				}
+
+				if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0)) {
+					if (!send_attr_printed) {
+						iana_afi_t pkt_afi = afi_int2iana(afi);
+						iana_safi_t pkt_safi = safi_int2iana(safi);
+
+						zlog_debug("u%" PRIu64 ":s%" PRIu64
+							   " send UPDATE w/ attr: %s",
+							   subgrp->update_group->id, subgrp->id,
+							   send_attr_str);
+
+						zlog_debug("u%" PRIu64 ":s%" PRIu64
+							   " send MP_REACH for afi/safi %s/%s",
+							   subgrp->update_group->id, subgrp->id,
+							   iana_afi2str(pkt_afi),
+							   iana_safi2str(pkt_safi));
+						send_attr_printed = 1;
+					}
+					zlog_debug("u%" PRIu64 ":s%" PRIu64
+						   " send UPDATE BGP-LS NLRI",
+						   subgrp->update_group->id, subgrp->id);
+				}
+			}
+
+			else {
 				num_labels = BGP_PATH_INFO_NUM_LABELS(path);
 				label_pnt =
 					num_labels
@@ -844,10 +878,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					snlri, peer, afi, safi, &vecarr,
 					adv->baa->attr);
 
-			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd,
-						 label_pnt, num_labels,
-						 addpath_capable, addpath_tx_id,
-						 adv->baa->attr);
+			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd, label_pnt,
+						 num_labels, addpath_capable, addpath_tx_id,
+						 adv->baa->attr, ls_nlri);
 		}
 
 		num_pfx++;
@@ -962,6 +995,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	int addpath_overhead = 0;
 	uint32_t addpath_tx_id = 0;
 	const struct prefix_rd *prd = NULL;
+	struct bgp_ls_nlri *ls_nlri = NULL;
 
 
 	if (!subgrp)
@@ -1002,6 +1036,57 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 		} else
 			first_time = 0;
 
+		/* BGP-LS uses special encoding - handle before standard cases */
+		if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS) {
+			/* Format MP_UNREACH header if first time */
+			if (first_time) {
+				iana_afi_t pkt_afi = afi_int2iana(afi);
+				iana_safi_t pkt_safi = safi_int2iana(safi);
+
+				attrlen_pos = stream_get_endp(s);
+				stream_putw(s, 0); /* total attr length = 0 for now */
+				mp_start = stream_get_endp(s);
+				mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
+
+				if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
+					zlog_debug("u%" PRIu64 ":s%" PRIu64
+						   " send MP_UNREACH for afi/safi %s/%s",
+						   subgrp->update_group->id, subgrp->id,
+						   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+			}
+
+			/* Encode BGP-LS NLRI withdrawal - get NLRI from path info */
+			struct bgp_path_info *pi = bgp_dest_get_bgp_path_info(dest);
+
+			if (pi && pi->extra && pi->extra->ls_nlri) {
+				ls_nlri = pi->extra->ls_nlri;
+
+				/* Encode the BGP-LS NLRI into the stream */
+				if (bgp_ls_encode_nlri(s, ls_nlri) < 0) {
+					flog_err(EC_BGP_UPDATE_SND,
+						 "Failed to encode BGP-LS NLRI withdrawal");
+					bgp_adj_out_remove_subgroup(dest, adj, subgrp);
+					continue;
+				}
+			} else {
+				flog_err(EC_BGP_UPDATE_SND,
+					 "BGP-LS withdrawal missing ls_nlri data");
+				bgp_adj_out_remove_subgroup(dest, adj, subgrp);
+				continue;
+			}
+
+			num_pfx++;
+
+			if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " send UPDATE BGP-LS NLRI -- unreachable",
+					   subgrp->update_group->id, subgrp->id);
+
+			subgrp->scount--;
+			bgp_adj_out_remove_subgroup(dest, adj, subgrp);
+			continue;
+		}
+
 		if (afi == AFI_IP && safi == SAFI_UNICAST
 		    && !peer_cap_enhe(peer, afi, safi))
 			bgp_attr_stream_put_prefix_addpath(s, dest_p, addpath_capable,
@@ -1010,6 +1095,13 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 			if (dest->pdest)
 				prd = (struct prefix_rd *)bgp_dest_get_prefix(
 					dest->pdest);
+
+			if (safi == SAFI_BGP_LS) {
+				struct bgp_path_info *pi = bgp_dest_get_bgp_path_info(dest);
+
+				if (pi && pi->extra)
+					ls_nlri = pi->extra->ls_nlri;
+			}
 
 			/* If first time, format the MP_UNREACH header
 			 */
@@ -1042,9 +1134,8 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 					 iana_safi2str(pkt_safi));
 			}
 
-			bgp_packet_mpunreach_prefix(s, dest_p, afi, safi, prd,
-						    NULL, 0, addpath_capable,
-						    addpath_tx_id, NULL);
+			bgp_packet_mpunreach_prefix(s, dest_p, afi, safi, prd, NULL, 0,
+						    addpath_capable, addpath_tx_id, NULL, ls_nlri);
 		}
 
 		num_pfx++;
@@ -1184,7 +1275,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	stream_putw(s, 0);
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi, safi, from,
 					      NULL, &label, num_labels, 0, addpath_capable,
-					      BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
+					      BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL, NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);
@@ -1281,9 +1372,8 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 		stream_putw(s, 0);
 		mp_start = stream_get_endp(s);
 		mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
-		bgp_packet_mpunreach_prefix(
-			s, &p, afi, safi, NULL, NULL, 0, addpath_capable,
-			BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
+		bgp_packet_mpunreach_prefix(s, &p, afi, safi, NULL, NULL, 0, addpath_capable,
+					    BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL, NULL);
 
 		/* Set the mp_unreach attr's length */
 		bgp_packet_mpunreach_end(s, mplen_pos);
