@@ -67,6 +67,28 @@ struct static_route_args {
 	const char *srv6_encap_behavior;
 };
 
+/* Reject invalid keywords interpreted as interface names */
+static bool staticd_ifname_invalid(const char *ifname)
+{
+	const char *const *cp;
+	static const char *const invalid_names[] = {
+		"tag",
+		"vrf",
+		"label",
+		"color",
+		"table",
+		"segments",
+		"nexthop-vrf",
+		NULL /*End sentinel*/
+	};
+
+	for (cp = invalid_names; cp != NULL && *cp != NULL; cp++)
+		if (strmatch(*cp, ifname))
+			return true;
+
+	return false;
+}
+
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 {
 	int ret;
@@ -115,10 +137,17 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	if (args->nexthop_vrf == NULL)
 		args->nexthop_vrf = args->vrf;
 
-	if (args->interface_name &&
-	    !strcasecmp(args->interface_name, "Null0")) {
-		args->flag = "Null0";
-		args->interface_name = NULL;
+	/* Interface token validation */
+	if (args->interface_name) {
+		if (strcasecmp(args->interface_name, "Null0") == 0) {
+			args->flag = "Null0";
+			args->interface_name = NULL;
+		} else if (staticd_ifname_invalid(args->interface_name)) {
+			/* Check for prohibited keywords as ifname */
+			vty_out(vty, "%% Invalid interface name %s\n",
+				args->interface_name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	assert(!!str2prefix(args->prefix, &p));
