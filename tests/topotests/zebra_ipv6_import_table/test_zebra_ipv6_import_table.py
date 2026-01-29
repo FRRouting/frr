@@ -33,7 +33,7 @@ TOPOLOGY = """
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-pytestmark = [pytest.mark.staticd, pytest.mark.zebra]
+pytestmark = [pytest.mark.staticd]
 krel = platform.release()
 
 def build_topo(tgen):
