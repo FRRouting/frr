@@ -325,6 +325,29 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	return sid;
 }
 
+bool path_is_ted_enabled(void)
+{
+	return ted_state_g.enabled;
+}
+
+uint32_t path_ted_mpls_te_off(void)
+{
+	if (!ted_state_g.enabled) {
+		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
+		return 0;
+	}
+
+	/* Remove TED */
+	ls_ted_del_all(&ted_state_g.ted);
+	ted_state_g.enabled = false;
+	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
+	ted_state_g.import = IMPORT_UNKNOWN;
+	if (ls_unregister(pathd_zclient, false /*client*/) != 0)
+		return 1;
+
+	return 0;
+}
+
 DEFPY (debug_path_ted,
        debug_path_ted_cmd,
        "[no] debug pathd mpls-te",
@@ -372,17 +395,7 @@ DEFUN (no_path_ted,
        "Disable the TE Database functionality\n")
 /* clang-format on */
 {
-	if (!ted_state_g.enabled) {
-		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
-		return CMD_SUCCESS;
-	}
-
-	/* Remove TED */
-	ls_ted_del_all(&ted_state_g.ted);
-	ted_state_g.enabled = false;
-	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
-	ted_state_g.import = IMPORT_UNKNOWN;
-	if (ls_unregister(pathd_zclient, false /*client*/) != 0) {
+	if (path_ted_mpls_te_off() == 1) {
 		vty_out(vty, "Unable to unregister Link State\n");
 		return CMD_WARNING;
 	}

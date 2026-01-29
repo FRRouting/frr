@@ -21,7 +21,16 @@
 
 DECLARE_MGROUP(PATHD);
 
+/*
+ * If config is not empty, pathd_srte_check_config_not_empty must
+ * return 1, otherwise - 0. If no hook subscribers return 1 and there is no
+ * configuration in pathd, headers `segment-routing/traffic-eng` won't be
+ * output for `write` command and `pathd_srte_config_write` won't be called.
+ */
+DECLARE_HOOK(pathd_srte_check_config_not_empty, (), ());
 DECLARE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
+/* Sent when user requests 'no traffic-eng', please clean configuration */
+DECLARE_HOOK(pathd_srte_no_srte, (), ());
 
 enum srte_protocol_origin {
 	SRTE_ORIGIN_UNDEFINED = 0,
