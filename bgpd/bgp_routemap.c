@@ -2694,7 +2694,7 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 	const char *replace = rule;
 	struct bgp_path_info *path = object;
 	as_t replace_asn = 0;
-	as_t configured_asn;
+	as_t configured_asn = 0;
 	char *buf;
 	char src_asn[ASN_STRING_MAX_SIZE];
 	char *acl_list_name = NULL;
@@ -3250,8 +3250,8 @@ route_set_ecommunity_delete(void *rule, const struct prefix *prefix,
 static void *route_set_ecommunity_delete_compile(const char *arg)
 {
 	struct rmap_community *rcom;
-	char **splits;
-	int num;
+	char **splits = NULL;
+	int num = 0;
 
 	frrstr_split(arg, " ", &splits, &num);
 

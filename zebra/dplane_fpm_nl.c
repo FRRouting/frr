@@ -584,7 +584,7 @@ static void fpm_read(struct event *t)
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	fpm_msg_hdr_t fpm;
 	ssize_t rv;
-	char buf[65535];
+	char buf[65535] = { 0 };
 	struct nlmsghdr *hdr;
 	struct zebra_dplane_ctx *ctx;
 	size_t available_bytes;

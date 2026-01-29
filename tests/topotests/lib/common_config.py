@@ -1691,8 +1691,6 @@ def generate_ips(network, no_of_ips):
                 return ipaddress_list
             start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
             step = 2 ** (128 - mask)
-        else:
-            return []
 
         next_ip = start_ip
         count = 0

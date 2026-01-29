@@ -2272,7 +2272,7 @@ static bool evpn_mh_dnode_to_esi(const struct lyd_node *dnode, esi_t *esi)
 			assert(false);
 	} else if (yang_dnode_exists(dnode, "type-3/system-mac") &&
 		   yang_dnode_exists(dnode, "type-3/local-discriminator")) {
-		struct ethaddr mac;
+		struct ethaddr mac = { 0 };
 		uint32_t lid;
 
 		yang_dnode_get_mac(&mac, dnode, "type-3/system-mac");
@@ -2422,7 +2422,7 @@ int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct ethaddr mac;
+	struct ethaddr mac = { 0 };
 
 	yang_dnode_get_mac(&mac, args->dnode, NULL);
 
