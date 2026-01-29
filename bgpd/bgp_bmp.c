@@ -3418,7 +3418,6 @@ static int bgp_bmp_init(struct event_loop *tm)
 
 	install_element(VIEW_NODE, &show_bmp_cmd);
 
-	resolver_init(tm);
 	return 0;
 }
 
