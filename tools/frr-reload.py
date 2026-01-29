@@ -1802,13 +1802,15 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            elif running_ctx_keys[0].startswith("interface"):
-                lines_to_del.append((running_ctx_keys, None))
-
-            # We cannot do 'no vrf' in FRR, and so deal with it
-            elif running_ctx_keys[0].startswith("vrf") or running_ctx_keys[
-                0
-            ].startswith("router pim"):
+            # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
+            # If we try 'no interface' for still active interface, FRR tries to delete it and fails.
+            # All commands under 'interface' section MUST support 'no' commands and exit silently
+            # without errors if interface is deleted
+            elif (
+                running_ctx_keys[0].startswith("interface")
+                or running_ctx_keys[0].startswith("vrf")
+                or running_ctx_keys[0].startswith("router pim")
+            ):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
