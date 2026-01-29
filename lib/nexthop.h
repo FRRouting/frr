@@ -149,6 +149,8 @@ struct nexthop {
 	union {
 		vni_t vni;
 	} nh_encap;
+	/* use for LWT tunnel src field */
+	struct ipaddr nh_encap_src_ip;
 
 	/* EVPN router's MAC.
 	 * Don't support multiple RMAC from the same VTEP yet, so it's not
