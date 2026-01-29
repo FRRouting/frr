@@ -1,0 +1,101 @@
+{
+  "10.0.0.1/32": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "10.0.0.2/32": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "10.0.0.3/32": [
+    {
+      "protocol": "local",
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "lo",
+          "active": true
+        }
+      ]
+    },
+    {
+      "protocol": "connected",
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "lo",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "172.16.0.0/24": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "192.168.0.0/24": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "vrf10",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
