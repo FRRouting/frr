@@ -97,6 +97,41 @@ def test_bgp_remote_as_auto():
     assert result is None, "Can't see separate update-groups"
 
 
+def test_bgp_update_groups_timer_json():
+    """
+    Test that 'show bgp update-groups json' includes the new time fields:
+    grpCreateTimerMsecs and subGrpCreateTimerMsecs in dd:hh:mm:ss format.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def _check_timer_fields():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast update-groups json"))
+
+        # Check that at least one update-group has the new timer fields
+        for updgrp_id in output.get("default", {}).keys():
+            updgrp = output["default"][updgrp_id]
+
+            # Check grpCreateTimerMsecs exists and matches dd:hh:mm:ss format
+            if "grpCreateTimerMsecs" not in updgrp:
+                return "grpCreateTimerMsecs not found in update-group"
+
+            # Check subGroup has subGrpCreateTimerMsecs
+            for subgrp in updgrp.get("subGroup", []):
+                if "subGrpCreateTimerMsecs" not in subgrp:
+                    return "subGrpCreateTimerMsecs not found in sub-group"
+
+        return None
+
+    test_func = functools.partial(_check_timer_fields)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"Timer fields missing in update-groups JSON: {result}"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
