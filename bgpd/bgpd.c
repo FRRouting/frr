@@ -496,15 +496,39 @@ void bm_wait_for_fib_set(bool set)
 void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 {
 	bool send_msg = false;
+	bool is_retry = false;
 	struct peer *peer;
 	struct listnode *node;
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return;
 
-	/* Do nothing if already in a desired state */
-	if (set == !!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+	/* Check if this is a retry of a previously deferred operation */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED)) {
+		is_retry = true;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED);
+	}
+
+	/* Do nothing if already in a desired state, unless this is a retry */
+	if (!is_retry && set == !!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
 		return;
+
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
+		/* Socket not ready - mark operation as failed */
+		if (set)
+			SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED);
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_info("%s: OP_DEFERRED bgp=%s %s zclient=%p sock=%d", __func__,
+				  bgp->name_pretty, set ? "enable" : "disable", bgp_zclient,
+				  bgp_zclient ? bgp_zclient->sock : -1);
+
+		return;
+	}
 
 	if (set) {
 		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
@@ -516,7 +540,8 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 		bgp_suppress_fib_count++;
 	} else {
 		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
-		bgp_suppress_fib_count--;
+		if (bgp_suppress_fib_count > 0)
+			bgp_suppress_fib_count--;
 
 		/* Send msg to zebra if there are no instances enabled
 		 * with suppress fib
@@ -529,9 +554,7 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Sending ZEBRA_ROUTE_NOTIFY_REQUEST");
 
-		if (bgp_zclient)
-			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
-					bgp_zclient, set);
+		zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, bgp_zclient, set);
 	}
 
 	/*
@@ -547,6 +570,30 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 			continue;
 
 		peer_notify_config_change(peer->connection);
+	}
+}
+
+/* Retry suppress-fib-pending configuration when Zebra connection is established
+ * This handles the race condition where config is applied before BGP-Zebra connection is ready
+ */
+void bgp_zebra_suppress_fib_pending_config_retry(void)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		/* Skip if no deferred operation pending for this bgp instance */
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED))
+			continue;
+
+		bool desired_enable = CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_info("%s: RETRY Executing deferred %s for bgp=%s bgp_suppress_fib_count=%d",
+				  __func__, desired_enable ? "enable" : "disable",
+				  bgp->name_pretty, bgp_suppress_fib_count);
+
+		bgp_suppress_fib_pending_set(bgp, desired_enable);
 	}
 }
 

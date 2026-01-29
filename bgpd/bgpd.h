@@ -711,6 +711,7 @@ struct bgp {
 #define BGP_FLAG_SHUTDOWN (1ULL << 25)
 #define BGP_FLAG_SUPPRESS_FIB_PENDING (1ULL << 26)
 #define BGP_FLAG_SUPPRESS_DUPLICATES (1ULL << 27)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED (1ULL << 28)
 #define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1ULL << 29)
 /* Indicate Graceful Restart support for BGP NOTIFICATION messages */
 #define BGP_FLAG_GRACEFUL_NOTIFICATION (1ULL << 30)
@@ -2710,6 +2711,8 @@ extern int peer_group_delete(struct peer_group *group);
 extern int peer_group_remote_as_delete(struct peer_group *group);
 extern int peer_group_listen_range_add(struct peer_group *group, struct prefix *range);
 extern void peer_group_notify_unconfig(struct peer_group *group);
+
+extern void bgp_zebra_suppress_fib_pending_config_retry(void);
 
 extern int peer_activate(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi);
