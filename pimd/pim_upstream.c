@@ -774,12 +774,29 @@ int pim_upstream_could_register(struct pim_upstream *up)
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* If FHR is set CouldRegister is True. Also check if the flow
 		 * is actually active; if it is not kat setup will trigger
 		 * source
 		 * registration whenever the flow becomes active. */
+
+		if (PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) &&
+		    !pim_iface_grp_dm(up->rpf.source_nexthop.interface->info, up->sg.grp)) {
+			zlog_info("Setting DM mroute %s to sparse", up->sg_str);
+			/* Upstream is both sparse and dense, unset dense flag */
+			PIM_UPSTREAM_DM_UNSET_INTERFACE(up->flags);
+			PIM_UPSTREAM_FLAG_SET_USE_RPT(up->flags);
+			PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(up->flags);
+			/* Clear out dense mode joins */
+			FOR_ALL_INTERFACES (pim->vrf, ifp) {
+				pim_ifp = ifp->info;
+				oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+			}
+		}
+
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
 			!pim_upstream_is_kat_running(up))
 			continue;
