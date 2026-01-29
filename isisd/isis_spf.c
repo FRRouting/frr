@@ -48,6 +48,7 @@
 #include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
+#include "isis_lfa.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE, "ISIS SPFtree");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
@@ -220,6 +221,8 @@ void isis_vertex_adj_free(void *arg)
 {
 	struct isis_vertex_adj *vadj = arg;
 
+	XFREE(MTYPE_ISIS_NEXTHOP_LABELS, vadj->label_stack);
+	XFREE(MTYPE_ISIS_SRV6_SEG_STACK, vadj->srv6_seg_stack);
 	XFREE(MTYPE_ISIS_VERTEX_ADJ, vadj);
 }
 
@@ -1561,8 +1564,10 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 				return;
 
 			adj = isis_adj_find(area, level, vertex->N.id);
-			if (adj)
+			if (adj && area->srdb.enabled)
 				sr_adj_sid_add_single(adj, spftree->family, true, vertex->Adj_N);
+			else if (adj && area->srv6db.config.enabled && adj->ll_ipv6_count > 0)
+				srv6_endx_sid_add_single(adj, true, vertex->Adj_N, NULL);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug("ISIS-SPF: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
 				   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
@@ -1910,7 +1915,10 @@ static void isis_run_spf_cb(struct event *event)
 		return;
 	}
 
-	isis_area_delete_backup_adj_sids(area, level);
+	if (area->srdb.config.enabled)
+		isis_area_delete_backup_adj_sids(area, level);
+	else if (area->srv6db.config.enabled)
+		isis_area_delete_backup_srv6_endx_sids(area, level);
 	isis_area_invalidate_routes(area, level);
 
 	if (IS_DEBUG_SPF_EVENTS)
@@ -2557,6 +2565,40 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
 }
 #endif /* ifndef FABRICD */
 
+/*
+ * Format nexthop labels (MPLS or SRv6) into a display string.
+ */
+static void isis_format_nexthop_labels(struct isis_nexthop *nexthop, char *buf, size_t size)
+{
+	buf[0] = '\0';
+
+	if (nexthop->label_stack) {
+		for (int i = 0; i < nexthop->label_stack->num_labels; i++) {
+			char buf_label[BUFSIZ];
+
+			label2str(nexthop->label_stack->label[i], 0, buf_label, sizeof(buf_label));
+			if (i != 0)
+				strlcat(buf, "/", size);
+			strlcat(buf, buf_label, size);
+		}
+	} else if (nexthop->srv6_seg_stack && nexthop->srv6_seg_stack->num_segs > 0) {
+		/* Display SRv6 segment stack */
+		for (int i = 0; i < nexthop->srv6_seg_stack->num_segs; i++) {
+			char buf_sid[INET6_ADDRSTRLEN];
+
+			inet_ntop(AF_INET6, &nexthop->srv6_seg_stack->segs[i], buf_sid,
+				  sizeof(buf_sid));
+			if (i != 0)
+				strlcat(buf, "/", size);
+			strlcat(buf, buf_sid, size);
+		}
+	} else if (nexthop->sr.present) {
+		label2str(nexthop->sr.label, 0, buf, size);
+	} else {
+		strlcpy(buf, "-", size);
+	}
+}
+
 static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			     struct isis_route_info *rinfo, bool prefix_sid, bool no_adjacencies,
 			     bool json)
@@ -2613,24 +2655,9 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 					ttable_add_row(tt, "||%s|%s|%s|%s|%d", buf_iface, buf_nhop,
 						       buf_sid, buf_lblop, alg);
 			} else {
-				char buf_labels[BUFSIZ] = {};
+				char buf_labels[BUFSIZ];
 
-				if (nexthop->label_stack) {
-					for (int i = 0; i < nexthop->label_stack->num_labels; i++) {
-						char buf_label[BUFSIZ];
-
-						label2str(nexthop->label_stack->label[i], 0,
-							  buf_label, sizeof(buf_label));
-						if (i != 0)
-							strlcat(buf_labels, "/",
-								sizeof(buf_labels));
-						strlcat(buf_labels, buf_label, sizeof(buf_labels));
-					}
-				} else if (nexthop->sr.present)
-					label2str(nexthop->sr.label, 0, buf_labels,
-						  sizeof(buf_labels));
-				else
-					strlcpy(buf_labels, "-", sizeof(buf_labels));
+				isis_format_nexthop_labels(nexthop, buf_labels, sizeof(buf_labels));
 
 				if (first || json) {
 					ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,

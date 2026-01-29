@@ -2268,6 +2268,32 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		zebra_rib_route_entry_free(re);
 	}
 
+	/*
+	 * Track seg6local routes for fast reroute.
+	 * If the route has a seg6local nexthop with backup info,
+	 * register it for fast switchover when interface goes down.
+	 */
+	if (ret >= 0 && api.prefix.family == AF_INET6) {
+		uint16_t i;
+
+		for (i = 0; i < api.nexthop_num; i++) {
+			struct zapi_nexthop *znh = &api.nexthops[i];
+
+			if (znh->seg6local_action !=
+				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC &&
+			    znh->seg6local_ctx.has_backup) {
+				zebra_seg6local_route_track(
+					(struct prefix_ipv6 *)&api.prefix,
+					vrf_id,
+					api.tableid ? api.tableid
+						    : zvrf->table_id,
+					znh->seg6local_action,
+					&znh->seg6local_ctx, api.type,
+					api.instance);
+			}
+		}
+	}
+
 	/* At this point, these allocations are not needed: 're' has been
 	 * retained or freed, and if 're' still exists, it is using
 	 * a reference to a shared group object.
@@ -2339,6 +2365,11 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
 		   api.distance, false);
+
+	/* Untrack seg6local routes for fast reroute */
+	if (api.prefix.family == AF_INET6)
+		zebra_seg6local_route_untrack((struct prefix_ipv6 *)&api.prefix,
+					      zvrf_id(zvrf), table_id);
 
 	/* Stats */
 	switch (api.prefix.family) {

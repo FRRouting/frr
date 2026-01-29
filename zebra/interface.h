@@ -21,6 +21,7 @@
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
+#include "zebra/zebra_srv6.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -209,6 +210,25 @@ struct zebra_if {
 
 	/* The description of the interface */
 	char *desc;
+
+	/*
+	 * SRv6 seg6local routes using this interface as primary nexthop.
+	 * Used for fast reroute when interface goes down.
+	 */
+	struct zebra_seg6local_route_list_head seg6local_primary_routes;
+
+	/*
+	 * SRv6 seg6local routes using this interface as backup nexthop.
+	 * Used for fast revert when interface comes back up.
+	 */
+	struct zebra_seg6local_route_backup_list_head seg6local_backup_routes;
+
+	/*
+	 * Grace delay timer for reverting seg6local routes to primary.
+	 * When interface comes up, we wait for this timer before reverting
+	 * to avoid flapping if the interface is unstable.
+	 */
+	struct event *seg6local_grace_timer;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),
