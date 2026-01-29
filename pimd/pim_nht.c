@@ -1200,10 +1200,42 @@ static bool pim_ecmp_nexthop_search(struct pim_instance *pim, struct pim_nexthop
 
 		if (neighbor_needed && !pim_if_connected_to_source(ifp, src)) {
 #if PIM_IPV == 4
-			nbr = pim_neighbor_find(ifp, nh_node->gate.ipv4, true);
+			pim_addr nhaddr = nh_node->gate.ipv4;
 #else
-			nbr = pim_neighbor_find(ifp, nh_node->gate.ipv6, true);
+			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
+			/*
+			 * Nexthop handling is not proper during link up/down events.
+			 * When BGP converges, (IPv4 over IPv6 link-local) NHT updates
+			 * arrive with NEXTHOP_TYPE_IPV6_IFINDEX. If the PIM neighbor is
+			 * not yet UP when the NHT update arrives, the nexthop cache gets
+			 * updated with gate.ipv4 = 0.0.0.0.
+			 *
+			 * During interface UP flow, this 0.0.0.0 causes all subsequent
+			 * RPF lookups to fail because pim_neighbor_find() cannot find a
+			 * neighbor at 0.0.0.0, even though a valid PIM neighbor may now
+			 * exist on the interface. So, we need to do a fresh lookup for
+			 * any PIM neighbor on the interface and update the gate.ipv4.
+			 */
+			if (pim_addr_is_any(nhaddr)) {
+				struct pim_neighbor *fresh_nbr;
+
+				fresh_nbr = pim_neighbor_find_if(ifp);
+				if (fresh_nbr) {
+					nhaddr = fresh_nbr->source_addr;
+					/* Update the cache so future lookups succeed */
+#if PIM_IPV == 4
+					nh_node->gate.ipv4 = nhaddr;
+#else
+					nh_node->gate.ipv6 = nhaddr;
+#endif
+					if (PIM_DEBUG_PIM_NHT)
+						zlog_debug("%s: NHT %pPA nexthop update on interface %s, refreshed gate to %pPA",
+							   __func__, &src, ifp->name, &nhaddr);
+				}
+			}
+
+			nbr = pim_neighbor_find(ifp, nhaddr, true);
 
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (PIM_DEBUG_PIM_NHT)
