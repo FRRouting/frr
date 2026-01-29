@@ -46,6 +46,7 @@ Following tests are covered:
     statements.
 """
 
+import json
 import os
 import sys
 import pytest
@@ -2211,6 +2212,74 @@ def test_large_community_lists_with_rmap_match_regex(request):
             "Testcase {} : Failed \n "
             "largeCommunity is still present \n Error: {}".format(tc_name, result)
         )
+
+    write_test_footer(tc_name)
+
+
+def test_comm_attri_sent_to_nbr_includes_large(request):
+    """
+    Test that commAttriSentToNbr JSON field in 'show bgp neighbors json'
+    correctly includes 'large' when send-community large is enabled (default).
+
+    By default, send-community large is ON for all neighbors.
+    The JSON output should reflect this in the commAttriSentToNbr field.
+
+    Bug: commAttriSentToNbr only shows 'extendedAndStandard' (missing 'large')
+    Expected: commAttriSentToNbr should contain 'large'
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Verify BGP convergence")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Get neighbor IP for r1's connection to r2")
+    # Get the neighbor IP address from topology
+    r1_r2_link = topo["routers"]["r1"]["links"]["r2"]
+    r2_r1_link = topo["routers"]["r2"]["links"]["r1"]
+    neighbor_ip = r2_r1_link["ipv4"].split("/")[0]
+
+    step("Check commAttriSentToNbr in show bgp neighbors json output")
+    router = tgen.gears["r1"]
+    output = router.vtysh_cmd(f"show bgp neighbors {neighbor_ip} json")
+    neighbor_json = json.loads(output)
+
+    # Get address family info
+    neighbor_info = neighbor_json.get(neighbor_ip, {})
+    addr_family_info = neighbor_info.get("addressFamilyInfo", {})
+    ipv4_info = addr_family_info.get("ipv4Unicast", {})
+    comm_attri = ipv4_info.get("commAttriSentToNbr", "")
+
+    step(f"Verify commAttriSentToNbr contains 'large': got '{comm_attri}'")
+
+    # Verify that 'large' is present in commAttriSentToNbr
+    # Default config has send-community large ON
+    assert "large" in comm_attri.lower(), (
+        "Testcase {} : Failed \n"
+        "commAttriSentToNbr should include 'large' community but got: '{}'. "
+        "This indicates the bug where large community is not shown in JSON output "
+        "even though send-community large is enabled by default.".format(tc_name, comm_attri)
+    )
+
+    # Also verify standard and extended are present (they are also on by default)
+    assert "standard" in comm_attri.lower(), (
+        "Testcase {} : Failed \n"
+        "commAttriSentToNbr should include 'standard' but got: '{}'".format(tc_name, comm_attri)
+    )
+    assert "extended" in comm_attri.lower(), (
+        "Testcase {} : Failed \n"
+        "commAttriSentToNbr should include 'extended' but got: '{}'".format(tc_name, comm_attri)
+    )
 
     write_test_footer(tc_name)
 
