@@ -3417,19 +3417,78 @@ DEFUN (vtysh_show_history,
 	return CMD_SUCCESS;
 }
 
+/* A helper function that is needed because we need to send
+ * the "show memory json" command to multiple daemons and
+ * collate the results, especially in JSON format.
+ * Without this helper, each daemon would print its own
+ * JSON object, leading to invalid JSON output.
+ */
+static void show_memory_json_send(const char *daemon)
+{
+	unsigned int i;
+	bool first = true;
+	char command_line[128];
+
+	snprintf(command_line, sizeof(command_line), "do show memory json");
+
+	vty_out(gvty, "{");
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		const struct vtysh_client *client = &vtysh_client[i];
+		bool is_connected = true;
+
+		if (daemon && !strmatch(daemon, vtysh_client[i].name))
+			continue;
+
+		for (; client; client = client->next)
+			if (client->fd < 0)
+				is_connected = false;
+
+		if (!is_connected)
+			continue;
+
+		if (!first)
+			vty_out(gvty, ",");
+		else
+			first = false;
+
+		vty_out(gvty, "\"%s\":", vtysh_client[i].name);
+
+		vtysh_client_execute_name(vtysh_client[i].name, command_line);
+	}
+
+	vty_out(gvty, "}\n");
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
-       "show memory [" DAEMONS_LIST "]",
+       "show memory [" DAEMONS_LIST "] [json]",
        SHOW_STR
        "Memory statistics\n"
-       DAEMONS_STR)
+       DAEMONS_STR
+       JSON_STR)
 {
-	if (argc == 3)
-		return show_one_daemon(vty, argv, argc - 1,
-				       argv[argc - 1]->text);
+	int json_idx = 0;
 
-	return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
+	/* Non JSON commands - no functional change. */
+	if (!argv_find(argv, argc, "json", &json_idx)) {
+		if (argc == 3)
+			return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+
+		return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
+	}
+
+	/* E.g., `show memory bgpd json` */
+	if (argc == 4) {
+		argc--;
+		show_memory_json_send(argv[argc - 1]->text);
+	} else {
+		/* E.g., `show memory json` */
+		show_memory_json_send(NULL);
+	}
+
+	return CMD_SUCCESS;
 }
 
 /*
