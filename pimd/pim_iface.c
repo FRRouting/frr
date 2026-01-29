@@ -2089,6 +2089,9 @@ void pim_gm_interface_delete(struct interface *ifp)
 
 	pim_if_membership_clear(ifp);
 
+	/* Delete the IGMP/MLD Static joins */
+	pim_if_gm_join_del_all(ifp);
+
 #if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
 #else
