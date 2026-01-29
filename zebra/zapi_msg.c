@@ -1274,8 +1274,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, resolve_via_default);
 		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
-		STREAM_GETC(s, p.prefixlen);
-		l += 7;
+		STREAM_GETW(s, p.prefixlen);
+		l += 8;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1368,8 +1368,8 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 
 		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
-		STREAM_GETC(s, p.prefixlen);
-		l += 7;
+		STREAM_GETW(s, p.prefixlen);
+		l += 8;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_rem_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
