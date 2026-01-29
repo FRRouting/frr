@@ -14,6 +14,7 @@
 #include "linklist.h"
 #include "log.h"
 #include "memory.h"
+#include "zebra/zebra_memory.h"
 #include "mpls.h"
 #include "nexthop.h"
 #include "prefix.h"

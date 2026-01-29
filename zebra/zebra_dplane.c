@@ -29,6 +29,7 @@
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
 #include "printfrr.h"
+#include "zebra/zebra_memory.h"
 
 /* Memory types */
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx");

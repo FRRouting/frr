@@ -14,6 +14,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "memory.h"
+#include "zebra/zebra_memory.h"
 #include "srcdest_table.h"
 #include "vrf.h"
 #include "vty.h"

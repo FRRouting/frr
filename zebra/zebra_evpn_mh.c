@@ -15,6 +15,7 @@
 #include "linklist.h"
 #include "log.h"
 #include "memory.h"
+#include "zebra/zebra_memory.h"
 #include "prefix.h"
 #include "stream.h"
 #include "table.h"

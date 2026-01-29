@@ -8,6 +8,8 @@
 
 #include <zebra.h>
 
+#include "zebra/zebra_memory.h"
+
 #ifdef GNU_LINUX
 #include <linux/rtnetlink.h>
 #endif

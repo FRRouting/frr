@@ -10,6 +10,7 @@
 #include "lib/vrf.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
+#include "zebra/zebra_memory.h"
 
 #include "zebra_ns.h"
 #include "zebra_vrf.h"
