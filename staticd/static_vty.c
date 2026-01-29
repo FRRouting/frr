@@ -58,6 +58,7 @@ struct static_route_args {
 	const char *label;
 	const char *table;
 	const char *color;
+	const char *desc;
 
 	bool bfd;
 	bool bfd_multi_hop;
@@ -97,6 +98,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	const struct lyd_node *dnode;
 	const struct lyd_node *vrf_dnode;
 	const char *srv6_encap_behavior = "ietf-srv6-types:H.Encaps";
+	const size_t DESC_MAXLEN = 80;
 
 	if (args->xpath_vrf) {
 		vrf_dnode = yang_dnode_get(vty->candidate_config->dnode,
@@ -227,6 +229,19 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TAG_XPATH,
 			sizeof(ab_xpath));
 		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
+
+		/* Description processing */
+		if (args->desc) {
+			if (strlen(args->desc) > DESC_MAXLEN) {
+				vty_out(vty, "%% Description too long (Max %lu characters)\n",
+					DESC_MAXLEN);
+				return CMD_WARNING;
+			}
+			strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
+			strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_DESCRIPTION_XPATH,
+				sizeof(ab_xpath));
+			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->desc);
+		}
 
 		/* nexthop processing */
 
@@ -477,10 +492,12 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
-       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
-       "(1-255)$distance"
-       "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
-       "}]",
+       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname>  \
+	   [{ \
+       (1-255)$distance \
+       |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	   |description LINE$desc_str \
+       }]",
        NO_STR
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
@@ -493,7 +510,9 @@ DEFPY_YANG (ip_mroute_dist,
        BFD_INTEGRATION_SOURCE_STR
        BFD_INTEGRATION_SOURCEV4_STR
        BFD_PROFILE_STR
-       BFD_PROFILE_NAME_STR)
+       BFD_PROFILE_NAME_STR
+	   "Set description for this route\n"
+	   "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -507,6 +526,7 @@ DEFPY_YANG (ip_mroute_dist,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -523,7 +543,8 @@ DEFPY_YANG(ip_route_blackhole,
 	  |(1-255)$distance                                                   \
 	  |vrf NAME                                                           \
 	  |label WORD                                                         \
-          |table (1-4294967295)                                               \
+      |table (1-4294967295)                                               \
+	  |description LINE$desc_str                                          \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -538,7 +559,9 @@ DEFPY_YANG(ip_route_blackhole,
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
-      "The table number to configure\n")
+      "The table number to configure\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -552,6 +575,7 @@ DEFPY_YANG(ip_route_blackhole,
 		.label = label,
 		.table = table_str,
 		.vrf = vrf,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -567,6 +591,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	  |(1-255)$distance                                                   \
 	  |label WORD                                                         \
 	  |table (1-4294967295)                                               \
+	  |description LINE$desc_str                                          \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -580,7 +605,9 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "Distance value for this route\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
-      "The table number to configure\n")
+      "The table number to configure\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -594,6 +621,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 		.label = label,
 		.table = table_str,
 		.xpath_vrf = true,
+		.desc = desc_str,
 	};
 
 	/*
@@ -623,6 +651,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+	  |description LINE$desc_str                   \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -654,7 +683,9 @@ DEFPY_YANG(ip_route_address_interface,
       "SRv6 SID list\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -678,6 +709,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -699,6 +731,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+	  |description LINE$desc_str                   \
 	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -729,7 +762,9 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       "SRv6 SID list\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -753,6 +788,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -773,6 +809,7 @@ DEFPY_YANG(ip_route,
 	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+	  |description LINE$desc_str                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -803,7 +840,9 @@ DEFPY_YANG(ip_route,
       "SRv6 SID list\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -826,6 +865,7 @@ DEFPY_YANG(ip_route,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -845,6 +885,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+	  |description LINE$desc_str                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -874,7 +915,9 @@ DEFPY_YANG(ip_route_vrf,
       "SRv6 SID list\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -897,6 +940,7 @@ DEFPY_YANG(ip_route_vrf,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -912,6 +956,7 @@ DEFPY_YANG(ipv6_route_blackhole,
             |vrf NAME                                      \
             |label WORD                                    \
             |table (1-4294967295)                          \
+			|description LINE$desc_str                     \
           }]",
       NO_STR
       IPV6_STR
@@ -927,7 +972,9 @@ DEFPY_YANG(ipv6_route_blackhole,
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
-      "The table number to configure\n")
+      "The table number to configure\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -941,6 +988,7 @@ DEFPY_YANG(ipv6_route_blackhole,
 		.label = label,
 		.table = table_str,
 		.vrf = vrf,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -955,6 +1003,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
             |(1-255)$distance                              \
             |label WORD                                    \
             |table (1-4294967295)                          \
+			|description LINE$desc_str                     \
           }]",
       NO_STR
       IPV6_STR
@@ -969,7 +1018,9 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "Distance value for this prefix\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
-      "The table number to configure\n")
+      "The table number to configure\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -983,6 +1034,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 		.label = label,
 		.table = table_str,
 		.xpath_vrf = true,
+		.desc = desc_str,
 	};
 
 	/*
@@ -1010,6 +1062,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
 		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+		|description LINE$desc_str                       \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1033,7 +1086,9 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "Segs (SIDs)\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1057,6 +1112,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1077,6 +1133,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
 		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+		|description LINE$desc_str                       \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1100,7 +1157,9 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "Segs (SIDs)\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1124,6 +1183,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1142,6 +1202,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
             |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
 			|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+			|description LINE$desc_str                     \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1163,7 +1224,9 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "Segs (SIDs)\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1186,6 +1249,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 
 	};
 
@@ -1204,6 +1268,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
 		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
+		|description LINE$desc_str                       \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1225,7 +1290,9 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "Segs (SIDs)\n"
 	  "Configure SRv6 encap mode\n"
 	  "H.Encaps\n"
-	  "H.Encaps.Red\n")
+	  "H.Encaps.Red\n"
+	  "Set description for this route\n"
+	  "Description\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1248,6 +1315,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
 		.srv6_encap_behavior = encap_behavior,
+		.desc = desc_str,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1551,6 +1619,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	uint32_t table_id;
 	struct prefix src_prefix;
 	bool onlink;
+	const char *desc;
 
 	vrf = yang_dnode_get_string(route, "../../vrf");
 
@@ -1677,6 +1746,10 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 		if (yang_dnode_exists(bfd_dnode, "profile"))
 			vty_out(vty, " profile %s",
 				yang_dnode_get_string(bfd_dnode, "profile"));
+	}
+	if (yang_dnode_exists(path, "description")) {
+		desc = yang_dnode_get_string(path, "description");
+		vty_out(vty, " description %s", desc);
 	}
 
 	vty_out(vty, "\n");

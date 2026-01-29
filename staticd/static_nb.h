@@ -29,6 +29,12 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_description_modify(
+	struct nb_cb_modify_args *args);
+void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_description_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_description_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy(
@@ -151,6 +157,8 @@ int routing_control_plane_protocols_name_validate(
 
 
 #define FRR_STATIC_ROUTE_PATH_TAG_XPATH "/tag"
+
+#define FRR_STATIC_ROUTE_PATH_DESCRIPTION_XPATH "/description"
 
 /* route-list/frr-nexthops */
 #define FRR_STATIC_ROUTE_NH_KEY_XPATH                                          \
