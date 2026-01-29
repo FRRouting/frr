@@ -25,6 +25,7 @@
 #include "defaults.h"
 #include "lib_vty.h"
 #include "northbound_cli.h"
+#include "json.h"
 
 /* Looking up memory status from vty interface. */
 #include "vector.h"
@@ -79,6 +80,11 @@ static int show_memory_mallinfo(struct vty *vty)
 }
 #endif /* HAVE_MALLINFO */
 
+struct qmem_walk_json_arg {
+	struct json_object *json;
+	struct json_object *current_group;
+};
+
 static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 {
 	struct vty *vty = arg;
@@ -126,18 +132,64 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 	return 0;
 }
 
+static int qmem_walker_json(void *arg, struct memgroup *mg, struct memtype *mt)
+{
+	struct qmem_walk_json_arg *jarg = arg;
+
+	if (!mt) {
+		jarg->current_group = json_object_new_array();
+		json_object_object_add(jarg->json, mg->name, jarg->current_group);
+	} else {
+		if (mt->n_max != 0) {
+			struct json_object *jmt = json_object_new_object();
+
+			json_object_string_add(jmt, "name", mt->name);
+			json_object_int_add(jmt, "currentAllocations", mt->n_alloc);
+			json_object_boolean_add(jmt, "sizeVariable", mt->size == SIZE_VAR);
+			json_object_int_add(jmt, "size", mt->size);
+
+#ifdef HAVE_MALLOC_USABLE_SIZE
+			json_object_int_add(jmt, "totalBytes", mt->total);
+#endif
+			json_object_int_add(jmt, "maxAllocations", mt->n_max);
+#ifdef HAVE_MALLOC_USABLE_SIZE
+			json_object_int_add(jmt, "maxBytes", mt->max_size);
+#endif
+
+			json_object_array_add(jarg->current_group, jmt);
+		}
+	}
+	return 0;
+}
+
 
 DEFUN_NOSH (show_memory,
 	    show_memory_cmd,
-	    "show memory",
+	    "show memory [json]",
 	    "Show running system information\n"
-	    "Memory statistics\n")
+	    "Memory statistics\n"
+	    JSON_STR)
 {
+	bool uj = use_json(argc, argv);
+	struct json_object *json = NULL;
+	struct qmem_walk_json_arg jarg;
+
+	if (uj) {
+		json = json_object_new_object();
+
+		jarg.json = json;
+		jarg.current_group = NULL;
+		qmem_walk(qmem_walker_json, &jarg);
+
+		vty_json(vty, json);
+	} else {
 #ifdef HAVE_MALLINFO
-	show_memory_mallinfo(vty);
+		show_memory_mallinfo(vty);
 #endif /* HAVE_MALLINFO */
 
-	qmem_walk(qmem_walker, vty);
+		qmem_walk(qmem_walker, vty);
+	}
+
 	return CMD_SUCCESS;
 }
 

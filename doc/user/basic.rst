@@ -572,7 +572,7 @@ Terminal Mode Commands
 
    Shows the current log filters applied to each daemon.
 
-.. clicmd:: show memory [DAEMON]
+.. clicmd:: show memory [DAEMON] [json]
 
    Show information on how much memory is used for which specific things in
    |PACKAGE_NAME|.  Output may vary depending on system capabilities but will
@@ -632,6 +632,9 @@ Terminal Mode Commands
    When executing this command from ``vtysh``, each of the daemons' memory
    usage is printed sequentially. You can specify the daemon's name to print
    only its memory usage.
+
+   If ``json`` is specified, the output is formatted as JSON data for easier
+   parsing by external tools.
 
 .. clicmd:: show motd
 
