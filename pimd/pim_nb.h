@@ -298,6 +298,9 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 		struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_last_member_query_interval_modify(
 		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_last_member_query_count_modify(struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_last_member_query_count_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_gmp_address_family_robustness_variable_modify(
 		struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_join_group_create(

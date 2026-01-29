@@ -343,6 +343,17 @@ static void pim_igmp_other_querier_expire(struct event *t)
 			       sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s resuming", __func__, ifaddr_str);
 	}
+
+	/*
+	 * Adjust the querier robustness value to our own configuration if the
+	 * other querier is no longer present.
+	 */
+	if (igmp->t_other_querier_timer == NULL) {
+		struct pim_interface *pim_ifp = igmp->interface->info;
+
+		igmp->querier_robustness_variable = pim_ifp->gm_default_robustness_variable;
+	}
+
 	/* Mark the interface address as querier address */
 	igmp->querier_addr = igmp->ifaddr;
 
