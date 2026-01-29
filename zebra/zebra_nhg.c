@@ -508,6 +508,8 @@ uint32_t zebra_nhg_id_key(const void *arg)
 static bool nhg_compare_nexthops(const struct nexthop *nh1,
 				 const struct nexthop *nh2)
 {
+	bool nh1_ifdown, nh2_ifdown;
+
 	assert(nh1 != NULL && nh2 != NULL);
 
 	/*
@@ -533,11 +535,31 @@ static bool nhg_compare_nexthops(const struct nexthop *nh1,
 	 * Without checking each individual one, they would hash to
 	 * the same group and both have 1.1.1.1 dummy1 marked inactive.
 	 *
+	 * However, when nexthops are inactive due to interface down
+	 * (NEXTHOP_FLAG_IFDOWN), we can allow NHG reuse since all routes
+	 * using that interface will see the same inactive state. The rules:
+	 *
+	 * 1. If IFDOWN flags differ -> no match (different inactive reasons)
+	 * 2. If both have IFDOWN -> match (same reason, ignore active flag)
+	 * 3. If neither has IFDOWN -> require active status to match
 	 */
+	nh1_ifdown = CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_IFDOWN);
+	nh2_ifdown = CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_IFDOWN);
+
+	/* Rule 1: IFDOWN flags must match */
+	if (nh1_ifdown != nh2_ifdown)
+		return false;
+
+	/* Rule 2: If both have IFDOWN, skip active check (same reason) */
+	if (nh1_ifdown && nh2_ifdown)
+		goto check_nexthop_same;
+
+	/* Rule 3: Neither has IFDOWN - require active status to match */
 	if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_ACTIVE)
 	    != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_ACTIVE))
 		return false;
 
+check_nexthop_same:
 	if (!nexthop_same(nh1, nh2))
 		return false;
 
@@ -1092,8 +1114,9 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 
 			while (nexthop) {
 				if (nexthop_same_no_weight(nexthop, nhe->nhg.nexthop)) {
-					/* Invalid Nexthop */
+					/* Invalid Nexthop - interface down */
 					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+					SET_FLAG(nexthop->flags, NEXTHOP_FLAG_IFDOWN);
 				} else {
 					/*
 					 * If other nexthops in the nexthop
@@ -1105,6 +1128,32 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 				}
 				nexthop = nexthop->next;
 			}
+
+			/*
+			 * If the dependent ECMP NHG is still valid (has other
+			 * active nexthops), trigger a kernel update so the
+			 * kernel receives the updated nexthop list without
+			 * the now-inactive nexthop.
+			 *
+			 * If not QUEUED: send update immediately.
+			 * If QUEUED: set REINSTALL so the dplane result handler
+			 * knows to send another update when the current one
+			 * completes.
+			 */
+			if (dependent_valid &&
+			    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
+				if (!CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+					enum zebra_dplane_result ret;
+
+					ret = dplane_nexthop_add(rb_node_dep->nhe);
+					if (ret == ZEBRA_DPLANE_REQUEST_QUEUED)
+						SET_FLAG(rb_node_dep->nhe->flags,
+							 NEXTHOP_GROUP_QUEUED);
+				} else {
+					/* Update in flight - mark for resend when done */
+					SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+				}
+			}
 		}
 		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
 	}
@@ -1115,10 +1164,17 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	bool valid = false;
 
-	/* Singleton means it has no depends and has only dependents */
-	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
+	/* Singleton means it has no depends and has only dependents.
+	 * Only modify nexthop flags if the interface is actually down.
+	 * This function is called from multiple contexts (interface down,
+	 * NHG cleanup), and we should only clear ACTIVE/FIB and set IFDOWN
+	 * when the nexthop is truly inactive due to interface state.
+	 */
+	if (ZEBRA_NHG_IS_SINGLETON(nhe) && nhe->ifp &&
+	    !if_is_operative(nhe->ifp)) {
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		SET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_IFDOWN);
 	}
 
 	/* If anything else in the group is valid, the group is valid */
@@ -2920,18 +2976,21 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		if (new_active)
 			counter++;
 
-		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED */
+		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED.
+		 * Only check ifindex/rmap_src changes when BOTH prev and new
+		 * are active. During nexthop processing, ifindex may be reset
+		 * to 0 and rmap_src is zeroed, which would falsely trigger
+		 * route updates if we checked them for inactive nexthops.
+		 */
 		if (prev_active != new_active ||
-		    prev_index != nexthop->ifindex ||
-		    ((nexthop->type >= NEXTHOP_TYPE_IFINDEX &&
-		      nexthop->type < NEXTHOP_TYPE_IPV6) &&
-		     prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
-		    ((nexthop->type >= NEXTHOP_TYPE_IPV6 &&
-		      nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
-		     !(IPV6_ADDR_SAME(&prev_src.ipv6,
-				      &nexthop->rmap_src.ipv6))) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ||
-		    vni_removed)
+		    (prev_active && new_active &&
+		     (prev_index != nexthop->ifindex ||
+		      ((nexthop->type >= NEXTHOP_TYPE_IFINDEX && nexthop->type < NEXTHOP_TYPE_IPV6) &&
+		       prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
+		      ((nexthop->type >= NEXTHOP_TYPE_IPV6 &&
+			nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
+		       !(IPV6_ADDR_SAME(&prev_src.ipv6, &nexthop->rmap_src.ipv6))))) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) || vni_removed)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	}
 
@@ -3572,6 +3631,14 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		}
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+
+		/*
+		 * Check if REINSTALL is set before clearing it. If another
+		 * nexthop went down while this update was in flight, REINSTALL
+		 * would be set to indicate another kernel update is needed.
+		 */
+		bool need_reinstall = CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
@@ -3583,6 +3650,17 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_INSTALLED);
+
+			/*
+			 * If another nexthop changed while this update was
+			 * in flight, send another update now. We must re-set
+			 * REINSTALL because zebra_nhg_install_kernel() checks
+			 * for it (since INSTALLED is already true at this point).
+			 */
+			if (need_reinstall && CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+				zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
+			}
 			break;
 		case ZEBRA_DPLANE_REQUEST_FAILURE:
 			/*
@@ -4089,9 +4167,10 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to
-		 * this point again
+		 * this point again. Also clear IFDOWN flag since interface is up.
 		 */
 		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		UNSET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_IFDOWN);
 		nh = rb_node_dep->nhe->nhg.nexthop;
 
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
@@ -4112,16 +4191,17 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					"%s install nhe %pNG nh type %u flags 0x%x",
 					__func__, rb_node_dep->nhe, nh->type,
 					rb_node_dep->nhe->flags);
+			/*
+			 * Set REINSTALL so kernel gets updated even if already
+			 * INSTALLED - the nexthop is now active again.
+			 */
+			SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
 			zebra_nhg_install_kernel(rb_node_dep->nhe,
 						 ZEBRA_ROUTE_MAX);
 
-			/* Don't need to modify dependents if installed */
-			if (CHECK_FLAG(rb_node_dep->nhe->flags,
-				       NEXTHOP_GROUP_INSTALLED))
-				continue;
-
-			/* mark dependent uninstalled; when interface associated
-			 * singleton is installed, install dependent
+			/*
+			 * Update dependent ECMP NHGs - set their nexthops
+			 * active, mark for reinstall, and trigger kernel update.
 			 */
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_dependents,
@@ -4132,17 +4212,26 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				while (nhop_dependent && !nexthop_same_no_weight(nhop_dependent, nh))
 					nhop_dependent = nhop_dependent->next;
 
-				if (nhop_dependent)
+				if (nhop_dependent) {
 					SET_FLAG(nhop_dependent->flags,
 						 NEXTHOP_FLAG_ACTIVE);
+					UNSET_FLAG(nhop_dependent->flags, NEXTHOP_FLAG_IFDOWN);
+				}
 
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) Setting Reinstall flag",
+					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) triggering kernel update",
 						   __func__, rb_node_dependent->nhe,
 						   rb_node_dependent->nhe->flags);
 
+				/*
+				 * Ensure ECMP NHG is marked VALID (it should be, since
+				 * it has active nexthops), set REINSTALL, and trigger
+				 * kernel update so the restored nexthop is added back.
+				 */
+				zebra_nhg_set_valid_if_active(rb_node_dependent->nhe);
 				SET_FLAG(rb_node_dependent->nhe->flags,
 					 NEXTHOP_GROUP_REINSTALL);
+				zebra_nhg_install_kernel(rb_node_dependent->nhe, ZEBRA_ROUTE_MAX);
 				frrtrace(3, frr_zebra, zebra_interface_nhg_reinstall, ifp,
 					 rb_node_dependent->nhe, 2);
 			}
