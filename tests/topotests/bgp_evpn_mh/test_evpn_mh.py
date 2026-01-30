@@ -37,6 +37,9 @@ from lib import topotest
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
+# bgp_evpn library
+from lib import bgp_evpn
+
 #####################################################
 ##
 ##   Network Topology Definition
@@ -210,36 +213,6 @@ host_es_map = {
 }
 
 
-def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
-    """
-    Used to setup bonds on the TORs and hosts for MH
-    """
-    node.run("ip link add dev %s type bond mode 802.3ad" % bond_name)
-    node.run("ip link set dev %s type bond lacp_rate 1" % bond_name)
-    node.run("ip link set dev %s type bond miimon 100" % bond_name)
-    node.run("ip link set dev %s type bond xmit_hash_policy layer3+4" % bond_name)
-    node.run("ip link set dev %s type bond min_links 1" % bond_name)
-    node.run(
-        "ip link set dev %s type bond ad_actor_system %s" % (bond_name, bond_ad_sys_mac)
-    )
-
-    for bond_member in bond_members:
-        node.run("ip link set dev %s down" % bond_member)
-        node.run("ip link set dev %s master %s" % (bond_member, bond_name))
-        node.run("ip link set dev %s up" % bond_member)
-
-    node.run("ip link set dev %s up" % bond_name)
-
-    # if bridge is specified add the bond as a bridge member
-    if br:
-        node.run(" ip link set dev %s master bridge" % bond_name)
-        node.run("/sbin/bridge link set dev %s priority 8" % bond_name)
-        node.run("/sbin/bridge vlan del vid 1 dev %s" % bond_name)
-        node.run("/sbin/bridge vlan del vid 1 untagged pvid dev %s" % bond_name)
-        node.run("/sbin/bridge vlan add vid 1000 dev %s" % bond_name)
-        node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % bond_name)
-
-
 def config_mcast_tunnel_termination_device(node):
     """
     The kernel requires a device to terminate VxLAN multicast tunnels
@@ -326,10 +299,10 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     else:
         sys_mac = "44:38:39:ff:ff:02"
     bond_member = tor_name + "-eth2"
-    config_bond(tor, "hostbond1", [bond_member], sys_mac, "bridge")
+    bgp_evpn.config_bond(tor, "hostbond1", [bond_member], sys_mac, "bridge")
 
     bond_member = tor_name + "-eth3"
-    config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
+    bgp_evpn.config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
 
     # create SVI
     config_svi(tor, svi_pip)
@@ -349,25 +322,11 @@ def compute_host_ip_mac(host_name):
     return host_ip, host_mac
 
 
-def config_host(host_name, host):
-    """
-    Create the dual-attached bond on host nodes for MH
-    """
-    bond_members = []
-    bond_members.append(host_name + "-eth0")
-    bond_members.append(host_name + "-eth1")
-    bond_name = "torbond"
-    config_bond(host, bond_name, bond_members, "00:00:00:00:00:00", None)
-
-    host_ip, host_mac = compute_host_ip_mac(host_name)
-    host.run("ip addr add %s dev %s" % (host_ip, bond_name))
-    host.run("ip link set dev %s address %s" % (bond_name, host_mac))
-
-
 def config_hosts(tgen, hosts):
     for host_name in hosts:
         host = tgen.gears[host_name]
-        config_host(host_name, host)
+        host_ip, host_mac = compute_host_ip_mac(host_name)
+        bgp_evpn.config_host(host_name, host, host_ip, host_mac)
 
 
 def setup_module(module):
