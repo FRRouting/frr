@@ -7,6 +7,7 @@
 """
 Test YANG Datastore Notifications
 """
+
 import json
 import logging
 import os
@@ -16,7 +17,8 @@ import time
 import pytest
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
-from munet.testing.util import waitline
+from munet.base import Timeout
+from munet.testing.util import readline, waitline
 from oper import check_kernel_32
 
 pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.mgmtd]
@@ -69,6 +71,32 @@ def get_op_and_json(output):
     if not values:
         assert False, f"No notifcation op present in:\n{output}"
     return values
+
+
+# Wait for specific OP, path and maybe json, path must match exactly,
+# return the path and json data (or None for DELETE)
+def wait_op_json(f, op, path, json_match=None, exact=False, timeout=10):
+    to = Timeout(timeout)
+    jexp = json.loads(json_match) if isinstance(json_match, str) else json_match
+    while not to.is_expired():
+        m = waitline(
+            f, rf"#OP={op}: ({re.escape(path)})(\W|$)", timeout=int(to.remaining())
+        )
+        assert m, f"Did not find expected OP={op} for path={path}"
+        path = m.group(1)
+        if op == "DELETE":
+            return op, path, None
+        rawjson = readline(f, timeout=timeout)
+        assert rawjson, f"Did not find expected JSON data for OP={op} path={path}"
+        jo = json.loads(rawjson)
+        if jexp is None:
+            logging.debug("json match not required, returning: %s", jo)
+            return op, path, jo
+        result = json_cmp(jo, jexp, exact=exact)
+        if result is None:
+            logging.debug("json match: %s", jo)
+            return op, path, jo
+        logging.debug("no json match: %s: continue", jo)
 
 
 def test_frontend_datastore_notification(tgen):
@@ -183,12 +211,13 @@ def test_backend_datastore_add_delete(tgen):
     p = r1.popen(
         [
             be_client_path,
-            "--timeout=20",
+            "--timeout=60",
             "--log=file:/dev/stderr",
-            "--notify-count=2",
+            "--notify-count=0",
             "--datastore",
             "--listen",
             "/frr-interface:lib/interface",
+            "/frr-vrf:lib/vrf",
         ]
     )
     assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
@@ -199,18 +228,36 @@ def test_backend_datastore_add_delete(tgen):
         assert waitline(
             p.stdout,
             re.escape('#OP=REPLACE: /frr-interface:lib/interface[name="foobar"]/state'),
-            timeout=2,
+            timeout=10,
         )
 
         r1.cmd_raises('vtysh -c "conf t" -c "no int foobar"')
         assert waitline(
             p.stdout,
             re.escape('#OP=DELETE: /frr-interface:lib/interface[name="foobar"]/state'),
-            timeout=2,
+            timeout=10,
         )
+
+        # Now add/delete a VRF and watch for notifications
+        # We are more picky here and validate the active state as well.
+        r1.cmd_raises("ip link add red type vrf table 10")
+        r1.cmd_raises('vtysh -c "conf t" -c "vrf red" -c "exit"')
+
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            '/frr-vrf:lib/vrf[name="red"]/state',
+            '{"frr-vrf:lib":{"vrf":[{"name":"red","state":{"active":true}}]}}',
+        )
+
+        r1.cmd_raises("ip link del red")
+        r1.cmd_raises('vtysh -c "conf t" -c "no vrf red"')
+        wait_op_json(p.stdout, "DELETE", '/frr-vrf:lib/vrf[name="red"]')
     finally:
+        pass
         p.kill()
-        r1.cmd_raises('vtysh -c "conf t" -c "no int foobar"')
+        r1.cmd_status('vtysh -c "conf t" -c "no vrf red"', warn=False)
+        r1.cmd_status("ip link del red", warn=False)
 
 
 def test_datastore_backend_filters(tgen):
