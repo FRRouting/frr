@@ -12,8 +12,6 @@
       "pfxRcd":3,
       "pfxSnt":7,
       "state":"Established",
-      "connectionsEstablished":1,
-      "connectionsDropped":0,
       "idType":"ipv4"
     },
     "192.168.2.3":{
@@ -24,8 +22,6 @@
       "pfxRcd":3,
       "pfxSnt":7,
       "state":"Established",
-      "connectionsEstablished":1,
-      "connectionsDropped":0,
       "idType":"ipv4"
     }
   },
