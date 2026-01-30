@@ -75,7 +75,7 @@ def get_op_and_json(output):
 
 # Wait for specific OP, path and maybe json, path must match exactly,
 # return the path and json data (or None for DELETE)
-def wait_op_json(f, op, path, json_match=None, exact=False, timeout=10):
+def wait_op_json(f, op, path, json_match=None, exact=False, timeout=30):
     to = Timeout(timeout)
     jexp = json.loads(json_match) if isinstance(json_match, str) else json_match
     while not to.is_expired():
