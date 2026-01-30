@@ -30,6 +30,9 @@ struct sharp_routes {
 	/* ZAPI_ROUTE's flag */
 	uint32_t flags;
 
+	bool tableid_set;
+	uint32_t tableid;
+
 	uint8_t inst;
 	vrf_id_t vrf_id;
 
