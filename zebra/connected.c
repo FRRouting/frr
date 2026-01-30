@@ -195,7 +195,7 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 	/*
 	 * Needs to be early as that the actual route_node may not exist yet
 	 */
-	rib_meta_queue_early_route_cleanup(p, ZEBRA_ROUTE_KERNEL);
+	rib_meta_queue_early_route_cleanup(p, afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL);
 
 	if (!table)
 		return;
