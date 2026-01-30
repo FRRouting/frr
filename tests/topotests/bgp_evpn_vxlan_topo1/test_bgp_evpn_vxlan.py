@@ -25,7 +25,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.evpn import evpn_show_vni_json_elide_ifindex, evpn_check_vni_macs_present
+from lib.evpn import (
+    evpn_check_vni_macs_present,
+    evpn_mac_learn_test,
+    evpn_show_vni_json_elide_ifindex,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -237,23 +241,6 @@ def test_pe2_converge_evpn():
         assert None, '"{}" missing expected MACs'.format(pe2.name)
 
 
-def mac_learn_test(host, local):
-    "check the host MAC gets learned by the VNI"
-
-    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
-    int_lines = host_output.splitlines()
-    for line in int_lines:
-        line_items = line.split(": ")
-        if "HWaddr" in line_items[0]:
-            mac = line_items[1]
-            break
-
-    mac_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    mac_output_json = json.loads(mac_output)
-    assertmsg = "Local MAC output does not match interface mac {}".format(mac)
-    assert mac_output_json[mac]["type"] == "local", assertmsg
-
-
 def mac_test_local_remote(local, remote):
     "test MAC transfer between local and remote"
 
@@ -288,7 +275,7 @@ def test_learning_pe1():
 
     host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
-    mac_learn_test(host1, pe1)
+    evpn_mac_learn_test(host1, pe1)
 
 
 def test_learning_pe2():
@@ -301,7 +288,7 @@ def test_learning_pe2():
 
     host2 = tgen.gears["host2"]
     pe2 = tgen.gears["PE2"]
-    mac_learn_test(host2, pe2)
+    evpn_mac_learn_test(host2, pe2)
 
 
 def test_local_remote_mac_pe1():
