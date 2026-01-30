@@ -17,6 +17,37 @@ from lib import topotest
 from lib.topolog import logger
 
 
+def _evpn_elide_ifindex(data):
+    if isinstance(data, dict):
+        data.pop("ifindex", None)
+        for value in data.values():
+            _evpn_elide_ifindex(value)
+        return
+    if isinstance(data, list):
+        for value in data:
+            _evpn_elide_ifindex(value)
+
+
+def _evpn_normalize_vni_json(output_json, vni):
+    if not isinstance(output_json, list):
+        return output_json
+    if not output_json:
+        return output_json
+    for entry in output_json:
+        if isinstance(entry, dict) and entry.get("vni") == vni:
+            return entry
+    if len(output_json) == 1 and isinstance(output_json[0], dict):
+        return output_json[0]
+    return output_json
+
+
+def evpn_show_vni_json_elide_ifindex(pe, vni, expected):
+    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+    output_json = _evpn_normalize_vni_json(output_json, vni)
+    _evpn_elide_ifindex(output_json)
+    return topotest.json_cmp(output_json, expected)
+
+
 def evpn_ip_learn_test(tgen, host, local, remote, ip_addr, vni=101, count=30, wait=1):
     "check the host IP gets learned by the VNI"
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
