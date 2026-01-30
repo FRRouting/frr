@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.evpn import evpn_ip_learn_test
+from lib.evpn import evpn_ip_learn_test, evpn_show_vni_json_elide_ifindex
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -132,14 +132,6 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def show_vni_json_elide_ifindex(pe, vni, expected):
-    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
-    if "ifindex" in output_json:
-        output_json.pop("ifindex")
-
-    return topotest.json_cmp(output_json, expected)
-
-
 def check_vni_macs_present(tgen, router, vni, maclist):
     result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
     for rname, ifname in maclist:
@@ -163,7 +155,7 @@ def test_pe1_converge_evpn():
     json_file = "{}/{}/evpn.vni.v6_vtep.json".format(CWD, pe1.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
+    test_func = partial(evpn_show_vni_json_elide_ifindex, pe1, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
@@ -202,7 +194,7 @@ def test_pe2_converge_evpn():
     json_file = "{}/{}/evpn.vni.v6_vtep.json".format(CWD, pe2.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
+    test_func = partial(evpn_show_vni_json_elide_ifindex, pe2, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
