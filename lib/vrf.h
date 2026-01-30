@@ -80,8 +80,6 @@ struct vrf {
 	/* Back pointer to namespace context */
 	void *ns_ctxt;
 
-	struct lyd_node *state;
-
 	QOBJ_FIELDS;
 };
 RB_HEAD(vrf_id_head, vrf);
