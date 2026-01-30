@@ -28,6 +28,7 @@ extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8
 					bool tableid_set);
 extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 				       uint32_t routes, uint32_t tableid, bool tableid_set);
+extern void sharp_install_stop(void);
 
 int sharp_install_lsps_helper(bool install_p, bool update_p,
 			      const struct prefix *p, uint8_t type,

@@ -205,6 +205,7 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 }
 
 enum where_to_restart {
+	SHARP_RESTART_NONE = 0,
 	SHARP_INSTALL_ROUTES_RESTART,
 	SHARP_DELETE_ROUTES_RESTART,
 };
@@ -446,6 +447,10 @@ void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t insta
 static void handle_repeated(bool installed)
 {
 	struct prefix p = sg.r.orig_prefix;
+
+	if (sg.r.stop_loop)
+		return;
+
 	sg.r.repeat--;
 
 	if (sg.r.repeat <= 0)
@@ -469,6 +474,8 @@ static void handle_repeated(bool installed)
 static void sharp_zclient_buffer_ready(void)
 {
 	switch (wb.restart) {
+	case SHARP_RESTART_NONE:
+		return;
 	case SHARP_INSTALL_ROUTES_RESTART:
 		sharp_install_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
 					     wb.nhg, wb.backup_nhg, wb.routes, wb.flags, wb.opaque,
@@ -478,6 +485,24 @@ static void sharp_zclient_buffer_ready(void)
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.routes,
 					    wb.tableid, wb.tableid_set);
 		return;
+	}
+}
+
+void sharp_install_stop(void)
+{
+	sg.r.stop_loop = true;
+	sg.r.repeat = 0;
+
+	if (wb.restart == SHARP_INSTALL_ROUTES_RESTART)
+		wb.restart = SHARP_RESTART_NONE;
+
+	wb.count = 0;
+	wb.routes = 0;
+
+	if (sg.r.total_routes > 0) {
+		sg.r.removed_routes = 0;
+		sharp_remove_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst,
+					   sg.r.total_routes, sg.r.tableid, sg.r.tableid_set);
 	}
 }
 
