@@ -113,10 +113,25 @@ static const struct frr_yang_module_info frr_ripd_info = {
 	}
 };
 
+static const struct frr_yang_module_info frr_vrf_info = {
+	.name = "frr-vrf",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-vrf:lib",
+			.cbs.notify = async_notification,
+		},
+		{
+			.xpath = NULL,
+		}
+	}
+};
+
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_backend_info,
 	&frr_if_info,
 	&frr_ripd_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
