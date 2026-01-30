@@ -48,6 +48,17 @@ def evpn_show_vni_json_elide_ifindex(pe, vni, expected):
     return topotest.json_cmp(output_json, expected)
 
 
+def evpn_check_vni_macs_present(tgen, router, vni, maclist):
+    result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
+    for rname, ifname in maclist:
+        m = tgen.net.macs[(rname, ifname)]
+        if m not in result["macs"]:
+            return "MAC ({}) for interface {} on {} missing on {} from {}".format(
+                m, ifname, rname, router.name, json.dumps(result, indent=4)
+            )
+    return None
+
+
 def evpn_ip_learn_test(tgen, host, local, remote, ip_addr, vni=101, count=30, wait=1):
     "check the host IP gets learned by the VNI"
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
