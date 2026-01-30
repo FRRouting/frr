@@ -40,6 +40,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.evpn import evpn_ip_learn_test
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
@@ -432,93 +433,6 @@ def test_local_remote_mac_pe2():
     mac_test_local_remote(pe2, pe1)
 
 
-def ip_learn_test(tgen, host, local, remote, ip_addr):
-    "check the host IP gets learned by the VNI"
-    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
-    int_lines = host_output.splitlines()
-    for line in int_lines:
-        line_items = line.split(": ")
-        if "HWaddr" in line_items[0]:
-            mac = line_items[1]
-            break
-    # print(host_output)
-
-    # check we have a local association between the MAC and IP
-    def check_local_ip_learned():
-        try:
-            local_output = local.vtysh_cmd(
-                "show evpn mac vni 101 mac {} json".format(mac)
-            )
-            # print(local_output)
-            local_output_json = json.loads(local_output)
-            mac_type = local_output_json[mac]["type"]
-            if local_output_json[mac]["neighbors"] == "none":
-                return False
-            learned_ip = local_output_json[mac]["neighbors"]["active"][0]
-
-            if mac_type != "local":
-                return False
-
-            if ip_addr != learned_ip:
-                return False
-
-            return True
-        except (KeyError, IndexError, json.JSONDecodeError):
-            return False
-
-    # Wait for local IP learning to converge
-    _, result = topotest.run_and_expect(check_local_ip_learned, True, count=30, wait=1)
-    assertmsg = "Failed to learn local IP address on host {}".format(host.name)
-    assert result, assertmsg
-
-    # now lets check the remote
-    def check_remote_ip_learned():
-        try:
-            remote_output = remote.vtysh_cmd(
-                "show evpn mac vni 101 mac {} json".format(mac)
-            )
-            # print(remote_output)
-            remote_output_json = json.loads(remote_output)
-            type = remote_output_json[mac]["type"]
-            if remote_output_json[mac]["neighbors"] == "none":
-                return False
-            # due to a kernel quirk, learned IPs can be inactive
-            if not (
-                remote_output_json[mac]["neighbors"]["active"]
-                or remote_output_json[mac]["neighbors"]["inactive"]
-            ):
-                return False
-            return True
-        except (KeyError, IndexError, json.JSONDecodeError):
-            return False
-
-    # Wait for remote IP learning to converge
-    _, result = topotest.run_and_expect(check_remote_ip_learned, True, count=30, wait=1)
-    assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
-    # some debug for this failure
-    if not result:
-        log_output = remote.run("cat zebra.log")
-        # print(log_output)
-
-    assert result, assertmsg
-
-    # Now verify the learned IP details
-    remote_output = remote.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    remote_output_json = json.loads(remote_output)
-    type = remote_output_json[mac]["type"]
-    if remote_output_json[mac]["neighbors"]["active"]:
-        learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
-    else:
-        learned_ip = remote_output_json[mac]["neighbors"]["inactive"][0]
-    assertmsg = "remote learned mac wrong type: {} ".format(type)
-    assert type == "remote", assertmsg
-
-    assertmsg = "remote learned address mismatch with configured address host: {} learned: {}".format(
-        ip_addr, learned_ip
-    )
-    assert ip_addr == learned_ip, assertmsg
-
-
 def test_ip_pe1_learn():
     "run the IP learn test for PE1"
 
@@ -534,7 +448,7 @@ def test_ip_pe1_learn():
     # pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host1.run("ping -c1 10.10.1.1")
-    ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
+    evpn_ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
     # tgen.mininet_cli()
 
 
@@ -553,7 +467,7 @@ def test_ip_pe2_learn():
     # pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host2.run("ping -c1 10.10.1.3")
-    ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
+    evpn_ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
 
 
