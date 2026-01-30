@@ -333,6 +333,20 @@ void nb_notif_add(const char *path)
 		pthread_mutex_unlock(nb_notif_lock);
 }
 
+void nb_notif_addf(const char *path, ...)
+{
+	char *abs_path;
+	va_list ap;
+
+	va_start(ap, path);
+	abs_path = darr_vsprintf(path, ap);
+	va_end(ap);
+
+	assert(abs_path[0] == '/');
+	nb_notif_add(abs_path);
+	darr_free(abs_path);
+}
+
 
 void nb_notif_delete(const char *path)
 {
@@ -343,6 +357,20 @@ void nb_notif_delete(const char *path)
 
 	if (nb_notif_lock)
 		pthread_mutex_unlock(nb_notif_lock);
+}
+
+void nb_notif_deletef(const char *path, ...)
+{
+	char *abs_path;
+	va_list ap;
+
+	va_start(ap, path);
+	abs_path = darr_vsprintf(path, ap);
+	va_end(ap);
+
+	assert(abs_path[0] == '/');
+	nb_notif_delete(abs_path);
+	darr_free(abs_path);
 }
 
 
