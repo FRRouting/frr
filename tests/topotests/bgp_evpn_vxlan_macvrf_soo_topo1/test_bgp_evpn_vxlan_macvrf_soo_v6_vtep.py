@@ -36,6 +36,7 @@ from lib.evpn import (
     evpn_check_vni_macs_present,
     evpn_ip_learn_test,
     evpn_mac_learn_test,
+    evpn_mac_test_local_remote,
     evpn_show_vni_json_elide_ifindex,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -253,30 +254,6 @@ def test_pe2_converge_evpn():
         assert None, '"{}" missing expected MACs'.format(pe2.name)
 
 
-def mac_test_local_remote(local, remote):
-    "test MAC transfer between local and remote"
-
-    local_output = local.vtysh_cmd("show evpn mac vni all json")
-    remote_output = remote.vtysh_cmd("show evpn mac vni all json")
-    local_output_vni = local.vtysh_cmd("show evpn vni detail json")
-    local_output_json = json.loads(local_output)
-    remote_output_json = json.loads(remote_output)
-    local_output_vni_json = json.loads(local_output_vni)
-
-    for vni in local_output_json:
-        mac_list = local_output_json[vni]["macs"]
-        for mac in mac_list:
-            if mac_list[mac]["type"] == "local" and mac_list[mac]["intf"] != "br101":
-                assertmsg = "JSON output mismatches local: {} remote: {}".format(
-                    local_output_vni_json[0]["vtepIp"],
-                    remote_output_json[vni]["macs"][mac]["remoteVtep"],
-                )
-                assert (
-                    remote_output_json[vni]["macs"][mac]["remoteVtep"]
-                    == local_output_vni_json[0]["vtepIp"]
-                ), assertmsg
-
-
 def test_learning_pe1():
     "test MAC learning on PE1"
 
@@ -313,7 +290,7 @@ def test_local_remote_mac_pe1():
 
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    mac_test_local_remote(pe1, pe2)
+    evpn_mac_test_local_remote(pe1, pe2)
 
 
 def test_local_remote_mac_pe2():
@@ -326,7 +303,7 @@ def test_local_remote_mac_pe2():
 
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    mac_test_local_remote(pe2, pe1)
+    evpn_mac_test_local_remote(pe2, pe1)
 
 
 def test_ip_pe1_learn():

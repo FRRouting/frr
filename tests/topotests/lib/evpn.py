@@ -77,6 +77,31 @@ def evpn_mac_learn_test(host, local, vni=101):
     assert mac_output_json[mac]["type"] == "local", assertmsg
 
 
+def evpn_mac_test_local_remote(local, remote, skip_missing_remote_vni=False):
+    "test MAC transfer between local and remote"
+    local_output = local.vtysh_cmd("show evpn mac vni all json")
+    remote_output = remote.vtysh_cmd("show evpn mac vni all json")
+    local_output_vni = local.vtysh_cmd("show evpn vni detail json")
+    local_output_json = json.loads(local_output)
+    remote_output_json = json.loads(remote_output)
+    local_output_vni_json = json.loads(local_output_vni)
+
+    for vni in local_output_json:
+        if skip_missing_remote_vni and vni not in remote_output_json:
+            continue
+        mac_list = local_output_json[vni]["macs"]
+        for mac in mac_list:
+            if mac_list[mac]["type"] == "local" and mac_list[mac]["intf"] != "br101":
+                assertmsg = "JSON output mismatches local: {} remote: {}".format(
+                    local_output_vni_json[0]["vtepIp"],
+                    remote_output_json[vni]["macs"][mac]["remoteVtep"],
+                )
+                assert (
+                    remote_output_json[vni]["macs"][mac]["remoteVtep"]
+                    == local_output_vni_json[0]["vtepIp"]
+                ), assertmsg
+
+
 def evpn_ip_learn_test(tgen, host, local, remote, ip_addr, vni=101, count=30, wait=1):
     "check the host IP gets learned by the VNI"
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
