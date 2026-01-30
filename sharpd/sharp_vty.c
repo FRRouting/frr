@@ -200,6 +200,16 @@ DEFPY (install_routes_data_dump,
 	return CMD_SUCCESS;
 }
 
+DEFPY(sharp_install_stop_vty, sharp_install_stop_cmd, "sharp install stop",
+      "Sharp routing Protocol\n"
+      "install some routes\n"
+      "Stop any repeating install/remove loops\n")
+{
+	sharp_install_stop();
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (install_routes,
        install_routes_cmd,
        "sharp install routes [vrf NAME$vrf_name]\
@@ -244,6 +254,7 @@ DEFPY (install_routes,
 	sg.r.flags = 0;
 	sg.r.tableid = 0;
 	sg.r.tableid_set = false;
+	sg.r.stop_loop = false;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -402,6 +413,7 @@ DEFPY (install_seg6_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.stop_loop = false;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -495,6 +507,7 @@ DEFPY(install_seg6local_segs_routes, install_seg6local_segs_routes_cmd,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.stop_loop = false;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -630,6 +643,7 @@ DEFPY (install_seg6local_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.stop_loop = false;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -790,6 +804,7 @@ DEFPY (remove_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.removed_routes = 0;
+	sg.r.stop_loop = false;
 	uint32_t rts;
 
 	memset(&prefix, 0, sizeof(prefix));
@@ -1697,6 +1712,7 @@ DEFPY(sharp_use_resolved_nexthop_weight,
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
+	install_element(ENABLE_NODE, &sharp_install_stop_cmd);
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &install_seg6_routes_cmd);
 	install_element(ENABLE_NODE, &install_seg6local_routes_cmd);
