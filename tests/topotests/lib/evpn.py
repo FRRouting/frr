@@ -59,6 +59,24 @@ def evpn_check_vni_macs_present(tgen, router, vni, maclist):
     return None
 
 
+def evpn_mac_learn_test(host, local, vni=101):
+    "check the host MAC gets learned by the VNI"
+    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
+    int_lines = host_output.splitlines()
+    mac = None
+    for line in int_lines:
+        line_items = line.split(": ")
+        if "HWaddr" in line_items[0]:
+            mac = line_items[1]
+            break
+    assert mac is not None, "Failed to find host MAC for {}".format(host.name)
+
+    mac_output = local.vtysh_cmd("show evpn mac vni {} mac {} json".format(vni, mac))
+    mac_output_json = json.loads(mac_output)
+    assertmsg = "Local MAC output does not match interface mac {}".format(mac)
+    assert mac_output_json[mac]["type"] == "local", assertmsg
+
+
 def evpn_ip_learn_test(tgen, host, local, remote, ip_addr, vni=101, count=30, wait=1):
     "check the host IP gets learned by the VNI"
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
