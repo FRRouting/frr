@@ -13,7 +13,108 @@ evpn.py: Library of helper functions for EVPN testing
 
 import json
 import sys
+from lib import topotest
 from lib.topolog import logger
+
+
+def evpn_ip_learn_test(tgen, host, local, remote, ip_addr, vni=101, count=30, wait=1):
+    "check the host IP gets learned by the VNI"
+    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
+    int_lines = host_output.splitlines()
+    mac = None
+    for line in int_lines:
+        line_items = line.split(": ")
+        if "HWaddr" in line_items[0]:
+            mac = line_items[1]
+            break
+    print(host_output)
+    assert mac is not None, "Failed to find host MAC for {}".format(host.name)
+
+    # check we have a local association between the MAC and IP
+    local_output_json = {}
+
+    def _local_has_neighbor():
+        nonlocal local_output_json
+        local_output = local.vtysh_cmd(
+            "show evpn mac vni {} mac {} json".format(vni, mac)
+        )
+        print(local_output)
+        try:
+            local_output_json = json.loads(local_output)
+        except json.JSONDecodeError:
+            return False
+        if mac not in local_output_json:
+            return False
+        neighbors = local_output_json[mac]["neighbors"]
+        if neighbors == "none":
+            return False
+        if not neighbors["active"]:
+            return False
+        return True
+
+    _, result = topotest.run_and_expect(
+        _local_has_neighbor, True, count=count, wait=wait
+    )
+    assertmsg = "Failed to learn local IP address on host {}".format(host.name)
+    assert result == True, assertmsg
+
+    mac_type = local_output_json[mac]["type"]
+    learned_ip = local_output_json[mac]["neighbors"]["active"][0]
+    assertmsg = "local learned mac wrong type: {} ".format(mac_type)
+    assert mac_type == "local", assertmsg
+
+    assertmsg = (
+        "learned address mismatch with configured address host: {} learned: {}".format(
+            ip_addr, learned_ip
+        )
+    )
+    assert ip_addr == learned_ip, assertmsg
+
+    # now lets check the remote
+    remote_output_json = {}
+
+    def _remote_has_neighbor():
+        nonlocal remote_output_json
+        remote_output = remote.vtysh_cmd(
+            "show evpn mac vni {} mac {} json".format(vni, mac)
+        )
+        print(remote_output)
+        try:
+            remote_output_json = json.loads(remote_output)
+        except json.JSONDecodeError:
+            return False
+        if mac not in remote_output_json:
+            return False
+        neighbors = remote_output_json[mac]["neighbors"]
+        if neighbors == "none":
+            return False
+        # due to a kernel quirk, learned IPs can be inactive
+        if not (neighbors["active"] or neighbors["inactive"]):
+            return False
+        return True
+
+    _, result = topotest.run_and_expect(
+        _remote_has_neighbor, True, count=count, wait=wait
+    )
+    assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
+    # some debug for this failure
+    if not result:
+        log_output = remote.run("cat zebra.log")
+        print(log_output)
+
+    assert result == True, assertmsg
+    if remote_output_json[mac]["neighbors"]["active"]:
+        learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
+    else:
+        learned_ip = remote_output_json[mac]["neighbors"]["inactive"][0]
+    mac_type = remote_output_json[mac]["type"]
+    assertmsg = "remote learned mac wrong type: {} ".format(mac_type)
+    assert mac_type == "remote", assertmsg
+
+    assertmsg = "remote learned address mismatch with configured address host: {} learned: {}".format(
+        ip_addr, learned_ip
+    )
+    assert ip_addr == learned_ip, assertmsg
 
 
 def evpn_verify_vni_remote_vteps(router, vni_list, expected_vteps):
