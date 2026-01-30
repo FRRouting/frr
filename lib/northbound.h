@@ -1917,10 +1917,25 @@ extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, 
 void nb_notif_add(const char *path);
 
 /**
+ * nb_notif_addf() - Notice that the value at `path` has changed.
+ * @path: Absolute path format string in the state tree that has changed
+ *	  (either added or updated).
+ * @...: The values to substitute into `path`.
+ */
+void nb_notif_addf(const char *path, ...) PRINTFRR(1, 2);
+
+/**
  * nb_notif_delete() - Notice that the value at `path` has been deleted.
  * @path: Absolute path in the state tree that has been deleted.
  */
 void nb_notif_delete(const char *path);
+
+/**
+ * nb_notif_deletef() - Notice that the value at `path` has been deleted.
+ * @path: Absolute path format string in the state tree that has been deleted.
+ * @...: The values to substitute into `path`.
+ */
+void nb_notif_deletef(const char *path, ...) PRINTFRR(1, 2);
 
 /**
  * nb_notif_set_filters() - add or replace notification filters
