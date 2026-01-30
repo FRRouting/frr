@@ -32,7 +32,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.evpn import evpn_ip_learn_test, evpn_show_vni_json_elide_ifindex
+from lib.evpn import (
+    evpn_check_vni_macs_present,
+    evpn_ip_learn_test,
+    evpn_show_vni_json_elide_ifindex,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
@@ -179,17 +183,6 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def check_vni_macs_present(tgen, router, vni, maclist):
-    result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
-    for rname, ifname in maclist:
-        m = tgen.net.macs[(rname, ifname)]
-        if m not in result["macs"]:
-            return "MAC ({}) for interface {} on {} missing on {} from {}".format(
-                m, ifname, rname, router.name, json.dumps(result, indent=4)
-            )
-    return None
-
-
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -216,7 +209,7 @@ def test_pe1_converge_evpn():
     host2.run("ping -c 1 10.10.1.55")
 
     test_func = partial(
-        check_vni_macs_present,
+        evpn_check_vni_macs_present,
         tgen,
         pe1,
         101,
@@ -247,7 +240,7 @@ def test_pe2_converge_evpn():
     assert result is None, assertmsg
 
     test_func = partial(
-        check_vni_macs_present,
+        evpn_check_vni_macs_present,
         tgen,
         pe2,
         101,
