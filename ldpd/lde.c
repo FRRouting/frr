@@ -441,6 +441,10 @@ static void lde_send_all_klabel(struct iface *iface)
 
 				me = (struct lde_map *)fec;
 				fnh->remote_label = me->map.label;
+				/* Clear defer flag if set, as we're restoring from
+				 * a valid mapping record */
+				if (CHECK_FLAG(ldeconf->flags, F_LDPD_ORDERED_CONTROL))
+					UNSET_FLAG(fnh->flags, F_FEC_NH_DEFER);
 				lde_send_change_klabel(fn, fnh);
 				break;
 			}
@@ -1639,6 +1643,10 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 			} else {
 				me = (struct lde_map *)fec;
 				fnh->remote_label = me->map.label;
+				/* Clear defer flag if set, as we're restoring from
+				 * a valid mapping record */
+				if (CHECK_FLAG(ldeconf->flags, F_LDPD_ORDERED_CONTROL))
+					UNSET_FLAG(fnh->flags, F_FEC_NH_DEFER);
 				lde_send_change_klabel(fn, fnh);
 			}
 			break;
