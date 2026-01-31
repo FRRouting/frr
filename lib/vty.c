@@ -2296,7 +2296,7 @@ static void vtysh_read(struct event *event)
 		vty_out(vty, "%% Command is too long.\n");
 	} else {
 		for (p = buf; p < buf + nbytes; p++) {
-			vty->buf[vty->length++] = *p;
+			vty->buf[vty->length++] = tolower(*p);
 			if (*p == '\0') {
 				/* Pass this line to parser. */
 				ret = vty_execute(vty);
