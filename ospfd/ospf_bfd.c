@@ -169,6 +169,10 @@ void ospf_interface_bfd_show(struct vty *vty, const struct interface *ifp,
 			     struct json_object *json)
 {
 	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (params == NULL)
+		return;
+
 	struct bfd_configuration *bfd_config = params->bfd_config;
 	struct json_object *json_bfd;
 
