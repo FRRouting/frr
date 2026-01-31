@@ -744,18 +744,20 @@ void cli_show_ip_rip_v2_broadcast(struct vty *vty, const struct lyd_node *dnode,
  */
 DEFPY_YANG (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version <{1$v1|2$v2}|none>",
+       "ip rip receive version <1$v1|2$v2|1 2$v3|none>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
        "RIP version 1\n"
        "RIP version 2\n"
+       "RIP version 1&2\n"
+       "RIP version 1&2\n"
        "None\n")
 {
 	const char *value;
 
-	if (v1 && v2)
+	if (v3)
 		value = "both";
 	else if (v1)
 		value = "1";
@@ -814,18 +816,20 @@ void cli_show_ip_rip_receive_version(struct vty *vty,
  */
 DEFPY_YANG (ip_rip_send_version,
        ip_rip_send_version_cmd,
-       "ip rip send version <{1$v1|2$v2}|none>",
+       "ip rip send version <1$v1|2$v2|1 2$v3|none>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
        "Version control\n"
        "RIP version 1\n"
        "RIP version 2\n"
+       "RIP version 1&2\n"
+       "RIP version 1&2\n"
        "None\n")
 {
 	const char *value;
 
-	if (v1 && v2)
+	if (v3)
 		value = "both";
 	else if (v1)
 		value = "1";
