@@ -35,6 +35,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_modify(
 	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_weight_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_weight_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_onlink_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_modify(
@@ -156,6 +160,8 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_STATIC_ROUTE_NH_KEY_XPATH                                          \
 	"/frr-nexthops/"                                                       \
 	"nexthop[nh-type='%s'][vrf='%s'][gateway='%s'][interface='%s']"
+
+#define FRR_STATIC_ROUTE_NH_WEIGHT_XPATH "/weight"
 
 #define FRR_STATIC_ROUTE_NH_ONLINK_XPATH "/onlink"
 

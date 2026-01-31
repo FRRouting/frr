@@ -463,6 +463,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 
 		zapi_nexthop_init(api_nh);
 		api_nh->vrf_id = nh->nh_vrf_id;
+		api_nh->weight = nh->weight;
 		if (nh->onlink)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		if (nh->color != 0) {

@@ -69,6 +69,12 @@ module frr-staticd {
     reference "FRRouting";
   }
 
+  revision 2026-01-23 {
+    description
+      "Augments the nexthop container with a 'weight' leaf.";
+    reference "FRRouting";
+  }
+
   identity staticd {
     base frr-rt:routing-protocol;
     description
@@ -215,6 +221,15 @@ module frr-staticd {
               description "BFD monitoring options.";
 
               uses frr-bfdd:bfd-monitoring;
+            }
+          }
+          augment "path-list/frr-nexthops/nexthop" {
+            leaf weight {
+              type uint16 {
+                range "1..65535";
+              }
+              description
+                "Weight to be used by the nexthop for purposes of ECMP";
             }
           }
         }

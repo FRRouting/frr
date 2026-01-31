@@ -27,19 +27,19 @@ Static Route Commands
 Static routing is a very fundamental feature of routing technology. It defines
 a static prefix and gateway, with several possible forms.
 
-.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
 .. clicmd:: ip route NETWORK (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
 .. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
@@ -59,6 +59,13 @@ a static prefix and gateway, with several possible forms.
    Alternatively, the gateway can be specified as ``Null0`` or ``blackhole`` to create a blackhole
    route that drops all traffic. It can also be specified as ``reject`` to create an unreachable
    route that rejects traffic with ICMP "Destination Unreachable" messages.
+
+   WEIGHT is an optional parameter that specifies the weight attributed to a
+   nexthop when multiple nexthops are configured for the same static route. The
+   value must be between 1 and 65535. The Linux kernel only supports 8-bit
+   weights for multipath static routes, but Zebra creates and uses
+   nexthop-groups for this, for which the kernel supports 16-bit weights since
+   version 6.12.
 
    TABLENO is an optional parameter for namespaces that allows you to create the
    route in a specified table associated with the vrf namespace. ``table`` will
@@ -130,6 +137,18 @@ default) should the specified gateways not be reachable. E.g.:
    Routing entry for 10.0.0.0/8
      Known via "static", distance 255, metric 0
        directly connected, Null0
+
+
+A weight can be associated with each nexthop to influence traffic distribution
+across the paths. In this example, both nexthops are installed as a multipath
+route, with traffic distributed proportionally according to the configured
+weights:
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2 weight 10
+   ip route 10.0.0.0/8 10.0.0.3 weight 100
+
 
 Also, if the user wants to configure a static route for a specific VRF, then
 a specific VRF configuration mode is available. After entering into that mode
