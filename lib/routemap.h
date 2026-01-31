@@ -262,6 +262,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-route-map:ipv6-next-hop-type"))
 #define IS_MATCH_METRIC(C)                                                     \
 	(strmatch(C, "frr-route-map:match-metric"))
+#define IS_MATCH_METRIC_DETAIL(C)                                              \
+	(strmatch(C, "frr-route-map:match-metric-detail"))
 #define IS_MATCH_TAG(C) (strmatch(C, "frr-route-map:match-tag"))
 /* Zebra route-map match conditions */
 #define IS_MATCH_IPv4_PREFIX_LEN(C)                                            \
@@ -431,6 +433,17 @@ enum ecommunity_lb_type {
 	EXPLICIT_BANDWIDTH,
 	CUMULATIVE_BANDWIDTH,
 	COMPUTED_BANDWIDTH
+};
+
+struct route_map_metric_compiled {
+	/* Route type */
+	uint8_t proto;
+	uint32_t metric;
+	uint32_t min_metric;
+	uint32_t max_metric;
+	/* External metric */
+	bool external;
+	bool range;
 };
 
 /* Prototypes. */
@@ -679,6 +692,20 @@ extern void route_map_no_match_metric_hook(int (*func)(
 	struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type,
 	char *errmsg, size_t errmsg_len));
+/* match metric detail */
+extern void route_map_match_metric_detail_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len));
+/* no match metric detail */
+extern void route_map_no_match_metric_detail_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len));
+
+extern void *route_map_rule_metric_detail_compile(const char *arg);
+extern void route_map_rule_metric_detail_free(void *rule);
+
 /* match tag */
 extern void route_map_match_tag_hook(int (*func)(
 	struct route_map_index *index, const char *command,
@@ -927,6 +954,18 @@ struct route_map_match_set_hooks {
 
 	/* no match metric */
 	int (*no_match_metric)(struct route_map_index *index,
+			       const char *command, const char *arg,
+			       route_map_event_t type,
+			       char *errmsg, size_t errmsg_len);
+
+	/* match metric detail */
+	int (*match_metric_detail)(struct route_map_index *index,
+			    const char *command, const char *arg,
+			    route_map_event_t type,
+			    char *errmsg, size_t errmsg_len);
+
+	/* no match metric detail */
+	int (*no_match_metric_detail)(struct route_map_index *index,
 			       const char *command, const char *arg,
 			       route_map_event_t type,
 			       char *errmsg, size_t errmsg_len);

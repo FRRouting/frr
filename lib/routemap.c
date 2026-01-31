@@ -20,6 +20,7 @@
 #include "table.h"
 #include "json.h"
 #include "jhash.h"
+#include "frrstr.h"
 
 #include "lib/routemap_clippy.c"
 
@@ -302,6 +303,24 @@ void route_map_no_match_metric_hook(int (*func)(
 	char *errmsg, size_t errmsg_len))
 {
 	rmap_match_set_hook.no_match_metric = func;
+}
+
+/* match metric <proto> ... */
+void route_map_match_metric_detail_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_metric_detail = func;
+}
+
+/* no match metric <proto> ... */
+void route_map_no_match_metric_detail_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_metric_detail = func;
 }
 
 /* match tag */
@@ -3299,6 +3318,56 @@ void *route_map_rule_tag_compile(const char *arg)
 }
 
 void route_map_rule_tag_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+void *route_map_rule_metric_detail_compile(const char *argstr)
+{
+	struct route_map_metric_compiled *mc = NULL;
+	uint8_t proto;
+	uint32_t metric = 0, min_metric = 0, max_metric = 0;
+	bool external = false, range = false;
+
+	int num_args;
+	char **args;
+
+	frrstr_split(argstr, " ", &args, &num_args);
+	/* arg format: <proto> [range <metric>] <metric> [external] */
+	if (num_args >= 2 && num_args <= 5)
+	{
+		proto = strtoul(args[0], NULL, 10);
+		if (strstr(argstr, "external") != NULL) {
+			external = true;
+		}
+		if (strstr(argstr, "range") != NULL) {
+			range = true;
+			min_metric = strtoul(args[2], NULL, 10);
+			max_metric = strtoul(args[3], NULL, 10);
+		} else {
+			metric = strtoul(args[1], NULL, 10);
+		}
+		if (min_metric <= max_metric)
+		{
+			// Also validate metric based on proto?
+			mc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct route_map_metric_compiled));
+			mc->proto = proto;
+			mc->metric = metric;
+			mc->min_metric = min_metric;
+			mc->max_metric = max_metric;
+			mc->external = external;
+			mc->range = range;
+		}
+	}
+
+	for (int i = 0; i < num_args; i++)
+		XFREE(MTYPE_TMP, args[i]);
+	XFREE(MTYPE_TMP, args);
+
+	return mc;
+}
+
+void route_map_rule_metric_detail_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }

@@ -556,6 +556,59 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(match_metric_detail,
+	match_metric_detail_cmd,
+	"[no] match metric <isis|ospf|rip>$proto [external$external] [range$range (0-4294967295)$metric_min] (0-4294967295)$metric",
+	NO_STR
+	MATCH_STR
+	"Match metric of route\n"
+	"Match IS-IS metric\n"
+	"Match OSPF metric\n"
+	"Match RIP metric\n"
+	"Match external metric\n"
+	"Match a metric range\n"
+	"Minimum metric value\n"
+	"Specific or maximum metric value\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:match-metric-detail']";
+	char xpath_value[XPATH_MAXLEN];
+
+	if (no) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	} else {
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+		snprintf(xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/metric-detail/range", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, (range ? "true" : "false"));
+
+		if (range) {
+			snprintf(xpath_value, sizeof(xpath_value),
+				"%s/rmap-match-condition/metric-detail/metric-min", xpath);
+			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, metric_min_str);
+
+			snprintf(xpath_value, sizeof(xpath_value),
+				"%s/rmap-match-condition/metric-detail/metric-max", xpath);
+		} else {
+			snprintf(xpath_value, sizeof(xpath_value),
+				"%s/rmap-match-condition/metric-detail/metric", xpath);
+		}
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, metric_str);
+
+		snprintf(xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/metric-detail/external", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, (external ? "true" : "false"));
+
+		snprintf(xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/metric-detail/protocol", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(
 	match_tag, match_tag_cmd,
 	"match tag <untagged$untagged|(1-4294967295)$tagged>",
@@ -656,6 +709,32 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " match metric %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/metric"));
+	} else if (IS_MATCH_METRIC_DETAIL(condition)) {
+		vty_out(vty, " match metric");
+		vty_out(vty, " %s",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/metric-detail/protocol"));
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/metric-detail/external"))
+			vty_out(vty, " external");
+		if (yang_dnode_get_bool(
+			dnode,
+			    "./rmap-match-condition/metric-detail/range")) {
+			vty_out(vty, " range %s %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-match-condition/metric-detail/metric-min"),
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-match-condition/metric-detail/metric-max"));
+		} else {
+			vty_out(vty, " %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-match-condition/metric-detail/metric"));
+		}
 	} else if (IS_MATCH_TAG(condition)) {
 		uint32_t tag =
 			strtoul(yang_dnode_get_string(dnode,
@@ -1816,6 +1895,7 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &match_metric_cmd);
 	install_element(RMAP_NODE, &no_match_metric_cmd);
+	install_element(RMAP_NODE, &match_metric_detail_cmd);
 
 	install_element(RMAP_NODE, &match_tag_cmd);
 	install_element(RMAP_NODE, &no_match_tag_cmd);

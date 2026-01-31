@@ -16,6 +16,10 @@ module frr-route-map {
     prefix frr-interface;
   }
 
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
   organization
     "FRRouting";
   contact
@@ -132,6 +136,12 @@ module frr-route-map {
     base rmap-match-type;
     description
       "Match a route metric";
+  }
+
+  identity match-metric-detail {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match a detailed route metric";
   }
 
   identity match-tag {
@@ -286,6 +296,43 @@ module frr-route-map {
               "Metric value to match";
           }
         }
+
+        case match-metric-detail {
+          when "derived-from-or-self(../condition, 'match-metric-detail')";
+          container metric-detail {
+            leaf metric {
+              type uint32 {
+                range "0..4294967295";
+              }
+            }
+            leaf metric-min {
+              type uint32 {
+                range "0..4294967295";
+              }
+            }
+            leaf metric-max {
+              type uint32 {
+                range "0..4294967295";
+              }
+            }
+            leaf protocol {
+              type frr-route-types:frr-route-types;
+              description
+                "Specifies the route protocol";
+            }
+            leaf external {
+              type boolean;
+              description
+                "Match external route metric.";
+            }
+            leaf range {
+              type boolean;
+              description
+                "Match a route metric range.";
+            }
+          }
+        }
+        
 
         case match-tag {
           when "derived-from-or-self(../condition, 'match-tag')";
