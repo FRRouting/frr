@@ -3235,6 +3235,9 @@ static void bgp_zebra_connected(struct zclient *zclient)
 
 	bgp_zebra_instance_register(bgp);
 
+	/* Retry the deferred suppress-fib-pending configuration */
+	bgp_zebra_suppress_fib_pending_config_retry();
+
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
