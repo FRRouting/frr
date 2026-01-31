@@ -305,7 +305,7 @@ extern uint32_t get_metric(uint8_t *metric);
 extern void ospf_lsa_maxage_walker(struct event *event);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa);
 
-extern void ospf_external_lsa_refresh_default(struct ospf *ospf);
+extern void ospf_external_lsa_refresh_default(struct ospf *ospf, struct external_info *default_ei);
 
 extern void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance,
 					   int force);

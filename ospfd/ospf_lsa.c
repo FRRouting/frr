@@ -2588,7 +2588,7 @@ void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type,
 		zlog_debug("%s: stop", __func__);
 }
 
-void ospf_external_lsa_refresh_default(struct ospf *ospf)
+void ospf_external_lsa_refresh_default(struct ospf *ospf, struct external_info *default_ei)
 {
 	struct prefix_ipv4 p;
 	struct external_info *ei;
@@ -2598,7 +2598,11 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	p.prefixlen = 0;
 	p.prefix.s_addr = INADDR_ANY;
 
-	ei = ospf_default_external_info(ospf);
+	if (default_ei)
+		ei = default_ei;
+	else
+		ei = ospf_default_external_info(ospf);
+
 	lsa = ospf_external_info_find_lsa(ospf, &p);
 
 	if (ei && lsa) {
@@ -2696,6 +2700,13 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 {
 	struct ospf_lsa *new;
 	int changed = 0;
+	struct external_info *default_ei;
+
+	if (is_default_prefix4(&ei->p)) {
+		default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, ospf->instance, &ei->p);
+		if (default_ei)
+			ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
+	}
 
 	/* Check the AS-external-LSA should be originated. */
 	if (!is_aggr)
