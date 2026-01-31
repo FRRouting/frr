@@ -1999,8 +1999,9 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-	if (!if_is_operative(ifp))
-		pim_if_addr_del_all(ifp);
+	/* Clear IGMP and PIM, this interface is being destroyed */
+	pim_gm_interface_delete(ifp);
+	pim_pim_interface_delete(ifp);
 
 #if PIM_IPV == 4
 	struct pim_instance *pim;
