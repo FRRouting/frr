@@ -1,0 +1,687 @@
+{
+    "address_types": ["ipv4","ipv6"],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 30,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:db8:f::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r0": {
+            "links": {
+                "r1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r0": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r0": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                    "network": ["192.16.10.1/32", "192.16.20.1/32", "192.16.70.1/32"],
+                    "next_hop":"blackhole",
+                    "vrf": "RED"
+                },
+                {
+                    "network": ["192:16:10::1/128", "192:16:20::1/128" , "172:16:70::2/128"],
+                    "next_hop":"blackhole",
+                    "vrf": "RED"
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r1": {
+            "links": {
+                "r0": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r0": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r0": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                    "network": ["172.16.10.1/32", "172.16.10.2/32", "192.16.70.1/32"],
+                    "next_hop":"blackhole",
+                    "vrf": "RED",
+                    "tag": 500
+                },
+                {
+                    "network": ["172:16:10::1/128", "172:16:10::2/128", "172:16:70::2/128"],
+                    "next_hop":"blackhole",
+                    "vrf": "RED",
+                    "tag": 501
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r2": {
+            "links": {
+                "r1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r6": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "r3-link1": {"ipv4": "auto", "ipv6": "auto"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "200",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r6": {
+                                        "dest_link": {
+                                            "r2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r6": {
+                                        "dest_link": {
+                                            "r2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "address_family": {
+                        "ipv6": {
+                            "vpn": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "capability": "extended-nexthop",
+                                                "activate": "ipv4"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r3": {
+            "links": {
+                "r2-link1": {"ipv4": "auto", "ipv6": "auto"},
+                "r4": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r4-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "r5": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "200",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r5": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r5": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "address_family": {
+                        "ipv6": {
+                            "vpn": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "capability": "extended-nexthop",
+                                                "activate": "ipv4"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            },
+            "static_routes":[
+                {
+                    "network": ["30.1.1.1/32"],
+                    "next_hop":"blackhole"
+                },
+                {
+                    "network": ["30::1/128"],
+                    "next_hop":"blackhole"
+                }
+            ]
+        },
+        "r4": {
+            "links": {
+                "r3": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r3-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "300",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                    "network": ["172.16.40.1/32", "172.16.40.2/32", "192.16.70.1/32"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                },
+                {
+                    "network": ["172:16:40::1/128", "172:16:40::2/128", "172:16:70::2/128"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r5": {
+            "links": {
+                "r3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE",
+                    "id": "1"
+                }
+            ],
+            "static_routes":[
+                {
+                    "network": ["172.16.50.1/32", "172.16.50.2/32", "192.16.70.1/32"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                },
+                {
+                    "network": ["172:16:50::1/128", "172:16:50::2/128", "172:16:70::2/128"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "300",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r5": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r5": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r6": {
+            "links": {
+                "r2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE",
+                    "id": "1"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "300",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r6": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [{
+                                    "redist_type": "static"
+                                }],
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r6": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                    "network": ["172.16.60.1/32", "172.16.60.2/32", "192.16.70.1/32"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                },
+                {
+                    "network": ["172:16:60::1/128", "172:16:60::2/128", "172:16:70::2/128"],
+                    "next_hop":"blackhole",
+                    "vrf": "BLUE"
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        }
+    }
+}
