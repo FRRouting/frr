@@ -168,8 +168,7 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
 		return false;
 	if (fad->flags != 0)
 		return false;
-	if (fad->exclude_srlg)
-		return false;
+	/* exclude_srlg is now supported - no check needed */
 	if (fad->unsupported_subtlv)
 		return false;
 
@@ -307,6 +306,21 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree, struct isis_ls
 					    link_ext_admin_group);
 		if (!ret)
 			return true;
+	}
+
+	/*
+	 * Exclude SRLG - RFC 9350 Section 6.5
+	 * Drop the link if any of its SRLGs match any of the exclude SRLGs
+	 */
+	if (fad->fad.exclude_srlg_count > 0 && IS_SUBTLV(subtlvs, EXT_SRLG)) {
+		uint8_t i, j;
+
+		for (i = 0; i < subtlvs->srlg_num; i++) {
+			for (j = 0; j < fad->fad.exclude_srlg_count; j++) {
+				if (subtlvs->srlgs[i] == fad->fad.exclude_srlgs[j])
+					return true;
+			}
+		}
 	}
 
 	return false;

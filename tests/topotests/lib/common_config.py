@@ -4675,6 +4675,101 @@ def required_linux_kernel_version(required_version):
     return True
 
 
+# TODO: squash with former check_kernel_seg6_support() implementation
+def check_kernel_seg6_support():
+    """
+    Check if the kernel supports SRv6 (seg6) and can install seg6local routes.
+
+    This function checks both:
+    1. If the seg6_enabled sysctl exists
+    2. If seg6local routes can actually be installed in the kernel
+
+    Returns
+    -------
+    tuple (supported, enabled)
+        - supported: True if kernel can install seg6local routes
+        - enabled: True if seg6 is already enabled
+
+    Usage
+    -----
+    seg6_supported, seg6_enabled = check_kernel_seg6_support()
+    if not seg6_supported:
+        pytest.skip("Kernel does not support SRv6")
+    """
+    try:
+        # Check if seg6 sysctl exists
+        result = subprocess.run(
+            ["sysctl", "-n", "net.ipv6.conf.all.seg6_enabled"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return (False, False)
+        enabled = int(result.stdout.strip()) == 1
+
+        # Test if seg6local routes can actually be installed
+        # Enable seg6 on lo interface (required for seg6local routes)
+        subprocess.run(
+            ["sysctl", "-w", "net.ipv6.conf.lo.seg6_enabled=1"],
+            capture_output=True,
+        )
+
+        # Try to add a test seg6local route
+        test_sid = "fc00:ffff:ffff:ffff::1"
+        result = subprocess.run(
+            ["ip", "-6", "route", "add", test_sid, "encap", "seg6local",
+             "action", "End", "dev", "lo"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            # Kernel doesn't support seg6local routes
+            return (False, False)
+
+        # Clean up test route
+        subprocess.run(
+            ["ip", "-6", "route", "del", test_sid],
+            capture_output=True,
+        )
+        return (True, enabled)
+
+    except (subprocess.SubprocessError, ValueError):
+        return (False, False)
+
+
+def enable_srv6_on_router(router):
+    """
+    Enable SRv6 (seg6) on a router's interfaces.
+
+    Parameters
+    ----------
+    * `router` : Router object from topogen
+
+    Returns
+    -------
+    True if successful, False otherwise
+
+    Usage
+    -----
+    for rname, router in tgen.routers().items():
+        if not enable_srv6_on_router(router):
+            tgen.set_error("Failed to enable SRv6 on router {}".format(rname))
+    """
+    # Enable seg6 on all interfaces
+    result = router.run("sysctl -w net.ipv6.conf.all.seg6_enabled=1")
+    if "= 1" not in result:
+        logger.error("Failed to enable seg6 on %s: %s", router.name, result)
+        return False
+    result = router.run("sysctl -w net.ipv6.conf.default.seg6_enabled=1")
+    if "= 1" not in result:
+        logger.error("Failed to enable seg6 default on %s: %s", router.name, result)
+        return False
+    # Also enable on lo interface for local SID processing
+    router.run("sysctl -w net.ipv6.conf.lo.seg6_enabled=1")
+    logger.debug("SRv6 (seg6) enabled on router %s", router.name)
+    return True
+
+
 class HostApplicationHelper(object):
     """Helper to track and cleanup per-host based test processes."""
 

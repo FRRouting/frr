@@ -28,8 +28,10 @@
 #include "isis_spf_private.h"
 #include "isis_zebra.h"
 #include "isis_errors.h"
+#include "isis_srv6.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_NODE, "ISIS SPF Node");
+DEFINE_MTYPE(ISISD, ISIS_SRV6_SEG_STACK, "ISIS SRv6 Segment Stack");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_TIEBREAKER, "ISIS LFA Tiebreaker");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_EXCL_IFACE, "ISIS LFA Excluded Interface");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_RLFA, "ISIS Remote LFA");
@@ -338,15 +340,16 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree, const uint8_
 	return false;
 }
 
-struct tilfa_find_pnode_prefix_sid_args {
+struct tilfa_mpls_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
 	int algorithm;
 };
 
-static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t metric,
-					  bool external, struct isis_subtlvs *subtlvs, void *arg)
+static int tilfa_mpls_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t metric,
+					       bool external, struct isis_subtlvs *subtlvs,
+					       void *arg)
 {
-	struct tilfa_find_pnode_prefix_sid_args *args = arg;
+	struct tilfa_mpls_find_pnode_prefix_sid_args *args = arg;
 	struct isis_prefix_sid *psid;
 
 	if (!subtlvs || subtlvs->prefix_sids.count == 0)
@@ -365,10 +368,10 @@ static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix, uint32_t 
 }
 
 /* Find Prefix-SID associated to a System ID. */
-static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree, const uint8_t *sysid)
+static uint32_t tilfa_mpls_find_pnode_prefix_sid(struct isis_spftree *spftree, const uint8_t *sysid)
 {
 	struct isis_lsp *lsp;
-	struct tilfa_find_pnode_prefix_sid_args args;
+	struct tilfa_mpls_find_pnode_prefix_sid_args args;
 
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
 	if (!lsp)
@@ -378,20 +381,20 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree, const 
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
-				  tilfa_find_pnode_prefix_sid_cb, &args);
+				  tilfa_mpls_find_pnode_prefix_sid_cb, &args);
 
 	return args.sid_index;
 }
 
-struct tilfa_find_qnode_adj_sid_args {
+struct tilfa_mpls_find_qnode_adj_sid_args {
 	const uint8_t *qnode_sysid;
 	mpls_label_t label;
 };
 
-static int tilfa_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
-				       struct isis_ext_subtlvs *subtlvs, void *arg)
+static int tilfa_mpls_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
+					    struct isis_ext_subtlvs *subtlvs, void *arg)
 {
-	struct tilfa_find_qnode_adj_sid_args *args = arg;
+	struct tilfa_mpls_find_qnode_adj_sid_args *args = arg;
 	struct isis_adj_sid *adj_sid;
 
 	if (memcmp(id, args->qnode_sysid, ISIS_SYS_ID_LEN))
@@ -406,12 +409,12 @@ static int tilfa_find_qnode_adj_sid_cb(const uint8_t *id, uint32_t metric, bool 
 }
 
 /* Find Adj-SID associated to a pair of System IDs. */
-static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
-					     const uint8_t *source_sysid,
-					     const uint8_t *qnode_sysid)
+static mpls_label_t tilfa_mpls_find_qnode_adj_sid(struct isis_spftree *spftree,
+						  const uint8_t *source_sysid,
+						  const uint8_t *qnode_sysid)
 {
 	struct isis_lsp *lsp;
-	struct tilfa_find_qnode_adj_sid_args args;
+	struct tilfa_mpls_find_qnode_adj_sid_args args;
 
 	lsp = isis_root_system_lsp(spftree->lspdb, source_sysid);
 	if (!lsp)
@@ -419,7 +422,7 @@ static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
 
 	args.qnode_sysid = qnode_sysid;
 	args.label = MPLS_INVALID_LABEL;
-	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_find_qnode_adj_sid_cb, &args);
+	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_mpls_find_qnode_adj_sid_cb, &args);
 
 	return args.label;
 }
@@ -429,9 +432,9 @@ static mpls_label_t tilfa_find_qnode_adj_sid(struct isis_spftree *spftree,
  * needs to be computed separately for each adjacency since different
  * neighbors can have different SRGBs.
  */
-static struct mpls_label_stack *tilfa_compute_label_stack(struct lspdb_head *lspdb,
-							  const struct isis_spf_adj *sadj,
-							  const struct list *repair_list)
+static struct mpls_label_stack *tilfa_mpls_compute_label_stack(struct lspdb_head *lspdb,
+							       const struct isis_spf_adj *sadj,
+							       const struct list *repair_list)
 {
 	struct mpls_label_stack *label_stack;
 	struct isis_tilfa_sid *sid;
@@ -495,9 +498,10 @@ error:
 	return NULL;
 }
 
-static int tilfa_repair_list_apply(struct isis_spftree *spftree, struct isis_vertex *vertex_dest,
-				   const struct isis_vertex *vertex_pnode,
-				   const struct list *repair_list)
+static int tilfa_mpls_repair_list_apply(struct isis_spftree *spftree,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex_pnode,
+					const struct list *repair_list)
 {
 	struct isis_vertex_adj *vadj;
 	struct listnode *node;
@@ -516,7 +520,25 @@ static int tilfa_repair_list_apply(struct isis_spftree *spftree, struct isis_ver
 		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
 			continue;
 
-		label_stack = tilfa_compute_label_stack(spftree->lspdb, sadj, repair_list);
+		/*
+		 * Check if the nexthop (first hop on the backup path) has SR
+		 * capability. If not, use Implicit Null label since the nexthop
+		 * cannot process MPLS labels and will forward using IP routing.
+		 */
+		if (!isis_sr_find_srgb(spftree->lspdb, sadj->id)) {
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: nexthop %s has no SR, using Implicit Null",
+					   print_sys_hostname(sadj->id));
+			label_stack =
+				XCALLOC(MTYPE_ISIS_NEXTHOP_LABELS,
+					sizeof(struct mpls_label_stack) + sizeof(mpls_label_t));
+			label_stack->num_labels = 1;
+			label_stack->label[0] = MPLS_LABEL_IMPLICIT_NULL;
+			vadj->label_stack = label_stack;
+			continue;
+		}
+
+		label_stack = tilfa_mpls_compute_label_stack(spftree->lspdb, sadj, repair_list);
 		if (!label_stack) {
 			char buf[VID2STR_BUFFER];
 
@@ -528,6 +550,217 @@ static int tilfa_repair_list_apply(struct isis_spftree *spftree, struct isis_ver
 		}
 
 		vadj->label_stack = label_stack;
+	}
+
+	return 0;
+}
+
+/* Forward declarations for functions used by SRv6 TI-LFA */
+static bool lfa_ext_p_space_check(const struct isis_spftree *spftree_pc,
+				  const struct isis_vertex *vertex_dest,
+				  const struct isis_vertex *vertex);
+static bool lfa_q_space_check(const struct isis_spftree *spftree_pc,
+			      const struct isis_vertex *vertex);
+
+/*
+ * SRv6 TI-LFA: Compute segment stack from repair list.
+ * Unlike MPLS, SRv6 SIDs are direct IPv6 addresses (no SRGB translation).
+ */
+static struct isis_srv6_seg_stack *tilfa_compute_srv6_seg_stack(const struct list *repair_list)
+{
+	struct isis_srv6_seg_stack *seg_stack;
+	struct isis_tilfa_srv6_sid *sid;
+	struct listnode *node;
+	size_t num_segs;
+	int i;
+
+	num_segs = listcount(repair_list);
+	if (num_segs == 0)
+		return NULL;
+
+	if (num_segs > SRV6_MAX_SEGS) {
+		zlog_warn("%s: too many SRv6 segments (%zu > %d)", __func__, num_segs,
+			  SRV6_MAX_SEGS);
+		return NULL;
+	}
+
+	seg_stack = XCALLOC(MTYPE_ISIS_SRV6_SEG_STACK, sizeof(*seg_stack));
+	seg_stack->num_segs = num_segs;
+
+	/* Copy SIDs in order (repair_list is built with head insertion) */
+	i = 0;
+	for (ALL_LIST_ELEMENTS_RO(repair_list, node, sid))
+		seg_stack->segs[i++] = sid->sid;
+
+	return seg_stack;
+}
+
+/*
+ * SRv6 TI-LFA: Apply repair list to destination vertex adjacencies.
+ */
+static int tilfa_srv6_repair_list_apply(struct isis_spftree *spftree,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex_pnode,
+					const struct list *repair_list)
+{
+	struct isis_vertex_adj *vadj;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(vertex_dest->Adj_N, node, vadj)) {
+		struct isis_spf_adj *sadj = vadj->sadj;
+		struct isis_srv6_seg_stack *seg_stack;
+
+		/*
+		 * Don't try to apply the repair list if one was already applied
+		 * before (can't have ECMP past the P-node).
+		 */
+		if (vadj->srv6_seg_stack)
+			continue;
+
+		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
+			continue;
+
+		seg_stack = tilfa_compute_srv6_seg_stack(repair_list);
+		if (!seg_stack) {
+			char buf[VID2STR_BUFFER];
+
+			vid2string(vertex_dest, buf, sizeof(buf));
+			zlog_warn("%s: %s %s adjacency %s: failed to compute SRv6 segment stack",
+				  __func__, vtype2string(vertex_dest->type), buf,
+				  print_sys_hostname(sadj->id));
+			return -1;
+		}
+
+		vadj->srv6_seg_stack = seg_stack;
+	}
+
+	return 0;
+}
+
+/*
+ * SRv6 TI-LFA: Build repair list (recursive).
+ * Mirrors tilfa_build_repair_list() but uses SRv6 SIDs instead of MPLS labels.
+ *
+ * Key difference from MPLS TI-LFA: SRv6 does NOT push a destination SID.
+ * Per draft-ietf-rtgwg-segment-routing-ti-lfa, SRv6 adjacency SIDs (End.X)
+ * are globally routable IPv6 addresses. Once traffic reaches the Q-node
+ * via the segment list, normal IPv6 routing forwards it to the destination.
+ * This results in shorter segment lists compared to MPLS.
+ */
+static int tilfa_build_srv6_repair_list(struct isis_spftree *spftree_pc,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex,
+					const struct isis_vertex *vertex_child,
+					struct isis_spf_nodes *used_pnodes,
+					struct list *repair_list)
+{
+	struct isis_vertex *pvertex;
+	struct listnode *node;
+	bool is_pnode, is_qnode;
+	char buf[VID2STR_BUFFER];
+	struct isis_tilfa_srv6_sid sid_qnode = {};
+	struct isis_tilfa_srv6_sid sid_pnode = {};
+	struct in6_addr end_sid, endx_sid;
+
+	if (IS_DEBUG_LFA) {
+		vid2string(vertex, buf, sizeof(buf));
+		zlog_debug("ISIS-LFA: SRv6 vertex %s %s", vtype2string(vertex->type), buf);
+	}
+
+	/*
+	 * Unlike MPLS TI-LFA, SRv6 does NOT push a destination Prefix-SID.
+	 * SRv6 End.X SIDs are globally routable, so once traffic reaches
+	 * the Q-node, normal IPv6 forwarding delivers it to the destination.
+	 * Skip directly to processing IS vertices.
+	 */
+	if (!vertex_child)
+		goto parents;
+	if (vertex->type != VTYPE_NONPSEUDO_IS && vertex->type != VTYPE_NONPSEUDO_TE_IS)
+		goto parents;
+	if (!VTYPE_IS(vertex_child->type))
+		vertex_child = NULL;
+
+	/* Check if node is part of the extended P-space and/or Q-space. */
+	is_pnode = lfa_ext_p_space_check(spftree_pc, vertex_dest, vertex);
+	is_qnode = lfa_q_space_check(spftree_pc, vertex);
+
+	/* Push End.X SID when necessary. */
+	if ((!is_qnode || spftree_pc->lfa.protected_resource.type == LFA_NODE_PROTECTION) &&
+	    vertex_child) {
+		if (!isis_srv6_tilfa_find_qnode_endx_sid(spftree_pc, vertex->N.id,
+							 vertex_child->N.id, &endx_sid)) {
+			zlog_warn("ISIS-LFA: SRv6 failed to find %s->%s End.X SID",
+				  print_sys_hostname(vertex->N.id),
+				  print_sys_hostname(vertex_child->N.id));
+			return -1;
+		}
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: SRv6 pushing %s->%s End.X SID %pI6",
+				   print_sys_hostname(vertex->N.id),
+				   print_sys_hostname(vertex_child->N.id), &endx_sid);
+		sid_qnode.type = TILFA_SRV6_SID_END_X;
+		sid_qnode.sid = endx_sid;
+		memcpy(sid_qnode.remote_sysid, vertex->N.id, sizeof(sid_qnode.remote_sysid));
+		listnode_add_head(repair_list, &sid_qnode);
+	}
+
+	/* Push End SID (P-node) when necessary. */
+	if (is_pnode) {
+		/* The same P-node can't be used more than once. */
+		if (isis_spf_node_find(used_pnodes, vertex->N.id)) {
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: SRv6 skipping already used P-node");
+			return 0;
+		}
+		isis_spf_node_new(used_pnodes, vertex->N.id);
+
+		if (!vertex_child) {
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: SRv6 destination is within Ext-P-Space");
+			return 0;
+		}
+
+		if (!isis_srv6_tilfa_find_pnode_end_sid(spftree_pc, vertex->N.id, &end_sid)) {
+			zlog_warn("ISIS-LFA: SRv6 failed to find End SID for PQ-node %s",
+				  print_sys_hostname(vertex->N.id));
+			return -1;
+		}
+
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: SRv6 pushing End SID %pI6 to P-node %s", &end_sid,
+				   print_sys_hostname(vertex->N.id));
+		sid_pnode.type = TILFA_SRV6_SID_END;
+		sid_pnode.sid = end_sid;
+		memcpy(sid_pnode.remote_sysid, vertex->N.id, sizeof(sid_pnode.remote_sysid));
+		listnode_add_head(repair_list, &sid_pnode);
+
+		/* Apply repair list. */
+		if (spftree_pc->area->srv6db.config.max_seg_left_msd &&
+		    listcount(repair_list) > spftree_pc->area->srv6db.config.max_seg_left_msd) {
+			zlog_warn("ISIS-LFA: SRv6 segment list exceeds MSD (%u > %u)",
+				  listcount(repair_list),
+				  spftree_pc->area->srv6db.config.max_seg_left_msd);
+			return -1;
+		}
+		if (tilfa_srv6_repair_list_apply(spftree_pc, vertex_dest, vertex, repair_list) != 0)
+			return -1;
+		return 0;
+	}
+
+parents:
+	for (ALL_LIST_ELEMENTS_RO(vertex->parents, node, pvertex)) {
+		struct list *repair_list_parent;
+		bool ecmp;
+		int ret;
+
+		ecmp = (listcount(vertex->parents) > 1) ? true : false;
+		repair_list_parent = ecmp ? list_dup(repair_list) : repair_list;
+		ret = tilfa_build_srv6_repair_list(spftree_pc, vertex_dest, pvertex, vertex,
+						   used_pnodes, repair_list_parent);
+		if (ecmp)
+			list_delete(&repair_list_parent);
+		if (ret != 0)
+			return ret;
 	}
 
 	return 0;
@@ -576,10 +809,12 @@ static bool lfa_q_space_check(const struct isis_spftree *spftree_pc,
 }
 
 /* This is a recursive function. */
-static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_vertex *vertex_dest,
-				   const struct isis_vertex *vertex,
-				   const struct isis_vertex *vertex_child,
-				   struct isis_spf_nodes *used_pnodes, struct list *repair_list)
+static int tilfa_build_mpls_repair_list(struct isis_spftree *spftree_pc,
+					struct isis_vertex *vertex_dest,
+					const struct isis_vertex *vertex,
+					const struct isis_vertex *vertex_child,
+					struct isis_spf_nodes *used_pnodes,
+					struct list *repair_list)
 {
 	struct isis_vertex *pvertex;
 	struct listnode *node;
@@ -638,9 +873,26 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 			list_delete_all_node(repair_list);
 		}
 
-		label_qnode = tilfa_find_qnode_adj_sid(spftree_pc, vertex->N.id,
-						       vertex_child->N.id);
+		label_qnode = tilfa_mpls_find_qnode_adj_sid(spftree_pc, vertex->N.id,
+							    vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {
+			/*
+			 * Adj-SID not found. Check if the source node has SR
+			 * capability. If not, we may still be able to use
+			 * this path with Implicit Null if this node is a
+			 * P-node.
+			 */
+			if (!isis_sr_find_srgb(spftree_pc->lspdb, vertex->N.id) && is_pnode) {
+				if (IS_DEBUG_LFA)
+					zlog_debug("ISIS-LFA: P-node %s has no SR, skipping Adj-SID",
+						   print_sys_hostname(vertex->N.id));
+				/*
+				 * Don't push Adj-SID since the P-node doesn't
+				 * support SR. Continue to P-node check where
+				 * we'll use Implicit Null.
+				 */
+				goto check_pnode;
+			}
 			zlog_warn("ISIS-LFA: failed to find %s->%s Adj-SID",
 				  print_sys_hostname(vertex->N.id),
 				  print_sys_hostname(vertex_child->N.id));
@@ -655,6 +907,7 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 		listnode_add_head(repair_list, &sid_qnode);
 	}
 
+check_pnode:
 	/* Push Prefix-SID label when necessary. */
 	if (is_pnode) {
 		/* The same P-node can't be used more than once. */
@@ -671,8 +924,28 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 			return 0;
 		}
 
-		sid_index = tilfa_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
+		sid_index = tilfa_mpls_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
 		if (sid_index == UINT32_MAX) {
+			/*
+			 * P-node doesn't have a Prefix-SID. Check if it has
+			 * SR capability. If not, we can still use it as backup
+			 * nexthop with Implicit Null (the backup path will use
+			 * IP forwarding from the P-node).
+			 */
+			if (!isis_sr_find_srgb(spftree_pc->lspdb, vertex->N.id)) {
+				if (IS_DEBUG_LFA)
+					zlog_debug("ISIS-LFA: P-node %s has no SR, using Implicit Null",
+						   print_sys_hostname(vertex->N.id));
+				/*
+				 * Clear the repair list since the first hop
+				 * can't process MPLS labels.
+				 */
+				list_delete_all_node(repair_list);
+				if (tilfa_mpls_repair_list_apply(spftree_pc, vertex_dest, vertex,
+								 repair_list) != 0)
+					return -1;
+				return 0;
+			}
 			zlog_warn("ISIS-LFA: failed to find Prefix-SID corresponding to PQ-node %s",
 				  print_sys_hostname(vertex->N.id));
 			return -1;
@@ -692,7 +965,7 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 				  listcount(repair_list), spftree_pc->area->srdb.config.msd);
 			return -1;
 		}
-		if (tilfa_repair_list_apply(spftree_pc, vertex_dest, vertex, repair_list) != 0)
+		if (tilfa_mpls_repair_list_apply(spftree_pc, vertex_dest, vertex, repair_list) != 0)
 			return -1;
 		return 0;
 	}
@@ -705,8 +978,8 @@ parents:
 
 		ecmp = (listcount(vertex->parents) > 1) ? true : false;
 		repair_list_parent = ecmp ? list_dup(repair_list) : repair_list;
-		ret = tilfa_build_repair_list(spftree_pc, vertex_dest, pvertex, vertex,
-					      used_pnodes, repair_list_parent);
+		ret = tilfa_build_mpls_repair_list(spftree_pc, vertex_dest, pvertex, vertex,
+						   used_pnodes, repair_list_parent);
 		if (ecmp)
 			list_delete(&repair_list_parent);
 		if (ret != 0)
@@ -723,6 +996,8 @@ static const char *lfa_protection_type2str(enum lfa_protection_type type)
 		return "link protection";
 	case LFA_NODE_PROTECTION:
 		return "node protection";
+	case LFA_SRLG_PROTECTION:
+		return "SRLG protection";
 	default:
 		return "unknown protection type";
 	}
@@ -731,7 +1006,23 @@ static const char *lfa_protection_type2str(enum lfa_protection_type type)
 static const char *lfa_protected_resource2str(const struct lfa_protected_resource *resource)
 {
 	const uint8_t *fail_id;
-	static char buffer[128];
+	static char buffer[256];
+
+	if (resource->type == LFA_SRLG_PROTECTION) {
+		char srlg_str[128] = "";
+		size_t offset = 0;
+
+		for (uint8_t i = 0; i < resource->srlg_count && i < LFA_MAX_SRLG; i++) {
+			int ret = snprintf(srlg_str + offset, sizeof(srlg_str) - offset, "%s%u",
+					   i > 0 ? "," : "", resource->srlgs[i]);
+			if (ret < 0 || (size_t)ret >= sizeof(srlg_str) - offset)
+				break;
+			offset += ret;
+		}
+		snprintf(buffer, sizeof(buffer), "SRLG [%s] failure (%s)", srlg_str,
+			 lfa_protection_type2str(resource->type));
+		return buffer;
+	}
 
 	fail_id = resource->adjacency;
 	snprintf(buffer, sizeof(buffer), "%s.%u's failure (%s)", print_sys_hostname(fail_id),
@@ -740,10 +1031,41 @@ static const char *lfa_protected_resource2str(const struct lfa_protected_resourc
 	return buffer;
 }
 
+/*
+ * Check if an adjacency shares any SRLG with the protected resource.
+ * Returns true if the adjacency shares any SRLG with the protected resource.
+ */
+static bool spf_adj_check_srlg_affected(const struct isis_spf_adj *sadj,
+					const struct lfa_protected_resource *resource)
+{
+	uint8_t i, j;
+
+	/* No SRLG information available on this adjacency */
+	if (!sadj->subtlvs || !IS_SUBTLV(sadj->subtlvs, EXT_SRLG))
+		return false;
+
+	if (sadj->subtlvs->srlg_num == 0)
+		return false;
+
+	/* Check if any SRLG value from the adjacency matches the protected set */
+	for (i = 0; i < resource->srlg_count; i++) {
+		for (j = 0; j < sadj->subtlvs->srlg_num; j++) {
+			if (resource->srlgs[i] == sadj->subtlvs->srlgs[j])
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static bool spf_adj_check_is_affected(const struct isis_spf_adj *sadj,
 				      const struct lfa_protected_resource *resource,
 				      const uint8_t *root_sysid, bool reverse)
 {
+	/* Handle SRLG protection separately */
+	if (resource->type == LFA_SRLG_PROTECTION)
+		return spf_adj_check_srlg_affected(sadj, resource);
+
 	if (!!CHECK_FLAG(sadj->flags, F_ISIS_SPF_ADJ_BROADCAST) !=
 	    !!LSP_PSEUDO_ID(resource->adjacency))
 		return false;
@@ -829,10 +1151,30 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex
 	struct isis_spf_nodes used_pnodes;
 	char buf[VID2STR_BUFFER];
 	struct list *repair_list;
+	bool use_srv6;
 	int ret;
 
-	if (!spftree_pc->area->srdb.enabled)
+	/*
+	 * Check if SRv6 TI-LFA is enabled, otherwise fall back to MPLS.
+	 * SRv6 TI-LFA requires:
+	 * - SRv6 to be enabled with a locator
+	 * - TI-LFA SRv6 explicitly configured
+	 * - IPv6 address family (SRv6 uses IPv6 SIDs)
+	 */
+	use_srv6 = spftree_pc->area->srv6db.config.enabled &&
+		   spftree_pc->area->srv6db.config.tilfa_enabled &&
+		   spftree_pc->area->srv6db.srv6_locator && spftree_pc->family == AF_INET6;
+
+	/* For MPLS TI-LFA, require SR-MPLS to be enabled */
+	if (!use_srv6 && !spftree_pc->area->srdb.enabled)
 		return -1;
+
+	/* For SRv6 TI-LFA, ensure we have a valid locator */
+	if (use_srv6 && !spftree_pc->area->srv6db.srv6_locator) {
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: SRv6 TI-LFA skipped - no locator configured");
+		return -1;
+	}
 
 	if (!lfa_check_needs_protection(spftree_pc, vertex)) {
 		if (IS_DEBUG_LFA)
@@ -874,20 +1216,29 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex
 	}
 
 	if (IS_DEBUG_LFA)
-		zlog_debug("ISIS-LFA: computing repair path(s) of %s %s w.r.t %s",
-			   vtype2string(vertex->type), vid2string(vertex, buf, sizeof(buf)),
+		zlog_debug("ISIS-LFA: computing %s repair path(s) of %s %s w.r.t %s",
+			   use_srv6 ? "SRv6" : "MPLS", vtype2string(vertex->type),
+			   vid2string(vertex, buf, sizeof(buf)),
 			   lfa_protected_resource2str(&spftree_pc->lfa.protected_resource));
 
 	/* Create base repair list. */
 	repair_list = list_new();
 
 	isis_spf_node_list_init(&used_pnodes);
-	ret = tilfa_build_repair_list(spftree_pc, vertex, vertex, NULL, &used_pnodes, repair_list);
+
+	if (use_srv6)
+		ret = tilfa_build_srv6_repair_list(spftree_pc, vertex, vertex, NULL, &used_pnodes,
+						   repair_list);
+	else
+		ret = tilfa_build_mpls_repair_list(spftree_pc, vertex, vertex, NULL, &used_pnodes,
+						   repair_list);
+
 	isis_spf_node_list_clear(&used_pnodes);
 	list_delete(&repair_list);
 	if (ret != 0)
-		zlog_warn("ISIS-LFA: failed to compute repair path(s) of %s %s w.r.t %s",
-			  vtype2string(vertex->type), vid2string(vertex, buf, sizeof(buf)),
+		zlog_warn("ISIS-LFA: failed to compute %s repair path(s) of %s %s w.r.t %s",
+			  use_srv6 ? "SRv6" : "MPLS", vtype2string(vertex->type),
+			  vid2string(vertex, buf, sizeof(buf)),
 			  lfa_protected_resource2str(&spftree_pc->lfa.protected_resource));
 
 	return ret;
@@ -924,7 +1275,8 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 		struct isis_vertex_adj *vadj;
 		bool reverse = false;
 
-		if (p_space && resource->type == LFA_NODE_PROTECTION) {
+		if (p_space && (resource->type == LFA_NODE_PROTECTION ||
+				resource->type == LFA_SRLG_PROTECTION)) {
 			if (isis_spf_node_find(&resource->nodes, vertex->N.id))
 				return true;
 			goto parents;
@@ -1090,8 +1442,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area, struct isis_spft
 		zlog_debug("ISIS-LFA: computing TI-LFAs for %s",
 			   lfa_protected_resource2str(resource));
 
-	/* Populate list of nodes affected by link failure. */
-	if (resource->type == LFA_NODE_PROTECTION) {
+	/* Populate list of nodes affected by link/node/SRLG failure. */
+	if (resource->type == LFA_NODE_PROTECTION || resource->type == LFA_SRLG_PROTECTION) {
 		isis_spf_node_list_init(&resource->nodes);
 		RB_FOREACH (adj_node, isis_spf_nodes, &spftree->adj_nodes) {
 			if (spf_adj_node_is_affected(adj_node, resource, spftree->sysid))
@@ -1117,8 +1469,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area, struct isis_spft
 	/* Re-run SPF in the local node to find the post-convergence paths. */
 	isis_run_spf(spftree_pc);
 
-	/* Clear list of nodes affeted by link failure. */
-	if (resource->type == LFA_NODE_PROTECTION)
+	/* Clear list of nodes affected by failure. */
+	if (resource->type == LFA_NODE_PROTECTION || resource->type == LFA_SRLG_PROTECTION)
 		isis_spf_node_list_clear(&resource->nodes);
 
 	return spftree_pc;
@@ -1370,6 +1722,9 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 			num_labels++;
 		if (vadj->sr.present && vadj->sr.label != MPLS_LABEL_IMPLICIT_NULL)
 			num_labels++;
+
+		/* Free any existing label stack before allocating new one. */
+		XFREE(MTYPE_ISIS_NEXTHOP_LABELS, vadj->label_stack);
 
 		/* Allocate label stack. */
 		label_stack = XCALLOC(MTYPE_ISIS_NEXTHOP_LABELS,
@@ -2063,8 +2418,29 @@ static void isis_spf_run_tilfa(struct isis_area *area, struct isis_circuit *circ
 {
 	struct isis_spftree *spftree_pc_link;
 	struct isis_spftree *spftree_pc_node;
+	struct isis_spftree *spftree_pc_srlg;
 
-	/* Compute node protecting repair paths first (if necessary). */
+	/* Compute SRLG protecting repair paths first (if necessary). */
+	if (circuit->tilfa_srlg_protection[spftree->level - 1]) {
+		/* Check if circuit has SRLG values configured */
+		if (circuit->ext && circuit->ext->srlg_num > 0) {
+			uint8_t i;
+
+			resource->type = LFA_SRLG_PROTECTION;
+			resource->srlg_count = circuit->ext->srlg_num;
+			for (i = 0; i < circuit->ext->srlg_num && i < LFA_MAX_SRLG; i++)
+				resource->srlgs[i] = circuit->ext->srlgs[i];
+
+			spftree_pc_srlg = isis_tilfa_compute(area, spftree, spftree_reverse,
+							     resource);
+			isis_spftree_del(spftree_pc_srlg);
+
+			/* Reset SRLG info for subsequent computations */
+			resource->srlg_count = 0;
+		}
+	}
+
+	/* Compute node protecting repair paths (if necessary). */
 	if (circuit->tilfa_node_protection[spftree->level - 1]) {
 		resource->type = LFA_NODE_PROTECTION;
 		spftree_pc_node = isis_tilfa_compute(area, spftree, spftree_reverse, resource);

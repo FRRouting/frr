@@ -561,6 +561,13 @@ module frr-isisd {
         description
           "Fallback to link protection.";
       }
+      leaf srlg-protection {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "SRLG-disjoint protection is provided by the alternate.";
+      }
     }
   }
 
@@ -863,6 +870,16 @@ module frr-isisd {
         description
           "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }
+    }
+
+    leaf-list srlg {
+      type uint32 {
+        range "0..16777215";
+      }
+      max-elements "16";
+      description
+        "Shared Risk Link Group (SRLG) values for this interface.
+         Used by TI-LFA to compute SRLG-disjoint backup paths.";
     }
 
     container fast-reroute {
@@ -1797,6 +1814,18 @@ module frr-isisd {
                 "Array of Attribute Names";
             }
           }
+          container srlg-exclude-anies {
+            description
+              "Exclude links with specified SRLG values";
+            leaf-list srlg-exclude-any {
+              type uint32 {
+                range "0..16777215";
+              }
+              max-elements "16";
+              description
+                "SRLG value to exclude from path computation";
+            }
+          }
           leaf prefix-metric {
             type empty;
             description
@@ -2129,6 +2158,20 @@ module frr-isisd {
           default "sr0";
           description
             "Dummy interface used to install SRv6 SIDs into the Linux data plane.";
+        }
+        container fast-reroute {
+          description
+            "SRv6 Fast ReRoute (FRR) configuration.";
+          container ti-lfa {
+            description
+              "Topology Independent Loop-Free Alternate (TI-LFA) configuration.";
+            leaf enable {
+              type boolean;
+              default "false";
+              description
+                "Enable TI-LFA with SRv6 for fast reroute.";
+            }
+          }
         }
       }
 

@@ -2915,6 +2915,87 @@ int isis_instance_flex_algo_affinity_exclude_any_destroy(struct nb_cb_destroy_ar
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/srlg-exclude-anies/srlg-exclude-any
+ */
+
+int isis_instance_flex_algo_srlg_exclude_any_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t srlg;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		if (fa->exclude_srlg_count >= FLEX_ALGO_MAX_SRLG) {
+			snprintf(args->errmsg, args->errmsg_len, "maximum SRLG count reached");
+			return NB_ERR_RESOURCE;
+		}
+		fa->exclude_srlgs[fa->exclude_srlg_count++] = srlg;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_srlg_exclude_any_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t srlg;
+	uint8_t i, j;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len, "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		/* Remove the SRLG from the array */
+		for (i = 0; i < fa->exclude_srlg_count; i++) {
+			if (fa->exclude_srlgs[i] == srlg) {
+				for (j = i; j < fa->exclude_srlg_count - 1; j++)
+					fa->exclude_srlgs[j] = fa->exclude_srlgs[j + 1];
+				fa->exclude_srlg_count--;
+				break;
+			}
+		}
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric
  */
 
@@ -3398,6 +3479,29 @@ int isis_instance_segment_routing_srv6_interface_modify(struct nb_cb_modify_args
 	sr_debug("Changing SRv6 interface for IS-IS area %s to %s", area->area_tag, ifname);
 
 	isis_srv6_interface_set(area, ifname);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/fast-reroute/ti-lfa/enable
+ */
+int isis_instance_segment_routing_srv6_frr_tilfa_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.tilfa_enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (area->srv6db.config.tilfa_enabled)
+		sr_debug("Enabling SRv6 TI-LFA for IS-IS area %s", area->area_tag);
+	else
+		sr_debug("Disabling SRv6 TI-LFA for IS-IS area %s", area->area_tag);
+
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -4403,6 +4507,29 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
 
 /*
  * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/srlg-protection
+ */
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_srlg_protection_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->tilfa_srlg_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/enable
  */
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(struct nb_cb_modify_args *args)
@@ -4617,6 +4744,108 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_link_fallback[1] = yang_dnode_get_bool(args->dnode, NULL);
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/srlg-protection
+ */
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_srlg_protection_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->tilfa_srlg_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/srlg
+ */
+int lib_interface_isis_srlg_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	uint32_t srlg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	/* Ensure ext subtlvs structure exists */
+	if (!circuit->ext) {
+		circuit->ext = isis_alloc_ext_subtlvs();
+		circuit->ext->status = EXT_DISABLE;
+	}
+
+	/* Add SRLG value if not already present and space available */
+	if (circuit->ext->srlg_num < ISIS_SUBTLV_SRLG_MAX_ENTRIES) {
+		uint8_t i;
+		bool found = false;
+
+		for (i = 0; i < circuit->ext->srlg_num; i++) {
+			if (circuit->ext->srlgs[i] == srlg) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			circuit->ext->srlgs[circuit->ext->srlg_num++] = srlg;
+			SET_SUBTLV(circuit->ext, EXT_SRLG);
+		}
+	}
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int lib_interface_isis_srlg_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	uint32_t srlg;
+	uint8_t i, j;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	srlg = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (circuit->ext && circuit->ext->srlg_num > 0) {
+		for (i = 0; i < circuit->ext->srlg_num; i++) {
+			if (circuit->ext->srlgs[i] == srlg) {
+				/* Shift remaining entries */
+				for (j = i; j < circuit->ext->srlg_num - 1; j++)
+					circuit->ext->srlgs[j] = circuit->ext->srlgs[j + 1];
+				circuit->ext->srlg_num--;
+				if (circuit->ext->srlg_num == 0)
+					UNSET_SUBTLV(circuit->ext, EXT_SRLG);
+				break;
+			}
+		}
+	}
 
 	area = circuit->area;
 	if (area)

@@ -159,6 +159,7 @@ struct isis_circuit {
 	bool tilfa_protection[ISIS_LEVELS];
 	bool tilfa_node_protection[ISIS_LEVELS];
 	bool tilfa_link_fallback[ISIS_LEVELS];
+	bool tilfa_srlg_protection[ISIS_LEVELS];
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
