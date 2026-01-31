@@ -1083,7 +1083,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 			/* Actual Data */
 			for (i = 0; i < Bulk_msg->n_mroute_add; i++) {
-				if (STREAM_SIZE(s) < VRF_NAMSIZ + 22 + IFNAMSIZ) {
+				if (STREAM_WRITEABLE(s) < VRF_NAMSIZ + 22 + IFNAMSIZ) {
 					zlog_warn(
 						"We have received more messages than we can parse at this point in time: %zu",
 						Bulk_msg->n_mroute_add);
@@ -1133,7 +1133,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 			/* Actual Data */
 			for (i = 0; i < Bulk_msg->n_mroute_del; i++) {
-				if (STREAM_SIZE(s) < VRF_NAMSIZ + 16 + IFNAMSIZ) {
+				if (STREAM_WRITEABLE(s) < VRF_NAMSIZ + 16 + IFNAMSIZ) {
 					zlog_warn(
 						"We have received more messages than we can parse at this time");
 					break;
