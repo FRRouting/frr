@@ -919,6 +919,45 @@ static struct {
 			    .handler = nhrp_handle_traffic_ind,
 		    }};
 
+static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
+	uint16_t indication_code, uint16_t offset)
+{
+  union sockunion src_proto, dst_proto;
+  struct nhrp_packet_header *hdr;
+  struct zbuf *zb;
+
+  src_proto = pp->src_proto;
+  dst_proto = pp->dst_proto;
+  if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
+	  src_proto = pp->dst_proto;
+	  dst_proto = pp->src_proto;
+  }
+  /* Create reply */
+  zb = zbuf_alloc(1500);
+  hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
+				 &src_proto, &dst_proto);
+
+  hdr->u.error.code = htons(indication_code);
+  hdr->u.error.offset = htons(offset);
+  hdr->flags = pp->hdr->flags;
+  hdr->hop_count = 0; /* XXX: cisco returns 255 */
+
+  /* Payload is the packet causing error */
+  /* Don`t add extension according to RFC */
+  zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
+  zbuf_put(zb, sockunion_get_addr(&pp->src_nbma),
+	   hdr->src_nbma_address_len);
+  zbuf_put(zb, sockunion_get_addr(&pp->src_proto),
+	   hdr->src_protocol_address_len);
+  zbuf_put(zb, sockunion_get_addr(&pp->dst_proto),
+	   hdr->dst_protocol_address_len);
+  nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
+
+  nhrp_peer_send(pp->peer, zb);
+  zbuf_free(zb);
+  return 0;
+}
+
 static void nhrp_peer_forward(struct nhrp_peer *p,
 			      struct nhrp_packet_parser *pp)
 {
@@ -1065,6 +1104,15 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 				goto err;
 			fallthrough;
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
+			if (hdr->type == NHRP_PACKET_RESOLUTION_REPLY) {
+				cie = nhrp_cie_pull(&extpl, pp->hdr, &cie_nbma, &cie_protocol);
+				if (cie && sockunion_same(&cie_protocol, &pp->if_ad->addr)) {
+					debugf(NHRP_DEBUG_COMMON,
+						"Loop detected via Responder Address Extension, dropping reply");
+					nhrp_packet_send_error(pp, NHRP_ERROR_LOOP_DETECTED, 0);
+					goto err;
+				}
+			}
 			/* Supported compulsory extensions, and any
 			 * non-compulsory that is not explicitly handled,
 			 * should be just copied.
@@ -1116,45 +1164,6 @@ static int proto2afi(uint16_t proto)
 		return AFI_IP6;
 	}
 	return AF_UNSPEC;
-}
-
-static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
-				  uint16_t indication_code, uint16_t offset)
-{
-	union sockunion src_proto, dst_proto;
-	struct nhrp_packet_header *hdr;
-	struct zbuf *zb;
-
-	src_proto = pp->src_proto;
-	dst_proto = pp->dst_proto;
-	if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
-		src_proto = pp->dst_proto;
-		dst_proto = pp->src_proto;
-	}
-	/* Create reply */
-	zb = zbuf_alloc(1500);
-	hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
-			       &src_proto, &dst_proto);
-
-	hdr->u.error.code = htons(indication_code);
-	hdr->u.error.offset = htons(offset);
-	hdr->flags = pp->hdr->flags;
-	hdr->hop_count = 0; /* XXX: cisco returns 255 */
-
-	/* Payload is the packet causing error */
-	/* Don`t add extension according to RFC */
-	zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
-	zbuf_put(zb, sockunion_get_addr(&pp->src_nbma),
-		 hdr->src_nbma_address_len);
-	zbuf_put(zb, sockunion_get_addr(&pp->src_proto),
-		 hdr->src_protocol_address_len);
-	zbuf_put(zb, sockunion_get_addr(&pp->dst_proto),
-		 hdr->dst_protocol_address_len);
-	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
-
-	nhrp_peer_send(pp->peer, zb);
-	zbuf_free(zb);
-	return 0;
 }
 
 static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
