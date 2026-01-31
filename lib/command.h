@@ -245,6 +245,7 @@ struct cmd_node {
 #define CMD_NOT_MY_INSTANCE	14
 #define CMD_NO_LEVEL_UP 15
 #define CMD_ERR_NO_DAEMON 16
+#define CMD_YIELD 17 /* Command has yielded but is not complete yet */
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
