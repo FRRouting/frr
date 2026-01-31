@@ -1,0 +1,24 @@
+graph bfd_admin_down_no_impact {
+	label="BFD Admin Down No Impact Test\n\nTests that BFD Admin Down does not tear down BGP/OSPF/PIM sessions";
+
+	r1 [
+		shape=doubleoctagon
+		label="r1\n1.1.1.1\nAS65001"
+		fillcolor="#f08080"
+		style=filled
+	];
+
+	r2 [
+		shape=doubleoctagon
+		label="r2\n2.2.2.2\nAS65002"
+		fillcolor="#f08080"
+		style=filled
+	];
+
+	r1 -- r2 [
+		label="10.0.1.0/24\nBGP+OSPF+PIM+BFD"
+		style=bold
+	];
+}
+
+

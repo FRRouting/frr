@@ -2,15 +2,17 @@
 # SPDX-License-Identifier: ISC
 
 #
-# test_bgp_strict_bfd_down_cease_notification_shutdown.py
+# test_bgp_strict_bfd_packet_loss.py
 #
 # Copyright (c) 2025 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
 #
 
 """
-Check if Cease/BFD Down notification message is sent/received
-when the BFD is down and BGP hold-time is 0 (disabled).
+Test BGP with strict BFD when BFD packets are dropped (network failure).
+
+This test simulates a real network failure where BFD packets are lost via ACL.
+With strict BFD mode, BGP should tear down after the hold-timer expires.
 """
 
 import os
@@ -64,7 +66,13 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_strict_bfd_down_notification_shutdown():
+def test_bgp_strict_bfd_packet_loss():
+    """
+    Test BGP with strict BFD when BFD packets are dropped by ACL (network failure).
+
+    This simulates a real network failure where BFD packets are lost.
+    BFD should timeout, and BGP should tear down with Cease/BFD Down notification.
+    """
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -73,6 +81,8 @@ def test_bgp_strict_bfd_down_notification_shutdown():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
+    # Configure strict BFD mode with hold-time
+    step("Configure BGP strict BFD mode on both routers")
     r1.vtysh_cmd(
         """
     configure
@@ -102,7 +112,22 @@ def test_bgp_strict_bfd_down_notification_shutdown():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_bfd_down_notification():
+    step("Wait for BGP to converge with strict BFD")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "Failed to see BGP convergence on R2"
+
+    # Apply ACL to drop BFD packets (port 3784) on R1
+    # This simulates network failure / packet loss
+    step("Apply iptables rule on R1 to drop BFD packets (simulate packet loss)")
+    r1.run("iptables -A OUTPUT -p udp --dport 3784 -j DROP")
+    r1.run("iptables -A INPUT -p udp --sport 3784 -j DROP")
+
+    def _bgp_bfd_down_after_packet_loss():
+        """
+        After BFD packets are blocked, BFD should timeout and go Down.
+        BGP in strict mode should then tear down after hold-time expires.
+        """
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
@@ -115,49 +140,40 @@ def test_bgp_strict_bfd_down_notification_shutdown():
         }
         return topotest.json_cmp(output, expected)
 
-    step("Initial BGP converge")
-    test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Failed to see BGP convergence on R2"
+    step("Check if BGP tears down after BFD timeout due to packet loss")
+    test_func = functools.partial(_bgp_bfd_down_after_packet_loss)
+    # BFD will take time to timeout (detect-multiplier * interval) + hold-time
+    # Default BFD timers are usually 300ms * 3 = 900ms + 5s hold-time = ~6s
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "Failed to see BGP tear down after BFD packet loss"
 
-    r1.vtysh_cmd(
+    def _bgp_cease_notification_on_r1():
         """
-    configure
-     bfd
-      profile r1
-       shutdown
-    """
-    )
+        R1 should also see the BGP session down and receive notification.
+        """
+        output = json.loads(r1.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
+        expected = {
+            "192.168.255.2": {
+                "lastNotificationReason": "Cease/BFD Down",
+                "peerBfdInfo": {
+                    "status": "Down",
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
 
-    step("Check if we sent Cease/BFD Down notification message")
-    test_func = functools.partial(_bgp_bfd_down_notification)
+    step("Check if R1 received Cease/BFD Down notification")
+    test_func = functools.partial(_bgp_cease_notification_on_r1)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
+    assert result is None, "Failed to see BGP Cease/BFD Down notification on R1"
 
-    def _bgp_status_post_bfd_profile_shutdown():
-        output = json.loads(r1.vtysh_cmd("show bgp summary json"))
-        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"state": "Idle"}}}}
-        ret = topotest.json_cmp(output, expected)
-        # If the peer is in Idle state and already 10 seconds, then all good
-        if (
-            not ret
-            and output["ipv4Unicast"]["peers"]["192.168.255.2"]["peerUptimeMsec"]
-            > 10000
-        ):
-            return ret
-
-        # Here, the peer might be in Idle state, but not for long enough, which is bad
-        # and not expected.
-        return "BGP peer is not in Idle state for long enough"
-
-    step("Check if BGP stays in Idle state on R1 after BFD profile shutdown")
-    test_func = functools.partial(_bgp_status_post_bfd_profile_shutdown)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "BGP should stay in shutdown state on R1 after BFD profile shutdown"
+    # Cleanup: Remove iptables rules
+    step("Cleanup: Remove iptables rules")
+    r1.run("iptables -D OUTPUT -p udp --dport 3784 -j DROP")
+    r1.run("iptables -D INPUT -p udp --sport 3784 -j DROP")
 
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+

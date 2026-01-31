@@ -67,6 +67,20 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
 
+	/*
+	 * Handle Admin Down from peer separately.
+	 * When BFD receives Admin Down from peer, we should NOT tear down
+	 * the BGP session. The peer is administratively shutting down BFD,
+	 * but the BGP session should remain up.
+	 */
+	if (bss->state == BSS_ADMIN_DOWN && bss->previous_state == BSS_UP) {
+		if (BGP_DEBUG(bfd, BFD_LIB))
+			zlog_debug("%s: BFD received Admin Down from peer %s - BGP session maintained",
+				   __func__, peer->host);
+		/* Don't tear down BGP session, just log the event */
+		return;
+	}
+
 	if (bss->state == BSS_DOWN && bss->previous_state == BSS_UP) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 		    && bfd_sess_cbit(bsp) && !bss->remote_cbit) {
