@@ -2541,6 +2541,17 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer->group)
 		peer_group2peer_config_copy_af(peer->group, peer, afi, safi);
 
+	/*
+	 * For EVPN eBGP peers, set NEXTHOP_UNCHANGED by default unless
+	 * explicitly overridden. This ensures VTEP next-hops are preserved
+	 * across the fabric (e.g., through spine switches). See issue #16209.
+	 */
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
+	    peer->sort == BGP_PEER_EBGP &&
+	    !CHECK_FLAG(peer->af_flags_override[afi][safi],
+			PEER_FLAG_NEXTHOP_UNCHANGED))
+		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED);
+
 	if (active != BGP_PEER_ACTIVE && peer_active(peer->connection) == BGP_PEER_ACTIVE) {
 		bgp_timer_set(peer->connection);
 	} else {
