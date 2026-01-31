@@ -1164,7 +1164,7 @@ bool aspath_firstas_check(struct aspath *aspath, as_t asno)
 
 unsigned int aspath_get_first_as(struct aspath *aspath)
 {
-	if (aspath == NULL || aspath->segments == NULL)
+	if (aspath == NULL || aspath->segments == NULL || aspath->segments->length == 0)
 		return 0;
 
 	return aspath->segments->as[0];
