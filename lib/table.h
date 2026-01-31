@@ -57,7 +57,17 @@ struct route_table {
 	route_table_delegate_t *delegate;
 	void (*cleanup)(struct route_table *, struct route_node *);
 
+	/*
+	 * Total number of nodes in the table, including auxiliary nodes
+	 * that exist only for tree structure (nodes with info == NULL).
+	 */
 	unsigned long count;
+
+	/*
+	 * Counter for nodes with info set (nodes with info != NULL).
+	 * This excludes auxiliary nodes that only exist for tree structure.
+	 */
+	unsigned long info_count;
 
 	/*
 	 * User data.
@@ -197,6 +207,7 @@ extern struct route_node *route_node_match(struct route_table *table,
 					   union prefixconstptr pu);
 
 extern unsigned long route_table_count(struct route_table *table);
+extern unsigned long route_table_info_count(struct route_table *table);
 
 extern struct route_node *route_node_create(route_table_delegate_t *delegate,
 					    struct route_table *table);
@@ -242,6 +253,26 @@ static inline void route_unlock_node(struct route_node *node)
 static inline unsigned int route_node_get_lock_count(struct route_node *node)
 {
 	return node->lock;
+}
+
+/*
+ * route_node_set_info
+ *
+ * Helper to update a node's ->info pointer while keeping the table's
+ * info_count in sync.
+ */
+static inline void route_node_set_info(struct route_node *node, void *info)
+{
+	bool had_info = (node->info != NULL);
+	bool has_info = (info != NULL);
+
+	if (!had_info && has_info) {
+		node->table->info_count++;
+	} else if (had_info && !has_info) {
+		assert(node->table->info_count > 0);
+		node->table->info_count--;
+	}
+	node->info = info;
 }
 
 /*

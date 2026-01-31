@@ -121,6 +121,7 @@ static void route_table_free(struct route_table *rt)
 	}
 
 	assert(rt->count == 0);
+	assert(rt->info_count == 0);
 
 	rn_hash_node_fini(&rt->hash);
 	XFREE(MTYPE_ROUTE_TABLE, rt);
@@ -449,6 +450,11 @@ struct route_node *route_next_until(struct route_node *node,
 unsigned long route_table_count(struct route_table *table)
 {
 	return table->count;
+}
+
+unsigned long route_table_info_count(struct route_table *table)
+{
+	return table->info_count;
 }
 
 /**
