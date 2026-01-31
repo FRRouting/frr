@@ -87,6 +87,8 @@ struct bgp_label_per_nexthop_cache {
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_label_per_nexthop_cache_head *tree;
+
+	bool allocation_in_progress;
 };
 
 DECLARE_RBTREE_UNIQ(bgp_label_per_nexthop_cache,
