@@ -376,9 +376,13 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			return;
 		}
 
-		if (nhtd->registered)
+		if (nhtd->registered) {
 			/* have no data, but did send register */
+			afi_t afi = prefix_afi(&lookup.nh);
+			static_nht_update(p, src_p, &nhtd->nh, nhtd->nh_num, afi, si->safi,
+					  nh->nh_vrf_id);
 			return;
+		}
 
 		cmd = ZEBRA_NEXTHOP_REGISTER;
 		DEBUGD(&static_dbg_route, "Registering nexthop(%pFX) for %pRN",
