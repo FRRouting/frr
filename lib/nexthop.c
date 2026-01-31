@@ -1201,7 +1201,11 @@ void nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_segs = NULL;
 	int i;
 
-	json_object_int_add(json_nexthop, "flags", nexthop->flags);
+	/* Mask out NEXTHOP_FLAG_IFDOWN - it's an internal flag for NHG reuse
+	 * optimization and shouldn't be exposed in JSON output.
+	 */
+	json_object_int_add(json_nexthop, "flags",
+			    nexthop->flags & ~NEXTHOP_FLAG_IFDOWN);
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 		json_object_boolean_true_add(json_nexthop, "duplicate");
