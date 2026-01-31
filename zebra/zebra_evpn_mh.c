@@ -314,19 +314,30 @@ zebra_evpn_es_evi_show_entry_detail(struct vty *vty,
 	if (json_array) {
 		json_object *json;
 		json_object *json_flags;
+		json_object *json_types;
 
 		/* Separate JSON object for each es-evi entry */
 		json = json_object_new_object();
 
 		json_object_string_add(json, "esi", es_evi->es->esi_str);
 		json_object_int_add(json, "vni", es_evi->zevpn->vni);
-		if (es_evi->flags
-		    & (ZEBRA_EVPNES_EVI_LOCAL
-		       | ZEBRA_EVPNES_EVI_READY_FOR_BGP)) {
+		if (CHECK_FLAG(es_evi->flags,
+			       (ZEBRA_EVPNES_EVI_LOCAL |
+				ZEBRA_EVPNES_EVI_READY_FOR_BGP))) {
 			json_flags = json_object_new_array();
-			if (es_evi->flags & ZEBRA_EVPNES_EVI_LOCAL)
+			if (CHECK_FLAG(es_evi->flags, ZEBRA_EVPNES_EVI_LOCAL)) {
+				json_types = json_object_new_array();
+				json_array_string_add(json_types, "local");
+				json_object_object_add(json, "type",
+						       json_types);
+#if CONFDATE > 20240210
+				CPP_NOTICE(
+					"Remove `local` from flags JSON output")
+#endif
 				json_array_string_add(json_flags, "local");
-			if (es_evi->flags & ZEBRA_EVPNES_EVI_READY_FOR_BGP)
+			}
+			if (CHECK_FLAG(es_evi->flags,
+				       ZEBRA_EVPNES_EVI_READY_FOR_BGP))
 				json_array_string_add(json_flags,
 						      "readyForBgp");
 			json_object_object_add(json, "flags", json_flags);
