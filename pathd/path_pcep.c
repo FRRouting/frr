@@ -357,6 +357,10 @@ int pcep_module_finish(void)
 		if (pcep_g->pce_opts_cli[i] != NULL)
 			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
 
+	for (int i = 0; i < MAX_PCE; i++)
+		if (pcep_g->config_group_opts[i] != NULL)
+			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
+
 	return 0;
 }
 
