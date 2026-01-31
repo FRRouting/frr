@@ -145,6 +145,15 @@ module frr-gmp {
          the leave latency of the network.";
     }
 
+    leaf last-member-query-count {
+      type uint8 {
+        range "1..max";
+      }
+      description
+        "Last Member Query Count allows tuning for the expected
+	 packet loss on a network when leaving a group/group-source.";
+    }
+
     leaf robustness-variable {
       type uint8 {
         range "1..max";

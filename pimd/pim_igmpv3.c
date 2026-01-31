@@ -1080,8 +1080,8 @@ static void group_retransmit_group(struct gm_group *group)
 
 	char query_buf[query_buf_size];
 
-	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1150,8 +1150,8 @@ static int group_retransmit_sources(struct gm_group *group,
 
 	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/* Scan all group sources */
@@ -1375,7 +1375,7 @@ static void group_query_send(struct gm_group *group)
 	long lmqc; /* Last Member Query Count */
 
 	pim_ifp = group->interface->info;
-	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
 
 	/* lower group timer to lmqt */
 	igmp_group_timer_lower_to_lmqt(group);
@@ -1408,8 +1408,8 @@ static void source_query_send_by_flag(struct gm_group *group,
 
 	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->gm_last_member_query_count;
-	lmqi_msec = 100L * pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1568,7 +1568,7 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 	lmqi_dsec = pim_ifp->gmp_immediate_leave
 			    ? 0
 			    : pim_ifp->gm_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
@@ -1605,7 +1605,7 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	lmqi_dsec = pim_ifp->gmp_immediate_leave
 			    ? 0
 			    : pim_ifp->gm_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqc = if_gm_last_member_query_count(pim_ifp);
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
