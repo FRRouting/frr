@@ -294,6 +294,15 @@ module frr-interface {
       description
         "The interface's MAC address.";
     }
+
+    leaf-list altnames {
+      type string {
+        length "1..127";
+      }
+      config false;
+      description
+        "Alternative interface names.";
+    }
   }
 
   container lib {

@@ -476,6 +476,13 @@ void dplane_ctx_set_ifp_bridge_vlan_info_array(
 const struct zebra_dplane_bridge_vlan_info_array *
 dplane_ctx_get_ifp_bridge_vlan_info_array(const struct zebra_dplane_ctx *ctx);
 
+/* Interface alternative names */
+DECLARE_LIST(altnames_dplane, struct altname, list_entry);
+
+void dplane_ctx_set_ifp_altnames(struct zebra_dplane_ctx *ctx);
+void dplane_ctx_add_ifp_altname(struct zebra_dplane_ctx *ctx, const char *altname);
+struct altnames_dplane_head dplane_ctx_get_ifp_altnames(const struct zebra_dplane_ctx *ctx);
+
 /* Retrieve last/current provider id */
 uint32_t dplane_ctx_get_provider(const struct zebra_dplane_ctx *ctx);
 
