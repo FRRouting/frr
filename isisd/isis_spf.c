@@ -1112,10 +1112,15 @@ end:
 	else
 		fragnode = listnextnode(fragnode);
 
-	if (fragnode) {
+	while (fragnode) {
 		lsp = listgetdata(fragnode);
-		goto lspfragloop;
+		if (lsp->tlvs)
+			break;
+		fragnode = listnextnode(fragnode);
 	}
+
+	if (fragnode)
+		goto lspfragloop;
 
 	return ISIS_OK;
 }
