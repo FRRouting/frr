@@ -8,6 +8,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
+#include "zebra/zebra_memory.h"
 #include "command.h"
 #include "if.h"
 #include "log.h"

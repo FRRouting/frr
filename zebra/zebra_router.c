@@ -5,6 +5,8 @@
  */
 #include "zebra.h"
 
+#include "zebra/zebra_memory.h"
+
 #include <pthread.h>
 #include "lib/frratomic.h"
 #include "lib/hook.h"

@@ -97,6 +97,8 @@ typedef enum {
 	ZEBRA_INTERFACE_ADDRESS_DELETE,
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
+	ZEBRA_PORTS_UP,
+	ZEBRA_PORTS_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
 	ZEBRA_INTERFACE_SET_ARP,
 	ZEBRA_INTERFACE_SET_PROTODOWN,
@@ -306,6 +308,12 @@ struct zapi_cap {
 /* function-type typedef (pointer not included) */
 typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
 /* clang-format on */
+
+/*
+ * Decode ports state notification (ZEBRA_PORTS_UP/DOWN).
+ * Currently no payload; this helper advances the stream for consistency.
+ */
+int zapi_ports_state_decode(struct stream *s, uint16_t length);
 
 struct zapi_route;
 

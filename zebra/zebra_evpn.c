@@ -40,6 +40,7 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_memory.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");

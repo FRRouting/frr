@@ -6,6 +6,8 @@
 
 
 #include <zebra.h>
+
+#include "zebra/zebra_memory.h"
 #include "lib/debug.h"
 #include "lib/frr_pthread.h"
 #include "lib/stream.h"

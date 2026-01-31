@@ -346,6 +346,14 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
+int zapi_ports_state_decode(struct stream *s, uint16_t length)
+{
+	if (length)
+		stream_forward_getp(s, length);
+
+	return 0;
+}
+
 static void zclient_flush_data(struct event *event)
 {
 	struct zclient *zclient = EVENT_ARG(event);

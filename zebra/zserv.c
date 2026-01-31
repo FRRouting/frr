@@ -26,6 +26,7 @@
 #include "lib/libfrr.h"           /* for frr_zclient_addr */
 #include "lib/log.h"              /* for zlog_warn, zlog_debug, safe_strerror */
 #include "lib/memory.h"           /* for MTYPE_TMP, XCALLOC, XFREE */
+#include "zebra/zebra_memory.h"
 #include "lib/monotime.h"         /* for monotime, ONE_DAY_SECOND, ONE_WEE... */
 #include "lib/network.h"          /* for set_nonblocking */
 #include "lib/privs.h"            /* for zebra_privs_t, ZPRIVS_LOWER, ZPRI... */
