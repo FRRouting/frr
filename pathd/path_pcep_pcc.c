@@ -193,20 +193,9 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 		pcc_state->originator = NULL;
 	}
 
-	if (pcc_state->t_reconnect != NULL) {
-		event_cancel(&pcc_state->t_reconnect);
-		pcc_state->t_reconnect = NULL;
-	}
-
-	if (pcc_state->t_update_best != NULL) {
-		event_cancel(&pcc_state->t_update_best);
-		pcc_state->t_update_best = NULL;
-	}
-
-	if (pcc_state->t_session_timeout != NULL) {
-		event_cancel(&pcc_state->t_session_timeout);
-		pcc_state->t_session_timeout = NULL;
-	}
+	pcep_thread_cancel_timer(&pcc_state->t_reconnect);
+	pcep_thread_cancel_timer(&pcc_state->t_update_best);
+	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
 
 	XFREE(MTYPE_PCEP, pcc_state);
 }
