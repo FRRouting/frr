@@ -1159,6 +1159,10 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event handler for route-map: %s",
 			   rmap_name);
+
+	/* Route-map change affects nexthop filtering - invalidate NH resolution cache */
+	zrouter.global_nh_epoch++;
+
 	zebra_import_table_rm_update(rmap_name);
 	zebra_rib_table_rm_update(rmap_name);
 	zebra_nht_rm_update(rmap_name);
