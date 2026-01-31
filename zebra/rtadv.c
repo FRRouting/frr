@@ -1577,18 +1577,8 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 		    && !CHECK_FLAG(zif->rtadv.ra_configured,
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
-	} else {
-		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
-			interfaces_configured_for_ra_from_bgp--;
-
-		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
-		if (!CHECK_FLAG(zif->rtadv.ra_configured,
-				VTY_RA_INTERVAL_CONFIGURED))
-			zif->rtadv.MaxRtrAdvInterval =
-				RTADV_MAX_RTR_ADV_INTERVAL;
-		if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
-			ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
-	}
+	} else
+		zebra_rtadv_disable_per_interface(zif);
 stream_failure:
 	return;
 }
@@ -1650,6 +1640,18 @@ void rtadv_stop_ra_all(void)
 
 			rtadv_stop_ra(ifp, false);
 		}
+}
+
+void zebra_rtadv_disable_per_interface(struct zebra_if *zif)
+{
+	if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED)) {
+		interfaces_configured_for_ra_from_bgp--;
+		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
+	}
+	if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED))
+		zif->rtadv.MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
+	if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
+		ipv6_nd_suppress_ra_set(zif->ifp, RA_SUPPRESS);
 }
 
 void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
@@ -2095,6 +2097,8 @@ void rtadv_if_fini(struct zebra_if *zif)
 	struct rtadvconf *rtadv;
 	struct rtadv_prefix *rp;
 	struct pref64_adv *pref64_adv;
+
+	zebra_rtadv_disable_per_interface(zif);
 
 	rtadv = &zif->rtadv;
 
