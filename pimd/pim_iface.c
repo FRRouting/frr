@@ -224,7 +224,7 @@ void pim_if_delete(struct interface *ifp)
 
 	pim_if_del_vif(ifp);
 
-	pim_igmp_if_fini(pim_ifp);
+	pim_igmp_if_fini(ifp);
 
 	pim_filter_ref_fini(&pim_ifp->gmp_filter);
 
@@ -2071,6 +2071,9 @@ void pim_pim_interface_delete(struct interface *ifp)
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
 	pim_nht_upstream_if_update(pim_ifp->pim, ifp);
+
+	if (pim_ifp->gm_enable)
+		pim_gm_if_reset(ifp);
 
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);

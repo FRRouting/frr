@@ -2308,6 +2308,15 @@ static void gm_start(struct interface *ifp)
 	}
 }
 
+void pim_gm_if_reset(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp = pim_ifp->mld;
+
+	if (gm_ifp)
+		gm_group_delete(gm_ifp);
+}
+
 void gm_group_delete(struct gm_if *gm_ifp)
 {
 	struct gm_sg *sg;
