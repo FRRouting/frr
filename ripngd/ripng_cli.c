@@ -641,6 +641,36 @@ DEFPY_YANG (clear_ipv6_rip,
 	return nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", NULL);
 }
 
+/*
+ * CLI infra requires new handlers for ripngd
+ */
+DEFPY_YANG(if_ipv6_route_map, if_ipv6_route_map_cmd,
+	   "route-map ROUTE-MAP <in$in|out> IFNAME",
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, false, dir, other_dir, ifname, route_map);
+}
+
+DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
+	   "no route-map [ROUTE-MAP] <in$in|out> IFNAME",
+	   NO_STR
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, true, dir, other_dir, ifname, route_map);
+}
+
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
 	.name = "ripng",
@@ -682,7 +712,8 @@ void ripng_cli_init(void)
 
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
-	if_rmap_init(RIPNG_NODE);
+	install_element(RIPNG_NODE, &if_ipv6_route_map_cmd);
+	install_element(RIPNG_NODE, &no_if_ipv6_route_map_cmd);
 }
 
 /* clang-format off */

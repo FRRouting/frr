@@ -222,9 +222,6 @@ class CommandEntry:
                     "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD"
                 }
 
-        if defun_file == "lib/if_rmap.c":
-            return {"VTYSH_MGMTD"}
-
         return {}
 
     def __repr__(self):

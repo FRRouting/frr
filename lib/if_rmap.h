@@ -42,6 +42,8 @@ extern struct if_rmap_ctx *if_rmap_ctx_create(const char *name);
 extern void if_rmap_ctx_delete(struct if_rmap_ctx *ctx);
 extern void if_rmap_init(int node);
 extern void if_rmap_terminate(void);
+int if_route_map_handler(struct vty *vty, bool no, const char *dir, const char *other_dir,
+			 const char *ifname, const char *route_map);
 void if_rmap_hook_add(struct if_rmap_ctx *ctx,
 		      void (*func)(struct if_rmap_ctx *ctx,
 				   struct if_rmap *));
