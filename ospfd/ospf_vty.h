@@ -33,6 +33,13 @@
 		}                                                              \
 	}
 
+#define SHOW_OSPF_ROUTE_HEADER                                                 \
+	"Codes: R - Router, N - Network, D - Discard,\n"                       \
+	"       IA - Inter Area, E1 - Type1 external, E2 - Type2 external,\n"  \
+	"       N1 - Type1 NSSA external, N2 - Type2 NSSA external,\n"         \
+	"       ABR - Area Border Router, ASBR - Autonomous System Border"     \
+	" Router\n"
+
 /* Prototypes. */
 extern void ospf_vty_init(void);
 extern void ospf_vty_show_init(void);
