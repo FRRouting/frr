@@ -456,10 +456,11 @@ bool pim_iface_grp_dm(struct pim_interface *pim_ifp, pim_addr group_addr)
 		/*
 		 * check if it is an SM group
 		 * if we have an rp,
-		 * and the rp is reachable (I.e, we have source_nexthop.interface)
+		 * It doesn't matter if the is reachable,
+		 * if an RP is configured or discovered, it's not dense
 		 */
 		rpg = RP(pim, group_addr);
-		if (rpg && rpg->source_nexthop.interface)
+		if (rpg)
 			return false;
 	}
 
