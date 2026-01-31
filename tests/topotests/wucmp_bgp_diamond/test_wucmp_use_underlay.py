@@ -348,6 +348,40 @@ def test_modify_bandwidth_extended_community():
     ), "Route 10.1.1.1/32 on r1 does not have expected updated weights after bandwidth change"
 
 
+def test_show_bgp_router_json():
+    """
+    Test that 'show bgp router json' command returns the new fields:
+    bgpGShutEnabled, bgpInMaintenanceMode, bgpWaitForFibSet,
+    bgpInputQueueLimit, bgpOutputQueueLimit, bgpUpdateDelayTime,
+    bgpEstablishWaitTime, bgpRMapDelayTimer.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Verify 'show bgp router json' output contains new fields")
+
+    output = json.loads(r1.vtysh_cmd("show bgp router json"))
+
+    # Verify the new fields are present with expected default values
+    expected = {
+        "bgpGShutEnabled": False,
+        "bgpWaitForFibSet": False,
+        "bgpInputQueueLimit": 10000,
+        "bgpOutputQueueLimit": 10000,
+        "bgpUpdateDelayTime": 0,
+        "bgpEstablishWaitTime": 0,
+    }
+
+    result = topotest.json_cmp(output, expected)
+    assert (
+        result is None
+    ), "show bgp router json output does not match expected: {}".format(result)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
