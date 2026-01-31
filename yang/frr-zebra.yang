@@ -3228,4 +3228,161 @@ module frr-zebra {
     }
     // End of operational / state container
   }
+
+  /*
+   * Dataplane provider state information
+   */
+  grouping dplane-provider-state {
+    description
+      "State information for a dataplane provider.";
+
+    leaf name {
+      type string {
+        length "1..64";
+      }
+      description
+        "Name of the dataplane provider.";
+    }
+
+    leaf id {
+      type uint32;
+      description
+        "Provider identifier.";
+    }
+
+    leaf priority {
+      type enumeration {
+        enum "none" {
+          value 0;
+          description "No priority.";
+        }
+        enum "preprocess" {
+          value 1;
+          description "Pre-processing priority.";
+        }
+        enum "pre-kernel" {
+          value 2;
+          description "Pre-kernel priority.";
+        }
+        enum "kernel" {
+          value 3;
+          description "Kernel priority.";
+        }
+        enum "postprocess" {
+          value 4;
+          description "Post-processing priority.";
+        }
+      }
+      description
+        "Provider priority level.";
+    }
+
+    leaf in-counter {
+      type uint32;
+      description
+        "Number of updates received by provider.";
+    }
+
+    leaf in-queue-len {
+      type uint32;
+      description
+        "Current length of provider's input queue.";
+    }
+
+    leaf in-queue-max {
+      type uint32;
+      description
+        "Maximum length reached by provider's input queue.";
+    }
+
+    leaf out-counter {
+      type uint32;
+      description
+        "Number of updates completed by provider.";
+    }
+
+    leaf out-queue-len {
+      type uint32;
+      description
+        "Current length of provider's output queue.";
+    }
+
+    leaf out-queue-max {
+      type uint32;
+      description
+        "Maximum length reached by provider's output queue.";
+    }
+
+    leaf error-counter {
+      type uint32;
+      description
+        "Number of errors encountered by provider.";
+    }
+
+    leaf is-threaded {
+      type boolean;
+      description
+        "Whether provider runs in its own thread.";
+    }
+  }
+
+  container zebra-state {
+    config false;
+    description
+      "Zebra operational state.";
+
+    container dataplane {
+      description
+        "Dataplane subsystem state.";
+
+      leaf max-queued-updates {
+        type uint32;
+        description
+          "Maximum number of updates that can be queued.";
+      }
+
+      leaf updates-per-cycle {
+        type uint32;
+        description
+          "Number of updates processed per cycle.";
+      }
+
+      list providers {
+        key "id";
+        description
+          "List of registered dataplane providers.";
+
+        uses dplane-provider-state;
+      }
+
+      container statistics {
+        description
+          "Global dataplane statistics.";
+
+        leaf routes-queued {
+          type uint32;
+          description
+            "Current number of routes queued.";
+        }
+
+        leaf routes-queued-max {
+          type uint32;
+          description
+            "Maximum number of routes queued.";
+        }
+
+        leaf route-errors {
+          type uint32;
+          description
+            "Number of route processing errors.";
+        }
+
+        leaf other-errors {
+          type uint32;
+          description
+            "Number of other errors.";
+        }
+      }
+    }
+  }
 }
