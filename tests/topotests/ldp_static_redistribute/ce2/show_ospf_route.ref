@@ -1,0 +1,1 @@
+{"12.12.12.12/32":{"routeType":"N","transit":false,"cost":0,"area":"0.0.0.0","nexthops":[{"ip":" ","directlyAttachedTo":"lo"}]},"172.16.1.0/24":{"routeType":"N","transit":true,"cost":10,"area":"0.0.0.0","nexthops":[{"ip":" ","directlyAttachedTo":"ce2-eth0"}]}}
