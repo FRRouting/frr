@@ -167,6 +167,11 @@ PIMv6 Router
    Modify the PIM assert override interval in milliseconds on this
    interface (defaults to 3000).
 
+.. clicmd:: ipv6 pim override-interval (0-65535)
+
+   Modify the PIM LAN prune delay override interval in milliseconds on this
+   interface (defaults to 2500).
+
 .. clicmd:: keep-alive-timer (1-65535)
    :daemon: pimv6
 

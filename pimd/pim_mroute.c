@@ -543,7 +543,7 @@ have_up:
 
 int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 {
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 	struct pim_interface *pim_ifp;
 	pim_sgaddr sg;
 
@@ -579,7 +579,7 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 		return -2;
 	}
 
-	ch = pim_ifchannel_find(ifp, &sg);
+	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
 	if (!ch) {
 		pim_sgaddr star_g = sg;
 		if (PIM_DEBUG_MROUTE)
@@ -588,7 +588,7 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 				__func__, &sg, ifp->name);
 
 		star_g.src = PIMADDR_ANY;
-		ch = pim_ifchannel_find(ifp, &star_g);
+		pim_ifchannel_find(ifp, &star_g, &ch, &throwaway);
 		if (!ch) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
@@ -656,7 +656,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	const ipv_hdr *ip_hdr = (const ipv_hdr *)buf;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *throwaway;
 	struct pim_upstream *up;
 	pim_sgaddr star_g;
 	pim_sgaddr sg;
@@ -685,7 +685,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		return 0;
 	}
 
-	ch = pim_ifchannel_find(ifp, &sg);
+	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
 	if (ch) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
