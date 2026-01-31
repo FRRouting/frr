@@ -97,6 +97,8 @@ struct static_path {
 	route_tag_t tag;
 	/* Table-id */
 	uint32_t table_id;
+	/* Description */
+	char *desc;
 	/* Nexthop list */
 	struct static_nexthop_list_head nexthop_list;
 };
@@ -224,6 +226,8 @@ extern void static_del_route(struct route_node *rn);
 
 extern struct static_path *static_add_path(struct route_node *rn,
 					   uint32_t table_id, uint8_t distance);
+extern void static_description_set(struct static_path *pn, const char *desc);
+extern void static_description_unset(struct static_path *pn);
 extern void static_del_path(struct static_path *pn);
 
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,

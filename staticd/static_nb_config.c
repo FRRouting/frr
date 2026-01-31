@@ -742,6 +742,48 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 }
 
 /*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/description
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_description_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_path *pn;
+	const char *desc;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		pn = nb_running_get_entry(args->dnode, NULL, true);
+		desc = yang_dnode_get_string(args->dnode, NULL);
+		static_description_set(pn, desc);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_description_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_path *pn;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		pn = nb_running_get_entry(args->dnode, NULL, true);
+		static_description_unset(pn);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop
  */
