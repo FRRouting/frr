@@ -1,0 +1,19 @@
+{
+  "r11-eth0":{
+    "name":"r11-eth0",
+    "state":"up",
+    "address":"fe80::XXXX:XXXX:XXXX:XXXX",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "ff18:100::1":{
+      "*":{
+        "source":"*",
+        "group":"ff18:100::1",
+        "prune":"--:--",
+        "channelJoinName":"JOIN",
+        "protocolPim":1
+      }
+    }
+  }
+}
