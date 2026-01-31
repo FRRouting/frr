@@ -2034,6 +2034,59 @@ DEFPY(staticd_show_bfd_routes, staticd_show_bfd_routes_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY_YANG(show_static_ip_route, show_static_route_ip_cmd,
+	   "show static ip route [vrf <NAME|all>] [json]$isjson",
+	   "Show running system information\n"
+	   STATICD_STR
+	   "ip address\n"
+	   "BGP route table\n"
+	   VRF_FULL_CMD_HELP_STR
+	   JSON_STR)
+{
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf_name = argv[idx + 1]->arg;
+		all_vrf = strmatch(vrf_name, "all");
+	}
+
+	if (all_vrf)
+		static_route_show(vty, AFI_IP, NULL, true, !!isjson);
+	else
+		static_route_show(vty, AFI_IP, vrf_name, false, !!isjson);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(show_static_ipv6_route, show_static_route_ipv6_cmd,
+	   "show static ipv6 route [vrf <NAME|all>] [json]$isjson",
+	   "Show running system information\n"
+	   STATICD_STR
+	   "ipv6 address\n"
+	   "BGP route table\n"
+	   VRF_FULL_CMD_HELP_STR
+	   JSON_STR)
+{
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf_name = argv[idx + 1]->arg;
+		all_vrf = strmatch(vrf_name, "all");
+	}
+
+	if (all_vrf)
+		static_route_show(vty, AFI_IP6, NULL, true, !!isjson);
+	else
+
+		static_route_show(vty, AFI_IP6, vrf_name, false, !!isjson);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -2057,6 +2110,8 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
+	install_element(ENABLE_NODE, &show_static_route_ip_cmd);
+	install_element(ENABLE_NODE, &show_static_route_ipv6_cmd);
 #else /* else INCLUDE_MGMTD_CMDDEFS_ONLY */
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 

@@ -658,3 +658,198 @@ void static_get_nh_str(struct static_nexthop *nh, char *nexthop, size_t size)
 		break;
 	};
 }
+
+static void static_show_nexthop_json(struct vty *vty,
+					 struct json_object *jo,
+					 const struct static_nexthop *sn)
+{
+	const struct prefix *dst_p, *src_p;
+	struct json_object *jo_nh;
+
+	jo_nh = json_object_new_object();
+
+	srcdest_rnode_prefixes(sn->rn, &dst_p, &src_p);
+	if (src_p)
+		json_object_string_addf(jo_nh, "from", "%pFX", src_p);
+
+	json_object_string_addf(jo_nh, "prefix", "%pFX", dst_p);
+	json_object_string_add(jo_nh, "vrf", sn->nh_vrfname);
+
+	json_object_boolean_add(jo_nh, "registered", !sn->nh_registered);
+	json_object_int_add(jo_nh, "state", sn->state);
+	json_object_array_add(jo, jo_nh);
+}
+
+static void static_show_path_json(struct vty *vty, struct json_object *jo,
+				      struct route_table *rt)
+{
+	struct route_node *rn;
+
+	for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+		struct static_route_info *si = static_route_info_from_rnode(rn);
+		struct static_path *sp;
+
+		if (si == NULL)
+			continue;
+
+		frr_each (static_path_list, &si->path_list, sp) {
+			struct static_nexthop *sn;
+
+			frr_each (static_nexthop_list, &sp->nexthop_list, sn) {
+				static_show_nexthop_json(vty, jo, sn);
+			}
+		}
+	}
+}
+
+static void static_show_json(struct vty *vty, afi_t afi, const char *vrf_name)
+{
+	struct json_object *jo, *jo_paths, *jo_vrf_path, *jo_afi_safi;
+	struct static_vrf *svrf;
+
+	jo = json_object_new_object();
+	jo_paths = json_object_new_object();
+
+	json_object_object_add(jo, "staticRoute", jo_paths);
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+		struct route_table *stable;
+
+		if (vrf_name && strmatch(svrf->name, vrf_name))
+			continue;
+
+		jo_vrf_path = json_object_new_object();
+		json_object_object_addf(jo_paths, jo_vrf_path, "%s", svrf->name);
+		jo_afi_safi = json_object_new_array();
+		if (afi == AFI_IP)
+			json_object_object_add(jo_vrf_path, "ipv4-unicast", jo_afi_safi);
+		else
+			json_object_object_add(jo_vrf_path, "ipv6-unicast", jo_afi_safi);
+
+		stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+		if (stable)
+			static_show_path_json(vty, jo_afi_safi, stable);
+
+		jo_afi_safi = json_object_new_array();
+		if (afi == AFI_IP)
+			json_object_object_add(jo_vrf_path, "ipv4-multicast", jo_afi_safi);
+		else
+			json_object_object_add(jo_vrf_path, "ipv6-multicast", jo_afi_safi);
+
+		stable = static_vrf_static_table(afi, SAFI_MULTICAST, svrf);
+		if (stable)
+			static_show_path_json(vty, jo_afi_safi, stable);
+	}
+	vty_json(vty, jo);
+}
+
+static void static_route_show_nexthop(struct vty *vty,
+				    const struct static_nexthop *sn)
+{
+	char buf_blackhole_type[20] = {};
+
+	static_get_blackhole_type(sn->bh_type, buf_blackhole_type, sizeof(buf_blackhole_type));
+	switch (sn->type) {
+	case STATIC_IFNAME:
+		vty_out(vty, " ifname(%d):%s", sn->ifindex, sn->ifname);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		vty_out(vty, " ip4:%pI4", &sn->addr.ipv4);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		vty_out(vty, " ip4-ifindex(%d):%pI4 :%s", sn->ifindex,
+			&sn->addr.ipv4, sn->ifname);
+		break;
+	case STATIC_BLACKHOLE:
+		vty_out(vty, " blackhole:%s", buf_blackhole_type);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		vty_out(vty, " ip6:%pI6", &sn->addr.ipv6);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		vty_out(vty, " ip6-ifindex(%d):%pI6 :%s", sn->ifindex,
+			&sn->addr.ipv6, sn->ifname);
+		break;
+	};
+
+	vty_out(vty, " %s, registered:%s, state:%d\n",
+		sn->nh_valid ? "valid" : "invalid",
+		sn->nh_registered ? "yes" : "no", sn->state);
+}
+
+static void static_route_show_path(struct vty *vty, struct route_table *stable)
+{
+	struct route_node *rn;
+	bool first = true;
+	int len_rn = 0;
+
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+		struct static_route_info *si = static_route_info_from_rnode(rn);
+		struct static_path *sp;
+
+		if (si == NULL)
+			continue;
+
+		frr_each (static_path_list, &si->path_list, sp) {
+			struct static_nexthop *sn;
+
+			len_rn = vty_out(vty, "        %pRN", sp->rn);
+			frr_each (static_nexthop_list, &sp->nexthop_list, sn) {
+				if (first)
+					first = false;
+				else
+					vty_out(vty, "%*c", len_rn, ' ');
+				static_route_show_nexthop(vty, sn);
+			}
+		}
+		first = true;
+	}
+}
+
+void static_route_show(struct vty *vty, afi_t afi, const char *vrf_name, bool vrf_all, bool json)
+{
+	struct route_table *stable;
+	struct static_vrf *svrf;
+
+	if (json) {
+		if (vrf_all)
+			static_show_json(vty, afi, NULL);
+		else
+			static_show_json(vty, afi, vrf_name);
+		return;
+	}
+	vty_out(vty, "Staticd routes:\n");
+	if (vrf_all) {
+		RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+			stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Unicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+
+			stable = static_vrf_static_table(afi, SAFI_MULTICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Multicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+		}
+	} else {
+		RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+			if (strmatch(vrf_name, svrf->name))
+				continue;
+
+			stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Unicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+
+			stable = static_vrf_static_table(afi, SAFI_MULTICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Multicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+		}
+	}
+
+	vty_out(vty, "\n");
+}
