@@ -50,7 +50,9 @@ a static prefix and gateway, with several possible forms.
    v6 routes only support v6 next-hops.
 
    IFNAME is the name of the interface to use as next-hop. If only IFNAME is specified
-   (without GATEWAY), a connected route will be created.
+   (without GATEWAY), a connected route will be created. Note that
+   some of the other keywords are not valid interface names, including
+   ``vrf``, ``table``, ``label``, etc.
 
    When both IFNAME and GATEWAY are specified together, it binds the route to the specified
    interface. In this case, it is also possible to specify ``onlink`` to force the kernel
