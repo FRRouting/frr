@@ -182,7 +182,6 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	}
 	memset(&snl, 0, sizeof(snl));
 	snl.nl_family = AF_NETLINK;
-	snl.nl_groups = RTNLGRP_NSID;
 	snl.nl_pid = 0; /* AUTO PID */
 	ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
 	if (ret < 0) {
