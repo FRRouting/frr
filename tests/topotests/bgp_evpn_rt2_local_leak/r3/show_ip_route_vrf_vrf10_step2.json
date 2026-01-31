@@ -1,0 +1,102 @@
+{
+  "10.0.0.1/32": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "10.0.0.2/32": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "10.0.0.3/32": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": null,
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "unknown"
+        }
+      ]
+    }
+  ],
+  "172.16.0.0/24": [
+    {
+      "protocol": "bgp",
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "eth-r1",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "192.168.0.0/24": [
+    {
+      "protocol": "connected",
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "br100",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "192.168.0.1/32": [
+    {
+      "protocol": "local",
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "selected": true,
+      "table": 10,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "br100",
+          "active": true
+        }
+      ]
+    }
+  ]
+}

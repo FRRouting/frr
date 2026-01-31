@@ -1,0 +1,86 @@
+{
+  "routes": {
+    "192.168.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "65002",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "hostname": "r2",
+            "scope": "link-local",
+            "linkLocalOnly": false,
+            "used": true
+          },
+          {
+            "interface": "eth-r2",
+            "hostname": "r2",
+            "scope": "link-local"
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "path": "65003",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "hostname": "r3",
+            "scope": "link-local",
+            "linkLocalOnly": false,
+            "used": true
+          },
+          {
+            "interface": "eth-r3",
+            "hostname": "r3",
+            "scope": "link-local"
+          }
+        ]
+      }
+    ],
+    "192.168.0.3/32": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "65003",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "hostname": "r3",
+            "scope": "link-local",
+            "linkLocalOnly": false,
+            "used": true
+          },
+          {
+            "interface": "eth-r3",
+            "hostname": "r3",
+            "scope": "link-local"
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "path": "65002 65003",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "hostname": "r2",
+            "scope": "link-local",
+            "linkLocalOnly": false,
+            "used": true
+          },
+          {
+            "interface": "eth-r2",
+            "hostname": "r2",
+            "scope": "link-local"
+          }
+        ]
+      }
+    ]
+  }
+}

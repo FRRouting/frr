@@ -2004,6 +2004,8 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	table = bgp_dest_table(dest);
 	if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
 		is_evpn = true;
+	else if (CHECK_FLAG(info->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
+		return;
 
 	/*
 	 * BGP is installing this route and bgp has been configured

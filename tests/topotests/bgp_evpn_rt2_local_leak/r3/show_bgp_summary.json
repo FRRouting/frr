@@ -1,0 +1,28 @@
+{
+  "ipv4Unicast": {
+    "routerId": "10.0.0.3",
+    "as": 65003,
+    "peers": {
+      "eth-r1": {
+        "hostname": "r1",
+        "remoteAs": 65001,
+        "localAs": 65003,
+        "state": "Established"
+      }
+    },
+    "totalPeers": 1
+  },
+  "l2VpnEvpn": {
+    "routerId": "10.0.0.3",
+    "as": 65003,
+    "peers": {
+      "eth-r2": {
+        "hostname": "r2",
+        "remoteAs": 65002,
+        "localAs": 65003,
+        "state": "Established"
+      }
+    },
+    "totalPeers": 1
+  }
+}
