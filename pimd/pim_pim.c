@@ -128,6 +128,21 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 	sock_close(ifp);
 }
 
+#if PIM_IPV == 6
+/* Check src address for hello, assrt, join/prune and Bootstrap is link-local */
+static bool pim_pkt_src_addr_ok(enum pim_msg_type type, pim_addr addr)
+{
+	if ((type == PIM_MSG_TYPE_HELLO) || (type == PIM_MSG_TYPE_ASSERT) ||
+	    (type == PIM_MSG_TYPE_JOIN_PRUNE) ||
+	    (type == PIM_MSG_TYPE_BOOTSTRAP)) {
+		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+			return false;
+	}
+
+	return true;
+}
+#endif
+
 /* For now check dst address for hello, assrt and join/prune is all pim rtr */
 static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 {
@@ -310,6 +325,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		if (PIM_DEBUG_PIM_PACKETDUMP_RECV)
 			pim_pkt_dump(__func__, pim_msg, pim_msg_len);
 	}
+
+#if PIM_IPV == 6
+	if (!pim_pkt_src_addr_ok(header->type, sg.src)) {
+		zlog_warn(
+			"%s: Ignoring Pkt. Unexpected IP source %pPA for %s (Expected: Link-local)",
+			__func__, &sg.src, pim_pim_msgtype2str(header->type));
+		return -1;
+	}
+#endif
 
 	if (!pim_pkt_dst_addr_ok(header->type, sg.grp)) {
 		zlog_warn(
