@@ -4824,7 +4824,7 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 
 static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
 {
-	uint8_t qindex = META_QUEUE_EARLY_ROUTE;
+	enum meta_queue_indexes qindex = META_QUEUE_EARLY_ROUTE;
 	struct bgp_dest *dest = data;
 
 	if (bgp_debug_bestpath(dest))
@@ -4839,7 +4839,7 @@ static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
 
 static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 {
-	uint8_t qindex = META_QUEUE_OTHER_ROUTE;
+	enum meta_queue_indexes qindex = META_QUEUE_OTHER_ROUTE;
 	struct bgp_dest *dest = data;
 
 	if (bgp_debug_bestpath(dest))
@@ -4854,7 +4854,7 @@ static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 
 static int eoiu_marker_meta_queue_add(struct meta_queue *mq, void *data)
 {
-	uint8_t qindex = META_QUEUE_EOIU_MARKER;
+	enum meta_queue_indexes qindex = META_QUEUE_EOIU_MARKER;
 	struct bgp_dest *dest = data;
 
 	if (BGP_DEBUG(update, UPDATE_IN))

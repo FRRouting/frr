@@ -627,10 +627,10 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 {
 	const char *inst_name;
 	json_object *json;
-	json_object *json_instances;
-	json_object *json_instance;
-	json_object *json_timestamp;
-	json_object *json_grace_period;
+	json_object *json_instances = NULL;
+	json_object *json_instance = NULL;
+	json_object *json_timestamp = NULL;
+	json_object *json_grace_period = NULL;
 	time_t timestamp = 0;
 
 	inst_name = ospf6->name ? ospf6->name : VRF_DEFAULT_NAME;

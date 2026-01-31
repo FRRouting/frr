@@ -355,7 +355,7 @@ void nb_cli_confirmed_commit_clean(struct vty *vty)
 int nb_cli_confirmed_commit_rollback(struct vty *vty)
 {
 	struct nb_context context = {};
-	uint32_t transaction_id;
+	uint32_t transaction_id = 0;
 	char errmsg[BUFSIZ] = {0};
 	int ret;
 

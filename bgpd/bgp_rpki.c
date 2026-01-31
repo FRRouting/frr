@@ -1262,7 +1262,7 @@ static int rpki_create_socket(void *_cache)
 	socklen_t optlen;
 	char *host, *port;
 	struct vrf *vrf;
-	int cancel_state;
+	int cancel_state = 0;
 	int socket;
 	int ret;
 #if defined(FOUND_SSH)

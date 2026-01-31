@@ -922,9 +922,9 @@ __attribute__((unused)) static void
 ospf6_auth_seqno_nvm_delete(struct ospf6 *ospf6)
 {
 	const char *inst_name;
-	json_object *json;
-	json_object *json_instances;
-	json_object *json_instance;
+	json_object *json = NULL;
+	json_object *json_instances = NULL;
+	json_object *json_instance = NULL;
 
 	zlog_err("Higher order sequence number delete for %s process",
 		 ospf6->name);

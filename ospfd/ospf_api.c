@@ -467,8 +467,14 @@ struct msg *new_msg_register_event(uint32_t seqnum,
 	emsg->filter.typemask = htons(filter->typemask);
 	emsg->filter.origin = filter->origin;
 	emsg->filter.num_areas = filter->num_areas;
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+
+	/* Check for integer overflow when casting to uint16_t */
+	if (len > UINT16_MAX) {
+		zlog_warn("%s: Message length %u exceeds maximum allowed size %u", __func__, len,
+			  UINT16_MAX);
+		len = UINT16_MAX;
+	}
+
 	/* API broken - missing memcpy to fill data */
 	return msg_new(MSG_REGISTER_EVENT, emsg, seqnum, len);
 }
@@ -485,8 +491,14 @@ struct msg *new_msg_sync_lsdb(uint32_t seqnum, struct lsa_filter_type *filter)
 	smsg->filter.typemask = htons(filter->typemask);
 	smsg->filter.origin = filter->origin;
 	smsg->filter.num_areas = filter->num_areas;
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+
+	/* Check for integer overflow when casting to uint16_t */
+	if (len > UINT16_MAX) {
+		zlog_warn("%s: Message length %u exceeds maximum allowed size %u", __func__, len,
+			  UINT16_MAX);
+		len = UINT16_MAX;
+	}
+
 	/* API broken - missing memcpy to fill data */
 	return msg_new(MSG_SYNC_LSDB, smsg, seqnum, len);
 }

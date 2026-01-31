@@ -306,8 +306,8 @@ void yang_snode_get_path(const struct lysc_node *snode,
 LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
 				const struct lysc_node ***snodes, bool *simple)
 {
-	struct lysc_node *snode;
-	struct ly_set *set;
+	struct lysc_node *snode = NULL;
+	struct ly_set *set = NULL;
 	LY_ERR err;
 
 	/* lys_find_path will not resolve complex xpaths */
@@ -569,7 +569,7 @@ uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
 {
 	va_list ap;
 	char xpath[XPATH_MAXLEN];
-	struct ly_set *set;
+	struct ly_set *set = NULL;
 	uint32_t count;
 
 	va_start(ap, xpath_fmt);
@@ -952,7 +952,7 @@ done:
 LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 			       const char *data, struct lyd_node **notif)
 {
-	struct lyd_node *tree;
+	struct lyd_node *tree = NULL;
 	struct ly_set *set = NULL;
 	struct ly_in *in = NULL;
 	LY_ERR err;

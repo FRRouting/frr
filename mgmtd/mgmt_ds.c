@@ -344,7 +344,7 @@ int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt
 
 int mgmt_ds_dump_ds_to_file(char *file_name, struct mgmt_ds_ctx *ds_ctx)
 {
-	struct ly_out *out;
+	struct ly_out *out = NULL;
 	int ret = 0;
 
 	if (ly_out_new_filepath(file_name, &out) == LY_SUCCESS) {
@@ -371,7 +371,7 @@ static int mgmt_walk_ds_nodes(
 	void *ctx)
 {
 	/* this is 1k per recursion... */
-	char xpath[MGMTD_MAX_XPATH_LEN];
+	char xpath[MGMTD_MAX_XPATH_LEN] = { 0 };
 	struct lyd_node *dnode;
 	struct nb_node *nbnode;
 	int ret = 0;
@@ -441,7 +441,7 @@ int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath)
 {
 	struct nb_node *nb_node;
 	struct lyd_node *dnode, *dep_dnode;
-	char dep_xpath[XPATH_MAXLEN];
+	char dep_xpath[XPATH_MAXLEN] = { 0 };
 
 	if (!ds_ctx)
 		return -1;
@@ -509,7 +509,7 @@ int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char 
 		      void *ctx)
 {
 	int ret = 0;
-	char xpath[MGMTD_MAX_XPATH_LEN];
+	char xpath[MGMTD_MAX_XPATH_LEN] = { 0 };
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
 
@@ -552,8 +552,8 @@ int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char 
 void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 		       const char *xpath, FILE *f, LYD_FORMAT format)
 {
-	struct ly_out *out;
-	char *str;
+	struct ly_out *out = NULL;
+	char *str = NULL;
 	char base_xpath[MGMTD_MAX_XPATH_LEN] = {0};
 
 	if (!ds_ctx) {
