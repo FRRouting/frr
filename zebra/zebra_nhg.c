@@ -2574,6 +2574,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
 				resolved = 1;
 
+				/* Capture the NHG ID used to resolve the
+				 * nexthop.
+				 */
+				if (resolver)
+					resolver->resolved_via = match->nhe_id;
+
 				/* If there are backup nexthops, capture
 				 * that info with the resolving nexthop.
 				 */
