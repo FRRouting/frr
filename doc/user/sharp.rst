@@ -28,7 +28,7 @@ Using SHARP
 All sharp commands are under the enable node and preceded by the ``sharp``
 keyword. At present, no sharp commands will be preserved in the config.
 
-.. clicmd:: sharp install routes A.B.C.D <nexthop <E.F.G.H|X:X::X:X>|nexthop-group NAME> (1-1000000) [instance (0-255)] [repeat (2-1000)] [opaque WORD]
+.. clicmd:: sharp install routes A.B.C.D <nexthop <E.F.G.H|X:X::X:X>|nexthop-group NAME> (1-1000000) [table (0-4294967295)] [instance (0-255)] [repeat (2-1000)] [opaque WORD]
 
    Install up to 1,000,000 (one million) /32 routes starting at ``A.B.C.D``
    with specified nexthop ``E.F.G.H`` or ``X:X::X:X``. The nexthop is
@@ -50,6 +50,11 @@ keyword. At present, no sharp commands will be preserved in the config.
    routes are removed from zebra. Route deletion start is noted in the debug
    log and when all routes have been successfully deleted the debug log will be
    updated with this information as well.
+
+.. clicmd:: sharp install stop
+
+   If sharpd is operating in a repeat loop, stop the repeat and remove
+   any installed routes.
 
 .. clicmd:: sharp data route
 

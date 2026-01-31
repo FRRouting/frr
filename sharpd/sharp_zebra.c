@@ -205,6 +205,7 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 }
 
 enum where_to_restart {
+	SHARP_RESTART_NONE = 0,
 	SHARP_INSTALL_ROUTES_RESTART,
 	SHARP_DELETE_ROUTES_RESTART,
 };
@@ -217,6 +218,8 @@ struct buffer_delay {
 	uint8_t instance;
 	uint32_t nhgid;
 	uint32_t flags;
+	uint32_t tableid;
+	bool tableid_set;
 	const struct nexthop_group *nhg;
 	const struct nexthop_group *backup_nhg;
 	enum where_to_restart restart;
@@ -229,10 +232,9 @@ struct buffer_delay {
  * This function returns true when the route was buffered
  * by the underlying stream system
  */
-static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
-		      uint32_t nhgid, const struct nexthop_group *nhg,
-		      const struct nexthop_group *backup_nhg, uint32_t flags,
-		      char *opaque)
+static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance, uint32_t nhgid,
+		      const struct nexthop_group *nhg, const struct nexthop_group *backup_nhg,
+		      uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -250,6 +252,11 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 
 	if (sg.use_underlying_nexthop_group_weight)
 		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
+
+	if (tableid_set) {
+		api.tableid = tableid;
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	}
 
 	/* Only send via ID if nhgroup has been successfully installed */
 	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
@@ -307,7 +314,8 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
  * This function returns true when the route sent was
  * buffered by the underlying stream system.
  */
-static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
+static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance, uint32_t tableid,
+			 bool tableid_set)
 {
 	struct zapi_route api;
 
@@ -318,6 +326,11 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 	api.instance = instance;
 	memcpy(&api.prefix, p, sizeof(*p));
 
+	if (tableid_set) {
+		api.tableid = tableid;
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	}
+
 	if (zclient_route_send(ZEBRA_ROUTE_DELETE, g_zclient, &api) ==
 	    ZCLIENT_SEND_BUFFERED)
 		return true;
@@ -325,13 +338,12 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 		return false;
 }
 
-static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
-					 vrf_id_t vrf_id, uint8_t instance,
-					 uint32_t nhgid,
+static void sharp_install_routes_restart(struct prefix *p, uint32_t count, vrf_id_t vrf_id,
+					 uint8_t instance, uint32_t nhgid,
 					 const struct nexthop_group *nhg,
-					 const struct nexthop_group *backup_nhg,
-					 uint32_t routes, uint32_t flags,
-					 char *opaque)
+					 const struct nexthop_group *backup_nhg, uint32_t routes,
+					 uint32_t flags, char *opaque, uint32_t tableid,
+					 bool tableid_set)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -343,8 +355,8 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 		temp = ntohl(p->u.val32[3]);
 
 	for (i = count; i < routes; i++) {
-		bool buffered = route_add(p, vrf_id, (uint8_t)instance, nhgid,
-					  nhg, backup_nhg, flags, opaque);
+		bool buffered = route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg, backup_nhg,
+					  flags, opaque, tableid, tableid_set);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -359,6 +371,8 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 			wb.nhgid = nhgid;
 			wb.nhg = nhg;
 			wb.flags = flags;
+			wb.tableid = tableid;
+			wb.tableid_set = tableid_set;
 			wb.backup_nhg = backup_nhg;
 			wb.opaque = opaque;
 			wb.restart = SHARP_INSTALL_ROUTES_RESTART;
@@ -368,11 +382,10 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 	}
 }
 
-void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				 uint8_t instance, uint32_t nhgid,
-				 const struct nexthop_group *nhg,
-				 const struct nexthop_group *backup_nhg,
-				 uint32_t routes, uint32_t flags, char *opaque)
+void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+				 uint32_t nhgid, const struct nexthop_group *nhg,
+				 const struct nexthop_group *backup_nhg, uint32_t routes,
+				 uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set)
 {
 	zlog_debug("Inserting %u routes", routes);
 
@@ -381,13 +394,13 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 		backup_nhg = NULL;
 
 	monotime(&sg.r.t_start);
-	sharp_install_routes_restart(p, 0, vrf_id, instance, nhgid, nhg,
-				     backup_nhg, routes, flags, opaque);
+	sharp_install_routes_restart(p, 0, vrf_id, instance, nhgid, nhg, backup_nhg, routes, flags,
+				     opaque, tableid, tableid_set);
 }
 
-static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
-					vrf_id_t vrf_id, uint8_t instance,
-					uint32_t routes)
+static void sharp_remove_routes_restart(struct prefix *p, uint32_t count, vrf_id_t vrf_id,
+					uint8_t instance, uint32_t routes, uint32_t tableid,
+					bool tableid_set)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -399,7 +412,7 @@ static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
 		temp = ntohl(p->u.val32[3]);
 
 	for (i = count; i < routes; i++) {
-		bool buffered = route_delete(p, vrf_id, (uint8_t)instance);
+		bool buffered = route_delete(p, vrf_id, (uint8_t)instance, tableid, tableid_set);
 
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
@@ -412,6 +425,8 @@ static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
 			wb.vrf_id = vrf_id;
 			wb.instance = instance;
 			wb.routes = routes;
+			wb.tableid = tableid;
+			wb.tableid_set = tableid_set;
 			wb.restart = SHARP_DELETE_ROUTES_RESTART;
 
 			return;
@@ -419,19 +434,23 @@ static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
 	}
 }
 
-void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				uint8_t instance, uint32_t routes)
+void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+				uint32_t routes, uint32_t tableid, bool tableid_set)
 {
 	zlog_debug("Removing %u routes", routes);
 
 	monotime(&sg.r.t_start);
 
-	sharp_remove_routes_restart(p, 0, vrf_id, instance, routes);
+	sharp_remove_routes_restart(p, 0, vrf_id, instance, routes, tableid, tableid_set);
 }
 
 static void handle_repeated(bool installed)
 {
 	struct prefix p = sg.r.orig_prefix;
+
+	if (sg.r.stop_loop)
+		return;
+
 	sg.r.repeat--;
 
 	if (sg.r.repeat <= 0)
@@ -439,31 +458,51 @@ static void handle_repeated(bool installed)
 
 	if (installed) {
 		sg.r.removed_routes = 0;
-		sharp_remove_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
-					   sg.r.total_routes);
+		sharp_remove_routes_helper(&p, sg.r.vrf_id, sg.r.inst, sg.r.total_routes,
+					   sg.r.tableid, sg.r.tableid_set);
 	}
 
 	if (!installed) {
 		sg.r.installed_routes = 0;
-		sharp_install_routes_helper(
-			&p, sg.r.vrf_id, sg.r.inst, sg.r.nhgid,
-			&sg.r.nhop_group, &sg.r.backup_nhop_group,
-			sg.r.total_routes, sg.r.flags, sg.r.opaque);
+		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst, sg.r.nhgid,
+					    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+					    sg.r.total_routes, sg.r.flags, sg.r.opaque,
+					    sg.r.tableid, sg.r.tableid_set);
 	}
 }
 
 static void sharp_zclient_buffer_ready(void)
 {
 	switch (wb.restart) {
+	case SHARP_RESTART_NONE:
+		return;
 	case SHARP_INSTALL_ROUTES_RESTART:
-		sharp_install_routes_restart(
-			&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
-			wb.nhg, wb.backup_nhg, wb.routes, wb.flags, wb.opaque);
+		sharp_install_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
+					     wb.nhg, wb.backup_nhg, wb.routes, wb.flags, wb.opaque,
+					     wb.tableid, wb.tableid_set);
 		return;
 	case SHARP_DELETE_ROUTES_RESTART:
-		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id,
-					    wb.instance, wb.routes);
+		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.routes,
+					    wb.tableid, wb.tableid_set);
 		return;
+	}
+}
+
+void sharp_install_stop(void)
+{
+	sg.r.stop_loop = true;
+	sg.r.repeat = 0;
+
+	if (wb.restart == SHARP_INSTALL_ROUTES_RESTART)
+		wb.restart = SHARP_RESTART_NONE;
+
+	wb.count = 0;
+	wb.routes = 0;
+
+	if (sg.r.total_routes > 0) {
+		sg.r.removed_routes = 0;
+		sharp_remove_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst,
+					   sg.r.total_routes, sg.r.tableid, sg.r.tableid_set);
 	}
 }
 
