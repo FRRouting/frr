@@ -7329,7 +7329,10 @@ int peer_password_unset(struct peer *peer)
 
 		/* Attempt to uninstall password on socket. */
 		if (!BGP_CONNECTION_SU_UNSPEC(peer->connection))
-			bgp_md5_unset(peer->connection);
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				bgp_md5_set(peer->connection);
+			else
+				bgp_md5_unset(peer->connection);
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
