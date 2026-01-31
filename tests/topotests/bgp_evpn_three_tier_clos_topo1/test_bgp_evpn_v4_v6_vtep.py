@@ -2122,6 +2122,348 @@ def test_for_leaked_route_as_path(tgen_and_ip_version):
             logger.error(f"Common cleanup failed: {e}")
 
 
+def test_as_path_strip_survives_config_change(tgen_and_ip_version):
+    """
+    Test that AS path stripping works correctly when routes are re-imported
+    via vpn_leak_to_vrf_update_all().
+
+    This specifically tests the fix in vpn_leak_to_vrf_update_all() where
+    we pass peer_orig instead of bpi->peer to preserve the original EBGP
+    peer information for route-map processing.
+
+    Bug without fix:
+    - vpn_leak_to_vrf_update_all() passes bpi->peer (peer_self, sort=0)
+    - route_set_aspath_exclude() skips stripping when peer->sort == UNSPECIFIED
+    - AS path is NOT stripped on re-import
+
+    Test scenario:
+    1. ext-1 (CE router, AS 655000) advertises route with AS prepending to
+       bordertor-11's vrf1 via direct EBGP peering
+    2. bordertor-11 leaks route from vrf1 to vrf2 with 'set as-path exclude'
+    3. Verify AS path is stripped (initial leak via vpn_leak_from_vrf_update)
+    4. Remove and re-add 'import vrf vrf1' to trigger vpn_leak_to_vrf_update_all()
+    5. Verify AS path is STILL stripped (tests our fix!)
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        f"Testing AS path stripping survives config change ({ip_version} underlay)"
+    )
+
+    # Only run for IPv4 - ext-1 route advertisement is simpler
+    if ip_version != "ipv4":
+        pytest.skip("This test only runs with IPv4 underlay")
+
+    ext1 = tgen.gears["ext-1"]
+    bordertor11 = tgen.gears["bordertor-11"]
+
+    # Use a UNIQUE route that ONLY ext-1 has (not available via EVPN from other VTEPs)
+    # This ensures the ext-1 path is the BEST path in vrf1
+    test_route = "203.0.119.0/24"
+
+    # AS numbers used in test:
+    # - Prepend: 655001 655000 655002
+    # - Strip: 655000 (the middle one)
+    # - Keep: 655001 and 655002 (both ends should remain after stripping)
+    as_to_strip = "655000"
+    as_prepend = "655001 655000 655002"
+
+    try:
+        # Step 1: Create static route on ext-1 and advertise with AS prepending
+        # Prepend 655001 655000 655002 (will strip 655000 from middle)
+        # ONLY to bordertor-11 vrf1 (192.0.2.2)
+        # BLOCK to: bordertor-11 vrf2 (192.0.2.6), bordertor-12 vrf1 (192.0.2.10), bordertor-12 vrf2 (192.0.2.14)
+        logger.info(
+            "Step 1: Create unique static route on ext-1, advertise ONLY to bordertor-11 vrf1"
+        )
+        logger.info(f"        Prepending AS: {as_prepend}")
+        logger.info(f"        Will strip: {as_to_strip} (middle AS)")
+        ext1.vtysh_multicmd(
+            f"""
+            configure terminal
+            ip route 203.0.119.0/24 Null0
+            !
+            ip prefix-list TEST-PREPEND seq 10 permit 203.0.119.0/24
+            !
+            route-map PREPEND-TO-BORDERTOR permit 10
+             match ip address prefix-list TEST-PREPEND
+             set as-path prepend {as_prepend}
+            exit
+            route-map PREPEND-TO-BORDERTOR permit 20
+            exit
+            !
+            route-map BLOCK-TEST-ROUTE deny 10
+             match ip address prefix-list TEST-PREPEND
+            exit
+            route-map BLOCK-TEST-ROUTE permit 20
+            exit
+            !
+            router bgp 655000
+             address-family ipv4 unicast
+              redistribute static route-map PREPEND-TO-BORDERTOR
+              neighbor 192.0.2.2 route-map PREPEND-TO-BORDERTOR out
+              neighbor 192.0.2.6 route-map BLOCK-TEST-ROUTE out
+              neighbor 192.0.2.10 route-map BLOCK-TEST-ROUTE out
+              neighbor 192.0.2.14 route-map BLOCK-TEST-ROUTE out
+             exit-address-family
+            exit
+            """
+        )
+
+        # Step 2: Configure route leak with AS path exclude on bordertor-11
+        # Strip 655000 (middle), keep 655001 and 655002
+        logger.info(
+            f"Step 2: Configure route leak vrf1->vrf2 with 'set as-path exclude {as_to_strip}'"
+        )
+        bordertor11.vtysh_multicmd(
+            f"""
+            configure terminal
+            ip prefix-list EXT1-ROUTES seq 10 permit 203.0.119.0/24
+            !
+            route-map LEAK-STRIP-AS permit 10
+             match ip address prefix-list EXT1-ROUTES
+             set as-path exclude {as_to_strip}
+            exit
+            route-map LEAK-STRIP-AS permit 20
+            exit
+            !f
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              import vrf route-map LEAK-STRIP-AS
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+
+        # Step 3: Wait for route to arrive in vrf1 first (source VRF)
+        logger.info(
+            "Step 3a: Wait for route to arrive in source VRF (vrf1) with prepended AS path"
+        )
+        logger.info(
+            f"        Expected AS path in vrf1: {as_prepend} 655000 (prepend + ext-1's AS)"
+        )
+
+        def check_route_in_vrf1():
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf1 ipv4 unicast {test_route}", isjson=False
+            )
+            if "Network not in table" in output:
+                return f"Route {test_route} not found in vrf1 yet"
+            # Verify AS prepending - should see 655001 and 655002
+            if "655001" not in output:
+                return "AS 655001 not visible yet"
+            if "655002" not in output:
+                return "AS 655002 not visible yet"
+            # Verify this is from ext-1
+            if "ext-1" not in output and "192.0.2.1" not in output:
+                return "Route not from ext-1"
+            return None
+
+        _, result = topotest.run_and_expect(check_route_in_vrf1, None, count=30, wait=1)
+        if result is not None:
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf1 ipv4 unicast {test_route}", isjson=False
+            )
+            logger.error(f"Source VRF (vrf1) route state:\n{output}")
+            pytest.fail(f"Route not arriving in source VRF with prepended AS: {result}")
+
+        # Log the source VRF route to prove AS prepending is working
+        output_vrf1 = bordertor11.vtysh_cmd(
+            f"show bgp vrf vrf1 ipv4 unicast {test_route}", isjson=False
+        )
+
+        # Verify this is the ONLY path (no EVPN paths)
+        if "Paths: (1 available" not in output_vrf1:
+            logger.info(
+                f"=== SOURCE VRF (vrf1) route - ONLY from ext-1 with prepended AS ===\n{output_vrf1}"
+            )
+            logger.warning(
+                "WARNING: Multiple paths exist - ext-1 path may not be best!"
+            )
+            logger.warning("Test may not accurately validate the bug fix.")
+
+        # Step 3b: Verify initial AS path stripping works in destination VRF
+        # Check ONLY the leaked paths from vrf1, not EVPN paths which bypass route-map
+        logger.info(
+            "Step 3b: Verify initial AS path stripping in destination VRF (vrf2)"
+        )
+
+        def check_vrf1_leaked_path_stripped(output):
+            """
+            Check if leaked paths from vrf1 have AS path correctly processed:
+            - AS 655001 and 655002 should be PRESENT (proves route arrived)
+            - AS 655000 should be ABSENT (proves stripping worked)
+
+            Output format for leaked path:
+              Imported from 192.0.2.2:2:203.0.119.0/24
+              655001 655002                          <-- AS path (655000 stripped from middle)
+                10.0.0.2(bordertor-11) from 0.0.0.0 (192.0.2.6) vrf vrf1(8)
+
+            Returns None if correct, error message otherwise.
+            """
+            if "Network not in table" in output:
+                return "Route not found in vrf2 yet"
+            if "vrf vrf1" not in output:
+                return "Leaked path from vrf1 not present yet"
+
+            # Find all leaked paths from vrf1 and check their AS paths
+            lines = output.split("\n")
+            found_vrf1_path = False
+            for i, line in enumerate(lines):
+                if "vrf vrf1" in line:
+                    found_vrf1_path = True
+                    # Look backwards for AS path line (between "Imported from" and current line)
+                    for j in range(i - 1, max(0, i - 5), -1):
+                        prev_line = lines[j].strip()
+                        # Skip empty lines and the next-hop line
+                        if (
+                            not prev_line
+                            or prev_line.startswith("10.0.0")
+                            or prev_line.startswith("192.0.2")
+                        ):
+                            continue
+                        # Check if this is the AS path line
+                        if prev_line.startswith("Imported from"):
+                            break  # Reached the "Imported from" line, no AS path found (Local?)
+                        # This should be the AS path line - check conditions
+                        if "655001" not in prev_line:
+                            return f"Leaked path missing AS 655001 - route not fully processed yet: {prev_line}"
+                        if "655002" not in prev_line:
+                            return f"Leaked path missing AS 655002 - route not fully processed yet: {prev_line}"
+                        if as_to_strip in prev_line:
+                            return f"Leaked path still has AS {as_to_strip} (NOT stripped): {prev_line}"
+                        # All conditions met - 655001 and 655002 present, 655000 absent
+                        break
+
+            if not found_vrf1_path:
+                return "No leaked path from vrf1 found"
+            return None
+
+        def check_initial_strip():
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+            return check_vrf1_leaked_path_stripped(output)
+
+        _, result = topotest.run_and_expect(check_initial_strip, None, count=30, wait=1)
+        if result is not None:
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+            logger.error(f"Destination VRF (vrf2) route state:\n{output}")
+            pytest.fail(f"Initial AS path stripping failed: {result}")
+
+        output_vrf2 = bordertor11.vtysh_cmd(
+            f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+        )
+
+        # Step 4: Trigger removing and re-adding import vrf
+        logger.info("Step 4: Remove and re-add 'import vrf vrf1'")
+
+        # First remove import vrf
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              no import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+
+        # Wait for routes to be withdrawn
+        def check_route_withdrawn():
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+            # Check that the leaked path from vrf1 is gone
+            if "vrf vrf1" in output.lower():
+                return "Leaked route from vrf1 still present"
+            return None
+
+        _, result = topotest.run_and_expect(
+            check_route_withdrawn, None, count=30, wait=1
+        )
+        logger.info("Import vrf removed, leaked routes withdrawn")
+
+        # Now re-add import vrf
+        bordertor11.vtysh_multicmd(
+            """
+            configure terminal
+            router bgp 660000 vrf vrf2
+             address-family ipv4 unicast
+              import vrf vrf1
+             exit-address-family
+            exit
+            """
+        )
+
+        # Step 5: Verify AS path is STILL stripped after re-import
+        logger.info("Step 5: Verify AS path STILL stripped after re-import")
+
+        def check_after_config_change():
+            output = bordertor11.vtysh_cmd(
+                f"show bgp vrf vrf2 ipv4 unicast {test_route}", isjson=False
+            )
+            return check_vrf1_leaked_path_stripped(output)
+
+        _, result = topotest.run_and_expect(
+            check_after_config_change, None, count=20, wait=1
+        )
+
+        if result is not None:
+            logger.error(f"Re-import test FAILED!, AS path didn't get stripped")
+            pytest.fail(f"Re-import test failed: {result}")
+
+        logger.info("Test PASSED: AS path stripping works correctly")
+
+    finally:
+        # Cleanup
+        logger.info("Cleaning up test configuration")
+        try:
+            bordertor11.vtysh_multicmd(
+                """
+                configure terminal
+                router bgp 660000 vrf vrf2
+                 address-family ipv4 unicast
+                  no import vrf vrf1
+                  no import vrf route-map LEAK-STRIP-AS
+                 exit-address-family
+                exit
+                no route-map LEAK-STRIP-AS
+                no ip prefix-list EXT1-ROUTES
+                """
+            )
+        except Exception as e:
+            logger.warning(f"bordertor-11 cleanup error: {e}")
+
+        try:
+            ext1.vtysh_multicmd(
+                """
+                configure terminal
+                router bgp 655000
+                 address-family ipv4 unicast
+                  no redistribute static route-map PREPEND-TO-BORDERTOR
+                  no neighbor 192.0.2.2 route-map PREPEND-TO-BORDERTOR out
+                  no neighbor 192.0.2.6 route-map BLOCK-TEST-ROUTE out
+                  no neighbor 192.0.2.10 route-map BLOCK-TEST-ROUTE out
+                  no neighbor 192.0.2.14 route-map BLOCK-TEST-ROUTE out
+                 exit-address-family
+                exit
+                no route-map PREPEND-TO-BORDERTOR
+                no route-map BLOCK-TEST-ROUTE
+                no ip prefix-list TEST-PREPEND
+                no ip route 203.0.119.0/24 Null0
+                """
+            )
+        except Exception as e:
+            logger.warning(f"ext-1 cleanup error: {e}")
+
+
 def test_l3vni_l2vni_transition_restore(tgen_and_ip_version):
     """
     Verify L3VNI -> L2VNI transition and restoration back to L3VNI.
