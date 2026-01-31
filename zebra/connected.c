@@ -284,6 +284,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
+	case AFI_BGP_LS:
 	case AFI_MAX:
 		flog_warn(EC_ZEBRA_CONNECTED_AFI_UNKNOWN,
 			  "Received unknown AFI: %s", afi2str(afi));
@@ -498,6 +499,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
+	case AFI_BGP_LS:
 	case AFI_MAX:
 		zlog_warn("Unknown AFI: %s", afi2str(afi));
 		break;

@@ -720,7 +720,7 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi, safi_t saf
 
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				 label, num_labels, 1, NULL);
+				 label, num_labels, 1, NULL, NULL);
 	}
 }
 

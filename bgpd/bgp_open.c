@@ -158,6 +158,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolAfi",
 						"L2VPN");
 					break;
+				case AFI_BGP_LS:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolAfi",
+							       "BGP-LS");
+					break;
 				case AFI_UNSPEC:
 				case AFI_MAX:
 					json_object_int_add(
@@ -209,6 +214,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolSafi",
 						"flowspec");
 					break;
+				case SAFI_BGP_LS:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolSafi",
+							       "BGP-LS");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -229,6 +239,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case AFI_L2VPN:
 					vty_out(vty, "AFI L2VPN, ");
+					break;
+				case AFI_BGP_LS:
+					vty_out(vty, "AFI BGP-LS, ");
 					break;
 				case AFI_UNSPEC:
 				case AFI_MAX:
@@ -257,6 +270,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case SAFI_EVPN:
 					vty_out(vty, "SAFI EVPN");
+					break;
+				case SAFI_BGP_LS:
+					vty_out(vty, "SAFI BGP-LS");
 					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
@@ -1508,7 +1524,8 @@ int bgp_open_option_parse(struct peer *peer, struct peer_connection *connection,
 		    && !peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
+		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
+		    && !peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS]) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
