@@ -110,10 +110,12 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra_v6_vtep.conf".format(rname))
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, "{}/zebra_v6_vtep.conf".format(rname)),
         )
         router.load_config(
-            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospfd_v6_vtep.conf".format(rname))
+            TopoRouter.RD_OSPF6,
+            os.path.join(CWD, "{}/ospfd_v6_vtep.conf".format(rname)),
         )
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd_v6_vtep.conf".format(rname))
@@ -422,6 +424,60 @@ def test_ip_pe2_learn():
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
+
+
+# this will be moved to lib/bgp_evpn.py, after evpn extern_learn commits are merged
+def check_bgp_imet(dut, rd, prefix, pmsi_label, pmsi_id):
+    """
+    Return error string if the df role on the dut is different
+    """
+    rd_routes_json = dut.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} type 3 json")
+    rd_routes = json.loads(rd_routes_json)
+
+    if not rd_routes:
+        return "Imet routes not found"
+
+    if rd not in rd_routes or prefix not in rd_routes[rd]:
+        return f"Imet routes not found for rd {rd} and {prefix}"
+    paths = rd_routes[rd][prefix]["paths"]
+    if not len(paths):
+        return f"Imet route paths routes not found for rd {rd} and {prefix}"
+    out_label = paths[0][0]["pmsi"].get("label", 0)
+    if out_label != pmsi_label:
+        return f"Imet PMSI Label mismatch Expected {pmsi_label} Got {out_label}"
+
+    out_id = paths[0][0]["pmsi"].get("id", "")
+    if out_id != pmsi_id:
+        return f"Imet PMSI Id mismatch Expected {pmsi_id} Got {out_id}"
+    return None
+
+
+def test_imet():
+    tgen = get_topogen()
+
+    dut_name = "PE1"
+    dut = tgen.gears[dut_name]
+    rd = "10.30.30.30:2"
+    prefix = "[3]:[0]:[128]:[10:30:30::30]"
+    pmsi_label = 101
+    pmsi_id = "10:30:30::30"
+    # Check Imet from PE2 to PE1
+    test_fn = partial(check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
+
+    # Check Imet from PE1 to PE2
+    dut_name = "PE2"
+    dut = tgen.gears[dut_name]
+    rd = "10.10.10.10:2"
+    prefix = "[3]:[0]:[128]:[10:10:10::10]"
+    pmsi_label = 101
+    pmsi_id = "10:10:10::10"
+    test_fn = partial(check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
 
 
 def test_memory_leak():
