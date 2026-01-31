@@ -1008,6 +1008,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
+	char time_buf[64];
 
 	peer = (struct peer *)bnc->nht_info;
 
@@ -1113,6 +1114,10 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
+		/* Calculate last-update time and convert it into dd:hh:mm:ss
+		 * display format */
+		time_to_date_string(bnc->last_update, time_buf, sizeof(time_buf));
+		json_object_string_add(json_nexthop, "lastUpdateTimerMsecs", time_buf);
 	} else {
 		vty_out(vty, "  Last update: %s", time_to_string(bnc->last_update, timebuf));
 	}
