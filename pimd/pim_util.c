@@ -256,3 +256,20 @@ bool pim_addr_is_multicast(pim_addr addr)
 #endif
 	return false;
 }
+/*ip address with -1, or 0 */
+bool pim_is_valid_ipddress(const struct ipaddr *ip)
+{
+	if (ip->ipa_type == IPADDR_V4) {
+		return (ip->ip._v4_addr.s_addr == 0 ||
+			ip->ip._v4_addr.s_addr == 0xFFFFFFFF);
+	} else if (ip->ipa_type == IPADDR_V6) {
+		/*
+		 * In this case,check the IPv6 address if needed,
+		 * assuming its valid all the time
+		 */
+		return false;
+	} else {
+		/* Invalid IP address type */
+		return true;
+	}
+}
