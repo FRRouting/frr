@@ -22,16 +22,13 @@
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
-#include <string.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
 #define MSG_TRUNC      0x20
 #endif /* MSG_TRUNC */
 
-#include "linklist.h"
 #include "if.h"
-#include "log.h"
 #include "prefix.h"
 #include "plist.h"
 #include "plist_int.h"
@@ -43,7 +40,6 @@
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
-#include "vty.h"
 #include "mpls.h"
 #include "vxlan.h"
 #include "printfrr.h"
@@ -54,7 +50,6 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
-#include "zebra/interface.h"
 #include "zebra/debug.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_ptm.h"
@@ -64,10 +59,10 @@
 #include "zebra/zebra_nhg.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
-#include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_neigh_throttle.h"
 #include "lib/srv6.h"
 
 #ifndef AF_MPLS
@@ -230,14 +225,14 @@ static uint16_t neigh_state_to_netlink(uint16_t dplane_state)
 
 static inline bool is_selfroute(int proto)
 {
-	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF)
-	    || (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA)
-	    || (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)
-	    || (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP)
-	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
-	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
-	    || (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC)
-	    || (proto == RTPROT_SRTE)) {
+	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF) ||
+	    (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA) ||
+	    (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG) ||
+	    (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP) ||
+	    (proto == RTPROT_LDP) || (proto == RTPROT_BABEL) ||
+	    (proto == RTPROT_RIP) || (proto == RTPROT_SHARP) ||
+	    (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC) ||
+	    (proto == RTPROT_SRTE) || (proto == RTPROT_FRR)) {
 		return true;
 	}
 
@@ -298,6 +293,9 @@ int zebra2proto(int proto)
 	case ZEBRA_ROUTE_LOCAL:
 	case ZEBRA_ROUTE_KERNEL:
 		proto = RTPROT_KERNEL;
+		break;
+	case ZEBRA_ROUTE_FRR:
+		proto = RTPROT_FRR;
 		break;
 	default:
 		/*
@@ -378,6 +376,9 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 	case RTPROT_KEEPALIVED:
 	case RTPROT_OPENR:
 		proto = ZEBRA_ROUTE_KERNEL;
+		break;
+	case RTPROT_FRR:
+		proto = ZEBRA_ROUTE_FRR;
 		break;
 	case RTPROT_ZEBRA:
 		if (is_nexthop) {
@@ -4052,6 +4053,10 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	ndm = NLMSG_DATA(h);
 
+	/* We only process NEW and DEL messages */
+	if (h->nlmsg_type != RTM_NEWNEIGH && h->nlmsg_type != RTM_DELNEIGH)
+		return 0;
+
 	/* Parse attributes and extract fields of interest. Do basic
 	 * validation of the fields.
 	 */
@@ -4496,8 +4501,9 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
-	ndm = NLMSG_DATA(h);
+	/* N.B. the message type has already been checked by the caller */
 
+	ndm = NLMSG_DATA(h);
 	/* Parse attributes and extract fields of interest. */
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
@@ -4521,8 +4527,8 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	else if (h->nlmsg_type == RTM_GETNEIGH)
 		op = DPLANE_OP_NEIGH_DISCOVER;
 	else {
-		zlog_debug("%s(): unknown nlmsg type %u", __func__,
-			   h->nlmsg_type);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: unknown nlmsg type %u", __func__, h->nlmsg_type);
 		return 0;
 	}
 

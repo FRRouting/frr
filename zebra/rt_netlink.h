@@ -45,6 +45,7 @@ extern "C" {
 #define RTPROT_ZSTATIC     196
 #define RTPROT_OPENFABRIC  197
 #define RTPROT_SRTE        198
+#define RTPROT_FRR         199
 
 void rt_netlink_init(void);
 

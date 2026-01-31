@@ -238,6 +238,8 @@ static int zebra_ns_new(struct ns *ns)
 	ns->info = zns;
 	zns->ns = ns;
 	zns->ns_id = ns->ns_id;
+	zns->arp_fd = -1;
+	zns->nd_fd = -1;
 
 	/* Do any needed per-NS data structure allocation. */
 	ifp_tree_init(&zns->ifp_tree);
@@ -350,6 +352,17 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
  */
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
+	/* Close ARP and ND sockets */
+	if (zns->arp_fd > 0) {
+		close(zns->arp_fd);
+		zns->arp_fd = -1;
+	}
+
+	if (zns->nd_fd > 0) {
+		close(zns->nd_fd);
+		zns->nd_fd = -1;
+	}
+
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
 	kernel_terminate(zns, complete);
