@@ -1692,6 +1692,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_GRE_SET:
 		case DPLANE_OP_INTF_ADDR_ADD:
 		case DPLANE_OP_INTF_ADDR_DEL:
+		case DPLANE_OP_INTF_SPEED_GET:
 		case DPLANE_OP_STARTUP_STAGE:
 		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		case DPLANE_OP_VLAN_INSTALL:
