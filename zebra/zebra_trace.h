@@ -91,9 +91,9 @@ TRACEPOINT_LOGLEVEL(frr_zebra, if_upd_ctx_dplane_result, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_zebra,
 	if_vrf_change,
-	TP_ARGS(ifindex_t, ifindex, const char *, name, uint32_t, tableid, uint8_t, loc),
+	TP_ARGS(vrf_id_t, vrf_id, const char *, name, uint32_t, tableid, uint8_t, loc),
 	TP_FIELDS(
-		ctf_integer(ifindex_t, ifindex, ifindex)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
 		ctf_string(vrf_name, name)
 		ctf_integer(uint32_t, tableid, tableid)
 		ctf_integer(uint8_t, location, loc)
