@@ -142,6 +142,58 @@ could be made SGID (set group ID) to the |INSTALL_VTY_GROUP| group.
   at all.
 
 
+Network Diagnostic Commands
+============================
+
+*vtysh* provides access to common network diagnostic tools including ping,
+traceroute, and mtrace commands. These commands execute the corresponding
+system utilities and display their output within the vtysh session.
+
+.. clicmd:: ping DESTINATION [source SOURCE] [count COUNT] [dontfragment]
+
+.. clicmd:: ping ip DESTINATION [source SOURCE] [count COUNT] [dontfragment]
+
+   Send ICMP echo request packets to a destination address or hostname.
+
+   Optional parameters:
+
+   ``source SOURCE``
+      Specify the source interface or address (IPv4 address, IPv6 address,
+      or interface name) for the ping packets.
+
+   ``count COUNT``
+      Number of packets to send. Valid range is 1-1000. If not specified,
+      ping continues until interrupted.
+
+   ``dontfragment``
+      Set the Don't Fragment (DF) bit in the IP header. This prevents the
+      packets from being fragmented along the path to the destination.
+
+.. clicmd:: ping ipv6 DESTINATION [source SOURCE] [count COUNT] [dontfragment]
+
+   Send ICMPv6 echo request packets to an IPv6 destination address or hostname.
+   Accepts the same optional parameters as the IPv4 ping command.
+
+.. clicmd:: traceroute DESTINATION
+
+.. clicmd:: traceroute ip DESTINATION
+
+   Trace the route packets take to reach a destination address or hostname.
+   Displays each hop along the path with timing information.
+
+.. clicmd:: traceroute ipv6 DESTINATION
+
+   Trace the route packets take to reach an IPv6 destination address or hostname.
+
+.. clicmd:: mtrace SOURCE [GROUP]
+
+   Perform a multicast traceroute to a multicast source address. The optional
+   GROUP parameter specifies the multicast group address to trace.
+
+   This command uses the ``mtracebis`` utility to trace the multicast path
+   from the source to the router.
+
+
 .. _integrated-configuration-file:
 
 Integrated configuration file
