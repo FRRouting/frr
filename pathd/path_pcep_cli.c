@@ -51,6 +51,8 @@ static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
 static int pcep_cli_pcep_pce_config_write(struct vty *vty);
+static int pcep_cli_pcep_check_config_not_empty(void);
+static int pcep_cli_pcep_no_srte(void);
 
 /* Internal Util Function declarations */
 static void reset_pcc_peer(const char *peer_name);
@@ -998,7 +1000,7 @@ static int path_pcep_cli_pcc(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
-static int path_pcep_cli_pcc_delete(struct vty *vty)
+static int path_pcep_cli_pcc_delete(void)
 {
 	/* Clear the pce_connections */
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
@@ -1697,6 +1699,9 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
 
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
+	if (!pcep_cli_pcep_check_config_not_empty())
+		return 1;
+
 	vty_out(vty, "  pcep\n");
 	pcep_cli_pcep_pce_config_write(vty);
 	pcep_cli_pce_config_write(vty);
@@ -1875,6 +1880,55 @@ static int pcep_cli_print_pce_config(struct pcep_config_group_opts *group_opts,
 	return lines;
 }
 
+static int pcep_cli_pcep_check_config_not_empty(void)
+{
+	/* pcep_cli_pcep_pce_config_write */
+	for (int i = 0; i < MAX_PCE; i++) {
+		struct pcep_config_group_opts *group_opts = pcep_g->config_group_opts[i];
+
+		if (group_opts != NULL)
+			return 1;
+	}
+
+	/* pcep_cli_pce_config_write */
+	for (int i = 0; i < MAX_PCE; i++) {
+		struct pce_opts_cli *pce_opts_cli = pcep_g->pce_opts_cli[i];
+
+		if (pce_opts_cli != NULL)
+			return 1;
+	}
+
+	/* pcep_cli_pcc_config_write */
+	if (!(!pcc_msd_configured_g && pce_connections_g.num_connections == 0))
+		return 1;
+
+	/* Nothing to output */
+	return 0;
+}
+
+static int pcep_cli_pcep_no_srte(void)
+{
+	/* Delete PCCs */
+	path_pcep_cli_pcc_delete();
+
+	for (int i = 0; i < MAX_PCE; i++) {
+		/* Delete PCEs */
+		if (pcep_g->pce_opts_cli[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
+			pcep_g->pce_opts_cli[i] = NULL;
+			pcep_g->num_pce_opts_cli--;
+		}
+
+		/* Delete PCE-CONFIGs */
+		if (pcep_g->config_group_opts[i] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
+			pcep_g->config_group_opts[i] = NULL;
+			pcep_g->num_config_group_opts--;
+		}
+	}
+	return 0;
+}
+
 int pcep_cli_pce_config_write(struct vty *vty)
 {
 	int lines = 0;
@@ -1999,25 +2053,7 @@ DEFPY(
       NO_STR
       "PCEP configuration\n")
 {
-	/* Delete PCCs */
-	path_pcep_cli_pcc_delete(vty);
-
-	for (int i = 0; i < MAX_PCE; i++) {
-		/* Delete PCEs */
-		if (pcep_g->pce_opts_cli[i] != NULL) {
-			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
-			pcep_g->pce_opts_cli[i] = NULL;
-			pcep_g->num_pce_opts_cli--;
-		}
-
-		/* Delete PCE-CONFIGs */
-		if (pcep_g->config_group_opts[i] != NULL) {
-			XFREE(MTYPE_PCEP, pcep_g->config_group_opts[i]);
-			pcep_g->config_group_opts[i] = NULL;
-			pcep_g->num_config_group_opts--;
-		}
-	}
-
+	pcep_cli_pcep_no_srte();
 	return CMD_SUCCESS;
 }
 
@@ -2205,7 +2241,7 @@ DEFPY(pcep_cli_no_pcc,
       NO_STR
       "PCC configuration\n")
 {
-	return path_pcep_cli_pcc_delete(vty);
+	return path_pcep_cli_pcc_delete();
 }
 
 DEFPY(pcep_cli_pcc_pcc_msd,
@@ -2295,7 +2331,9 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 
 void pcep_cli_init(void)
 {
+	hook_register(pathd_srte_check_config_not_empty, pcep_cli_pcep_check_config_not_empty);
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
+	hook_register(pathd_srte_no_srte, pcep_cli_pcep_no_srte);
 
 	debug_install(&pcep_g->dbg_basic);
 	debug_install(&pcep_g->dbg_path);

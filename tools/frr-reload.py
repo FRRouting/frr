@@ -1885,18 +1885,10 @@ def compare_context_objects(newconf, running):
             ):
                 continue
 
-            # Segment routing and traffic engineering never need to be deleted
+            # Segment routing never needs to be deleted
             elif (
                 running_ctx_keys[0].startswith("segment-routing")
-                and len(running_ctx_keys) < 3
-            ):
-                continue
-
-            # Neither the pcep command
-            elif (
-                len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith("segment-routing")
-                and running_ctx_keys[2].startswith("pcep")
+                and len(running_ctx_keys) == 1
             ):
                 continue
 
