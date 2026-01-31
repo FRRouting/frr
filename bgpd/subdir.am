@@ -195,6 +195,9 @@ bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 
 # RFPLDADD is set in bgpd/rfp-example/librfp/subdir.am
 bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
+if CARES
+bgpd_bgpd_LDADD += lib/libfrrcares.la
+endif
 bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 
 bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp_bgp4.c bgpd/bgp_snmp_bgp4v2.c bgpd/bgp_snmp.c bgpd/bgp_mplsvpn_snmp.c
@@ -208,7 +211,6 @@ bgpd_bgpd_rpki_la_LDFLAGS = $(MODULE_LDFLAGS)
 bgpd_bgpd_rpki_la_LIBADD = $(RTRLIB_LIBS)
 
 bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
-bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
 bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 clippy_scan += \
