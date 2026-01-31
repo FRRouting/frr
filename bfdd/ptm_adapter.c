@@ -541,9 +541,10 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 		return;
 	}
 
+	bs->refcount--;
 	/* Unregister client peer notification. */
 	pcn = pcn_lookup(pc, bs);
-	if (pcn != NULL) {
+	if (pcn != NULL && bs->refcount == 0) {
 		pcn_free(pcn);
 		return;
 	}
@@ -557,7 +558,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	 * created this is no longer around. Lets try to delete it anyway
 	 * and the worst case is the refcount will detain us.
 	 */
-	_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);
+	//_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);
 }
 
 /*
@@ -966,6 +967,8 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 					       struct bfd_session *bs)
 {
 	struct ptm_client_notification *pcn;
+	/* Lets increment the refcount in the beginning itself regardless of its a new pcn or old*/
+	bs->refcount++;
 
 	/* Try to find an existing pcn fist. */
 	pcn = pcn_lookup(pc, bs);
@@ -978,7 +981,6 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;
 	pcn->pcn_bs = bs;
-	bs->refcount++;
 
 	return pcn;
 }
@@ -1006,7 +1008,6 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	/* Handle session de-registration. */
 	bs = pcn->pcn_bs;
 	pcn->pcn_bs = NULL;
-	bs->refcount--;
 
 	/* Log modification to users. */
 	if (bglobal.debug_zebra)
