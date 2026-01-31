@@ -397,7 +397,9 @@ int ripd_instance_offset_list_create(struct nb_cb_create_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, "interface");
 
-	offset = rip_offset_list_new(rip, ifname);
+	offset = rip_offset_list_lookup(rip, ifname);
+	if (!offset)
+		offset = rip_offset_list_new(rip, ifname);
 	nb_running_set_entry(args->dnode, offset);
 
 	return NB_OK;
