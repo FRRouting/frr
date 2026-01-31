@@ -19,12 +19,12 @@
 
 #include "sockopt.h"
 
-static struct iface *disc_find_iface(unsigned int, int, union ldpd_addr *);
+static struct iface *disc_find_iface(unsigned int, int, union g_addr *);
 static void session_read(struct event *event);
 static void session_write(struct event *event);
 static ssize_t session_get_pdu(struct ibuf_read *, char **);
 static void tcp_close(struct tcp_conn *);
-static struct pending_conn *pending_conn_new(int, int, union ldpd_addr *);
+static struct pending_conn *pending_conn_new(int, int, union g_addr *);
 static void pending_conn_timeout(struct event *event);
 
 int
@@ -58,15 +58,13 @@ gen_msg_hdr(struct ibuf *buf, uint16_t type, uint16_t size)
 }
 
 /* send packets */
-int
-send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
-    void *pkt, size_t len)
+int send_packet(int fd, int af, union g_addr *dst, struct iface_af *ia, void *pkt, size_t len)
 {
 	union sockunion su;
 
 	switch (af) {
 	case AF_INET:
-		if (ia && IN_MULTICAST(ntohl(dst->v4.s_addr))) {
+		if (ia && IN_MULTICAST(ntohl(dst->ipv4.s_addr))) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv4_mcast(ia->iface) == -1) {
 				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
@@ -75,7 +73,7 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 		}
 		break;
 	case AF_INET6:
-		if (ia && IN6_IS_ADDR_MULTICAST(&dst->v6)) {
+		if (ia && IN6_IS_ADDR_MULTICAST(&dst->ipv6)) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv6_mcast(ia->iface) == -1) {
 				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
@@ -121,7 +119,7 @@ void disc_recv_packet(struct event *event)
 	ssize_t			 r;
 	int			 multicast;
 	int			 af;
-	union ldpd_addr		 src;
+	union g_addr src;
 	unsigned int		 ifindex = 0;
 	struct iface		*iface = NULL;
 	uint16_t		 len;
@@ -267,8 +265,7 @@ void disc_recv_packet(struct event *event)
 	}
 }
 
-static struct iface *
-disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src)
+static struct iface *disc_find_iface(unsigned int ifindex, int af, union g_addr *src)
 {
 	struct iface	*iface;
 	struct iface_af	*ia;
@@ -286,7 +283,7 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src)
 	 * "Link-local IPv6 address MUST be used as the source IP address in
 	 * IPv6 LDP Link Hellos".
 	 */
-	if (af == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&src->v6))
+	if (af == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&src->ipv6))
 		return (NULL);
 
 	return (iface);
@@ -299,7 +296,7 @@ void session_accept(struct event *event)
 	socklen_t		 len = sizeof(src);
 	int			 newfd;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	struct nbr		*nbr;
 	struct pending_conn	*pconn;
 
@@ -745,8 +742,7 @@ tcp_close(struct tcp_conn *tcp)
 	free(tcp);
 }
 
-static struct pending_conn *
-pending_conn_new(int fd, int af, union ldpd_addr *addr)
+static struct pending_conn *pending_conn_new(int fd, int af, union g_addr *addr)
 {
 	struct pending_conn	*pconn;
 
@@ -772,8 +768,7 @@ pending_conn_del(struct pending_conn *pconn)
 	free(pconn);
 }
 
-struct pending_conn *
-pending_conn_find(int af, union ldpd_addr *addr)
+struct pending_conn *pending_conn_find(int af, union g_addr *addr)
 {
 	struct pending_conn	*pconn;
 

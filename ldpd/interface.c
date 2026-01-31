@@ -223,8 +223,8 @@ if_addr_add(struct kaddr *ka)
 
 	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
-		if (ka->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&ka->addr.v6))
-			iface->linklocal = ka->addr.v6;
+		if (ka->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&ka->addr.ipv6))
+			iface->linklocal = ka->addr.ipv6;
 
 		if (if_addr_lookup(&iface->addr_list, ka) == NULL) {
 			if_addr = if_addr_new(ka);
@@ -243,8 +243,7 @@ if_addr_del(struct kaddr *ka)
 
 	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
-		if (ka->af == AF_INET6 &&
-		    IN6_ARE_ADDR_EQUAL(&iface->linklocal, &ka->addr.v6))
+		if (ka->af == AF_INET6 && IN6_ARE_ADDR_EQUAL(&iface->linklocal, &ka->addr.ipv6))
 			memset(&iface->linklocal, 0, sizeof(iface->linklocal));
 
 		if_addr = if_addr_lookup(&iface->addr_list, ka);
@@ -550,7 +549,7 @@ if_get_ipv4_addr(struct iface *iface)
 
 	LIST_FOREACH(if_addr, &iface->addr_list, entry)
 		if (if_addr->af == AF_INET)
-			return (if_addr->addr.v4.s_addr);
+			return (if_addr->addr.ipv4.s_addr);
 
 	return (INADDR_ANY);
 }
