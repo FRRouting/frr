@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+TOPOTATODIR="`dirname $0`"
+export PYTHONPATH="${TOPOTATODIR}${PYTHONPATH:+:$PYTHONPATH}"
+export TOPOTATO_INNER=1 # temporary workaround until topotato.__init__ is empty
+if test -f "$TOPOTATODIR/getlockpid.c" -a \! -f "$TOPOTATODIR/getlockpid"; then
+	echo "compiling getlockpid helper..." >&2
+	(
+		set -x;
+		gcc -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu11 \
+			-o "$TOPOTATODIR/getlockpid" "$TOPOTATODIR/getlockpid.c"
+	)
+fi
+exec ${PYTHON:-python3} -m topotato.potatool "$@"

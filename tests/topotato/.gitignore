@@ -1,0 +1,10 @@
+/results*
+/network.dot
+/network.png
+/assets/
+**/reportato/
+/getlockpid
+*.pcapng
+*.pcap
+*env
+.vagrant
