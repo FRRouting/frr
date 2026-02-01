@@ -521,13 +521,17 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 
-	for (uint j = 0; j < msg->nnotify; j++)
-		be_adapter_register_client_xpath(adapter->id, s[i++],
-						 MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+	darr_ensure_avail(adapter->notify_xpaths, msg->nnotify);
+	for (uint j = 0; j < msg->nnotify; i++, j++)
+		*darr_append(adapter->notify_xpaths) = darr_strdup(s[i]);
 
 	for (uint j = 0; j < msg->nrpc; j++)
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+
+	/* Now add our notify-select strings to the global ADT */
+	if (darr_len(adapter->notify_xpaths))
+		mgmt_fe_ns_string_add_be_client(id, (const char **)adapter->notify_xpaths);
 
 	zlog_notice("Backend daemon: %s registers with mgmtd (client-id: %u)", adapter->name,
 		    adapter->id);
@@ -709,13 +713,12 @@ static void be_adapter_delete(struct mgmt_be_client_adapter *adapter)
 {
 	_dbg("deleting client adapter '%s'", adapter->name);
 
-	/*
-	 * Notify about disconnect for appropriate cleanup
-	 */
-	mgmt_txn_handle_be_adapter_connect(adapter, false);
-	if (adapter->id < darr_len(mgmt_be_adapters_by_id))
+	if (adapter->id < darr_len(mgmt_be_adapters_by_id)) {
+		mgmt_fe_ns_string_remove_be_client(adapter->id);
+		mgmt_txn_handle_be_adapter_connect(adapter, false);
 		mgmt_be_adapters_by_id[adapter->id] = NULL;
-
+	}
+	darr_free_free(adapter->notify_xpaths);
 	LIST_REMOVE(adapter, link);
 	event_cancel(&adapter->conn_init_ev);
 	msg_server_conn_delete(adapter->conn);
