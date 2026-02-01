@@ -576,6 +576,36 @@ class Topogen(object):
             return True
         return False
 
+    def log_test_start(self, test_path):
+        "Log the start of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-START: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
+
+    def log_test_result(self, test_path, result):
+        "Log the result of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-RESULT: {result}: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
+
+    def log_test_end(self, test_path):
+        "Log the end of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-END: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
+
 
 #
 # Topology gears (equipment)
