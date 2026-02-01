@@ -15,16 +15,18 @@ import re
 import time
 
 import pytest
+from lib.common_config import step
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
 from munet.base import Timeout
-from munet.testing.util import readline, waitline
+from munet.testing.util import readline, retry, waitline
 from oper import check_kernel_32
 
-pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 FE_CLIENT = CWD + "/../lib/fe_client.py"
+BE_CLIENT = "/usr/lib/frr/mgmtd_testc"
 
 
 @pytest.fixture(scope="module")
@@ -32,7 +34,7 @@ def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
 
     topodef = {
-        "s1": ("r1", "r2"),
+        "s1": ("r1",),
     }
 
     tgen = Topogen(topodef, request.module.__name__)
@@ -40,7 +42,7 @@ def tgen(request):
 
     router_list = tgen.routers()
     for _, router in router_list.items():
-        router.load_frr_config("frr.conf")
+        router.load_frr_config("frr-ds.conf")
 
     tgen.start_router()
     yield tgen
@@ -150,9 +152,7 @@ def test_backend_datastore_update(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    be_client_path = "/usr/lib/frr/mgmtd_testc"
-    rc, _, _ = r1.cmd_status(be_client_path + " --help")
-
+    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
     if rc:
         pytest.skip("No mgmtd_testc")
 
@@ -162,7 +162,7 @@ def test_backend_datastore_update(tgen):
     # Start our BE client in the background
     p = r1.popen(
         [
-            be_client_path,
+            BE_CLIENT,
             "--timeout=20",
             "--log=file:/dev/stderr",
             "--datastore",
@@ -198,9 +198,7 @@ def test_backend_datastore_add_delete(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    be_client_path = "/usr/lib/frr/mgmtd_testc"
-    rc, _, _ = r1.cmd_status(be_client_path + " --help")
-
+    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
     if rc:
         pytest.skip("No mgmtd_testc")
 
@@ -210,7 +208,7 @@ def test_backend_datastore_add_delete(tgen):
     # Start our BE client in the background
     p = r1.popen(
         [
-            be_client_path,
+            BE_CLIENT,
             "--timeout=60",
             "--log=file:/dev/stderr",
             "--notify-count=0",
@@ -260,6 +258,22 @@ def test_backend_datastore_add_delete(tgen):
         r1.cmd_status("ip link del red", warn=False)
 
 
+@retry(retry_timeout=10, initial_wait=0.5)
+def check_filters(r1, selectors):
+    showcmd = 'vtysh -c "show mgmt get-data /frr-backend:clients/client/state/notify-selectors"'
+    jsout = json.loads(r1.cmd_raises(showcmd))
+
+    if not selectors:
+        expected = {}
+        result = json_cmp(jsout, expected, exact=True)
+        assert result is None
+        return
+    state = {"notify-selectors": selectors}
+    expected = {"frr-backend:clients": {"client": [{"name": "zebra", "state": state}]}}
+    result = json_cmp(jsout, expected, exact=True)
+    assert result is None
+
+
 def test_datastore_backend_filters(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -268,31 +282,56 @@ def test_datastore_backend_filters(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    # Start our FE client in the background
-    p = r1.popen(
-        [FE_CLIENT, "--datastore", "--listen=/frr-interface:lib/interface/state"]
-    )
-    assert waitline(p.stderr, "Connected", timeout=10)
-    time.sleep(1)
-
+    p = None
+    p2 = None
     try:
-        output = r1.cmd_raises(
-            'vtysh -c "show mgmt get-data /frr-backend:clients/client/state/notify-selectors"'
+        step("Verify no backend notify selectors")
+        check_filters(r1, [])
+
+        step("Start FE client and verify notify selector present in zebra")
+        p = r1.popen(
+            [
+                FE_CLIENT,
+                "--notify-count=0",
+                "--datastore",
+                "--listen=/frr-interface:lib/interface/state",
+            ]
         )
-        jsout = json.loads(output)
+        check_filters(r1, ["/frr-interface:lib/interface/state"])
 
-        #
-        # Verify only zebra has the notify selector as it's the only provider currently
-        #
-        state = {"notify-selectors": ["/frr-interface:lib/interface/state"]}
-        expected = {
-            "frr-backend:clients": {"client": [{"name": "zebra", "state": state}]}
-        }
+        step("Start BE client and verify both notify selectors present in zebra")
+        mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+        p2 = r1.popen(
+            [
+                BE_CLIENT,
+                "--log=file:/dev/stderr",
+                "--notify-count=0",
+                "--datastore",
+                "--listen",
+                "/frr-interface:lib/interface",
+            ]
+        )
+        assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
+        selectors = [
+            "/frr-interface:lib/interface",
+            "/frr-interface:lib/interface/state",
+        ]
+        check_filters(r1, selectors)
 
-        result = json_cmp(jsout, expected, exact=True)
-        assert result is None
+        step("Kill BE client and verify only FE notify selector present in zebra")
+        p2.kill()
+        p2 = None
+        check_filters(r1, ["/frr-interface:lib/interface/state"])
+
+        step("Kill FE client and verify no notify selectors present in zebra")
+        p.kill()
+        p = None
+        check_filters(r1, [])
     except Exception as error:
         logging.error("got exception: %s", error)
         raise
     finally:
-        p.kill()
+        if p2:
+            p2.kill()
+        if p:
+            p.kill()

@@ -113,10 +113,12 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 
 /**
  * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @from_id: the adapter id the notification is from.
  * @msg: the notify message from the backend client.
  * @msglen: the length of the notify message.
  */
-extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen);
+extern void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
+					size_t msglen);
 
 /**
  * Send an error back to the FE client using native messaging.
@@ -136,6 +138,24 @@ extern void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t
  */
 extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
 				     int16_t error, const char *errstr);
+
+
+/**
+ * Add a BE clients's subscriptions to notify selection strings. Will also
+ * notify other backends of any new subscriptions.
+ */
+void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors);
+
+/**
+ * Remove a BE client subscriptions from notify selection strings. Will also
+ * notify other backends of any removed subscriptions.
+ */
+extern void mgmt_fe_ns_string_remove_be_client(uint client_id);
+
+/**
+ * Get the list (darr) of session_ids interested in a notification.
+ */
+extern uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *notif);
 
 /**
  * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.

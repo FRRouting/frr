@@ -25,6 +25,19 @@ typedef uint mgmt_be_client_id_t;
 
 PREDECL_LIST(mgmt_be_adapters);
 
+/**
+ * Backend client adapter structure.
+ *
+ * @conn: Message connection to the backend client.
+ * @conn_init_ev: Event used to initialize the backend client (i.e., send init config)
+ * @id: Client ID assigned to this backend client. This will be MAX value until
+ * the client subscribes. However, no messages will be handled until this
+ * happens. Once a client (by name) has a name subscribed it will retain that ID
+ * henceforth regardless of dis- and re-connects.
+ * @name: Name of the backend client. As with the ID, this is assigned on subscribe.
+ * @cfg_stats: Configuration commit statistics for this backend client.
+ * @link: Linkage for the global list of backend adapters.
+ */
 struct mgmt_be_client_adapter {
 	struct msg_conn *conn;
 
@@ -32,9 +45,9 @@ struct mgmt_be_client_adapter {
 
 	mgmt_be_client_id_t id;
 	char *name;
+	char **notify_xpaths;
 
 	struct mgmt_commit_stats cfg_stats;
-	struct mgmt_be_adapters_item list_linkage;
 
 	LIST_ENTRY(mgmt_be_client_adapter) link;
 };
@@ -150,6 +163,15 @@ enum mgmt_be_xpath_subscr_type {
  */
 extern uint64_t mgmt_be_interested_clients(const char *xpath,
 					   enum mgmt_be_xpath_subscr_type type, const char *dbg_user);
+
+/**
+ * mgmt_be_get_notify_conn() - Get the connetion associated with the special session_id.
+ * @client_id: The client id to get the backend client connection for.
+ * @format: The notification data format to use for this connection.
+ *
+ * Returns: The connection to use for sending notifications for the given session_id.
+ */
+extern struct msg_conn *mgmt_be_get_notify_conn(uint client_id, LYD_FORMAT *format);
 
 /*
  * Dump backend client information for a given xpath to vty.

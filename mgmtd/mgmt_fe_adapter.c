@@ -88,7 +88,13 @@ static struct msg_server mgmt_fe_server = {.fd = -1};
 LIST_HEAD(fe_adapter_list_head, mgmt_fe_client_adapter) fe_adapters;
 
 static struct hash *mgmt_fe_sessions;
-static uint64_t mgmt_fe_next_session_id;
+
+static uint64_t fe_session_next_id = MGMT_FE_SESSION_ID_MIN;
+static bool fe_session_id_wrapped;
+
+/* ======================= */
+/* Notify Selector Strings */
+/* ======================= */
 
 static struct ns_string_head mgmt_fe_ns_strings;
 
@@ -101,55 +107,67 @@ static uint32_t ns_string_compare(const struct ns_string *ns1, const struct ns_s
 	return strcmp(ns1->s, ns2->s);
 }
 
-static void mgmt_fe_free_ns_string(struct ns_string *ns)
+static void ns_string_free(struct ns_string *ns)
 {
-	list_delete(&ns->sessions);
+	list_delete(&ns->sessions); /* does this unlink? */
 	XFREE(MTYPE_MGMTD_XPATH, ns);
 }
 
-static void mgmt_fe_free_ns_strings(struct ns_string_head *head)
+static void ns_string_free_all(struct ns_string_head *head)
 {
 	struct ns_string *ns;
 
 	while ((ns = ns_string_pop(head)))
-		mgmt_fe_free_ns_string(ns);
+		ns_string_free(ns);
 	ns_string_fini(head);
 }
 
-static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
-						 struct mgmt_fe_session_ctx *session)
+static uint64_t ns_string_remove_session(uintptr_t session_id)
 {
+	struct ns_string_head *head = &mgmt_fe_ns_strings;
 	struct listnode *node;
 	struct ns_string *ns;
 	uint64_t clients = 0;
 
 	frr_each_safe (ns_string, head, ns) {
-		node = listnode_lookup(ns->sessions, session);
+		node = listnode_lookup(ns->sessions, (const void *)session_id);
 		if (!node)
 			continue;
 		list_delete_node(ns->sessions, node);
 		if (list_isempty(ns->sessions)) {
-			_dbg("do not notify session-id: %Lu on %s", session->session_id, ns->s);
+			_dbg("do not notify session-id: %lu on %s", (unsigned long)session_id,
+			     ns->s);
 			clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
 							      "add-notify-select");
 			ns_string_del(head, ns);
-			mgmt_fe_free_ns_string(ns);
+			ns_string_free(ns);
 		}
 	}
 
 	return clients;
 }
 
-static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *path, size_t plen,
-				      struct mgmt_fe_session_ctx *session, uint64_t *all_matched)
+void mgmt_fe_ns_string_remove_be_client(uint client_id)
 {
+	uint64_t session_id = MGMT_BE_CLIENT_TO_SESSION_ID(client_id);
+	uint64_t rm_clients = ns_string_remove_session(session_id);
+
+	UNSET_IDBIT(rm_clients, client_id);
+	if (rm_clients && !mm->terminating)
+		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
+}
+
+static uint64_t ns_string_add_string(const char *path, size_t plen, uintptr_t session_id,
+				     uint64_t *all_matched)
+{
+	struct ns_string_head *head = &mgmt_fe_ns_strings;
 	struct ns_string *e, *ns;
 	uint64_t clients;
 
 	ns = XCALLOC(MTYPE_MGMTD_XPATH, sizeof(*ns) + plen + 1);
 	strlcpy(ns->s, path, plen + 1);
 
-	_dbg("notify session-id: %Lu on %s", session->session_id, ns->s);
+	_dbg("notify session-id: %lu on %s", (unsigned long)session_id, ns->s);
 	clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
 					     "add-notify-select");
 	*all_matched |= clients;
@@ -157,15 +175,106 @@ static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *p
 	e = ns_string_add(head, ns);
 	if (!e) {
 		ns->sessions = list_new();
-		listnode_add(ns->sessions, session);
+		listnode_add(ns->sessions, (void *)session_id);
 	} else {
 		clients = 0;
 		XFREE(MTYPE_MGMTD_XPATH, ns);
-		if (!listnode_lookup(e->sessions, session))
-			listnode_add(e->sessions, session);
+		if (!listnode_lookup(e->sessions, (const void *)session_id))
+			listnode_add(e->sessions, (void *)session_id);
 	}
 
 	return clients;
+}
+
+/**
+ * ns_string_add_session - register the selectors for the session id
+ * @req_id: the request id driving this operation
+ * @selectors: (darr) array of selector strings
+ * @session_id: the session id (or backend client id) to register the selectors for
+ * @replaced: if true, existing selectors were removed for this session id
+ * @upd_clients: clients that need their selector set updated due to replace
+ */
+static void ns_string_add_session(uint64_t req_id, const char **selectors, uint64_t session_id,
+				  bool replaced, uint64_t upd_clients)
+{
+	const char **sp;
+	uint64_t all_clients = 0;
+	uint64_t clients = 0;
+
+	/*
+	 * Add the new selectors to the global tree, track BE clients that
+	 * haven't been given the selectors (that need to be), and also all the
+	 * BE clients that provide state for the selectors (to query for initial
+	 * dump)
+	 */
+	darr_foreach_p (selectors, sp)
+		clients |= ns_string_add_string(*sp, darr_strlen(*sp), session_id, &all_clients);
+
+	if (!(all_clients | upd_clients)) {
+		_dbg("No backends publishing data for selectors '%pSAd' for session-id: %Lu",
+		     selectors, session_id);
+		return;
+	}
+	if (!(clients | upd_clients))
+		_dbg("No backends to update for selectors: '%pSAd' for session-id: %Lu", selectors,
+		     session_id);
+	else
+		/*
+		 * Send a message to set the selectors on the changed clients,
+		 * if we are doing a replace then we will just send the whole
+		 * set to each BE
+		 */
+		mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
+					       (clients | upd_clients), false,
+					       replaced ? NULL : selectors);
+
+	if (!all_clients || !selectors)
+		return;
+
+	_dbg("Creating new data-push for session-id: %Lu", session_id);
+
+	/* Send a second message requesting a full state dump for the session */
+	mgmt_txn_send_notify_selectors(req_id, session_id, all_clients, false, selectors);
+}
+
+void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors)
+{
+	uint64_t session_id = MGMT_BE_CLIENT_TO_SESSION_ID(client_id);
+
+	ns_string_add_session(0, selectors, session_id, false, 0);
+}
+
+uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *notif)
+{
+	uint64_t *session_ids = NULL;
+	struct ns_string *ns;
+	void *vsession_id;
+	struct listnode *node;
+	uint sel_len, notif_len = strlen(notif);
+	uint nb_xpath_len = strlen(nb_node->xpath);
+
+	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
+		sel_len = strlen(ns->s);
+		/*
+		 * Notify if:
+		 * 1) the selector covers (is prefix of) the specific notified path.
+		 * 2) the selector covers (is prefix of) the schema path of the
+		 * notified path. this means the selector is generic (contains no keys)
+		 *
+		 * Also check if the selector is contained by the notification path
+		 * (i.e., it's a prefix of).
+		 */
+		if (/* selector contains (specific or schema) notification path */
+		    strncmp(ns->s, notif, sel_len) && strncmp(ns->s, nb_node->xpath, sel_len) &&
+		    /* notify (specific or schema) contains selector */
+		    strncmp(notif, ns->s, notif_len) &&
+		    strncmp(nb_node->xpath, ns->s, nb_xpath_len))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, vsession_id))
+			darr_push_uniq(session_ids, (uint64_t)(uintptr_t)vsession_id);
+	}
+	return session_ids;
 }
 
 char **mgmt_fe_get_all_selectors(void)
@@ -301,7 +410,7 @@ static bool fe_session_hash_cmp(const void *d1, const void *d2)
 	return (session1->session_id == session2->session_id);
 }
 
-static inline struct mgmt_fe_session_ctx *fe_session_lookup(uint64_t session_id)
+static struct mgmt_fe_session_ctx *fe_session_lookup(uint64_t session_id)
 {
 	struct mgmt_fe_session_ctx key = {0};
 	struct mgmt_fe_session_ctx *session;
@@ -327,11 +436,37 @@ static struct mgmt_fe_session_ctx *fe_session_by_txn_id(uint64_t txn_id)
 	return fe_session_lookup(session_id);
 }
 
+static uint64_t fe_session_get_next_id(void)
+{
+	uint64_t id = fe_session_next_id;
+	uint64_t next, sanity;
+
+	if (id < MGMT_FE_SESSION_ID_MAX)
+		next = id + 1;
+	else {
+		next = MGMT_FE_SESSION_ID_MIN;
+		fe_session_id_wrapped = true;
+	}
+	if (fe_session_id_wrapped) {
+		sanity = next;
+		while (fe_session_lookup(next)) {
+			if (next < MGMT_FE_SESSION_ID_MAX)
+				next++;
+			else
+				next = MGMT_FE_SESSION_ID_MIN;
+			assert(next != sanity);
+		}
+	}
+	fe_session_next_id = next;
+	return id;
+}
+
 static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
 {
 	enum mgmt_ds_id ds_id;
 	struct mgmt_ds_ctx *ds_ctx;
 	struct mgmt_fe_session_ctx *session = *sessionp;
+	uint64_t rm_clients;
 
 	/* XXXchopps what about RPC txns? */
 	mgmt_destroy_txn(&session->cfg_txn_id);
@@ -344,7 +479,9 @@ static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
 
 	LIST_REMOVE(session, link);
 
-	mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+	rm_clients = ns_string_remove_session(session->session_id);
+	if (rm_clients && !mm->terminating)
+		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
 	darr_free_free(session->notify_xpaths);
 	hash_release(mgmt_fe_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
@@ -369,9 +506,8 @@ static struct mgmt_fe_session_ctx *fe_session_create(struct mgmt_fe_client_adapt
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
 	LIST_INSERT_HEAD(&adapter->sessions, session, link);
-	if (!mgmt_fe_next_session_id)
-		mgmt_fe_next_session_id++;
-	session->session_id = mgmt_fe_next_session_id++;
+
+	session->session_id = fe_session_get_next_id();
 	hash_get(mgmt_fe_sessions, session, hash_alloc_intern);
 
 	return session;
@@ -1172,9 +1308,7 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	const char **selectors = NULL;
 	const char **new;
 	const char **sp;
-	char *selstr = NULL;
-	uint64_t clients = 0;
-	uint64_t all_matched = 0, rm_clients = 0;
+	uint64_t rm_clients = 0;
 
 
 	if (msg_len >= sizeof(*msg)) {
@@ -1197,23 +1331,13 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 		darr_free(nb_nodes);
 	}
 
-	if (DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
-		selstr = frrstr_join(selectors, darr_len(selectors), ", ");
-		if (!selstr)
-			selstr = XSTRDUP(MTYPE_TMP, "");
-	}
-
 	if (msg->replace) {
-		rm_clients = mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
-		// [ ] Keep a local tree to optimize sending selectors to BE?
-		// [*] Or just KISS and fanout the original message to BEs?
-		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
+		/* KISS: remove all existing selectors, add back new set */
+		rm_clients = ns_string_remove_session(session->session_id);
 		darr_free_free(session->notify_xpaths);
 		session->notify_xpaths = selectors;
 	} else if (selectors) {
-		// [ ] Keep a local tree to optimize sending selectors to BE?
-		// [*] Or just KISS and fanout the original message to BEs?
-		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
+		/* TODO: would be nice to sort the stored selectors and eliminate dups */
 		new = darr_append_nz(session->notify_xpaths, darr_len(selectors));
 		memcpy(new, selectors, darr_len(selectors) * sizeof(*selectors));
 	} else {
@@ -1224,51 +1348,15 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 		goto done;
 	}
 
-
 	if (session->notify_xpaths && DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
-		const char **sel = session->notify_xpaths;
-		char *s = frrstr_join(sel, darr_len(sel), ", ");
-		_dbg("New NOTIF %d selectors '%s' (replace: %d) for session-id: %Lu", darr_len(sel),
-		     s, msg->replace, session->session_id);
-		XFREE(MTYPE_TMP, s);
+		_dbg("Update NOTIFY selectors '%pSAd' (replace: %d) for session-id: %Lu",
+		     session->notify_xpaths, msg->replace, session->session_id);
 	}
 
-	/*
-	 * Add the new selectors to the global tree, track BE clients that
-	 * haven't been given the selectors (that need to be), and also all the
-	 * BE clients that provide state for the selectors (to query for initial
-	 * dump)
-	 */
-	darr_foreach_p (selectors, sp)
-		clients |= mgmt_fe_add_ns_string(&mgmt_fe_ns_strings, *sp, darr_strlen(*sp),
-						 session, &all_matched);
-
-	if (!(all_matched | rm_clients)) {
-		_dbg("No backends publishing for selectors: '%s' session-id: %Lu", selstr,
-		     session->session_id);
-		goto done;
-	}
-	if (!(clients | rm_clients))
-		_dbg("No backends to newly notify for selectors: '%s' session-id: %Lu", selstr,
-		     session->session_id);
-	else
-		/* Send a message to set the selectors on the changed clients */
-		mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
-					       (clients | rm_clients),
-					       msg->replace ? NULL : selectors);
-
-	if (!all_matched || !selectors)
-		goto done;
-
-	_dbg("Created new push for session-id: %Lu", session->session_id);
-
-	/* Send a second message requesting a full state dump for the session */
-	mgmt_txn_send_notify_selectors(req_id, session->session_id, all_matched, selectors);
+	ns_string_add_session(req_id, selectors, session->session_id, msg->replace, rm_clients);
 done:
 	if (session->notify_xpaths != selectors)
 		darr_free(selectors);
-	if (selstr)
-		XFREE(MTYPE_TMP, selstr);
 }
 
 /* ----------- */
@@ -1605,7 +1693,8 @@ static void fe_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_msg_notify_data *msg,
 							    size_t msglen, struct lyd_node **tree,
 							    uint8_t format,
-							    struct mgmt_msg_notify_data **cache)
+							    struct mgmt_msg_notify_data **cache,
+							    size_t *send_msglen)
 
 {
 	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
@@ -1615,8 +1704,13 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 	const char *data, *xpath;
 	LY_ERR err;
 
-	if (cache[format])
+	if (cache[format] == msg) {
+		*send_msglen = msglen;
 		return cache[format];
+	} else if (cache[format]) {
+		*send_msglen = mgmt_msg_native_get_msg_len(cache[format]);
+		return cache[format];
+	}
 
 	_dbg("creating notify msg cache for format %u", format);
 
@@ -1658,6 +1752,7 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 	assert(err == LY_SUCCESS);
 
 	cache[format] = new_msg;
+	*send_msglen = mgmt_msg_native_get_msg_len(new_msg);
 	return new_msg;
 }
 
@@ -1678,19 +1773,34 @@ static void cleanup_notify_msg_cache(struct mgmt_msg_notify_data *msg, struct ly
 	}
 }
 
-void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen)
+static struct msg_conn *_get_notify_conn(uint64_t session_id, LYD_FORMAT *format)
+{
+	struct mgmt_fe_session_ctx *session;
+
+	if (session_id < MGMT_FE_SESSION_ID_MIN)
+		return mgmt_be_get_notify_conn(MGMT_FE_SESSION_TO_CLIENT_ID(session_id), format);
+
+	session = fe_session_lookup(session_id);
+	if (!session)
+		return NULL;
+	*format = session->notify_format;
+	return session->adapter->conn;
+}
+
+void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg, size_t msglen)
 {
 	struct mgmt_msg_notify_data *cache[MGMT_MSG_FORMAT_LAST + 1] = {};
 	struct mgmt_msg_notify_data *send_msg;
 	struct mgmt_fe_client_adapter *adapter;
-	struct mgmt_fe_session_ctx **sessions = NULL;
 	struct mgmt_fe_session_ctx *session;
 	struct nb_node *nb_node = NULL;
 	struct lyd_node *tree = NULL;
-	struct listnode *node;
-	struct ns_string *ns;
+	struct msg_conn *conn = NULL;
+	LYD_FORMAT format = LYD_JSON;
+	uint64_t *session_ids = NULL;
+	size_t send_len;
 	const char *notif;
-	uint i, sel_len, notif_len, nb_xpath_len;
+	uint i;
 
 	cache[msg->result_type] = msg;
 
@@ -1714,56 +1824,36 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	}
 
 	/*
-	 * Handle notify "get" data case. When a FE session subscribes to DS
-	 * notifications it first gets a dump of all the subscribed state.
+	 * Handle notify "get" data case. When a FE session or BE client
+	 * subscribes to DS notifications they first get a dump of all the
+	 * subscribed state.
 	 */
 	if (msg->refer_id != MGMTD_SESSION_ID_NONE) {
-		session = fe_session_lookup(msg->refer_id);
-		if (!session || !session->notify_xpaths) {
-			_dbg("No session listening for notify 'get' data: %Lu", msg->refer_id);
+		conn = _get_notify_conn(msg->refer_id, &format);
+		if (!conn) {
+			_dbg("No session or client (id: %Lu) exists to send notify 'get' data to: %s",
+			     msg->refer_id, notif);
 			return;
 		}
-
-		send_msg = assure_notify_msg_cache(msg, msglen, &tree, session->notify_format,
-						   cache);
-		(void)fe_adapter_send_msg(session->adapter, send_msg, msglen, false);
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
+		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 		goto done;
 	}
 
-	/*
-	 * Normal notification case.
-	 */
-
-	notif_len = strlen(notif);
-	nb_xpath_len = strlen(nb_node->xpath);
-	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
-		sel_len = strlen(ns->s);
-		/*
-		 * Notify if:
-		 * 1) the selector covers (is prefix of) the specific notified path.
-		 * 2) the selector covers (is prefix of) the schema path of the
-		 * notified path. this means the selector is generic (contains no keys)
-		 *
-		 * Also check if the selector is contained by the notification path
-		 * (i.e., it's a prefix of).
-		 */
-		if (/* selector contains (specific or schema) notification path */
-		    strncmp(ns->s, notif, sel_len) && strncmp(ns->s, nb_node->xpath, sel_len) &&
-		    /* notify (specific or schema) contains selector */
-		    strncmp(notif, ns->s, notif_len) && strncmp(nb_node->xpath, ns->s, nb_xpath_len))
+	/* Send to all interested sessions/clients */
+	session_ids = mgmt_fe_ns_string_select(nb_node, notif);
+	darr_foreach_i (session_ids, i) {
+		conn = _get_notify_conn(session_ids[i], &format);
+		if (!conn) {
+			_log_err("No session or client (id: %Lu) exists to send notify: %s",
+				 session_ids[i], notif);
 			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, session))
-			darr_push_uniq(sessions, session);
+		}
+		/* See if session has selectors and if so if any match */
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
+		send_msg->refer_id = session_ids[i];
+		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 	}
-	/* Send to all interested sessions */
-	darr_foreach_i (sessions, i) {
-		send_msg = assure_notify_msg_cache(msg, msglen, &tree, sessions[i]->notify_format,
-						   cache);
-		send_msg->refer_id = sessions[i]->session_id;
-		(void)fe_adapter_send_msg(sessions[i]->adapter, send_msg, msglen, false);
-	}
-	darr_free(sessions);
 
 	/*
 	 * Send all YANG defined notifications to all sesisons with *no*
@@ -1776,16 +1866,15 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 				if (session->notify_xpaths)
 					continue;
 				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
-								   session->notify_format, cache);
+								   session->notify_format, cache,
+								   &send_len);
 				send_msg->refer_id = session->session_id;
-				(void)fe_adapter_send_msg(adapter, send_msg, msglen, false);
+				(void)fe_adapter_send_msg(adapter, send_msg, send_len, false);
 			}
 		}
 	}
-
-	msg->refer_id = 0;
-
 done:
+	darr_free(session_ids);
 	cleanup_notify_msg_cache(msg, &tree, cache);
 }
 
@@ -2061,7 +2150,7 @@ void mgmt_fe_adapter_destroy(void)
 	LIST_FOREACH_SAFE (adapter, &fe_adapters, link, next)
 		fe_adapter_delete(adapter);
 
-	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
+	ns_string_free_all(&mgmt_fe_ns_strings);
 
 	hash_free(mgmt_fe_sessions);
 }

@@ -162,10 +162,11 @@ extern void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients
  *	        the selectors in the backend, and the get result will be sent
  *              back to the given session.
  * @clients: Bitmask of backend clients to send message to.
+ * @subscribing: true if this is being called due to a backend subscribing after [re]connect.
  * @selectors: Array of selectors or NULL to resend all selectors to BE clients.
  */
 extern void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64_t clients,
-					   const char **selectors);
+					   bool subscribing, const char **selectors);
 
 
 /*
