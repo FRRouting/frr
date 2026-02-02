@@ -1062,7 +1062,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	 * configured and retain the upstream data structure
 	 */
 	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src, sg->grp) &&
-	    pim_is_grp_dm(pim, sg->grp)) {
+	    !pim_is_grp_dm(pim, sg->grp)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
