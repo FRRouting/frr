@@ -763,6 +763,10 @@ static struct ospf_route *get_nexthop_by_addr(struct ospf *top,
 	if (top == NULL)
 		return NULL;
 
+	/* Check if routing table is initialized (SPF may not have run yet) */
+	if (top->new_table == NULL)
+		return NULL;
+
 	osr_debug("      |-  Search Nexthop for prefix %pFX",
 		  (struct prefix *)&p);
 
