@@ -667,6 +667,100 @@ def test_srv6_static_sids_ua_sid_removal():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+def test_srv6_static_sids_locator_removal_and_readd():
+    """
+    Test locator removal and re-addition workflow with static SIDs.
+
+    This test verifies:
+    1. Removing a locator causes all SIDs to be uninstalled from dataplane (but remain configured)
+    2. Removing specific SIDs from configuration while locator is absent is safe
+    3. Re-adding the locator programs the remaining configured SIDs into dataplane
+    4. Re-adding the previously removed SIDs restores full configuration
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Step 1: Remove the locator (all SIDs are uninstalled from dataplane but remain configured)
+    logger.info("Removing locator MAIN")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            no locator MAIN
+        """
+    )
+
+    # Verify all SIDs are uninstalled from dataplane (not present in routing table)
+    logger.info("Verifying all SIDs uninstalled from dataplane after locator removal")
+    check_srv6_static_sids(router, "expected_srv6_sids_delete_all.json")
+
+    # Step 2: Remove two specific SIDs from configuration (other SIDs remain configured)
+    logger.info("Removing two SIDs from configuration")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bbbb:1::/48
+            no sid fcbb:bbbb:1:fe20::/64
+        """
+    )
+
+    # Verify all SIDs still absent from dataplane (locator still removed)
+    logger.info("Verifying all SIDs still absent from dataplane")
+    check_srv6_static_sids(router, "expected_srv6_sids_delete_all.json")
+
+    # Step 3: Re-add the locator (remaining configured SIDs are programmed into dataplane)
+    logger.info("Re-adding locator MAIN")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN
+             prefix fcbb:bbbb:1::/48 block-len 32 node-len 16 func-bits 16
+        """
+    )
+
+    # Verify configured SIDs are programmed (except the two removed in step 2)
+    logger.info("Verifying remaining configured SIDs programmed into dataplane")
+    check_srv6_static_sids(router, "expected_srv6_sids_sid_delete_2.json")
+
+    # Step 4: Re-add the two previously removed SIDs to restore full configuration
+    logger.info("Re-adding the two previously removed SIDs")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:1::/48 locator MAIN behavior uN
+            sid fcbb:bbbb:1:fe20::/64 locator MAIN behavior uDT6 vrf Vrf20
+        """
+    )
+
+    # Verify all SIDs are configured and programmed into dataplane
+    logger.info("Verifying all SIDs configured and programmed into dataplane")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
