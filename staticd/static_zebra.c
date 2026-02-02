@@ -1369,6 +1369,9 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		 */
 		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 			static_zebra_srv6_sid_uninstall(sid);
+
+		sid->locator = NULL;
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 	}
 
 	listnode_delete(srv6_locators, locator);
