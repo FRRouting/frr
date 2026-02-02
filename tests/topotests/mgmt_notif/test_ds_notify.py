@@ -17,6 +17,7 @@ import time
 import pytest
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
+from lib import topotest
 from munet.base import Timeout
 from munet.testing.util import readline, waitline
 from oper import check_kernel_32
@@ -222,6 +223,19 @@ def test_backend_datastore_add_delete(tgen):
     )
     assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
     mlogp.kill()
+
+    def _check_backend_xpath_registry():
+        output = r1.cmd_raises('vtysh -c "show mgmt backend-yang-xpath-registry"')
+        if "/frr-vrf:lib/vrf" not in output:
+            return "backend registry missing /frr-vrf:lib/vrf"
+        if "mgmtd-testc" not in output:
+            return "backend registry missing mgmtd-testc"
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check_backend_xpath_registry, None, count=20, wait=1
+    )
+    assert result is None, result
 
     r1.cmd_raises('vtysh -c "conf t" -c "int foobar"')
     try:
