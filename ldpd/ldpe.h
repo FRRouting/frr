@@ -300,8 +300,8 @@ int	pfkey_init(void);
 /* l2vpn.c */
 void ldpe_l2vpn_init(struct l2vpn *l2vpn);
 void ldpe_l2vpn_exit(struct l2vpn *l2vpn);
-void ldpe_l2vpn_pw_init(struct l2vpn_pw *pw);
-void ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw);
+void ldpe_l2vpn_pw_init(struct l2vpn_svc *pw);
+void ldpe_l2vpn_pw_exit(struct l2vpn_svc *pw);
 extern void ldpe_interface_set_mpls(struct iface *iface, bool val);
 
 DECLARE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),

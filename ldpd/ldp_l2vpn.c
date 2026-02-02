@@ -17,23 +17,23 @@
 #include "log.h"
 
 /* clang-format off */
-static void l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
+static void l2vpn_svc_fec(struct l2vpn_svc *, struct fec *);
 
 void
 ldp_l2vpn_init(struct l2vpn *l2vpn)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
+	RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree)
 		l2vpn_pw_init(pw);
 }
 
 void
 ldp_l2vpn_exit(struct l2vpn *l2vpn)
 {
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
+	RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree)
 		l2vpn_pw_exit(pw);
 }
 
@@ -49,14 +49,14 @@ void
 l2vpn_if_update(struct l2vpn_if *lif)
 {
 	struct l2vpn	*l2vpn = lif->l2vpn;
-	struct l2vpn_pw	*pw;
+	struct l2vpn_svc	*pw;
 	struct map	 fec;
 	struct nbr	*nbr;
 
 	if (lif->operative)
 		return;
 
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+	RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree) {
 		nbr = nbr_find_ldpid(pw->lsr_id.s_addr);
 		if (nbr == NULL)
 			continue;
@@ -73,13 +73,13 @@ l2vpn_if_update(struct l2vpn_if *lif)
 }
 
 void
-l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif)
+l2vpn_pw_update_info(struct l2vpn_svc *pw, struct kif *kif)
 {
 	pw->ifindex = kif->ifindex;
 }
 
 void
-l2vpn_pw_init(struct l2vpn_pw *pw)
+l2vpn_pw_init(struct l2vpn_svc *pw)
 {
 	struct fec	 fec;
 	struct zapi_pw	 zpw;
@@ -89,18 +89,18 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 	pw2zpw(pw, &zpw);
 	lde_imsg_compose_parent(IMSG_KPW_ADD, 0, &zpw, sizeof(zpw));
 
-	l2vpn_pw_fec(pw, &fec);
+	l2vpn_svc_fec(pw, &fec);
 	lde_kernel_insert(&fec, AF_INET, (union g_addr *)&pw->lsr_id, 0, 0, 0, 0, (void *)pw);
 	lde_kernel_update(&fec);
 }
 
 void
-l2vpn_pw_exit(struct l2vpn_pw *pw)
+l2vpn_pw_exit(struct l2vpn_svc *pw)
 {
 	struct fec	 fec;
 	struct zapi_pw	 zpw;
 
-	l2vpn_pw_fec(pw, &fec);
+	l2vpn_svc_fec(pw, &fec);
 	lde_kernel_remove(&fec, AF_INET, (union g_addr *)&pw->lsr_id, 0, 0, 0);
 	lde_kernel_update(&fec);
 
@@ -109,7 +109,7 @@ l2vpn_pw_exit(struct l2vpn_pw *pw)
 }
 
 static void
-l2vpn_pw_fec(struct l2vpn_pw *pw, struct fec *fec)
+l2vpn_svc_fec(struct l2vpn_svc *pw, struct fec *fec)
 {
 	memset(fec, 0, sizeof(*fec));
 	fec->type = FEC_TYPE_PWID;
@@ -119,7 +119,7 @@ l2vpn_pw_fec(struct l2vpn_pw *pw, struct fec *fec)
 }
 
 void
-l2vpn_pw_reset(struct l2vpn_pw *pw)
+l2vpn_pw_reset(struct l2vpn_svc *pw)
 {
 	pw->remote_group = 0;
 	pw->remote_mtu = 0;
@@ -139,7 +139,7 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV_CONF)) {
 		struct fec_node         *fn;
 		struct fec fec;
-		l2vpn_pw_fec(pw, &fec);
+		l2vpn_svc_fec(pw, &fec);
 		fn = (struct fec_node *)fec_find(&ft, &fec);
 		if (fn)
 			pw->remote_status = fn->pw_remote_status;
@@ -149,12 +149,12 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 }
 
 int
-l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
+l2vpn_pw_ok(struct l2vpn_svc *pw, struct fec_nh *fnh)
 {
 	/* check for a remote label */
 	if (fnh->remote_label == NO_LABEL) {
 		log_warnx("%s: pseudowire %s: no remote label", __func__, pw->ifname);
-		pw->reason = F_PW_NO_REMOTE_LABEL;
+		pw->reason = F_L2VPN_NO_REMOTE_LABEL;
 		return (0);
 	}
 
@@ -162,7 +162,7 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	if (pw->l2vpn->mtu != pw->remote_mtu) {
 		log_warnx("%s: pseudowire %s: MTU mismatch detected", __func__,
 			  pw->ifname);
-		pw->reason = F_PW_MTU_MISMATCH;
+		pw->reason = F_L2VPN_MTU_MISMATCH;
 		return (0);
 	}
 
@@ -170,23 +170,23 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV) &&
 	    pw->remote_status != PW_FORWARDING) {
 		log_warnx("%s: pseudowire %s: remote end is down", __func__, pw->ifname);
-		pw->reason = F_PW_REMOTE_NOT_FWD;
+		pw->reason = F_L2VPN_REMOTE_NOT_FWD;
 		return (0);
 	}
 
-	pw->reason = F_PW_NO_ERR;
+	pw->reason = F_L2VPN_NO_ERR;
 	return (1);
 }
 
 int
 l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 {
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	struct status_tlv	 st;
 
 	/* NOTE: thanks martini & friends for all this mess */
 
-	pw = (struct l2vpn_pw *) fn->data;
+	pw = (struct l2vpn_svc *) fn->data;
 	if (pw == NULL)
 		/*
 		 * pseudowire not configured, return and record
@@ -267,7 +267,7 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec		 fec;
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
 	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
 	    !CHECK_FLAG(nm->fec.flags, F_MAP_PW_ID)) {
@@ -283,7 +283,7 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 
 	fn->pw_remote_status = nm->pw_status;
 
-	pw = (struct l2vpn_pw *) fn->data;
+	pw = (struct l2vpn_svc *) fn->data;
 	if (pw == NULL)
 		return;
 
@@ -309,7 +309,7 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec		*f;
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	struct map		*wcard = &nm->fec;
 
 	RB_FOREACH(f, fec_tree, &ft) {
@@ -317,7 +317,7 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 		if (fn->fec.type != FEC_TYPE_PWID)
 			continue;
 
-		pw = (struct l2vpn_pw *) fn->data;
+		pw = (struct l2vpn_svc *) fn->data;
 		if (pw == NULL)
 			continue;
 
@@ -355,13 +355,13 @@ int
 l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 {
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw = NULL;
+	struct l2vpn_svc	*pw = NULL;
 	struct lde_nbr		*ln;
 	struct fec		 fec;
 	uint32_t		 local_status;
 
 	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
-		pw = l2vpn_pw_find(l2vpn, zpw->ifname);
+		pw = l2vpn_svc_find(l2vpn, zpw->ifname);
 		if (pw)
 			break;
 	}
@@ -372,10 +372,10 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 
 	if (zpw->status == PW_FORWARDING) {
 		local_status = PW_FORWARDING;
-		pw->reason = F_PW_NO_ERR;
+		pw->reason = F_L2VPN_NO_ERR;
 	} else {
 		local_status = zpw->status;
-		pw->reason = F_PW_LOCAL_NOT_FWD;
+		pw->reason = F_L2VPN_LOCAL_NOT_FWD;
 	}
 
 	/* local status didn't change */
@@ -387,7 +387,7 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 	ln = lde_nbr_find_by_lsrid(pw->lsr_id);
 	if (ln == NULL)
 		return (0);
-	l2vpn_pw_fec(pw, &fec);
+	l2vpn_svc_fec(pw, &fec);
 	if (CHECK_FLAG(pw->flags, F_PW_STATUSTLV))
 		l2vpn_send_pw_status(ln, local_status, &fec);
 	else {
@@ -408,11 +408,11 @@ void
 l2vpn_pw_ctl(pid_t pid)
 {
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	static struct ctl_pw	 pwctl;
 
 	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree)
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+		RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree) {
 			memset(&pwctl, 0, sizeof(pwctl));
 			strlcpy(pwctl.l2vpn_name, pw->l2vpn->name,
 			    sizeof(pwctl.l2vpn_name));
@@ -437,7 +437,7 @@ l2vpn_binding_ctl(pid_t pid)
 	struct fec		*f;
 	struct fec_node		*fn;
 	struct lde_map		*me;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	static struct ctl_pw	 pwctl;
 
 	RB_FOREACH(f, fec_tree, &ft) {
@@ -454,7 +454,7 @@ l2vpn_binding_ctl(pid_t pid)
 		pwctl.pwid = f->u.pwid.pwid;
 		pwctl.lsr_id = f->u.pwid.lsr_id;
 
-		pw = (struct l2vpn_pw *) fn->data;
+		pw = (struct l2vpn_svc *) fn->data;
 		if (pw) {
 			pwctl.local_label = fn->local_label;
 			pwctl.local_gid = 0;
@@ -492,23 +492,23 @@ l2vpn_binding_ctl(pid_t pid)
 void
 ldpe_l2vpn_init(struct l2vpn *l2vpn)
 {
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
+	RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree)
 		ldpe_l2vpn_pw_init(pw);
 }
 
 void
 ldpe_l2vpn_exit(struct l2vpn *l2vpn)
 {
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
+	RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree)
 		ldpe_l2vpn_pw_exit(pw);
 }
 
 void
-ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
+ldpe_l2vpn_pw_init(struct l2vpn_svc *pw)
 {
 	struct tnbr		*tnbr;
 
@@ -523,7 +523,7 @@ ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
 }
 
 void
-ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
+ldpe_l2vpn_pw_exit(struct l2vpn_svc *pw)
 {
 	struct tnbr		*tnbr;
 

@@ -679,7 +679,7 @@ struct ldpd_conf	*parse_config(char *);
 int cmdline_symset(char *s);
 
 /* kroute.c */
-void pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw);
+void pw2zpw(struct l2vpn_svc *pw, struct zapi_pw *zpw);
 void kif_redistribute(const char *ifname);
 int kr_change(struct kroute *kr);
 int kr_delete(struct kroute *kr);

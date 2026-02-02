@@ -485,15 +485,15 @@ pw_error_code(uint8_t status)
 	static char buf[16];
 
 	switch (status) {
-	case F_PW_NO_ERR:
+	case F_L2VPN_NO_ERR:
 		return ("No Error");
-	case F_PW_LOCAL_NOT_FWD:
+	case F_L2VPN_LOCAL_NOT_FWD:
 		return ("local not forwarding");
-	case F_PW_REMOTE_NOT_FWD:
+	case F_L2VPN_REMOTE_NOT_FWD:
 		return ("remote not forwarding");
-	case F_PW_NO_REMOTE_LABEL:
+	case F_L2VPN_NO_REMOTE_LABEL:
 		return ("no remote label");
-	case F_PW_MTU_MISMATCH:
+	case F_L2VPN_MTU_MISMATCH:
 		return ("mtu mismatch between peers");
 	default:
 		snprintf(buf, sizeof(buf), "[%0x]", status);

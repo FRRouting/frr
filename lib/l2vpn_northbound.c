@@ -51,7 +51,7 @@ static int l2vpn_instance_destroy(struct nb_cb_destroy_args *args)
 {
 	struct l2vpn *l2vpn;
 	struct l2vpn_if *lif;
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *svc;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -65,10 +65,10 @@ static int l2vpn_instance_destroy(struct nb_cb_destroy_args *args)
 			(*l2vpn_lib_master.del_hook)(l2vpn->name);
 		RB_FOREACH (lif, l2vpn_if_head, &l2vpn->if_tree)
 			QOBJ_UNREG(lif);
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_tree)
-			QOBJ_UNREG(pw);
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-			QOBJ_UNREG(pw);
+		RB_FOREACH (svc, l2vpn_svc_head, &l2vpn->svc_tree)
+			QOBJ_UNREG(svc);
+		RB_FOREACH (svc, l2vpn_svc_head, &l2vpn->svc_inactive_tree)
+			QOBJ_UNREG(svc);
 		QOBJ_UNREG(l2vpn);
 		RB_REMOVE(l2vpn_head, &l2vpn_tree_config, l2vpn);
 
@@ -305,7 +305,7 @@ static int l2vpn_instance_member_interface_destroy(struct nb_cb_destroy_args *ar
 static int l2vpn_instance_member_pseudowire_create(struct nb_cb_create_args *args)
 {
 	struct l2vpn *l2vpn;
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 	const char *ifname;
 
 	ifname = yang_dnode_get_string(args->dnode, "interface");
@@ -324,15 +324,15 @@ static int l2vpn_instance_member_pseudowire_create(struct nb_cb_create_args *arg
 		break;
 	case NB_EV_APPLY:
 		l2vpn = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
-		pw = l2vpn_pw_find(l2vpn, ifname);
+		pw = l2vpn_svc_find(l2vpn, ifname);
 		if (pw) {
 			nb_running_set_entry(args->dnode, pw);
 			return NB_OK;
 		}
-		pw = l2vpn_pw_new(l2vpn, ifname);
+		pw = l2vpn_svc_new(l2vpn, ifname);
 		pw->flags = F_PW_STATUSTLV_CONF | F_PW_CWORD_CONF;
-		RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-		QOBJ_REG(pw, l2vpn_pw);
+		RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
+		QOBJ_REG(pw, l2vpn_svc);
 
 		nb_running_set_entry(args->dnode, pw);
 
@@ -347,7 +347,7 @@ static int l2vpn_instance_member_pseudowire_create(struct nb_cb_create_args *arg
 static int l2vpn_instance_member_pseudowire_destroy(struct nb_cb_destroy_args *args)
 {
 	struct l2vpn *l2vpn;
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -363,9 +363,9 @@ static int l2vpn_instance_member_pseudowire_destroy(struct nb_cb_destroy_args *a
 
 		QOBJ_UNREG(pw);
 		if (pw->lsr_id.s_addr == INADDR_ANY || pw->pwid == 0)
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 		else
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 
 		if (l2vpn_lib_master.event_hook)
 			(*l2vpn_lib_master.event_hook)(pw);
@@ -381,7 +381,7 @@ static int l2vpn_instance_member_pseudowire_destroy(struct nb_cb_destroy_args *a
  */
 static int l2vpn_instance_member_pseudowire_neighbor_lsr_id_modify(struct nb_cb_modify_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 	struct ipaddr lsr_id;
 
 	yang_dnode_get_ip(&lsr_id, args->dnode, NULL);
@@ -410,7 +410,7 @@ static int l2vpn_instance_member_pseudowire_neighbor_lsr_id_modify(struct nb_cb_
 
 static int l2vpn_instance_member_pseudowire_neighbor_lsr_id_destroy(struct nb_cb_destroy_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -435,7 +435,7 @@ static int l2vpn_instance_member_pseudowire_neighbor_lsr_id_destroy(struct nb_cb
 static int l2vpn_instance_member_pseudowire_pw_id_modify(struct nb_cb_modify_args *args)
 {
 	uint32_t pw_id;
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	pw_id = yang_dnode_get_uint32(args->dnode, NULL);
 	switch (args->event) {
@@ -458,7 +458,7 @@ static int l2vpn_instance_member_pseudowire_pw_id_modify(struct nb_cb_modify_arg
 
 static int l2vpn_instance_member_pseudowire_pw_id_destroy(struct nb_cb_destroy_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -482,7 +482,7 @@ static int l2vpn_instance_member_pseudowire_pw_id_destroy(struct nb_cb_destroy_a
  */
 static int l2vpn_instance_member_pseudowire_neighbor_address_modify(struct nb_cb_modify_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 	struct ipaddr nbr_id;
 
 	yang_dnode_get_ip(&nbr_id, args->dnode, NULL);
@@ -520,7 +520,7 @@ static int l2vpn_instance_member_pseudowire_neighbor_address_modify(struct nb_cb
 
 static int l2vpn_instance_member_pseudowire_neighbor_address_destroy(struct nb_cb_destroy_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -546,7 +546,7 @@ static int l2vpn_instance_member_pseudowire_neighbor_address_destroy(struct nb_c
  */
 static int l2vpn_instance_member_pseudowire_control_word_modify(struct nb_cb_modify_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -574,7 +574,7 @@ static int l2vpn_instance_member_pseudowire_control_word_modify(struct nb_cb_mod
  */
 static int l2vpn_instance_member_pseudowire_pw_status_modify(struct nb_cb_modify_args *args)
 {
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

@@ -412,7 +412,7 @@ static void lde_dispatch_parent(struct event *thread)
 	struct nbr_params	*nnbrp;
 	static struct l2vpn	*l2vpn, *nl2vpn;
 	struct l2vpn_if		*lif, *nlif;
-	struct l2vpn_pw		*pw, *npw;
+	struct l2vpn_svc	*pw, *npw;
 	struct imsg		 imsg;
 	struct kif		*kif;
 	struct kroute		*kr;
@@ -463,7 +463,7 @@ static void lde_dispatch_parent(struct event *thread)
 					l2vpn_if_update_info(lif, kif);
 					break;
 				}
-				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				pw = l2vpn_svc_find(l2vpn, kif->ifname);
 				if (pw) {
 					l2vpn_pw_update_info(pw, kif);
 					break;
@@ -578,8 +578,8 @@ static void lde_dispatch_parent(struct event *thread)
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
 			RB_INIT(l2vpn_if_head, &nl2vpn->if_tree);
-			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_tree);
-			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree);
+			RB_INIT(l2vpn_svc_head, &nl2vpn->svc_tree);
+			RB_INIT(l2vpn_svc_head, &nl2vpn->svc_inactive_tree);
 
 			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
@@ -591,18 +591,18 @@ static void lde_dispatch_parent(struct event *thread)
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
-			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
+			if ((npw = malloc(sizeof(struct l2vpn_svc))) == NULL)
 				fatal(NULL);
-			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
+			memcpy(npw, imsg.data, sizeof(struct l2vpn_svc));
 
-			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
+			RB_INSERT(l2vpn_svc_head, &nl2vpn->svc_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
-			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
+			if ((npw = malloc(sizeof(struct l2vpn_svc))) == NULL)
 				fatal(NULL);
-			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
+			memcpy(npw, imsg.data, sizeof(struct l2vpn_svc));
 
-			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
+			RB_INSERT(l2vpn_svc_head, &nl2vpn->svc_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
@@ -785,7 +785,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	 kr;
 	struct zapi_pw	 zpw;
-	struct l2vpn_pw	*pw;
+	struct l2vpn_svc *pw;
 
 	/*
 	 * Ordered Control: don't program label into HW until a
@@ -823,7 +823,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_PWID:
-		pw = (struct l2vpn_pw *) fn->data;
+		pw = (struct l2vpn_svc *) fn->data;
 		if (!pw || fn->local_label == NO_LABEL ||
 		    fnh->remote_label == NO_LABEL)
 			return;
@@ -842,7 +842,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	 kr;
 	struct zapi_pw	 zpw;
-	struct l2vpn_pw	*pw;
+	struct l2vpn_svc *pw;
 
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
@@ -874,7 +874,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr, sizeof(kr));
 		break;
 	case FEC_TYPE_PWID:
-		pw = (struct l2vpn_pw *) fn->data;
+		pw = (struct l2vpn_svc *) fn->data;
 		if (!pw)
 			return;
 
@@ -996,7 +996,7 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	struct lde_map		*me;
 	struct lde_req		*lre;
 	struct map		 map;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	struct fec_nh		*fnh;
 	bool			 allow = false;
 
@@ -1069,7 +1069,7 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 			return;
 		break;
 	case FEC_TYPE_PWID:
-		pw = (struct l2vpn_pw *) fn->data;
+		pw = (struct l2vpn_svc *) fn->data;
 		if (pw == NULL || pw->lsr_id.s_addr != ln->id.s_addr)
 			/* not the remote end of the pseudowire */
 			return;
@@ -1120,7 +1120,7 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
 	struct lde_wdraw	*lw;
 	struct map		 map;
 	struct fec		*f;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
 	if (fn) {
 		lde_fec2map(&fn->fec, &map);
@@ -1134,7 +1134,7 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
 				return;
 			break;
 		case FEC_TYPE_PWID:
-			pw = (struct l2vpn_pw *) fn->data;
+			pw = (struct l2vpn_svc *) fn->data;
 			if (pw == NULL || pw->lsr_id.s_addr != ln->id.s_addr)
 				/* not the remote end of the pseudowire */
 				return;
@@ -1242,7 +1242,7 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn,
     struct map *wcard, uint32_t label)
 {
 	struct map		 map;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
 	if (fn) {
 		lde_fec2map(&fn->fec, &map);
@@ -1256,7 +1256,7 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn,
 				return;
 			break;
 		case FEC_TYPE_PWID:
-			pw = (struct l2vpn_pw *) fn->data;
+			pw = (struct l2vpn_svc *) fn->data;
 			if (pw == NULL || pw->lsr_id.s_addr != ln->id.s_addr)
 				/* not the remote end of the pseudowire */
 				return;
@@ -1437,7 +1437,7 @@ lde_nbr_del(struct lde_nbr *ln)
 	struct fec		*f;
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 	struct lde_nbr		*lnbr;
 
 	if (ln == NULL)
@@ -1479,9 +1479,9 @@ lde_nbr_del(struct lde_nbr *ln)
 			case FEC_TYPE_PWID:
 				if (f->u.pwid.lsr_id.s_addr != ln->id.s_addr)
 					continue;
-				pw = (struct l2vpn_pw *) fn->data;
+				pw = (struct l2vpn_svc *) fn->data;
 				if (pw) {
-					pw->reason = F_PW_NO_REMOTE_LABEL;
+					pw->reason = F_L2VPN_NO_REMOTE_LABEL;
 					l2vpn_pw_reset(pw);
 				}
 				break;

@@ -79,7 +79,7 @@ ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 }
 
 void
-pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
+pw2zpw(struct l2vpn_svc *pw, struct zapi_pw *zpw)
 {
 	memset(zpw, 0, sizeof(*zpw));
 	strlcpy(zpw->ifname, pw->ifname, sizeof(zpw->ifname));

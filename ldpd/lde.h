@@ -219,11 +219,11 @@ void ldp_l2vpn_init(struct l2vpn *l2vpn);
 void ldp_l2vpn_exit(struct l2vpn *l2vpn);
 void l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif);
 void l2vpn_if_update(struct l2vpn_if *lif);
-void l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif);
-void l2vpn_pw_init(struct l2vpn_pw *pw);
-void l2vpn_pw_exit(struct l2vpn_pw *pw);
-void l2vpn_pw_reset(struct l2vpn_pw *pw);
-int l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh);
+void l2vpn_pw_update_info(struct l2vpn_svc *pw, struct kif *kif);
+void l2vpn_pw_init(struct l2vpn_svc *pw);
+void l2vpn_pw_exit(struct l2vpn_svc *pw);
+void l2vpn_pw_reset(struct l2vpn_svc *pw);
+int l2vpn_pw_ok(struct l2vpn_svc *pw, struct fec_nh *fnh);
 int l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map);
 void l2vpn_send_pw_status(struct lde_nbr *ln, uint32_t status, struct fec *fec);
 void l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status, uint16_t pw_type,

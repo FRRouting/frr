@@ -236,7 +236,7 @@ static void ldp_l2vpn_entry_deleted(const char *l2vpn_name)
 	ldp_config_apply(NULL, vty_conf);
 }
 
-static void ldp_l2vpn_entry_event(struct l2vpn_pw *l2vpn_pw)
+static void ldp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 {
 	/* XXX handle config load from file */
 	ldp_config_apply(NULL, vty_conf);
@@ -1026,7 +1026,7 @@ static int main_imsg_send_config(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 	struct nbr_params	*nbrp;
 	struct l2vpn		*l2vpn;
 	struct l2vpn_if		*lif;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
 	if (main_imsg_compose_both(IMSG_RECONF_CONF, xconf,
 	    sizeof(*xconf)) == -1)
@@ -1061,13 +1061,13 @@ static int main_imsg_send_config(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 				return (-1);
 		}
 
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+		RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_tree) {
 			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_PW, pw,
 			    sizeof(*pw)) == -1)
 				return (-1);
 		}
 
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree) {
+		RB_FOREACH(pw, l2vpn_svc_head, &l2vpn->svc_inactive_tree) {
 			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_IPW, pw,
 			    sizeof(*pw)) == -1)
 				return (-1);
@@ -1107,7 +1107,7 @@ static void ldp_config_normalize(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 	struct iface		*iface, *itmp;
 	struct nbr_params	*nbrp, *ntmp;
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw, *ptmp;
+	struct l2vpn_svc	*pw, *ptmp;
 
 	if (!CHECK_FLAG(xconf->flags, F_LDPD_ENABLED))
 		ldp_config_reset_main(xconf);
@@ -1139,7 +1139,7 @@ static void ldp_config_normalize(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 	}
 
 	RB_FOREACH (l2vpn, l2vpn_head, l2vpn_tree) {
-		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
+		RB_FOREACH_SAFE(pw, l2vpn_svc_head, &l2vpn->svc_tree, ptmp) {
 			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
 				pw->addr.ipv4 = pw->lsr_id;
@@ -1147,11 +1147,11 @@ static void ldp_config_normalize(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 
 			if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0)
 				continue;
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, pw);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 		}
 
-		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree,
+		RB_FOREACH_SAFE(pw, l2vpn_svc_head, &l2vpn->svc_inactive_tree,
 		    ptmp) {
 			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
@@ -1160,8 +1160,8 @@ static void ldp_config_normalize(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 
 			if (pw->lsr_id.s_addr == INADDR_ANY || pw->pwid == 0)
 				continue;
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 		}
 	}
 }
@@ -1242,7 +1242,7 @@ void ldp_config_reset_l2vpns(struct l2vpn_head *conf_l2vpn_tree)
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_if		*lif;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_svc	*pw;
 
 	while (!RB_EMPTY(l2vpn_head, conf_l2vpn_tree)) {
 		l2vpn = RB_ROOT(l2vpn_head, conf_l2vpn_tree);
@@ -1254,19 +1254,19 @@ void ldp_config_reset_l2vpns(struct l2vpn_head *conf_l2vpn_tree)
 			free(lif);
 		}
 
-		while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
-			pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
+		while (!RB_EMPTY(l2vpn_svc_head, &l2vpn->svc_tree)) {
+			pw = RB_ROOT(l2vpn_svc_head, &l2vpn->svc_tree);
 
 			QOBJ_UNREG(pw);
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 			free(pw);
 		}
 
-		while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
-			pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+		while (!RB_EMPTY(l2vpn_svc_head, &l2vpn->svc_inactive_tree)) {
+			pw = RB_ROOT(l2vpn_svc_head, &l2vpn->svc_inactive_tree);
 
 			QOBJ_UNREG(pw);
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 			free(pw);
 		}
 
@@ -1279,7 +1279,7 @@ void ldp_config_reset_l2vpns(struct l2vpn_head *conf_l2vpn_tree)
 static void ldp_l2vpn_del(struct l2vpn *l2vpn)
 {
 	struct l2vpn_if *lif;
-	struct l2vpn_pw *pw;
+	struct l2vpn_svc *pw;
 
 	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
 		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
@@ -1287,16 +1287,16 @@ static void ldp_l2vpn_del(struct l2vpn *l2vpn)
 		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
+	while (!RB_EMPTY(l2vpn_svc_head, &l2vpn->svc_tree)) {
+		pw = RB_ROOT(l2vpn_svc_head, &l2vpn->svc_tree);
 
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+		RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 		free(pw);
 	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+	while (!RB_EMPTY(l2vpn_svc_head, &l2vpn->svc_inactive_tree)) {
+		pw = RB_ROOT(l2vpn_svc_head, &l2vpn->svc_inactive_tree);
 
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+		RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 		free(pw);
 	}
 
@@ -1833,8 +1833,8 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 			COPY(l2vpn, xl);
 			RB_INSERT(l2vpn_head, dst, l2vpn);
 			RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
-			RB_INIT(l2vpn_pw_head, &l2vpn->pw_tree);
-			RB_INIT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+			RB_INIT(l2vpn_svc_head, &l2vpn->svc_tree);
+			RB_INIT(l2vpn_svc_head, &l2vpn->svc_inactive_tree);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
@@ -1856,7 +1856,7 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 static void merge_l2vpn(struct l2vpn *l2vpn, struct l2vpn *xl)
 {
 	struct l2vpn_if		*lif, *ftmp, *xf;
-	struct l2vpn_pw		*pw, *ptmp, *xp;
+	struct l2vpn_svc	*pw, *ptmp, *xp;
 	struct nbr		*nbr;
 	int			 reset_nbr, reinstall_pwfec, reinstall_tnbr;
 	int			 previous_pw_type, previous_mtu;
@@ -1891,9 +1891,9 @@ static void merge_l2vpn(struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 
 	/* merge active pseudowires */
-	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
+	RB_FOREACH_SAFE(pw, l2vpn_svc_head, &l2vpn->svc_tree, ptmp) {
 		/* find deleted active pseudowires */
-		if (l2vpn_pw_find_active(xl, pw->ifname) == NULL) {
+		if (l2vpn_svc_find_active(xl, pw->ifname) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_pw_exit(pw);
@@ -1905,15 +1905,15 @@ static void merge_l2vpn(struct l2vpn *l2vpn, struct l2vpn *xl)
 				break;
 			}
 
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 			free(pw);
 		}
 	}
-	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_tree, ptmp) {
+	RB_FOREACH_SAFE(xp, l2vpn_svc_head, &xl->svc_tree, ptmp) {
 		/* find new active pseudowires */
-		if ((pw = l2vpn_pw_find_active(l2vpn, xp->ifname)) == NULL) {
+		if ((pw = l2vpn_svc_find_active(l2vpn, xp->ifname)) == NULL) {
 			COPY(pw, xp);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_tree, pw);
 			pw->l2vpn = l2vpn;
 
 			switch (ldpd_process) {
@@ -1996,18 +1996,18 @@ static void merge_l2vpn(struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 
 	/* merge inactive pseudowires */
-	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree, ptmp) {
+	RB_FOREACH_SAFE(pw, l2vpn_svc_head, &l2vpn->svc_inactive_tree, ptmp) {
 		/* find deleted inactive pseudowires */
-		if (l2vpn_pw_find_inactive(xl, pw->ifname) == NULL) {
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+		if (l2vpn_svc_find_inactive(xl, pw->ifname) == NULL) {
+			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 			free(pw);
 		}
 	}
-	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_inactive_tree, ptmp) {
+	RB_FOREACH_SAFE(xp, l2vpn_svc_head, &xl->svc_inactive_tree, ptmp) {
 		/* find new inactive pseudowires */
-		if ((pw = l2vpn_pw_find_inactive(l2vpn, xp->ifname)) == NULL) {
+		if ((pw = l2vpn_svc_find_inactive(l2vpn, xp->ifname)) == NULL) {
 			COPY(pw, xp);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, pw);
 			pw->l2vpn = l2vpn;
 
 			switch (ldpd_process) {
