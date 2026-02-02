@@ -988,6 +988,10 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	struct icmp6_filter filter;
 	int error;
 
+/* Limit receive buffer size to avoid unbounded growth under abnormal load */
+/* 20MB provides enough headroom for RS/RA bursts while capping memory usage */
+#define RTADV_RCVBUF_SIZE (20 * 1024 * 1024)
+
 	frr_with_privs(&zserv_privs) {
 
 		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
@@ -1003,6 +1007,9 @@ static int rtadv_make_socket(ns_id_t ns_id)
 			  ns_id, safe_strerror(error), error);
 		return -1;
 	}
+
+	/* Limit RTADV socket receive buffer */
+	setsockopt_so_recvbuf(sock, RTADV_RCVBUF_SIZE);
 
 	ret = setsockopt_ipv6_pktinfo(sock, 1);
 	if (ret < 0) {
