@@ -2,19 +2,6 @@
   "1.1.1.1/32":[
     {
       "prefix":"1.1.1.1/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo",
-          "active":true
-        }
-      ]
-    },
-    {
-      "prefix":"1.1.1.1/32",
       "protocol":"connected",
       "selected":true,
       "nexthops":[
@@ -66,19 +53,6 @@
   "10.0.1.0/24":[
     {
       "prefix":"10.0.1.0/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"r1-eth1",
-          "active":true
-        }
-      ]
-    },
-    {
-      "prefix":"10.0.1.0/24",
       "protocol":"connected",
       "selected":true,
       "nexthops":[
@@ -92,19 +66,6 @@
     }
   ],
   "10.0.2.0/24":[
-    {
-      "prefix":"10.0.2.0/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"r1-eth2",
-          "active":true
-        }
-      ]
-    },
     {
       "prefix":"10.0.2.0/24",
       "protocol":"connected",

@@ -1,19 +1,6 @@
 {
   "10.0.3.0/24": [
     {
-      "distance": 110,
-      "protocol": "ospf",
-      "metric": 10,
-      "prefix": "10.0.3.0/24",
-      "nexthops": [
-        {
-          "active": true,
-          "directlyConnected": true,
-          "interfaceName": "r3-eth0"
-        }
-      ]
-    },
-    {
       "distance": 0,
       "protocol": "connected",
       "metric": 0,

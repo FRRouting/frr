@@ -60,20 +60,20 @@ def test_ospf6_loopback_cost():
     r1 = tgen.gears["r1"]
 
     def _show_ipv6_route():
-        output = json.loads(r1.vtysh_cmd("show ipv6 route json"))
+        output = r1.vtysh_cmd("show ipv6 ospf6 route detail json", isjson=True)
         expected = {
-            "2001:db8::1/128": [
-                {
-                    "metric": 0,
-                    "distance": 110,
-                }
-            ],
-            "2001:db8::2/128": [
-                {
-                    "metric": 10,
-                    "distance": 110,
-                }
-            ],
+            "routes": {
+                "2001:db8::1/128": [
+                    {
+                        "metricCost": 0,
+                    }
+                ],
+                "2001:db8::2/128": [
+                    {
+                        "metricCost": 10,
+                    }
+                ]
+            }
         }
         return topotest.json_cmp(output, expected)
 

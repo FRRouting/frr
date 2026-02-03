@@ -2,21 +2,6 @@
   "192.168.0.1\/32":[
     {
       "prefix":"192.168.0.1\/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "flags":3,
-          "directlyConnected":true,
-          "interfaceName":"lo",
-          "active":true,
-          "weight":1
-        }
-      ]
-    },
-    {
-      "prefix":"192.168.0.1\/32",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,
@@ -81,21 +66,6 @@
   "192.168.1.0\/24":[
     {
       "prefix":"192.168.1.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "flags":3,
-          "directlyConnected":true,
-          "interfaceName":"r1-eth1",
-          "active":true,
-          "weight":1
-        }
-      ]
-    },
-    {
-      "prefix":"192.168.1.0\/24",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,
@@ -147,21 +117,6 @@
   "192.168.3.0\/24":[
     {
       "prefix":"192.168.3.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "flags":3,
-          "directlyConnected":true,
-          "interfaceName":"r1-eth2",
-          "active":true,
-          "weight":1
-        }
-      ]
-    },
-    {
-      "prefix":"192.168.3.0\/24",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,
@@ -180,21 +135,6 @@
     }
   ],
   "192.168.6.0\/24":[
-    {
-      "prefix":"192.168.6.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "flags":3,
-          "directlyConnected":true,
-          "interfaceName":"r1-eth0",
-          "active":true,
-          "weight":1
-        }
-      ]
-    },
     {
       "prefix":"192.168.6.0\/24",
       "protocol":"connected",

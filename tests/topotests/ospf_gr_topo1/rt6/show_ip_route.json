@@ -74,20 +74,6 @@
       ]
     }
   ],
-  "6.6.6.6\/32":[
-    {
-      "prefix":"6.6.6.6\/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo"
-        }
-      ]
-    }
-  ],
   "7.7.7.7\/32":[
     {
       "prefix":"7.7.7.7\/32",
@@ -148,20 +134,6 @@
       ]
     }
   ],
-  "10.0.4.0\/24":[
-    {
-      "prefix":"10.0.4.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt3"
-        }
-      ]
-    }
-  ],
   "10.0.5.0\/24":[
     {
       "prefix":"10.0.5.0\/24",
@@ -173,20 +145,6 @@
           "ip":"10.0.4.3",
           "afi":"ipv4",
           "interfaceName":"eth-rt3"
-        }
-      ]
-    }
-  ],
-  "10.0.6.0\/24":[
-    {
-      "prefix":"10.0.6.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt7"
         }
       ]
     }

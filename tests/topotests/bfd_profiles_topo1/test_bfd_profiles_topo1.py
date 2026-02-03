@@ -121,10 +121,10 @@ def test_wait_protocols_convergence():
     expect_loopback_route("r4", "ipv6", "2001:db8:1::/64", "isis")
 
     # Wait for R4 <-> R5 convergence.
-    expect_loopback_route("r4", "ipv6", "2001:db8:3::/64", "ospf6")
+    expect_loopback_route("r4", "ipv6", "2001:db8:10::5/128", "ospf6")
 
     # Wait for R5 <-> R4 convergence.
-    expect_loopback_route("r5", "ipv6", "2001:db8:2::/64", "ospf6")
+    expect_loopback_route("r5", "ipv6", "2001:db8:10::4/128", "ospf6")
 
 
 def test_bfd_profile_values():

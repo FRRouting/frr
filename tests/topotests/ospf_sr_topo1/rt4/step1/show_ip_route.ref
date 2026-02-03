@@ -181,36 +181,6 @@
       ]
     }
   ],
-  "10.0.2.0\/24":[
-    {
-      "prefix":"10.0.2.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt2-1",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.3.0\/24":[
-    {
-      "prefix":"10.0.3.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt2-2",
-          "active":true
-        }
-      ]
-    }
-  ],
   "10.0.4.0\/24":[
     {
       "prefix":"10.0.4.0\/24",
@@ -246,36 +216,6 @@
           "ip":"10.0.6.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.6.0\/24":[
-    {
-      "prefix":"10.0.6.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt5",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.7.0\/24":[
-    {
-      "prefix":"10.0.7.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt6",
           "active":true
         }
       ]

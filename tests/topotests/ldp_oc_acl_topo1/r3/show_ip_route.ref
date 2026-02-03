@@ -42,19 +42,6 @@
   "3.3.3.3/32":[
     {
       "prefix":"3.3.3.3/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo",
-          "active":true
-        }
-      ]
-    },
-    {
-      "prefix":"3.3.3.3/32",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,
@@ -114,19 +101,6 @@
   "10.0.2.0\/24":[
     {
       "prefix":"10.0.2.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"r3-eth0",
-          "active":true
-        }
-      ]
-    },
-    {
-      "prefix":"10.0.2.0\/24",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,
@@ -144,19 +118,6 @@
     }
   ],
   "10.0.3.0\/24":[
-    {
-      "prefix":"10.0.3.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"r3-eth1",
-          "active":true
-        }
-      ]
-    },
     {
       "prefix":"10.0.3.0\/24",
       "protocol":"connected",
