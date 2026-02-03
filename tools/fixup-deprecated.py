@@ -4,7 +4,7 @@
 #
 # Script used to replace deprecated quagga/frr mactors/types/etc.
 #
-# loosly based on indent.py, 2017 by David Lamparter
+# loosely based on indent.py, 2017 by David Lamparter
 # 2018 by Lou Berger, placed in public domain
 
 import sys, re, subprocess, os

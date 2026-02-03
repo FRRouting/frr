@@ -13,7 +13,7 @@
  * Domain.
  *
  * Changes by Ben Collins <bcollins@debian.org>, added --chuid, --background
- * and --make-pidfile options, placed in public domain aswell.
+ * and --make-pidfile options, placed in public domain as well.
  *
  * Port to OpenBSD by Sontri Tomo Huynh <huynh.29@osu.edu>
  *                 and Andreas Schuldei <andreas@schuldei.org>
@@ -677,7 +677,7 @@ static void do_pidfile(const char *name)
 		fatal("open pidfile %s: %s", name, strerror(errno));
 }
 
-/* WTA: this  needs to be an autoconf check for /proc/pid existance.
+/* WTA: this  needs to be an autoconf check for /proc/pid existence.
  */
 static void do_procinit(void)
 {

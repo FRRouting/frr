@@ -8,7 +8,7 @@
 # Default-Stop: 0 1 6
 # Short-Description: start and stop the FRR routing suite
 # Description: FRR is a routing suite for IP routing protocols like
-#              BGP, OSPF, RIP and others. This script contols the main
+#              BGP, OSPF, RIP and others. This script controls the main
 #              "watchfrr" daemon.
 ### END INIT INFO
 #

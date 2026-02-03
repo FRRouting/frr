@@ -8,7 +8,7 @@
 # Default-Stop: 0 1 6
 # Short-Description: start and stop the Frr routing suite
 # Description: Frr is a routing suite for IP routing protocols like
-#              BGP, OSPF, RIP and others. This script contols the main
+#              BGP, OSPF, RIP and others. This script controls the main
 #              daemon "frr" as well as the individual protocol daemons.
 ### END INIT INFO
 #
@@ -69,7 +69,7 @@ started()
 # Loads the config via vtysh -b if configured to do so.
 vtysh_b ()
 {
-	# Rember, that all variables have been incremented by 1 in convert_daemon_prios()
+	# Remember, that all variables have been incremented by 1 in convert_daemon_prios()
 	if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
 		$VTYSH -b
 	fi
@@ -304,7 +304,7 @@ start_watchfrr()
 	fi
 }
 
-# Stopps watchfrr.
+# Stops watchfrr.
 stop_watchfrr()
 {
 	echo -n "Stopping Frr monitor daemon:"

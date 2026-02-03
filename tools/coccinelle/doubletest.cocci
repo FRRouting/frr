@@ -1,6 +1,6 @@
 /// Find &&/|| operations that include the same argument more than once
 //# A common source of false positives is when the expression, or
-//# another expresssion in the same && or || operation, performs a
+//# another expression in the same && or || operation, performs a
 //# side effect.
 ///
 // Confidence: Moderate

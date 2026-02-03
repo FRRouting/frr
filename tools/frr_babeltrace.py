@@ -1148,7 +1148,7 @@ def parse_frr_zebra_if_add_del_update(event):
         "location": lambda x: {
             0: "Interface Delete",
             1: "Interface Index Add",
-            2: "Interface Index is Shutdown. Wont Wake it up",
+            2: "Interface Index is Shutdown. Won't Wake it up",
         }.get(x, f"Unknown if add/del/update location {x}")
     }
     parse_event(event, field_parsers)

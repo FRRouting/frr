@@ -7,7 +7,7 @@
 #   tools/config_h_used.sh
 #   tools/config_h_used.sh -A 3 '*.h'
 
-args="-c"	# default: count number of occurences in file
+args="-c"	# default: count number of occurrences in file
 l=false
 [ "$1" = "-A" ] && { shift; args="-A $1"; shift; }	# -A 9  lines after
 [ "$1" = "-C" ] && { shift; args="-C $1"; shift; }	# -C 9  lines context
