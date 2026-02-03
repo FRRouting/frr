@@ -54,7 +54,7 @@ struct bgp_evpn_es_frag {
  * - Local ESs are received from zebra (BGP_EVPNES_LOCAL)
  * - Remotes ESs are implicitly created (by reference) by a remote ES-EVI
  *   (BGP_EVPNES_REMOTE)
- * - An ES can be simultaneously LOCAL and REMOTE; infact all LOCAL ESs are
+ * - An ES can be simultaneously LOCAL and REMOTE; in fact all LOCAL ESs are
  *   expected to have REMOTE ES peers.
  */
 struct bgp_evpn_es {
