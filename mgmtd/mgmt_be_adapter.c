@@ -47,13 +47,6 @@ static void be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 
 static void be_adapter_delete(struct mgmt_be_client_adapter *adapter);
 
-// clang-format off
-#ifdef _FRR_ATTRIBUTE_PRINTFRR
-#pragma FRR printfrr_ext "%pMBI" (mgmt_be_client_id_t *)
-#pragma FRR printfrr_ext "%pMBM" (uint64_t *)
-#endif
-// clang-format on
-
 /* --------- */
 /* Constants */
 /* --------- */
@@ -603,39 +596,35 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 	vty_out(vty, "  Total: %u\n", count);
 }
 
-static void _show_xpath_map(struct vty *vty, struct mgmt_be_xpath_map *map)
+static void _show_xpath_map(struct vty *vty, const char *tag, const char *xpath, uint64_t clients)
 {
 	mgmt_be_client_id_t id;
-	const char *astr;
 
-	vty_out(vty, " - xpath: '%s'\n", map->xpath_prefix);
-	FOREACH_BE_CLIENT_BITS (id, map->clients) {
-		astr = mgmt_be_get_adapter_by_id(id) ? "active" : "inactive";
-		vty_out(vty, "   -- %s-client: '%pMBI'\n", astr, &id);
+	FOREACH_BE_CLIENT_BITS (id, clients) {
+		if (!mgmt_be_get_adapter_by_id(id))
+			UNSET_IDBIT(clients, id);
 	}
+	vty_out(vty, "%s: %s: %pMBM\n", tag, xpath, &clients);
 }
 
-void mgmt_be_xpath_register_write(struct vty *vty)
+void mgmt_be_xpath_register_write(struct vty *vty, const char *type_str)
 {
 	struct mgmt_be_xpath_map *map;
 
-	vty_out(vty, "MGMTD Backend CFG XPath Registry: Count: %u\n", darr_len(be_oper_xpath_map));
-	darr_foreach_p (be_cfg_xpath_map, map)
-		_show_xpath_map(vty, map);
+	if (!type_str || type_str[0] == 'c')
+		darr_foreach_p (be_cfg_xpath_map, map)
+			_show_xpath_map(vty, "config", map->xpath_prefix, map->clients);
 
-	vty_out(vty, "\nMGMTD Backend OPER XPath Registry: Count: %u\n",
-		darr_len(be_oper_xpath_map));
-	darr_foreach_p (be_oper_xpath_map, map)
-		_show_xpath_map(vty, map);
+	if (!type_str || type_str[0] == 'o')
+		darr_foreach_p (be_oper_xpath_map, map)
+			_show_xpath_map(vty, "oper", map->xpath_prefix, map->clients);
 
-	vty_out(vty, "\nMGMTD Backend NOTIFY XPath Registry: Count: %u\n",
-		darr_len(be_notif_xpath_map));
-	darr_foreach_p (be_notif_xpath_map, map)
-		_show_xpath_map(vty, map);
+	if (!type_str || type_str[0] == 'n')
+		mgmt_fe_show_be_notify_selectors(vty);
 
-	vty_out(vty, "\nMGMTD Backend RPC XPath Registry: Count: %u\n", darr_len(be_rpc_xpath_map));
-	darr_foreach_p (be_rpc_xpath_map, map)
-		_show_xpath_map(vty, map);
+	if (!type_str || type_str[0] == 'r')
+		darr_foreach_p (be_rpc_xpath_map, map)
+			_show_xpath_map(vty, "rpc", map->xpath_prefix, map->clients);
 }
 
 /*

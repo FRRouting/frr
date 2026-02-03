@@ -164,6 +164,11 @@ extern uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *n
  */
 extern char **mgmt_fe_get_all_selectors(void);
 
+/**
+ * Show the backend notify selectors registered with mgmtd.
+ */
+extern void mgmt_fe_show_be_notify_selectors(struct vty *vty);
+
 /* Fetch frontend client session commit stats */
 extern struct mgmt_commit_stats *
 mgmt_fe_get_session_commit_stats(uint64_t session_id);

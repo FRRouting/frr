@@ -288,6 +288,26 @@ char **mgmt_fe_get_all_selectors(void)
 	return selectors;
 }
 
+void mgmt_fe_show_be_notify_selectors(struct vty *vty)
+{
+	struct ns_string *ns;
+	struct listnode *node;
+	uintptr_t session_id;
+	uint64_t be_clients;
+	void *vsession_id;
+
+	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
+		be_clients = 0;
+		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, vsession_id)) {
+			session_id = (uintptr_t)vsession_id;
+			if (session_id >= MGMT_FE_SESSION_ID_MIN)
+				continue;
+			SET_IDBIT(be_clients, MGMT_FE_SESSION_TO_CLIENT_ID(session_id));
+		}
+		vty_out(vty, "notify: %s: %pMBM\n", ns->s, &be_clients);
+	}
+}
+
 enum mgmt_result nb_error_to_mgmt_result(enum nb_error error)
 {
 	switch (error) {

@@ -119,4 +119,11 @@ extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bo
 extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type, const char *xpath,
 				 const char *data);
 
+// clang-format off
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pMBI" (mgmt_be_client_id_t *)
+#pragma FRR printfrr_ext "%pMBM" (uint64_t *)
+#endif
+// clang-format on
+
 #endif /* _FRR_MGMTD_H */

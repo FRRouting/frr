@@ -131,7 +131,7 @@ extern void mgmt_be_adapter_status_write(struct vty *vty);
 /*
  * Dump xpath registry for each backend client to vty.
  */
-extern void mgmt_be_xpath_register_write(struct vty *vty);
+extern void mgmt_be_xpath_register_write(struct vty *vty, const char *type_str);
 
 
 /**

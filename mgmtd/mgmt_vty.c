@@ -44,12 +44,16 @@ DEFPY(show_mgmt_be_adapter,
 
 DEFPY(show_mgmt_be_xpath_reg,
       show_mgmt_be_xpath_reg_cmd,
-      "show mgmt backend-yang-xpath-registry",
+      "show mgmt backend-yang-xpath-registry [config|oper|notify|rpc]$type",
       SHOW_STR
       MGMTD_STR
-      "Backend Adapter YANG Xpath Registry\n")
+      "Backend Adapter YANG Xpath Registry\n"
+      "Registered subscribing to config xpaths\n"
+      "Registered providing oper-state xpaths\n"
+      "Registered subscribing to notification xpaths\n"
+      "Registered implementing rpc xpaths\n")
 {
-	mgmt_be_xpath_register_write(vty);
+	mgmt_be_xpath_register_write(vty, type);
 
 	return CMD_SUCCESS;
 }
