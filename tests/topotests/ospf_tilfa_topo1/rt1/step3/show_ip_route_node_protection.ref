@@ -2,16 +2,6 @@
   "1.1.1.1\/32":[
     {
       "prefix":"1.1.1.1\/32",
-      "protocol":"ospf",
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo"
-        }
-      ]
-    },
-    {
-      "prefix":"1.1.1.1\/32",
       "protocol":"connected",
       "nexthops":[
         {
@@ -94,16 +84,6 @@
   "10.0.1.0\/24":[
     {
       "prefix":"10.0.1.0\/24",
-      "protocol":"ospf",
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt2"
-        }
-      ]
-    },
-    {
-      "prefix":"10.0.1.0\/24",
       "protocol":"connected",
       "nexthops":[
         {
@@ -114,16 +94,6 @@
     }
   ],
   "10.0.2.0\/24":[
-    {
-      "prefix":"10.0.2.0\/24",
-      "protocol":"ospf",
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt3"
-        }
-      ]
-    },
     {
       "prefix":"10.0.2.0\/24",
       "protocol":"connected",

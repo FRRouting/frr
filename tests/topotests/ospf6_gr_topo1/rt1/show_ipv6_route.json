@@ -1,21 +1,4 @@
 {
-  "2001:db8:1000::1\/128":[
-    {
-      "prefix":"2001:db8:1000::1\/128",
-      "protocol":"ospf6",
-      "vrfId":0,
-      "vrfName":"default",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo",
-          "active":true
-        }
-      ]
-    }
-  ],
   "2001:db8:1000::2\/128":[
     {
       "prefix":"2001:db8:1000::2\/128",

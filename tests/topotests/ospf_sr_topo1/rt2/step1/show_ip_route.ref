@@ -154,51 +154,6 @@
       ]
     }
   ],
-  "10.0.1.0\/24":[
-    {
-      "prefix":"10.0.1.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-sw1",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.2.0\/24":[
-    {
-      "prefix":"10.0.2.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt4-1",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.3.0\/24":[
-    {
-      "prefix":"10.0.3.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt4-2",
-          "active":true
-        }
-      ]
-    }
-  ],
   "10.0.4.0\/24":[
     {
       "prefix":"10.0.4.0\/24",

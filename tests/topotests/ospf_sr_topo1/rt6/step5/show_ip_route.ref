@@ -232,35 +232,5 @@
         }
       ]
     }
-  ],
-  "10.0.7.0\/24":[
-    {
-      "prefix":"10.0.7.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt4",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.8.0\/24":[
-    {
-      "prefix":"10.0.8.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"eth-rt5",
-          "active":true
-        }
-      ]
-    }
   ]
 }

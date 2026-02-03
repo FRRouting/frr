@@ -46,23 +46,6 @@
   "10.0.20.1\/32":[
     {
       "prefix":"10.0.20.1\/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "table":254,
-      "nexthops":[
-        {
-          "flags":9,
-          "ip":"0.0.0.0",
-          "afi":"ipv4",
-          "interfaceName":"r2-eth0",
-          "active":true,
-          "onLink":true
-        }
-      ]
-    },
-    {
-      "prefix":"10.0.20.1\/32",
       "protocol":"connected",
       "selected":true,
       "destSelected":true,

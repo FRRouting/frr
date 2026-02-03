@@ -73,9 +73,9 @@ def test_zebra_opaque():
         return topotest.json_cmp(output, expected)
 
     def _ospf_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip route 192.168.1.0/24 json"))
+        output = json.loads(router.vtysh_cmd("show ip route 10.0.255.4/32 json"))
         expected = {
-            "192.168.1.0/24": [
+            "10.0.255.4/32": [
                 {
                     "ospfPathType": "Intra-Area",
                     "ospfAreaId": "0.0.0.0",
@@ -85,9 +85,9 @@ def test_zebra_opaque():
         return topotest.json_cmp(output, expected)
 
     def _ospf6_converge(router):
-        output = json.loads(router.vtysh_cmd("show ipv6 route 2001:db8:1::/64 json"))
+        output = json.loads(router.vtysh_cmd("show ipv6 route 2001:db8:10::4/128 json"))
         expected = {
-            "2001:db8:1::/64": [
+            "2001:db8:10::4/128": [
                 {
                     "ospfPathType": "Intra-Area",
                     "ospfAreaId": "0.0.0.0",

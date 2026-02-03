@@ -1,18 +1,4 @@
 {
-  "1.1.1.1\/32":[
-    {
-      "prefix":"1.1.1.1\/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo"
-        }
-      ]
-    }
-  ],
   "2.2.2.2\/32":[
     {
       "prefix":"2.2.2.2\/32",
@@ -98,20 +84,6 @@
         {
           "ip":"10.0.1.2",
           "afi":"ipv4",
-          "interfaceName":"eth-rt2"
-        }
-      ]
-    }
-  ],
-  "10.0.1.0\/24":[
-    {
-      "prefix":"10.0.1.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
           "interfaceName":"eth-rt2"
         }
       ]
