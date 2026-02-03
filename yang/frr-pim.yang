@@ -80,10 +80,14 @@ module frr-pim {
 
   typedef plist-ref {
     type string;
+    description
+      "Reference to a policy list.";
   }
 
   typedef access-list-ref {
     type string;
+    description
+      "Reference to an access list.";
   }
 
   /*
@@ -132,6 +136,9 @@ module frr-pim {
    */
 
   grouping msdp-timers {
+    description
+      "Grouping for MSDP timer configurations.";
+
     leaf hold-time {
       type uint16 {
         range "1..max";
@@ -195,8 +202,8 @@ module frr-pim {
 
     leaf authentication-key {
       when "../authentication-type = 'MD5'";
-      mandatory true;
       type string;
+      mandatory true;
       description
         "Authentication key.";
     }
@@ -387,6 +394,9 @@ module frr-pim {
       list members {
         key "address";
 
+        description
+          "List of peer members associated with the configuration.";
+
         leaf address {
           type inet:ip-address;
           description
@@ -407,8 +417,8 @@ module frr-pim {
       }
 
       leaf source-ip {
-        mandatory true;
         type inet:ip-address;
+        mandatory true;
         description
           "MSDP source IP address.";
       }
@@ -441,8 +451,11 @@ module frr-pim {
     }
 
     container mlag {
-      presence
-        "Multi-chassis link aggregation.";
+     presence
+       "Multi-chassis link aggregation.";
+
+     description
+       "Configuration for mlag on the interface.";
 
      leaf peerlink-rif {
         type frr-interface:interface-ref;
@@ -603,6 +616,9 @@ module frr-pim {
       presence
         "Enable BFD support on the interface.";
 
+      description
+        "Configuration for BFD on the interface.";
+
       leaf min-rx-interval {
         type uint16 {
           range "1..max";
@@ -742,6 +758,8 @@ module frr-pim {
    */
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
         + "frr-rt:control-plane-protocol" {
+    description
+      "Augments the control plane protocol configuration to support pim configuration.";
     container pim {
       when "../frr-rt:type = 'frr-pim:pimd'" {
         description
@@ -765,7 +783,11 @@ module frr-pim {
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
+    description
+      "Augments the interface configuration to support pim configuration.";
     container pim {
+      description
+        "Configuration for pim on the interface.";
       list address-family {
         key "address-family";
         description
