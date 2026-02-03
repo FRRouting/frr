@@ -373,7 +373,7 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 	return ret;
 }
 
-/* Install or unistall a Type-4 route in the per-ES routing table */
+/* Install or uninstall a Type-4 route in the per-ES routing table */
 int bgp_evpn_es_route_install_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 		afi_t afi, safi_t safi, struct prefix_evpn *evp,
 		struct bgp_path_info *pi, int install)
@@ -1419,7 +1419,7 @@ void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
  * 3. Local ESs are configured in zebra and sent to BGP
  * 4. Remote ESs are created by BGP when one or more ES-EVIs reference it i.e.
  *    created on first reference and release on last de-reference
- * 5. An ES can be both local and remote. Infact most local ESs are expected
+ * 5. An ES can be both local and remote. In fact most local ESs are expected
  *    to have an ES peer.
  */
 
