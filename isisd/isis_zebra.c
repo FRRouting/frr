@@ -156,8 +156,8 @@ enum isis_zebra_nexthop_type {
 
 static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 				   struct zapi_nexthop zapi_nexthops[],
-				   enum isis_zebra_nexthop_type type,
-				   bool mpls_lsp, uint8_t backup_nhs)
+				   enum isis_zebra_nexthop_type type, bool mpls_lsp,
+				   uint8_t backup_nhs, struct prefix *prefix)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -173,15 +173,21 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		zapi_nexthop_init(api_nh);
 
-		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		if (fabricd)
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
 		case AF_INET:
 			/* FIXME: can it be ? */
 			if (nexthop->ip.ipv4.s_addr != INADDR_ANY) {
-				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				api_nh->gate.ipv4 = nexthop->ip.ipv4;
+				if (prefix && prefix->prefixlen == IPV4_MAX_BITLEN &&
+				    prefix->u.prefix4.s_addr == nexthop->ip.ipv4.s_addr)
+					api_nh->type = NEXTHOP_TYPE_IFINDEX;
+				else {
+					api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+					api_nh->gate.ipv4 = nexthop->ip.ipv4;
+				}
 			} else {
 				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 			}
@@ -279,9 +285,9 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 
 	/* Add backup nexthops first. */
 	if (route_info->backup) {
-		count = isis_zebra_add_nexthops(
-			isis, route_info->backup->nexthops, api.backup_nexthops,
-			ISIS_NEXTHOP_BACKUP, false, 0);
+		count = isis_zebra_add_nexthops(isis, route_info->backup->nexthops,
+						api.backup_nexthops, ISIS_NEXTHOP_BACKUP, false, 0,
+						prefix);
 		if (count > 0) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
 			api.backup_nexthop_num = count;
@@ -289,9 +295,8 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	}
 
 	/* Add primary nexthops. */
-	count = isis_zebra_add_nexthops(isis, route_info->nexthops,
-					api.nexthops, ISIS_NEXTHOP_MAIN, false,
-					count);
+	count = isis_zebra_add_nexthops(isis, route_info->nexthops, api.nexthops,
+					ISIS_NEXTHOP_MAIN, false, count, prefix);
 	if (!count)
 		return;
 	api.nexthop_num = count;
@@ -369,10 +374,9 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	} else {
 		/* Add backup nexthops first. */
 		if (psid->nexthops_backup) {
-			count = isis_zebra_add_nexthops(
-				area->isis, psid->nexthops_backup,
-				zl.backup_nexthops, ISIS_NEXTHOP_BACKUP, true,
-				0);
+			count = isis_zebra_add_nexthops(area->isis, psid->nexthops_backup,
+							zl.backup_nexthops, ISIS_NEXTHOP_BACKUP,
+							true, 0, NULL);
 			if (count > 0) {
 				SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
 				zl.backup_nexthop_num = count;
@@ -380,9 +384,8 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 		}
 
 		/* Add primary nexthops. */
-		count = isis_zebra_add_nexthops(area->isis, psid->nexthops,
-						zl.nexthops, ISIS_NEXTHOP_MAIN,
-						true, count);
+		count = isis_zebra_add_nexthops(area->isis, psid->nexthops, zl.nexthops,
+						ISIS_NEXTHOP_MAIN, true, count, NULL);
 		if (!count)
 			return;
 		zl.nexthop_num = count;
@@ -458,9 +461,8 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	if (sra->type == ISIS_SR_ADJ_BACKUP) {
 		int count;
 
-		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,
-						zl.backup_nexthops,
-						ISIS_NEXTHOP_BACKUP, true, 0);
+		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops, zl.backup_nexthops,
+						ISIS_NEXTHOP_BACKUP, true, 0, NULL);
 		if (count > 0) {
 			SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
 			zl.backup_nexthop_num = count;

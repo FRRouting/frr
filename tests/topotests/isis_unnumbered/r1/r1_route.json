@@ -21,10 +21,8 @@
       "nexthops": [
         {
           "active": true,
-          "afi": "ipv4",
           "fib": true,
-          "interfaceName": "r1-eth0",
-          "ip": "10.254.0.2"
+          "interfaceName": "r1-eth0"
         }
       ],
       "prefix": "10.254.0.2/32",
@@ -39,10 +37,8 @@
       "nexthops": [
         {
           "active": true,
-          "afi": "ipv4",
           "fib": true,
-          "interfaceName": "r1-eth1",
-          "ip": "10.254.0.3"
+          "interfaceName": "r1-eth1"
         }
       ],
       "prefix": "10.254.0.3/32",
