@@ -122,7 +122,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 
 /*
  * get interface metric
- *   -- if value is not avaliable set -1
+ *   -- if value is not available set -1
  */
 void if_get_metric(struct interface *ifp)
 {

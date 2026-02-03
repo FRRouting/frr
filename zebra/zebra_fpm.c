@@ -1997,7 +1997,7 @@ static int zfpm_init(struct event_loop *master)
 	TAILQ_INIT(&zfpm_g->dest_q);
 	TAILQ_INIT(&zfpm_g->mac_q);
 
-	/* Create hash table for fpm_mac_info_t enties */
+	/* Create hash table for fpm_mac_info_t entries */
 	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
 						 zfpm_mac_info_cmp,
 						 "FPM MAC info hash table");

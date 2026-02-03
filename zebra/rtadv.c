@@ -584,7 +584,7 @@ void process_rtadv(void *arg)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
 	} else {
 		zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_WHEEL_PERIOD_MS;
-		/* Wait atleast AdvIntervalTimer time before sending next RA
+		/* Wait at least AdvIntervalTimer time before sending next RA
 		 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
 		 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
 		 * expiry time is 10 ms and, AdvIntervalTimer == 1005 ms. Allowing 

@@ -4814,7 +4814,7 @@ enum zebra_dplane_result dplane_tc_filter_update(struct zebra_tc_filter *filter)
 /**
  * dplane_nexthop_update_internal() - Helper for enqueuing nexthop changes
  *
- * @nhe:	Nexthop group hash entry where the change occured
+ * @nhe:	Nexthop group hash entry where the change occurred
  * @op:		The operation to be enqued
  *
  * Return:	Result of the change
@@ -5453,7 +5453,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 /**
  * dplane_intf_update_internal() - Helper for enqueuing interface changes
  *
- * @ifp:	Interface where the change occured
+ * @ifp:	Interface where the change occurred
  * @op:		The operation to be enqued
  *
  * Return:	Result of the change
@@ -7835,7 +7835,7 @@ static void dplane_thread_loop(struct event *event)
 
 		/*
 		 * Let's check if there are still any items on the
-		 * input or output queus of the current provider
+		 * input or output queues of the current provider
 		 * if so then we know we need to reschedule.
 		 */
 		if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||

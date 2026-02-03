@@ -543,7 +543,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	ctx->old_vni = *old_vni;
 	ctx->chgflags = ZEBRA_VXLIF_VLAN_CHANGE;
 
-	/* copy mcast group from old_vni as thats not being changed here */
+	/* copy mcast group from old_vni as that's not being changed here */
 	vni->mcast_grp = old_vni->mcast_grp;
 
 	if (old_vni->access_vlan != vni->access_vlan) {

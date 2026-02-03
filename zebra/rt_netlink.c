@@ -3504,7 +3504,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
  * @tb:		Netlink RTA data
  * @family:	Address family in the nhmsg
  * @ifp:	Interface connected - this should be NULL, we fill it in
- * @ns_id:	Namspace id
+ * @ns_id:	Namespace id
  *
  * Return:	New nexthop
  */
@@ -3650,7 +3650,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
  * netlink_nexthop_change() - Read in change about nexthops from the kernel
  *
  * @h:		Netlink message header
- * @ns_id:	Namspace id
+ * @ns_id:	Namespace id
  * @startup:	Are we reading under startup conditions?
  *
  * Return:	Result status
