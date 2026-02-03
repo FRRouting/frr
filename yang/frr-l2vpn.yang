@@ -159,6 +159,12 @@ module frr-l2vpn {
           description "The VNI indentifier for BGP EVPN.";
         }
 
+        leaf ignore-mtu-mismatch {
+          type boolean;
+          default true;
+          description "Ignore remote mtu mismatch.";
+        }
+
         container neighbor-evpn {
           presence "Configure a neighbor using BGP EVPN information.";
           must "../../type = 'vpws'";

@@ -78,6 +78,7 @@ static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-ac-id
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-ac-id
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch
  */
 static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 {

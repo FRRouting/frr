@@ -961,6 +961,39 @@ static int l2vpn_instance_member_evpn_vni_destroy(struct nb_cb_destroy_args *arg
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch
+ */
+static int l2vpn_instance_evpn_ignore_mtu_mismatch_modify(struct nb_cb_modify_args *args)
+{
+	bool ignore;
+	struct l2vpn_svc *svc;
+
+	ignore = yang_dnode_get_bool(args->dnode, NULL);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		svc = nb_running_get_entry(args->dnode, NULL, true);
+		if (ignore != svc->ignore_mtu_mismatch && svc->enabled) {
+			svc->enabled = false;
+			if (l2vpn_lib_master.event_hook)
+				(*l2vpn_lib_master.event_hook)(svc);
+			svc->enabled = true;
+		}
+		svc->ignore_mtu_mismatch = ignore;
+
+		if (l2vpn_lib_master.event_hook)
+			(*l2vpn_lib_master.event_hook)(svc);
+		break;
+	}
+
+	return NB_OK;
+}
+
 const struct frr_yang_module_info frr_l2vpn = {
 	.name = "frr-l2vpn",
 	.nodes = {
@@ -1079,6 +1112,12 @@ const struct frr_yang_module_info frr_l2vpn = {
 			.cbs = {
 				.modify = l2vpn_instance_member_evpn_vni_modify,
 				.destroy = l2vpn_instance_member_evpn_vni_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch",
+			.cbs = {
+				.modify = l2vpn_instance_evpn_ignore_mtu_mismatch_modify,
 			}
 		},
 		{

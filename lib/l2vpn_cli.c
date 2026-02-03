@@ -244,6 +244,20 @@ DEFPY_YANG(
 }
 
 DEFPY_YANG(
+	l2vpn_evpn_ignore_mtu_mismatch,
+	l2vpn_evpn_ignore_mtu_mismatch_cmd,
+	"[no] ignore-mtu-mismatch disable",
+	NO_STR
+	"Configure ignore remote mtu mismatch\n"
+	"Disable ignore remote mtu mismatch\n")
+{
+	nb_cli_enqueue_change(vty, "./ignore-mtu-mismatch", NB_OP_MODIFY, no ? "true" : "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+
+}
+
+DEFPY_YANG(
 	l2vpn_pw_status_disable,
 	l2vpn_pw_status_disable_cmd,
 	"[no] pw-status disable",
@@ -439,6 +453,7 @@ void l2vpn_cli_init(void)
 
 	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_neighbor_cmd);
 	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_vni_cmd);
+	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_ignore_mtu_mismatch_cmd);
 }
 
 static void l2vpn_instance_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -559,6 +574,9 @@ static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_no
 		vty_out(vty, "  neighbor evpn evi %u local-ac-id %u remote-ac-id %u\n",
 			evi, local_ac_id, remote_ac_id);
 	}
+
+	if (!yang_dnode_get_bool(dnode, "./ignore-mtu-mismatch"))
+		vty_out(vty, "  ignore-mtu-mismatch disable\n");
 }
 
 static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail)
