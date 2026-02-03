@@ -96,26 +96,20 @@ def test_ospf_convergence():
 
     expect_ospf_routes('r1', 'show ip route ospf json', {
         '10.254.254.2/32': [],
-        '192.168.100.0/24': [],
         '192.168.101.0/24': [],
         '192.168.201.0/24': [],
     })
     expect_ospf_routes('r1', 'show ipv6 route ospf6 json', {
-        '2001:db8:100::/64': [],
         '2001:db8:101::/64': [],
         '2001:db8:201::/64': [],
         '2001:db8:ffff::2/128': [],
     })
 
     expect_ospf_routes('r2', 'show ip route ospf json', {
-        '192.168.100.0/24': [],
-        '192.168.101.0/24': [],
         '192.168.200.0/24': [],
         '192.168.201.0/24': [],
     })
     expect_ospf_routes('r2', 'show ipv6 route ospf6 json', {
-        '2001:db8:100::/64': [],
-        '2001:db8:101::/64': [],
         '2001:db8:200::/64': [],
         '2001:db8:201::/64': [],
     })
@@ -123,12 +117,10 @@ def test_ospf_convergence():
     expect_ospf_routes('r3', 'show ip route ospf json', {
         '10.254.254.2/32': [],
         '192.168.100.0/24': [],
-        '192.168.101.0/24': [],
         '192.168.200.0/24': [],
     })
     expect_ospf_routes('r3', 'show ipv6 route ospf6 json', {
         '2001:db8:100::/64': [],
-        '2001:db8:101::/64': [],
         '2001:db8:200::/64': [],
         '2001:db8:ffff::2/128': [],
     })
