@@ -325,6 +325,7 @@ def test_bgp_shutdown_some_links():
     tgen = get_topogen()
     net = tgen.net
     first_nhg = None
+    skipped_updates_before = None
 
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
@@ -377,6 +378,21 @@ def test_bgp_shutdown_some_links():
     )
 
     assert success, "BGP routes are not using the same nexthop group"
+
+    step("Collect route update skips before link shutdown")
+    def get_route_updates_skipped():
+        output = net["r2"].cmd('vtysh -c "show zebra dplane detailed"')
+        match = re.search(r"Route updates skipped:\s+(\d+)", output)
+        if not match:
+            logger.error("Failed to parse route updates skipped from zebra dplane")
+            return -1
+        return int(match.group(1))
+
+    skipped_updates_before = get_route_updates_skipped()
+    assert (
+        skipped_updates_before == 0
+    ), "Could not retrieve route updates skipped before shutdown"
+    logger.info(f"Route updates skipped before shutdown: {skipped_updates_before}")
 
     # Shutdown interfaces r2-eth30 through r2-eth49
     step("Shutdown interfaces r2-eth30 through r2-eth49")
@@ -451,6 +467,27 @@ def test_bgp_shutdown_some_links():
     )
 
     assert success, "Nexthop group ID changed after interface shutdowns"
+
+    step("Verify route update skips increased after shutdowns")
+    def check_route_updates_skipped_increase():
+        skipped_now = get_route_updates_skipped()
+        if skipped_now < 0:
+            return False
+        logger.info(
+            "Route updates skipped after shutdown: %s (before: %s)",
+            skipped_now,
+            skipped_updates_before,
+        )
+        return skipped_now > skipped_updates_before
+
+    success, result = topotest.run_and_expect(
+        check_route_updates_skipped_increase,
+        True,
+        count=60,
+        wait=1,
+    )
+
+    assert success, "Route updates skipped did not increase after shutdowns"
 
     step("Bring interfaces r2-eth30 through r2-eth49 back up")
     # Bring interfaces r2-eth30 through r2-eth49 back up
