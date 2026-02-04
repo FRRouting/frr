@@ -60,6 +60,9 @@ module frr-nexthop {
   revision 2019-08-15 {
     description
       "Initial revision.";
+
+    reference
+      "FRRouting";
   }
 
   typedef optional-ip-address {
@@ -69,6 +72,8 @@ module frr-nexthop {
         length "0";
       }
     }
+    description
+      "A union type representing an optional IP address.";
   }
 
   /*
@@ -147,12 +152,16 @@ module frr-nexthop {
       path "/frr-nexthop:frr-nexthop-group/frr-nexthop:nexthop-groups/frr-nexthop:name";
       require-instance false;
     }
+    description
+      "Reference to a nexthop group.";
   }
 
   /*
    * Common nexthop attributes grouping.
    */
   grouping frr-nexthop-attributes {
+    description
+      "Grouping for common nexthop attributes.";
     leaf nh-type {
       type nexthop-type;
       mandatory true;
@@ -216,6 +225,8 @@ module frr-nexthop {
    * operational common attributes for nexthop
    */
   grouping frr-nexthop-operational {
+    description
+      "Grouping for operational data related to nexthops.";
     leaf duplicate {
       type empty;
       config false;
@@ -253,6 +264,8 @@ module frr-nexthop {
   }
 
   grouping nexthop-grouping {
+    description
+      "Grouping for nexthop objects configuration.";
     list nexthop {
       key "nh-type vrf gateway interface";
       min-elements 1;
@@ -266,6 +279,8 @@ module frr-nexthop {
    * Single nexthop grouping.
    */
   grouping frr-nexthop {
+    description
+      "Grouping for a single nexthop configuration.";
     container frr-nexthops {
       description
         "FRR nexthop object.";
@@ -278,6 +293,8 @@ module frr-nexthop {
    * Container for FRR nexthop group.
    */
   grouping frr-nexthop-grouping {
+    description
+      "Grouping for nexthop groups configuration.";
     list nexthop-groups {
       key "name";
       description
@@ -294,6 +311,8 @@ module frr-nexthop {
 
   /* Operational nexthop-group */
   grouping frr-nexthop-group-operational {
+    description
+      "Grouping for operational data related to nexthop groups.";
     container nexthop-group {
       description
         "A group of nexthops.";
@@ -329,6 +348,8 @@ module frr-nexthop {
             }
             leaf seg {
                 type inet:ipv6-address;
+                description
+                  "The IPv6 address representing the SRv6 SID.";
             }
           }
           leaf encap-behavior {
@@ -350,6 +371,8 @@ module frr-nexthop {
    * Augment weight attributes to nexthop group.
    */
   augment "/frr-nexthop-group/nexthop-groups/frr-nexthops/nexthop" {
+    description
+      "Augments the nexthop configuration to add a weight attribute for ECMP routing";
     leaf weight {
       type uint8;
       description
