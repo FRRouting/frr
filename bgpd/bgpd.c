@@ -2931,6 +2931,7 @@ int peer_delete(struct peer *peer)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
 		ecommunity_free(&peer->soo[afi][safi]);
+		XFREE(MTYPE_BGP_FILTER_NAME, peer->allowas_in_rmap[afi][safi].name);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi)
@@ -7071,6 +7072,144 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
 		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		member->allowas_in[afi][safi] = 0;
+		peer_on_policy_change(member, afi, safi, 0);
+	}
+
+	return 0;
+}
+
+/*
+ * Configure allowas-in with route-map filtering.
+ *
+ * This allows selective application of allowas-in based on route-map matching.
+ * Only routes that match the specified route-map (permit action) will have
+ * allowas-in applied; others will use strict AS-path loop detection.
+ */
+int peer_allowas_in_route_map_set(struct peer *peer, afi_t afi, safi_t safi, const char *name,
+				  int allow_num, int origin)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	if (!name)
+		return BGP_ERR_INVALID_VALUE;
+
+	if (!origin && (allow_num < 1 || allow_num > 10))
+		return BGP_ERR_INVALID_VALUE;
+
+	/* Check if configuration actually changed */
+	if (peer->allowas_in_rmap[afi][safi].name &&
+	    strcmp(peer->allowas_in_rmap[afi][safi].name, name) == 0 &&
+	    peer->allowas_in[afi][safi] == (origin ? 0 : allow_num) &&
+	    !!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) == !!origin)
+		return 0;
+
+	/* Set route-map name and lookup pointer */
+	XFREE(MTYPE_BGP_FILTER_NAME, peer->allowas_in_rmap[afi][safi].name);
+	peer->allowas_in_rmap[afi][safi].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
+	peer->allowas_in_rmap[afi][safi].rmap = route_map_lookup_by_name(name);
+
+	/* Configure allowas-in flags and count */
+	peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+
+	if (origin) {
+		peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		peer->allowas_in[afi][safi] = 0;
+	} else {
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		peer->allowas_in[afi][safi] = allow_num;
+	}
+
+	/* Trigger policy re-evaluation */
+	peer_on_policy_change(peer, afi, safi, 0);
+
+	/* Handle peer-group propagation */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/*
+	 * Propagate configuration to all peer-group members that haven't
+	 * explicitly overridden this setting.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_ALLOWAS_IN))
+			continue;
+
+		/* Set route-map on member */
+		XFREE(MTYPE_BGP_FILTER_NAME, member->allowas_in_rmap[afi][safi].name);
+		member->allowas_in_rmap[afi][safi].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
+		member->allowas_in_rmap[afi][safi].rmap = route_map_lookup_by_name(name);
+
+		/* Set flags on member */
+		SET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
+
+		if (origin) {
+			SET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN);
+			member->allowas_in[afi][safi] = 0;
+		} else {
+			UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN);
+			member->allowas_in[afi][safi] = allow_num;
+		}
+
+		peer_on_policy_change(member, afi, safi, 0);
+	}
+
+	return 0;
+}
+
+int peer_allowas_in_route_map_unset(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		PEER_STR_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].rmap);
+		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		PEER_ATTR_INHERIT(peer, peer->group, allowas_in[afi][safi]);
+		peer_on_policy_change(peer, afi, safi, 0);
+
+		return 0;
+	}
+
+	/* Otherwise remove configuration from peer. */
+	if (peer->allowas_in_rmap[afi][safi].name)
+		XFREE(MTYPE_BGP_FILTER_NAME, peer->allowas_in_rmap[afi][safi].name);
+	peer->allowas_in_rmap[afi][safi].name = NULL;
+	peer->allowas_in_rmap[afi][safi].rmap = NULL;
+
+	/* Remove flag and configuration from peer. */
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+	peer->allowas_in[afi][safi] = 0;
+	peer_on_policy_change(peer, afi, safi, 0);
+
+	/* Skip peer-group mechanics if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/*
+	 * Remove configuration from all peer-group members, unless
+	 * they are explicitly overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_ALLOWAS_IN))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		if (member->allowas_in_rmap[afi][safi].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, member->allowas_in_rmap[afi][safi].name);
+		member->allowas_in_rmap[afi][safi].name = NULL;
+		member->allowas_in_rmap[afi][safi].rmap = NULL;
+
+		/* Remove flags and configuration on peer-group member. */
+		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
+		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		member->allowas_in[afi][safi] = 0;
 		peer_on_policy_change(member, afi, safi, 0);
 	}

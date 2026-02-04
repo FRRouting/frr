@@ -1162,9 +1162,28 @@ def __create_bgp_unicast_address_family(
 
             if allowas_in:
                 number_occurences = allowas_in.setdefault("number_occurences", {})
+                route_map = allowas_in.setdefault("route_map", None)
+                origin = allowas_in.setdefault("origin", False)
                 del_action = allowas_in.setdefault("delete", False)
 
-                cmd = "{} allowas-in {}".format(neigh_cxt, number_occurences)
+                if route_map:
+                    # allowas-in route-map NAME [<1-10>|origin]
+                    if origin:
+                        cmd = "{} allowas-in route-map {} origin".format(
+                            neigh_cxt, route_map
+                        )
+                    else:
+                        cmd = "{} allowas-in route-map {} {}".format(
+                            neigh_cxt,
+                            route_map,
+                            number_occurences if number_occurences else "",
+                        ).strip()
+                else:
+                    # Standard allowas-in [<1-10>|origin]
+                    if origin:
+                        cmd = "{} allowas-in origin".format(neigh_cxt)
+                    else:
+                        cmd = "{} allowas-in {}".format(neigh_cxt, number_occurences)
 
                 if del_action:
                     cmd = "no {}".format(cmd)

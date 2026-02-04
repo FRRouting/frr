@@ -4750,6 +4750,11 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	    && (strcmp(rmap_name, peer->default_rmap[afi][safi].name) == 0))
 		peer->default_rmap[afi][safi].map = map;
 
+	/* Update allowas-in route-map cache */
+	if (peer->allowas_in_rmap[afi][safi].name &&
+	    (strcmp(rmap_name, peer->allowas_in_rmap[afi][safi].name) == 0))
+		peer->allowas_in_rmap[afi][safi].rmap = map;
+
 	/* Notify BGP conditional advertisement scanner percess */
 	peer->advmap_config_change[afi][safi] = true;
 }
@@ -4800,6 +4805,11 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
 			if (filter->advmap.cname &&
 			    (strcmp(rmap_name, filter->advmap.cname) == 0))
 				filter->advmap.cmap = map;
+
+			/* Update allowas-in route-map cache for peer-group */
+			if (group->conf->allowas_in_rmap[afi][safi].name &&
+			    (strcmp(rmap_name, group->conf->allowas_in_rmap[afi][safi].name) == 0))
+				group->conf->allowas_in_rmap[afi][safi].rmap = map;
 		}
 	}
 }
