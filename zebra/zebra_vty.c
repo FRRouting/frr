@@ -65,7 +65,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, sa
 			    const struct prefix *longer_prefix_p, bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid, bool show_ng,
 			    bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-			    uint16_t ecmp_count, struct route_show_ctx *ctx);
+			    uint16_t ecmp_count, bool failed_only, struct route_show_ctx *ctx);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng);
 static void vty_show_ip_route_summary(struct vty *vty, struct route_table *table,
@@ -851,7 +851,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 bool supernets_only, int type, unsigned short ospf_instance_id,
 				 bool use_json, uint32_t tableid, bool show_ng,
 				 bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-				 uint16_t ecmp_count, struct route_show_ctx *ctx)
+				 uint16_t ecmp_count, bool failed_only, struct route_show_ctx *ctx)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -882,6 +882,9 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 		RNODE_FOREACH_RE (rn, re) {
 			if (use_fib && re != dest->selected_fib)
+				continue;
+
+			if (failed_only && !CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
 				continue;
 
 			if (tag && re->tag != tag)
@@ -955,7 +958,7 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 				 const struct prefix *longer_prefix_p, bool supernets_only,
 				 int type, unsigned short ospf_instance_id, bool show_ng,
 				 bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-				 uint16_t ecmp_count, struct route_show_ctx *ctx)
+				 uint16_t ecmp_count, bool failed_only, struct route_show_ctx *ctx)
 {
 	struct zebra_router_table *zrt;
 	struct rib_table_info *info;
@@ -972,7 +975,7 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 		do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, use_fib, use_json, tag,
 				 longer_prefix_p, supernets_only, type, ospf_instance_id,
 				 zrt->tableid, show_ng, show_nhg_summary, ecmp_gt, ecmp_lt,
-				 ecmp_eq, ecmp_count, ctx);
+				 ecmp_eq, ecmp_count, failed_only, ctx);
 	}
 }
 
@@ -981,7 +984,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, sa
 			    const struct prefix *longer_prefix_p, bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid, bool show_ng,
 			    bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-			    uint16_t ecmp_count, struct route_show_ctx *ctx)
+			    uint16_t ecmp_count, bool failed_only, struct route_show_ctx *ctx)
 {
 	struct route_table *table;
 	struct zebra_vrf *zvrf = NULL;
@@ -1014,7 +1017,8 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, sa
 
 	do_show_route_helper(vty, zvrf, table, afi, safi, use_fib, tag, longer_prefix_p,
 			     supernets_only, type, ospf_instance_id, use_json, tableid, show_ng,
-			     show_nhg_summary, ecmp_gt, ecmp_lt, ecmp_eq, ecmp_count, ctx);
+			     show_nhg_summary, ecmp_gt, ecmp_lt, ecmp_eq, ecmp_count, failed_only,
+			     ctx);
 
 	return CMD_SUCCESS;
 }
@@ -1721,7 +1725,7 @@ DEFPY (show_route,
           }]\
           [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
         >\
-       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]] [json$json]",
+       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]] [failed$failed] [json$json]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
@@ -1759,6 +1763,7 @@ DEFPY (show_route,
        "Less than (<)\n"
        "Equal to (=)\n"
        "ECMP count value\n"
+       "Show only failed routes\n"
        JSON_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
@@ -1807,14 +1812,15 @@ DEFPY (show_route,
 							     !!supernets_only, type,
 							     ospf_instance_id, !!ng, true,
 							     !!ecmp_gt, !!ecmp_lt, !!ecmp_eq,
-							     ecmp_count ? ecmp_count : 0, &ctx);
+							     ecmp_count ? ecmp_count : 0, !!failed,
+							     &ctx);
 				else
 					do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, !!fib,
 							 !!json, tag, prefix_str ? prefix : NULL,
 							 !!supernets_only, type, ospf_instance_id,
 							 table, false, true, !!ecmp_gt, !!ecmp_lt,
 							 !!ecmp_eq, ecmp_count ? ecmp_count : 0,
-							 &ctx);
+							 !!failed, &ctx);
 			}
 			if (json)
 				vty_json_close(vty, first_vrf_json);
@@ -1838,13 +1844,13 @@ DEFPY (show_route,
 						     prefix_str ? prefix : NULL, !!supernets_only,
 						     type, ospf_instance_id, !!ng, true, !!ecmp_gt,
 						     !!ecmp_lt, !!ecmp_eq,
-						     ecmp_count ? ecmp_count : 0, &ctx);
+						     ecmp_count ? ecmp_count : 0, !!failed, &ctx);
 			else
 				do_show_ip_route(vty, vrf->name, afi, safi, !!fib, !!json, tag,
 						 prefix_str ? prefix : NULL, !!supernets_only,
 						 type, ospf_instance_id, table, false, true,
 						 !!ecmp_gt, !!ecmp_lt, !!ecmp_eq,
-						 ecmp_count ? ecmp_count : 0, &ctx);
+						 ecmp_count ? ecmp_count : 0, !!failed, &ctx);
 		}
 
 		return CMD_SUCCESS;
@@ -1863,12 +1869,12 @@ DEFPY (show_route,
 				do_show_ip_route_all(vty, zvrf, afi, safi, !!fib, !!json, tag,
 						     prefix_str ? prefix : NULL, !!supernets_only,
 						     type, ospf_instance_id, !!ng, false, false,
-						     false, false, 0, &ctx);
+						     false, false, 0, !!failed, &ctx);
 			else
 				do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, !!fib, !!json,
 						 tag, prefix_str ? prefix : NULL, !!supernets_only,
 						 type, ospf_instance_id, table, !!ng, false, false,
-						 false, false, 0, &ctx);
+						 false, false, 0, !!failed, &ctx);
 		}
 		if (json)
 			vty_json_close(vty, first_vrf_json);
@@ -1891,12 +1897,12 @@ DEFPY (show_route,
 			do_show_ip_route_all(vty, zvrf, afi, safi, !!fib, !!json, tag,
 					     prefix_str ? prefix : NULL, !!supernets_only, type,
 					     ospf_instance_id, !!ng, false, false, false, false, 0,
-					     &ctx);
+					     !!failed, &ctx);
 		else
 			do_show_ip_route(vty, vrf->name, afi, safi, !!fib, !!json, tag,
 					 prefix_str ? prefix : NULL, !!supernets_only, type,
 					 ospf_instance_id, table, !!ng, false, false, false, false,
-					 0, &ctx);
+					 0, !!failed, &ctx);
 	}
 
 	return CMD_SUCCESS;
