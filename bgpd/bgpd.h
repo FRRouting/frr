@@ -2781,7 +2781,7 @@ extern int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int di
 extern int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct);
 
 extern int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num,
-			       int origin);
+			       bool origin);
 extern int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,

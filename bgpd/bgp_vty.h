@@ -144,6 +144,8 @@ extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 /* Value of 0 means show all information */
 #define VTY_BGP_PEER_SHOW_GR_INFO (1 << 0)
 
+#define BGP_ALLOWAS_IN_DEFAULT 3
+
 extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

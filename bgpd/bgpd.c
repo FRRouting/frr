@@ -6955,8 +6955,7 @@ void peer_interface_unset(struct peer *peer)
 }
 
 /* Allow-as in.  */
-int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
-			int allow_num, int origin)
+int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num, bool origin)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;

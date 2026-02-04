@@ -9460,7 +9460,7 @@ DEFUN (neighbor_allowas_in,
 	int idx_peer = 1;
 	int idx_number_origin = 3;
 	int ret;
-	int origin = 0;
+	bool origin = false;
 	struct peer *peer;
 	int allow_num = 0;
 
@@ -9469,10 +9469,10 @@ DEFUN (neighbor_allowas_in,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (argc <= idx_number_origin)
-		allow_num = 3;
+		allow_num = BGP_ALLOWAS_IN_DEFAULT;
 	else {
 		if (argv[idx_number_origin]->type == WORD_TKN)
-			origin = 1;
+			origin = true;
 		else
 			allow_num = atoi(argv[idx_number_origin]->arg);
 	}
@@ -19982,7 +19982,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		if (peer_af_flag_check(peer, afi, safi,
 				       PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
 			vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
-		} else if (peer->allowas_in[afi][safi] == 3) {
+		} else if (peer->allowas_in[afi][safi] == BGP_ALLOWAS_IN_DEFAULT) {
 			vty_out(vty, "  neighbor %s allowas-in\n", addr);
 		} else {
 			vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
