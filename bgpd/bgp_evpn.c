@@ -8289,20 +8289,13 @@ mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
  */
 vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
 {
-	if (!pi->extra)
+	if (!BGP_PATH_INFO_NUM_LABELS(pi))
 		return 0;
 
-	mpls_label_t *label = bgp_evpn_path_info_labels_get_l3vni(pi->extra->labels->label,
-								  pi->extra->labels->num_labels);
-	if (!label) {
-		/* Shouldn't happen: label not found in pi->extra */
-		flog_err(EC_BGP_PATH_WITHOUT_LABEL,
-			 "%s: path_info without label stack, label=%p, num_labels=%d", __func__,
-			 pi->extra->labels->label, pi->extra->labels->num_labels);
-		return 0;
-	}
-
-	return label2vni(label);
+	return label2vni(
+		bgp_evpn_path_info_labels_get_l3vni(pi->extra->labels->label,
+						    pi->extra->labels
+							    ->num_labels));
 }
 
 /*
