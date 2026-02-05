@@ -3671,6 +3671,36 @@ EVPN BUM Handling
    When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
    VNI or globally.
 
+
+.. _bgp-evpn-downstream-vni:
+
+EVPN Downstream VNI
+^^^^^^^^^^^^^^^^^^^
+
+EVPN Downstream VNI is a feature that allows the destination (egress) VTEP to
+dictate which VNI the source (ingress) VTEP should use when sending traffic to it
+destined to a certain IP-VRF. This allows easy building of flexible VPN topologies.
+
+Without EVPN Downstream VNI, you must painstakingly configure the same VNI for all
+relevant VRFs across all devices.
+
+With Downstream VNI, the "destination" VNI is simply extracted from the advertised routes
+(MPLS Label 2 Route Type 2, MPLS Label for Route Type 5).
+
+Imagine a scenario where you have hundreds of VRFs and want to leak routes between them.
+
+Without Downstream VNI, you would have to configure all VRFs that you might want to leak from
+on all devices, and you would have to make sure to use the same VNI per VRF across all devices.
+This is a recipe for misconfiguration and operational complexity.
+
+With Downstream VNI, you can simply configure import Route Targets on the VRFs you want to leak to
+(and of course the export Route Targets on the VRFs you want to leak from),
+and the destination VNI will be automatically extracted from the imported routes
+and used as the source VNI for sending traffic to the destination IP-VRF.
+
+Note that in FRR, Downstream VNI requires the use of single VXLAN devices (SVD)
+for the dataplane and will not work with traditional VXLAN devices.
+
 .. _bgp-evpn-ip-vrf-route-targets:
 
 EVPN IP-VRF Route Targets
