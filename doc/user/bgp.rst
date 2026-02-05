@@ -2141,9 +2141,17 @@ Configuring Peers
 
 .. clicmd:: neighbor PEER advertisement-interval (0-600)
 
-   Setup the minimum route advertisement interval(mrai) for the
-   peer in question.  This number is between 0 and 600 seconds,
+   Setup the minimum route advertisement interval(MRAI) for the
+   peer in question. This number is between 0 and 600 seconds,
    with the default advertisement interval being 0.
+
+.. note::
+
+   If the conditional advertisement feature is enabled, the advertisement-interval
+   value (MRAI) will be ignored during the conditional advertisement phase.
+
+   This is because the conditional advertisement feature has its own timers to
+   trigger the advertisement/scanning of desired routes.
 
 .. clicmd:: neighbor PEER timers (0-65535) (0-65535)
 
