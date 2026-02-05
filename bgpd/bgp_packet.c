@@ -444,8 +444,22 @@ void bgp_generate_updgrp_packets(struct event *event)
 	    || bgp_update_delay_active(peer->bgp))
 		return;
 
-	if (peer->connection->t_routeadv)
+	/* If the MRAI timer is running and we have conditional advertisement
+	 * configured, send the updates only after the MRAI timer expires unless
+	 * we have pending conditional advertisements.
+	 * Pending conditional advertisements are indicated by the conditional
+	 * advertisement timer which is set when conditional advertisement
+	 * processing is done and routes needs to be conditionally advertised or
+	 * withdrawn.
+	 */
+	if (peer->connection->t_routeadv && !CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING))
 		return;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING)) {
+		if (peer->connection->t_routeadv && bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP: Pending conditional advertisement, ignoring MRAI timer",
+				   peer);
+	}
 
 	/*
 	 * Since the following is a do while loop
@@ -454,14 +468,17 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 */
 	if (connection->obuf->count >= bm->outq_limit) {
 		bgp_write_proceed_actions(peer);
+		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 		return;
 	}
 
 	/* If a GR restarter, we have to wait till path-selection
 	 * is complete.
 	 */
-	if (!peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart())
+	if (!peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart()) {
+		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 		return;
+	}
 
 	do {
 		enum bgp_af_index index;
@@ -597,6 +614,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 
 	if (generated)
 		bgp_writes_on(connection);
+
+	UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 
 	bgp_write_proceed_actions(peer);
 }

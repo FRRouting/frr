@@ -1894,6 +1894,7 @@ struct peer {
 /* received extended format encoding for OPEN message */
 #define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
 #define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
+#define PEER_STATUS_COND_ADV_PENDING		 (1U << 7) /* conditional advertisement pending */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];

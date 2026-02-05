@@ -8783,8 +8783,20 @@ DEFPY (bgp_condadv_period,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp->condition_check_period =
-		no ? DEFAULT_CONDITIONAL_ROUTES_POLL_TIME : period;
+	struct listnode *node, *nnode = NULL;
+	struct peer *peer = NULL;
+
+	if (no) {
+		if (bgp->condition_check_period == DEFAULT_CONDITIONAL_ROUTES_POLL_TIME)
+			return CMD_SUCCESS;
+
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+			UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
+
+		bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
+	} else {
+		bgp->condition_check_period = period;
+	}
 
 	return CMD_SUCCESS;
 }

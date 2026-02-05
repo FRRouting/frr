@@ -221,6 +221,8 @@ static void bgp_conditional_adv_timer(struct event *t)
 			    || !filter->advmap.amap || !filter->advmap.cmap)
 				continue;
 
+			SET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
+
 			if (!peer->advmap_config_change[afi][safi] &&
 			    !advmap_table_changed)
 				continue;
