@@ -3412,6 +3412,11 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
+.. clicmd:: import vrf route-map NAME
+
+   Specifies an optional route-map to be applied to routes imported using the
+   ``import vrf VRFNAME`` shortcut syntax.
+
 .. clicmd:: bgp retain route-target all
 
 It is possible to retain or not VPN prefixes that are not imported by local
