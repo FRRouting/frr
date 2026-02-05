@@ -7318,14 +7318,24 @@ static struct bgp_dest *clearing_dest_helper(struct bgp_table *table,
 						   inner_p ? " inner" : "", buf);
 				}
 
-				dest = bgp_node_get(table, pfx);
+				dest = bgp_node_lookup(table, pfx);
+				if (!dest) {
+					dest = bgp_table_get_next(table, pfx);
+					/* Moving to a new RD: the inner
+					 * resume info is stale, clear it
+					 * so we start from the top of
+					 * the new RD's inner table.
+					 */
+					UNSET_FLAG(cinfo->flags, (BGP_CLEARING_INFO_FLAG_INNER |
+								  BGP_CLEARING_INFO_FLAG_RESUME));
+				}
 			} else {
 				/* Normal prefix: look for next prefix */
 				if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL))
 					zlog_debug("%s: using RESUME%s prefix %pFX", __func__,
 						   inner_p ? " inner" : "", pfx);
 
-				dest = bgp_node_get(table, pfx);
+				dest = bgp_table_get_next(table, pfx);
 			}
 		}
 	}
