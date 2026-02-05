@@ -3583,17 +3583,42 @@ For more information, see ``man 7 arp``.
 Enabling EVPN
 ^^^^^^^^^^^^^
 
-EVPN should be enabled on the BGP instance corresponding to the VRF acting as
-the underlay for the VXLAN tunneling. In most circumstances this will be the
-default VRF. The command to enable EVPN for a BGP instance is
-``advertise-all-vni`` which lives under ``address-family l2vpn evpn``:
+EVPN is a technology for network virtualization. Virtualization is
+fundamentally the act of dividing a physical resource into multiple
+virtual resources, e.g. for the purpose of isolation or sharing a
+single physical resource among tenants.
 
-.. code-block:: frr
+For networking and EVPN, the physical resource is the network fabric
+that actually transports the traffic. This is called the *underlay*.
+The virtual network resources, like a "virtual VLAN", that are provided
+running layered on top of the underlay are called *overlay*.
 
-   router bgp 65001
-    !
-    address-family l2vpn evpn
-     advertise-all-vni
+EVPN works by encapsulating overlay traffic, e.g. in VXLAN, MPLS, or
+GENEVE, when it is transported over the underlay. All encapsulations
+attach some kind of label to overlay traffic, which allows underlay
+devices to identify into which virtual network resource a packet belongs.
+
+In order to activate EVPN in FRR, you must tell FRR which (IP-)VRF
+should be used for the underlay. This will typically be the default VRF.
+There can only be a single underlay VRF.
+
+Specifying ``advertise-all-vni``, which lives under
+``address-family l2vpn evpn``, marks this VRF as underlay and enables EVPN.
+
+.. clicmd:: advertise-all-vni
+
+   This command defines the VRF to be used as the underlay for EVPN-VXLAN and enables EVPN. In most
+   cases, this will be the default VRF. It is mandatory for EVPN-VXLAN to work.
+
+   This command can only be configured in a single VRF. Any attempt to configure it in multiple VRFs
+   will be rejected (e.g. ``% Please unconfigure EVPN in VRF default``)
+
+   .. code-block:: frr
+
+      router bgp 65001
+       !
+       address-family l2vpn evpn
+        advertise-all-vni
 
 A more comprehensive configuration example can be found in the :ref:`evpn` page.
 
