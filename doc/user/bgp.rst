@@ -3374,7 +3374,7 @@ address-family:
    source or destination VRF's.
 
    This shortcut syntax mode is not compatible with the explicit
-   `import vpn` and `export vpn` statements for the two VRF's involved.
+   ``import vpn`` and ``export vpn`` statements for the two VRF's involved.
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
@@ -3561,7 +3561,7 @@ Ethernet Virtual Network - EVPN
 -------------------------------
 
 Note: When using EVPN features and if you have a large number of hosts, make
-sure to adjust the size of the arp  neighbor cache to avoid neighbor table
+sure to adjust the size of the arp neighbor cache to avoid neighbor table
 overflow and/or excessive garbage collection. On Linux, the size of the table
 and garbage collection frequency can be controlled via the following
 sysctl configurations:
@@ -3629,13 +3629,13 @@ EVPN BUM Handling
 
 .. clicmd:: flooding <disable|head-end-replication>
 
-This command controls the handling of BUM (Broadcast, Unknown Unicast, and
-Multicast) traffic in EVPN. The default behavior is to flood BUM traffic
-across all VTEPs in the EVPN instance. BUM traffic can also be handled
-per VNI by entering ``vni`` context first.
+   This command controls the handling of BUM (Broadcast, Unknown Unicast, and
+   Multicast) traffic in EVPN. The default behavior is to flood BUM traffic
+   across all VTEPs in the EVPN instance. BUM traffic can also be handled
+   per VNI by entering ``vni`` context first.
 
-When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
-VNI or globally.
+   When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
+   VNI or globally.
 
 .. _bgp-evpn-ip-vrf-route-targets:
 
@@ -3763,21 +3763,22 @@ the same behavior of using same next-hop and RMAC values.
 
 .. clicmd:: advertise-pip [ip <addr> [mac <addr>]]
 
-Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
-parameters.
+   Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
+   parameters.
 
 EVPN advertise-svi-ip
 ^^^^^^^^^^^^^^^^^^^^^
 Typically, the SVI IP address is reused on VTEPs across multiple racks. However,
 if you have unique SVI IP addresses that you want to be reachable you can use the
-advertise-svi-ip option. This option advertises the SVI IP/MAC address as a type-2
-route and eliminates the need for any flooding over VXLAN to reach the IP from a
-remote VTEP.
+advertise-svi-ip option.
 
 .. clicmd:: advertise-svi-ip
 
-Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
-at the same time.
+   This option advertises the SVI IP/MAC address as a type-2
+   route and eliminates the need for any flooding over VXLAN to reach the IP from a
+   remote VTEP.
+   Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
+   at the same time.
 
 .. _bgp-evpn-overlay-index-gateway-ip:
 
