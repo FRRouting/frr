@@ -3688,6 +3688,43 @@ EVPN IP-VRF Route Targets
        exit-address-family
       exit
 
+.. _bgp-evpn-mac-vrf-l2vni-route-targets:
+
+EVPN MAC-VRF / L2VNI Route Targets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: route-target <import|export|both> <RTLIST>
+
+   Configure the route-target set for EVPN for a specific MAC-VRF / L2VNI (the
+   terms are equivalent for FRR, because FRR uses the "VLAN-Based Service Interface" model,
+   as defined in :rfc:`9135`)
+
+   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN)``. Note that it is currently
+   not possible to manually define wildcard imports like for IP-VRFs, and there is also no explicit
+   ``auto`` option like for IP-VRFs.
+
+   This command can only be executed in the BGP underlay (IP-)VRF
+   (i.e. the VRF that has ``advertise-all-vni`` configured).
+   Any attempt to configure this command in a different (IP-)VRF will be rejected
+   (``This command is only supported under EVPN VRF``).
+
+   EVPN attaches the MAC-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`).
+
+   Example:
+
+   .. code-block:: frr
+
+      router bgp 64496
+       !
+       address-family l2vpn evpn
+        advertise-all-vni
+        vni 1234
+         route-target import 555:666
+         route-target export 1234:1234
+        exit-vni
+       exit-address-family
+      exit
+
 
 .. _bgp-evpn-advertise-pip:
 
