@@ -6481,6 +6481,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 		if (pi->peer != peer)
 			continue;
 
+<<<<<<< HEAD
 		/* graceful restart STALE flag set. */
 		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
 		      && peer->nsf[afi][safi])
@@ -6488,6 +6489,19 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 				   PEER_STATUS_ENHANCED_REFRESH))
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+=======
+		/* graceful restart STALE flag set.
+		 * Note: we intentionally do NOT check for BGP_PATH_STALE here.
+		 * A route may already be stale (e.g., from a prior enhanced
+		 * refresh or GR cycle). We must preserve it for the current GR
+		 * cycle rather than deleting it - deletion of stale routes is
+		 * handled by bgp_clear_stale_route() when the appropriate
+		 * timer expires.
+		 */
+		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT) && peer->nsf[afi][safi]) ||
+		     CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH)) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE)) {
+>>>>>>> 968ccc471 (bgpd: fix premature deletion of already-stale routes during GR clearing)
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_STALE);
 		else {
 			/* If this is an EVPN route, process for
@@ -6708,14 +6722,16 @@ static void clearing_clear_one_pi(struct bgp_table *table, struct bgp_dest *dest
 	afi = table->afi;
 	safi = table->safi;
 
-	/* graceful restart STALE flag set. */
-	if (((CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT)
-	      && pi->peer->nsf[afi][safi])
-	     || CHECK_FLAG(pi->peer->af_sflags[afi][safi],
-			   PEER_STATUS_ENHANCED_REFRESH))
-	    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
-	    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE)) {
-
+	/* graceful restart STALE flag set.
+	 * Note: we intentionally do NOT check for BGP_PATH_STALE here.
+	 * A route may already be stale (e.g., from a prior enhanced refresh
+	 * or GR cycle). We must preserve it for the current GR cycle rather
+	 * than deleting it - deletion of stale routes is handled by
+	 * bgp_clear_stale_route() when the appropriate timer expires.
+	 */
+	if (((CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT) && pi->peer->nsf[afi][safi]) ||
+	     CHECK_FLAG(pi->peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH)) &&
+	    !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE)) {
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_STALE);
 	} else {
 		/* If this is an EVPN route, process for un-import. */
