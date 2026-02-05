@@ -557,7 +557,7 @@ void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi)
 }
 
 static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, struct bgp *bgp,
-						    bool detail)
+						    bool detail, json_object *json_list)
 {
 	struct bgp_srv6_per_locator_cache_head *tree;
 	struct bgp_srv6_per_locator_cache *iter;
@@ -567,12 +567,63 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 	struct bgp_path_info *path;
 	struct bgp *bgp_path;
 	struct bgp_table *table;
+	json_object *json;
+	json_object *json_path_list, *json_path_entry;
 
-	vty_out(vty, "Current BGP SRv6 locator per route-map for %s, VRF %s\n", afi2str(afi),
-		bgp->name_pretty);
+	if (json_list == NULL)
+		vty_out(vty, "Current BGP SRv6 locator per route-map for %s, VRF %s\n",
+			afi2str(afi), bgp->name_pretty);
 
 	tree = &bgp->srv6_locators_per_routemap[afi];
 	frr_each (bgp_srv6_per_locator_cache, tree, iter) {
+		if (json_list) {
+			json = json_object_new_object();
+
+			json_object_string_add(json, "afi", afi2str(afi));
+			json_object_int_add(json, "pathCount", iter->path_count);
+			json_object_string_add(json, "lastUpdate",
+					       time_to_string(iter->last_update, buf));
+			if (iter->sid_policy.tovpn_sid) {
+				json_object_string_addf(json, "sid", "%pI6",
+							iter->sid_policy.tovpn_sid);
+				json_object_int_add(json, "label",
+						    iter->sid_policy.tovpn_sid_transpose_label);
+			}
+			json_object_array_add(json_list, json);
+
+			if (!detail)
+				continue;
+
+			json_path_list = json_object_new_array();
+
+			LIST_FOREACH (path, &(iter->paths), srv6_vpn.srv6_locator_thread) {
+				dest = path->net;
+				table = bgp_dest_table(dest);
+				assert(dest && table);
+				afi = family2afi(bgp_dest_get_prefix(dest)->family);
+				safi = table->safi;
+				bgp_path = table->bgp;
+				json_path_entry = json_object_new_object();
+				json_object_string_add(json_path_entry, "afi", afi2str(afi));
+				json_object_string_add(json_path_entry, "safi", safi2str(safi));
+				json_object_string_addf(json_path_entry, "prefix", "%pBD", dest);
+				json_object_string_add(json_path_entry, "bgpName",
+						       bgp_path->name_pretty);
+				json_object_string_addf(json_path_entry, "flags", "%08x",
+							path->flags);
+				if (dest->pdest)
+					json_object_string_addf(json_path_entry,
+								"route-distinguisher",
+								BGP_RD_AS_FORMAT(bgp->asnotation),
+								(struct prefix_rd *)
+									bgp_dest_get_prefix(
+										dest->pdest));
+				json_object_array_add(json_path_list, json_path_entry);
+			}
+			json_object_object_add(json, "pathList", json_path_list);
+			continue;
+		}
+
 		vty_out(vty, " %s, #paths %u\n", iter->locator_name, iter->path_count);
 		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
 		if (iter->sid_policy.tovpn_sid)
@@ -604,16 +655,18 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 }
 
 DEFPY(show_bgp_srv6_locator_per_routemap, show_bgp_srv6_locator_per_routemap_cmd,
-      "show bgp [<view|vrf> VIEWVRFNAME] locator-routemap [detail]",
+      "show bgp [<view|vrf> VIEWVRFNAME] locator-routemap [detail] [json]",
       SHOW_STR BGP_STR BGP_INSTANCE_HELP_STR
       "BGP locator from route-map table\n"
-      "Show detailed information\n")
+      "Show detailed information\n"
+      JSON_STR)
 {
 	int idx = 0;
 	char *vrf = NULL;
 	struct bgp *bgp;
 	bool detail = false;
 	int afi;
+	struct json_object *json_list = NULL;
 
 	if (argv_find(argv, argc, "vrf", &idx)) {
 		vrf = argv[++idx]->arg;
@@ -627,8 +680,15 @@ DEFPY(show_bgp_srv6_locator_per_routemap, show_bgp_srv6_locator_per_routemap_cmd
 	if (argv_find(argv, argc, "detail", &idx))
 		detail = true;
 
+	if (use_json(argc, argv))
+		json_list = json_object_new_array();
+
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
-		show_bgp_srv6_locators_per_routemap_afi(vty, afi, bgp, detail);
+		show_bgp_srv6_locators_per_routemap_afi(vty, afi, bgp, detail, json_list);
+
+	if (json_list)
+		vty_json(vty, json_list);
+
 	return CMD_SUCCESS;
 }
 
