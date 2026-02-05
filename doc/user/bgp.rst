@@ -3612,19 +3612,48 @@ per VNI by entering ``vni`` context first.
 When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
 VNI or globally.
 
-.. _bgp-evpn-l3-route-targets:
+.. _bgp-evpn-ip-vrf-route-targets:
 
-EVPN L3 Route-Targets
-^^^^^^^^^^^^^^^^^^^^^
+EVPN IP-VRF Route Targets
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. clicmd:: route-target <import|export|both> <RTLIST|auto>
 
-Modify the route-target set for EVPN advertised type-2/type-5 routes.
-RTLIST is a list of any of matching
-``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)`` where ``*`` indicates wildcard
-matching for the AS number. It will be set to match any AS number. This is
-useful in datacenter deployments with Downstream VNI. ``auto`` is used to
-retain the autoconfigure that is default behavior for L3 RTs.
+   Configure the route-target set for EVPN for a specific IP-VRF.
+   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``
+   where ``*`` indicates wildcard matching for the AS number
+   (match any AS number). Note that wildcards are only applicable to ``import``.
+   Wildcards are particularly useful in eBGP-datacenter deployments, where each leaf
+   has a unique AS number and thus uses a unique export-RT, but you want to import all routes
+   from all leaves.
+   ``auto`` is used to retain the autoconfigure that is default behavior for L3 RTs.
+
+   Route Targets allow building flexible VPN topologies by controlling the leaking of
+   routes between different IP-VRFs. For EVPN, the Downstream VNI feature makes this easy.
+
+   When using ``import``, the configured RTs are used to select which
+   EVPN VPN routes are imported into the local VRF. When using
+   ``export``, the configured RTs are attached to advertised EVPN VPN routes. Note that
+   the ``export`` Route Target only applies to routes that are originated in the local VRF.
+   An export Route Target will not be attached to routes that are learned from other peers
+   that are re-advertised. ``both`` applies the list to import and export.
+
+   EVPN attaches the IP-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`)
+   and Route Type 5 (IP Prefix Route, :rfc:`9136`).
+
+   Example:
+
+   .. code-block:: frr
+
+      router bgp 64496 vrf myvrf
+       !
+       address-family l2vpn evpn
+        route-target import 64496:12344
+        route-target import 64496:17000000
+        route-target export 64496:12344
+       exit-address-family
+      exit
+
 
 .. _bgp-evpn-advertise-pip:
 
