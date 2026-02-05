@@ -174,11 +174,11 @@ typedef enum {
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
 	ZEBRA_DUPLICATE_ADDR_DETECTION,
-	ZEBRA_PW_ADD,
-	ZEBRA_PW_DELETE,
-	ZEBRA_PW_SET,
-	ZEBRA_PW_UNSET,
-	ZEBRA_PW_STATUS_UPDATE,
+	ZEBRA_L2VPN_SVC_ADD,
+	ZEBRA_L2VPN_SVC_DELETE,
+	ZEBRA_L2VPN_SVC_SET,
+	ZEBRA_L2VPN_SVC_UNSET,
+	ZEBRA_L2VPN_SVC_STATUS_UPDATE,
 	ZEBRA_RULE_ADD,
 	ZEBRA_RULE_DELETE,
 	ZEBRA_RULE_NOTIFY_OWNER,
@@ -689,7 +689,7 @@ struct zapi_sr_policy {
 	int status;
 };
 
-struct zapi_pw {
+struct zapi_l2vpn_svc {
 	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	int type;
@@ -702,7 +702,7 @@ struct zapi_pw {
 	uint8_t protocol;
 };
 
-struct zapi_pw_status {
+struct zapi_l2vpn_status {
 	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	uint32_t status;
@@ -1197,10 +1197,9 @@ extern int zapi_label_chunk_free_notify_decode(struct stream *s,
 					       uint32_t *label,
 					       uint32_t *label_size);
 
-extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
-					      int command, struct zapi_pw *pw);
-extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
-				       struct zapi_pw_status *pw);
+extern enum zclient_send_status zebra_send_l2vpn(struct zclient *zclient, int command,
+						 struct zapi_l2vpn_svc *l2vpn);
+extern int zebra_read_l2vpn_status_update(ZAPI_CALLBACK_ARGS, struct zapi_l2vpn_status *l2vpn);
 
 extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 						   struct zapi_route *);

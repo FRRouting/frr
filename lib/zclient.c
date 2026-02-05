@@ -4440,8 +4440,8 @@ stream_failure:
 	return -1;
 }
 
-enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
-				       struct zapi_pw *pw)
+enum zclient_send_status zebra_send_l2vpn(struct zclient *zclient, int command,
+					  struct zapi_l2vpn_svc *l2vpn)
 {
 	struct stream *s;
 
@@ -4450,20 +4450,20 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
-	stream_write(s, pw->ifname, IFNAMSIZ);
-	stream_putl(s, pw->ifindex);
+	stream_write(s, l2vpn->ifname, IFNAMSIZ);
+	stream_putl(s, l2vpn->ifindex);
 
 	/* Put type */
-	stream_putl(s, pw->type);
+	stream_putl(s, l2vpn->type);
 
 	/* Put nexthop */
-	stream_putl(s, pw->af);
-	switch (pw->af) {
+	stream_putl(s, l2vpn->af);
+	switch (l2vpn->af) {
 	case AF_INET:
-		stream_put_in_addr(s, &pw->nexthop.ipv4);
+		stream_put_in_addr(s, &l2vpn->nexthop.ipv4);
 		break;
 	case AF_INET6:
-		stream_write(s, (uint8_t *)&pw->nexthop.ipv6, 16);
+		stream_write(s, (uint8_t *)&l2vpn->nexthop.ipv6, 16);
 		break;
 	default:
 		flog_err(EC_LIB_ZAPI_ENCODE, "%s: unknown af", __func__);
@@ -4471,14 +4471,14 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	}
 
 	/* Put labels */
-	stream_putl(s, pw->local_label);
-	stream_putl(s, pw->remote_label);
+	stream_putl(s, l2vpn->local_label);
+	stream_putl(s, l2vpn->remote_label);
 
 	/* Put flags */
-	stream_putc(s, pw->flags);
+	stream_putc(s, l2vpn->flags);
 
 	/* Protocol specific fields */
-	stream_write(s, &pw->data, sizeof(union l2vpn_protocol_fields));
+	stream_write(s, &l2vpn->data, sizeof(union l2vpn_protocol_fields));
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -4487,19 +4487,19 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 }
 
 /*
- * Receive PW status update from Zebra and send it to LDE process.
+ * Receive L2VPN status update from Zebra and send it to LDE process.
  */
-int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
+int zebra_read_l2vpn_status_update(ZAPI_CALLBACK_ARGS, struct zapi_l2vpn_status *l2vpn)
 {
 	struct stream *s;
 
-	memset(pw, 0, sizeof(struct zapi_pw_status));
+	memset(l2vpn, 0, sizeof(struct zapi_l2vpn_status));
 	s = zclient->ibuf;
 
 	/* Get data. */
-	stream_get(pw->ifname, s, IFNAMSIZ);
-	STREAM_GETL(s, pw->ifindex);
-	STREAM_GETL(s, pw->status);
+	stream_get(l2vpn->ifname, s, IFNAMSIZ);
+	STREAM_GETL(s, l2vpn->ifindex);
+	STREAM_GETL(s, l2vpn->status);
 
 	return 0;
 stream_failure:

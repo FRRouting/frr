@@ -82,7 +82,7 @@ void
 l2vpn_pw_init(struct l2vpn_svc *pw)
 {
 	struct fec	 fec;
-	struct zapi_pw	 zpw;
+	struct zapi_l2vpn_svc	 zpw;
 
 	l2vpn_pw_reset(pw);
 
@@ -98,7 +98,7 @@ void
 l2vpn_pw_exit(struct l2vpn_svc *pw)
 {
 	struct fec	 fec;
-	struct zapi_pw	 zpw;
+	struct zapi_l2vpn_svc	 zpw;
 
 	l2vpn_svc_fec(pw, &fec);
 	lde_kernel_remove(&fec, AF_INET, (union g_addr *)&pw->lsr_id, 0, 0, 0);
@@ -352,7 +352,7 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 }
 
 int
-l2vpn_pw_status_update(struct zapi_pw_status *zpw)
+l2vpn_pw_status_update(struct zapi_l2vpn_status *zpw)
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_svc	*pw = NULL;

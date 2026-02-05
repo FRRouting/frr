@@ -646,23 +646,21 @@ dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
 			  struct zebra_nhlfe *nhlfe);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
-/* Accessors for pseudowire information */
-mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx);
-mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
-uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
-void dplane_ctx_set_pw_status(struct zebra_dplane_ctx *ctx, int status);
-const union g_addr *dplane_ctx_get_pw_dest(
+/* Accessors for L2VPN service information */
+mpls_label_t dplane_ctx_get_l2vpn_svc_local_label(const struct zebra_dplane_ctx *ctx);
+mpls_label_t dplane_ctx_get_l2vpn_svc_remote_label(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_l2vpn_svc_type(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_l2vpn_svc_af(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_l2vpn_svc_flags(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_l2vpn_svc_status(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_l2vpn_svc_status(struct zebra_dplane_ctx *ctx, int status);
+const union g_addr *dplane_ctx_get_l2vpn_svc_dest(const struct zebra_dplane_ctx *ctx);
+const union l2vpn_protocol_fields *
+dplane_ctx_get_l2vpn_svc_proto(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_nhg(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_primary_nhg(
 	const struct zebra_dplane_ctx *ctx);
-const union l2vpn_protocol_fields *dplane_ctx_get_pw_proto(const struct zebra_dplane_ctx *ctx);
-const struct nexthop_group *dplane_ctx_get_pw_nhg(
-	const struct zebra_dplane_ctx *ctx);
-const struct nexthop_group *
-dplane_ctx_get_pw_primary_nhg(const struct zebra_dplane_ctx *ctx);
-const struct nexthop_group *
-dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_backup_nhg(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for interface information */
 uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
@@ -879,10 +877,10 @@ enum zebra_dplane_result dplane_lsp_notif_update(struct zebra_lsp *lsp,
 						 struct zebra_dplane_ctx *ctx);
 
 /*
- * Enqueue pseudowire operations for the dataplane.
+ * Enqueue L2VPN service operations for the dataplane.
  */
-enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
-enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
+enum zebra_dplane_result dplane_l2vpn_svc_install(struct zebra_l2vpn_svc *svc);
+enum zebra_dplane_result dplane_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *svc);
 
 enum zebra_dplane_result
 dplane_intf_mpls_modify_state(const struct interface *ifp, const bool set);

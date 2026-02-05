@@ -171,7 +171,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 		rnh->seqno = 0;
 		rnh->afi = afi;
 		rnh->safi = safi;
-		rnh->zebra_pseudowire_list = list_new();
+		rnh->zebra_l2vpn_svc_list = list_new();
 		route_lock_node(rn);
 		rn->info = rnh;
 		rnh->node = rn;
@@ -214,7 +214,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	zebra_rnh_remove_from_routing_table(rnh);
 	rnh->flags |= ZEBRA_NHT_DELETED;
 	list_delete(&rnh->client_list);
-	list_delete(&rnh->zebra_pseudowire_list);
+	list_delete(&rnh->zebra_l2vpn_svc_list);
 
 	zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
 	table = zvrf->table[family2afi(rnh->resolved_route.family)][rnh->safi];
@@ -240,7 +240,7 @@ static void zebra_delete_rnh(struct rnh *rnh)
 	struct route_node *rn;
 
 	if (!list_isempty(rnh->client_list)
-	    || !list_isempty(rnh->zebra_pseudowire_list))
+	    || !list_isempty(rnh->zebra_l2vpn_svc_list))
 		return;
 
 	if ((rnh->flags & ZEBRA_NHT_DELETED) || !(rn = rnh->node))
@@ -321,8 +321,7 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 	}
 }
 
-void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
-				   bool *nht_exists)
+void zebra_register_rnh_l2vpn_svc(vrf_id_t vrf_id, struct zebra_l2vpn_svc *svc, bool *nht_exists)
 {
 	struct prefix nh;
 	struct rnh *rnh;
@@ -335,30 +334,29 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 	if (!zvrf)
 		return;
 
-	addr2hostprefix(pw->af, &pw->nexthop, &nh);
+	addr2hostprefix(svc->af, &svc->nexthop, &nh);
 	rnh = zebra_add_rnh(&nh, vrf_id, SAFI_UNICAST, &exists);
 	if (!rnh)
 		return;
 
-	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
-		listnode_add(rnh->zebra_pseudowire_list, pw);
-		pw->rnh = rnh;
-		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1, &nh,
-				   SAFI_UNICAST);
+	if (!listnode_lookup(rnh->zebra_l2vpn_svc_list, svc)) {
+		listnode_add(rnh->zebra_l2vpn_svc_list, svc);
+		svc->rnh = rnh;
+		zebra_evaluate_rnh(zvrf, family2afi(svc->af), 1, &nh, SAFI_UNICAST);
 	} else
 		*nht_exists = true;
 }
 
-void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
+void zebra_deregister_rnh_l2vpn_svc(vrf_id_t vrf_id, struct zebra_l2vpn_svc *svc)
 {
 	struct rnh *rnh;
 
-	rnh = pw->rnh;
+	rnh = svc->rnh;
 	if (!rnh)
 		return;
 
-	listnode_delete(rnh->zebra_pseudowire_list, pw);
-	pw->rnh = NULL;
+	listnode_delete(rnh->zebra_l2vpn_svc_list, svc);
+	svc->rnh = NULL;
 
 	zebra_delete_rnh(rnh);
 }
@@ -822,13 +820,13 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	return _zebra_rnh_resolve_nexthop_entry(zvrf, rn, rnh, prn, NULL);
 }
 
-static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
+static void zebra_rnh_process_l2vpn_svc(vrf_id_t vrfid, struct rnh *rnh)
 {
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(rnh->zebra_pseudowire_list, node, pw))
-		zebra_pw_update(pw);
+	for (ALL_LIST_ELEMENTS_RO(rnh->zebra_l2vpn_svc_list, node, svc))
+		zebra_l2vpn_svc_update(svc);
 }
 
 /* Evaluate one 6pe tracked entry */
@@ -951,8 +949,8 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		zebra_rnh_notify_protocol_clients(zvrf, afi, nrn, rnh, prn,
 						  rnh->state);
 
-		/* Process pseudowires attached to this nexthop */
-		zebra_rnh_process_pseudowires(zvrf->vrf->vrf_id, rnh);
+		/* Process L2VPN service attached to this nexthop */
+		zebra_rnh_process_l2vpn_svc(zvrf->vrf->vrf_id, rnh);
 
 		/* The support (ipv4) route for 6pe changed:
 		 * Update supported route (ipv6)
@@ -1668,7 +1666,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 		}
 	}
 
-	if (!list_isempty(rnh->zebra_pseudowire_list)) {
+	if (!list_isempty(rnh->zebra_l2vpn_svc_list)) {
 		if (json)
 			json_object_boolean_true_add(json_nht,
 						     "zebraPseudowires");

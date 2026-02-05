@@ -230,7 +230,7 @@ void l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status, uint16_t pw
 				uint32_t group_id);
 void l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm);
 void l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm);
-int l2vpn_pw_status_update(struct zapi_pw_status *zpw);
+int l2vpn_pw_status_update(struct zapi_l2vpn_status *zpw);
 void l2vpn_pw_ctl(pid_t pid);
 void l2vpn_binding_ctl(pid_t pid);
 

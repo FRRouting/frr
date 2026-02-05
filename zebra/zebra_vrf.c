@@ -266,7 +266,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* Cleanup Vxlan, MPLS and PW tables. */
 	zebra_vxlan_cleanup_tables(zvrf);
 	zebra_mpls_cleanup_tables(zvrf);
-	zebra_pw_exit_vrf(zvrf);
+	zebra_l2vpn_svc_exit_vrf(zvrf);
 
 	/* Remove link-local IPv4 addresses created for BGP unnumbered peering.
 	 */
@@ -479,7 +479,7 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
-	zebra_pw_init_vrf(zvrf);
+	zebra_l2vpn_svc_init_vrf(zvrf);
 	zvrf->table_id = rt_table_main_id;
 	/* by default table ID is default one */
 

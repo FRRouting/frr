@@ -711,8 +711,7 @@ static void main_dispatch_lde(struct event *thread)
 		case IMSG_KPW_DELETE:
 		case IMSG_KPW_SET:
 		case IMSG_KPW_UNSET:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct zapi_pw))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct zapi_l2vpn_svc))
 				fatalx("invalid size of IMSG_KPWLABEL_CHANGE");
 
 			switch (imsg.hdr.type) {

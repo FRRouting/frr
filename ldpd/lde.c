@@ -471,7 +471,7 @@ static void lde_dispatch_parent(struct event *thread)
 			}
 			break;
 		case IMSG_PW_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct zapi_pw_status))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct zapi_l2vpn_status))
 				fatalx("PW_UPDATE imsg with wrong len");
 
 			if (l2vpn_pw_status_update(imsg.data) != 0)
@@ -784,7 +784,7 @@ void
 lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	 kr;
-	struct zapi_pw	 zpw;
+	struct zapi_l2vpn_svc zpw;
 	struct l2vpn_svc *pw;
 
 	/*
@@ -841,7 +841,7 @@ void
 lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	 kr;
-	struct zapi_pw	 zpw;
+	struct zapi_l2vpn_svc zpw;
 	struct l2vpn_svc *pw;
 
 	switch (fn->fec.type) {

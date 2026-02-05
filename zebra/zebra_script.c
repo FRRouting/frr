@@ -146,23 +146,23 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
-		/* pw*/
+		/* l2vpn_svc*/
 		lua_newtable(L);
 		{
-			lua_pushinteger(L, dplane_ctx_get_pw_type(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_type(ctx));
 			lua_setfield(L, -2, "type");
-			lua_pushinteger(L, dplane_ctx_get_pw_af(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_af(ctx));
 			lua_setfield(L, -2, "af");
-			lua_pushinteger(L, dplane_ctx_get_pw_status(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_status(ctx));
 			lua_setfield(L, -2, "status");
-			lua_pushinteger(L, dplane_ctx_get_pw_flags(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_flags(ctx));
 			lua_setfield(L, -2, "flags");
-			lua_pushinteger(L, dplane_ctx_get_pw_local_label(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_local_label(ctx));
 			lua_setfield(L, -2, "local_label");
-			lua_pushinteger(L, dplane_ctx_get_pw_remote_label(ctx));
+			lua_pushinteger(L, dplane_ctx_get_l2vpn_svc_remote_label(ctx));
 			lua_setfield(L, -2, "remote_label");
 		}
-		lua_setfield(L, -2, "pw");
+		lua_setfield(L, -2, "l2vpn_svc");
 		break;
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:

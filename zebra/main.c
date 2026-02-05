@@ -257,7 +257,7 @@ void zebra_finalize(struct event *dummy)
 
 	zebra_mpls_terminate();
 
-	zebra_pw_terminate();
+	zebra_l2vpn_svc_terminate();
 
 	zebra_srv6_terminate();
 

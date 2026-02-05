@@ -62,7 +62,7 @@ extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
 				  struct prefix *p, vrf_id_t vrf_id);
 extern int zsend_interface_link_params(struct zserv *zclient,
 				       struct interface *ifp);
-extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);
+extern int zsend_l2vpn_svc_update(struct zserv *client, struct zebra_l2vpn_svc *svc);
 extern int zsend_route_notify_owner(const struct route_node *rn,
 				    struct route_entry *re,
 				    enum zapi_route_notify_owner note,

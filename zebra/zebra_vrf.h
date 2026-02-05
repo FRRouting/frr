@@ -104,9 +104,9 @@ struct zebra_vrf {
 	/* MPLS Segment Routing Global block */
 	struct mpls_srgb mpls_srgb;
 
-	/* Pseudowires. */
-	struct zebra_pw_head pseudowires;
-	struct zebra_static_pw_head static_pseudowires;
+	/* L2VPN Service */
+	struct zebra_l2vpn_svc_head l2vpn_svc_tree;
+	struct zstatic_l2vpn_svc_head static_l2vpn_svc_tree;
 
 	struct zebra_rmap proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
 	struct zebra_rmap nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* Zebra PW code
+/* Zebra L2VPN Service (VPLS, VPWS) code
  * Copyright (C) 2016 Volta Networks, Inc.
+ * Copyright 2026 6WIND S.A.
  */
 
 #include <zebra.h>
@@ -21,200 +22,198 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pw.h"
 
-DEFINE_MTYPE_STATIC(LIB, PW, "Pseudowire");
+DEFINE_MTYPE_STATIC(LIB, L2VPN_SVC, "L2VPN Service");
 
-DEFINE_QOBJ_TYPE(zebra_pw);
+DEFINE_QOBJ_TYPE(zebra_l2vpn_svc);
 
-DEFINE_HOOK(pw_install, (struct zebra_pw * pw), (pw));
-DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
+DEFINE_HOOK(l2vpn_svc_install, (struct zebra_l2vpn_svc *svc), (svc));
+DEFINE_HOOK(l2vpn_svc_uninstall, (struct zebra_l2vpn_svc *svc), (svc));
 
 #define MPLS_NO_LABEL MPLS_INVALID_LABEL
 
-static int zebra_pw_enabled(struct zebra_pw *);
-static void zebra_pw_install(struct zebra_pw *);
-static void zebra_pw_uninstall(struct zebra_pw *);
-static void zebra_pw_install_retry(struct event *thread);
-static int zebra_pw_check_reachability(const struct zebra_pw *);
-static void zebra_pw_update_status(struct zebra_pw *, int);
+static int zebra_l2vpn_svc_enabled(struct zebra_l2vpn_svc *);
+static void zebra_l2vpn_svc_install(struct zebra_l2vpn_svc *);
+static void zebra_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *);
+static void zebra_l2vpn_svc_install_retry(struct event *thread);
+static int zebra_l2vpn_svc_check_reachability(const struct zebra_l2vpn_svc *);
+static void zebra_l2vpn_svc_update_status(struct zebra_l2vpn_svc *, int);
 
-static inline int zebra_pw_compare(const struct zebra_pw *a,
-				   const struct zebra_pw *b)
+static inline int l2vpn_svc_compare(const struct zebra_l2vpn_svc *a,
+				    const struct zebra_l2vpn_svc *b)
 {
 	return (strcmp(a->ifname, b->ifname));
 }
 
-RB_GENERATE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare)
-RB_GENERATE(zebra_static_pw_head, zebra_pw, static_pw_entry, zebra_pw_compare)
+RB_GENERATE(zebra_l2vpn_svc_head, zebra_l2vpn_svc, svc_entry, l2vpn_svc_compare)
+RB_GENERATE(zstatic_l2vpn_svc_head, zebra_l2vpn_svc, static_svc_entry, l2vpn_svc_compare)
 
-struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
-			      uint8_t protocol, struct zserv *client)
+struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *ifname,
+					    uint8_t protocol, struct zserv *client)
 {
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: adding pseudowire %s protocol %s",
-			   zvrf_id(zvrf), ifname, zebra_route_string(protocol));
+		zlog_debug("%u: adding L2VPN %s protocol %s", zvrf_id(zvrf), ifname,
+			   zebra_route_string(protocol));
 
-	pw = XCALLOC(MTYPE_PW, sizeof(*pw));
-	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
-	pw->protocol = protocol;
-	pw->vrf_id = zvrf_id(zvrf);
-	pw->client = client;
-	pw->status = PW_NOT_FORWARDING;
-	pw->local_label = MPLS_NO_LABEL;
-	pw->remote_label = MPLS_NO_LABEL;
-	pw->flags = F_PSEUDOWIRE_CWORD;
+	svc = XCALLOC(MTYPE_L2VPN_SVC, sizeof(*svc));
+	strlcpy(svc->ifname, ifname, sizeof(svc->ifname));
+	svc->protocol = protocol;
+	svc->vrf_id = zvrf_id(zvrf);
+	svc->client = client;
+	svc->status = PW_NOT_FORWARDING;
+	svc->local_label = MPLS_NO_LABEL;
+	svc->remote_label = MPLS_NO_LABEL;
+	svc->flags = F_PSEUDOWIRE_CWORD;
 
-	RB_INSERT(zebra_pw_head, &zvrf->pseudowires, pw);
-	if (pw->protocol == ZEBRA_ROUTE_STATIC) {
-		RB_INSERT(zebra_static_pw_head, &zvrf->static_pseudowires, pw);
-		QOBJ_REG(pw, zebra_pw);
+	RB_INSERT(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree, svc);
+	if (svc->protocol == ZEBRA_ROUTE_STATIC) {
+		RB_INSERT(zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree, svc);
+		QOBJ_REG(svc, zebra_l2vpn_svc);
 	}
 
-	return pw;
+	return svc;
 }
 
-void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
+void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: deleting pseudowire %s protocol %s", pw->vrf_id,
-			   pw->ifname, zebra_route_string(pw->protocol));
+		zlog_debug("%u: deleting L2VPN %s protocol %s", svc->vrf_id, svc->ifname,
+			   zebra_route_string(svc->protocol));
 
 	/* remove nexthop tracking */
-	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
+	zebra_deregister_rnh_l2vpn_svc(svc->vrf_id, svc);
 
 	/* uninstall */
-	if (pw->status == PW_FORWARDING) {
-		hook_call(pw_uninstall, pw);
-		dplane_pw_uninstall(pw);
+	if (svc->status == PW_FORWARDING) {
+		hook_call(l2vpn_svc_uninstall, svc);
+		dplane_l2vpn_svc_uninstall(svc);
 	}
 
-	EVENT_OFF(pw->install_retry_timer);
+	EVENT_OFF(svc->install_retry_timer);
 
 	/* unlink and release memory */
-	RB_REMOVE(zebra_pw_head, &zvrf->pseudowires, pw);
-	if (pw->protocol == ZEBRA_ROUTE_STATIC)
-		RB_REMOVE(zebra_static_pw_head, &zvrf->static_pseudowires, pw);
+	RB_REMOVE(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree, svc);
+	if (svc->protocol == ZEBRA_ROUTE_STATIC)
+		RB_REMOVE(zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree, svc);
 
-	XFREE(MTYPE_PW, pw);
+	XFREE(MTYPE_L2VPN_SVC, svc);
 }
 
-void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
-		     union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,
-		     uint8_t flags, union l2vpn_protocol_fields *data)
+void zebra_l2vpn_svc_change(struct zebra_l2vpn_svc *svc, ifindex_t ifindex, int type, int af,
+			    union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,
+			    uint8_t flags, union l2vpn_protocol_fields *data)
 {
-	pw->ifindex = ifindex;
-	pw->type = type;
-	pw->af = af;
-	pw->nexthop = *nexthop;
-	pw->local_label = local_label;
-	pw->remote_label = remote_label;
-	pw->flags = flags;
-	pw->data = *data;
+	svc->ifindex = ifindex;
+	svc->type = type;
+	svc->af = af;
+	svc->nexthop = *nexthop;
+	svc->local_label = local_label;
+	svc->remote_label = remote_label;
+	svc->flags = flags;
+	svc->data = *data;
 
-	if (zebra_pw_enabled(pw)) {
+	if (zebra_l2vpn_svc_enabled(svc)) {
 		bool nht_exists;
-		zebra_register_rnh_pseudowire(pw->vrf_id, pw, &nht_exists);
+		zebra_register_rnh_l2vpn_svc(svc->vrf_id, svc, &nht_exists);
 		if (nht_exists)
-			zebra_pw_update(pw);
+			zebra_l2vpn_svc_update(svc);
 	} else {
-		if (pw->protocol == ZEBRA_ROUTE_STATIC)
-			zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
-		zebra_pw_uninstall(pw);
+		if (svc->protocol == ZEBRA_ROUTE_STATIC)
+			zebra_deregister_rnh_l2vpn_svc(svc->vrf_id, svc);
+		zebra_l2vpn_svc_uninstall(svc);
 	}
 }
 
-struct zebra_pw *zebra_pw_find(struct zebra_vrf *zvrf, const char *ifname)
+struct zebra_l2vpn_svc *zebra_l2vpn_svc_find(struct zebra_vrf *zvrf, const char *ifname)
 {
-	struct zebra_pw pw;
-	strlcpy(pw.ifname, ifname, sizeof(pw.ifname));
-	return (RB_FIND(zebra_pw_head, &zvrf->pseudowires, &pw));
+	struct zebra_l2vpn_svc svc;
+	strlcpy(svc.ifname, ifname, sizeof(svc.ifname));
+	return RB_FIND(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree, &svc);
 }
 
-static int zebra_pw_enabled(struct zebra_pw *pw)
+static int zebra_l2vpn_svc_enabled(struct zebra_l2vpn_svc *svc)
 {
-	if (pw->protocol == ZEBRA_ROUTE_STATIC) {
-		if (pw->local_label == MPLS_NO_LABEL
-		    || pw->remote_label == MPLS_NO_LABEL || pw->af == AF_UNSPEC)
+	if (svc->protocol == ZEBRA_ROUTE_STATIC) {
+		if (svc->local_label == MPLS_NO_LABEL || svc->remote_label == MPLS_NO_LABEL ||
+		    svc->af == AF_UNSPEC)
 			return 0;
 		return 1;
 	} else
-		return pw->enabled;
+		return svc->enabled;
 }
 
-void zebra_pw_update(struct zebra_pw *pw)
+void zebra_l2vpn_svc_update(struct zebra_l2vpn_svc *svc)
 {
-	if (zebra_pw_check_reachability(pw) < 0) {
-		zebra_pw_uninstall(pw);
+	if (zebra_l2vpn_svc_check_reachability(svc) < 0) {
+		zebra_l2vpn_svc_uninstall(svc);
 		/* wait for NHT and try again later */
 	} else {
 		/*
 		 * Install or reinstall the pseudowire (e.g. to update
 		 * parameters like the nexthop or the use of the control word).
 		 */
-		event_cancel(&pw->install_retry_timer);
-		zebra_pw_install(pw);
+		event_cancel(&svc->install_retry_timer);
+		zebra_l2vpn_svc_install(svc);
 	}
 }
 
-static void zebra_pw_install(struct zebra_pw *pw)
+static void zebra_l2vpn_svc_install(struct zebra_l2vpn_svc *svc)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: installing pseudowire %s protocol %s",
-			   pw->vrf_id, pw->ifname,
-			   zebra_route_string(pw->protocol));
+		zlog_debug("%u: installing pseudowire %s protocol %s", svc->vrf_id, svc->ifname,
+			   zebra_route_string(svc->protocol));
 
-	hook_call(pw_install, pw);
-	if (dplane_pw_install(pw) == ZEBRA_DPLANE_REQUEST_FAILURE) {
+	hook_call(l2vpn_svc_install, svc);
+	if (dplane_l2vpn_svc_install(svc) == ZEBRA_DPLANE_REQUEST_FAILURE) {
 		/*
 		 * Realistically this is never going to fail passing
-		 * the pw data down to the dplane.  The failure modes
+		 * the l2vpn service data down to the dplane.  The failure modes
 		 * look like impossible events but we still return
 		 * on them.... but I don't see a real clean way to remove this
 		 * at all.  So let's just leave the retry mechanism for
 		 * the moment.
 		 */
-		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
+		zebra_l2vpn_svc_install_failure(svc, PW_NOT_FORWARDING);
 		return;
 	}
 }
 
-static void zebra_pw_uninstall(struct zebra_pw *pw)
+static void zebra_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *svc)
 {
-	if (pw->status != PW_FORWARDING)
+	if (svc->status != PW_FORWARDING)
 		return;
 
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: uninstalling pseudowire %s protocol %s",
-			   pw->vrf_id, pw->ifname,
-			   zebra_route_string(pw->protocol));
+		zlog_debug("%u: uninstalling L2vpn %s protocol %s", svc->vrf_id, svc->ifname,
+			   zebra_route_string(svc->protocol));
 
 	/* ignore any possible error */
-	hook_call(pw_uninstall, pw);
-	dplane_pw_uninstall(pw);
+	hook_call(l2vpn_svc_uninstall, svc);
+	dplane_l2vpn_svc_uninstall(svc);
 }
 
-void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx)
+void zebra_l2vpn_svc_handle_dplane_results(struct zebra_dplane_ctx *ctx)
 {
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 	struct zebra_vrf *vrf;
 	enum dplane_op_e op;
 
 	op = dplane_ctx_get_op(ctx);
 
 	vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
-	pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
+	svc = zebra_l2vpn_svc_find(vrf, dplane_ctx_get_ifname(ctx));
 
-	if (!pw)
+	if (!svc)
 		return;
 
 	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
-		zebra_pw_install_failure(pw, dplane_ctx_get_pw_status(ctx));
+		zebra_l2vpn_svc_install_failure(svc, dplane_ctx_get_l2vpn_svc_status(ctx));
 	} else {
-		if (op == DPLANE_OP_PW_INSTALL && pw->status != PW_FORWARDING)
-			zebra_pw_update_status(pw, PW_FORWARDING);
-		else if (op == DPLANE_OP_PW_UNINSTALL && zebra_pw_enabled(pw))
-			zebra_pw_update_status(pw, PW_NOT_FORWARDING);
+		if (op == DPLANE_OP_PW_INSTALL && svc->status != PW_FORWARDING)
+			zebra_l2vpn_svc_update_status(svc, PW_FORWARDING);
+		else if (op == DPLANE_OP_PW_UNINSTALL && zebra_l2vpn_svc_enabled(svc))
+			zebra_l2vpn_svc_update_status(svc, PW_NOT_FORWARDING);
 	}
 }
 
@@ -224,36 +223,35 @@ void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx)
  * to retry the installation later. This function can be called by an external
  * agent that performs the pseudowire installation in an asynchronous way.
  */
-void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
+void zebra_l2vpn_svc_install_failure(struct zebra_l2vpn_svc *svc, int svcstatus)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug(
-			"%u: failed installing pseudowire %s, scheduling retry in %u seconds",
-			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
+		zlog_debug("%u: failed installing L2VPN %s, scheduling retry in %u seconds",
+			   svc->vrf_id, svc->ifname, L2VPN_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
-	EVENT_OFF(pw->install_retry_timer);
-	event_add_timer(zrouter.master, zebra_pw_install_retry, pw,
-			PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
+	EVENT_OFF(svc->install_retry_timer);
+	event_add_timer(zrouter.master, zebra_l2vpn_svc_install_retry, svc,
+			L2VPN_INSTALL_RETRY_INTERVAL, &svc->install_retry_timer);
 
-	zebra_pw_update_status(pw, pwstatus);
+	zebra_l2vpn_svc_update_status(svc, svcstatus);
 }
 
-static void zebra_pw_install_retry(struct event *thread)
+static void zebra_l2vpn_svc_install_retry(struct event *thread)
 {
-	struct zebra_pw *pw = EVENT_ARG(thread);
+	struct zebra_l2vpn_svc *svc = EVENT_ARG(thread);
 
-	zebra_pw_install(pw);
+	zebra_l2vpn_svc_install(svc);
 }
 
-static void zebra_pw_update_status(struct zebra_pw *pw, int status)
+static void zebra_l2vpn_svc_update_status(struct zebra_l2vpn_svc *svc, int status)
 {
-	pw->status = status;
-	if (pw->client)
-		zsend_pw_update(pw->client, pw);
+	svc->status = status;
+	if (svc->client)
+		zsend_l2vpn_svc_update(svc->client, svc);
 }
 
-static int zebra_pw_check_reachability_strict(const struct zebra_pw *pw,
+static int zebra_pw_check_reachability_strict(const struct zebra_l2vpn_svc *svc,
 					      struct route_entry *re)
 {
 	const struct nexthop *nexthop;
@@ -308,15 +306,14 @@ done:
 
 	if (fail_p || !found_p) {
 		if (IS_ZEBRA_DEBUG_PW)
-			zlog_debug("%s: unlabeled route for %s",
-				   __func__, pw->ifname);
+			zlog_debug("%s: unlabeled route for %s", __func__, svc->ifname);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int zebra_pw_check_reachability(const struct zebra_pw *pw)
+static int zebra_l2vpn_svc_check_reachability(const struct zebra_l2vpn_svc *svc)
 {
 	struct route_entry *re;
 	const struct nexthop *nexthop;
@@ -326,18 +323,16 @@ static int zebra_pw_check_reachability(const struct zebra_pw *pw)
 	/* TODO: consider GRE/L2TPv3 tunnels in addition to MPLS LSPs */
 
 	/* Find route to the remote end of the pseudowire */
-	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
-		       &pw->nexthop, NULL);
+	re = rib_match(family2afi(svc->af), SAFI_UNICAST, svc->vrf_id, &svc->nexthop, NULL);
 	if (!re) {
 		if (IS_ZEBRA_DEBUG_PW)
-			zlog_debug("%s: no route found for %s", __func__,
-				   pw->ifname);
+			zlog_debug("%s: no route found for %s", __func__, svc->ifname);
 		return -1;
 	}
 
 	/* Stricter checking for some OSes (OBSD, e.g.) */
 	if (mpls_pw_reach_strict)
-		return zebra_pw_check_reachability_strict(pw, re);
+		return zebra_pw_check_reachability_strict(svc, re);
 
 	/* There must be at least one installed labelled nexthop;
 	 * look at primary and backup fib lists, in case there's been
@@ -377,56 +372,56 @@ static int zebra_pw_check_reachability(const struct zebra_pw *pw)
 	if (!found_p) {
 		if (IS_ZEBRA_DEBUG_PW)
 			zlog_debug("%s: unlabeled route for %s",
-				   __func__, pw->ifname);
+				   __func__, svc->ifname);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int zebra_pw_client_close(struct zserv *client)
+static int zebra_l2vpn_svc_client_close(struct zserv *client)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw, *tmp;
+	struct zebra_l2vpn_svc *svc, *tmp;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
-		RB_FOREACH_SAFE (pw, zebra_pw_head, &zvrf->pseudowires, tmp) {
-			if (pw->client != client)
+		RB_FOREACH_SAFE (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree, tmp) {
+			if (svc->client != client)
 				continue;
-			zebra_pw_del(zvrf, pw);
+			zebra_l2vpn_svc_del(zvrf, svc);
 		}
 	}
 
 	return 0;
 }
 
-static void zebra_pw_init(void)
+static void zebra_l2vpn_svc_init(void)
 {
-	hook_register(zserv_client_close, zebra_pw_client_close);
+	hook_register(zserv_client_close, zebra_l2vpn_svc_client_close);
 }
 
-void zebra_pw_init_vrf(struct zebra_vrf *zvrf)
+void zebra_l2vpn_svc_init_vrf(struct zebra_vrf *zvrf)
 {
-	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
-	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
+	RB_INIT(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree);
+	RB_INIT(zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree);
 }
 
-void zebra_pw_exit_vrf(struct zebra_vrf *zvrf)
+void zebra_l2vpn_svc_exit_vrf(struct zebra_vrf *zvrf)
 {
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
-	while (!RB_EMPTY(zebra_pw_head, &zvrf->pseudowires)) {
-		pw = RB_ROOT(zebra_pw_head, &zvrf->pseudowires);
+	while (!RB_EMPTY(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree)) {
+		svc = RB_ROOT(zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree);
 
-		zebra_pw_del(zvrf, pw);
+		zebra_l2vpn_svc_del(zvrf, svc);
 	}
 }
 
-void zebra_pw_terminate(void)
+void zebra_l2vpn_svc_terminate(void)
 {
-	hook_unregister(zserv_client_close, zebra_pw_client_close);
+	hook_unregister(zserv_client_close, zebra_l2vpn_svc_client_close);
 }
 
 DEFUN_NOSH (pseudowire_if,
@@ -436,7 +431,7 @@ DEFUN_NOSH (pseudowire_if,
 	    "Pseudowire name\n")
 {
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 	const char *ifname;
 	int idx = 0;
 
@@ -445,15 +440,15 @@ DEFUN_NOSH (pseudowire_if,
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
 
-	pw = zebra_pw_find(zvrf, ifname);
-	if (pw && pw->protocol != ZEBRA_ROUTE_STATIC) {
+	svc = zebra_l2vpn_svc_find(zvrf, ifname);
+	if (svc && svc->protocol != ZEBRA_ROUTE_STATIC) {
 		vty_out(vty, "%% Pseudowire is not static\n");
 		return CMD_WARNING;
 	}
 
-	if (!pw)
-		pw = zebra_pw_add(zvrf, ifname, ZEBRA_ROUTE_STATIC, NULL);
-	VTY_PUSH_CONTEXT(PW_NODE, pw);
+	if (!svc)
+		svc = zebra_l2vpn_svc_add(zvrf, ifname, ZEBRA_ROUTE_STATIC, NULL);
+	VTY_PUSH_CONTEXT(PW_NODE, svc);
 
 	return CMD_SUCCESS;
 }
@@ -466,7 +461,7 @@ DEFUN (no_pseudowire_if,
        "Pseudowire name\n")
 {
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 	const char *ifname;
 	int idx = 0;
 
@@ -475,13 +470,13 @@ DEFUN (no_pseudowire_if,
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
 
-	pw = zebra_pw_find(zvrf, ifname);
-	if (pw) {
-		if (pw->protocol != ZEBRA_ROUTE_STATIC) {
+	svc = zebra_l2vpn_svc_find(zvrf, ifname);
+	if (svc) {
+		if (svc->protocol != ZEBRA_ROUTE_STATIC) {
 			vty_out(vty, "%% Pseudowire is not static\n");
 			return CMD_WARNING;
 		}
-		zebra_pw_del(zvrf, pw);
+		zebra_l2vpn_svc_del(zvrf, svc);
 	}
 
 	return CMD_SUCCESS;
@@ -498,7 +493,7 @@ DEFUN (pseudowire_labels,
        "Remote pseudowire label\n"
        "Remote pseudowire label\n")
 {
-	VTY_DECLVAR_CONTEXT(zebra_pw, pw);
+	VTY_DECLVAR_CONTEXT(zebra_l2vpn_svc, svc);
 	int idx = 0;
 	mpls_label_t local_label, remote_label;
 
@@ -512,8 +507,8 @@ DEFUN (pseudowire_labels,
 		remote_label = atoi(argv[idx + 1]->arg);
 	}
 
-	zebra_pw_change(pw, pw->ifindex, pw->type, pw->af, &pw->nexthop,
-			local_label, remote_label, pw->flags, &pw->data);
+	zebra_l2vpn_svc_change(svc, svc->ifindex, svc->type, svc->af, &svc->nexthop, local_label,
+			       remote_label, svc->flags, &svc->data);
 
 	return CMD_SUCCESS;
 }
@@ -526,7 +521,7 @@ DEFUN (pseudowire_neighbor,
        "IPv4 address\n"
        "IPv6 address\n")
 {
-	VTY_DECLVAR_CONTEXT(zebra_pw, pw);
+	VTY_DECLVAR_CONTEXT(zebra_l2vpn_svc, svc);
 	int idx = 0;
 	const char *address;
 	int af;
@@ -549,9 +544,8 @@ DEFUN (pseudowire_neighbor,
 		}
 	}
 
-	zebra_pw_change(pw, pw->ifindex, pw->type, af, &nexthop,
-			pw->local_label, pw->remote_label, pw->flags,
-			&pw->data);
+	zebra_l2vpn_svc_change(svc, svc->ifindex, svc->type, af, &nexthop, svc->local_label,
+			       svc->remote_label, svc->flags, &svc->data);
 
 	return CMD_SUCCESS;
 }
@@ -564,7 +558,7 @@ DEFUN (pseudowire_control_word,
        "Exclude control-word in pseudowire packets\n"
        "Include control-word in pseudowire packets\n")
 {
-	VTY_DECLVAR_CONTEXT(zebra_pw, pw);
+	VTY_DECLVAR_CONTEXT(zebra_l2vpn_svc, svc);
 	int idx = 0;
 	uint8_t flags = 0;
 
@@ -576,8 +570,8 @@ DEFUN (pseudowire_control_word,
 			flags = F_PSEUDOWIRE_CWORD;
 	}
 
-	zebra_pw_change(pw, pw->ifindex, pw->type, pw->af, &pw->nexthop,
-			pw->local_label, pw->remote_label, flags, &pw->data);
+	zebra_l2vpn_svc_change(svc, svc->ifindex, svc->type, svc->af, &svc->nexthop,
+			       svc->local_label, svc->remote_label, flags, &svc->data);
 
 	return CMD_SUCCESS;
 }
@@ -590,32 +584,30 @@ DEFUN (show_pseudowires,
        "Pseudowires\n")
 {
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", "Interface", "Neighbor",
 		"Labels", "Protocol", "Status");
 
-	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
+	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
 		char buf_nbr[INET6_ADDRSTRLEN];
 		char buf_labels[64];
 
-		inet_ntop(pw->af, &pw->nexthop, buf_nbr, sizeof(buf_nbr));
+		inet_ntop(svc->af, &svc->nexthop, buf_nbr, sizeof(buf_nbr));
 
-		if (pw->local_label != MPLS_NO_LABEL
-		    && pw->remote_label != MPLS_NO_LABEL)
-			snprintf(buf_labels, sizeof(buf_labels), "%u/%u",
-				 pw->local_label, pw->remote_label);
+		if (svc->local_label != MPLS_NO_LABEL && svc->remote_label != MPLS_NO_LABEL)
+			snprintf(buf_labels, sizeof(buf_labels), "%u/%u", svc->local_label,
+				 svc->remote_label);
 		else
 			snprintf(buf_labels, sizeof(buf_labels), "-");
 
-		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", pw->ifname,
-			(pw->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
-			zebra_route_string(pw->protocol),
-			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
-				? "UP"
-				: "DOWN");
+		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", svc->ifname,
+			(svc->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
+			zebra_route_string(svc->protocol),
+			(zebra_l2vpn_svc_enabled(svc) && svc->status == PW_FORWARDING) ? "UP"
+										       : "DOWN");
 	}
 
 	return CMD_SUCCESS;
@@ -624,39 +616,35 @@ DEFUN (show_pseudowires,
 static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 {
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 	struct route_entry *re;
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
+	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
 		char buf_nbr[INET6_ADDRSTRLEN];
 		char buf_nh[100];
 
-		vty_out(vty, "Interface: %s\n", pw->ifname);
-		inet_ntop(pw->af, &pw->nexthop, buf_nbr, sizeof(buf_nbr));
-		vty_out(vty, "  Neighbor: %s\n",
-			(pw->af != AF_UNSPEC) ? buf_nbr : "-");
-		if (pw->local_label != MPLS_NO_LABEL)
-			vty_out(vty, "  Local Label: %u\n", pw->local_label);
+		vty_out(vty, "Interface: %s\n", svc->ifname);
+		inet_ntop(svc->af, &svc->nexthop, buf_nbr, sizeof(buf_nbr));
+		vty_out(vty, "  Neighbor: %s\n", (svc->af != AF_UNSPEC) ? buf_nbr : "-");
+		if (svc->local_label != MPLS_NO_LABEL)
+			vty_out(vty, "  Local Label: %u\n", svc->local_label);
 		else
 			vty_out(vty, "  Local Label: %s\n", "-");
-		if (pw->remote_label != MPLS_NO_LABEL)
-			vty_out(vty, "  Remote Label: %u\n", pw->remote_label);
+		if (svc->remote_label != MPLS_NO_LABEL)
+			vty_out(vty, "  Remote Label: %u\n", svc->remote_label);
 		else
 			vty_out(vty, "  Remote Label: %s\n", "-");
-		vty_out(vty, "  Protocol: %s\n",
-			zebra_route_string(pw->protocol));
-		if (pw->protocol == ZEBRA_ROUTE_LDP)
-			vty_out(vty, "  VC-ID: %u\n", pw->data.ldp.pwid);
+		vty_out(vty, "  Protocol: %s\n", zebra_route_string(svc->protocol));
+		if (svc->protocol == ZEBRA_ROUTE_LDP)
+			vty_out(vty, "  VC-ID: %u\n", svc->data.ldp.pwid);
 		vty_out(vty, "  Status: %s \n",
-			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
-			? "Up"
-			: "Down");
-		re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
-			       &pw->nexthop, NULL);
+			(zebra_l2vpn_svc_enabled(svc) && svc->status == PW_FORWARDING) ? "Up"
+										       : "Down");
+		re = rib_match(family2afi(svc->af), SAFI_UNICAST, svc->vrf_id, &svc->nexthop, NULL);
 		if (re == NULL)
 			continue;
 
@@ -692,45 +680,43 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 	}
 }
 
-static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
+static void vty_show_mpls_pseudowire(struct zebra_l2vpn_svc *svc, json_object *json_svcs)
 {
 	struct route_entry *re;
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg;
 	char buf_nbr[INET6_ADDRSTRLEN];
 	char buf_nh[100];
-	json_object *json_pw = NULL;
+	json_object *json_svc = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_nexthops = NULL;
 
 	json_nexthops = json_object_new_array();
-	json_pw = json_object_new_object();
+	json_svc = json_object_new_object();
 
-	json_object_string_add(json_pw, "interface", pw->ifname);
-	if (pw->af == AF_UNSPEC)
-		json_object_string_add(json_pw, "neighbor", "-");
+	json_object_string_add(json_svc, "interface", svc->ifname);
+	if (svc->af == AF_UNSPEC)
+		json_object_string_add(json_svc, "neighbor", "-");
 	else {
-		inet_ntop(pw->af, &pw->nexthop, buf_nbr, sizeof(buf_nbr));
-		json_object_string_add(json_pw, "neighbor", buf_nbr);
+		inet_ntop(svc->af, &svc->nexthop, buf_nbr, sizeof(buf_nbr));
+		json_object_string_add(json_svc, "neighbor", buf_nbr);
 	}
-	if (pw->local_label != MPLS_NO_LABEL)
-		json_object_int_add(json_pw, "localLabel", pw->local_label);
+	if (svc->local_label != MPLS_NO_LABEL)
+		json_object_int_add(json_svc, "localLabel", svc->local_label);
 	else
-		json_object_string_add(json_pw, "localLabel", "-");
-	if (pw->remote_label != MPLS_NO_LABEL)
-		json_object_int_add(json_pw, "remoteLabel", pw->remote_label);
+		json_object_string_add(json_svc, "localLabel", "-");
+	if (svc->remote_label != MPLS_NO_LABEL)
+		json_object_int_add(json_svc, "remoteLabel", svc->remote_label);
 	else
-		json_object_string_add(json_pw, "remoteLabel", "-");
-	json_object_string_add(json_pw, "protocol",
-			       zebra_route_string(pw->protocol));
-	if (pw->protocol == ZEBRA_ROUTE_LDP)
-		json_object_int_add(json_pw, "vcId", pw->data.ldp.pwid);
-	json_object_string_add(
-		json_pw, "Status",
-		(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING) ? "Up"
-								      : "Down");
-	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
-		       &pw->nexthop, NULL);
+		json_object_string_add(json_svc, "remoteLabel", "-");
+	json_object_string_add(json_svc, "protocol", zebra_route_string(svc->protocol));
+	if (svc->protocol == ZEBRA_ROUTE_LDP)
+		json_object_int_add(json_svc, "vcId", svc->data.ldp.pwid);
+	json_object_string_add(json_svc, "Status",
+			       (zebra_l2vpn_svc_enabled(svc) && svc->status == PW_FORWARDING)
+				       ? "Up"
+				       : "Down");
+	re = rib_match(family2afi(svc->af), SAFI_UNICAST, svc->vrf_id, &svc->nexthop, NULL);
 	if (re == NULL)
 		goto done;
 
@@ -772,25 +758,25 @@ static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
 
 done:
 
-	json_object_object_add(json_pw, "nexthops", json_nexthops);
-	json_object_array_add(json_pws, json_pw);
+	json_object_object_add(json_svc, "nexthops", json_nexthops);
+	json_object_array_add(json_svcs, json_svc);
 }
 
 static void vty_show_mpls_pseudowire_detail_json(struct vty *vty)
 {
 	json_object *json = NULL;
-	json_object *json_pws = NULL;
+	json_object *json_svcs = NULL;
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	json = json_object_new_object();
-	json_pws = json_object_new_array();
-	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
-		vty_show_mpls_pseudowire(pw, json_pws);
+	json_svcs = json_object_new_array();
+	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
+		vty_show_mpls_pseudowire(svc, json_svcs);
 	}
-	json_object_object_add(json, "pw", json_pws);
+	json_object_object_add(json, "svc", json_svcs);
 	vty_json(vty, json);
 }
 
@@ -811,33 +797,32 @@ DEFUN(show_pseudowires_detail, show_pseudowires_detail_cmd,
 }
 
 /* Pseudowire configuration write function. */
-static int zebra_pw_config(struct vty *vty)
+static int zebra_l2vpn_svc_config(struct vty *vty)
 {
 	int write = 0;
 	struct zebra_vrf *zvrf;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-	RB_FOREACH (pw, zebra_static_pw_head, &zvrf->static_pseudowires) {
-		vty_out(vty, "pseudowire %s\n", pw->ifname);
-		if (pw->local_label != MPLS_NO_LABEL
-		    && pw->remote_label != MPLS_NO_LABEL)
-			vty_out(vty, " mpls label local %u remote %u\n",
-				pw->local_label, pw->remote_label);
+	RB_FOREACH (svc, zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree) {
+		vty_out(vty, "pseudowire %s\n", svc->ifname);
+		if (svc->local_label != MPLS_NO_LABEL && svc->remote_label != MPLS_NO_LABEL)
+			vty_out(vty, " mpls label local %u remote %u\n", svc->local_label,
+				svc->remote_label);
 		else
 			vty_out(vty,
 				" ! Incomplete config, specify the static MPLS labels\n");
 
-		if (pw->af != AF_UNSPEC) {
+		if (svc->af != AF_UNSPEC) {
 			char buf[INET6_ADDRSTRLEN];
-			inet_ntop(pw->af, &pw->nexthop, buf, sizeof(buf));
+			inet_ntop(svc->af, &svc->nexthop, buf, sizeof(buf));
 			vty_out(vty, " neighbor %s\n", buf);
 		} else
 			vty_out(vty,
 				" ! Incomplete config, specify a neighbor address\n");
 
-		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
+		if (!(svc->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude\n");
 
 		vty_out(vty, "exit\n");
@@ -848,13 +833,13 @@ static int zebra_pw_config(struct vty *vty)
 	return write;
 }
 
-static int zebra_pw_config(struct vty *vty);
+static int zebra_l2vpn_svc_config(struct vty *vty);
 static struct cmd_node pw_node = {
 	.name = "pw",
 	.node = PW_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pw)# ",
-	.config_write = zebra_pw_config,
+	.config_write = zebra_l2vpn_svc_config,
 };
 
 void zebra_pw_vty_init(void)
@@ -871,5 +856,5 @@ void zebra_pw_vty_init(void)
 	install_element(VIEW_NODE, &show_pseudowires_cmd);
 	install_element(VIEW_NODE, &show_pseudowires_detail_cmd);
 
-	zebra_pw_init();
+	zebra_l2vpn_svc_init();
 }

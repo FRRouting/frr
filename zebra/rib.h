@@ -57,8 +57,8 @@ struct rnh {
 	struct prefix resolved_route;
 	struct list *client_list;
 
-	/* pseudowires dependent on this nh */
-	struct list *zebra_pseudowire_list;
+	/* L2VPN service dependent on this nh */
+	struct list *zebra_l2vpn_svc_list;
 
 	struct route_node *node;
 

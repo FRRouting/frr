@@ -679,14 +679,14 @@ struct ldpd_conf	*parse_config(char *);
 int cmdline_symset(char *s);
 
 /* kroute.c */
-void pw2zpw(struct l2vpn_svc *pw, struct zapi_pw *zpw);
+void pw2zpw(struct l2vpn_svc *pw, struct zapi_l2vpn_svc *zpw);
 void kif_redistribute(const char *ifname);
 int kr_change(struct kroute *kr);
 int kr_delete(struct kroute *kr);
-int kmpw_add(struct zapi_pw *zpw);
-int kmpw_del(struct zapi_pw *zpw);
-int kmpw_set(struct zapi_pw *zpw);
-int kmpw_unset(struct zapi_pw *zpw);
+int kmpw_add(struct zapi_l2vpn_svc *zpw);
+int kmpw_del(struct zapi_l2vpn_svc *zpw);
+int kmpw_set(struct zapi_l2vpn_svc *zpw);
+int kmpw_unset(struct zapi_l2vpn_svc *zpw);
 
 /* util.c */
 uint8_t mask2prefixlen(in_addr_t ina);

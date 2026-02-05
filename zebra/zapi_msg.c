@@ -1164,16 +1164,16 @@ int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 }
 
 /*
- * Function used by Zebra to send a PW status update to LDP daemon
+ * Function used by Zebra to send a L2VPN svc status update to LDP daemon
  */
-int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
+int zsend_l2vpn_svc_update(struct zserv *client, struct zebra_l2vpn_svc *svc)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, IFNAMSIZ);
-	stream_putl(s, pw->ifindex);
-	stream_putl(s, pw->status);
+	zclient_create_header(s, ZEBRA_L2VPN_SVC_STATUS_UPDATE, svc->vrf_id);
+	stream_write(s, svc->ifname, IFNAMSIZ);
+	stream_putl(s, svc->ifindex);
+	stream_putl(s, svc->status);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3375,7 +3375,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 	}
 }
 
-static void zread_pseudowire(ZAPI_HANDLER_ARGS)
+static void zread_l2vpn_service(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	char ifname[IFNAMSIZ];
@@ -3388,7 +3388,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	uint8_t flags;
 	union l2vpn_protocol_fields data;
 	uint8_t protocol;
-	struct zebra_pw *pw;
+	struct zebra_l2vpn_svc *svc;
 
 	/* Get input stream.  */
 	s = msg;
@@ -3415,10 +3415,10 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	STREAM_GET(&data, s, sizeof(data));
 	protocol = client->proto;
 
-	pw = zebra_pw_find(zvrf, ifname);
+	svc = zebra_l2vpn_svc_find(zvrf, ifname);
 	switch (hdr->command) {
-	case ZEBRA_PW_ADD:
-		if (pw) {
+	case ZEBRA_L2VPN_SVC_ADD:
+		if (svc) {
 			flog_warn(EC_ZEBRA_PSEUDOWIRE_EXISTS,
 				  "%s: pseudowire %s already exists [%s]",
 				  __func__, ifname,
@@ -3426,21 +3426,21 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 			return;
 		}
 
-		zebra_pw_add(zvrf, ifname, protocol, client);
+		zebra_l2vpn_svc_add(zvrf, ifname, protocol, client);
 		break;
-	case ZEBRA_PW_DELETE:
-		if (!pw) {
+	case ZEBRA_L2VPN_SVC_DELETE:
+		if (!svc) {
 			flog_warn(EC_ZEBRA_PSEUDOWIRE_NONEXISTENT,
 				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
 			return;
 		}
 
-		zebra_pw_del(zvrf, pw);
+		zebra_l2vpn_svc_del(zvrf, svc);
 		break;
-	case ZEBRA_PW_SET:
-	case ZEBRA_PW_UNSET:
-		if (!pw) {
+	case ZEBRA_L2VPN_SVC_SET:
+	case ZEBRA_L2VPN_SVC_UNSET:
+		if (!svc) {
 			flog_warn(EC_ZEBRA_PSEUDOWIRE_NONEXISTENT,
 				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
@@ -3448,16 +3448,16 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 		}
 
 		switch (hdr->command) {
-		case ZEBRA_PW_SET:
-			pw->enabled = 1;
+		case ZEBRA_L2VPN_SVC_SET:
+			svc->enabled = 1;
 			break;
-		case ZEBRA_PW_UNSET:
-			pw->enabled = 0;
+		case ZEBRA_L2VPN_SVC_UNSET:
+			svc->enabled = 0;
 			break;
 		}
 
-		zebra_pw_change(pw, ifindex, type, af, &nexthop, local_label,
-				remote_label, flags, &data);
+		zebra_l2vpn_svc_change(svc, ifindex, type, af, &nexthop, local_label, remote_label,
+				       flags, &data);
 		break;
 	}
 
@@ -4361,10 +4361,10 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
 	[ZEBRA_INTERFACE_SET_ARP] = zread_interface_set_arp,
-	[ZEBRA_PW_ADD] = zread_pseudowire,
-	[ZEBRA_PW_DELETE] = zread_pseudowire,
-	[ZEBRA_PW_SET] = zread_pseudowire,
-	[ZEBRA_PW_UNSET] = zread_pseudowire,
+	[ZEBRA_L2VPN_SVC_ADD] = zread_l2vpn_service,
+	[ZEBRA_L2VPN_SVC_DELETE] = zread_l2vpn_service,
+	[ZEBRA_L2VPN_SVC_SET] = zread_l2vpn_service,
+	[ZEBRA_L2VPN_SVC_UNSET] = zread_l2vpn_service,
 	[ZEBRA_RULE_ADD] = zread_rule,
 	[ZEBRA_RULE_DELETE] = zread_rule,
 	[ZEBRA_TABLE_MANAGER_CONNECT] = zread_table_manager_request,

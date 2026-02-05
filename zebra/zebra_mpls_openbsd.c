@@ -311,7 +311,7 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 	const union g_addr *gaddr;
 
 	memset(&imr, 0, sizeof(imr));
-	switch (dplane_ctx_get_pw_type(ctx)) {
+	switch (dplane_ctx_get_l2vpn_svc_type(ctx)) {
 	case PW_TYPE_ETHERNET:
 		imr.imr_type = IMR_TYPE_ETHERNET;
 		break;
@@ -320,17 +320,17 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		break;
 	default:
 		zlog_debug("%s: unhandled pseudowire type (%#X)", __func__,
-			   dplane_ctx_get_pw_type(ctx));
+			   dplane_ctx_get_l2vpn_svc_type(ctx));
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	if (CHECK_FLAG(dplane_ctx_get_pw_flags(ctx), F_PSEUDOWIRE_CWORD))
+	if (CHECK_FLAG(dplane_ctx_get_l2vpn_svc_flags(ctx), F_PSEUDOWIRE_CWORD))
 		SET_FLAG(imr.imr_flags, IMR_FLAG_CONTROLWORD);
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
-	gaddr = dplane_ctx_get_pw_dest(ctx);
-	switch (dplane_ctx_get_pw_af(ctx)) {
+	gaddr = dplane_ctx_get_l2vpn_svc_dest(ctx);
+	switch (dplane_ctx_get_l2vpn_svc_af(ctx)) {
 	case AF_INET:
 		sa_in->sin_family = AF_INET;
 		sa_in->sin_len = sizeof(struct sockaddr_in);
@@ -342,16 +342,16 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		sa_in6->sin6_addr = gaddr->ipv6;
 		break;
 	default:
-		zlog_debug("%s: unhandled pseudowire address-family (%u)",
-			   __func__, dplane_ctx_get_pw_af(ctx));
+		zlog_debug("%s: unhandled pseudowire address-family (%u)", __func__,
+			   dplane_ctx_get_l2vpn_svc_af(ctx));
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	memcpy(&imr.imr_nexthop, (struct sockaddr *)&ss,
 	       sizeof(imr.imr_nexthop));
 
 	/* pseudowire local/remote labels */
-	imr.imr_lshim.shim_label = dplane_ctx_get_pw_local_label(ctx);
-	imr.imr_rshim.shim_label = dplane_ctx_get_pw_remote_label(ctx);
+	imr.imr_lshim.shim_label = dplane_ctx_get_l2vpn_svc_local_label(ctx);
+	imr.imr_rshim.shim_label = dplane_ctx_get_l2vpn_svc_remote_label(ctx);
 
 	/* ioctl */
 	memset(&ifr, 0, sizeof(ifr));

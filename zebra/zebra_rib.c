@@ -4926,7 +4926,7 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_PW_INSTALL:
 			case DPLANE_OP_PW_UNINSTALL:
-				zebra_pw_handle_dplane_results(ctx);
+				zebra_l2vpn_svc_handle_dplane_results(ctx);
 				break;
 
 			case DPLANE_OP_SYS_ROUTE_ADD:

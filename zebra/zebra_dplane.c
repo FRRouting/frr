@@ -148,7 +148,7 @@ struct dplane_route_info {
 /*
  * Pseudowire info for the dataplane
  */
-struct dplane_pw_info {
+struct dplane_l2vpn_svc_info {
 	int type;
 	int af;
 	int status;
@@ -416,7 +416,7 @@ struct zebra_dplane_ctx {
 	union {
 		struct dplane_route_info rinfo;
 		struct zebra_lsp lsp;
-		struct dplane_pw_info pw;
+		struct dplane_l2vpn_svc_info svc;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
 		struct dplane_vlan_info vlan_info;
@@ -574,8 +574,8 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_lsps_in;
 	_Atomic uint32_t dg_lsp_errors;
 
-	_Atomic uint32_t dg_pws_in;
-	_Atomic uint32_t dg_pw_errors;
+	_Atomic uint32_t dg_svcs_in;
+	_Atomic uint32_t dg_svc_errors;
 
 	_Atomic uint32_t dg_br_port_in;
 	_Atomic uint32_t dg_br_port_errors;
@@ -653,8 +653,8 @@ DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 static void dplane_thread_loop(struct event *event);
 static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
-static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
-						   enum dplane_op_e op);
+static enum zebra_dplane_result l2vpn_svc_update_internal(struct zebra_l2vpn_svc *svc,
+							  enum dplane_op_e op);
 static enum zebra_dplane_result intf_addr_update_internal(
 	const struct interface *ifp, const struct connected *ifc,
 	enum dplane_op_e op);
@@ -802,21 +802,21 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 		/* Free allocated nexthops */
-		if (ctx->u.pw.fib_nhg.nexthop) {
+		if (ctx->u.svc.fib_nhg.nexthop) {
 			/* This deals with recursive nexthops too */
-			nexthops_free(ctx->u.pw.fib_nhg.nexthop);
+			nexthops_free(ctx->u.svc.fib_nhg.nexthop);
 
-			ctx->u.pw.fib_nhg.nexthop = NULL;
+			ctx->u.svc.fib_nhg.nexthop = NULL;
 		}
-		if (ctx->u.pw.primary_nhg.nexthop) {
-			nexthops_free(ctx->u.pw.primary_nhg.nexthop);
+		if (ctx->u.svc.primary_nhg.nexthop) {
+			nexthops_free(ctx->u.svc.primary_nhg.nexthop);
 
-			ctx->u.pw.primary_nhg.nexthop = NULL;
+			ctx->u.svc.primary_nhg.nexthop = NULL;
 		}
-		if (ctx->u.pw.backup_nhg.nexthop) {
-			nexthops_free(ctx->u.pw.backup_nhg.nexthop);
+		if (ctx->u.svc.backup_nhg.nexthop) {
+			nexthops_free(ctx->u.svc.backup_nhg.nexthop);
 
-			ctx->u.pw.backup_nhg.nexthop = NULL;
+			ctx->u.svc.backup_nhg.nexthop = NULL;
 		}
 		break;
 
@@ -2449,92 +2449,89 @@ uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.num_ecmp;
 }
 
-mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx)
+mpls_label_t dplane_ctx_get_l2vpn_svc_local_label(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.local_label;
+	return ctx->u.svc.local_label;
 }
 
-mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx)
+mpls_label_t dplane_ctx_get_l2vpn_svc_remote_label(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.remote_label;
+	return ctx->u.svc.remote_label;
 }
 
-int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx)
+int dplane_ctx_get_l2vpn_svc_type(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.type;
+	return ctx->u.svc.type;
 }
 
-int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx)
+int dplane_ctx_get_l2vpn_svc_af(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.af;
+	return ctx->u.svc.af;
 }
 
-uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx)
+uint32_t dplane_ctx_get_l2vpn_svc_flags(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.flags;
+	return ctx->u.svc.flags;
 }
 
-int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
+int dplane_ctx_get_l2vpn_svc_status(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.pw.status;
+	return ctx->u.svc.status;
 }
 
-void dplane_ctx_set_pw_status(struct zebra_dplane_ctx *ctx, int status)
+void dplane_ctx_set_l2vpn_svc_status(struct zebra_dplane_ctx *ctx, int status)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	ctx->u.pw.status = status;
+	ctx->u.svc.status = status;
 }
 
-const union g_addr *dplane_ctx_get_pw_dest(
+const union g_addr *dplane_ctx_get_l2vpn_svc_dest(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.svc.dest);
+}
+
+const union l2vpn_protocol_fields *dplane_ctx_get_l2vpn_svc_proto(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.dest);
+	return &(ctx->u.svc.fields);
 }
 
-const union l2vpn_protocol_fields *dplane_ctx_get_pw_proto(const struct zebra_dplane_ctx *ctx)
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_nhg(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.fields);
+	return &(ctx->u.svc.fib_nhg);
 }
 
-const struct nexthop_group *
-dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_primary_nhg(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.fib_nhg);
+	return &(ctx->u.svc.primary_nhg);
 }
 
-const struct nexthop_group *
-dplane_ctx_get_pw_primary_nhg(const struct zebra_dplane_ctx *ctx)
+const struct nexthop_group *dplane_ctx_get_l2vpn_svc_backup_nhg(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.primary_nhg);
-}
-
-const struct nexthop_group *
-dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return &(ctx->u.pw.backup_nhg);
+	return &(ctx->u.svc.backup_nhg);
 }
 
 /* Accessors for interface information */
@@ -3896,9 +3893,8 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 /*
  * Capture information for an LSP update in a dplane context.
  */
-static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
-			      enum dplane_op_e op,
-			      struct zebra_pw *pw)
+static int dplane_ctx_l2vpn_svc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+				     struct zebra_l2vpn_svc *svc)
 {
 	int ret = EINVAL;
 	struct prefix p;
@@ -3910,9 +3906,8 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	struct nexthop *nh, *newnh, *last_nh;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
-			   dplane_op2str(op), pw->ifname, pw->local_label,
-			   pw->remote_label);
+		zlog_debug("init dplane ctx %s: L2vpn service '%s', loc %u, rem %u",
+			   dplane_op2str(op), svc->ifname, svc->local_label, svc->remote_label);
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -3922,33 +3917,33 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	 */
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
 
-	memset(&ctx->u.pw, 0, sizeof(ctx->u.pw));
+	memset(&ctx->u.svc, 0, sizeof(ctx->u.svc));
 
 	/* This name appears to be c-string, so we use string copy. */
-	strlcpy(ctx->zd_ifname, pw->ifname, sizeof(ctx->zd_ifname));
+	strlcpy(ctx->zd_ifname, svc->ifname, sizeof(ctx->zd_ifname));
 
-	ctx->zd_vrf_id = pw->vrf_id;
-	ctx->zd_ifindex = pw->ifindex;
-	ctx->u.pw.type = pw->type;
-	ctx->u.pw.af = pw->af;
-	ctx->u.pw.local_label = pw->local_label;
-	ctx->u.pw.remote_label = pw->remote_label;
-	ctx->u.pw.flags = pw->flags;
+	ctx->zd_vrf_id = svc->vrf_id;
+	ctx->zd_ifindex = svc->ifindex;
+	ctx->u.svc.type = svc->type;
+	ctx->u.svc.af = svc->af;
+	ctx->u.svc.local_label = svc->local_label;
+	ctx->u.svc.remote_label = svc->remote_label;
+	ctx->u.svc.flags = svc->flags;
 
-	ctx->u.pw.dest = pw->nexthop;
+	ctx->u.svc.dest = svc->nexthop;
 
-	ctx->u.pw.fields = pw->data;
+	ctx->u.svc.fields = svc->data;
 
-	/* Capture nexthop info for the pw destination. We need to look
+	/* Capture nexthop info for the L2VPN service destination. We need to look
 	 * up and use zebra datastructs, but we're running in the zebra
 	 * pthread here so that should be ok.
 	 */
-	memcpy(&p.u, &pw->nexthop, sizeof(pw->nexthop));
-	p.family = pw->af;
-	p.prefixlen = ((pw->af == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN);
+	memcpy(&p.u, &svc->nexthop, sizeof(svc->nexthop));
+	p.family = svc->af;
+	p.prefixlen = ((svc->af == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN);
 
-	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
-	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
+	afi = (svc->af == AF_INET) ? AFI_IP : AFI_IP6;
+	table = zebra_vrf_table(afi, SAFI_UNICAST, svc->vrf_id);
 	if (table == NULL)
 		return ret;
 
@@ -3982,7 +3977,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 				if (last_nh)
 					NEXTHOP_APPEND(last_nh, newnh);
 				else
-					ctx->u.pw.fib_nhg.nexthop = newnh;
+					ctx->u.svc.fib_nhg.nexthop = newnh;
 				last_nh = newnh;
 			}
 		}
@@ -4002,22 +3997,20 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 				if (last_nh)
 					NEXTHOP_APPEND(last_nh, newnh);
 				else
-					ctx->u.pw.fib_nhg.nexthop = newnh;
+					ctx->u.svc.fib_nhg.nexthop = newnh;
 				last_nh = newnh;
 			}
 		}
 
 		/* Copy primary nexthops; recursive info is included too */
 		assert(re->nhe != NULL); /* SA warning */
-		copy_nexthops(&(ctx->u.pw.primary_nhg.nexthop),
-			      re->nhe->nhg.nexthop, NULL);
-		ctx->u.pw.nhg_id = re->nhe->id;
+		copy_nexthops(&(ctx->u.svc.primary_nhg.nexthop), re->nhe->nhg.nexthop, NULL);
+		ctx->u.svc.nhg_id = re->nhe->id;
 
 		/* Copy backup nexthop info, if present */
 		if (re->nhe->backup_info && re->nhe->backup_info->nhe) {
-			copy_nexthops(&(ctx->u.pw.backup_nhg.nexthop),
-				      re->nhe->backup_info->nhe->nhg.nexthop,
-				      NULL);
+			copy_nexthops(&(ctx->u.svc.backup_nhg.nexthop),
+				      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
 		}
 	}
 	route_unlock_node(rn);
@@ -4855,17 +4848,17 @@ done:
 /*
  * Enqueue pseudowire install for the dataplane.
  */
-enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw)
+enum zebra_dplane_result dplane_l2vpn_svc_install(struct zebra_l2vpn_svc *svc)
 {
-	return pw_update_internal(pw, DPLANE_OP_PW_INSTALL);
+	return l2vpn_svc_update_internal(svc, DPLANE_OP_PW_INSTALL);
 }
 
 /*
  * Enqueue pseudowire un-install for the dataplane.
  */
-enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw)
+enum zebra_dplane_result dplane_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *svc)
 {
-	return pw_update_internal(pw, DPLANE_OP_PW_UNINSTALL);
+	return l2vpn_svc_update_internal(svc, DPLANE_OP_PW_UNINSTALL);
 }
 
 /*
@@ -4906,8 +4899,8 @@ done:
 /*
  * Internal, common handler for pseudowire updates.
  */
-static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
-						   enum dplane_op_e op)
+static enum zebra_dplane_result l2vpn_svc_update_internal(struct zebra_l2vpn_svc *svc,
+							  enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -4915,7 +4908,7 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 
 	ctx = dplane_ctx_alloc();
 
-	ret = dplane_ctx_pw_init(ctx, op, pw);
+	ret = dplane_ctx_l2vpn_svc_init(ctx, op, svc);
 	if (ret != AOK)
 		goto done;
 
@@ -4923,14 +4916,12 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 
 done:
 	/* Update counter */
-	atomic_fetch_add_explicit(&zdplane_info.dg_pws_in, 1,
-				  memory_order_relaxed);
+	atomic_fetch_add_explicit(&zdplane_info.dg_svcs_in, 1, memory_order_relaxed);
 
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		atomic_fetch_add_explicit(&zdplane_info.dg_pw_errors, 1,
-					  memory_order_relaxed);
+		atomic_fetch_add_explicit(&zdplane_info.dg_svc_errors, 1, memory_order_relaxed);
 		dplane_ctx_free(&ctx);
 	}
 
@@ -6057,12 +6048,10 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "LSP updates:              %"PRIu64"\n", incoming);
 	vty_out(vty, "LSP update errors:        %"PRIu64"\n", errs);
 
-	incoming = atomic_load_explicit(&zdplane_info.dg_pws_in,
-					memory_order_relaxed);
-	errs = atomic_load_explicit(&zdplane_info.dg_pw_errors,
-				    memory_order_relaxed);
-	vty_out(vty, "PW updates:               %"PRIu64"\n", incoming);
-	vty_out(vty, "PW update errors:         %"PRIu64"\n", errs);
+	incoming = atomic_load_explicit(&zdplane_info.dg_svcs_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_svc_errors, memory_order_relaxed);
+	vty_out(vty, "L2VPN Service updates:               %" PRIu64 "\n", incoming);
+	vty_out(vty, "L2VPN Service update errors:         %" PRIu64 "\n", errs);
 
 	incoming = atomic_load_explicit(&zdplane_info.dg_intf_addrs_in,
 					memory_order_relaxed);
@@ -6596,11 +6585,11 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
-		zlog_debug("Dplane pw %s: op %s af %d loc: %u rem: %u",
-			   dplane_ctx_get_ifname(ctx),
-			   dplane_op2str(ctx->zd_op), dplane_ctx_get_pw_af(ctx),
-			   dplane_ctx_get_pw_local_label(ctx),
-			   dplane_ctx_get_pw_remote_label(ctx));
+		zlog_debug("Dplane L2VPN service %s: op %s af %d loc: %u rem: %u",
+			   dplane_ctx_get_ifname(ctx), dplane_op2str(ctx->zd_op),
+			   dplane_ctx_get_l2vpn_svc_af(ctx),
+			   dplane_ctx_get_l2vpn_svc_local_label(ctx),
+			   dplane_ctx_get_l2vpn_svc_remote_label(ctx));
 		break;
 
 	case DPLANE_OP_ADDR_INSTALL:
@@ -6806,7 +6795,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
-			atomic_fetch_add_explicit(&zdplane_info.dg_pw_errors, 1,
+			atomic_fetch_add_explicit(&zdplane_info.dg_svc_errors, 1,
 						  memory_order_relaxed);
 		break;
 
