@@ -182,7 +182,8 @@ PIM Routers
    Modify the join/prune interval that PIM uses to the new value. Time is
    specified in seconds. The default time is 60 seconds. If you enter a
    value smaller than 60 seconds be aware that this can and will affect
-   convergence at scale. This command is VRF-aware.
+   convergence at scale. This command is not VRF-aware, using it in VRF
+   context will actually assign to the default VRF instead.
 
 .. clicmd:: keep-alive-timer (1-65535)
    :daemon: pim
@@ -197,13 +198,16 @@ PIM Routers
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
-   a large number of PIM control packets flowing. This command is VRF-aware.
+   a large number of PIM control packets flowing. This command is not
+   VRF-aware, using it in VRF context will actually assign to the default
+   VRF instead.
 
 .. clicmd:: register-suppress-time (1-65535)
    :daemon: pim
 
    Modify the time that a FHR will suppress sending register messages to the
-   RP. This command is VRF-aware.
+   RP. This command is not VRF-aware, using it in VRF context will actually
+   assign to the default VRF instead.
 
 .. clicmd:: send-v6-secondary
 
