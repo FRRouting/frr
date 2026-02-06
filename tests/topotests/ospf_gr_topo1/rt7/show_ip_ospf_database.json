@@ -86,14 +86,5 @@
         }
       ]
     }
-  },
-  "asExternalLinkStates":[
-    {
-      "lsId":"192.168.1.0",
-      "advertisedRouter":"7.7.7.7",
-      "metricType":"E2",
-      "route":"192.168.1.0\/24",
-      "tag":0
-    }
-  ]
+  }
 }
