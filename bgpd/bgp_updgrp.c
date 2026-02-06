@@ -473,6 +473,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
 		key = jhash(&peer->nexthop.v6_global, IPV6_MAX_BYTELEN, key);
 
+	key = jhash_1word((peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS] & PEER_FLAG_BGP_LS_IPV4), key);
+
+	key = jhash_1word((peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS] & PEER_FLAG_BGP_LS_IPV6), key);
+
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
