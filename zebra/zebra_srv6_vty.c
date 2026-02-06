@@ -738,6 +738,13 @@ DEFUN_NOSH (srv6,
 	return CMD_SUCCESS;
 }
 
+/* Unset SRv6 encapsulation source address */
+static void unset_srv6_encap_source_address(void)
+{
+	zebra_srv6_encap_src_addr_unset();
+	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+}
+
 DEFUN (no_srv6,
        no_srv6_cmd,
        "no srv6",
@@ -772,9 +779,7 @@ DEFUN (no_srv6,
 		zebra_srv6_locator_delete(locator);
 	}
 
-	/* Unset SRv6 encapsulation source address */
-	zebra_srv6_encap_src_addr_unset();
-	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+	unset_srv6_encap_source_address();
 
 	return CMD_SUCCESS;
 }
@@ -1131,6 +1136,17 @@ DEFUN_NOSH (srv6_encap,
 	return CMD_SUCCESS;
 }
 
+DEFUN (no_srv6_encap,
+       no_srv6_encap_cmd,
+       "no encapsulation",
+       NO_STR
+       "Segment Routing SRv6 encapsulation\n")
+{
+	unset_srv6_encap_source_address();
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (srv6_src_addr,
        srv6_src_addr_cmd,
        "source-address X:X::X:X$encap_src_addr",
@@ -1149,8 +1165,7 @@ DEFPY (no_srv6_src_addr,
        "Segment Routing SRv6 source address\n"
        "Specify source address for SRv6 encapsulation\n")
 {
-	zebra_srv6_encap_src_addr_unset();
-	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+	unset_srv6_encap_source_address();
 	return CMD_SUCCESS;
 }
 
@@ -1743,6 +1758,7 @@ void zebra_srv6_vty_init(void)
 	install_element(SEGMENT_ROUTING_NODE, &no_srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_NODE, &srv6_encap_cmd);
+	install_element(SRV6_NODE, &no_srv6_encap_cmd);
 	install_element(SRV6_NODE, &srv6_sid_formats_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
