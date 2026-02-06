@@ -7,7 +7,7 @@ PIMv6
 PIMv6 -- Protocol Independent Multicast for IPv6
 
 *pim6d* supports pim-sm as well as MLD v1 and v2. PIMv6 is
-vrf aware and can work within the context of vrf's in order to
+VRF-aware and can work within the context of VRFs in order to
 do S,G mrouting.
 
 .. _starting-and-stopping-pim6d:
@@ -52,16 +52,19 @@ PIMv6 Router
 
 .. clicmd:: router pim6 [vrf NAME]
 
-   Configure the global PIMv6 protocol
+   Configure the global PIMv6 protocol. To configure the PIMv6 instance for
+   a VRF, specify the VRF name. In contrast to other protocols, this does
+   not enable PIMv6 operation but merely serves as a container for
+   per-instance configuration parameters. Likewise, the ``no`` form does not
+   disable PIMv6.
 
 .. clicmd:: rp X:X::X:X Y:Y::Y:Y/M
 
-   In order to use pimv6, it is necessary to configure a RP for join messages to
-   be sent to. Currently the only methodology to do this is via static rp
-   commands. All routers in the pimv6 network must agree on these values. The
-   first ipv6 address is the RP's address and the second value is the matching
-   prefix of group ranges covered. This command is vrf aware, to configure for
-   a vrf, specify the vrf in the router pim6 block.
+   In order to use PIMv6, it is necessary to configure an RP for join
+   messages to be sent to. This command statically configures an RP. All
+   routers in the PIMv6 network must agree on these values. The first IPv6
+   address is the RP's address and the second value is the matching prefix
+   of group ranges covered. This command is VRF-aware.
 
 .. clicmd:: rp X:X::X:X prefix-list WORD
 
@@ -71,7 +74,7 @@ PIMv6 Router
 .. clicmd:: rp keep-alive-timer (1-65535)
    :daemon: pimv6
 
-   Modify the time out value for a S,G flow from 1-65535 seconds at RP.
+   Modify the timeout value for an S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
    However, at the RP, the keepalive period must be at least the
    Register_Suppression_Time, or the RP may time out the (S,G) state
@@ -79,7 +82,7 @@ PIMv6 Router
    max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
    If choosing a value below 31 seconds be aware that some hardware platforms
    cannot see data flowing in better than 30 second chunks. This command is
-   vrf aware, to configure for a vrf, specify the vrf in the router pim6 block.
+   VRF-aware.
 
 .. clicmd:: bsr candidate-bsr [priority (0-255)] [source [address X:X::X:X] | [interface INTERFACE] | [loopback] | [any]]
 
@@ -145,17 +148,15 @@ PIMv6 Router
    which groups to switch or not switch. If a group is PERMIT as per the
    PLIST, then the SPT switchover does not happen for it and if it is DENY,
    then the SPT switchover happens.
-   This command is vrf aware, to configure for a vrf, specify the vrf in the
-   router pim6 block.
+   This command is VRF-aware.
 
 .. clicmd:: join-prune-interval (1-65535)
    :daemon: pimv6
 
-   Modify the join/prune interval that pim uses to the new value. Time is
-   specified in seconds. This command is vrf aware, to configure for a vrf,
-   enter the vrf submode.  The default time is 60 seconds.  If you enter
-   a value smaller than 60 seconds be aware that this can and will affect
-   convergence at scale.
+   Modify the join/prune interval that PIM uses to the new value. Time is
+   specified in seconds. The default time is 60 seconds. If you enter a
+   value smaller than 60 seconds be aware that this can and will affect
+   convergence at scale. This command is VRF-aware.
 
 .. clicmd:: ip pim assert-interval (1000-86400000)
 
@@ -170,10 +171,9 @@ PIMv6 Router
 .. clicmd:: keep-alive-timer (1-65535)
    :daemon: pimv6
 
-   Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
+   Modify the timeout value for an S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
-   flowing in better than 30 second chunks. This command is vrf aware, to
-   configure for a vrf, specify the vrf in the router pim6 block.
+   flowing in better than 30 second chunks. This command is VRF-aware.
 
 .. clicmd:: packets (1-255)
    :daemon: pimv6
@@ -181,22 +181,19 @@ PIMv6 Router
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
-   a large number of pim control packets flowing. This command is vrf aware, to
-   configure for a vrf, specify the vrf in the router pim6 block.
+   a large number of pim control packets flowing. This command is VRF-aware.
 
 .. clicmd:: register-suppress-time (1-65535)
    :daemon: pimv6
 
-   Modify the time that pim will register suppress a FHR will send register
-   notifications to the kernel. This command is vrf aware, to configure for a
-   vrf, specify the vrf in the router pim6 block.
+   Modify the time that a FHR will suppress sending register messages to the
+   RP. This command is VRF-aware.
 
 .. clicmd:: ssm prefix-list WORD
    :daemon: pimv6
 
    Specify a range of group addresses via a prefix-list that forces pim to
-   never do SM over. This command is vrf aware, to configure for a vrf, specify
-   the vrf in the router pim block.
+   never do SM over. This command is VRF-aware.
 
 .. clicmd:: join-filter route-map RMAP_NAME
 
@@ -216,7 +213,7 @@ PIMv6 Router
 
 .. clicmd:: ssmpingd [X:X::X:X]
 
-   Enable ipv6 ssmpingd configuration. A network level management tool
+   Enable IPv6 ssmpingd configuration. A network level management tool
    to check whether one can receive multicast packets via SSM from host.
    The host target given to ssmping must run the ssmpingd daemon which listens
    for IPv4 and IPv6 unicast requests. When it receives one, it responds to a
@@ -227,31 +224,32 @@ PIMv6 Router
 PIMv6 Interface Configuration
 =============================
 
-PIMv6 interface commands allow you to configure an interface as either a Receiver
-or a interface that you would like to form pimv6 neighbors on. If the interface
-is in a vrf, enter the interface command with the vrf keyword at the end.
+PIMv6 interface commands allow you to configure an interface as either a
+Receiver or an interface that you would like to form PIMv6 neighborships on.
+If the interface is in a VRF, enter the interface command with the ``vrf``
+keyword at the end.
 
 .. clicmd:: ipv6 pim active-active
 
-   Turn on pim active-active configuration for a Vxlan interface.  This
+   Turn on PIM active-active configuration for a VxLAN interface.  This
    command will not do anything if you do not have the underlying ability
-   of a mlag implementation.
+   of a MLAG implementation.
 
 .. clicmd:: ipv6 pim drpriority (0-4294967295)
 
    Set the DR Priority for the interface. This command is useful to allow the
-   user to influence what node becomes the DR for a lan segment.
+   user to influence what node becomes the DR for a LAN segment.
 
 .. clicmd:: ipv6 pim hello (1-65535) (1-65535)
 
-   Set the pim hello and hold interval for a interface.
+   Set the PIM hello and hold interval for an interface.
 
 .. clicmd:: ipv6 pim
 
-   Tell pim that we would like to use this interface to form pim neighbors
-   over. Please note that this command does not enable the reception of MLD
-   reports on the interface. Refer to the next ``ipv6 mld`` command for MLD
-   management.
+   Tell PIM that we would like to use this interface to form PIM
+   neighborships over. Please note that this command does not enable the
+   reception of MLD reports on the interface. Refer to the ``ipv6 mld``
+   command for MLD management.
 
 .. clicmd:: ipv6 pim allowed-neighbors prefix-list PREFIX_LIST
 
@@ -260,24 +258,25 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. clicmd:: ipv6 pim use-source X:X::X:X
 
    If you have multiple addresses configured on a particular interface
-   and would like pim to use a specific source address associated with
+   and would like PIM to use a specific source address associated with
    that interface.
 
 .. clicmd:: ipv6 pim passive
 
-   Disable sending and receiving pim control packets on the interface.
+   Disable sending and receiving PIM control packets on the interface.
 
 .. clicmd:: ipv6 pim bsm
 
    Tell pim that we would like to use this interface to process bootstrap
-   messages. This is enabled by default. 'no' form of this command is used to
-   restrict bsm messages on this interface.
+   messages. This is enabled by default. The 'no' form of this command is
+   used to restrict BSM messages on this interface.
 
 .. clicmd:: ipv6 pim unicast-bsm
 
-   Tell pim that we would like to allow interface to process unicast bootstrap
-   messages. This is enabled by default. 'no' form of this command is used to
-   restrict processing of unicast bsm messages on this interface.
+   Tell pim that we would like to allow interface to process unicast
+   bootstrap messages. This is enabled by default. The 'no' form of this
+   command is used to restrict processing of unicast BSM messages on this
+   interface.
 
 .. clicmd:: ipv6 mld
 
@@ -372,10 +371,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 Show PIMv6 Information
 ======================
 
-All PIMv6 show commands are vrf aware and typically allow you to insert a
-specified vrf command if information is desired about a specific vrf. If no
-vrf is specified then the default vrf is assumed. Finally the special keyword
-'all' allows you to look at all vrfs for the command. Naming a vrf 'all' will
+All PIMv6 show commands are VRF-aware and typically allow you to add a
+``vrf`` option if information is desired about a specific VRF. If no
+VRF is specified then the default VRF is assumed. Finally the special keyword
+'all' allows you to look at all VRFs for the command. Naming a VRF 'all' will
 cause great confusion.
 
 PIM protocol state
@@ -411,7 +410,7 @@ PIM protocol state
 
 .. clicmd:: show ipv6 pim [vrf NAME] nexthop-lookup X:X::X:X X:X::X:X
 
-   Display information about a S,G pair and how the RPF would be chosen. This
+   Display information about an S,G pair and how the RPF would be chosen. This
    is especially useful if there are ECMP's available from the RPF lookup.
 
 .. clicmd:: show ipv6 pim [vrf NAME] rp-info [json]
@@ -440,7 +439,7 @@ PIM protocol state
 .. clicmd:: show ipv6 pim [vrf NAME] upstream [X:X::X:X [Y:Y::Y:Y]] [json]
 .. clicmd:: show ipv6 pim vrf all upstream [json]
 
-   Display upstream information about a S,G mroute.  Allow the user to
+   Display upstream information about an S,G mroute.  Allow the user to
    specify sub Source and Groups that we are interested in.
 
 .. clicmd:: show ipv6 pim [vrf NAME] upstream-join-desired [json]
@@ -494,15 +493,15 @@ General multicast routing state
 
 .. clicmd:: show ipv6 multicast
 
-   Display various information about the interfaces used in this pim instance.
+   Display various information about the interfaces used in this PIM instance.
 
 .. clicmd:: show ipv6 multicast count [vrf NAME] [json]
 
-   Display multicast data packets count per interface for a vrf.
+   Display multicast data packets count per interface for a VRF.
 
 .. clicmd:: show ipv6 multicast count vrf all [json]
 
-   Display multicast data packets count per interface for all vrf.
+   Display multicast data packets count per interface for all VRF.
 
 .. clicmd:: show ipv6 mroute [vrf NAME] [X:X::X:X [X:X::X:X]] [fill] [json]
 
@@ -516,26 +515,26 @@ General multicast routing state
 
    Display information about installed into the kernel S,G mroutes and in
    addition display data about packet flow for the mroutes for a specific
-   vrf.
+   VRF.
 
 .. clicmd:: show ipv6 mroute vrf all count [json]
 
    Display information about installed into the kernel S,G mroutes and in
-   addition display data about packet flow for the mroutes for all vrfs.
+   addition display data about packet flow for the mroutes for all VRFs.
 
 .. clicmd:: show ipv6 mroute [vrf NAME] summary [json]
 
    Display total number of S,G mroutes and number of S,G mroutes installed
-   into the kernel for a specific vrf.
+   into the kernel for a specific VRF.
 
 .. clicmd:: show ipv6 mroute vrf all summary [json]
 
    Display total number of S,G mroutes and number of S,G mroutes
-   installed into the kernel for all vrfs.
+   installed into the kernel for all VRFs.
 
 .. clicmd:: show ipv6 pim bsr [vrf NAME] [json]
 
-   Display current bsr, its uptime and last received bsm age.
+   Display current BSR, its uptime and last received BSM age.
 
 .. clicmd:: show ipv6 pim bsr candidate-bsr [vrf NAME] [json]
 
