@@ -84,6 +84,21 @@
 
 #include "bgpd/bgp_route_clippy.c"
 
+static bool bgp_attr_nexthop_same(const struct attr *attr1, const struct attr *attr2, afi_t afi)
+{
+	afi_t nh_afi1 = BGP_ATTR_NH_AFI(afi, attr1);
+	afi_t nh_afi2 = BGP_ATTR_NH_AFI(afi, attr2);
+
+	/* v4<->v6 transition: treat as different */
+	if (nh_afi1 != nh_afi2)
+		return false;
+
+	if (nh_afi1 == AFI_IP6)
+		return IPV6_ADDR_SAME(&attr1->mp_nexthop_global, &attr2->mp_nexthop_global);
+
+	return IPV4_ADDR_SAME(&attr1->nexthop, &attr2->nexthop);
+}
+
 DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
 /* Memory for batched clearing of peers from the RIB */
@@ -6150,8 +6165,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* Special handling for EVPN update of an existing route. If the
-		 * extended community attribute has changed, we need to
-		 * un-import
+		 * extended community or nexthop attribute has changed, we need
+		 * to un-import
 		 * the route using its existing extended community. It will be
 		 * subsequently processed for import with the new extended
 		 * community.
@@ -6161,6 +6176,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_attr_exists(pi->attr, BGP_ATTR_EXT_COMMUNITIES) &&
 			    bgp_attr_exists(attr_new, BGP_ATTR_EXT_COMMUNITIES)) {
 				int cmp;
+				struct prefix_evpn *evp = (struct prefix_evpn *)p;
 
 				cmp = ecommunity_cmp(
 					bgp_attr_get_ecommunity(pi->attr),
@@ -6185,6 +6201,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							bgp, afi, safi, p, pi);
 					else /* SAFI_MPLS_VPN */
 						vpn_leak_to_vrf_withdraw(pi);
+				}
+				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
+				else if (safi == SAFI_EVPN &&
+					 evp->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
+					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 				}
 			}
 		}
