@@ -162,7 +162,7 @@ def test_zebra_srv6_encap_src_addr_no_srv6(tgen):
 
     logger.info(
         "Verify the SRv6 encapsulation source address is reset after"
-        "running 'no srv6' command"
+        " running 'no srv6' command"
     )
     r1 = tgen.gears["r1"]
 
@@ -193,6 +193,75 @@ def test_zebra_srv6_encap_src_addr_set_again(tgen):
     """
 
     logger.info("Verify the SRv6 encapsulation source address can be set again.")
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           encapsulation
+            source-address fc00:0:1::1
+        """
+    )
+
+    json_file = "{}/r1/expected_srv6_encap_src_addr_set.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
+    )
+    assert ok, '"r1" JSON output mismatches'
+
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_set.json"
+    )
+
+
+def test_zebra_srv6_encap_src_addr_no_encap(tgen):
+    """
+    Verify the SRv6 encapsulation source address is reset after running
+    'no encapsulation' command.
+    """
+
+    logger.info(
+        "Verify the SRv6 encapsulation source address is reset after"
+        " running 'no encapsulation' command"
+    )
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           no encapsulation
+        """
+    )
+
+    json_file = "{}/r1/expected_srv6_encap_src_addr_unset.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
+    )
+    assert ok, '"r1" JSON output mismatches'
+
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_unset.json"
+    )
+
+
+def test_zebra_srv6_encap_src_addr_set_yet_again(tgen):
+    """
+    Verify the SRv6 encapsulation source address can be set again
+    after 'no encapsulation' command.
+    """
+
+    logger.info(
+        "Verify the SRv6 encapsulation source address can be set again"
+        " after 'no encapsulation' command."
+    )
     r1 = tgen.gears["r1"]
 
     r1.vtysh_cmd(
