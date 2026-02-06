@@ -204,6 +204,16 @@ void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const 
 	l2vpn_lib_master.iface_ok_for_l2vpn = func_iface_ok_for_l2vpn;
 }
 
+void l2vpn_init_new(bool in_backend)
+{
+	RB_INIT(l2vpn_head, &l2vpn_tree_config);
+
+	if (!in_backend) {
+	/* we do not want to handle config commands in the backend */
+		l2vpn_cli_init();
+	}
+}
+
 void l2vpn_init(void)
 {
 	RB_INIT(l2vpn_head, &l2vpn_tree_config);

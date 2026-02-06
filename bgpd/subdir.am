@@ -48,6 +48,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_fsm.c \
 	bgpd/bgp_io.c \
 	bgpd/bgp_keepalives.c \
+	bgpd/bgp_l2vpn.c \
 	bgpd/bgp_label.c \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_lcommunity.c \
@@ -138,6 +139,7 @@ noinst_HEADERS += \
 	bgpd/bgp_fsm.h \
 	bgpd/bgp_io.h \
 	bgpd/bgp_keepalives.h \
+	bgpd/bgp_l2vpn.h \
 	bgpd/bgp_label.h \
 	bgpd/bgp_labelpool.h \
 	bgpd/bgp_lcommunity.h \

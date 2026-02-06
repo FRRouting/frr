@@ -10,7 +10,7 @@
 #include "vxlan.h"
 
 #include <zebra/zebra_ns.h>
-#include <zebra/zebra_pw.h>
+#include <zebra/zebra_l2vpn_svc.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
 #include "defaults.h"

@@ -27,6 +27,7 @@
 #include "libfrr.h"
 #include "ns.h"
 #include <malloc.h>
+#include "l2vpn.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -389,6 +390,7 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&frr_bgp_route_map_info,
+	&frr_l2vpn,
 };
 
 /* clang-format off */

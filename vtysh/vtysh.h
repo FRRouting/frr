@@ -85,7 +85,7 @@ extern struct event_loop *master;
 		VTYSH_VRRPD | VTYSH_MGMTD
 #endif
 
-#define VTYSH_L2VPN  VTYSH_LDPD | VTYSH_MGMTD
+#define VTYSH_L2VPN  VTYSH_LDPD | VTYSH_BGPD | VTYSH_MGMTD
 #define VTYSH_ACL_SHOW                                                         \
 	VTYSH_BFDD | VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
 		VTYSH_FABRICD | VTYSH_LDPD | VTYSH_NHRPD | VTYSH_OSPF6D |      \

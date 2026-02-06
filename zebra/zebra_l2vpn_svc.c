@@ -20,7 +20,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_vrf.h"
-#include "zebra/zebra_pw.h"
+#include "zebra/zebra_l2vpn_svc.h"
 
 DEFINE_MTYPE_STATIC(LIB, L2VPN_SVC, "L2VPN Service");
 
