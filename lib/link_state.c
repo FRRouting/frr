@@ -965,11 +965,22 @@ int ls_subnet_same(struct ls_subnet *s1, struct ls_subnet *s2)
 
 void ls_subnet_del(struct ls_ted *ted, struct ls_subnet *subnet)
 {
+	struct ls_vertex *vertex;
+
 	if (!ted || !subnet)
 		return;
 
 	/* First, disconnect Subnet from associated Vertex */
-	listnode_delete(subnet->vertex->prefixes, subnet);
+	if (subnet->vertex && subnet->vertex->prefixes) {
+		listnode_delete(subnet->vertex->prefixes, subnet);
+	} else if (subnet->ls_pref) {
+		/* If vertex pointer is invalid, try to find the correct vertex
+		 * using ls_pref->adv and remove subnet from its prefixes list
+		 */
+		vertex = ls_find_vertex_by_id(ted, subnet->ls_pref->adv);
+		if (vertex && vertex->prefixes)
+			listnode_delete(vertex->prefixes, subnet);
+	}
 	/* Then delete Subnet */
 	subnets_del(&ted->subnets, subnet);
 	XFREE(MTYPE_LS_DB, subnet);
@@ -977,16 +988,30 @@ void ls_subnet_del(struct ls_ted *ted, struct ls_subnet *subnet)
 
 void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet)
 {
+	struct ls_vertex *vertex;
+
 	if (!ted || !subnet)
 		return;
 
-	/* First, remove associated Link State Subnet */
+	/* First, disconnect Subnet from associated Vertex before deleting ls_pref */
+	if (subnet->vertex && subnet->vertex->prefixes) {
+		listnode_delete(subnet->vertex->prefixes, subnet);
+	} else if (subnet->ls_pref) {
+		/* If vertex pointer is invalid, try to find the correct vertex
+		 * using ls_pref->adv and remove subnet from its prefixes list
+		 */
+		vertex = ls_find_vertex_by_id(ted, subnet->ls_pref->adv);
+		if (vertex && vertex->prefixes)
+			listnode_delete(vertex->prefixes, subnet);
+	}
+
+	/* Then, remove associated Link State Subnet */
 	if (subnet->ls_pref) {
 		ls_prefix_del(subnet->ls_pref);
 		/* Set to NULL after deletion to prevent double free */
 		subnet->ls_pref = NULL;
 	}
-	/* Then, delete Subnet itself */
+	/* Finally, delete Subnet itself */
 	ls_subnet_del(ted, subnet);
 }
 
