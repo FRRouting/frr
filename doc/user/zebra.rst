@@ -156,6 +156,12 @@ Standard Commands
 
 .. clicmd:: interface IFNAME vrf VRF
 
+   Configure interface in a specific VRF. Depending on the VRF backend,
+   specifying the VRF explicitly is optional. In those cases, interface VRF
+   information will also be omitted from ``show running-config`` even when
+   it was given when configuring the interface. In any case, specifying a
+   VRF does not configure the VRF used by the kernel interface. It merely
+   helps identifying the right kernel interface.
 
 .. clicmd:: shutdown
    :daemon: zebra
@@ -514,7 +520,9 @@ The easiest way to pass the same option to all daemons is to use the
 
 Configuring VRF networking contexts can be done in various ways on FRR. The VRF
 interfaces can be configured by entering in interface configuration mode
-:clicmd:`interface IFNAME vrf VRF`.
+:clicmd:`interface IFNAME vrf VRF`. Note that FRR neither creates VRFs nor
+configures the VRF an interface belongs to. FRR simply uses whatever is
+provided by the OS.
 
 A VRF backend mode is chosen when running *Zebra*.
 
@@ -531,7 +539,7 @@ to find the next route table to use to look for a route match.  As such if
 your VRF table does not have a default blackhole route with a high metric
 VRF route lookup will leave the table specified by the VRF, which is undesirable.
 
-If the :option:`-n` option is chosen, then the *Linux network namespace* will
+If the :option:`-w` option is chosen, then the *Linux network namespace* will
 be mapped over the *Zebra* VRF. That implies that *Zebra* is able to configure
 several *Linux network namespaces*.  The routing table associated to that VRF
 is the whole routing tables located in that namespace. For instance, this mode
@@ -556,12 +564,12 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    *Zebra* is launched with default settings, this will be the ``TABLENO`` of
    the VRF configured on the kernel, thanks to information provided in
    https://www.kernel.org/doc/Documentation/networking/vrf.txt. If *Zebra* is
-   launched with :option:`-n` option, this will be the default routing table of
+   launched with :option:`-w` option, this will be the default routing table of
    the *Linux network namespace* ``VRF``.
 
 .. clicmd:: show ip route vrf VRF table TABLENO
 
-   The show command is only available with :option:`-n` option. This command
+   The show command is only available with :option:`-w` option. This command
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
 
