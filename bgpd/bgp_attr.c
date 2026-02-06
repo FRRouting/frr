@@ -4644,6 +4644,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
 	else if (safi == SAFI_FLOWSPEC)
 		nh_afi = afi;
+	else if (safi == SAFI_BGP_LS)
+		nh_afi = CHECK_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6)
+				 ? AFI_IP6
+				 : AFI_IP;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
 
