@@ -1447,6 +1447,12 @@ Redistribute routes from a routing table number into BGP.
 
    Redistribute VNC direct (not via zebra) routes to BGP process.
 
+.. clicmd:: show bgp [<view|vrf> VRFNAME] <ipv4|ipv6> unicast redistribute [json]
+
+   Display the current redistribution configuration for the specified BGP
+   instance. Shows which protocols are being redistributed into BGP along with
+   their associated metrics, instances, and route-maps if configured.
+
 .. clicmd:: bgp update-delay MAX-DELAY
 
 .. clicmd:: bgp update-delay MAX-DELAY ESTABLISH-WAIT
