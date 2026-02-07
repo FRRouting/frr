@@ -735,6 +735,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	struct rtmsg *rtm;
 	struct rtattr *tb[RTA_MAX + 1];
 	uint32_t flags = 0;
+	bool replace = false;
 	struct prefix p;
 	struct prefix_ipv6 src_p = {};
 	vrf_id_t vrf_id;
@@ -840,6 +841,8 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 
 	if (h->nlmsg_flags & NLM_F_APPEND)
 		flags |= ZEBRA_FLAG_OUTOFSYNC;
+	if (h->nlmsg_flags & NLM_F_REPLACE)
+		replace = true;
 
 	/* Route which inserted by Zebra. */
 	if (selfroute) {
@@ -961,6 +964,272 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		char buf2[PREFIX_STRLEN];
 
 		zlog_debug(
+<<<<<<< HEAD
+=======
+			"%s %pFX%s%s nsid: %u table_id: %u metric: %d Admin Distance: %d",
+			nl_msg_type_to_str(h->nlmsg_type), &p,
+			src_p.prefixlen ? " from " : "",
+			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
+					: "",
+			ns_id, tableid, metric, distance);
+	}
+
+	/* Set values in ctx. Note that vrf is not set, because we can only
+	 * resolve the FRR vrf info in the main pthread.
+	 */
+	dplane_ctx_set_afi(ctx, afi);
+	dplane_ctx_set_safi(ctx, SAFI_UNICAST);
+	dplane_ctx_set_table(ctx, tableid);
+	dplane_ctx_set_vrf(ctx, VRF_UNKNOWN);
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_dest(ctx, &p);
+	if (src_p.prefixlen > 0)
+		dplane_ctx_set_src(ctx, &src_p);
+	else
+		dplane_ctx_set_src(ctx, NULL);
+	dplane_ctx_set_type(ctx, proto);
+	dplane_ctx_route_set_replace(ctx, replace);
+	dplane_ctx_set_flags(ctx, flags);
+	dplane_ctx_set_route_metric(ctx, metric);
+	dplane_ctx_set_route_mtu(ctx, mtu);
+	dplane_ctx_set_distance(ctx, distance);
+	dplane_ctx_set_tag(ctx, tag);
+
+	dplane_ctx_set_ifindex(ctx, index);
+	dplane_ctx_set_route_bhtype(ctx, bh_type);
+	if (prefsrc) {
+		/* Convert to ipaddr */
+		memset(&addr, 0, sizeof(addr));
+
+		if (afi == AFI_IP) {
+			SET_IPADDR_V4(&addr);
+			memcpy(&addr.ipaddr_v4, prefsrc, prefsrc_len);
+		} else {
+			SET_IPADDR_V6(&addr);
+			memcpy(&addr.ipaddr_v6, prefsrc, prefsrc_len);
+		}
+
+		dplane_ctx_set_route_prefsrc(ctx, &addr);
+	} else {
+		dplane_ctx_set_route_prefsrc(ctx, NULL);
+	}
+
+	if (gate) {
+		/* Convert to ipaddr */
+		memset(&addr, 0, sizeof(addr));
+
+		if (afi == AFI_IP) {
+			SET_IPADDR_V4(&addr);
+			memcpy(&addr.ipaddr_v4, gate, gate_len);
+		} else {
+			SET_IPADDR_V6(&addr);
+			memcpy(&addr.ipaddr_v6, gate, gate_len);
+		}
+
+		dplane_ctx_set_route_gw(ctx, &addr);
+	}
+
+	if (nhg_id > 0)
+		dplane_ctx_set_nhg_id(ctx, nhg_id);
+
+done:
+
+	return ret;
+}
+
+/*
+ * Public api for use parsing a route notification message: this notification
+ * only parses the top-level route attributes, and doesn't include nexthops.
+ */
+int netlink_route_notify_read_ctx(struct nlmsghdr *h, ns_id_t ns_id,
+				  struct zebra_dplane_ctx *ctx)
+{
+	/* Use the common parser for route-level netlink message info;
+	 * we expect the caller to have set the context up with the correct
+	 * dplane opcode, and we expect the caller to submit the resulting ctx
+	 * for processing in zebra.
+	 */
+	return netlink_route_read_unicast_ctx(h, ns_id, NULL, ctx);
+}
+
+/*
+ * Parse a route update netlink message, extract and validate its data,
+ * call into zebra with an update.
+ */
+static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
+						      ns_id_t ns_id, int startup)
+{
+	int len;
+	struct rtmsg *rtm;
+	struct rtattr *tb[RTA_MAX + 1];
+	uint32_t flags = 0;
+	struct prefix p;
+	struct prefix src_p = {};
+	vrf_id_t vrf_id;
+	bool selfroute;
+
+	int proto = ZEBRA_ROUTE_KERNEL;
+	int index = 0;
+	int table;
+	int metric = 0;
+	uint32_t mtu = 0;
+	uint8_t distance = 0;
+	route_tag_t tag = 0;
+	uint32_t nhe_id = 0;
+	void *gate = NULL;
+	const struct ipaddr *gate_addr;
+	void *prefsrc = NULL; /* IPv4 preferred source host address */
+	const struct ipaddr *prefsrc_addr;
+	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
+	afi_t afi;
+	struct zebra_dplane_ctx *ctx = NULL;
+	int ret;
+
+	frrtrace(3, frr_zebra, netlink_route_change_read_unicast, h, ns_id,
+		 startup);
+
+	rtm = NLMSG_DATA(h);
+
+	if (startup && h->nlmsg_type != RTM_NEWROUTE)
+		return 0;
+
+	switch (rtm->rtm_type) {
+	case RTN_UNICAST:
+	case RTN_BLACKHOLE:
+	case RTN_UNREACHABLE:
+	case RTN_PROHIBIT:
+		break;
+	default:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type),
+				   rtm->rtm_type);
+		return 0;
+	}
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
+	if (len < 0) {
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
+		return -1;
+	}
+
+	if (rtm->rtm_flags & RTM_F_CLONED) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is CLONED intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
+		return 0;
+	}
+	if (rtm->rtm_protocol == RTPROT_REDIRECT) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is RTPROT_REDIRECT intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
+
+		return 0;
+	}
+
+	/* We don't care about change notifications for the MPLS table. */
+	/* TODO: Revisit this. */
+	if (rtm->rtm_family == AF_MPLS) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is MPLS intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
+		return 0;
+	}
+
+	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
+
+	/*
+	 * Allocate a context object and parse the core parts of the route
+	 * message.
+	 * After this point, note that we need to 'goto done' to exit,
+	 * so that the ctx gets cleaned-up.
+	 */
+	ctx = dplane_ctx_alloc();
+
+	dplane_ctx_route_init(ctx,
+			      h->nlmsg_type == RTM_NEWROUTE ?
+			      DPLANE_OP_ROUTE_INSTALL :
+			      DPLANE_OP_ROUTE_DELETE, NULL, NULL);
+
+	/* Finish parsing the core route info */
+	ret = netlink_route_read_unicast_ctx(h, ns_id, tb, ctx);
+	if (ret < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) netlink_route_read_unicast_ctx failed intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
+		ret = 0;
+		goto done;
+	}
+
+	flags = dplane_ctx_get_flags(ctx);
+
+	selfroute = CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE);
+
+	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE && !zrouter.zav.asic_offloaded) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
+				   rtm->rtm_protocol);
+		ret = 0;
+		goto done;
+	}
+
+	/* Table corresponding to route. */
+	table = dplane_ctx_get_table(ctx);
+
+	/* Map to VRF: note that this can _only_ be done in the main pthread */
+	vrf_id = zebra_vrf_lookup_by_table(table, ns_id);
+	if (vrf_id == VRF_DEFAULT) {
+		if (!is_zebra_valid_kernel_table(table)
+		    && !is_zebra_main_routing_table(table)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Route rtm_type: %s(%d) unable to parse table received %u, ignoring",
+					   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type, table);
+
+			ret = 0;
+			goto done;
+		}
+	}
+
+	/* Route which inserted by Zebra. */
+	if (selfroute)
+		proto = dplane_ctx_get_type(ctx);
+
+	index = dplane_ctx_get_ifindex(ctx);
+
+	p = *(dplane_ctx_get_dest(ctx));
+
+	if (dplane_ctx_get_src(ctx) == NULL)
+		src_p.prefixlen = 0;
+	else
+		src_p = *(dplane_ctx_get_src(ctx));
+
+	prefsrc_addr = dplane_ctx_get_route_prefsrc(ctx);
+	if (prefsrc_addr)
+		prefsrc = (void *)&(prefsrc_addr->ip.addr);
+
+	gate_addr = dplane_ctx_get_route_gw(ctx);
+	if (!IS_IPADDR_NONE(gate_addr))
+		gate = (void *)&(gate_addr->ip.addr);
+
+	nhe_id = dplane_ctx_get_nhe_id(ctx);
+
+	metric = dplane_ctx_get_metric(ctx);
+	distance = dplane_ctx_get_distance(ctx);
+	tag = dplane_ctx_get_tag(ctx);
+	mtu = dplane_ctx_get_mtu(ctx);
+
+	afi = dplane_ctx_get_afi(ctx);
+
+	bh_type = dplane_ctx_get_route_bhtype(ctx);
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf2[PREFIX_STRLEN];
+
+		zlog_debug(
+>>>>>>> f0de8f889 (zebra: Allow zebra to respect non-replace flag for routes received from kernel)
 			"%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
 			nl_msg_type_to_str(h->nlmsg_type), &p,
 			src_p.prefixlen ? " from " : "",
@@ -1023,8 +1292,13 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 			}
 		}
 		if (nhe_id || ng) {
+<<<<<<< HEAD
 			dplane_rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p,
 						 re, ng, startup, ctx);
+=======
+			rib_add_multipath(afi, SAFI_UNICAST, &p, (struct prefix_ipv6 *)&src_p, re,
+					  ng, startup, dplane_ctx_route_get_replace(ctx));
+>>>>>>> f0de8f889 (zebra: Allow zebra to respect non-replace flag for routes received from kernel)
 			if (ng)
 				nexthop_group_delete(&ng);
 			if (ctx)

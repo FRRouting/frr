@@ -740,7 +740,11 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	ng = nexthop_group_new();
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);
 
+<<<<<<< HEAD
 	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre, ng, false);
+=======
+	rib_add_multipath(afi, safi, &p, NULL, newre, ng, false, true);
+>>>>>>> f0de8f889 (zebra: Allow zebra to respect non-replace flag for routes received from kernel)
 	nexthop_group_delete(&ng);
 
 	return 0;
