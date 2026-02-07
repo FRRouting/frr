@@ -764,7 +764,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 	ng = nexthop_group_new();
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);
 
-	rib_add_multipath(afi, safi, &p, NULL, newre, ng, false);
+	rib_add_multipath(afi, safi, &p, NULL, newre, ng, false, true);
 	nexthop_group_delete(&ng);
 
 	return 0;

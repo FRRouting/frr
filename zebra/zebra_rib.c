@@ -1630,8 +1630,8 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 }
 
 /* Route comparison logic, with various special cases. */
-static bool rib_compare_routes(const struct route_entry *re1,
-			       const struct route_entry *re2)
+static bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
+			       bool replace)
 {
 	if (re1->type != re2->type)
 		return false;
@@ -1639,8 +1639,13 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	if (re1->instance != re2->instance)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL && re1->metric != re2->metric)
-		return false;
+	if (re1->type == ZEBRA_ROUTE_KERNEL) {
+		if (re1->metric != re2->metric)
+			return false;
+
+		if (!replace)
+			return false;
+	}
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
 	    re1->distance != re2->distance)
@@ -2747,6 +2752,7 @@ struct zebra_early_route {
 	bool startup;
 	bool deletion;
 	bool fromkernel;
+	bool replace;
 };
 
 static void early_route_memory_free(struct zebra_early_route *ere)
@@ -2867,7 +2873,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 		}
 
 		/* Compare various route_entry properties */
-		if (rib_compare_routes(re, same)) {
+		if (rib_compare_routes(re, same, ere->replace)) {
 			same_count++;
 
 			if (first_same == NULL)
@@ -4541,9 +4547,9 @@ void zebra_rib_route_entry_free(struct route_entry *re)
  *  0 -> Add
  *  1 -> update
  */
-int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
-			  struct prefix_ipv6 *src_p, struct route_entry *re,
-			  struct nhg_hash_entry *re_nhe, bool startup)
+int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ipv6 *src_p,
+			  struct route_entry *re, struct nhg_hash_entry *re_nhe, bool startup,
+			  bool replace)
 {
 	struct zebra_early_route *ere;
 
@@ -4562,6 +4568,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	ere->re = re;
 	ere->re_nhe = re_nhe;
 	ere->startup = startup;
+	ere->replace = replace;
 
 	return mq_add_handler(ere, rib_meta_queue_early_route_add);
 }
@@ -4569,9 +4576,8 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 /*
  * Add a single route.
  */
-int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-		      struct prefix_ipv6 *src_p, struct route_entry *re,
-		      struct nexthop_group *ng, bool startup)
+int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ipv6 *src_p,
+		      struct route_entry *re, struct nexthop_group *ng, bool startup, bool replace)
 {
 	int ret;
 	struct nhg_hash_entry nhe, *n;
@@ -4643,7 +4649,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		}
 	}
 
-	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup);
+	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
 	/* In error cases, free the route also */
 	if (ret < 0)
@@ -4687,11 +4693,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 
-int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-	    unsigned short instance, uint32_t flags, struct prefix *p,
-	    struct prefix_ipv6 *src_p, const struct nexthop *nh,
-	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu,
-	    uint8_t distance, route_tag_t tag, bool startup)
+int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, unsigned short instance,
+	    uint32_t flags, struct prefix *p, struct prefix_ipv6 *src_p, const struct nexthop *nh,
+	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu, uint8_t distance,
+	    route_tag_t tag, bool startup, bool replace)
 {
 	struct route_entry *re = NULL;
 	struct nexthop nexthop = {};
@@ -4710,7 +4715,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		nexthop_group_add_sorted(&ng, &nexthop);
 	}
 
-	return rib_add_multipath(afi, safi, p, src_p, re, &ng, startup);
+	return rib_add_multipath(afi, safi, p, src_p, re, &ng, startup, replace);
 }
 
 static const char *rib_update_event2str(enum rib_update_event event)
@@ -5134,6 +5139,63 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Process system route updates from the dataplane context.
+ * These are routes learned from the kernel that need to be
+ * added to or deleted from the zebra RIB.
+ */
+static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	const struct prefix *prefix = dplane_ctx_get_dest(ctx);
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	struct nexthop_group *ng = NULL;
+	struct nexthop *nexthop;
+	struct route_entry *re = NULL;
+
+	/* Look up interface by name if specified */
+	if (ifname && ifname[0] != '\0') {
+		struct interface *ifp = if_lookup_by_name(ifname, vrf_id);
+
+		if (ifp)
+			ifindex = ifp->ifindex;
+	}
+
+	if (op == DPLANE_OP_SYS_ROUTE_ADD) {
+		/* Create route entry */
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, 0, table, 0, 0, distance,
+					       0);
+
+		/* Create nexthop group and copy nexthops from context */
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, dplane_ctx_get_ng(ctx)->nexthop, NULL);
+
+		/* Resolve IFINDEX_INTERNAL placeholders if we found the interface */
+		if (ifindex > 0) {
+			for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+				if (nexthop->ifindex == IFINDEX_INTERNAL)
+					nexthop->ifindex = ifindex;
+			}
+		}
+
+		rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)prefix, NULL, re, ng, false,
+				  dplane_ctx_route_get_replace(ctx));
+	} else if (op == DPLANE_OP_SYS_ROUTE_DELETE) {
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, prefix, NULL, NULL, 0,
+			   table, 0, distance, false);
+	}
+}
+
+/*
+>>>>>>> f0de8f889 (zebra: Allow zebra to respect non-replace flag for routes received from kernel)
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
