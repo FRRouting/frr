@@ -1,0 +1,46 @@
+{
+  "1:30":{
+    "prefix":"2001:8::/64",
+    "advertisedTo": {
+      "2001::1":{
+        "hostname":"r1"
+      }
+    },
+    "pathCount":1,
+    "paths":[
+      {
+        "aspath":{
+          "string":"1",
+          "length":1
+        },
+        "origin":"incomplete",
+        "metric":0,
+        "valid":true,
+        "bestpath": {
+          "overall": true
+        },
+        "extendedCommunity":{
+          "string":"RT:55:55"
+        },
+        "remoteLabel":16,
+        "nexthops":[
+          {
+            "ip":"2001::1",
+            "hostname":"r1",
+            "afi":"ipv6",
+            "scope":"global",
+            "linkLocalOnly":false,
+            "length":48,
+            "metric":0,
+            "accessible":true,
+            "used":true
+          }
+        ],
+        "peer":{
+          "peerId":"2001::1",
+          "routerId":"192.0.2.1"
+        }
+      }
+    ]
+  }
+}

@@ -277,6 +277,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
+#define IS_MATCH_VPN_DATAPLANE(C) (strmatch(C, "frr-bgp-route-map:match-vpn-dataplane"))
 #define IS_MATCH_LOCAL_PREF(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-local-preference"))
 #define IS_MATCH_ALIAS(C) (strmatch(C, "frr-bgp-route-map:match-alias"))
@@ -294,6 +295,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_PEER(C) (strmatch(C, "frr-bgp-route-map:src-peer"))
 #define IS_MATCH_AS_LIST(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:as-path-list"))
+#define IS_MATCH_ASPATH_COUNT(C) (strmatch(C, "frr-bgp-route-map:match-as-path-count"))
 #define IS_MATCH_MAC_LIST(C)                                                   \
 	(strmatch(C, "frr-bgp-route-map:mac-address-list"))
 #define IS_MATCH_EVPN_ROUTE_TYPE(C)                                            \
@@ -302,24 +304,42 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:evpn-default-route"))
 #define IS_MATCH_EVPN_VNI(C)                                                   \
 	(strmatch(C, "frr-bgp-route-map:evpn-vni"))
-#define IS_MATCH_EVPN_DEFAULT_ROUTE(C)                                         \
-	(strmatch(C, "frr-bgp-route-map:evpn-default-route"))
 #define IS_MATCH_EVPN_RD(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:evpn-rd"))
 #define IS_MATCH_ROUTE_SRC(C)                                                  \
 	(strmatch(C, "frr-bgp-route-map:ip-route-source"))
 #define IS_MATCH_ROUTE_SRC_PL(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:ip-route-source-prefix-list"))
+#define IS_MATCH_COMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-community-limit"))
 #define IS_MATCH_COMMUNITY(C)                                                  \
 	(strmatch(C, "frr-bgp-route-map:match-community"))
 #define IS_MATCH_LCOMMUNITY(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-large-community"))
 #define IS_MATCH_EXTCOMMUNITY(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:match-extcommunity"))
+#define IS_MATCH_EXTCOMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-extcommunity-limit"))
 #define IS_MATCH_IPV4_NH(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:ipv4-nexthop"))
 #define IS_MATCH_IPV6_NH(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:ipv6-nexthop"))
+#define IS_MATCH_IPV4_MULTICAST_SOURCE(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source"))
+#define IS_MATCH_IPV6_MULTICAST_SOURCE(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source"))
+#define IS_MATCH_IPV4_MULTICAST_SOURCE_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source-prefix-list"))
+#define IS_MATCH_IPV6_MULTICAST_SOURCE_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source-prefix-list"))
+#define IS_MATCH_IPV4_MULTICAST_GROUP(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group"))
+#define IS_MATCH_IPV6_MULTICAST_GROUP(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group"))
+#define IS_MATCH_IPV4_MULTICAST_GROUP_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group-prefix-list"))
+#define IS_MATCH_IPV6_MULTICAST_GROUP_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group-prefix-list"))
+#define IS_MATCH_MULTICAST_INTERFACE(C) \
+	(strmatch(C, "frr-pim-route-map:multicast-interface"))
 
 /* Route-map set actions */
 #define IS_SET_IPv4_NH(A)                                                      \

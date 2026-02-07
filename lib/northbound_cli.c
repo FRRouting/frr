@@ -215,49 +215,22 @@ static void create_xpath_base_abs(struct vty *vty, char *xpath_base_abs,
 	strlcat(xpath_base_abs, xpath_base, xpath_base_abs_size);
 }
 
-int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+static int _nb_cli_apply_changes(struct vty *vty, const char *xpath_base, bool clear_pending)
 {
 	char xpath_base_abs[XPATH_MAXLEN] = {};
-	char xpath_base[XPATH_MAXLEN] = {};
-	bool implicit_commit;
-	int ret;
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 
 	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
 			      xpath_base);
 
-	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
-		VTY_CHECK_XPATH;
+	if (vty->type != VTY_FILE && nb_cli_apply_changes_mgmt_cb)
+		return nb_cli_apply_changes_mgmt_cb(vty, xpath_base_abs);
 
-		if (vty->type == VTY_FILE)
-			return CMD_SUCCESS;
-
-		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
-						implicit_commit);
-		if (ret >= 0 && !implicit_commit)
-			vty->mgmt_num_pending_setcfg++;
-		return ret;
-	}
-
-	return nb_cli_apply_changes_internal(vty, xpath_base_abs, false);
+	return nb_cli_apply_changes_internal(vty, xpath_base_abs, clear_pending);
 }
 
-int nb_cli_apply_changes_clear_pending(struct vty *vty,
-				       const char *xpath_base_fmt, ...)
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
-	char xpath_base_abs[XPATH_MAXLEN] = {};
 	char xpath_base[XPATH_MAXLEN] = {};
-	bool implicit_commit;
-	int ret;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -268,28 +241,23 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		va_end(ap);
 	}
 
-	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
-			      xpath_base);
+	return _nb_cli_apply_changes(vty, xpath_base, false);
+}
 
-	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
-		VTY_CHECK_XPATH;
-		/*
-		 * The legacy user wanted to clear pending (i.e., perform a
-		 * commit immediately) due to some non-yang compatible
-		 * functionality. This new mgmtd code however, continues to send
-		 * changes putting off the commit until XFRR_end is received
-		 * (i.e., end-of-config-file). This should be fine b/c all
-		 * conversions to mgmtd require full proper implementations.
-		 */
-		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
-						implicit_commit);
-		if (ret >= 0 && !implicit_commit)
-			vty->mgmt_num_pending_setcfg++;
-		return ret;
+int nb_cli_apply_changes_clear_pending(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
 	}
 
-	return nb_cli_apply_changes_internal(vty, xpath_base_abs, true);
+	return _nb_cli_apply_changes(vty, xpath_base, true);
 }
 
 int nb_cli_rpc_enqueue(struct vty *vty, const char *xpath, const char *value)
@@ -328,8 +296,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 	}
 
 	/* create input tree */
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
-			    &input);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &input);
 	assert(err == LY_SUCCESS);
 
 	for (size_t i = 0; i < vty->num_rpc_params; i++) {
@@ -339,20 +306,10 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 		assert(err == LY_SUCCESS);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
-		char *data = NULL;
-
-		err = lyd_print_mem(&data, input, LYD_JSON, LYD_PRINT_SHRINK);
-		assert(err == LY_SUCCESS);
-
-		ret = vty_mgmt_send_rpc_req(vty, LYD_JSON, xpath, data);
-
-		free(data);
+	if (nb_cli_rpc_mgmt_cb) {
+		ret = nb_cli_rpc_mgmt_cb(vty, xpath, input);
 		lyd_free_all(input);
-
-		if (ret < 0)
-			return CMD_WARNING;
-		return CMD_SUCCESS;
+		return ret;
 	}
 
 	/* validate input tree to create implicit defaults */
@@ -360,8 +317,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 	assert(err == LY_SUCCESS);
 
 	/* create output tree root for population in the callback */
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
-			    &output);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &output);
 	assert(err == LY_SUCCESS);
 
 	ret = nb_callback_rpc(nb_node, xpath, input, output, errmsg,
@@ -426,9 +382,9 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct event *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *event)
 {
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,

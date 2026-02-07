@@ -91,10 +91,10 @@ luCommand(
 )
 
 num = "0 exist"
-luCommand("r1", 'vtysh -c "show bgp ipv4 vpn"', num, "pass", "VPN SAFI clear")
-luCommand("r2", 'vtysh -c "show bgp ipv4 vpn"', num, "pass", "VPN SAFI clear")
-luCommand("r3", 'vtysh -c "show bgp ipv4 vpn"', num, "pass", "VPN SAFI clear")
-luCommand("r4", 'vtysh -c "show bgp ipv4 vpn"', num, "pass", "VPN SAFI clear")
+luCommand("r1", 'vtysh -c "show bgp ipv4 vpn"', num, "wait", "VPN SAFI clear")
+luCommand("r2", 'vtysh -c "show bgp ipv4 vpn"', num, "wait", "VPN SAFI clear")
+luCommand("r3", 'vtysh -c "show bgp ipv4 vpn"', num, "wait", "VPN SAFI clear")
+luCommand("r4", 'vtysh -c "show bgp ipv4 vpn"', num, "wait", "VPN SAFI clear")
 
 luCommand(
     "r1",

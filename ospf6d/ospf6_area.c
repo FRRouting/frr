@@ -173,6 +173,10 @@ static void ospf6_area_stub_update(struct ospf6_area *area)
 	}
 
 	OSPF6_ROUTER_LSA_SCHEDULE(area);
+	/* Happens implicitly via OSPF6_ROUTER_LSA_SCHEDULE(), but
+	 * let's make it explicit
+	 */
+	ospf6_schedule_abr_task(area->ospf6);
 }
 
 static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
@@ -203,7 +207,7 @@ static void ospf6_area_no_summary_set(struct ospf6 *ospf6,
 		if (!area->no_summary) {
 			area->no_summary = 1;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -215,7 +219,7 @@ static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
 		if (area->no_summary) {
 			area->no_summary = 0;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -360,10 +364,23 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	ospf6_route_table_delete(oa->summary_router);
 
 	listnode_delete(oa->ospf6->area_list, oa);
+
+	if (oa->ospf6->backbone == oa)
+		oa->ospf6->backbone = NULL;
 	oa->ospf6 = NULL;
 
 	/* free area */
 	XFREE(MTYPE_OSPF6_AREA, oa);
+}
+
+void ospf6_area_no_config_delete(struct ospf6_area *oa)
+{
+	if ((oa->if_list->count == 0) && (oa->range_table->count == 0) &&
+	    (oa->nssa_range_table->count == 0) && !IS_AREA_STUB(oa) && !IS_AREA_NSSA(oa) &&
+	    !PREFIX_NAME_IN(oa) && !PREFIX_NAME_OUT(oa) && !IMPORT_NAME(oa) && !EXPORT_NAME(oa)) {
+		ospf6_area_disable(oa);
+		ospf6_area_delete(oa);
+	}
 }
 
 struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id)
@@ -409,6 +426,7 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	struct listnode *node, *nnode;
 	struct ospf6_interface *oi;
 
+	UNSET_FLAG(oa->flag, OSPF6_AREA_ACTIVE);
 	UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi))
@@ -421,8 +439,8 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_spf_table_finish(oa->spf_table);
 	ospf6_route_remove_all(oa->route_table);
 
-	EVENT_OFF(oa->thread_router_lsa);
-	EVENT_OFF(oa->thread_intra_prefix_lsa);
+	event_cancel(&oa->thread_router_lsa);
+	event_cancel(&oa->thread_intra_prefix_lsa);
 }
 
 
@@ -588,7 +606,7 @@ DEFUN (area_range,
 
 	if (ospf6_check_and_set_router_abr(ospf6)) {
 		/* Redo summaries if required */
-		ospf6_abr_prefix_resummarize(ospf6);
+		ospf6_schedule_abr_task(ospf6);
 	}
 
 	return CMD_SUCCESS;
@@ -613,7 +631,7 @@ DEFUN (no_area_range,
 	int ret;
 	struct ospf6_area *oa;
 	struct prefix prefix;
-	struct ospf6_route *range, *route;
+	struct ospf6_route *range;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -635,16 +653,12 @@ DEFUN (no_area_range,
 	if (ospf6_check_and_set_router_abr(oa->ospf6)) {
 		/* Blow away the aggregated LSA and route */
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
-
-		/* Redo summaries if required */
-		for (route = ospf6_route_head(oa->ospf6->route_table); route;
-		     route = ospf6_route_next(route))
-			ospf6_abr_originate_summary(route, oa->ospf6);
-
-		/* purge the old aggregated summary LSA */
-		ospf6_abr_originate_summary(range, oa->ospf6);
+		ospf6_schedule_abr_task(oa->ospf6);
 	}
 	ospf6_route_remove(range, oa->range_table);
+
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(oa);
 
 	return CMD_SUCCESS;
 }
@@ -814,6 +828,9 @@ DEFUN (no_area_filter_list,
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -939,6 +956,9 @@ DEFUN (no_area_import_list,
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -1001,6 +1021,9 @@ DEFUN (no_area_export_list,
 	EXPORT_NAME(area) = NULL;
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
+
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
 
 	return CMD_SUCCESS;
 }
@@ -1338,6 +1361,9 @@ DEFUN (no_ospf6_area_stub_no_summary,
 	ospf6_area_stub_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -1383,10 +1409,8 @@ DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
 	else
 		ospf6_area_no_summary_unset(ospf6, area);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1417,6 +1441,9 @@ DEFPY(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
 	ospf6_area_nssa_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
 	ospf6_nssa_default_originate_unset(ospf6, area);
+
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
 
 	return CMD_SUCCESS;
 }

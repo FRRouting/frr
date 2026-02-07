@@ -26,12 +26,14 @@ long int flags_get_index(struct flags *flags)
 {
 	struct listnode *node;
 	long int index;
+	const void *ptr;
 
 	if (flags->free_idcs == NULL || flags->free_idcs->count == 0) {
 		index = flags->maxindex++;
 	} else {
 		node = listhead(flags->free_idcs);
-		index = (long int)listgetdata(node);
+		ptr = listgetdata(node);
+		index = (long int)ptr;
 		listnode_delete(flags->free_idcs, (void *)index);
 		index--;
 	}

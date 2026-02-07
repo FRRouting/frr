@@ -37,9 +37,9 @@ void lua_pushpeer(lua_State *L, const struct peer *peer)
 	lua_setfield(L, -2, "last_readtime");
 	lua_pushinteger(L, peer->resettime);
 	lua_setfield(L, -2, "last_resettime");
-	lua_pushsockunion(L, peer->su_local);
+	lua_pushsockunion(L, peer->connection->su_local);
 	lua_setfield(L, -2, "local_address");
-	lua_pushsockunion(L, peer->su_remote);
+	lua_pushsockunion(L, peer->connection->su_remote);
 	lua_setfield(L, -2, "remote_address");
 	lua_pushinteger(L, peer->cap);
 	lua_setfield(L, -2, "capabilities");

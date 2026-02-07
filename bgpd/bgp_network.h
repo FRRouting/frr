@@ -11,7 +11,7 @@
 struct bgp_listener {
 	int fd;
 	union sockunion su;
-	struct event *thread;
+	struct event *event;
 	struct bgp *bgp;
 	char *name;
 };
@@ -23,7 +23,6 @@ extern void bgp_close_vrf_socket(struct bgp *bgp);
 extern void bgp_close(void);
 extern enum connect_result bgp_connect(struct peer_connection *connection);
 extern int bgp_getsockname(struct peer_connection *connection);
-extern void bgp_updatesockname(struct peer *peer, struct peer_connection *connection);
 
 extern int bgp_md5_set_prefix(struct bgp *bgp, struct prefix *p,
 			      const char *password);

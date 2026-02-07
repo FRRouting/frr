@@ -14,7 +14,7 @@
 #endif
 
 #include <string.h>
-#include "typerb.h"
+#include "lib/typesafe.h"
 
 #define RB_BLACK	0
 #define RB_RED		1

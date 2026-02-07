@@ -19,10 +19,14 @@
 extern "C" {
 #endif
 
+struct route_node;
+
 FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 	{ .val_bool = true, .match_profile = "traditional", },
 	{ .val_bool = false },
 );
+
+#define ZEBRA_ROUTE_TABLE_UNKNOWN 0
 
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
@@ -246,7 +250,8 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
-extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
+extern struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id);
+int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id);
 
 /*
  * API to associate a VRF with a NETNS.
@@ -260,6 +265,8 @@ extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
+extern void zebra_node_info_cleanup(struct route_node *node);
+
 
 #ifdef __cplusplus
 }

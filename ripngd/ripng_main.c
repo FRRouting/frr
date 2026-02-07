@@ -67,7 +67,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	struct vrf *vrf;
 
@@ -89,6 +89,9 @@ static void sigint(void)
 	ripng_zebra_stop();
 
 	route_map_finish();
+
+	access_list_reset();
+	prefix_list_reset();
 
 	frr_fini();
 	exit(0);
@@ -120,6 +123,7 @@ struct frr_signal_t ripng_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_ripngd_info,
@@ -141,8 +145,37 @@ FRR_DAEMON_INFO(ripngd, RIPNG,
 	.n_yang_modules = array_size(ripngd_yang_modules),
 
 	/* mgmtd will load the per-daemon config file now */
-	.flags = FRR_NO_SPLIT_CONFIG,
+	.flags = FRR_NO_SPLIT_CONFIG | FRR_MGMTD_BACKEND,
 );
+
+static const char *const ripngd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-interface:lib/interface",
+	"/frr-ripngd:ripngd",
+	"/frr-route-map:lib",
+	"/frr-vrf:lib",
+};
+
+static const char *const ripngd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-ripngd:ripngd",
+};
+
+static const char *const ripngd_rpc_xpaths[] = {
+	"/frr-ripngd",
+	"/frr-logging",
+};
+
+struct mgmt_be_client_cbs ripngd_be_client_data = {
+	.config_xpaths = ripngd_config_xpaths,
+	.nconfig_xpaths = array_size(ripngd_config_xpaths),
+	.oper_xpaths = ripngd_oper_xpaths,
+	.noper_xpaths = array_size(ripngd_oper_xpaths),
+	.rpc_xpaths = ripngd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ripngd_rpc_xpaths),
+};
 /* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
@@ -185,7 +218,7 @@ int main(int argc, char **argv)
 	/* RIPngd inits. */
 	ripng_init();
 
-	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+	mgmt_be_client = mgmt_be_client_create("ripngd", &ripngd_be_client_data, 0, master);
 
 	zebra_init(master);
 

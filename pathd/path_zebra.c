@@ -26,7 +26,7 @@
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
-struct zclient *zclient;
+struct zclient *pathd_zclient;
 static struct zclient *zclient_sync;
 
 /* Event to retry synch zapi setup for label-manager */
@@ -189,7 +189,7 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 			segment->sid_value;
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
-	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
+	(void)zebra_send_sr_policy(pathd_zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
 
 /**
@@ -209,7 +209,7 @@ void path_zebra_delete_sr_policy(struct srte_policy *policy)
 	zp.segment_list.label_num = 0;
 	policy->status = SRTE_POLICY_STATUS_DOWN;
 
-	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
+	(void)zebra_send_sr_policy(pathd_zclient, ZEBRA_SR_POLICY_DELETE, &zp);
 }
 
 /**
@@ -351,13 +351,13 @@ static zclient_handler *const path_handlers[] = {
  *
  * @param master The master thread
  */
-void path_zebra_init(struct event_loop *master)
+void path_zebra_init(struct event_loop *loop)
 {
 	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default, path_handlers,
-			      array_size(path_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
-	zclient->zebra_connected = path_zebra_connected;
+	pathd_zclient = zclient_new(loop, &zclient_options_default, path_handlers,
+				    array_size(path_handlers));
+	zclient_init(pathd_zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
+	pathd_zclient->zebra_connected = path_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
@@ -373,8 +373,8 @@ void path_zebra_init(struct event_loop *master)
 
 void path_zebra_stop(void)
 {
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(pathd_zclient);
+	zclient_free(pathd_zclient);
 	event_cancel(&t_sync_connect);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);

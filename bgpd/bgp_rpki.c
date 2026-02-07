@@ -38,6 +38,7 @@
 #include "bgpd/bgp_debug.h"
 #include "northbound_cli.h"
 
+#include "bgpd/bgp_errors.h"
 #include "lib/network.h"
 #include "rtrlib/rtrlib.h"
 #include "hook.h"
@@ -155,6 +156,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
+static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -529,7 +531,10 @@ static struct rtr_mgr_group *get_groups(struct list *cache_list)
 
 inline bool is_synchronized(struct rpki_vrf *rpki_vrf)
 {
-	return rpki_vrf->rtr_is_synced;
+	if (is_running(rpki_vrf))
+		return rpki_vrf->rtr_is_synced;
+	else
+		return false;
 }
 
 inline bool is_running(struct rpki_vrf *rpki_vrf)
@@ -540,6 +545,35 @@ inline bool is_running(struct rpki_vrf *rpki_vrf)
 inline bool is_stopping(struct rpki_vrf *rpki_vrf)
 {
 	return rpki_vrf->rtr_is_stopping;
+}
+
+static int bgp_rpki_is_connected(const char *vrf_name)
+{
+	struct rtr_mgr_group *group;
+	struct listnode *cache_node;
+	struct cache *cache;
+	struct rpki_vrf *rpki_vrf;
+
+	rpki_vrf = get_rpki_vrf(vrf_name);
+	if (!rpki_vrf)
+		return 0;
+
+	if (!is_running(rpki_vrf))
+		return 0;
+
+	if (!is_synchronized(rpki_vrf))
+		return 0;
+
+	group = get_connected_group(rpki_vrf);
+	if (!group)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
+		if (cache->rtr_socket->state == RTR_ESTABLISHED)
+			return 1;
+	}
+
+	return 0;
 }
 
 static void pfx_record_to_prefix(struct pfx_record *record,
@@ -564,9 +598,9 @@ struct rpki_revalidate_prefix {
 	safi_t safi;
 };
 
-static void rpki_revalidate_prefix(struct event *thread)
+static void rpki_revalidate_prefix(struct event *event)
 {
-	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
+	struct rpki_revalidate_prefix *rrp = EVENT_ARG(event);
 	struct bgp_dest *match, *node;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
@@ -616,11 +650,11 @@ static void revalidate_single_prefix(struct vrf *vrf, struct prefix prefix, afi_
 	}
 }
 
-static void bgpd_sync_callback(struct event *thread)
+static void bgpd_sync_callback(struct event *event)
 {
 	struct prefix prefix;
 	struct pfx_record rec;
-	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 	struct vrf *vrf = NULL;
 	afi_t afi;
 	int retval;
@@ -631,7 +665,8 @@ static void bgpd_sync_callback(struct event *thread)
 	if (rpki_vrf->vrfname) {
 		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
 		if (!vrf) {
-			zlog_err("%s(): vrf for rpki %s not found", __func__, rpki_vrf->vrfname);
+			flog_err(EC_BGP_VRF_NOT_FOUND, "%s(): vrf for rpki %s not found", __func__,
+				 rpki_vrf->vrfname);
 			return;
 		}
 	}
@@ -732,7 +767,7 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 	return;
 err:
-	zlog_err("RPKI: %s", msg);
+	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 }
 
 static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
@@ -765,7 +800,7 @@ static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
 	return;
 
 err:
-	zlog_err("RPKI: %s", msg);
+	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 	abort();
 
 }
@@ -832,6 +867,7 @@ static int bgp_rpki_module_init(void)
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
+	hook_register(bgp_rpki_connection_status, bgp_rpki_is_connected);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
 	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
@@ -841,9 +877,9 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct event *thread)
+static void sync_expired(struct event *event)
 {
-	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 
 	if (!rtr_mgr_conf_in_sync(rpki_vrf->rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
@@ -921,7 +957,7 @@ static void stop(struct rpki_vrf *rpki_vrf)
 {
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
-		EVENT_OFF(rpki_vrf->t_rpki_sync);
+		event_cancel(&rpki_vrf->t_rpki_sync);
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
 		rpki_vrf->rtr_is_running = false;
@@ -1666,6 +1702,8 @@ DEFPY (no_rpki,
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
+	if (!rpki_vrf)
+		return CMD_WARNING;
 
 	rpki_delete_all_cache_nodes(rpki_vrf);
 	stop(rpki_vrf);
@@ -1891,8 +1929,7 @@ DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
-			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+			vty_out(vty, "Cache with preference %" PRId64 " is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -1950,8 +1987,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
-			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+			vty_out(vty, "Cache with preference %" PRId64 " is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -2013,8 +2049,7 @@ DEFPY (no_rpki_cache,
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
 	if (!rpki_vrf || !cache_p) {
-		vty_out(vty, "Could not find cache with preference %ld\n",
-			preference);
+		vty_out(vty, "Could not find cache with preference %" PRId64 "\n", preference);
 		return CMD_WARNING;
 	}
 
@@ -2023,8 +2058,7 @@ DEFPY (no_rpki_cache,
 	} else if (is_running(rpki_vrf)) {
 		if (rtr_mgr_remove_group(rpki_vrf->rtr_config, preference) ==
 		    RTR_ERROR) {
-			vty_out(vty,
-				"Could not remove cache with preference %ld\n",
+			vty_out(vty, "Could not remove cache with preference %" PRId64 "\n",
 				preference);
 			return CMD_WARNING;
 		}

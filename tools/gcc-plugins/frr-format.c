@@ -2558,7 +2558,7 @@ check_format_info_main (format_check_results *res,
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
 				    OPT_Wformat_,
-				    "%qc directive redundant after prior occurence of the same", format_char);
+				    "%qc directive redundant after prior occurrence of the same", format_char);
 	  else if (!color_begin)
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
@@ -3115,7 +3115,7 @@ check_kef_type (const substring_loc &fmt_loc,
 /* Given type TYPE, attempt to dereference the type N times
    (e.g. from ("int ***", 2) to "int *")
 
-   Return the derefenced type, with any qualifiers
+   Return the dereferenced type, with any qualifiers
    such as "const" stripped from the result, or
    NULL if unsuccessful (e.g. TYPE is not a pointer type).  */
 

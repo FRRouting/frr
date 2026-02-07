@@ -19,7 +19,7 @@
                     {
                         "hostname": "pe1",
                         "afi": "ipv6",
-                        "scope": "global",
+                        "scope": "link-local",
                         "used": true
                     },
                     {

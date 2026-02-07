@@ -166,7 +166,25 @@ static struct log_ref ferr_ospf_err[] = {
 		.code = EC_OSPF_LARGE_HELLO,
 		.title = "OSPF Encountered a Large Hello",
 		.description = "OSPF attempted to send a Hello larger than MTU but did not",
-		.suggestion = "Too many neighbors configured on a single interface. Suggestion is to decrease the number of neighbors on a single interface/subnet"
+		.suggestion = "Too many neighbors configured on a single interface. Suggestion is to decrease the number of neighbors on a single interface/subnet",
+	},
+	{
+		.code = EC_OSPF_LDP_SYNC_DOWN,
+		.title = "OSPF LDP synchronization down",
+		.description = "OSPF-LDP sync detected that LDP session went down",
+		.suggestion = "Check LDP sessions and restart LDP if necessary. Verify OSPF-LDP sync configuration.",
+	},
+	{
+		.code = EC_OSPF_CONFIG_TIMEOUT,
+		.title = "OSPF configuration timeout",
+		.description = "OSPF configuration end timer expired during config application",
+		.suggestion = "Review configuration timing or increase the timeout limit.",
+	},
+	{
+		.code = EC_OSPF_SR_RI_SCOPE,
+		.title = "OSPF Segment Routing router-info scope error",
+		.description = "OSPF Segment Routing router-info LSA uses incorrect flooding scope (should be Area scope, not AS scope)",
+		.suggestion = "Change router-info flooding scope to Area flooding for Segment Routing configuration.",
 	},
 	{
 		.code = END_FERR,

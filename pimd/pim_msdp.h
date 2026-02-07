@@ -148,13 +148,24 @@ struct pim_msdp_peer {
 	/* timestamps */
 	int64_t uptime;
 
+	/** RPF lookup failures count. */
+	uint32_t rpf_lookup_failure_count;
+
 	/** SA input access list name. */
 	char *acl_in;
+	/** Number of input filtered SAs. */
+	uint32_t acl_in_count;
+
 	/** SA output access list name. */
 	char *acl_out;
+	/** Number of output filtered SAs. */
+	uint32_t acl_out_count;
 
 	/** SA maximum amount. */
 	uint32_t sa_limit;
+
+	/** BGP AS number for RPF check. */
+	uint32_t asn;
 };
 
 struct pim_msdp_mg_mbr {
@@ -185,8 +196,10 @@ enum pim_msdp_flags {
 struct pim_msdp_listener {
 	int fd;
 	union sockunion su;
-	struct event *thread;
+	struct event *event;
 };
+
+PREDECL_HASH(msdp_rp_cache);
 
 struct pim_msdp {
 	enum pim_msdp_flags flags;
@@ -212,6 +225,8 @@ struct pim_msdp {
 
 	/** List of mesh groups. */
 	struct pim_mesh_group_list mglist;
+
+	struct msdp_rp_cache_head rp_cache[1];
 
 	/** MSDP global hold time period. */
 	uint32_t hold_time;
@@ -245,7 +260,7 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
-void pim_msdp_write(struct event *thread);
+void pim_msdp_write(struct event *event);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
@@ -253,6 +268,7 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
 void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg);
+uint32_t pim_msdp_sa_asn(const struct pim_msdp_sa *sa);
 void pim_msdp_i_am_rp_changed(struct pim_instance *pim);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,

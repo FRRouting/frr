@@ -129,6 +129,20 @@ int pim_is_group_224_4(struct in_addr group_addr)
 	return prefix_match(&group_all, &group);
 }
 
+bool pim_is_group_ff00_8(struct in6_addr group_address)
+{
+	struct prefix group_all = { .family = AF_INET6,
+				    .prefixlen = 8,
+				    .u.prefix6.s6_addr = { 0xFF } };
+	struct prefix group;
+
+	group.family = AF_INET6;
+	group.u.prefix6 = group_address;
+	group.prefixlen = IPV6_MAX_BITLEN;
+
+	return prefix_match(&group_all, &group);
+}
+
 static bool pim_cisco_match(const struct filter *filter, const struct in_addr *source,
 			    const struct in_addr *group)
 {
@@ -136,11 +150,12 @@ static bool pim_cisco_match(const struct filter *filter, const struct in_addr *s
 	uint32_t source_addr;
 	uint32_t group_addr;
 
-	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
+	group_addr = group->s_addr & ~cfilter->wtf.mask_mask.s_addr;
 
 	if (cfilter->extended) {
-		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
-		if (group_addr == cfilter->mask.s_addr && source_addr == cfilter->addr.s_addr)
+		source_addr = source->s_addr & ~cfilter->wtf.addr_mask.s_addr;
+		if (group_addr == cfilter->wtf.mask.s_addr &&
+		    source_addr == cfilter->wtf.addr.s_addr)
 			return true;
 	} else if (group_addr == cfilter->addr.s_addr)
 		return true;

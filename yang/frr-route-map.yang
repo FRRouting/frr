@@ -52,6 +52,9 @@ module frr-route-map {
   revision 2019-07-01 {
     description
       "Initial revision";
+
+    reference
+      "FRRouting";
   }
 
   identity rmap-match-type {
@@ -208,7 +211,13 @@ module frr-route-map {
   }
 
   grouping rmap-match-condition {
+    description
+      "Grouping for route map match conditions";
+
     container rmap-match-condition {
+      description
+        "Container for route map match conditions";
+
       choice match-condition {
         description
           "Value to match (interpretation depends on condition type)";
@@ -216,6 +225,8 @@ module frr-route-map {
           when "derived-from-or-self(../condition, 'interface')";
           leaf interface {
             type frr-interface:interface-ref;
+            description
+              "Interface to match";
           }
         }
 
@@ -230,6 +241,8 @@ module frr-route-map {
              + "derived-from-or-self(../condition, 'ipv6-prefix-list')";
           leaf list-name {
             type filter:access-list-name;
+            description
+              "Name of the list to match";
           }
         }
 
@@ -239,8 +252,12 @@ module frr-route-map {
             type enumeration {
               enum "blackhole" {
                 value 0;
+                description
+                  "Match blackhole next-hop type";
               }
             }
+            description
+              "IPv4 next-hop type to match";
           }
         }
 
@@ -250,8 +267,12 @@ module frr-route-map {
             type enumeration {
               enum "blackhole" {
                 value 0;
+                description
+                  "Match blackhole next-hop type";
               }
             }
+            description
+              "IPv6 next-hop type to match";
           }
         }
 
@@ -261,6 +282,8 @@ module frr-route-map {
             type uint32 {
               range "1..4294967295";
             }
+            description
+              "Metric value to match";
           }
         }
 
@@ -270,6 +293,8 @@ module frr-route-map {
             type uint32 {
               range "0..4294967295";
             }
+            description
+              "Tag value to match";
           }
         }
       }
@@ -277,7 +302,11 @@ module frr-route-map {
   }
 
   grouping rmap-set-action {
+    description
+      "Grouping for route map set actions";
     container rmap-set-action {
+      description
+        "Container for route map set actions";
       choice set-action {
         description
           "Value to set (interpretation depends on action-type)";
@@ -316,19 +345,19 @@ module frr-route-map {
 
             case add-metric {
               leaf add-metric {
-                description "Add value to metric.";
                 type uint32 {
                   range "0..4294967295";
                 }
+                description "Add value to metric.";
               }
             }
 
             case subtract-metric {
               leaf subtract-metric {
-                description "Subtract value from metric.";
                 type uint32 {
                   range "0..4294967295";
                 }
+                description "Subtract value from metric.";
               }
             }
 
@@ -431,6 +460,7 @@ module frr-route-map {
   }
 
   container lib {
+    description "Library container for route map configurations";
     list route-map {
       key "name";
       description

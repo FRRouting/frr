@@ -55,7 +55,7 @@ extern void if_rmap_yang_modify_cb(struct if_rmap_ctx *ctx,
 				   enum if_rmap_type type, bool del);
 extern void if_rmap_yang_destroy_cb(struct if_rmap_ctx *ctx,
 				    const struct lyd_node *dnode);
-extern int config_write_if_rmap(struct vty *, struct if_rmap_ctx *ctx);
+extern int config_write_if_rmap(struct vty *vty, struct if_rmap_ctx *ctx);
 void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
 

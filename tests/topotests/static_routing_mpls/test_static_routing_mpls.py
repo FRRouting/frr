@@ -110,7 +110,7 @@ def _check_mpls_state(router, interface, configured=True):
     test_func = functools.partial(
         _check_mpls_state_interface, router, interface, up=configured
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     return success
 
 

@@ -70,6 +70,10 @@ struct client_gr_info {
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
 
+/* For managing client list */
+PREDECL_LIST(zserv_client_list);
+PREDECL_LIST(zserv_stale_client_list);
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -85,6 +89,12 @@ struct zserv {
 	 */
 	int busy_count;
 	bool is_closed;
+
+	/* For managing this node in the client list */
+	struct zserv_client_list_item client_list_entry;
+
+	/* For managing this node in the stale client list */
+	struct zserv_stale_client_list_item stale_client_list_entry;
 
 	/* Input/output buffer to the client. */
 	pthread_mutex_t ibuf_mtx;
@@ -222,13 +232,17 @@ struct zserv {
 	 */
 	uint32_t gr_instance_count;
 	time_t restart_time;
-
+	time_t update_pending_time;
 	/*
 	 * Graceful restart information for
 	 * each instance
 	 */
 	TAILQ_HEAD(info_list, client_gr_info) gr_info_queue;
 };
+
+/* Declare the list operations */
+DECLARE_LIST(zserv_client_list, struct zserv, client_list_entry);
+DECLARE_LIST(zserv_stale_client_list, struct zserv, stale_client_list_entry);
 
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
@@ -262,6 +276,9 @@ extern void zserv_close(void);
  *
  * path
  *    where to place the Unix domain socket
+ *
+ * This function *should* only ever be called from
+ * main() and only every from 1 pthread.
  */
 extern void zserv_open(const char *path);
 
@@ -384,7 +401,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) void zebra_finalize(struct event *event);
+FRR_NORETURN void zebra_finalize(struct event *event);
 
 /*
  * Graceful restart functions.
@@ -392,7 +409,7 @@ __attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 extern void zebra_gr_client_final_shutdown(struct zserv *client);
 extern int zebra_gr_client_disconnect(struct zserv *client);
 extern void zebra_gr_client_reconnect(struct zserv *client);
-extern void zebra_gr_stale_client_cleanup(struct list *client_list);
+extern void zebra_gr_stale_client_cleanup(void);
 extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
 				      struct stream *msg,
 				      struct zebra_vrf *zvrf);

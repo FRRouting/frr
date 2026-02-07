@@ -67,6 +67,7 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_vrf_info,
 	&frr_routing_info,
 	&frr_pim_info,
+	&frr_pim_route_map_info,
 	&frr_pim_rp_info,
 	&frr_pim_candidate_info,
 	&frr_gmp_info,
@@ -116,6 +117,7 @@ int main(int argc, char **argv, char **envp)
 	pim_error_init();
 	pim_vrf_init();
 	access_list_init();
+	access_list_add_hook(pim_access_list_update);
 	prefix_list_init();
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);

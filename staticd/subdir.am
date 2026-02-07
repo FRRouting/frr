@@ -19,6 +19,7 @@ staticd_libstatic_a_SOURCES = \
 	staticd/static_vty.c \
 	staticd/static_nb.c \
 	staticd/static_nb_config.c \
+	staticd/static_srv6.c \
 	# end
 
 noinst_HEADERS += \
@@ -29,6 +30,7 @@ noinst_HEADERS += \
 	staticd/static_vty.h \
 	staticd/static_vrf.h \
 	staticd/static_nb.h \
+	staticd/static_srv6.h \
 	# end
 
 clippy_scan += \

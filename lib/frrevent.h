@@ -6,10 +6,19 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#if defined(USE_EPOLL) && defined(HAVE_EPOLL_PWAIT)
+#define EPOLL_ENABLED 1
+#else
+#define EPOLL_ENABLED 0
+#endif
+
 #include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
+#if EPOLL_ENABLED
+#include <sys/epoll.h>
+#endif
 #include "monotime.h"
 #include "frratomic.h"
 #include "typesafe.h"
@@ -29,11 +38,7 @@ extern unsigned long cputime_threshold;
 extern unsigned long walltime_threshold;
 
 struct rusage_t {
-#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 	struct timespec cpu;
-#else
-	struct rusage cpu;
-#endif
 	struct timeval real;
 };
 #define RUSAGE_T struct rusage_t
@@ -42,23 +47,6 @@ struct rusage_t {
 
 PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
-
-struct fd_handler {
-	/* number of pfd that fit in the allocated space of pfds. This is a
-	 * constant and is the same for both pfds and copy.
-	 */
-	nfds_t pfdsize;
-
-	/* file descriptors to monitor for i/o */
-	struct pollfd *pfds;
-	/* number of pollfds stored in pfds */
-	nfds_t pfdcount;
-
-	/* chunk used for temp copy of pollfds */
-	struct pollfd *copy;
-	/* number of pollfds stored in copy */
-	nfds_t copycount;
-};
 
 struct xref_eventsched {
 	struct xref xref;
@@ -69,33 +57,6 @@ struct xref_eventsched {
 };
 
 PREDECL_HASH(cpu_records);
-
-/* Master of the theads. */
-struct event_loop {
-	char *name;
-
-	struct event **read;
-	struct event **write;
-	struct event_timer_list_head timer;
-	struct event_list_head event, ready, unuse;
-	struct list *cancel_req;
-	bool canceled;
-	pthread_cond_t cancel_cond;
-	struct cpu_records_head cpu_records[1];
-	int io_pipe[2];
-	int fd_limit;
-	struct fd_handler handler;
-	long selectpoll_timeout;
-	bool spin;
-	bool handle_signals;
-	pthread_mutex_t mtx;
-	pthread_t owner;
-
-	nfds_t last_read;
-
-	bool ready_run_loop;
-	RUSAGE_T last_getrusage;
-};
 
 /* Event types. */
 enum event_types {
@@ -110,8 +71,8 @@ enum event_types {
 
 /* Event itself. */
 struct event {
-	enum event_types type;	   /* event type */
-	enum event_types add_type; /* event type */
+	enum event_types type;	   /* event type as it moves through the event system*/
+	enum event_types add_type; /* event type as it was created */
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
@@ -126,10 +87,16 @@ struct event {
 	struct timeval real;
 	struct cpu_event_history *hist;	    /* cache pointer to cpu_history */
 	unsigned long yield;		    /* yield time in microseconds */
+	/* lateness warning threshold, usec.  0 if it's not a timer. */
+	unsigned long tardy_threshold;
 	const struct xref_eventsched *xref; /* origin location */
 	pthread_mutex_t mtx;		    /* mutex for thread.c functions */
-	bool ignore_timer_late;
 };
+
+/* rate limit late timer warnings */
+#define TARDY_WARNING_INTERVAL 10 * TIMER_SECOND_MICRO
+/* default threshold for late timer warning */
+#define TARDY_DEFAULT_THRESHOLD 4 * TIMER_SECOND_MICRO
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pTH"(struct event *)
@@ -139,6 +106,10 @@ struct cpu_event_history {
 	struct cpu_records_item item;
 
 	void (*func)(struct event *e);
+
+	/* fields between the pair of these two are nulled on "clear event cpu" */
+	char _clear_begin[0];
+
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
@@ -149,6 +120,10 @@ struct cpu_event_history {
 	} real;
 	struct time_stats cpu;
 	atomic_uint_fast32_t types;
+
+	/* end of cleared region */
+	char _clear_end[0];
+
 	const char *funcname;
 };
 
@@ -170,15 +145,6 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 #define EVENT_ARG(X) ((X)->arg)
 #define EVENT_FD(X) ((X)->u.fd)
 #define EVENT_VAL(X) ((X)->u.val)
-
-/*
- * Please consider this macro deprecated, and do not use it in new code.
- */
-#define EVENT_OFF(thread)                                                      \
-	do {                                                                   \
-		if ((thread))                                                  \
-			event_cancel(&(thread));                               \
-	} while (0)
 
 /*
  * Macro wrappers to generate xrefs for all thread add calls.  Includes
@@ -286,9 +252,9 @@ extern pthread_key_t thread_current;
 extern char *event_timer_to_hhmmss(char *buf, int buf_size,
 				   struct event *t_timer);
 
-static inline bool event_is_scheduled(struct event *thread)
+static inline bool event_is_scheduled(struct event *event)
 {
-	if (thread)
+	if (event)
 		return true;
 
 	return false;
@@ -297,10 +263,25 @@ static inline bool event_is_scheduled(struct event *thread)
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 
+/* getting called more than given microseconds late will print a warning.
+ * Default if not called: 4s.  Don't call this on non-timers.
+ */
+static inline void event_set_tardy_threshold(struct event *event, unsigned long thres)
+{
+	event->tardy_threshold = thres;
+}
+
 static inline void event_ignore_late_timer(struct event *event)
 {
-	event->ignore_timer_late = true;
+	event->tardy_threshold = 0;
 }
+
+/* Accessors for event loop pthread */
+pthread_t frr_event_loop_get_pthread_owner(struct event_loop *loop);
+void frr_event_loop_set_pthread_owner(struct event_loop *loop, pthread_t pth);
+
+/* Control whether 'loop' is the signal-handler for a process */
+void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p);
 
 #ifdef __cplusplus
 }

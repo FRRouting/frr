@@ -1678,6 +1678,20 @@ static int ls_format_msg(struct stream *s, struct ls_message *msg)
 	return -1;
 }
 
+/* Help to compute zapi message size based on the ls_xxx structs' data */
+static size_t get_max_ls_msg_size(void)
+{
+	size_t max = sizeof(struct ls_node);
+
+	if (max < sizeof(struct ls_attributes))
+		max = sizeof(struct ls_attributes);
+
+	if (max < sizeof(struct ls_prefix))
+		max = sizeof(struct ls_prefix);
+
+	return max;
+}
+
 int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 		struct zapi_opaque_reg_info *dst)
 {
@@ -1690,7 +1704,7 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf) <
-	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + sizeof(msg)))
+	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + get_max_ls_msg_size()))
 		return -1;
 
 	/* Init the message, then encode the data inline. */
@@ -2467,6 +2481,8 @@ end:
 	sbuf_free(&sbuf);
 }
 
+#define AG_LEN 11
+
 static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 {
 	struct ls_attributes *attr;
@@ -2474,7 +2490,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 					      *js_ext_ag_arr_word,
 					      *js_ext_ag_arr_bit, *jsrv6 = NULL;
 	char buf[INET6_BUFSIZ];
-	char buf_ag[strlen("0xffffffff") + 1];
+	char buf_ag[AG_LEN];
 	uint32_t bitmap;
 	size_t i;
 
@@ -2555,9 +2571,9 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_UNRSV_BW)) {
 		jbw = json_object_new_array();
 		json_object_object_add(jte, "unreserved-bandwidth", jbw);
-		for (int i = 0; i < MAX_CLASS_TYPE; i++) {
+		for (i = 0; i < MAX_CLASS_TYPE; i++) {
 			jobj = json_object_new_object();
-			snprintfrr(buf, 13, "class-type-%u", i);
+			snprintfrr(buf, 13, "class-type-%u", (unsigned int)i);
 			json_object_double_add(jobj, buf,
 					       attr->standard.unrsv_bw[i]);
 			json_object_array_add(jbw, jobj);
@@ -2599,7 +2615,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		jsrlg = json_object_new_array();
 		json_object_object_add(jte, "srlgs", jsrlg);
-		for (int i = 1; i < attr->srlg_len; i++) {
+		for (i = 1; i < attr->srlg_len; i++) {
 			jobj = json_object_new_object();
 			json_object_int_add(jobj, "srlg", attr->srlgs[i]);
 			json_object_array_add(jsrlg, jobj);

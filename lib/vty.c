@@ -11,17 +11,14 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
+
+#ifndef HAVE_LIBCRYPT
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
+#define crypt DES_crypt
+#endif
+#endif
 
 #include "debug.h"
 #include "linklist.h"
@@ -44,6 +41,8 @@
 #include "printfrr.h"
 #include "json.h"
 #include "sockopt.h"
+#include "frregex_real.h"
+#include "lib/lib_vty.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -56,6 +55,7 @@ DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer");
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
+DEFINE_MTYPE_STATIC(LIB, VTY_REGEX, "VTY filter regex");
 
 DECLARE_DLIST(vtys, struct vty, itm);
 
@@ -74,10 +74,14 @@ enum vty_event {
 
 struct nb_config *vty_mgmt_candidate_config;
 
-static struct mgmt_fe_client *mgmt_fe_client;
-static bool mgmt_fe_connected;
-static uint64_t mgmt_client_id_next;
-static uint64_t mgmt_last_req_id = UINT64_MAX;
+void (*vty_new_mgmt_cb)(struct vty *vty);
+void (*vty_close_mgmt_cb)(struct vty *vty);
+int (*vty_config_enter_mgmt_cb)(struct vty *vty, bool private_config, bool exclusive,
+				bool file_lock);
+void (*vty_config_node_exit_mgmt_cb)(struct vty *vty);
+int (*nb_cli_apply_changes_mgmt_cb)(struct vty *vty, const char *xpath_base_abs);
+int (*nb_cli_rpc_mgmt_cb)(struct vty *vty, const char *xpath, const struct lyd_node *input);
+
 
 PREDECL_DLIST(vtyservs);
 
@@ -127,65 +131,12 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 bool vty_log_commands;
 static bool vty_log_commands_perm;
 
-char const *const mgmt_daemons[] = {
-	"zebra",
-#ifdef HAVE_RIPD
-	"ripd",
-#endif
-#ifdef HAVE_RIPNGD
-	"ripngd",
-#endif
-#ifdef HAVE_STATICD
-	"staticd",
-#endif
-};
-uint mgmt_daemons_count = array_size(mgmt_daemons);
+/* Vty incremental flush threshold size */
+static const int VTY_MAX_INCREMENTAL_FLUSH = 1024 * 128;
 
-
-static int vty_mgmt_lock_candidate_inline(struct vty *vty)
-{
-	assert(!vty->mgmt_locked_candidate_ds);
-	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, true, true);
-	return vty->mgmt_locked_candidate_ds ? 0 : -1;
-}
-
-static int vty_mgmt_unlock_candidate_inline(struct vty *vty)
-{
-	assert(vty->mgmt_locked_candidate_ds);
-	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false, true);
-	return vty->mgmt_locked_candidate_ds ? -1 : 0;
-}
-
-static int vty_mgmt_lock_running_inline(struct vty *vty)
-{
-	assert(!vty->mgmt_locked_running_ds);
-	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_RUNNING, true, true);
-	return vty->mgmt_locked_running_ds ? 0 : -1;
-}
-
-static int vty_mgmt_unlock_running_inline(struct vty *vty)
-{
-	assert(vty->mgmt_locked_running_ds);
-	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_RUNNING, false, true);
-	return vty->mgmt_locked_running_ds ? -1 : 0;
-}
-
-void vty_mgmt_resume_response(struct vty *vty, int ret)
+void vty_resume_response(struct vty *vty, int ret)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
-
-	if (!vty->mgmt_req_pending_cmd) {
-		zlog_err(
-			"vty resume response called without mgmt_req_pending_cmd");
-		return;
-	}
-
-	debug_fe_client("resuming CLI cmd after %s on vty session-id: %" PRIu64
-			" with '%s'",
-			vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
-			ret == CMD_SUCCESS ? "success" : "failed");
-
-	vty->mgmt_req_pending_cmd = NULL;
 
 	if (vty->type != VTY_FILE) {
 		header[3] = ret;
@@ -232,18 +183,20 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 
 	if (!regexp) {
 		if (vty->filter) {
-			regfree(&vty->include);
+			regfree(&vty->include->real);
+			XFREE(MTYPE_VTY_REGEX, vty->include);
 			vty->filter = false;
 		}
 		return true;
 	}
 
-	errcode = regcomp(&vty->include, regexp,
-			  REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
+	vty->include = XCALLOC(MTYPE_VTY_REGEX, sizeof(*vty->include));
+	errcode = regcomp(&vty->include->real, regexp, REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
 	if (errcode) {
 		ret = false;
-		regerror(errcode, &vty->include, errbuf, sizeof(errbuf));
+		regerror(errcode, &vty->include->real, errbuf, sizeof(errbuf));
 		vty_out(vty, "%% Regex compilation error: %s\n", errbuf);
+		XFREE(MTYPE_VTY_REGEX, vty->include);
 	} else {
 		vty->filter = true;
 	}
@@ -261,6 +214,11 @@ int vty_out(struct vty *vty, const char *format, ...)
 	char *filtered;
 	/* format string may contain %m, keep errno intact for printfrr */
 	int saved_errno = errno;
+	size_t filt_len;
+
+	/* If this vty has failed, just return */
+	if (vty->status == VTY_CLOSE)
+		return -1;
 
 	if (vty->frame_pos) {
 		vty->frame_pos = 0;
@@ -292,7 +250,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 			buffer_reset(vty->lbuf);
 			XFREE(MTYPE_TMP, lines->index[0]);
 			vector_set_index(lines, 0, bstr);
-			frrstr_filter_vec(lines, &vty->include);
+			frrstr_filter_vec(lines, vty->include);
 			vector_compact(lines);
 			/*
 			 * Consider the string "foo\n". If the regex is an empty string
@@ -346,15 +304,16 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
-		vty->vty_buf_size_accumulated += strlen(filtered);
+		filt_len = strlen(filtered);
+		vty->vty_buf_size_accum += filt_len;
 		/* print without crlf replacement */
-		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
-		/* For every chunk of memory, we invoke vtysh_flush where we
-		 * put the data of collective vty->obuf Linked List items on the
-		 * socket and free the vty->obuf data.
+		buffer_put(vty->obuf, (uint8_t *)filtered, filt_len);
+
+		/* If we've reached the incremental threshold, try
+		 * to flush buffered output.
 		 */
-		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
-			vty->vty_buf_size_accumulated = 0;
+		if (vty->vty_buf_size_accum >= vty->vty_buf_threshold) {
+			vty->vty_buf_size_accum = 0;
 			vtysh_flush(vty);
 		}
 		break;
@@ -369,7 +328,10 @@ done:
 	if (p != buf)
 		XFREE(MTYPE_VTY_OUT_BUF, p);
 
-	return len;
+	if (vty->status == VTY_CLOSE)
+		return -1;
+	else
+		return len;
 }
 
 static int vty_json_helper(struct vty *vty, struct json_object *json,
@@ -379,6 +341,11 @@ static int vty_json_helper(struct vty *vty, struct json_object *json,
 
 	if (!json)
 		return CMD_SUCCESS;
+
+	if (vty_is_closed(vty)) {
+		json_object_free(json);
+		return CMD_ERR_NOTHING_TODO;
+	}
 
 	text = json_object_to_json_string_ext(
 		json, options);
@@ -1442,13 +1409,13 @@ static void vty_buffer_reset(struct vty *vty)
 }
 
 /* Read data via vty socket. */
-static void vty_read(struct event *thread)
+static void vty_read(struct event *event)
 {
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
 
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
@@ -1645,15 +1612,15 @@ static void vty_read(struct event *thread)
 }
 
 /* Flush buffer to the vty. */
-static void vty_flush(struct event *thread)
+static void vty_flush(struct event *event)
 {
 	int erase;
 	buffer_status_t flushrc;
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
-	/* Tempolary disable read thread. */
+	/* Tempolary disable read event. */
 	if (vty->lines == 0)
-		EVENT_OFF(vty->t_read);
+		event_cancel(&vty->t_read);
 
 	/* Function execution continue. */
 	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
@@ -1707,17 +1674,8 @@ struct vty *vty_new(void)
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
 
-	if (mgmt_fe_client) {
-		if (!mgmt_client_id_next)
-			mgmt_client_id_next++;
-		new->mgmt_client_id = mgmt_client_id_next++;
-		new->mgmt_session_id = 0;
-		mgmt_fe_create_client_session(
-			mgmt_fe_client, new->mgmt_client_id, (uintptr_t) new);
-		/* we short-circuit create the session so it must be set now */
-		assertf(new->mgmt_session_id != 0,
-			"Failed to create client session for VTY");
-	}
+	if (vty_new_mgmt_cb)
+		vty_new_mgmt_cb(new);
 
 	return new;
 }
@@ -1841,9 +1799,9 @@ void vty_stdio_suspend(void)
 	if (!stdio_vty)
 		return;
 
-	EVENT_OFF(stdio_vty->t_write);
-	EVENT_OFF(stdio_vty->t_read);
-	EVENT_OFF(stdio_vty->t_timeout);
+	event_cancel(&stdio_vty->t_write);
+	event_cancel(&stdio_vty->t_read);
+	event_cancel(&stdio_vty->t_timeout);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -1907,9 +1865,9 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 }
 
 /* Accept connection from the network. */
-static void vty_accept(struct event *thread)
+static void vty_accept(struct event *event)
 {
-	struct vty_serv *vtyserv = EVENT_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(event);
 	int vty_sock;
 	union sockunion su;
 	int ret;
@@ -2120,9 +2078,9 @@ static void vty_serv_un(const char *path)
 
 /* #define VTYSH_DEBUG 1 */
 
-static void vtysh_accept(struct event *thread)
+static void vtysh_accept(struct event *event)
 {
-	struct vty_serv *vtyserv = EVENT_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(event);
 	int accept_sock = vtyserv->sock;
 	int sock;
 	int client_len;
@@ -2175,11 +2133,11 @@ static void vtysh_accept(struct event *thread)
 
 	vty = vty_new();
 
-	vty->buf_size_set = ret;
-	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
-		vty->buf_size_intermediate = vty->buf_size_set / 2;
+	/* Capture incremental write threshold */
+	if (ret < VTY_MAX_INCREMENTAL_FLUSH)
+		vty->vty_buf_threshold = ret / 2;
 	else
-		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
+		vty->vty_buf_threshold = VTY_MAX_INCREMENTAL_FLUSH;
 
 	vty->fd = sock;
 	vty->wfd = sock;
@@ -2257,10 +2215,16 @@ static int vtysh_flush(struct vty *vty)
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+
+		/* Set error status. The vty may be in the middle of
+		 * application code that may not be prepared to handle
+		 * an error, so we'll defer cleanup until the app handler
+		 * returns.
+		 */
+		vty->status = VTY_CLOSE;
 		return -1;
 	case BUFFER_EMPTY:
-		vty->vty_buf_size_accumulated = 0;
+		vty->vty_buf_size_accum = 0;
 		break;
 	}
 	return 0;
@@ -2274,78 +2238,7 @@ void vty_pass_fd(struct vty *vty, int fd)
 	vty->pass_fd = fd;
 }
 
-bool mgmt_vty_read_configs(void)
-{
-	char path[PATH_MAX];
-	struct vty *vty;
-	FILE *confp;
-	uint line_num = 0;
-	uint count = 0;
-	uint index;
-
-	vty = vty_new();
-	vty->wfd = STDERR_FILENO;
-	vty->type = VTY_FILE;
-	vty->node = CONFIG_NODE;
-	vty->config = true;
-	vty->pending_allowed = true;
-
-	vty->candidate_config = vty_shared_candidate_config;
-
-	vty_mgmt_lock_candidate_inline(vty);
-	vty_mgmt_lock_running_inline(vty);
-
-	for (index = 0; index < array_size(mgmt_daemons); index++) {
-		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
-			 mgmt_daemons[index]);
-
-		confp = vty_open_config(path, config_default);
-		if (!confp)
-			continue;
-
-		zlog_info("mgmtd: reading config file: %s", path);
-
-		/* Execute configuration file */
-		line_num = 0;
-		(void)config_from_file(vty, confp, &line_num);
-		count++;
-
-		fclose(confp);
-	}
-
-	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
-	confp = vty_open_config(path, config_default);
-	if (confp) {
-		zlog_info("mgmtd: reading config file: %s", path);
-
-		line_num = 0;
-		(void)config_from_file(vty, confp, &line_num);
-		count++;
-
-		fclose(confp);
-	}
-
-	/* Conditionally unlock as the config file may have "exit"d early which
-	 * would then have unlocked things.
-	 */
-	if (vty->mgmt_locked_running_ds)
-		vty_mgmt_unlock_running_inline(vty);
-	if (vty->mgmt_locked_candidate_ds)
-		vty_mgmt_unlock_candidate_inline(vty);
-
-	vty->pending_allowed = false;
-
-	if (!count)
-		vty_close(vty);
-	else
-		vty_read_file_finish(vty, NULL);
-
-	zlog_info("mgmtd: finished reading config files");
-
-	return true;
-}
-
-static void vtysh_read(struct event *thread)
+static void vtysh_read(struct event *event)
 {
 	int ret;
 	int sock;
@@ -2355,8 +2248,8 @@ static void vtysh_read(struct event *thread)
 	unsigned char *p;
 	uint8_t header[4] = {0, 0, 0, 0};
 
-	sock = EVENT_FD(thread);
-	vty = EVENT_ARG(thread);
+	sock = EVENT_FD(event);
+	vty = EVENT_ARG(event);
 
 	/*
 	 * This code looks like it can read multiple commands from the `buf`
@@ -2399,6 +2292,7 @@ static void vtysh_read(struct event *thread)
 		/* Clear command line buffer. */
 		vty->cp = vty->length = 0;
 		vty_clear_buf(vty);
+		flog_err(EC_LIB_VTY, "Command too long (%d bytes): %.80s...", nbytes, buf);
 		vty_out(vty, "%% Command is too long.\n");
 	} else {
 		for (p = buf; p < buf + nbytes; p++) {
@@ -2466,7 +2360,11 @@ static void vtysh_read(struct event *thread)
 				if (!vty->t_write && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
 					 * error occurs. */
-					return;
+					break;
+
+				/* If we encountered an error, break now */
+				if (vty->status == VTY_CLOSE)
+					break;
 			}
 		}
 	}
@@ -2477,9 +2375,9 @@ static void vtysh_read(struct event *thread)
 		vty_event(VTYSH_READ, vty);
 }
 
-static void vtysh_write(struct event *thread)
+static void vtysh_write(struct event *event)
 {
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	vtysh_flush(vty);
 }
@@ -2503,7 +2401,7 @@ void vty_serv_stop(void)
 	struct vty_serv *vtyserv;
 
 	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		EVENT_OFF(vtyserv->t_accept);
+		event_cancel(&vtyserv->t_accept);
 		close(vtyserv->sock);
 		XFREE(MTYPE_VTY_SERV, vtyserv);
 	}
@@ -2541,17 +2439,13 @@ void vty_close(struct vty *vty)
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
 
-	if (mgmt_fe_client && vty->mgmt_session_id) {
-		debug_fe_client("closing vty session");
-		mgmt_fe_destroy_client_session(mgmt_fe_client,
-					       vty->mgmt_client_id);
-		vty->mgmt_session_id = 0;
-	}
+	if (vty_close_mgmt_cb)
+		vty_close_mgmt_cb(vty);
 
 	/* Cancel threads.*/
-	EVENT_OFF(vty->t_read);
-	EVENT_OFF(vty->t_write);
-	EVENT_OFF(vty->t_timeout);
+	event_cancel(&vty->t_read);
+	event_cancel(&vty->t_write);
+	event_cancel(&vty->t_timeout);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -2610,11 +2504,11 @@ void vty_close(struct vty *vty)
 }
 
 /* When time out occur output message then close connection. */
-static void vty_timeout(struct event *thread)
+static void vty_timeout(struct event *event)
 {
 	struct vty *vty;
 
-	vty = EVENT_ARG(thread);
+	vty = EVENT_ARG(event);
 	vty->v_timeout = 0;
 
 	/* Clear buffer*/
@@ -2909,39 +2803,17 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 int vty_config_enter(struct vty *vty, bool private_config, bool exclusive,
 		     bool file_lock)
 {
-	if (exclusive && !vty_mgmt_fe_enabled() &&
-	    nb_running_lock(NB_CLIENT_CLI, vty)) {
+	int ret = CMD_SUCCESS;
+
+	if (vty_config_enter_mgmt_cb)
+		ret = vty_config_enter_mgmt_cb(vty, private_config, exclusive, file_lock);
+	else if (exclusive && nb_running_lock(NB_CLIENT_CLI, vty)) {
 		vty_out(vty, "%% Configuration is locked by other client\n");
-		return CMD_WARNING;
+		ret = CMD_WARNING;
 	}
 
-	/*
-	 * We only need to do a lock when reading a config file as we will be
-	 * sending a batch of setcfg changes followed by a single commit
-	 * message. For user interactive mode we are doing implicit commits
-	 * those will obtain the lock (or not) when they try and commit.
-	 */
-	if (file_lock && vty_mgmt_fe_enabled() && !private_config) {
-		if (vty_mgmt_lock_candidate_inline(vty)) {
-			vty_out(vty,
-				"%% Can't enter config; candidate datastore locked by another session\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (vty_mgmt_lock_running_inline(vty)) {
-			vty_out(vty,
-				"%% Can't enter config; running datastore locked by another session\n");
-			vty_mgmt_unlock_candidate_inline(vty);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		assert(vty->mgmt_locked_candidate_ds);
-		assert(vty->mgmt_locked_running_ds);
-
-		/*
-		 * As datastores are locked explicitly, we don't need implicit
-		 * commits and should allow pending changes.
-		 */
-		vty->pending_allowed = true;
-	}
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	vty->node = CONFIG_NODE;
 	vty->config = true;
@@ -2999,11 +2871,8 @@ int vty_config_node_exit(struct vty *vty)
 
 	vty->pending_allowed = false;
 
-	if (vty->mgmt_locked_running_ds)
-		vty_mgmt_unlock_running_inline(vty);
-
-	if (vty->mgmt_locked_candidate_ds)
-		vty_mgmt_unlock_candidate_inline(vty);
+	if (vty_config_node_exit_mgmt_cb)
+		vty_config_node_exit_mgmt_cb(vty);
 
 	/* Perform any pending commits. */
 	(void)nb_cli_pending_commit_check(vty);
@@ -3086,7 +2955,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
-			EVENT_OFF(vty->t_timeout);
+			event_cancel(&vty->t_timeout);
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
 		}
@@ -3096,7 +2965,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 				&vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
-		EVENT_OFF(vty->t_timeout);
+		event_cancel(&vty->t_timeout);
 		if (vty->v_timeout)
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
@@ -3439,6 +3308,98 @@ static int vty_config_write(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_TCMALLOC
+/*
+ * Support clis when using the tcmalloc lib. The main cli definition is in
+ * vtysh; these NOSH handlers are for individual daemons.
+ */
+#include "gperftools/tcmalloc.h"
+#include "gperftools/malloc_extension_c.h"
+
+struct tcm_stats_s {
+	const char *label;
+	size_t val;
+} tcm_stats_table[] = {
+	{},
+	{},
+	{},
+	{},
+	{NULL, 0},
+};
+
+DEFUN_NOSH (show_tcmalloc_stats,
+	    show_tcmalloc_stats_cmd,
+	    "show tcmalloc stats",
+	    SHOW_STR
+	    "tcmalloc library info\n"
+	    "Show tcmalloc stats\n")
+{
+	struct mallinfo2 minfo;
+	char buf[30];
+	size_t sval;
+	int major = 0, minor = 0;
+	const char *str, *patch = NULL;
+
+	str = tc_version(&major, &minor, &patch);
+
+	vty_out(vty, "Tcmalloc version '%s' (%d.%d)\n", str, major, minor);
+
+	minfo = tc_mallinfo2();
+
+	vty_out(vty, "Tcmalloc mallinfo statistics:\n");
+	vty_out(vty, "  Total heap allocated:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.arena));
+	vty_out(vty, "  Holding block headers: %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.hblkhd));
+	vty_out(vty, "  Used small blocks:     %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.usmblks));
+	vty_out(vty, "  Used ordinary blocks:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.uordblks));
+	vty_out(vty, "  Free small blocks:     %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.fsmblks));
+	vty_out(vty, "  Free ordinary blocks:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.fordblks));
+	vty_out(vty, "  Ordinary blocks:       %ld\n",
+		(unsigned long)minfo.ordblks);
+	vty_out(vty, "  Small blocks:          %ld\n",
+		(unsigned long)minfo.smblks);
+	vty_out(vty, "  Holding blocks:        %ld\n\n",
+		(unsigned long)minfo.hblks);
+
+	/* Read some tcmalloc lib values */
+	MallocExtension_GetNumericProperty("generic.heap_size", &sval);
+	vty_out(vty, "%s: %zu\n", "generic.heap_size", sval);
+
+	MallocExtension_GetNumericProperty("generic.total_physical_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "generic.total_physical_bytes", sval);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_free_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "tcmalloc.pageheap_free_bytes", sval);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_unmapped_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "tcmalloc.pageheap_unmapped_bytes", sval);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (lib_tcmalloc_config,
+	    lib_tcmalloc_config_cmd,
+	    "memory release rate (0-100)",
+	    "memory library config\n"
+	    "Release free memory to OS\n"
+	    "Set mem release rate (zero to disable)\n"
+	    "Set release rate (MB/sec)\n")
+{
+	uint32_t rate = 0;
+
+	rate = (uint32_t)atol(argv[3]->arg);
+
+	frr_mem_release_config(rate);
+
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_TCMALLOC */
+
 static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
 	.name = "vty",
@@ -3512,760 +3473,6 @@ void vty_init_vtysh(void)
 	/* currently nothing to do, but likely to have future use */
 }
 
-
-/*
- * These functions allow for CLI handling to be placed inside daemons; however,
- * currently they are only used by mgmtd, with mgmtd having each daemons CLI
- * functionality linked into it. This design choice was taken for efficiency.
- */
-
-static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
-				      uintptr_t usr_data, bool connected)
-{
-	debug_fe_client("Got %sconnected %s MGMTD Frontend Server",
-			!connected ? "dis: " : "", !connected ? "from" : "to");
-
-	/*
-	 * We should not have any sessions for connecting or disconnecting case.
-	 * The  fe client library will delete all session on disconnect before
-	 * calling us.
-	 */
-	assert(mgmt_fe_client_session_count(client) == 0);
-
-	mgmt_fe_connected = connected;
-
-	/* Start or stop listening for vty connections */
-	if (connected)
-		frr_vty_serv_start(true);
-	else
-		frr_vty_serv_stop();
-}
-
-/*
- * A session has successfully been created for a vty.
- */
-static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
-				    uintptr_t usr_data, uint64_t client_id,
-				    bool create, bool success,
-				    uintptr_t session_id, uintptr_t session_ctx)
-{
-	struct vty *vty;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("%s session for client %" PRIu64 " failed!",
-			 create ? "Creating" : "Destroying", client_id);
-		return;
-	}
-
-	debug_fe_client("%s session for client %" PRIu64 " successfully",
-			create ? "Created" : "Destroyed", client_id);
-
-	if (create) {
-		assert(session_id != 0);
-		vty->mgmt_session_id = session_id;
-	} else {
-		vty->mgmt_session_id = 0;
-		/* We may come here by way of vty_close() and short-circuits */
-		if (vty->status != VTY_CLOSE)
-			vty_close(vty);
-	}
-}
-
-static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
-				      uintptr_t usr_data, uint64_t client_id,
-				      uintptr_t session_id,
-				      uintptr_t session_ctx, uint64_t req_id,
-				      bool lock_ds, bool success,
-				      Mgmtd__DatastoreId ds_id,
-				      char *errmsg_if_any)
-{
-	struct vty *vty;
-	bool is_short_circuit = mgmt_fe_client_current_msg_short_circuit(client);
-
-	vty = (struct vty *)session_ctx;
-
-	assert(ds_id == MGMTD_DS_CANDIDATE || ds_id == MGMTD_DS_RUNNING);
-	if (!success)
-		zlog_err("%socking for DS %u failed, Err: '%s' vty %p",
-			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any, vty);
-	else {
-		debug_fe_client("%socked DS %u successfully",
-				lock_ds ? "L" : "Unl", ds_id);
-		if (ds_id == MGMTD_DS_CANDIDATE)
-			vty->mgmt_locked_candidate_ds = lock_ds;
-		else
-			vty->mgmt_locked_running_ds = lock_ds;
-	}
-
-	if (!is_short_circuit && vty->mgmt_req_pending_cmd) {
-		assert(!strcmp(vty->mgmt_req_pending_cmd, "MESSAGE_LOCKDS_REQ"));
-		vty_mgmt_resume_response(vty,
-					 success ? CMD_SUCCESS : CMD_WARNING);
-	}
-}
-
-static void vty_mgmt_set_config_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId ds_id, bool implicit_commit,
-	char *errmsg_if_any)
-{
-	struct vty *vty;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("SET_CONFIG request for client 0x%" PRIx64
-			 " failed, Error: '%s'",
-			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "%% Configuration failed.\n\n");
-		if (errmsg_if_any)
-			vty_out(vty, "%s\n", errmsg_if_any);
-	} else {
-		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull%s%s",
-				client_id, req_id, errmsg_if_any ? ": " : "",
-				errmsg_if_any ?: "");
-	}
-
-	if (implicit_commit) {
-		/* In this case the changes have been applied, we are done */
-		vty_mgmt_unlock_candidate_inline(vty);
-		vty_mgmt_unlock_running_inline(vty);
-	}
-
-	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
-					      : CMD_WARNING_CONFIG_FAILED);
-}
-
-static void vty_mgmt_commit_config_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId src_ds_id,
-	Mgmtd__DatastoreId dst_ds_id, bool validate_only, char *errmsg_if_any)
-{
-	struct vty *vty;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("COMMIT_CONFIG request for client 0x%" PRIx64
-			 " failed, Error: '%s'",
-			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "%% Configuration failed.\n\n");
-		if (errmsg_if_any)
-			vty_out(vty, "%s\n", errmsg_if_any);
-	} else {
-		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull%s%s",
-				client_id, req_id, errmsg_if_any ? ": " : "",
-				errmsg_if_any ?: "");
-		if (errmsg_if_any)
-			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
-	}
-
-	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
-					      : CMD_WARNING_CONFIG_FAILED);
-}
-
-static int vty_mgmt_get_data_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId ds_id, Mgmtd__YangData **yang_data,
-	size_t num_data, int next_key, char *errmsg_if_any)
-{
-	struct vty *vty;
-	size_t indx;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("GET_DATA request for client 0x%" PRIx64
-			 " failed, Error: '%s'",
-			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
-			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_mgmt_resume_response(vty, CMD_WARNING);
-		return -1;
-	}
-
-	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
-			" req-id %" PRIu64 "%s%s",
-			client_id, req_id, errmsg_if_any ? ": " : "",
-			errmsg_if_any ?: "");
-
-	if (req_id != mgmt_last_req_id) {
-		mgmt_last_req_id = req_id;
-		vty_out(vty, "[\n");
-	}
-
-	for (indx = 0; indx < num_data; indx++) {
-		vty_out(vty, "  \"%s\": \"%s\"\n", yang_data[indx]->xpath,
-			yang_data[indx]->value->encoded_str_val);
-	}
-	if (next_key < 0) {
-		vty_out(vty, "]\n");
-		vty_mgmt_resume_response(vty, CMD_SUCCESS);
-	}
-
-	return 0;
-}
-
-static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
-				      size_t count)
-{
-	struct vty *vty = user_data;
-
-	vty_out(vty, "%.*s", (int)count, (const char *)buf);
-	return count;
-}
-
-static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
-			       const struct ly_err_item *ei)
-{
-#if (LY_VERSION_MAJOR < 3)
-#define data_path path
-#else
-#define data_path data_path
-#endif
-	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
-	bool have_path = ei->data_path && ei->data_path[0] != 0;
-	bool have_msg = ei->msg && ei->msg[0] != 0;
-	const char *severity = NULL;
-	const char *evalid = NULL;
-	const char *ecode = NULL;
-#if (LY_VERSION_MAJOR < 3)
-	LY_ERR err = ei->no;
-#else
-	LY_ERR err = ei->err;
-#endif
-
-	if (ei->level == LY_LLERR)
-		severity = "error";
-	else if (ei->level == LY_LLWRN)
-		severity = "warning";
-
-	ecode = yang_ly_strerrcode(err);
-	if (err == LY_EVALID && ei->vecode != LYVE_SUCCESS)
-		evalid = yang_ly_strvecode(ei->vecode);
-
-	switch (format) {
-	case LYD_XML:
-		vty_out(vty,
-			"<rpc-error xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">");
-		vty_out(vty, "<error-type>application</error-type>");
-		if (severity)
-			vty_out(vty, "<error-severity>%s</error-severity>",
-				severity);
-		if (ecode)
-			vty_out(vty, "<error-code>%s</error-code>", ecode);
-		if (evalid)
-			vty_out(vty, "<error-validation>%s</error-validation>\n",
-				evalid);
-		if (have_path)
-			vty_out(vty, "<error-path>%s</error-path>\n",
-				ei->data_path);
-		if (have_apptag)
-			vty_out(vty, "<error-app-tag>%s</error-app-tag>\n",
-				ei->apptag);
-		if (have_msg)
-			vty_out(vty, "<error-message>%s</error-message>\n",
-				ei->msg);
-
-		vty_out(vty, "</rpc-error>");
-		break;
-	case LYD_JSON:
-		vty_out(vty, "{ \"error-type\": \"application\"");
-		if (severity)
-			vty_out(vty, ", \"error-severity\": \"%s\"", severity);
-		if (ecode)
-			vty_out(vty, ", \"error-code\": \"%s\"", ecode);
-		if (evalid)
-			vty_out(vty, ", \"error-validation\": \"%s\"", evalid);
-		if (have_path)
-			vty_out(vty, ", \"error-path\": \"%s\"", ei->data_path);
-		if (have_apptag)
-			vty_out(vty, ", \"error-app-tag\": \"%s\"", ei->apptag);
-		if (have_msg)
-			vty_out(vty, ", \"error-message\": \"%s\"", ei->msg);
-
-		vty_out(vty, "}");
-		break;
-	case LYD_UNKNOWN:
-	case LYD_LYB:
-	default:
-		vty_out(vty, "%% error");
-		if (severity)
-			vty_out(vty, " severity: %s", severity);
-		if (evalid)
-			vty_out(vty, " invalid: %s", evalid);
-		if (have_path)
-			vty_out(vty, " path: %s", ei->data_path);
-		if (have_apptag)
-			vty_out(vty, " app-tag: %s", ei->apptag);
-		if (have_msg)
-			vty_out(vty, " msg: %s", ei->msg);
-		break;
-	}
-#undef data_path
-}
-
-static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
-{
-	const struct ly_err_item *ei = ly_err_first(ly_native_ctx);
-	uint count;
-
-	if (!ei)
-		return 0;
-
-	if (format == LYD_JSON)
-		vty_out(vty, "\"ietf-restconf:errors\": [ ");
-
-	for (count = 0; ei; count++, ei = ei->next) {
-		if (count)
-			vty_out(vty, ", ");
-		vty_out_yang_error(vty, format, ei);
-	}
-
-	if (format == LYD_JSON)
-		vty_out(vty, " ]");
-
-	ly_err_clean(ly_native_ctx, NULL);
-
-	return count;
-}
-
-
-static int vty_mgmt_get_tree_result_notified(
-	struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
-	uint64_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, void *result,
-	size_t len, int partial_error)
-{
-	struct vty *vty;
-	struct lyd_node *dnode;
-	int ret = CMD_SUCCESS;
-	LY_ERR err;
-
-	vty = (struct vty *)session_ctx;
-
-	debug_fe_client("GET_TREE request %ssucceeded, client 0x%" PRIx64
-			" req-id %" PRIu64,
-			partial_error ? "partially " : "", client_id, req_id);
-
-	assert(result_type == LYD_LYB ||
-	       result_type == vty->mgmt_req_pending_data);
-
-	if (vty->mgmt_req_pending_data == LYD_XML && partial_error)
-		vty_out(vty,
-			"<!-- some errors occurred gathering results -->\n");
-
-	if (result_type == LYD_LYB) {
-		/*
-		 * parse binary into tree and print in the specified format
-		 */
-		result_type = vty->mgmt_req_pending_data;
-
-		err = lyd_parse_data_mem(ly_native_ctx, result, LYD_LYB, 0, 0,
-					 &dnode);
-		if (!err)
-			err = lyd_print_clb(vty_mgmt_libyang_print, vty, dnode,
-					    result_type, LYD_PRINT_WITHSIBLINGS);
-		lyd_free_all(dnode);
-
-		if (vty_out_yang_errors(vty, result_type) || err)
-			ret = CMD_WARNING;
-	} else {
-		/*
-		 * Print the in-format result
-		 */
-		assert(result_type == LYD_XML || result_type == LYD_JSON);
-		vty_out(vty, "%.*s\n", (int)len - 1, (const char *)result);
-	}
-
-	vty_mgmt_resume_response(vty, ret);
-
-	return 0;
-}
-
-static int vty_mgmt_edit_result_notified(struct mgmt_fe_client *client,
-					 uintptr_t user_data,
-					 uint64_t client_id, uint64_t session_id,
-					 uintptr_t session_ctx, uint64_t req_id,
-					 const char *xpath)
-{
-	struct vty *vty = (struct vty *)session_ctx;
-
-	debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
-			" was successful, xpath: %s",
-			client_id, req_id, xpath);
-
-	vty_mgmt_resume_response(vty, CMD_SUCCESS);
-
-	return 0;
-}
-
-static int vty_mgmt_rpc_result_notified(struct mgmt_fe_client *client,
-					uintptr_t user_data, uint64_t client_id,
-					uint64_t session_id,
-					uintptr_t session_ctx, uint64_t req_id,
-					const char *result)
-{
-	struct vty *vty = (struct vty *)session_ctx;
-
-	debug_fe_client("RPC request for client 0x%" PRIx64 " req-id %" PRIu64
-			" was successful",
-			client_id, req_id);
-
-	if (result)
-		vty_out(vty, "%s\n", result);
-
-	vty_mgmt_resume_response(vty, CMD_SUCCESS);
-
-	return 0;
-}
-
-static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
-				   uintptr_t user_data, uint64_t client_id,
-				   uint64_t session_id, uintptr_t session_ctx,
-				   uint64_t req_id, int error,
-				   const char *errstr)
-{
-	struct vty *vty = (struct vty *)session_ctx;
-	const char *cname = mgmt_fe_client_name(client);
-
-	if (!vty->mgmt_req_pending_cmd) {
-		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
-				" session-id %" PRIu64 " req-id %" PRIu64
-				"error-str %s",
-				error, cname, client_id, session_id, req_id,
-				errstr);
-		vty_out(vty,
-			"%% Error %d from MGMTD for %s with no pending command: %s\n",
-			error, cname, errstr);
-		return CMD_WARNING;
-	}
-
-	debug_fe_client("Error %d returned for client %s 0x%" PRIx64
-			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
-			error, cname, client_id, session_id, req_id, errstr);
-
-	vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
-		vty->mgmt_req_pending_cmd, cname);
-
-	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
-
-	return 0;
-}
-
-static struct mgmt_fe_client_cbs mgmt_cbs = {
-	.client_connect_notify = vty_mgmt_server_connected,
-	.client_session_notify = vty_mgmt_session_notify,
-	.lock_ds_notify = vty_mgmt_ds_lock_notified,
-	.set_config_notify = vty_mgmt_set_config_result_notified,
-	.commit_config_notify = vty_mgmt_commit_config_result_notified,
-	.get_data_notify = vty_mgmt_get_data_result_notified,
-	.get_tree_notify = vty_mgmt_get_tree_result_notified,
-	.edit_notify = vty_mgmt_edit_result_notified,
-	.rpc_notify = vty_mgmt_rpc_result_notified,
-	.error_notify = vty_mgmt_error_notified,
-
-};
-
-void vty_init_mgmt_fe(void)
-{
-	char name[40];
-
-	assert(vty_master);
-	assert(!mgmt_fe_client);
-	snprintf(name, sizeof(name), "vty-%s-%ld", frr_get_progname(),
-		 (long)getpid());
-	mgmt_fe_client = mgmt_fe_client_create(name, &mgmt_cbs, 0, vty_master);
-	assert(mgmt_fe_client);
-}
-
-bool vty_mgmt_fe_enabled(void)
-{
-	return mgmt_fe_client && mgmt_fe_connected;
-}
-
-bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
-{
-	return vty->type != VTY_FILE && vty_mgmt_fe_enabled();
-}
-
-int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-			     bool lock, bool scok)
-{
-	assert(mgmt_fe_client);
-	assert(vty->mgmt_session_id);
-
-	vty->mgmt_req_id++;
-	if (mgmt_fe_send_lockds_req(mgmt_fe_client, vty->mgmt_session_id,
-				    vty->mgmt_req_id, ds_id, lock, scok)) {
-		zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
-			 lock ? "" : "UN", vty->mgmt_req_id);
-		vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
-			lock ? "" : "UN");
-		return -1;
-	}
-
-	if (!scok)
-		vty->mgmt_req_pending_cmd = "MESSAGE_LOCKDS_REQ";
-
-	return 0;
-}
-
-int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
-			      bool implicit_commit)
-{
-	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
-	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
-	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
-	char xpath[VTY_MAXCFGCHANGES][XPATH_MAXLEN];
-	char *change_xpath;
-	size_t indx;
-
-	if (vty->type == VTY_FILE) {
-		/*
-		 * if this is a config file read we will not send any of the
-		 * changes until we are done reading the file and have modified
-		 * the local candidate DS.
-		 */
-		/* no-one else should be sending data right now */
-		assert(!vty->mgmt_num_pending_setcfg);
-		return 0;
-	}
-
-	/* If we are FE client and we have a vty then we have a session */
-	assert(mgmt_fe_client && vty->mgmt_client_id && vty->mgmt_session_id);
-
-	if (!vty->num_cfg_changes)
-		return 0;
-
-	/* grab the candidate and running lock prior to sending implicit commit
-	 * command
-	 */
-	if (implicit_commit) {
-		if (vty_mgmt_lock_candidate_inline(vty)) {
-			vty_out(vty,
-				"%% command failed, could not lock candidate DS\n");
-			return -1;
-		} else if (vty_mgmt_lock_running_inline(vty)) {
-			vty_out(vty,
-				"%% command failed, could not lock running DS\n");
-			vty_mgmt_unlock_candidate_inline(vty);
-			return -1;
-		}
-	}
-
-	if (xpath_base == NULL)
-		xpath_base = "";
-
-	for (indx = 0; indx < vty->num_cfg_changes; indx++) {
-		mgmt_yang_data_init(&cfg_data[indx]);
-
-		if (vty->cfg_changes[indx].value) {
-			mgmt_yang_data_value_init(&value[indx]);
-			value[indx].encoded_str_val =
-				(char *)vty->cfg_changes[indx].value;
-			value[indx].value_case =
-				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
-			cfg_data[indx].value = &value[indx];
-		}
-
-		change_xpath = vty->cfg_changes[indx].xpath;
-
-		memset(xpath[indx], 0, sizeof(xpath[indx]));
-		/* If change xpath is relative, prepend base xpath. */
-		if (change_xpath[0] == '.') {
-			strlcpy(xpath[indx], xpath_base, sizeof(xpath[indx]));
-			change_xpath++; /* skip '.' */
-		}
-		strlcat(xpath[indx], change_xpath, sizeof(xpath[indx]));
-
-		cfg_data[indx].xpath = xpath[indx];
-
-		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
-		cfg_req[indx].data = &cfg_data[indx];
-		switch (vty->cfg_changes[indx].operation) {
-		case NB_OP_DELETE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
-			break;
-
-		case NB_OP_DESTROY:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
-			break;
-
-		case NB_OP_CREATE_EXCL:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA;
-			break;
-
-		case NB_OP_REPLACE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA;
-			break;
-
-		case NB_OP_CREATE:
-		case NB_OP_MODIFY:
-		case NB_OP_MOVE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
-			break;
-		default:
-			assertf(false,
-				"Invalid operation type for send config: %d",
-				vty->cfg_changes[indx].operation);
-			/*NOTREACHED*/
-			abort();
-		}
-
-		cfgreq[indx] = &cfg_req[indx];
-	}
-	if (!indx)
-		return 0;
-
-	vty->mgmt_req_id++;
-	if (mgmt_fe_send_setcfg_req(mgmt_fe_client, vty->mgmt_session_id,
-				    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
-				    cfgreq, indx, implicit_commit,
-				    MGMTD_DS_RUNNING)) {
-		zlog_err("Failed to send %zu config xpaths to mgmtd", indx);
-		vty_out(vty, "%% Failed to send commands to mgmtd\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_SETCFG_REQ";
-
-	return 0;
-}
-
-int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
-{
-	if (mgmt_fe_client && vty->mgmt_session_id) {
-		vty->mgmt_req_id++;
-		if (mgmt_fe_send_commitcfg_req(
-			    mgmt_fe_client, vty->mgmt_session_id,
-			    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
-			    MGMTD_DS_RUNNING, validate_only, abort)) {
-			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
-				 vty->mgmt_req_id);
-			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");
-			return -1;
-		}
-
-		vty->mgmt_req_pending_cmd = "MESSAGE_COMMCFG_REQ";
-		vty->mgmt_num_pending_setcfg = 0;
-	}
-
-	return 0;
-}
-
-int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
-			  Mgmtd__DatastoreId datastore, const char **xpath_list,
-			  int num_req)
-{
-	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
-	int i;
-
-	vty->mgmt_req_id++;
-
-	for (i = 0; i < num_req; i++) {
-		mgmt_yang_get_data_req_init(&get_req[i]);
-		mgmt_yang_data_init(&yang_data[i]);
-
-		yang_data->xpath = (char *)xpath_list[i];
-
-		get_req[i].data = &yang_data[i];
-		getreq[i] = &get_req[i];
-	}
-	if (mgmt_fe_send_get_req(mgmt_fe_client, vty->mgmt_session_id,
-				 vty->mgmt_req_id, is_config, datastore, getreq,
-				 num_req)) {
-		zlog_err("Failed to send GET- to MGMTD for req-id %" PRIu64 ".",
-			 vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_GETCFG_REQ";
-
-	return 0;
-}
-
-int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
-			       LYD_FORMAT result_type, uint8_t flags,
-			       uint8_t defaults, const char *xpath)
-{
-	LYD_FORMAT intern_format = result_type;
-
-	vty->mgmt_req_id++;
-
-	if (mgmt_fe_send_get_data_req(mgmt_fe_client, vty->mgmt_session_id,
-				      vty->mgmt_req_id, datastore,
-				      intern_format, flags, defaults, xpath)) {
-		zlog_err("Failed to send GET-DATA to MGMTD session-id: %" PRIu64
-			 " req-id %" PRIu64 ".",
-			 vty->mgmt_session_id, vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-DATA to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_GET_DATA_REQ";
-	vty->mgmt_req_pending_data = result_type;
-
-	return 0;
-}
-
-int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
-			   LYD_FORMAT request_type, uint8_t flags,
-			   uint8_t operation, const char *xpath,
-			   const char *data)
-{
-	vty->mgmt_req_id++;
-
-	if (mgmt_fe_send_edit_req(mgmt_fe_client, vty->mgmt_session_id,
-				  vty->mgmt_req_id, datastore, request_type,
-				  flags, operation, xpath, data)) {
-		zlog_err("Failed to send EDIT to MGMTD session-id: %" PRIu64
-			 " req-id %" PRIu64 ".",
-			 vty->mgmt_session_id, vty->mgmt_req_id);
-		vty_out(vty, "Failed to send EDIT to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
-
-	return 0;
-}
-
-int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
-			  const char *xpath, const char *data)
-{
-	vty->mgmt_req_id++;
-
-	if (mgmt_fe_send_rpc_req(mgmt_fe_client, vty->mgmt_session_id,
-				 vty->mgmt_req_id, request_type, xpath, data)) {
-		zlog_err("Failed to send RPC to MGMTD session-id: %" PRIu64
-			 " req-id %" PRIu64 ".",
-			 vty->mgmt_session_id, vty->mgmt_req_id);
-		vty_out(vty, "Failed to send RPC to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_RPC_REQ";
-
-	return 0;
-}
-
 /* Install vty's own commands like `who' command. */
 void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {
@@ -4306,16 +3513,16 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(VTY_NODE, &no_vty_login_cmd);
 	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
 	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
+
+#ifdef HAVE_TCMALLOC
+	install_element(VIEW_NODE, &show_tcmalloc_stats_cmd);
+	install_element(CONFIG_NODE, &lib_tcmalloc_config_cmd);
+#endif /* HAVE_TCMALLOC */
 }
 
 void vty_terminate(void)
 {
 	struct vty *vty;
-
-	if (mgmt_fe_client) {
-		mgmt_fe_client_destroy(mgmt_fe_client);
-		mgmt_fe_client = 0;
-	}
 
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 

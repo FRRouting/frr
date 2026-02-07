@@ -22,13 +22,13 @@ static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_addr_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_pid_compare(const struct nbr *, const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
-static void nbr_ktimer(struct event *thread);
+static void nbr_ktimer(struct event *event);
 static void		 nbr_start_ktimer(struct nbr *);
-static void nbr_ktimeout(struct event *thread);
+static void nbr_ktimeout(struct event *event);
 static void		 nbr_start_ktimeout(struct nbr *);
-static void nbr_itimeout(struct event *thread);
+static void nbr_itimeout(struct event *event);
 static void		 nbr_start_itimeout(struct nbr *);
-static void nbr_idtimer(struct event *thread);
+static void nbr_idtimer(struct event *event);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
 static __inline int	 nbr_params_compare(const struct nbr_params *,
@@ -293,7 +293,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		EVENT_OFF(nbr->ev_connect);
+		event_cancel(&nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -404,9 +404,9 @@ nbr_session_active_role(struct nbr *nbr)
 
 /* Keepalive timer: timer to send keepalive message to neighbors */
 
-static void nbr_ktimer(struct event *thread)
+static void nbr_ktimer(struct event *event)
 {
-	struct nbr *nbr = EVENT_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(event);
 
 	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
@@ -420,7 +420,7 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	EVENT_OFF(nbr->keepalive_timer);
+	event_cancel(&nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
 	event_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
@@ -428,14 +428,14 @@ nbr_start_ktimer(struct nbr *nbr)
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	EVENT_OFF(nbr->keepalive_timer);
+	event_cancel(&nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
-static void nbr_ktimeout(struct event *thread)
+static void nbr_ktimeout(struct event *event)
 {
-	struct nbr *nbr = EVENT_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(event);
 
 	nbr->keepalive_timeout = NULL;
 
@@ -447,7 +447,7 @@ static void nbr_ktimeout(struct event *thread)
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	EVENT_OFF(nbr->keepalive_timeout);
+	event_cancel(&nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
 	event_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			&nbr->keepalive_timeout);
@@ -456,14 +456,14 @@ nbr_start_ktimeout(struct nbr *nbr)
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	EVENT_OFF(nbr->keepalive_timeout);
+	event_cancel(&nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
-static void nbr_itimeout(struct event *thread)
+static void nbr_itimeout(struct event *event)
 {
-	struct nbr *nbr = EVENT_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(event);
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
@@ -476,7 +476,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	EVENT_OFF(nbr->init_timeout);
+	event_cancel(&nbr->init_timeout);
 	nbr->init_timeout = NULL;
 	event_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
@@ -484,14 +484,14 @@ nbr_start_itimeout(struct nbr *nbr)
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	EVENT_OFF(nbr->init_timeout);
+	event_cancel(&nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
 
-static void nbr_idtimer(struct event *thread)
+static void nbr_idtimer(struct event *event)
 {
-	struct nbr *nbr = EVENT_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(event);
 
 	nbr->initdelay_timer = NULL;
 
@@ -513,7 +513,7 @@ nbr_start_idtimer(struct nbr *nbr)
 		nbr->idtimer_cnt++;
 	}
 
-	EVENT_OFF(nbr->initdelay_timer);
+	event_cancel(&nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
 	event_add_timer(master, nbr_idtimer, nbr, secs, &nbr->initdelay_timer);
 }
@@ -521,7 +521,7 @@ nbr_start_idtimer(struct nbr *nbr)
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	EVENT_OFF(nbr->initdelay_timer);
+	event_cancel(&nbr->initdelay_timer);
 }
 
 int
@@ -536,9 +536,9 @@ nbr_pending_connect(struct nbr *nbr)
 	return (nbr->ev_connect != NULL);
 }
 
-static void nbr_connect_cb(struct event *thread)
+static void nbr_connect_cb(struct event *event)
 {
-	struct nbr *nbr = EVENT_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(event);
 	int		 error;
 	socklen_t	 len;
 
@@ -630,8 +630,9 @@ nbr_establish_connection(struct nbr *nbr)
 	 * an adjacency as well.
 	 */
 	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
-		send_hello(adj->source.type, adj->source.link.ia,
-		    adj->source.target);
+		if (!(adj->source.type == HELLO_LINK && adj->source.link.ia->disable_establish_hello))
+			send_hello(adj->source.type, adj->source.link.ia,
+				adj->source.target);
 
 	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa)) == -1) {
 		if (errno == EINPROGRESS) {

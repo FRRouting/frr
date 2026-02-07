@@ -27,10 +27,11 @@
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_pim6d:         %global  with_pim6d         1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
-%{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
 %{!?with_grpc:          %global  with_grpc          0 }
+%{!?with_rpki:          %global  with_rpki          1 }
+%{!?with_docs:          %global  with_docs          1 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -52,7 +53,7 @@
 
 #### Version String tweak
 # Remove invalid characters form version string and replace with _
-%{expand: %%global rpmversion %(echo '@VERSION@' | tr [:blank:]- _ )}
+%{expand: %%global frrmajorversion %(echo '@VERSION@' | tr [:blank:]- _ )}
 %define         frrversion   @VERSION@
 
 #### Check for systemd or init.d (upstart)
@@ -168,7 +169,7 @@
 
 Summary: Routing daemon
 Name:           frr
-Version:        %{rpmversion}
+Version:        %{frrmajorversion}
 Release:        %{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
@@ -189,18 +190,27 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+# Version requirement don't get reflected down from a BuildRequire
+# to Require, so need to require libyang version as both ways
+Requires: libyang >= 2.1.128
 BuildRequires:  pcre2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
+%if %{with_docs}
 BuildRequires:  python27-sphinx
+%endif
 %else
 %if %{use_python2}
 BuildRequires:  python-devel >= 2.7
+%if %{with_docs}
 BuildRequires:  python-sphinx
+%endif
 %else
 BuildRequires:  python3-devel
+%if %{with_docs}
 BuildRequires:  python3-sphinx
+%endif
 %endif
 %endif
 %if %{with_grpc}
@@ -273,16 +283,7 @@ Group: System Environment/Daemons
 Contributed python 2.7 tools which may be of use with frr.
 
 
-%package devel
-Summary: Header and object files for frr development
-Group: System Environment/Daemons
-Requires: %{name} = %{version}-%{release}
-
-%description devel
-The frr-devel package contains the header and object files necessary for
-developing OSPF-API and frr applications.
-
-
+%if %{with_rpki}
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
 Group: System Environment/Daemons
@@ -295,7 +296,7 @@ against cryptographic information stored in WHOIS databases.  This is
 used to prevent hijacking of networks on the wider internet.  It is only
 relevant to internet service providers using their own autonomous system
 number.
-
+%endif
 
 %package snmp
 Summary: SNMP support
@@ -326,8 +327,11 @@ Adds GRPC support to the individual FRR daemons.
 
 %build
 
+# Fix issue with D_FORTIFY_SOURCE on newer glibc (See Issue #18575)
+CFLAGS="%{optflags} -DINET_NTOP_NO_OVERRIDE"
+
 # For standard gcc verbosity, uncomment these lines:
-#CFLAGS="%{optflags} -Wall -Wsign-compare -Wpointer-arith"
+#CFLAGS="%{CFLAGS} -Wall -Wsign-compare -Wpointer-arith"
 #CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
 
 # For ultra gcc verbosity, uncomment these lines also:
@@ -358,11 +362,6 @@ Adds GRPC support to the individual FRR daemons.
     --enable-ospfapi \
 %else
     --disable-ospfapi \
-%endif
-%if %{with_rtadv}
-    --enable-rtadv \
-%else
-    --disable-rtadv \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \
@@ -400,9 +399,9 @@ Adds GRPC support to the individual FRR daemons.
     --disable-babeld \
 %endif
 %if %{with_vrrpd}
-	--enable-vrrpd \
+    --enable-vrrpd \
 %else
-	--disable-vrrpd \
+    --disable-vrrpd \
 %endif
 %if %{with_pam}
     --with-libpam \
@@ -433,7 +432,16 @@ Adds GRPC support to the individual FRR daemons.
     --disable-bgp-vnc \
 %endif
     --enable-isisd \
+%if %{with_docs}
+    --enable-doc \
+%else
+    --disable-doc \
+%endif
+%if %{with_rpki}
     --enable-rpki \
+%else
+    --disable-rpki \
+%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
@@ -450,6 +458,7 @@ Adds GRPC support to the individual FRR daemons.
     --disable-grpc \
 %endif
     --enable-snmp \
+    --disable-zeromq \
     --enable-pcre2posix \
     # end
 
@@ -465,9 +474,11 @@ sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/frr-reload.py
 sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/generate_support_bundle.py
 %endif
 
+%if %{with_docs}
 pushd doc
 make info
 popd
+%endif
 
 
 %install
@@ -487,6 +498,10 @@ rm -vf %{buildroot}%{_libdir}/frr/modules/*.la
 rm -vf %{buildroot}%{_libdir}/*.la
 rm -vf %{buildroot}%{_libdir}/frr/libyang_plugins/*.la
 
+# Drop devel artifacts since we no longer ship frr-devel
+rm -rf %{buildroot}%{_includedir}/frr
+rm -f  %{buildroot}%{_libdir}/pkgconfig/frr.pc
+
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
@@ -504,7 +519,11 @@ install -d -m750 %{buildroot}%{_runstatedir}/frr
 
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # avoid `ERROR: ambiguous python shebang in` errors
+%if 0%{?rhel} < 10
 pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
+%else
+%py3_shebang_fix %{buildroot}/usr/lib/frr/*.py
+%endif
 %py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
 %else
 # remove ospfclient.py (if present) as it requires > python36
@@ -605,7 +624,9 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
     %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons 2> /dev/null || true
 %endif
 
+%if %{with_docs}
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
+%endif
 
 # Create dummy config file if they don't exist so basic functions can be used.
 if [ ! -e %{configdir}/frr.conf ] && [ ! -e %{configdir}/zebra.conf ]; then
@@ -673,7 +694,9 @@ fi
         /sbin/chkconfig --del frr
     fi
 %endif
+%if %{with_docs}
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
+%endif
 
 
 %files
@@ -690,8 +713,10 @@ fi
     %dir %attr(755,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{_runstatedir}/frr
 %endif
-%{_infodir}/frr.info.gz
-%{_mandir}/man*/*
+%if %{with_docs}
+    %{_infodir}/frr.info.gz
+    %{_mandir}/man*/*
+%endif
 %{_sbindir}/zebra
 %{_sbindir}/staticd
 %{_sbindir}/ospfd
@@ -753,6 +778,7 @@ fi
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*
 %{_libdir}/libmgmt_be_nb.so*
+%{_libdir}/libmlag_pb.so*
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
@@ -791,16 +817,22 @@ fi
 %endif
 
 
+%if %{with_rpki}
 %post rpki-rtrlib
 # add rpki module to daemons
 sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
+%endif
 
+%if %{with_rpki}
 %postun rpki-rtrlib
 # remove rpki module from daemons
 sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
+%endif
 
+%if %{with_rpki}
 %files rpki-rtrlib
 %{_libdir}/frr/modules/bgpd_rpki.so
+%endif
 
 
 %files snmp
@@ -814,32 +846,63 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/frr/modules/grpc.so
 %endif
 
-%files devel
-%{_libdir}/lib*.so
-%dir %{_includedir}/%{name}
-%{_includedir}/%{name}/*.h
-%dir %{_includedir}/%{name}/ospfd
-%{_includedir}/%{name}/ospfd/*.h
-%if %{with_bfdd}
-    %dir %{_includedir}/%{name}/bfdd
-    %{_includedir}/%{name}/bfdd/bfddp_packet.h
-%endif
-%if %{with_ospfapi}
-    %dir %{_includedir}/%{name}/ospfapi
-    %{_includedir}/%{name}/ospfapi/*.h
-%endif
-%if %{with_eigrpd}
-    %dir %{_includedir}/%{name}/eigrpd
-    %{_includedir}/%{name}/eigrpd/*.h
-%endif
-
 
 %changelog
 
-* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
-- FRR 10.3 Development
+* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0-dev
+- FRR Development 10.6.0
+
+* Sun Nov 09 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5.0
+- New upstream release FRR 10.5.0
+
+* Wed Jul 16 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4
+- Major highlights:
+-   BGP BFD Strict-Mode
+-   BGP Link-Local Next Hop Capability [draft-ietf-idr-linklocal-capability]
+-   BGP Transparent mode
+-   BGP Next Hop Dependent Characteristics Attribute [draft-ietf-idr-entropy-label]
+-   IGMP and MLD group/source limits
+-   PIM dense and sparse-dense mode support [RFC3973]
+-   IGMPv2/MLDv1 immediate leave
+-   v4-via-v6 nexthop support for static routes
+-   Timeout for vtysh
+-   Discover PREF64 in Router Advertisements [RFC8781]
+
+* Mon Mar 10 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3
+- Major highlights:
+-   Lua 5.4 support
+-   Fixed CVE-2024-55553
+-   New match community-count BGP command to limit communities count
+-   New set metric igp|aigp BGP command to inject IGP metric as MED into BGP
+-   New bgp ipv6-auto-ra BGP command
+-   Optimize BGP EVPN L2VNI/L3VIN remote routes processing
+-   Respect non-transitive BGP extended communities between direct peers
+-   Drop deprecated bgp network import-check exact command
+-   Handle BGP ENHE (Extended Next Hop Encoding) capability via dynamic capability
+-   Implement BGP connect backoff retry
+-   Implement an ability to import BMP information from a separate BGP instance
+-   Add support of BGP color extended community color-only types
+-   Implement SBFD
+-   Add support for SRv6 static SIDs
+-   Implement embedded-rp for PIMv6
+-   Implement AutoRP mapping-agent for PIM
+-   Implement MSDP peer SA limiting
+
+* Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2
+- Major highlights:
+-   PIM candidate BSR/RP [#16438]
+-   Static IGMP join without an IGMP report [1#6450]
+-   PIM AutoRP discovery/announcements [#16634]
+-   IGMP proxy [#16861]
+-   SRv6 SID Manager [#15604]
+-   Add `bgp ipv6-auto-ra` command [#16354]
+-   Implement `neighbor x remote-as auto` for BGP [#16345]
+-   Implement `bgp dual-as` for BGP [#16816]
+-   Implement BGP-wide configuration for graceful restart [#16099]
+-   Handle kernel routes appropriately (should fix recent NOPREFIXROUTE issue) [#16300]
+-   Add `cisco-authentication` password support for NHRP [#16172]
 
 * Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
 - Breaking changes

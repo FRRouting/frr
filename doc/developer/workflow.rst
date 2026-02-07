@@ -101,7 +101,7 @@ March/July/November.  Walking backwards from this date:
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
    :file:`configure.ac` to reflect the new development version that master
-   now refers to.  This is accompanied by a ``frr-X.Y-dev`` tag on master,
+   now refers to.  This is accompanied by a ``frr-X.Y.Z-dev`` tag on master,
    which should always be on the first commit on master *after* the stable
    branch was forked (even if that is not the edit to ``AC_INIT``; it's more
    important to have it on the very first commit on master after the fork.)
@@ -119,17 +119,17 @@ March/July/November.  Walking backwards from this date:
 
         % git checkout master
         % git pull upstream master
-        % git checkout -b dev/8.2
-        % git tag base_8.2
-        % git push upstream base_8.2
-        % git push upstream dev/8.2
+        % git checkout -b dev/10.5
+        % git tag base_10.5
+        % git push upstream base_10.5
+        % git push upstream dev/10.5
         % git checkout master
-        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % sed -i 's/10.4.0-dev/10.5.0-dev/' configure.ac
         % git add configure.ac
-        % git commit -s -m "build: FRR 8.3 development version"
-        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git commit -s -m "build: FRR 10.5.0 development version"
+        % git tag -a frr-10.5.0-dev -m "frr-10.5.0-dev"
         % git push upstream master
-        % git push upstream frr-8.3-dev
+        % git push upstream frr-10.5.0-dev
 
    In this step, we also have to update package versions to reflect
    the development version. Versions need to be updated using
@@ -144,7 +144,14 @@ March/July/November.  Walking backwards from this date:
    the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
    go in the ``master`` branch.
 
- - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
+ - The zebra dataplane API is versioned separately from the FRR
+   release version numbering. Before publishing an FRR release, we
+   need to check the release's diff in ``zebra/zebra_dplane.h``. If an
+   incompatible API change is present, increment the major API version
+   and reset the minor and sub-version values to zero. If other
+   changes are present, increment the minor version number.
+
+ - 2 weeks earlier, a ``frr-X.Y.Z-rc`` release candidate is tagged.
 
      .. code-block:: console
 
@@ -152,9 +159,9 @@ March/July/November.  Walking backwards from this date:
         upstream  git@github.com:frrouting/frr (fetch)
         upstream  git@github.com:frrouting/frr (push)
 
-        % git checkout dev/8.2
-        % git tag frr-8.2-rc
-        % git push upstream frr-8.2-rc
+        % git checkout dev/10.5
+        % git tag frr-10.5.0-rc
+        % git push upstream frr-10.5.0-rc
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
@@ -171,15 +178,42 @@ For reference, the expected release schedule according to the above is:
 
 Here is the hint on how to get the dates easily:
 
-   .. code-block:: console
+   .. code-block:: bash
 
-      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
-      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
-      2023-09-26
-      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
-      2023-10-10
-      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
-      2023-10-24
+      #!/bin/bash
+
+      # ./release-dates.sh [year]
+      # E.g.: ./release-dates.sh 2026
+      year="${1:-$(date +%Y)}"
+
+      first_tuesday() {
+         local year=$1
+         local month=$2
+         for day in {1..7}; do
+            weekday=$(date -d "$year-$month-$day" +%u)
+            if [[ $weekday -eq 2 ]]; then
+                  date -d "$year-$month-$day" +%Y-%m-%d
+                  return
+            fi
+         done
+      }
+
+      echo "Release Schedule for ${year}"
+      echo "-------------------------"
+
+      for month in 3 7 11; do
+         release_date=$(first_tuesday "$year" $month)
+         rc_date=$(date -d "$release_date -2 weeks" +%Y-%m-%d)
+         dev_date=$(date -d "$release_date -4 weeks" +%Y-%m-%d)
+         freeze_date=$(date -d "$release_date -6 weeks" +%Y-%m-%d)
+
+         echo ""
+         echo "Release Month: $(date -d "$release_date" +%B)"
+         echo "  Freeze date:     $freeze_date"
+         echo "  dev/X.Y.Z date:  $dev_date"
+         echo "  RC date:         $rc_date"
+         echo "  Release date:    $release_date"
+      done
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
@@ -198,6 +232,10 @@ bug fixes to older than the two most recent releases.
 Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
 severity.
+
+It is important to note that if a fix is backported to stable branch, all newer stable
+branches must have that fix too. For example, if a fix is backported to ``stable/10.0``
+then all releases after ``10.0`` are expected to have that fix where applicable.
 
 For detailed instructions on how to produce an FRR release, refer to
 :ref:`frr-release-procedure`.
@@ -354,15 +392,70 @@ This helps to automatically generate human-readable changelog messages.
 Commit Guidelines
 -----------------
 
-There is a built-in commit linter. Basic rules:
+Commit messages must have a title and optionally a detailed description.
 
-- Commit messages must be prefixed with the name of the changed subsystem, followed
+The commit title is a short summary of the commit. The following rules apply:
+
+- Must be no more than 72 characters.
+- Must be prefixed with the name of the changed subsystem, followed
   by a colon and a space and start with an imperative verb.
+  `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
+  the supported subsystems.
+- Should not end with a period.
+- Should be a complete sentence.
+- Should "make sense" when used with release changelog.
+- Think of the end-users reading it and write the title to them.
+- FRR maintainers should not need to rewrite the message to explain
+  your work to end-users on your behalf.
 
-   `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
-   the supported subsystems.
+Example good commit titles:
 
-- Commit messages must not end with a period ``.``
+   .. code-block:: console
+
+      lib,bgpd: clean up clang warnings
+
+      babeld: convert all code to use our code formatting rules
+
+      doc: add commit message guidelines to the dev guide`
+
+
+The commit description should have more detailed explanation covering also the purpose
+of the work being done. Formatting guidelines include:
+
+- Must be separated from the title by a blank line.
+- Must be wrapped to 72 characters, unless it is a sample output.
+- Markdown syntax/output code blocks (3 ticks "\`\`\`" line before and after).
+- Write your commit message in the imperative: "Fix bug" and not "Fixed
+  bug" or "Fixes bug." This convention matches up with commit messages
+  generated by commands like git merge and git revert
+- Bullet points are okay, too.
+- Typically a hyphen or asterisk is used for the bullet, followed by a
+  single space. Use a hanging indent.
+
+Example good commit message:
+
+   .. code-block:: console
+
+      pim6d: support embedded-rp
+
+      Implement embedded RP support and configuration commands.
+      Embedded RP is disabled by default and can be globally enabled with the
+      command `embedded-rp` in the PIMv6 configuration node.
+
+      It supports the following options:
+      - Embedded RP maximum limit
+      - Embedded RP group filtering
+
+When opening a PR, please follow the same commit message guidelines above. Also
+make sure:
+
+- If the PR has a single commit, just copy the commit message as-is to the PR,
+  which is the default behavior for a single commit PR on github.
+- If the PR has more than one commit, add a summary title for the whole PR
+  along with a summary description encompassing all commits.
+- Make sure that the description you add to the PR is already captured in commits messages.
+  In other words don't leave the commit messages empty. The PR description should just restate
+  or summaries what the the commit messages already have.
 
 Why was my pull request closed?
 -------------------------------
@@ -730,9 +823,63 @@ pointer".
    **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
    CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
 
-Please to keep ``#include <zebra.h>``.  The absolute first header included in
-any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
-guard.)
+
+``#include`` statements and ``extern "C" {``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Due to organic development over about 30 years, ``#include`` statements in
+the FRR codebase are incredibly inconsistent.  There is one strict rule:
+The absolute **first header included in any C file must be either** ``zebra.h``
+**or** ``config.h`` (with HAVE_CONFIG_H guard.)
+
+Other than this, the following are "aspirational":
+
+- never use ``#include <...>`` (angle brackets) for headers in FRR's source
+  tree;  it should always be ``#include "..."``
+
+   - exception: ``<zebra.h>``
+   - either acceptable: ``"assert.h"``/``<assert.h>`` (since this file
+     intentionally replaces a system header with the same name)
+
+- use the full path relative to source root, i.e. ``#include "lib/if.h"`` or
+  ``#include "zebra/rib.h"``
+
+   - exception (again): ``<zebra.h>``
+   - exception (again): ``"assert.h"``/``<assert.h>`` (since this file
+     intentionally replaces a system header with the same name)
+   - among the "aspirations" here, this is the most inconsistent across the
+     codebase
+
+- the order of includes should be, with a blank line inbetween each group:
+
+   1. (source files only:) ``<zebra.h>`` or ``"config.h"``
+   2. system includes, e.g. ``<stdint.h>``
+   3. includes from FRR's library, e.g. ``"lib/if.h"``
+   4. includes from the daemon, e.g. ``"zebra/rib.h"``
+   5. (headers only:) ``extern "C" {`` - **never place this before an**
+      ``#include`` **statement**
+   6. (headers only:) forward declarations of structs, e.g. ``struct interface;``
+
+   Note that the ``extern "C"`` block is only necessary for headers that might
+   be used from C++ code, i.e. primarily files in ``lib/`` and ``zebra/``.
+
+- ``zebra.h`` (or ``config.h``) should only be included from ``.c`` files, not
+  from headers.  One of them is required to be the first include anyway.
+
+- do not add FRR-specific declarations/definitions to ``zebra.h``.  That file
+  is intended primarily as an "include multiplexer" for system header files.
+  The fact that it currently contains FRR specific bits is a bug, not a
+  feature, and might hopefully get tackled at some point.
+
+  The function of ``zebra.h`` is similar to a PCH (pre-compiled header),
+  except investigation has shown no real build time benefit from actually
+  using it as a PCH, so it was never integrated into the build as such.
+
+- in header files, if struct forward declarations can be used to replace
+  ``#include`` statements, that is preferable.
+
+- self-reliancy for header files (e.g. having them include everything they use)
+  is appreciated.
 
 
 Adding Copyright Claims to Existing Files

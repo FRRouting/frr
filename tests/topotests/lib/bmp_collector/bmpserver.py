@@ -18,7 +18,8 @@ from datetime import datetime
 
 from bmp import BMPMsg
 
-BGP_MAX_SIZE = 4096
+# RFC8654 : max packet size is 65535 bytes
+BGP_MAX_SIZE = 65535
 
 # Global variable to track shutdown signal
 shutdown = False
@@ -70,19 +71,21 @@ def savepid():
         fd = os.open(pid_file, flags, mode)
     except OSError:
         try:
-            pid = open(pid_file, "r").readline().strip()
+            with open(pid_file, "r") as file_fd:
+                pid = file_fd.readline().strip()
+
             if check_pid(int(pid)):
                 timestamp_print(
-                    "PID file already exists and program still running %s\n" % pid_file
+                    f"PID file already exists and program still running {pid_file}\n"
                 )
                 return False
             else:
                 # If pid is not running, reopen file without O_EXCL
                 fd = os.open(pid_file, flags ^ os.O_EXCL, mode)
-        except (OSError, IOError, ValueError):
+                os.close(fd)
+        except (OSError, IOError, ValueError) as err:
             timestamp_print(
-                "issue accessing PID file %s (most likely permission or ownership)\n"
-                % pid_file
+                f"issue accessing PID file {pid_file} (most likely permission or ownership): {err}\n"
             )
             return False
 
@@ -93,9 +96,9 @@ def savepid():
         f.close()
         saved_pid = True
     except IOError:
-        timestamp_print("Can not create PID file %s\n" % pid_file)
+        timestamp_print(f"Can not create PID file {pid_file}\n")
         return False
-    timestamp_print("Created PID file %s with value %d\n" % (pid_file, ownid))
+    timestamp_print(f"Created PID file {pid_file} with value {ownid}\n")
     return True
 
 
@@ -106,9 +109,9 @@ def removepid():
         if exc.errno == errno.ENOENT:
             pass
         else:
-            timestamp_print("Can not remove PID file %s\n" % pid_file)
+            timestamp_print(f"Can not remove PID file {pid_file}\n")
             return
-    timestamp_print("Removed PID file %s\n" % pid_file)
+    timestamp_print(f"Removed PID file {pid_file}\n")
 
 
 def main():
@@ -168,7 +171,7 @@ def main():
                 timestamp_print(f"TCP session closed with {client_address}")
                 connection.close()
         except socket.error as sock_err:
-            timestamp_print(f"Socket error: {e}")
+            timestamp_print(f"Socket error: {sock_err}")
         except Exception as e:
             timestamp_print(f"{e}")
         finally:

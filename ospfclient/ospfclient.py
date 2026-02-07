@@ -306,7 +306,7 @@ class OspfApiClient:
         self._s = None
         self._as = None
         self._ls = None
-        self._ar = self._r = self._w = None
+        self._ar = self._r = self._aw = self._w = None
         self.server = server
         self.handlers = handlers if handlers is not None else dict()
         self.write_lock = Lock()
@@ -345,7 +345,7 @@ class OspfApiClient:
 
         logging.debug("%s: success", self)
         self._r, self._w = await asyncio.open_connection(sock=self._s)
-        self._ar, _ = await asyncio.open_connection(sock=self._as)
+        self._ar, self._aw = await asyncio.open_connection(sock=self._as)
         self._seq = 1
 
     async def connect(self):

@@ -351,6 +351,26 @@ In the examples below, each arrowed token needs a doc string.
    "command <foo|bar> [example]"
     ^        ^   ^     ^
 
+If a token is missing a docstring, a compile-time warning will be emitted in the form:
+
+::
+
+    Ran out of docstring while parsing 'show example address <A.B.C.D|X:x::x:X>$address> [json]'
+
+The code that emitted the warning is below, it was missing a help string for the IPv6 version of the IP address.
+
+::
+
+    DEFPY(show_example_address show_example_address_cmd,
+      "show example address <A.B.C.D|X:X::X:X>$address> [json]",
+      SHOW_STR
+      EXAMPLE_STR
+      ADDRESS_HELP_STR
+      "IP Address\n"
+      "IPv4 address\n"
+      JSON_STR)
+
+
 DEFPY
 ^^^^^
 ``DEFPY(...)`` is an enhanced version of ``DEFUN()`` which is preprocessed by
@@ -533,6 +553,37 @@ Array:
 
    [0] -> command
    [1] -> baz
+
+
+.. _cli-json-api:
+
+Json APIs
+---------
+
+FRR includes some APIs that allow us to incrementally output a json
+object hierarchy. Many leaf objects can be freed as soon as they've
+been output. Parent container objects can be kept "open" during
+long-running iterations, and then "closed" once their children have
+been processed. This incremental approach reduces the number of json
+objects in memory: only "open" containers and a limited number of leaf
+objects need to be in memory.
+
+
+.. c:function:: void frr_json_vty_out(struct vty *vty, struct json_object *jobj)
+.. c:function:: void frr_json_vty_out_bare(struct vty *vty, struct json_object *jobj)
+
+Recurse through the object hierarchy at `jobj`. The "bare" form uses
+the NO_PRETTY json flag.
+
+.. c:function:: void frr_json_set_open(struct json_object *jobj)
+
+Flag that an object (a collection) is not yet complete; don't emit
+end-of-collection text yet, as more children may be added.
+
+.. c:function:: void frr_json_set_complete(struct json_object *jobj)
+
+Indicate that an object is complete; during the next output function
+call, emit end-of-collection text, and free the object and its children.
 
 
 .. _cli-data-structures:

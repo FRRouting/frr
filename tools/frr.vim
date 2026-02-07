@@ -1,5 +1,5 @@
 " SPDX-License-Identifier: NONE
-" settings & syntax hilighting for FRR codebase
+" settings & syntax highlighting for FRR codebase
 " 2019 by David Lamparter, placed in public domain
 
 let c_gnu=1
@@ -18,7 +18,7 @@ function! CStyleFRR()
 	syn keyword	cFormatConst	PRId16	PRIu16	PRIx16
 	syn keyword	cFormatConst	PRId8	PRIu8	PRIx8
 
-	" you can unlink these by just giving them their own hilighting / color
+	" you can unlink these by just giving them their own highlighting / color
 	hi link cFormatConst	cFormat
 	hi link cIterator	cRepeat
 	hi link cMacroOp	cOperator

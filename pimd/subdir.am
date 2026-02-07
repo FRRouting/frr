@@ -42,6 +42,8 @@ pim_common = \
 	pimd/pim_rpf.c \
 	pimd/pim_sock.c \
 	pimd/pim_ssm.c \
+	pimd/pim_dm.c \
+	pimd/pim_state_refresh.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
 	pimd/pim_tib.c \
@@ -77,6 +79,7 @@ pimd_pimd_SOURCES = \
 
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
+	yang/frr-pim-route-map.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
@@ -91,6 +94,7 @@ pimd_pim6d_SOURCES = \
 
 nodist_pimd_pim6d_SOURCES = \
 	yang/frr-pim.yang.c \
+	yang/frr-pim-route-map.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
@@ -132,11 +136,14 @@ noinst_HEADERS += \
 	pimd/pim_oil.h \
 	pimd/pim_pim.h \
 	pimd/pim_register.h \
+	pimd/pim_routemap.h \
 	pimd/pim_rp.h \
 	pimd/pim_rpf.h \
 	pimd/pim_signals.h \
 	pimd/pim_sock.h \
 	pimd/pim_ssm.h \
+	pimd/pim_dm.h \
+	pimd/pim_state_refresh.h \
 	pimd/pim_ssmpingd.h \
 	pimd/pim_static.h \
 	pimd/pim_str.h \
@@ -160,6 +167,7 @@ noinst_HEADERS += \
 
 clippy_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim_routemap.c \
 	pimd/pim6_cmd.c \
 	pimd/pim6_mld.c \
 	# end

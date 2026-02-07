@@ -17,6 +17,7 @@ import sys
 import json
 from functools import partial
 import pytest
+from lib.topolog import logger
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -112,6 +113,30 @@ def check_labelpool(router):
     assert result is None, assertmsg
 
 
+def get_bgp_neighbor_stats(router, neighbor_ip):
+    """Get BGP neighbor connection statistics"""
+    try:
+        output = router.vtysh_cmd(f"show bgp ipv4 neighbors {neighbor_ip} json")
+        stats = json.loads(output)
+        if neighbor_ip in stats:
+            result = {
+                "connectionsEstablished": stats[neighbor_ip].get(
+                    "connectionsEstablished", 0
+                ),
+                "connectionsDropped": stats[neighbor_ip].get("connectionsDropped", 0),
+            }
+            logger.info(
+                f"BGP neighbor {neighbor_ip} stats from {router.name}: {result}"
+            )
+            return result
+    except (json.JSONDecodeError, KeyError):
+        logger.warning(
+            f"Failed to get BGP neighbor stats for {neighbor_ip} from {router.name}"
+        )
+        pass
+    return {"connectionsEstablished": 0, "connectionsDropped": 0}
+
+
 def test_converge_bgplu():
     "Wait for protocol convergence"
 
@@ -140,18 +165,116 @@ def test_clear_bgplu():
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
 
+    # Test R1 clearing BGP with R2
+    # Get stats before clear
+    r1_r2_stats_before = get_bgp_neighbor_stats(r1, "10.0.0.2")
+
     r1.vtysh_cmd("clear bgp 10.0.0.2")
+
+    # Wait for connectionsEstablished to increase after clear
+    def check_r1_r2_connections_increased():
+        r1_r2_stats_after = get_bgp_neighbor_stats(r1, "10.0.0.2")
+        return (
+            r1_r2_stats_after["connectionsEstablished"]
+            > r1_r2_stats_before["connectionsEstablished"]
+        )
+
+    success, _ = topotest.run_and_expect(
+        check_r1_r2_connections_increased, True, count=20, wait=1
+    )
+    assert (
+        success
+    ), f"R1->R2 connectionsEstablished did not increase after clear: before={r1_r2_stats_before['connectionsEstablished']}"
+
     check_labelpool(r1)
     check_labelpool(r2)
 
+    # Test R2 clearing BGP with R3
+    # Get stats before clear
+    r2_r3_stats_before = get_bgp_neighbor_stats(r2, "10.0.1.3")
+
     r2.vtysh_cmd("clear bgp 10.0.1.3")
+
+    # Wait for connectionsEstablished to increase after clear
+    def check_r2_r3_connections_increased():
+        r2_r3_stats_after = get_bgp_neighbor_stats(r2, "10.0.1.3")
+        return (
+            r2_r3_stats_after["connectionsEstablished"]
+            > r2_r3_stats_before["connectionsEstablished"]
+        )
+
+    success, _ = topotest.run_and_expect(
+        check_r2_r3_connections_increased, True, count=20, wait=1
+    )
+    assert (
+        success
+    ), f"R2->R3 connectionsEstablished did not increase after clear: before={r2_r3_stats_before['connectionsEstablished']}"
+
     check_labelpool(r1)
     check_labelpool(r2)
 
+    # Test both routers clearing BGP simultaneously
+    # Get stats before clear
+    r1_r2_stats_before = get_bgp_neighbor_stats(r1, "10.0.0.2")
+    r2_r3_stats_before = get_bgp_neighbor_stats(r2, "10.0.1.3")
+
     r1.vtysh_cmd("clear bgp 10.0.0.2")
     r2.vtysh_cmd("clear bgp 10.0.1.3")
+
+    # Wait for connectionsEstablished to increase for both after simultaneous clear
+    def check_both_connections_increased():
+        r1_r2_stats_after = get_bgp_neighbor_stats(r1, "10.0.0.2")
+        r2_r3_stats_after = get_bgp_neighbor_stats(r2, "10.0.1.3")
+        return (
+            r1_r2_stats_after["connectionsEstablished"]
+            > r1_r2_stats_before["connectionsEstablished"]
+            and r2_r3_stats_after["connectionsEstablished"]
+            > r2_r3_stats_before["connectionsEstablished"]
+        )
+
+    success, _ = topotest.run_and_expect(
+        check_both_connections_increased, True, count=20, wait=1
+    )
+    assert (
+        success
+    ), f"Both connections did not increase after simultaneous clear: R1->R2 before={r1_r2_stats_before['connectionsEstablished']}, R2->R3 before={r2_r3_stats_before['connectionsEstablished']}"
+
     check_labelpool(r1)
     check_labelpool(r2)
+
+
+def test_received_count():
+    "Check adjin table while soft-reconfiguration inbound is enabled"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["R1"]
+
+    def check_adjin_count():
+        output = json.loads(
+            r1.vtysh_cmd(
+                "show bgp ipv4 labeled-unicast neighbors 10.0.0.2 received-routes json"
+            )
+        )
+
+        return output.get("totalPrefixCounter", 0) > 0
+
+    def check_accepted_count():
+        output = json.loads(
+            r1.vtysh_cmd("show bgp ipv4 labeled-unicast neighbors 10.0.0.2 json")
+        )
+
+        return output.get("addressFamilyInfo", {}).get("acceptedPrefixCounter", 0) > 0
+
+    test_func = partial(check_adjin_count)
+    success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
+    assert success, "labeled-unicast Adj-in table is empty"
+
+    test_func = partial(check_adjin_count)
+    success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
+    assert success, "labeled-unicast accepted prefixes is null"
 
 
 def test_memory_leak():

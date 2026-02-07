@@ -33,6 +33,11 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    route and the route types in this case will show up as a static route
    with an admin distance of 255.
 
+.. option:: -a, --allow_delete
+
+   Allow other processes to delete zebra routes. This option enables zebra to
+   accept route deletion requests from external processes.
+
 .. option:: -r, --retain
 
    When program terminates, do not flush routes installed by *zebra* from the
@@ -52,6 +57,8 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    ZEBRA will create an associated VRF. The other daemons will operate on the VRF
    VRF defined by *Zebra*, as usual. If this option is specified when running
    *Zebra*, one must also specify the same option for *mgmtd*.
+
+   This options is deprecated. Please use the global -w option instead.
 
    .. seealso:: :ref:`zebra-vrf`
 
@@ -101,6 +108,18 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    the upper level daemons that can install v6 routes with v4
    nexthops.
 
+.. option:: --nexthop-weight-16-bit
+
+   Use 16 bit nexthop weights instead of 8 bit weights. This option
+   allows for more granular control over nexthop load balancing when
+   using ECMP routes.  The underlying dataplane must support 16 bit
+   weighted ECMP nexthop groups.
+
+   Weighted values for either the 8 bit or the 16 bit choices are
+   scaled to ratios based upon the relative weights of the nexthops.
+   8 bit values are scaled to a range of 1-254 and 16 bit values are
+   scaled to a range of 1-65534.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
@@ -139,7 +158,7 @@ Standard Commands
 
 
 .. clicmd:: shutdown
-
+   :daemon: zebra
 
    Up or down the current interface.
 
@@ -417,7 +436,12 @@ the same distances that other routing suites have chosen.
 
 An admin distance of 255 indicates to Zebra that the route should not be
 installed into the Data Plane. Additionally routes with an admin distance
-of 255 will not be redistributed.
+of 255 will not be redistributed as that these routes are typically not installed.
+The exception here is that Kernel routes may have an admin distance of 255
+and they will be redistributed.  This is because Zebra has no control over
+Kernel routes and if the kernel route has an admin distance of 255 clearly
+it is being used.  As such as part of redistribution, kernel routes are a
+special case.
 
 Zebra does treat Kernel routes as special case for the purposes of Admin
 Distance. Upon learning about a route that is not originated by FRR
@@ -648,7 +672,7 @@ Single Vxlan Device Support
 FRR supports configuring VLAN-to-VNI mappings for EVPN-VXLAN,
 when working with the Linux kernel. In this new way, the mapping of a VLAN
 to a VNI is configured against a container VXLAN interface which is referred
-to as a ‘Single VXLAN device (SVD)’. Multiple VLAN to VNI mappings can be
+to as a 'Single VXLAN device (SVD)'. Multiple VLAN to VNI mappings can be
 configured against the same SVD. This allows for a significant scaling of
 the number of VNIs since a separate VXLAN interface is no longer required
 for each VNI. Sample configuration of SVD with VLAN to VNI mappings is shown
@@ -908,11 +932,85 @@ and this section also helps that case.
    Chunks:
    - prefix: 2001:db8:2:2::/64, owner: sharp
 
+.. clicmd:: show segment-routing srv6 [locator NAME] sid [X:X::X:X] [json]
+
+   Displays the information regarding SRv6 local SID(s) allocated from a given locator.
+
+::
+
+   router# show segment-routing srv6 sid
+    SID                   Behavior    Context                Daemon/Instance    Locator    Allocation Type
+    --------------------  ----------  ---------------------  -----------------  ---------  -----------------
+    fcbb:bbbb:1::         uN          -                      isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:fe00::    uDT6        VRF 'vrf10'            bgp(0)             MAIN       dynamic
+    fcbb:bbbb:1:fe01::    uDT6        VRF 'vrf20'            bgp(0)             MAIN       dynamic
+    fcbb:bbbb:1:e000::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:e001::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+
+   router# show segment-routing srv6 sid fc00:0:1:e000:: detail
+    SID                   Behavior    Context                Daemon/Instance    Locator    Allocation Type
+    --------------------  ----------  ---------------------  -----------------  ---------  -----------------
+    fcbb:bbbb:1::         uN          -                      isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:e000::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+
+   router# show segment-routing srv6 sid json
+   {
+      "fc00:0:1::":{
+         "sid":"fc00:0:1::",
+         "behavior":"uN",
+         "context":{},
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      },
+      "fc00:0:1:1::":{
+         "sid":"fc00:0:1:1::",
+         "behavior":"uA",
+         "context":{
+            "interfaceIndex":2,
+            "interfaceName":"eth-sw1",
+            "nexthopIpv6Address":"fe80::4423:f3ff:fe8b:fed"
+         },
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      },
+      "fc00:0:1:2::":{
+         "sid":"fc00:0:1:2::",
+         "behavior":"uA",
+         "context":{
+            "interfaceIndex":2,
+            "interfaceName":"eth-sw1",
+            "nexthopIpv6Address":"fe80::9005:fdff:fe18:1237"
+         },
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      }
+   }
+
 .. clicmd:: segment-routing
+   :daemon: zebra
 
    Move from configure mode to segment-routing node.
 
 .. clicmd:: srv6
+   :daemon: zebra
 
    Move from segment-routing node to srv6 node.
 
@@ -922,6 +1020,7 @@ and this section also helps that case.
    configure detailed settings such as the actual srv6 locator.
 
 .. clicmd:: locator NAME
+   :daemon: zebra
 
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
@@ -1060,11 +1159,8 @@ and this section also helps that case.
 
 .. clicmd:: formats
 
-   Configure SRv6 SID formats.
-
-.. clicmd:: format NAME
-
-   Configure SRv6 SID format.
+   Configure SRv6 SID formats. Use ``format NAME`` to enter configuration mode
+   for a specific SRv6 SID format.
 
 .. clicmd:: compressed usid
 
@@ -1131,10 +1227,8 @@ kernel.
    - any,
    - babel,
    - bgp,
-   - connected,
    - eigrp,
    - isis,
-   - kernel,
    - nhrp,
    - openfabric,
    - ospf,
@@ -1208,6 +1302,7 @@ Zebra also supports importing into the main multicast RIB (MRIB) which can be us
 to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
 
 .. clicmd:: ip import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
+.. clicmd:: ipv6 import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
 
    Import table, by given table id, into the main URIB (or MRIB). Optional distance can override
    the default distance when importing routes from the alternate table. An optional route map
@@ -1500,6 +1595,136 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed] [json]
+
+   Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
+
+   Options:
+
+   - ``vrf NAME|all``: Display routes for a specific VRF or all VRFs
+   - ``table TABLENO``: Display routes from a specific routing table (1-4294967295)
+   - ``A.B.C.D|A.B.C.D/M``: Display detailed information for a specific IPv4 address or prefix
+   - ``X:X::X:X|X:X::X:X/M``: Display detailed information for a specific IPv6 address or prefix
+   - ``nexthop-group``: Include nexthop group information in the output
+   - ``nexthop-group summary``: Display a concise summary view with ECMP counts and nexthop group IDs instead of full nexthop details
+   - ``ecmp-count <gt|lt|eq> N``: Filter routes by ECMP count (requires summary option)
+     - ``gt``: Show routes with ECMP count greater than N
+     - ``lt``: Show routes with ECMP count less than N
+     - ``eq``: Show routes with ECMP count equal to N
+   - ``failed``: Show only routes that failed to install in the FIB (kernel). This is useful for troubleshooting route installation issues.
+   - ``json``: Display output in JSON format
+
+   The detailed output includes:
+
+   - Route prefix and mask
+   - Route type and protocol
+   - Administrative distance and metric
+   - Nexthop information including:
+     - Interface name
+     - Nexthop IP address
+     - Nexthop type (direct, recursive, etc.)
+     - Nexthop group ID (if applicable)
+   - Route tags
+   - Route timers
+   - Route status flags
+   - Additional protocol-specific attributes
+
+   Example output:
+
+   ::
+
+      Router# show ip route 192.168.1.0/24 detail
+      Routing entry for 192.168.1.0/24
+        Known via "ospf", distance 110, metric 20, type intra area
+        Last update from 10.0.0.1 on eth0, 00:05:23 ago
+        Routing Descriptor Blocks:
+        * 10.0.0.1, from 10.0.0.1, via eth0
+            Route metric is 20, traffic share count is 1
+            Nexthop group ID: 5
+            Backup nexthop: 10.0.0.2 via eth1
+
+   When using the JSON output format, the information is structured in a hierarchical JSON object containing all the route details in a machine-readable format.
+
+   **Nexthop Group Summary View**
+
+   When using the ``nexthop-group summary`` option, instead of showing all individual nexthops for each route, this displays a concise view showing ECMP counts, nexthop group IDs, and status flags.
+
+   The summary output includes:
+
+   - Route prefix and protocol
+   - Received/Installed NHG ID: The nexthop group IDs (received from protocol / installed in kernel)
+   - ECMP/FIB count: Number of ECMP paths / Number of paths installed in FIB
+   - Status: Route installation status (Installed, Queued, Failed)
+   - Flags: Nexthop group flags (Valid, Installed, Recursive, etc.)
+
+   Example showing routes with exactly 2 ECMP paths:
+
+   ::
+
+      Router# show ip route bgp nexthop-group summary ecmp-count eq 2
+      B>  192.168.1.0/24 [20/0] Rcv/Ins NHG ID: 100/100 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>* 192.168.2.0/24 [20/0] Rcv/Ins NHG ID: 101/101 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>  192.168.3.0/24 [20/0] Rcv/Ins NHG ID: 102/102 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>  192.168.4.0/24 [20/0] Rcv/Ins NHG ID: 103/103 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+
+   Example showing routes with less than 2 ECMP paths:
+
+   ::
+
+      Router# show ip route ospf nexthop-group summary ecmp-count lt 2
+      O>  192.168.10.0/24 [110/20] Rcv/Ins NHG ID: 150/151 ECMP/FIB count: 1/1 Status: Installed Flags: Valid, Recursive
+
+   JSON output example:
+
+   ::
+
+      Router# show ip route bgp nexthop-group summary ecmp-count eq 1 json
+      {"192.168.10.0/24":[{
+        "prefix":"192.168.10.0/24",
+        "prefixLen":24,
+        "protocol":"bgp",
+        "vrfId":0,
+        "vrfName":"default",
+        "selected":true,
+        "destSelected":true,
+        "distance":20,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthopGroupId":200,
+        "ecmpCount":1,
+        "fibInstalledCount":1,
+        "installedNexthopGroupId":200,
+        "receivedNexthopGroupId":200,
+        "nexthopGroupFlags":9,
+        "nexthopGroupValid":"true"
+      }]}
+
+   The summary view is particularly useful for:
+
+   - Quickly identifying routes with specific ECMP configurations
+   - Troubleshooting nexthop group installation issues
+   - Monitoring ECMP load-balancing configurations
+   - Verifying routes have the expected number of paths
+
+   **Viewing Failed Routes**
+
+   The ``failed`` option filters the output to show only routes that have failed
+   to install in the FIB. This is useful for troubleshooting route installation
+   issues.
+
+   ::
+
+      Router# show ip route failed
+      Codes: K - kernel route, C - connected, L - local, S - static,
+             R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+             T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+             f - OpenFabric, t - Table-Direct,
+             > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+             t - trapped, o - offload failure
+
+      r>* 0.0.0.0/0 [20/0] via 10.0.0.1, Ethernet120, rejected
+
 .. clicmd:: show [ip|ipv6] route summary
 
    Display summary information about routes received from each protocol.
@@ -1553,12 +1778,13 @@ zebra Terminal Mode Commands
    show various zebra state that is useful when debugging an operator's
    setup.
 
-.. clicmd:: show zebra client [summary]
+.. clicmd:: show zebra client [summary|json]
 
    Display statistics about clients that are connected to zebra.  This is
    useful for debugging and seeing how much data is being passed between
    zebra and it's clients.  If the summary form of the command is chosen
-   a table is displayed with shortened information.
+   a table is displayed with shortened information.  The json form of
+   the command dumps the client information in json.
 
 .. clicmd:: show zebra router table summary
 
@@ -1794,6 +2020,10 @@ Debugging
 .. clicmd:: debug zebra srv6
 
    Segment Routing for IPv6 dataplane debugging.
+
+.. clicmd:: debug zebra tc
+
+   Traffic Control debugging.
 
 Scripting
 =========

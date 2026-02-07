@@ -603,10 +603,9 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 
 	/* Verify that scope is AREA */
 	if (OspfRI.scope != OSPF_OPAQUE_AREA_LSA) {
-		zlog_err(
-			"RI (%s): Router Info is %s flooding: Change scope to Area flooding for Segment Routing",
-			__func__,
-			OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS");
+		flog_err(EC_OSPF_SR_RI_SCOPE,
+			 "RI (%s): Router Info is %s flooding: Change scope to Area flooding for Segment Routing",
+			 __func__, OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS");
 		return;
 	}
 
@@ -1002,8 +1001,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		 */
 		zlog_info("RI (%s): ROUTER INFORMATION is disabled now.",
 			  __func__);
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
+		LS_AGE_SET(lsa, OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
 
 	/* Verify that the Router Information ID is supported */
@@ -1204,17 +1202,18 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
  * Following are vty session control functions.
  *------------------------------------------------------------------------*/
 
-#define check_tlv_size(size, msg)                                              \
-	do {                                                                   \
-		if (ntohs(tlvh->length) > size) {                              \
-			if (vty != NULL)                                       \
-				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
-					msg, ntohs(tlvh->length), size);       \
-			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(%d)",    \
-					   msg, ntohs(tlvh->length), size);    \
-			return size + TLV_HDR_SIZE;                            \
-		}                                                              \
+#define check_tlv_size(size, msg)                                                                           \
+	do {                                                                                                \
+		if (ntohs(tlvh->length) > size) {                                                           \
+			if (vty != NULL)                                                                    \
+				vty_out(vty,                                                                \
+					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
+					msg, ntohs(tlvh->length), size);                                    \
+			else                                                                                \
+				zlog_debug("    Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!", \
+					   msg, ntohs(tlvh->length), size);                                 \
+			return OSPF_MAX_LSA_SIZE + 1;                                                       \
+		}                                                                                           \
 	} while (0)
 
 static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh,

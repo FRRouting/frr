@@ -25,10 +25,10 @@
           "weight": 1,
           "seg6": {
             "segs": "2001:db8:2:2:200::"
-          }
+          },
+          "srv6EncapBehavior": "H.Encaps"
         }
-      ],
-      "asPath": "2"
+      ]
     }
   ],
   "2001:5::/64": [
@@ -83,10 +83,10 @@
           "weight": 1,
           "seg6": {
             "segs": "2001:db8:2:2:200::"
-          }
+          },
+          "srv6EncapBehavior": "H.Encaps"
         }
-      ],
-      "asPath": "2"
+      ]
     }
   ]
 }

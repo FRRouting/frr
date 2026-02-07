@@ -64,6 +64,15 @@ extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
 
+/*
+ * Public api for parsing a route notification message: this notification
+ * only parses the top-level route attributes, and doesn't include nexthops.
+ * FPM, for example, is a user.
+ * Returns <0 if the message should be ignored/skipped.
+ */
+int netlink_route_notify_read_ctx(struct nlmsghdr *h, ns_id_t ns_id,
+				  struct zebra_dplane_ctx *ctx);
+
 extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
 extern int netlink_nexthop_read(struct zebra_ns *zns);
@@ -108,10 +117,6 @@ extern enum netlink_msg_status
 netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
-
-int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
-					       ns_id_t ns_id, int startup,
-					       struct zebra_dplane_ctx *ctx);
 
 #ifdef NETLINK_DEBUG
 const char *nlmsg_type2str(uint16_t type);

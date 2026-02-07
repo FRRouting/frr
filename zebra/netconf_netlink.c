@@ -18,8 +18,10 @@
 
 #include "lib/lib_errors.h"
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_errors.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/debug.h"
 
@@ -78,9 +80,9 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct netconfmsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size: %d, min %zu",
-			 __func__, h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct netconfmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size: %d, min %zu",
+			 __func__, h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct netconfmsg)));
 		return -1;
 	}
 
@@ -103,7 +105,8 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	netlink_parse_rtattr(tb, NETCONFA_MAX, netconf_rta(ncm), len);
 
 	if (!tb[NETCONFA_IFINDEX]) {
-		zlog_err("NETCONF message received from netlink without an ifindex");
+		flog_err(EC_ZEBRA_NETLINK_MISSING_IFINDEX,
+			 "NETCONF message received from netlink without an ifindex");
 		return 0;
 	}
 

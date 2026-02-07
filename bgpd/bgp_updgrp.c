@@ -41,6 +41,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_trace.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -333,6 +334,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 #define SEED1 999331
 #define SEED2 2147483647
+#define SEED3 4258594758
 
 	updgrp = p;
 	peer = updgrp->conf;
@@ -438,11 +440,23 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))
+		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED3), key);
+
 	/*
 	 * Multiple sessions with the same neighbor should get their own
 	 * update-group if they have different roles.
 	 */
 	key = jhash_1word(peer->local_role, key);
+
+	/* If the peer has disabled Link-Local Next Hop capability, but we
+	 * send it, it's not taken into consideration and we always merge both
+	 * peers into a single update-group. Make sure peer has its own update-group
+	 * if it has disabled (received) Link-Local Next Hop capability.
+	 */
+	key = jhash_2words(!!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV),
+			   !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV), key);
 
 	/* Neighbors configured with the AIGP attribute are put in a separate
 	 * update group from other neighbors.
@@ -480,6 +494,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		zlog_debug("%pBP Update Group Hash: addpath paths-limit: (send %u, receive %u)",
 			   peer, peer->addpath_paths_limit[afi][safi].send,
 			   peer->addpath_paths_limit[afi][safi].receive);
+		zlog_debug("%pBP Update Group Hash: Link-Local Next Hop capability:%s%s", peer,
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV) ? " received" : "",
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) ? " advertised" : "");
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
@@ -588,6 +605,10 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 
 	if ((pe1->cap & PEER_UPDGRP_CAP_FLAGS)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
+		return false;
+
+	/* For aspath loop detection, the remote-as should match */
+	if (CHECK_FLAG(pe1->flags, PEER_FLAG_AS_LOOP_DETECTION) && (pe1->as != pe2->as))
 		return false;
 
 	if ((pe1->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS)
@@ -722,6 +743,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	json_object *json_pkt_info = NULL;
 	time_t epoch_tbuf, tbuf;
 	char timebuf[32];
+	char time_buf[64];
 
 	if (!ctx)
 		return CMD_SUCCESS;
@@ -764,6 +786,11 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				       afi2str(updgrp->afi));
 		json_object_string_add(json_updgrp, "safi",
 				       safi2str(updgrp->safi));
+		/* Calculate createtime and convert it into dd:hh:mm:ss display
+		 * format
+		 */
+		time_to_date_string(updgrp->uptime, time_buf, sizeof(time_buf));
+		json_object_string_add(json_updgrp, "grpCreateTimeStr", time_buf);
 	} else {
 		vty_out(vty, "Update-group %" PRIu64 ":\n", updgrp->id);
 		vty_out(vty, "  Created: %s", time_to_string(updgrp->uptime, timebuf));
@@ -837,6 +864,11 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					       time_to_string_json(subgrp->uptime, timebuf));
 			json_object_object_add(json_subgrp, "groupCreateTime",
 					       json_subgrp_time);
+			/* Calculate subgrp createtime and convert it into
+			 * dd:hh:mm:ss display format
+			 */
+			time_to_date_string(subgrp->uptime, time_buf, sizeof(time_buf));
+			json_object_string_add(json_subgrp, "subGrpCreateTimeStr", time_buf);
 		} else {
 			vty_out(vty, "\n");
 			vty_out(vty, "  Update-subgroup %" PRIu64 ":\n",
@@ -956,10 +988,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			if (ctx->uj) {
 				json_peers = json_object_new_array();
 				SUBGRP_FOREACH_PEER (subgrp, paf) {
-					json_object *peer =
+					json_object *jpeer =
 						json_object_new_string(
 							paf->peer->host);
-					json_object_array_add(json_peers, peer);
+					json_object_array_add(json_peers, jpeer);
 				}
 				json_object_object_add(json_subgrp, "peers",
 						       json_peers);
@@ -1068,6 +1100,7 @@ static struct update_group *update_group_create(struct peer_af *paf)
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("create update group %" PRIu64, updgrp->id);
+	frrtrace(2, frr_bgp, ug_create_delete, 1, updgrp->id);
 
 	UPDGRP_GLOBAL_STAT(updgrp, updgrps_created) += 1;
 
@@ -1079,6 +1112,7 @@ static void update_group_delete(struct update_group *updgrp)
 {
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("delete update group %" PRIu64, updgrp->id);
+	frrtrace(2, frr_bgp, ug_create_delete, 2, updgrp->id);
 
 	UPDGRP_GLOBAL_STAT(updgrp, updgrps_deleted) += 1;
 
@@ -1131,6 +1165,7 @@ update_subgroup_create(struct update_group *updgrp)
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("create subgroup u%" PRIu64 ":s%" PRIu64, updgrp->id,
 			   subgrp->id);
+	frrtrace(3, frr_bgp, ug_subgroup_create_delete, 1, updgrp->id, subgrp->id);
 
 	update_group_add_subgroup(updgrp, subgrp);
 
@@ -1147,8 +1182,8 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (subgrp->update_group)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
-	EVENT_OFF(subgrp->t_merge_check);
-	EVENT_OFF(subgrp->t_coalesce);
+	event_cancel(&subgrp->t_merge_check);
+	event_cancel(&subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
@@ -1158,6 +1193,9 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS) && subgrp->update_group)
 		zlog_debug("delete subgroup u%" PRIu64 ":s%" PRIu64,
 			   subgrp->update_group->id, subgrp->id);
+	if (subgrp->update_group)
+		frrtrace(3, frr_bgp, ug_subgroup_create_delete, 2, subgrp->update_group->id,
+			 subgrp->id);
 
 	update_group_remove_subgroup(subgrp->update_group, subgrp);
 
@@ -1236,6 +1274,8 @@ static void update_subgroup_add_peer(struct update_subgroup *subgrp,
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("peer %s added to subgroup s%" PRIu64,
 				paf->peer->host, subgrp->id);
+	frrtrace(7, frr_bgp, ug_subgroup_add_remove_peer, 1, paf->peer->host, paf->afi, paf->safi,
+		 paf->afid, subgrp->id, subgrp->peer_count);
 }
 
 /*
@@ -1265,6 +1305,8 @@ static void update_subgroup_remove_peer_internal(struct update_subgroup *subgrp,
 		zlog_debug("peer %s deleted from subgroup s%"
 			   PRIu64 " peer cnt %d",
 			   paf->peer->host, subgrp->id, subgrp->peer_count);
+	frrtrace(7, frr_bgp, ug_subgroup_add_remove_peer, 2, paf->peer->host, paf->afi, paf->safi,
+		 paf->afid, subgrp->id, subgrp->peer_count);
 	SUBGRP_INCR_STAT(subgrp, prune_events);
 }
 
@@ -1423,10 +1465,14 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
 	SUBGRP_INCR_STAT(target, merge_events);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64" (%d peers) merged into u%" PRIu64 ":s%" PRIu64", trigger: %s",
-			   subgrp->update_group->id, subgrp->id, peer_count,
-			   target->update_group->id, target->id,
-			   reason ? reason : "unknown");
+		zlog_debug("u%" PRIu64 ":s%" PRIu64 " (%d peers) merged into u%" PRIu64
+			   ":s%" PRIu64 ", trigger: %s",
+			   subgrp->update_group ? subgrp->update_group->id : 0, subgrp->id,
+			   peer_count, target->update_group ? target->update_group->id : 0,
+			   target->id, reason ? reason : "unknown");
+	frrtrace(6, frr_bgp, ug_subgroup_merge, subgrp->update_group ? subgrp->update_group->id : 0,
+		 subgrp->id, peer_count, target->update_group ? target->update_group->id : 0,
+		 target->id, reason ? reason : "unknown");
 
 	result = update_subgroup_check_delete(subgrp);
 	assert(result);
@@ -1466,11 +1512,11 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static void update_subgroup_merge_check_thread_cb(struct event *thread)
+static void update_subgroup_merge_check_thread_cb(struct event *event)
 {
 	struct update_subgroup *subgrp;
 
-	subgrp = EVENT_ARG(thread);
+	subgrp = EVENT_ARG(event);
 
 	subgrp->t_merge_check = NULL;
 
@@ -1707,7 +1753,7 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 	}
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* Avoid supressing duplicate routes later
+		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
 		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
@@ -1718,6 +1764,10 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 					"u%" PRIu64 ":s%" PRIu64" announcing routes upon policy %s (type %d) change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name, ctx->policy_type);
+
+			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 0, updgrp->id,
+				 subgrp->id, ctx->policy_name, ctx->policy_type);
+
 			subgroup_announce_route(subgrp);
 		}
 		if (def_changed) {
@@ -1726,6 +1776,10 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 					"u%" PRIu64 ":s%" PRIu64" announcing default upon default routemap %s change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name);
+
+			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 1, updgrp->id,
+				 subgrp->id, ctx->policy_name, ctx->policy_type);
+
 			if (route_map_lookup_by_name(ctx->policy_name)) {
 				/*
 				 * When there is change in routemap, this flow
@@ -1837,6 +1891,8 @@ void update_subgroup_split_peer(struct peer_af *paf,
 			zlog_debug("u%" PRIu64 ":s%" PRIu64" peer %s moved to u%" PRIu64 ":s%" PRIu64,
 				   old_id, subgrp->id, paf->peer->host,
 				   updgrp->id, subgrp->id);
+		frrtrace(6, frr_bgp, ug_subgroup_split_peer, old_id, subgrp->id,
+			 old_subgrp->peer_count, paf->peer->host, updgrp->id, subgrp->id);
 
 		/*
 		 * The state of the subgroup (adj_out, advs, packet queue etc)
@@ -1871,6 +1927,9 @@ void update_subgroup_split_peer(struct peer_af *paf,
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" peer %s split and moved into u%" PRIu64":s%" PRIu64,
 			   paf->subgroup->update_group->id, paf->subgroup->id,
 			   paf->peer->host, updgrp->id, subgrp->id);
+	frrtrace(6, frr_bgp, ug_subgroup_split_peer, paf->subgroup->update_group->id,
+		 paf->subgroup->id, old_subgrp->peer_count, paf->peer->host, updgrp->id,
+		 subgrp->id);
 
 	SUBGRP_INCR_STAT(paf->subgroup, split_events);
 
@@ -1988,7 +2047,7 @@ void update_group_adjust_peer(struct peer_af *paf)
 		return;
 	}
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)) {
+	if (!peer_is_config_node(peer)) {
 		return;
 	}
 
@@ -2003,6 +2062,17 @@ void update_group_adjust_peer(struct peer_af *paf)
 	old_subgrp = paf->subgroup;
 
 	if (old_subgrp) {
+		/*
+		 * If we need to announce immediately, put peer in its
+		 * own group and set its coalesce timer to 0.
+		 */
+		if (peer_immediate_announce(peer, paf->afi, paf->safi)) {
+			update_subgroup_split_peer(paf, updgrp);
+			subgrp = paf->subgroup;
+			event_cancel(&subgrp->t_coalesce);
+			subgrp->v_coalesce = 0;
+			return;
+		}
 
 		/*
 		 * If the update group of the peer is unchanged, the peer can
@@ -2020,9 +2090,19 @@ void update_group_adjust_peer(struct peer_af *paf)
 		return;
 	}
 
-	subgrp = update_subgroup_find(updgrp, paf);
-	if (!subgrp)
+	/*
+	 * If we need to announce immediately, put peer in its
+	 * own group and set its coalesce timer to 0.
+	 */
+	if (peer_immediate_announce(peer, paf->afi, paf->safi)) {
 		subgrp = update_subgroup_create(updgrp);
+		event_cancel(&subgrp->t_coalesce);
+		subgrp->v_coalesce = 0;
+	} else {
+		subgrp = update_subgroup_find(updgrp, paf);
+		if (!subgrp)
+			subgrp = update_subgroup_create(updgrp);
+	}
 
 	update_subgroup_add_peer(subgrp, paf, 1);
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -2037,13 +2117,16 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
-	peer_flag_set(peer, PEER_FLAG_LONESOUL);
-
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
 		if (peer_established(peer->connection))
 			bgp_announce_route_all(peer);
 	} else {
+		if (set)
+			peer_flag_set(peer, PEER_FLAG_LONESOUL);
+		else
+			peer_flag_unset(peer, PEER_FLAG_LONESOUL);
+
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);
@@ -2127,15 +2210,15 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-void update_group_refresh_default_originate_route_map(struct event *thread)
+void update_group_refresh_default_originate_route_map(struct event *event)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
-	EVENT_OFF(bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 }
 
 /*
@@ -2145,7 +2228,7 @@ void update_group_refresh_default_originate_route_map(struct event *thread)
  *
  * If the combine parameter is true, then this function will try to
  * gather other peers in the subgroup for which a route announcement
- * is pending and efficently announce routes to all of them.
+ * is pending and efficiently announce routes to all of them.
  *
  * For now, the 'combine' option has an effect only if all peers in
  * the subgroup have a route announcement pending.
@@ -2184,7 +2267,7 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 	}
 	/*
 	 * Announce to the peer alone if we were not asked to combine peers,
-	 * or if some peers don't have a route annoucement pending.
+	 * or if some peers don't have a route announcement pending.
 	 */
 	if (!combine || !all_pending) {
 		update_subgroup_split_peer(paf, NULL);
@@ -2195,6 +2278,8 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 			zlog_debug("u%" PRIu64 ":s%" PRIu64" %s announcing routes",
 				   subgrp->update_group->id, subgrp->id,
 				   paf->peer->host);
+		frrtrace(3, frr_bgp, upd_peer_af_announce_route, subgrp->update_group->id,
+			 subgrp->id, paf->peer->host);
 
 		subgroup_announce_route(paf->subgroup);
 		return;
@@ -2216,6 +2301,8 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes to %s, combined into %d peers",
 			   subgrp->update_group->id, subgrp->id,
 			   paf->peer->host, subgrp->peer_count);
+	frrtrace(4, frr_bgp, upd_peer_af_announce_route_combined, subgrp->update_group->id,
+		 subgrp->id, paf->peer->host, subgrp->peer_count);
 
 	subgroup_announce_route(subgrp);
 

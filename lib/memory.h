@@ -16,11 +16,6 @@
 extern "C" {
 #endif
 
-#if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
-#define malloc_usable_size(x) malloc_size(x)
-#define HAVE_MALLOC_USABLE_SIZE
-#endif
-
 #define SIZE_VAR ~0UL
 struct memtype {
 	struct memtype *next, **ref;
@@ -28,10 +23,8 @@ struct memtype {
 	atomic_size_t n_alloc;
 	atomic_size_t n_max;
 	atomic_size_t size;
-#ifdef HAVE_MALLOC_USABLE_SIZE
 	atomic_size_t total;
 	atomic_size_t max_size;
-#endif
 };
 
 struct memgroup {
@@ -152,8 +145,7 @@ extern void *qcalloc(struct memtype *mt, size_t size)
 	__attribute__((malloc, _ALLOC_SIZE(2), nonnull(1) _RET_NONNULL));
 extern void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 	__attribute__((_ALLOC_SIZE(3), nonnull(1) _RET_NONNULL));
-extern void *qstrdup(struct memtype *mt, const char *str)
-	__attribute__((malloc, nonnull(1) _RET_NONNULL));
+extern void *qstrdup(struct memtype *mt, const char *str);
 extern void qcountfree(struct memtype *mt, void *ptr)
 	__attribute__((nonnull(1)));
 extern void qfree(struct memtype *mt, void *ptr) __attribute__((nonnull(1)));
@@ -183,8 +175,7 @@ typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
 extern int log_memstats(const char *daemon_name, bool enabled);
 
-extern __attribute__((__noreturn__)) void memory_oom(size_t size,
-						     const char *name);
+extern FRR_NORETURN void memory_oom(size_t size, const char *name);
 
 #ifdef __cplusplus
 }

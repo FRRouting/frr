@@ -34,6 +34,7 @@
 
 extern struct nb_config *running_config;
 
+struct mgmt_master;
 struct mgmt_ds_ctx;
 
 /***************************************************************
@@ -51,7 +52,7 @@ extern const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1];
  * Returns:
  *    Datastore name.
  */
-static inline const char *mgmt_ds_id2name(Mgmtd__DatastoreId id)
+static inline const char *mgmt_ds_id2name(enum mgmt_ds_id id)
 {
 	if (id > MGMTD_DS_MAX_ID)
 		id = MGMTD_DS_MAX_ID;
@@ -67,9 +68,9 @@ static inline const char *mgmt_ds_id2name(Mgmtd__DatastoreId id)
  * Returns:
  *    Datastore ID.
  */
-static inline Mgmtd__DatastoreId mgmt_ds_name2id(const char *name)
+static inline enum mgmt_ds_id mgmt_ds_name2id(const char *name)
 {
-	Mgmtd__DatastoreId id;
+	enum mgmt_ds_id id;
 
 	FOREACH_MGMTD_DS_ID (id) {
 		if (!strncmp(mgmt_ds_names[id], name, MGMTD_DS_NAME_MAX_LEN))
@@ -84,7 +85,7 @@ static inline Mgmtd__DatastoreId mgmt_ds_name2id(const char *name)
  *
  * similar to above funtion.
  */
-static inline Mgmtd__DatastoreId mgmt_get_ds_id_by_name(const char *ds_name)
+static inline enum mgmt_ds_id mgmt_get_ds_id_by_name(const char *ds_name)
 {
 	if (!strncmp(ds_name, "candidate", sizeof("candidate")))
 		return MGMTD_DS_CANDIDATE;
@@ -170,8 +171,7 @@ extern void mgmt_ds_destroy(void);
  * Returns:
  *    Datastore context (Holds info about ID, lock, root node etc).
  */
-extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
-						   Mgmtd__DatastoreId ds_id);
+extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm, enum mgmt_ds_id ds_id);
 
 /*
  * Check if a given datastore is config ds
@@ -179,9 +179,10 @@ extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
 extern bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Check if a given datastore is locked by a given session
+ * Check if a given datastore is locked. If so return that session
+ * ID if session_id is not NULL. Also return txn_id if locked by a config txn.
  */
-extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
+extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id, uint64_t *txn_id);
 
 /*
  * Acquire write lock to a ds given a ds_handle
@@ -190,17 +191,20 @@ extern int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Remove a lock from ds given a ds_handle
+ *
+ * session_id
+ *    Session ID that holds the lock.
  */
-extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
+extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Copy from source to destination datastore.
  *
- * src_ds
- *    Source datastore handle (ds to be copied from).
- *
- * dst_ds
+ * dst
  *    Destination datastore handle (ds to be copied to).
+ *
+ * src
+ *    Source datastore handle (ds to be copied from).
  *
  * update_cmd_rec
  *    TRUE if need to update commit record, FALSE otherwise.
@@ -208,14 +212,17 @@ extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
-			    struct mgmt_ds_ctx *dst_ds_ctx,
-			    bool update_cmt_rec);
+extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool update_cmt_rec);
 
 /*
  * Fetch northbound configuration for a given datastore context.
  */
 extern struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx);
+
+/*
+ * Restore configuration for a given datastore context from a backup.
+ */
+extern void mgmt_ds_restore_nb_config(struct mgmt_ds_ctx *ds_ctx, struct nb_config *backup);
 
 /*
  * Find YANG data node given a datastore handle YANG xpath.
@@ -254,12 +261,10 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int mgmt_ds_iter_data(
-	Mgmtd__DatastoreId ds_id, struct nb_config *root,
-	const char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx),
-	void *ctx);
+extern int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char *base_xpath,
+			     void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
+							  struct nb_node *nb_node, void *ctx),
+			     void *ctx);
 
 /*
  * Load config to datastore from a file.
@@ -332,5 +337,14 @@ extern void mgmt_ds_status_write(struct vty *vty);
  * Reset the candidate DS to empty state
  */
 void mgmt_ds_reset_candidate(void);
+
+
+/*
+ * Private TXN-Lock functions.
+ */
+
+extern bool mgmt_ds_is_txn_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *txn_id);
+extern uint64_t mgmt_ds_txn_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id);
+extern void mgmt_ds_txn_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id);
 
 #endif /* _FRR_MGMTD_DS_H_ */

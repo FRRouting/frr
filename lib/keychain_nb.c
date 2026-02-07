@@ -3,20 +3,6 @@
  * February 22 2024, Christian Hopps <chopps@labn.net>
  *
  * Copyright (C) 2024 LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include "lib_errors.h"
@@ -587,9 +573,9 @@ static int key_chains_key_chain_key_crypto_algorithm_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "../../../name");
+	name = yang_dnode_get_string(args->dnode, "../../name");
 	keychain = keychain_lookup(name);
-	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../../key-id");
+	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../key-id");
 	key = key_lookup(keychain, index);
 	key->hash_algo = KEYCHAIN_ALGO_NULL;
 	keychain_touch(keychain);

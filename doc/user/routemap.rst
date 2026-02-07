@@ -97,6 +97,12 @@ cont
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
+.. clicmd:: show route-map-unused [json]
+
+   Display data about each daemons knowledge of individual unused route-maps.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. _route-map-clear-counter-command:
 
 .. clicmd:: clear route-map counter [WORD]
@@ -180,6 +186,10 @@ Route Map Match Command
 .. clicmd:: match tag <untagged|(1-4294967295)>
 
    Matches the specified tag (or untagged) value associated with the route.
+
+.. clicmd:: match vpn dataplane <mpls|srv6|vxlan>
+
+   Accept VPN paths with the appropriate dataplane.
 
 .. clicmd:: match local-preference METRIC
 

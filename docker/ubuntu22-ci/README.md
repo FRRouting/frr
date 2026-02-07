@@ -5,7 +5,7 @@ This builds an ubuntu 22.04 container for dev / test
 # Build
 
 ```
-docker build -t frr-ubuntu22:latest -f docker/ubuntu-ci/Dockerfile .
+docker build -t frr-ubuntu22:latest --build-arg=UBUNTU_VERSION=22.04 -f docker/ubuntu-ci/Dockerfile .
 ```
 
 # Run

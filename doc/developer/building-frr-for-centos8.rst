@@ -55,7 +55,7 @@ an example.)
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
         --with-moduledir=/usr/lib/frr/modules \
-        --enable-snmp=agentx \
+        --enable-snmp \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \
@@ -99,6 +99,7 @@ Install daemon config file
 
     sudo install -p -m 644 tools/etc/frr/daemons /etc/frr/
     sudo chown frr:frr /etc/frr/daemons
+    sudo install -m 640 -o frr -g frr tools/etc/frr/support_bundle_commands.conf /etc/frr/support_bundle_commands.conf
 
 Edit /etc/frr/daemons as needed to select the required daemons
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

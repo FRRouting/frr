@@ -17,7 +17,9 @@
 #include "libfrr.h"
 #include "table.h"
 #include "vty.h"
+#include "lib/json.h"
 #include "bfd.h"
+#include "bfdd/bfd.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
@@ -140,14 +142,15 @@ static void bfd_source_cache_put(struct bfd_session_params *session);
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
  *                     went down from the message sent from Zebra to clients.
  */
-static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
-					   struct prefix *sp, int *status,
-					   int *remote_cbit, vrf_id_t vrf_id)
+static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp, struct prefix *sp,
+					   int *status, int *remote_cbit, vrf_id_t vrf_id,
+					   char *bfd_name)
 {
 	unsigned int ifindex;
 	struct interface *ifp = NULL;
 	int plen;
 	int local_remote_cbit;
+	uint8_t bfd_name_len = 0;
 
 	/*
 	 * If the ifindex lookup fails the
@@ -194,6 +197,13 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	STREAM_GETC(s, local_remote_cbit);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
+
+	STREAM_GETC(s, bfd_name_len);
+	if (bfd_name_len) {
+		STREAM_GET(bfd_name, s, bfd_name_len);
+		*(bfd_name + bfd_name_len) = 0;
+	}
+
 	return ifp;
 
 stream_failure:
@@ -222,33 +232,6 @@ const char *bfd_get_status_str(int status)
 	default:
 		return "Unknown";
 	}
-}
-
-/*
- * bfd_last_update - Calculate the last BFD update time and convert it
- *                   into a dd:hh:mm:ss display format.
- */
-static void bfd_last_update(time_t last_update, char *buf, size_t len)
-{
-	time_t curr;
-	time_t diff;
-	struct tm tm;
-	struct timeval tv;
-
-	/* If no BFD status update has ever been received, print `never'. */
-	if (last_update == 0) {
-		snprintf(buf, len, "never");
-		return;
-	}
-
-	/* Get current time. */
-	monotime(&tv);
-	curr = tv.tv_sec;
-	diff = curr - last_update;
-	gmtime_r(&diff, &tm);
-
-	snprintf(buf, len, "%d:%02d:%02d:%02d", tm.tm_yday, tm.tm_hour,
-		 tm.tm_min, tm.tm_sec);
 }
 
 /*
@@ -539,7 +522,7 @@ static void _bfd_sess_send(struct event *t)
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
 {
 	/* Cancel any pending installation request. */
-	EVENT_OFF(bsp->installev);
+	event_cancel(&bsp->installev);
 
 	/* Not installed, nothing to do. */
 	if (!bsp->installed)
@@ -815,6 +798,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 {
 	json_object *json_bfd = NULL;
 	char time_buf[64];
+	const char *profile_name;
 
 	if (!bsp)
 		return;
@@ -845,7 +829,19 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 			bsp->args.min_tx);
 	}
 
-	bfd_last_update(bsp->bss.last_event, time_buf, sizeof(time_buf));
+	/* Show profile if configured. */
+	profile_name = bfd_sess_profile(bsp);
+	if (profile_name) {
+		if (json)
+			json_object_string_add(json_bfd, "profile", profile_name);
+		else
+			vty_out(vty, "  Profile: %s\n", profile_name);
+	}
+
+	/* Calculate the last BFD update time and convert it into a dd:hh:mm:ss
+	 * display format
+	 */
+	time_to_date_string(bsp->bss.last_event, time_buf, sizeof(time_buf));
 	if (json) {
 		json_object_string_add(json_bfd, "status",
 				       bfd_get_status_str(bsp->bss.state));
@@ -896,7 +892,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 		bsp->installed = false;
 
 		/* Cancel any pending installation request. */
-		EVENT_OFF(bsp->installev);
+		event_cancel(&bsp->installev);
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
@@ -918,6 +914,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+	char bfd_name[BFD_NAME_SIZE + 1] = { 0 };
 
 	if (!zclient->bfd_integration)
 		return 0;
@@ -926,8 +923,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	if (bsglobal.shutting_down)
 		return 0;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
-				vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit, vrf_id, bfd_name);
 	/*
 	 * When interface lookup fails or an invalid stream is read, we must
 	 * not proceed otherwise it will trigger an assertion while checking
@@ -1345,4 +1341,9 @@ bool bfd_session_is_down(const struct bfd_session_params *session)
 {
 	return session->bss.state == BSS_DOWN ||
 	       session->bss.state == BSS_ADMIN_DOWN;
+}
+
+bool bfd_session_is_admin_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_ADMIN_DOWN;
 }

@@ -69,5 +69,7 @@ int main(int argc, char **argv)
 		assert(inet_pton(AF_INET6, buf1, &i6check));
 		assert(!memcmp(&i6, &i6check, sizeof(i6)));
 	}
+
+	prng_free(prng);
 	return 0;
 }

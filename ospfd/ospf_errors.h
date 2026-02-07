@@ -36,6 +36,9 @@ enum ospf_log_refs {
 	EC_OSPF_PTP_NEIGHBOR,
 	EC_OSPF_LSA_SIZE,
 	EC_OSPF_LARGE_HELLO,
+	EC_OSPF_LDP_SYNC_DOWN,
+	EC_OSPF_CONFIG_TIMEOUT,
+	EC_OSPF_SR_RI_SCOPE,
 };
 
 extern void ospf_error_init(void);

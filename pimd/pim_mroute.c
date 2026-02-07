@@ -32,15 +32,17 @@
 #include "pim_ifchannel.h"
 #include "pim_zlookup.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+#include "pim_pim.h"
+#include "pim_join.h"
+#include "pim_state_refresh.h"
 #include "pim_util.h"
 #include "pim_nht.h"
 
 static void mroute_read_on(struct pim_instance *pim);
-static int pim_upstream_mroute_update(struct channel_oil *c_oil,
-				      const char *name);
 
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -151,18 +153,21 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 static const char *const gmmsgtype2str[GMMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
-
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_upstream *up;
+	struct pim_upstream *up = NULL;
 	pim_sgaddr sg;
 	bool desync = false;
+	bool update_oil = false;
+	bool dodense = false;
+	int flags = PIM_UPSTREAM_FLAG_MASK_SRC_STREAM;
+	struct interface *ifp2 = NULL;
+	struct pim_interface *pim_ifp2 = NULL;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->msg_im_src;
 	sg.grp = msg->msg_im_dst;
-
 
 	if (!pim_ifp || !pim_ifp->pim_enable) {
 		if (PIM_DEBUG_MROUTE)
@@ -183,7 +188,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * and for NOCACHE we need to install an empty OIL MFC entry
 		 * so the kernel doesn't keep nagging us.
 		 */
-		struct pim_rpf *rpg;
+		struct pim_rpf *rpg = NULL;
+
+		/* Not an SSM group and configured for SSM only, just return */
+		if (pim_ifp->pim_mode == PIM_MODE_SSM)
+			return 0;
+
 #if PIM_IPV == 6
 		pim_addr embedded_rp;
 
@@ -193,24 +203,139 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
 #endif /* PIM_IPV == 6 */
 
-		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
-		if (!rpg) {
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug("%s: no RPF for packet to %pSG",
-					   ifp->name, &sg);
-			return 0;
+		/* We only care to find an RP if in a sparse mode */
+		if (HAVE_SPARSE_MODE(pim_ifp->pim_mode)) {
+			rpg = RP(pim_ifp->pim, msg->msg_im_dst);
+			if (!rpg) {
+				if (PIM_DEBUG_MROUTE)
+					zlog_debug("%s: no RPF for packet to %pSG", ifp->name, &sg);
+			} else if (pim_rpf_addr_is_inaddr_any(rpg)) {
+				if (PIM_DEBUG_MROUTE)
+					zlog_debug("%s: null RPF for packet to %pSG", ifp->name,
+						   &sg);
+				rpg = NULL;
+			}
 		}
-		if (pim_rpf_addr_is_inaddr_any(rpg)) {
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug("%s: null RPF for packet to %pSG",
-					   ifp->name, &sg);
-			return 0;
+
+		if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
+			/* If in a dense mode, we may need to set up flooding routes */
+			if (pim_ifp->pim_mode == PIM_MODE_DENSE) {
+				/* Dense only, set up flooding */
+				dodense = true;
+			} else if (pim_ifp->pim_mode == PIM_MODE_SPARSE_DENSE) {
+				if (rpg) {
+					/* Sparse-dense but we have an RP, no flooding */
+					dodense = false;
+				} else {
+					/* Sparse-dense and no RP, set up flooding */
+					dodense = true;
+				}
+			}
 		}
+
+		if (!dodense && !rpg)
+			return 0;
 	}
 
+
+	if (dodense) {
+		/*
+		For proper dense handling....
+
+		Non-ssm group packet, coming in on any interface, that has no route i.e. what we hare handling here
+
+		Find or add upstream
+			and set up forwarding to all dense interfaces
+			and forward to all sparse-dense interfaces, if no RP
+			and all passive interfaces, if joined and no RP
+		*/
+
+		/* Make sure the group is allowed in dense mode */
+		if (!pim_is_dm_prefix_filter(pim_ifp->pim, sg.grp))
+			return 0;
+
+		/* Only handle groups not filtered */
+		/* TODO: Should we still install a "blackhole" mroute to stop this upcall then?? */
+		if (pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			return 0;
+
+		if (pim_if_connected_to_source(ifp, msg->msg_im_src))
+			flags |= PIM_UPSTREAM_FLAG_MASK_FHR;
+		up = pim_upstream_find_or_add(&sg, ifp, flags, __func__);
+
+		if (up->channel_oil->installed) {
+			zlog_warn("%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
+				  ifp->name, &sg);
+			desync = true;
+		}
+
+		pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
+
+		up->channel_oil->cc.pktcnt++;
+
+		/* Detect if the rpf for the source is different from the interface the packet was received on.
+		 * In this case, we need to prune immediately
+		 */
+		if (!up->rpf.source_nexthop.interface ||
+		    up->rpf.source_nexthop.interface->ifindex != ifp->ifindex) {
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug("%s: Dense Mode WRONGVIF, sending immediate prune upstream (s,g)=%pSG intf=%s",
+					   __func__, &sg, ifp->name);
+			pim_dm_prune_wrongif(ifp, sg, up);
+			return 0;
+		}
+
+		/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
+		if (up->rpf.source_nexthop.interface &&
+		    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
+			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+		}
+
+		FOR_ALL_INTERFACES (pim_ifp->pim->vrf, ifp2) {
+			pim_ifp2 = ifp2->info;
+
+			/* Make sure the interface has PIM enabled and is not the current interface and is a dense type mode */
+			if (!pim_ifp2 || !pim_ifp2->pim_enable || ifp2->ifindex == ifp->ifindex ||
+			    !HAVE_DENSE_MODE(pim_ifp2->pim_mode))
+				continue;
+
+			/* Flood if has neighbors or IGMP join */
+			if (pim_ifp2->pim_neighbor_list->count ||
+			    pim_gm_has_igmp_join(ifp2, sg.grp)) {
+				oil_if_set(up->channel_oil, pim_ifp2->mroute_vif_index, 1);
+				update_oil = true;
+			}
+		}
+
+		if (update_oil || desync) {
+			PIM_UPSTREAM_DM_SET_INTERFACE(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
+			pim_upstream_mroute_update(up->channel_oil, __func__);
+		}
+
+		/* If the router is an originator send state refresh */
+		if (update_oil && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+			up->pim->staterefresh_counter = 0;
+			pim_send_staterefresh(up);
+			staterefresh_timer_start(up);
+		}
+
+		/* We have no where to flood this traffic, prune it */
+		if (!update_oil) {
+			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+			pim_dm_prune_send(up->rpf, up, 0);
+			prune_timer_start(up);
+		}
+
+		return 0;
+	}
+
+	/* All further processing is for SSM or SM with an RP only */
+
+
 	/*
-	 * If we've received a multicast packet that isn't connected to
-	 * us
+	 * If we've received a multicast packet that isn't connected to us
 	 */
 	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
 		if (PIM_DEBUG_MROUTE)
@@ -220,6 +345,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		return 0;
 	}
 
+	/* TODO we can optimize to not do this if we set up a dense mode route */
 	if (!(PIM_I_am_DR(pim_ifp))) {
 		/* unlike the other debug messages, this one is further in the
 		 * "normal operation" category and thus under _DETAIL
@@ -235,10 +361,9 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * As that they will be coming up to the cpu
 		 * and causing us to consider them.
 		 *
-		 * This *will* create a dangling channel_oil
-		 * that I see no way to get rid of.  Just noting
-		 * this for future reference.
+		 * These will be cleared if/when we are elected DR
 		 */
+
 		up = pim_upstream_find_or_add(
 			&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__);
 		pim_upstream_mroute_add(up->channel_oil, __func__);
@@ -246,8 +371,9 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		return 0;
 	}
 
-	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
-				      __func__);
+	/* We may have already found the upstream as part of dense mode processing */
+	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+
 	if (up->channel_oil->installed) {
 		zlog_warn(
 			"%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
@@ -255,35 +381,39 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		desync = true;
 	}
 
-	/*
-	 * I moved this debug till after the actual add because
-	 * I want to take advantage of the up->sg_str being filled in.
-	 */
-	if (PIM_DEBUG_MROUTE) {
-		zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption",
-			   __func__, up->sg_str);
-	}
-
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 
 	up->channel_oil->cc.pktcnt++;
-	// resolve mfcc_parent prior to mroute_add in channel_add_oif
-	if (up->rpf.source_nexthop.interface &&
-	    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
+
+	/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
+	if (up->rpf.source_nexthop.interface && *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 
+	/*
+	 * I moved this debug till after the actual add because
+	 * I want to take advantage of the up->sg_str being filled in.
+	 */
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption", __func__, up->sg_str);
+
 	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
 		pim_register_join(up);
-	/* if we have receiver, inherit from parent */
+
+	/*
+	 * if we have receiver, inherit from parent.
+	 * install routes as needed for all cases (sm/dm)
+	 */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
+	pim_upstream_update_join_desired(pim_ifp->pim, up);
 
 	/* we just got NOCACHE from the kernel, so...  MFC is not in the
 	 * kernel for some reason or another.  Try installing again.
 	 */
 	if (desync)
 		pim_upstream_mroute_update(up->channel_oil, __func__);
+
 	return 0;
 }
 
@@ -307,30 +437,53 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (!up) {
 		pim_sgaddr star = sg;
+
 		star.src = PIMADDR_ANY;
 
 		up = pim_upstream_find(pim_ifp->pim, &star);
 
 		if (up && PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags)) {
-			up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
-					      PIM_UPSTREAM_FLAG_MASK_SRC_LHR,
-					      __func__, NULL);
-			if (!up) {
+			struct connected *src_conn = NULL;
+			struct pim_interface *src_pim_ifp = NULL;
+
+			/*
+			 * Now let's test to see if this also can be
+			 * a FHR as well, As that this is a possibility
+			 * and if it is we must treat it as such.
+			 */
+			src_conn = if_lookup_address(&sg.src, PIM_AF, pim_ifp->pim->vrf->vrf_id);
+
+			if (src_conn && src_conn->ifp->info)
+				src_pim_ifp = src_conn->ifp->info;
+
+			if (src_conn != NULL && src_pim_ifp && src_pim_ifp->pim_enable) {
+				up = pim_upstream_add(pim_ifp->pim, &sg, src_conn->ifp,
+						      PIM_UPSTREAM_FLAG_MASK_FHR, __func__, NULL);
+				PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+				pim_upstream_keep_alive_timer_start(up,
+								    pim_ifp->pim->keep_alive_time);
+				pim_upstream_inherited_olist(pim_ifp->pim, up);
+				pim_upstream_update_join_desired(pim_ifp->pim, up);
+				if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+					pim_register_join(up);
 				if (PIM_DEBUG_MROUTE)
-					zlog_debug(
-						"%s: Unable to create upstream information for %pSG",
-						__func__, &sg);
+					zlog_debug("%s: Treat WHOLEPKT on pimreg as FHR for %pSG",
+						   __func__, &sg);
+				goto have_up;
+			} else {
+				up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+						      PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __func__,
+						      NULL);
+				pim_upstream_keep_alive_timer_start(up,
+								    pim_ifp->pim->keep_alive_time);
+				pim_upstream_inherited_olist(pim_ifp->pim, up);
+				pim_upstream_update_join_desired(pim_ifp->pim, up);
+
+				if (PIM_DEBUG_MROUTE)
+					zlog_debug("%s: Creating %s upstream on LHR", __func__,
+						   up->sg_str);
 				return 0;
 			}
-			pim_upstream_keep_alive_timer_start(
-				up, pim_ifp->pim->keep_alive_time);
-			pim_upstream_inherited_olist(pim_ifp->pim, up);
-			pim_upstream_update_join_desired(pim_ifp->pim, up);
-
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug("%s: Creating %s upstream on LHR",
-					   __func__, up->sg_str);
-			return 0;
 		}
 		if (PIM_DEBUG_MROUTE_DETAIL) {
 			zlog_debug(
@@ -339,6 +492,8 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 		}
 		return 0;
 	}
+
+have_up:
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_PIM_TRACE)
@@ -443,6 +598,14 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 		}
 	}
 
+	if (pim_iface_grp_dm(pim_ifp, sg.grp)) {
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: Dense Mode WRONGVIF, sending immediate prune upstream (s,g)=%pSG intf=%s",
+				   __func__, &sg, ifp->name);
+		pim_dm_prune_wrongif(ifp, sg, ch->upstream);
+		return 0;
+	}
+
 	/*
 	  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
 
@@ -497,12 +660,30 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	struct pim_upstream *up;
 	pim_sgaddr star_g;
 	pim_sgaddr sg;
+	bool isdense = false;
 
 	pim_ifp = ifp->info;
+	pim = pim_ifp->pim;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = IPV_SRC(ip_hdr);
 	sg.grp = IPV_DST(ip_hdr);
+
+	isdense = pim_iface_grp_dm(pim_ifp, sg.grp);
+
+	/*
+	 * I believe the wrvifwhole message should also trigger PIM assert messaging
+	 * but I don't see any of that here, only in wrongvif.
+	 * If we need to add assert handling here, then dense mode will still need that.
+	 * Otherwise, right now it looks like this function only
+	 * handles register and register stops, so skip it if the group is in dense mode.
+	 */
+	if (isdense) {
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug("WRVIFWHOLE (S,G)=%pSG dense mode group, skipping register handling",
+				   &sg);
+		return 0;
+	}
 
 	ch = pim_ifchannel_find(ifp, &sg);
 	if (ch) {
@@ -516,7 +697,6 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	star_g = sg;
 	star_g.src = PIMADDR_ANY;
 
-	pim = pim_ifp->pim;
 	/*
 	 * If the incoming interface is the pimreg, then
 	 * we know the callback is associated with a pim register
@@ -567,7 +747,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 			 * setting the SPTBIT to true
 			 */
 			if (!(pim_addr_is_any(up->upstream_register)) &&
-			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0)) {
+			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, up->sg.grp,
+					   false)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
 						       up->upstream_register);
@@ -580,7 +761,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 							__func__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
-				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0))
+				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register,
+						   up->sg.grp, false))
 					pim_register_stop_send(
 						source.interface, &sg,
 						pim_ifp->primary_address,
@@ -662,6 +844,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	struct gm_sock *igmp;
 	const struct prefix *connected_src;
 	const struct ip *ip_hdr = (const struct ip *)buf;
+	const struct in_addr srcaddr = ip_hdr->ip_src;
+	const struct in_addr dstaddr = ip_hdr->ip_dst;
 
 	/* We have the IP packet but we do not know which interface this
 	 * packet was
@@ -678,9 +862,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 
 	if (!connected_src && !pim_addr_is_any(ip_hdr->ip_src)) {
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug(
-				"Recv IGMP packet on interface: %s from a non-connected source: %pI4",
-				ifp->name, &ip_hdr->ip_src);
+			zlog_debug("Recv IGMP packet on interface: %s from a non-connected source: %pI4",
+				   ifp->name, &srcaddr);
 		}
 		return 0;
 	}
@@ -691,10 +874,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		zlog_debug(
-			"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
-			__func__, pim->vrf->name, ifp->name, igmp,
-			&ip_hdr->ip_src, &ip_hdr->ip_dst);
+		zlog_debug("%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4", __func__,
+			   pim->vrf->name, ifp->name, igmp, &srcaddr, &dstaddr);
 	}
 	if (igmp)
 		pim_igmp_packet(igmp, (char *)buf, buf_size);
@@ -720,14 +901,14 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 	ip_hdr = (const ipv_hdr *)buf;
 
 #if PIM_IPV == 4
+	struct in_addr srcaddr, dstaddr;
+
 	if (ip_hdr->ip_p == IPPROTO_IGMP) {
 		process_igmp_packet(pim, buf, buf_size, ifindex);
 	} else if (ip_hdr->ip_p) {
 		if (PIM_DEBUG_MROUTE_DETAIL) {
-			zlog_debug(
-				"%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%ld",
-				__func__, ip_hdr->ip_p, &ip_hdr->ip_src,
-				&ip_hdr->ip_dst, (long int)buf_size);
+			zlog_debug("%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%ld",
+				   __func__, ip_hdr->ip_p, &srcaddr, &dstaddr, (long int)buf_size);
 		}
 
 	} else {
@@ -826,13 +1007,12 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	event_add_read(router->master, mroute_read, pim, pim->mroute_socket,
-		       &pim->thread);
+	event_add_read(router->master, mroute_read, pim, pim->mroute_socket, &pim->event);
 }
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	EVENT_OFF(pim->thread);
+	event_cancel(&pim->event);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)
@@ -874,17 +1054,11 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				pim->vrf->name);
 #endif
 
-#ifdef SO_BINDTODEVICE
-		if (pim->vrf->vrf_id != VRF_DEFAULT
-		    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
-				  pim->vrf->name, strlen(pim->vrf->name))) {
-			zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
-				  safe_strerror(errno));
+		if (vrf_bind(pim->vrf->vrf_id, fd, NULL)) {
+			zlog_warn("Could not bind to vrf: %s", safe_strerror(errno));
 			close(fd);
 			return -3;
 		}
-#endif
-
 	}
 
 	pim->mroute_socket = fd;
@@ -893,6 +1067,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
 			fd, errno, safe_strerror(errno));
 		close(fd);
+		mroute_read_off(pim);
 		pim->mroute_socket = -1;
 		return -3;
 	}
@@ -972,8 +1147,10 @@ int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 #endif
 #endif
 
-	err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_ADD_VIF,
-			 (void *)&vc, sizeof(vc));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_ADD_VIF,
+				 (void *)&vc, sizeof(vc));
+	}
 	if (err) {
 		zlog_warn(
 			"%s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_ADD_VIF,vif_index=%d,ifaddr=%pPAs,flag=%d): errno=%d: %s",
@@ -999,8 +1176,10 @@ int pim_mroute_del_vif(struct interface *ifp)
 	memset(&vc, 0, sizeof(vc));
 	vc.vc_vifi = pim_ifp->mroute_vif_index;
 
-	err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_DEL_VIF,
-			 (void *)&vc, sizeof(vc));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_DEL_VIF,
+				 (void *)&vc, sizeof(vc));
+	}
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
@@ -1112,14 +1291,18 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 		*oil_incoming_vif(tmp_oil) = 0;
 	}
 	/* For IPv6 MRT_ADD_MFC is defined to MRT6_ADD_MFC */
-	err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
-			 &tmp_oil->oil, sizeof(tmp_oil->oil));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC, &tmp_oil->oil,
+				 sizeof(tmp_oil->oil));
+	}
 
 	if (!err && !c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil)) &&
 	    *oil_incoming_vif(c_oil) != 0) {
 		*oil_incoming_vif(tmp_oil) = *oil_incoming_vif(c_oil);
-		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
-				 &tmp_oil->oil, sizeof(tmp_oil->oil));
+		frr_with_privs (&pimd_privs) {
+			err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
+					 &tmp_oil->oil, sizeof(tmp_oil->oil));
+		}
 	}
 
 	if (err) {
@@ -1169,8 +1352,7 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 	return iif;
 }
 
-static int pim_upstream_mroute_update(struct channel_oil *c_oil,
-		const char *name)
+int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name)
 {
 	char buf[1000];
 
@@ -1339,7 +1521,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
 
 	if (!c_oil->installed) {
-		c_oil->cc.lastused = 100 * pim->keep_alive_time;
+		c_oil->cc.lastused = 100ULL * pim->keep_alive_time;
 		if (PIM_DEBUG_MROUTE) {
 			pim_sgaddr sg;
 

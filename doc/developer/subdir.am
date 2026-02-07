@@ -13,13 +13,13 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-debian8.rst \
 	doc/developer/building-frr-for-debian9.rst \
 	doc/developer/building-frr-for-debian12.rst \
+	doc/developer/building-frr-for-debian13.rst \
 	doc/developer/building-frr-for-fedora.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
 	doc/developer/building-frr-for-freebsd13.rst \
 	doc/developer/building-frr-for-freebsd9.rst \
-	doc/developer/building-frr-for-netbsd6.rst \
-	doc/developer/building-frr-for-netbsd7.rst \
+	doc/developer/building-frr-for-netbsd10.rst \
 	doc/developer/building-frr-for-openbsd6.rst \
 	doc/developer/building-frr-for-opensuse.rst \
 	doc/developer/building-frr-for-openwrt.rst \
@@ -28,6 +28,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-ubuntu1804.rst \
 	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-frr-for-ubuntu2204.rst \
+	doc/developer/building-doc.rst \
 	doc/developer/building-libunwind-note.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
@@ -82,6 +83,8 @@ dev_RSTFILES = \
 	doc/developer/northbound/transactional-cli.rst \
 	doc/developer/northbound/yang-module-translator.rst \
 	doc/developer/northbound/yang-tools.rst \
+	doc/developer/sbfd.rst \
+	doc/developer/zebra-neigh-api.rst \
 	# end
 
 EXTRA_DIST += \

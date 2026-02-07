@@ -59,41 +59,21 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, "{}/zebra.conf".format(rname)),
-            "-M snmp",
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            [
+                (TopoRouter.RD_ZEBRA, "-M snmp"),
+                (TopoRouter.RD_ISIS, "-M snmp"),
+                (TopoRouter.RD_BGP, "-M snmp"),
+                (TopoRouter.RD_RIP, "-M snmp"),
+                (TopoRouter.RD_OSPF, "-M snmp"),
+                (TopoRouter.RD_OSPF6, "-M snmp"),
+            ],
         )
-        router.load_config(
-            TopoRouter.RD_ISIS,
-            os.path.join(CWD, "{}/isisd.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, "{}/bgpd.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_RIP,
-            os.path.join(CWD, "{}/ripd.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF,
-            os.path.join(CWD, "{}/ospfd.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF6,
-            os.path.join(CWD, "{}/ospf6d.conf".format(rname)),
-            "-M snmp",
-        )
-        router.load_config(
-            TopoRouter.RD_SNMP,
-            os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
-        )
+        router.load_config(TopoRouter.RD_SNMP,
+                           os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+                           "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap")
+
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
@@ -138,8 +118,8 @@ def test_r1_bgp_version():
     )
 
     assert r1_snmp.test_oid("ISIS-MIB::isisSysVersion", "one(1)")
-    # rip is not auto-loading agentx from mgmtd
-    # assert r1_snmp.test_oid("RIPv2-MIB::rip2GlobalQueries", "0")
+
+    assert r1_snmp.test_oid("RIPv2-MIB::rip2GlobalQueries", "0")
 
     assert r1_snmp.test_oid("OSPF-MIB::ospfVersionNumber", "version2(2)")
     assert r1_snmp.test_oid("OSPFV3-MIB::ospfv3VersionNumber", "version3(3)")

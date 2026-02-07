@@ -595,7 +595,7 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 			return 0;
 		}
 
-		/* send relevent trap */
+		/* send relevant trap */
 		if (bgp->snmp_stats->active)
 			trap = MPLSL3VPNVRFUP;
 		else
@@ -938,7 +938,7 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		return (uint8_t *)l3vpn_bgp->name;
 	case MPLSL3VPNVRFRD:
 		/*
-		 * this is a horror show but the MIB dicates one RD per vrf
+		 * this is a horror show but the MIB dictates one RD per vrf
 		 * and not one RD per AFI as we (FRR) have. So this little gem
 		 * returns the V4 one if it's set OR the v6 one if it's set or
 		 * zero-length string id neither are set
@@ -958,8 +958,8 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		*var_len = strnlen(rd_buf, RD_ADDRSTRLEN);
 		return (uint8_t *)rd_buf;
 	case MPLSL3VPNVRFCREATIONTIME:
-		return SNMP_INTEGER(
-			(uint32_t)l3vpn_bgp->snmp_stats->creation_time);
+		return SNMP_INTEGER(frr_time_t_to_uint32_t(
+			l3vpn_bgp->snmp_stats->creation_time));
 	case MPLSL3VPNVRFOPERSTATUS:
 		if (l3vpn_bgp->snmp_stats->active)
 			return SNMP_INTEGER(1);
@@ -1079,7 +1079,7 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 				if (*rt_type == MPLSVPNVRFRTTYPEEXPORT
 				    && !export)
 					continue;
-				/* ckeck for both */
+				/* check for both */
 				if (*rt_type == MPLSVPNVRFRTTYPEIMPORT && import
 				    && export
 				    && ecommunity_cmp(
@@ -1460,14 +1460,14 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
 					   &nexthop);
 		if (pi) {
-			uint8_t vrf_name_len =
-				strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
 			const struct prefix *p = bgp_dest_get_prefix(*dest);
 			uint8_t oid_index;
 			bool v4 = (p->family == AF_INET);
 			uint8_t addr_len = v4 ? sizeof(struct in_addr)
 					      : sizeof(struct in6_addr);
 			struct attr *attr = pi->attr;
+
+			vrf_name_len = strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
 
 			/* copy the index parameters */
 			oid_copy_str(&name[namelen], (*l3vpn_bgp)->name,

@@ -410,9 +410,9 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				igmp->querier_query_interval,
 				pim_ifp->gm_query_max_response_time_dsec);
 
-			lmqt_msec = PIM_IGMP_LMQT_MSEC(
-				pim_ifp->gm_specific_query_max_response_time_dsec,
-				pim_ifp->gm_last_member_query_count);
+			lmqt_msec =
+				PIM_IGMP_LMQT_MSEC(pim_ifp->gm_specific_query_max_response_time_dsec,
+						   if_gm_last_member_query_count(pim_ifp));
 
 			ohpi_msec =
 				PIM_IGMP_OHPI_DSEC(
@@ -421,9 +421,8 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					pim_ifp->gm_query_max_response_time_dsec) *
 				100;
 
-			qri_msec =
-				pim_ifp->gm_query_max_response_time_dsec * 100;
-			lmqc = pim_ifp->gm_last_member_query_count;
+			qri_msec = pim_ifp->gm_query_max_response_time_dsec * 100L;
+			lmqc = if_gm_last_member_query_count(pim_ifp);
 
 			if (uj) {
 				json_row = json_object_new_object();
@@ -3181,7 +3180,7 @@ DEFPY (clear_ip_mroute_count,
 	return clear_ip_mroute_count_command(vty, name);
 }
 
-DEFPY(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
+DEFPY_YANG(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
       "clear ip msdp peer A.B.C.D$peer [vrf WORD$vrfname]",
       CLEAR_STR
       IP_STR
@@ -3296,7 +3295,7 @@ DEFUN (show_ip_rib,
 		return CMD_WARNING;
 	}
 
-	if (!pim_nht_lookup(vrf->info, &nexthop, addr, 0)) {
+	if (!pim_nht_lookup(vrf->info, &nexthop, addr, PIMADDR_ANY, false)) {
 		vty_out(vty,
 			"Failure querying RIB nexthop for unicast address %s\n",
 			addr_str);
@@ -3399,7 +3398,7 @@ DEFPY_NOSH (router_pim,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_router_pim,
+DEFPY_YANG (no_router_pim,
        no_router_pim_cmd,
        "no router pim [vrf NAME]",
        NO_STR
@@ -3424,7 +3423,7 @@ DEFPY (no_router_pim,
 }
 
 
-DEFPY (pim_spt_switchover_infinity,
+DEFPY_YANG (pim_spt_switchover_infinity,
        pim_spt_switchover_infinity_cmd,
        "spt-switchover infinity-and-beyond",
        "SPT-Switchover\n"
@@ -3632,7 +3631,7 @@ DEFPY_ATTR(no_ip_pim_spt_switchover_infinity_plist,
 	return ret;
 }
 
-DEFPY (pim_register_accept_list,
+DEFPY_YANG (pim_register_accept_list,
        pim_register_accept_list_cmd,
        "[no] register-accept-list PREFIXLIST4_NAME$word",
        NO_STR
@@ -4237,7 +4236,7 @@ DEFPY (no_ip_igmp_group_watermark,
 	return CMD_SUCCESS;
 }
 
-DEFPY (pim_v6_secondary,
+DEFPY_YANG (pim_v6_secondary,
        pim_v6_secondary_cmd,
        "send-v6-secondary",
        "Send v6 secondary addresses\n")
@@ -4297,7 +4296,7 @@ DEFPY_ATTR(ip_pim_v6_secondary,
 	return ret;
 }
 
-DEFPY (no_pim_v6_secondary,
+DEFPY_YANG (no_pim_v6_secondary,
        no_pim_v6_secondary_cmd,
        "no send-v6-secondary",
        NO_STR
@@ -4522,6 +4521,18 @@ DEFPY_ATTR(no_ip_pim_rp,
 	return ret;
 }
 
+DEFPY_YANG(pim_dm_prefix_list,
+      pim_dm_prefix_list_cmd,
+      "[no] dm prefix-list WORD$plist",
+      NO_STR
+      "PIM Dense Mode Multicast\n"
+      "Group range prefix-list filter\n"
+      "Name of a prefix-list\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? NULL : plist);
+	return nb_cli_apply_changes(vty, "./dm-prefix-list");
+}
+
 DEFPY (no_pim_rp_prefix_list,
        no_pim_rp_prefix_list_cmd,
        "no rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -4716,7 +4727,7 @@ DEFPY (pim_bsr_candidate_rp_group,
 	return pim_process_bsr_crp_grp_cmd(vty, group_str, no);
 }
 
-DEFPY (pim_ssm_prefix_list,
+DEFPY_YANG (pim_ssm_prefix_list,
        pim_ssm_prefix_list_cmd,
        "ssm prefix-list PREFIXLIST4_NAME$plist",
        "Source Specific Multicast\n"
@@ -4776,7 +4787,7 @@ DEFPY_ATTR(ip_pim_ssm_prefix_list,
 	return ret;
 }
 
-DEFPY (no_pim_ssm_prefix_list,
+DEFPY_YANG (no_pim_ssm_prefix_list,
        no_pim_ssm_prefix_list_cmd,
        "no ssm prefix-list",
        NO_STR
@@ -4836,7 +4847,7 @@ DEFPY_ATTR(no_ip_pim_ssm_prefix_list,
 	return ret;
 }
 
-DEFPY (no_pim_ssm_prefix_list_name,
+DEFPY_YANG (no_pim_ssm_prefix_list_name,
        no_pim_ssm_prefix_list_name_cmd,
        "no ssm prefix-list PREFIXLIST4_NAME$plist",
        NO_STR
@@ -5128,7 +5139,7 @@ DEFPY_ATTR(no_ip_pim_ssmpingd,
 	return ret;
 }
 
-DEFPY (pim_ecmp,
+DEFPY_YANG (pim_ecmp,
        pim_ecmp_cmd,
        "ecmp",
        "Enable PIM ECMP \n")
@@ -5183,7 +5194,7 @@ DEFPY_ATTR(ip_pim_ecmp,
 	return ret;
 }
 
-DEFPY (no_pim_ecmp,
+DEFPY_YANG (no_pim_ecmp,
        no_pim_ecmp_cmd,
        "no ecmp",
        NO_STR
@@ -5240,7 +5251,7 @@ DEFPY_ATTR(no_ip_pim_ecmp,
 	return ret;
 }
 
-DEFPY (pim_ecmp_rebalance,
+DEFPY_YANG (pim_ecmp_rebalance,
        pim_ecmp_rebalance_cmd,
        "ecmp rebalance",
        "Enable PIM ECMP \n"
@@ -5306,7 +5317,7 @@ DEFPY_ATTR(ip_pim_ecmp_rebalance,
 	return ret;
 }
 
-DEFPY (no_pim_ecmp_rebalance,
+DEFPY_YANG (no_pim_ecmp_rebalance,
        no_pim_ecmp_rebalance_cmd,
        "no ecmp rebalance",
        NO_STR
@@ -5368,7 +5379,7 @@ DEFPY_ATTR(no_ip_pim_ecmp_rebalance,
 	return ret;
 }
 
-DEFUN (interface_ip_igmp,
+DEFUN_YANG (interface_ip_igmp,
        interface_ip_igmp_cmd,
        "ip igmp",
        IP_STR
@@ -5380,7 +5391,7 @@ DEFUN (interface_ip_igmp,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_no_ip_igmp,
+DEFUN_YANG (interface_no_ip_igmp,
        interface_no_ip_igmp_cmd,
        "no ip igmp",
        NO_STR
@@ -5464,7 +5475,7 @@ DEFPY_YANG (interface_ip_igmp_static_group,
 				    (src_str ? src_str : "0.0.0.0"));
 }
 
-DEFUN (interface_ip_igmp_query_interval,
+DEFUN_YANG (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
        "ip igmp query-interval (1-65535)",
        IP_STR
@@ -5494,7 +5505,7 @@ DEFUN (interface_ip_igmp_query_interval,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_no_ip_igmp_query_interval,
+DEFUN_YANG (interface_no_ip_igmp_query_interval,
        interface_no_ip_igmp_query_interval_cmd,
        "no ip igmp query-interval [(1-65535)]",
        NO_STR
@@ -5509,7 +5520,7 @@ DEFUN (interface_no_ip_igmp_query_interval,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_ip_igmp_version,
+DEFUN_YANG (interface_ip_igmp_version,
        interface_ip_igmp_version_cmd,
        "ip igmp version (2-3)",
        IP_STR
@@ -5526,7 +5537,7 @@ DEFUN (interface_ip_igmp_version,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_no_ip_igmp_version,
+DEFUN_YANG (interface_no_ip_igmp_version,
        interface_no_ip_igmp_version_cmd,
        "no ip igmp version (2-3)",
        NO_STR
@@ -5541,7 +5552,7 @@ DEFUN (interface_no_ip_igmp_version,
 				    "frr-routing:ipv4");
 }
 
-DEFPY (interface_ip_igmp_query_max_response_time,
+DEFPY_YANG (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
        "ip igmp query-max-response-time (1-65535)$qmrt",
        IP_STR
@@ -5552,7 +5563,7 @@ DEFPY (interface_ip_igmp_query_max_response_time,
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
 
-DEFUN (interface_no_ip_igmp_query_max_response_time,
+DEFUN_YANG (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
        "no ip igmp query-max-response-time [(1-65535)]",
        NO_STR
@@ -5564,7 +5575,7 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 	return gm_process_no_query_max_response_time_cmd(vty);
 }
 
-DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
+DEFUN_YANG_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
 	      "ip igmp query-max-response-time-dsec (1-65535)",
 	      IP_STR
@@ -5594,7 +5605,7 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
+DEFUN_YANG_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      interface_no_ip_igmp_query_max_response_time_dsec_cmd,
 	      "no ip igmp query-max-response-time-dsec [(1-65535)]",
 	      NO_STR
@@ -5608,6 +5619,29 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    "frr-routing:ipv4");
+}
+
+DEFPY_YANG(interface_ip_igmp_robustness,
+           interface_ip_igmp_robustness_cmd,
+           "ip igmp robustness (1-255)$robustness",
+           IP_STR
+           IFACE_IGMP_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_robustness_cmd(vty, robustness_str);
+}
+
+DEFPY_YANG(interface_no_ip_igmp_robustness,
+           interface_no_ip_igmp_robustness_cmd,
+           "no ip igmp robustness [(1-255)]",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Querier's Robustness Variable\n"
+           "Querier's Robustness Variable\n")
+{
+	return gm_process_no_robustness_cmd(vty);
 }
 
 DEFPY (interface_ip_igmp_last_member_query_count,
@@ -5654,6 +5688,99 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
        IGNORED_IN_NO_STR)
 {
 	return gm_process_no_last_member_query_interval_cmd(vty);
+}
+
+DEFPY_YANG(interface_ip_igmp_limits,
+           interface_ip_igmp_limits_cmd,
+           "[no] ip igmp <max-sources$do_src (0-4294967295)$val"
+	     "|max-groups$do_grp (0-4294967295)$val>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Permitted number of sources\n"
+           "Limit number of IGMP group memberships to track\n"
+           "Permitted number of groups\n")
+{
+	const char *xpath;
+
+	assert(do_src || do_grp);
+	if (do_src)
+		xpath = "./max-sources";
+	else
+		xpath = "./max-groups";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS_YANG(interface_ip_igmp_limits,
+           no_interface_ip_igmp_limits_cmd,
+           "no ip igmp <max-sources$do_src|max-groups$do_grp>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Limit number of IGMP group memberships to track\n")
+
+DEFPY_YANG(interface_ip_igmp_immediate_leave,
+           interface_ip_igmp_immediate_leave_cmd,
+           "[no] ip igmp immediate-leave",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Immediately drop group memberships on receiving Leave (IGMPv2 only)\n")
+{
+	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_igmp_require_ra, interface_ip_igmp_require_ra_cmd,
+           "[no] ip igmp require-router-alert",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Require IP Router Alert option for IGMP packets\n")
+{
+	nb_cli_enqueue_change(vty, "./require-router-alert", NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_igmp_alist, interface_ip_igmp_alist_cmd,
+           "[no] ip igmp access-list ![ACCESSLIST4_NAME]",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Filter joins through access-list\n"
+           "Access list name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, accesslist4_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_igmp_rmap, interface_ip_igmp_rmap_cmd,
+           "[no] ip igmp route-map ![RMAP_NAME]",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Filter joins through route-map\n"
+           "Route-map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_MODIFY, rmap_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
 DEFUN (interface_ip_pim_drprio,
@@ -5762,99 +5889,43 @@ DEFPY (interface_ip_pim_activeactive,
        NO_STR
        IP_STR
        PIM_STR
-       "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+       "Mark interface as Active-Active for MLAG operations\n")
 {
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
-DEFUN_HIDDEN (interface_ip_pim_ssm,
-	      interface_ip_pim_ssm_cmd,
-	      "ip pim ssm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
+
+DEFPY (interface_ip_pim_passive,
+	interface_ip_pim_passive_cmd,
+	"[no] ip pim passive$passive",
+	NO_STR
+	IP_STR
+	PIM_STR
+	"Disable exchange of protocol packets\n")
 {
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	vty_out(vty,
-		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-
-	return NB_OK;
+	return pim_process_ip_pim_passive_cmd(vty, !no);
 }
 
-DEFUN_HIDDEN (interface_ip_pim_sm,
-	      interface_ip_pim_sm_cmd,
-	      "ip pim sm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_ip_pim_cmd(vty);
-}
 
 DEFPY (interface_ip_pim,
        interface_ip_pim_cmd,
-       "ip pim [passive$passive]",
-       IP_STR
-       PIM_STR
-       "Disable exchange of protocol packets\n")
-{
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_ssm,
-	      interface_no_ip_pim_ssm_cmd,
-	      "no ip pim ssm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_sm,
-	      interface_no_ip_pim_sm_cmd,
-	      "no ip pim sm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFPY (interface_no_ip_pim,
-       interface_no_ip_pim_cmd,
-       "no ip pim [passive$passive]",
+       "[no] ip pim [sm|ssm$ssm|dm$dm|sm-dm$smdm]",
        NO_STR
        IP_STR
        PIM_STR
-       "Disable exchange of protocol packets\n")
+       IFACE_PIM_SM_STR
+       IFACE_PIM_STR
+       IFACE_PIM_DM_STR
+       IFACE_PIM_SMDM_STR)
 {
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, false);
+	if (no)
+		return pim_process_no_ip_pim_cmd(vty);
 
-	return pim_process_no_ip_pim_cmd(vty);
+	return pim_process_ip_pim_mode_cmd(vty, dm, smdm, ssm);
 }
 
 /* boundaries */
-DEFUN(interface_ip_pim_boundary_oil,
+DEFUN_YANG(interface_ip_pim_boundary_oil,
       interface_ip_pim_boundary_oil_cmd,
       "ip multicast boundary oil WORD",
       IP_STR
@@ -5866,7 +5937,7 @@ DEFUN(interface_ip_pim_boundary_oil,
 	return pim_process_ip_pim_boundary_oil_cmd(vty, argv[4]->arg);
 }
 
-DEFUN(interface_no_ip_pim_boundary_oil,
+DEFUN_YANG(interface_no_ip_pim_boundary_oil,
       interface_no_ip_pim_boundary_oil_cmd,
       "no ip multicast boundary oil [WORD]",
       NO_STR
@@ -5984,6 +6055,83 @@ DEFPY (interface_ip_igmp_proxy,
 	return pim_process_ip_gmp_proxy_cmd(vty, !no);
 }
 
+
+DEFPY_YANG(interface_ip_pim_neighbor_prefix_list,
+           interface_ip_pim_neighbor_prefix_list_cmd,
+           "[no] ip pim allowed-neighbors prefix-list WORD",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Restrict allowed PIM neighbors\n"
+           "Use prefix-list to filter neighbors\n"
+           "Name of a prefix-list\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
+				      prefix_list);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS (interface_ip_pim_neighbor_prefix_list,
+       interface_no_ip_pim_neighbor_prefix_list_cmd,
+       "no ip pim allowed-neighbors [prefix-list]",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Restrict allowed PIM neighbors\n"
+       "Use prefix-list to filter neighbors\n")
+
+DEFPY_YANG(interface_ip_pim_joinprune_time,
+           interface_ip_pim_joinprune_time_cmd,
+           "[no] ip pim join-prune-interval ![(5-600)$jpt]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Join Prune Send Interval\n"
+           "Seconds\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_MODIFY, jpt_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_pim_assert_interval, interface_ip_pim_assert_interval_cmd,
+           "[no] ip pim assert-interval ![(1000-86400000)$at]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Assert timer\n"
+           "Milliseconds, default 180000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-interval", NB_OP_MODIFY, at_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+DEFPY_YANG(interface_ip_pim_assert_override, interface_ip_pim_assert_override_cmd,
+           "[no] ip pim assert-override-interval ![(1000-86400000)$ao]",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Assert override interval\n"
+           "Milliseconds, default calculated as 3000\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./assert-override-interval", NB_OP_MODIFY, ao_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
 
 DEFUN (debug_igmp,
        debug_igmp_cmd,
@@ -6559,6 +6707,35 @@ DEFUN (no_debug_autorp,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_graft,
+       debug_graft_cmd,
+       "[no] debug pim graft",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_GRAFT_STR)
+{
+	if (!!no)
+		PIM_DO_DEBUG_GRAFT;
+	else
+		PIM_DONT_DEBUG_GRAFT;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_state_refresh,
+       debug_state_refresh_cmd,
+       "[no] debug pim state-refresh",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_STATE_REFRESH_STR)
+{
+	if (!!no)
+		PIM_DO_DEBUG_STATE_REFRESH;
+	else
+		PIM_DONT_DEBUG_STATE_REFRESH;
+	return CMD_SUCCESS;
+}
 
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
@@ -6575,7 +6752,7 @@ DEFUN_NOSH (show_debugging_pim,
 	return CMD_SUCCESS;
 }
 
-DEFUN (interface_pim_use_source,
+DEFUN_YANG (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
        IP_STR
@@ -6590,7 +6767,7 @@ DEFUN (interface_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_no_pim_use_source,
+DEFUN_YANG (interface_no_pim_use_source,
        interface_no_pim_use_source_cmd,
        "no ip pim use-source [A.B.C.D]",
        NO_STR
@@ -6606,7 +6783,7 @@ DEFUN (interface_no_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFPY (ip_pim_bfd,
+DEFPY_YANG (ip_pim_bfd,
        ip_pim_bfd_cmd,
        "ip pim bfd [profile BFDPROF$prof]",
        IP_STR
@@ -6639,7 +6816,7 @@ DEFPY (ip_pim_bfd,
 				    "frr-routing:ipv4");
 }
 
-DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
+DEFPY_YANG(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
       "no ip pim bfd profile [BFDPROF]",
       NO_STR
       IP_STR
@@ -6655,7 +6832,7 @@ DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
 			"frr-routing:ipv4");
 }
 
-DEFUN (no_ip_pim_bfd,
+DEFUN_YANG (no_ip_pim_bfd,
        no_ip_pim_bfd_cmd,
        "no ip pim bfd",
        NO_STR
@@ -6670,7 +6847,7 @@ DEFUN (no_ip_pim_bfd,
 			"frr-routing:ipv4");
 }
 
-DEFUN (ip_pim_bsm,
+DEFUN_YANG (ip_pim_bsm,
        ip_pim_bsm_cmd,
        "ip pim bsm",
        IP_STR
@@ -6679,7 +6856,7 @@ DEFUN (ip_pim_bsm,
 {
 	return pim_process_bsm_cmd(vty);
 }
-DEFUN (no_ip_pim_bsm,
+DEFUN_YANG (no_ip_pim_bsm,
        no_ip_pim_bsm_cmd,
        "no ip pim bsm",
        NO_STR
@@ -6690,7 +6867,7 @@ DEFUN (no_ip_pim_bsm,
 	return pim_process_no_bsm_cmd(vty);
 }
 
-DEFUN (ip_pim_ucast_bsm,
+DEFUN_YANG (ip_pim_ucast_bsm,
        ip_pim_ucast_bsm_cmd,
        "ip pim unicast-bsm",
        IP_STR
@@ -6700,7 +6877,7 @@ DEFUN (ip_pim_ucast_bsm,
 	return pim_process_unicast_bsm_cmd(vty);
 }
 
-DEFUN (no_ip_pim_ucast_bsm,
+DEFUN_YANG (no_ip_pim_ucast_bsm,
        no_ip_pim_ucast_bsm_cmd,
        "no ip pim unicast-bsm",
        NO_STR
@@ -6712,7 +6889,7 @@ DEFUN (no_ip_pim_ucast_bsm,
 }
 
 #if HAVE_BFDD > 0
-DEFUN_HIDDEN (
+DEFUN_YANG_HIDDEN (
 	ip_pim_bfd_param,
 	ip_pim_bfd_param_cmd,
 	"ip pim bfd (2-255) (1-65535) (1-65535)",
@@ -6723,7 +6900,7 @@ DEFUN_HIDDEN (
 	"Required min receive interval\n"
 	"Desired min transmit interval\n")
 #else
-	DEFUN(
+	DEFUN_YANG(
 		ip_pim_bfd_param,
 		ip_pim_bfd_param_cmd,
 		"ip pim bfd (2-255) (1-65535) (1-65535)",
@@ -6777,13 +6954,15 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-DEFPY(pim_msdp_peer, pim_msdp_peer_cmd,
-      "msdp peer A.B.C.D$peer source A.B.C.D$source",
+DEFPY_YANG(pim_msdp_peer, pim_msdp_peer_cmd,
+      "msdp peer A.B.C.D$peer source A.B.C.D$source [as (1-4294967295)$asn]",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
       "Peer IP address\n"
       "Source address for TCP connection\n"
-      "Local IP address\n")
+      "Local IP address\n"
+      "BGP Autonomous System peer information\n"
+      "BGP Autonomous System peer number\n")
 {
 	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
@@ -6791,6 +6970,11 @@ DEFPY(pim_msdp_peer, pim_msdp_peer_cmd,
 		 "./msdp-peer[peer-ip='%s']/source-ip", peer_str);
 	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
 			      source_str);
+	if (asn_str) {
+		snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
+			 "./msdp-peer[peer-ip='%s']/as", peer_str);
+		nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY, asn_str);
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -6842,7 +7026,7 @@ DEFPY_ATTR(ip_pim_msdp_peer,
 	return ret;
 }
 
-DEFPY(msdp_peer_md5, msdp_peer_md5_cmd,
+DEFPY_YANG(msdp_peer_md5, msdp_peer_md5_cmd,
       "msdp peer A.B.C.D$peer password WORD$psk",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
@@ -6867,7 +7051,7 @@ DEFPY(msdp_peer_md5, msdp_peer_md5_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
+DEFPY_YANG(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
       "no msdp peer A.B.C.D$peer password [WORD]",
       NO_STR
       CFG_MSDP_STR
@@ -6893,7 +7077,7 @@ DEFPY(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY(pim_msdp_timers, pim_msdp_timers_cmd,
+DEFPY_YANG(pim_msdp_timers, pim_msdp_timers_cmd,
       "msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
       CFG_MSDP_STR
       "MSDP timers configuration\n"
@@ -6968,7 +7152,7 @@ DEFPY_ATTR(ip_pim_msdp_timers,
 	return ret;
 }
 
-DEFPY(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
+DEFPY_YANG(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
       "no msdp timers [(1-65535) (1-65535) [(1-65535)]]",
       NO_STR
       CFG_MSDP_STR
@@ -7032,7 +7216,7 @@ DEFPY_ATTR(no_ip_pim_msdp_timers,
 	return ret;
 }
 
-DEFPY (no_pim_msdp_peer,
+DEFPY_YANG (no_pim_msdp_peer,
        no_pim_msdp_peer_cmd,
        "no msdp peer A.B.C.D",
        NO_STR
@@ -7094,7 +7278,7 @@ DEFPY_ATTR(no_ip_pim_msdp_peer,
 	return ret;
 }
 
-DEFPY(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
+DEFPY_YANG(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
       "msdp peer A.B.C.D$peer sa-filter ACL_NAME$acl_name <in|out>$dir",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
@@ -7125,7 +7309,7 @@ DEFPY(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
+DEFPY_YANG(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
       "no msdp peer A.B.C.D$peer sa-filter ACL_NAME <in|out>$dir",
       NO_STR
       CFG_MSDP_STR
@@ -7157,7 +7341,7 @@ DEFPY(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY(pim_msdp_mesh_group_member,
+DEFPY_YANG(pim_msdp_mesh_group_member,
       pim_msdp_mesh_group_member_cmd,
       "msdp mesh-group WORD$gname member A.B.C.D$maddr",
       CFG_MSDP_STR
@@ -7235,7 +7419,7 @@ DEFPY_ATTR(ip_pim_msdp_mesh_group_member,
 	return ret;
 }
 
-DEFPY(no_pim_msdp_mesh_group_member,
+DEFPY_YANG(no_pim_msdp_mesh_group_member,
       no_pim_msdp_mesh_group_member_cmd,
       "no msdp mesh-group WORD$gname member A.B.C.D$maddr",
       NO_STR
@@ -7354,7 +7538,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group_member,
 	return ret;
 }
 
-DEFPY(pim_msdp_mesh_group_source,
+DEFPY_YANG(pim_msdp_mesh_group_source,
       pim_msdp_mesh_group_source_cmd,
       "msdp mesh-group WORD$gname source A.B.C.D$saddr",
       CFG_MSDP_STR
@@ -7427,7 +7611,7 @@ DEFPY_ATTR(ip_pim_msdp_mesh_group_source,
 	return ret;
 }
 
-DEFPY(no_pim_msdp_mesh_group_source,
+DEFPY_YANG(no_pim_msdp_mesh_group_source,
       no_pim_msdp_mesh_group_source_cmd,
       "no msdp mesh-group WORD$gname source [A.B.C.D]",
       NO_STR
@@ -7515,7 +7699,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group_source,
 	return ret;
 }
 
-DEFPY(no_pim_msdp_mesh_group,
+DEFPY_YANG(no_pim_msdp_mesh_group,
       no_pim_msdp_mesh_group_cmd,
       "no msdp mesh-group WORD$gname",
       NO_STR
@@ -7583,7 +7767,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 	return ret;
 }
 
-DEFPY(msdp_shutdown,
+DEFPY_YANG(msdp_shutdown,
       msdp_shutdown_cmd,
       "[no] msdp shutdown",
       NO_STR
@@ -7601,7 +7785,7 @@ DEFPY(msdp_shutdown,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
+DEFPY_YANG(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
       "[no] msdp peer A.B.C.D$peer sa-limit ![(1-4294967294)$sa_limit]",
       NO_STR
       CFG_MSDP_STR
@@ -7624,7 +7808,7 @@ DEFPY(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY(msdp_originator_id, msdp_originator_id_cmd,
+DEFPY_YANG(msdp_originator_id, msdp_originator_id_cmd,
       "[no] msdp originator-id ![A.B.C.D$originator_id]",
       NO_STR
       CFG_MSDP_STR
@@ -7795,7 +7979,7 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	} else {
 		vty_out(vty,
-			"Peer                       Local        State    Uptime   SaCnt\n");
+			"Peer                       Local        State    Uptime   SaCnt    AS\n");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, mpnode, mp)) {
@@ -7817,15 +8001,107 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "upTime", timebuf);
 			json_object_int_add(json_row, "saCount", mp->sa_cnt);
+			if (mp->asn)
+				json_object_int_add(json_row, "asn", mp->asn);
+
 			json_object_object_add(json, peer_str, json_row);
 		} else {
-			vty_out(vty, "%-15s  %15s  %11s  %8s  %6d\n", peer_str,
-				local_str, state_str, timebuf, mp->sa_cnt);
+			vty_out(vty, "%-15s  %15s  %11s  %8s  %6d", peer_str, local_str, state_str,
+				timebuf, mp->sa_cnt);
+			if (mp->asn)
+				vty_out(vty, " %5d\n", mp->asn);
+			else
+				vty_out(vty, " %5s\n", "-");
 		}
 	}
 
 	if (uj)
 		vty_json(vty, json);
+}
+
+static void msdp_peer_details_add_json(struct json_object *peer_json,
+				       const struct pim_msdp_peer *peer)
+{
+	char state_str[PIM_MSDP_STATE_STRLEN];
+	char holdtimer[PIM_MSDP_TIMER_STRLEN];
+	char timebuf[PIM_MSDP_UPTIME_STRLEN];
+	char katimer[PIM_MSDP_TIMER_STRLEN];
+	char crtimer[PIM_MSDP_TIMER_STRLEN];
+	time_t now;
+
+	if (peer->state == PIM_MSDP_ESTABLISHED) {
+		now = pim_time_monotonic_sec();
+		pim_time_uptime(timebuf, sizeof(timebuf), now - peer->uptime);
+	} else
+		strlcpy(timebuf, "-", sizeof(timebuf));
+
+	pim_msdp_state_dump(peer->state, state_str, sizeof(state_str));
+	pim_time_timer_to_hhmmss(katimer, sizeof(katimer), peer->ka_timer);
+	pim_time_timer_to_hhmmss(crtimer, sizeof(crtimer), peer->cr_timer);
+	pim_time_timer_to_hhmmss(holdtimer, sizeof(holdtimer), peer->hold_timer);
+
+	if (peer->state == PIM_MSDP_ESTABLISHED) {
+		union {
+			struct sockaddr sa;
+			struct sockaddr_in sin;
+			struct sockaddr_in6 sin6;
+		} sock_address;
+		socklen_t sock_address_size = sizeof(sock_address);
+		char address_string[INET6_ADDRSTRLEN];
+
+		memset(&sock_address, 0, sizeof(sock_address));
+
+		if (getsockname(peer->fd, &sock_address.sa, &sock_address_size) == -1) {
+			zlog_warn("MSDP peer failed to get socket local address: (%d) %s", errno,
+				  strerror(errno));
+			return;
+		}
+
+		inet_ntop(AF_INET, &sock_address.sin.sin_addr, address_string,
+			  sizeof(address_string));
+		json_object_string_add(peer_json, "local", address_string);
+		json_object_int_add(peer_json, "localPort", ntohs(sock_address.sin.sin_port));
+
+		if (getpeername(peer->fd, &sock_address.sa, &sock_address_size) == -1) {
+			zlog_warn("MSDP peer failed to get socket peer address: (%d) %s", errno,
+				  strerror(errno));
+			return;
+		}
+
+		inet_ntop(AF_INET, &sock_address.sin.sin_addr, address_string,
+			  sizeof(address_string));
+		json_object_string_add(peer_json, "peer", address_string);
+		json_object_int_add(peer_json, "peerPort", ntohs(sock_address.sin.sin_port));
+	}
+
+	if (peer->flags & PIM_MSDP_PEERF_IN_GROUP)
+		json_object_string_add(peer_json, "meshGroupName", peer->mesh_group_name);
+
+	json_object_string_add(peer_json, "state", state_str);
+	json_object_string_add(peer_json, "upTime", timebuf);
+	json_object_string_add(peer_json, "keepAliveTimer", katimer);
+	json_object_string_add(peer_json, "connRetryTimer", crtimer);
+	json_object_string_add(peer_json, "holdTimer", holdtimer);
+	json_object_string_add(peer_json, "lastReset", peer->last_reset);
+	json_object_int_add(peer_json, "connAttempts", peer->conn_attempts);
+	json_object_int_add(peer_json, "establishedChanges", peer->est_flaps);
+	json_object_int_add(peer_json, "saCount", peer->sa_cnt);
+	json_object_int_add(peer_json, "kaSent", peer->ka_tx_cnt);
+	json_object_int_add(peer_json, "kaRcvd", peer->ka_rx_cnt);
+	json_object_int_add(peer_json, "saSent", peer->sa_tx_cnt);
+	json_object_int_add(peer_json, "saRcvd", peer->sa_rx_cnt);
+	if (peer->asn != 0)
+		json_object_int_add(peer_json, "asn", peer->asn);
+
+	json_object_int_add(peer_json, "saFilteredIn", peer->acl_in_count);
+	if (peer->acl_in)
+		json_object_string_add(peer_json, "saFilterIn", peer->acl_in);
+
+	json_object_int_add(peer_json, "saFilteredOut", peer->acl_out_count);
+	if (peer->acl_out)
+		json_object_string_add(peer_json, "saFilterout", peer->acl_out);
+
+	json_object_int_add(peer_json, "rpfLookupFailures", peer->rpf_lookup_failure_count);
 }
 
 static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
@@ -7853,6 +8129,13 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 		if (strcmp(peer, "detail") && strcmp(peer, peer_str))
 			continue;
 
+		if (uj) {
+			json_row = json_object_new_object();
+			msdp_peer_details_add_json(json_row, mp);
+			json_object_object_add(json, peer_str, json_row);
+			continue;
+		}
+
 		if (mp->state == PIM_MSDP_ESTABLISHED) {
 			now = pim_time_monotonic_sec();
 			pim_time_uptime(timebuf, sizeof(timebuf),
@@ -7870,63 +8153,29 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 		pim_time_timer_to_hhmmss(holdtimer, sizeof(holdtimer),
 					 mp->hold_timer);
 
-		if (uj) {
-			json_row = json_object_new_object();
-			json_object_string_add(json_row, "peer", peer_str);
-			json_object_string_add(json_row, "local", local_str);
-			if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
-				json_object_string_add(json_row,
-						       "meshGroupName",
-						       mp->mesh_group_name);
-			json_object_string_add(json_row, "state", state_str);
-			json_object_string_add(json_row, "upTime", timebuf);
-			json_object_string_add(json_row, "keepAliveTimer",
-					       katimer);
-			json_object_string_add(json_row, "connRetryTimer",
-					       crtimer);
-			json_object_string_add(json_row, "holdTimer",
-					       holdtimer);
-			json_object_string_add(json_row, "lastReset",
-					       mp->last_reset);
-			json_object_int_add(json_row, "connAttempts",
-					    mp->conn_attempts);
-			json_object_int_add(json_row, "establishedChanges",
-					    mp->est_flaps);
-			json_object_int_add(json_row, "saCount", mp->sa_cnt);
-			json_object_int_add(json_row, "kaSent", mp->ka_tx_cnt);
-			json_object_int_add(json_row, "kaRcvd", mp->ka_rx_cnt);
-			json_object_int_add(json_row, "saSent", mp->sa_tx_cnt);
-			json_object_int_add(json_row, "saRcvd", mp->sa_rx_cnt);
-			json_object_object_add(json, peer_str, json_row);
-		} else {
-			vty_out(vty, "Peer : %s\n", peer_str);
-			vty_out(vty, "  Local               : %s\n", local_str);
-			if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
-				vty_out(vty, "  Mesh Group          : %s\n",
-					mp->mesh_group_name);
-			vty_out(vty, "  State               : %s\n", state_str);
-			vty_out(vty, "  Uptime              : %s\n", timebuf);
+		vty_out(vty, "Peer : %s\n", peer_str);
+		vty_out(vty, "  Local               : %s\n", local_str);
+		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
+			vty_out(vty, "  Mesh Group          : %s\n", mp->mesh_group_name);
+		if (mp->asn != 0)
+			vty_out(vty, "  BGP/AS              : %u\n", mp->asn);
+		else
+			vty_out(vty, "  BGP/AS              : -\n");
+		vty_out(vty, "  State               : %s\n", state_str);
+		vty_out(vty, "  Uptime              : %s\n", timebuf);
 
-			vty_out(vty, "  Keepalive Timer     : %s\n", katimer);
-			vty_out(vty, "  Conn Retry Timer    : %s\n", crtimer);
-			vty_out(vty, "  Hold Timer          : %s\n", holdtimer);
-			vty_out(vty, "  Last Reset          : %s\n",
-				mp->last_reset);
-			vty_out(vty, "  Conn Attempts       : %d\n",
-				mp->conn_attempts);
-			vty_out(vty, "  Established Changes : %d\n",
-				mp->est_flaps);
-			vty_out(vty, "  SA Count            : %d\n",
-				mp->sa_cnt);
-			vty_out(vty, "  Statistics          :\n");
-			vty_out(vty,
-				"                       Sent       Rcvd\n");
-			vty_out(vty, "    Keepalives : %10d %10d\n",
-				mp->ka_tx_cnt, mp->ka_rx_cnt);
-			vty_out(vty, "    SAs        : %10d %10d\n",
-				mp->sa_tx_cnt, mp->sa_rx_cnt);
-			vty_out(vty, "\n");
-		}
+		vty_out(vty, "  Keepalive Timer     : %s\n", katimer);
+		vty_out(vty, "  Conn Retry Timer    : %s\n", crtimer);
+		vty_out(vty, "  Hold Timer          : %s\n", holdtimer);
+		vty_out(vty, "  Last Reset          : %s\n", mp->last_reset);
+		vty_out(vty, "  Conn Attempts       : %d\n", mp->conn_attempts);
+		vty_out(vty, "  Established Changes : %d\n", mp->est_flaps);
+		vty_out(vty, "  SA Count            : %d\n", mp->sa_cnt);
+		vty_out(vty, "  Statistics          :\n");
+		vty_out(vty, "                       Sent       Rcvd\n");
+		vty_out(vty, "    Keepalives : %10d %10d\n", mp->ka_tx_cnt, mp->ka_rx_cnt);
+		vty_out(vty, "    SAs        : %10d %10d\n", mp->sa_tx_cnt, mp->sa_rx_cnt);
+		vty_out(vty, "\n");
 	}
 
 	if (uj)
@@ -8003,6 +8252,85 @@ DEFUN (show_ip_msdp_peer_detail_vrf_all,
 	}
 	if (uj)
 		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
+static void clear_msdp_peer_counters(struct pim_msdp_peer *peer)
+{
+	peer->ka_rx_cnt = 0;
+	peer->ka_tx_cnt = 0;
+	peer->sa_rx_cnt = 0;
+	peer->sa_tx_cnt = 0;
+	peer->est_flaps = 0;
+	peer->conn_attempts = 0;
+	peer->acl_in_count = 0;
+	peer->acl_out_count = 0;
+	peer->rpf_lookup_failure_count = 0;
+}
+
+DEFPY(clear_ip_msdp_peer_counters, clear_ip_msdp_peer_counters_cmd,
+      "clear ip msdp [<vrf all$vrf_all|vrf WORD$vrf_name>] peer [A.B.C.D$peer] counters",
+      CLEAR_STR
+      IP_STR
+      MSDP_STR
+      VRF_CMD_HELP_STR
+      VRF_CMD_HELP_STR
+      "MSDP peer information\n"
+      "Peer IP address\n"
+      "MSDP peer counters\n")
+{
+	const struct pim_instance *pim;
+	struct pim_msdp_peer *msdp_peer = NULL;
+	struct vrf *vrf;
+
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (vrf == NULL) {
+			vty_out(vty, "VRF %s does not exist\n", vrf_name);
+			return CMD_WARNING;
+		}
+	} else if (vrf_all) {
+		vrf = NULL;
+	} else {
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		if (vrf == NULL) {
+			vty_out(vty, "Default VRF does not exist\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (vrf) {
+		pim = vrf->info;
+
+		if (peer_str) {
+			msdp_peer = pim_msdp_peer_find(pim, peer);
+			if (msdp_peer)
+				clear_msdp_peer_counters(msdp_peer);
+		} else {
+			struct listnode *node;
+
+			for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, msdp_peer))
+				clear_msdp_peer_counters(msdp_peer);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+
+		if (peer_str) {
+			msdp_peer = pim_msdp_peer_find(pim, peer);
+			if (msdp_peer)
+				clear_msdp_peer_counters(msdp_peer);
+		} else {
+			struct listnode *node;
+
+			for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, msdp_peer))
+				clear_msdp_peer_counters(msdp_peer);
+		}
+	}
 
 	return CMD_SUCCESS;
 }
@@ -8093,6 +8421,7 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 	char spt_str[8];
 	char local_str[8];
 	char statetimer[PIM_MSDP_TIMER_STRLEN];
+	uint32_t asn = pim_msdp_sa_asn(sa);
 	int64_t now;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
@@ -8135,6 +8464,9 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 		json_object_string_add(json_row, "sptSetup", spt_str);
 		json_object_string_add(json_row, "upTime", timebuf);
 		json_object_string_add(json_row, "stateTimer", statetimer);
+		if (asn)
+			json_object_int_add(json_row, "asn", asn);
+
 		json_object_object_add(json_group, src_str, json_row);
 	} else {
 		vty_out(vty, "SA : %s\n", sa->sg_str);
@@ -8144,6 +8476,9 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 		vty_out(vty, "  SPT Setup   : %s\n", spt_str);
 		vty_out(vty, "  Uptime      : %s\n", timebuf);
 		vty_out(vty, "  State Timer : %s\n", statetimer);
+		if (asn)
+			vty_out(vty, "  BGP/AS      : %u\n", asn);
+
 		vty_out(vty, "\n");
 	}
 }
@@ -8370,7 +8705,7 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
+DEFPY_YANG(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
       "[no] msdp log neighbor-events",
       NO_STR
       MSDP_STR
@@ -8385,7 +8720,7 @@ DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
+DEFPY_YANG(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
       "[no] msdp log sa-events",
       NO_STR
       MSDP_STR
@@ -8673,7 +9008,7 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	return CMD_SUCCESS;
 }
 
-DEFPY_HIDDEN (no_pim_mlag,
+DEFPY_YANG_HIDDEN (no_pim_mlag,
 	      no_pim_mlag_cmd,
 	      "no mlag",
 	      NO_STR
@@ -8730,7 +9065,7 @@ DEFPY_ATTR(no_ip_pim_mlag,
 	return ret;
 }
 
-DEFPY_HIDDEN (pim_mlag,
+DEFPY_YANG_HIDDEN (pim_mlag,
 	      pim_mlag_cmd,
 	      "mlag INTERFACE$iface role [primary|secondary]$role state [up|down]$state addr A.B.C.D$addr",
 	      "MLAG\n"
@@ -8878,19 +9213,47 @@ done:
 }
 
 DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
-           "[no] rpf-lookup-mode ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode",
+           "[no] rpf-lookup-mode\
+            ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode\
+            [{group-list PREFIX_LIST$grp_list|source-list PREFIX_LIST$src_list}]",
            NO_STR
            "RPF lookup behavior\n"
            "Lookup in unicast RIB only\n"
            "Lookup in multicast RIB only\n"
            "Try multicast RIB first, fall back to unicast RIB\n"
            "Lookup both, use entry with lower distance\n"
-           "Lookup both, use entry with longer prefix\n")
+           "Lookup both, use entry with longer prefix\n"
+           "Set a specific mode matching group\n"
+           "Multicast group prefix list\n"
+           "Set a specific mode matching source address\n"
+           "Source address prefix list\n")
 {
+	if (no) {
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_MODIFY, mode);
+	}
+
+	return nb_cli_apply_changes(vty, "./mcast-rpf-lookup[group-list='%s'][source-list='%s']",
+				    (grp_list ? grp_list : ""), (src_list ? src_list : ""));
+}
+
+DEFPY_YANG(pim_join_filter_route_map, pim_join_filter_route_map_cmd,
+	   "[no] join-filter route-map ![RMAP_NAME]$rmap",
+	   NO_STR
+	   "PIM join filter configuration\n"
+	   "Filter PIM joins via route-map\n"
+	   "Route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./pim-join-route-map");
 	if (no)
-		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_MODIFY, mode);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, rmap);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -9061,8 +9424,10 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
+	install_element(PIM_NODE, &pim_join_filter_route_map_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
@@ -9082,6 +9447,8 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_robustness_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_igmp_robustness_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ip_igmp_last_member_query_count_cmd);
 	install_element(INTERFACE_NODE,
@@ -9091,21 +9458,28 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
+	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_require_ra_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_alist_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_rmap_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_passive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_joinprune_time_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_assert_interval_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_assert_override_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
@@ -9213,6 +9587,7 @@ void pim_cmd_init(void)
 
 	install_element(ENABLE_NODE, &clear_ip_mroute_count_cmd);
 	install_element(ENABLE_NODE, &clear_ip_msdp_peer_cmd);
+	install_element(ENABLE_NODE, &clear_ip_msdp_peer_counters_cmd);
 	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_mroute_cmd);
@@ -9316,6 +9691,10 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 	install_element(CONFIG_NODE, &debug_autorp_cmd);
 	install_element(CONFIG_NODE, &no_debug_autorp_cmd);
+	install_element(ENABLE_NODE, &debug_graft_cmd);
+	install_element(CONFIG_NODE, &debug_graft_cmd);
+	install_element(ENABLE_NODE, &debug_state_refresh_cmd);
+	install_element(CONFIG_NODE, &debug_state_refresh_cmd);
 
 	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
 	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);

@@ -436,6 +436,9 @@ struct ospf {
 	/* Per-interface write socket */
 	bool intf_socket_enabled;
 
+	/* Force forwarding address to self for external LSAs. */
+	bool forwarding_address_self;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf);
@@ -695,7 +698,8 @@ struct ospf_nbr_nbma {
 extern struct ospf_master *om;
 extern unsigned short ospf_instance;
 extern const int ospf_redistributed_proto_max;
-extern struct zclient *zclient;
+extern struct zclient *ospf_zclient;
+extern struct zclient *zclient_sync;
 extern struct event_loop *master;
 extern int ospf_zlog;
 extern struct zebra_privs_t ospfd_privs;

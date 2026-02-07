@@ -44,6 +44,17 @@ static int redist_protocol(int family)
 	return 0;
 }
 
+int afi_skt_for_redist_protocol(int protocol)
+{
+	if (protocol == 0)
+		return AF_INET;
+	if (protocol == 1)
+		return AF_INET6;
+
+	assert(!"Unknown redist protocol!");
+	return AF_INET;
+}
+
 afi_t afi_for_redist_protocol(int protocol)
 {
 	if (protocol == 0)
@@ -294,7 +305,6 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	struct route_table *ei_table = get_ext_info(isis, family);
 	struct route_node *ei_node;
 	struct isis_ext_info *info;
-	struct listnode *node;
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
@@ -326,7 +336,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		type = DEFAULT_ROUTE;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_area_list, &isis->area_list, area)
 		for (level = 1; level <= ISIS_LEVELS; level++) {
 			redist = isis_redist_lookup(area, family, type, level,
 						    table);
@@ -344,7 +354,6 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
 	struct route_node *ei_node;
-	struct listnode *node;
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
@@ -380,7 +389,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	}
 	route_unlock_node(ei_node);
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_area_list, &isis->area_list, area)
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 			redist = isis_redist_lookup(area, family, type, level,
 						    table);
@@ -427,6 +436,41 @@ void isis_redist_free(struct isis *isis)
 
 		route_table_finish(isis->ext_info[i]);
 		isis->ext_info[i] = NULL;
+	}
+}
+
+void isis_redist_update(struct isis_area *area, int level, int family, int type, uint16_t table)
+{
+	struct isis_redist *redist;
+	struct route_table *ei_table;
+	struct route_node *rn;
+	struct isis_ext_info *info;
+
+	redist = isis_redist_lookup(area, family, type, level, table);
+	if (!redist)
+		return;
+
+	ei_table = get_ext_info(area->isis, family);
+	for (rn = route_top(ei_table); rn; rn = srcdest_route_next(rn)) {
+		if (!rn->info)
+			continue;
+		info = rn->info;
+
+		const struct prefix *p, *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, &src_p);
+
+		if (type == DEFAULT_ROUTE) {
+			if (!is_default_prefix(p) || (src_p && src_p->prefixlen)) {
+				continue;
+			}
+		} else {
+			if (info->origin != type)
+				continue;
+		}
+
+		isis_redist_update_ext_reach(area, level, redist, p,
+					     (const struct prefix_ipv6 *)src_p, info);
 	}
 }
 
@@ -605,7 +649,7 @@ DEFUN (isis_redistribute,
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int afi;
-	int type;
+	uint8_t type;
 	int level;
 	unsigned long metric = 0;
 	const char *routemap = NULL;
@@ -619,7 +663,7 @@ DEFUN (isis_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	type = proto_redistnum(afi, argv[idx_protocol]->text);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	level = 2;
@@ -669,7 +713,7 @@ DEFUN (no_isis_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	type = proto_redistnum(afi, argv[idx_protocol]->text);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	level = 2;

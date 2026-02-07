@@ -190,12 +190,13 @@ void zebra_opaque_finish(void)
 {
 	struct opq_msg_reg *reg;
 	struct opq_client_reg *client;
+	uint32_t idx = 0;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s module shutdown", LOG_NAME);
 
 	/* Clear out registration info */
-	while ((reg = opq_regh_pop(&opq_reg_hash)) != NULL) {
+	while ((reg = opq_regh_pop_all(&opq_reg_hash, &idx)) != NULL) {
 		client = reg->clients;
 		while (client) {
 			reg->clients = client->next;

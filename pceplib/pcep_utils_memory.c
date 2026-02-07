@@ -44,15 +44,15 @@ void *PCEPLIB_INFRA = &pceplib_infra_mt;
 void *PCEPLIB_MESSAGES = &pceplib_messages_mt;
 
 /* Initialize memory function pointers and memory type pointers */
-bool pceplib_memory_initialize(void *pceplib_infra_mt,
-			       void *pceplib_messages_mt,
+bool pceplib_memory_initialize(void *infra_mt,
+			       void *messages_mt,
 			       pceplib_malloc_func mf, pceplib_calloc_func cf,
 			       pceplib_realloc_func rf, pceplib_strdup_func sf,
 			       pceplib_free_func ff)
 {
-	PCEPLIB_INFRA = (pceplib_infra_mt ? pceplib_infra_mt : PCEPLIB_INFRA);
+	PCEPLIB_INFRA = (infra_mt ? infra_mt : PCEPLIB_INFRA);
 	PCEPLIB_MESSAGES =
-		(pceplib_messages_mt ? pceplib_messages_mt : PCEPLIB_MESSAGES);
+		(messages_mt ? messages_mt : PCEPLIB_MESSAGES);
 
 	mfunc = (mf ? mf : mfunc);
 	cfunc = (cf ? cf : cfunc);

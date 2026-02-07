@@ -18,6 +18,7 @@ import sys
 
 from datetime import datetime
 
+from bgp.open import BGPOpen
 from bgp.update import BGPUpdate
 from bgp.update.rd import RouteDistinguisher
 
@@ -384,6 +385,7 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
 
         (local_addr, local_port, remote_port) = struct.unpack_from(cls.UNPACK_STR, data)
 
+        data = data[struct.calcsize(cls.UNPACK_STR) :]
         msg = {
             **peer_msg,
             **{
@@ -393,8 +395,10 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
                 "remote_port": int(remote_port),
             },
         }
-
-        # XXX: dissect the bgp open message
+        data, msg_open = BGPOpen.dissect(data)
+        msg["open_tx"] = msg_open
+        data, msg_open = BGPOpen.dissect(data)
+        msg["open_rx"] = msg_open
 
         return msg
 

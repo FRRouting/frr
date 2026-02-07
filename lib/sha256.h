@@ -24,20 +24,20 @@ typedef struct HMAC_SHA256Context {
 	SHA256_CTX octx;
 } HMAC_SHA256_CTX;
 
-void SHA256_Init(SHA256_CTX *);
-void SHA256_Update(SHA256_CTX *, const void *, size_t);
-void SHA256_Final(unsigned char[32], SHA256_CTX *);
-void HMAC__SHA256_Init(HMAC_SHA256_CTX *, const void *, size_t);
-void HMAC__SHA256_Update(HMAC_SHA256_CTX *, const void *, size_t);
-void HMAC__SHA256_Final(unsigned char[32], HMAC_SHA256_CTX *);
+void SHA256_Init(SHA256_CTX *ctx);
+void SHA256_Update(SHA256_CTX *ctx, const void *in, size_t len);
+void SHA256_Final(unsigned char digest[32], SHA256_CTX *ctx);
+void HMAC__SHA256_Init(HMAC_SHA256_CTX *ctx, const void *_K, size_t Klen);
+void HMAC__SHA256_Update(HMAC_SHA256_CTX *ctx, const void *in, size_t len);
+void HMAC__SHA256_Final(unsigned char digest[32], HMAC_SHA256_CTX *ctx);
 
 /**
  * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
  * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-SHA256 as the PRF, and
  * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
  */
-void PBKDF2_SHA256(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
-		   uint8_t *, size_t);
+void PBKDF2_SHA256(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt, size_t saltlen,
+		   uint64_t c, uint8_t *buf, size_t dkLen);
 
 #ifdef __cplusplus
 }

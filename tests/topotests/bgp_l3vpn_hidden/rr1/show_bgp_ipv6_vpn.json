@@ -1,0 +1,28 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.101",
+  "localAS": 65000,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "2001:db8:1::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:1",
+            "path": "65501",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:1",
+                "hostname": "pe1",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 1,
+  "totalPaths": 1
+}

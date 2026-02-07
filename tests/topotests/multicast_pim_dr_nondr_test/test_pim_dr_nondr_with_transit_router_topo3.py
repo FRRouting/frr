@@ -177,7 +177,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Don"t run this test if we have any failure.
@@ -632,12 +632,6 @@ def pre_config_for_source_dr_tests(
                 "distance": 110,
                 "metric": 20,
                 "nexthops": [
-                    {
-                        "ip": "10.0.3.1",
-                        "afi": "ipv4",
-                        "interfaceName": "r5-r4-eth1",
-                        "weight": 1,
-                    },
                     {
                         "ip": "10.0.3.1",
                         "afi": "ipv4",

@@ -379,8 +379,8 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
 		zlog_debug("LSA: Premature aging: %s", lsa->name);
 
-	EVENT_OFF(lsa->expire);
-	EVENT_OFF(lsa->refresh);
+	event_cancel(&lsa->expire);
+	event_cancel(&lsa->refresh);
 
 	/*
 	 * We clear the LSA from the neighbor retx lists now because it
@@ -837,8 +837,8 @@ void ospf6_lsa_delete(struct ospf6_lsa *lsa)
 	assert(lsa->lock == 0);
 
 	/* cancel threads */
-	EVENT_OFF(lsa->expire);
-	EVENT_OFF(lsa->refresh);
+	event_cancel(&lsa->expire);
+	event_cancel(&lsa->refresh);
 
 	/* do free */
 	XFREE(MTYPE_OSPF6_LSA_HEADER, lsa->header);
@@ -889,12 +889,12 @@ void ospf6_lsa_unlock(struct ospf6_lsa **lsa)
 
 
 /* ospf6 lsa expiry */
-void ospf6_lsa_expire(struct event *thread)
+void ospf6_lsa_expire(struct event *event)
 {
 	struct ospf6_lsa *lsa;
 	struct ospf6 *ospf6;
 
-	lsa = (struct ospf6_lsa *)EVENT_ARG(thread);
+	lsa = (struct ospf6_lsa *)EVENT_ARG(event);
 
 	assert(lsa && lsa->header);
 	assert(OSPF6_LSA_IS_MAXAGE(lsa));
@@ -922,12 +922,12 @@ void ospf6_lsa_expire(struct event *thread)
 	ospf6_maxage_remove(ospf6);
 }
 
-void ospf6_lsa_refresh(struct event *thread)
+void ospf6_lsa_refresh(struct event *event)
 {
 	struct ospf6_lsa *old, *self, *new;
 	struct ospf6_lsdb *lsdb_self;
 
-	old = (struct ospf6_lsa *)EVENT_ARG(thread);
+	old = (struct ospf6_lsa *)EVENT_ARG(event);
 	assert(old && old->header);
 
 	old->refresh = (struct event *)NULL;

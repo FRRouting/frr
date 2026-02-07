@@ -222,7 +222,7 @@ def test_bgp_dynamic_capability_graceful_restart():
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "gracefulRestartCapability": "received",
+                    "gracefulRestart": "received",
                     "longLivedGracefulRestart": "received",
                 },
                 "messageStats": {

@@ -190,8 +190,8 @@ def test_all_links_up():
     assert result is None, assertmsg
 
 
-def test_static_remote():
-    "Test static route at R1 configured on R4"
+def test_static():
+    "Test static route at R1 leaked from VRF green"
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -201,7 +201,7 @@ def test_static_remote():
     json_file = "{}/r1/show_ip_route_static.json".format(CWD)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route 10.48.48.2 json", expected
+        topotest.router_json_cmp, r1, "show ip route 10.48.48.0/24 json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 

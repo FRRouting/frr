@@ -40,7 +40,6 @@
 #include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
-#include "ospf6_nssa.h"
 #include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
@@ -142,20 +141,20 @@ static void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf6->vrf_id, type);
 		if (set)
-			vrf_bitmap_set(&zclient->redist[AFI_IP6][type],
+			vrf_bitmap_set(&ospf6_zclient->redist[AFI_IP6][type],
 				       ospf6->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->redist[AFI_IP6][type],
+			vrf_bitmap_unset(&ospf6_zclient->redist[AFI_IP6][type],
 					 ospf6->vrf_id);
 	}
 
 	red_list = ospf6->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
-			vrf_bitmap_set(&zclient->default_information[AFI_IP6],
+			vrf_bitmap_set(&ospf6_zclient->default_information[AFI_IP6],
 				       ospf6->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->default_information[AFI_IP6],
+			vrf_bitmap_unset(&ospf6_zclient->default_information[AFI_IP6],
 					 ospf6->vrf_id);
 	}
 }
@@ -270,7 +269,7 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 		return;
 	}
 
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
 }
 
@@ -294,7 +293,7 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	}
 
 	route->flag |= OSPF6_ROUTE_REMOVE;
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_remove(route, ospf6);
 }
 
@@ -318,7 +317,7 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix), route,
 				 ospf6);
 	ospf6_asbr_lsentry_add(route, ospf6);
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 }
 
 static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
@@ -342,7 +341,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix), route,
 				 ospf6);
 	ospf6_asbr_lsentry_remove(route, ospf6);
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 }
 
 static struct ospf6 *ospf6_create(const char *name)
@@ -470,8 +469,9 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	return ospf6;
 }
 
-void ospf6_delete(struct ospf6 *o)
+void ospf6_delete(struct ospf6 **po)
 {
+	struct ospf6 *o;
 	struct listnode *node, *nnode;
 	struct route_node *rn = NULL;
 	struct ospf6_area *oa;
@@ -479,6 +479,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct ospf6_external_aggr_rt *aggr;
 	uint32_t i;
 
+	o = *po;
 	QOBJ_UNREG(o);
 
 	ospf6_gr_helper_deinit(o);
@@ -533,6 +534,8 @@ void ospf6_delete(struct ospf6 *o)
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
+
+	*po = NULL;
 }
 
 static void ospf6_disable(struct ospf6 *o)
@@ -554,25 +557,25 @@ static void ospf6_disable(struct ospf6 *o)
 		ospf6_route_remove_all(o->route_table);
 		ospf6_route_remove_all(o->brouter_table);
 
-		EVENT_OFF(o->maxage_remover);
-		EVENT_OFF(o->t_spf_calc);
-		EVENT_OFF(o->t_ase_calc);
-		EVENT_OFF(o->t_distribute_update);
-		EVENT_OFF(o->t_ospf6_receive);
-		EVENT_OFF(o->t_external_aggr);
-		EVENT_OFF(o->gr_info.t_grace_period);
-		EVENT_OFF(o->t_write);
-		EVENT_OFF(o->t_abr_task);
+		event_cancel(&o->maxage_remover);
+		event_cancel(&o->t_spf_calc);
+		event_cancel(&o->t_ase_calc);
+		event_cancel(&o->t_distribute_update);
+		event_cancel(&o->t_ospf6_receive);
+		event_cancel(&o->t_external_aggr);
+		event_cancel(&o->gr_info.t_grace_period);
+		event_cancel(&o->t_write);
+		event_cancel(&o->t_abr_task);
 	}
 }
 
-void ospf6_master_init(struct event_loop *master)
+void ospf6_master_init(struct event_loop *mst)
 {
 	memset(&ospf6_master, 0, sizeof(ospf6_master));
 
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
-	om6->master = master;
+	om6->master = mst;
 }
 
 void ospf6_master_delete(void)
@@ -580,9 +583,9 @@ void ospf6_master_delete(void)
 	list_delete(&om6->ospf6);
 }
 
-static void ospf6_maxage_remover(struct event *thread)
+static void ospf6_maxage_remover(struct event *event)
 {
-	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
+	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(event);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;
@@ -703,8 +706,7 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 		if (ospf6->gr_info.restart_support)
 			ospf6_gr_nvm_delete(ospf6);
 
-		ospf6_delete(ospf6);
-		ospf6 = NULL;
+		ospf6_delete(&ospf6);
 	}
 
 	/* return to config node . */

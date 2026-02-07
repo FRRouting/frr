@@ -21,7 +21,7 @@ extern "C" {
 /* routing table identifiers
  *
  */
-#if !defined(GNU_LINUX)
+#ifndef __linux__
 /* BSD systems
  */
 #define RT_TABLE_ID_MAIN 0
@@ -33,7 +33,7 @@ extern "C" {
 #define RT_TABLE_ID_DEFAULT 253
 #define RT_TABLE_ID_COMPAT  252
 #define RT_TABLE_ID_UNSPEC  0
-#endif /* !def(GNU_LINUX) */
+#endif /* !__linux__ */
 
 /*
  * Table chunk struct

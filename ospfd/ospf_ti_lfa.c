@@ -31,6 +31,12 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 			     struct protected_resource *protected_resource,
 			     bool recursive, struct list *pc_path);
 
+static void ospf_rt_cleanup(struct route_table *rt, struct route_node *rn)
+{
+	if (rn->info)
+		ospf_route_free(rn->info);
+}
+
 void ospf_print_protected_resource(
 	struct protected_resource *protected_resource, char *buf)
 {
@@ -304,6 +310,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 						    start_vertex, end_vertex);
 
 	new_table = route_table_init();
+	new_table->cleanup = ospf_rt_cleanup;
 
 	/* Copy the current state ... */
 	spf_orig = area->spf;
@@ -372,6 +379,8 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	area->spf = spf_orig;
 	area->spf_vertex_list = vertex_list_orig;
 	area->p_spaces = p_spaces_orig;
+
+	route_table_finish(new_table);
 }
 
 static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
@@ -664,6 +673,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 				       sizeof(struct ospf_ti_lfa_node_info));
 
 	new_table = route_table_init();
+	new_table->cleanup = ospf_rt_cleanup;
 
 	/*
 	 * Generate a new (reversed!) SPF tree for this vertex,
@@ -698,6 +708,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space);
+		route_table_finish(new_table);
 
 		return;
 	}
@@ -736,6 +747,8 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 			ospf_ti_lfa_generate_q_spaces(area, p_space, child,
 						      recursive, pc_path);
 	}
+
+	route_table_finish(new_table);
 }
 
 static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
@@ -744,6 +757,7 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	struct route_table *new_table;
 
 	new_table = route_table_init();
+	new_table->cleanup = ospf_rt_cleanup;
 
 	area->spf_protected_resource = p_space->protected_resource;
 
@@ -769,6 +783,8 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	p_space->pc_vertex_list = area->spf_vertex_list;
 
 	area->spf_protected_resource = NULL;
+
+	route_table_finish(new_table);
 }
 
 static void
@@ -782,6 +798,7 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 
 	p_space = XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_space));
 	vertex_list = list_new();
+	vertex_list->del = ospf_vertex_free;
 
 	/* The P-space will get its own SPF tree, so copy the old one */
 	ospf_spf_copy(area->spf, vertex_list);

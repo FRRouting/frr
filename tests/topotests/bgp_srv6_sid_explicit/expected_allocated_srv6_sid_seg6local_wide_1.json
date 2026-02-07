@@ -1,0 +1,34 @@
+{
+    "2001:db8:3:fff7:fe4b::/128":[
+      {
+        "prefix":"2001:db8:3:fff7:fe4b::/128",
+        "prefixLen":128,
+        "protocol":"bgp",
+        "selected":true,
+        "destSelected":true,
+        "distance":20,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[
+          {
+            "flags":3,
+            "fib":true,
+            "directlyConnected":true,
+            "interfaceName":"Vrf10",
+            "active":true,
+            "weight":1,
+            "seg6local":{
+              "action":"uDT46",
+              "sidStructure":{
+                "blockLen":32,
+                "nodeLen":16,
+                "funcLen":32,
+                "argLen":0
+              }
+            }
+          }
+        ]
+      }
+    ]
+}

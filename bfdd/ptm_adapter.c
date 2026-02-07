@@ -15,6 +15,7 @@
 #include "lib/bfd.h"
 
 #include "bfd.h"
+#include "bfd_trace.h"
 
 /*
  * Data structures
@@ -36,7 +37,7 @@ struct ptm_client {
 TAILQ_HEAD(pcqueue, ptm_client);
 
 static struct pcqueue pcqueue;
-static struct zclient *zclient;
+static struct zclient *bfd_zclient;
 
 
 /*
@@ -70,10 +71,10 @@ static void bfdd_client_deregister(struct stream *msg);
 PRINTFRR(2, 3)
 static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
-	char timers[3][128] = {};
+	char timers[3][160] = {};
 	char minttl_str[32] = {};
-	char addr[3][128] = {};
-	char profile[128] = {};
+	char addr[3][160] = {};
+	char profile[160] = {};
 	char cbit_str[32];
 	char msgbuf[512];
 	va_list vl;
@@ -131,10 +132,15 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 	if (bglobal.debug_peer_event)
 		zlog_debug("session-delete: %s", bs_to_string(bs));
 
+	frrtrace(7, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, diag, bs->key.family,
+		 (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer, bs->refcount);
+
 	/* Change state and notify peer. */
 	bs->ses_state = PTM_BFD_DOWN;
 	bs->local_diag = diag;
-	ptm_bfd_snd(bs, 0);
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_BFD)
+		ptm_bfd_snd(bs, 0);
 
 	/* Session reached refcount == 0, lets delete it. */
 	if (bs->refcount == 0) {
@@ -144,6 +150,9 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 		 * message here so we can catch the bug if it exists.
 		 */
 		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
+			frrtrace(4, frr_bfd, ptm_config_refcount_error, bs->discrs.my_discr,
+				 bs->key.family, (uint8_t *)&bs->key.local,
+				 (uint8_t *)&bs->key.peer);
 			zlog_err(
 				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
 				bs_to_string(bs));
@@ -200,12 +209,14 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	 *     - 16 bytes: ipv6
 	 *   - c: prefix length
 	 * - c: cbit
+	 * - c: bfd name len
+	 * - Xbytes: bfd name
 	 *
 	 * Commands: ZEBRA_BFD_DEST_REPLAY
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
-	msg = zclient->obuf;
+	msg = bfd_zclient->obuf;
 	stream_reset(msg);
 
 	/* TODO: VRF handling */
@@ -238,9 +249,12 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 
 	case PTM_BFD_DOWN:
 	case PTM_BFD_INIT:
-		stream_putl(msg, BFD_STATUS_DOWN);
-		break;
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+			stream_putl(msg, BFD_STATUS_ADMIN_DOWN);
+		else
+			stream_putl(msg, BFD_STATUS_DOWN);
 
+		break;
 	default:
 		stream_putl(msg, BFD_STATUS_UNKNOWN);
 		break;
@@ -251,10 +265,13 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 
 	stream_putc(msg, bs->remote_cbit);
 
+	stream_putc(msg, strlen(bs->bfd_name));
+	stream_put(msg, bs->bfd_name, strlen(bs->bfd_name));
+
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bfd_zclient);
 }
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa)
@@ -404,6 +421,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 */
 	STREAM_GETC(msg, ifnamelen);
 	if (ifnamelen >= sizeof(bpc->bpc_localif)) {
+		frrtrace(2, frr_bfd, ptm_error, 1, ifnamelen);
 		zlog_err("ptm-read: interface name is too big");
 		return -1;
 	}
@@ -422,6 +440,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			bpc->bpc_has_vrfname = true;
 			strlcpy(bpc->bpc_vrfname, vrf->name, sizeof(bpc->bpc_vrfname));
 		} else {
+			frrtrace(2, frr_bfd, ptm_error, 2, vrf_id);
 			zlog_err("ptm-read: vrf id %u could not be identified",
 				 vrf_id);
 			return -1;
@@ -476,6 +495,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 			if (bglobal.debug_zebra)
 				zlog_debug(
 					"ptm-add-dest: failed to create BFD session");
+			frrtrace(2, frr_bfd, ptm_error, 6, 0);
 			return;
 		}
 	} else {
@@ -517,6 +537,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	if (bs == NULL) {
 		if (bglobal.debug_zebra)
 			zlog_debug("ptm-del-dest: failed to find BFD session");
+		frrtrace(2, frr_bfd, ptm_error, 7, 0);
 		return;
 	}
 
@@ -529,6 +550,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 
 	if (bglobal.debug_zebra)
 		zlog_debug("ptm-del-dest: failed to find BFD session");
+	frrtrace(2, frr_bfd, ptm_error, 7, bs->discrs.my_discr);
 
 	/*
 	 * XXX: We either got a double deregistration or the daemon who
@@ -554,6 +576,7 @@ static void bfdd_client_register(struct stream *msg)
 	return;
 
 stream_failure:
+	frrtrace(2, frr_bfd, ptm_error, 3, 0);
 	zlog_err("ptm-add-client: failed to register client");
 }
 
@@ -574,23 +597,27 @@ static void bfdd_client_deregister(struct stream *msg)
 		if (bglobal.debug_zebra)
 			zlog_debug("ptm-del-client: failed to find client: %u",
 				   pid);
+		frrtrace(2, frr_bfd, ptm_error, 8, pid);
 		return;
 	}
 
 	if (bglobal.debug_zebra)
 		zlog_debug("ptm-del-client: client pid %u", pid);
 
+	frrtrace(2, frr_bfd, ptm_client_event, 2, pid);
+
 	pc_free(pc);
 
 	return;
 
 stream_failure:
+	frrtrace(2, frr_bfd, ptm_error, 4, 0);
 	zlog_err("ptm-del-client: failed to deregister client");
 }
 
 static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 {
-	struct stream *msg = zclient->ibuf;
+	struct stream *msg = bfd_zclient->ibuf;
 	uint32_t rcmd;
 
 	STREAM_GETL(msg, rcmd);
@@ -613,12 +640,14 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 	default:
 		if (bglobal.debug_zebra)
 			zlog_debug("ptm-replay: invalid message type %u", rcmd);
+		frrtrace(2, frr_bfd, ptm_error, 9, rcmd);
 		return -1;
 	}
 
 	return 0;
 
 stream_failure:
+	frrtrace(2, frr_bfd, ptm_error, 5, 0);
 	zlog_err("ptm-replay: failed to find command");
 	return -1;
 }
@@ -643,7 +672,7 @@ static void bfdd_zebra_connected(struct zclient *zc)
 	zclient_create_header(msg, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
 
 	/* Send requests. */
-	zclient_send_message(zclient);
+	zclient_send_message(zc);
 }
 
 static void bfdd_sessions_enable_interface(struct interface *ifp)
@@ -750,6 +779,9 @@ static int bfd_ifp_destroy(struct interface *ifp)
 		zlog_debug("zclient: delete interface %s (VRF %s(%u))",
 			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
+	frrtrace(5, frr_bfd, zebra_interface_event, 2, ifp->ifindex, ifp->vrf->vrf_id, ifp->name,
+		 ifp->vrf->name);
+
 	bfdd_sessions_disable_interface(ifp);
 
 	return 0;
@@ -792,6 +824,10 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 							      : "delete",
 			   ifc->address, vrf_id);
 
+	frrtrace(6, frr_bfd, zebra_address_event, cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? 1 : 2,
+		 ifc->address->family, ifc->ifp->ifindex, vrf_id,
+		 (uint8_t *)&ifc->address->u.prefix, ifc->address->prefixlen);
+
 	if (cmd == ZEBRA_INTERFACE_ADDRESS_ADD)
 		bfdd_sessions_enable_address(ifc);
 	else
@@ -805,6 +841,10 @@ static int bfd_ifp_create(struct interface *ifp)
 	if (bglobal.debug_zebra)
 		zlog_debug("zclient: add interface %s (VRF %s(%u))", ifp->name,
 			   ifp->vrf->name, ifp->vrf->vrf_id);
+
+	frrtrace(5, frr_bfd, zebra_interface_event, 1, ifp->ifindex, ifp->vrf->vrf_id, ifp->name,
+		 ifp->vrf->name);
+
 	bfdd_sessions_enable_interface(ifp);
 
 	return 0;
@@ -827,32 +867,32 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	hook_register_prio(if_real, 0, bfd_ifp_create);
 	hook_register_prio(if_unreal, 0, bfd_ifp_destroy);
-	zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
-			      array_size(bfd_handlers));
-	assert(zclient != NULL);
-	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
+	bfd_zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
+				  array_size(bfd_handlers));
+	assert(bfd_zclient != NULL);
+	zclient_init(bfd_zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
 
 	/* Send replay request on zebra connect. */
-	zclient->zebra_connected = bfdd_zebra_connected;
+	bfd_zclient->zebra_connected = bfdd_zebra_connected;
 }
 
 void bfdd_zclient_register(vrf_id_t vrf_id)
 {
-	if (!zclient || zclient->sock < 0)
+	if (!bfd_zclient || bfd_zclient->sock < 0)
 		return;
-	zclient_send_reg_requests(zclient, vrf_id);
+	zclient_send_reg_requests(bfd_zclient, vrf_id);
 }
 
 void bfdd_zclient_unregister(vrf_id_t vrf_id)
 {
-	if (!zclient || zclient->sock < 0)
+	if (!bfd_zclient || bfd_zclient->sock < 0)
 		return;
-	zclient_send_dereg_requests(zclient, vrf_id);
+	zclient_send_dereg_requests(bfd_zclient, vrf_id);
 }
 
 void bfdd_zclient_stop(void)
 {
-	zclient_stop(zclient);
+	zclient_stop(bfd_zclient);
 
 	/* Clean-up and free ptm clients data memory. */
 	pc_free_all();
@@ -860,7 +900,7 @@ void bfdd_zclient_stop(void)
 
 void bfdd_zclient_terminate(void)
 {
-	zclient_free(zclient);
+	zclient_free(bfd_zclient);
 }
 
 
@@ -972,6 +1012,9 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	if (bglobal.debug_zebra)
 		zlog_debug("ptm-del-session: [%s] refcount=%" PRIu64,
 			   bs_to_string(bs), bs->refcount);
+
+	frrtrace(7, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, BD_NEIGHBOR_DOWN,
+		 bs->key.family, (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer, bs->refcount);
 
 	/* Set session down. */
 	_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);

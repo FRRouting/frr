@@ -22,6 +22,7 @@
 struct debug static_dbg_events = {0, "debug static events", "Staticd events"};
 struct debug static_dbg_route = {0, "debug static route", "Staticd route"};
 struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
+struct debug static_dbg_srv6 = {0, "debug static srv6", "Staticd srv6"};
 /* clang-format on */
 
 /*
@@ -37,8 +38,7 @@ struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events, bool route,
-		      bool bfd)
+void static_debug_set(int vtynode, bool onoff, bool events, bool route, bool bfd, bool srv6)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vtynode);
 
@@ -50,6 +50,8 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route,
 		DEBUG_MODE_SET(&static_dbg_bfd, mode, onoff);
 		bfd_protocol_integration_set_debug(onoff);
 	}
+	if (srv6)
+		DEBUG_MODE_SET(&static_dbg_srv6, mode, onoff);
 }
 
 /*
@@ -61,4 +63,5 @@ void static_debug_init(void)
 	debug_install(&static_dbg_events);
 	debug_install(&static_dbg_route);
 	debug_install(&static_dbg_bfd);
+	debug_install(&static_dbg_srv6);
 }

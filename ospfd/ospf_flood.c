@@ -33,8 +33,6 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
-extern struct zclient *zclient;
-
 /** @brief Function to refresh type-5 and type-7 DNA
  *	   LSAs when we receive an indication LSA.
  *  @param Ospf instance.
@@ -46,13 +44,11 @@ void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf)
 	struct ospf_lsa *lsa = NULL;
 
 	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-		if (IS_LSA_SELF(lsa) &&
-		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+		if (IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa))
 			ospf_lsa_refresh(ospf, lsa);
 
 	LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
-		if (IS_LSA_SELF(lsa) &&
-		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+		if (IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa))
 			ospf_lsa_refresh(ospf, lsa);
 }
 
@@ -172,11 +168,11 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		redist_on =
 			is_default_prefix4(&p)
 				? vrf_bitmap_check(
-					  &zclient->default_information[AFI_IP],
+					  &ospf_zclient->default_information[AFI_IP],
 					  ospf->vrf_id)
-				: (zclient->mi_redist[AFI_IP][type].enabled ||
+				: (ospf_zclient->mi_redist[AFI_IP][type].enabled ||
 				   vrf_bitmap_check(
-					   &zclient->redist[AFI_IP][type],
+					   &ospf_zclient->redist[AFI_IP][type],
 					   ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
@@ -406,9 +402,9 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (current != NULL) /* -- endo. */
 	{
 		if (IS_LSA_SELF(current)
-		    && (ntohs(current->data->ls_age) == 0
-			&& ntohl(current->data->ls_seqnum)
-				   == OSPF_INITIAL_SEQUENCE_NUMBER)) {
+		    && LS_AGE_RAW(current) == OSPF_LSA_INITIAL_AGE
+		    && ntohl(current->data->ls_seqnum)
+					== OSPF_INITIAL_SEQUENCE_NUMBER) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"%s:LSA[Flooding]: Got a self-originated LSA, while local one is initial instance.",
@@ -500,6 +496,13 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
+	/*
+	 * It is possible that the new lsa is freed before we get to the
+	 * lock from the need to send a receipt.  So let's lock the lsa
+	 * here for the duration of the function.
+	 */
+	ospf_lsa_lock(new);
+
 	/* check if the installed LSA is an indication LSA */
 	if (ospf_check_indication_lsa(new) && !IS_LSA_SELF(new) &&
 	    !IS_LSA_MAXAGE(new)) {
@@ -564,6 +567,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 		/* Update statistics value for OSPF-MIB. */
 		ospf->rx_lsa_count++;
 
+	ospf_lsa_unlock(&new);
 	return 0;
 }
 
@@ -611,7 +615,7 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		 * self lsas.
 		 */
 		if (oi->area->fr_info.enabled)
-			SET_FLAG(lsa->data->ls_age, DO_NOT_AGE);
+			SET_FLAG(lsa->data->ls_age, htons(DO_NOT_AGE));
 	}
 
 	/* Remember if new LSA is added to a retransmit list. */
@@ -1239,7 +1243,7 @@ void ospf_ls_retransmit_set_timer(struct ospf_neighbor *nbr)
 	struct ospf_lsa_list_entry *ls_rxmt_list_entry;
 
 	if (nbr->t_ls_rxmt)
-		EVENT_OFF(nbr->t_ls_rxmt);
+		event_cancel(&nbr->t_ls_rxmt);
 
 	ls_rxmt_list_entry = ospf_lsa_list_first(&nbr->ls_rxmt_list);
 	if (ls_rxmt_list_entry) {
@@ -1339,7 +1343,7 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	/* Reset the lsa origination time such that it gives
 	   more time for the ACK to be received and avoid
 	   retransmissions */
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: MaxAge set to LSA[%s]", __func__,
 			   dump_lsa_key(lsa));
@@ -1364,7 +1368,7 @@ void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)
 	/* Reset the lsa origination time such that it gives
 	   more time for the ACK to be received and avoid
 	   retransmissions */
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: MaxAge set to LSA[%s]", __func__,
 			   dump_lsa_key(lsa));
@@ -1376,7 +1380,7 @@ void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)
 
 void ospf_lsa_flush(struct ospf *ospf, struct ospf_lsa *lsa)
 {
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 
 	switch (lsa->data->type) {
 	case OSPF_ROUTER_LSA:

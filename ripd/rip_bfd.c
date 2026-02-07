@@ -15,7 +15,7 @@
 
 DEFINE_MTYPE(RIPD, RIP_BFD_PROFILE, "RIP BFD profile name");
 
-extern struct zclient *zclient;
+extern struct zclient *ripd_zclient;
 
 static const char *rip_bfd_interface_profile(struct rip_interface *ri)
 {
@@ -44,7 +44,7 @@ static void rip_bfd_session_change(struct bfd_session_params *bsp,
 				   &rp->addr);
 
 		rip_peer_delete_routes(rp);
-		listnode_delete(rp->rip->peer_list, rp);
+		rip_peer_list_del(&rp->rip->peer_list, rp);
 		rip_peer_free(rp);
 		return;
 	}
@@ -86,13 +86,12 @@ void rip_bfd_interface_update(struct rip_interface *ri)
 {
 	struct rip *rip;
 	struct rip_peer *rp;
-	struct listnode *node;
 
 	rip = ri->rip;
 	if (!rip)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(rip->peer_list, node, rp)) {
+	frr_each (rip_peer_list, &rip->peer_list, rp) {
 		if (rp->ri != ri)
 			continue;
 
@@ -117,5 +116,5 @@ void rip_bfd_instance_update(struct rip *rip)
 
 void rip_bfd_init(struct event_loop *tm)
 {
-	bfd_protocol_integration_init(zclient, tm);
+	bfd_protocol_integration_init(ripd_zclient, tm);
 }

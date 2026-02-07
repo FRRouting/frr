@@ -5,12 +5,40 @@ patch=$1
 tree=$2
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 checkpatch="$scriptdir/checkpatch.pl --no-tree -f"
-ignore="ldpd\|babeld"
+ignore="ldpd"
 cwd=${PWD##*/}
 dirty=0
 stat=0
 tmp1=/tmp/f1-$$
 tmp2=/tmp/f2-$$
+
+# Function to clean up git working tree if it was dirty
+cleanup_dirty_tree() {
+  if [ $dirty -eq 1 ]; then
+    git -C $tree read-tree $WORKTREE;
+    git -C $tree checkout-index -af;
+    git -C $tree read-tree $INDEX;
+    if [ -n "$td" ]; then
+      rm $td
+    fi
+    git -C $tree config --unset gc.auto;
+  fi
+}
+
+# Function to check checkpatch.pl return code and handle errors
+check_checkpatch_exit_code() {
+  local exit_code=$1
+  local file=$2
+
+  if [ $exit_code -gt 1 ]; then
+    echo "ERROR: checkpatch.pl failed with exit code $exit_code for file $file" 1>&2
+    echo "This indicates a configuration or environment error." 1>&2
+    # Clean up and exit immediately
+    cleanup_dirty_tree
+    rm -rf ${tmp1} ${tmp2}
+    exit $exit_code
+  fi
+}
 
 if [[ -z "$1" || -z "$2" ]]; then
   echo "$usage"
@@ -65,10 +93,12 @@ else
   for file in ${tmp1}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
+    check_checkpatch_exit_code $? $file
   done
   for file in ${tmp2}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
+    check_checkpatch_exit_code $? $file
   done
   echo "Done."
   for file in ${tmp1}/*_cp; do
@@ -92,15 +122,7 @@ else
 fi
 
 # restore working tree
-if [ $dirty -eq 1 ]; then
-  git -C $tree read-tree $WORKTREE;
-  git -C $tree checkout-index -af;
-  git -C $tree read-tree $INDEX;
-  if [ -n "$td" ]; then
-    rm $td
-  fi
-  git -C $tree config --unset gc.auto;
-fi
+cleanup_dirty_tree
 
 # remove temp directories
 rm -rf ${tmp1} ${tmp2}

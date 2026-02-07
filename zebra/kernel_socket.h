@@ -19,12 +19,19 @@ extern "C" {
 #define ZEBRA_ERR_RTNOEXIST             -4
 #define ZEBRA_ERR_KERNEL                -5
 
-extern void rtm_read(struct rt_msghdr *);
-extern int ifam_read(struct ifa_msghdr *);
-extern int ifm_read(struct if_msghdr *);
-extern int rtm_write(int, union sockunion *, union sockunion *,
-		     union sockunion *, union sockunion *, unsigned int,
-		     enum blackhole_type, int);
+#define IN6_LINKLOCAL_IFINDEX(a) ((a).s6_addr[2] << 8 | (a).s6_addr[3])
+#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                                            \
+	do {                                                                                       \
+		(a).s6_addr[2] = ((i) >> 8) & 0xff;                                                \
+		(a).s6_addr[3] = (i) & 0xff;                                                       \
+	} while (0)
+
+extern void rtm_read(struct rt_msghdr *rtm);
+extern int ifam_read(struct ifa_msghdr *ifam);
+extern int ifm_read(struct if_msghdr *ifm);
+extern int rtm_write(int message, union sockunion *dest, union sockunion *mask,
+		     union sockunion *gate, union sockunion *mpls, unsigned int index,
+		     enum blackhole_type bh_type, int metric);
 extern const struct message rtm_type_str[];
 
 #ifdef __cplusplus

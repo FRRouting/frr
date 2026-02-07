@@ -137,20 +137,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			sin_gate.sin6.sin6_len = sizeof(struct sockaddr_in6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 			ifindex = nexthop->ifindex;
-/* Under kame set interface index to link local address */
-#ifdef KAME
-
-#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                        \
-	do {                                                                   \
-		(a).s6_addr[2] = ((i) >> 8) & 0xff;                            \
-		(a).s6_addr[3] = (i)&0xff;                                     \
-	} while (0)
-
+			/* Under kame set interface index to link local address */
 			if (IN6_IS_ADDR_LINKLOCAL(&sin_gate.sin6.sin6_addr))
-				SET_IN6_LINKLOCAL_IFINDEX(
-					sin_gate.sin6.sin6_addr,
-					ifindex);
-#endif /* KAME */
+				SET_IN6_LINKLOCAL_IFINDEX(sin_gate.sin6.sin6_addr, ifindex);
 
 			gate = true;
 			break;
@@ -307,7 +296,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	uint32_t type, old_type;
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
-		zlog_err("route add: IPv6 sourcedest routes unsupported!");
+		flog_err(EC_ZEBRA_UNSUPPORTED_V6_SRCDEST,
+			 "route add: IPv6 sourcedest routes unsupported!");
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
@@ -340,9 +330,9 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 					   dplane_ctx_get_ng(ctx),
 					   dplane_ctx_get_metric(ctx));
 		} else {
-			zlog_err("Invalid routing socket update op %s (%u)",
-				 dplane_op2str(dplane_ctx_get_op(ctx)),
-				 dplane_ctx_get_op(ctx));
+			flog_err(EC_ZEBRA_RT_SOCKET_INVALID_OP,
+				 "Invalid routing socket update op %s (%u)",
+				 dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_op(ctx));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 	} /* Elevated privs */
@@ -398,7 +388,7 @@ uint32_t kernel_get_speed(struct interface *ifp, int *error)
 	return ifp->speed;
 }
 
-int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
 {
 	return 0;
 }

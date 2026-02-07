@@ -350,6 +350,8 @@ struct gm_if {
 	struct gm_subscribers_head subscribers[1];
 	struct gm_packet_expires_head expires[1];
 
+	size_t groups_count;
+
 	struct timeval started;
 	struct gm_if_stats stats;
 };

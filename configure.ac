@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [10.7.0-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -203,6 +203,13 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+AC_ARG_WITH([pkgconfigdir], [AS_HELP_STRING([--with-pkgconfigdir=DIR], [pkg-config directory (${libdir}/pkgconfig)])], [
+	pkgconfigdir="$withval"
+], [
+	pkgconfigdir="\${libdir}/pkgconfig"
+])
+AC_SUBST([pkgconfigdir], [$pkgconfigdir])
+
 AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
 	scriptdir="$withval"
 ], [
@@ -375,26 +382,45 @@ fi
 AM_CONDITIONAL([SCRIPTING], [test "$enable_scripting" = "yes"])
 
 if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3], [5.4], [], [
-     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
+   AX_PROG_LUA([5.3], [], [], [
+     AC_MSG_ERROR([Lua >= 5.3 is required to build with Lua support. No other version is supported.])
    ])
    AX_LUA_HEADERS([], [
-     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
+     AC_MSG_ERROR([Lua >= 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-   PKG_CHECK_MODULES([LUA], [lua5.3], [
-     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIBS"
-     SCRIPTING=true
-   ], [
-      AX_LUA_LIBS([
-        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-        LIBS="$LIBS $LUA_LIB"
-        SCRIPTING=true
-      ], [
-        SCRIPTING=false
-        AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-      ])
-    ])
+  
+   for version in 5.3 5.4; do
+     PKG_CHECK_MODULES([LUA], [lua >= $version], [
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIBS"
+         SCRIPTING=true
+         break
+     ], [
+       PKG_CHECK_MODULES([LUA], [lua$version], [
+         AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+           LIBS="$LIBS $LUA_LIBS"
+           SCRIPTING=true
+           break
+       ], [
+         PKG_CHECK_MODULES([LUA], [lua-$version], [
+           AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+             LIBS="$LIBS $LUA_LIBS"
+             SCRIPTING=true
+             break
+         ], [])
+       ])
+     ])
+   done
+
+   if [ "$SCRIPTING" != "true" ]; then
+     AX_LUA_LIBS([
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIB"
+         SCRIPTING=true
+     ], [
+       AC_MSG_ERROR([Lua >= 5.3 libraries are required to build with Lua support. No other version is supported.])
+     ])
+   fi
 fi
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
@@ -448,14 +474,15 @@ AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
 AC_C_FLAG([-Wundef])
 AC_C_FLAG([-Wimplicit-fallthrough])
+AC_C_FLAG([-Wshadow])
+AC_C_FLAG([-Wmissing-noreturn])
+AC_C_FLAG([-Wformat-extra-args])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
-  AC_C_FLAG([-Wmissing-noreturn])
   AC_C_FLAG([-Wmissing-format-attribute])
   AC_C_FLAG([-Wunreachable-code])
   AC_C_FLAG([-Wpacked])
   AC_C_FLAG([-Wpadded])
-  AC_C_FLAG([-Wshadow])
 else
   AC_C_FLAG([-Wno-unused-result])
 fi
@@ -463,6 +490,7 @@ AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
 AC_C_FLAG([-Wno-microsoft-anon-tag])
 AC_C_FLAG([-Wno-error=deprecated-declarations])
+AC_C_FLAG([-Waddress-of-packed-member])
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
@@ -558,9 +586,38 @@ extern int __start_secttest, __stop_secttest;
   printf("%p %p %p\n", a, b, c);
 ]])], [
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SECTION_SYMS, 1, [have __start/stop_section symbols])
 ], [
   AC_MSG_RESULT(no)
+  AC_MSG_ERROR([Toolchain issue: ELF __start/stop_section symbols seem to not work.  Please open configure.ac and search for this message for further information.])
+dnl
+dnl if you have arrived here, well, you might be about to have a rather bad day
+dnl since the above issue will be caused by one of the following things:
+dnl
+dnl (1) the test above broke.  This is the best case; just comment it out and
+dnl     try building anyway.  If it works, you're lucky, but please open an
+dnl     issue on the FRR bugtracker.
+dnl
+dnl (2) you're trying to build for Linux or *BSD.  All non-necromantic versions
+dnl     of those support this feature, so start looking at what might be wrong
+dnl     with your compiler toolchain.  Is "ld" not installed correctly or
+dnl     something like that?  Some weird LTO thing going on?  Weird mix of GNU
+dnl     and LLVM toolchains?  Maybe try a fresh install in a container/VM?
+dnl
+dnl (3) you're trying to build for Solaris.  Support for Solaris has been
+dnl     removed due to lack of maintainers and testing.  For this specific
+dnl     problem, use GNU ld and you're good, but you'll hit walls elsewhere.
+dnl
+dnl (4) you're trying to build for Apple OSX.  You in for a world of pain, with
+dnl     OSX using Mach-O for its binaries rather than ELF.  FRR contains code
+dnl     that uses libelf to open its own binaries and fish out things.  For
+dnl     obvious reasons of Mach-O not being ELF, this won't work.  There is no
+dnl     easy workaround, disabling this code results in a non-working FRR
+dnl     build even if you somehow get it to pass.  Good luck!
+dnl
+dnl IN ALL CASES: open config.log, scroll to the very bottom, then back up to
+dnl     before the kilometer long dumps of internal autoconf variables.  There
+dnl     should be a compiler/linker error there.  You absolutely need that
+dnl     error message, otherwise you're completely lost in the dark.
 ])
 
 dnl ----------
@@ -577,13 +634,6 @@ AX_PTHREAD([
 
 orig_cflags="$CFLAGS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-
-AC_SEARCH_LIBS([pthread_condattr_setclock], [],
-		[frr_cv_pthread_condattr_setclock=yes],
-		[frr_cv_pthread_condattr_setclock=no])
-if test "$frr_cv_pthread_condattr_setclock" = "yes"; then
-  AC_DEFINE([HAVE_PTHREAD_CONDATTR_SETCLOCK], [1], [Have pthread.h pthread_condattr_setclock])
-fi
 
 AC_CHECK_HEADERS([pthread_np.h],,, [
 #include <pthread.h>
@@ -796,16 +846,14 @@ AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
-AC_ARG_ENABLE([rtadv],
-  AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
-AC_ARG_ENABLE([irdp],
-  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
-  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
+  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)])
+AS_HELP_STRING([--enable-backtrace=<execinfo|libunwind>], [select specific backtrace library])
+)
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([pcre2posix],
@@ -852,6 +900,24 @@ AC_ARG_ENABLE([version_build_config],
 
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
+
+##
+## gperftools tcmalloc version, more complete than "minimal"
+##
+AC_ARG_ENABLE(gperf-tcmalloc,
+	AS_HELP_STRING([--enable-gperf-tcmalloc], [Use gperftools tcmalloc]),
+[case "${enableval}" in
+  yes)
+  AC_MSG_CHECKING([for gperftools tcmalloc])
+  AC_CHECK_LIB([tcmalloc], [MallocExtension_ReleaseToSystem], [
+gperf_tcmalloc_enabled=true
+LIBS="$LIBS -ltcmalloc"
+AC_DEFINE([HAVE_TCMALLOC], [1], [Enable tcmalloc])
+  ], [AC_MSG_ERROR([tcmalloc specified but libtcmalloc not found, or missing apis])])
+ ;;
+  no)  gperf_tcmalloc_enabled=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-gperf-tcmalloc]) ;;
+esac],[gperf_tcmalloc_enabled=false])
 
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
@@ -963,14 +1029,6 @@ if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE([KEEP_OLD_VPN_COMMANDS], [1], [Define for compiling with old vpn commands])
 fi
 
-AC_MSG_CHECKING([if zebra should be configurable to send Route Advertisements])
-if test "$enable_rtadv" != "no"; then
-  AC_MSG_RESULT([yes])
-  AC_DEFINE([HAVE_RTADV], [1], [Enable IPv6 Routing Advertisement support])
-else
-  AC_MSG_RESULT([no])
-fi
-
 if test "$enable_user" = "no"; then
   enable_user=""
 else
@@ -1024,6 +1082,7 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
+AC_SUBST([MULTIPATH_NUM], [$MPATH_NUM])
 
 case "${with_log_timestamp_precision}" in
 [[0-9]|1[012]])
@@ -1105,15 +1164,16 @@ fi
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
-AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h endian.h sys/endian.h])
+AC_CHECK_HEADERS([ \
+	asm/types.h sys/endian.h])
+
+AC_CHECK_HEADER([endian.h], [], [
+  AC_MSG_ERROR([missing endian.h])
+])
 
 AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
-ac_stdatomic_ok=false
-AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
-
   AC_MSG_CHECKING([whether _Atomic qualifier works])
   AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <stdatomic.h>
@@ -1127,52 +1187,7 @@ int main(int argc, char **argv) {
     ac_stdatomic_ok=true
   ], [
     AC_MSG_RESULT([no])
-  ])
-])
-
-AS_IF([$ac_stdatomic_ok], [true], [
-  AC_MSG_CHECKING([for __atomic_* builtins])
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
-  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
-}
-]])], [
-    AC_DEFINE([HAVE___ATOMIC], [1], [found __atomic builtins])
-    AC_MSG_RESULT([yes])
-  ], [
-    AC_MSG_RESULT([no])
-
-    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
-    AC_MSG_CHECKING([for __sync_* builtins])
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __sync_fetch_and_sub (&i, 1);
-  return __sync_val_compare_and_swap (&i, 0, 1);
-}
-]])], [
-      AC_DEFINE([HAVE___SYNC], [1], [found __sync builtins])
-      AC_MSG_RESULT([yes])
-
-      AC_MSG_CHECKING([for __sync_swap builtin])
-      AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  return __sync_swap (&i, 2);
-}
-]])], [
-        AC_DEFINE([HAVE___SYNC_SWAP], 1, [found __sync_swap builtin])
-        AC_MSG_RESULT([yes])
-      ], [
-        AC_MSG_RESULT([no])
-      ])
-
-    ], [
-      AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
-    ])
+    AC_MSG_ERROR([building FRR requires an ISO C11 compliant compiler with atomics support])
   ])
 ])
 
@@ -1260,7 +1275,6 @@ m4_define([FRR_INCLUDES],
 #include <stdlib.h>
 #include <stddef.h>
 #include <sys/types.h>
-/* sys/conf.h depends on param.h on FBSD at least */
 #include <sys/param.h>
 /* Required for MAXSIG */
 #include <signal.h>
@@ -1271,23 +1285,8 @@ m4_define([FRR_INCLUDES],
 #include <net/if.h>
 ])dnl
 
-dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
-dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
-dnl an additional round for it.
-
-AC_CHECK_HEADERS([net/if_var.h], [], [], [FRR_INCLUDES])
-
-m4_define([FRR_INCLUDES],
-FRR_INCLUDES
-[#ifdef HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
-#endif
-])dnl
-
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h net/netopt.h \
-	inet/nd.h netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h sys/conf.h],
+	netinet/ip_icmp.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
@@ -1317,16 +1316,10 @@ FRR_INCLUDES
 #ifdef HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
-#ifdef HAVE_NET_IF_DL_H
+#ifndef __linux__
 # include <net/if_dl.h>
 #endif
-#ifdef HAVE_NET_NETOPT_H
-# include <net/netopt.h>
-#endif
 #include <net/route.h>
-#ifdef HAVE_INET_ND_H
-# include <inet/nd.h>
-#endif
 #include <arpa/inet.h>
 /* Required for IDRP */
 #ifdef HAVE_NETINET_IP_ICMP_H
@@ -1363,14 +1356,12 @@ case "$host_os" in
     AC_MSG_RESULT([OpenBSD])
 
     AC_DEFINE([OPEN_BSD], [1], [OpenBSD])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
   *)
     AC_MSG_RESULT([BSD])
 
     AC_DEFINE([HAVE_NET_RT_IFLIST], [1], [NET_RT_IFLIST])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
@@ -1399,12 +1390,51 @@ dnl ---------------
 AC_CHECK_FUNCS([ \
 	strlcat strlcpy \
 	getgrouplist \
+	getloadavg \
 	openat \
 	unlinkat \
 	posix_fallocate \
 	sendmmsg \
 	explicit_bzero \
 	])
+
+dnl note the trailing _ in the following macros; this is neccessary since
+dnl otherwise autoheader *replaces* the #define with the block...
+dnl
+dnl yes this might include stddef.h 3 times but who cares
+
+AH_VERBATIM(HAVE_STRLCAT_, [
+#ifndef HAVE_STRLCAT
+#include <stddef.h>
+#ifndef __cplusplus
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcat(char *dest, const char *src, size_t destsize);
+#endif
+#endif
+])
+AH_VERBATIM(HAVE_STRLCPY_, [
+#ifndef HAVE_STRLCPY
+#include <stddef.h>
+#ifndef __cplusplus
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#else
+extern "C" size_t strlcpy(char *dest, const char *src, size_t destsize);
+#endif
+#endif
+])
+AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
+#ifndef HAVE_EXPLICIT_BZERO
+#include <stddef.h>
+#ifndef __cplusplus
+void explicit_bzero(void *buf, size_t len);
+#else
+extern "C" void explicit_bzero(void *buf, size_t len);
+#endif
+#endif
+])
 
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
@@ -1417,33 +1447,34 @@ dnl ##########################################################################
 # Logic for protobuf support.
 #
 PROTO3=false
-# Enable Protobuf by default at all times.
-# Check for protoc & protoc-c
-# protoc is not required, it's only for a "be nice" helper target
-AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
-
-AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
-if test "$PROTOC_C" = "/bin/false"; then
-  AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
-fi
-
-PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.1.0],, [
-  AC_MSG_FAILURE([minimum version (1.1.0) of libprotobuf-c not found.  Install minimum required version of protobuf-c.])
-])
-
-if test "$enable_protobuf3" = "yes"; then
-  PROTO3=true
-  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
-                  [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
-                                  AC_DEFINE([HAVE_PROTOBUF_VERSION_3],
-                                            [1], [Have Protobuf version 3]),
-                                  [PROTO3=false],
-                                  [#include <google/protobuf-c/protobuf-c.h>])],
-                  [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
-fi
-
 if test "$enable_protobuf" != "no"; then
-  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.3.0], [PROTO3=true], [PROTO3=false])
+
+  if test "$PROTOC_C" != "/bin/false" && test "$PROTO3" != "false"; then
+    AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+    dnl
+    dnl The libprotobuf-c >= 1.3.0 check replaces an older check for a symbol
+    dnl that shows up in libprotobuf-c 1.3.0. Also previously this check was
+    dnl only done when a non-existent flag (`--enable-protobuf3`) was specified
+    dnl (i.e., never).
+    dnl
+    dnl Finally this seems misnamed (why not PROTOBUF_C_13?), but the users of
+    dnl this flag should address this.
+    dnl
+    AC_DEFINE([HAVE_PROTOBUF_VERSION_3], [1], [Have libprotobuf-c version 1.3])
+  fi
+
+  # Require things if the user explicitly requested protobuf
+  if test "$enable_protobuf" = "yes"; then
+    if test "$PROTOC_C" = "/bin/false"; then
+      AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c])
+    fi
+    if test "$PROTO3" = "false"; then
+      AC_MSG_FAILURE([protobuf requested but libprotobuf-c > 1.3.0 not found])
+    fi
+  fi
 fi
 #
 # End of logic for protobuf support.
@@ -1579,6 +1610,17 @@ AC_CHECK_FUNCS([ppoll], [
 AC_CHECK_FUNCS([pollts], [
   AC_DEFINE([HAVE_POLLTS], [1], [have NetBSD pollts()])
 ])
+
+AC_CHECK_FUNC([epoll_pwait], [AC_DEFINE([HAVE_EPOLL_PWAIT], [1],
+			     [Define if you have epoll_pwait])])
+# Define USE_EPOLL if any of the above is found
+AC_MSG_CHECKING([for epoll API support])
+if test "x$ac_cv_func_epoll_pwait" = "xyes" ; then
+    AC_DEFINE([USE_EPOLL], [1], [Define if any epoll API is supported])
+    AC_MSG_RESULT([yes])
+else
+    AC_MSG_RESULT([no])
+fi
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -1798,22 +1840,13 @@ AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>]
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
-	netinet6/in6_var.h netinet6/nd6.h], [], [],
+AC_CHECK_HEADERS([ \
+	netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
-[#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif
-#ifdef HAVE_NETINET_IN6_VAR_H
-#include <netinet/in6_var.h>
-#endif
-#include <netinet/icmp6.h>
-#ifdef HAVE_NETINET6_IN6_VAR_H
-# include <netinet6/in6_var.h>
-#endif
+[#include <netinet/icmp6.h>
 #ifdef HAVE_NETINET6_ND6_H
 # include <netinet6/nd6.h>
 #endif
@@ -1828,13 +1861,7 @@ AS_IF([test "$enable_bgpd" != "no"], [
 ])
 
 AS_IF([test "$enable_mgmtd" != "no"], [
-
   AC_DEFINE([HAVE_MGMTD], [1], [mgmtd])
-
-  # Enable MGMTD local validations
-  AS_IF([test "$enable_mgmtd_local_validations" == "yes"], [
-    AC_DEFINE([MGMTD_LOCAL_VALIDATIONS_ENABLED], [1], [Enable mgmtd local validations.])
-  ])
 ])
 
 AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
@@ -2017,42 +2044,38 @@ dnl ##########################################################################
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
+SNMP=false
 if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
-   AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
-   if test "$NETSNMP_CONFIG" = "no"; then
-      AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
-   fi
-   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
-   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
-   # net-snmp lists all of its own dependencies.  we absolutely do not want that
-   # among other things we avoid a GPL vs. OpenSSL license conflict here
-   for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
-   done
-   AC_MSG_CHECKING([whether we can link to Net-SNMP])
-   AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
+  PKG_CHECK_MODULES([SNMP], [netsnmp-agent], [
+    dnl all set, nothing to do
+  ], [
+    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
+    if test "$NETSNMP_CONFIG" = "no"; then
+      AC_MSG_ERROR([--enable-snmp given but unable to find netsnmp-agent pkgconfig or net-snmp-config])
+    fi
+    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+    # net-snmp lists all of its own dependencies.  we absolutely do not want that
+    # among other things we avoid a GPL vs. OpenSSL license conflict here
+    for removelib in crypto ssl sensors pci wrap; do
+      SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
+    done
+    AC_MSG_CHECKING([whether we can link to Net-SNMP])
+    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [
+      AC_LANG_PROGRAM([
 int main(void);
-],
-[
+], [
 {
   return 0;
 }
-])], [
-     AC_MSG_RESULT([no])
-     AC_MSG_ERROR([--enable-snmp given but not usable])])
-   case "${enable_snmp}" in
-     yes)
-      SNMP_METHOD=agentx
-      ;;
-     agentx)
-      SNMP_METHOD="${enable_snmp}"
-      ;;
-     *)
-      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use yes or agentx])
-      ;;
-   esac
-   AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
-   AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,[SNMP method to interface with snmpd])
+])
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_ERROR([SNMP libraries found but failed to link])
+    ])
+  ])
+  SNMP=true
+  AC_DEFINE([SNMP_AGENTX], [1], [Enable AgentX SNMP modules])
 fi
 AC_SUBST([SNMP_LIBS])
 AC_SUBST([SNMP_CFLAGS])
@@ -2063,6 +2086,20 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+LIBYANG_MAJOR=$(pkg-config --modversion libyang | cut -f1 -d.)
+if test "$LIBYANG_MAJOR" -ge 4; then
+  dnl NOTE: binary encoding (LYD_LYB) is no longer supported in v4,
+  dnl so v3 may be more efficient for certain use cases
+  AC_MSG_WARN([m4_normalize([
+    Libyang v4 is supported; however libyang v3 use is still suggested. Libyang
+    v4 has changed its binary encoding (LYD_LYB) format to a very restricted
+    subset of users which does not include FRR. This mean FRR will always use
+    JSON or XML even when passing intermediate results internally.
+    ])
+  ])
+fi
+
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -2111,7 +2148,6 @@ dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
   AC_LANG_PUSH([C++])
-  AX_CXX_COMPILE_STDCXX([11], [ext])
   PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
     if test "$PROTOC" = "/bin/false"; then
@@ -2318,7 +2354,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
+	struct ifaliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
@@ -2327,35 +2363,8 @@ AC_CHECK_TYPES([
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
-	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], FRR_INCLUDES)
-
-dnl ---------------------------
-dnl IRDP/pktinfo/icmphdr checks
-dnl ---------------------------
-
-AC_CHECK_TYPES([struct in_pktinfo], [
-  AC_CHECK_TYPES([struct icmphdr], [
-    IRDP=true
-  ], [
-    IRDP=false
-  ], [FRR_INCLUDES])
-], [
-  IRDP=false
-], [FRR_INCLUDES])
-
-case "${enable_irdp}" in
-yes)
-  $IRDP || AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  ;;
-no)
-  IRDP=false
-  ;;
-*)
-  IRDP=false
-  ;;
-esac
 
 
 dnl -----------------------
@@ -2450,22 +2459,13 @@ AC_CHECK_DECLS([be32enc, be32dec], [], [], [
         #ifdef HAVE_SYS_ENDIAN_H
         #include <sys/endian.h>
         #endif
-        #ifdef HAVE_ENDIAN_H
         #include <endian.h>
-        #endif
 ])
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
-AC_CHECK_DECL([CLOCK_MONOTONIC],
-	[AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
-	 AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Have monotonic clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
-
-AC_CHECK_DECL([CLOCK_THREAD_CPUTIME_ID], [
-	 AC_DEFINE([HAVE_CLOCK_THREAD_CPUTIME_ID], [1], [Have cpu-time clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
+AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
 
 AC_SEARCH_LIBS([clock_nanosleep], [rt], [
   AC_DEFINE([HAVE_CLOCK_NANOSLEEP], [1], [Have clock_nanosleep()])
@@ -2601,36 +2601,47 @@ AC_SUBST([LIBCAP])
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl ---------------------------
+backtrace_ok=false
 if test "$enable_backtrace" != "no" ; then
-  backtrace_ok=no
-  PKG_CHECK_MODULES([UNWIND], [libunwind], [
-    AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-    backtrace_ok=yes
-  ], [
-    true
-  ])
-
-  if test "$backtrace_ok" = "no"; then
-    AC_CHECK_HEADER([unwind.h], [
-      AC_SEARCH_LIBS([unw_getcontext], [unwind], [
-        AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-        backtrace_ok=yes
+  case "x$enable_backtrace" in
+  x|xyes|xexecinfo|xlibunwind)
+    ;;
+  *)
+    AC_MSG_FAILURE([invalid argument ${enable_backtrace} for --enable-backtrace])
+    ;;
+  esac
+  if test "$enable_backtrace" != "execinfo"; then
+    PKG_CHECK_MODULES([UNWIND], [libunwind], [
+      AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+      backtrace_ok=true
+    ], [
+      AC_CHECK_HEADER([libunwind.h], [
+        AC_SEARCH_LIBS([unw_getcontext], [unwind], [
+          AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+          backtrace_ok=true
+        ])
       ])
     ])
+    if test "$enable_backtrace" = "libunwind" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([libunwind backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$backtrace_ok" = "no"; then
+  if test "$backtrace_ok" = "false"; then
     AC_CHECK_HEADER([execinfo.h], [
       AC_SEARCH_LIBS([backtrace], [execinfo], [
         AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
-        backtrace_ok=yes
-      ],, [-lm])
+        backtrace_ok=true
+      ], [], [-lm])
     ])
+    if test "$enable_backtrace" = "execinfo" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([glibc/execinfo backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$enable_backtrace" = "yes" -a "$backtrace_ok" = "no"; then
+  if test "$enable_backtrace" != "" -a "$backtrace_ok" = "false"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
+    AC_MSG_FAILURE([failed to find glibc/execinfo backtrace or libunwind])
   fi
 fi
 
@@ -2747,6 +2758,7 @@ AX_SUBST_EXPANDED([frr_sysconfdir])
 AX_SUBST_EXPANDED([frr_runstatedir])
 AX_SUBST_EXPANDED([frr_libstatedir])
 AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([pkgconfigdir])
 AX_SUBST_EXPANDED([yangmodelsdir])
 AX_SUBST_EXPANDED([scriptdir])
 
@@ -2768,8 +2780,7 @@ AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
 dnl plugins
 AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
-AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
-AM_CONDITIONAL([IRDP], [$IRDP])
+AM_CONDITIONAL([SNMP], [$SNMP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
@@ -2843,6 +2854,7 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+AC_CONFIG_FILES([tools/frr.pc])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
@@ -2923,13 +2935,14 @@ local state file dir    : ${e_frr_libstatedir}
 run state file dir      : ${e_frr_runstatedir}
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
+pkgconfig directory     : ${e_pkgconfigdir}
 script directory        : ${e_scriptdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
-zebra protobuf enabled  : ${enable_protobuf:-no}
+zebra protobuf enabled  : ${enable_protobuf:-yes}
 vici socket path        : ${vici_socket}
 
 The above user and group must have read/write access to the state file
@@ -2944,6 +2957,10 @@ if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
 fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
+fi
+if test "$backtrace_ok" = "false"; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([building FRR without crash/assert backtraces. This is NOT RECOMMENDED.])
 fi
 
 if $path_warn_banner; then

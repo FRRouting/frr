@@ -390,9 +390,8 @@ void isis_notif_area_mismatch(const struct isis_circuit *circuit,
 /*
  * XPath: /frr-isisd:lsp-received
  */
-void isis_notif_lsp_received(const struct isis_circuit *circuit,
-			     const uint8_t *lsp_id, uint32_t seqno,
-			     uint32_t timestamp, const char *sys_id)
+void isis_notif_lsp_received(const struct isis_circuit *circuit, const uint8_t *lsp_id,
+			     uint32_t seqno, time_t timestamp, const char *sys_id)
 {
 	const char *xpath = "/frr-isisd:lsp-received";
 	struct list *arguments = yang_data_list_new();
@@ -411,7 +410,7 @@ void isis_notif_lsp_received(const struct isis_circuit *circuit,
 	data = yang_data_new_uint32(xpath_arg, seqno);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/received-timestamp", xpath);
-	data = yang_data_new_uint32(xpath_arg, timestamp);
+	data = yang_data_new_uint64(xpath_arg, timestamp);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/neighbor-system-id", xpath);
 	data = yang_data_new_string(xpath_arg, sys_id);
@@ -423,8 +422,8 @@ void isis_notif_lsp_received(const struct isis_circuit *circuit,
 /*
  * XPath: /frr-isisd:lsp-generation
  */
-void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id,
-			uint32_t seqno, uint32_t timestamp)
+void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id, uint32_t seqno,
+			time_t timestamp)
 {
 	const char *xpath = "/frr-isisd:lsp-generation";
 	struct list *arguments = yang_data_list_new();
@@ -441,7 +440,7 @@ void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id,
 	data = yang_data_new_uint32(xpath_arg, seqno);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/send-timestamp", xpath);
-	data = yang_data_new_uint32(xpath_arg, timestamp);
+	data = yang_data_new_uint64(xpath_arg, timestamp);
 	listnode_add(arguments, data);
 
 	nb_notification_send(xpath, arguments);

@@ -127,7 +127,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 
 
 	/* Associated LSA */
-	v->lsa = lsa;
+	v->lsa = ospf6_lsa_lock(lsa);
 
 	/* capability bits + options */
 	v->capability = *(uint8_t *)(ospf6_lsa_header_end(lsa->header));
@@ -150,6 +150,7 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 {
 	list_delete(&v->nh_list);
 	list_delete(&v->child_list);
+	ospf6_lsa_unlock(&v->lsa);
 	XFREE(MTYPE_OSPF6_VERTEX, v);
 }
 
@@ -643,10 +644,8 @@ static void ospf6_spf_calculation_thread(struct event *t)
 	/* External LSA calculation */
 	ospf6_ase_calculate_timer_add(ospf6);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_abr_task(ospf6);
 
 	monotime(&end);
 	timersub(&end, &start, &runtime);
@@ -694,7 +693,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	elapsed = monotime_since(&ospf6->ts_spf, NULL) / 1000LL;
-	ht = ospf6->spf_holdtime * ospf6->spf_hold_multiplier;
+	ht = (uint64_t)(ospf6->spf_holdtime) * ospf6->spf_hold_multiplier;
 
 	if (ht > ospf6->spf_max_holdtime)
 		ht = ospf6->spf_max_holdtime;
@@ -722,7 +721,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	EVENT_OFF(ospf6->t_spf_calc);
+	event_cancel(&ospf6->t_spf_calc);
 	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
 			     &ospf6->t_spf_calc);
 }
@@ -748,11 +747,7 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 	}
 
 	len = strlen(prefix) + 4;
-	next_prefix = (char *)malloc(len);
-	if (next_prefix == NULL) {
-		vty_out(vty, "malloc failed\n");
-		return;
-	}
+	next_prefix = XMALLOC(MTYPE_TMP, len);
 	snprintf(next_prefix, len, "%s%s", prefix, (rest ? "|  " : "   "));
 
 	restnum = listcount(v->child_list);
@@ -778,7 +773,7 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 		else
 			json_object_free(json_childs);
 	}
-	free(next_prefix);
+	XFREE(MTYPE_TMP, next_prefix);
 }
 
 DEFUN (debug_ospf6_spf_process,

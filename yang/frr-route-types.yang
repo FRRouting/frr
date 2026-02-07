@@ -50,111 +50,144 @@ module frr-route-types {
     type enumeration {
       enum kernel {
         value 1;
+        description "Kernel route";
       }
       enum connected {
         value 2;
+        description "Connected route";
       }
       enum local {
         value 3;
+        description "Local route";
       }
       enum static {
         value 4;
+        description "Static route";
       }
       enum rip {
         value 5;
+        description "RIP route";
       }
       enum ospf {
         value 7;
+        description "OSPF route";
       }
       enum isis {
         value 9;
+        description "ISIS route";
       }
       enum bgp {
         value 10;
+        description "BGP route";
       }
       enum eigrp {
         value 12;
+        description "EIGRP route";
       }
       enum nhrp {
         value 13;
+        description "NHRP route";
       }
       enum table {
         value 16;
+        description "Table route";
       }
       enum vnc {
         value 18;
+        description "VNC route";
       }
       enum vnc-direct {
         value 19;
+        description "VNC Direct route";
       }
       enum babel {
         value 23;
+        description "Babel route";
       }
       enum sharp {
         value 24;
+        description "SHARP route";
       }
       enum openfabric {
         value 27;
+        description "Openfabric route";
       }
     }
+    description "Enumeration of supported IPv4 route types";
   }
 
   typedef frr-route-types-v6 {
     type enumeration {
       enum kernel {
         value 1;
+        description "Kernel route";
       }
       enum connected {
         value 2;
+        description "Connected route";
       }
       enum local {
         value 3;
+        description "Local route";
       }
       enum static {
         value 4;
+        description "Static route";
       }
       enum ripng {
         value 6;
+        description "RIPng route";
       }
       enum ospf6 {
         value 8;
+        description "OSPFv3 route";
       }
       enum isis {
         value 9;
+        description "ISIS route";
       }
       enum bgp {
         value 10;
+        description "BGP route";
       }
       enum nhrp {
         value 13;
+        description "NHRP route";
       }
       enum table {
         value 16;
+        description "Table route";
       }
       enum vnc {
         value 18;
+        description "VNC route";
       }
       enum vnc-direct {
         value 19;
+        description "VNC Direct route";
       }
       enum babel {
         value 23;
+        description "Babel route";
       }
       enum sharp {
         value 24;
+        description "SHARP route";
       }
       enum openfabric {
         value 27;
+        description "OpenFabric route";
       }
     }
+    description "Enumeration of supported IPv6 route types";
   }
 
   typedef frr-route-types {
-    description "Route types as enumerated in `lib/route_types.txt`";
     type union {
       type frr-route-types-v4;
       type frr-route-types-v6;
     }
+    description "Route types as enumerated in `lib/route_types.txt`";
   }
 
   typedef ipv4-multicast-group-prefix {
@@ -177,12 +210,12 @@ module frr-route-types {
   }
 
   typedef ip-multicast-group-prefix {
-    description "The IP-Multicast-Group-Address-Prefix type represents an IP multicast address
-    prefix and is IP version neutral. The format of the textual representations implies the IP
-    version. It includes a prefix-length, separated by a '/' sign.";
     type union {
       type ipv4-multicast-group-prefix;
       type ipv6-multicast-group-prefix;
     }
+    description "The IP-Multicast-Group-Address-Prefix type represents an IP multicast address
+    prefix and is IP version neutral. The format of the textual representations implies the IP
+    version. It includes a prefix-length, separated by a '/' sign.";
   }
 }

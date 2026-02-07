@@ -14,6 +14,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifndef HAVE_LIBCRYPT
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
+#define crypt DES_crypt
+#endif
+#endif
+
 #include <lib/version.h>
 
 #include "command.h"
@@ -41,6 +48,8 @@
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
+#include "frregex_real.h"
+#include "json.h"
 
 #include "frrscript.h"
 
@@ -482,7 +491,6 @@ static int config_write_host(struct vty *vty)
 				vty_out(vty, "enable password %s\n",
 					host.enable);
 		}
-		log_config_write(vty);
 
 		if (!cputime_enabled)
 			vty_out(vty, "no service cputime-stats\n");
@@ -1433,17 +1441,44 @@ DEFUN (config_end,
 /* Show version. */
 DEFUN (show_version,
        show_version_cmd,
-       "show version",
+       "show version [json]",
        SHOW_STR
-       "Displays zebra version\n")
+       "Displays zebra version\n"
+       JSON_STR)
 {
-	vty_out(vty, "%s %s (%s) on %s(%s).\n", FRR_FULL_NAME, FRR_VERSION,
-		cmd_hostname_get() ? cmd_hostname_get() : "", cmd_system_get(),
-		cmd_release_get());
-	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
+	int uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json,
+				       "hostName",
+				       host.name ? host.name : "");
+		json_object_string_add(json,
+				       "version", FRR_VERSION);
+		json_object_string_add(json,
+				       "name", FRR_FULL_NAME);
+		json_object_string_add(json,
+				       "copyright", FRR_COPYRIGHT);
+		json_object_string_add(json,
+				       "gitInformation", GIT_INFO);
 #ifdef ENABLE_VERSION_BUILD_CONFIG
-	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
+		json_object_string_add(json,
+				       "configureLine", FRR_CONFIG_ARGS);
 #endif
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		vty_out(vty, "%s %s (%s) on %s(%s).\n", FRR_FULL_NAME, FRR_VERSION,
+			cmd_hostname_get() ? cmd_hostname_get() : "", cmd_system_get(),
+			cmd_release_get());
+		vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
+#ifdef ENABLE_VERSION_BUILD_CONFIG
+		vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
+#endif
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -2317,21 +2352,6 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(allow_reserved_ranges, allow_reserved_ranges_cmd, "allow-reserved-ranges",
-      "Allow using IPv4 (Class E) reserved IP space\n")
-{
-	host.allow_reserved_ranges = true;
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_allow_reserved_ranges, no_allow_reserved_ranges_cmd,
-      "no allow-reserved-ranges",
-      NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
-{
-	host.allow_reserved_ranges = false;
-	return CMD_SUCCESS;
-}
-
 int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const struct cmd_node *node;
@@ -2597,8 +2617,6 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
-		install_element(CONFIG_NODE, &allow_reserved_ranges_cmd);
-		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
 
 		log_cmd_init();
 		vrf_install_commands();

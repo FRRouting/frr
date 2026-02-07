@@ -47,11 +47,11 @@ Build apk packages
 
    ./docker/alpine/build.sh
 
-This will put the apk packages in:
+This will put the apk packages into the architecture folder in:
 
 ::
 
-   ./docker/pkgs/apk/x86_64/
+   ./docker/alpine/pkgs/apk/
 
 Usage
 -----

@@ -51,7 +51,7 @@
 #define PIM_MSDP_PKT_TYPE_STRLEN 16
 
 void pim_msdp_pkt_ka_tx(struct pim_msdp_peer *mp);
-void pim_msdp_read(struct event *thread);
+void pim_msdp_read(struct event *event);
 void pim_msdp_pkt_sa_tx(struct pim_instance *pim);
 void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
 void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);

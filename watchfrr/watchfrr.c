@@ -594,13 +594,13 @@ static void restart_done(struct daemon *dmn)
 			dmn->name, state_str[dmn->state]);
 		return;
 	}
-	EVENT_OFF(dmn->t_wakeup);
+	event_cancel(&dmn->t_wakeup);
 
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 }
 
-static void daemon_restarting_operational(struct event *thread)
+static void daemon_restarting_operational(struct event *event)
 {
 	systemd_send_status("FRR Operational");
 }
@@ -622,9 +622,9 @@ static void daemon_down(struct daemon *dmn, const char *why)
 		close(dmn->fd);
 		dmn->fd = -1;
 	}
-	EVENT_OFF(dmn->t_read);
-	EVENT_OFF(dmn->t_write);
-	EVENT_OFF(dmn->t_wakeup);
+	event_cancel(&dmn->t_read);
+	event_cancel(&dmn->t_write);
+	event_cancel(&dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 
@@ -750,7 +750,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	if (gs.numdown == 0) {
 		daemon_send_ready(0);
 
-		EVENT_OFF(gs.t_operational);
+		event_cancel(&gs.t_operational);
 
 		event_add_timer(master, daemon_restarting_operational, NULL,
 				gs.operational_timeout, &gs.t_operational);
@@ -948,7 +948,7 @@ static void phase_check(void)
 					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
-		EVENT_OFF(gs.t_phase_hanging);
+		event_cancel(&gs.t_phase_hanging);
 		zlog_notice("Phased global restart has completed.");
 		break;
 	}
@@ -1090,7 +1090,7 @@ void watchfrr_status(struct vty *vty)
 	}
 }
 
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	systemd_send_stopping();
@@ -1268,19 +1268,19 @@ static void netns_setup(const char *nsname)
 
 #else /* !GNU_LINUX */
 
-static void netns_setup(const char *nsname)
+static FRR_NORETURN void netns_setup(const char *nsname)
 {
 	fprintf(stderr, "network namespaces are only available on Linux\n");
 	exit(1);
 }
 #endif
 
-static void watchfrr_start_config(void)
+static void watchfrr_start_config(struct vty *vty)
 {
 	gs.reading_configuration = true;
 }
 
-static void watchfrr_end_config(void)
+static void watchfrr_end_config(struct vty *vty)
 {
 	gs.reading_configuration = false;
 }
@@ -1471,6 +1471,8 @@ int main(int argc, char **argv)
 		case 'i': {
 			char garbage[3];
 			int period;
+
+			assert(optarg);
 			if ((sscanf(optarg, "%d%1s", &period, garbage) != 1)
 			    || (gs.period < 1)) {
 				fprintf(stderr,
@@ -1478,7 +1480,7 @@ int main(int argc, char **argv)
 					optarg);
 				frr_help_exit(1);
 			}
-			gs.period = 1000 * period;
+			gs.period = 1000UL * period;
 		} break;
 		case 'p':
 			watchfrr_di.pid_file = optarg;

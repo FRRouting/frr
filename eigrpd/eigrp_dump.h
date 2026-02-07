@@ -122,20 +122,19 @@ extern unsigned long term_debug_eigrp_zebra;
 #define IS_DEBUG_EIGRP_EVENT IS_DEBUG_EIGRP(event, EVENT)
 
 /* Prototypes. */
-extern const char *eigrp_if_name_string(struct eigrp_interface *);
+extern const char *eigrp_if_name_string(struct eigrp_interface *ei);
 
-extern void eigrp_ip_header_dump(struct ip *);
-extern void eigrp_header_dump(struct eigrp_header *);
+extern void eigrp_ip_header_dump(struct ip *iph);
+extern void eigrp_header_dump(struct eigrp_header *eigrph);
 
-extern void show_ip_eigrp_interface_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_neighbor_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_topology_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_interface_detail(struct vty *, struct eigrp *,
-					   struct eigrp_interface *);
-extern void show_ip_eigrp_interface_sub(struct vty *, struct eigrp *,
-					struct eigrp_interface *);
-extern void show_ip_eigrp_neighbor_sub(struct vty *, struct eigrp_neighbor *,
-				       int);
+extern void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp);
+extern void show_ip_eigrp_neighbor_header(struct vty *vty, struct eigrp *eigrp);
+extern void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp);
+extern void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,
+					   struct eigrp_interface *ei);
+extern void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
+					struct eigrp_interface *ei);
+extern void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr, int detail);
 extern void show_ip_eigrp_prefix_descriptor(struct vty *vty,
 					    struct eigrp_prefix_descriptor *tn);
 extern void show_ip_eigrp_route_descriptor(struct vty *vty, struct eigrp *eigrp,

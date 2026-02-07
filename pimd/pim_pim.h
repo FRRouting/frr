@@ -22,6 +22,8 @@
 #define PIM_DEFAULT_OVERRIDE_INTERVAL_MSEC       (2500) /* RFC 4601: 4.11.  Timer Values */
 #define PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION (0)    /* boolean */
 #define PIM_DEFAULT_T_PERIODIC                   (60)   /* RFC 4601: 4.11.  Timer Values */
+#define PIM_DEFAULT_T_PRUNE_LIMIT		 (210)	/* RFC 3973 4.8 PIM-DM Timers*/
+
 
 enum pim_msg_type {
 	PIM_MSG_TYPE_HELLO = 0,
@@ -32,7 +34,8 @@ enum pim_msg_type {
 	PIM_MSG_TYPE_ASSERT,
 	PIM_MSG_TYPE_GRAFT,
 	PIM_MSG_TYPE_GRAFT_ACK,
-	PIM_MSG_TYPE_CANDIDATE
+	PIM_MSG_TYPE_CANDIDATE,
+	PIM_MSG_TYPE_STATE_REFRESH
 };
 
 void pim_ifstat_reset(struct interface *ifp);

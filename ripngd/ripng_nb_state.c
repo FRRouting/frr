@@ -29,21 +29,18 @@ const void *ripngd_instance_state_neighbors_neighbor_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	const struct ripng *ripng = args->parent_list_entry;
-	struct listnode *node;
+	const struct ripng_peer *peer = args->list_entry;
 
-	if (args->list_entry == NULL)
-		node = listhead(ripng->peer_list);
-	else
-		node = listnextnode((struct listnode *)args->list_entry);
+	if (peer == NULL)
+		return ripng_peer_list_const_first(&ripng->peer_list);
 
-	return node;
+	return ripng_peer_list_const_next(&ripng->peer_list, peer);
 }
 
 int ripngd_instance_state_neighbors_neighbor_get_keys(
 	struct nb_cb_get_keys_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct ripng_peer *peer = listgetdata(node);
+	const struct ripng_peer *peer = args->list_entry;
 
 	args->keys->num = 1;
 	(void)inet_ntop(AF_INET6, &peer->addr, args->keys->key[0],
@@ -57,14 +54,13 @@ const void *ripngd_instance_state_neighbors_neighbor_lookup_entry(
 {
 	const struct ripng *ripng = args->parent_list_entry;
 	struct in6_addr address;
-	struct ripng_peer *peer;
-	struct listnode *node;
+	const struct ripng_peer *peer;
 
 	yang_str2ipv6(args->keys->key[0], &address);
 
-	for (ALL_LIST_ELEMENTS_RO(ripng->peer_list, node, peer)) {
+	frr_each (ripng_peer_list_const, &ripng->peer_list, peer) {
 		if (IPV6_ADDR_SAME(&peer->addr, &address))
-			return node;
+			return peer;
 	}
 
 	return NULL;
@@ -76,8 +72,7 @@ const void *ripngd_instance_state_neighbors_neighbor_lookup_entry(
 struct yang_data *ripngd_instance_state_neighbors_neighbor_address_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct ripng_peer *peer = listgetdata(node);
+	const struct ripng_peer *peer = args->list_entry;
 
 	return yang_data_new_ipv6(args->xpath, &peer->addr);
 }
@@ -88,8 +83,9 @@ struct yang_data *ripngd_instance_state_neighbors_neighbor_address_get_elem(
 struct yang_data *ripngd_instance_state_neighbors_neighbor_last_update_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	/* TODO: yang:date-and-time is tricky */
-	return NULL;
+	const struct ripng_peer *peer = args->list_entry;
+
+	return yang_data_new_date_and_time(args->xpath, peer->uptime, false);
 }
 
 /*
@@ -99,8 +95,7 @@ struct yang_data *
 ripngd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct ripng_peer *peer = listgetdata(node);
+	const struct ripng_peer *peer = args->list_entry;
 
 	return yang_data_new_uint32(args->xpath, peer->recv_badpackets);
 }
@@ -112,8 +107,7 @@ struct yang_data *
 ripngd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct ripng_peer *peer = listgetdata(node);
+	const struct ripng_peer *peer = args->list_entry;
 
 	return yang_data_new_uint32(args->xpath, peer->recv_badroutes);
 }
@@ -175,7 +169,7 @@ struct yang_data *ripngd_instance_state_routes_route_prefix_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_ipv6p(args->xpath, agg_node_get_prefix(rinfo->rp));
 }
@@ -187,7 +181,7 @@ struct yang_data *ripngd_instance_state_routes_route_next_hop_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_ipv6(args->xpath, &rinfo->nexthop);
 }
@@ -199,7 +193,7 @@ struct yang_data *ripngd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 	const struct ripng *ripng = ripng_info_get_instance(rinfo);
 
 	return yang_data_new_string(
@@ -214,7 +208,7 @@ struct yang_data *ripngd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct agg_node *rn = args->list_entry;
-	const struct ripng_info *rinfo = listnode_head(rn->info);
+	const struct ripng_info *rinfo = ripng_info_list_const_first(rn->info);
 
 	return yang_data_new_uint8(args->xpath, rinfo->metric);
 }

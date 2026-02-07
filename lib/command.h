@@ -140,7 +140,6 @@ enum node_type {
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */
-	FORWARDING_NODE,	 /* IP forwarding node. */
 	PROTOCOL_NODE,		 /* protocol filtering node */
 	MPLS_NODE,		 /* MPLS config node */
 	PW_NODE,		 /* Pseudowire config node */
@@ -154,11 +153,13 @@ enum node_type {
 	PCEP_PCE_NODE,		 /* PCE configuration node */
 	PCEP_PCC_NODE,		 /* PCC configuration node */
 	SRV6_NODE,		 /* SRv6 node */
+	SRV6_SIDS_NODE,		 /* SRv6 SIDs node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
 	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
 	SRV6_SID_FORMATS_NODE,		 /* SRv6 SID formats config node */
 	SRV6_SID_FORMAT_USID_F3216_NODE,		 /* SRv6 uSID f3216 format config node */
+	SRV6_SID_FORMAT_USID_F4816_NODE,		 /* SRv6 uSID f4816 format config node */
 	SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,		 /* SRv6 uncompressed f4024 format config node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
@@ -436,7 +437,7 @@ struct cmd_node {
 #define AREA_TAG_STR "[area tag]\n"
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR                                                      \
-	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
+	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
 #define EXTCOMM_LIST_CMD_STR "<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>"
 #define EXTCOMM_STD_LIST_NUM_STR "Extended community-list number (standard)\n"
 #define EXTCOMM_EXP_LIST_NUM_STR "Extended community-list number (expanded)\n"
@@ -484,7 +485,6 @@ struct cmd_node {
 /* Graceful Restart cli help strings */
 #define GR_CMD "Global Graceful Restart command\n"
 #define NO_GR_CMD "Undo Global Graceful Restart command\n"
-#define GR "Global Graceful Restart - GR Mode\n"
 #define GR_DISABLE "Global Graceful Restart - Disable Mode\n"
 #define NO_GR_DISABLE "Undo Global Graceful Restart - Disable Mode\n"
 #define GR_DEBUG "Graceful Restart - Enable Debug Logs\n"
@@ -527,7 +527,7 @@ struct cmd_node {
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
-extern void install_default(enum node_type);
+extern void install_default(enum node_type node);
 
 struct xref_install_element {
 	struct xref xref;
@@ -548,11 +548,11 @@ struct xref_install_element {
 		_install_element(node_type_, cmd_element_);                    \
 	} while (0)
 
-extern void _install_element(enum node_type, const struct cmd_element *);
+extern void _install_element(enum node_type ntype, const struct cmd_element *cmd);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
-extern void uninstall_element(enum node_type, const struct cmd_element *);
+extern void uninstall_element(enum node_type ntype, const struct cmd_element *cmd);
 
 /* construct CLI tree only when entering nodes */
 extern void cmd_defer_tree(bool val);
@@ -574,16 +574,16 @@ extern char *argv_concat(struct cmd_token **argv, int argc, int shift);
 extern int argv_find(struct cmd_token **argv, int argc, const char *text,
 		     int *index);
 
-extern vector cmd_make_strvec(const char *);
+extern vector cmd_make_strvec(const char *string);
 extern void cmd_free_strvec(vector);
-extern vector cmd_describe_command(vector, struct vty *, int *status);
-extern char **cmd_complete_command(vector, struct vty *, int *status);
+extern vector cmd_describe_command(vector vline, struct vty *vty, int *status);
+extern char **cmd_complete_command(vector vline, struct vty *vty, int *status);
 extern const char *cmd_prompt(enum node_type);
 extern int command_config_read_one_line(struct vty *vty,
-					const struct cmd_element **,
+					const struct cmd_element **cmd,
 					uint32_t line_num, int use_config_node);
-extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
-extern enum node_type node_parent(enum node_type);
+extern int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num);
+extern enum node_type node_parent(enum node_type node);
 /*
  * Execute command under the given vty context.
  *
@@ -606,13 +606,13 @@ extern enum node_type node_parent(enum node_type);
  */
 extern int cmd_execute(struct vty *vty, const char *cmd,
 		       const struct cmd_element **matched, int vtysh);
-extern int cmd_execute_command(vector, struct vty *,
-			       const struct cmd_element **, int);
-extern int cmd_execute_command_strict(vector, struct vty *,
-				      const struct cmd_element **);
+extern int cmd_execute_command(vector vline, struct vty *vty, const struct cmd_element **cmd,
+			       int vtysh);
+extern int cmd_execute_command_strict(vector vline, struct vty *vty,
+				      const struct cmd_element **cmd);
 extern void cmd_init(int terminal);
-extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
-				      void (*end_config_cb)(void));
+extern void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
+				      void (*end_config_cb)(struct vty *vty));
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
@@ -635,11 +635,11 @@ extern vector completions_to_vec(struct list *completions);
 
 /* Export typical functions. */
 extern const char *host_config_get(void);
-extern void host_config_set(const char *);
+extern void host_config_set(const char *filename);
 
-extern void print_version(const char *);
+extern void print_version(const char *progname);
 
-extern int cmd_banner_motd_file(const char *);
+extern int cmd_banner_motd_file(const char *file);
 extern void cmd_banner_motd_line(const char *line);
 
 struct cmd_variable_handler {
@@ -661,6 +661,11 @@ extern void command_setup_early_logging(const char *dest, const char *level);
  * under the lib directory to output their debug status
  */
 extern void cmd_show_lib_debugs(struct vty *vty);
+
+extern const struct frr_yang_module_info frr_host_cli_info;
+extern void host_cli_init(void);
+
+extern void log_cli_init(void);
 
 #ifdef __cplusplus
 }

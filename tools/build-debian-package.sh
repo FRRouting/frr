@@ -39,7 +39,7 @@ DEBIAN_VERSION="$UPSTREAM_VERSION-$LAST_TIMESTAMP-1"
 DEBIAN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 #
-# We add a Debian changelog entry, and use artifical "since commit"
+# We add a Debian changelog entry, and use artificial "since commit"
 # so there's not a whole git history in the debian/changelog.
 #
 # The --snapshot option appends ~1.<shorthash> to the debian version, so for the

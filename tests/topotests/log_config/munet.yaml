@@ -1,0 +1,26 @@
+version: 1
+topology:
+  ipv6-enable: false
+  networks-autonumber: true
+  networks:
+    - name: net1
+  nodes:
+    - name: r1
+      connections: ["net1"]
+      ready-cmd: |
+        # Wait for log files to show up
+        test -e %RUNDIR%/mgmtd.log
+        test -e %RUNDIR%/ospfd.log
+        test -e %RUNDIR%/staticd.log
+        test -e %RUNDIR%/zebra.log
+      cmd: |
+        chown frr:frr -R %RUNDIR%
+        chown frr:frr -R /var/run/frr
+        chown frr:frr -R /var/log/frr
+        /usr/lib/frr/frrinit.sh start
+      cleanup-cmd: |
+        /usr/lib/frr/frrinit.sh stop
+      volumes:
+        - "./%NAME%:/etc/frr"
+        - "%RUNDIR%/test-mount:/var/tmp/frr"
+        - "%RUNDIR%/var.log.frr:/var/log/frr"

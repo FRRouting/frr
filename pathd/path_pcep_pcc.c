@@ -143,7 +143,11 @@ DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash);
 static inline int req_entry_compare(const struct req_entry *a,
 				    const struct req_entry *b)
 {
-	return a->path->req_id - b->path->req_id;
+	if (a->path->req_id > b->path->req_id)
+		return 1;
+	if (a->path->req_id < b->path->req_id)
+		return -1;
+	return 0;
 }
 RB_GENERATE(req_entry_head, req_entry, entry, req_entry_compare)
 
@@ -441,6 +445,7 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return -1;
 }
 
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
@@ -1955,6 +1960,7 @@ static uint32_t hash_nbkey(const struct lsp_nb_key *nbkey)
 	}
 
 	assert(!"Reached end of function where we were not expecting to");
+	return 0;
 }
 
 static int cmp_nbkey(const struct lsp_nb_key *a, const struct lsp_nb_key *b)

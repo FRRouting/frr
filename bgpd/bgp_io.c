@@ -17,7 +17,7 @@
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
 #include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
-#include "frrevent.h"		// for EVENT_OFF, EVENT_ARG, thread...
+#include "frrevent.h"		// for event, EVENT_ARG, thread...
 
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
@@ -58,6 +58,7 @@ void bgp_writes_on(struct peer_connection *connection)
 
 	event_add_write(fpt->master, bgp_process_writes, connection,
 			connection->fd, &connection->t_write);
+
 	SET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
@@ -65,12 +66,22 @@ void bgp_writes_off(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
+	struct stream *s;
+
 	assert(fpt->running);
 
-	event_cancel_async(fpt->master, &connection->t_write, NULL);
-	EVENT_OFF(connection->t_generate_updgrp_packets);
-
 	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
+
+	/* Clear out the write fifo */
+	frr_with_mutex (&connection->io_mtx) {
+		if (connection->obuf != NULL) {
+			while ((s = stream_fifo_pop(connection->obuf)) != NULL)
+				stream_free(s);
+		}
+	}
+
+	event_cancel_async(fpt->master, &connection->t_write, NULL);
+	event_cancel(&connection->t_generate_updgrp_packets);
 }
 
 void bgp_reads_on(struct peer_connection *connection)
@@ -99,8 +110,11 @@ void bgp_reads_off(struct peer_connection *connection)
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &connection->t_read, NULL);
-	EVENT_OFF(connection->t_process_packet);
-	EVENT_OFF(connection->t_process_packet_error);
+
+	frr_with_mutex (&bm->peer_connection_mtx) {
+		if (peer_connection_fifo_member(&bm->connection_fifo, connection))
+			peer_connection_fifo_del(&bm->connection_fifo, connection);
+	}
 
 	UNSET_FLAG(connection->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -110,20 +124,23 @@ void bgp_reads_off(struct peer_connection *connection)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static void bgp_process_writes(struct event *thread)
+static void bgp_process_writes(struct event *event)
 {
 	static struct peer *peer;
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	uint16_t status;
-	bool reschedule;
+	bool reschedule = false;
 	bool fatal = false;
+	struct frr_pthread *fpt = bgp_pth_io;
 
 	peer = connection->peer;
 
 	if (connection->fd < 0)
 		return;
 
-	struct frr_pthread *fpt = bgp_pth_io;
+	/* Anticipate rescheduling */
+	event_add_write(fpt->master, bgp_process_writes, connection, connection->fd,
+			&connection->t_write);
 
 	frr_with_mutex (&connection->io_mtx) {
 		status = bgp_write(connection);
@@ -145,12 +162,12 @@ static void bgp_process_writes(struct event *thread)
 	 * to update group packet generate which will allow more routes to be
 	 * sent in the update message
 	 */
-	if (reschedule) {
-		event_add_write(fpt->master, bgp_process_writes, connection,
-				connection->fd, &connection->t_write);
-	} else if (!fatal) {
-		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
-					  bgp_generate_updgrp_packets);
+	if (!reschedule) {
+		event_cancel(&connection->t_write);
+
+		if (!fatal)
+			BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+						  bgp_generate_updgrp_packets);
 	}
 }
 
@@ -199,7 +216,7 @@ static int read_ibuf_work(struct peer_connection *connection)
 	assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
 	stream_set_endp(pkt, pktsize);
 
-	frrtrace(2, frr_bgp, packet_read, connection->peer, pkt);
+	frrtrace(2, frr_bgp, packet_read, connection, pkt);
 	frr_with_mutex (&connection->io_mtx) {
 		stream_fifo_push(connection->ibuf, pkt);
 	}
@@ -215,10 +232,10 @@ static int read_ibuf_work(struct peer_connection *connection)
  * place them on peer->connection.ibuf for secondary processing by the main
  * thread.
  */
-static void bgp_process_reads(struct event *thread)
+static void bgp_process_reads(struct event *event)
 {
 	/* clang-format off */
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	static struct peer *peer;       /* peer to read from */
 	uint16_t status;                /* bgp_read status code */
 	bool fatal = false;             /* whether fatal error occurred */
@@ -252,8 +269,7 @@ static void bgp_process_reads(struct event *thread)
 		/* Handle the error in the main pthread, include the
 		 * specific state change from 'bgp_read'.
 		 */
-		event_add_event(bm->master, bgp_packet_process_error, connection,
-				code, &connection->t_process_packet_error);
+		bgp_enqueue_conn_err(peer->bgp, connection, code);
 		goto done;
 	}
 
@@ -294,9 +310,13 @@ done:
 
 	event_add_read(fpt->master, bgp_process_reads, connection,
 		       connection->fd, &connection->t_read);
-	if (added_pkt)
-		event_add_event(bm->master, bgp_process_packet, connection, 0,
-				&connection->t_process_packet);
+	if (added_pkt) {
+		frr_with_mutex (&bm->peer_connection_mtx) {
+			if (!peer_connection_fifo_member(&bm->connection_fifo, connection))
+				peer_connection_fifo_add_tail(&bm->connection_fifo, connection);
+		}
+		event_add_event(bm->master, bgp_process_packet, NULL, 0, &bm->e_process_packet);
+	}
 }
 
 /*

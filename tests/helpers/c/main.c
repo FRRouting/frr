@@ -35,9 +35,9 @@ DEFUN (daemon_exit,
 }
 
 static int timer_count;
-static void test_timer(struct event *thread)
+static void test_timer(struct event *event)
 {
-	int *count = EVENT_ARG(thread);
+	int *count = EVENT_ARG(event);
 
 	printf("run %d of timer\n", (*count)++);
 	event_add_timer(master, test_timer, count, 5, NULL);

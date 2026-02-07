@@ -1,0 +1,90 @@
+{
+  "vrfId": 0,
+  "vrfName": "default",
+  "routerId": "2.2.2.2",
+  "defaultLocPrf": 100,
+  "localAS": 2,
+  "routes": {
+    "routeDistinguishers": {
+      "2:10": {
+        "192.168.2.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.2.0",
+            "prefixLen": 24,
+            "network": "192.168.2.0/24",
+            "metric": 0,
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "incomplete",
+            "nhVrfName": "vrf10",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "2:20": {
+        "192.168.4.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.4.0",
+            "prefixLen": 24,
+            "network": "192.168.4.0/24",
+            "metric": 0,
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "incomplete",
+            "nhVrfName": "vrf20",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "192.168.6.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.6.0",
+            "prefixLen": 24,
+            "network": "192.168.6.0/24",
+            "metric": 0,
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "incomplete",
+            "nhVrfName": "vrf20",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

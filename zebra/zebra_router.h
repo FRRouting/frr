@@ -7,8 +7,10 @@
 #define __ZEBRA_ROUTER_H__
 
 #include "lib/mlag.h"
+#include "lib/hook.h"
 
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,7 +61,7 @@ enum protodown_reasons {
 	ZEBRA_PROTODOWN_VRRP = (1 << 3),
 	/* This reason used exclusively for testing */
 	ZEBRA_PROTODOWN_SHARP = (1 << 4),
-	/* Just used to clear our fields on shutdown, externel not included */
+	/* Just used to clear our fields on shutdown, external not included */
 	ZEBRA_PROTODOWN_ALL = (ZEBRA_PROTODOWN_EVPN_ALL | ZEBRA_PROTODOWN_VRRP |
 			       ZEBRA_PROTODOWN_SHARP)
 };
@@ -94,7 +96,7 @@ struct zebra_mlag_info {
 	/*
 	 * A new Kernel thread will be created to post the data to MCLAGD.
 	 * where as, read will be performed from the zebra main thread, because
-	 * read involves accessing client registartion data structures.
+	 * read involves accessing client registration data structures.
 	 */
 	struct frr_pthread *zebra_pth_mlag;
 
@@ -112,17 +114,43 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
+#define RTADV_TIMER_WHEEL_PERIOD_MS 1000
+#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define ICMPV6_JOIN_TIMER_EXP_MS    100
+
+/*
+ * These are values that are changeable due to some architectural restrictions
+ * of the underlying NOS's actual data plane.  They are sequestered into
+ * their own area such that we don't necessarily want to expose all of zebra_router
+ */
+struct zebra_architectural_values {
+	uint32_t multipath_num;
+
+	bool asic_offloaded;
+	bool notify_on_ack;
+	bool v6_with_v4_nexthop;
+	bool v6_rr_semantics;
+
+	bool supports_nhgs;
+
+	bool nexthop_weight_is_16bit;
+
+};
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
 	struct event_loop *master;
 
+	/* Wheel to process V6 RA update */
+	struct timer_wheel *ra_wheel;
+
 	/* Lists of clients who have connected to us */
-	struct list *client_list;
+	struct zserv_client_list_head client_list;
 
 	/* List of clients in GR */
-	struct list *stale_client_list;
+	struct zserv_stale_client_list_head stale_client_list;
 
 	struct zebra_router_table_head tables;
 
@@ -174,7 +202,9 @@ struct zebra_router {
 	 */
 	struct zebra_vrf *evpn_vrf;
 
-	uint32_t multipath_num;
+	struct zebra_architectural_values zav;
+	bool gr_stale_cleanup_time_recorded;
+	bool gr_update_pending_time_recorded;
 
 	/*
 	 * zebra start time and time of sweeping RIB of old routes
@@ -194,25 +224,6 @@ struct zebra_router {
 	struct hash *nhgs;
 	struct hash *nhgs_id;
 
-	/*
-	 * Does the underlying system provide an asic offload
-	 */
-	bool asic_offloaded;
-	bool notify_on_ack;
-	bool v6_with_v4_nexthop;
-
-	bool v6_rr_semantics;
-
-	/*
-	 * If the asic is notifying us about successful nexthop
-	 * allocation/control.  Some developers have made their
-	 * asic take control of how many nexthops/ecmp they can
-	 * have and will report what is successfull or not
-	 */
-	bool asic_notification_nexthop_control;
-
-	bool supports_nhgs;
-
 	bool all_mc_forwardingv4, default_mc_forwardingv4;
 	bool all_mc_forwardingv6, default_mc_forwardingv6;
 	bool all_linkdownv4, default_linkdownv4;
@@ -227,6 +238,8 @@ struct zebra_router {
 	uint8_t protodown_r_bit;
 
 	uint64_t nexthop_weight_scale_value;
+
+	bool backup_nhs_installed;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -234,8 +247,8 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
-			      bool v6_with_v4_nexthop);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
+			      bool nexthop_weight_16_bit);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
@@ -277,7 +290,7 @@ extern bool zebra_router_notify_on_ack(void);
 
 static inline void zebra_router_set_supports_nhgs(bool support)
 {
-	zrouter.supports_nhgs = support;
+	zrouter.zav.supports_nhgs = support;
 }
 
 static inline bool zebra_router_in_shutdown(void)
@@ -315,6 +328,8 @@ extern void zebra_main_router_started(void);
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
+
+DECLARE_HOOK(nos_initialize_data, (struct zebra_architectural_values *), (zav));
 
 #ifdef __cplusplus
 }

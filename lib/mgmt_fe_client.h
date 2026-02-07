@@ -12,7 +12,6 @@
 extern "C" {
 #endif
 
-#include "mgmt_pb.h"
 #include "frrevent.h"
 #include "mgmt_defines.h"
 #include "mgmt_msg_native.h"
@@ -40,12 +39,6 @@ extern "C" {
 
 #define MGMTD_CLIENT_ID_NONE 0
 
-#define MGMTD_DS_NONE MGMTD__DATASTORE_ID__DS_NONE
-#define MGMTD_DS_RUNNING MGMTD__DATASTORE_ID__RUNNING_DS
-#define MGMTD_DS_CANDIDATE MGMTD__DATASTORE_ID__CANDIDATE_DS
-#define MGMTD_DS_OPERATIONAL MGMTD__DATASTORE_ID__OPERATIONAL_DS
-#define MGMTD_DS_MAX_ID MGMTD_DS_OPERATIONAL + 1
-
 struct mgmt_fe_client;
 
 
@@ -69,50 +62,22 @@ struct mgmt_fe_client_cbs {
 				      uintptr_t session_id,
 				      uintptr_t user_session_client);
 
-	void (*lock_ds_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uintptr_t session_id,
-			       uintptr_t user_session_client, uint64_t req_id,
-			       bool lock_ds, bool success,
-			       Mgmtd__DatastoreId ds_id, char *errmsg_if_any);
+	void (*lock_ds_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			       uint64_t client_id, uintptr_t session_id,
+			       uintptr_t user_session_client, uint64_t req_id, bool lock_ds,
+			       bool success, enum mgmt_ds_id ds_id, char *errmsg_if_any);
 
-	void (*set_config_notify)(struct mgmt_fe_client *client,
-				  uintptr_t user_data, uint64_t client_id,
-				  uintptr_t session_id,
-				  uintptr_t user_session_client,
-				  uint64_t req_id, bool success,
-				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
-				  char *errmsg_if_any);
-
-	void (*commit_config_notify)(struct mgmt_fe_client *client,
-				     uintptr_t user_data, uint64_t client_id,
-				     uintptr_t session_id,
-				     uintptr_t user_session_client,
-				     uint64_t req_id, bool success,
-				     Mgmtd__DatastoreId src_ds_id,
-				     Mgmtd__DatastoreId dst_ds_id,
-				     bool validate_only, char *errmsg_if_any);
-
-	int (*get_data_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uintptr_t session_id,
-			       uintptr_t user_session_client, uint64_t req_id,
-			       bool success, Mgmtd__DatastoreId ds_id,
-			       Mgmtd__YangData **yang_data, size_t num_data,
-			       int next_key, char *errmsg_if_any);
-
-	int (*data_notify)(uint64_t client_id, uint64_t session_id,
-			   uintptr_t user_data, uint64_t req_id,
-			   Mgmtd__DatastoreId ds_id,
-			   Mgmtd__YangData **yang_data, size_t num_data);
+	void (*commit_config_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+				     uint64_t client_id, uintptr_t session_id,
+				     uintptr_t user_session_client, uint64_t req_id, bool success,
+				     enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
+				     bool validate_only, bool unlock, char *errmsg_if_any);
 
 	/* Called when get-tree result is returned */
-	int (*get_tree_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uint64_t session_id, uintptr_t session_ctx,
-			       uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			       LYD_FORMAT result_type, void *result, size_t len,
-			       int partial_error);
+	int (*get_tree_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			       uint64_t client_id, uint64_t session_id, uintptr_t session_ctx,
+			       uint64_t req_id, enum mgmt_ds_id ds_id, LYD_FORMAT result_type,
+			       void *result, size_t len, int partial_error);
 
 	/* Called when edit result is returned */
 	int (*edit_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
@@ -234,48 +199,8 @@ mgmt_fe_destroy_client_session(struct mgmt_fe_client *client,
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id, bool lock_ds,
-				   bool scok);
-
-/*
- * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID (Running/Candidate/Oper/Startup)
- *
- * conf_req
- *    Details regarding the SET_CONFIG_REQ.
- *
- * num_req
- *    Number of config requests.
- *
- * implcit commit
- *    TRUE for implicit commit, FALSE otherwise.
- *
- * dst_ds_id
- *    Destination Datastore ID where data needs to be set.
- *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-
-extern int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id,
-				   Mgmtd__YangCfgDataReq **config_req,
-				   int num_req, bool implicit_commit,
-				   Mgmtd__DatastoreId dst_ds_id);
+extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
+				   uint64_t req_id, enum mgmt_ds_id ds_id, bool lock_ds, bool scok);
 
 /*
  * Send SET_COMMMIT_REQ to MGMTD for one or more config data(s).
@@ -301,84 +226,16 @@ extern int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client,
  * abort
  *    TRUE if need to restore Src DS back to Dest DS, FALSE otherwise.
  *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
-				      uint64_t session_id, uint64_t req_id,
-				      Mgmtd__DatastoreId src_ds_id,
-				      Mgmtd__DatastoreId dst_ds_id,
-				      bool validate_only, bool abort);
-
-/*
- * Send GET_REQ to MGMTD for one or more config data item(s).
- *
- * If is_config is true gets config from the MGMTD datastore, otherwise
- * operational state is queried from the backend clients.
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * is_config
- *    True if get-config else get-data.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID (Running/Candidate)
- *
- * data_req
- *    Get xpaths requested.
- *
- * num_req
- *    Number of get xpath requests.
+ * unlock
+ *    Passed through to the resulting reply.
  *
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_get_req(struct mgmt_fe_client *client,
-				uint64_t session_id, uint64_t req_id,
-				bool is_config, Mgmtd__DatastoreId ds_id,
-				Mgmtd__YangGetDataReq **data_req, int num_reqs);
-
-
-/*
- * Send NOTIFY_REGISTER_REQ to MGMTD daemon.
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID.
- *
- * register_req
- *    TRUE if registering, FALSE otherwise.
- *
- * data_req
- *    Details of the YANG notification data.
- *
- * num_reqs
- *    Number of data requests.
- *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
-				      uint64_t session_id, uint64_t req_id,
-				      Mgmtd__DatastoreId ds_id,
-				      bool register_req,
-				      Mgmtd__YangDataXPath **data_req,
-				      int num_reqs);
+extern int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id,
+				   uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				   enum mgmt_ds_id dst_ds_id, bool validate_only, bool abort,
+				   bool unlock);
 
 /*
  * Send GET-DATA to MGMTD daemon.

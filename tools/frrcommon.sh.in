@@ -36,7 +36,7 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # - keep zebra first
 # - watchfrr does NOT belong in this list
 
-DAEMONS="zebra mgmtd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
+DAEMONS="mgmtd zebra bfdd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd fabricd vrrpd pathd"
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
 #
@@ -175,7 +175,12 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	if [ "$daemon" = "watchfrr" ]; then
+		cmd="$all_wrap $wrap $bin $nsopt -d $instopt $args"
+	else
+		cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	fi
+
 	log_success_msg "Starting $daemon with command: '$cmd'"
 	if eval "$cmd"; then
 		log_success_msg "Started $dmninst"

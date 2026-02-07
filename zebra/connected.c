@@ -25,6 +25,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_trace.h"
 
 /* communicate the withdrawal of a connected address */
 static void connected_withdraw(struct connected *ifc)
@@ -140,7 +141,7 @@ static int connected_same(struct connected *ifc1, struct connected *ifc2)
 	return 1;
 }
 
-/* Handle changes to addresses and send the neccesary announcements
+/* Handle changes to addresses and send the necessary announcements
  * to clients. */
 static void connected_update(struct interface *ifp, struct connected *ifc)
 {
@@ -180,7 +181,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
  * This function goes through and handles the deletion of a kernel route that happened
  * to be the exact same as the connected route, so that the connected route wins.
  * This can happen during processing if we happen to receive events in a slightly
- * unexpected order.  This is similiar to code in the other direction where if we
+ * unexpected order.  This is similar to code in the other direction where if we
  * have a kernel route don't install it if it perfectly matches a connected route.
  */
 static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct zebra_vrf *zvrf,
@@ -190,6 +191,11 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 	struct route_entry *re;
 	rib_dest_t *dest;
 	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
+
+	/*
+	 * Needs to be early as that the actual route_node may not exist yet
+	 */
+	rib_meta_queue_early_route_cleanup(p, afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL);
 
 	if (!table)
 		return;
@@ -295,7 +301,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * pretend like the route is offloaded so everything
 	 * else will work
 	 */
-	if (zrouter.asic_offloaded)
+	if (zrouter.zav.asic_offloaded)
 		flags |= ZEBRA_FLAG_OFFLOADED;
 
 	/*
@@ -361,7 +367,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	struct prefix_ipv4 *p;
 	struct connected *ifc;
 
-	if (ipv4_martian(addr))
+	if (!ipv4_ietf_unicast_valid(addr))
 		return;
 
 	/* Make connected structure. */
@@ -420,6 +426,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	 * the notification. So it should be safe to set the REAL flag here. */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 
+	frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 0);
 	connected_update(ifp, ifc);
 }
 
@@ -597,6 +604,9 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	} else
 		ifc = connected_check_ptp(ifp, &p, NULL);
 
+	if (ifc)
+		frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 1);
+
 	connected_delete_helper(ifc, &p);
 }
 
@@ -663,6 +673,7 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	 * might still be running.
 	 */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+	frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 2);
 	connected_update(ifp, ifc);
 }
 
@@ -690,6 +701,9 @@ void connected_delete_ipv6(struct interface *ifp,
 		ifc = connected_check_ptp(ifp, &p, &d);
 	} else
 		ifc = connected_check_ptp(ifp, &p, NULL);
+
+	if (ifc)
+		frrtrace(3, frr_zebra, if_ip_addr_add_del, ifp->name, ifc->address, 3);
 
 	connected_delete_helper(ifc, &p);
 }

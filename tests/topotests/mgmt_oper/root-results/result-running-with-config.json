@@ -1,0 +1,49 @@
+{
+  "frr-backend:clients": null,
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth0",
+        "description": "r1-eth0-desc",
+        "frr-zebra:zebra": {
+          "ipv4-addrs": [
+            {
+              "ip": "1.1.1.1",
+              "prefix-length": 24
+            }
+          ],
+          "ipv6-addrs": [
+            {
+              "ip": "2001:1111::1",
+              "prefix-length": 64
+            }
+          ]
+        }
+      },
+      {
+        "name": "r1-eth1",
+        "description": "r1-eth1-desc",
+        "frr-zebra:zebra": {
+          "ipv4-addrs": [
+            {
+              "ip": "3.3.3.1",
+              "prefix-length": 24
+            }
+          ],
+          "ipv6-addrs": [
+            {
+              "ip": "2002:2222::1",
+              "prefix-length": 64
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "frr-logging:logging": {
+    "file": {
+      "filename": "frr.log"
+    },
+    "timestamp-precision": 6
+  }
+}

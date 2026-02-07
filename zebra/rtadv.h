@@ -20,8 +20,6 @@ extern "C" {
 struct interface;
 struct zebra_if;
 
-#if defined(HAVE_RTADV)
-
 PREDECL_SORTLIST_UNIQ(adv_if_list);
 /* Structure which hold status of router advertisement. */
 struct rtadv {
@@ -35,6 +33,7 @@ struct rtadv {
 };
 
 PREDECL_RBTREE_UNIQ(rtadv_prefixes);
+PREDECL_SORTLIST_UNIQ(pref64_advs);
 
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf {
@@ -189,6 +188,9 @@ struct rtadvconf {
 	 */
 	struct list *AdvDNSSLList;
 
+	/* NAT64 prefix advertisements [RFC8781] */
+	struct pref64_advs_head pref64_advs[1];
+
 	/*
 	 * rfc4861 states RAs must be sent at least 3 seconds apart.
 	 * We allow faster retransmits to speed up convergence but can
@@ -333,6 +335,9 @@ struct nd_opt_homeagent_info { /* Home Agent info */
 #ifndef ND_OPT_DNSSL
 #define ND_OPT_DNSSL 31
 #endif
+#ifndef ND_OPT_PREF64
+#define ND_OPT_PREF64 38
+#endif
 
 #ifndef HAVE_STRUCT_ND_OPT_RDNSS
 struct nd_opt_rdnss { /* Recursive DNS server option [RFC8106 5.1] */
@@ -358,6 +363,27 @@ struct nd_opt_dnssl { /* DNS search list option [RFC8106 5.2] */
 } __attribute__((__packed__));
 #endif
 
+/* not in a system header (yet?)
+ * => added "__frr" to avoid future conflicts
+ */
+struct nd_opt_pref64__frr {
+	uint8_t nd_opt_pref64_type;
+	uint8_t nd_opt_pref64_len;
+	uint16_t nd_opt_pref64_lifetime_plc;
+	uint8_t nd_opt_pref64_prefix[12]; /* highest 96 bits only */
+} __attribute__((__packed__));
+
+
+#define PREF64_LIFETIME_AUTO UINT32_MAX
+#define PREF64_DFLT_PREFIX   "64:ff9b::/96"
+
+struct pref64_adv {
+	struct pref64_advs_item itm;
+
+	struct prefix_ipv6 p;
+	uint32_t lifetime;
+};
+
 /*
  * ipv6 nd prefixes can be manually defined, derived from the kernel interface
  * configs or both.  If both, manual flag/timer settings are used.
@@ -376,7 +402,7 @@ enum ipv6_nd_suppress_ra_status {
 
 extern void rtadv_vrf_init(struct zebra_vrf *zvrf);
 extern void rtadv_vrf_terminate(struct zebra_vrf *zvrf);
-extern void rtadv_stop_ra(struct interface *ifp);
+extern void rtadv_stop_ra(struct interface *ifp, bool if_down_event);
 extern void rtadv_stop_ra_all(void);
 extern void rtadv_cmd_init(void);
 extern void rtadv_if_init(struct zebra_if *zif);
@@ -405,54 +431,29 @@ struct rtadv_dnssl *rtadv_dnssl_set(struct zebra_if *zif,
 void rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *p);
 int rtadv_dnssl_encode(uint8_t *out, const char *in);
 
+/* lifetime: 0-65535 or PREF64_LIFETIME_AUTO */
+static inline bool rtadv_pref64_valid_prefix(const struct prefix_ipv6 *p)
+{
+	switch (p->prefixlen) {
+	case 96:
+	case 64:
+	case 56:
+	case 48:
+	case 40:
+	case 32:
+		return true;
+	default:
+		return false;
+	}
+}
+
+struct pref64_adv *rtadv_pref64_set(struct zebra_if *zif, struct prefix_ipv6 *p, uint32_t lifetime);
+void rtadv_pref64_update(struct zebra_if *zif, struct pref64_adv *item, uint32_t lifetime);
+void rtadv_pref64_reset(struct zebra_if *zif, struct pref64_adv *item);
+
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
 void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);
-
-#else /* !HAVE_RTADV */
-struct rtadv {
-	/* empty structs aren't valid ISO C */
-	char dummy;
-};
-
-struct rtadvconf {
-	/* same again, empty structs aren't valid ISO C */
-	char dummy;
-};
-
-static inline void rtadv_vrf_init(struct zebra_vrf *zvrf)
-{
-}
-static inline void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
-{
-}
-static inline void rtadv_cmd_init(void)
-{
-}
-static inline void rtadv_if_init(struct zebra_if *zif)
-{
-}
-static inline void rtadv_if_up(struct zebra_if *zif)
-{
-}
-static inline void rtadv_if_fini(struct zebra_if *zif)
-{
-}
-static inline void rtadv_add_prefix(struct zebra_if *zif,
-				    const struct prefix_ipv6 *p)
-{
-}
-static inline void rtadv_delete_prefix(struct zebra_if *zif,
-				       const struct prefix *p)
-{
-}
-static inline void rtadv_stop_ra(struct interface *ifp)
-{
-}
-static inline void rtadv_stop_ra_all(void)
-{
-}
-#endif
 
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
@@ -460,6 +461,7 @@ extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
 extern uint32_t rtadv_get_interfaces_configured_from_bgp(void);
 extern bool rtadv_compiled_in(void);
 extern void rtadv_init(void);
+extern void process_rtadv(void *arg);
 
 #ifdef __cplusplus
 }

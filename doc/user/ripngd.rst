@@ -29,10 +29,12 @@ Currently ripngd supports the following commands:
    Enable RIPng.
 
 .. clicmd:: network NETWORK
+   :daemon: ripngd
 
    Set RIPng enabled interface by NETWORK.
 
 .. clicmd:: network IFNAME
+   :daemon: ripngd
 
    Set RIPng enabled interface by IFNAME.
 
@@ -41,25 +43,90 @@ Currently ripngd supports the following commands:
    Set RIPng static routing announcement of NETWORK.
 
 .. clicmd:: allow-ecmp [1-MULTIPATH_NUM]
+   :daemon: ripngd
 
    Control how many ECMP paths RIPng can inject for the same prefix. If specified
    without a number, a maximum is taken (compiled with ``--enable-multipath``).
+
+.. clicmd:: default-information originate
+   :daemon: ripngd
+
+   Distribute default route information.
+
+.. clicmd:: default-metric (1-16)
+   :daemon: ripngd
+
+   Set a metric of redistribute routes.
+
+.. clicmd:: offset-list ACCESSLIST6_NAME <in|out> (0-16) [IFNAME]
+
+   Modify RIPng metric based on access-list. The access-list is applied to
+   incoming or outgoing updates, optionally on a specific interface.
+
+.. clicmd:: passive-interface IFNAME
+
+   Suppress routing updates on an interface.
+
+.. clicmd:: redistribute PROTOCOL [{metric (0-16)|route-map RMAP_NAME}]
+
+   Redistribute routes from other protocols into RIPng. Optionally specify
+   metric or route-map for the redistributed routes.
+
+.. clicmd:: aggregate-address X:X::X:X/M
+   :daemon: ripngd
+
+   Set aggregate RIPng route announcement.
+
+.. clicmd:: timers basic (1-65535) (1-65535) (1-65535)
+
+   Set RIPng timers for update, timeout, and garbage collection intervals.
+
+.. clicmd:: ipv6 distribute-list ACCESSLIST6_NAME <in|out> [IFNAME]
+
+   Filter networks in routing updates using access-list. Can be applied to
+   incoming or outgoing updates, optionally on a specific interface.
+
+.. clicmd:: ipv6 distribute-list prefix PREFIXLIST6_NAME <in|out> [IFNAME]
+
+   Filter networks in routing updates using prefix-list. Can be applied to
+   incoming or outgoing updates, optionally on a specific interface.
 
 .. _ripngd-terminal-mode-commands:
 
 ripngd Terminal Mode Commands
 =============================
 
+.. clicmd:: show ipv6 ripng [vrf NAME]
+
+   Show RIPng routes.
+
 .. clicmd:: show ipv6 ripng [vrf NAME] status
+
+   Show RIPng status and configuration.
 
 .. clicmd:: show debugging ripng
 
+   Show debugging status for RIPng.
+
 .. clicmd:: debug ripng events
+
+   Debug RIPng events.
 
 .. clicmd:: debug ripng packet
 
+   Debug RIPng packet processing.
+
+.. clicmd:: debug ripng packet <recv|send>
+
+   Debug specific packet direction (receive or send).
+
 .. clicmd:: debug ripng zebra
 
+   Debug RIPng and zebra communication.
+
+.. clicmd:: clear ipv6 ripng [vrf WORD]
+
+   Clear RIPng routes.
 
 ripngd Filtering Commands
 =========================
@@ -105,6 +172,7 @@ Route-map statement (:ref:`route-map`) is needed to use route-map
 functionality.
 
 .. clicmd:: match interface WORD
+   :daemon: ripngd
 
    This command match to incoming interface. Notation of this match is
    different from Cisco. Cisco uses a list of interfaces - NAME1 NAME2 ...
@@ -121,12 +189,14 @@ functionality.
    Match if route destination is permitted by access-list/prefix-list.
 
 .. clicmd:: match metric (0-4294967295)
+   :daemon: ripngd
 
    This command match to the metric value of RIPng updates. For other protocol
    compatibility metric range is shown as (0-4294967295). But for RIPng protocol
    only the value range (0-16) make sense.
 
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
+   :daemon: ripngd
 
    Set the link-local IPv6 nexthop address.
 
@@ -137,9 +207,19 @@ functionality.
    metric values are from 1 to 16.
 
 .. clicmd:: set tag <untagged|(1-4294967295)>
+   :daemon: ripngd
 
    Set a tag on the matched route.
 
+.. _ripng-interface-commands:
+
+RIPng Interface Commands
+========================
+
+.. clicmd:: ipv6 ripng split-horizon [poisoned-reverse]
+
+   Configure split horizon on the interface. The optional `poisoned-reverse`
+   parameter enables poisoned reverse split horizon.
 
 Sample configuration
 ====================

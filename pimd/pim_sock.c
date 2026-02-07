@@ -15,6 +15,9 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <errno.h>
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
 
 #include "log.h"
 #include "privs.h"
@@ -101,6 +104,11 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 	if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &one, sizeof(one)))
 		zlog_warn("Could not set IP_RECVDSTADDR on socket fd=%d: %m",
 			  fd);
+#if defined(HAVE_IP_RECVIF)
+	/* BSD IP_RECVIF */
+	if (setsockopt(fd, IPPROTO_IP, IP_RECVIF, &one, sizeof(one)))
+		zlog_warn("Could not set IP_RECVIF on socket fd=%d: %m", fd);
+#endif
 #else
 	flog_err(
 		EC_LIB_DEVELOPMENT,
@@ -150,8 +158,17 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 	int ttl = 1;
 	struct ipv6_mreq mreq = {};
 
-	setsockopt_ipv6_pktinfo(fd, 1);
-	setsockopt_ipv6_multicast_hops(fd, ttl);
+	if (setsockopt_ipv6_pktinfo(fd, 1)) {
+		zlog_warn("Could not set IPV6_PKTINFO on socket fd=%d: %m", fd);
+		close(fd);
+		return PIM_SOCK_ERR_PKTINFO;
+	}
+
+	if (setsockopt_ipv6_multicast_hops(fd, ttl)) {
+		zlog_warn("Could not set multicast hops=%d on socket fd=%d: %m", ttl, fd);
+		close(fd);
+		return PIM_SOCK_ERR_MCAST_HOPS;
+	}
 
 	mreq.ipv6mr_interface = ifp->ifindex;
 	if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &mreq,
@@ -341,8 +358,6 @@ static void cmsg_getdstaddr(struct msghdr *mh, struct sockaddr_storage *dst,
 				dst4->sin_addr = i->ipi_addr;
 			if (ifindex)
 				*ifindex = i->ipi_ifindex;
-
-			break;
 		}
 #endif
 
@@ -353,15 +368,16 @@ static void cmsg_getdstaddr(struct msghdr *mh, struct sockaddr_storage *dst,
 
 			if (dst4)
 				dst4->sin_addr = *i;
-
-			break;
 		}
 #endif
 
-#if defined(HAVE_IP_RECVIF) && defined(CMSG_IFINDEX)
-		if (cmsg->cmsg_type == IP_RECVIF)
-			if (ifindex)
-				*ifindex = CMSG_IFINDEX(cmsg);
+#if defined(HAVE_IP_RECVIF)
+		if (cmsg->cmsg_type == IP_RECVIF && ifindex) {
+			struct sockaddr_dl *sdl;
+
+			sdl = (struct sockaddr_dl *)CMSG_DATA(cmsg);
+			*ifindex = sdl->sdl_index;
+		}
 #endif
 	}
 }
@@ -447,5 +463,24 @@ int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
 		return PIM_SOCK_ERR_NAME;
 	}
 
+	return PIM_SOCK_ERR_NONE;
+}
+int pim_reg_sock_bind(struct pim_instance *pim)
+{
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
+		struct interface *ifp = if_lookup_by_name(pim->vrf->name, pim->vrf->vrf_id);
+
+		if (ifp) {
+			if (pim_socket_bind(pim->reg_sock, ifp)) {
+				zlog_warn("%s: Could not set reg_sock fd: %d for interface: %s to device",
+					  __func__, pim->reg_sock, ifp->name);
+				return PIM_SOCK_ERR_BIND;
+			}
+		} else {
+			zlog_warn("%s: vrf interface lookup failed %s id %d", __func__,
+				  pim->vrf->name, pim->vrf->vrf_id);
+			return PIM_SOCK_ERR_SOCKET;
+		}
+	}
 	return PIM_SOCK_ERR_NONE;
 }

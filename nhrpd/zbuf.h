@@ -191,9 +191,9 @@ static inline void zbuf_put_be32(struct zbuf *zb, uint32_t val)
 void zbuf_copy(struct zbuf *zb, struct zbuf *src, size_t len);
 void zbuf_copy_peek(struct zbuf *zdst, struct zbuf *zsrc, size_t len);
 
-void zbufq_init(struct zbuf_queue *);
-void zbufq_reset(struct zbuf_queue *);
-void zbufq_queue(struct zbuf_queue *, struct zbuf *);
-int zbufq_write(struct zbuf_queue *, int);
+void zbufq_init(struct zbuf_queue *zbq);
+void zbufq_reset(struct zbuf_queue *zbq);
+void zbufq_queue(struct zbuf_queue *zbq, struct zbuf *zb);
+int zbufq_write(struct zbuf_queue *zbq, int fd);
 
 #endif

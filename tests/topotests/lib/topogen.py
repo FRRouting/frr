@@ -88,7 +88,7 @@ def get_exabgp_cmd(commander=None):
 
     def exacmd_version_ok(exacmd):
         logger.debug("checking %s for exabgp version >= 4.2.11", exacmd)
-        _, stdout, _ = commander.cmd_status(exacmd + " -v", warn=False)
+        _, stdout, _ = commander.cmd_status(exacmd + " --version", warn=False)
         m = re.search(r"ExaBGP\s*:\s*((\d+)\.(\d+)(?:\.(\d+))?)", stdout)
         if not m:
             return False
@@ -480,7 +480,7 @@ class Topogen(object):
             except KeyboardInterrupt:
                 print("^C...continuing")
             except Exception as error:
-                self.logger.error("\n...continuing after error: %s", error)
+                logger.error("\n...continuing after error: %s", error)
 
         logger.info("stopping topology: {}".format(self.modname))
 
@@ -575,6 +575,36 @@ class Topogen(object):
             assert False, errors
             return True
         return False
+
+    def log_test_start(self, test_path):
+        "Log the start of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-START: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
+
+    def log_test_result(self, test_path, result):
+        "Log the result of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-RESULT: {result}: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
+
+    def log_test_end(self, test_path):
+        "Log the end of a test"
+        for router in self.routers().values():
+            try:
+                router.net.cmd_nostatus(
+                    f"vtysh -c 'send log level info === TEST-END: {shlex.quote(test_path)}'"
+                )
+            except Exception:
+                pass
 
 
 #
@@ -819,6 +849,12 @@ class TopoRouter(TopoGear):
         gear += " TopoRouter<>"
         return gear
 
+    def use_netns_vrf(self):
+        """
+        Use netns as VRF backend.
+        """
+        self.net.useNetnsVRF()
+
     def check_capability(self, daemon, param):
         """
         Checks a capability daemon against an argument option
@@ -828,21 +864,26 @@ class TopoRouter(TopoGear):
         self.logger.info('check capability {} for "{}"'.format(param, daemonstr))
         return self.net.checkCapability(daemonstr, param)
 
-    def load_frr_config(self, source, daemons=None):
+    def load_frr_config(self, source, daemons=None, extra_daemons=None):
         """
-        Loads the unified configuration file source
-        Start the daemons in the list
-        If daemons is None, try to infer daemons from the config file
-        `daemons` is a tuple (daemon, param) of daemons to start, e.g.:
-        (TopoRouter.RD_ZEBRA, "-s 90000000").
+        Loads the unified configuration file source.  Start the daemons in the list.  If
+        `daemons` is None, try to infer daemons from the config file.  `daemons` is a
+        either a tuple (daemon, param) or a daemon name string of daemons to start,
+        e.g.: (TopoRouter.RD_ZEBRA, "-s 90000000").  If `extra_daemons` is not None, it
+        is a list of either tuple (daemon, param) or daemon name string to use in
+        addition to the daemons inferred from the config file.
         """
         source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
             # Always add zebra
             self.load_config(self.RD_ZEBRA, "")
             for daemon in self.RD:
-                # This will not work for all daemons
-                daemonstr = self.RD.get(daemon).rstrip("d")
+                # Special case for bfdd - search for 'bfd' in config files, not 'bf' which is too generic
+                if daemon == self.RD_BFD:
+                    daemonstr = "bfd"
+                else:
+                    daemonstr = self.RD.get(daemon).rstrip("d")
+
                 if daemonstr == "path":
                     grep_cmd = "grep 'candidate-path' {}".format(source_path)
                 else:
@@ -860,10 +901,19 @@ class TopoRouter(TopoGear):
                             for inst in instances:
                                 if inst != "":
                                     self.load_config(daemon, "", None, inst)
-
+            if extra_daemons is not None:
+                for item in extra_daemons:
+                    if isinstance(item, str):
+                        daemon, param = item, None
+                    else:
+                        daemon, param = item
+                    self.load_config(daemon, "", param)
         else:
             for item in daemons:
-                daemon, param = item
+                if isinstance(item, str):
+                    daemon, param = item, None
+                else:
+                    daemon, param = item
                 self.load_config(daemon, "", param)
 
     def load_config(self, daemon, source=None, param=None, instance=None):
@@ -883,7 +933,9 @@ class TopoRouter(TopoGear):
         all routers.
         """
         daemonstr = self.RD.get(daemon)
-        self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
+        if daemonstr is None:
+            daemonstr = daemon
+        self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
         return self.net.loadConf(daemonstr, source, param, instance)
 
     def check_router_running(self):
@@ -913,6 +965,7 @@ class TopoRouter(TopoGear):
         for daemon, enabled in nrouter.daemons.items():
             if (
                 enabled
+                and not self.net.unified_config
                 and daemon != "snmpd"
                 and daemon != "snmptrapd"
                 and daemon != "fpm_listener"
@@ -966,7 +1019,13 @@ class TopoRouter(TopoGear):
         # and set them to the start dir.
         for daemon in daemons:
             enabled = nrouter.daemons[daemon]
-            if enabled and daemon != "snmpd" and daemon != "fpm_listener":
+            if (
+                enabled
+                and not self.net.unified_config
+                and daemon != "snmpd"
+                and daemon != "snmptrapd"
+                and daemon != "fpm_listener"
+            ):
                 self.vtysh_cmd(
                     "\n".join(
                         [

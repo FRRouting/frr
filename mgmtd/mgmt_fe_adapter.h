@@ -14,14 +14,8 @@
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
 
-struct mgmt_fe_client_adapter;
-struct mgmt_master;
-
 struct mgmt_commit_stats {
 	struct timeval last_start;
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	struct timeval validate_start;
-#endif
 	struct timeval prep_cfg_start;
 	struct timeval txn_create_start;
 	struct timeval apply_cfg_start;
@@ -39,35 +33,13 @@ struct mgmt_commit_stats {
 	unsigned long commit_cnt;
 };
 
-struct mgmt_setcfg_stats {
-	struct timeval last_start;
-	struct timeval last_end;
-	unsigned long last_exec_tm;
-	unsigned long max_tm;
-	unsigned long min_tm;
-	unsigned long avg_tm;
-	unsigned long set_cfg_count;
+struct mgmt_edit_req {
+	char xpath_created[XPATH_MAXLEN];
+	struct nb_config *nb_backup;
+	bool created;
+	bool unlock_candidate;
+	bool unlock_running;
 };
-
-PREDECL_LIST(mgmt_fe_sessions);
-
-PREDECL_LIST(mgmt_fe_adapters);
-
-struct mgmt_fe_client_adapter {
-	struct msg_conn *conn;
-	char name[MGMTD_CLIENT_NAME_MAX_LEN];
-
-	/* List of sessions created and being maintained for this client. */
-	struct mgmt_fe_sessions_head fe_sessions;
-
-	int refcount;
-	struct mgmt_commit_stats cmt_stats;
-	struct mgmt_setcfg_stats setcfg_stats;
-
-	struct mgmt_fe_adapters_item list_linkage;
-};
-
-DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
 /* Initialise frontend adapter module */
 extern void mgmt_fe_adapter_init(struct event_loop *tm);
@@ -75,67 +47,15 @@ extern void mgmt_fe_adapter_init(struct event_loop *tm);
 /* Destroy frontend adapter module */
 extern void mgmt_fe_adapter_destroy(void);
 
-/* Acquire lock for frontend adapter */
-extern void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter);
-
-/* Remove lock from frontend adapter */
-extern void
-mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter);
-
-/* Create frontend adapter */
-extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
-					       union sockunion *su);
-
-/*
- * Send set-config reply to the frontend client.
- *
- * session
- *    Unique session identifier.
- *
- * txn_id
- *    Unique transaction identifier.
- *
- * ds_id
- *    Datastore ID.
- *
- * req_id
- *    Config request ID.
- *
- * result
- *    Config request result (MGMT_*).
- *
- * error_if_any
- *    Buffer to store human-readable error message in case of error.
- *
- * implicit_commit
- *    TRUE if the commit is implicit, FALSE otherwise.
- *
- * Returns:
- *    0 on success, -1 on failures.
- */
-extern int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
-					  Mgmtd__DatastoreId ds_id,
-					  uint64_t req_id,
-					  enum mgmt_result result,
-					  const char *error_if_any,
-					  bool implcit_commit);
-
 /*
  * Send commit-config reply to the frontend client.
+ *
+ * This also cleans up and frees the transaction.
  */
-extern int mgmt_fe_send_commit_cfg_reply(
-	uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId src_ds_id,
-	Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, bool validate_only,
-	enum mgmt_result result, const char *error_if_any);
-
-/*
- * Send get-config/get-data reply to the frontend client.
- */
-extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
-				  Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				  enum mgmt_result result,
-				  Mgmtd__YangDataReply *data_resp,
-				  const char *error_if_any);
+extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
+					 enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
+					 uint64_t req_id, bool validate_only, bool unlock,
+					 enum mgmt_result result, const char *error_if_any);
 
 /**
  * Send get-tree data reply back to client.
@@ -151,16 +71,11 @@ extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
  *	tree: the results.
  *	partial_error: if there were errors while gather results.
  *	short_circuit_ok: True if OK to short-circuit the call.
- *
- * Return:
- *	the return value from the underlying send function.
- *
  */
-extern int
-mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
-			       uint64_t req_id, LYD_FORMAT result_type,
-			       uint32_t wd_options, const struct lyd_node *tree,
-			       int partial_error, bool short_circuit_ok);
+extern void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, uint32_t wd_options,
+					   const struct lyd_node *tree, int partial_error,
+					   bool short_circuit_ok);
 
 /**
  * Send RPC reply back to client.
@@ -172,15 +87,12 @@ mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
  *	txn_id: the txn_id this data pertains to
  *	req_id: the req id for the rpc message
  *	result_type: the format of the result data.
+ *	restconf: true if the RPC is formatted from RESTCONF operation.
  *	result: the results.
- *
- * Return:
- *	the return value from the underlying send function.
  */
-extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
-					  uint64_t req_id,
-					  LYD_FORMAT result_type,
-					  const struct lyd_node *result);
+extern void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   LYD_FORMAT result_type, bool restconf,
+					   const struct lyd_node *result);
 
 /**
  * Send edit reply back to client. If error is not 0, a native error is sent.
@@ -191,18 +103,22 @@ extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
  *     session_id: the session.
  *     txn_id: the txn_id this data pertains to
  *     req_id: the req id for the edit message
- *     unlock: implicit-lock flag was set in the request
- *     commit: implicit-commit flag was set in the request
- *     created: true if the node was just created
- *     xpath: the xpath of the data node that was created/updated
- *     error: >0 LY_ERR, < 0 -errno
+ *     edit: the edit request info created when processing the edit
+ *     error: mgmt result code
  *     errstr: the error string, if error is non-zero
  */
-extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
-					   uint64_t req_id, bool unlock,
-					   bool commit, bool created,
-					   const char *xpath, int16_t error,
+extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   struct mgmt_edit_req **edit, enum mgmt_result error,
 					   const char *errstr);
+
+/**
+ * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.
+ * @from_id: the adapter id the notification is from.
+ * @msg: the notify message from the backend client.
+ * @msglen: the length of the notify message.
+ */
+extern void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
+					size_t msglen);
 
 /**
  * Send an error back to the FE client using native messaging.
@@ -220,14 +136,38 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
  *	the return value from the underlying send function.
  *
  */
-extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
-				     bool short_circuit_ok, int16_t error,
-				     const char *errstr);
+extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
+				     int16_t error, const char *errstr);
 
 
-/* Fetch frontend client session set-config stats */
-extern struct mgmt_setcfg_stats *
-mgmt_fe_get_session_setcfg_stats(uint64_t session_id);
+/**
+ * Add a BE clients's subscriptions to notify selection strings. Will also
+ * notify other backends of any new subscriptions.
+ */
+void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors);
+
+/**
+ * Remove a BE client subscriptions from notify selection strings. Will also
+ * notify other backends of any removed subscriptions.
+ */
+extern void mgmt_fe_ns_string_remove_be_client(uint client_id);
+
+/**
+ * Get the list (darr) of session_ids interested in a notification.
+ */
+extern uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *notif);
+
+/**
+ * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.
+ *
+ * Returns: A darr array of all selectors for all frontend adapters.
+ */
+extern char **mgmt_fe_get_all_selectors(void);
+
+/**
+ * Show the backend notify selectors registered with mgmtd.
+ */
+extern void mgmt_fe_show_be_notify_selectors(struct vty *vty);
 
 /* Fetch frontend client session commit stats */
 extern struct mgmt_commit_stats *

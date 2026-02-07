@@ -34,12 +34,12 @@ struct orf_prefix {
 /* Prototypes. */
 extern void prefix_list_init(void);
 extern void prefix_list_reset(void);
-extern void prefix_list_add_hook(void (*func)(struct prefix_list *));
-extern void prefix_list_delete_hook(void (*func)(struct prefix_list *));
+extern void prefix_list_add_hook(void (*func)(struct prefix_list *plst));
+extern void prefix_list_delete_hook(void (*func)(struct prefix_list *plist));
 
-extern const char *prefix_list_name(struct prefix_list *);
-extern afi_t prefix_list_afi(struct prefix_list *);
-extern struct prefix_list *prefix_list_lookup(afi_t, const char *);
+extern const char *prefix_list_name(struct prefix_list *plist);
+extern afi_t prefix_list_afi(struct prefix_list *plist);
+extern struct prefix_list *prefix_list_lookup(afi_t afi, const char *name);
 
 /*
  * prefix_list_apply_which_prefix
@@ -62,12 +62,12 @@ prefix_list_apply_ext(struct prefix_list *plist,
 #define prefix_list_apply(A, B) \
 	prefix_list_apply_ext((A), NULL, (B), false)
 
-extern struct prefix_list *prefix_bgp_orf_lookup(afi_t, const char *);
-extern struct stream *prefix_bgp_orf_entry(struct stream *,
-					   struct prefix_list *, uint8_t,
-					   uint8_t, uint8_t);
-extern int prefix_bgp_orf_set(char *, afi_t, struct orf_prefix *, int, int);
-extern void prefix_bgp_orf_remove_all(afi_t, char *);
+extern struct prefix_list *prefix_bgp_orf_lookup(afi_t afi, const char *name);
+extern struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
+					   uint8_t init_flag, uint8_t permit_flag,
+					   uint8_t deny_flag);
+extern int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp, int permit, int set);
+extern void prefix_bgp_orf_remove_all(afi_t afi, char *name);
 extern int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				       bool use_json);
 

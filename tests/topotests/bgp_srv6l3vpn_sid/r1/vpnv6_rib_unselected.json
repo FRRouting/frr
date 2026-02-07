@@ -1,0 +1,62 @@
+{
+  "vrfName": "default",
+  "routerId": "192.0.2.1",
+  "defaultLocPrf": 100,
+  "localAS": 1,
+  "routes": {
+    "routeDistinguishers": {
+      "2:20": {
+        "2001:4::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "2001:4::",
+            "prefixLen": 64,
+            "network": "2001:4::/64",
+            "metric": 0,
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
+            "origin": "incomplete",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:6::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "2001:6::",
+            "prefixLen": 64,
+            "network": "2001:6::/64",
+            "metric": 0,
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
+            "origin": "incomplete",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 2,
+  "totalPaths": 2
+}

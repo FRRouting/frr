@@ -13,6 +13,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
+#include "filter.h"
 
 #include "pim_addr.h"
 #include "pim_str.h"
@@ -96,6 +97,8 @@
 #define PIM_MASK_BSM_PROC            (1 << 27)
 #define PIM_MASK_MLAG                (1 << 28)
 #define PIM_MASK_AUTORP		     (1 << 29)
+#define PIM_MASK_GRAFT		     (1 << 30)
+#define PIM_MASK_STATE_REFRESH	     (1 << 31)
 /* Remember 32 bits!!! */
 
 /* PIM error codes */
@@ -169,6 +172,8 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DEBUG_VXLAN (router->debugs & PIM_MASK_VXLAN)
 #define PIM_DEBUG_BSM	(router->debugs & PIM_MASK_BSM_PROC)
 #define PIM_DEBUG_AUTORP	 (router->debugs & PIM_MASK_AUTORP)
+#define PIM_DEBUG_GRAFT		 (router->debugs & PIM_MASK_GRAFT)
+#define PIM_DEBUG_STATE_REFRESH	 (router->debugs & PIM_MASK_STATE_REFRESH)
 
 #define PIM_DEBUG_EVENTS                                                       \
 	(router->debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_GM_EVENTS |          \
@@ -212,6 +217,8 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DO_DEBUG_MTRACE (router->debugs |= PIM_MASK_MTRACE)
 #define PIM_DO_DEBUG_VXLAN (router->debugs |= PIM_MASK_VXLAN)
 #define PIM_DO_DEBUG_AUTORP	    (router->debugs |= PIM_MASK_AUTORP)
+#define PIM_DO_DEBUG_GRAFT	    (router->debugs |= PIM_MASK_GRAFT)
+#define PIM_DO_DEBUG_STATE_REFRESH  (router->debugs |= PIM_MASK_STATE_REFRESH)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS (router->debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS (router->debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -247,6 +254,8 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
 #define PIM_DONT_DEBUG_BSM (router->debugs &= ~PIM_MASK_BSM_PROC)
 #define PIM_DONT_DEBUG_AUTORP	  (router->debugs &= ~PIM_MASK_AUTORP)
+#define PIM_DONT_DEBUG_GRAFT	     (router->debugs &= ~PIM_MASK_GRAFT)
+#define PIM_DONT_DEBUG_STATE_REFRESH (router->debugs &= ~PIM_MASK_STATE_REFRESH)
 
 /* RFC 3376: 8.1. Robustness Variable - Default: 2 for IGMP */
 /* RFC 2710: 7.1. Robustness Variable - Default: 2 for MLD */
@@ -275,5 +284,6 @@ void pim_terminate(void);
 extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
 void pim_prefix_list_update(struct prefix_list *plist);
+extern void pim_access_list_update(struct access_list *access);
 
 #endif /* PIMD_H */

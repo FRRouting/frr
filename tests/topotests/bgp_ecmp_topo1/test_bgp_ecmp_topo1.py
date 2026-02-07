@@ -160,7 +160,7 @@ def test_bgp_ecmp():
     test_func = functools.partial(
         topotest.router_json_cmp, tgen.gears["r1"], "show ip bgp json", expect
     )
-    _, res = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, res = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = 'expected multipath routes in "show ip bgp" output'
     assert res is None, assertmsg
 

@@ -39,6 +39,7 @@ from lib import topotest
 from lib.bgp import verify_bgp_convergence_from_running_config
 from lib.bgp import bgp_configure_prefixes
 from .bgpbmp import (
+    BMPSequenceContext,
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
     bmp_update_seq,
@@ -54,6 +55,9 @@ LOC_RIB = "loc-rib"
 
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
+
+# Create a sequence context for this test run
+bmp_seq_context = BMPSequenceContext()
 
 
 def build_topo(tgen):
@@ -78,7 +82,14 @@ def setup_module(mod):
             "tcpdump -nni r1-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
-    for rname, router in tgen.routers().items():
+    tgen.net["r2"].cmd(
+        """
+ip link add vrf1 type vrf table 10
+ip link set vrf1 up
+"""
+    )
+
+    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
         logger.info("Loading router %s" % rname)
         router.load_frr_config(
             os.path.join(CWD, "{}/frr.conf".format(rname)),
@@ -119,7 +130,11 @@ def _test_prefixes(policy, vrf=None, step=0):
     prefixes = ["172.31.0.15/32", "2001::1111/128"]
 
     for type in ("update", "withdraw"):
-        bmp_update_seq(tgen.gears["bmp1"], os.path.join(tgen.logdir, "bmp1", "bmp.log"))
+        bmp_update_seq(
+            tgen.gears["bmp1"],
+            os.path.join(tgen.logdir, "bmp1", "bmp.log"),
+            bmp_seq_context,
+        )
 
         bgp_configure_prefixes(
             tgen.gears["r2"],
@@ -163,6 +178,7 @@ def _test_prefixes(policy, vrf=None, step=0):
             f"{CWD}/bmp1",
             UPDATE_EXPECTED_JSON,
             LOC_RIB,
+            bmp_seq_context,
         )
         success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert success, "Checking the updated prefixes has failed ! %s" % res
@@ -202,6 +218,7 @@ def test_peer_up():
         "peer up",
         tgen.gears["bmp1"],
         os.path.join(tgen.logdir, "bmp1", "bmp.log"),
+        bmp_seq_context,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
@@ -247,6 +264,7 @@ def test_peer_down():
         "peer down",
         tgen.gears["bmp1"],
         os.path.join(tgen.logdir, "bmp1", "bmp.log"),
+        bmp_seq_context,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."

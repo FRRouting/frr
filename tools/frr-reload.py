@@ -8,12 +8,13 @@ This program
 - reads a frr configuration text file
 - reads frr's current running configuration via "vtysh -c 'show running'"
 - compares the two configs and determines what commands to execute to
-  synchronize frr's running configuration with the configuation in the
+  synchronize frr's running configuration with the configuration in the
   text file
 """
 
 from __future__ import print_function, unicode_literals
 import argparse
+import datetime
 import logging
 import os, os.path
 import random
@@ -95,7 +96,7 @@ class Vtysh(object):
         output = self("configure")
 
         if "configuration is locked" in output.lower():
-            log.error("vtysh 'configure' returned\n%s\n" % (output))
+            log.error(f"vtysh 'configure' returned\n{output}\n")
             return False
 
         return True
@@ -104,7 +105,7 @@ class Vtysh(object):
         child = self._call(["-f", filename])
         if child.wait() != 0:
             raise VtyshException(
-                "vtysh (exec file) exited with status %d" % (child.returncode)
+                f"vtysh (exec file) exited with status {child.returncode}"
             )
 
     def mark_file(self, filename, stdin=None):
@@ -237,6 +238,14 @@ def get_normalized_interface_vrf(line):
     return line
 
 
+def get_normalized_ebgp_multihop_line(line):
+    obj = re.search(r"(.*)ebgp-multihop\s+255", line)
+    if obj:
+        line = obj.group(1) + "ebgp-multihop"
+
+    return line
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -281,6 +290,7 @@ ctx_keywords = {
         },
         "srv6": {
             "locators": {"locator ": {}},
+            "static-sids": {},
             "encapsulation": {},
             "formats": {"format": {}},
         },
@@ -312,7 +322,7 @@ class Config(object):
         The internal representation has been marked appropriately by passing it
         through vtysh with the -m parameter
         """
-        log.info("Loading Config object from file %s", filename)
+        log.info(f"Loading Config object from file {filename}")
 
         file_output = self.vtysh.mark_file(filename)
 
@@ -381,6 +391,9 @@ class Config(object):
 
             if ":" in line:
                 line = get_normalized_mac_ip_line(line)
+
+            if "ebgp-multihop" in line:
+                line = get_normalized_ebgp_multihop_line(line)
 
             # vrf static routes can be added in two ways. The old way is:
             #
@@ -536,7 +549,7 @@ class Config(object):
                         )
                         newlines.append(line)
                     except ValueError:
-                        # Really this should be an error. Whats a network
+                        # Really this should be an error. What's a network
                         # without an IP Address following it ?
                         newlines.append(line)
                 else:
@@ -649,7 +662,7 @@ class Config(object):
                 self.save_contexts(ctx_keys, cur_ctx_lines)
 
                 # exit current context
-                log.debug("LINE %-50s: exit context %-50s", line, ctx_keys)
+                log.debug(f"LINE {line:<50}: exit context {' '.join(ctx_keys):<50}")
 
                 ctx_keys.pop()
                 cur_ctx_keywords.pop()
@@ -664,7 +677,7 @@ class Config(object):
                     self.save_contexts(ctx_keys, cur_ctx_lines)
 
                     # exit current context
-                    log.debug("LINE %-50s: exit context %-50s", line, ctx_keys)
+                    log.debug(f"LINE {line:<50}: exit context {' '.join(ctx_keys):<50}")
 
                     ctx_keys.pop()
                     cur_ctx_keywords.pop()
@@ -695,17 +708,21 @@ class Config(object):
                     cur_ctx_keywords.append(v)
                     cur_ctx_lines = []
 
-                    log.debug("LINE %-50s: enter context %-50s", line, ctx_keys)
+                    log.debug(
+                        f"LINE {line:<50}: enter context {' '.join(ctx_keys):<50}"
+                    )
                     break
 
             if new_ctx:
                 continue
 
             if len(ctx_keys) == 0:
-                log.debug("LINE %-50s: single-line context", line)
+                log.debug(f"LINE {line:<50}: single-line context")
                 self.save_contexts([line], [])
             else:
-                log.debug("LINE %-50s: add to current context %-50s", line, ctx_keys)
+                log.debug(
+                    f"LINE {line:<50}: add to current context {' '.join(ctx_keys):<50}"
+                )
                 cur_ctx_lines.append(line)
 
         # Save the context of the last one
@@ -867,7 +884,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
     found_pg_cmd = False
 
     # Find all peer-group commands; create dict of each peer-group
-    # to store assoicated neighbor as value
+    # to store associated neighbor as value
     for ctx_keys, line in lines_to_add:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -893,6 +910,8 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
 
     # Find peer-group with remote-as command, also search neighbor
     # associated to peer-group and store into peer-group dict
+    pg_rmtas = r"neighbor (\S+) remote-as (\S+)"
+    nb_pg = r"neighbor (\S+) peer-group (\S+)$"
     for ctx_keys, line in lines_to_add:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -900,21 +919,22 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             and line.startswith("neighbor ")
         ):
             if ctx_keys[0] in pg_dict:
-                for pg_key in pg_dict[ctx_keys[0]]:
-                    # Find 'neighbor <pg_name> remote-as'
-                    pg_rmtas = r"neighbor %s remote-as (\S+)" % pg_key
-                    re_pg_rmtas = re.search(pg_rmtas, line)
-                    if re_pg_rmtas:
-                        pg_dict[ctx_keys[0]][pg_key]["remoteas"] = True
+                # Find 'neighbor <pg_name> remote-as'
+                re_pg_rmtas = re.search(pg_rmtas, line)
+                if (
+                    re_pg_rmtas
+                    and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]
+                ):
+                    pg_dict[ctx_keys[0]][re_pg_rmtas.group(1)]["remoteas"] = True
 
-                    # Find 'neighbor <peer> [interface] peer-group <pg_name>'
-                    nb_pg = r"neighbor (\S+) peer-group %s$" % pg_key
-                    re_nbr_pg = re.search(nb_pg, line)
-                    if (
-                        re_nbr_pg
-                        and re_nbr_pg.group(1) not in pg_dict[ctx_keys[0]][pg_key]
-                    ):
-                        pg_dict[ctx_keys[0]][pg_key]["nbr"].append(re_nbr_pg.group(1))
+                # Find 'neighbor <peer> [interface] peer-group <pg_name>'
+                re_nbr_pg = re.search(nb_pg, line)
+                if (
+                    re_nbr_pg
+                    and re_nbr_pg.group(1) in pg_dict[ctx_keys[0]]
+                    and re_nbr_pg.group(2) not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
+                ):
+                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(re_nbr_pg.group(2))
 
     # Find any neighbor <nbr> remote-as config line check if the nbr
     # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
@@ -943,15 +963,19 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
     # This method handles deletion of bgp neighbor configs,
     # if there is neighbor to peer-group cmd is in delete list.
     # As 'no neighbor .* peer-group' deletes the neighbor,
-    # subsequent neighbor speciic config line deletion results
+    # subsequent neighbor specific config line deletion results
     # in error.
     lines_to_del_to_del = []
 
     for ctx_keys, line in lines_to_del:
+        # lines_to_del has following
+        # (('router bgp 100',), 'neighbor swp1.10 interface peer-group dpeergrp_2'),
+        # (('router bgp 100',), 'neighbor swp1.10 advertisement-interval 1'),
+        # (('router bgp 100',), 'no neighbor swp1.10 capability dynamic'),
         if (
             ctx_keys[0].startswith("router bgp")
             and line
-            and line.startswith("neighbor ")
+            and ((line.startswith("neighbor ") or line.startswith("no neighbor ")))
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
@@ -1146,7 +1170,7 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # Under interface context, if 'no ip pim' is present
     # remove subsequent 'no ip pim <blah>' options as it
     # they are implicitly deleted by 'no ip pim'.
-    # Remove all such depdendent options from delete
+    # Remove all such dependent options from delete
     # pending list.
     pim_disable = []
     lines_to_del_to_del = []
@@ -1197,6 +1221,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     # Quite possibly the most confusing (while accurate) variable names in history
     lines_to_add_to_del = []
     lines_to_del_to_del = []
+    lines_to_add_vrf_no_static_route = []
 
     index = -1
     for ctx_keys, line in lines_to_del:
@@ -1617,7 +1642,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         if ctx_keys[0].startswith("vrf ") and line:
             if line.startswith("ip route") or line.startswith("ipv6 route"):
                 add_cmd = "no " + line
-                lines_to_add.append((ctx_keys, add_cmd))
+                lines_to_add_vrf_no_static_route.append((ctx_keys, add_cmd))
                 lines_to_del_to_del.append((ctx_keys, line))
 
         if not deleted:
@@ -1656,6 +1681,8 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
 
+    lines_to_add = lines_to_add_vrf_no_static_route + lines_to_add
+
     for ctx_keys, line in lines_to_del_to_del:
         try:
             lines_to_del.remove((ctx_keys, line))
@@ -1677,6 +1704,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     those commands from lines_to_del.
     """
     lines_to_del_to_del = []
+    lines_to_del_to_add = []
 
     for ctx_keys, line in lines_to_del:
         # The integrated-vtysh-config one is technically "no"able but if we did
@@ -1696,11 +1724,32 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
                 ]
             ]
         ):
-            log.info('"%s" cannot be removed' % (ctx_keys[-1],))
+            log.info(f'"{ctx_keys[-1]}" cannot be removed')
             lines_to_del_to_del.append((ctx_keys, line))
+        # Handle segment-routing srv6 locators and formats commands
+        #  - Ignore "no formats" and "no locators" command
+        #  - replace "no prefix" under locator XYZ as "no locator XYZ"
+        elif (
+            len(ctx_keys) > 2
+            and ctx_keys[0].startswith("segment-routing")
+            and ctx_keys[1].startswith("srv6")
+            and ctx_keys[2] in {"locators", "formats"}
+        ):
+            is_top_level = len(ctx_keys) == 3 and not line
+            if ctx_keys[2] == "formats" and is_top_level:
+                lines_to_del_to_del.append((ctx_keys, line))
+            elif ctx_keys[2] == "locators":
+                if is_top_level:
+                    lines_to_del_to_del.append((ctx_keys, line))
+                elif len(ctx_keys) == 4 and line and line.startswith("prefix "):
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_del_to_add.append((ctx_keys[:-1] + (ctx_keys[-1],), None))
 
     for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
+
+    for ctx_keys, line in lines_to_del_to_add:
+        lines_to_del.append((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
 
@@ -1753,12 +1802,13 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
-            elif (
-                running_ctx_keys[0].startswith("interface")
-                or running_ctx_keys[0].startswith("vrf")
-                or running_ctx_keys[0].startswith("router pim")
-            ):
+            elif running_ctx_keys[0].startswith("interface"):
+                lines_to_del.append((running_ctx_keys, None))
+
+            # We cannot do 'no vrf' in FRR, and so deal with it
+            elif running_ctx_keys[0].startswith("vrf") or running_ctx_keys[
+                0
+            ].startswith("router pim"):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
@@ -1974,6 +2024,50 @@ def compare_context_objects(newconf, running):
     return (lines_to_add, lines_to_del)
 
 
+class LogFmtFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        """
+        Creates log messages with key=value pairs, in logfmt format.
+        """
+        # Escape double quotes in the message, replace newlines with '\n'
+        msg = record.getMessage().replace('"', '\\"').replace("\n", "\\n").strip()
+        # Format the time in RFC 3339 format
+        timestamp = datetime.datetime.fromtimestamp(
+            record.created, datetime.timezone.utc
+        )
+        asctime = timestamp.astimezone().isoformat(timespec="seconds")
+        # Create logfmt style log message, ignore default fields
+        logfmt = f'ts={asctime} level={record.levelname} msg="{msg}"'
+        default_fields = [
+            "args",
+            "asctime",
+            "created",
+            "exc_info",
+            "exc_text",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "msg",
+            "name",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "thread",
+            "threadName",
+        ]
+        for key, value in vars(record).items():
+            if key in default_fields:
+                continue
+            logfmt += f" {key}={value}"
+        return logfmt
+
+
 if __name__ == "__main__":
     # Command line options
     parser = argparse.ArgumentParser(
@@ -2041,15 +2135,29 @@ if __name__ == "__main__":
         action="store_true",
         help="Used by topotest to not delete debug or log file commands",
     )
+    parser.add_argument(
+        "--logfmt",
+        action="store_true",
+        help="Use logfmt as log format",
+        default=False,
+    )
+    parser.add_argument(
+        "--logfile",
+        help="logfile for frr-reload",
+        default="/var/log/frr/frr-reload.log",
+    )
 
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
-    # For --reload log to /var/log/frr/frr-reload.log
-    if args.test or args.stdout:
-        logging.basicConfig(format="%(asctime)s %(levelname)5s: %(message)s")
-
+    # For --reload log to --logfile (default: "/var/log/frr/frr-reload.log")
+    # If --logfmt, use the logfmt format
+    formatter = logging.Formatter("%(asctime)s %(levelname)5s: %(message)s")
+    handler = logging.StreamHandler()
+    if args.logfmt:
+        formatter = LogFmtFormatter()
+    elif args.test or args.stdout:
         # Color the errors and warnings in red
         logging.addLevelName(
             logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR)
@@ -2057,20 +2165,15 @@ if __name__ == "__main__":
         logging.addLevelName(
             logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING)
         )
-
-    elif args.reload:
-        if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/", mode=0o0755)
-
-        logging.basicConfig(
-            filename="/var/log/frr/frr-reload.log",
-            format="%(asctime)s %(levelname)5s: %(message)s",
-        )
-
-    # argparse should prevent this from happening but just to be safe...
-    else:
-        raise Exception("Must specify --reload or --test")
+    if args.reload:
+        if not os.path.isdir(os.path.dirname(args.logfile)):
+            os.makedirs(os.path.dirname(args.logfile), mode=0o0755)
+        handler = logging.FileHandler(args.logfile)
+    if args.stdout:
+        handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
     log = logging.getLogger(__name__)
+    log.addHandler(handler)
 
     if args.debug:
         log.setLevel(logging.DEBUG)
@@ -2080,7 +2183,7 @@ if __name__ == "__main__":
     if args.reload and not args.stdout:
         # Additionally send errors and above to STDOUT, with no metadata,
         # when we are logging to a file. This specifically does not follow
-        # args.log_level, and is analagous to behaviour in earlier versions
+        # args.log_level, and is analogous to behaviour in earlier versions
         # which additionally logged most errors using print().
 
         stdout_hdlr = logging.StreamHandler(sys.stdout)
@@ -2090,26 +2193,26 @@ if __name__ == "__main__":
 
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
-        log.error("Filename %s does not exist" % args.filename)
+        log.error(f"Filename {args.filename} does not exist")
         sys.exit(1)
 
     if not os.path.getsize(args.filename):
-        log.error("Filename %s is an empty file" % args.filename)
+        log.error(f"Filename {args.filename} is an empty file")
         sys.exit(1)
 
     # Verify that confdir is correct
     if not os.path.isdir(args.confdir):
-        log.error("Confdir %s is not a valid path" % args.confdir)
+        log.error(f"Confdir {args.confdir} is not a valid path")
         sys.exit(1)
 
     # Verify that bindir is correct
     if not os.path.isdir(args.bindir) or not os.path.isfile(args.bindir + "/vtysh"):
-        log.error("Bindir %s is not a valid path to vtysh" % args.bindir)
+        log.error(f"Bindir {args.bindir} is not a valid path to vtysh")
         sys.exit(1)
 
     # verify that the vty_socket, if specified, is valid
     if args.vty_socket and not os.path.isdir(args.vty_socket):
-        log.error("vty_socket %s is not a valid path" % args.vty_socket)
+        log.error(f"vty_socket {args.vty_socket} is not a valid path")
         sys.exit(1)
 
     # verify that the daemon, if specified, is valid
@@ -2164,7 +2267,7 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    log.info('Called via "%s"', str(args))
+    log.info(f'Called via "{args}"')
 
     # Create a Config object from the config generated by newconf
     newconf = Config(vtysh)
@@ -2198,7 +2301,7 @@ if __name__ == "__main__":
                 nolines = lines_to_config(ctx_keys, line, True)
 
                 if args.test_reset:
-                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # For topotests the original code stripped the lines, and omitted blank lines
                     # after, do that here
                     nolines = [x.strip() for x in nolines]
                     # For topotests leave these lines in (don't delete them)
@@ -2224,7 +2327,7 @@ if __name__ == "__main__":
                 lines = lines_to_config(ctx_keys, line, False)
 
                 if args.test_reset:
-                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # For topotests the original code stripped the lines, and omitted blank lines
                     # after, do that here
                     lines = [x.strip() for x in lines if x.strip()]
                     if not lines:
@@ -2240,7 +2343,7 @@ if __name__ == "__main__":
         if not vtysh.is_config_available() or not reload_ok:
             sys.exit(1)
 
-        log.debug("New Frr Config\n%s", newconf.get_lines())
+        log.debug(f"New Frr Config\n{newconf.get_lines()}")
 
         # This looks a little odd but we have to do this twice...here is why
         # If the user had this running bgp config:
@@ -2282,7 +2385,7 @@ if __name__ == "__main__":
         for x in range(2):
             running = Config(vtysh)
             running.load_from_show_running(args.daemon)
-            log.debug("Running Frr Config (Pass #%d)\n%s", x, running.get_lines())
+            log.debug(f"Running Frr Config (Pass #{x})\n{running.get_lines()}")
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
@@ -2339,7 +2442,7 @@ if __name__ == "__main__":
                             #   'no ip ospf authentication message-digest 1.1.1.1' in
                             #   our example above
                             # - Split that last entry by whitespace and drop the last word
-                            log.error("Failed to execute %s", " ".join(cmd))
+                            log.error(f"Failed to execute {' '.join(cmd)}")
                             last_arg = cmd[-1].split(" ")
 
                             if len(last_arg) <= 2:
@@ -2356,7 +2459,7 @@ if __name__ == "__main__":
                             new_last_arg = last_arg[0:-1]
                             cmd[-1] = " ".join(new_last_arg)
                         else:
-                            log.info('Executed "%s"', " ".join(cmd))
+                            log.info(f'Executed "{" ".join(cmd)}"')
                             break
 
             if lines_to_add:
@@ -2383,7 +2486,7 @@ if __name__ == "__main__":
                     )
 
                     filename = args.rundir + "/reload-%s.txt" % random_string
-                    log.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
+                    log.info(f"{filename} content\n{pformat(lines_to_configure)}")
 
                     with open(filename, "w") as fh:
                         for line in lines_to_configure:
@@ -2392,7 +2495,7 @@ if __name__ == "__main__":
                     try:
                         vtysh.exec_file(filename)
                     except VtyshException as e:
-                        log.warning("frr-reload.py failed due to\n%s" % e.args)
+                        log.warning(f"frr-reload.py failed due to\n{e.args}")
                         reload_ok = False
                     os.unlink(filename)
 

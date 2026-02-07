@@ -33,8 +33,8 @@
 #define OSPF_DEBUG_LSA_FLOODING	0x02
 #define OSPF_DEBUG_LSA_INSTALL  0x04
 #define OSPF_DEBUG_LSA_REFRESH  0x08
-#define OSPF_DEBUG_LSA		0x0F
 #define OSPF_DEBUG_EXTNL_LSA_AGGR 0x10
+#define OSPF_DEBUG_LSA            0x1F
 
 #define OSPF_DEBUG_ZEBRA_INTERFACE     0x01
 #define OSPF_DEBUG_ZEBRA_REDISTRIBUTE  0x02
@@ -54,6 +54,8 @@
 #define OSPF_DEBUG_BFD_LIB 0x01
 
 #define OSPF_DEBUG_CLIENT_API 0x01
+
+#define OSPF_DEBUG_OPAQUE_LSA 0x01
 
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
@@ -106,6 +108,7 @@
 #define IS_DEBUG_OSPF_LDP_SYNC IS_DEBUG_OSPF(ldp_sync, LDP_SYNC)
 #define IS_DEBUG_OSPF_GR IS_DEBUG_OSPF(gr, GR)
 #define IS_DEBUG_OSPF_CLIENT_API IS_DEBUG_OSPF(client_api, CLIENT_API)
+#define IS_DEBUG_OSPF_OPAQUE_LSA IS_DEBUG_OSPF(opaque_lsa, OPAQUE_LSA)
 
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
@@ -131,6 +134,7 @@ extern unsigned long term_debug_ospf_ldp_sync;
 extern unsigned long term_debug_ospf_gr;
 extern unsigned long term_debug_ospf_bfd;
 extern unsigned long term_debug_ospf_client_api;
+extern unsigned long term_debug_ospf_opaque_lsa;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];

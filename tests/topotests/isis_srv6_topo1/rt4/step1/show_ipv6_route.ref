@@ -253,7 +253,10 @@
           "interfaceName":"sr0",
           "active":true,
           "seg6local":{
-            "action":"End"
+            "action":"uN"
+          },
+          "seg6localContext":{
+            "flavors":["psp"]
           }
         }
       ]
@@ -274,7 +277,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -295,7 +298,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -316,7 +319,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -337,7 +340,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]

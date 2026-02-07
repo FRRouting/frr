@@ -20,6 +20,11 @@
 #include "log.h"
 #include "libfrr_trace.h"
 
+#if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
+#define malloc_usable_size(x) malloc_size(x)
+#define HAVE_MALLOC_USABLE_SIZE
+#endif
+
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
 

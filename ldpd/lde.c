@@ -31,8 +31,8 @@
 #include "zlog_live.h"
 
 static void		 lde_shutdown(void);
-static void lde_dispatch_imsg(struct event *thread);
-static void lde_dispatch_parent(struct event *thread);
+static void lde_dispatch_imsg(struct event *event);
+static void lde_dispatch_parent(struct event *event);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -176,8 +176,7 @@ lde_init(struct ldpd_init *init)
 	zclient_sync_init();
 }
 
-static void
-lde_shutdown(void)
+static FRR_NORETURN void lde_shutdown(void)
 {
 	/* close pipes */
 	if (iev_ldpe) {
@@ -237,9 +236,9 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void lde_dispatch_imsg(struct event *thread)
+static void lde_dispatch_imsg(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -400,14 +399,57 @@ static void lde_dispatch_imsg(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 }
 
 /* ARGSUSED */
-static void lde_dispatch_parent(struct event *thread)
+static void lde_send_all_klabel(struct iface *iface)
+{
+	struct fec *fec;
+	struct fec_node *fn;
+	struct fec_nh *fnh;
+	struct lde_map *me;
+	struct lde_nbr *ln;
+
+	RB_FOREACH (ln, nbr_tree, &lde_nbrs) {
+		RB_FOREACH (fec, fec_tree, &ln->recv_map) {
+			switch (fec->type) {
+			case FEC_TYPE_IPV4:
+				break;
+			case FEC_TYPE_IPV6:
+				break;
+			case FEC_TYPE_PWID:
+			default:
+				continue;
+			}
+
+			fn = (struct fec_node *)fec_find(&ft, fec);
+			if (fn == NULL) {
+				/* shouldn't happen */
+				continue;
+			}
+
+			LIST_FOREACH (fnh, &fn->nexthops, entry) {
+				if (fnh->ifindex != iface->ifindex)
+					continue;
+
+				if (lde_address_find(ln, fnh->af, &fnh->nexthop) == NULL)
+					continue;
+
+				me = (struct lde_map *)fec;
+				fnh->remote_label = me->map.label;
+				lde_send_change_klabel(fn, fnh);
+				break;
+			}
+		}
+	}
+}
+
+/* ARGSUSED */
+static void lde_dispatch_parent(struct event *event)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -420,7 +462,7 @@ static void lde_dispatch_parent(struct event *thread)
 	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd;
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
@@ -455,8 +497,11 @@ static void lde_dispatch_parent(struct event *thread)
 				if_update_info(iface, kif);
 
 				/* if up see if any labels need to be updated */
-				if (kif->operative)
+				if (kif->operative) {
 					lde_route_update(iface, AF_UNSPEC);
+					lde_send_all_klabel(iface);
+				}
+
 				break;
 			}
 
@@ -538,8 +583,8 @@ static void lde_dispatch_parent(struct event *thread)
 			    sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
-			memcpy(&init, imsg.data, sizeof(init));
-			lde_init(&init);
+			memcpy(&ldp_init, imsg.data, sizeof(ldp_init));
+			lde_init(&ldp_init);
 			break;
 		case IMSG_AGENTX_ENABLED:
 			ldp_agentx_enabled();
@@ -678,8 +723,8 @@ static void lde_dispatch_parent(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 }
@@ -2128,7 +2173,7 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static void zclient_sync_retry(struct event *thread)
+static void zclient_sync_retry(struct event *event)
 {
 	zclient_sync_init();
 }
@@ -2445,6 +2490,8 @@ void lde_route_update_release(struct iface *iface, int af)
 				continue;
 
 			SET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
+			lde_send_delete_klabel(fn, fnh);
+
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelwithdraw(ln, fn, NULL, NULL);
 			lde_free_label(fn->local_label);

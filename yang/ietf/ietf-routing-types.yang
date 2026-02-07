@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 module ietf-routing-types {
   namespace "urn:ietf:params:xml:ns:yang:ietf-routing-types";
   prefix rt-types;

@@ -77,6 +77,7 @@ from lib.common_config import (
     required_linux_kernel_version,
     create_interface_in_kernel,
 )
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.isisd, pytest.mark.sharpd]
 
@@ -237,22 +238,6 @@ def router_compare_json_output(rname, command, reference):
     assert diff is None, assertmsg
 
 
-def check_ping6(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        if match not in output:
-            return "ping fail"
-
-    match = "{} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    _, result = topotest.run_and_expect(func, None, count=10, wait=1)
-    assert result is None, "Failed"
-
-
 #
 # Step 1
 #
@@ -333,7 +318,7 @@ def test_ping_step1():
 
     # Setup encap route on rt1, decap route on rt2
     tgen.gears["rt1"].vtysh_cmd(
-        "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:1:2:6:f00d:: 1"
+        "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:f00d:: 1"
     )
     tgen.gears["rt6"].vtysh_cmd(
         "sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1"
@@ -343,7 +328,7 @@ def test_ping_step1():
     )
 
     # Try to ping dst from rt1
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -443,7 +428,8 @@ def test_ping_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -545,7 +531,7 @@ def test_ping_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -643,7 +629,8 @@ def test_ping_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -741,7 +728,7 @@ def test_ping_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -838,7 +825,8 @@ def test_ping_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -936,7 +924,7 @@ def test_ping_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -1033,7 +1021,8 @@ def test_ping_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -1134,7 +1123,41 @@ def test_ping_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+
+
+def test_srv6_path_with_ua_sid():
+    """
+    Test SRv6 path with uA SID.
+
+    This test verifies connectivity over an SRv6 path that includes a uA SID
+    to enforce traffic engineering. The path is from rt1 to dst, steered
+    through rt2 and rt6. On rt2, a uA SID is used to direct traffic out of a
+    specific interface.
+    """
+    logger.info("Test: Verify SRv6 path with uA SID")
+    tgen = get_topogen()
+
+    # Required linux kernel version for this case to run.
+    result = required_linux_kernel_version("6.17")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.17")
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # On rt1, install an SRv6 route to encapsulate packets towards dst.
+    # The segment list is fc00:0:2:4:6:f00d::, which corresponds to the
+    # path rt2 -> rt6 -> dst.
+    logger.info("Installing SRv6 route on rt1 to steer traffic via rt2->rt6 to dst")
+    tgen.gears["rt1"].vtysh_cmd(
+        "sharp install seg6-routes 2001:db8:10::2 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:4:6:f00d:: 1"
+    )
+
+    # Ping dst from rt1 to verify the SRv6 path.
+    logger.info("Pinging dst from rt1 to validate the SRv6 path with uA SID")
+    check_ping("rt1", "2001:db8:10::2", True, 10, 1)
 
 
 # Memory leak test template

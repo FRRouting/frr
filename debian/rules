@@ -39,6 +39,12 @@ else
   CONF_GRPC=--enable-grpc
 endif
 
+ifeq ($(filter pkg.frr.asan,$(DEB_BUILD_PROFILES)),)
+  CONF_ASAN=--disable-address-sanitizer
+else
+  CONF_ASAN=--enable-address-sanitizer
+endif
+
 export PYTHON=python3
 
 %:
@@ -58,6 +64,7 @@ override_dh_auto_configure:
 		$(CONF_LUA) \
 		$(CONF_PIM6) \
 		$(CONF_GRPC) \
+		$(CONF_ASAN) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \

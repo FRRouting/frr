@@ -13,6 +13,8 @@
 #include "pimd.h"
 #include "pim_instance.h"
 #include "pim_ssm.h"
+#include "pim_iface.h"
+#include "pim_dm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
 #include "pim_nht.h"
@@ -31,11 +33,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_vxlan_exit(pim);
 
-	if (pim->ssm_info) {
-		pim_ssm_terminate(pim->ssm_info);
-		pim->ssm_info = NULL;
-	}
-
 	if (pim->static_routes)
 		list_delete(&pim->static_routes);
 
@@ -43,13 +40,13 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_upstream_terminate(pim);
 
-	pim_rp_free(pim);
-
 	pim_bsm_proc_free(pim);
 
 	pim_nht_terminate(pim);
 
 	pim_if_terminate(pim);
+
+	pim_rp_free(pim);
 
 	pim_oil_terminate(pim);
 
@@ -57,9 +54,15 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_msdp_exit(pim);
 #endif /* PIM_IPV == 4 */
 
-	close(pim->reg_sock);
+	if (pim->reg_sock > 0)
+		close(pim->reg_sock);
+	pim->reg_sock = -1;
 
 	pim_mroute_socket_disable(pim);
+
+	pim_ssm_terminate(pim);
+
+	pim_dm_terminate(pim);
 
 #if PIM_IPV == 4
 	pim_autorp_finish(pim);
@@ -67,6 +70,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+
+	pim_filter_ref_fini(&pim->join_filter);
 
 	pim->vrf = NULL;
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
@@ -78,11 +83,15 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
 
+	pim_ssm_init(pim);
+	pim_dm_init(pim);
+
 	pim_if_init(pim);
 
 	pim->mcast_if_count = 0;
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+	pim->staterefresh_time = PIM_STATEREFRESH_PERIOD;
 
 	pim->ecmp_enable = false;
 	pim->ecmp_rebalance_enable = false;
@@ -98,8 +107,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_vxlan_init(pim);
 
 	pim_nht_init(pim);
-
-	pim->ssm_info = pim_ssm_init();
 
 	pim->static_routes = list_new();
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
@@ -127,6 +134,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 #if PIM_IPV == 4
 	pim_autorp_init(pim);
 #endif
+
+	pim_filter_ref_init(&pim->join_filter);
 
 	return pim;
 }
@@ -181,7 +190,14 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	if (vrf_bind(vrf->vrf_id, pim->reg_sock, NULL) < 0)
+		zlog_warn("Failed to bind register socket to VRF %s", vrf->name);
+
 	pim_mroute_socket_enable(pim);
+
+#if PIM_IPV == 4
+	pim_autorp_enable(pim);
+#endif
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
@@ -189,6 +205,10 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 		pim_if_create_pimreg(pim);
 		break;
+	}
+
+	frr_with_privs (&pimd_privs) {
+		vrf_bind(pim->vrf->vrf_id, pim->global_scope.unicast_sock, NULL);
 	}
 
 	return 0;
@@ -264,6 +284,8 @@ void pim_vrf_terminate(void)
 	}
 
 	vrf_terminate();
+	/* Delete the vxlan_info.work_list as all the VRFs are deleted*/
+	pim_vxlan_work_list_delete();
 }
 
 bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)

@@ -313,7 +313,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
             if gr_data.setdefault("delete", False):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
-        elif "helper enable" in gr_data and type(gr_data["helper enable"]) is list:
+        elif "helper enable" in gr_data and isinstance(gr_data["helper enable"], list):
             for rtrs in gr_data["helper enable"]:
                 cmd = "graceful-restart helper enable {}".format(rtrs)
                 if gr_data.setdefault("delete", False):
@@ -321,7 +321,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 config_data.append(cmd)
 
         if "helper" in gr_data:
-            if type(gr_data["helper"]) is not list:
+            if not isinstance(gr_data["helper"], list):
                 gr_data["helper"] = list(gr_data["helper"])
             for helper_role in gr_data["helper"]:
                 cmd = "graceful-restart helper {}".format(helper_role)
@@ -1098,7 +1098,7 @@ def verify_ospf_rib(
                             found_routes.append(st_rt)
 
                             if fib and next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 for mnh in range(0, len(ospf_rib_json[st_rt])):
@@ -1146,7 +1146,7 @@ def verify_ospf_rib(
                                         nh_found = True
 
                             elif next_hop and fib is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                 found_hops = [
                                     rib_r["ip"]
@@ -1771,23 +1771,30 @@ def verify_ospf6_rib(
                             st_found = True
                             found_routes.append(st_rt)
 
+                            # Get the route data - now it's an array, so get the first element
+                            route_data = ospf_rib_json[st_rt]
+                            if isinstance(route_data, list) and len(route_data) > 0:
+                                route_data = route_data[0]
+
                             if fib and next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
-                                for mnh in range(0, len(ospf_rib_json[st_rt])):
-                                    if (
-                                        "fib"
-                                        in ospf_rib_json[st_rt][mnh]["nextHops"][0]
-                                    ):
-                                        found_hops.append(
-                                            [
-                                                rib_r["ip"]
-                                                for rib_r in ospf_rib_json[st_rt][mnh][
-                                                    "nextHops"
+                                # Handle the case where ospf_rib_json[st_rt] is now an array
+                                if isinstance(ospf_rib_json[st_rt], list):
+                                    for mnh in range(0, len(ospf_rib_json[st_rt])):
+                                        if (
+                                            "fib"
+                                            in ospf_rib_json[st_rt][mnh]["nextHops"][0]
+                                        ):
+                                            found_hops.append(
+                                                [
+                                                    rib_r["ip"]
+                                                    for rib_r in ospf_rib_json[st_rt][
+                                                        mnh
+                                                    ]["nextHops"]
                                                 ]
-                                            ]
-                                        )
+                                            )
 
                                 if found_hops[0]:
                                     missing_list_of_nexthops = set(
@@ -1820,12 +1827,15 @@ def verify_ospf6_rib(
                                         nh_found = True
 
                             elif next_hop and fib is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
-                                found_hops = [
-                                    rib_r["nextHop"]
-                                    for rib_r in ospf_rib_json[st_rt]["nextHops"]
-                                ]
+
+                                # Handle the case where ospf_rib_json[st_rt] is now an array
+                                if isinstance(ospf_rib_json[st_rt], list):
+                                    found_hops = [
+                                        rib_r["nextHop"]
+                                        for rib_r in ospf_rib_json[st_rt][0]["nextHops"]
+                                    ]
 
                                 if found_hops:
                                     missing_list_of_nexthops = set(
@@ -1854,13 +1864,13 @@ def verify_ospf6_rib(
                                     else:
                                         nh_found = True
                             if _rtype:
-                                if "destinationType" not in ospf_rib_json[st_rt]:
+                                if "destinationType" not in route_data:
                                     errormsg = (
                                         "[DUT: {}]: destinationType missing"
                                         "for route {} in OSPF RIB \n".format(dut, st_rt)
                                     )
                                     return errormsg
-                                elif _rtype != ospf_rib_json[st_rt]["destinationType"]:
+                                elif _rtype != route_data["destinationType"]:
                                     errormsg = (
                                         "[DUT: {}]: destinationType mismatch"
                                         "for route {} in OSPF RIB \n".format(dut, st_rt)
@@ -1872,7 +1882,7 @@ def verify_ospf6_rib(
                                         "for route {}".format(dut, _rtype, st_rt)
                                     )
                             if tag:
-                                if "tag" not in ospf_rib_json[st_rt]:
+                                if "tag" not in route_data:
                                     errormsg = (
                                         "[DUT: {}]: tag is not"
                                         " present for"
@@ -1880,7 +1890,7 @@ def verify_ospf6_rib(
                                     )
                                     return errormsg
 
-                                if _tag != ospf_rib_json[st_rt]["tag"]:
+                                if _tag != route_data["tag"]:
                                     errormsg = (
                                         "[DUT: {}]: tag value {}"
                                         " is not matched for"
@@ -1893,7 +1903,7 @@ def verify_ospf6_rib(
                                     return errormsg
 
                             if metric is not None:
-                                if "metricCostE2" not in ospf_rib_json[st_rt]:
+                                if "metricCostE2" not in route_data:
                                     errormsg = (
                                         "[DUT: {}]: metric is"
                                         " not present for"
@@ -1901,7 +1911,7 @@ def verify_ospf6_rib(
                                     )
                                     return errormsg
 
-                                if metric != ospf_rib_json[st_rt]["metricCostE2"]:
+                                if metric != route_data["metricCostE2"]:
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
@@ -1940,7 +1950,7 @@ def verify_ospf6_rib(
     return result
 
 
-@retry(retry_timeout=6)
+@retry(retry_timeout=30)
 def verify_ospf6_interface(tgen, topo=None, dut=None, lan=False, input_dict=None):
     """
     This API is to verify ospf routes by running
@@ -2292,7 +2302,6 @@ def verify_ospf6_database(tgen, topo, dut, input_dict):
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg
@@ -2507,7 +2516,6 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
     if not bool(show_ospf_json):
         errormsg = "OSPF is not running"
         raise ValueError(errormsg)
-        return errormsg
 
     for ospf_gr, _ in input_dict.items():
         try:
@@ -2526,7 +2534,6 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
                     )
                 )
                 raise ValueError(errormsg)
-                return errormsg
 
         except KeyError:
             errormsg = "[DUT: FRR] OSPF GR Helper: {}".format(ospf_gr)
@@ -2802,7 +2809,6 @@ def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=N
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg
@@ -2997,7 +3003,6 @@ def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=N
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg

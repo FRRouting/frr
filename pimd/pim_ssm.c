@@ -115,21 +115,19 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 	return PIM_SSM_ERR_NONE;
 }
 
-void *pim_ssm_init(void)
+void pim_ssm_init(struct pim_instance *pim)
 {
 	struct pim_ssm *ssm;
 
 	ssm = XCALLOC(MTYPE_PIM_SSM_INFO, sizeof(*ssm));
-
-	return ssm;
+	pim->ssm_info = ssm;
 }
 
-void pim_ssm_terminate(struct pim_ssm *ssm)
+void pim_ssm_terminate(struct pim_instance *pim)
 {
-	if (!ssm)
-		return;
-
-	XFREE(MTYPE_PIM_FILTER_NAME, ssm->plist_name);
-
-	XFREE(MTYPE_PIM_SSM_INFO, ssm);
+	if (pim->ssm_info) {
+		if (pim->ssm_info->plist_name)
+			XFREE(MTYPE_PIM_FILTER_NAME, pim->ssm_info->plist_name);
+		XFREE(MTYPE_PIM_SSM_INFO, pim->ssm_info);
+	}
 }

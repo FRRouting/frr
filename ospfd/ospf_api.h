@@ -79,7 +79,7 @@ struct msg_fifo {
 
 /* Prototype for message fifo queues. */
 extern struct msg_fifo *msg_fifo_new(void);
-extern void msg_fifo_push(struct msg_fifo *, struct msg *msg);
+extern void msg_fifo_push(struct msg_fifo *fifo, struct msg *msg);
 extern struct msg *msg_fifo_pop(struct msg_fifo *fifo);
 extern struct msg *msg_fifo_head(struct msg_fifo *fifo);
 extern void msg_fifo_flush(struct msg_fifo *fifo);

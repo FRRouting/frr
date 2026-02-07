@@ -78,7 +78,7 @@ static void nhrp_sigusr1(void)
 	zlog_rotate();
 }
 
-static void nhrp_request_stop(void)
+static FRR_NORETURN void nhrp_request_stop(void)
 {
 	debugf(NHRP_DEBUG_COMMON, "Exiting...");
 	frr_early_fini();

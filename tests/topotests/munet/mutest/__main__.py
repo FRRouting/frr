@@ -24,7 +24,6 @@ from munet import mulog
 from munet import parser
 from munet.args import add_testing_args
 from munet.base import Bridge
-from munet.base import get_event_loop
 from munet.cli import async_cli
 from munet.compat import PytestConfig
 from munet.mutest import userapi as uapi
@@ -237,6 +236,10 @@ async def execute_test(
     try:
         passed, failed, e = tc.execute()
     except uapi.CLIOnErrorError as error:
+        if error.desc != "":
+            print(f"\n== CLI ON ERROR: {error.desc} ==")
+        else:
+            print("\n== CLI ON ERROR: *NO DESCRIPTION PROVIDED* ==")
         await async_cli(unet)
         passed, failed, e = 0, 0, error
 
@@ -469,8 +472,7 @@ def main():
     loop = None
     status = 4
     try:
-        loop = get_event_loop()
-        status = loop.run_until_complete(async_main(args))
+        status = asyncio.get_event_loop().run_until_complete(async_main(args))
     except KeyboardInterrupt:
         logging.info("Exiting (main), received KeyboardInterrupt in main")
     except Exception as error:

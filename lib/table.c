@@ -255,16 +255,22 @@ struct route_node *route_node_get(struct route_table *table,
 	const uint8_t *prefix = &p->u.prefix;
 
 	node = rn_hash_node_find(&table->hash, &search);
-	if (node && node->info)
+	if (node && node->info) {
+		if (p->family == AF_FLOWSPEC)
+			prefix_flowspec_ptr_free(p);
 		return route_lock_node(node);
+	}
 
 	match = NULL;
 	node = table->top;
 	while (node && node->p.prefixlen <= prefixlen
 	       && prefix_match(&node->p, p)) {
-		if (node->p.prefixlen == prefixlen)
-			return route_lock_node(node);
+		if (node->p.prefixlen == prefixlen) {
+			if (p->family == AF_FLOWSPEC)
+				prefix_flowspec_ptr_free(p);
 
+			return route_lock_node(node);
+		}
 		match = node;
 		node = node->link[prefix_bit(prefix, node->p.prefixlen)];
 	}
@@ -297,6 +303,9 @@ struct route_node *route_node_get(struct route_table *table,
 	}
 	table->count++;
 	route_lock_node(new);
+
+	if (p->family == AF_FLOWSPEC)
+		prefix_flowspec_ptr_free(p);
 
 	return new;
 }

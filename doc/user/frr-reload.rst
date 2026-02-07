@@ -25,6 +25,8 @@ There are several options that control the behavior of ``frr-reload``:
 * ``--stdout``: print output to stdout
 * ``--bindir BINDIR``: path to the vtysh executable
 * ``--confdir CONFDIR``: path to the existing daemon config files
+* ``--logfile FILENAME``: file (with path) to logfile for the reload operation.
+  Default is ``/var/log/frr/frr-reload.log``
 * ``--rundir RUNDIR``: path to a folder to be used to write the temporary files
   needed by the script to do its job. The script should have write access to it
 * ``--daemon DAEMON``: by default ``frr-reload.py`` assumes that we are using

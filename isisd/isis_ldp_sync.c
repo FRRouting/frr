@@ -40,9 +40,8 @@
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_zebra.h"
 #include "isisd/isis_ldp_sync.h"
-
-extern struct zclient *zclient;
 
 /*
  * LDP-SYNC msg between IGP and LDP
@@ -82,7 +81,6 @@ int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 {
 	struct isis_area *area;
-	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -99,11 +97,11 @@ int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_ldp_sync_if_start(circuit, true);
 	}
 
@@ -122,8 +120,8 @@ void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit)
 	request.proto = LDP_IGP_SYNC_IF_STATE_REQUEST;
 	request.ifindex = ifp->ifindex;
 
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
-		(uint8_t *)&request, sizeof(request));
+	zclient_send_opaque(isis_zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
+			    (uint8_t *)&request, sizeof(request));
 }
 
 /*
@@ -171,7 +169,7 @@ void isis_ldp_sync_if_complete(struct isis_circuit *circuit)
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -191,7 +189,7 @@ void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -331,7 +329,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static void isis_ldp_sync_holddown_timer(struct event *thread)
+static void isis_ldp_sync_holddown_timer(struct event *event)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
@@ -340,7 +338,7 @@ static void isis_ldp_sync_holddown_timer(struct event *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	if (circuit->ldp_sync_info == NULL)
 		return;
 
@@ -383,7 +381,6 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 {
 	struct isis_area *area;
-	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -401,11 +398,11 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 */
 	zlog_err("%s: LDP down", __func__);
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_ldp_sync_ldp_fail(circuit);
 	}
 }
@@ -417,12 +414,11 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 void isis_area_ldp_sync_enable(struct isis_area *area)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_if_ldp_sync_enable(circuit);
 	}
 }
@@ -430,10 +426,9 @@ void isis_area_ldp_sync_enable(struct isis_area *area)
 void isis_area_ldp_sync_disable(struct isis_area *area)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			isis_if_ldp_sync_disable(circuit);
 
 		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
@@ -446,7 +441,6 @@ void isis_area_ldp_sync_disable(struct isis_area *area)
 void isis_area_ldp_sync_set_holddown(struct isis_area *area, uint16_t holddown)
 {
 	struct isis_circuit *circuit;
-	struct listnode *node;
 
 	if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
@@ -455,7 +449,7 @@ void isis_area_ldp_sync_set_holddown(struct isis_area *area, uint16_t holddown)
 
 	area->ldp_sync_cmd.holddown = holddown;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+	frr_each (isis_circuit_list, &area->circuit_list, circuit)
 		isis_if_set_ldp_sync_holddown(circuit);
 }
 
@@ -516,7 +510,7 @@ void isis_if_ldp_sync_disable(struct isis_circuit *circuit)
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return;
 
-	EVENT_OFF(ldp_sync_info->t_holddown);
+	event_cancel(&ldp_sync_info->t_holddown);
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	isis_ldp_sync_set_if_metric(circuit, true);
 }
@@ -612,7 +606,6 @@ DEFUN (show_isis_mpls_ldp_interface,
 {
 	char *ifname = NULL;
 	int idx_intf = 0;
-	struct listnode *anode, *cnode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -626,8 +619,8 @@ DEFUN (show_isis_mpls_ldp_interface,
 	if (argv_find(argv, argc, "INTERFACE", &idx_intf))
 		ifname = argv[idx_intf]->arg;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+	frr_each (isis_area_list, &isis->area_list, area) {
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
 			if (!ifname)
 				isis_circuit_ldp_sync_print_vty(circuit, vty);
 			else if (strcmp(circuit->interface->name, ifname)

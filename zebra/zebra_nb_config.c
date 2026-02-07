@@ -14,6 +14,7 @@
 #include "libfrr.h"
 #include "lib/command.h"
 #include "lib/routemap.h"
+#include "zebra/rtadv.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/rib.h"
 #include "zebra_nb.h"
@@ -29,19 +30,28 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
+#include "zebra/ipforward.h"
 
 /*
  * XPath: /frr-zebra:zebra/ip-forwarding
  */
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	bool forwarding;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	forwarding = yang_dnode_get_bool(args->dnode, NULL);
+
+	ret = ipforward();
+	if (ret == 0) {
+		if (forwarding)
+			ipforward_on();
+	} else {
+		if (!forwarding)
+			ipforward_off();
 	}
 
 	return NB_OK;
@@ -66,13 +76,21 @@ int zebra_ip_forwarding_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_ipv6_forwarding_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	bool forwarding;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	forwarding = yang_dnode_get_bool(args->dnode, NULL);
+	ret = ipforward_ipv6();
+
+	if (ret == 0) {
+		if (forwarding)
+			ipforward_ipv6_on();
+	} else {
+		if (!forwarding)
+			ipforward_ipv6_off();
 	}
 
 	return NB_OK;
@@ -856,6 +874,7 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 	struct interface *ifp;
 	struct prefix p;
 	const char *label = NULL;
+	bool martian_ok;
 
 	p.family = AF_INET;
 	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
@@ -866,9 +885,10 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (ipv4_martian(&p.u.prefix4)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "invalid address %pFX", &p);
+		martian_ok = yang_dnode_get_bool(args->dnode,
+						 "/frr-host:host/allow-reserved-ranges");
+		if (!martian_ok && ipv4_martian(&p.u.prefix4)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "invalid address %pFX", &p);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1439,11 +1459,16 @@ int lib_interface_zebra_link_params_max_bandwidth_modify(
 int lib_interface_zebra_link_params_max_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1474,11 +1499,16 @@ int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
 int lib_interface_zebra_link_params_max_reservable_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing max-reservable-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, iflp->default_bw);
 
 	return NB_OK;
 }
@@ -1512,11 +1542,20 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_c
 int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	if (args->event == NB_EV_VALIDATE) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Removing unreserved-bandwidth is not allowed");
-		return NB_ERR_VALIDATION;
-	}
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint8_t priority;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	priority = yang_dnode_get_uint8(args->dnode, "priority");
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	iflp = if_link_params_get(ifp);
+	if (iflp)
+		link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
+					 iflp->default_bw);
 
 	return NB_OK;
 }
@@ -2525,7 +2564,6 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-#if defined(HAVE_RTADV)
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements
  */
@@ -2564,12 +2602,21 @@ int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 {
 	struct interface *ifp;
 	uint32_t interval;
+	struct zebra_if *zif;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
+	zif = ifp->info;
+
+	if (zif->rtadv.AdvDefaultLifetime > 0 &&
+	    interval > (unsigned int)zif->rtadv.AdvDefaultLifetime * 1000) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "This ra-interval would conflict with configured ra-lifetime");
+		return NB_ERR;
+	}
 
 	ipv6_nd_interval_set(ifp, interval);
 
@@ -3248,7 +3295,85 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_d
 
 	return NB_OK;
 }
-#endif /* defined(HAVE_RTADV) */
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix
+ */
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+	struct prefix_ipv6 p;
+	uint32_t lifetime = PREF64_LIFETIME_AUTO;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv6p(&p, args->dnode, "prefix");
+
+	if (yang_dnode_exists(args->dnode, "lifetime"))
+		lifetime = yang_dnode_get_uint16(args->dnode, "lifetime");
+
+	entry = rtadv_pref64_set(ifp->info, &p, lifetime);
+	nb_running_set_entry(args->dnode, entry);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_unset_entry(args->dnode);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_pref64_reset(ifp->info, entry);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address/lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+
+	rtadv_pref64_update(ifp->info, entry, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+
+	rtadv_pref64_update(ifp->info, entry, PREF64_LIFETIME_AUTO);
+	return NB_OK;
+}
 
 #if HAVE_BFDD == 0
 /*
@@ -3358,10 +3483,7 @@ int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
 	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
 	int rtype;
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	if (args->event == NB_EV_VALIDATE)
 		if (rtype < 0) {
@@ -3387,10 +3509,7 @@ int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* deleting an existing entry, it can't be invalid */
 	assert(rtype >= 0);
@@ -3418,10 +3537,7 @@ void lib_vrf_zebra_filter_protocol_apply_finish(
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* finishing apply for a validated entry, it can't be invalid */
 	assert(rtype >= 0);

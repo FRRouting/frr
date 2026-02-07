@@ -1,0 +1,24 @@
+{
+    "vrfName": "vrf-101",
+    "routerId": "10.0.101.2",
+    "localAS": 65000,
+    "routes": {
+        "fd01::1/128": [
+            {
+                "importedFrom": "65000:1",
+                "vni": "101",
+                "valid": true,
+                "extendedCommunity": null,
+                "nexthops": [
+                    {
+                        "ip": "::ffff:192.168.1.1",
+                        "hostname": "rr",
+                        "afi": "ipv6",
+                        "scope": "global",
+                        "used": true
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,11 +1,26 @@
 ARG UBUNTU_VERSION=22.04
 FROM ubuntu:$UBUNTU_VERSION
 
+# If passed, update the value
+ARG UBUNTU_VERSION
 ARG DEBIAN_FRONTEND=noninteractive
-ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn
+
+# Number of retries for transient network failures
+ARG APT_RETRIES=3
+
+# LTTng tracing support (optional)
+ARG ENABLE_LTTNG=false
+
+# Configure apt to retry on transient network failures
+RUN echo "Acquire::Retries \"${APT_RETRIES}\";" > /etc/apt/apt.conf.d/80-retries && \
+    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries && \
+    echo 'Acquire::https::Timeout "30";' >> /etc/apt/apt.conf.d/80-retries
 
 # Update and install build requirements.
-RUN apt update && apt upgrade -y && \
+# Retry loop for apt-get update/upgrade/install in case of transient mirror failures
+RUN for i in $(seq 1 ${APT_RETRIES}); do \
+        apt-get update && \
+        apt-get upgrade -y && \
     # Basic build requirements from documentation
     apt-get install -y \
             autoconf \
@@ -34,6 +49,7 @@ RUN apt update && apt upgrade -y && \
             screen \
             texinfo \
             tmux \
+            iptables \
     && \
     # Protobuf build requirements
     apt-get install -y \
@@ -67,24 +83,45 @@ RUN apt update && apt upgrade -y && \
         snmp \
         snmp-mibs-downloader \
         snmpd \
+        ssmping \
         sudo \
         time \
         tshark \
         valgrind \
         yodl \
-      && \
+        && break || sleep 10; \
+    done && \
     download-mibs && \
-    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
-    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
-    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
+    wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
+    wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
+    wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
+    rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED && \
     python3 -m pip install wheel && \
-    python3 -m pip install 'protobuf<4' grpcio grpcio-tools && \
-    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
+    bash -c "PV=($(pkg-config --modversion protobuf | tr '.' ' ')); if (( PV[0] == 3 && PV[1] < 19 )); then python3 -m pip install 'protobuf<4' grpcio grpcio-tools; else python3 -m pip install 'protobuf>=4' grpcio grpcio-tools; fi" && \
+    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=3.6.1' 'pytest-asyncio>=0.25.3' && \
     python3 -m pip install 'scapy>=2.4.5' && \
+    python3 -m pip install pyyaml && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
-ARG UID=1000
+# LTTng tracing dependencies (conditional)
+RUN if [ "$ENABLE_LTTNG" = "true" ]; then \
+        apt-get install -y liblttng-ust-dev; \
+    fi
+
+    RUN if [ "$UBUNTU_VERSION" = "24.04" ]; then \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib -O /usr/share/snmp/mibs/iana/IANA-SMF-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib -O /usr/share/snmp/mibs/iana/IANA-ENTITY-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianapowerstateset-mib/ianapowerstateset-mib -O /usr/share/snmp/mibs/iana/IANAPowerStateSet-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaolsrv2linkmetrictype-mib/ianaolsrv2linkmetrictype-mib -O /usr/share/snmp/mibs/iana/IANA-OLSRv2-LINK-METRIC-TYPE-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaenergyrelation-mib/ianaenergyrelation-mib -O /usr/share/snmp/mibs/iana/IANA-ENERGY-RELATION-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianabfdtcstd-mib/ianabfdtcstd-mib -O /usr/share/snmp/mibs/iana/IANA-BFD-TC-STD-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib -O /usr/share/snmp/mibs/IEEE8021-CFM-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib -O /usr/share/snmp/mibs/LLDP-MIB ; \
+        fi
+
+ARG UID=1010
 RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
       adduser --system --ingroup frr --home /home/frr \
@@ -95,18 +132,39 @@ RUN groupadd -r -g 92 frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
 # Install FRR built packages
+# Retry loop for curl in case of transient network failures
 RUN mkdir -p /etc/apt/keyrings && \
-    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    for i in $(seq 1 ${APT_RETRIES}); do \
+        curl -sf -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && break || sleep 10; \
+    done && \
     echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
         $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
-    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
+    for i in $(seq 1 ${APT_RETRIES}); do apt-get update && break || sleep 10; done && \
+    apt-get install -y librtr-dev
+
+# build and install libyang3
+RUN cd && pwd && ls -al && \
+    git clone https://github.com/CESNET/libyang.git && \
+    cd libyang && \
+    git checkout v3.13.6 && \
+    mkdir build; cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DCMAKE_BUILD_TYPE:String="Debug" .. && \
+    make -j $(nproc) && \
+    sudo make install
+RUN python3 -m pip install 'libyang<4'
 
 USER frr:frr
+
+# Re-declare ARG after USER to make it available
+ARG ENABLE_LTTNG=false
 
 COPY --chown=frr:frr . /home/frr/frr/
 
 RUN cd ~/frr && \
     ./bootstrap.sh && \
+    LTTNG_OPT="" && \
+    if [ "$ENABLE_LTTNG" = "true" ]; then LTTNG_OPT="--enable-lttng"; fi && \
     ./configure \
        --prefix=/usr \
        --sysconfdir=/etc \
@@ -117,14 +175,16 @@ RUN cd ~/frr && \
        --enable-mgmtd-test-be-client \
        --enable-rpki \
        --enable-sharpd \
-       --enable-multipath=64 \
+       --enable-multipath=256 \
        --enable-user=frr \
        --enable-group=frr \
        --enable-config-rollbacks \
        --enable-grpc \
+       --enable-protobuf \
        --enable-vty-group=frrvty \
-       --enable-snmp=agentx \
+       --enable-snmp \
        --enable-scripting \
+       $LTTNG_OPT \
        --with-pkg-extra-version=-my-manual-build && \
     make -j $(nproc) && \
     sudo make install

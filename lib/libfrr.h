@@ -51,6 +51,11 @@ extern "C" {
  * normally only be done from mgmtd.
  */
 #define FRR_LOAD_YANG_LIBRARY (1 << 8)
+/* Set FRR_MGMTD_BACKEND to indicate that this daemon is a backend
+ * for mgmtd. This will affect various initializations for CLI handling
+ * etc.
+ */
+#define FRR_MGMTD_BACKEND (1 << 9)
 
 PREDECL_DLIST(log_args);
 struct log_arg {
@@ -188,7 +193,7 @@ extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
 extern int frr_getopt(int argc, char *const argv[], int *longindex);
 
-extern __attribute__((__noreturn__)) void frr_help_exit(int status);
+extern FRR_NORETURN void frr_help_exit(int status);
 
 extern struct event_loop *frr_init(void);
 extern const char *frr_get_progname(void);
@@ -279,6 +284,11 @@ extern bool debug_memstats_at_exit;
 #define SUB_FRRVERSION(v)  ((v) & 0xff)
 
 const char *frr_vers2str(uint32_t version, char *buf, int buflen);
+
+void frr_exit_with_buffer_flush(int status);
+
+/* Config for free-memory release: rate in MB/sec */
+void frr_mem_release_config(uint32_t rate);
 
 #ifdef __cplusplus
 }

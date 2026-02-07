@@ -194,7 +194,7 @@ static void pim_msdp_write_proceed_actions(struct pim_msdp_peer *mp)
 	}
 }
 
-void pim_msdp_write(struct event *thread)
+void pim_msdp_write(struct event *event)
 {
 	struct pim_msdp_peer *mp;
 	struct stream *s;
@@ -204,7 +204,7 @@ void pim_msdp_write(struct event *thread)
 	int work_cnt = 0;
 	int work_max_cnt = 100;
 
-	mp = EVENT_ARG(thread);
+	mp = EVENT_ARG(event);
 	mp->t_write = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -436,6 +436,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 			if (pim_msdp_log_sa_events(pim))
 				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
 
+			mp->acl_out_count++;
 			continue;
 		}
 
@@ -498,6 +499,7 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 			if (pim_msdp_log_sa_events(sa->pim))
 				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
 
+			mp->acl_out_count++;
 			continue;
 		}
 
@@ -531,6 +533,7 @@ void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 			zlog_info("MSDP peer %pI4 filter SA out (%pI4, %pI4)", &mp->peer,
 				  &sa.sg.src, &sa.sg.grp);
 
+		mp->acl_out_count++;
 		return;
 	}
 
@@ -590,6 +593,8 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 			if (pim_msdp_log_sa_events(mp->pim))
 				zlog_info("MSDP peer %pI4 filter SA in (%pI4, %pI4)", &mp->peer,
 					  &sg.src, &sg.grp);
+
+			mp->acl_in_count++;
 			return;
 		}
 	}
@@ -618,6 +623,21 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 	int entry_cnt;
 	int i;
 	struct in_addr rp; /* Last RP address associated with this SA */
+	struct pim_msdp_mg *mg;
+	struct pim_instance *pim = mp->pim;
+	bool is_mesh_group = false;
+
+	if (mp->flags & PIM_MSDP_PEERF_IN_GROUP) {
+		/* Check if source is also in the same mesh group */
+		SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry) {
+			if (strcmp(mg->mesh_group_name, mp->mesh_group_name) == 0) {
+				if (mg->src_ip.s_addr == mp->local.s_addr) {
+					is_mesh_group = true;
+					break;
+				}
+			}
+		}
+	}
 
 	mp->sa_rx_cnt++;
 
@@ -645,7 +665,7 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 
 	pim_msdp_peer_pkt_rxed(mp);
 
-	if (!pim_msdp_peer_rpf_check(mp, rp)) {
+	if (!is_mesh_group && !pim_msdp_peer_rpf_check(mp, rp)) {
 		/* if peer-RPF check fails don't process the packet any further
 		 */
 		if (PIM_DEBUG_MSDP_PACKETS) {
@@ -758,13 +778,13 @@ static int pim_msdp_read_packet(struct pim_msdp_peer *mp)
 	return 0;
 }
 
-void pim_msdp_read(struct event *thread)
+void pim_msdp_read(struct event *event)
 {
 	struct pim_msdp_peer *mp;
 	int rc;
 	uint32_t len;
 
-	mp = EVENT_ARG(thread);
+	mp = EVENT_ARG(event);
 	mp->t_read = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {

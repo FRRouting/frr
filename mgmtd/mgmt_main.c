@@ -7,18 +7,20 @@
  */
 
 #include <zebra.h>
-#include "lib/version.h"
-#include "routemap.h"
+#include "affinitymap.h"
 #include "filter.h"
-#include "keychain.h"
-#include "libfrr.h"
 #include "frr_pthread.h"
+#include "keychain.h"
+#include "lib/version.h"
+#include "libfrr.h"
+#include "log_vty.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
+#include "routemap.h"
 #include "routing_nb.h"
-#include "affinitymap.h"
+#include "srv6.h"
 #include "zebra/zebra_cli.h"
 
 /* mgmt options, we use GNU getopt library. */
@@ -54,34 +56,10 @@ static struct frr_daemon_info mgmtd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received, ignoring");
-
-	return;
-
-	/*
-	 * This is turned off for the moment.  There is all
-	 * sorts of config turned off by mgmt_terminate
-	 * that is not setup properly again in mgmt_reset.
-	 * I see no easy way to do this nor do I see that
-	 * this is a desirable way to reload config
-	 * given the yang work.
-	 */
-	/* Terminate all thread. */
-	mgmt_terminate();
-
-	/*
-	 * mgmt_reset();
-	 */
-	zlog_info("MGMTD restarting!");
-
-	/*
-	 * Reload config file.
-	 * vty_read_config(NULL, mgmtd_di.config_file, config_default);
-	 */
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
-static __attribute__((__noreturn__)) void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	assert(mm->terminating == false);
@@ -107,10 +85,15 @@ static void sigusr1(void)
  * Zebra route removal and protocol teardown are not meant to be done here.
  * For example, "retain_mode" may be set.
  */
-static __attribute__((__noreturn__)) void mgmt_exit(int status)
+static FRR_NORETURN void mgmt_exit(int status)
 {
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
+
+	/* frr_fini() calls this but we need our vtys close before we terminate the client */
+	vty_terminate();
+
+	vty_mgmt_terminate();
 
 	frr_early_fini();
 
@@ -170,8 +153,11 @@ const struct frr_yang_module_info zebra_route_map_info = {
  * MGMTd.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_cli_info,
+	&frr_host_cli_info,
 	&frr_interface_cli_info,
+	&frr_logging_nb_info,
 	&frr_route_map_cli_info,
 	&frr_routing_cli_info,
 	&frr_vrf_cli_info,
@@ -188,6 +174,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&zebra_route_map_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
+	&ietf_srv6_types_info,
 
 #ifdef HAVE_RIPD
 	&frr_ripd_cli_info,
@@ -230,11 +217,12 @@ int main(int argc, char **argv)
 	int opt;
 	int buffer_size = MGMTD_SOCKET_BUF_SIZE;
 
+	frr_logging_merge_cli_to_nb_info();
+
 	frr_preinit(&mgmtd_di, argc, argv);
-	frr_opt_add(
-		"s:n" DEPRECATED_OPTIONS, longopts,
-		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
-		"  -n, --vrfwnetns    Use NetNS as VRF backend\n");
+	frr_opt_add("s:n" DEPRECATED_OPTIONS, longopts,
+		    "  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
+		    "  -n, --vrfwnetns    Use NetNS as VRF backend (deprecated, use -w)\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -257,6 +245,8 @@ int main(int argc, char **argv)
 			buffer_size = atoi(optarg);
 			break;
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		default:

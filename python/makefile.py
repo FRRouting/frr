@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: ISC
 #
 # FRR extended automake/Makefile functionality helper
 #

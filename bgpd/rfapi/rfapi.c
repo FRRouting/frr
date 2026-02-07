@@ -462,7 +462,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 			list_delete(&bpi->extra->vnc->vnc.export.local_nexthops);
 
 		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
-		bgp_path_info_delete(bn, bpi);
+		bgp_path_info_mark_for_delete(bn, bpi);
 		bgp_process(bgp, bn, bpi, afi, safi);
 	} else {
 		vnc_zlog_debug_verbose(
@@ -946,8 +946,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			}
 		}
 
-		if (attrhash_cmp(bpi->attr, new_attr)
-		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && attrhash_cmp(bpi->attr, new_attr)) {
 			bgp_attr_unintern(&new_attr);
 			bgp_dest_unlock_node(bn);
 
@@ -1009,7 +1008,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
-	new = info_make(type, sub_type, 0, rfd->peer, new_attr, NULL);
+	new = info_make(type, sub_type, 0, rfd->peer, new_attr, bn);
 	SET_FLAG(new->flags, BGP_PATH_VALID);
 
 	/* save backref to rfapi handle */
@@ -1029,8 +1028,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		rfapiPrintBi(NULL, new);
 	}
 
-	bgp_aggregate_increment(bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
+	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
 	if (safi == SAFI_MPLS_VPN) {
 		struct bgp_dest *pdest = NULL;
@@ -1120,7 +1119,7 @@ static void rfapiTunnelRouteAnnounce(struct bgp *bgp,
  *
  * return value:
  *	0		Success
- *	ENXIO		Unabled to locate configured BGP/VNC
+ *	ENXIO		Unable to locate configured BGP/VNC
 --------------------------------------------*/
 int rfapi_rfp_set_configuration(void *rfp_start_val, struct rfapi_rfp_cfg *new)
 {
@@ -1229,7 +1228,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	/*
 	 * Fill in BGP peer structure
 	 */
-	rfd->peer = peer_new(bgp);
+	rfd->peer = peer_new(bgp, NULL, UNKNOWN);
 	rfd->peer->connection->status = Established; /* keep bgp core happy */
 
 	bgp_peer_connection_buffers_free(rfd->peer->connection);
@@ -1468,7 +1467,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 	if (bgp->rfapi->flags & RFAPI_INCALLBACK) {
 		vnc_zlog_debug_verbose(
-			"%s: Called during calback, returning EDEADLK",
+			"%s: Called during callback, returning EDEADLK",
 			__func__);
 		return EDEADLK;
 	}
@@ -3546,6 +3545,8 @@ DEFUN (skiplist_debug_cli,
 
 void rfapi_init(void)
 {
+	rfapi_rib_init();
+	rfapi_import_init();
 	bgp_rfapi_cfg_init();
 	vnc_debug_init();
 
@@ -3574,6 +3575,12 @@ void rfapi_init(void)
 #endif
 
 	rfapi_vty_init();
+}
+
+void rfapi_terminate(void)
+{
+	rfapi_import_terminate();
+	rfapi_rib_terminate();
 }
 
 #ifdef DEBUG_RFAPI

@@ -16,7 +16,6 @@ import os
 import sys
 import json
 from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -26,6 +25,12 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.evpn import (
+    evpn_check_vni_macs_present,
+    evpn_mac_learn_test,
+    evpn_mac_test_local_remote,
+    evpn_show_vni_json_elide_ifindex,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -102,6 +107,45 @@ def setup_module(mod):
     pe2.run("ip link set dev PE2-eth1 master br101")
     p1.run("sysctl -w net.ipv4.ip_forward=1")
 
+    # Setup L3 VNI 999 with VLAN interface for testing fix 3ad2a782e6
+    # PE1
+    pe1.run("ip link add vrf-blue type vrf table 1000")
+    pe1.run("ip link set vrf-blue up")
+    pe1.run("ip link add name br999 type bridge stp_state 0 vlan_filtering 1")
+    pe1.run("ip link set dev br999 up")
+    pe1.run(
+        "ip link add vxlan999 type vxlan id 999 dstport 4789 local 10.10.10.10 nolearning"
+    )
+    pe1.run("ip link set dev vxlan999 master br999")
+    pe1.run("ip link set up dev vxlan999")
+    # Set VLAN 999 as access VLAN on the bridge
+    pe1.run("bridge vlan add vid 999 dev br999 self")
+    pe1.run("bridge vlan del vid 1 dev vxlan999")
+    pe1.run("bridge vlan add vid 999 dev vxlan999 pvid untagged")
+    pe1.run("ip link add link br999 name vlan999 type vlan id 999")
+    pe1.run("ip link set dev vlan999 master vrf-blue")
+    pe1.run("ip addr add 10.99.99.1/24 dev vlan999")
+    pe1.run("ip link set dev vlan999 up")
+
+    # PE2
+    pe2.run("ip link add vrf-blue type vrf table 1000")
+    pe2.run("ip link set vrf-blue up")
+    pe2.run("ip link add name br999 type bridge stp_state 0 vlan_filtering 1")
+    pe2.run("ip link set dev br999 up")
+    pe2.run(
+        "ip link add vxlan999 type vxlan id 999 dstport 4789 local 10.30.30.30 nolearning"
+    )
+    pe2.run("ip link set dev vxlan999 master br999")
+    pe2.run("ip link set up dev vxlan999")
+    # Set VLAN 999 as access VLAN on the bridge
+    pe2.run("bridge vlan add vid 999 dev br999 self")
+    pe2.run("bridge vlan del vid 1 dev vxlan999")
+    pe2.run("bridge vlan add vid 999 dev vxlan999 pvid untagged")
+    pe2.run("ip link add link br999 name vlan999 type vlan id 999")
+    pe2.run("ip link set dev vlan999 master vrf-blue")
+    pe2.run("ip addr add 10.99.99.3/24 dev vlan999")
+    pe2.run("ip link set dev vlan999 up")
+
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
@@ -129,25 +173,6 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def show_vni_json_elide_ifindex(pe, vni, expected):
-    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
-    if "ifindex" in output_json:
-        output_json.pop("ifindex")
-
-    return topotest.json_cmp(output_json, expected)
-
-
-def check_vni_macs_present(tgen, router, vni, maclist):
-    result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
-    for rname, ifname in maclist:
-        m = tgen.net.macs[(rname, ifname)]
-        if m not in result["macs"]:
-            return "MAC ({}) for interface {} on {} missing on {} from {}".format(
-                m, ifname, rname, router.name, json.dumps(result, indent=4)
-            )
-    return None
-
-
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -160,7 +185,7 @@ def test_pe1_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe1.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
+    test_func = partial(evpn_show_vni_json_elide_ifindex, pe1, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
@@ -174,7 +199,7 @@ def test_pe1_converge_evpn():
     host2.run("ping -c 1 10.10.1.55")
 
     test_func = partial(
-        check_vni_macs_present,
+        evpn_check_vni_macs_present,
         tgen,
         pe1,
         101,
@@ -199,13 +224,13 @@ def test_pe2_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe2.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
+    test_func = partial(evpn_show_vni_json_elide_ifindex, pe2, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
 
     test_func = partial(
-        check_vni_macs_present,
+        evpn_check_vni_macs_present,
         tgen,
         pe2,
         101,
@@ -215,47 +240,6 @@ def test_pe2_converge_evpn():
     if result:
         logger.warning("%s", result)
         assert None, '"{}" missing expected MACs'.format(pe2.name)
-
-
-def mac_learn_test(host, local):
-    "check the host MAC gets learned by the VNI"
-
-    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
-    int_lines = host_output.splitlines()
-    for line in int_lines:
-        line_items = line.split(": ")
-        if "HWaddr" in line_items[0]:
-            mac = line_items[1]
-            break
-
-    mac_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    mac_output_json = json.loads(mac_output)
-    assertmsg = "Local MAC output does not match interface mac {}".format(mac)
-    assert mac_output_json[mac]["type"] == "local", assertmsg
-
-
-def mac_test_local_remote(local, remote):
-    "test MAC transfer between local and remote"
-
-    local_output = local.vtysh_cmd("show evpn mac vni all json")
-    remote_output = remote.vtysh_cmd("show evpn mac vni all json")
-    local_output_vni = local.vtysh_cmd("show evpn vni detail json")
-    local_output_json = json.loads(local_output)
-    remote_output_json = json.loads(remote_output)
-    local_output_vni_json = json.loads(local_output_vni)
-
-    for vni in local_output_json:
-        mac_list = local_output_json[vni]["macs"]
-        for mac in mac_list:
-            if mac_list[mac]["type"] == "local" and mac_list[mac]["intf"] != "br101":
-                assertmsg = "JSON output mismatches local: {} remote: {}".format(
-                    local_output_vni_json[0]["vtepIp"],
-                    remote_output_json[vni]["macs"][mac]["remoteVtep"],
-                )
-                assert (
-                    remote_output_json[vni]["macs"][mac]["remoteVtep"]
-                    == local_output_vni_json[0]["vtepIp"]
-                ), assertmsg
 
 
 def test_learning_pe1():
@@ -268,7 +252,7 @@ def test_learning_pe1():
 
     host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
-    mac_learn_test(host1, pe1)
+    evpn_mac_learn_test(host1, pe1)
 
 
 def test_learning_pe2():
@@ -281,7 +265,7 @@ def test_learning_pe2():
 
     host2 = tgen.gears["host2"]
     pe2 = tgen.gears["PE2"]
-    mac_learn_test(host2, pe2)
+    evpn_mac_learn_test(host2, pe2)
 
 
 def test_local_remote_mac_pe1():
@@ -294,7 +278,7 @@ def test_local_remote_mac_pe1():
 
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    mac_test_local_remote(pe1, pe2)
+    evpn_mac_test_local_remote(pe1, pe2)
 
 
 def test_local_remote_mac_pe2():
@@ -307,7 +291,7 @@ def test_local_remote_mac_pe2():
 
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    mac_test_local_remote(pe2, pe1)
+    evpn_mac_test_local_remote(pe2, pe1)
 
     # Memory leak test template
 
@@ -324,28 +308,27 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     print(host_output)
 
     # check we have a local association between the MAC and IP
-    local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    print(local_output)
-    local_output_json = json.loads(local_output)
-    mac_type = local_output_json[mac]["type"]
+    def check_local_ip_learned():
+        local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
+        print(local_output)
+        local_output_json = json.loads(local_output)
+        mac_type = local_output_json[mac]["type"]
+
+        if local_output_json[mac]["neighbors"] == "none":
+            return False
+
+        learned_ip = local_output_json[mac]["neighbors"]["active"][0]
+
+        if mac_type == "local" and learned_ip == ip_addr:
+            return True
+        return False
+
+    _, result = topotest.run_and_expect(check_local_ip_learned, True, count=30, wait=1)
     assertmsg = "Failed to learn local IP address on host {}".format(host.name)
-    assert local_output_json[mac]["neighbors"] != "none", assertmsg
-    learned_ip = local_output_json[mac]["neighbors"]["active"][0]
-
-    assertmsg = "local learned mac wrong type: {} ".format(mac_type)
-    assert mac_type == "local", assertmsg
-
-    assertmsg = (
-        "learned address mismatch with configured address host: {} learned: {}".format(
-            ip_addr, learned_ip
-        )
-    )
-    assert ip_addr == learned_ip, assertmsg
+    assert result, assertmsg
 
     # now lets check the remote
-    count = 0
-    converged = False
-    while count < 30:
+    def check_remote_ip_learned():
         remote_output = remote.vtysh_cmd(
             "show evpn mac vni 101 mac {} json".format(mac)
         )
@@ -358,19 +341,21 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
                 remote_output_json[mac]["neighbors"]["active"]
                 or remote_output_json[mac]["neighbors"]["inactive"]
             ):
-                converged = True
-                break
-        count += 1
-        sleep(1)
+                # Store the data for later use
+                check_remote_ip_learned.remote_output_json = remote_output_json
+                check_remote_ip_learned.type = type
+                return True
+        return False
 
-    print("tries: {}".format(count))
+    _, result = topotest.run_and_expect(check_remote_ip_learned, True, count=30, wait=1)
     assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
-    # some debug for this failure
-    if not converged == True:
-        log_output = remote.run("cat zebra.log")
-        print(log_output)
 
-    assert converged == True, assertmsg
+    assert result, assertmsg
+
+    # Get the data from the successful check
+    remote_output_json = check_remote_ip_learned.remote_output_json
+    type = check_remote_ip_learned.type
+
     if remote_output_json[mac]["neighbors"]["active"]:
         learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
     else:
@@ -420,6 +405,166 @@ def test_ip_pe2_learn():
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
+
+
+def test_bgp_evpn_route_vni():
+    "Test show bgp l2vpn evpn route vni command"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    host1 = tgen.gears["host1"]
+
+    mac = host1.run(
+        "ip link show host1-eth0 | grep link/ether | awk '{print $2}'"
+    ).strip()
+    ip = "10.10.1.55"
+
+    output = pe1.vtysh_cmd("show bgp l2vpn evpn route vni 101")
+
+    logger.info(
+        "Testing 'show bgp l2vpn evpn route vni 101 mac {} ip {} json' on PE1".format(
+            mac, ip
+        )
+    )
+    mac_output = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn route vni 101 mac {} ip {} json".format(mac, ip),
+        isjson=True,
+    )
+
+    prefix = mac_output.get("prefix")
+    assert prefix in output, "PE1: Prefix {} not found in full VNI output".format(
+        prefix
+    )
+
+    # Check that RD is displayed for each route
+    output = pe1.vtysh_cmd("show bgp l2vpn evpn route")
+    lines = output.split("\n")
+    route_count = 0
+    routes_with_rd = 0
+
+    for line in lines:
+        # Route lines start with status codes (* > etc) and contain EVPN prefix [type]:...
+        if line.strip().startswith("*") and "[" in line and "]:" in line:
+            route_count += 1
+            if " RD " in line:
+                routes_with_rd += 1
+            else:
+                logger.warning("PE1: Route without RD: {}".format(line.strip()))
+
+    logger.info(
+        "PE1: Found {} routes, {} with RD displayed".format(route_count, routes_with_rd)
+    )
+    assert (
+        routes_with_rd == route_count
+    ), "PE1: Not all routes have RD displayed ({}/{})".format(
+        routes_with_rd, route_count
+    )
+
+    logger.info("PE1: Test passed")
+
+
+def test_evpn_l2vni_vlan_bridge_json():
+    """
+    Test L2 VNI JSON output includes vlan and bridge fields
+
+    This verifies the fix where L2 VNI JSON output was missing
+    "vlan" and "bridge" fields.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    # Check PE1 L2 VNI 101
+    output = pe1.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    if output:
+        assertmsg = "L2 VNI 101 (PE1): 'vlan' field should be present in JSON"
+        assert "vlan" in output, assertmsg
+
+        assertmsg = "L2 VNI 101 (PE1): 'bridge' field should be present in JSON"
+        assert "bridge" in output, assertmsg
+
+    # Check PE2 L2 VNI 101
+    output = pe2.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    if output:
+        assertmsg = "L2 VNI 101 (PE2): 'vlan' field should be present in JSON"
+        assert "vlan" in output, assertmsg
+
+        assertmsg = "L2 VNI 101 (PE2): 'bridge' field should be present in JSON"
+        assert "bridge" in output, assertmsg
+
+
+def test_evpn_vni_summary_output():
+    """
+    Test EVPN VNI summary output includes VLAN and BRIDGE columns
+
+    This verifies that 'show evpn vni' summary output displays
+    VLAN and BRIDGE information in both text and JSON formats.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    # Test text output has VLAN and BRIDGE columns
+    output = pe1.vtysh_cmd("show evpn vni", isjson=False)
+    if output and "VNI" in output:
+        assertmsg = "'show evpn vni' should have VLAN column in header"
+        assert "VLAN" in output, assertmsg
+
+        assertmsg = "'show evpn vni' should have BRIDGE column in header"
+        assert "BRIDGE" in output, assertmsg
+
+    # Test JSON output has vlan and bridge fields
+    output = pe1.vtysh_cmd("show evpn vni json", isjson=True)
+    if output:
+        for vni_key, vni_data in output.items():
+            if isinstance(vni_data, dict) and "type" in vni_data:
+                assertmsg = "VNI {} JSON should have 'vlan' field".format(vni_key)
+                assert "vlan" in vni_data, assertmsg
+
+                assertmsg = "VNI {} JSON should have 'bridge' field".format(vni_key)
+                assert "bridge" in vni_data, assertmsg
+                break
+
+
+def test_evpn_l3vni_vlan_bridge():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    # Check PE1 L3 VNI 999 - TEXT output
+    output = pe1.vtysh_cmd("show evpn vni 999", isjson=False)
+    if output:
+        assertmsg = "L3 VNI 999 (PE1): text output should contain 'Vlan: 999'"
+        assert "Vlan: 999" in output, assertmsg
+
+        assertmsg = "L3 VNI 999 (PE1): text output should contain 'Bridge: br999'"
+        assert "Bridge: br999" in output, assertmsg
+
+        assertmsg = "L3 VNI 999 (PE1): text output should contain 'Type: L3'"
+        assert "Type: L3" in output, assertmsg
+
+    # Check PE2 L3 VNI 999 - TEXT output
+    output = pe2.vtysh_cmd("show evpn vni 999", isjson=False)
+    if output:
+        assertmsg = "L3 VNI 999 (PE2): text output should contain 'Vlan: 999'"
+        assert "Vlan: 999" in output, assertmsg
+
+        assertmsg = "L3 VNI 999 (PE2): text output should contain 'Bridge: br999'"
+        assert "Bridge: br999" in output, assertmsg
+
+        assertmsg = "L3 VNI 999 (PE2): text output should contain 'Type: L3'"
+        assert "Type: L3" in output, assertmsg
 
 
 def test_memory_leak():

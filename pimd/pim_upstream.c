@@ -41,8 +41,11 @@
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
 #include "pim_mlag.h"
+#include "pim_state_refresh.h"
+#include "pim_dm.h"
 
 static void join_timer_stop(struct pim_upstream *up);
+static void prune_timer_stop(struct pim_upstream *up);
 static void
 pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
 static bool pim_upstream_sg_running_proc(struct pim_upstream *up);
@@ -167,10 +170,14 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 
 static void pim_upstream_timers_stop(struct pim_upstream *up)
 {
-	EVENT_OFF(up->t_ka_timer);
-	EVENT_OFF(up->t_rs_timer);
-	EVENT_OFF(up->t_msdp_reg_timer);
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_ka_timer);
+	event_cancel(&up->t_rs_timer);
+	event_cancel(&up->t_msdp_reg_timer);
+	event_cancel(&up->t_join_timer);
+	event_cancel(&up->t_prune_timer);
+	event_cancel(&up->t_staterefresh_timer);
+	event_cancel(&up->t_graft_timer);
+	event_cancel(&up->t_prune_limit_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -218,6 +225,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 #endif /* PIM_IPV == 4 */
 	}
 
+	prune_timer_stop(up);
 	join_timer_stop(up);
 	pim_jp_agg_upstream_verification(up, false);
 	up->rpf.source_nexthop.interface = NULL;
@@ -298,6 +306,122 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
+static void on_graft_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+
+	if (!up)
+		return;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/*
+	 * Don't send the join if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (up->rpf.source_nexthop.interface && !if_is_loopback(up->rpf.source_nexthop.interface))
+		pim_dm_graft_send(up->rpf, up);
+
+	graft_timer_start(up);
+}
+
+static void on_staterefresh_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+
+	if (!up)
+		return;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/*
+	 * Don't send the message if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface, up->sg.src)) {
+		if (up->rpf.source_nexthop.interface &&
+		    !if_is_loopback(up->rpf.source_nexthop.interface))
+			pim_send_staterefresh(up);
+	}
+	staterefresh_timer_start(up);
+}
+
+
+static void on_prune_timer(struct event *t)
+{
+	struct pim_upstream *up;
+	struct pim_instance *pim;
+
+	up = EVENT_ARG(t);
+	pim = up->pim;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/* Have we seen packets? */
+	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+	    (up->channel_oil->cc.lastused / 100 > 30)) {
+		if (PIM_DEBUG_PIM_TRACE) {
+			zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+				   __func__, up->sg_str, pim->vrf->name,
+				   up->channel_oil->cc.oldpktcnt, up->channel_oil->cc.pktcnt,
+				   up->channel_oil->cc.lastused / 100);
+		}
+		prune_timer_start(up);
+		return;
+	}
+
+	/*
+	 * Don't send the join if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (up->rpf.source_nexthop.interface && !if_is_loopback(up->rpf.source_nexthop.interface))
+		pim_dm_prune_send(up->rpf, up, 0);
+
+	prune_timer_start(up);
+}
+
+static void on_prune_limit_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: Prune limit timer expired for upstream (s,g)=%pSG", __func__,
+			   &up->sg);
+}
+
+
 static void on_join_timer(struct event *t)
 {
 	struct pim_upstream *up;
@@ -312,7 +436,7 @@ static void on_join_timer(struct event *t)
 	}
 
 	/*
-	 * In the case of a HFR we will not ahve anyone to send this to.
+	 * In the case of a FHR we will not ahve anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
@@ -328,11 +452,16 @@ static void on_join_timer(struct event *t)
 	join_timer_start(up);
 }
 
+static void prune_timer_stop(struct pim_upstream *up)
+{
+	event_cancel(&up->t_prune_timer);
+}
+
 static void join_timer_stop(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
 
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
@@ -344,28 +473,92 @@ static void join_timer_stop(struct pim_upstream *up)
 	pim_jp_agg_upstream_verification(up, false);
 }
 
-void join_timer_start(struct pim_upstream *up)
+void prune_timer_start(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
 
 	if (up->rpf.source_nexthop.interface) {
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr, true);
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface, up->rpf.rpf_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
-			zlog_debug(
-				"%s: starting %d sec timer for upstream (S,G)=%s",
-				__func__, router->t_periodic, up->sg_str);
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+				   router->t_periodic, up->sg_str);
 		}
 	}
 
 	if (nbr)
 		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
 	else {
-		EVENT_OFF(up->t_join_timer);
-		event_add_timer(router->master, on_join_timer, up,
-				router->t_periodic, &up->t_join_timer);
+		event_cancel(&up->t_prune_timer);
+		event_add_timer(router->master, on_prune_timer, up, router->t_periodic,
+				&up->t_prune_timer);
 	}
+	pim_jp_agg_upstream_verification(up, true);
+}
+
+void prune_limit_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_prune_limit_timer);
+	event_add_timer(router->master, on_prune_limit_timer, up, router->t_prune_limit,
+			&up->t_prune_limit_timer);
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: Started Prune limit timer (%ds) for upstream (s,g)=%pSG", __func__,
+			   router->t_prune_limit, &up->sg);
+}
+
+bool should_limit_prune(struct pim_upstream *up)
+{
+	return event_is_scheduled(up->t_prune_limit_timer);
+}
+
+void graft_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_graft_timer);
+	event_add_timer(router->master, on_graft_timer, up, router->t_periodic, &up->t_graft_timer);
+	pim_jp_agg_upstream_verification(up, true);
+}
+
+void staterefresh_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_staterefresh_timer);
+	event_add_timer(router->master, on_staterefresh_timer, up, up->pim->staterefresh_time,
+			&up->t_staterefresh_timer);
+}
+
+void join_timer_start(struct pim_upstream *up)
+{
+	const struct pim_interface *pim_interface = NULL;
+	struct pim_neighbor *nbr = NULL;
+
+	if (up->rpf.source_nexthop.interface) {
+		pim_interface = up->rpf.source_nexthop.interface->info;
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr, true);
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_PIM_EVENTS) {
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s neighbor %pPA",
+				   __func__, pim_neigh_jp_period(nbr), up->sg_str,
+				   &nbr->source_addr);
+		}
+
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
+	} else {
+		int t_periodic = router->t_periodic;
+
+		if (pim_interface)
+			t_periodic = pim_if_jp_period(pim_interface);
+
+		if (PIM_DEBUG_PIM_EVENTS) {
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+				   t_periodic, up->sg_str);
+		}
+
+		event_cancel(&up->t_join_timer);
+		event_add_timer(router->master, on_join_timer, up, t_periodic, &up->t_join_timer);
+	}
+
 	pim_jp_agg_upstream_verification(up, true);
 }
 
@@ -379,7 +572,7 @@ void join_timer_start(struct pim_upstream *up)
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old)
 {
-	// EVENT_OFF(up->t_join_timer);
+	// event_cancel(&up->t_join_timer);
 	join_timer_start(up);
 }
 
@@ -391,7 +584,7 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 			   __func__, interval_msec, up->sg_str);
 	}
 
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_join_timer);
 	event_add_timer_msec(router->master, on_join_timer, up, interval_msec,
 			     &up->t_join_timer);
 }
@@ -403,8 +596,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 	unsigned int old_rp_ka_time;
 
 	/* stash the old one so we know which values were manually configured */
-	old_rp_ka_time =  (3 * router->register_suppress_time
-			   + router->register_probe_time);
+	old_rp_ka_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	router->register_suppress_time = suppress_time;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -414,7 +606,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 
 		/* Only adjust if not manually configured */
 		if (pim->rp_keep_alive_time == old_rp_ka_time)
-			pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+			pim->rp_keep_alive_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	}
 }
 
@@ -643,6 +835,12 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
+	/* Ignore RP mapping when the upsteam state
+	 * is NOT Joined on a FHR
+	 */
+	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+		return;
+
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 
 	/* We will use the SPT (IIF=RPF_interface(S) if -
@@ -735,13 +933,15 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			pim_msdp_up_join_state_changed(pim, up);
 #endif /* PIM_IPV == 4 */
 			if (pim_upstream_could_register(up)) {
-				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+				if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+					PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 				if (!old_fhr
 				    && PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(
 					       up->flags)) {
 					pim_upstream_keep_alive_timer_start(
 						up, pim->keep_alive_time);
-					pim_register_join(up);
+					if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+						pim_register_join(up);
 				}
 			} else {
 				pim_upstream_send_join(up);
@@ -755,6 +955,17 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		bool new_use_rpt;
 		bool send_xg_jp = false;
 
+		/*
+		 * In FHR pimreg interface is needed all the time
+		 * inorder to send register packets.
+		 * Only for ASM (Any Source Multicast) groups, NOT for SSM or Dense mode.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && up->reg_state == PIM_REG_NOINFO &&
+		    pim->regiface->configured && !pim_is_grp_ssm(pim, up->sg.grp) &&
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags)) {
+			pim_channel_add_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
+					    __func__);
+		}
 		forward_off(up);
 		/*
 		 * RFC 4601 Sec 4.5.7:
@@ -852,8 +1063,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	/* Set up->upstream_addr as INADDR_ANY, if RP is not
 	 * configured and retain the upstream data structure
 	 */
-	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
-				      sg->grp)) {
+	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src, sg->grp) &&
+	    !pim_is_grp_dm(pim, sg->grp)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -874,6 +1085,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->t_ka_timer = NULL;
 	up->t_rs_timer = NULL;
 	up->t_msdp_reg_timer = NULL;
+	up->t_graft_timer = NULL;
+	up->t_prune_timer = NULL;
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
@@ -1029,8 +1242,8 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 	/* when we go from non-FHR to FHR we need to re-eval traffic
 	 * forwarding path
 	 */
-	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) &&
-			PIM_UPSTREAM_FLAG_TEST_FHR(flags)) {
+	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && PIM_UPSTREAM_FLAG_TEST_FHR(flags) &&
+	    !PIM_UPSTREAM_DM_TEST_INTERFACE(flags)) {
 		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
@@ -1038,8 +1251,8 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 	/* re-eval joinDesired; clearing peer-msdp-sa flag can
 	 * cause JD to change
 	 */
-	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) &&
-			PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags)) {
+	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) && PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags) &&
+	    !PIM_UPSTREAM_DM_TEST_INTERFACE(flags)) {
 		PIM_UPSTREAM_FLAG_SET_SRC_MSDP(up->flags);
 		pim_upstream_update_join_desired(up->pim, up);
 	}
@@ -1380,7 +1593,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
 			   up->sg_str);
 
 	/* stop reg-stop timer */
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 	/* remove regiface from the OIL if it is there*/
 	pim_channel_del_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
@@ -1399,11 +1612,12 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
 			zlog_debug(
 				"kat started on %s; set fhr reg state to joined",
 				up->sg_str);
-
-		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-		if (up->reg_state == PIM_REG_NOINFO)
+		if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+		if (up->reg_state == PIM_REG_NOINFO && !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
 			pim_register_join(up);
-		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+		if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 }
 
@@ -1503,7 +1717,7 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 			zlog_debug("kat start on %s with no stream reference",
 				   up->sg_str);
 	}
-	EVENT_OFF(up->t_ka_timer);
+	event_cancel(&up->t_ka_timer);
 	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
 			&up->t_ka_timer);
 
@@ -1618,8 +1832,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 	if (!starup
 	    || up->rpf.source_nexthop
 			       .interface != starup->rpf.source_nexthop.interface) {
-		struct pim_upstream *starup = up->parent;
-
+		starup = up->parent;
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: %s RPF_interface(S) != RPF_interface(RP(G))",
@@ -1755,7 +1968,7 @@ static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 
 	time = router->register_probe_time;
 
@@ -1775,8 +1988,15 @@ static void pim_upstream_register_probe_timer(struct event *t)
 		if (PIM_DEBUG_PIM_REG)
 			zlog_debug("cannot send Null register for %pSG, no path to RP",
 				   &up->sg);
-	} else
+	} else {
+		up->reg_state = PIM_REG_JOIN_PENDING;
+		if (PIM_DEBUG_PIM_TRACE) {
+			char state_str[PIM_REG_STATE_STR_LEN];
+			zlog_debug("%s: (S,G)=%s reg_state=%s", __func__, up->sg_str,
+				   pim_reg_state2str(up->reg_state, state_str, sizeof(state_str)));
+		}
 		pim_null_register_send(up);
+	}
 
 	pim_upstream_start_register_stop_timer(up);
 }
@@ -1785,7 +2005,7 @@ void pim_upstream_start_register_probe_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 
 	uint32_t lower = (0.5 * router->register_suppress_time);
 	uint32_t upper = (1.5 * router->register_suppress_time);
@@ -2030,7 +2250,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;
 	struct pim_interface *pim_ifp;
-	struct pim_instance *pim = up->channel_oil->pim;
+	// struct pim_instance *pim = up->channel_oil->pim;
 
 	/* "iif == RPF_interface(S)" check is not easy to do as the info
 	 * we get from the kernel/ASIC is really a "lookup/key hit".
@@ -2041,6 +2261,10 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return false;
 
 	pim_ifp = ifp->info;
+
+	if (!pim_ifp || !c_oil)
+		return false;
+
 	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
 		return false;
 
@@ -2049,12 +2273,34 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return true;
 	}
 
-	if ((up->join_state == PIM_UPSTREAM_JOINED)
-	    && !pim_upstream_empty_inherited_olist(up)) {
-		if (I_am_RP(pim, up->sg.grp))
-			return true;
+	if ((up->join_state == PIM_UPSTREAM_JOINED) && !pim_upstream_empty_inherited_olist(up)) {
+		return true;
 	}
 
+	return false;
+}
+
+/* Check if any dense mode interface is in the OIL of this upstream
+ * or if any interface has an IGMP join for this upstream group
+ */
+bool pim_upstream_up_connected(struct pim_upstream *up)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp;
+
+	FOR_ALL_INTERFACES (up->pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp || !pim_ifp->pim_enable)
+			continue;
+
+		if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
+		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
+		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+			return true;
+		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
+			return true;
+	}
 	return false;
 }
 
@@ -2095,6 +2341,23 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 					 __func__);
 			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 			pim_upstream_fhr_kat_start(up);
+		}
+
+		/*
+		 * Let's ensure that when we have an active source that we do not have any
+		 * register state for that is a FHR, that we allow the registration to
+		 * happen if it should be
+		 */
+		if (pim_upstream_could_register(up) && !pim_is_grp_ssm(pim, up->sg.grp) &&
+		    up->reg_state == PIM_REG_NOINFO && !event_is_scheduled(up->t_rs_timer) &&
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim->regiface &&
+		    pim->regiface->configured) {
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s: add pimreg to %s[%s]", __func__, up->sg_str,
+					   pim->vrf->name);
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+			pim_register_join(up);
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 		}
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 		rv = true;

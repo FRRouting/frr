@@ -92,7 +92,7 @@ void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 	}
 }
 
-int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
+int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_addr to,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
@@ -126,10 +126,17 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 	igmp->igmp_stats.report_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
+	pim_inet4_dump("<dst?>", group_addr, group_str, sizeof(group_str));
+
+	if (to.s_addr != group_addr.s_addr) {
+		if (PIM_DEBUG_GM_PACKETS) {
+			zlog_debug("IGMPv2 report message from %s on %s is ignored since received on address other than Group-address(%s)",
+				   from_str, ifp->name, group_str);
+		}
+		return -1;
+	}
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		pim_inet4_dump("<dst?>", group_addr, group_str,
-			       sizeof(group_str));
 		zlog_debug("Recv IGMPv2 REPORT from %s on %s for %s", from_str,
 			   ifp->name, group_str);
 	}

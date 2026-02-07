@@ -2,6 +2,7 @@
 """
 Topotest conftest.py file.
 """
+
 # pylint: disable=consider-using-f-string
 
 import contextlib
@@ -20,7 +21,7 @@ import pytest
 from lib.common_config import generate_support_bundle
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
-from lib.topotest import json_cmp_result
+from lib.topotest import gdb_core, json_cmp_result
 from munet import cli
 from munet.base import BaseMunet, Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
@@ -31,7 +32,7 @@ from lib import topolog, topotest
 
 try:
     # Used by munet native tests
-    from munet.testing.fixtures import unet  # pylint: disable=all # noqa
+    from munet.testing.fixtures import stepf, unet  # pylint: disable=all # noqa
 
     @pytest.fixture(scope="module")
     def rundir_module(pytestconfig):
@@ -265,20 +266,37 @@ def pytest_addoption(parser):
         help="Spawn vtysh on all routers on test failure",
     )
 
+    parser.addoption(
+        "--ignore-backtraces",
+        action="store_true",
+        help="Ignore backtrace detection during test execution",
+    )
 
-def check_for_valgrind_memleaks():
+
+def check_for_valgrind_memleaks(item: pytest.Item | None = None) -> None:
     assert topotest.g_pytest_config.option.valgrind_memleaks
 
     leaks = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
     latest = []
     existing = []
+    logdir = ""
     if tgen is not None:
         logdir = tgen.logdir
         if hasattr(tgen, "valgrind_existing_files"):
             existing = tgen.valgrind_existing_files
         latest = glob.glob(os.path.join(logdir, "*.valgrind.*"))
         latest = [x for x in latest if "core" not in x]
+
+    if latest:
+        test_name = item.name if item else "end-test-module"
+        test_path = item.nodeid if item else "end-test-module"
+        logging.debug(
+            "CHECK valgrind memleaks: %s in %s/**/*.dmp (%s)",
+            test_name,
+            logdir,
+            test_path,
+        )
 
     daemons = set()
     for vfile in latest:
@@ -309,16 +327,25 @@ def check_for_valgrind_memleaks():
         pytest.fail("valgrind memleaks found for daemons: " + " ".join(daemons))
 
 
-def check_for_memleaks():
+def check_for_memleaks(item: pytest.Item | None = None) -> None:
     leaks = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
     latest = []
     existing = []
+
+    logdir = ""
     if tgen is not None:
         logdir = tgen.logdir
         if hasattr(tgen, "memstat_existing_files"):
             existing = tgen.memstat_existing_files
         latest = glob.glob(os.path.join(logdir, "*/*.err"))
+
+    if latest:
+        test_name = item.name if item else "end-test-module"
+        test_path = item.nodeid if item else "end-test-module"
+        logging.debug(
+            "CHECK memleaks: %s in %s/*/*.err (%s)", test_name, logdir, test_path
+        )
 
     daemons = []
     for vfile in latest:
@@ -342,30 +369,69 @@ def check_for_memleaks():
         pytest.fail("memleaks found for daemons: " + " ".join(daemons))
 
 
-def check_for_core_dumps():
+def check_for_core_dumps(item: pytest.Item | None = None) -> None:
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
     if not tgen:
         return
+
+    test_name = item.name if item else "end-test-module"
+    test_path = item.nodeid if item else "end-test-module"
+    logging.debug(
+        "CHECK core files: %s in %s/**/*.dmp (%s)", test_name, tgen.logdir, test_path
+    )
 
     if not hasattr(tgen, "existing_core_files"):
         tgen.existing_core_files = set()
     existing = tgen.existing_core_files
 
-    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    cores = glob.glob(f"{tgen.logdir}/**/*.dmp", recursive=True)
+    if cores:
+        logging.info("Found core dumps: %s", cores)
     latest = {x for x in cores if x not in existing}
     if latest:
         existing |= latest
         tgen.existing_core_files = existing
+
+        # Call gdb_core for each new core dump to show backtrace
+        for core_file in latest:
+            # Extract router name and daemon from core file path
+            # Core files are typically named like: /path/to/logdir/router_name/daemon_core_*.dmp
+            core_path = Path(core_file)
+            router_name = core_path.parent.name
+            daemon_name = core_path.stem.split("_core")[
+                0
+            ]  # Remove '_core_*.dmp' suffix
+
+            # Get the actual router object from tgen
+            topo_router = tgen.gears.get(router_name)
+            if topo_router:
+                # Access the actual router instance through the net property
+                router = topo_router.net
+                try:
+                    backtrace = gdb_core(router, daemon_name, [core_file])
+                    logger.error(
+                        f"Core dump analysis for {router_name}:{daemon_name}:\n{backtrace}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to analyze core dump {core_file}: {e}")
+            else:
+                logger.error(f"Could not find router {router_name} in topology")
 
         emsg = "New core[s] found: " + ", ".join(latest)
         logger.error(emsg)
         pytest.fail(emsg)
 
 
-def check_for_backtraces():
+def check_for_backtraces(item: pytest.Item | None = None) -> None:
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
     if not tgen:
         return
+
+    test_name = item.name if item else "end-test-module"
+    test_path = item.nodeid if item else "end-test-module"
+    logging.debug(
+        "CHECK backtraces: %s in %s/**/*.dmp (%s)", test_name, tgen.logdir, test_path
+    )
 
     if not hasattr(tgen, "existing_backtrace_files"):
         tgen.existing_backtrace_files = {}
@@ -441,18 +507,26 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         get_topogen().cli()
         pytest.exit("exiting after --topology-only")
 
+    tgen = get_topogen()
+    if tgen is not None:
+        tgen.log_test_start(item.nodeid)
+
     # Let the default pytest_runtest_call execute the test function
     yield
 
-    check_for_backtraces()
-    check_for_core_dumps()
+    if not item.config.option.ignore_backtraces:
+        check_for_backtraces(item)
+    check_for_core_dumps(item)
 
     # Check for leaks if requested
     if item.config.option.valgrind_memleaks:
-        check_for_valgrind_memleaks()
+        check_for_valgrind_memleaks(item)
 
     if item.config.option.memleaks:
-        check_for_memleaks()
+        check_for_memleaks(item)
+
+    if tgen:
+        tgen.log_test_end(item.nodeid)
 
 
 def pytest_assertrepr_compare(op, left, right):
@@ -658,8 +732,13 @@ def pytest_runtest_makereport(item, call):
     pause = bool(item.config.getoption("--pause"))
     title = "unset"
 
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    test_path = item.nodeid if item else "unknown_test_path"
+
     if call.excinfo is None:
         error = False
+        if tgen is not None and call.when == "call":
+            tgen.log_test_result(test_path, "PASS")
     else:
         parent = item.parent
         modname = parent.module.__name__
@@ -673,6 +752,8 @@ def pytest_runtest_makereport(item, call):
                     modname, item.name, call.excinfo.value
                 )
             )
+            if tgen is not None:
+                tgen.log_test_result(test_path, f"SKIP")
         else:
             error = True
             # Handle assert failures
@@ -683,6 +764,8 @@ def pytest_runtest_makereport(item, call):
                 )
             )
             title = "{}/{}".format(modname, item.name)
+            if tgen is not None:
+                tgen.log_test_result(test_path, "FAIL")
 
             # We want to pause, if requested, on any error not just test cases
             # (e.g., call.when == "setup")
@@ -690,7 +773,6 @@ def pytest_runtest_makereport(item, call):
                 pause = item.config.option.pause_on_error or item.config.option.pause
 
             # (topogen) Set topology error to avoid advancing in the test.
-            tgen = get_topogen()  # pylint: disable=redefined-outer-name
             if tgen is not None:
                 # This will cause topogen to report error on `routers_have_failure`.
                 tgen.set_error("{}/{}".format(modname, item.name))
@@ -778,17 +860,14 @@ def coverage_finish(terminalreporter, config):
     gcdadir = Path(os.environ["GCOV_PREFIX"])
 
     logger.info("Creating .gcno ssymlink from '%s' to '%s'", gcdadir, bdir)
-    commander.cmd_raises(
-        f"cd {gcdadir}; bdir={bdir}"
-        + """
+    commander.cmd_raises(f"cd {gcdadir}; bdir={bdir}" + """
 for f in $(find . -name '*.gcda'); do
     f=${f#./};
     f=${f%.gcda}.gcno;
     ln -fs $bdir/$f $f;
     touch -h -r $bdir/$f $f;
     echo $f;
-done"""
-    )
+done""")
 
     # Get the results into a summary file
     data_file = rundir / "coverage.info"

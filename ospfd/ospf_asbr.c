@@ -338,9 +338,9 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 /* If there's redistribution configured, we need to refresh external
  * LSAs (e.g. when default-metric changes or NSSA settings change).
  */
-static void ospf_asbr_redist_update_timer(struct event *thread)
+static void ospf_asbr_redist_update_timer(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	int type;
 
 	ospf->t_asbr_redist_update = NULL;
@@ -1115,9 +1115,9 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 	}
 }
 
-static void ospf_asbr_external_aggr_process(struct event *thread)
+static void ospf_asbr_external_aggr_process(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	int operation = 0;
 
 	ospf->t_external_aggr = NULL;
@@ -1145,8 +1145,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	aggr->action = operation;
 
 	if (ospf->t_external_aggr) {
-		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD) {
-
+		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD || operation != OSPF_ROUTE_AGGR_ADD) {
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 				zlog_debug("%s: Not required to restart timer,set is already added.",
 					   __func__);
@@ -1158,7 +1157,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 				zlog_debug(
 					"%s, Restarting Aggregator delay timer.",
 					__func__);
-			EVENT_OFF(ospf->t_external_aggr);
+			event_cancel(&ospf->t_external_aggr);
 		}
 	}
 

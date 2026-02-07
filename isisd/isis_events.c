@@ -83,7 +83,8 @@ static void circuit_commence_level(struct isis_circuit *circuit, int level)
 
 		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 		circuit->u.bc.lan_neighs[level - 1] = list_new();
-		circuit->u.bc.adjdb[level - 1] = list_new();
+		if (!circuit->u.bc.adjdb[level - 1])
+			circuit->u.bc.adjdb[level - 1] = list_new();
 	}
 }
 
@@ -97,13 +98,13 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 			circuit->area->area_tag, circuit->circuit_id,
 			circuit->interface->name, level);
 
-	EVENT_OFF(circuit->t_send_csnp[idx]);
-	EVENT_OFF(circuit->t_send_psnp[idx]);
+	event_cancel(&circuit->t_send_csnp[idx]);
+	event_cancel(&circuit->t_send_psnp[idx]);
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		EVENT_OFF(circuit->u.bc.t_send_lan_hello[idx]);
-		EVENT_OFF(circuit->u.bc.t_run_dr[idx]);
-		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
+		event_cancel(&circuit->u.bc.t_send_lan_hello[idx]);
+		event_cancel(&circuit->u.bc.t_run_dr[idx]);
+		event_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[idx]);
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
 		circuit->u.bc.is_dr[idx] = 0;
@@ -201,11 +202,11 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 
 /* events supporting code */
 
-void isis_event_dis_status_change(struct event *thread)
+void isis_event_dis_status_change(struct event *event)
 {
 	struct isis_circuit *circuit;
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 
 	/* invalid arguments */
 	if (!circuit || !circuit->area)

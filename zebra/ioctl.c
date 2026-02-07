@@ -7,6 +7,9 @@
 #include <zebra.h>
 
 #include <sys/ioctl.h>
+#ifndef __linux__
+#include <netinet6/in6_var.h>
+#endif
 
 #include "linklist.h"
 #include "if.h"
@@ -46,9 +49,9 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 		if ((ret = ioctl(sock, request, buffer)) < 0)
 			err = errno;
@@ -73,9 +76,9 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	frr_with_privs(&zserv_privs) {
 		sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 		ret = vrf_ioctl(vrf_id, sock, request, buffer);
 		if (ret < 0)
@@ -100,9 +103,9 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create IPv6 datagram socket: %s",
+			flog_err(EC_LIB_SOCKET, "Cannot create IPv6 datagram socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 
 		if ((ret = ioctl(sock, request, buffer)) < 0)
@@ -119,7 +122,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 
 /*
  * get interface metric
- *   -- if value is not avaliable set -1
+ *   -- if value is not available set -1
  */
 void if_get_metric(struct interface *ifp)
 {
@@ -131,8 +134,6 @@ void if_get_metric(struct interface *ifp)
 	if (vrf_if_ioctl(SIOCGIFMETRIC, (caddr_t)&ifreq, ifp->vrf->vrf_id) < 0)
 		return;
 	ifp->metric = ifreq.ifr_metric;
-	if (ifp->metric == 0)
-		ifp->metric = 1;
 #else  /* SIOCGIFMETRIC */
 	ifp->metric = -1;
 #endif /* SIOCGIFMETRIC */
@@ -155,7 +156,7 @@ void if_get_mtu(struct interface *ifp)
 
 	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
 
-	/* propogate */
+	/* propagate */
 	zebra_interface_up_update(ifp);
 
 #else
@@ -311,7 +312,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 #else
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
@@ -364,7 +365,7 @@ int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
+/* Set up interface's address, netmask (and broadcast? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
@@ -533,12 +534,6 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 }
 
 #ifndef LINUX_IPV6 /* Netlink has its own code */
-
-#ifdef HAVE_STRUCT_IN6_ALIASREQ
-#ifndef ND6_INFINITE_LIFETIME
-#define ND6_INFINITE_LIFETIME 0xffffffffL
-#endif /* ND6_INFINITE_LIFETIME */
-
 /*
  * Helper for interface-addr install, non-netlink
  */
@@ -574,11 +569,6 @@ static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 
 	addreq.ifra_lifetime.ia6t_vltime = 0xffffffff;
 	addreq.ifra_lifetime.ia6t_pltime = 0xffffffff;
-
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
 
 	ret = if_ioctl_ipv6(SIOCAIFADDR_IN6, (caddr_t)&addreq);
 	if (ret < 0)
@@ -619,29 +609,9 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif
 	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
 
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
 	ret = if_ioctl_ipv6(SIOCDIFADDR_IN6, (caddr_t)&addreq);
 	if (ret < 0)
 		return ret;
 	return 0;
 }
-#else
-/* The old, pre-dataplane code here just returned, so we're retaining that
- * choice.
- */
-static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-
-static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-#endif /* HAVE_STRUCT_IN6_ALIASREQ */
-
 #endif /* LINUX_IPV6 */

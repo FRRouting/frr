@@ -13,7 +13,7 @@
 #include "pim_mlag.h"
 #include "pim_zebra.h"
 
-extern struct zclient *zclient;
+extern struct zclient *pim_zclient;
 
 #define PIM_MLAG_POST_LIMIT 100
 
@@ -96,7 +96,7 @@ static void pim_mlag_zebra_flush_buffer(void)
 		}
 	}
 
-	zclient_send_mlag_data(zclient, router->mlag_stream);
+	zclient_send_mlag_data(pim_zclient, router->mlag_stream);
 stream_failure:
 	stream_reset(router->mlag_stream);
 	mlag_bulk_cnt = 0;

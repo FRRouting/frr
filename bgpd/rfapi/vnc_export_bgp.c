@@ -95,10 +95,10 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	 *
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
-	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+	if (!CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
 		uint32_t med = 255;
 
-		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
+		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				med = 0;
 			else
@@ -642,10 +642,10 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	 *
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
-	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+	if (!CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
 		uint32_t med = 255;
 
-		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
+		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				med = 0;
 			else
@@ -1689,7 +1689,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	EVENT_OFF(eti->timer);
+	event_cancel(&eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1918,7 +1918,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					EVENT_OFF(eti->timer);
+					event_cancel(&eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -1987,7 +1987,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					EVENT_OFF(eti->timer);
+					event_cancel(&eti->timer);
 					vnc_eti_delete(eti);
 				}
 

@@ -431,6 +431,9 @@ lde_kernel_update(struct fec *fec)
 		return;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
+		if (CHECK_FLAG(fnh->flags, F_FEC_NH_NO_LDP))
+			continue;
+
 		lde_send_change_klabel(fn, fnh);
 
 		switch (fn->fec.type) {
@@ -495,6 +498,14 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 	fn = (struct fec_node *)fec_find(&ft, &fec);
 	if (fn == NULL)
 		fn = fec_add(&fec);
+
+	if (fec.type == FEC_TYPE_PWID && rcvd_label_mapping) {
+		pw = (struct l2vpn_pw *)fn->data;
+		if (pw && !CHECK_FLAG(pw->flags, F_PW_SEND_REMOTE)) {
+			SET_FLAG(pw->flags, F_PW_SEND_REMOTE);
+			lde_send_labelmapping(ln, fn, 1);
+		}
+	}
 
 	/* LMp.1: first check if we have a pending request running */
 	lre = (struct lde_req *)fec_find(&ln->sent_req, &fn->fec);
@@ -821,6 +832,13 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	if (fn == NULL)
 		fn = fec_add(&fec);
 
+	if (fec.type == FEC_TYPE_PWID) {
+		pw = (struct l2vpn_pw *)fn->data;
+		if (pw && CHECK_FLAG(pw->flags, F_PW_SEND_REMOTE)) {
+			UNSET_FLAG(pw->flags, F_PW_SEND_REMOTE);
+		}
+	}
+
 	/* LWd.1: remove label from forwarding/switching use */
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
 		switch (fec.type) {
@@ -1008,12 +1026,14 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 	default:
 		fatalx("lde_wildcard_apply: unexpected fec type");
 	}
+
+	return -1;
 }
 
 /* gabage collector timer: timer to remove dead entries from the LIB */
 
 /* ARGSUSED */
-void lde_gc_timer(struct event *thread)
+void lde_gc_timer(struct event *event)
 {
 	struct fec	*fec, *safe;
 	struct fec_node	*fn;
@@ -1044,12 +1064,12 @@ void lde_gc_timer(struct event *thread)
 void
 lde_gc_start_timer(void)
 {
-	EVENT_OFF(gc_timer);
+	event_cancel(&gc_timer);
 	event_add_timer(master, lde_gc_timer, NULL, LDE_GC_INTERVAL, &gc_timer);
 }
 
 void
 lde_gc_stop_timer(void)
 {
-	EVENT_OFF(gc_timer);
+	event_cancel(&gc_timer);
 }

@@ -123,16 +123,16 @@ struct ospf6_area {
 
 #define OSPF6_CMD_AREA_GET(str, oa, ospf6)                                     \
 	{                                                                      \
-		uint32_t area_id;                                              \
-		int format, ret;                                               \
-		ret = str2area_id(str, &area_id, &format);                     \
-		if (ret) {                                                     \
+		uint32_t _area_id;                                             \
+		int _format, _ret;                                             \
+		_ret = str2area_id(str, &_area_id, &_format);                  \
+		if (_ret) {                                                    \
 			vty_out(vty, "Malformed Area-ID: %s\n", str);          \
 			return CMD_WARNING;                                    \
 		}                                                              \
-		oa = ospf6_area_lookup(area_id, ospf6);                        \
+		oa = ospf6_area_lookup(_area_id, ospf6);                       \
 		if (oa == NULL)                                                \
-			oa = ospf6_area_create(area_id, ospf6, format);        \
+			oa = ospf6_area_create(_area_id, ospf6, _format);      \
 	}
 
 /* prototypes */
@@ -144,6 +144,7 @@ extern int ospf6_area_cmp(void *va, void *vb);
 extern struct ospf6_area *ospf6_area_create(uint32_t area_id,
 					    struct ospf6 *ospf6, int df);
 extern void ospf6_area_delete(struct ospf6_area *oa);
+extern void ospf6_area_no_config_delete(struct ospf6_area *oa);
 extern struct ospf6_area *ospf6_area_lookup(uint32_t area_id,
 					    struct ospf6 *ospf6);
 extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);

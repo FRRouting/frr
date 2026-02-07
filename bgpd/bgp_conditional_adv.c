@@ -137,8 +137,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				    is_default_prefix(dest_p))
 					break;
 
-				bgp_adj_out_unset_subgroup(
-					dest, subgrp, 1,
+				bgp_adj_out_unset_subgroup(dest, subgrp,
 					bgp_addpath_id_for_peer(
 						peer, afi, safi,
 						&pi->tx_addpath));
@@ -194,7 +193,7 @@ static void bgp_conditional_adv_timer(struct event *t)
 	 * based on condition(exist-map or non-exist map)
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		if (!peer_is_config_node(peer))
 			continue;
 
 		if (!peer_established(peer->connection))
@@ -354,7 +353,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
-	EVENT_OFF(bgp->t_condition_check);
+	event_cancel(&bgp->t_condition_check);
 }
 
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,

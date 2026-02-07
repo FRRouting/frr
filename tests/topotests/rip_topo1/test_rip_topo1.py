@@ -169,8 +169,8 @@ def test_rip_status():
 
             # Actual output from router
             actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show ip rip status" 2> /dev/null')
+                get_topogen().gears["r%s" % i]
+                .vtysh_cmd("show ip rip status")
                 .rstrip()
             )
             # Drop time in next due
@@ -226,7 +226,7 @@ def test_rip_routes():
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
             # Actual output from router
-            actual = net["r%s" % i].cmd('vtysh -c "show ip rip" 2> /dev/null').rstrip()
+            actual = get_topogen().gears["r%s" % i].vtysh_cmd("show ip rip").rstrip()
             # Drop Time
             actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
             # Fix newlines (make them all the same)
@@ -261,11 +261,9 @@ def test_zebra_ipv4_routingTable():
 
     def _verify_ip_route(expected):
         # Actual output from router
-        actual = (
-            net["r%s" % i]
-            .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^R"')
-            .rstrip()
-        )
+        output = get_topogen().gears["r%s" % i].vtysh_cmd("show ip route")
+        # Filter only RIP routes (lines starting with R)
+        actual = "\n".join(line for line in output.splitlines() if line.startswith("R")).rstrip()
         # Drop timers on end of line
         actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
         # Fix newlines (make them all the same)

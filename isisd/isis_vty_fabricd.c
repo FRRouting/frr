@@ -156,7 +156,6 @@ DEFUN (show_lsp_flooding,
 	if (argc == 4)
 		lspid = argv[3]->arg;
 
-	struct listnode *node;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 
@@ -167,7 +166,7 @@ DEFUN (show_lsp_flooding,
 		return CMD_SUCCESS;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		struct lspdb_head *head = &area->lspdb[ISIS_LEVEL2 - 1];
 		struct isis_lsp *lsp;
 
@@ -614,10 +613,9 @@ DEFUN (no_spf_interval,
 static int isis_vty_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
 		if (circuit->state != C_STATE_INIT
 		    && circuit->state != C_STATE_UP)
 			continue;
@@ -879,8 +877,16 @@ DEFUN (isis_hello_interval,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
+	uint32_t old_interval_l1 = circuit->hello_interval[0];
+	uint32_t old_interval_l2 = circuit->hello_interval[1];
+
 	circuit->hello_interval[0] = interval;
 	circuit->hello_interval[1] = interval;
+
+	/* if interval changed, reset hello timer */
+	if (old_interval_l1 != interval || old_interval_l2 != interval) {
+		isis_reset_hello_timer(circuit);
+	}
 
 	return CMD_SUCCESS;
 }

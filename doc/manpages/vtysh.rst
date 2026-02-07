@@ -79,7 +79,7 @@ OPTIONS available for the vtysh command:
 ENVIRONMENT VARIABLES
 =====================
 VTYSH_PAGER
-   This should be the name of the pager to use. Default is more.
+   This should be the name of the pager to use. Default is *more*.
 
 VTYSH_HISTFILE
    Override the history file for vtysh commands. Logging can be turned off using ``VTYSH_HISTFILE=/dev/null vtysh``.

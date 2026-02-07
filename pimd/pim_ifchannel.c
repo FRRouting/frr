@@ -193,9 +193,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	ch->upstream = NULL;
 
-	EVENT_OFF(ch->t_ifjoin_expiry_timer);
-	EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
-	EVENT_OFF(ch->t_ifassert_timer);
+	event_cancel(&ch->t_ifjoin_expiry_timer);
+	event_cancel(&ch->t_ifjoin_prune_pending_timer);
+	event_cancel(&ch->t_ifassert_timer);
 
 	if (ch->parent) {
 		listnode_delete(ch->parent->sources, ch);
@@ -239,10 +239,16 @@ void pim_ifchannel_delete_all(struct interface *ifp)
 
 void delete_on_noinfo(struct pim_ifchannel *ch)
 {
-	if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
-	    && ch->ifjoin_state == PIM_IFJOIN_NOINFO
-	    && ch->t_ifjoin_expiry_timer == NULL)
+	struct pim_upstream *up = ch->upstream;
+	/*
+	 * (S,G) with no active traffic, KAT expires, PPT expries,
+	 * channel state is NoInfo
+	 */
+	if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO &&
+	    ch->ifjoin_state == PIM_IFJOIN_NOINFO &&
+	    (ch->t_ifjoin_expiry_timer == NULL || (up && !pim_upstream_is_kat_running(up)))) {
 		pim_ifchannel_delete(ch);
+	}
 }
 
 void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
@@ -424,7 +430,7 @@ const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state)
 */
 void reset_ifassert_state(struct pim_ifchannel *ch)
 {
-	EVENT_OFF(ch->t_ifassert_timer);
+	event_cancel(&ch->t_ifassert_timer);
 
 	pim_ifassert_winner_set(ch, PIM_IFASSERT_NOINFO, PIMADDR_ANY,
 				router->infinite_assert_metric);
@@ -571,6 +577,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->t_ifjoin_expiry_timer = NULL;
 	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
+
+	ch->prune_holdtime = 0;
 
 	RB_INSERT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
@@ -932,13 +940,13 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 				return;
 			}
 		}
-		EVENT_OFF(ch->t_ifjoin_expiry_timer);
+		event_cancel(&ch->t_ifjoin_expiry_timer);
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
-			EVENT_OFF(ch->t_ifjoin_expiry_timer);
+			event_cancel(&ch->t_ifjoin_expiry_timer);
 			delete_on_noinfo(ch);
 			return;
 		} else
@@ -955,7 +963,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 		 * maximum of its current value and the HoldTime from the
 		 * triggering Join/Prune message.
 		 */
-		EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
+		event_cancel(&ch->t_ifjoin_prune_pending_timer);
 
 		/* Check if SGRpt join Received */
 		if ((source_flags & PIM_ENCODE_RPT_BIT) &&
@@ -967,7 +975,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 			 * I transitions to the NoInfo state.The ET and PPT are
 			 * cancelled.
 			 */
-			EVENT_OFF(ch->t_ifjoin_expiry_timer);
+			event_cancel(&ch->t_ifjoin_expiry_timer);
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
 			return;
@@ -982,7 +990,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 			if (remain > holdtime)
 				return;
 		}
-		EVENT_OFF(ch->t_ifjoin_expiry_timer);
+		event_cancel(&ch->t_ifjoin_expiry_timer);
 
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
@@ -1031,6 +1039,8 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 				PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
 
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+			pim_upstream_inherited_olist_decide(pim_ifp->pim, ch->upstream);
+
 			if (listcount(pim_ifp->pim_neighbor_list) > 1)
 				jp_override_interval_msec =
 					pim_if_jp_override_interval_msec(ifp);
@@ -1042,8 +1052,8 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			   be taken not to use "ch" afterwards since it would be
 			   deleted. */
 
-			EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
-			EVENT_OFF(ch->t_ifjoin_expiry_timer);
+			event_cancel(&ch->t_ifjoin_prune_pending_timer);
+			event_cancel(&ch->t_ifjoin_expiry_timer);
 			event_add_timer_msec(router->master,
 					     on_ifjoin_prune_pending_timer, ch,
 					     jp_override_interval_msec,
@@ -1068,6 +1078,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		 * causing it to expire immediately.
 		 */
 
+		ch->ifjoin_creation = pim_time_monotonic_sec();
 		pim_ifchannel_ifjoin_switch(__func__, ch,
 					    PIM_IFJOIN_PRUNE_PENDING);
 
@@ -1080,7 +1091,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		/* If we called ifjoin_prune() directly instead, care should
 		   be taken not to use "ch" afterwards since it would be
 		   deleted. */
-		EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
+		event_cancel(&ch->t_ifjoin_prune_pending_timer);
 		event_add_timer_msec(router->master,
 				     on_ifjoin_prune_pending_timer, ch,
 				     jp_override_interval_msec,
@@ -1088,7 +1099,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
-			EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
+			event_cancel(&ch->t_ifjoin_prune_pending_timer);
 			/*
 			 * While in Prune State, Receive SGRpt Prune.
 			 * RFC 7761 Sec 4.5.3:
@@ -1104,7 +1115,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 
 				if (rem > holdtime)
 					return;
-				EVENT_OFF(ch->t_ifjoin_expiry_timer);
+				event_cancel(&ch->t_ifjoin_expiry_timer);
 			}
 
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
@@ -1115,7 +1126,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 	case PIM_IFJOIN_PRUNE_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE;
-			EVENT_OFF(ch->t_ifjoin_expiry_timer);
+			event_cancel(&ch->t_ifjoin_expiry_timer);
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
 					ch, holdtime,
 					&ch->t_ifjoin_expiry_timer);
@@ -1123,8 +1134,9 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
+			ch->ifjoin_creation = pim_time_monotonic_sec();
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
-			EVENT_OFF(ch->t_ifjoin_expiry_timer);
+			event_cancel(&ch->t_ifjoin_expiry_timer);
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
 					ch, holdtime,
 					&ch->t_ifjoin_expiry_timer);
@@ -1478,8 +1490,8 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 				break;
 
 			if (child->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING_TMP)
-				EVENT_OFF(child->t_ifjoin_prune_pending_timer);
-			EVENT_OFF(child->t_ifjoin_expiry_timer);
+				event_cancel(&child->t_ifjoin_prune_pending_timer);
+			event_cancel(&child->t_ifjoin_expiry_timer);
 
 			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 			child->ifjoin_state = PIM_IFJOIN_NOINFO;

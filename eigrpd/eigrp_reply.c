@@ -61,8 +61,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr,
 		      sizeof(struct eigrp_prefix_descriptor));
 	memcpy(pe2, pe, sizeof(struct eigrp_prefix_descriptor));
 
-	if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
-				      pe2->destination)) {
+	if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT, &pe2->destination)) {
 		zlog_info("REPLY SEND: Setting Metric to max");
 		pe2->reported_metric.delay = EIGRP_MAX_METRIC;
 	}

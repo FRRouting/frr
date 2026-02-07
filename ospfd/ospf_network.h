@@ -8,12 +8,11 @@
 #define _ZEBRA_OSPF_NETWORK_H
 
 /* Prototypes. */
-extern int ospf_if_add_allspfrouters(struct ospf *, struct prefix *, ifindex_t);
-extern int ospf_if_drop_allspfrouters(struct ospf *, struct prefix *,
-				      ifindex_t);
-extern int ospf_if_add_alldrouters(struct ospf *, struct prefix *, ifindex_t);
-extern int ospf_if_drop_alldrouters(struct ospf *, struct prefix *, ifindex_t);
-extern int ospf_if_ipmulticast(int fd, struct prefix *, ifindex_t);
+extern int ospf_if_add_allspfrouters(struct ospf *ospf, struct prefix *p, ifindex_t ifindex);
+extern int ospf_if_drop_allspfrouters(struct ospf *ospf, struct prefix *p, ifindex_t ifindex);
+extern int ospf_if_add_alldrouters(struct ospf *ospf, struct prefix *p, ifindex_t ifindex);
+extern int ospf_if_drop_alldrouters(struct ospf *ospf, struct prefix *p, ifindex_t ifindex);
+extern int ospf_if_ipmulticast(int fd, struct prefix *p, ifindex_t ifindex);
 extern int ospf_sock_init(struct ospf *ospf);
 /* Open, close per-interface write socket */
 int ospf_ifp_sock_init(struct interface *ifp);

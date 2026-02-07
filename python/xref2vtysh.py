@@ -11,15 +11,14 @@ non-negligible amount of time (0.5s on average systems, more on e.g. slow ARMs)
 since serializing and deserializing JSON is a significant bottleneck in this.
 """
 
-import sys
-import os
-import re
-import pathlib
 import argparse
-from collections import defaultdict
 import difflib
-
 import json
+import os
+import pathlib
+import re
+import sys
+from collections import defaultdict
 
 try:
     import ujson as json  # type: ignore
@@ -37,11 +36,13 @@ daemon_flags = {
     "lib/libagentx.c": "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA",
     "lib/filter.c": "VTYSH_ACL_SHOW",
     "lib/filter_cli.c": "VTYSH_ACL_CONFIG",
+    "lib/host_cli.c": "VTYSH_NON_MGMTD",
     "lib/if.c": "VTYSH_INTERFACE",
     "lib/keychain_cli.c": "VTYSH_KEYS",
     "lib/mgmt_be_client.c": "VTYSH_MGMT_BACKEND",
     "lib/mgmt_fe_client.c": "VTYSH_MGMT_FRONTEND",
     "lib/lib_vty.c": "VTYSH_ALL",
+    "lib/log_cli.c": "VTYSH_NON_MGMTD",
     "lib/log_vty.c": "VTYSH_ALL",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
     "lib/resolver.c": "VTYSH_NHRPD|VTYSH_BGPD",
@@ -160,7 +161,8 @@ class CommandEntry:
         if not self.doclines[-1].endswith("\n"):
             self.warn_loc("docstring does not end with \\n")
 
-    def warn_loc(self, wtext, nodename=None):
+    @staticmethod
+    def _warn_loc(name, spec, wtext, nodename=None):
         """
         Print warning with parseable (compiler style) location
 
@@ -169,16 +171,16 @@ class CommandEntry:
         """
 
         if nodename:
-            prefix = ": [%s] %s:" % (nodename, self.name)
+            prefix = ": [%s] %s:" % (nodename, name)
         else:
-            prefix = ": %s:" % (self.name,)
+            prefix = ": %s:" % (name,)
 
         for line in wtext.rstrip("\n").split("\n"):
             sys.stderr.write(
                 "%s:%d%s %s\n"
                 % (
-                    self._spec["defun"]["file"],
-                    self._spec["defun"]["line"],
+                    spec["defun"]["file"],
+                    spec["defun"]["line"],
                     prefix,
                     line,
                 )
@@ -186,6 +188,9 @@ class CommandEntry:
             prefix = "-    "
 
         CommandEntry.warn_counter += 1
+
+    def warn_loc(self, wtext, nodename=None):
+        self._warn_loc(self.name, self._spec, wtext, nodename)
 
     def _get_daemons(self):
         path = pathlib.Path(self.origin)
@@ -346,12 +351,35 @@ class CommandEntry:
         for entry in sorted(cls.all_defs, key=lambda i: i.name):
             ofd.write(entry.get_def())
 
+    parser_warnings = [
+        (
+            _clippy.CMD_GRAPH_PARSE_DOCSTRING_MISSING,
+            "CLI docstring missing help text for one or more tokens",
+        ),
+        (
+            _clippy.CMD_GRAPH_PARSE_DOCSTRING_EXTRA,
+            "CLI docstring has help text for non-existent tokens",
+        ),
+    ]
+
     @classmethod
     def output_node_graph(cls, ofd, node, cmds, splitfile):
         graph = _clippy.Graph(None)
 
         for _, cmd in sorted(cmds.items()):
             cg = _clippy.Graph(cmd.cmd, cmd._spec["doc"], cmd.name)
+
+            if cg.errors:
+                e = cg.errors
+                for flag, text in cls.parser_warnings:
+                    if e & flag:
+                        cls._warn_loc(cmd.name, cmd._spec, text)
+                        e &= ~flag
+                if e:
+                    cls._warn_loc(
+                        cmd.name, cmd._spec, "unknown warning from CLI parser"
+                    )
+
             graph.merge(cg)
 
         if len(graph) <= 2:

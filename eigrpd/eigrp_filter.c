@@ -42,6 +42,7 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_packet.h"
+#include "eigrpd/eigrp_interface.h"
 
 /*
  * Distribute-list update functions.
@@ -126,10 +127,9 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 
 	/*struct eigrp_if_info * info = ifp->info;
 	ei = info->eigrp_interface;*/
-	struct listnode *node, *nnode;
 	struct eigrp_interface *ei2;
 	/* Find proper interface */
-	for (ALL_LIST_ELEMENTS(e->eiflist, node, nnode, ei2)) {
+	frr_each (eigrp_interface_hash, &e->eifs, ei2) {
 		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
 			ei = ei2;
 			break;
@@ -242,11 +242,11 @@ void eigrp_distribute_update_all_wrapper(struct access_list *notused)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for whole process
  */
-void eigrp_distribute_timer_process(struct event *thread)
+void eigrp_distribute_timer_process(struct event *event)
 {
 	struct eigrp *eigrp;
 
-	eigrp = EVENT_ARG(thread);
+	eigrp = EVENT_ARG(event);
 
 	/* execute GR for whole process */
 	eigrp_update_send_process_GR(eigrp, EIGRP_GR_FILTER, NULL);
@@ -263,11 +263,11 @@ void eigrp_distribute_timer_process(struct event *thread)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for interface
  */
-void eigrp_distribute_timer_interface(struct event *thread)
+void eigrp_distribute_timer_interface(struct event *event)
 {
 	struct eigrp_interface *ei;
 
-	ei = EVENT_ARG(thread);
+	ei = EVENT_ARG(event);
 	ei->t_distribute = NULL;
 
 	/* execute GR for interface */

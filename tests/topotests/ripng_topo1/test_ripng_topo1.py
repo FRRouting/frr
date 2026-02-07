@@ -27,7 +27,7 @@ from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
-pytestmark = [pytest.mark.ripd]
+pytestmark = [pytest.mark.ripngd]
 
 #####################################################
 ##
@@ -164,8 +164,8 @@ def test_ripng_status():
 
             # Actual output from router
             actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
+                get_topogen().gears["r%s" % i]
+                .vtysh_cmd("show ipv6 ripng status")
                 .rstrip()
             )
             # Mask out Link-Local mac address portion. They are random...
@@ -229,7 +229,7 @@ def test_ripng_routes():
 
             # Actual output from router
             actual = (
-                net["r%s" % i].cmd('vtysh -c "show ipv6 ripng" 2> /dev/null').rstrip()
+                get_topogen().gears["r%s" % i].vtysh_cmd("show ipv6 ripng").rstrip()
             )
             # Drop Time
             actual = re.sub(r" [0-9][0-9]:[0-5][0-9]", " XX:XX", actual)
@@ -275,11 +275,9 @@ def test_zebra_ipv6_routingTable():
 
     def _verify_ip_route(expected):
         # Actual output from router
-        actual = (
-            net["r%s" % i]
-            .cmd('vtysh -c "show ipv6 route" 2> /dev/null | grep "^R"')
-            .rstrip()
-        )
+        output = get_topogen().gears["r%s" % i].vtysh_cmd("show ipv6 route")
+        # Filter only RIPng routes (lines starting with R)
+        actual = "\n".join(line for line in output.splitlines() if line.startswith("R")).rstrip()
         # Mask out Link-Local mac address portion. They are random...
         actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
         # Drop timers on end of line

@@ -15,7 +15,7 @@
 #include "config.h"
 #endif
 
-#if defined(linux) || defined(GNU_LINUX)
+#ifdef __linux__
 
 #define ipv6_u __in6_u
 #else

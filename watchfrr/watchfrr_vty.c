@@ -116,8 +116,7 @@ DEFUN_NOSH (show_debugging_watchfrr,
             DEBUG_STR
             WATCHFRR_STR)
 {
-	cmd_show_lib_debugs(vty);
-
+	vty_out(vty, "WATCHFRR has no debugging options.\n");
 	return CMD_SUCCESS;
 }
 

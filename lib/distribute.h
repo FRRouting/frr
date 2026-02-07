@@ -65,10 +65,8 @@ extern int config_write_distribute(struct vty *vty,
 extern int config_show_distribute(struct vty *vty,
 				  struct distribute_ctx *ctx);
 
-extern enum filter_type distribute_apply_in(struct interface *,
-					    struct prefix *);
-extern enum filter_type distribute_apply_out(struct interface *,
-					     struct prefix *);
+extern enum filter_type distribute_apply_in(struct interface *ifp, struct prefix *p);
+extern enum filter_type distribute_apply_out(struct interface *ifp, struct prefix *p);
 
 extern int distribute_list_parser(struct distribute_ctx *ctx, bool prefix,
 				  bool v4, const char *dir, const char *list,

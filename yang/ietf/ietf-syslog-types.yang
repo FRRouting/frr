@@ -1,0 +1,240 @@
+module ietf-syslog-types {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-syslog-types";
+  prefix syslogtypes;
+
+  organization "IETF NETMOD (NETCONF Data Modeling Language) Working
+                Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/netmod/>
+     WG List:  <mailto:netmod@ietf.org>
+
+     WG Chair: Tom Nadeau
+               <mailto:tnadeau@lucidvision.com>
+
+     WG Chair: Kent Watson
+               <mailto:kwatsen@juniper.net>
+
+     Editor:   Ladislav Lhotka
+               <mailto:lhotka@nic.cz>";
+  description
+    "This module contains a collection of YANG type definitions for
+     SYSLOG.";
+
+  revision 2015-10-14 {
+    description
+      "Initial Revision";
+    reference
+      "This model references RFC 5424 - The Syslog Protocol,
+       and RFC 5848 - Signed Syslog Messages.";
+  }
+
+  typedef severity {
+    type enumeration {
+      enum "emergency" {
+        value 0;
+        description
+          "Emergency Level Msg";
+      }
+      enum "alert" {
+        value 1;
+        description
+          "Alert Level Msg";
+      }
+      enum "critical" {
+        value 2;
+        description
+          "Critical Level Msg";
+      }
+      enum "error" {
+        value 3;
+        description
+          "Error Level Msg";
+      }
+      enum "warning" {
+        value 4;
+        description
+          "Warning Level Msg";
+      }
+      enum "notice" {
+        value 5;
+        description
+          "Notification Level Msg";
+      }
+      enum "info" {
+        value 6;
+        description
+          "Informational Level Msg";
+      }
+      enum "debug" {
+        value 7;
+        description
+          "Debugging Level Msg";
+      }
+    }
+    description
+      "The definitions for Syslog message severity as per RFC 5424.";
+  }
+
+  identity syslog-facility {
+    description
+      "The base identity to represent syslog facilities";
+  }
+
+  identity kern {
+    base syslog-facility;
+    description
+      "The facility for kernel messages as defined in RFC 5424.";
+  }
+
+  identity user {
+    base syslog-facility;
+    description
+      "The facility for user-level messages as defined in RFC 5424.";
+  }
+
+  identity mail {
+    base syslog-facility;
+    description
+      "The facility for the mail system as defined in RFC 5424.";
+  }
+
+  identity daemon {
+    base syslog-facility;
+    description
+      "The facility for the system daemons as defined in RFC 5424.";
+   }
+
+  identity auth {
+    base syslog-facility;
+    description
+      "The facility for security/authorization messages as defined
+       in RFC 5424.";
+  }
+
+  identity syslog {
+    base syslog-facility;
+    description
+      "The facility for messages generated internally by syslogd
+       facility as defined in RFC 5424.";
+  }
+
+  identity lpr {
+    base syslog-facility;
+    description
+      "The facility for the line printer subsystem as defined in
+       RFC 5424.";
+  }
+
+  identity news {
+    base syslog-facility;
+    description
+      "The facility for the network news subsystem as defined in
+       RFC 5424.";
+  }
+
+  identity uucp {
+    base syslog-facility;
+    description
+      "The facility for the UUCP subsystem as defined in RFC 5424.";
+  }
+
+  identity cron {
+    base syslog-facility;
+    description
+      "The facility for the clock daemon as defined in RFC 5424.";
+  }
+
+  identity authpriv {
+    base syslog-facility;
+    description
+      "The facility for privileged security/authorization messages
+       as defined in RFC 5424.";
+  }
+
+  identity ftp {
+    base syslog-facility;
+    description
+      "The facility for the FTP daemon as defined in RFC 5424.";
+  }
+
+  identity ntp {
+    base syslog-facility;
+    description
+      "The facility for the NTP subsystem as defined in RFC 5424.";
+  }
+
+  identity audit {
+    base syslog-facility;
+    description
+      "The facility for log audit messages as defined in RFC 5424.";
+  }
+
+  identity console {
+    base syslog-facility;
+    description
+      "The facility for log alert messages as defined in RFC 5424.";
+  }
+
+  identity cron2 {
+    base syslog-facility;
+    description
+      "The facility for the second clock daemon as defined in
+       RFC 5424.";
+  }
+
+  identity local0 {
+    base syslog-facility;
+    description
+      "The facility for local use 0 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local1 {
+    base syslog-facility;
+    description
+      "The facility for local use 1 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local2 {
+    base syslog-facility;
+    description
+      "The facility for local use 2 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local3 {
+    base syslog-facility;
+    description
+      "The facility for local use 3 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local4 {
+    base syslog-facility;
+    description
+      "The facility for local use 4 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local5 {
+    base syslog-facility;
+    description
+      "The facility for local use 5 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local6 {
+    base syslog-facility;
+    description
+      "The facility for local use 6 messages as defined in
+       RFC 5424.";
+  }
+
+  identity local7 {
+    base syslog-facility;
+    description
+      "The facility for local use 7 messages as defined in
+       RFC 5424.";
+  }
+}

@@ -7,7 +7,7 @@
 #ifndef _ZEBRA_PREFIX_H
 #define _ZEBRA_PREFIX_H
 
-#ifdef GNU_LINUX
+#ifdef __linux__
 #include <net/ethernet.h>
 #else
 #include <netinet/if_ether.h>
@@ -282,8 +282,8 @@ struct prefix_fs {
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
-	struct ipaddr src __attribute__((aligned(8)));
-	struct in_addr grp;
+	struct ipaddr src;
+	struct ipaddr grp;
 };
 
 /* clang-format off */
@@ -311,6 +311,7 @@ union prefixconstptr {
 #endif /* INET_ADDRSTRLEN */
 
 #ifndef INET6_ADDRSTRLEN
+/* Use this for GUA or LL IPv6 address len */
 /* dead:beef:dead:beef:dead:beef:dead:beef + \0 */
 #define INET6_ADDRSTRLEN 46
 #endif /* INET6_ADDRSTRLEN */
@@ -320,16 +321,16 @@ union prefixconstptr {
 #endif /* INET6_BUFSIZ */
 
 /* Maximum string length of the result of prefix2str */
-#define PREFIX_STRLEN 80
+#define PREFIX_STRLEN 84
 
 /*
- * Longest possible length of a (S,G) string is 34 bytes
- * 123.123.123.123 = 15 * 2
+ * Longest possible length of a (S,G) string is 82 bytes
+ * 1111:2222:3333:4444:5555:6666:7777:8888 = INET6_ADDRSTRLEN * 2 = 92
  * (,) = 3
  * NULL Character at end = 1
- * (123.123.123.123,123.123.123.123)
+ * (1111:2222:3333:4444:5555:6666:7777:8888,1111:2222:3333:4444:5555:6666:7777:8888)
  */
-#define PREFIX_SG_STR_LEN 34
+#define PREFIX_SG_STR_LEN (INET6_ADDRSTRLEN * 2 + 3 + 1)
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
@@ -352,6 +353,7 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 
 #define IPV4_NET0(a) ((((uint32_t)(a)) & 0xff000000) == 0x00000000)
 #define IPV4_NET127(a) ((((uint32_t)(a)) & 0xff000000) == 0x7f000000)
+#define IPV4_NET127_16(a)    ((((uint32_t)(a)) & 0xffff0000) == 0x7f000000)
 #define IPV4_LINKLOCAL(a) ((((uint32_t)(a)) & 0xffff0000) == 0xa9fe0000)
 #define IPV4_CLASS_D(a) ((((uint32_t)(a)) & 0xf0000000) == 0xe0000000)
 #define IPV4_CLASS_E(a) ((((uint32_t)(a)) & 0xf0000000) == 0xf0000000)
@@ -402,6 +404,8 @@ static inline afi_t prefix_afi(union prefixconstptr pu)
  *    which bit to fetch from byte buffer, 0 indexed.
  */
 extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
+
+extern void prefix_flowspec_ptr_free(struct prefix *p);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);
@@ -487,6 +491,7 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 extern bool ipv4_unicast_valid(const struct in_addr *addr);
+extern bool ipv4_ietf_unicast_valid(const struct in_addr *addr);
 extern int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to);
 
 static inline int ipv6_martian(const struct in6_addr *addr)
@@ -662,7 +667,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
 #pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)
 
-#pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
+#pragma FRR printfrr_ext "%pPSG" (struct prefix_sg *)
 #endif
 
 #ifdef __cplusplus

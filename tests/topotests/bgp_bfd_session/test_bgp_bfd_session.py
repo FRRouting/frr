@@ -85,7 +85,29 @@ def test_bgp_bfd_session():
                 "diagnostic": "ok",
                 "remote-diagnostic": "ok",
                 "type": "dynamic",
-            }
+            },
+            {
+                "multihop": True,
+                "peer": "192.168.1.4",
+                "local": "10.0.0.1",
+                "vrf": "default",
+                "minimum-ttl": 241,
+                "status": "down",
+                "diagnostic": "ok",
+                "remote-diagnostic": "ok",
+                "type": "dynamic",
+            },
+            {
+                "multihop": True,
+                "peer": "192.168.1.5",
+                "local": "10.0.0.1",
+                "vrf": "default",
+                "minimum-ttl": 231,
+                "status": "down",
+                "diagnostic": "ok",
+                "remote-diagnostic": "ok",
+                "type": "dynamic",
+            },
         ]
         return topotest.json_cmp(output, expected)
 

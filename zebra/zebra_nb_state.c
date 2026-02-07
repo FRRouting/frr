@@ -14,6 +14,8 @@
 #include "printfrr.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
+#include "zebra/ipforward.h"
+#include "zebra/zebra_mpls.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -86,6 +88,18 @@ lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 		break;
 	case ZEBRA_IF_GRE:
 		type = "frr-zebra:zif-gre";
+		break;
+	case ZEBRA_IF_IP6GRE:
+		type = "frr-zebra:zif-ip6gre";
+		break;
+	case ZEBRA_IF_GRETAP:
+		type = "frr-zebra:zif-gretap";
+		break;
+	case ZEBRA_IF_IP6GRETAP:
+		type = "frr-zebra:zif-ip6gretap";
+		break;
+	case ZEBRA_IF_DUMMY:
+		type = "frr-zebra:zif-dummy";
 		break;
 	}
 
@@ -162,7 +176,12 @@ lib_interface_zebra_state_remote_vtep_get_elem(struct nb_cb_get_elem_args *args)
 	zebra_if = ifp->info;
 	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_ipv4(args->xpath, &vxlan_info->vtep_ip);
+	if (IS_IPADDR_V4(&vxlan_info->vtep_ip))
+		return yang_data_new_ipv4(args->xpath, &vxlan_info->vtep_ip.ipaddr_v4);
+	else if (IS_IPADDR_V6(&vxlan_info->vtep_ip))
+		return yang_data_new_ipv6(args->xpath, &vxlan_info->vtep_ip.ipaddr_v6);
+	else
+		return NULL;
 }
 
 /*
@@ -184,6 +203,10 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 		return NULL;
 
 	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+
+	if (vni->mcast_grp.s_addr == INADDR_ANY)
+		return NULL;
+
 	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
@@ -441,7 +464,7 @@ const void *lib_vrf_zebra_ribs_rib_route_route_entry_lookup_entry(
 {
 	struct route_node *rn = (struct route_node *)args->parent_list_entry;
 	struct route_entry *re = NULL;
-	int proto_type = 0;
+	uint8_t proto_type = 0;
 	afi_t afi;
 
 	afi = family2afi(rn->p.family);
@@ -1002,6 +1025,18 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_e
 	return NULL;
 }
 
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/encap-behavior
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_encap_behavior_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
 
 /*
  * XPath:
@@ -1156,4 +1191,40 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 		return yang_data_new_uint8(args->xpath, nexthop->weight);
 
 	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-zebra:zebra/state/max-multipath
+ */
+struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint16(args->xpath, zrouter.zav.multipath_num);
+}
+
+/*
+ * XPath:
+ * /frr-zebra:zebra/ip_forwarding
+ */
+struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, ipforward());
+}
+
+
+/*
+ * XPath:
+ *  /frr-zebra:zebra/ipv6_forwarding
+ */
+struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, ipforward_ipv6());
+}
+
+/*
+ * XPath: /frr-zebra:zebra/state/mpls-forwarding
+ */
+struct yang_data *zebra_state_mpls_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, mpls_enabled);
 }

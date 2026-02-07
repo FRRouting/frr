@@ -204,6 +204,23 @@ Router Advertisement
 
    Default: do not emit DNSSL option
 
+.. clicmd:: ipv6 nd nat64 [X:X::X:X/M] [lifetime (0-65535)]
+
+   Include in RAs an advertisement of the NAT64 prefix in use (RFC8781).
+   (May be configured multiple times for multiple prefixes.)
+
+   If no prefix is given when configuring, the NAT64 default prefix of
+   64:ff9b::/96 is substituted.  Only prefixes with a prefix length of /96,
+   /64, /56, /48, /40 or /32 can be encoded into advertisements.
+
+   Lifetime is specified in seconds and defaults to ``3 * ra-interval``.  If
+   no value is configured, this is adjusted when ``ra-interval`` is changed.
+   A lifetime of 0 seconds is used to signal NAT64 prefixes that are no longer
+   valid.  Note that this is rounded up to multiples of 8 seconds as a
+   limitation of the option encoding.
+
+   Default: don't advertise any NAT64 prefix.
+
 Router Advertisement Configuration Example
 ==========================================
 A small example:

@@ -31,6 +31,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
+DEFINE_MTYPE_STATIC(LIB, REDIST_TABLE_DIRECT, "Redistribution table direct");
 
 /* Zebra client events. */
 enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
@@ -104,6 +105,11 @@ void zclient_free(struct zclient *zclient)
 	XFREE(MTYPE_ZCLIENT, zclient);
 }
 
+static void redist_free_instance(void *data)
+{
+	XFREE(MTYPE_REDIST_INST, data);
+}
+
 unsigned short *redist_check_instance(struct redist_proto *red,
 				      unsigned short instance)
 {
@@ -126,8 +132,10 @@ void redist_add_instance(struct redist_proto *red, unsigned short instance)
 
 	red->enabled = 1;
 
-	if (!red->instances)
+	if (!red->instances) {
 		red->instances = list_new();
+		red->instances->del = redist_free_instance;
+	}
 
 	in = XMALLOC(MTYPE_REDIST_INST, sizeof(unsigned short));
 	*in = instance;
@@ -143,8 +151,89 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 		return;
 
 	listnode_delete(red->instances, id);
-	XFREE(MTYPE_REDIST_INST, id);
+	red->instances->del(id);
 	if (!red->instances->count) {
+		red->enabled = 0;
+		list_delete(&red->instances);
+	}
+}
+
+static void redist_free_table_direct(void *data)
+{
+	XFREE(MTYPE_REDIST_TABLE_DIRECT, data);
+}
+
+struct redist_table_direct *redist_lookup_table_direct(const struct redist_proto *red,
+						       const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+	struct listnode *node;
+
+	if (red->instances == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, ntable)) {
+		if (table->vrf_id != ntable->vrf_id)
+			continue;
+		if (table->table_id != ntable->table_id)
+			continue;
+
+		return ntable;
+	}
+
+	return NULL;
+}
+
+bool redist_table_direct_has_id(const struct redist_proto *red, int table_id)
+{
+	struct redist_table_direct *table;
+	struct listnode *node;
+
+	if (red->instances == NULL)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, table)) {
+		if (table->table_id != table_id)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+void redist_add_table_direct(struct redist_proto *red, const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+
+	ntable = redist_lookup_table_direct(red, table);
+	if (ntable != NULL)
+		return;
+
+	if (red->instances == NULL) {
+		red->instances = list_new();
+		red->instances->del = redist_free_table_direct;
+	}
+
+	red->enabled = 1;
+
+	ntable = XCALLOC(MTYPE_REDIST_TABLE_DIRECT, sizeof(*ntable));
+	ntable->vrf_id = table->vrf_id;
+	ntable->table_id = table->table_id;
+	listnode_add(red->instances, ntable);
+}
+
+void redist_del_table_direct(struct redist_proto *red, const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+
+	ntable = redist_lookup_table_direct(red, table);
+	if (ntable == NULL)
+		return;
+
+	listnode_delete(red->instances, ntable);
+	red->instances->del(ntable);
+	if (red->instances->count == 0) {
 		red->enabled = 0;
 		list_delete(&red->instances);
 	}
@@ -152,14 +241,10 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 
 void redist_del_all_instances(struct redist_proto *red)
 {
-	struct listnode *ln, *nn;
-	unsigned short *id;
-
 	if (!red->instances)
 		return;
 
-	for (ALL_LIST_ELEMENTS(red->instances, ln, nn, id))
-		redist_del_instance(red, *id);
+	list_delete(&red->instances);
 }
 
 /* Stop zebra client services. */
@@ -172,9 +257,9 @@ void zclient_stop(struct zclient *zclient)
 		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
-	EVENT_OFF(zclient->t_read);
-	EVENT_OFF(zclient->t_connect);
-	EVENT_OFF(zclient->t_write);
+	event_cancel(&zclient->t_read);
+	event_cancel(&zclient->t_connect);
+	event_cancel(&zclient->t_write);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -261,9 +346,9 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
-static void zclient_flush_data(struct event *thread)
+static void zclient_flush_data(struct event *event)
 {
-	struct zclient *zclient = EVENT_ARG(thread);
+	struct zclient *zclient = EVENT_ARG(event);
 
 	zclient->t_write = NULL;
 	if (zclient->sock < 0)
@@ -308,7 +393,7 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
-		EVENT_OFF(zclient->t_write);
+		event_cancel(&zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
 		event_add_write(zclient->master, zclient_flush_data, zclient,
@@ -435,22 +520,62 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
-enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
-		const struct in6_addr *sid, vrf_id_t vrf_id,
-		enum seg6local_action_t action,
-		const struct seg6local_context *context)
+static struct interface *select_oif_for_localsid(ifindex_t candidate_oif)
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index(candidate_oif, VRF_DEFAULT);
+
+	/*
+	 * If the candidate outgoing interface (oif) is the loopback interface,
+	 * select 'sr0' as the oif instead. The Linux kernel does not permit
+	 * attaching SRv6 SIDs to the loopback interface, so 'sr0' must be used
+	 * in this case.
+	 */
+	if (!ifp || if_is_loopback_exact(ifp)) {
+		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+		if (!ifp)
+			return NULL;
+	}
+
+	return ifp;
+}
+
+enum zclient_send_status zclient_send_localsid(struct zclient *zclient, uint8_t cmd,
+					       const struct in6_addr *sid, uint16_t prefixlen,
+					       ifindex_t oif, enum seg6local_action_t action,
+					       const struct seg6local_context *context)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
 	struct interface *ifp;
 
-	ifp = if_get_vrf_loopback(vrf_id);
-	if (ifp == NULL)
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
 		return ZCLIENT_SEND_FAILURE;
+	}
+
+	if (zclient_debug)
+		zlog_debug("%s:  |- %s SRv6 SID %pI6 behavior %s", __func__,
+			   cmd != ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid,
+			   seg6local_action2str(action));
+
+	/*
+	 * Select a valid outgoing interface (oif) for attaching the SID.
+	 * If the provided oif is valid and not the loopback interface, it is used.
+	 * Otherwise, fall back to using the 'sr0' interface.
+	 */
+	ifp = select_oif_for_localsid(oif);
+	if (!ifp) {
+		zlog_err("Unable to obtain a valid outgoing interface for installing the SID.");
+		zlog_err(
+			"Please ensure that a dummy interface named 'sr0' exists and is operational.");
+		return ZCLIENT_SEND_FAILURE;
+	}
 
 	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefixlen = prefixlen;
 	p.prefix = *sid;
 
 	api.vrf_id = VRF_DEFAULT;
@@ -459,7 +584,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, &p, sizeof(p));
 
-	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+	if (cmd == ZEBRA_ROUTE_DELETE)
 		return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
@@ -478,6 +603,17 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	api.nexthop_num = 1;
 
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
+static void zclient_send_table_direct(struct zclient *zclient, afi_t afi, int type)
+{
+	struct redist_table_direct *table;
+	struct redist_proto *red = &zclient->mi_redist[afi][ZEBRA_ROUTE_TABLE_DIRECT];
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, table))
+		zebra_redistribute_send(type, zclient, afi, ZEBRA_ROUTE_TABLE_DIRECT,
+					table->table_id, table->vrf_id);
 }
 
 /* Send register requests to zebra daemon for the information in a VRF. */
@@ -512,6 +648,12 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 				if (!zclient->mi_redist[afi][i].enabled)
 					continue;
+
+				if (i == ZEBRA_ROUTE_TABLE_DIRECT) {
+					zclient_send_table_direct(zclient, afi,
+								  ZEBRA_REDISTRIBUTE_ADD);
+					continue;
+				}
 
 				struct listnode *node;
 				unsigned short *id;
@@ -579,6 +721,12 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 				if (!zclient->mi_redist[afi][i].enabled)
 					continue;
+
+				if (i == ZEBRA_ROUTE_TABLE_DIRECT) {
+					zclient_send_table_direct(zclient, afi,
+								  ZEBRA_REDISTRIBUTE_DELETE);
+					continue;
+				}
 
 				struct listnode *node;
 				unsigned short *id;
@@ -853,6 +1001,12 @@ static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
 	if (ret != 0)
 		return ret;
 
+	if (next1->srv6_encap_behavior > next2->srv6_encap_behavior)
+		return 1;
+
+	if (next1->srv6_encap_behavior < next2->srv6_encap_behavior)
+		return -1;
+
 	if (next1->seg6local_action > next2->seg6local_action)
 		return 1;
 
@@ -1074,6 +1228,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putc(s, api_nh->seg_num);
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
+		stream_putl(s, api_nh->srv6_encap_behavior);
 	}
 done:
 	return ret;
@@ -1167,8 +1322,8 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		return -1;
 	}
 
-	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
-	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
+	if (api_nhg->nexthop_num > MULTIPATH_NUM ||
+	    api_nhg->backup_nexthop_num > MULTIPATH_NUM) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
@@ -1218,6 +1373,34 @@ enum zclient_send_status zclient_nhg_send(struct zclient *zclient, int cmd,
 	return zclient_send_message(zclient);
 }
 
+/*
+ * Init a zapi_route struct more efficiently than a blind "memset"
+ */
+void zapi_route_init(struct zapi_route *zr)
+{
+	size_t offset;
+
+	/* We have a marker field in the zapi_route struct; we'll memset
+	 * only part of the struct.
+	 */
+	offset = offsetof(struct zapi_route, nexthop_num);
+
+	memset(zr, 0, offset);
+
+	/* Init some additional fields but avoid init'ing the large arrays */
+	zr->nexthop_num = 0;
+	zr->backup_nexthop_num = 0;
+	zr->opaque.length = 0;
+}
+
+/*
+ * Init a zapi nexthop struct
+ */
+void zapi_nexthop_init(struct zapi_nexthop *znh)
+{
+	memset(znh, 0, sizeof(struct zapi_nexthop));
+}
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
@@ -1236,6 +1419,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_putc(s, api->type);
 
 	stream_putw(s, api->instance);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 	stream_putl(s, api->flags);
 	stream_putl(s, api->message);
 
@@ -1295,6 +1480,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				return -1;
 			}
 
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+				SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 			if (zapi_nexthop_encode(s, api_nh, api->flags,
 						api->message)
 			    != 0)
@@ -1333,6 +1520,9 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 					api_nh->label_num, MPLS_MAX_LABELS);
 				return -1;
 			}
+
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+				SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 
 			if (zapi_nexthop_encode(s, api_nh, api->flags,
 						api->message)
@@ -1378,6 +1568,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message)
 {
 	int i, ret = -1;
+
+	zapi_nexthop_init(api_nh);
 
 	STREAM_GETL(s, api_nh->vrf_id);
 	STREAM_GETC(s, api_nh->type);
@@ -1452,7 +1644,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
 		STREAM_GETC(s, api_nh->seg_num);
-		if (api_nh->seg_num > SRV6_MAX_SIDS) {
+		if (api_nh->seg_num > SRV6_MAX_SEGS) {
 			flog_err(EC_LIB_ZAPI_ENCODE,
 				 "%s: invalid number of SRv6 Segs (%u)",
 				 __func__, api_nh->seg_num);
@@ -1461,6 +1653,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 		STREAM_GET(&api_nh->seg6_segs[0], s,
 			   api_nh->seg_num * sizeof(struct in6_addr));
+
+		STREAM_GETL(s, api_nh->srv6_encap_behavior);
 	}
 
 	/* Success */
@@ -1476,7 +1670,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	struct zapi_nexthop *api_nh;
 	int i;
 
-	memset(api, 0, sizeof(*api));
+	zapi_route_init(api);
 
 	/* Type, flags, message. */
 	STREAM_GETC(s, api->type);
@@ -2016,6 +2210,15 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      enum zapi_route_notify_owner *note,
 			      afi_t *afi, safi_t *safi)
 {
+	struct prefix dummy;
+
+	return zapi_route_notify_decode_srcdest(s, p, &dummy, tableid, note, afi, safi);
+}
+
+bool zapi_route_notify_decode_srcdest(struct stream *s, struct prefix *p, struct prefix *src_p,
+				      uint32_t *tableid, enum zapi_route_notify_owner *note,
+				      afi_t *afi, safi_t *safi)
+{
 	uint32_t t;
 	afi_t afi_val;
 	safi_t safi_val;
@@ -2025,6 +2228,9 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 	STREAM_GETC(s, p->family);
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s, prefix_blen(p));
+	src_p->family = p->family;
+	STREAM_GETC(s, src_p->prefixlen);
+	STREAM_GET(&src_p->u.prefix, s, prefix_blen(src_p));
 	STREAM_GETL(s, t);
 	STREAM_GETC(s, afi_val);
 	STREAM_GETC(s, safi_val);
@@ -2141,7 +2347,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 {
 	uint32_t f, wf;
 	uint16_t len;
-	static char locator_name[SRV6_LOCNAME_SIZE] = {};
+	static char locator_name[SRV6_LOCNAME_SIZE];
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2163,6 +2369,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 		if (len == 0)
 			*p_locator_name = NULL;
 		else {
+			memset(locator_name, 0, sizeof(locator_name));
 			STREAM_GET(locator_name, s, len);
 			*p_locator_name = locator_name;
 		}
@@ -2180,7 +2387,27 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	n->type = znh->type;
 	n->vrf_id = znh->vrf_id;
 	n->ifindex = znh->ifindex;
-	n->gate = znh->gate;
+
+	/* only copy values that have meaning - make sure "spare bytes" are
+	 * left zeroed for hashing (look at _nexthop_hash_bytes)
+	 */
+	switch (znh->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		n->bh_type = znh->bh_type;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		n->gate.ipv4 = znh->gate.ipv4;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		n->gate.ipv6 = znh->gate.ipv6;
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		/* nothing, ifindex is always copied */
+		break;
+	}
+
 	n->srte_color = znh->srte_color;
 	n->weight = znh->weight;
 
@@ -2203,7 +2430,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 					   &znh->seg6local_ctx);
 
 	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
-		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num, znh->srv6_encap_behavior);
 
 	return n;
 }
@@ -2216,7 +2443,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 {
 	int i;
 
-	memset(znh, 0, sizeof(*znh));
+	zapi_nexthop_init(znh);
 
 	znh->type = nh->type;
 	znh->vrf_id = nh->vrf_id;
@@ -2272,6 +2499,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				memcpy(&znh->seg6_segs[i],
 				       &nh->nh_srv6->seg6_segs->seg[i],
 				       sizeof(struct in6_addr));
+			znh->srv6_encap_behavior = nh->nh_srv6->seg6_segs->encap_behavior;
 		}
 	}
 
@@ -2335,7 +2563,7 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 {
 	uint32_t i;
 
-	memset(nhr, 0, sizeof(*nhr));
+	zapi_route_init(nhr);
 
 	STREAM_GETL(s, nhr->message);
 	STREAM_GETW(s, nhr->safi);
@@ -2841,6 +3069,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETL(s, ifp->mtu6);
 	STREAM_GETL(s, ifp->bandwidth);
 	STREAM_GETL(s, ifp->link_ifindex);
+	STREAM_GETL(s, ifp->zif_type);
 	STREAM_GETL(s, ifp->ll_type);
 	STREAM_GETL(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
@@ -2867,7 +3096,7 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	size_t w, nb_ext_adm_grp;
 	struct if_link_params *iflp;
 	int i;
-
+	size_t j;
 
 	if (s == NULL || ifp == NULL)
 		return 0;
@@ -2898,8 +3127,8 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	/* Extended Administrative Group */
 	nb_ext_adm_grp = admin_group_nb_words(&iflp->ext_admin_grp);
 	w += stream_putc(s, nb_ext_adm_grp);
-	for (size_t i = 0; i < nb_ext_adm_grp; i++)
-		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, i));
+	for (j = 0; j < nb_ext_adm_grp; j++)
+		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, j));
 
 	w += stream_putl(s, iflp->rmt_as);
 	w += stream_put_in_addr(s, &iflp->rmt_ip);
@@ -3366,11 +3595,12 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
  * @param sid_value SRv6 SID value for explicit SID allocation
  * @param locator_name Name of the parent locator for dynamic SID allocation
  * @param sid_func SID function assigned by the SRv6 Manager
+ * @param is_localonly SID is local-only
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-			 struct in6_addr *sid_value, const char *locator_name,
-			 uint32_t *sid_func)
+			 struct in6_addr *sid_value, const char *locator_name, uint32_t *sid_func,
+			 bool is_localonly)
 {
 	struct stream *s;
 	uint8_t flags = 0;
@@ -3401,6 +3631,8 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
 		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE);
 	if (locator_name)
 		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	if (is_localonly)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
 	stream_putc(s, flags);
 
 	/* SRv6 SID value */
@@ -3426,12 +3658,16 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
  *
  * @param zclient Zclient used to connect to SRv6 manager (zebra)
  * @param ctx Context associated with the SRv6 SID to be removed
+ * @param locator_name Parent locator of the SID
+ * @param is_localonly SID is local-only
  * @result 0 on success, -1 otherwise
  */
-int srv6_manager_release_sid(struct zclient *zclient,
-			     const struct srv6_sid_ctx *ctx)
+int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
+			     const char *locator_name, bool is_localonly)
 {
 	struct stream *s;
+	uint8_t flags = 0;
+	size_t len;
 	char buf[256];
 
 	if (zclient->sock < 0) {
@@ -3453,6 +3689,20 @@ int srv6_manager_release_sid(struct zclient *zclient,
 
 	/* Context associated with the SRv6 SID */
 	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Flags */
+	if (locator_name)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	if (is_localonly)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
+	stream_putc(s, flags);
+
+	/* SRv6 locator */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		len = strlen(locator_name);
+		stream_putw(s, len);
+		stream_put(s, locator_name, len);
+	}
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3524,7 +3774,7 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	if (zclient_debug)
 		zlog_debug("Getting Label Chunk");
 
-	if (zclient->sock < 0)
+	if (!zclient || zclient->sock < 0)
 		return -1;
 
 	/* send request */
@@ -4181,18 +4431,12 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;
-	int vrf_backend;
+	enum vrf_backend_type vrf_backend;
 	uint8_t mpls_enabled;
 
-	STREAM_GETL(s, vrf_backend);
+	STREAM_GETC(s, vrf_backend);
 
-	if (vrf_backend < 0 || vrf_configure_backend(vrf_backend)) {
-		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Garbage VRF backend type: %d", __func__,
-			 vrf_backend);
-		goto stream_failure;
-	}
-
+	vrf_configure_backend(vrf_backend);
 
 	memset(&cap, 0, sizeof(cap));
 	STREAM_GETC(s, mpls_enabled);
@@ -4517,7 +4761,7 @@ static zclient_handler *const lib_handlers[] = {
 };
 
 /* Zebra client message read function. */
-static void zclient_read(struct event *thread)
+static void zclient_read(struct event *event)
 {
 	size_t already;
 	uint16_t length, command;
@@ -4526,7 +4770,7 @@ static void zclient_read(struct event *thread)
 	struct zclient *zclient;
 
 	/* Get socket to zebra. */
-	zclient = EVENT_ARG(thread);
+	zclient = EVENT_ARG(event);
 	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */
@@ -4629,14 +4873,57 @@ static void zclient_read(struct event *thread)
 		/* Connection was closed during packet processing. */
 		return;
 
-	/* Register read thread. */
+	/* Register read event. */
 	stream_reset(zclient->ibuf);
 	zclient_event(ZCLIENT_READ, zclient);
+}
+
+static void zclient_redistribute_table_direct(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+					      int instance, int command)
+{
+	struct redist_proto *red = &zclient->mi_redist[afi][ZEBRA_ROUTE_TABLE_DIRECT];
+	bool has_table;
+	struct redist_table_direct table = {
+		.vrf_id = vrf_id,
+		.table_id = instance,
+	};
+
+	has_table = redist_lookup_table_direct(red, &table);
+
+	if (command == ZEBRA_REDISTRIBUTE_ADD) {
+		if (has_table)
+			return;
+
+		redist_add_table_direct(red, &table);
+	} else {
+		if (!has_table)
+			return;
+
+		redist_del_table_direct(red, &table);
+	}
+
+	if (zclient->sock > 0)
+		zebra_redistribute_send(command, zclient, afi, ZEBRA_ROUTE_TABLE_DIRECT, instance,
+					vrf_id);
 }
 
 void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 			  int type, unsigned short instance, vrf_id_t vrf_id)
 {
+	/*
+	 * When asking for table-direct redistribution the parameter
+	 * `instance` has a different meaning: it means table
+	 * identification.
+	 *
+	 * The table identification information is stored in
+	 * `zclient->mi_redist` along with the VRF identification
+	 * information in a pair (different from the usual single protocol
+	 * instance value).
+	 */
+	if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
+		zclient_redistribute_table_direct(zclient, vrf_id, afi, instance, command);
+		return;
+	}
 
 	if (instance) {
 		if (command == ZEBRA_REDISTRIBUTE_ADD) {
@@ -5128,6 +5415,26 @@ void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 				  : ZEBRA_NEIGH_UNREGISTER,
 			      vrf_id);
 	stream_putw(s, afi);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
+void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0) {
+		zlog_err("%s : zclient not connected", __func__);
+		return;
+	}
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_NEIGH_GET, VRF_DEFAULT);
+	stream_putl(s, ifp->ifindex);
+	stream_putw(s, afi);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }

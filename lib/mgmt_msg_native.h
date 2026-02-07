@@ -159,12 +159,24 @@ DECLARE_MTYPE(MSG_NATIVE_GET_TREE);
 DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
 DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
+DECLARE_MTYPE(MSG_NATIVE_NOTIFY_SELECT);
 DECLARE_MTYPE(MSG_NATIVE_EDIT);
 DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_RPC);
 DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_SESSION_REQ);
 DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_SUBSCRIBE);
+DECLARE_MTYPE(MSG_NATIVE_TXN_REQ);
+DECLARE_MTYPE(MSG_NATIVE_TXN_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_CFG_REQ);
+DECLARE_MTYPE(MSG_NATIVE_CFG_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REQ);
+DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_LOCK);
+DECLARE_MTYPE(MSG_NATIVE_LOCK_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_COMMIT);
+DECLARE_MTYPE(MSG_NATIVE_COMMIT_REPLY);
 
 /*
  * Native message codes
@@ -181,14 +193,29 @@ DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 #define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
+#define MGMT_MSG_CODE_LOCK	    19 /* Public API */
+#define MGMT_MSG_CODE_LOCK_REPLY    20 /* Public API */
+#define MGMT_MSG_CODE_COMMIT	    21 /* Public API */
+#define MGMT_MSG_CODE_COMMIT_REPLY  22 /* Public API */
+
+/* Derived from protobuf messages to remove protobuf dependency */
+#define MGMT_MSG_CODE_SUBSCRIBE	      12 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TXN_REQ	      13 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TXN_REPLY	      14 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_REQ	      15 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_REPLY	      16 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_APPLY_REQ   17 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_APPLY_REPLY 18 /* BE only, non-public API */
 
 /*
  * Datastores
  */
-#define MGMT_MSG_DATASTORE_STARTUP     0
-#define MGMT_MSG_DATASTORE_CANDIDATE   1
-#define MGMT_MSG_DATASTORE_RUNNING     2
+#define MGMT_MSG_DATASTORE_NONE	       0
+#define MGMT_MSG_DATASTORE_RUNNING     1
+#define MGMT_MSG_DATASTORE_CANDIDATE   2
 #define MGMT_MSG_DATASTORE_OPERATIONAL 3
+
+const char *mgmt_msg_code_name(uint code);
 
 /*
  * Formats
@@ -196,6 +223,7 @@ DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 #define MGMT_MSG_FORMAT_XML    1
 #define MGMT_MSG_FORMAT_JSON   2
 #define MGMT_MSG_FORMAT_BINARY 3 /* non-standard libyang internal format */
+#define MGMT_MSG_FORMAT_LAST   3
 
 /*
  * Now we're using LYD_FORMAT directly to avoid mapping code, but having our
@@ -323,25 +351,39 @@ _Static_assert(sizeof(struct mgmt_msg_get_data) ==
 		       offsetof(struct mgmt_msg_get_data, xpath),
 	       "Size mismatch");
 
+
+#define NOTIFY_OP_NOTIFICATION 0
+#define NOTIFY_OP_DS_REPLACE   1
+#define NOTIFY_OP_DS_DELETE    2
+#define NOTIFY_OP_DS_PATCH     3
+#define NOTIFY_OP_DS_GET_SYNC  4
+
 /**
  * struct mgmt_msg_notify_data - Message carrying notification data.
  *
  * @result_type: ``LYD_FORMAT`` for format of the @result value.
  * @data: The xpath string of the notification followed by the tree data in
  *        @result_type format.
+ * @op: notify operation type.
  */
 struct mgmt_msg_notify_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
-	uint8_t resv2[7];
+	uint8_t op;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };
-_Static_assert(sizeof(struct mgmt_msg_notify_data) ==
-		       offsetof(struct mgmt_msg_notify_data, data),
+_Static_assert(sizeof(struct mgmt_msg_notify_data) == offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
-#define EDIT_FLAG_IMPLICIT_LOCK	  0x01
+/*
+ * deprecated -- can simply do the locks as needed, if the session holds the
+ * locks then they aren't needed, otherwise an attempt to acquire them is made
+ * and if that fails the edit fails.
+ */
+#define EDIT_FLAG_IMPLICIT_LOCK 0x01
+/* also deprecated -- unneeded, if DS is candidate, then no "commit", if running then "commit" */
 #define EDIT_FLAG_IMPLICIT_COMMIT 0x02
 
 #define EDIT_OP_CREATE	0
@@ -406,30 +448,34 @@ _Static_assert(sizeof(struct mgmt_msg_edit_reply) ==
  * struct mgmt_msg_rpc - RPC/action request.
  *
  * @request_type: ``LYD_FORMAT`` for the @data.
+ * @restconf: If true the and tree data is present it is in RESTCONF format
+ * (i.e., the topmost node is `input`)
  * @data: the xpath followed by the tree data for the operation.
  */
 struct mgmt_msg_rpc {
 	struct mgmt_msg_header;
 	uint8_t request_type;
-	uint8_t resv2[7];
+	uint8_t restconf;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };
 
-_Static_assert(sizeof(struct mgmt_msg_rpc) ==
-		       offsetof(struct mgmt_msg_rpc, data),
-	       "Size mismatch");
+_Static_assert(sizeof(struct mgmt_msg_rpc) == offsetof(struct mgmt_msg_rpc, data), "Size mismatch");
 
 /**
  * struct mgmt_msg_rpc_reply - RPC/action reply.
  *
  * @result_type: ``LYD_FORMAT`` for the @data.
+ * @restconf: If true the and tree data is present it is in RESTCONF format
+ * (i.e., the topmost node is `output`)
  * @data: the tree data for the reply.
  */
 struct mgmt_msg_rpc_reply {
 	struct mgmt_msg_header;
 	uint8_t result_type;
-	uint8_t resv2[7];
+	uint8_t restconf;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };
@@ -444,13 +490,24 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
  * Add xpath prefix notification selectors to limit the notifications sent
  * to the front-end client.
  *
+ * Also used by mgmtd to the backend clients. In this case behavior depends on
+ * the @get_only boolean. If unset the backend filter set is updated
+ * accordingly, otherwise @get_only is true and a "get" operation is done within
+ * the notification stream using the given selectors, and the filter set in the
+ * backend is not modified. This is used so front-end clients can get an initial
+ * dump of the state followed by notifications w/o missing any changes to the
+ * state.
+ *
  * @selectors: the xpath prefixes to selectors notifications through.
  * @replace: if true replace existing selectors with `selectors`.
+ * @get_only: [backend-only]: if true do get op, don't change selectors.
  */
 struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;
 	uint8_t replace;
-	uint8_t resv2[7];
+	uint8_t get_only;
+	uint8_t subscribing;
+	uint8_t resv2[5];
 
 	alignas(8) char selectors[];
 };
@@ -459,16 +516,20 @@ _Static_assert(sizeof(struct mgmt_msg_notify_select) ==
 		       offsetof(struct mgmt_msg_notify_select, selectors),
 	       "Size mismatch");
 
+
+#define DEFAULT_NOTIFY_FORMAT MGMT_MSG_FORMAT_JSON
 /**
  * struct mgmt_msg_session_req - Create or delete a front-end session.
  *
  * @refer_id: Zero for create, otherwise the session-id to delete.
  * @req_id: For create will use as client-id.
+ * @notify_format: Format for notification data or 0 for default.
  * @client_name: For first session request the client name, otherwise empty.
  */
 struct mgmt_msg_session_req {
 	struct mgmt_msg_header;
-	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+	uint8_t notify_format;
+	uint8_t resv2[7];
 
 	alignas(8) char client_name[];
 };
@@ -487,6 +548,172 @@ struct mgmt_msg_session_reply {
 	struct mgmt_msg_header;
 	uint8_t created;
 	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_lock - Set or clear a lock on a datastore.
+ *
+ * @refer_id: The session-id that will own (or release) the lock.
+ * @datastore: the datastore to lock or unlock.
+ * @lock: true to lock, false to unlock.
+ */
+struct mgmt_msg_lock {
+	struct mgmt_msg_header;
+	uint8_t datastore; /* MGMT_MSG_DATASTORE_* */
+	uint8_t lock;	   /* True to lock, false to unlock */
+	uint8_t resv2[6];
+};
+
+/**
+ * struct mgmt_msg_lock_reply - Reply to lock message.
+ *
+ * @refer_id: The session-id that will own (or release) the lock.
+ * @datastore: the datastore to lock or unlock.
+ * @lock: true if locked, false if unlocked.
+ */
+struct mgmt_msg_lock_reply {
+	struct mgmt_msg_header;
+	uint8_t datastore; /* MGMT_MSG_DATASTORE_* */
+	uint8_t lock;	   /* True if locked, false to unlocked */
+	uint8_t resv2[6];
+};
+
+#define MGMT_MSG_COMMIT_APPLY	 0
+#define MGMT_MSG_COMMIT_ABORT	 1
+#define MGMT_MSG_COMMIT_VALIDATE 2
+/**
+ * struct mgmt_msg_commit - Set or clear a commit on a datastore.
+ *
+ * @refer_id: The session-id that will own (or release) the commit.
+ * @source: the datastore to commit from, abort changes or validate changes.
+ * @target: the datastore to commit into.
+ * @action: apply, abort, or validate the changes from source to target.
+ * @unlock: value passed to reply message.
+ */
+struct mgmt_msg_commit {
+	struct mgmt_msg_header;
+	uint8_t source; /* MGMT_MSG_DATASTORE_* */
+	uint8_t target; /* MGMT_MSG_DATASTORE_* */
+	uint8_t action; /* MGMT_MSG_COMMIT_* */
+	uint8_t unlock;
+	uint8_t resv2[4];
+};
+
+/**
+ * struct mgmt_msg_commit_reply - Reply to commit message.
+ *
+ * @refer_id: The session-id that will own (or release) the commit.
+ * @source: the datastore committed from, or the changes aborted or validated.
+ * @target: the datastore committed into.
+ * @action: action taken, i.e., apply, abort, or validate.
+ * @unlock: true indicates receiver should unlock the datastores.
+ */
+struct mgmt_msg_commit_reply {
+	struct mgmt_msg_header;
+	uint8_t source; /* MGMT_MSG_DATASTORE_* */
+	uint8_t target; /* MGMT_MSG_DATASTORE_* */
+	uint8_t action; /* MGMT_MSG_COMMIT_* */
+	uint8_t unlock;
+	uint8_t resv2[4];
+};
+
+/**
+ * struct mgmt_msg_subscribe - Subscribe YANG paths for backend client.
+ *
+ * @nconfig: Number of config paths that start the array.
+ * @noper: Number of oper-state paths that follow config.
+ * @nnotif: Number of notif paths that follow oper.
+ * @nrpc: Number of rpc paths that follow notif.
+ * @strings: A sequence of strings that starts with the name of the client
+ *	     followed by @nconfig xpath prefxies, then by @noper xpath
+ *	     prefixes, finally by @nrpc xpath prefixes.
+ *
+ */
+struct mgmt_msg_subscribe {
+	struct mgmt_msg_header;
+	uint16_t nconfig; /* config path count */
+	uint16_t noper;	  /* oper-state path count */
+	uint16_t nnotify; /* notif path count */
+	uint16_t nrpc;	  /* rpc path count */
+
+	alignas(8) char strings[];
+};
+
+
+/**
+ * struct mgmt_msg_txn_req - Create or delete a transaction.
+ *
+ * @refer_id: The transaction ID to create or delete.
+ * @create: true if this is a create request, otherwise delete.
+ */
+struct mgmt_msg_txn_req {
+	struct mgmt_msg_header;
+	uint8_t create;
+	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_txn_reply - Reply to transaction request message.
+ *
+ * @refer_id: The transaction ID for the action (create or delete) just taken.
+ * @created: true if this is a reply to a create request, otherwise 0.
+ */
+struct mgmt_msg_txn_reply {
+	struct mgmt_msg_header;
+	uint8_t created;
+	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_cfg_req - Send the configuration to backend.
+ *
+ * @refer_id: The transaction ID to add config changes to.
+ * @config: The configuration changes as a sequence of strings to validate and
+ *	    store for applying. These are followed by a final string indicating
+ *	    the action to take for the preceding strings. There are 2 actions
+ *	    possible: "m" for modify and "r" for remove.
+ *
+ * To process the config data, walk the action string, each byte indicates the
+ * action to take. For "d" (delete/remove) consume 1 string which is the xpath to
+ * remove. For "m" (modify) consume 2 strings, the first is the xpath to modify
+ * and the second is the new value. The value may be zero length for YANG value
+ * type "empty".
+ */
+struct mgmt_msg_cfg_req {
+	struct mgmt_msg_header;
+	uint8_t resv2[8]; /* bug in compiler */
+
+	alignas(8) char config[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_cfg_req) == offsetof(struct mgmt_msg_cfg_req, config),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_cfg_reply - Reply to configuration message.
+ *
+ * @refer_id: The transaction ID whose configuration was received and validated.
+ */
+struct mgmt_msg_cfg_reply {
+	struct mgmt_msg_header;
+};
+
+/**
+ * struct mgmt_msg_cfg_apply_req - Apply config in transaction.
+ *
+ * @refer_id: The transaction ID to apply.
+ */
+struct mgmt_msg_cfg_apply_req {
+	struct mgmt_msg_header;
+};
+
+/**
+ * struct mgmt_msg_cfg_apply_reply - Signal the config has been applied.
+ *
+ * @refer_id: The transaction ID which was applied.
+ */
+struct mgmt_msg_cfg_apply_reply {
+	struct mgmt_msg_header;
 };
 
 /*
@@ -552,19 +779,18 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *
  * Return: A `msg_type` object created using a dynamic_array.
  */
-#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                 \
-	({                                                                     \
-		uint8_t *__nam_buf = NULL;                                     \
-		(msg_type *)darr_append_nz_mt(__nam_buf,                       \
-					      sizeof(msg_type) + (var_len),    \
-					      mem_type);                       \
+#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                                    \
+	({                                                                                        \
+		uint8_t *_nam_buf = NULL;                                                         \
+		darr_append_nz_mt(_nam_buf, sizeof(msg_type) + (var_len), mem_type);              \
+		(msg_type *)_nam_buf;                                                             \
 	})
 
 /**
  * mgmt_msg_free_native_msg() - Free a native msg.
- * @msg - pointer to message allocated by mgmt_msg_create_native_msg().
+ * @msg: pointer to message allocated by mgmt_msg_create_native_msg().
  */
-#define mgmt_msg_native_free_msg(msg) darr_free(msg)
+#define mgmt_msg_native_free_msg darr_free
 
 /**
  * mgmt_msg_native_get_msg_len() - Get the total length of the msg.
@@ -588,12 +814,12 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *
  * Return: a pointer to the newly appended data.
  */
-#define mgmt_msg_native_append(msg, data, len)                                 \
-	({                                                                     \
-		uint8_t **__na_darrp = mgmt_msg_native_get_darrp(msg);         \
-		uint8_t *__na_p = darr_append_n(*__na_darrp, len);             \
-		memcpy(__na_p, data, len);                                     \
-		__na_p;							       \
+#define mgmt_msg_native_append(msg, data, len)                                                     \
+	({                                                                                         \
+		uint8_t **_na_darrp = mgmt_msg_native_get_darrp(msg);                              \
+		uint8_t *_na_p = darr_append_n(*_na_darrp, len);                                   \
+		memcpy(_na_p, data, len);                                                          \
+		_na_p;                                                                             \
 	})
 
 /**
@@ -609,10 +835,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * message to fit the new data. Any other pointers into the old message should
  * be discarded.
  */
-#define mgmt_msg_native_add_str(msg, s)                                        \
-	do {                                                                   \
-		int __nas_len = strlen(s) + 1;                                 \
-		mgmt_msg_native_append(msg, s, __nas_len);                     \
+#define mgmt_msg_native_add_str(msg, s)                                                            \
+	do {                                                                                       \
+		int _nas_len = strlen(s) + 1;                                                      \
+		mgmt_msg_native_append(msg, s, _nas_len);                                          \
 	} while (0)
 
 /**
@@ -682,11 +908,11 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * the first half of the encoding, after which one can simply append the
  * secondary data to the message.
  */
-#define mgmt_msg_native_xpath_encode(msg, xpath)                               \
-	do {                                                                   \
-		size_t __slen = strlen(xpath) + 1;                             \
-		mgmt_msg_native_append(msg, xpath, __slen);                    \
-		(msg)->vsplit = __slen;                                        \
+#define mgmt_msg_native_xpath_encode(msg, xpath)                                                   \
+	do {                                                                                       \
+		size_t _m__slen = strlen(xpath) + 1;                                               \
+		mgmt_msg_native_append(msg, xpath, _m__slen);                                      \
+		(msg)->vsplit = _m__slen;                                                          \
 	} while (0)
 
 /**
@@ -703,19 +929,17 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_xpath_data_decode(msg, msglen, __data)                 \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__s = NULL;                                        \
-		if (msg->vsplit && msg->vsplit <= __len &&                     \
-		    msg->data[msg->vsplit - 1] == 0) {                         \
-			if (msg->vsplit < __len)                               \
-				(__data) = msg->data + msg->vsplit;            \
-			else                                                   \
-				(__data) = NULL;                               \
-			__s = msg->data;                                       \
-		}                                                              \
-		__s;                                                           \
+#define mgmt_msg_native_xpath_data_decode(msg, msglen, _data)                                      \
+	({                                                                                         \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__s = NULL;                                                          \
+		(_data) = NULL;                                                                    \
+		if (msg->vsplit && msg->vsplit <= _m__len && msg->data[msg->vsplit - 1] == 0) {    \
+			if (msg->vsplit < _m__len)                                                 \
+				(_data) = msg->data + msg->vsplit;                                 \
+			_m__s = msg->data;                                                         \
+		}                                                                                  \
+		_m__s;                                                                             \
 	})
 
 /**
@@ -731,14 +955,13 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_xpath_decode(msg, msglen)                              \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__s = msg->data;                                   \
-		if (!msg->vsplit || msg->vsplit > __len ||                     \
-		    __s[msg->vsplit - 1] != 0)                                 \
-			__s = NULL;                                            \
-		__s;                                                           \
+#define mgmt_msg_native_xpath_decode(msg, msglen)                                                  \
+	({                                                                                         \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__s = msg->data;                                                     \
+		if (!msg->vsplit || msg->vsplit > _m__len || _m__s[msg->vsplit - 1] != 0)          \
+			_m__s = NULL;                                                              \
+		_m__s;                                                                             \
 	})
 
 /**
@@ -754,13 +977,13 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The secondary data or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_data_decode(msg, msglen)                               \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__data = msg->data + msg->vsplit;                  \
-		if (!msg->vsplit || msg->vsplit > __len || __data[-1] != 0)    \
-			__data = NULL;                                         \
-		__data;                                                        \
+#define mgmt_msg_native_data_decode(msg, msglen)                                                   \
+	({                                                                                         \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__data = msg->data + msg->vsplit;                                    \
+		if (!msg->vsplit || msg->vsplit > _m__len || _m__data[-1] != 0)                    \
+			_m__data = NULL;                                                           \
+		_m__data;                                                                          \
 	})
 
 /**
@@ -798,8 +1021,7 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 	_mgmt_msg_native_strings_decode(sdata,                                 \
 					(msg_len) - ((sdata) - (char *)(msg)))
 
-extern const char **_mgmt_msg_native_strings_decode(const void *sdata,
-						    int sdlen);
+extern const char **_mgmt_msg_native_strings_decode(const void *sdata, int sdlen);
 
 #ifdef __cplusplus
 }

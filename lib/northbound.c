@@ -7,6 +7,7 @@
 #include <zebra.h>
 
 #include "darr.h"
+#include "host_nb.h"
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
@@ -127,6 +128,8 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 
 	if (module && module->ignore_cfg_cbs)
 		SET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS);
+	if (module && module->get_tree_locked)
+		SET_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -233,8 +236,9 @@ static int nb_node_validate_cb(const struct nb_node *nb_node,
 	 * depends on context (e.g. some daemons might augment "frr-interface"
 	 * while others don't).
 	 */
-	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT
-	    && operation != NB_CB_GET_KEYS && operation != NB_CB_LOOKUP_ENTRY)
+	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT &&
+	    operation != NB_CB_GET_KEYS && operation != NB_CB_LIST_ENTRY_DONE &&
+	    operation != NB_CB_LOOKUP_ENTRY)
 		flog_warn(EC_LIB_NB_CB_UNNEEDED,
 			  "unneeded '%s' callback for '%s'",
 			  nb_cb_operation_name(operation), nb_node->xpath);
@@ -256,6 +260,7 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 
 {
 	unsigned int error = 0;
+	bool state_optional = CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE);
 
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return error;
@@ -273,13 +278,17 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 	error += nb_node_validate_cb(nb_node, NB_CB_APPLY_FINISH,
 				     !!nb_node->cbs.apply_finish, true);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_ELEM,
-				     !!nb_node->cbs.get_elem, false);
+				     (nb_node->cbs.get_elem || nb_node->cbs.get), state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_NEXT,
-				     !!nb_node->cbs.get_next, false);
-	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS,
-				     !!nb_node->cbs.get_keys, false);
-	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY,
-				     !!nb_node->cbs.lookup_entry, false);
+				     (nb_node->cbs.get_next ||
+				      (nb_node->snode->nodetype == LYS_LEAFLIST && nb_node->cbs.get)),
+				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS, !!nb_node->cbs.get_keys,
+				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_LIST_ENTRY_DONE, !!nb_node->cbs.list_entry_done,
+				     true);
+	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY, !!nb_node->cbs.lookup_entry,
+				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
 				     false);
 	error += nb_node_validate_cb(nb_node, NB_CB_NOTIFY,
@@ -514,20 +523,33 @@ void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 static void nb_config_diff_deleted(const struct lyd_node *dnode, uint32_t *seq,
 				   struct nb_config_cbs *changes)
 {
+	struct nb_node *nb_node = dnode->schema->priv;
+	struct lyd_node *child;
+	bool recursed = false;
+
 	/* Ignore unimplemented nodes. */
-	if (!dnode->schema->priv)
+	if (!nb_node)
 		return;
+
+	/*
+	 * If the CB structure indicates it (recurse flag set), call the destroy
+	 * callbacks for the children of a containment node.
+	 */
+	if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER | LYS_LIST) &&
+	    CHECK_FLAG(nb_node->cbs.flags, F_NB_CB_DESTROY_RECURSE)) {
+		recursed = true;
+		LY_LIST_FOR (lyd_child(dnode), child) {
+			nb_config_diff_deleted(child, seq, changes);
+		}
+	}
 
 	if (nb_cb_operation_is_valid(NB_CB_DESTROY, dnode->schema))
 		nb_config_diff_add_change(changes, NB_CB_DESTROY, seq, dnode);
-	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER)) {
-		struct lyd_node *child;
-
+	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER) && !recursed) {
 		/*
-		 * Non-presence containers need special handling since they
-		 * don't have "destroy" callbacks. In this case, what we need to
-		 * do is to call the "destroy" callbacks of their child nodes
-		 * when applicable (i.e. optional nodes).
+		 * If we didn't already above, call destroy on the children of
+		 * this container (it's an NP container) as NP containers have
+		 * no destroy CB themselves.
 		 */
 		LY_LIST_FOR (lyd_child(dnode), child) {
 			nb_config_diff_deleted(child, seq, changes);
@@ -683,19 +705,30 @@ void nb_config_diff(const struct nb_config *config1,
 	lyd_free_all(diff);
 }
 
-static int dnode_create(struct nb_config *candidate, const char *xpath,
-			const char *value, uint32_t options,
-			struct lyd_node **new_dnode)
+/**
+ * dnode_create() - create a new node in the tree
+ * @candidate: config tree to create node in.
+ * @xpath: target node to create.
+ * @value: value for the new if required.
+ * @options: lyd_new_path options
+ * @new_dnode: the newly created node. If options includes LYD_NEW_PATH_UPDATE,
+ *             and the node exists (i.e., isn't create but updated), then
+ *             new_node will be set to NULL not the existing node).
+ *
+ * Return: NB_OK or NB_ERR.
+ */
+static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const char *value,
+			   uint32_t options, struct lyd_node **new_dnode)
 {
 	struct lyd_node *dnode;
 	LY_ERR err;
 
-	err = lyd_new_path(candidate->dnode, ly_native_ctx, xpath, value,
-			   options, &dnode);
+	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
+			     &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
 			  __func__, xpath, err);
-		return NB_ERR;
+		return err;
 	} else if (dnode) {
 		err = lyd_new_implicit_tree(dnode, LYD_IMPLICIT_NO_STATE, NULL);
 		if (err) {
@@ -706,13 +739,11 @@ static int dnode_create(struct nb_config *candidate, const char *xpath,
 	}
 	if (new_dnode)
 		*new_dnode = dnode;
-	return NB_OK;
+	return LY_SUCCESS;
 }
 
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
-		      enum nb_operation operation, const char *xpath,
-		      const struct yang_data *previous,
-		      const struct yang_data *data)
+		      enum nb_operation operation, const char *xpath, const char *value)
 {
 	struct lyd_node *dnode, *dep_dnode, *old_dnode;
 	char dep_xpath[XPATH_MAXLEN];
@@ -726,8 +757,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		options = LYD_NEW_PATH_UPDATE;
 		fallthrough;
 	case NB_OP_CREATE_EXCL:
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (err) {
 			return err;
 		} else if (dnode) {
@@ -776,8 +806,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 			parent = lyd_parent(old_dnode);
 			lyd_unlink_tree(old_dnode);
 		}
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (!err && dnode && !old_dnode) {
 			/* create dependency if the node didn't exist */
 			nb_node = dnode->schema->priv;
@@ -831,7 +860,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	bool root;
 	int ret;
 
-	ly_in_new_memory(data, &in);
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+		return NB_ERR;
+	}
 
 	root = xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0);
 
@@ -859,8 +892,8 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	 * merged later with candidate.
 	 */
 	if (parent_xpath) {
-		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
-				    0, 0, &tree, &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, &tree,
+				     &parent);
 		if (err) {
 			yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 			ret = NB_ERR;
@@ -1070,6 +1103,7 @@ const char *nb_operation_name(enum nb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
@@ -1082,15 +1116,60 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
-void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
-				      struct nb_cfg_change cfg_changes[],
-				      size_t num_cfg_changes,
-				      const char *xpath_base, bool in_backend,
-				      char *err_buf, int err_bufsize,
-				      bool *error)
+enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+						      enum nb_operation operation, const char *xpath,
+						      const char *value, bool in_backend)
 {
-	if (error)
-		*error = false;
+	struct nb_node *nb_node;
+	enum nb_error ret;
+
+	/* Find the northbound node associated to the data path. */
+	nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		if (in_backend) {
+			DEBUGD(&nb_dbg_cbs_config, "%s: ignoring non-handled path: %s", __func__,
+			       xpath);
+			return NB_CHANGE_OK;
+		}
+		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH, "%s: unknown data path: %s", __func__,
+			  xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	/* Find if the node to be edited is not a key node */
+	if (!nb_is_operation_allowed(nb_node, operation)) {
+		zlog_err("xpath: %s points to key node", xpath);
+		return NB_CHANGE_ERR;
+	}
+
+	/* If the value is not set, get the default if it exists. */
+	/* XXX what about presence containers? */
+	if (value == NULL)
+		value = yang_snode_get_default(nb_node->snode);
+
+	/*
+	 * Ignore "not found" errors when editing the candidate configuration.
+	 * [XXX chopps: why?, and then why not check for NB_ERR_NOTFOUND]
+	 */
+	ret = nb_candidate_edit(candidate_config, nb_node, operation, xpath, value);
+	if (ret != NB_OK) {
+		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
+			  "%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
+			  __func__, nb_operation_name(operation), xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	return NB_CHANGE_OK;
+}
+
+void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+				      struct nb_cfg_change cfg_changes[], size_t num_cfg_changes,
+				      const char *xpath_base, bool in_backend, char *err_buf,
+				      int err_bufsize, bool *error)
+{
+	enum nb_change_result result = NB_CHANGE_OK;
+
+	*error = false;
 
 	if (xpath_base == NULL)
 		xpath_base = "";
@@ -1098,75 +1177,29 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < num_cfg_changes; i++) {
 		struct nb_cfg_change *change = &cfg_changes[i];
-		struct nb_node *nb_node;
 		char *change_xpath = change->xpath;
 		char xpath[XPATH_MAXLEN];
-		const char *value;
-		struct yang_data *data;
-		int ret;
 
 		memset(xpath, 0, sizeof(xpath));
 		/* If change xpath is relative, prepend base xpath. */
+		/* XXX shouldn't this be change_xpath[0] != '/'? */
 		if (change_xpath[0] == '.') {
 			strlcpy(xpath, xpath_base, sizeof(xpath));
 			change_xpath++; /* skip '.' */
 		}
 		strlcat(xpath, change_xpath, sizeof(xpath));
 
-		/* Find the northbound node associated to the data path. */
-		nb_node = nb_node_find(xpath);
-		if (!nb_node) {
-			if (in_backend)
-				DEBUGD(&nb_dbg_cbs_config,
-				       "%s: ignoring non-handled path: %s",
-				       __func__, xpath);
-			else {
-				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-					  "%s: unknown data path: %s", __func__,
-					  xpath);
-				if (error)
-					*error = true;
-			}
-			continue;
-		}
-		/* Find if the node to be edited is not a key node */
-		if (!nb_is_operation_allowed(nb_node, change->operation)) {
-			zlog_err(" Xpath %s points to key node", xpath);
-			if (error)
-				*error = true;
+		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
+							 change->value, in_backend);
+		if (result != NB_CHANGE_OK)
+			*error = true;
+		if (result == NB_CHANGE_ERR)
 			break;
-		}
-
-		/* If the value is not set, get the default if it exists. */
-		value = change->value;
-		if (value == NULL)
-			value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, value);
-
-		/*
-		 * Ignore "not found" errors when editing the candidate
-		 * configuration.
-		 */
-		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
-		yang_data_free(data);
-		if (ret != NB_OK) {
-			flog_warn(
-				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
-				__func__, nb_operation_name(change->operation),
-				xpath);
-			if (error)
-				*error = true;
-			continue;
-		}
 	}
-
-	if (error && *error) {
+	if (*error) {
 		char buf[BUFSIZ];
 
-		snprintf(err_buf, err_bufsize,
-			 "%% Failed to edit configuration.\n\n%s",
+		snprintf(err_buf, err_bufsize, "%% Failed to edit configuration.\n\n%s",
 			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 	}
 }
@@ -1335,6 +1368,14 @@ int nb_candidate_commit_prepare(struct nb_context context,
 		return NB_ERR_VALIDATION;
 	}
 
+	return nb_changes_commit_prepare(context, changes, comment, candidate, transaction, errmsg,
+					 errmsg_len);
+}
+
+int nb_changes_commit_prepare(struct nb_context context, struct nb_config_cbs changes,
+			      const char *comment, struct nb_config *candidate,
+			      struct nb_transaction **transaction, char *errmsg, size_t errmsg_len)
+{
 	/*
 	 * Re-use an existing transaction if provided. Else allocate a new one.
 	 */
@@ -1365,17 +1406,26 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			       bool save_transaction, uint32_t *transaction_id,
 			       char *errmsg, size_t errmsg_len)
 {
-	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
-				     errmsg_len);
+	int err;
+
+	err = nb_transaction_process(NB_EV_APPLY, transaction, errmsg, errmsg_len);
+	if (err != NB_OK) {
+		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY, "%s: failed to apply transaction: %s",
+			  __func__, errmsg);
+		return;
+	}
+
 	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
 
-	/* Replace running by candidate. */
-	transaction->config->version++;
-	nb_config_replace(running_config, transaction->config, true);
+	if (transaction->config) {
+		/* Replace running by candidate. */
+		transaction->config->version++;
+		nb_config_replace(running_config, transaction->config, true);
+	}
 
 	/* Record transaction. */
-	if (save_transaction && nb_db_enabled
-	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
+	if (save_transaction && nb_db_enabled && transaction->config &&
+	    nb_db_transaction_save(transaction, transaction_id) != NB_OK)
 		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 			  "%s: failed to record transaction", __func__);
 
@@ -1777,6 +1827,19 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 	return nb_node->cbs.get_keys(&args);
 }
 
+void nb_callback_list_entry_done(const struct nb_node *nb_node, const void *parent_list_entry,
+				 const void *list_entry)
+{
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS) || !nb_node->cbs.list_entry_done)
+		return;
+
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (list_entry_done): node [%s] parent_list_entry [%p] list_entry [%p]",
+	       nb_node->xpath, parent_list_entry, list_entry);
+
+	nb_node->cbs.list_entry_done(parent_list_entry, list_entry);
+}
+
 const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 				     const void *parent_list_entry,
 				     const struct yang_list_keys *keys)
@@ -1855,7 +1918,7 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	return nb_node->cbs.rpc(&args);
 }
 
-void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,
 			struct lyd_node *dnode)
 {
 	struct nb_cb_notify_args args = {};
@@ -1863,6 +1926,7 @@ void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
 	DEBUGD(&nb_dbg_cbs_notify, "northbound notify: %s", xpath);
 
 	args.xpath = xpath;
+	args.op = op;
 	args.dnode = dnode;
 	nb_node->cbs.notify(&args);
 }
@@ -1913,6 +1977,7 @@ static int nb_callback_configuration(struct nb_context *context,
 	case NB_CB_GET_ELEM:
 	case NB_CB_GET_NEXT:
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 	case NB_CB_RPC:
 	case NB_CB_NOTIFY:
@@ -2085,8 +2150,21 @@ nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
 static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 					char *errmsg, size_t errmsg_len)
 {
+	struct nb_config *candidate_config = transaction->config;
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
+
+	/*
+	 * When mgmtd is processing its local config changes transaction->config
+	 * will be NULL (so that running DS is not replaced using it early when
+	 * local apply is done -- running is updated after backends client
+	 * processing is done). We do need its candidate config though for the
+	 * destroy case below.
+	 */
+	if (!candidate_config) {
+		assert(vty_mgmt_candidate_config);
+		candidate_config = vty_mgmt_candidate_config;
+	}
 
 	/* Initialize tree of 'apply_finish' callbacks. */
 	RB_INIT(nb_config_cbs, &cbs);
@@ -2116,8 +2194,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 			 * configuration that is being committed.
 			 */
 			yang_dnode_get_path(dnode, xpath, sizeof(xpath));
-			dnode = yang_dnode_get(transaction->config->dnode,
-					       xpath);
+			dnode = yang_dnode_get(candidate_config->dnode, xpath);
 		}
 		while (dnode) {
 			struct nb_node *nb_node;
@@ -2219,12 +2296,17 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			 * Only optional leafs can be deleted, or leafs whose
 			 * parent is a case statement.
 			 */
-			if (snode->parent->nodetype == LYS_CASE)
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
 				return true;
 			if (sleaf->when)
 				return true;
 			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
-			    || sleaf->dflt)
+#if (LY_VERSION_MAJOR < 4)
+			    || sleaf->dflt
+#else
+			    || sleaf->dflt.str
+#endif
+			)
 				return false;
 			break;
 		case LYS_CONTAINER:
@@ -2292,6 +2374,7 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 		}
 		return true;
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 		switch (snode->nodetype) {
 		case LYS_LIST:
@@ -2572,6 +2655,7 @@ const char *nb_event_name(enum nb_event event)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_cb_operation_name(enum nb_cb_operation operation)
@@ -2595,6 +2679,8 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 		return "get_next";
 	case NB_CB_GET_KEYS:
 		return "get_keys";
+	case NB_CB_LIST_ENTRY_DONE:
+		return "list_entry_done";
 	case NB_CB_LOOKUP_ENTRY:
 		return "lookup_entry";
 	case NB_CB_RPC:
@@ -2604,6 +2690,7 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_err_name(enum nb_error error)
@@ -2632,6 +2719,7 @@ const char *nb_err_name(enum nb_error error)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_client_name(enum nb_client client)
@@ -2654,6 +2742,7 @@ const char *nb_client_name(enum nb_client client)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)
@@ -2703,7 +2792,7 @@ void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
 {
-	struct yang_module *loaded[nmodules], **loadedp = loaded;
+	struct yang_module *loaded[nmodules + 2];
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2719,12 +2808,29 @@ void nb_init(struct event_loop *tm,
 
 	yang_init(true, explicit_compile, load_library);
 
+	/* needed for frr-logging */
+	assert(yang_module_load("ietf-syslog-types", NULL));
+
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {
 		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
 		       modules[i]->name);
-		*loadedp++ = yang_module_load(modules[i]->name,
-					      modules[i]->features);
+		loaded[i] = yang_module_load(modules[i]->name, modules[i]->features);
+		loaded[i]->frr_info = modules[i];
+	}
+
+	/* Load the host module if it is not already. */
+	if (!yang_module_find("frr-host")) {
+		loaded[nmodules] = yang_module_load("frr-host", NULL);
+		loaded[nmodules]->frr_info = &frr_host_nb_info;
+		nmodules++;
+	}
+
+	/* Load the host module if it is not already. */
+	if (!yang_module_find("frr-logging")) {
+		loaded[nmodules] = yang_module_load("frr-logging", NULL);
+		loaded[nmodules]->frr_info = &frr_logging_nb_info;
+		nmodules++;
 	}
 
 	if (explicit_compile)
@@ -2733,8 +2839,8 @@ void nb_init(struct event_loop *tm,
 	/* Initialize the compiled nodes with northbound data */
 	for (size_t i = 0; i < nmodules; i++) {
 		yang_snodes_iterate(loaded[i]->info, nb_node_new_cb, 0,
-				    (void *)modules[i]);
-		nb_load_callbacks(modules[i]);
+				    (void *)loaded[i]->frr_info);
+		nb_load_callbacks(loaded[i]->frr_info);
 	}
 
 	/* Validate northbound callbacks. */
@@ -2752,10 +2858,15 @@ void nb_init(struct event_loop *tm,
 
 	/* Initialize oper-state */
 	nb_oper_init(tm);
+
+	/* Initialize notification-state */
+	nb_notif_init(tm);
 }
 
 void nb_terminate(void)
 {
+	nb_notif_terminate();
+
 	nb_oper_terminate();
 
 	/* Terminate the northbound CLI. */

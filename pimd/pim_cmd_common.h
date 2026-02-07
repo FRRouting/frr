@@ -45,9 +45,9 @@ int pim_process_autorp_send_rp_discovery_cmd(struct vty *vty, bool no, bool any,
 					     const char *ifname, const char *addr);
 int pim_process_autorp_send_rp_discovery_scope_int_cmd(struct vty *vty, bool no, const char *scope,
 						       const char *interval, const char *holdtime);
-int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable);
+int pim_process_ip_pim_mode_cmd(struct vty *vty, bool dm, bool smdm, bool ssm);
 int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str);
 int pim_process_no_ip_pim_drprio_cmd(struct vty *vty);
 int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
@@ -130,6 +130,8 @@ int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj);
 int gm_process_query_max_response_time_cmd(struct vty *vty,
 					   const char *qmrt_str);
 int gm_process_no_query_max_response_time_cmd(struct vty *vty);
+int gm_process_robustness_cmd(struct vty *vty, const char *robustness);
+int gm_process_no_robustness_cmd(struct vty *vty);
 int gm_process_last_member_query_count_cmd(struct vty *vty,
 					   const char *lmqc_str);
 int gm_process_no_last_member_query_count_cmd(struct vty *vty);
@@ -150,6 +152,7 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
 int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+struct vrf *pim_cmd_lookup_json(struct vty *vty, const char *name, bool uj);
 struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 			       const int argc, int *idx, bool uj);
 void clear_mroute(struct pim_instance *pim);

@@ -10,12 +10,19 @@
 #ifndef _FRR_BGP_MPATH_H
 #define _FRR_BGP_MPATH_H
 
-/* Supplemental information linked to bgp_path_info for keeping track of
+enum bgp_wecmp_behavior {
+	BGP_WECMP_BEHAVIOR_NONE = 0,
+	BGP_WECMP_BEHAVIOR_LINK_BW = 1,
+	BGP_WECMP_BEHAVIOR_NNHN_COUNT = 2,
+	BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE = 3,
+};
+
+/* Supplemental information linked to bgp_dest for keeping track of
  * multipath selections, lazily allocated to save memory
  */
 struct bgp_path_info_mpath {
-	/* Points to bgp_path_info associated with this multipath info */
-	struct bgp_path_info *mp_info;
+	/* Points to bgp_dest associated with this multipath info */
+	struct bgp_dest *mp_dest;
 
 	/* When attached to best path, the number of selected multipaths */
 	uint16_t mp_count;
@@ -64,10 +71,9 @@ extern struct bgp_path_info *
 bgp_path_info_mpath_next(struct bgp_path_info *path);
 
 /* Accessors for multipath information */
-extern uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path);
-extern struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path);
-extern bool bgp_path_info_mpath_chkwtd(struct bgp *bgp,
-				       struct bgp_path_info *path);
-extern uint64_t bgp_path_info_mpath_cumbw(struct bgp_path_info *path);
+extern uint32_t bgp_path_info_mpath_count(struct bgp_dest *dest);
+extern struct attr *bgp_path_info_mpath_attr(struct bgp_dest *dest);
+extern enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_dest *dest);
+extern uint64_t bgp_path_info_mpath_cumbw(struct bgp_dest *dest);
 
 #endif /* _FRR_BGP_MPATH_H */

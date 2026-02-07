@@ -191,16 +191,18 @@ define dump_s_addr
 end
 
 define dump_s6_addr
-  set $a6 = (char *)$arg0
+  set $a6 = (unsigned char *)$arg0
   set $field = 0
   
   while ($field < 16)
     set $i1 = $field++
     set $i2 = $field++
     
-    printf "%x%x", $a6[$i1], $a6[$i2]
+    # Combine two bytes into a 16-bit value
+    set $value = ($a6[$i1] << 8) | $a6[$i2]
+    printf "%x", $value
     
-    if ($field > 2 && ($field % 4 == 0))
+    if ($field < 16)
       printf ":"
     end
   end

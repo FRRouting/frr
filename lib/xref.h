@@ -124,14 +124,6 @@ extern struct xref_block *xref_blocks;
 extern void xref_block_add(struct xref_block *block);
 extern void xref_gcc_workaround(const struct xref *xref);
 
-#ifndef HAVE_SECTION_SYMS
-/* we have a build system patch to use GNU ld on Solaris;  if that doesn't
- * work we end up on Solaris ld which doesn't support the section start/end
- * symbols.
- */
-#define XREF_SETUP() \
-	CPP_NOTICE("Missing linker support for section arrays.  Solaris ld?")
-#else
 /* the actual symbols that the linker provides for us.  Note these are
  * _symbols_ referring to the actual section start/end, i.e. they are very
  * much NOT _pointers_, rather the symbol *value* is the pointer.  Declaring
@@ -146,7 +138,10 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * of variables here.  kinda breaks things if there's redzones between each
  * array item.
  */
+#ifdef __clang__
+/* GCC doesn't allow no_sanitize on variables, and warns about it :( */
 #define xref_array_attr used, section("xref_array"), no_sanitize("address")
+#endif
 #endif
 #endif
 #ifndef xref_array_attr
@@ -245,8 +240,6 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 	""                                                                 "\n"\
 	/* end */
 #endif
-
-#endif /* HAVE_SECTION_SYMS */
 
 /* emit the array entry / pointer to xref */
 #if defined(__clang__) || !defined(__cplusplus)

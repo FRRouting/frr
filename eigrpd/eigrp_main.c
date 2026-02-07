@@ -92,11 +92,14 @@ static void sighup(void)
 }
 
 /* SIGINT / SIGTERM handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
 	keychain_terminate();
+
+	route_map_finish();
+	prefix_list_reset();
 
 	eigrp_terminate();
 

@@ -161,9 +161,9 @@ adj_get_af(const struct adj *adj)
 /* adjacency timers */
 
 /* ARGSUSED */
-static void adj_itimer(struct event *thread)
+static void adj_itimer(struct event *event)
 {
-	struct adj *adj = EVENT_ARG(thread);
+	struct adj *adj = EVENT_ARG(event);
 
 	adj->inactivity_timer = NULL;
 
@@ -185,7 +185,7 @@ static void adj_itimer(struct event *thread)
 void
 adj_start_itimer(struct adj *adj)
 {
-	EVENT_OFF(adj->inactivity_timer);
+	event_cancel(&adj->inactivity_timer);
 	adj->inactivity_timer = NULL;
 	event_add_timer(master, adj_itimer, adj, adj->holdtime,
 			&adj->inactivity_timer);
@@ -194,7 +194,7 @@ adj_start_itimer(struct adj *adj)
 void
 adj_stop_itimer(struct adj *adj)
 {
-	EVENT_OFF(adj->inactivity_timer);
+	event_cancel(&adj->inactivity_timer);
 }
 
 /* targeted neighbors */
@@ -331,9 +331,9 @@ tnbr_get_hello_interval(struct tnbr *tnbr)
 /* target neighbors timers */
 
 /* ARGSUSED */
-static void tnbr_hello_timer(struct event *thread)
+static void tnbr_hello_timer(struct event *event)
 {
-	struct tnbr *tnbr = EVENT_ARG(thread);
+	struct tnbr *tnbr = EVENT_ARG(event);
 
 	tnbr->hello_timer = NULL;
 	send_hello(HELLO_TARGETED, NULL, tnbr);
@@ -343,7 +343,7 @@ static void tnbr_hello_timer(struct event *thread)
 static void
 tnbr_start_hello_timer(struct tnbr *tnbr)
 {
-	EVENT_OFF(tnbr->hello_timer);
+	event_cancel(&tnbr->hello_timer);
 	tnbr->hello_timer = NULL;
 	event_add_timer(master, tnbr_hello_timer, tnbr,
 			tnbr_get_hello_interval(tnbr), &tnbr->hello_timer);
@@ -352,7 +352,7 @@ tnbr_start_hello_timer(struct tnbr *tnbr)
 static void
 tnbr_stop_hello_timer(struct tnbr *tnbr)
 {
-	EVENT_OFF(tnbr->hello_timer);
+	event_cancel(&tnbr->hello_timer);
 }
 
 struct ctl_adj *

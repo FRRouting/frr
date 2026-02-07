@@ -236,17 +236,22 @@ def test_ospf_kernel_route():
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
 
-        routes = topotest.ip4_route(router)
-        expected = {
-            "10.0.1.0/24": {},
-            "10.0.2.0/24": {},
-            "10.0.3.0/24": {},
-            "10.0.10.0/24": {},
-            "172.16.0.0/24": {},
-            "172.16.1.0/24": {},
-        }
+        def _routes_in_fib4():
+            routes = topotest.ip4_route(router)
+            expected = {
+                "10.0.1.0/24": {},
+                "10.0.2.0/24": {},
+                "10.0.3.0/24": {},
+                "10.0.10.0/24": {},
+                "172.16.0.0/24": {},
+                "172.16.1.0/24": {},
+            }
+            return topotest.json_cmp(routes, expected)
+
+        _, result = topotest.run_and_expect(_routes_in_fib4, None, count=30, wait=1)
+
         assertmsg = 'OSPF IPv4 route mismatch in router "{}"'.format(router.name)
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        assert result is None, assertmsg
 
 
 def test_ospf6_convergence():

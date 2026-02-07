@@ -824,7 +824,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
     )
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify the default route from R1 is  recieved both on RIB and FIB on R2")
+    step("Verify the default route from R1 is  received both on RIB and FIB on R2")
 
     DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
     result = verify_fib_default_route(
@@ -1002,7 +1002,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
 
             check_pfx_received_sent(r2)
         step(
-            "Verify the default route from R1 is  is recieved both on RIB and FIB on R2"
+            "Verify the default route from R1 is  is received both on RIB and FIB on R2"
         )
         DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
         result = verify_fib_default_route(
@@ -1121,7 +1121,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
         )
 
         step(
-            "Verify the default route from R1 is  is recieved both on RIB and FIB on R2"
+            "Verify the default route from R1 is  is received both on RIB and FIB on R2"
         )
 
         DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
@@ -1622,7 +1622,7 @@ def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
     )
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify the default route from R1 is  recieved both on RIB and FIB on R2")
+    step("Verify the default route from R1 is  received both on RIB and FIB on R2")
 
     DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
     result = verify_fib_default_route(

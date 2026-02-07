@@ -1,0 +1,83 @@
+{
+	"192.0.2.1/32": [
+		{
+			"prefix": "192.0.2.1/32",
+			"prefixLen": 32,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps"
+				}
+			]
+		}
+	],
+	"192.0.2.2/32": [
+		{
+			"prefix": "192.0.2.2/32",
+			"prefixLen": 32,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps"
+				}
+			]
+		}
+	],
+	"192.0.2.3/32": [
+		{
+			"prefix": "192.0.2.3/32",
+			"prefixLen": 32,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps.Red"
+				}
+			]
+		}
+	]
+}

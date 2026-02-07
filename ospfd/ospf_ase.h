@@ -7,19 +7,19 @@
 #ifndef _ZEBRA_OSPF_ASE_H
 #define _ZEBRA_OSPF_ASE_H
 
-extern struct ospf_route *
-ospf_find_asbr_route(struct ospf *, struct route_table *, struct prefix_ipv4 *);
-extern struct ospf_route *
-ospf_find_asbr_route_through_area(struct route_table *, struct prefix_ipv4 *,
-				  struct ospf_area *);
+extern struct ospf_route *ospf_find_asbr_route(struct ospf *ospf, struct route_table *rtrs,
+					       struct prefix_ipv4 *asbr);
+extern struct ospf_route *ospf_find_asbr_route_through_area(struct route_table *rtrs,
+							    struct prefix_ipv4 *asbr,
+							    struct ospf_area *area);
 
-extern int ospf_ase_calculate_route(struct ospf *, struct ospf_lsa *);
-extern void ospf_ase_calculate_schedule(struct ospf *);
-extern void ospf_ase_calculate_timer_add(struct ospf *);
+extern int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa);
+extern void ospf_ase_calculate_schedule(struct ospf *ospf);
+extern void ospf_ase_calculate_timer_add(struct ospf *ospf);
 
-extern void ospf_ase_external_lsas_finish(struct route_table *);
-extern void ospf_ase_incremental_update(struct ospf *, struct ospf_lsa *);
-extern void ospf_ase_register_external_lsa(struct ospf_lsa *, struct ospf *);
-extern void ospf_ase_unregister_external_lsa(struct ospf_lsa *, struct ospf *);
+extern void ospf_ase_external_lsas_finish(struct route_table *rt);
+extern void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa);
+extern void ospf_ase_register_external_lsa(struct ospf_lsa *lsa, struct ospf *top);
+extern void ospf_ase_unregister_external_lsa(struct ospf_lsa *lsa, struct ospf *top);
 
 #endif /* _ZEBRA_OSPF_ASE_H */

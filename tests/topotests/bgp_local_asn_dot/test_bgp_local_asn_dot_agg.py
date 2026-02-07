@@ -155,6 +155,7 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
+                        "bgp_accept_as_sets": True,
                         "local_as": "1.300",
                         "address_family": {
                             addr_type: {
@@ -184,6 +185,7 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
             input_dict_r2_r4 = {
                 dut: {
                     "bgp": {
+                        "bgp_accept_as_sets": True,
                         "local_as": asn,
                         "address_family": {
                             addr_type: {

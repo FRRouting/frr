@@ -92,7 +92,7 @@ def test_bgp_route():
         "show ip route 50.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, assertmsg
 
     json_file = "{}/r3/v4_route3.json".format(CWD)
@@ -104,7 +104,7 @@ def test_bgp_route():
         "show ip route 60.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, assertmsg
 
 
@@ -127,7 +127,7 @@ def test_bgp_better_admin_won():
         topotest.router_json_cmp, r2, "show ip route 40.0.0.0 json", expected
     )
 
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"r2" static route did not take over'
     assert result is None, assertmsg
 
@@ -180,7 +180,7 @@ def test_bgp_allow_as_in():
         "show bgp ipv4 uni 192.168.1.1/32 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"r2" static redistribution failed into bgp'
     assert result is None, assertmsg
 
@@ -230,6 +230,20 @@ def test_local_vs_non_local():
     for i in range(len(paths)):
         if "fibPending" in paths[i]:
             assert False, "Route 60.0.0.0/24 should not have fibPending"
+
+
+def test_ip_protocol_any_fib_filter():
+    #    "Filtered route of source protocol any should not get installed in fib"
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd("conf\nno ip protocol bgp")
+    r2.vtysh_cmd("conf\nip protocol any route-map LIMIT")
+    test_bgp_route()
 
 
 if __name__ == "__main__":

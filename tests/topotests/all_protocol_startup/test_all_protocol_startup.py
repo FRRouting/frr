@@ -38,10 +38,10 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
-from lib.topolog import logger
 
 import json
 import functools
+import subprocess
 
 # Global that must be set on a failure to stop subsequent tests from being run
 fatal_error = ""
@@ -420,9 +420,9 @@ def route_get_nhg_id(route_str):
 
     test_func = functools.partial(get_func, route_str)
     _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
-    if nhg_id == None:
+    if nhg_id is None:
         fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
-        assert nhg_id != None, fatal_error
+        assert nhg_id is not None, fatal_error
     else:
         return nhg_id
 
@@ -652,6 +652,34 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## Validate NHG's installed in kernel has same nexthops with Interface flaps
+    pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
+    pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
+    pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
+
+    net["r1"].cmd(
+        "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
+    )
+    sleep(1)
+    net["r1"].cmd(
+        "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
+    )
+    sleep(5)
+
+    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
+    post_total_nhs = len(
+        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+    )
+
+    assert (
+        post_total_nhs == pre_total_nhs
+    ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
+        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+    )
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -682,7 +710,8 @@ def test_rip_status():
         refTableFile = "{}/r{}/rip_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -743,7 +772,8 @@ def test_ripng_status():
         refTableFile = "{}/r{}/ripng_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -806,7 +836,8 @@ def test_ospfv2_interfaces():
         refTableFile = "{}/r{}/show_ip_ospf_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -888,7 +919,8 @@ def test_isis_interfaces():
         refTableFile = "{}/r{}/show_isis_interface_detail.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -951,7 +983,8 @@ def test_bgp_summary():
         refTableFile = "{}/r{}/show_ip_bgp_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected_original = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected_original = file.read().rstrip()
 
             for arguments in [
                 "",
@@ -1124,7 +1157,8 @@ def test_bgp_ipv6_summary():
         refTableFile = "{}/r{}/show_bgp_ipv6_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1211,53 +1245,61 @@ def test_nht():
         pytest.skip(fatal_error)
 
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
-
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     for i in range(1, 2):
-        nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
-        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (
-            net["r{}".format(i)].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
-        )
-        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
-        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+        def _test_ip_nht():
+            nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
+            with open(nhtFile) as file:
+                expected = file.read().rstrip()
+            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(
-            actual,
-            expected,
-            title1="Actual `show ip nht`",
-            title2="Expected `show ip nht`",
-        )
+            actual = (
+                net["r{}".format(i)].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
+            )
+            actual = re.sub(r"fd [0-9]+", "fd XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            logger.info(actual)
+            diff = topotest.get_textdiff(
+                actual,
+                expected,
+                title1="Actual `show ip nht`",
+                title2="Expected `show ip nht`",
+            )
+            logger.info("DIFF IS HERE")
+            logger.info(diff)
+            return diff
 
-        if diff:
-            assert 0, "r{} failed ip nht check:\n{}\n".format(i, diff)
-        else:
-            print("show ip nht is ok\n")
+        _, result = topotest.run_and_expect(_test_ip_nht, "", count=30, wait=1)
+        assert not result, "r{} failed ip nht check".format(i)
+        print("show ip nht is ok\n")
 
-        nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
-        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+        def _test_ipv6_nht():
+            nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
+            with open(nhtFile) as file:
+                expected = file.read().rstrip()
+            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (
-            net["r{}".format(i)].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
-        )
-        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
-        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            actual = (
+                net["r{}".format(i)]
+                .cmd('vtysh -c "show ipv6 nht" 2> /dev/null')
+                .rstrip()
+            )
+            actual = re.sub(r"fd [0-9]+", "fd XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(
-            actual,
-            expected,
-            title1="Actual `show ip nht`",
-            title2="Expected `show ip nht`",
-        )
+            diff = topotest.get_textdiff(
+                actual,
+                expected,
+                title1="Actual `show ipv6 nht`",
+                title2="Expected `show ipv6 nht`",
+            )
+            return diff
 
-        if diff:
-            assert 0, "r{} failed ipv6 nht check:\n{}\n".format(i, diff)
-        else:
-            print("show ipv6 nht is ok\n")
+        _, result = topotest.run_and_expect(_test_ipv6_nht, "", count=30, wait=1)
+        assert not result, "r{} failed ipv6 nht check".format(i)
+        print("show ipv6 nht is ok\n")
 
 
 def test_bgp_ipv4():
@@ -1278,7 +1320,8 @@ def test_bgp_ipv4():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv4*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1349,7 +1392,8 @@ def test_bgp_ipv6():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv6*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1416,7 +1460,8 @@ def test_route_map():
     for i in range(1, 2):
         refroutemap = "{}/r{}/show_route_map.ref".format(thisDir, i)
         if os.path.isfile(refroutemap):
-            expected = open(refroutemap).read().rstrip()
+            with open(refroutemap) as file:
+                expected = file.read().rstrip()
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
             actual = (
@@ -1485,9 +1530,14 @@ def test_nexthop_groups_with_route_maps():
 
     # Only a valid test on linux using nexthop objects
     if sys.platform.startswith("linux"):
-        output = net["r1"].cmd("ip route show {}/32".format(route_str))
-        match = re.search(r"src {}".format(src_str), output)
-        assert match is not None, "Route {}/32 not installed with src {}".format(
+
+        def _test_route_src():
+            output = net["r1"].cmd("ip route show {}/32".format(route_str))
+            match = re.search(r"src {}".format(src_str), output)
+            return match is not None
+
+        _, result = topotest.run_and_expect(_test_route_src, True, count=30, wait=1)
+        assert result, "Route {}/32 not installed with src {}".format(
             route_str,
             src_str,
         )
@@ -1621,7 +1671,8 @@ def test_mpls_interfaces():
         refTableFile = "{}/r{}/show_mpls_ldp_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1701,10 +1752,13 @@ def test_resilient_nexthop_group():
 
     # Use the json output and collect the nhg id from it
 
-    for nhgid in joutput:
-        n = joutput[nhgid]
-        if "buckets" in n:
-            break
+    n = {}
+    for jvrfname in joutput:
+        jvrf = joutput[jvrfname]
+        for nhgid in jvrf:
+            n = jvrf[nhgid]
+            if "buckets" in n:
+                break
 
     if "buckets" not in n:
         fatal_error = "Resilient NHG not found in json output"
@@ -1785,6 +1839,73 @@ def test_interface_stuff():
     rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf default"')
     logger.info(o)
     assert rc == 0
+
+
+def test_pbr_table():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying PBR table default route")
+    print("******************************************\n")
+
+    # Get the route table output
+    output = net["r1"].cmd('vtysh -c "show ip route table 10000 nexthop"').rstrip()
+
+    # Check for default route (0.0.0.0/0)
+    if "0.0.0.0/0" not in output:
+        fatal_error = "Default route not found in PBR table 10000"
+        assert False, fatal_error
+
+    print("Default route found in PBR table 10000")
+
+
+def test_vtysh_timeout():
+    "Test vtysh idle session timeout feature."
+
+    global fatal_error
+    tgen = get_topogen()
+    net = tgen.net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+    r1 = tgen.gears["r1"]
+
+    timeout = 20
+    logger.info("Testing vtysh with idle timeout of {} seconds".format(timeout))
+
+    p1 = None
+    p1 = r1.popen(
+        ["vtysh", "--exec-timeout", str(timeout)],
+        encoding=None,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    # Wait for a while, with a bit of buffer time
+    errmsg = None
+    try:
+        p1.wait(timeout + 10)
+        retcode = p1.returncode
+        if retcode == None:
+            p1.terminate()
+            errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except subprocess.TimeoutExpired:
+        errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except OSError as e:
+        errmsg = "Vtysh process encountered an error: {}".format(e)
+    except Exception as e:
+        errmsg = "An unexpected error occurred: {}".format(e)
+
+    if errmsg != None:
+        assert None, errmsg
+
+    logger.info("Vtysh idle timeout test passed")
 
 
 def test_shutdown_check_stderr():

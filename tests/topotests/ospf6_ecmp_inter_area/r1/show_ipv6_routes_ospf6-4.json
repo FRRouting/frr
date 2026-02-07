@@ -1,0 +1,98 @@
+{
+  "2001:db8:2::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:4::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:5::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:6::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:7::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:9::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8007::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8009::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        }
+      ]
+    }
+  ]
+}

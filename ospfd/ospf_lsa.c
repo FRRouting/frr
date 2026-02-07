@@ -19,6 +19,7 @@
 #include "sockunion.h" /* for inet_aton() */
 #include "checksum.h"
 #include "network.h"
+#include "lib/lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -61,6 +62,12 @@ static struct ospf_lsa *
 ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
 				struct in_addr id);
 
+/*
+ * LSA Update and Delete Hook LSAs.
+ */
+DEFINE_HOOK(ospf_lsa_update, (struct ospf_lsa *lsa), (lsa));
+DEFINE_HOOK(ospf_lsa_delete, (struct ospf_lsa *lsa), (lsa));
+
 uint32_t get_metric(uint8_t *metric)
 {
 	uint32_t m;
@@ -76,19 +83,7 @@ uint32_t get_metric(uint8_t *metric)
  */
 bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
 {
-	return ((IS_LSA_SELF(lsa) && CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
-			? true
-			: false);
-}
-
-struct timeval int2tv(int a)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a;
-	ret.tv_usec = 0;
-
-	return ret;
+	return ((IS_LSA_SELF(lsa) && IS_LSA_AGE_DNA(lsa)) ? true : false);
 }
 
 struct timeval msec2tv(int a)
@@ -149,11 +144,11 @@ int get_age(struct ospf_lsa *lsa)
 	 */
 
 	/* If LSA is marked as donotage */
-	if (CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE) && !IS_LSA_SELF(lsa))
-		return ntohs(lsa->data->ls_age);
+	if (IS_LSA_AGE_DNA(lsa) && !IS_LSA_SELF(lsa))
+		return LS_AGE_RAW(lsa);
 
 	monotime_since(&lsa->tv_recv, &rel);
-	return ntohs(lsa->data->ls_age) + rel.tv_sec;
+	return LS_AGE_RAW(lsa) + rel.tv_sec;
 }
 
 
@@ -893,7 +888,7 @@ static struct ospf_lsa *ospf_router_lsa_originate(struct ospf_area *area)
 
 	/* Create new router-LSA instance. */
 	if ((new = ospf_router_lsa_new(area)) == NULL) {
-		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: ospf_router_lsa_new returned NULL", __func__);
 		return NULL;
 	}
 
@@ -941,7 +936,7 @@ static struct ospf_lsa *ospf_router_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Create new router-LSA instance. */
 	if ((new = ospf_router_lsa_new(area)) == NULL) {
-		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: ospf_router_lsa_new returned NULL", __func__);
 		return NULL;
 	}
 
@@ -1632,9 +1627,13 @@ static struct in_addr ospf_external_lsa_nexthop_get(struct ospf *ospf,
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	fwd.s_addr = 0;
+	fwd.s_addr = INADDR_ANY;
 
 	if (!nexthop.s_addr)
+		return fwd;
+
+	/* Force forwarding address to self for external LSAs. */
+	if (ospf->forwarding_address_self)
 		return fwd;
 
 	/* Check whether nexthop is covered by OSPF network. */
@@ -2529,8 +2528,9 @@ void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		if (area->external_routing == OSPF_AREA_NSSA) {
-			lsa = ospf_lsa_lookup(ospf, area, OSPF_AS_NSSA_LSA,
-					      p->prefix, ospf->router_id);
+			lsa = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_AS_NSSA_LSA, p,
+							ospf->router_id);
+
 			if (!lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
@@ -3043,7 +3043,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 			if (!IS_LSA_MAXAGE(lsa))
 				lsa->flags |= OSPF_LSA_PREMATURE_AGE;
-			lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+			LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 
 			if (IS_DEBUG_OSPF(lsa, LSA_REFRESH)) {
 				zlog_debug(
@@ -3064,8 +3064,15 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	}
 
 	/* discard old LSA from LSDB */
-	if (old != NULL)
+	if (old != NULL) {
+		if (rt_recalc && !IS_LSA_SELF(lsa) && (lsa->data->type == OSPF_AS_EXTERNAL_LSA) &&
+		    !IS_LSA_SELF(old) && (old->data->type == OSPF_AS_EXTERNAL_LSA)) {
+			LS_AGE_SET(old, OSPF_LSA_MAXAGE);
+			ospf_ase_incremental_update(ospf, old);
+		}
+
 		ospf_discard_from_db(ospf, lsdb, lsa);
+	}
 
 	/* Calculate Checksum if self-originated?. */
 	if (IS_LSA_SELF(lsa))
@@ -3146,6 +3153,11 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 			zlog_debug("LSA[%s]: Install LSA %p, MaxAge",
 				   dump_lsa_key(new), lsa);
 		ospf_lsa_maxage(ospf, lsa);
+	} else {
+		/*
+		 * Invoke the LSA update hook.
+		 */
+		hook_call(ospf_lsa_update, new);
 	}
 
 	return new;
@@ -3363,6 +3375,11 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 		zlog_debug("LSA[%s]: MaxAge LSA remover scheduled.",
 			   dump_lsa_key(lsa));
+
+	/*
+	 * Invoke the LSA delete hook.
+	 */
+	hook_call(ospf_lsa_delete, lsa);
 
 	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
 		      ospf->maxage_delay);
@@ -3691,7 +3708,7 @@ int ospf_lsa_flush_schedule(struct ospf *ospf, struct ospf_lsa *lsa)
 			lsa->data->type, &lsa->data->id);
 
 	/* Force given lsa's age to MaxAge. */
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 
 	switch (lsa->data->type) {
 	/* Opaque wants to be notified of flushes */
@@ -3785,7 +3802,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 * without conflicting to other threads.
 	 */
 	if (ospf->t_maxage != NULL) {
-		EVENT_OFF(ospf->t_maxage);
+		event_cancel(&ospf->t_maxage);
 		event_execute(master, ospf_maxage_lsa_remover, ospf, 0, NULL);
 	}
 

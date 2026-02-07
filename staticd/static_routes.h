@@ -32,6 +32,7 @@ struct static_nh_label {
 struct static_nh_seg {
 	int num_segs;
 	struct in6_addr seg[SRV6_MAX_SIDS];
+	enum srv6_headend_behavior encap_behavior;
 };
 
 enum static_blackhole_type {
@@ -264,6 +265,7 @@ extern void static_bfd_initialize(struct zclient *zc, struct event_loop *tm);
 
 extern void static_bfd_show(struct vty *vty, bool isjson);
 
+extern void static_install_nexthops_on_startup(void);
 #ifdef __cplusplus
 }
 #endif

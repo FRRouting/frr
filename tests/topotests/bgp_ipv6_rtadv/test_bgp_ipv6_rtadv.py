@@ -75,6 +75,45 @@ def teardown_module(_mod):
 
 def test_protocols_convergence():
     """
+    Assert that BGP protocol has converged
+    by checking the incoming BGP updates have been received.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check BGP IPv4 routing table.
+    logger.info("Checking BGP IPv4 routes for convergence")
+    router = tgen.gears["r1"]
+
+    json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+    # Check BGP IPv6 routing table.
+    json_file = "{}/{}/bgp_ipv6_routes.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_route_convergence():
+    """
     Assert that all protocols have converged
     statuses as they depend on it.
     """

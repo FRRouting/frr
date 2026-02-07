@@ -132,7 +132,7 @@ def test_ospf_kernel_route():
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
         assertmsg = '"{}" JSON output mistmatches'.format(router)
         assert result is None, assertmsg
     # tgen.mininet_cli()

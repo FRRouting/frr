@@ -83,8 +83,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
-		ospf6_delete(ospf6);
-		ospf6 = NULL;
+		ospf6_delete(&ospf6);
 		FOR_ALL_INTERFACES (vrf, ifp)
 			if (ifp->info != NULL)
 				ospf6_interface_delete(ifp->info);
@@ -104,9 +103,9 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	vrf_terminate();
 
-	if (zclient) {
-		zclient_stop(zclient);
-		zclient_free(zclient);
+	if (ospf6_zclient) {
+		zclient_stop(ospf6_zclient);
+		zclient_free(ospf6_zclient);
 	}
 
 	ospf6_master_delete();
@@ -125,14 +124,14 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	ospf6_exit(0);
 }
 
 /* SIGTERM handler. */
-static void sigterm(void)
+static FRR_NORETURN void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	ospf6_exit(0);
@@ -210,21 +209,21 @@ static void ospf6_config_finish(struct event *t)
 		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
 }
 
-static void ospf6_config_start(void)
+static void ospf6_config_start(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config start received");
-	EVENT_OFF(t_ospf6_cfg);
+	event_cancel(&t_ospf6_cfg);
 	event_add_timer(master, ospf6_config_finish, NULL,
 			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
 }
 
-static void ospf6_config_end(void)
+static void ospf6_config_end(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config end received");
 
-	EVENT_OFF(t_ospf6_cfg);
+	event_cancel(&t_ospf6_cfg);
 }
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
@@ -244,8 +243,6 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 
 		switch (opt) {
-		case 0:
-			break;
 		default:
 			frr_help_exit(1);
 		}

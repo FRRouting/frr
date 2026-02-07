@@ -142,7 +142,7 @@ enum stub_router_mode {
 
 #define OSPF6_NETWORK_LSA_EXECUTE(oi)                                          \
 	do {                                                                   \
-		EVENT_OFF((oi)->thread_network_lsa);                           \
+		event_cancel(&(oi)->thread_network_lsa);                           \
 		event_execute(master, ospf6_network_lsa_originate, oi, 0,      \
 			      NULL);                                           \
 	} while (0)
@@ -156,7 +156,7 @@ enum stub_router_mode {
 
 #define OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi)                             \
 	do {                                                                   \
-		EVENT_OFF((oi)->thread_intra_prefix_lsa);                      \
+		event_cancel(&(oi)->thread_intra_prefix_lsa);                      \
 		event_execute(master,                                          \
 			      ospf6_intra_prefix_lsa_originate_transit, oi,    \
 			      0, NULL);                                        \
@@ -164,7 +164,7 @@ enum stub_router_mode {
 
 #define OSPF6_AS_EXTERN_LSA_EXECUTE(oi)                                        \
 	do {                                                                   \
-		EVENT_OFF((oi)->thread_as_extern_lsa);                         \
+		event_cancel(&(oi)->thread_as_extern_lsa);                         \
 		event_execute(master, ospf6_orig_as_external_lsa, oi, 0, NULL);\
 	} while (0)
 
@@ -177,14 +177,14 @@ extern char *ospf6_network_lsdesc_lookup(uint32_t router_id,
 					 struct ospf6_lsa *lsa);
 
 extern int ospf6_router_is_stub_router(struct ospf6_lsa *lsa);
-extern void ospf6_router_lsa_originate(struct event *thread);
-extern void ospf6_network_lsa_originate(struct event *thread);
-extern void ospf6_link_lsa_originate(struct event *thread);
-extern void ospf6_intra_prefix_lsa_originate_transit(struct event *thread);
-extern void ospf6_intra_prefix_lsa_originate_stub(struct event *thread);
+extern void ospf6_router_lsa_originate(struct event *event);
+extern void ospf6_network_lsa_originate(struct event *event);
+extern void ospf6_link_lsa_originate(struct event *event);
+extern void ospf6_intra_prefix_lsa_originate_transit(struct event *event);
+extern void ospf6_intra_prefix_lsa_originate_stub(struct event *event);
 extern void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa);
 extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa);
-extern void ospf6_orig_as_external_lsa(struct event *thread);
+extern void ospf6_orig_as_external_lsa(struct event *event);
 extern void ospf6_intra_route_calculation(struct ospf6_area *oa);
 extern void ospf6_intra_brouter_calculation(struct ospf6_area *oa);
 extern void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,

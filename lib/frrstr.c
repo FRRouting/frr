@@ -8,23 +8,11 @@
 
 #include "zebra.h"
 
-#include <string.h>
-#include <ctype.h>
-#include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
-
 #include "frrstr.h"
 #include "memory.h"
 #include "vector.h"
+
+#include "frregex_real.h"
 
 void frrstr_split(const char *string, const char *delimiter, char ***result,
 		  int *argc)
@@ -119,12 +107,12 @@ char *frrstr_join_vec(vector v, const char *join)
 	return ret;
 }
 
-void frrstr_filter_vec(vector v, regex_t *filter)
+void frrstr_filter_vec(vector v, struct frregex *filter)
 {
 	regmatch_t ignored[1];
 
 	for (unsigned int i = 0; i < vector_active(v); i++) {
-		if (regexec(filter, vector_slot(v, i), 0, ignored, 0)) {
+		if (regexec(&filter->real, vector_slot(v, i), 0, ignored, 0)) {
 			XFREE(MTYPE_TMP, vector_slot(v, i));
 			vector_unset(v, i);
 		}

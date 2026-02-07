@@ -135,12 +135,10 @@ def test_pim_asm_igmp_join_acl():
     expected = {
         "r1-eth0":{
             "name":"r1-eth0",
-            "224.0.1.40":"*",
             "229.1.1.1":None
         },
         "r1-eth2":{
             "name":"r1-eth2",
-            "224.0.1.40":"*",
             "229.1.1.1":None
         }
     }
@@ -166,9 +164,7 @@ def test_pim_asm_igmp_join_acl():
                 "sources":[
                     {
                         "source":"*",
-                        "timer":"--:--",
                         "forwarded":False,
-                        "uptime":"*"
                     }
                 ]
             }
@@ -227,8 +223,6 @@ def test_pim_asm_igmp_join_acl():
                     "source":"*",
                     "group":"229.1.1.1",
                     "primaryAddr":"10.0.20.2",
-                    "sockFd":"*",
-                    "upTime":"*"
                 }
             ]
         }
@@ -286,13 +280,11 @@ def test_pim_ssm_igmp_join_acl():
     expected = {
         "r1-eth0":{
             "name":"r1-eth0",
-            "224.0.1.40":"*",
             "229.1.1.1":None,
             "232.1.1.1":None
         },
         "r1-eth2":{
             "name":"r1-eth2",
-            "224.0.1.40":"*",
             "229.1.1.1":None,
             "232.1.1.1":None
         }
@@ -319,9 +311,7 @@ def test_pim_ssm_igmp_join_acl():
                 "sources":[
                     {
                         "source":"10.0.20.2",
-                        "timer":"*",
                         "forwarded":False,
-                        "uptime":"*"
                     }
                 ]
             }
@@ -397,9 +387,7 @@ def test_pim_ssm_igmp_join_acl():
                 "sources":[
                     {
                         "source":"10.0.20.2",
-                        "timer":"*",
                         "forwarded":False,
-                        "uptime":"*"
                     }
                 ]
             }
@@ -422,8 +410,6 @@ def test_pim_ssm_igmp_join_acl():
                     "source":"10.0.20.2",
                     "group":"232.1.1.1",
                     "primaryAddr":"10.0.20.2",
-                    "sockFd":"*",
-                    "upTime":"*"
                 }
             ]
         }
@@ -491,9 +477,7 @@ def test_pim_ssm_igmp_join_acl():
                 "sources":[
                     {
                         "source":"10.0.40.4",
-                        "timer":"*",
                         "forwarded":False,
-                        "uptime":"*"
                     }
                 ]
             }

@@ -15,7 +15,7 @@ import math
 
 import pytest
 from lib.topogen import Topogen
-from oper import check_kernel_32, do_oper_test
+from oper import check_kernel_32, check_kernel_net, do_oper_test
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
@@ -61,9 +61,18 @@ def test_oper(tgen):
     query_results = [
         ("/frr-vrf:lib", "oper-results/result-lib.json"),
         ("/frr-vrf:lib/vrf", "oper-results/result-lib-vrf-nokey.json"),
+        ("/frr-vrf:lib/vrf/state", "oper-results/result-lib-vrf-state.json"),
         (
             '/frr-vrf:lib/vrf[name="default"]',
             "oper-results/result-lib-vrf-default.json",
+        ),
+        (
+            '/frr-vrf:lib/vrf[name="red"]',
+            "oper-results/result-lib-vrf-red.json",
+        ),
+        (
+            '/frr-vrf:lib/vrf[name="red"]/state',
+            "oper-results/result-lib-vrf-red-state.json",
         ),
         (
             '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra',
@@ -85,10 +94,17 @@ def test_oper(tgen):
     ]
 
     r1 = tgen.gears["r1"].net
+
     check_kernel_32(r1, "11.11.11.11", 1, "")
     check_kernel_32(r1, "12.12.12.12", 1, "")
     check_kernel_32(r1, "13.13.13.13", 1, "red")
     check_kernel_32(r1, "14.14.14.14", 1, "red")
+
+    check_kernel_net(r1, "2001:1111::/64", "")
+    check_kernel_net(r1, "2002:2222::/64", "")
+    check_kernel_net(r1, "2003:333::/64", "red")
+    check_kernel_net(r1, "2004:4444::/64", "red")
+
     do_oper_test(tgen, query_results)
 
 
@@ -97,8 +113,10 @@ scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/oper-results
 vtysh -c 'show mgmt get-data /frr-vrf:lib'      > ${resdir}/result-lib.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf'  > ${resdir}/result-lib-vrf-nokey.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf/state'  > ${resdir}/result-lib-vrf-state.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]'  > ${resdir}/result-lib-vrf-default.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]'      > ${resdir}/result-lib-vrf-red.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]/state'      > ${resdir}/result-lib-vrf-red-state.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra'          > ${resdir}/result-lib-vrf-zebra.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs'     > ${resdir}/result-lib-vrf-zebra-ribs.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib' > ${resdir}/result-ribs-rib-nokeys.json

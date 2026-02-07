@@ -63,9 +63,10 @@ extern int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, str
 					struct route_entry *re, const char *rmap_name);
 extern int zebra_del_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct route_node *rn,
 					struct route_entry *re);
-extern int is_zebra_import_table_enabled(afi_t, safi_t safi, vrf_id_t vrf_id, uint32_t table_id);
+extern int is_zebra_import_table_enabled(afi_t afi, safi_t safi, vrf_id_t vrf_id,
+					 uint32_t table_id);
 
-extern int zebra_import_table_config(struct vty *, vrf_id_t vrf_id);
+extern int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id);
 
 extern void zebra_import_table_rm_update(const char *rmap);
 

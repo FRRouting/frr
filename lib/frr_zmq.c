@@ -82,8 +82,8 @@ static void frrzmq_read_msg(struct event *t)
 			if (cb->read.cancelled) {
 				frrzmq_check_events(cbp, &cb->write,
 						    ZMQ_POLLOUT);
-				cb->read.thread = NULL;
-				if (cb->write.cancelled && !cb->write.thread)
+				cb->read.event = NULL;
+				if (cb->write.cancelled && !cb->write.event)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -114,8 +114,8 @@ static void frrzmq_read_msg(struct event *t)
 				zmq_msg_close(&msg);
 				frrzmq_check_events(cbp, &cb->write,
 						    ZMQ_POLLOUT);
-				cb->read.thread = NULL;
-				if (cb->write.cancelled && !cb->write.thread)
+				cb->read.event = NULL;
+				if (cb->write.cancelled && !cb->write.event)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -140,8 +140,7 @@ static void frrzmq_read_msg(struct event *t)
 	if (read)
 		frrzmq_check_events(cbp, &cb->write, ZMQ_POLLOUT);
 
-	event_add_read(t->master, frrzmq_read_msg, cbp, cb->fd,
-		       &cb->read.thread);
+	event_add_read(t->master, frrzmq_read_msg, cbp, cb->fd, &cb->read.event);
 	return;
 
 out_err:
@@ -192,13 +191,11 @@ int _frrzmq_event_add_read(const struct xref_eventsched *xref,
 	cb->in_cb = false;
 
 	if (events & ZMQ_POLLIN) {
-		event_cancel(&cb->read.thread);
+		event_cancel(&cb->read.event);
 
-		event_add_event(master, frrzmq_read_msg, cbp, fd,
-				&cb->read.thread);
+		event_add_event(master, frrzmq_read_msg, cbp, fd, &cb->read.event);
 	} else
-		event_add_read(master, frrzmq_read_msg, cbp, fd,
-			       &cb->read.thread);
+		event_add_read(master, frrzmq_read_msg, cbp, fd, &cb->read.event);
 	return 0;
 }
 
@@ -235,8 +232,8 @@ static void frrzmq_write_msg(struct event *t)
 
 			if (cb->write.cancelled) {
 				frrzmq_check_events(cbp, &cb->read, ZMQ_POLLIN);
-				cb->write.thread = NULL;
-				if (cb->read.cancelled && !cb->read.thread)
+				cb->write.event = NULL;
+				if (cb->read.cancelled && !cb->read.event)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -248,8 +245,7 @@ static void frrzmq_write_msg(struct event *t)
 	if (written)
 		frrzmq_check_events(cbp, &cb->read, ZMQ_POLLIN);
 
-	event_add_write(t->master, frrzmq_write_msg, cbp, cb->fd,
-			&cb->write.thread);
+	event_add_write(t->master, frrzmq_write_msg, cbp, cb->fd, &cb->write.event);
 	return;
 
 out_err:
@@ -298,13 +294,11 @@ int _frrzmq_event_add_write(const struct xref_eventsched *xref,
 	cb->in_cb = false;
 
 	if (events & ZMQ_POLLOUT) {
-		event_cancel(&cb->write.thread);
+		event_cancel(&cb->write.event);
 
-		_event_add_event(xref, master, frrzmq_write_msg, cbp, fd,
-				 &cb->write.thread);
+		_event_add_event(xref, master, frrzmq_write_msg, cbp, fd, &cb->write.event);
 	} else
-		event_add_write(master, frrzmq_write_msg, cbp, fd,
-				&cb->write.thread);
+		event_add_write(master, frrzmq_write_msg, cbp, fd, &cb->write.event);
 	return 0;
 }
 
@@ -313,7 +307,7 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 	if (!cb || !*cb)
 		return;
 	core->cancelled = true;
-	event_cancel(&core->thread);
+	event_cancel(&core->event);
 
 	/* If cancelled from within a callback, don't try to free memory
 	 * in this path.
@@ -322,8 +316,8 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 		return;
 
 	/* Ok to free the callback context if no more ... context. */
-	if ((*cb)->read.cancelled && !(*cb)->read.thread
-	    && (*cb)->write.cancelled && ((*cb)->write.thread == NULL))
+	if ((*cb)->read.cancelled && !(*cb)->read.event && (*cb)->write.cancelled &&
+	    ((*cb)->write.event == NULL))
 		XFREE(MTYPE_ZEROMQ_CB, *cb);
 }
 
@@ -343,16 +337,14 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	len = sizeof(events);
 	if (zmq_getsockopt(cb->zmqsock, ZMQ_EVENTS, &events, &len))
 		return;
-	if ((events & event) && core->thread && !core->cancelled) {
-		struct event_loop *tm = core->thread->master;
+	if ((events & event) && core->event && !core->cancelled) {
+		struct event_loop *tm = core->event->master;
 
-		event_cancel(&core->thread);
+		event_cancel(&core->event);
 
 		if (event == ZMQ_POLLIN)
-			event_add_event(tm, frrzmq_read_msg, cbp, cb->fd,
-					&core->thread);
+			event_add_event(tm, frrzmq_read_msg, cbp, cb->fd, &core->event);
 		else
-			event_add_event(tm, frrzmq_write_msg, cbp, cb->fd,
-					&core->thread);
+			event_add_event(tm, frrzmq_write_msg, cbp, cb->fd, &core->event);
 	}
 }

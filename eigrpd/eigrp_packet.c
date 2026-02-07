@@ -12,6 +12,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
@@ -305,9 +309,9 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-void eigrp_write(struct event *thread)
+void eigrp_write(struct event *event)
 {
-	struct eigrp *eigrp = EVENT_ARG(thread);
+	struct eigrp *eigrp = EVENT_ARG(event);
 	struct eigrp_header *eigrph;
 	struct eigrp_interface *ei;
 	struct eigrp_packet *ep;
@@ -316,7 +320,7 @@ void eigrp_write(struct event *thread)
 	struct msghdr msg;
 	struct iovec iov[2];
 	uint32_t seqno, ack;
-
+	struct in_addr dstaddr;
 	int ret;
 	int flags = 0;
 	struct listnode *node;
@@ -436,11 +440,12 @@ void eigrp_write(struct event *thread)
 			seqno, ack, &ep->dst, IF_NAME(ei), ret);
 	}
 
+	dstaddr = iph.ip_dst;
+
 	if (ret < 0)
-		zlog_warn(
-			"*** sendmsg in eigrp_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
-			&iph.ip_dst, iph.ip_id, iph.ip_off, iph.ip_len,
-			ei->ifp->name, ei->ifp->mtu, safe_strerror(errno));
+		zlog_warn("*** sendmsg in eigrp_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
+			  &dstaddr, iph.ip_id, iph.ip_off, iph.ip_len, ei->ifp->name, ei->ifp->mtu,
+			  safe_strerror(errno));
 
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
@@ -451,7 +456,7 @@ out:
 		list_delete_node(eigrp->oi_write_q, node);
 	}
 
-	/* If packets still remain in queue, call write thread. */
+	/* If packets still remain in queue, call write event. */
 	if (!list_isempty(eigrp->oi_write_q)) {
 		event_add_write(master, eigrp_write, eigrp, eigrp->fd,
 				&eigrp->t_write);
@@ -459,7 +464,7 @@ out:
 }
 
 /* Starting point of packet process function. */
-void eigrp_read(struct event *thread)
+void eigrp_read(struct event *event)
 {
 	int ret;
 	struct stream *ibuf;
@@ -470,11 +475,12 @@ void eigrp_read(struct event *thread)
 	struct interface *ifp;
 	struct eigrp_neighbor *nbr;
 	struct in_addr srcaddr;
+	struct in_addr dstaddr;
 	uint16_t opcode = 0;
 	uint16_t length = 0;
 
 	/* first of all get interface pointer. */
-	eigrp = EVENT_ARG(thread);
+	eigrp = EVENT_ARG(event);
 
 	/* prepare for next packet. */
 	event_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
@@ -495,6 +501,7 @@ void eigrp_read(struct event *thread)
 		length = (iph->ip_len) - 20U;
 
 	srcaddr = iph->ip_src;
+	dstaddr = iph->ip_dst;
 
 	/* IP Header dump. */
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)
@@ -532,8 +539,8 @@ void eigrp_read(struct event *thread)
 		return;
 
 	/* Self-originated packet should be discarded silently. */
-	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
-	    || (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
+	if (eigrp_if_lookup_by_local_addr(eigrp, ifp, srcaddr) ||
+	    (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%pI4]: Dropping self-originated packet",
@@ -544,6 +551,12 @@ void eigrp_read(struct event *thread)
 	/* Advance from IP header to EIGRP header (iph->ip_hl has been verified
 	   by eigrp_recv_packet() to be correct). */
 
+	if ((iph->ip_hl * 4) + EIGRP_HEADER_LEN > stream_get_endp(ibuf)) {
+		zlog_warn("Malformed packet: IP header extends beyond packet data. IP header len = %u endp = %zu",
+				 iph->ip_hl * 4, stream_get_endp(ibuf));
+		return;
+	}
+
 	stream_forward_getp(ibuf, (iph->ip_hl * 4));
 	eigrph = (struct eigrp_header *)stream_pnt(ibuf);
 
@@ -553,22 +566,18 @@ void eigrp_read(struct event *thread)
 
 	if (ntohs(eigrph->ASNumber) != eigrp->AS) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_debug(
-				"ignoring packet from router %u sent to %pI4, wrong AS Number received: %u",
-				ntohs(eigrph->vrid), &iph->ip_dst,
-				ntohs(eigrph->ASNumber));
+			zlog_debug("ignoring packet from router %u sent to %pI4, wrong AS Number received: %u",
+				   ntohs(eigrph->vrid), &dstaddr, ntohs(eigrph->ASNumber));
 		return;
 	}
 
 	/* If incoming interface is passive one, ignore it. */
 	if (eigrp_if_is_passive(ei)) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_debug(
-				"ignoring packet from router %u sent to %pI4, received on a passive interface, %pI4",
-				ntohs(eigrph->vrid), &iph->ip_dst,
-				&ei->address.u.prefix4);
+			zlog_debug("ignoring packet from router %u sent to %pI4, received on a passive interface, %pI4",
+				   ntohs(eigrph->vrid), &dstaddr, &ei->address.u.prefix4);
 
-		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
+		if (dstaddr.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
 			eigrp_if_set_multicast(ei);
 		}
 		return;
@@ -579,9 +588,8 @@ void eigrp_read(struct event *thread)
 	 */
 	else if (ei->ifp != ifp) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_warn(
-				"Packet from [%pI4] received on wrong link %s",
-				&iph->ip_src, ifp->name);
+			zlog_warn("Packet from [%pI4] received on wrong link %s", &srcaddr,
+				  ifp->name);
 		return;
 	}
 
@@ -589,9 +597,7 @@ void eigrp_read(struct event *thread)
 	ret = eigrp_verify_header(ibuf, ei, iph, eigrph);
 	if (ret < 0) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_debug(
-				"eigrp_read[%pI4]: Header check failed, dropping.",
-				&iph->ip_src);
+			zlog_debug("eigrp_read[%pI4]: Header check failed, dropping.", &srcaddr);
 		return;
 	}
 
@@ -600,11 +606,9 @@ void eigrp_read(struct event *thread)
 	opcode = eigrph->opcode;
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-		zlog_debug(
-			"Received [%s][%d/%d] length [%u] via [%s] src [%pI4] dst [%pI4]",
-			lookup_msg(eigrp_packet_type_str, opcode, NULL),
-			ntohl(eigrph->sequence), ntohl(eigrph->ack), length,
-			IF_NAME(ei), &iph->ip_src, &iph->ip_dst);
+		zlog_debug("Received [%s][%d/%d] length [%u] via [%s] src [%pI4] dst [%pI4]",
+			   lookup_msg(eigrp_packet_type_str, opcode, NULL), ntohl(eigrph->sequence),
+			   ntohl(eigrph->ack), length, IF_NAME(ei), &srcaddr, &dstaddr);
 
 	/* Read rest of the packet and call each sort of packet routine. */
 	stream_forward_getp(ibuf, EIGRP_HEADER_LEN);
@@ -923,7 +927,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	if (ep->s)
 		stream_free(ep->s);
 
-	EVENT_OFF(ep->t_retrans_timer);
+	event_cancel(&ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
 }
@@ -932,11 +936,12 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 static int eigrp_verify_header(struct stream *ibuf, struct eigrp_interface *ei,
 			       struct ip *iph, struct eigrp_header *eigrph)
 {
+	struct in_addr srcaddr = iph->ip_src;
+
 	/* Check network mask, Silently discarded. */
-	if (!eigrp_check_network_mask(ei, iph->ip_src)) {
-		zlog_warn(
-			"interface %s: eigrp_read network address is not same [%pI4]",
-			IF_NAME(ei), &iph->ip_src);
+	if (!eigrp_check_network_mask(ei, srcaddr)) {
+		zlog_warn("interface %s: eigrp_read network address is not same [%pI4]",
+			  IF_NAME(ei), &srcaddr);
 		return -1;
 	}
 	//
@@ -970,10 +975,10 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	return 0;
 }
 
-void eigrp_unack_packet_retrans(struct event *thread)
+void eigrp_unack_packet_retrans(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(event);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->retrans_queue);
@@ -996,7 +1001,7 @@ void eigrp_unack_packet_retrans(struct event *thread)
 				EIGRP_PACKET_RETRANS_TIME,
 				&ep->t_retrans_timer);
 
-		/* Hook thread to write packet. */
+		/* Hook event to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
@@ -1006,10 +1011,10 @@ void eigrp_unack_packet_retrans(struct event *thread)
 	}
 }
 
-void eigrp_unack_multicast_packet_retrans(struct event *thread)
+void eigrp_unack_multicast_packet_retrans(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(event);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->multicast_queue);
@@ -1031,7 +1036,7 @@ void eigrp_unack_multicast_packet_retrans(struct event *thread)
 				nbr, EIGRP_PACKET_RETRANS_TIME,
 				&ep->t_retrans_timer);
 
-		/* Hook thread to write packet. */
+		/* Hook event to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
@@ -1110,7 +1115,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->prefix_length = stream_getc(s);
 
-	destination_tmp = stream_getc(s) << 24;
+	destination_tmp = (uint32_t)stream_getc(s) << 24;
 	if (tlv->prefix_length > 8)
 		destination_tmp |= stream_getc(s) << 16;
 	if (tlv->prefix_length > 16)
@@ -1129,7 +1134,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	uint16_t length;
 
 	stream_putw(s, EIGRP_TLV_IPv4_INT);
-	switch (pe->destination->prefixlen) {
+	switch (pe->destination.prefixlen) {
 	case 0:
 	case 1:
 	case 2:
@@ -1176,8 +1181,8 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 		stream_putw(s, length);
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d",
-			 __func__, pe->destination->prefixlen);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d", __func__,
+			 pe->destination.prefixlen);
 		return 0;
 	}
 	stream_putl(s, 0x00000000);
@@ -1194,15 +1199,15 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	stream_putc(s, pe->reported_metric.tag);
 	stream_putc(s, pe->reported_metric.flags);
 
-	stream_putc(s, pe->destination->prefixlen);
+	stream_putc(s, pe->destination.prefixlen);
 
-	stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 24) & 0xFF);
-	if (pe->destination->prefixlen > 8)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 16) & 0xFF);
-	if (pe->destination->prefixlen > 16)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 8) & 0xFF);
-	if (pe->destination->prefixlen > 24)
-		stream_putc(s, ntohl(pe->destination->u.prefix4.s_addr) & 0xFF);
+	stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 24) & 0xFF);
+	if (pe->destination.prefixlen > 8)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 16) & 0xFF);
+	if (pe->destination.prefixlen > 16)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 8) & 0xFF);
+	if (pe->destination.prefixlen > 24)
+		stream_putc(s, ntohl(pe->destination.u.prefix4.s_addr) & 0xFF);
 
 	return length;
 }

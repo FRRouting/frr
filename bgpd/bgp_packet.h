@@ -8,6 +8,12 @@
 
 #include "hook.h"
 
+struct bgp_enhe_capability {
+	uint16_t afi;
+	uint16_t safi;
+	uint16_t nh_afi;
+};
+
 DECLARE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),
@@ -42,8 +48,9 @@ DECLARE_HOOK(bgp_packet_send,
 	} while (0)
 
 /* Packet send and receive function prototypes. */
-extern void bgp_keepalive_send(struct peer *peer);
-extern struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as);
+extern void bgp_keepalive_send(struct peer_connection *connection);
+extern struct stream *bgp_open_make(struct peer *peer, struct peer_connection *connection,
+				    uint16_t send_holdtime, as_t local_as, struct in_addr *id);
 extern void bgp_open_send(struct peer_connection *connection);
 extern void bgp_notify_send(struct peer_connection *connection, uint8_t code,
 			    uint8_t sub_code);
@@ -64,7 +71,6 @@ extern int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 			  struct bgp_nlri *nlri, bool mp_withdraw);
 
 extern void bgp_update_restarted_peers(struct peer *peer);
-extern void bgp_update_implicit_eors(struct peer *peer);
 extern void bgp_check_update_delay(struct bgp *peer);
 
 extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
@@ -75,8 +81,6 @@ extern void bgp_process_packet(struct event *event);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
-/* Task callback to handle socket error encountered in the io pthread */
-void bgp_packet_process_error(struct event *thread);
 extern struct bgp_notify
 bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify);
 extern bool bgp_has_graceful_restart_notification(struct peer *peer);

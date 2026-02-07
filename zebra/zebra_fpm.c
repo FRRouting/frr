@@ -19,6 +19,7 @@
 #include "network.h"
 #include "command.h"
 #include "lib/version.h"
+#include "lib/lib_errors.h"
 #include "jhash.h"
 
 #include "zebra/rib.h"
@@ -273,8 +274,8 @@ static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 
-static void zfpm_read_cb(struct event *thread);
-static void zfpm_write_cb(struct event *thread);
+static void zfpm_read_cb(struct event *event);
+static void zfpm_write_cb(struct event *event);
 
 static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
@@ -485,7 +486,7 @@ static inline void zfpm_write_on(void)
  */
 static inline void zfpm_read_off(void)
 {
-	EVENT_OFF(zfpm_g->t_read);
+	event_cancel(&zfpm_g->t_read);
 }
 
 /*
@@ -493,17 +494,17 @@ static inline void zfpm_read_off(void)
  */
 static inline void zfpm_write_off(void)
 {
-	EVENT_OFF(zfpm_g->t_write);
+	event_cancel(&zfpm_g->t_write);
 }
 
 static inline void zfpm_connect_off(void)
 {
-	EVENT_OFF(zfpm_g->t_connect);
+	event_cancel(&zfpm_g->t_connect);
 }
 
 static inline void zfpm_conn_down_off(void)
 {
-	EVENT_OFF(zfpm_g->t_conn_down);
+	event_cancel(&zfpm_g->t_conn_down);
 }
 
 /*
@@ -512,7 +513,7 @@ static inline void zfpm_conn_down_off(void)
  * Callback for actions to be taken when the connection to the FPM
  * comes up.
  */
-static void zfpm_conn_up_thread_cb(struct event *thread)
+static void zfpm_conn_up_thread_cb(struct event *event)
 {
 	struct route_node *rnode;
 	struct zfpm_rnodes_iter *iter;
@@ -522,7 +523,7 @@ static void zfpm_conn_up_thread_cb(struct event *thread)
 
 	if (zfpm_g->state != ZFPM_STATE_ESTABLISHED) {
 		zfpm_debug(
-			"Connection not up anymore, conn_up thread aborting");
+			"Connection not up anymore, conn_up event aborting");
 		zfpm_g->stats.t_conn_up_aborts++;
 		goto done;
 	}
@@ -546,7 +547,7 @@ static void zfpm_conn_up_thread_cb(struct event *thread)
 		/*
 		 * Yield if need be.
 		 */
-		if (!zfpm_thread_should_yield(thread))
+		if (!zfpm_thread_should_yield(event))
 			continue;
 
 		zfpm_g->stats.t_conn_up_yields++;
@@ -577,7 +578,7 @@ static void zfpm_connection_up(const char *detail)
 	/*
 	 * Start thread to push existing routes to the FPM.
 	 */
-	EVENT_OFF(zfpm_g->t_conn_up);
+	event_cancel(&zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
 	zfpm_g->fpm_mac_dump_done = false;
@@ -628,7 +629,7 @@ static void zfpm_connect_check(void)
  * Callback that is invoked to clean up state after the TCP connection
  * to the FPM goes down.
  */
-static void zfpm_conn_down_thread_cb(struct event *thread)
+static void zfpm_conn_down_thread_cb(struct event *event)
 {
 	struct route_node *rnode;
 	struct zfpm_rnodes_iter *iter;
@@ -669,7 +670,7 @@ static void zfpm_conn_down_thread_cb(struct event *thread)
 		/*
 		 * Yield if need be.
 		 */
-		if (!zfpm_thread_should_yield(thread))
+		if (!zfpm_thread_should_yield(event))
 			continue;
 
 		zfpm_g->stats.t_conn_down_yields++;
@@ -729,7 +730,7 @@ static void zfpm_connection_down(const char *detail)
 /*
  * zfpm_read_cb
  */
-static void zfpm_read_cb(struct event *thread)
+static void zfpm_read_cb(struct event *event)
 {
 	size_t already;
 	struct stream *ibuf;
@@ -1003,8 +1004,9 @@ static int zfpm_build_route_updates(void)
 				else
 					zfpm_g->stats.route_dels++;
 			} else {
-				zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
-					 __func__, dest->rnode);
+				flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+					 "%s: Encoding Prefix: %pRN No valid nexthops", __func__,
+					 dest->rnode);
 			}
 		}
 
@@ -1158,7 +1160,7 @@ static void zfpm_build_updates(void)
 /*
  * zfpm_write_cb
  */
-static void zfpm_write_cb(struct event *thread)
+static void zfpm_write_cb(struct event *event)
 {
 	struct stream *s;
 	int num_writes;
@@ -1227,7 +1229,7 @@ static void zfpm_write_cb(struct event *thread)
 			break;
 		}
 
-		if (zfpm_thread_should_yield(thread)) {
+		if (zfpm_thread_should_yield(event)) {
 			zfpm_g->stats.t_write_yields++;
 			break;
 		}
@@ -1249,8 +1251,8 @@ static void zfpm_connect_cb(struct event *t)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zlog_err("Failed to create socket for connect(): %s",
-			   strerror(errno));
+		flog_err(EC_LIB_SOCKET, "Failed to create socket for connect(): %s",
+			 strerror(errno));
 		zfpm_g->stats.connect_no_sock++;
 		return;
 	}
@@ -1616,7 +1618,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
 				   zfpm_mac_info_alloc);
 
-	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
+	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.ipaddr_v4.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
 	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
@@ -1703,7 +1705,7 @@ static void zfpm_stop_stats_timer(void)
 		return;
 
 	zfpm_debug("Stopping existing stats timer");
-	EVENT_OFF(zfpm_g->t_stats);
+	event_cancel(&zfpm_g->t_stats);
 }
 
 /*
@@ -1995,7 +1997,7 @@ static int zfpm_init(struct event_loop *master)
 	TAILQ_INIT(&zfpm_g->dest_q);
 	TAILQ_INIT(&zfpm_g->mac_q);
 
-	/* Create hash table for fpm_mac_info_t enties */
+	/* Create hash table for fpm_mac_info_t entries */
 	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
 						 zfpm_mac_info_cmp,
 						 "FPM MAC info hash table");

@@ -78,6 +78,11 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	}
 }
 
+void pim_access_list_update(struct access_list *access)
+{
+	pim_filter_ref_update();
+}
+
 static void pim_free(void)
 {
 	pim_route_map_terminate();
@@ -92,6 +97,7 @@ void pim_router_init(void)
 	router->debugs = 0;
 	router->master = frr_init();
 	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
+	router->t_prune_limit = PIM_DEFAULT_T_PRUNE_LIMIT;
 	router->multipath = MULTIPATH_NUM;
 
 	/*

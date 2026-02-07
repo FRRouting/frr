@@ -82,6 +82,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
+    sudo install -m 640 -o frr -g frr tools/etc/frr/support_bundle_commands.conf /etc/frr/support_bundle_commands.conf
 
 Enable IP & IPv6 forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

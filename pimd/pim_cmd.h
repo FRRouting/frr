@@ -14,7 +14,9 @@
 #define CONF_SSMPINGD_STR                      "Enable ssmpingd operation\n"
 #define SHOW_SSMPINGD_STR                      "ssmpingd operation\n"
 #define IFACE_PIM_STR                          "Enable PIM SSM operation\n"
-#define IFACE_PIM_SM_STR                       "Enable PIM SM operation\n"
+#define IFACE_PIM_SM_STR                       "Enable PIM Sparse Mode\n"
+#define IFACE_PIM_DM_STR                       "Enable PIM Dense Mode\n"
+#define IFACE_PIM_SMDM_STR                     "Enable PIM Sparse-Dense Mode\n"
 #define IFACE_PIM_HELLO_STR                    "Hello Interval\n"
 #define IFACE_PIM_HELLO_TIME_STR               "Time in seconds for Hello Interval\n"
 #define IFACE_PIM_HELLO_HOLD_STR               "Time in seconds for Hold Interval\n"
@@ -57,6 +59,8 @@
 #define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
 #define DEBUG_PIM_BSM_STR                           "BSR message processing activity\n"
 #define DEBUG_PIM_AUTORP_STR			    "AutoRP message processing activity\n"
+#define DEBUG_PIM_GRAFT_STR			    "PIM Graft processing activity\n"
+#define DEBUG_PIM_STATE_REFRESH_STR		    "PIM State Refresh processing activity\n"
 
 
 void pim_cmd_init(void);

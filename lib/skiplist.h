@@ -70,7 +70,7 @@ skiplist_new(/* encouraged: set list.del callback on new lists */
 			const void *key2), /* NULL => default cmp */
 	     void (*del)(void *val));	   /* NULL => no auto val free */
 
-extern void skiplist_free(struct skiplist *);
+extern void skiplist_free(struct skiplist *l);
 
 extern int skiplist_insert(register struct skiplist *l, register void *key,
 			   register void *value);

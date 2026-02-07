@@ -56,9 +56,9 @@ static void slow_func(struct vty *vty, const char *str, const int i)
 		printf("%s did %d, x = %g\n", str, i, x);
 }
 
-static void clear_something(struct event *thread)
+static void clear_something(struct event *event)
 {
-	struct work_state *ws = EVENT_ARG(thread);
+	struct work_state *ws = EVENT_ARG(event);
 
 	/* this could be like iterating through 150k of route_table
 	 * or worse, iterating through a list of peers, to bgp_stop them with
@@ -67,7 +67,7 @@ static void clear_something(struct event *thread)
 	while (ws->i < ITERS_MAX) {
 		slow_func(ws->vty, ws->str, ws->i);
 		ws->i++;
-		if (event_should_yield(thread)) {
+		if (event_should_yield(event)) {
 			event_add_timer_msec(master, clear_something, ws, 0,
 					     NULL);
 			return;

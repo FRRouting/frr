@@ -56,14 +56,14 @@ static void pim6_sighup(void)
 	zlog_info("SIGHUP received, ignoring");
 }
 
-static void pim6_sigint(void)
+static FRR_NORETURN void pim6_sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	pim6_terminate();
 	exit(1);
 }
 
-static void pim6_sigterm(void)
+static FRR_NORETURN void pim6_sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	pim6_terminate();
@@ -103,6 +103,7 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+	&frr_pim_route_map_info,
 	&frr_pim_candidate_info,
 	&frr_gmp_info,
 };
@@ -150,6 +151,7 @@ int main(int argc, char **argv, char **envp)
 	pim_router_init();
 
 	access_list_init();
+	access_list_add_hook(pim_access_list_update);
 	prefix_list_init();
 
 	/*
@@ -157,12 +159,9 @@ int main(int argc, char **argv, char **envp)
 	 */
 	pim_error_init();
 	pim_vrf_init();
-#if 0
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);
-
 	pim_route_map_init();
-#endif
 	pim_init();
 	/*
 	 * Initialize zclient "update" and "lookup" sockets

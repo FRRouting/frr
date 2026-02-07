@@ -18,7 +18,7 @@ void isis_event_circuit_type_change(struct isis_circuit *circuit, int newtype);
 /*
  * Events related to adjacencies
  */
-void isis_event_dis_status_change(struct event *thread);
+void isis_event_dis_status_change(struct event *event);
 
 /*
  * Error events

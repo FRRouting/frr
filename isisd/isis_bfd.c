@@ -191,12 +191,11 @@ static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family,
 static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 {
 	struct isis_adjacency *adj;
-	struct listnode *node;
 
 	if (circuit->area == NULL)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(circuit->area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list, &circuit->area->adjacency_list, adj) {
 		if (adj->bfd_session)
 			continue;
 
@@ -211,7 +210,7 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 
 void isis_bfd_init(struct event_loop *tm)
 {
-	bfd_protocol_integration_init(zclient, tm);
+	bfd_protocol_integration_init(isis_zclient, tm);
 
 	hook_register(isis_adj_state_change_hook, bfd_handle_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);

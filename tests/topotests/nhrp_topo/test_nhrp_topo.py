@@ -143,7 +143,7 @@ def setup_module(mod):
     "Sets up the pytest environment"
 
     logger.info("NHRP Topology : \n {}".format(TOPOLOGY))
-    result = required_linux_kernel_version("5.0")
+    result = required_linux_kernel_version("4.18")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -253,7 +253,7 @@ def test_protocols_convergence():
             "show interface {}-gre0 json".format(rname),
             expected,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
 
         assertmsg = '"{}-gre0 interface flags incorrect'.format(router.name)
         assert result is None, assertmsg
@@ -370,7 +370,7 @@ def test_route_install():
 # here we are testing that all of the expected
 # retries are sent and logged before a
 # shortcut is purged
-@retry(retry_timeout=10, initial_wait=30)
+@retry(retry_timeout=30, initial_wait=30)
 def check_retry_debug_info(pingspoke=None):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
@@ -391,7 +391,7 @@ def check_retry_debug_info(pingspoke=None):
 # you are expecting to find a complete shortcut
 # (True) or incomplete shortcut (False) as a
 # result of the ping
-@retry(retry_timeout=10, initial_wait=10)
+@retry(retry_timeout=30, initial_wait=10)
 def create_shortcut(expect_successful_shortcut=True, pingspoke=None, peer_addr=None):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]

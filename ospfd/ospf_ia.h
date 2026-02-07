@@ -22,8 +22,7 @@
 					       (N), (R));                      \
 	}
 
-extern void ospf_ia_routing(struct ospf *, struct route_table *,
-			    struct route_table *);
-extern int ospf_area_is_transit(struct ospf_area *);
+extern void ospf_ia_routing(struct ospf *ospf, struct route_table *rt, struct route_table *rtrs);
+extern int ospf_area_is_transit(struct ospf_area *area);
 
 #endif /* _ZEBRA_OSPF_IA_H */

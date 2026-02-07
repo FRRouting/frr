@@ -553,11 +553,11 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-static int rip_snmp_init(struct event_loop *master)
+static int rip_snmp_init(struct event_loop *mstr)
 {
 	rip_ifaddr_table = route_table_init();
 
-	smux_init(master);
+	smux_init(mstr);
 	REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
 	return 0;
 }

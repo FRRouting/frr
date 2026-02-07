@@ -54,6 +54,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
 #define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
+#define CAPABILITY_CODE_LINK_LOCAL	77 /* draft-white-linklocal-capability */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -71,6 +72,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE_LEN        1
 #define CAPABILITY_CODE_SOFT_VERSION_LEN 1
+#define CAPABILITY_CODE_LINK_LOCAL_LEN	 0
 
 /* Cooperative Route Filtering Capability.  */
 
@@ -102,13 +104,13 @@ struct graceful_restart_af {
 	(CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)                \
 	 || CHECK_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH))
 
-extern int bgp_open_option_parse(struct peer *peer, uint16_t length,
-				 int *mp_capability);
+extern int bgp_open_option_parse(struct peer *peer, struct peer_connection *connection,
+				 uint16_t length, int *mp_capability);
 extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
-				    bool ext_opt_params);
+				    struct peer_connection *connection, bool ext_opt_params);
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
-extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
+extern as_t peek_for_as4_capability(struct peer_connection *connection, uint16_t length);
 extern const struct message capcode_str[];
 extern const struct message orf_type_str[];
 extern const struct message orf_mode_str[];

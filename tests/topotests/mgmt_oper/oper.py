@@ -6,6 +6,7 @@
 # Copyright (c) 2023, LabN Consulting, L.L.C.
 #
 
+import copy
 import datetime
 import ipaddress
 import json
@@ -42,7 +43,7 @@ def json_cmp(got, expect, exact_match):
             if (new_items := json_diff.get("iterable_item_added")) is not None:
                 new_item_paths = list(new_items.keys())
                 for path in new_item_paths:
-                    if type(new_items[path]) is dict:
+                    if isinstance(new_items[path], dict):
                         del new_items[path]
                 if len(new_items) == 0:
                     del json_diff["iterable_item_added"]
@@ -62,17 +63,35 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=30, initial_wait=1)
-def _do_oper_test(tgen, qr, seconds_left=None):
+def clean_json(j):
+    rm_if_re = r"span|gre|sit|tnl|tun|vti"
+    j = copy.deepcopy(j)
+    try:
+        iflist = j["frr-interface:lib"]["interface"]
+    except KeyError:
+        pass
+    except Exception as e:
+        logging.error("Error cleaning json: %s", e)
+    else:
+        nl = sorted(iflist, key=lambda x: x["name"])
+        nl = [x for x in nl if re.search(rm_if_re, x["name"]) is None]
+        j["frr-interface:lib"]["interface"] = nl
+    return j
+
+
+@retry(retry_timeout=30, initial_wait=0.1)
+def _do_oper_test(tgen, qr, exact, seconds_left=None):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
         r"vtysh -c 'show mgmt get-data {} {}' "
-        r"""| sed -e 's/"phy-address": ".*"/"phy-address": "rubout"/'"""
-        r"""| sed -e 's/"uptime": ".*"/"uptime": "rubout"/'"""
+        r"""| sed -e 's/"\(phy-address\|revision\|uptime\)": ".*"/"\1": "rubout"/'"""
+        r"""| sed -e 's/"\(candidate\|running\)-config-version": ".*"/"\1-config-version": "rubout"/'"""
+        r"""| sed -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": [0-9][0-9]*/"\1": "rubout"/'"""
         r"""| sed -e 's/"vrf": "[0-9]*"/"vrf": "rubout"/'"""
-        r"""| sed -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/'"""
-        r"""| sed -e 's/"id": [0-9][0-9]*/"id": "rubout"/'"""
+        r"""| sed -e 's/"module-set-id": "[0-9]*"/"module-set-id": "rubout"/'"""
+        r"""| sed -e 's/"\(apply\|edit\|prep\)-count": "[0-9]*"/"\1-count": "rubout"/'"""
+        r"""| sed -e 's/"avg-\(apply\|edit\|prep\)-time": "[0-9]*"/"avg-\1-time": "rubout"/'"""
     )
     # Don't use this for now.
     dd_json_cmp = None
@@ -104,19 +123,25 @@ def _do_oper_test(tgen, qr, seconds_left=None):
         diag("FILE: {}".format(qr[1]))
         raise
 
+    # Remove values that are inconsistent between machines
+    ojson = clean_json(ojson)
+    ejson = clean_json(ejson)
+    ejson_alt = clean_json(ejson_alt) if ejson_alt is not None else None
+
     if dd_json_cmp:
-        cmpout = json_cmp(ojson, ejson, exact_match=True)
+        cmpout = json_cmp(ojson, ejson, exact_match=exact)
         if cmpout and ejson_alt is not None:
-            cmpout = json_cmp(ojson, ejson_alt, exact_match=True)
+            cmpout = json_cmp(ojson, ejson_alt, exact_match=exact)
         if cmpout:
             diag(
                 "-------DIFF---------\n%s\n---------DIFF----------",
                 pprint.pformat(cmpout),
             )
+            cmpout = str(cmpout)
     else:
-        cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        cmpout = tt_json_cmp(ojson, ejson, exact=exact)
         if cmpout and ejson_alt is not None:
-            cmpout = tt_json_cmp(ojson, ejson_alt, exact=True)
+            cmpout = tt_json_cmp(ojson, ejson_alt, exact=exact)
         if cmpout:
             diag(
                 "-------EXPECT--------\n%s\n------END-EXPECT------",
@@ -133,13 +158,16 @@ def _do_oper_test(tgen, qr, seconds_left=None):
     return cmpout
 
 
-def do_oper_test(tgen, query_results):
+def do_oper_test(tgen, query_results, exact=True):
     reset = True
     for qr in query_results:
-        step(f"Perform query '{qr[0]}'", reset=reset)
+        if len(qr) == 3 and qr[2]:
+            step(f"Perform query '{qr[0]}' + '{qr[2]}'", reset=reset)
+        else:
+            step(f"Perform query '{qr[0]}'", reset=reset)
         if reset:
             reset = False
-        ret = _do_oper_test(tgen, qr)
+        ret = _do_oper_test(tgen, qr, exact=exact)
         assert ret is None, "Unexpected diff: " + str(ret)
 
 
@@ -153,7 +181,7 @@ def get_ip_networks(super_prefix, count):
     return tuple(network.subnets(count_log2))[0:count]
 
 
-@retry(retry_timeout=30, initial_wait=0.1)
+@retry(retry_timeout=60, initial_wait=0.1)
 def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
@@ -185,7 +213,21 @@ def addrgen(a, count, step=1):
         a += step
 
 
-@retry(retry_timeout=30, initial_wait=0.1)
+@retry(retry_timeout=60, initial_wait=0.1)
+def check_kernel_net(r1, net, vrf):
+    addr = ipaddress.ip_network(net)
+    vrfstr = f" vrf {vrf}" if vrf else ""
+    if addr.version == 6:
+        kernel = r1.cmd_raises(f"ip -6 route show{vrfstr}")
+    else:
+        kernel = r1.cmd_raises(f"ip -4 route show{vrfstr}")
+
+    nentries = len(re.findall("\n", kernel))
+    logging.info("checking kernel routing table%s: (%s entries)", vrfstr, nentries)
+    assert str(net) in kernel, f"Failed to find '{net}' in {nentries} entries"
+
+
+@retry(retry_timeout=60, initial_wait=0.1)
 def check_kernel_32(r1, start_addr, count, vrf, step=1):
     start = ipaddress.ip_address(start_addr)
     vrfstr = f" vrf {vrf}" if vrf else ""
@@ -266,7 +308,7 @@ def do_config(
     else:
         load_command = 'vtysh -f "{}"'.format(config_file)
     tstamp = datetime.datetime.now()
-    output = r1.cmd_raises(load_command)
+    r1.cmd_raises(load_command)
     delta = (datetime.datetime.now() - tstamp).total_seconds()
 
     #

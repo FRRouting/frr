@@ -65,19 +65,19 @@ extern struct event_loop *master;
 #define VTYSH_AFFMAP VTYSH_ISISD | VTYSH_MGMTD
 #define VTYSH_RMAP_CONFIG                                                      \
 	VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_BGPD | VTYSH_ISISD |  \
-		VTYSH_PIMD | VTYSH_EIGRPD | VTYSH_FABRICD | VTYSH_MGMTD
+		VTYSH_PIMD | VTYSH_PIM6D | VTYSH_EIGRPD | VTYSH_FABRICD | VTYSH_MGMTD
 #define VTYSH_RMAP_SHOW                                                        \
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
-		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
-		VTYSH_FABRICD
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D |          \
+		VTYSH_EIGRPD | VTYSH_FABRICD
 #define VTYSH_ACCESS_LIST_SHOW                                                 \
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
 		VTYSH_FABRICD
 #define VTYSH_PREFIX_LIST_SHOW                                                 \
 	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
-		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
-		VTYSH_FABRICD
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D |          \
+		VTYSH_EIGRPD | VTYSH_FABRICD
 #define VTYSH_INTERFACE_SUBSET                                                 \
 	VTYSH_OSPFD | VTYSH_OSPF6D | \
 		VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D | VTYSH_NHRPD |         \
@@ -93,6 +93,8 @@ extern struct event_loop *master;
 #define VTYSH_MGMT_BACKEND                                                     \
 	VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_STATICD | VTYSH_ZEBRA
 #define VTYSH_MGMT_FRONTEND VTYSH_MGMTD
+
+#define VTYSH_NON_MGMTD ((VTYSH_ALL) & ~(VTYSH_MGMT_BACKEND))
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
@@ -123,24 +125,24 @@ extern int vtysh_connect_all(const char *optional_daemon_name);
 void vtysh_readline_init(void);
 void vtysh_user_init(void);
 
-int vtysh_execute(const char *);
-int vtysh_execute_no_pager(const char *);
+int vtysh_execute(const char *line);
+int vtysh_execute_no_pager(const char *line);
 int vtysh_execute_command_questionmark(char *input);
 
 char *vtysh_prompt(void);
 
 void vtysh_config_write(void);
 
-int vtysh_config_from_file(struct vty *, FILE *);
+int vtysh_config_from_file(struct vty *vty, FILE *fp);
 
-void config_add_line(struct list *, const char *);
+void config_add_line(struct list *config, const char *line);
 
 int vtysh_mark_file(const char *filename);
 
 int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
 int vtysh_write_config_integrated(void);
 
-void vtysh_config_parse_line(void *, const char *);
+void vtysh_config_parse_line(void *arg, const char *line);
 
 void vtysh_config_dump(void);
 
@@ -149,10 +151,15 @@ void vtysh_config_init(void);
 void suid_on(void);
 void suid_off(void);
 
+/* Handle exec-timeout config changes */
+#define VTYSH_EXEC_TIMEOUT_MAX 1000 * 1000
+void vtysh_exec_timeout_config(uint32_t tsecs);
+uint32_t vtysh_get_exec_timeout(void);
+
 /* Child process execution flag. */
 extern int execute_flag;
 
-extern struct vty *vty;
+extern struct vty *gvty;
 
 extern int user_mode;
 

@@ -483,6 +483,7 @@ status_int_to_ext(enum srte_policy_status status)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return PCEP_LSP_OPERATIONAL_DOWN;
 }
 
 enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
@@ -536,4 +537,5 @@ enum srte_segment_nai_type srte_nai_type(enum pcep_sr_subobj_nai type)
 	}
 
 	assert(!"Reached end of function where we were not expecting to");
+	return SRTE_SEGMENT_NAI_TYPE_NONE;
 }

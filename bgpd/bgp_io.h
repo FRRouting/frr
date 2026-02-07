@@ -10,6 +10,7 @@
 
 #define BGP_WRITE_PACKET_MAX 64U
 #define BGP_READ_PACKET_MAX  10U
+#define BGP_PACKET_PROCESS_LIMIT 100
 
 #include "bgpd/bgpd.h"
 #include "frr_pthread.h"

@@ -80,6 +80,7 @@ const char *pcc_status_name(enum pcc_status status)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_event_type_name(pcep_event_type event_type)
@@ -112,6 +113,7 @@ const char *pcep_event_type_name(pcep_event_type event_type)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_error_type_name(enum pcep_error_type error_type)
@@ -636,6 +638,7 @@ const char *pcep_message_type_name(enum pcep_message_types pcep_message_type)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_object_class_name(enum pcep_object_classes obj_class)
@@ -692,6 +695,7 @@ const char *pcep_object_class_name(enum pcep_object_classes obj_class)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_object_type_name(enum pcep_object_classes obj_class,
@@ -767,6 +771,7 @@ const char *pcep_lsp_status_name(enum pcep_lsp_operational_status status)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 
@@ -818,6 +823,7 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type)
@@ -841,6 +847,7 @@ const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
@@ -865,6 +872,7 @@ const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
 	}
 
 	assert(!"Reached end of function where we do not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *pcep_metric_type_name(enum pcep_metric_types type)

@@ -1024,6 +1024,21 @@ def _test_opaque_add_restart_add(tgen, apibin):
         step("Bring ospfd on R1 back up")
         start_router_daemons(tgen, "r1", ["ospfd"])
 
+        step("Wait for OSPF to connect to zebra")
+
+        def check_ospf_zebra_client():
+            output = r1.vtysh_cmd("show zebra client summary")
+            # Check if "ospf" appears in the client list
+            for line in output.splitlines():
+                if line.strip().startswith("ospf"):
+                    return True
+            return False
+
+        success, _ = topotest.run_and_expect(
+            check_ospf_zebra_client, True, count=30, wait=1
+        )
+        assert success, "OSPF failed to connect to zebra after restart"
+
         # This will start off with sequence num 80000001
         # But should advance to 80000003 when we reestablish with r2
         p = r1.popen(
@@ -1680,6 +1695,32 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
 
         step("Bring r1-eth0 back up and verify there is no crash")
         r1.vtysh_multicmd("conf t\ninterface r1-eth0\nno shut")
+
+        # Verify that the neighbor has come back up
+        step("Verify neighbor has come back up")
+        expected_neighbor = {
+            "neighbors": {
+                "2.0.0.0": [
+                    {
+                        "nbrState": "Full/DR",
+                        "nbrPriority": 1,
+                        "converged": "Full",
+                        "role": "DR",
+                        "ifaceAddress": "10.0.1.2",
+                        "ifaceName": "r1-eth0:10.0.1.1",
+                    }
+                ]
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neigh json",
+            expected_neighbor,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor has not come back up after interface restart"
+        assert result is None, assertmsg
 
         step("Add another link-local opaque LSA for r1-eth0")
         pread = r1.popen([apibin, "-v", "add,9,10.0.1.1,230,1,feedaceecafebeef"])

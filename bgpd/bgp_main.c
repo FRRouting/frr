@@ -124,31 +124,10 @@ static struct frr_daemon_info bgpd_di;
 void sighup(void)
 {
 	zlog_info("SIGHUP received, ignoring");
-
-	return;
-
-	/*
-	 * This is turned off for the moment.  There is all
-	 * sorts of config turned off by bgp_terminate
-	 * that is not setup properly again in bgp_reset.
-	 * I see no easy way to do this nor do I see that
-	 * this is a desirable way to reload config
-	 * given the yang work.
-	 */
-	/* Terminate all thread. */
-	/*
-	 * bgp_terminate();
-	 * bgp_reset();
-	 * zlog_info("bgpd restarting!");
-
-	 * Reload config file.
-	 * vty_read_config(NULL, bgpd_di.config_file, config_default);
-	 */
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
-__attribute__((__noreturn__)) void sigint(void)
+FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	assert(bm->terminating == false);
@@ -160,6 +139,14 @@ __attribute__((__noreturn__)) void sigint(void)
 	bgp_terminate();
 
 	bgp_exit(0);
+
+	/*
+	 * This is being done after bgp_exit because items may be removed
+	 * from the connection_fifo
+	 */
+	peer_connection_fifo_fini(&bm->connection_fifo);
+	event_cancel(&bm->e_process_packet);
+	pthread_mutex_destroy(&bm->peer_connection_mtx);
 
 	exit(0);
 }
@@ -177,7 +164,7 @@ void sigusr1(void)
   Zebra route removal and protocol teardown are not meant to be done here.
   For example, "retain_mode" may be set.
 */
-static __attribute__((__noreturn__)) void bgp_exit(int status)
+static FRR_NORETURN void bgp_exit(int status)
 {
 	struct bgp *bgp, *bgp_default, *bgp_evpn;
 	struct listnode *node, *nnode;
@@ -208,7 +195,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	zebra_announce_fini(&bm->zebra_announce_head);
 	zebra_l2_vni_fini(&bm->zebra_l2_vni_head);
-	zebra_l3_vni_fini(&bm->zebra_l3_vni_head);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
@@ -287,6 +273,8 @@ static int bgp_vrf_enable(struct vrf *vrf)
 {
 	struct bgp *bgp;
 	vrf_id_t old_vrf_id;
+	int ret = BGP_GR_FAILURE;
+	(void)ret; /* for unused variable warning */
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
@@ -296,6 +284,8 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
+
+		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer, ret);
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
 		bgp_instance_up(bgp);
@@ -327,7 +317,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
-	bgp = bgp_lookup_by_name(vrf->name);
+	bgp = bgp_lookup_by_name_filter(vrf->name, false);
 	if (bgp) {
 
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
@@ -494,8 +484,9 @@ int main(int argc, char **argv)
 		case 'I':
 			instance = atoi(optarg);
 			if (instance > (unsigned short)-1)
-				zlog_err("Instance %i out of range (0..%u)",
-					 instance, (unsigned short)-1);
+				flog_err(EC_BGP_INVALID_BGP_INSTANCE_ID,
+					 "Instance %i out of range (0..%u)", instance,
+					 (unsigned short)-1);
 			break;
 		case 's':
 			buffer_size = atoi(optarg);
@@ -512,6 +503,7 @@ int main(int argc, char **argv)
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+
 	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;
 	bm->v6_with_v4_nexthops = v6_with_v4_nexthops;

@@ -48,7 +48,10 @@ unique and non-unique items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
 Conversely, the heap always has non-unique items, but iterating while modifying
-doesn't work either.
+doesn't work either.  Hash tables also have a property of auto-growing
+and auto-shrinking.  If you are using the hash table as a way to temporarily
+hold data, consider the costs associated with growing and shrinking of the
+data structure before using.
 
 
 The following sorted structures are likely to be implemented at some point
@@ -125,6 +128,8 @@ Functions provided:
 +------------------------------------+-------+------+------+---------+------------+
 | _del, _pop                         | yes   | yes  | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
+|  _pop_all                          | --    | --   | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
 | _find, _const_find                 | --    | --   | yes  | yes     | --         |
 +------------------------------------+-------+------+------+---------+------------+
 | _find_lt, _find_gteq,              | --    | --   | --   | yes     | yes        |
@@ -186,6 +191,17 @@ Z_head`` types and must therefore occur before these are used.
 To switch between compatible data structures, only these two lines need to be
 changes.  To switch to a data structure with a different API, some source
 changes are necessary.
+
+As a example to the developer here are some example commits that convert
+over to usage of the typesafe data structures:
+
++------------------------------------------------------+------------------------------------+
+| Commit Message                                       | SHA                                |
++======================================================+====================================+
+| bgpd: Convert the bgp_advertise_attr->adv to a fifo  | b2e0c12d723a6464f67491ceb9         |
++------------------------------------------------------+------------------------------------+
+| zebra: convert LSP nhlfe lists to use typesafe lists | ee70f629792b90f92ea7e6bece         |
++------------------------------------------------------+------------------------------------+
 
 Common iteration macros
 -----------------------
@@ -311,8 +327,9 @@ The following documentation assumes that a container has been defined using
 .. c:function:: itemtype *Z_pop(struct Z_head *)
 
    Remove and return the first item in the structure, or ``NULL`` if the
-   structure is empty.  Like :c:func:`Z_first`, this is O(1) for all
-   data structures except red-black trees where it is O(log n) again.
+   structure is empty.  Like :c:func:`Z_first`, this is O(1) for most
+   data structures except red-black trees where it is O(log n) again,
+   and hash tables where it is O(n).
 
    This function can be used to build queues (with unsorted structures) or
    priority queues (with sorted structures.)
@@ -326,9 +343,10 @@ The following documentation assumes that a container has been defined using
 
    .. note::
 
-      This function can - and should - be used with hash tables.  It is not
-      affected by the "modification while iterating" problem.  To remove
-      all items from a hash table, use the loop demonstrated above.
+      This function can be used with hash tables. While it is not
+      affected by the "modification while iterating" problem, removing
+      items from the table can trigger "shrink" operations. See the
+      hash API section for a hash-specific variant.
 
 .. c:function:: const itemtype *Z_const_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
@@ -564,9 +582,34 @@ API for hash tables
    Same as :c:func:`Z_init()` but preset the minimum hash table to
    ``size``.
 
+.. c:function:: itemtype *Z_pop_all(struct Z_head *, uint32_t *idx)
+
+   Remove and return the first item in the structure, or ``NULL`` if the
+   structure is empty.  This is specifically designed for use when
+   clearing/cleaning an entire hash table.  The ``idx`` parameter
+   tracks the most-recently-seen cell in the underlying hash table; it
+   should be initialized to zero before the first invocation. This is
+   close to O(1); it does not invoke any "shrink" operation on the
+   underlying hash table.
+
+   Example use when deleting all items:
+
+   .. code-block:: c
+
+      idx = 0;
+      while ((item = Z_pop_all(head, &idx)))
+          item_free(item);
+
+   .. note::
+
+      This function can - and should - be used with hash tables.  It is not
+      affected by the "modification while iterating" problem.  To remove
+      all items from a hash table, use the loop demonstrated above.
+
 Hash tables also support :c:func:`Z_add()` and :c:func:`Z_find()` with
 the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
+
 
 Hash table invariants
 ^^^^^^^^^^^^^^^^^^^^^
@@ -761,6 +804,20 @@ Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
    file.  It is also perfectly fine to have the same ``DECLARE`` statement in
    2 ``.c`` files, but only **if the macro arguments are identical.**  Maybe
    don't do that unless you really need it.
+
+COMMON PROBLEMS
+---------------
+
+The ``fini`` call of the various typesafe structures actually close the data
+structure off and attempts to use the data structure after that introduce
+intentional crashes.  This is leading to situations when converting from
+an older data structure to the new typesafe where, on shutdown, the older
+data structures would still be attempted to be accessed.  This access would
+just be ignored or result in benign code running.  With the new typesafe
+data structure crashes will occurr.  Be aware that when modifying the code
+base that this sort of change might end up with crashes on shutdown and
+work must be done to ensure that the newly changed does not use the data
+structure after the fini call.
 
 FRR lists
 ---------

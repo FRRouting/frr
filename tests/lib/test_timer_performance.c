@@ -22,7 +22,7 @@
 
 struct event_loop *master;
 
-static void dummy_func(struct event *thread)
+static void dummy_func(struct event *event)
 {
 }
 

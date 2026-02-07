@@ -673,8 +673,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static void vrrp_adver_timer_expire(struct event *thread);
-static void vrrp_master_down_timer_expire(struct event *thread);
+static void vrrp_adver_timer_expire(struct event *event);
+static void vrrp_master_down_timer_expire(struct event *event);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -899,7 +899,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
-			EVENT_OFF(r->t_adver_timer);
+			event_cancel(&r->t_adver_timer);
 			event_add_timer_msec(master, vrrp_adver_timer_expire, r,
 					     r->vr->advertisement_interval *
 						     CS2MS,
@@ -912,13 +912,13 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				"Received advertisement from %s w/ priority %hhu; switching to Backup",
 				r->vr->vrid, family2str(r->family), sipstr,
 				pkt->hdr.priority);
-			EVENT_OFF(r->t_adver_timer);
+			event_cancel(&r->t_adver_timer);
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
 					htons(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(master,
 					     vrrp_master_down_timer_expire, r,
 					     r->master_down_interval * CS2MS,
@@ -935,7 +935,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		break;
 	case VRRP_STATE_BACKUP:
 		if (pkt->hdr.priority == 0) {
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
@@ -946,7 +946,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 					ntohs(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(master,
 					     vrrp_master_down_timer_expire, r,
 					     r->master_down_interval * CS2MS,
@@ -975,9 +975,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static void vrrp_read(struct event *thread)
+static void vrrp_read(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1232,10 +1232,17 @@ static int vrrp_socket(struct vrrp_router *r)
 		}
 
 		/* Set Tx socket DSCP byte */
-		setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		ret = setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				  "Failed to set DSCP value on socket %d",
+				  r->vr->vrid, family2str(r->family), r->sock_tx);
+			failed = true;
+			goto done;
+		}
 
 		/* Request hop limit delivery */
-		setsockopt_ipv6_hoplimit(r->sock_rx, 1);
+		ret = setsockopt_ipv6_hoplimit(r->sock_rx, 1);
 		if (ret < 0) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 				  "Failed to request IPv6 Hop Limit delivery",
@@ -1416,7 +1423,7 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 		vrrp_zebra_radv_set(r, false);
 
 	/* Disable Adver_Timer */
-	EVENT_OFF(r->t_adver_timer);
+	event_cancel(&r->t_adver_timer);
 
 	r->advert_pending = false;
 	r->garp_pending = false;
@@ -1484,9 +1491,9 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static void vrrp_adver_timer_expire(struct event *thread)
+static void vrrp_adver_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1512,9 +1519,9 @@ static void vrrp_adver_timer_expire(struct event *thread)
 /*
  * Called when Master_Down_Timer expires.
  */
-static void vrrp_master_down_timer_expire(struct event *thread)
+static void vrrp_master_down_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",
@@ -1643,10 +1650,10 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	}
 
 	/* Cancel all timers */
-	EVENT_OFF(r->t_adver_timer);
-	EVENT_OFF(r->t_master_down_timer);
-	EVENT_OFF(r->t_read);
-	EVENT_OFF(r->t_write);
+	event_cancel(&r->t_adver_timer);
+	event_cancel(&r->t_master_down_timer);
+	event_cancel(&r->t_read);
+	event_cancel(&r->t_write);
 
 	/* Protodown macvlan */
 	if (r->mvl_ifp)

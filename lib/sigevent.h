@@ -45,6 +45,33 @@ bool frr_sigevent_check(sigset_t *setp);
 /* check whether there are signals to handle, process any found */
 extern int frr_sigevent_process(void);
 
+/* Ensure we don't handle "application-type" signals on a secondary thread by
+ * blocking these signals when creating threads
+ *
+ * NB: SIGSEGV, SIGABRT, etc. must be allowed on all threads or we get no
+ * crashlogs.  Since signals vary a little bit between platforms, below is a
+ * list of known things to go to the main thread.  Any unknown signals should
+ * stay thread-local.
+ */
+static inline void frr_sigset_add_mainonly(sigset_t *blocksigs)
+{
+	/* signals we actively handle */
+	sigaddset(blocksigs, SIGHUP);
+	sigaddset(blocksigs, SIGINT);
+	sigaddset(blocksigs, SIGTERM);
+	sigaddset(blocksigs, SIGUSR1);
+
+	/* signals we don't actively use but that semantically belong */
+	sigaddset(blocksigs, SIGUSR2);
+	sigaddset(blocksigs, SIGQUIT);
+	sigaddset(blocksigs, SIGCHLD);
+	sigaddset(blocksigs, SIGPIPE);
+	sigaddset(blocksigs, SIGTSTP);
+	sigaddset(blocksigs, SIGTTIN);
+	sigaddset(blocksigs, SIGTTOU);
+	sigaddset(blocksigs, SIGWINCH);
+}
+
 #ifdef __cplusplus
 }
 #endif

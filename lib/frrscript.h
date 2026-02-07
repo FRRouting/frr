@@ -6,19 +6,33 @@
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
 
-#include <zebra.h>
 
 #ifdef HAVE_SCRIPTING
 
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/param.h>
+
 #include <lua.h>
-#include <nexthop.h>
-#include <nexthop_group.h>
-#include "frrlua.h"
-#include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
+
+#include "assert.h"
+#include "lib/compiler.h"
+#include "lib/typesafe.h"
+
+/* include-what-you-use doesn't quite seem to understand _Generic, and these
+ * headers are only needed for the functions used there
+ */
+// IWYU pragma: begin_keep
+#include "lib/frrlua.h"
+#include "lib/zlog.h"
+// IWYU pragma: end_keep
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct vty;
 
 /* Forward declarations */
 struct zebra_dplane_ctx;
@@ -26,6 +40,12 @@ extern void lua_pushzebra_dplane_ctx(lua_State *L,
 				     const struct zebra_dplane_ctx *ctx);
 extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
 					struct zebra_dplane_ctx *ctx);
+/* From bgp */
+struct peer;
+struct attr;
+void lua_pushpeer(lua_State *L, const struct peer *peer);
+void lua_pushattr(lua_State *L, const struct attr *attr);
+void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
 
 /*
  * Script name hash
@@ -185,7 +205,7 @@ void frrscript_fini(void);
 /*
  * Noop function. Used below where we need a noop decoder for any type.
  */
-void _lua_decode_noop(lua_State *, ...);
+void _lua_decode_noop(lua_State *L, ...);
 
 /*
  * Maps the type of value to its encoder/decoder.

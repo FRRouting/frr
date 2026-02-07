@@ -85,7 +85,7 @@ static ptm_lib_handle_t *ptm_hdl;
 struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
-void zebra_ptm_sock_read(struct event *thread);
+void zebra_ptm_sock_read(struct event *event);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
@@ -140,9 +140,9 @@ void zebra_ptm_finish(void)
 		free(ptm_cb.in_data);
 
 	/* Cancel events. */
-	EVENT_OFF(ptm_cb.t_read);
-	EVENT_OFF(ptm_cb.t_write);
-	EVENT_OFF(ptm_cb.t_timer);
+	event_cancel(&ptm_cb.t_read);
+	event_cancel(&ptm_cb.t_write);
+	event_cancel(&ptm_cb.t_timer);
 
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);
@@ -151,7 +151,7 @@ void zebra_ptm_finish(void)
 		close(ptm_cb.ptm_sock);
 }
 
-static void zebra_ptm_flush_messages(struct event *thread)
+static void zebra_ptm_flush_messages(struct event *event)
 {
 	ptm_cb.t_write = NULL;
 
@@ -196,7 +196,7 @@ static int zebra_ptm_send_message(char *data, int size)
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
-		EVENT_OFF(ptm_cb.t_write);
+		event_cancel(&ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
 		event_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -588,13 +588,13 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 }
 
-void zebra_ptm_sock_read(struct event *thread)
+void zebra_ptm_sock_read(struct event *event)
 {
 	int sock;
 	int rc;
 
 	errno = 0;
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	if (sock == -1)
 		return;
@@ -1224,7 +1224,6 @@ static void pp_free_all(void)
  */
 static void zebra_ptm_send_bfdd(struct stream *msg)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *msgc;
 
@@ -1232,7 +1231,7 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 	msgc = stream_dup(msg);
 
 	/* Send message to all running BFDd daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->proto != ZEBRA_ROUTE_BFD)
 			continue;
 
@@ -1248,7 +1247,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 static void zebra_ptm_send_clients(struct stream *msg)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *msgc;
 
@@ -1256,7 +1254,7 @@ static void zebra_ptm_send_clients(struct stream *msg)
 	msgc = stream_dup(msg);
 
 	/* Send message to all running client daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
@@ -1281,8 +1279,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	/* Find daemon pid by zebra connection pointer. */
 	pp = pp_lookup_byzs(zs);
 	if (pp == NULL) {
-		zlog_err("%s:%d failed to find process pid registration",
-			 __FILE__, __LINE__);
+		flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED,
+			 "%s:%d failed to find process pid registration", __FILE__, __LINE__);
 		return -1;
 	}
 
@@ -1374,7 +1372,8 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 stream_failure:
 	if (msgc)
 		stream_free(msgc);
-	zlog_err("%s:%d failed to registrate client pid", __FILE__, __LINE__);
+	flog_err(EC_ZEBRA_PTM_BFD_PID_TRACKING_FAILED, "%s:%d failed to registrate client pid",
+		 __FILE__, __LINE__);
 }
 
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)

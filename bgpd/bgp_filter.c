@@ -11,6 +11,7 @@
 #include "buffer.h"
 #include "queue.h"
 #include "filter.h"
+#include "frregex_real.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -89,7 +90,7 @@ static void as_filter_free(struct as_filter *asfilter)
 }
 
 /* Make new AS filter. */
-static struct as_filter *as_filter_make(regex_t *reg, const char *reg_str,
+static struct as_filter *as_filter_make(struct frregex *reg, const char *reg_str,
 					enum as_filter_type type)
 {
 	struct as_filter *asfilter;
@@ -417,7 +418,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	struct as_filter *asfilter;
 	struct as_list *aslist;
 	struct aspath_exclude *ase;
-	regex_t *regex;
+	struct frregex *regex;
 	char *regstr;
 	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
 
@@ -506,7 +507,7 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 	struct as_list *aslist;
 	struct aspath_exclude *ase;
 	char *regstr;
-	regex_t *regex;
+	struct frregex *regex;
 
 	char *aslistname =
 		argv_find(argv, argc, "AS_PATH_FILTER_NAME", &idx) ? argv[idx]->arg : NULL;

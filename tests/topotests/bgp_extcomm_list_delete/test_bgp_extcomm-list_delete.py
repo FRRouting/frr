@@ -99,6 +99,32 @@ def _set_extcomm_list(gear, ecom_t, ecom):
     gear.vtysh_cmd("".join(cmd))
 
 
+def _unset_extcomm_list(gear, ecom_t, ecom):
+    "Unset the extended community for deletion."
+
+    gear.vtysh_cmd(
+        f"""
+        configure t
+         no bgp extcommunity-list standard r1-{ecom_t} permit {ecom_t} {ecom}
+         route-map r1-in permit 10
+          no set extended-comm-list r1-{ecom_t} delete
+        """
+    )
+
+
+def _set_extcomm_list_regex(gear, ecom_t, ecom):
+    "Set the extended community with regex for deletion."
+
+    gear.vtysh_cmd(
+        f"""
+         configure t
+          bgp extcommunity-list expanded r1-{ecom_t} permit {ecom}
+          route-map r1-in permit 10
+           set extended-comm-list r1-{ecom_t} delete
+         """
+    )
+
+
 def _bgp_extcomm_list_del_check(gear, prefix, ecom):
     """
     Check the non-presense of the extended community for the given prefix.
@@ -157,6 +183,24 @@ def test_nt_extcomm_list_delete():
     )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
     assert result, "NT extended community 3.3.3.3:0 was not stripped."
+
+
+def test_rt_extcomm_list_expanded_delete():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    # unset previous extended community
+    _unset_extcomm_list(r2, "rt", "1.1.1.1:1")
+
+    # set the extended community with regex for deletion
+    _set_extcomm_list_regex(r2, "rt", "1\.1\.1\.[1-2]:1")
+
+    # check for the deletion of the extended community
+    test_func = functools.partial(
+        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    )
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assert result, "RT extended community 1.1.1.1:1 was not stripped."
 
 
 if __name__ == "__main__":

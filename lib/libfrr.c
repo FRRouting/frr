@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "frrscript.h"
 #include "systemd.h"
+#include "json.h"
 
 #include "lib/config_paths.h"
 
@@ -74,6 +75,9 @@ static struct option comb_lo[64];
 static struct option *comb_next_lo = &comb_lo[0];
 static char comb_helpstr[4096];
 
+static void frr_memory_init(struct event_loop *loop);
+static void frr_memory_fini(void);
+
 struct optspec {
 	const char *optstr;
 	const char *helpstr;
@@ -108,6 +112,9 @@ static const struct option lo_always[] = {
 	{ "module", no_argument, NULL, 'M' },
 	{ "profile", required_argument, NULL, 'F' },
 	{ "pathspace", required_argument, NULL, 'N' },
+#ifdef HAVE_NETLINK
+	{ "vrfwnetns", no_argument, NULL, 'w' },
+#endif
 	{ "vrfdefaultname", required_argument, NULL, 'o' },
 	{ "graceful_restart", optional_argument, NULL, 'K' },
 	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
@@ -120,6 +127,9 @@ static const struct option lo_always[] = {
 	{ NULL }
 };
 static const struct optspec os_always = {
+#ifdef HAVE_NETLINK
+	"w"
+#endif
 	"hvdM:F:N:o:K::",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
@@ -127,6 +137,9 @@ static const struct optspec os_always = {
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
+#ifdef HAVE_NETLINK
+	"  -w, --vrfwnetns    Use network namespaces for VRFs\n"
+#endif
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
 	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
 	"      --vty_socket   Override vty socket path\n"
@@ -134,6 +147,7 @@ static const struct optspec os_always = {
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
+	"      --command-log-always Always log every command, cannot be turned off\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always
 };
@@ -516,6 +530,11 @@ static int frr_opt(int opt)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 				 ZAPI_SOCK_NAME);
 		break;
+#ifdef HAVE_NETLINK
+	case 'w':
+		vrf_configure_backend(VRF_BACKEND_NETNS);
+		break;
+#endif
 	case 'o':
 		vrf_set_default_name(optarg);
 		break;
@@ -742,8 +761,8 @@ struct event_loop *frr_init(void)
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
 		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
-	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
-		 frr_libstatedir, p_pathspace, di->name, p_instance);
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s.db", frr_libstatedir, di->name,
+		 p_instance);
 #endif
 
 	zprivs_preinit(di->privs);
@@ -804,8 +823,13 @@ struct event_loop *frr_init(void)
 
 	if (di->flags & FRR_LIMITED_CLI)
 		cmd_init(-1);
-	else
+	else {
 		cmd_init(1);
+		if (!(di->flags & FRR_MGMTD_BACKEND)) {
+			host_cli_init();
+			log_cli_init();
+		}
+	}
 
 	vty_init(master, di->log_always);
 	lib_cmd_init();
@@ -826,6 +850,8 @@ struct event_loop *frr_init(void)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
+
+	frr_memory_init(master);
 
 	return master;
 }
@@ -853,7 +879,7 @@ static void rcv_signal(int signum)
 	/* poll() is interrupted by the signal; handled below */
 }
 
-static void frr_daemon_wait(int fd)
+static FRR_NORETURN void frr_daemon_wait(int fd)
 {
 	struct pollfd pfd[1];
 	int ret;
@@ -1177,9 +1203,10 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct event_loop *master)
+void frr_run(struct event_loop *loop)
 {
 	char instanceinfo[64] = "";
+	struct event thread;
 
 	if (!(di->flags & FRR_MANUAL_VTY_START))
 		frr_vty_serv_start(false);
@@ -1197,7 +1224,7 @@ void frr_run(struct event_loop *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			event_add_read(master, frr_daemon_ctl, NULL,
+			event_add_read(loop, frr_daemon_ctl, NULL,
 				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
@@ -1227,8 +1254,7 @@ void frr_run(struct event_loop *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct event thread;
-	while (event_fetch(master, &thread))
+	while (event_fetch(loop, &thread))
 		event_call(&thread);
 }
 
@@ -1240,6 +1266,8 @@ void frr_early_fini(void)
 void frr_fini(void)
 {
 	hook_call(frr_fini);
+
+	frr_memory_fini();
 
 	vty_terminate();
 	cmd_terminate();
@@ -1280,6 +1308,7 @@ void frr_fini(void)
 	frrmod_terminate();
 
 	log_memstats(di->name, debug_memstats_at_exit);
+	zlog_tmpdir_fini();
 }
 
 struct json_object *frr_daemon_state_load(void)
@@ -1477,4 +1506,101 @@ bool frr_is_daemon(void)
 		return true;
 
 	return false;
+}
+
+FRR_NORETURN void frr_exit_with_buffer_flush(int status)
+{
+	zlog_tls_buffer_flush();
+	exit(status);
+}
+
+/*
+ * Special code for tcmalloc mem lib, releasing free mem back to the OS.
+ */
+static struct event *t_mem_release_event;
+
+#ifdef HAVE_TCMALLOC
+
+#define FRR_MEM_RELEASE_MB_DEFAULT 1 /* In MB/sec */
+#define FRR_MEM_RELEASE_THRESHOLD  20 * 1024 * 1024
+#define FRR_MEM_RELEASE_TIMEOUT    10 /* Seconds */
+
+static uint32_t mem_release_mb = FRR_MEM_RELEASE_MB_DEFAULT;
+static uint32_t mem_release_timeout = FRR_MEM_RELEASE_TIMEOUT;
+
+#include "gperftools/tcmalloc.h"
+#include "gperftools/malloc_extension_c.h"
+
+/* Timer handler to release free mem */
+static void tcmalloc_timer(struct event *event)
+{
+	size_t release, sval;
+
+	if (mem_release_timeout == 0)
+		return;
+
+	/* Schedule again */
+	event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+				&t_mem_release_event);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_free_bytes", &sval);
+
+	/* Check mem stats, release mem if we're over the threshold */
+	if (sval > FRR_MEM_RELEASE_THRESHOLD) {
+		release = mem_release_mb * 1024 * 1024 * mem_release_timeout;
+		MallocExtension_ReleaseToSystem(release);
+	}
+}
+
+/* Handle config changes */
+void frr_mem_release_config(uint32_t rate)
+{
+	if (rate != mem_release_mb)
+		event_cancel(&t_mem_release_event);
+
+	mem_release_mb = rate;
+	if (mem_release_mb > 0)
+		/* Schedule */
+		event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+				&t_mem_release_event);
+}
+
+static int frr_tcmalloc_lib_init(struct event_loop *loop)
+{
+	/* Using tcmalloc memory-release functions: configure periodic
+	 * task to release free memory back to the OS.
+	 */
+
+	/* Disabled (via config?) */
+	if (mem_release_mb == 0)
+		return 0;
+
+	event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+			&t_mem_release_event);
+
+	return 0;
+}
+
+#else
+/* No-op */
+void frr_mem_release_config(uint32_t rate)
+{
+	/* No-op */
+}
+
+#endif /* HAVE_TCMALLOC */
+
+/* Init memory-related functions for some platforms */
+static void frr_memory_init(struct event_loop *loop)
+{
+#ifdef HAVE_TCMALLOC
+	/* Register for post-config callback */
+	hook_register(frr_config_post, frr_tcmalloc_lib_init);
+#endif
+}
+
+/* De-init memory-related functions for some platforms */
+static void frr_memory_fini(void)
+{
+	event_cancel(&t_mem_release_event);
 }

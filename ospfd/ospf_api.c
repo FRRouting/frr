@@ -514,6 +514,12 @@ struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
 	omsglen += sizeof(struct msg_originate_request)
 		   - sizeof(struct lsa_header);
 
+	if (omsglen > UINT16_MAX) {
+		zlog_warn("%s: LSA specified is bigger than maximum LSA size, something is wrong",
+			  __func__);
+		omsglen = UINT16_MAX;
+	}
+
 	return msg_new(MSG_ORIGINATE_REQUEST, omsg, seqnum, omsglen);
 }
 
@@ -639,6 +645,12 @@ struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 	memcpy(nmsg_data, data, len);
 	len += sizeof(struct msg_lsa_change_notify) - sizeof(struct lsa_header);
 
+	if (len > UINT16_MAX) {
+		zlog_warn("%s: LSA specified is bigger than maximum LSA size, something is wrong",
+			  __func__);
+		len = UINT16_MAX;
+	}
+
 	return msg_new(msgtype, nmsg, seqnum, len);
 }
 
@@ -665,6 +677,12 @@ struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
 	nmsg->nadd = htons(nadd);
 	nmsg->nremove = htons(nremove);
 	len = sizeof(*nmsg) + insz * (nadd + nremove);
+
+	if (len > UINT16_MAX) {
+		zlog_warn("%s: LSA specified is bigger than maximum LSA size, something is wrong",
+			  __func__);
+		len = UINT16_MAX;
+	}
 
 	return msg_new(MSG_REACHABLE_CHANGE, nmsg, seqnum, len);
 }

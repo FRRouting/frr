@@ -5,6 +5,10 @@ module frr-gmp {
 
   prefix frr-gmp;
 
+  import frr-filter {
+    prefix filter;
+  }
+
   import frr-routing {
     prefix "frr-rt";
   }
@@ -19,6 +23,10 @@ module frr-gmp {
 
   import frr-interface {
     prefix frr-interface;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
   }
 
   organization
@@ -137,6 +145,15 @@ module frr-gmp {
          the leave latency of the network.";
     }
 
+    leaf last-member-query-count {
+      type uint8 {
+        range "1..max";
+      }
+      description
+        "Last Member Query Count allows tuning for the expected
+	 packet loss on a network when leaving a group/group-source.";
+    }
+
     leaf robustness-variable {
       type uint8 {
         range "1..max";
@@ -152,6 +169,20 @@ module frr-gmp {
       default "false";
       description
         "Enable IGMP proxy on the interface.";
+    }
+
+    leaf max-groups {
+      type uint32;
+      default "4294967295";
+      description
+        "Limit number of tracked IGMP group memberships on this interface.";
+    }
+
+    leaf max-sources {
+      type uint32;
+      default "4294967295";
+      description
+        "Limit number of tracked IGMPv3 sources on this interface.";
     }
 
     list join-group {
@@ -170,6 +201,33 @@ module frr-gmp {
         description
           "Multicast source address.";
       }
+    }
+
+    leaf immediate-leave {
+      type boolean;
+      default "false";
+      description
+        "Immediately drop group memberships on receiving IGMPv2/MLDv1 Leave.
+         Has no effect when IGMPv3/MLDv2 is in use.";
+    }
+
+    leaf require-router-alert {
+      type boolean;
+      default "false";
+      description
+        "Only process IGMP packets with IP Router Alert option set.";
+    }
+
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Filter multicast with referenced route-map.";
+    }
+
+    leaf access-list {
+      type filter:access-list-ref;
+      description
+        "Filter multicast with referenced access-list.";
     }
 
     list static-group {

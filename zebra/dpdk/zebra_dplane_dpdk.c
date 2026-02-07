@@ -330,14 +330,11 @@ static void zd_dpdk_rule_update(struct zebra_dplane_ctx *ctx)
 
 
 	op = dplane_ctx_get_op(ctx);
-	switch (op) {
-	case DPLANE_OP_RULE_ADD:
+	if (op == DPLANE_OP_RULE_ADD) {
 		atomic_fetch_add_explicit(&dpdk_stat->rule_adds, 1,
 					  memory_order_relaxed);
 		zd_dpdk_rule_add(ctx);
-		break;
-
-	case DPLANE_OP_RULE_UPDATE:
+	} else if (op == DPLANE_OP_RULE_UPDATE) {
 		/* delete old rule and install new one */
 		atomic_fetch_add_explicit(&dpdk_stat->rule_adds, 1,
 					  memory_order_relaxed);
@@ -346,62 +343,12 @@ static void zd_dpdk_rule_update(struct zebra_dplane_ctx *ctx)
 		zd_dpdk_rule_del(ctx, dplane_ctx_rule_get_ifname(ctx),
 				 in_ifindex, dp_flow_ptr);
 		zd_dpdk_rule_add(ctx);
-		break;
-
-	case DPLANE_OP_RULE_DELETE:
+	} else if (op == DPLANE_OP_RULE_DELETE) {
 		atomic_fetch_add_explicit(&dpdk_stat->rule_dels, 1,
 					  memory_order_relaxed);
 		in_ifindex = dplane_ctx_get_ifindex(ctx);
 		dp_flow_ptr = dplane_ctx_rule_get_dp_flow_ptr(ctx);
-		zd_dpdk_rule_del(ctx, dplane_ctx_rule_get_ifname(ctx),
-				 in_ifindex, dp_flow_ptr);
-		break;
-
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_VLAN_INSTALL,
-		break;
+		zd_dpdk_rule_del(ctx, dplane_ctx_rule_get_ifname(ctx), in_ifindex, dp_flow_ptr);
 	}
 }
 
@@ -410,62 +357,13 @@ static void zd_dpdk_rule_update(struct zebra_dplane_ctx *ctx)
  */
 static void zd_dpdk_process_update(struct zebra_dplane_ctx *ctx)
 {
-	switch (dplane_ctx_get_op(ctx)) {
+	enum dplane_op_e op;
 
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_RULE_DELETE:
+	op = dplane_ctx_get_op(ctx);
+	if (op == DPLANE_OP_RULE_ADD || op == DPLANE_OP_RULE_UPDATE || op == DPLANE_OP_RULE_DELETE)
 		zd_dpdk_rule_update(ctx);
-		break;
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_VLAN_INSTALL,
-		atomic_fetch_add_explicit(&dpdk_stat->ignored_updates, 1,
-					  memory_order_relaxed);
-
-		break;
-	}
+	else
+		atomic_fetch_add_explicit(&dpdk_stat->ignored_updates, 1, memory_order_relaxed);
 }
 
 

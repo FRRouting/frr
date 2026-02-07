@@ -20,6 +20,7 @@
 #include <lib/json.h>
 #include "defaults.h"
 #include "ldp_sync.h"
+#include "ospfd/ospf_errors.h"
 
 #include "ospfd.h"
 #include "ospf_interface.h"
@@ -27,8 +28,6 @@
 #include "ospf_ldp_sync.h"
 #include "ospf_dump.h"
 #include "ospf_ism.h"
-
-extern struct zclient *zclient;
 
 /*
  * LDP-SYNC msg between IGP and LDP
@@ -98,8 +97,8 @@ void ospf_ldp_sync_state_req_msg(struct interface *ifp)
 	request.proto = LDP_IGP_SYNC_IF_STATE_REQUEST;
 	request.ifindex = ifp->ifindex;
 
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
-		(uint8_t *)&request, sizeof(request));
+	zclient_send_opaque(ospf_zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
+			    (uint8_t *)&request, sizeof(request));
 }
 
 /*
@@ -190,7 +189,7 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 		ospf_if_recalculate_output_cost(ifp);
 	}
 }
@@ -215,7 +214,7 @@ void ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	zlog_err("%s: LDP down", __func__);
+	flog_err(EC_OSPF_LDP_SYNC_DOWN, "%s: LDP down", __func__);
 
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -241,7 +240,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -305,7 +304,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 */
 	ols_debug("%s: Removed from if %s", __func__, ifp->name);
 
-	EVENT_OFF(ldp_sync_info->t_holddown);
+	event_cancel(&ldp_sync_info->t_holddown);
 
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ospf_if_recalculate_output_cost(ifp);
@@ -339,7 +338,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static void ospf_ldp_sync_holddown_timer(struct event *thread)
+static void ospf_ldp_sync_holddown_timer(struct event *event)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -349,7 +348,7 @@ static void ospf_ldp_sync_holddown_timer(struct event *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	ifp = EVENT_ARG(thread);
+	ifp = EVENT_ARG(event);
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info) {
 		ldp_sync_info = params->ldp_sync_info;
@@ -400,9 +399,9 @@ void ospf_ldp_sync_gbl_exit(struct ospf *ospf, bool remove)
 	 */
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		/* unregister with opaque client to recv LDP-IGP Sync msgs */
-		zclient_unregister_opaque(zclient,
+		zclient_unregister_opaque(ospf_zclient,
 					  LDP_IGP_SYNC_IF_STATE_UPDATE);
-		zclient_unregister_opaque(zclient,
+		zclient_unregister_opaque(ospf_zclient,
 					  LDP_IGP_SYNC_ANNOUNCE_UPDATE);
 
 		/* disable LDP globally */
@@ -754,8 +753,8 @@ DEFPY (ospf_mpls_ldp_sync,
 	}
 
 	/* register with opaque client to recv LDP-IGP Sync msgs */
-	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_register_opaque(ospf_zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
+	zclient_register_opaque(ospf_zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
 
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
@@ -904,7 +903,7 @@ DEFPY (no_mpls_ldp_sync,
 	UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	EVENT_OFF(ldp_sync_info->t_holddown);
+	event_cancel(&ldp_sync_info->t_holddown);
 	ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;

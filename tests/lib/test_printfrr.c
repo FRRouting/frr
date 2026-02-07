@@ -13,6 +13,7 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/asn.h"
+#include "lib/darr.h"
 
 static int errors;
 
@@ -107,7 +108,7 @@ static int printchk(const char *ref, const char *fmt, ...)
 		errors++;
 	}
 
-	for (size_t i = 0; i < fb.outpos_i; i++)
+	for (i = 0; i < fb.outpos_i; i++)
 		printf("\t[%zu: %u..%u] = \"%.*s\"\n", i,
 			outpos[i].off_start,
 			outpos[i].off_end,
@@ -116,6 +117,8 @@ static int printchk(const char *ref, const char *fmt, ...)
 	printf("\n");
 	return 0;
 }
+
+const char *sarr[] = { "first", "second", "third", NULL };
 
 static void test_va(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
 static void test_va(const char *ref, const char *fmt, ...)
@@ -145,7 +148,9 @@ int main(int argc, char **argv)
 	uint64_t ui64 = 0xfeed1278cafef00d;
 	uint16_t i16 = -23456;
 	int_fast8_t if8 = 123;
+	const char **sptr = sarr;
 	struct in_addr ip;
+	const char **sdarr = NULL;
 	char *p;
 	char buf[256];
 	as_t asn;
@@ -232,22 +237,23 @@ int main(int argc, char **argv)
 	struct prefix_sg sg;
 	SET_IPADDR_V4(&sg.src);
 	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
-	sg.grp.s_addr = INADDR_ANY;
-	printchk("(*,*)", "%pPSG4", &sg);
+	SET_IPADDR_V4(&sg.grp);
+	sg.grp.ipaddr_v4.s_addr = INADDR_ANY;
+	printchk("(*,*)", "%pPSG", &sg);
 
 	inet_aton("192.168.1.2", &sg.src.ipaddr_v4);
-	printchk("(192.168.1.2,*)", "%pPSG4", &sg);
+	printchk("(192.168.1.2,*)", "%pPSG", &sg);
 
-	inet_aton("224.1.2.3", &sg.grp);
-	printchk("(192.168.1.2,224.1.2.3)", "%pPSG4", &sg);
+	inet_aton("224.1.2.3", &sg.grp.ipaddr_v4);
+	printchk("(192.168.1.2,224.1.2.3)", "%pPSG", &sg);
 
 	SET_IPADDR_NONE(&sg.src);
 	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
-	printchk("(*,224.1.2.3)", "%pPSG4", &sg);
+	printchk("(*,224.1.2.3)", "%pPSG", &sg);
 
 	SET_IPADDR_V6(&sg.src);
 	inet_pton(AF_INET6, "1:2:3:4::5", &sg.src.ipaddr_v6);
-	printchk("(1:2:3:4::5,224.1.2.3)", "%pPSG4", &sg);
+	printchk("(1:2:3:4::5,224.1.2.3)", "%pPSG", &sg);
 
 	uint8_t randhex[] = { 0x12, 0x34, 0x00, 0xca, 0xfe, 0x00, 0xaa, 0x55 };
 
@@ -285,6 +291,24 @@ int main(int argc, char **argv)
 	printchk("\"\"", "%pSQqn", "");
 	printchk("\"\"", "%pSQqn", (char *)NULL);
 	printchk("(null)", "%pSQq", (char *)NULL);
+
+
+	printchk("first,second,third", "%pSA", sarr);
+	printchk("first,second,third", "%pSA", sptr);
+	printchk("first,second", "%2pSA", sptr);
+	printchk("first,second", "%*pSA", 2, sptr);
+	printchk("first", "%1pSA", sptr);
+	sarr[0] = NULL;
+	printchk("", "%pSA", sptr);
+	printchk("", "%pSA", NULL);
+
+	*darr_append(sdarr) = "first";
+	*darr_append(sdarr) = "second";
+	printchk("first,second", "%pSAd", sdarr);
+	sdarr[1] = NULL;
+	printchk("first,(null)", "%pSAd", sdarr);
+	printchk("first", "%*pSAd", 1, sdarr);
+	darr_free(sdarr);
 
 	/*
 	 * %pNH<foo> tests

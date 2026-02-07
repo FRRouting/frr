@@ -79,7 +79,7 @@ static void bgp_dump_interval_func(struct event *);
 /* BGP packet dump output buffer. */
 struct stream *bgp_dump_obuf;
 
-/* BGP dump strucuture for 'dump bgp all' */
+/* BGP dump structure for 'dump bgp all' */
 struct bgp_dump bgp_dump_all;
 
 /* BGP dump structure for 'dump bgp updates' */
@@ -185,7 +185,7 @@ static void bgp_dump_header(struct stream *obuf, int type, int subtype,
 	msecs = clock.tv_usec;
 
 	/* Put dump packet header. */
-	stream_putl(obuf, secs);
+	stream_putl(obuf, frr_time_t_to_uint32_t(secs));
 	stream_putw(obuf, type);
 	stream_putw(obuf, subtype);
 	stream_putl(obuf, 0); /* len */
@@ -344,7 +344,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 			     (p->prefixlen + 7) / 8);
 	}
 
-	/* Save where we are now, so we can overwride the entry count later */
+	/* Save where we are now, so we can overwrite the entry count later */
 	sizep = stream_get_endp(obuf);
 
 	/* Entry count */
@@ -480,8 +480,8 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_put(obuf, &peer->connection->su.sin.sin_addr,
 			   IPV4_MAX_BYTELEN);
 
-		if (peer->su_local)
-			stream_put(obuf, &peer->su_local->sin.sin_addr,
+		if (peer->connection->su_local)
+			stream_put(obuf, &peer->connection->su_local->sin.sin_addr,
 				   IPV4_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
@@ -494,8 +494,8 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_put(obuf, &peer->connection->su.sin6.sin6_addr,
 			   IPV6_MAX_BYTELEN);
 
-		if (peer->su_local)
-			stream_put(obuf, &peer->su_local->sin6.sin6_addr,
+		if (peer->connection->su_local)
+			stream_put(obuf, &peer->connection->su_local->sin6.sin6_addr,
 				   IPV6_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV6_MAX_BYTELEN);
@@ -698,7 +698,7 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	}
 
 	/* Removing interval event. */
-	EVENT_OFF(bgp_dump->t_interval);
+	event_cancel(&bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 

@@ -17,7 +17,6 @@ import sys
 from . import cli
 from . import parser
 from .args import add_launch_args
-from .base import get_event_loop
 from .cleanup import cleanup_previous
 from .cleanup import is_running_in_rundir
 from .compat import PytestConfig
@@ -200,22 +199,16 @@ def main(*args):
         logger.critical("No nodes defined in config file")
         return 1
 
-    loop = None
     status = 4
     try:
         parser.validate_config(config, logger, args)
         if args.validate_only:
             return 0
-        # Executes the cmd for each node.
-        loop = get_event_loop()
-        status = loop.run_until_complete(async_main(args, config))
+        status = asyncio.get_event_loop().run_until_complete(async_main(args, config))
     except KeyboardInterrupt:
         logger.info("Exiting, received KeyboardInterrupt in main")
     except Exception as error:
         logger.info("Exiting, unexpected exception %s", error, exc_info=True)
-    finally:
-        if loop:
-            loop.close()
 
     return status
 

@@ -7,16 +7,6 @@
 #define _ZEBRA_VTY_H
 
 #include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 
 #include "frrevent.h"
 #include "log.h"
@@ -33,8 +23,9 @@ extern "C" {
 #endif
 
 struct json_object;
+struct frregex;
 
-#define VTY_BUFSIZ 4096
+#define VTY_BUFSIZ   8192
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
 
@@ -50,6 +41,15 @@ struct vty_cfg_change {
 	char xpath[XPATH_MAXLEN];
 	enum nb_operation operation;
 	const char *value;
+};
+
+/* Current vty status. */
+enum vty_status {
+	VTY_NORMAL,
+	VTY_CLOSE,
+	VTY_MORE,
+	VTY_MORELINE,
+	VTY_PASSFD,
 };
 
 PREDECL_DLIST(vtys);
@@ -86,7 +86,7 @@ struct vty {
 
 	/* Output filer regex */
 	bool filter;
-	regex_t include;
+	struct frregex *include;
 
 	/* Line buffer */
 	struct buffer *lbuf;
@@ -170,13 +170,7 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum {
-		VTY_NORMAL,
-		VTY_CLOSE,
-		VTY_MORE,
-		VTY_MORELINE,
-		VTY_PASSFD,
-	} status;
+	enum vty_status status;
 
 	/* vtysh socket/fd passing (for terminal monitor) */
 	int pass_fd;
@@ -237,10 +231,13 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
-	uint64_t vty_buf_size_accumulated;
-
-	int buf_size_set;
-	uint64_t buf_size_intermediate;
+	/* Incremental write/flush limit and current accumulator. When
+	 * producing large outputs, we try to avoid buffering the entire
+	 * output, sending incremental output periodically
+	 * as the application code produces it.
+	 */
+	size_t vty_buf_threshold;
+	size_t vty_buf_size_accum;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -346,9 +343,6 @@ struct vty_arg {
 /* Vty max send buffer size */
 #define VTY_SEND_BUF_MAX 16777216
 
-/* Vty flush intermediate size */
-#define VTY_MAX_INTERMEDIATE_FLUSH 131072
-
 /* Directory separator. */
 #ifndef DIRECTORY_SEP
 #define DIRECTORY_SEP '/'
@@ -377,9 +371,9 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
  * - vty_endframe() clears the buffer without printing it, and prints an
  *   extra string if the buffer was empty before (for context-end markers)
  */
-extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
-extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
-extern void vty_endframe(struct vty *, const char *);
+extern int vty_out(struct vty *vty, const char *format, ...) PRINTFRR(2, 3);
+extern void vty_frame(struct vty *vty, const char *format, ...) PRINTFRR(2, 3);
+extern void vty_endframe(struct vty *vty, const char *endtext);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
 /* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
  * NULL check and json_object_free() is included.
@@ -402,54 +396,49 @@ extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
 extern void vty_read_file(struct nb_config *config, FILE *confp);
 extern void vty_read_file_finish(struct vty *vty, struct nb_config *config);
-extern void vty_time_print(struct vty *, int);
-extern void vty_serv_start(const char *, unsigned short, const char *);
+extern void vty_time_print(struct vty *vty, int cr);
+extern void vty_serv_start(const char *addr, unsigned short port, const char *path);
 extern void vty_serv_stop(void);
-extern void vty_close(struct vty *);
+extern void vty_close(struct vty *vty);
 extern char *vty_get_cwd(void);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive, bool file_lock);
-extern void vty_config_exit(struct vty *);
-extern int vty_config_node_exit(struct vty *);
-extern int vty_shell(struct vty *);
-extern int vty_shell_serv(struct vty *);
-extern void vty_hello(struct vty *);
+extern void vty_config_exit(struct vty *vty);
+extern int vty_config_node_exit(struct vty *vty);
+extern int vty_shell(struct vty *vty);
+extern int vty_shell_serv(struct vty *vty);
+extern void vty_hello(struct vty *vty);
 
 /* ^Z / SIGTSTP handling */
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
 
-extern void vty_init_mgmt_fe(void);
-extern bool vty_mgmt_fe_enabled(void);
-extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 
-extern bool mgmt_vty_read_configs(void);
-extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
-				     bool implicit_commit);
-extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
-				       bool abort);
-extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
-				 Mgmtd__DatastoreId datastore,
-				 const char **xpath_list, int num_req);
-extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
-				      LYD_FORMAT result_type, uint8_t flags,
-				      uint8_t defaults, const char *xpath);
-extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
-				  LYD_FORMAT request_type, uint8_t flags,
-				  uint8_t operation, const char *xpath,
-				  const char *data);
-extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
-				 const char *xpath, const char *data);
-extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-				    bool lock, bool scok);
-extern void vty_mgmt_resume_response(struct vty *vty, int ret);
-
-static inline bool vty_needs_implicit_commit(struct vty *vty)
+/* Applications can check vty status */
+static inline bool vty_is_closed(const struct vty *vty)
 {
-	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
+	return (vty == NULL || vty->status == VTY_CLOSE || vty->fd < 0 ||
+		vty->wfd < 0);
 }
+
+/*
+ * Semi-private APIs for use in mgmtd-vty code
+ */
+extern void vty_resume_response(struct vty *vty, int ret);
+
+/* --------------------------------------------------- */
+/* Callbacks for Mgmtd front-end CLI vty modifications */
+/* --------------------------------------------------- */
+extern void (*vty_new_mgmt_cb)(struct vty *vty);
+extern void (*vty_close_mgmt_cb)(struct vty *vty);
+extern int (*vty_config_enter_mgmt_cb)(struct vty *vty, bool private_config, bool exclusive,
+				       bool file_lock);
+extern void (*vty_config_node_exit_mgmt_cb)(struct vty *vty);
+extern int (*nb_cli_apply_changes_mgmt_cb)(struct vty *vty, const char *xpath_base_abs);
+extern int (*nb_cli_rpc_mgmt_cb)(struct vty *vty, const char *xpath, const struct lyd_node *input);
+
 
 #ifdef __cplusplus
 }

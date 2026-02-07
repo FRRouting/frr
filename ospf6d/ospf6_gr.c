@@ -35,7 +35,7 @@
 #include "ospf6d/ospf6_gr.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
-static void ospf6_gr_grace_period_expired(struct event *thread);
+static void ospf6_gr_grace_period_expired(struct event *event);
 
 /* Originate and install Grace-LSA for a given interface. */
 static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
@@ -172,7 +172,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 	ospf6->gr_info.finishing_restart = true;
 	XFREE(MTYPE_TMP, ospf6->gr_info.exit_reason);
 	ospf6->gr_info.exit_reason = XSTRDUP(MTYPE_TMP, reason);
-	EVENT_OFF(ospf6->gr_info.t_grace_period);
+	event_cancel(&ospf6->gr_info.t_grace_period);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, onode, area)) {
 		struct ospf6_interface *oi;
@@ -194,7 +194,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 			/* Disable hello delay. */
 			if (oi->gr.hello_delay.t_grace_send) {
 				oi->gr.hello_delay.elapsed_seconds = 0;
-				EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+				event_cancel(&oi->gr.hello_delay.t_grace_send);
 				event_add_event(master, ospf6_hello_send, oi, 0,
 						&oi->thread_send_hello);
 			}
@@ -371,6 +371,7 @@ void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf6,
 			snprintfrr(reason, sizeof(reason),
 				   "detected inconsistent LSA %s [area %pI4]",
 				   lsa->name, &area->area_id);
+			ospf6_lsa_unlock(&lsa);
 			ospf6_gr_restart_exit(ospf6, reason);
 			return;
 		}
@@ -527,17 +528,17 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 }
 
 /* Handling of grace period expiry. */
-static void ospf6_gr_grace_period_expired(struct event *thread)
+static void ospf6_gr_grace_period_expired(struct event *event)
 {
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(event);
 
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
-void ospf6_gr_iface_send_grace_lsa(struct event *thread)
+void ospf6_gr_iface_send_grace_lsa(struct event *event)
 {
-	struct ospf6_interface *oi = EVENT_ARG(thread);
+	struct ospf6_interface *oi = EVENT_ARG(event);
 
 	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
 

@@ -23,7 +23,9 @@ import ipaddress
 import math
 import os
 import sys
+
 import pytest
+
 from lib import topotest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -36,31 +38,23 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.staticd]
 
 
-def build_topo(tgen):
-    tgen.add_router("r1")
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
+@pytest.fixture(scope="module")
+def tgen(request):
+    "Setup/Teardown the environment and provide tgen argument to tests"
 
+    topodef = {
+        "s1": ("r1",),
+    }
 
-def setup_module(mod):
-    tgen = Topogen(build_topo, mod.__name__)
+    tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, "{}/zebra.conf".format(rname)),
-        )
-        router.load_config(
-            TopoRouter.RD_STATIC, os.path.join(CWD, "{}/staticd.conf".format(rname))
-        )
+        router.load_frr_config("frr.conf")
 
     tgen.start_router()
-
-
-def teardown_module(mod):
-    tgen = get_topogen()
+    yield tgen
     tgen.stop_topology()
 
 
@@ -74,9 +68,7 @@ def get_ip_networks(super_prefix, base_count, count):
     return tuple(network.subnets(count_log2))[0:count]
 
 
-def test_static_timing():
-    tgen = get_topogen()
-
+def test_static_timing(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 

@@ -188,7 +188,7 @@ static inline ssize_t printfrr_ext_len(struct printfrr_eargs *ea)
  * this restriction hopefully won't be a huge bother considering normal usage
  * scenarios...
  */
-void printfrr_ext_reg(const struct printfrr_ext *);
+void printfrr_ext_reg(const struct printfrr_ext *ext);
 
 #define printfrr_ext_autoreg_p(matchs, print_fn)                               \
 	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \
@@ -265,6 +265,7 @@ struct va_format {
 };
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
+// clang-format off
 #pragma FRR printfrr_ext "%pFB" (struct fbuf *)
 #pragma FRR printfrr_ext "%pVA" (struct va_format *)
 
@@ -277,10 +278,12 @@ struct va_format {
 
 #pragma FRR printfrr_ext "%pSE" (char *)
 #pragma FRR printfrr_ext "%pSQ" (char *)
+#pragma FRR printfrr_ext "%pSA" (const char **)
 
 #pragma FRR printfrr_ext "%pTS" (struct timespec *)
 #pragma FRR printfrr_ext "%pTV" (struct timeval *)
 #pragma FRR printfrr_ext "%pTT" (time_t *)
+// clang-format on
 #endif
 
 /* when using non-ISO-C compatible extension specifiers... */

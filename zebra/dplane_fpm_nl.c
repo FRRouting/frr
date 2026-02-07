@@ -19,6 +19,8 @@
 #include <string.h>
 
 #include "lib/zebra.h"
+#include "lib/lib_errors.h"
+#include "zebra/zebra_errors.h"
 
 #include <linux/rtnetlink.h>
 
@@ -560,8 +562,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 
 	stream_reset(fnc->ibuf);
 	stream_reset(fnc->obuf);
-	EVENT_OFF(fnc->t_read);
-	EVENT_OFF(fnc->t_write);
+	event_cancel(&fnc->t_read);
+	event_cancel(&fnc->t_write);
 
 	/* Reset the barrier value */
 	cleaning_p = true;
@@ -587,6 +589,10 @@ static void fpm_read(struct event *t)
 	struct zebra_dplane_ctx *ctx;
 	size_t available_bytes;
 	size_t hdr_available_bytes;
+	struct dplane_ctx_list_head batch_list;
+
+	/* Initialize the batch list */
+	dplane_ctx_q_init(&batch_list);
 
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
@@ -627,7 +633,7 @@ static void fpm_read(struct event *t)
 	while (available_bytes) {
 		if (available_bytes < (ssize_t)FPM_MSG_HDR_LEN) {
 			stream_pulldown(fnc->ibuf);
-			return;
+			goto send_batch;
 		}
 
 		fpm.version = stream_getc(fnc->ibuf);
@@ -642,7 +648,7 @@ static void fpm_read(struct event *t)
 				__func__, fpm.version, fpm.msg_type);
 
 			FPM_RECONNECT(fnc);
-			return;
+			goto send_batch;
 		}
 
 		/*
@@ -654,7 +660,7 @@ static void fpm_read(struct event *t)
 				"%s: Received message length: %u that does not even fill the FPM header",
 				__func__, fpm.msg_len);
 			FPM_RECONNECT(fnc);
-			return;
+			goto send_batch;
 		}
 
 		/*
@@ -665,7 +671,7 @@ static void fpm_read(struct event *t)
 		if (fpm.msg_len > available_bytes) {
 			stream_rewind_getp(fnc->ibuf, FPM_MSG_HDR_LEN);
 			stream_pulldown(fnc->ibuf);
-			return;
+			goto send_batch;
 		}
 
 		available_bytes -= FPM_MSG_HDR_LEN;
@@ -715,17 +721,36 @@ static void fpm_read(struct event *t)
 				break;
 			}
 
+			/*
+			 * Parse the route data into a dplane ctx, add to ctx list
+			 * and enqueue the batch of ctx to zebra for processing
+			 */
 			ctx = dplane_ctx_alloc();
 			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
 					      NULL);
-			if (netlink_route_change_read_unicast_internal(
-				    hdr, 0, false, ctx) != 1) {
-				dplane_ctx_fini(&ctx);
-				stream_pulldown(fnc->ibuf);
+
+			if (netlink_route_notify_read_ctx(hdr, 0, ctx) >= 0) {
+				/*
+				 * Receiving back a netlink message from
+				 * the fpm.  Currently the netlink messages
+				 * do not have a way to specify the vrf
+				 * so it must be unknown.  I'm looking
+				 * at you sonic.  If you are reading this
+				 * and wondering why it's not working
+				 * you must extend your patch to translate
+				 * the tableid to the vrfid and set the
+				 * tableid to 0 in order for this to work.
+				 */
+				dplane_ctx_set_vrf(ctx, VRF_UNKNOWN);
+				/* Add to the list for batching */
+				dplane_ctx_enqueue_tail(&batch_list, ctx);
+			} else {
 				/*
 				 * Let's continue to read other messages
 				 * Even if we ignore this one.
 				 */
+				dplane_ctx_fini(&ctx);
+				stream_pulldown(fnc->ibuf);
 			}
 			break;
 		default:
@@ -738,6 +763,15 @@ static void fpm_read(struct event *t)
 	}
 
 	stream_reset(fnc->ibuf);
+
+send_batch:
+	/* Send all contexts to zebra in a single batch if we have any */
+	if (dplane_ctx_queue_count(&batch_list) > 0) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Sending batch of %u contexts to zebra", __func__,
+				   dplane_ctx_queue_count(&batch_list));
+		dplane_provider_enqueue_ctx_list_to_zebra(&batch_list);
+	}
 }
 
 static void fpm_write(struct event *t)
@@ -855,8 +889,7 @@ static void fpm_connect(struct event *t)
 
 	sock = socket(fnc->addr.ss_family, SOCK_STREAM, 0);
 	if (sock == -1) {
-		zlog_err("%s: fpm socket failed: %s", __func__,
-			 strerror(errno));
+		flog_err(EC_LIB_SOCKET, "%s: fpm socket failed: %s", __func__, strerror(errno));
 		event_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 				&fnc->t_connect);
 		return;
@@ -907,6 +940,7 @@ static void fpm_connect(struct event *t)
 				&fnc->t_lspreset);
 }
 
+#define DPLANE_FPM_NL_BUF_SIZE 65536
 /**
  * Encode data plane operation context into netlink and enqueue it in the FPM
  * output buffer.
@@ -917,7 +951,7 @@ static void fpm_connect(struct event *t)
  */
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 {
-	uint8_t nl_buf[NL_PKT_BUF_SIZE];
+	uint8_t nl_buf[DPLANE_FPM_NL_BUF_SIZE];
 	size_t nl_buf_len;
 	ssize_t rv;
 	uint64_t obytes, obytes_peak;
@@ -934,8 +968,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	nl_buf_len = 0;
 
-	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
-
 	/*
 	 * If route replace is enabled then directly encode the install which
 	 * is going to use `NLM_F_REPLACE` (instead of delete/add operations).
@@ -951,9 +983,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 							true, fnc->use_nhg,
 							false);
 		if (rv <= 0) {
-			zlog_err(
-				"%s: netlink_route_multipath_msg_encode failed",
-				__func__);
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+				 "%s: netlink_route_multipath_msg_encode failed", __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
@@ -972,9 +1004,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 							true, fnc->use_nhg,
 							fnc->use_route_replace);
 		if (rv <= 0) {
-			zlog_err(
-				"%s: netlink_route_multipath_msg_encode failed",
-				__func__);
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+				 "%s: netlink_route_multipath_msg_encode failed", __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
@@ -985,8 +1017,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_MAC_DELETE:
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_err("%s: netlink_macfdb_update_ctx failed",
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_macfdb_update_ctx failed",
 				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
@@ -997,20 +1030,23 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		rv = netlink_nexthop_msg_encode(RTM_DELNEXTHOP, ctx, nl_buf,
 						sizeof(nl_buf), true);
 		if (rv <= 0) {
-			zlog_err("%s: netlink_nexthop_msg_encode failed",
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_nexthop_msg_encode failed",
 				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
 		nl_buf_len = (size_t)rv;
 		break;
+
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 		rv = netlink_nexthop_msg_encode(RTM_NEWNEXTHOP, ctx, nl_buf,
 						sizeof(nl_buf), true);
 		if (rv <= 0) {
-			zlog_err("%s: netlink_nexthop_msg_encode failed",
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_nexthop_msg_encode failed",
 				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
@@ -1022,8 +1058,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 		rv = netlink_lsp_msg_encoder(ctx, nl_buf, sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_err("%s: netlink_lsp_msg_encoder failed",
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_lsp_msg_encoder failed",
 				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
 		}
 
@@ -1087,6 +1124,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	/* We must know if someday a message goes beyond 65KiB. */
 	assert((nl_buf_len + FPM_HEADER_SIZE) <= UINT16_MAX);
+
+	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
 	/* Check if we have enough buffer space. */
 	if (STREAM_WRITEABLE(fnc->obuf) < (nl_buf_len + FPM_HEADER_SIZE)) {
@@ -1338,9 +1377,8 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
-	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if,
-			zif->brslave_info.br_if, vid, &zrmac->macaddr, vni->vni,
-			zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
+	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, vid,
+			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
 			0 /*update_flags*/);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
@@ -1497,7 +1535,7 @@ static void fpm_process_queue(struct event *t)
 		}
 
 		/* No space available yet. */
-		if (writeable_amount < NL_PKT_BUF_SIZE) {
+		if (writeable_amount < DPLANE_FPM_NL_BUF_SIZE) {
 			no_bufs = true;
 			break;
 		}
@@ -1521,7 +1559,6 @@ static void fpm_process_queue(struct event *t)
 		/* Account the processed entries. */
 		processed_contexts++;
 
-		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
 	}
 
@@ -1540,7 +1577,7 @@ static void fpm_process_queue(struct event *t)
 		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
 				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
 	} else
-		EVENT_OFF(fnc->t_wedged);
+		event_cancel(&fnc->t_wedged);
 
 	/*
 	 * Let the dataplane thread know if there are items in the
@@ -1624,8 +1661,8 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 	fnc = dplane_provider_get_data(prov);
 	fnc->fthread = frr_pthread_new(NULL, prov_name, prov_name);
 	assert(frr_pthread_run(fnc->fthread, NULL) == 0);
-	fnc->ibuf = stream_new(NL_PKT_BUF_SIZE);
-	fnc->obuf = stream_new(NL_PKT_BUF_SIZE * 128);
+	fnc->ibuf = stream_new(DPLANE_FPM_NL_BUF_SIZE);
+	fnc->obuf = stream_new(DPLANE_FPM_NL_BUF_SIZE * 128);
 	pthread_mutex_init(&fnc->obuf_mutex, NULL);
 	fnc->socket = -1;
 	fnc->disabled = true;
@@ -1653,16 +1690,16 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 		return 0;
 
 	/* Disable all events and close socket. */
-	EVENT_OFF(fnc->t_lspreset);
-	EVENT_OFF(fnc->t_lspwalk);
-	EVENT_OFF(fnc->t_nhgreset);
-	EVENT_OFF(fnc->t_nhgwalk);
-	EVENT_OFF(fnc->t_ribreset);
-	EVENT_OFF(fnc->t_ribwalk);
-	EVENT_OFF(fnc->t_rmacreset);
-	EVENT_OFF(fnc->t_rmacwalk);
-	EVENT_OFF(fnc->t_event);
-	EVENT_OFF(fnc->t_nhg);
+	event_cancel(&fnc->t_lspreset);
+	event_cancel(&fnc->t_lspwalk);
+	event_cancel(&fnc->t_nhgreset);
+	event_cancel(&fnc->t_nhgwalk);
+	event_cancel(&fnc->t_ribreset);
+	event_cancel(&fnc->t_ribwalk);
+	event_cancel(&fnc->t_rmacreset);
+	event_cancel(&fnc->t_rmacwalk);
+	event_cancel(&fnc->t_event);
+	event_cancel(&fnc->t_nhg);
 	event_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
 	event_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
 	event_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);
@@ -1789,6 +1826,13 @@ skip:
 	return 0;
 }
 
+static int fpm_nl_nos_initialize_data(struct zebra_architectural_values *zav)
+{
+	zlog_info("dplane_fpm_nl: NOS Initialize data");
+
+	return 0;
+}
+
 static int fpm_nl_new(struct event_loop *tm)
 {
 	struct zebra_dplane_provider *prov = NULL;
@@ -1821,6 +1865,8 @@ static int fpm_nl_new(struct event_loop *tm)
 static int fpm_nl_init(void)
 {
 	hook_register(frr_late_init, fpm_nl_new);
+	hook_register(nos_initialize_data, fpm_nl_nos_initialize_data);
+
 	return 0;
 }
 

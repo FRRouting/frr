@@ -80,9 +80,12 @@ struct zebra_privs_t isisd_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
+#define OPTION_DUMMY_AS_LOOPBACK 2000
+
 /* isisd options */
 static const struct option longopts[] = {
 	{"int_num", required_argument, NULL, 'I'},
+	{"dummy_as_loopback", no_argument, NULL, OPTION_DUMMY_AS_LOOPBACK},
 	{0}};
 
 /* Master of threads. */
@@ -97,16 +100,28 @@ void sigterm(void);
 void sigusr1(void);
 
 
-static __attribute__((__noreturn__)) void terminate(int i)
+static FRR_NORETURN void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
 	isis_srv6_term();
+	mt_fini();
 	isis_zebra_stop();
 
-	isis_master_terminate();
+	/*
+	 * Must call vrf_terminate and prefix_list_reset before
+	 * isis_master_terminate, because their callbacks (isis_vrf_disable,
+	 * isis_prefix_list_update) iterate over im->isis which is finalized
+	 * by isis_master_terminate.
+	 */
 	route_map_finish();
+	prefix_list_reset();
 	vrf_terminate();
+
+#ifndef FABRICD
+	isis_affinity_map_terminate();
+#endif
+	isis_master_terminate();
 
 	frr_fini();
 	exit(i);
@@ -133,13 +148,13 @@ void sighup(void)
 
 #endif
 
-__attribute__((__noreturn__)) void sigint(void)
+FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	terminate(0);
 }
 
-__attribute__((__noreturn__)) void sigterm(void)
+FRR_NORETURN void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	terminate(0);
@@ -190,12 +205,11 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 
 static void isis_config_finish(struct event *t)
 {
-	struct listnode *node, *inode;
 	struct isis *isis;
 	struct isis_area *area;
 
-	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area)
 			config_end_lsp_generate(area);
 	}
 }
@@ -207,14 +221,14 @@ static void isis_config_end_timeout(struct event *t)
 	isis_config_finish(t);
 }
 
-static void isis_config_start(void)
+static void isis_config_start(struct vty *vty)
 {
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
-static void isis_config_end(void)
+static void isis_config_end(struct vty *vty)
 {
 	/* If ISIS config processing thread isn't running, then
 	 * we can return and rely it's properly handled.
@@ -222,7 +236,7 @@ static void isis_config_end(void)
 	if (!event_is_scheduled(t_isis_cfg))
 		return;
 
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	isis_config_finish(t_isis_cfg);
 }
 
@@ -269,15 +283,16 @@ int main(int argc, char **argv, char **envp)
 {
 	int opt;
 	int instance = 1;
+	bool dummy_as_loopback = false;
 
 #ifdef FABRICD
 	frr_preinit(&fabricd_di, argc, argv);
 #else
 	frr_preinit(&isisd_di, argc, argv);
 #endif
-	frr_opt_add(
-		"I:", longopts,
-		"  -I, --int_num      Set instance number (label-manager)\n");
+	frr_opt_add("I:", longopts,
+		"  -I, --int_num		Set instance number (label-manager).\n"
+		"      --dummy_as_loopback      Treat dummy interfaces like loopback interfaces.\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -295,6 +310,9 @@ int main(int argc, char **argv, char **envp)
 				zlog_err("Instance %i out of range (1..%u)",
 					 instance, (unsigned short)-1);
 			break;
+		case OPTION_DUMMY_AS_LOOPBACK:
+			dummy_as_loopback = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
@@ -311,6 +329,9 @@ int main(int argc, char **argv, char **envp)
 	/* thread master */
 	isis_master_init(frr_init());
 	master = im->master;
+	if (dummy_as_loopback)
+		isis_option_set(ISIS_OPT_DUMMY_AS_LOOPBACK);
+
 	/*
 	 *  initializations
 	 */

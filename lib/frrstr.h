@@ -10,17 +10,6 @@
 #define _FRRSTR_H_
 
 #include <sys/types.h>
-#include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdbool.h>
 
 #include "vector.h"
@@ -28,6 +17,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* encapsulate libc/libpcre/libpcre2 regex variability with an opaque type */
+struct frregex;
 
 /*
  * Tokenizes a string, storing tokens in a vector. Whitespace is ignored.
@@ -74,7 +66,7 @@ char *frrstr_join_vec(vector v, const char *join);
  * filter
  *    Regex to filter with.
  */
-void frrstr_filter_vec(vector v, regex_t *filter);
+void frrstr_filter_vec(vector v, struct frregex *filter);
 
 /*
  * Free allocated string vector.

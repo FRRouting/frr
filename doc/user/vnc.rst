@@ -570,49 +570,37 @@ a corresponding `redistribute vnc-direct` statement.
 
 Some commands have a special meaning under certain export modes.
 
-:clicmd:`export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`
-   When export mode is `ce` or `registering-nve`,
-   specifies that the named prefix-list should be applied to routes
-   being exported to bgp or zebra.
-   Prefix-lists for ipv4 and ipv6 are independent of each other.
+When export mode is `ce` or `registering-nve`:
 
-:clicmd:`export bgp|zebra no ipv4|ipv6 prefix-list`
-   When export mode is `ce` or `registering-nve`,
-   specifies that no prefix-list should be applied to routes
-   being exported to bgp or zebra.
+- ``export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`` specifies that the named
+  prefix-list should be applied to routes being exported to bgp or zebra.
+  Prefix-lists for ipv4 and ipv6 are independent of each other.
 
-:clicmd:`export bgp|zebra route-map MAP-NAME`
-   When export mode is `ce` or `registering-nve`, specifies that the named
-   route-map should be applied to routes being exported to bgp or zebra.
+- ``export bgp|zebra no ipv4|ipv6 prefix-list`` specifies that no prefix-list
+  should be applied to routes being exported to bgp or zebra.
 
-:clicmd:`export bgp|zebra no route-map`
-   When export mode is `ce` or `registering-nve`, specifies that no route-map
-   should be applied to routes being exported to bgp or zebra.
+- ``export bgp|zebra route-map MAP-NAME`` specifies that the named route-map
+  should be applied to routes being exported to bgp or zebra.
 
-   When the export mode is `group-nve`, policy for exported routes is specified
-   per-NVE-group or vrf-policy group inside a `nve-group` `RFG-NAME` block via
-   the following commands(:ref:`vnc-nve-group-configuration`):
+- ``export bgp|zebra no route-map`` specifies that no route-map should be
+  applied to routes being exported to bgp or zebra.
 
-:clicmd:`export bgp|zebra route-map MAP-NAME`
-   This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
-   that the named route-map should be applied to routes being exported to bgp
-   or zebra.
+When the export mode is `group-nve`, policy for exported routes is specified
+per-NVE-group or vrf-policy group inside a `nve-group` `RFG-NAME` block via
+the following commands (see :ref:`vnc-nve-group-configuration`):
 
-:clicmd:`export bgp|zebra no route-map`
-   This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
-   that no route-map should be applied to routes being exported to bgp or
-   zebra.
+- ``export bgp|zebra route-map MAP-NAME`` specifies that the named route-map
+  should be applied to routes being exported to bgp or zebra.
 
-:clicmd:`export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`
-   This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
-   that the named prefix-list filter should be applied to routes being exported
-   to bgp or zebra.  Prefix-lists for ipv4 and ipv6 are independent of each
-   other.
+- ``export bgp|zebra no route-map`` specifies that no route-map should be
+  applied to routes being exported to bgp or zebra.
 
-:clicmd:`export bgp|zebra no ipv4|ipv6 prefix-list`
-   This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
-   that no prefix-list filter should be applied to routes being exported to
-   bgp or zebra.
+- ``export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`` specifies that the named
+  prefix-list filter should be applied to routes being exported to bgp or zebra.
+  Prefix-lists for ipv4 and ipv6 are independent of each other.
+
+- ``export bgp|zebra no ipv4|ipv6 prefix-list`` specifies that no prefix-list
+  filter should be applied to routes being exported to bgp or zebra.
 
 .. _manual-address-control:
 

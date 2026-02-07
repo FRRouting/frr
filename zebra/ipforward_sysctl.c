@@ -7,6 +7,8 @@
 
 #if !defined(GNU_LINUX)
 
+#include <sys/sysctl.h>
+
 #include "privs.h"
 #include "zebra/ipforward.h"
 #include "zebra/zebra_errors.h"

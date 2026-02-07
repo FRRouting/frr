@@ -219,6 +219,21 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	return 1;
 }
 
+static void eigrp_network_delete_all(struct eigrp *eigrp, struct route_table *table)
+{
+	struct route_node *rn;
+
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		prefix_free((struct prefix **)&rn->info);
+	}
+}
+
+void eigrp_network_free(struct eigrp *eigrp, struct route_table *table)
+{
+	eigrp_network_delete_all(eigrp, table);
+	route_table_finish(table);
+}
+
 /* Check whether interface matches given network
  * returns: 1, true. 0, false
  */
@@ -262,7 +277,6 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 
 void eigrp_if_update(struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct route_node *rn;
 	struct eigrp *eigrp;
 
@@ -270,7 +284,7 @@ void eigrp_if_update(struct interface *ifp)
 	 * In the event there are multiple eigrp autonymnous systems running,
 	 * we need to check eac one and add the interface as approperate
 	 */
-	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
+	frr_each (eigrp_master_hash, &eigrp_om->eigrp, eigrp) {
 		if (ifp->vrf->vrf_id != eigrp->vrf_id)
 			continue;
 
@@ -289,7 +303,6 @@ void eigrp_if_update(struct interface *ifp)
 int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 {
 	struct route_node *rn;
-	struct listnode *node, *nnode;
 	struct eigrp_interface *ei;
 	struct prefix *pref;
 
@@ -307,7 +320,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	route_unlock_node(rn); /* initial reference */
 
 	/* Find interfaces that not configured already.  */
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		bool found = false;
 
 		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {

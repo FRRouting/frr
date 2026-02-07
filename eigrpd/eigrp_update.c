@@ -128,8 +128,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		zlog_debug("GR receive: Neighbor not advertised %pFX",
-			   prefix->destination);
+		zlog_debug("GR receive: Neighbor not advertised %pFX", &prefix->destination);
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -280,6 +279,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 	/*If there is topology information*/
 	while (s->endp > s->getp) {
+		/* Ensure we have at least 4 bytes for TLV header */
+		if (STREAM_READABLE(s) < 4) {
+			zlog_warn("Malformed packet: Unexpected early end of packet reached, stopping TLV processing");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			break;
+		}
+
 		type = stream_getw(s);
 		switch (type) {
 		case EIGRP_TLV_IPv4_INT:
@@ -320,9 +326,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_descriptor_new();
 				pe->serno = eigrp->serno;
-				pe->destination =
-					(struct prefix *)prefix_ipv4_new();
-				prefix_copy(pe->destination, &dest_addr);
+				prefix_copy(&pe->destination, &dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -372,11 +376,44 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 		 *      for now, lets just not creash the box
 		 */
 		default:
-			length = stream_getw(s);
-			// -2 for type, -2 for len
-			for (length -= 4; length; length--) {
-				(void)stream_getc(s);
+			/* Handle unknown TLV types gracefully */
+			zlog_warn("Unknown TLV type: 0x%04x", type);
+
+			/* Validate we have enough data for TLV length */
+			if (STREAM_READABLE(s) < 2) {
+				zlog_warn("Malformed packet: insufficient data for TLV length, skipping to end");
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
 			}
+
+			length = stream_getw(s);
+
+			/* Validate TLV length */
+			if (length < 4) {
+				zlog_warn("Malformed packet: TLV length too small (%u), skipping to end", length);
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
+			}
+
+			/* Check for reasonable TLV length */
+			if (length > 1024) {
+				zlog_warn("Malformed packet: TLV length too large (%u), skipping to end", length);
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
+			}
+
+			/* Check if TLV extends beyond packet */
+			if (length > STREAM_READABLE(s) + 4) {
+				zlog_warn("Malformed packet: TLV length (%u) exceeds remaining data (%zu) + 4, skipping to end",
+						length, STREAM_READABLE(s));
+				break;
+		}
+		/* Skip current TLV data safely to move on to next TLV */
+		if (IS_DEBUG_EIGRP_PACKET(0, RECV))
+			zlog_debug("Skipping unknown TLV: type=0x%04x, length=%u", type, length);
+		stream_forward_getp(s, length - 4);
+
+
 		}
 	}
 
@@ -482,18 +519,17 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 static void eigrp_update_send_to_all_nbrs(struct eigrp_interface *ei,
 					  struct eigrp_packet *ep)
 {
-	struct listnode *node, *nnode;
 	struct eigrp_neighbor *nbr;
 	bool packet_sent = false;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		struct eigrp_packet *ep_dup;
 
 		if (nbr->state != EIGRP_NEIGHBOR_UP)
 			continue;
 
 		if (packet_sent)
-			ep_dup = eigrp_packet_duplicate(ep, NULL);
+			ep_dup = eigrp_packet_duplicate(ep, nbr);
 		else
 			ep_dup = ep;
 
@@ -567,7 +603,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				}
 			}
 			/* Get destination address from prefix */
-			dest_addr = pe->destination;
+			dest_addr = &pe->destination;
 
 			/* Check if any list fits */
 			if (eigrp_update_prefix_apply(
@@ -595,7 +631,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	uint32_t seq_no = eigrp->sequence_number;
 	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
-	if (ei->nbrs->count == 0)
+	if (eigrp_nbr_hash_count(&ei->nbr_hash_head) == 0)
 		return;
 
 	uint16_t length = EIGRP_HEADER_LEN;
@@ -651,7 +687,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			has_tlv = 0;
 		}
 		/* Get destination address from prefix */
-		dest_addr = pe->destination;
+		dest_addr = &pe->destination;
 
 		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
@@ -694,10 +730,10 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 			   struct eigrp_interface *exception)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
+	struct listnode *node2, *nnode2;
 	struct eigrp_prefix_descriptor *pe;
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface) {
 		if (iface != exception) {
 			eigrp_update_send(iface);
 		}
@@ -799,7 +835,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		/*
 		 * Filtering
 		 */
-		dest_addr = pe->destination;
+		dest_addr = &pe->destination;
 
 		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
@@ -892,16 +928,16 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
  *
  * Uses nbr_gr_packet_type and t_nbr_send_gr from neighbor.
  */
-void eigrp_update_send_GR_thread(struct event *thread)
+void eigrp_update_send_GR_thread(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
 
-	/* get argument from thread */
-	nbr = EVENT_ARG(thread);
-	/* remove this thread pointer */
+	/* get argument from event */
+	nbr = EVENT_ARG(event);
+	/* remove this event pointer */
 
 	/* if there is packet waiting in queue,
-	 * schedule this thread again with small delay */
+	 * schedule this event again with small delay */
 	if (nbr->retrans_queue->count > 0) {
 		event_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
 				     10, &nbr->t_nbr_send_gr);
@@ -911,7 +947,7 @@ void eigrp_update_send_GR_thread(struct event *thread)
 	/* send GR EIGRP packet chunk */
 	eigrp_update_send_GR_part(nbr);
 
-	/* if it wasn't last chunk, schedule this thread again */
+	/* if it wasn't last chunk, schedule this event again */
 	if (nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
 		event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 	}
@@ -1001,11 +1037,10 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 void eigrp_update_send_interface_GR(struct eigrp_interface *ei,
 				    enum GR_type gr_type, struct vty *vty)
 {
-	struct listnode *node;
 	struct eigrp_neighbor *nbr;
 
 	/* iterate over all neighbors on eigrp interface */
-	for (ALL_LIST_ELEMENTS_RO(ei->nbrs, node, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		/* send GR to neighbor */
 		eigrp_update_send_GR(nbr, gr_type, vty);
 	}
@@ -1027,11 +1062,10 @@ void eigrp_update_send_interface_GR(struct eigrp_interface *ei,
 void eigrp_update_send_process_GR(struct eigrp *eigrp, enum GR_type gr_type,
 				  struct vty *vty)
 {
-	struct listnode *node;
 	struct eigrp_interface *ei;
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* send GR to all neighbors on interface */
 		eigrp_update_send_interface_GR(ei, gr_type, vty);
 	}

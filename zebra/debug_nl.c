@@ -22,7 +22,9 @@
 
 #include "zebra/rt_netlink.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 #include "lib/vxlan.h"
+#include "zebra/zebra_router.h"
 
 const char *nlmsg_type2str(uint16_t type)
 {
@@ -1373,9 +1375,16 @@ next_rta:
 			return;
 		}
 
-		for (i = 0; i < count; i++)
-			zlog_debug("      id %d weight %d", nhgrp[i].id,
-				   nhgrp[i].weight);
+		for (i = 0; i < count; i++) {
+			uint16_t weight;
+
+			if (zrouter.zav.nexthop_weight_is_16bit)
+				weight = nhgrp[i].weight_high << 8 | nhgrp[i].weight;
+			else
+				weight = nhgrp[i].weight;
+
+			zlog_debug("      id %d weight %d", nhgrp[i].id, weight);
+		}
 		break;
 	case NHA_ENCAP_TYPE:
 		u16v = *(uint16_t *)RTA_DATA(rta);
@@ -1409,8 +1418,8 @@ next_rta:
 		}
 		break;
 	case NHA_ENCAP:
-		/* TODO: handle MPLS labels. */
-		zlog_debug("      unparsed MPLS labels");
+		/* TODO: handle MPLS labels or SRv6 SIDs. */
+		zlog_debug("      unparsed MPLS labels or SRv6 SIDs");
 		break;
 	case NHA_GROUPS:
 		/* TODO: handle this message. */

@@ -29,8 +29,6 @@
 #include "staticd/static_vty.h"
 #include "zebra/zebra_cli.h"
 
-extern struct frr_daemon_info *mgmt_daemon_info;
-
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
       "show mgmt backend-adapter all",
@@ -46,12 +44,16 @@ DEFPY(show_mgmt_be_adapter,
 
 DEFPY(show_mgmt_be_xpath_reg,
       show_mgmt_be_xpath_reg_cmd,
-      "show mgmt backend-yang-xpath-registry",
+      "show mgmt backend-yang-xpath-registry [config|oper|notify|rpc]$type",
       SHOW_STR
       MGMTD_STR
-      "Backend Adapter YANG Xpath Registry\n")
+      "Backend Adapter YANG Xpath Registry\n"
+      "Registered subscribing to config xpaths\n"
+      "Registered providing oper-state xpaths\n"
+      "Registered subscribing to notification xpaths\n"
+      "Registered implementing rpc xpaths\n")
 {
-	mgmt_be_xpath_register_write(vty);
+	mgmt_be_xpath_register_write(vty, type);
 
 	return CMD_SUCCESS;
 }
@@ -147,7 +149,12 @@ DEFPY(mgmt_commit,
 	bool validate_only = type[0] == 'c';
 	bool abort = type[1] == 'b';
 
-	if (vty_mgmt_send_commit_config(vty, validate_only, abort) != 0)
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+	if (!validate_only && !vty->mgmt_locked_running_ds)
+		vty_out(vty, "Warning: running datastore is not locked.\n");
+
+	if (vty_mgmt_send_commit_config(vty, validate_only, abort, false) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
 }
@@ -159,14 +166,15 @@ DEFPY(mgmt_create_config_data, mgmt_create_config_data_cmd,
       "XPath expression specifying the YANG data path\n"
       "Value of the data to create\n")
 {
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = value;
 	vty->cfg_changes[0].operation = NB_OP_CREATE_EXCL;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
@@ -176,14 +184,15 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
       "XPath expression specifying the YANG data path\n"
       "Value of the data to set\n")
 {
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = value;
 	vty->cfg_changes[0].operation = NB_OP_MODIFY;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
@@ -192,15 +201,15 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
       "Delete configuration data\n"
       "XPath expression specifying the YANG data path\n")
 {
-
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DELETE;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
@@ -209,15 +218,15 @@ DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
       "Remove configuration data\n"
       "XPath expression specifying the YANG data path\n")
 {
-
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
@@ -234,8 +243,10 @@ DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_REPLACE;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_edit, mgmt_edit_cmd,
@@ -256,7 +267,7 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 {
 	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
 	uint8_t operation;
-	uint8_t flags = 0;
+	uint8_t ds_id;
 
 	switch (op[2]) {
 	case 'e':
@@ -285,15 +296,8 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (lock)
-		flags |= EDIT_FLAG_IMPLICIT_LOCK;
-
-	if (commit)
-		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
-
-	vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags,
-			       operation, xpath, data);
-	return CMD_SUCCESS;
+	ds_id = commit ? MGMT_MSG_DATASTORE_RUNNING : MGMT_MSG_DATASTORE_CANDIDATE;
+	return vty_mgmt_send_edit_req(vty, ds_id, format, 0, operation, xpath, data);
 }
 
 DEFPY(mgmt_rpc, mgmt_rpc_cmd,
@@ -307,28 +311,7 @@ DEFPY(mgmt_rpc, mgmt_rpc_cmd,
 {
 	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
 
-	vty_mgmt_send_rpc_req(vty, format, xpath, data);
-	return CMD_SUCCESS;
-}
-
-DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
-      "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
-      SHOW_STR MGMTD_STR
-      "Get configuration data from a specific configuration datastore\n"
-      "Candidate datastore (default)\n"
-      "Operational datastore\n"
-      "Running datastore\n"
-      "XPath expression specifying the YANG data path\n")
-{
-	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
-
-	if (dsname)
-		datastore = mgmt_ds_name2id(dsname);
-
-	xpath_list[0] = path;
-	vty_mgmt_send_get_req(vty, true, datastore, xpath_list, 1);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_rpc_req(vty, format, xpath, data);
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
@@ -415,7 +398,7 @@ DEFPY(show_mgmt_dump_data,
       "xml output\n")
 {
 	struct mgmt_ds_ctx *ds_ctx;
-	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
+	enum mgmt_ds_id datastore = MGMTD_DS_CANDIDATE;
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
@@ -453,7 +436,7 @@ DEFPY(show_mgmt_map_xpath,
       "Get YANG Backend Subscription\n"
       "XPath expression specifying the YANG data path\n")
 {
-	mgmt_be_show_xpath_registries(vty, path);
+	mgmt_be_adapter_show_xpath_registries(vty, path);
 	return CMD_SUCCESS;
 }
 
@@ -498,7 +481,7 @@ DEFPY(mgmt_save_config,
       "Running datastore\n"
       "Full path of the file\n")
 {
-	Mgmtd__DatastoreId datastore = mgmt_ds_name2id(dsname);
+	enum mgmt_ds_id datastore = mgmt_ds_name2id(dsname);
 	struct mgmt_ds_ctx *ds_ctx;
 	FILE *f;
 
@@ -595,18 +578,6 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 	return CMD_SUCCESS;
 }
 
-static void mgmt_config_read_in(struct event *event)
-{
-	if (vty_mgmt_fe_enabled())
-		mgmt_vty_read_configs();
-	else {
-		zlog_warn("%s: no connection to front-end server, retry in 1s",
-			  __func__);
-		event_add_timer(mm->master, mgmt_config_read_in, NULL, 1,
-				&mgmt_daemon_info->read_in);
-	}
-}
-
 static int mgmtd_config_write(struct vty *vty)
 {
 	struct lyd_node *root;
@@ -651,10 +622,6 @@ void mgmt_vty_init(void)
 #ifdef HAVE_STATICD
 	static_vty_init();
 #endif
-
-	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
-			&mgmt_daemon_info->read_in);
-
 	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
@@ -662,7 +629,6 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_txn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
-	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);

@@ -63,7 +63,7 @@ struct pullwr *_pullwr_new(struct event_loop *tm, int fd, void *arg,
 
 void pullwr_del(struct pullwr *pullwr)
 {
-	EVENT_OFF(pullwr->writer);
+	event_cancel(&pullwr->writer);
 
 	XFREE(MTYPE_PULLWR_BUF, pullwr->buffer);
 	XFREE(MTYPE_PULLWR_HEAD, pullwr);

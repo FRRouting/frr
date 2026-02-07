@@ -13,6 +13,10 @@ module frr-pim {
     prefix frr-interface;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-routing {
     prefix "frr-rt";
   }
@@ -76,10 +80,14 @@ module frr-pim {
 
   typedef plist-ref {
     type string;
+    description
+      "Reference to a policy list.";
   }
 
   typedef access-list-ref {
     type string;
+    description
+      "Reference to an access list.";
   }
 
   /*
@@ -128,6 +136,9 @@ module frr-pim {
    */
 
   grouping msdp-timers {
+    description
+      "Grouping for MSDP timer configurations.";
+
     leaf hold-time {
       type uint16 {
         range "1..max";
@@ -191,8 +202,8 @@ module frr-pim {
 
     leaf authentication-key {
       when "../authentication-type = 'MD5'";
-      mandatory true;
       type string;
+      mandatory true;
       description
         "Authentication key.";
     }
@@ -202,11 +213,29 @@ module frr-pim {
     description
       "A grouping defining per address family pim global attributes";
 
-    leaf mcast-rpf-lookup {
-      type mcast-rpf-lookup-mode;
-      default "none";
+    list mcast-rpf-lookup {
+      key "group-list source-list";
       description
-        "Multicast RPF lookup behavior.";
+        "RPF lookup modes.";
+
+      leaf group-list {
+        type plist-ref;
+        description
+          "Multicast group prefix list.";
+      }
+
+      leaf source-list {
+        type plist-ref;
+        description
+          "Unicast source address prefix list.";
+      }
+
+      leaf mode {
+        type mcast-rpf-lookup-mode;
+        default "none";
+        description
+          "Multicast RPF lookup behavior.";
+      }
     }
 
     leaf ecmp {
@@ -292,6 +321,13 @@ module frr-pim {
           "Prefix-list used to define Source-Specific Multicast address range.";
     }
 
+    leaf dm-prefix-list {
+        type plist-ref;
+        description
+          "Prefix-list used to define Dennse Mode Multicast address range.";
+    }
+
+
     leaf-list ssm-pingd-source-ip {
       type inet:ip-address;
       description
@@ -358,6 +394,9 @@ module frr-pim {
       list members {
         key "address";
 
+        description
+          "List of peer members associated with the configuration.";
+
         leaf address {
           type inet:ip-address;
           description
@@ -378,8 +417,8 @@ module frr-pim {
       }
 
       leaf source-ip {
-        mandatory true;
         type inet:ip-address;
+        mandatory true;
         description
           "MSDP source IP address.";
       }
@@ -403,11 +442,20 @@ module frr-pim {
         description
           "Peer SA maximum limit.";
       }
+
+      leaf as {
+        type inet:as-number;
+        description
+          "BGP Autonomous System number.";
+      }
     }
 
     container mlag {
-      presence
-        "Multi-chassis link aggregation.";
+     presence
+       "Multi-chassis link aggregation.";
+
+     description
+       "Configuration for mlag on the interface.";
 
      leaf peerlink-rif {
         type frr-interface:interface-ref;
@@ -458,6 +506,12 @@ module frr-pim {
         description
           "Only accept registers from a specific source prefix list.";
     }
+
+    leaf pim-join-route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Pass PIM joins through specified route-map.";
+    }
   } // global-pim-config-attributes
 
   grouping interface-pim-config-attributes {
@@ -470,12 +524,38 @@ module frr-pim {
       description
         "Enable PIM flag on the interface.";
     }
-
     leaf pim-passive-enable {
       type boolean;
       default "false";
       description
         "Disable exchange of protocol packets.";
+    }
+    leaf pim-mode {
+      type enumeration {
+        enum "SPARSE" {
+          value 0;
+          description
+            "Sparse mode.";
+        }
+        enum "DENSE" {
+          value 1;
+          description
+            "Dense mode.";
+        }
+        enum "SPARSE_DENSE" {
+          value 2;
+          description
+            "Sparse-Dense mode.";
+        }
+        enum "SSM" {
+          value 3;
+          description
+            "Source Specific Multicast only.";
+        }
+      }
+      default "SPARSE";
+      description
+        "PIM interface mode";
     }
 
     leaf hello-interval {
@@ -498,9 +578,46 @@ module frr-pim {
         "Hello holdtime";
     }
 
+    leaf neighbor-filter-prefix-list {
+      type plist-ref;
+      description
+        "Prefix-List to filter allowed PIM neighbors.";
+    }
+
+    leaf join-prune-interval {
+      type uint16 {
+        range "5..600";
+      }
+      description
+        "Join Prune Send Interval in seconds (defaults to global value).";
+    }
+
+    leaf assert-interval {
+      type uint32 {
+        range "1000..86400000";
+      }
+      default "180000";
+      description
+        "Assert interval in milliseconds. (defaults to 180s)";
+    }
+
+    leaf assert-override-interval {
+      type uint32 {
+        range "1000..86400000";
+      }
+      must ". < ./../assert-interval - 100" {
+        error-message "Assert override interval must be at least 0.1s smaller than assert interval.";
+      }
+      description
+        "Assert override interval in milliseconds. (calculated from assert interval by default)";
+    }
+
     container bfd {
       presence
         "Enable BFD support on the interface.";
+
+      description
+        "Configuration for BFD on the interface.";
 
       leaf min-rx-interval {
         type uint16 {
@@ -587,10 +704,10 @@ module frr-pim {
       description
         "Add multicast route.";
 
-      leaf oif {
+      leaf-list oif {
         type frr-interface:interface-ref;
         description
-          "Outgoing interface name.";
+          "List of Outgoing interface names.";
       }
 
       leaf source-addr {
@@ -641,6 +758,8 @@ module frr-pim {
    */
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
         + "frr-rt:control-plane-protocol" {
+    description
+      "Augments the control plane protocol configuration to support pim configuration.";
     container pim {
       when "../frr-rt:type = 'frr-pim:pimd'" {
         description
@@ -664,7 +783,11 @@ module frr-pim {
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
+    description
+      "Augments the interface configuration to support pim configuration.";
     container pim {
+      description
+        "Configuration for pim on the interface.";
       list address-family {
         key "address-family";
         description

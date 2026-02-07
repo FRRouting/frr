@@ -18,6 +18,7 @@
 #include "printfrr.h"
 #include "vrf.h"
 #include "nexthop_group.h"
+#include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");
@@ -100,6 +101,12 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 			break;
 	}
 
+	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
+		return -1;
+
 	return ret;
 }
 
@@ -139,7 +146,7 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2, bool use_weight)
+				  const struct nexthop *next2, bool use_weight, bool use_ifindex)
 {
 	int ret = 0;
 
@@ -175,6 +182,8 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		ret = _nexthop_gateway_cmp(next1, next2);
 		if (ret != 0)
 			return ret;
+		if (!use_ifindex)
+			break;
 		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
@@ -230,11 +239,11 @@ done:
 }
 
 static int nexthop_cmp_internal(const struct nexthop *next1,
-				const struct nexthop *next2, bool use_weight)
+				const struct nexthop *next2, bool use_weight, bool use_ifindex)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight, use_ifindex);
 	if (ret != 0)
 		return ret;
 
@@ -249,13 +258,13 @@ static int nexthop_cmp_internal(const struct nexthop *next1,
 
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
-	return nexthop_cmp_internal(next1, next2, true);
+	return nexthop_cmp_internal(next1, next2, true, true);
 }
 
 int nexthop_cmp_no_weight(const struct nexthop *next1,
 			  const struct nexthop *next2)
 {
-	return nexthop_cmp_internal(next1, next2, false);
+	return nexthop_cmp_internal(next1, next2, false, true);
 }
 
 /*
@@ -426,6 +435,20 @@ void nexthops_free(struct nexthop *nexthop)
 	}
 }
 
+bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (nh1 && !nh2)
+		return false;
+
+	if (!nh1 && nh2)
+		return false;
+
+	if (nh1 == nh2)
+		return true;
+
+	return nexthop_cmp_internal(nh1, nh2, true, false);
+}
+
 bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 {
 	if (nh1 && !nh2)
@@ -455,10 +478,21 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
+	if (_nexthop_cmp_no_labels(nh1, nh2, true, true) != 0)
 		return false;
 
 	return true;
+}
+
+bool nexthop_same_no_weight(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (nh1 == nh2)
+		return true;
+
+	if (!nh1 || !nh2)
+		return false;
+
+	return (nexthop_cmp_no_weight(nh1, nh2) == 0);
 }
 
 /*
@@ -559,6 +593,12 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 	if (num_labels == 0)
 		return;
 
+	/* Free existing labels if present to prevent memory leak */
+	if (nexthop->nh_label != NULL) {
+		XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
+		nexthop->nh_label = NULL;
+	}
+
 	/* Enforce limit on label stack size */
 	if (num_labels > MPLS_MAX_LABELS)
 		num_labels = MPLS_MAX_LABELS;
@@ -640,8 +680,8 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
 }
 
-void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
-			   int num_segs)
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs, int num_segs,
+			   enum srv6_headend_behavior encap_behavior)
 {
 	int i;
 
@@ -668,6 +708,8 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 	for (i = 0; i < num_segs; i++)
 		memcpy(&nexthop->nh_srv6->seg6_segs->seg[i], &segs[i],
 		       sizeof(struct in6_addr));
+
+	nexthop->nh_srv6->seg6_segs->encap_behavior = encap_behavior;
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -689,17 +731,18 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 {
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		snprintf(str, size, "if %u", nexthop->ifindex);
+		snprintf(str, size, "if %u (%s)", nexthop->ifindex,
+			 CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		snprintfrr(str, size, "%pI4 if %u", &nexthop->gate.ipv4,
-			   nexthop->ifindex);
+		snprintfrr(str, size, "%pI4 if %u (%s)", &nexthop->gate.ipv4, nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		snprintfrr(str, size, "%pI6 if %u", &nexthop->gate.ipv6,
-			   nexthop->ifindex);
+		snprintfrr(str, size, "%pI6 if %u (%s)", &nexthop->gate.ipv6, nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "A" : "I");
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		snprintf(str, size, "blackhole");
@@ -772,68 +815,30 @@ unsigned int nexthop_level(const struct nexthop *nexthop)
 	return rv;
 }
 
-/* Only hash word-sized things, let cmp do the rest. */
-uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
+uint32_t nexthop_hash(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
-	int i;
 
-	key = jhash_3words(nexthop->type, nexthop->vrf_id,
-			   nexthop->nh_label_type, key);
+	/* type, vrf, ifindex, ip addresses - see nexthop.h */
+	key = _nexthop_hash_bytes(nexthop, key);
+
+	key = jhash_1word(nexthop->flags & NEXTHOP_FLAGS_HASHED, key);
 
 	if (nexthop->nh_label) {
-		int labels = nexthop->nh_label->num_labels;
+		const struct mpls_label_stack *ls = nexthop->nh_label;
 
-		i = 0;
-
-		while (labels >= 3) {
-			key = jhash_3words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   nexthop->nh_label->label[i + 2],
-					   key);
-			labels -= 3;
-			i += 3;
-		}
-
-		if (labels >= 2) {
-			key = jhash_2words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   key);
-			labels -= 2;
-			i += 2;
-		}
-
-		if (labels >= 1)
-			key = jhash_1word(nexthop->nh_label->label[i], key);
+		/* num_labels itself isn't useful to hash, if the number of
+		 * labels is different, the hash value will change just due to
+		 * that already.
+		 */
+		key = jhash(ls->label, sizeof(ls->label[0]) * ls->num_labels, key);
 	}
-
-	key = jhash_2words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
-			   key);
 
 	/* Include backup nexthops, if present */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		int backups = nexthop->backup_num;
 
-		i = 0;
-
-		while (backups >= 3) {
-			key = jhash_3words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1],
-					   nexthop->backup_idx[i + 2], key);
-			backups -= 3;
-			i += 3;
-		}
-
-		while (backups >= 2) {
-			key = jhash_2words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1], key);
-			backups -= 2;
-			i += 2;
-		}
-
-		if (backups >= 1)
-			key = jhash_1word(nexthop->backup_idx[i], key);
+		key = jhash(nexthop->backup_idx, sizeof(nexthop->backup_idx[0]) * backups, key);
 	}
 
 	if (nexthop->nh_srv6) {
@@ -861,34 +866,10 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 					segs_num -= 1;
 					i += 1;
 				}
+				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
 			}
 		}
 	}
-
-	return key;
-}
-
-
-#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
-
-/* For a more granular hash */
-uint32_t nexthop_hash(const struct nexthop *nexthop)
-{
-	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
-	/* Get all the quick stuff */
-	uint32_t key = nexthop_hash_quick(nexthop);
-
-	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
-		 + sizeof(nexthop->rmap_src))
-		/ 3)
-	       == (GATE_SIZE * sizeof(uint32_t)));
-
-	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
-	       GATE_SIZE);
-
-	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
 	return key;
 }
@@ -928,10 +909,9 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs &&
 		    !sid_zero(nexthop->nh_srv6->seg6_segs))
-			nexthop_add_srv6_seg6(copy,
-					      &nexthop->nh_srv6->seg6_segs->seg[0],
-					      nexthop->nh_srv6->seg6_segs
-						      ->num_segs);
+			nexthop_add_srv6_seg6(copy, &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs->num_segs,
+					      nexthop->nh_srv6->seg6_segs->encap_behavior);
 	}
 }
 
@@ -1216,6 +1196,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
 	json_object *json_seg6local_context = NULL;
+	json_object *json_srv6_sid_structure = NULL;
 	json_object *json_seg6 = NULL;
 	json_object *json_segs = NULL;
 	int i;
@@ -1378,9 +1359,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 	if (nexthop->nh_srv6) {
 		json_seg6local = json_object_new_object();
 		json_object_string_add(json_seg6local, "action",
-				       seg6local_action2str(
-					       nexthop->nh_srv6
-						       ->seg6local_action));
+				       seg6local_action2str_with_next_csid(
+					       nexthop->nh_srv6->seg6local_action,
+					       seg6local_has_next_csid(
+						       &nexthop->nh_srv6->seg6local_ctx)));
 		json_seg6local_context = json_object_new_object();
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
@@ -1391,6 +1373,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 		json_object_object_add(json_nexthop, "seg6localContext",
 				       json_seg6local_context);
 
+		json_srv6_sid_structure = json_object_new_object();
+		srv6_sid_structure2json(&nexthop->nh_srv6->seg6local_ctx, json_srv6_sid_structure);
+		json_object_object_add(json_seg6local, "sidStructure", json_srv6_sid_structure);
+
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
 			json_seg6 = json_object_new_object();
@@ -1398,6 +1384,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 						&nexthop->nh_srv6->seg6_segs
 							 ->seg[0]);
 			json_object_object_add(json_nexthop, "seg6", json_seg6);
+			json_object_string_add(json_nexthop, "srv6EncapBehavior",
+					       srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
+										 ->encap_behavior,
+									 false));
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1414,6 +1404,11 @@ void nexthop_json_helper(json_object *json_nexthop,
 								 ->seg[seg_idx]));
 				json_object_object_add(json_nexthop, "seg6",
 						       json_segs);
+				json_object_string_add(json_nexthop, "srv6EncapBehavior",
+						       srv6_headend_behavior2str(nexthop->nh_srv6
+											 ->seg6_segs
+											 ->encap_behavior,
+										 false));
 			}
 		}
 	}
@@ -1487,6 +1482,9 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		vty_out(vty, " (dup)");
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -1528,10 +1526,12 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 				      nexthop->nh_srv6->seg6local_action);
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-			vty_out(vty, ", seg6local %s %s",
-				seg6local_action2str(
-					nexthop->nh_srv6->seg6local_action),
-				buf);
+			vty_out(vty, ", seg6local %s%s%s",
+				seg6local_action2str_with_next_csid(nexthop->nh_srv6->seg6local_action,
+								    seg6local_has_next_csid(
+									    &nexthop->nh_srv6
+										     ->seg6local_ctx)),
+				buf[0] == '\0' ? "" : " ", buf);
 		if (nexthop->nh_srv6->seg6_segs &&
 		    IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs->seg[0],
 				  &in6addr_any)) {
@@ -1542,6 +1542,12 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 				       sizeof(struct in6_addr));
 			snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
 			vty_out(vty, ", seg6 %s", seg_buf);
+			if (nexthop->nh_srv6->seg6_segs->encap_behavior !=
+			    SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+				vty_out(vty, ", encap behavior %s",
+					srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
+									  ->encap_behavior,
+								  false));
 		}
 	}
 

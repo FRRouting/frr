@@ -217,7 +217,7 @@
           "interfaceName":"sr0",
           "active":true,
           "seg6local":{
-            "action":"End"
+            "action":"uN"
           }
         }
       ]
@@ -238,7 +238,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -259,7 +259,7 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -281,7 +281,7 @@
           "interfaceName":"vrf10",
           "active":true,
           "seg6local":{
-            "action":"End.DT6"
+            "action":"uDT6"
           }
         }
       ]
@@ -303,7 +303,7 @@
           "interfaceName":"vrf20",
           "active":true,
           "seg6local":{
-            "action":"End.DT6"
+            "action":"uDT6"
           }
         }
       ]

@@ -23,7 +23,6 @@
 #include "lib/buffer.h"           /* for BUFFER_EMPTY, BUFFER_ERROR, BUFFE... */
 #include "lib/command.h"          /* for vty, install_element, CMD_SUCCESS... */
 #include "lib/hook.h"             /* for DEFINE_HOOK, DEFINE_KOOH, hook_call */
-#include "lib/linklist.h"         /* for ALL_LIST_ELEMENTS_RO, ALL_LIST_EL... */
 #include "lib/libfrr.h"           /* for frr_zclient_addr */
 #include "lib/log.h"              /* for zlog_warn, zlog_debug, safe_strerror */
 #include "lib/memory.h"           /* for MTYPE_TMP, XCALLOC, XFREE */
@@ -42,6 +41,7 @@
 #include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */
 #include "lib/lib_errors.h"       /* for generic ferr ids */
 #include "lib/printfrr.h"         /* for string functions */
+#include "lib/json.h"
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */
@@ -50,6 +50,10 @@
 #include "zebra/zserv.h"          /* for zserv */
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"   /* for error messages */
+
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/zserv_clippy.c"
+#endif
 /* clang-format on */
 
 /* privileges */
@@ -172,7 +176,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 }
 
 /*
- * Gracefuly shut down a client connection.
+ * Gracefully shut down a client connection.
  *
  * Cancel any pending tasks for the client's thread. Then schedule a task on
  * the main thread to shut down the calling thread.
@@ -191,8 +195,8 @@ static void zserv_client_fail(struct zserv *client)
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
 
-	EVENT_OFF(client->t_read);
-	EVENT_OFF(client->t_write);
+	event_cancel(&client->t_read);
+	event_cancel(&client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);
 }
 
@@ -216,9 +220,9 @@ static void zserv_client_fail(struct zserv *client)
  * allows us to expose information about input and output queues to the user in
  * terms of number of packets rather than size of data.
  */
-static void zserv_write(struct event *thread)
+static void zserv_write(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	struct stream *msg;
 	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
@@ -317,9 +321,9 @@ zwrite_fail:
  * The main thread processes the items in ibuf_fifo and always signals the
  * client IO thread.
  */
-static void zserv_read(struct event *thread)
+static void zserv_read(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	int sock;
 	size_t already;
 	struct stream_fifo *cache;
@@ -342,7 +346,7 @@ static void zserv_read(struct event *thread)
 
 	p2p = p2p_avail;
 	cache = stream_fifo_new();
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	while (p2p) {
 		ssize_t nb;
@@ -457,7 +461,7 @@ static void zserv_read(struct event *thread)
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
-			/* Need to update count as main thread could have processed few */
+			/* Need to update count as main event could have processed few */
 			client_ibuf_fifo_cnt =
 				stream_fifo_count_safe(client->ibuf_fifo);
 		}
@@ -487,6 +491,10 @@ zread_fail:
 static void zserv_client_event(struct zserv *client,
 			       enum zserv_client_event event)
 {
+	/* Don't continue if client is being shut/freed */
+	if (client->pthread == NULL)
+		return;
+
 	switch (event) {
 	case ZSERV_CLIENT_READ:
 		event_add_read(client->pthread->master, zserv_read, client,
@@ -524,13 +532,19 @@ static void zserv_client_event(struct zserv *client,
  *    items to the ibuf_fifo (until max limit)
  *  - the hidden config change (zebra zapi-packets <>) is taken into account.
  */
-static void zserv_process_messages(struct event *thread)
+static void zserv_process_messages(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
 	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
+	uint32_t meta_queue_size = zebra_rib_meta_queue_size();
+
+	if (meta_queue_size < p2p)
+		p2p = p2p - meta_queue_size;
+	else
+		p2p = 0;
 
 	frr_with_mutex (&client->ibuf_mtx) {
 		uint32_t i;
@@ -563,6 +577,13 @@ static void zserv_process_messages(struct event *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
+	/* Don't continue if zclient is being freed/shut */
+	if (client->pthread == NULL) {
+		/* Client is shutting down, free the stream to prevent leak */
+		stream_free(msg);
+		return 0;
+	}
+
 	frr_with_mutex (&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
 	}
@@ -578,6 +599,14 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 {
 	struct stream *msg;
+
+	/* Don't continue if zclient is being freed/shut */
+	if (client->pthread == NULL) {
+		/* Client is shutting down, free all streams to prevent leak */
+		while ((msg = stream_fifo_pop(fifo)))
+			stream_free(msg);
+		return 0;
+	}
 
 	frr_with_mutex (&client->obuf_mtx) {
 		msg = stream_fifo_pop(fifo);
@@ -600,7 +629,7 @@ DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
  * Deinitialize zebra client.
  *
  * - Deregister and deinitialize related internal resources
- * - Gracefuly close socket
+ * - Gracefully close socket
  * - Free associated resources
  * - Free client structure
  *
@@ -694,9 +723,8 @@ static void zserv_client_free(struct zserv *client)
 			zlog_debug("%s: client %s restart enabled", __func__,
 				   zebra_route_string(client->proto));
 		if (zebra_gr_client_disconnect(client) < 0)
-			zlog_err(
-				"%s: GR enabled but could not handle disconnect event",
-				__func__);
+			flog_err(EC_ZEBRA_GR_DISCONNECT_FAIL,
+				 "%s: GR enabled but could not handle disconnect event", __func__);
 	}
 }
 
@@ -713,8 +741,8 @@ void zserv_close_client(struct zserv *client)
 				   zebra_route_string(client->proto));
 
 		event_cancel_event(zrouter.master, client);
-		EVENT_OFF(client->t_cleanup);
-		EVENT_OFF(client->t_process);
+		event_cancel(&client->t_cleanup);
+		event_cancel(&client->t_process);
 
 		/* destroy pthread */
 		frr_pthread_destroy(client->pthread);
@@ -728,7 +756,7 @@ void zserv_close_client(struct zserv *client)
 	frr_with_mutex (&client_mutex) {
 		if (client->busy_count <= 0) {
 			/* remove from client list */
-			listnode_delete(zrouter.client_list, client);
+			zserv_client_list_del(&zrouter.client_list, client);
 		} else {
 			/*
 			 * The client session object may be in use, although
@@ -751,9 +779,9 @@ void zserv_close_client(struct zserv *client)
  * already have been closed and the thread will most likely have died, but its
  * resources still need to be cleaned up.
  */
-static void zserv_handle_client_fail(struct event *thread)
+static void zserv_handle_client_fail(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 
 	zserv_close_client(client);
 }
@@ -802,7 +830,7 @@ static struct zserv *zserv_client_create(int sock)
 
 	/* Add this client to linked list. */
 	frr_with_mutex (&client_mutex) {
-		listnode_add(zrouter.client_list, client);
+		zserv_client_list_add_tail(&zrouter.client_list, client);
 	}
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
@@ -888,21 +916,22 @@ void zserv_release_client(struct zserv *client)
 /*
  * Accept socket connection.
  */
-static void zserv_accept(struct event *thread)
+static void zserv_accept(struct event *event)
 {
-	int accept_sock;
 	int client_sock;
 	struct sockaddr_in client;
 	socklen_t len;
 
-	accept_sock = EVENT_FD(thread);
+	if (zsock < 0) {
+		/* Return if this event pops after zsock is closed. */
+		return;
+	}
 
 	/* Reregister myself. */
 	zserv_event(NULL, ZSERV_ACCEPT);
 
 	len = sizeof(struct sockaddr_in);
-	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
-
+	client_sock = accept(zsock, (struct sockaddr *)&client, &len);
 	if (client_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't accept zebra socket: %s",
 			     safe_strerror(errno));
@@ -937,6 +966,10 @@ void zserv_close(void)
 /*
  * Open zebra's ZAPI listener socket. This is done early during startup,
  * before zebra is ready to listen and accept client connections.
+ *
+ * This function should only ever be called from the startup pthread
+ * from main.c.  If it is called multiple times it will cause problems
+ * because it causes the zsock global variable to be setup.
  */
 void zserv_open(const char *path)
 {
@@ -1060,23 +1093,21 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 }
 
 /* Display client info details */
-static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
+static void zebra_show_client_detail(struct vty *vty, struct zserv *client, json_object *json)
 {
 	struct client_gr_info *info;
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
 	uint32_t last_read_cmd, last_write_cmd;
-
-	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
-	if (client->instance)
-		vty_out(vty, " Instance: %u", client->instance);
-	if (client->session_id)
-		vty_out(vty, " [%u]", client->session_id);
-	vty_out(vty, "\n");
-
-	vty_out(vty, "------------------------ \n");
-	vty_out(vty, "FD: %d \n", client->sock);
+	json_object *json_client = NULL;
+	json_object *json_ipv4, *json_ipv6, *json_redistv4, *json_redistv6;
+	json_object *json_nhg, *json_vrf, *json_intf, *json_intfaddr;
+	json_object *json_bfd, *json_nhtv4, *json_nhtv6, *json_vxlan;
+	json_object *json_evpn, *json_vni, *json_l3vni, *json_macip, *json_es, *json_esevi;
+	json_object *json_connected;
+	json_object *json_gr_info;
+	json_object *json_fifo;
 
 	frr_with_mutex (&client->stats_mtx) {
 		connect_time = client->connect_time;
@@ -1087,125 +1118,363 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		last_write_cmd = client->last_write_cmd;
 	}
 
-	vty_out(vty, "Connect Time: %s \n",
-		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF));
-	if (client->nh_reg_time) {
-		vty_out(vty, "Nexthop Registry Time: %s \n",
-			zserv_time_buf(&client->nh_reg_time, nhbuf,
-				       ZEBRA_TIME_BUF));
-		if (client->nh_last_upd_time)
-			vty_out(vty, "Nexthop Last Update Time: %s \n",
-				zserv_time_buf(&client->nh_last_upd_time, mbuf,
-					       ZEBRA_TIME_BUF));
-		else
-			vty_out(vty, "No Nexthop Update sent\n");
-	} else
-		vty_out(vty, "Not registered for Nexthop Updates\n");
+	if (json) {
+		/* Create JSON object for this client */
+		json_client = json_object_new_object();
 
-	vty_out(vty,
-		"Client will %sbe notified about the status of its routes.\n",
-		client->notify_owner ? "" : "Not ");
+		/* Basic client info - protocol is now the key, so don't include it */
+		if (client->instance)
+			json_object_int_add(json_client, "instance", client->instance);
+		json_object_int_add(json_client, "sessionId", client->session_id);
+		json_object_int_add(json_client, "fileDescriptor", client->sock);
+		json_object_boolean_add(json_client, "asynchronous", !client->synchronous);
 
-	vty_out(vty, "Last Msg Rx Time: %s \n",
-		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF));
-	vty_out(vty, "Last Msg Tx Time: %s \n",
-		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF));
-	if (last_read_cmd)
-		vty_out(vty, "Last Rcvd Cmd: %s \n",
-			zserv_command_string(last_read_cmd));
-	if (last_write_cmd)
-		vty_out(vty, "Last Sent Cmd: %s \n",
-			zserv_command_string(last_write_cmd));
-	vty_out(vty, "\n");
+		/* Time information */
+		json_object_string_add(json_client, "connectTime",
+				       zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF));
+		json_object_string_add(json_client, "lastMessageRxTime",
+				       zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF));
+		json_object_string_add(json_client, "lastMessageTxTime",
+				       zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF));
 
-	vty_out(vty, "Type        Add         Update      Del \n");
-	vty_out(vty, "================================================== \n");
-	vty_out(vty, "IPv4        %-12u%-12u%-12u\n", client->v4_route_add_cnt,
-		client->v4_route_upd8_cnt, client->v4_route_del_cnt);
-	vty_out(vty, "IPv6        %-12u%-12u%-12u\n", client->v6_route_add_cnt,
-		client->v6_route_upd8_cnt, client->v6_route_del_cnt);
-	vty_out(vty, "Redist:v4   %-12u%-12u%-12u\n", client->redist_v4_add_cnt,
-		0, client->redist_v4_del_cnt);
-	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,
-		0, client->redist_v6_del_cnt);
-	vty_out(vty, "NHG         %-12u%-12u%-12u\n", client->nhg_add_cnt,
-		client->nhg_upd8_cnt, client->nhg_del_cnt);
-	vty_out(vty, "VRF         %-12u%-12u%-12u\n", client->vrfadd_cnt, 0,
-		client->vrfdel_cnt);
-	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
-		client->ifdel_cnt);
-	vty_out(vty, "Interface   %-12u%-12u%-12u\n", client->ifup_cnt, 0,
-		client->ifdown_cnt);
-	vty_out(vty, "Intf Addr   %-12u%-12u%-12u\n",
-		client->connected_rt_add_cnt, 0, client->connected_rt_del_cnt);
-	vty_out(vty, "BFD peer    %-12u%-12u%-12u\n", client->bfd_peer_add_cnt,
-		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
-	vty_out(vty, "NHT v4      %-12u%-12u%-12u\n",
-		client->v4_nh_watch_add_cnt, 0, client->v4_nh_watch_rem_cnt);
-	vty_out(vty, "NHT v6      %-12u%-12u%-12u\n",
-		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
-	vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt,
-		0, client->vxlan_sg_del_cnt);
-	vty_out(vty, "VNI         %-12u%-12u%-12u\n", client->vniadd_cnt, 0,
-		client->vnidel_cnt);
-	vty_out(vty, "L3-VNI      %-12u%-12u%-12u\n", client->l3vniadd_cnt, 0,
-		client->l3vnidel_cnt);
-	vty_out(vty, "MAC-IP      %-12u%-12u%-12u\n", client->macipadd_cnt, 0,
-		client->macipdel_cnt);
-	vty_out(vty, "ES          %-12u%-12u%-12u\n", client->local_es_add_cnt,
-		0, client->local_es_del_cnt);
-	vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n",
-		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
-	vty_out(vty, "Errors: %u\n", client->error_cnt);
+		/* Commands */
+		if (last_read_cmd)
+			json_object_string_add(json_client, "lastReceivedCmd",
+					       zserv_command_string(last_read_cmd));
+		if (last_write_cmd)
+			json_object_string_add(json_client, "lastSentCmd",
+					       zserv_command_string(last_write_cmd));
 
-	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
-		afi_t afi;
-		bool route_sync_done = true;
-		char timebuf[MONOTIME_STRLEN];
-
-		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
-		vty_out(vty, "Capabilities : ");
-		switch (info->capabilities) {
-		case ZEBRA_CLIENT_GR_CAPABILITIES:
-			vty_out(vty, "Graceful Restart\n");
-			break;
-		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
-		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
-		case ZEBRA_CLIENT_GR_DISABLE:
-		case ZEBRA_CLIENT_RIB_STALE_TIME:
-			vty_out(vty, "None\n");
-			break;
+		/* Nexthop tracking */
+		if (client->nh_reg_time) {
+			json_object_string_add(json_client, "nexthopRegistryTime",
+					       zserv_time_buf(&client->nh_reg_time, nhbuf,
+							      ZEBRA_TIME_BUF));
+			if (client->nh_last_upd_time)
+				json_object_string_add(json_client, "nexthopLastUpdateTime",
+						       zserv_time_buf(&client->nh_last_upd_time,
+								      mbuf, ZEBRA_TIME_BUF));
+			json_object_boolean_true_add(json_client, "nexthopRegistered");
+		} else {
+			json_object_boolean_false_add(json_client, "nexthopRegistered");
 		}
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-			if (info->af_enabled[afi]) {
-				if (info->route_sync[afi])
-					vty_out(vty,
-						"AFI %d enabled, route sync DONE\n",
-						afi);
-				else {
-					vty_out(vty,
-						"AFI %d enabled, route sync NOT DONE\n",
-						afi);
-					route_sync_done = false;
+
+		json_object_boolean_add(json_client, "routeOwnerNotification",
+					client->notify_owner);
+
+		/* Route statistics - IPv4 */
+		json_ipv4 = json_object_new_object();
+		json_object_int_add(json_ipv4, "add", client->v4_route_add_cnt);
+		json_object_int_add(json_ipv4, "update", client->v4_route_upd8_cnt);
+		json_object_int_add(json_ipv4, "delete", client->v4_route_del_cnt);
+		json_object_object_add(json_client, "ipv4Routes", json_ipv4);
+
+		/* Route statistics - IPv6 */
+		json_ipv6 = json_object_new_object();
+		json_object_int_add(json_ipv6, "add", client->v6_route_add_cnt);
+		json_object_int_add(json_ipv6, "update", client->v6_route_upd8_cnt);
+		json_object_int_add(json_ipv6, "delete", client->v6_route_del_cnt);
+		json_object_object_add(json_client, "ipv6Routes", json_ipv6);
+
+		/* Redist v4 */
+		json_redistv4 = json_object_new_object();
+		json_object_int_add(json_redistv4, "add", client->redist_v4_add_cnt);
+		json_object_int_add(json_redistv4, "delete", client->redist_v4_del_cnt);
+		json_object_object_add(json_client, "redistV4", json_redistv4);
+
+		/* Redist v6 */
+		json_redistv6 = json_object_new_object();
+		json_object_int_add(json_redistv6, "add", client->redist_v6_add_cnt);
+		json_object_int_add(json_redistv6, "delete", client->redist_v6_del_cnt);
+		json_object_object_add(json_client, "redistV6", json_redistv6);
+
+		/* Nexthop groups */
+		json_nhg = json_object_new_object();
+		json_object_int_add(json_nhg, "add", client->nhg_add_cnt);
+		json_object_int_add(json_nhg, "update", client->nhg_upd8_cnt);
+		json_object_int_add(json_nhg, "delete", client->nhg_del_cnt);
+		json_object_object_add(json_client, "nexthopGroups", json_nhg);
+
+		/* VRF */
+		json_vrf = json_object_new_object();
+		json_object_int_add(json_vrf, "add", client->vrfadd_cnt);
+		json_object_int_add(json_vrf, "delete", client->vrfdel_cnt);
+		json_object_object_add(json_client, "vrf", json_vrf);
+
+		/* Connected */
+		json_connected = json_object_new_object();
+		json_object_int_add(json_connected, "add", client->ifadd_cnt);
+		json_object_int_add(json_connected, "delete", client->ifdel_cnt);
+		json_object_object_add(json_client, "connected", json_connected);
+
+		/* Interface */
+		json_intf = json_object_new_object();
+		json_object_int_add(json_intf, "up", client->ifup_cnt);
+		json_object_int_add(json_intf, "down", client->ifdown_cnt);
+		json_object_object_add(json_client, "interface", json_intf);
+
+		/* Interface Address */
+		json_intfaddr = json_object_new_object();
+		json_object_int_add(json_intfaddr, "add", client->connected_rt_add_cnt);
+		json_object_int_add(json_intfaddr, "delete", client->connected_rt_del_cnt);
+		json_object_object_add(json_client, "interfaceAddress", json_intfaddr);
+
+		/* BFD peer */
+		json_bfd = json_object_new_object();
+		json_object_int_add(json_bfd, "add", client->bfd_peer_add_cnt);
+		json_object_int_add(json_bfd, "update", client->bfd_peer_upd8_cnt);
+		json_object_int_add(json_bfd, "delete", client->bfd_peer_del_cnt);
+		json_object_object_add(json_client, "bfdPeer", json_bfd);
+
+		/* NHT v4 */
+		json_nhtv4 = json_object_new_object();
+		json_object_int_add(json_nhtv4, "add", client->v4_nh_watch_add_cnt);
+		json_object_int_add(json_nhtv4, "delete", client->v4_nh_watch_rem_cnt);
+		json_object_object_add(json_client, "nexthopTrackingV4", json_nhtv4);
+
+		/* NHT v6 */
+		json_nhtv6 = json_object_new_object();
+		json_object_int_add(json_nhtv6, "add", client->v6_nh_watch_add_cnt);
+		json_object_int_add(json_nhtv6, "delete", client->v6_nh_watch_rem_cnt);
+		json_object_object_add(json_client, "nexthopTrackingV6", json_nhtv6);
+
+		/* VxLAN SG */
+		json_vxlan = json_object_new_object();
+		json_object_int_add(json_vxlan, "add", client->vxlan_sg_add_cnt);
+		json_object_int_add(json_vxlan, "delete", client->vxlan_sg_del_cnt);
+		json_object_object_add(json_client, "vxlanSg", json_vxlan);
+
+		/* EVPN statistics */
+		json_evpn = json_object_new_object();
+
+		/* VNI */
+		json_vni = json_object_new_object();
+		json_object_int_add(json_vni, "add", client->vniadd_cnt);
+		json_object_int_add(json_vni, "delete", client->vnidel_cnt);
+		json_object_object_add(json_evpn, "vni", json_vni);
+
+		/* L3-VNI */
+		json_l3vni = json_object_new_object();
+		json_object_int_add(json_l3vni, "add", client->l3vniadd_cnt);
+		json_object_int_add(json_l3vni, "delete", client->l3vnidel_cnt);
+		json_object_object_add(json_evpn, "l3vni", json_l3vni);
+
+		/* MAC-IP */
+		json_macip = json_object_new_object();
+		json_object_int_add(json_macip, "add", client->macipadd_cnt);
+		json_object_int_add(json_macip, "delete", client->macipdel_cnt);
+		json_object_object_add(json_evpn, "macIp", json_macip);
+
+		/* ES */
+		json_es = json_object_new_object();
+		json_object_int_add(json_es, "add", client->local_es_add_cnt);
+		json_object_int_add(json_es, "delete", client->local_es_del_cnt);
+		json_object_object_add(json_evpn, "es", json_es);
+
+		/* ES-EVI */
+		json_esevi = json_object_new_object();
+		json_object_int_add(json_esevi, "add", client->local_es_evi_add_cnt);
+		json_object_int_add(json_esevi, "delete", client->local_es_evi_del_cnt);
+		json_object_object_add(json_evpn, "esEvi", json_esevi);
+
+		json_object_object_add(json_client, "evpn", json_evpn);
+
+		/* Error count */
+		json_object_int_add(json_client, "errors", client->error_cnt);
+
+		/* Graceful restart info */
+		if (!TAILQ_EMPTY(&client->gr_info_queue)) {
+			json_gr_info = json_object_new_array();
+
+			TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+				json_object *json_gr_item = json_object_new_object();
+				afi_t afi;
+				bool route_sync_done = true;
+				char timebuf[MONOTIME_STRLEN];
+				const char *capability_str;
+
+				json_object_string_add(json_gr_item, "vrf",
+						       vrf_id_to_name(info->vrf_id));
+
+				switch (info->capabilities) {
+				case ZEBRA_CLIENT_GR_CAPABILITIES:
+					capability_str = "gracefulRestart";
+					break;
+				case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+				case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+				case ZEBRA_CLIENT_GR_DISABLE:
+				case ZEBRA_CLIENT_RIB_STALE_TIME:
+				default:
+					capability_str = "none";
+					break;
+				}
+				json_object_string_add(json_gr_item, "capabilities",
+						       capability_str);
+
+				json_object *json_afis = json_object_new_array();
+
+				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+					if (!info->af_enabled[afi])
+						continue;
+					json_object *json_afi_item = json_object_new_object();
+
+					json_object_int_add(json_afi_item, "afi", afi);
+					json_object_boolean_add(json_afi_item, "routeSync",
+								info->route_sync[afi]);
+					if (!info->route_sync[afi])
+						route_sync_done = false;
+					json_object_array_add(json_afis, json_afi_item);
+				}
+				json_object_object_add(json_gr_item, "afis", json_afis);
+
+				if (route_sync_done) {
+					time_to_string(info->route_sync_done_time, timebuf);
+					json_object_string_add(json_gr_item, "routeSyncFinishedAt",
+							       timebuf);
+				}
+
+				json_object_array_add(json_gr_info, json_gr_item);
+			}
+			json_object_object_add(json_client, "gracefulRestartInfo", json_gr_info);
+		}
+
+		/* FIFO queues */
+		json_fifo = json_object_new_object();
+		json_object_int_add(json_fifo, "inputCount", client->ibuf_fifo->count);
+		json_object_int_add(json_fifo, "inputMaxCount", client->ibuf_fifo->max_count);
+		json_object_int_add(json_fifo, "outputCount", client->obuf_fifo->count);
+		json_object_int_add(json_fifo, "outputMaxCount", client->obuf_fifo->max_count);
+		json_object_object_add(json_client, "fifo", json_fifo);
+
+		/* Add this client to the JSON array */
+		json_object_array_add(json, json_client);
+	} else {
+		/* Text output (existing format) */
+		vty_out(vty, "Client: %s", zebra_route_string(client->proto));
+		if (client->instance)
+			vty_out(vty, " Instance: %u", client->instance);
+		if (client->session_id)
+			vty_out(vty, " [%u]", client->session_id);
+		vty_out(vty, "\n");
+
+		vty_out(vty, "------------------------ \n");
+		vty_out(vty, "FD: %d \n", client->sock);
+
+		vty_out(vty, "Connect Time: %s \n",
+			zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF));
+		if (client->nh_reg_time) {
+			vty_out(vty, "Nexthop Registry Time: %s \n",
+				zserv_time_buf(&client->nh_reg_time, nhbuf, ZEBRA_TIME_BUF));
+			if (client->nh_last_upd_time)
+				vty_out(vty, "Nexthop Last Update Time: %s \n",
+					zserv_time_buf(&client->nh_last_upd_time, mbuf,
+						       ZEBRA_TIME_BUF));
+			else
+				vty_out(vty, "No Nexthop Update sent\n");
+		} else
+			vty_out(vty, "Not registered for Nexthop Updates\n");
+
+		vty_out(vty, "Client will %sbe notified about the status of its routes.\n",
+			client->notify_owner ? "" : "Not ");
+
+		vty_out(vty, "Last Msg Rx Time: %s \n",
+			zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF));
+		vty_out(vty, "Last Msg Tx Time: %s \n",
+			zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF));
+		if (last_read_cmd)
+			vty_out(vty, "Last Rcvd Cmd: %s \n", zserv_command_string(last_read_cmd));
+		if (last_write_cmd)
+			vty_out(vty, "Last Sent Cmd: %s \n", zserv_command_string(last_write_cmd));
+		vty_out(vty, "\n");
+
+		vty_out(vty, "Type        Add         Update      Del \n");
+		vty_out(vty, "================================================== \n");
+		vty_out(vty, "IPv4        %-12u%-12u%-12u\n", client->v4_route_add_cnt,
+			client->v4_route_upd8_cnt, client->v4_route_del_cnt);
+		vty_out(vty, "IPv6        %-12u%-12u%-12u\n", client->v6_route_add_cnt,
+			client->v6_route_upd8_cnt, client->v6_route_del_cnt);
+		vty_out(vty, "Redist:v4   %-12u%-12u%-12u\n", client->redist_v4_add_cnt, 0,
+			client->redist_v4_del_cnt);
+		vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt, 0,
+			client->redist_v6_del_cnt);
+		vty_out(vty, "NHG         %-12u%-12u%-12u\n", client->nhg_add_cnt,
+			client->nhg_upd8_cnt, client->nhg_del_cnt);
+		vty_out(vty, "VRF         %-12u%-12u%-12u\n", client->vrfadd_cnt, 0,
+			client->vrfdel_cnt);
+		vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
+			client->ifdel_cnt);
+		vty_out(vty, "Interface   %-12u%-12u%-12u\n", client->ifup_cnt, 0,
+			client->ifdown_cnt);
+		vty_out(vty, "Intf Addr   %-12u%-12u%-12u\n", client->connected_rt_add_cnt, 0,
+			client->connected_rt_del_cnt);
+		vty_out(vty, "BFD peer    %-12u%-12u%-12u\n", client->bfd_peer_add_cnt,
+			client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
+		vty_out(vty, "NHT v4      %-12u%-12u%-12u\n", client->v4_nh_watch_add_cnt, 0,
+			client->v4_nh_watch_rem_cnt);
+		vty_out(vty, "NHT v6      %-12u%-12u%-12u\n", client->v6_nh_watch_add_cnt, 0,
+			client->v6_nh_watch_rem_cnt);
+		vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt, 0,
+			client->vxlan_sg_del_cnt);
+		vty_out(vty, "VNI         %-12u%-12u%-12u\n", client->vniadd_cnt, 0,
+			client->vnidel_cnt);
+		vty_out(vty, "L3-VNI      %-12u%-12u%-12u\n", client->l3vniadd_cnt, 0,
+			client->l3vnidel_cnt);
+		vty_out(vty, "MAC-IP      %-12u%-12u%-12u\n", client->macipadd_cnt, 0,
+			client->macipdel_cnt);
+		vty_out(vty, "ES          %-12u%-12u%-12u\n", client->local_es_add_cnt, 0,
+			client->local_es_del_cnt);
+		vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n", client->local_es_evi_add_cnt, 0,
+			client->local_es_evi_del_cnt);
+		vty_out(vty, "Errors: %u\n", client->error_cnt);
+
+		TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+			afi_t afi;
+			bool route_sync_done = true;
+			char timebuf[MONOTIME_STRLEN];
+
+			vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
+			vty_out(vty, "Capabilities : ");
+			switch (info->capabilities) {
+			case ZEBRA_CLIENT_GR_CAPABILITIES:
+				vty_out(vty, "Graceful Restart\n");
+				break;
+			case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+			case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+			case ZEBRA_CLIENT_GR_DISABLE:
+			case ZEBRA_CLIENT_RIB_STALE_TIME:
+				vty_out(vty, "None\n");
+				break;
+			}
+			for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+				if (info->af_enabled[afi]) {
+					if (info->route_sync[afi])
+						vty_out(vty, "AFI %d enabled, route sync DONE\n",
+							afi);
+					else {
+						vty_out(vty,
+							"AFI %d enabled, route sync NOT DONE\n",
+							afi);
+						route_sync_done = false;
+					}
 				}
 			}
+			if (route_sync_done) {
+				time_to_string(info->route_sync_done_time, timebuf);
+				vty_out(vty, "Route sync finished at %s", timebuf);
+			}
 		}
-		if (route_sync_done) {
-			time_to_string(info->route_sync_done_time, timebuf);
-			vty_out(vty, "Route sync finished at %s", timebuf);
-		}
+
+		vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
+			client->ibuf_fifo->count, client->ibuf_fifo->max_count,
+			client->obuf_fifo->count, client->obuf_fifo->max_count);
+
+		vty_out(vty, "\n");
 	}
-
-	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
-		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
-		client->obuf_fifo->count, client->obuf_fifo->max_count);
-
-	vty_out(vty, "\n");
 }
 
 /* Display stale client information */
-static void zebra_show_stale_client_detail(struct vty *vty,
-					   struct zserv *client)
+static void zebra_show_stale_client_detail(struct vty *vty, struct zserv *client,
+					   json_object *json __attribute__((unused)))
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t uptime;
@@ -1307,10 +1576,9 @@ static struct zserv *find_client_internal(uint8_t proto,
 					  unsigned short instance,
 					  uint32_t session_id)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client = NULL;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->proto == proto && client->instance == instance &&
 		    client->session_id == session_id)
 			break;
@@ -1351,27 +1619,51 @@ struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 }
 
 /* This command is for debugging purpose. */
-DEFUN (show_zebra_client,
+DEFPY (show_zebra_client,
        show_zebra_client_cmd,
-       "show zebra client",
+       "show zebra client [json$json]",
        SHOW_STR
        ZEBRA_STR
-       "Client information\n")
+       "Client information\n"
+       JSON_STR)
 {
-	struct listnode *node;
 	struct zserv *client;
+	json_object *json_clients = NULL;
+	json_object *json_protocol_array;
+	bool uj = !!json;
+	const char *protocol_name;
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		zebra_show_client_detail(vty, client);
-		/* Show GR info if present */
-		zebra_show_stale_client_detail(vty, client);
+	if (uj)
+		json_clients = json_object_new_object();
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (uj) {
+			protocol_name = zebra_route_string(client->proto);
+
+			/* Get or create the array for this protocol */
+			if (!json_object_object_get_ex(json_clients, protocol_name,
+						       &json_protocol_array)) {
+				json_protocol_array = json_object_new_array();
+				json_object_object_add(json_clients, protocol_name,
+						       json_protocol_array);
+			}
+
+			zebra_show_client_detail(vty, client, json_protocol_array);
+		} else {
+			zebra_show_client_detail(vty, client, NULL);
+			/* Show GR info if present */
+			zebra_show_stale_client_detail(vty, client, NULL);
+		}
 	}
+
+	if (uj)
+		vty_json(vty, json_clients);
 
 	return CMD_SUCCESS;
 }
 
 /* This command is for debugging purpose. */
-DEFUN (show_zebra_client_summary,
+DEFPY (show_zebra_client_summary,
        show_zebra_client_summary_cmd,
        "show zebra client summary",
        SHOW_STR
@@ -1379,7 +1671,6 @@ DEFUN (show_zebra_client_summary,
        "Client information brief\n"
        "Brief Summary\n")
 {
-	struct listnode *node;
 	struct zserv *client;
 
 	vty_out(vty,
@@ -1387,7 +1678,7 @@ DEFUN (show_zebra_client_summary,
 	vty_out(vty,
 		"------------------------------------------------------------------------------------------\n");
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client)
 		zebra_show_client_brief(vty, client);
 
 	vty_out(vty, "Routes column shows (added+updated)/deleted\n");
@@ -1396,11 +1687,11 @@ DEFUN (show_zebra_client_summary,
 
 static int zserv_client_close_cb(struct zserv *closed_client)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client = NULL;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (client->proto == closed_client->proto)
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (client->proto == closed_client->proto ||
+		    client->pthread == NULL)
 			continue;
 
 		zsend_client_close_notify(client, closed_client);
@@ -1412,8 +1703,8 @@ static int zserv_client_close_cb(struct zserv *closed_client)
 void zserv_init(void)
 {
 	/* Client list init. */
-	zrouter.client_list = list_new();
-	zrouter.stale_client_list = list_new();
+	zserv_client_list_init(&zrouter.client_list);
+	zserv_stale_client_list_init(&zrouter.stale_client_list);
 
 	/* Misc init. */
 	zsock = -1;

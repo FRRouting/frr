@@ -79,6 +79,14 @@ may also be specified (:ref:`common-invocation-options`).
    When using UNIX sockets don't forget to check the file permissions
    before attempting to use it.
 
+.. option:: --vrfs <vrf-list>
+
+   Configure which VRFs the BFD daemon will listen. By default BFD
+   listens on all VRFs present in the system, including the default VRF.
+   Default VRF must be specified as "default".
+
+   For example:
+      ``--vrfs public,vrf1,vrf2``
 
 .. _bfd-commands:
 
@@ -142,14 +150,15 @@ BFD peers and profiles share the same BFD session configuration commands.
 .. clicmd:: detect-multiplier (1-255)
 
    Configures the detection multiplier to determine packet loss. The
-   remote transmission interval will be multiplied by this value to
-   determine the connection loss detection timer. The default value is
-   3.
+   larger value of a comparison between the local system's `transmit-interval`
+   and the remote system's `receive-interval` will be multiplied by this value
+   to determine the connection loss detection timer on the remote system. The
+   default value is 3.
 
-   Example: when the local system has `detect-multiplier 3` and  the
-   remote system has `transmission interval 300`, the local system will
-   detect failures only after 900 milliseconds without receiving
-   packets.
+   Example: when the local system has `detect-multiplier 3` with
+   `transmit-interval 300`, and the remote system has `receive-interval 200`
+   the remote system will detect failures only after 900 milliseconds without
+   receiving packets.
 
 .. clicmd:: receive-interval (10-4294967)
 
@@ -215,6 +224,11 @@ BFD peers and profiles share the same BFD session configuration commands.
    The default value is 254 (which means we only expect one hop between
    this system and the peer).
 
+.. clicmd:: log-session-changes
+
+   Enables or disables logging of session state transitions into Up
+   state or when the session transitions from Up state to Down state.
+
 
 BFD Peer Specific Commands
 --------------------------
@@ -247,6 +261,20 @@ The following commands are available inside the BGP configuration node.
    the connection with its neighbor and, when it goes back up, notify
    BGP to try to connect to it.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd strict [hold-time <seconds>]
+
+   Strict mode is similar to the default mode, but it will not allow BGP to
+   establish a connection with the peer until the BFD session is up. This
+   mode is useful when you want to avoid having BGP sessions up when the
+   underlying link is down. And if the BFD session goes down, the BGP session will
+   be closed immediately. The same is if BFD is administratively down.
+
+   When the BGP hold-time is turned off (zero/0), BGP will not send a notifications
+   immediately when the BFD session goes down, but it will wait for the hold-time
+   to expire before sending the notification. This is useful when you want to
+   avoid BGP session flapping when the BFD session goes down, but you still want
+   to have the BGP session down when the BFD session is down for a longer period
+   of time.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 

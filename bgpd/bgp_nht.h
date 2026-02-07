@@ -25,11 +25,10 @@ extern void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
  *   peer - The BGP peer associated with this NHT
  *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
-				   struct bgp *bgp_nexthop, afi_t a,
-				   safi_t safi, struct bgp_path_info *p,
-				   struct peer *peer, int connected,
-				   const struct prefix *orig_prefix);
+extern int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_t a,
+				   safi_t safi, struct bgp_path_info *p, struct peer *peer,
+				   int connected, const struct prefix *orig_prefix,
+				   struct bgp_path_info *source_pi);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.
@@ -38,7 +37,7 @@ extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
  */
 extern void bgp_unlink_nexthop(struct bgp_path_info *p);
 void bgp_unlink_nexthop_by_peer(struct peer *peer);
-void bgp_replace_nexthop_by_peer(struct peer *from, struct peer *to);
+void bgp_replace_nexthop_by_peer(struct peer_connection *from, struct peer_connection *to);
 /**
  * bgp_delete_connected_nexthop() - Reset the 'peer' pointer for a connected
  * nexthop entry. If no paths reference the nexthop, it will be unregistered
@@ -83,4 +82,9 @@ extern void bgp_nht_ifp_up(struct interface *ifp);
 extern void bgp_nht_ifp_down(struct interface *ifp);
 
 extern void bgp_nht_interface_events(struct peer *peer);
+
+/* called when a path becomes valid or invalid, because of nexthop tracking */
+DECLARE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
+	     (bgp, pi, valid));
+
 #endif /* _BGP_NHT_H */

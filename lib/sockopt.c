@@ -5,6 +5,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "log.h"
 #include "sockopt.h"
 #include "sockunion.h"
@@ -738,4 +742,22 @@ int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
 
 	return 0;
 #endif
+}
+
+/* set IP_TRANSPARENT to socket */
+void sockopt_ip_transparent(int sock)
+{
+	int err = -1;
+
+#if defined(IP_TRANSPARENT)
+	const char flag_on = 1;
+
+	err = setsockopt(sock, SOL_IP, IP_TRANSPARENT, &flag_on, sizeof(flag_on));
+#else
+	err = ENOPROTOOPT;
+#endif
+	if (err < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "%s failed: setsockopt(%d, IP_TRANSPARENT): %s",
+			     __func__, sock, safe_strerror(errno));
+	}
 }

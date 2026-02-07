@@ -122,6 +122,15 @@ DEFPY  (ldp_discovery_link_interval,
 	return (ldp_vty_disc_interval(vty, no, HELLO_LINK, interval));
 }
 
+DEFPY  (ldp_disable_establish_hello,
+	ldp_disable_establish_hello_cmd,
+	"[no] disable-establish-hello",
+	NO_STR
+	"Disable sending additional LDP hello message on establishing LDP tcp connection\n")
+{
+	return ldp_vty_disable_establish_hello(vty, no);
+}
+
 DEFPY  (ldp_discovery_targeted_interval,
 	ldp_discovery_targeted_interval_cmd,
 	"[no] discovery targeted-hello interval (1-65535)$interval",
@@ -866,9 +875,11 @@ ldp_vty_init (void)
 
 	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_link_interval_cmd);
+	install_element(LDP_IPV4_IFACE_NODE, &ldp_disable_establish_hello_cmd);
 
 	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_interval_cmd);
+	install_element(LDP_IPV6_IFACE_NODE, &ldp_disable_establish_hello_cmd);
 
 	install_element(LDP_L2VPN_NODE, &ldp_bridge_cmd);
 	install_element(LDP_L2VPN_NODE, &ldp_mtu_cmd);

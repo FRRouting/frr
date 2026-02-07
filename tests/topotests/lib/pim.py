@@ -24,7 +24,7 @@ from lib.common_config import (
     run_frr_cmd,
     validate_ip_address,
 )
-from lib.micronet import get_exec_path
+from lib.micronet import get_exec_path, comm_error
 from lib.topolog import logger
 from lib.topotest import frr_unicode
 
@@ -53,20 +53,20 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
             "pim": {
                 "join-prune-interval": "5",
                 "rp": [{
-                    "rp_addr" : "1.0.3.17".
-                    "keep-alive-timer": "100"
-                    "group_addr_range": ["224.1.1.0/24", "225.1.1.0/24"]
-                    "prefix-list": "pf_list_1"
+                    "rp_addr" : "1.0.3.17",
+                    "keep-alive-timer": "100",
+                    "group_addr_range": ["224.1.1.0/24", "225.1.1.0/24"],
+                    "prefix-list": "pf_list_1",
                     "delete": True
                 }]
             },
             "pim6": {
                 "disable" : ["l1-i1-eth1"],
                 "rp": [{
-                    "rp_addr" : "2001:db8:f::5:17".
-                    "keep-alive-timer": "100"
-                    "group_addr_range": ["FF00::/8"]
-                    "prefix-list": "pf_list_1"
+                    "rp_addr" : "2001:db8:f::5:17",
+                    "keep-alive-timer": "100",
+                    "group_addr_range": ["FF00::/8"],
+                    "prefix-list": "pf_list_1",
                     "delete": True
                 }]
             }
@@ -209,7 +209,7 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
 
                 if rp_addr:
                     if group_addr_range:
-                        if type(group_addr_range) is not list:
+                        if not isinstance(group_addr_range, list):
                             group_addr_range = [group_addr_range]
 
                         for grp_addr in group_addr_range:
@@ -268,7 +268,7 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                     "r1-r0-eth0" :{
                         "igmp":{
                             "version":  "2",
-                            "delete": True
+                            "delete": True,
                             "query": {
                                 "query-interval" : 100,
                                 "query-max-response-time": 200
@@ -509,13 +509,14 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
             cmd = "interface {}".format(interface_name)
             config_data.append(cmd)
             config_data.append("ip pim")
+            config_data.append("exit")
 
         if "pim" in input_dict[router]:
             if "disable" in input_dict[router]["pim"]:
                 enable_flag = False
                 interfaces = input_dict[router]["pim"]["disable"]
 
-                if type(interfaces) is not list:
+                if not isinstance(interfaces, list):
                     interfaces = [interfaces]
 
                 for interface in interfaces:
@@ -539,7 +540,7 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
                 enable_flag = False
                 interfaces = input_dict[router]["pim6"]["disable"]
 
-                if type(interfaces) is not list:
+                if not isinstance(interfaces, list):
                     interfaces = [interfaces]
 
                 for interface in interfaces:
@@ -664,7 +665,7 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
                 force_expire_data = pim_data["force_expire"]
 
                 for source, groups in force_expire_data.items():
-                    if type(groups) is not list:
+                    if not isinstance(groups, list):
                         groups = [groups]
 
                     for group in groups:
@@ -981,7 +982,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     logger.info("[DUT: %s]: Verifying IGMP groups received:", dut)
     show_ip_igmp_json = run_frr_cmd(rnode, "show ip igmp groups json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface in show_ip_igmp_json:
@@ -1073,10 +1074,10 @@ def verify_upstream_iif(
         dut,
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
-    if type(iif) is not list:
+    if not isinstance(iif, list):
         iif = [iif]
 
     for grp in group_addresses:
@@ -1257,7 +1258,7 @@ def verify_join_state_and_timer(
         dut,
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -1604,10 +1605,10 @@ def verify_pim_rp_info(
 
     rnode = tgen.routers()[dut]
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
-    if oif is not None and type(oif) is not list:
+    if oif is not None and not isinstance(oif, list):
         oif = [oif]
 
     for grp in group_addresses:
@@ -1836,7 +1837,7 @@ def verify_pim_state(
 
     logger.info("[DUT: %s]: Verifying pim state", dut)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -2419,7 +2420,7 @@ def clear_igmp_interfaces(tgen, dut):
     total_groups_before_clear = igmp_json["totalGroups"]
 
     for _, value in igmp_json.items():
-        if type(value) is not dict:
+        if not isinstance(value, dict):
             continue
 
         groups = value["groups"]
@@ -2444,7 +2445,7 @@ def clear_igmp_interfaces(tgen, dut):
             break
 
     for key, value in igmp_json.items():
-        if type(value) is not dict:
+        if not isinstance(value, dict):
             continue
 
         groups = value["groups"]
@@ -2512,7 +2513,7 @@ def clear_mroute_verify(tgen, dut, expected=True):
     # RFC 3376: 8.2. Query Interval - Default: 125 seconds
     # So waiting for maximum 130 sec to get the igmp report
     for _ in range(1, 26):
-        logger.info("[DUT: %s]: Waiting for 2 sec for mroutes" " to come up", dut)
+        logger.info("[DUT: %s]: Waiting for 5 sec for mroutes to come up", dut)
         sleep(5)
         keys_json1 = mroute_json_1.keys()
         mroute_json_2 = run_frr_cmd(rnode, "show ip mroute json", isjson=True)
@@ -2520,20 +2521,27 @@ def clear_mroute_verify(tgen, dut, expected=True):
         if bool(mroute_json_2):
             keys_json2 = mroute_json_2.keys()
 
+            all_groups_ready = True
             for group in mroute_json_2.keys():
-                flag = False
+                group_ready = False
                 for key in mroute_json_2[group].keys():
-                    if "oil" not in mroute_json_2[group]:
+                    if "oil" not in mroute_json_2[group][key]:
                         continue
 
                     for _key, _value in mroute_json_2[group][key]["oil"].items():
                         if _key != "pimreg" and keys_json1 == keys_json2:
+                            group_ready = True
                             break
-                            flag = True
-            if flag:
+                    if group_ready:
+                        break
+
+                if not group_ready:
+                    all_groups_ready = False
+                    break
+
+            if all_groups_ready:
+                logger.info("[DUT: %s]: Mroutes repopulated, exiting early!", dut)
                 break
-            else:
-                continue
 
     for group in mroute_json_2.keys():
         mroute_after_clear[group] = {}
@@ -3107,7 +3115,7 @@ def verify_pim_upstream_rpf(
             "show_ip_pim_upstream_rpf_json: \n %s", show_ip_pim_upstream_rpf_json
         )
 
-        if type(group_addresses) is not list:
+        if not isinstance(group_addresses, list):
             group_addresses = [group_addresses]
 
         for grp_addr in group_addresses:
@@ -3307,7 +3315,7 @@ def verify_pim_join(
 
     logger.info("[DUT: %s]: Verifying pim join", dut)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -3998,7 +4006,7 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
         rnode, "show ip pim upstream json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp_addr in group_addresses:
@@ -4072,7 +4080,7 @@ def verify_multicast_flag_state(
         error_msg = "[DUT %s]: mroutes are not present or flushed out !!" % (dut)
         return error_msg
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp_addr in group_addresses:
@@ -4275,6 +4283,94 @@ class McastTesterHelper(HostApplicationHelper):
 
         return True
 
+    def stop_traffic_senders(self):
+        """
+        Stop only the traffic sender processes (mcast-tester.py with --send flag)
+        while keeping IGMP join processes (mcast-tester.py without --send flag) running.
+        """
+        hosts_to_clean = []
+
+        for host in self.host_procs:
+            hlogger = self.tgen.net[host].logger
+            procs_to_remove = []
+
+            for i, (p, v) in enumerate(self.host_procs[host]):
+                # Check if this process is a traffic sender by examining command line
+                try:
+                    # Get the command line arguments
+                    cmdline = p.args if hasattr(p, "args") else []
+
+                    # Check if --send flag is present in the command
+                    is_sender = any("--send" in str(arg) for arg in cmdline)
+
+                    if is_sender:
+                        self.stopping_proc(host, p, v)
+                        logger.debug(
+                            "%s: %s: terminating traffic sender process %s",
+                            self,
+                            host,
+                            p.pid,
+                        )
+                        hlogger.debug(
+                            "%s: %s: terminating traffic sender process %s",
+                            self,
+                            host,
+                            p.pid,
+                        )
+
+                        rc = p.poll()
+                        if rc is not None:
+                            logger.error(
+                                "%s: %s: traffic sender process early exit %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                            hlogger.error(
+                                "%s: %s: traffic sender process early exit %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                        else:
+                            p.terminate()
+                            p.wait()
+                            logger.debug(
+                                "%s: %s: terminated traffic sender process %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                            hlogger.debug(
+                                "%s: %s: terminated traffic sender process %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+
+                        procs_to_remove.append(i)
+
+                except Exception as e:
+                    logger.warning(
+                        "%s: %s: could not check process %s: %s", self, host, p.pid, e
+                    )
+
+            # Remove terminated processes from tracking (in reverse order to maintain indices)
+            for i in reversed(procs_to_remove):
+                del self.host_procs[host][i]
+
+            # If no processes left for this host, mark for cleanup
+            if not self.host_procs[host]:
+                hosts_to_clean.append(host)
+
+        # Clean up empty host entries
+        for host in hosts_to_clean:
+            del self.host_procs[host]
+
 
 @retry(retry_timeout=62)
 def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
@@ -4311,7 +4407,7 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
     logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
     show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_ip_local_igmp_json:
@@ -4384,7 +4480,7 @@ def verify_static_groups(tgen, dut, interface, group_addresses):
         rnode, "show ip igmp static-group json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_static_group_json:
@@ -4460,9 +4556,9 @@ def verify_local_igmp_proxy_groups(
     out = rnode.vtysh_cmd("show ip igmp proxy json", isjson=True)
     groups = [g["group"] if "group" in g else None for g in out["r1-eth1"]["groups"]]
 
-    if type(group_addresses_present) is not list:
+    if not isinstance(group_addresses_present, list):
         group_addresses_present = [group_addresses_present]
-    if type(group_addresses_not_present) is not list:
+    if not isinstance(group_addresses_not_present, list):
         group_addresses_not_present = [group_addresses_not_present]
 
     for test_addr in group_addresses_present:
@@ -4588,7 +4684,7 @@ def verify_mld_groups(tgen, dut, interface, group_addresses, expected=True):
     logger.info("[DUT: %s]: Verifying mld groups received:", dut)
     show_mld_json = run_frr_cmd(rnode, "show ipv6 mld groups json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface in show_mld_json:
@@ -5370,7 +5466,7 @@ def verify_local_mld_groups(tgen, dut, interface, group_addresses):
         rnode, "show ipv6 mld join json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_ipv6_local_mld_json["default"]:

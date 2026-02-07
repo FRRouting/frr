@@ -123,7 +123,6 @@ DEFUN_NOSH(no_pbr_map,
 			continue;
 
 		pbr_map_delete(pbrms);
-		pbr_map_sequence_delete(pbrms);
 	}
 
 	return CMD_SUCCESS;
@@ -1296,7 +1295,10 @@ DEFPY  (pbr_map_nexthop,
 	/* This is new/replacement config */
 	pbrms_clear_set_config(pbrms);
 
-	pbr_nht_add_individual_nexthop(pbrms, &nhop);
+	if (!pbr_nht_add_individual_nexthop(pbrms, &nhop)) {
+		vty_out(vty, "%% Failed to create table identifier\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	pbr_map_check(pbrms, true);
 
@@ -1488,7 +1490,7 @@ pbrms_nexthop_group_write_individual_nexthop(
 {
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_group_cache *pnhgc;
-	struct pbr_nexthop_cache lookup;
+	struct pbr_nexthop_cache lookup = {};
 	struct pbr_nexthop_cache *pnhc;
 
 	memset(&find, 0, sizeof(find));

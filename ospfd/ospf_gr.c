@@ -33,7 +33,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_gr_clippy.c"
 
-static void ospf_gr_grace_period_expired(struct event *thread);
+static void ospf_gr_grace_period_expired(struct event *event);
 
 /* Lookup self-originated Grace-LSA in the LSDB. */
 static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf,
@@ -225,7 +225,7 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 		zlog_debug("GR: exiting graceful restart: %s", reason);
 
 	ospf->gr_info.restart_in_progress = false;
-	EVENT_OFF(ospf->gr_info.t_grace_period);
+	event_cancel(&ospf->gr_info.t_grace_period);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, onode, area)) {
 		struct ospf_interface *oi;
@@ -241,7 +241,7 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 			/* Disable hello delay. */
 			if (oi->gr.hello_delay.t_grace_send) {
 				oi->gr.hello_delay.elapsed_seconds = 0;
-				EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+				event_cancel(&oi->gr.hello_delay.t_grace_send);
 				OSPF_ISM_TIMER_MSEC_ON(oi->t_hello,
 						       ospf_hello_timer, 1);
 			}
@@ -547,18 +547,18 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static void ospf_gr_grace_period_expired(struct event *thread)
+static void ospf_gr_grace_period_expired(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
-void ospf_gr_iface_send_grace_lsa(struct event *thread)
+void ospf_gr_iface_send_grace_lsa(struct event *event)
 {
-	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(event);
 	struct ospf_if_params *params = IF_DEF_PARAMS(oi->ifp);
 
 	ospf_gr_lsa_originate(oi, oi->ospf->gr_info.reason, false);

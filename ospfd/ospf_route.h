@@ -117,48 +117,45 @@ struct ospf_route {
 
 extern const char *ospf_path_type_name(int path_type);
 extern struct ospf_path *ospf_path_new(void);
-extern void ospf_path_free(struct ospf_path *);
-extern struct ospf_path *ospf_path_lookup(struct list *, struct ospf_path *);
+extern void ospf_path_free(struct ospf_path *op);
+extern struct ospf_path *ospf_path_lookup(struct list *plist, struct ospf_path *path);
 extern struct ospf_route *ospf_route_new(void);
-extern void ospf_route_free(struct ospf_route *);
-extern void ospf_route_delete(struct ospf *, struct route_table *);
-extern void ospf_route_table_free(struct route_table *);
+extern void ospf_route_free(struct ospf_route *or);
+extern void ospf_route_delete(struct ospf *ospf, struct route_table *rt);
+extern void ospf_route_table_free(struct route_table *rt);
 
-extern void ospf_route_install(struct ospf *, struct route_table *);
-extern void ospf_route_table_dump(struct route_table *);
+extern void ospf_route_install(struct ospf *ospf, struct route_table *rt);
+extern void ospf_route_table_dump(struct route_table *rt);
 extern void ospf_router_route_table_dump(struct route_table *rt);
 
-extern void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-				  struct ospf_area *area, bool add_all);
+extern void ospf_intra_add_router(struct route_table *rt, struct vertex *v, struct ospf_area *area,
+				  bool add_all);
 
-extern void ospf_intra_add_transit(struct route_table *, struct vertex *,
-				   struct ospf_area *);
+extern void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
+				   struct ospf_area *area);
 
-extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *,
-				struct vertex *, struct ospf_area *,
-				int parent_is_root, int);
+extern void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
+				struct vertex *v, struct ospf_area *area, int parent_is_root,
+				int lsa_pos);
 
-extern int ospf_route_cmp(struct ospf *, struct ospf_route *,
-			  struct ospf_route *);
-extern void ospf_route_copy_nexthops(struct ospf_route *, struct list *);
-extern void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
-						 struct ospf_route *,
-						 struct vertex *);
+extern int ospf_route_cmp(struct ospf *ospf, struct ospf_route *or1, struct ospf_route *or2);
+extern void ospf_route_copy_nexthops(struct ospf_route *to, struct list *from);
+extern void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area, struct ospf_route *to,
+						 struct vertex *v);
 
-extern void ospf_route_subst(struct route_node *, struct ospf_route *,
-			     struct ospf_route *);
-extern void ospf_route_add(struct route_table *, struct prefix_ipv4 *,
-			   struct ospf_route *, struct ospf_route *);
+extern void ospf_route_subst(struct route_node *rn, struct ospf_route *new_or,
+			     struct ospf_route *over);
+extern void ospf_route_add(struct route_table *rt, struct prefix_ipv4 *p,
+			   struct ospf_route *new_or, struct ospf_route *over);
 
-extern void ospf_route_subst_nexthops(struct ospf_route *, struct list *);
-extern void ospf_prune_unreachable_networks(struct route_table *);
-extern void ospf_prune_unreachable_routers(struct route_table *);
-extern int ospf_add_discard_route(struct ospf *, struct route_table *,
-				  struct ospf_area *, struct prefix_ipv4 *,
-				  bool);
-extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
-				      struct prefix_ipv4 *, bool);
-extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
-				 struct ospf_route *);
+extern void ospf_route_subst_nexthops(struct ospf_route *to, struct list *from);
+extern void ospf_prune_unreachable_networks(struct route_table *rt);
+extern void ospf_prune_unreachable_routers(struct route_table *rtrs);
+extern int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt, struct ospf_area *area,
+				  struct prefix_ipv4 *p, bool check_subtree);
+extern void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
+				      struct prefix_ipv4 *p, bool force_delete);
+extern int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *p,
+				 struct ospf_route *newor);
 
 #endif /* _ZEBRA_OSPF_ROUTE_H */

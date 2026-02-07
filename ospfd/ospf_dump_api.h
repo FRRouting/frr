@@ -23,7 +23,7 @@ extern const int ospf_link_state_id_type_msg_max;
 extern const int ospf_network_type_msg_max;
 extern const size_t ospf_auth_type_str_max;
 
-extern char *ospf_options_dump(uint8_t);
-extern void ospf_lsa_header_dump(struct lsa_header *);
+extern char *ospf_options_dump(uint8_t options);
+extern void ospf_lsa_header_dump(struct lsa_header *lsah);
 
 #endif /* _ZEBRA_OSPF_DUMP_API_H */

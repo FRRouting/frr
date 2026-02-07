@@ -129,8 +129,19 @@ static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 #else
 static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 {
-	setsockopt_ipv6_pktinfo(fd, 1);
-	setsockopt_ipv6_multicast_hops(fd, mttl);
+	if (setsockopt_ipv6_pktinfo(fd, 1)) {
+		zlog_warn("%s: could not set IPV6_PKTINFO on socket fd=%d: %s", __func__, fd,
+			  safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_PKTINFO;
+	}
+
+	if (setsockopt_ipv6_multicast_hops(fd, mttl)) {
+		zlog_warn("%s: could not set IPV6_MULTICAST_HOPS=%d on fd=%d: %s", __func__, mttl,
+			  fd, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_MCAST_HOPS;
+	}
 
 	if (setsockopt_ipv6_multicast_loop(fd, 0)) {
 		zlog_warn(
@@ -155,10 +166,13 @@ static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 
 static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 {
-	struct sockaddr_storage sockaddr;
+#if PIM_IPV == 4
+	struct sockaddr_in sockaddr;
+#else
+	struct sockaddr_in6 sockaddr;
+#endif
 	int fd;
 	int ret;
-	socklen_t len = sizeof(sockaddr);
 
 	fd = socket(PIM_AF, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
@@ -167,8 +181,15 @@ static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
-
-	pim_socket_getsockname(fd, (struct sockaddr *)&sockaddr, &len);
+#if PIM_IPV == 4
+	sockaddr.sin_addr = addr;
+	sockaddr.sin_port = htons(port);
+	sockaddr.sin_family = PIM_AF;
+#else
+	sockaddr.sin6_addr = addr;
+	sockaddr.sin6_port = htons(port);
+	sockaddr.sin6_family = PIM_AF;
+#endif
 
 	if (bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr))) {
 		zlog_warn(
@@ -195,7 +216,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
 	assert(ss);
 
-	EVENT_OFF(ss->t_sock_read);
+	event_cancel(&ss->t_sock_read);
 
 	if (close(ss->sock_fd)) {
 		zlog_warn(

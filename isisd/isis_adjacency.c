@@ -19,6 +19,7 @@
 #include "if.h"
 #include "stream.h"
 #include "bfd.h"
+#include "lib/json.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -91,7 +92,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	}
 	adj->adj_sids = list_new();
 	adj->srv6_endx_sids = list_new();
-	listnode_add(circuit->area->adjacency_list, adj);
+	isis_area_adj_list_add_tail(&circuit->area->adjacency_list, adj);
 
 	return adj;
 }
@@ -121,13 +122,12 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
-struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
-				     const uint8_t *sysid)
+const struct isis_adjacency *isis_adj_find(const struct isis_area *area,
+					   int level, const uint8_t *sysid)
 {
-	struct isis_adjacency *adj;
-	struct listnode *node;
+	const struct isis_adjacency *adj;
 
-	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+	frr_each (isis_area_adj_list_const, &area->adjacency_list, adj) {
 		if (!(adj->level & level))
 			continue;
 
@@ -149,7 +149,7 @@ void isis_delete_adj(void *arg)
 	/* Remove self from snmp list without walking the list*/
 	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	EVENT_OFF(adj->t_expire);
+	event_cancel(&adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 
@@ -163,7 +163,7 @@ void isis_delete_adj(void *arg)
 	list_delete(&adj->adj_sids);
 	list_delete(&adj->srv6_endx_sids);
 
-	listnode_delete(adj->circuit->area->adjacency_list, adj);
+	isis_area_adj_list_del(&adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
 }
@@ -486,16 +486,17 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
-void isis_adj_expire(struct event *thread)
+void isis_adj_expire(struct event *event)
 {
 	struct isis_adjacency *adj;
 
 	/*
 	 * Get the adjacency
 	 */
-	adj = EVENT_ARG(thread);
+	adj = EVENT_ARG(event);
 	assert(adj);
 	adj->t_expire = NULL;
 
@@ -653,7 +654,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 			json_object_object_add(iface_json, "ipv6-link-local",
 					       ipv6_link_json);
 			for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
-				char buf[INET6_ADDRSTRLEN];
 				inet_ntop(AF_INET6, &adj->ll_ipv6_addrs[i], buf,
 					  sizeof(buf));
 				json_object_string_add(ipv6_link_json, "ipv6",
@@ -666,7 +666,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 					       ipv6_non_link_json);
 			for (unsigned int i = 0; i < adj->global_ipv6_count;
 			     i++) {
-				char buf[INET6_ADDRSTRLEN];
 				inet_ntop(AF_INET6, &adj->global_ipv6_addrs[i],
 					  buf, sizeof(buf));
 				json_object_string_add(ipv6_non_link_json,
@@ -946,4 +945,5 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return -1;
 }

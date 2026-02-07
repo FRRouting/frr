@@ -57,15 +57,15 @@ struct isis_vertex {
 			enum spf_prefix_priority priority;
 		} ip;
 	} N;
-	uint32_t d_N;	  /* d(N) Distance from this IS      */
-	uint16_t depth;	/* The depth in the imaginary tree */
-	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
-	struct list *parents;  /* list of parents for ECMP */
+	uint32_t d_N;		/* d(N) Distance from this IS      */
+	uint16_t depth;		/* The depth in the imaginary tree */
+	struct list *Adj_N;	/* {Adj(N)} next hop or neighbor list */
+	struct list *parents;	/* list of parents for ECMP */
 	struct hash *firsthops; /* first two hops to neighbor */
 	uint64_t insert_counter;
 	uint8_t flags;
 };
-#define F_ISIS_VERTEX_LFA_PROTECTED	0x01
+#define F_ISIS_VERTEX_LFA_PROTECTED 0x01
 
 /* Vertex Queue and associated functions */
 
@@ -78,8 +78,7 @@ struct isis_vertex_queue {
 	uint64_t insert_counter;
 };
 
-__attribute__((__unused__))
-static unsigned isis_vertex_queue_hash_key(const void *vp)
+__attribute__((__unused__)) static unsigned isis_vertex_queue_hash_key(const void *vp)
 {
 	const struct isis_vertex *vertex = vp;
 
@@ -94,8 +93,7 @@ static unsigned isis_vertex_queue_hash_key(const void *vp)
 	return jhash(vertex->N.id, ISIS_SYS_ID_LEN + 1, 0x55aa5a5a);
 }
 
-__attribute__((__unused__))
-static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
+__attribute__((__unused__)) static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
 {
 	const struct isis_vertex *va = a, *vb = b;
 
@@ -107,8 +105,7 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
 			return false;
 
 		return prefix_cmp((const struct prefix *)&va->N.ip.p.src,
-				  (const struct prefix *)&vb->N.ip.p.src)
-		       == 0;
+				  (const struct prefix *)&vb->N.ip.p.src) == 0;
 	}
 
 	return memcmp(va->N.id, vb->N.id, ISIS_SYS_ID_LEN + 1) == 0;
@@ -118,8 +115,7 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
  * Compares vertizes for sorting in the TENT list. Returns true
  * if candidate should be considered before current, false otherwise.
  */
-__attribute__((__unused__)) static int isis_vertex_queue_tent_cmp(const void *a,
-								  const void *b)
+__attribute__((__unused__)) static int isis_vertex_queue_tent_cmp(const void *a, const void *b)
 {
 	const struct isis_vertex *va = a;
 	const struct isis_vertex *vb = b;
@@ -145,15 +141,13 @@ __attribute__((__unused__)) static int isis_vertex_queue_tent_cmp(const void *a,
 	return 0;
 }
 
-__attribute__((__unused__))
-static struct skiplist *isis_vertex_queue_skiplist(void)
+__attribute__((__unused__)) static struct skiplist *isis_vertex_queue_skiplist(void)
 {
 	return skiplist_new(0, isis_vertex_queue_tent_cmp, NULL);
 }
 
-__attribute__((__unused__))
-static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
-				   const char *name, bool ordered)
+__attribute__((__unused__)) static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
+							       const char *name, bool ordered)
 {
 	if (ordered) {
 		queue->insert_counter = 1;
@@ -162,30 +156,26 @@ static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
 		queue->insert_counter = 0;
 		queue->l.list = list_new();
 	}
-	queue->hash = hash_create(isis_vertex_queue_hash_key,
-				  isis_vertex_queue_hash_cmp, name);
+	queue->hash = hash_create(isis_vertex_queue_hash_key, isis_vertex_queue_hash_cmp, name);
 }
 
 void isis_vertex_del(struct isis_vertex *vertex);
 
-bool isis_vertex_adj_exists(const struct isis_spftree *spftree,
-			    const struct isis_vertex *vertex,
+bool isis_vertex_adj_exists(const struct isis_spftree *spftree, const struct isis_vertex *vertex,
 			    const struct isis_spf_adj *sadj);
 void isis_vertex_adj_free(void *arg);
-struct isis_vertex_adj *
-isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
-		    struct list *vadj_list, struct isis_spf_adj *sadj,
-		    struct isis_prefix_sid *psid, bool last_hop);
+struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
+					    struct isis_vertex *vertex, struct list *vadj_list,
+					    struct isis_spf_adj *sadj,
+					    struct isis_prefix_sid *psid, bool last_hop);
 
-__attribute__((__unused__))
-static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
+__attribute__((__unused__)) static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
 {
 	hash_clean(queue->hash, NULL);
 
 	if (queue->insert_counter) {
 		struct isis_vertex *vertex;
-		while (0 == skiplist_first(queue->l.slist, NULL,
-					   (void **)&vertex)) {
+		while (0 == skiplist_first(queue->l.slist, NULL, (void **)&vertex)) {
 			isis_vertex_del(vertex);
 			skiplist_delete_first(queue->l.slist);
 		}
@@ -197,8 +187,7 @@ static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
 	}
 }
 
-__attribute__((__unused__))
-static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
+__attribute__((__unused__)) static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
 {
 	isis_vertex_queue_clear(queue);
 
@@ -212,15 +201,14 @@ static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
 		list_delete(&queue->l.list);
 }
 
-__attribute__((__unused__))
-static unsigned int isis_vertex_queue_count(struct isis_vertex_queue *queue)
+__attribute__((__unused__)) static unsigned int
+isis_vertex_queue_count(struct isis_vertex_queue *queue)
 {
 	return hashcount(queue->hash);
 }
 
-__attribute__((__unused__))
-static void isis_vertex_queue_append(struct isis_vertex_queue *queue,
-				     struct isis_vertex *vertex)
+__attribute__((__unused__)) static void isis_vertex_queue_append(struct isis_vertex_queue *queue,
+								 struct isis_vertex *vertex)
 {
 	assert(!queue->insert_counter);
 
@@ -232,8 +220,8 @@ static void isis_vertex_queue_append(struct isis_vertex_queue *queue,
 	assert(inserted == vertex);
 }
 
-__attribute__((__unused__))
-static struct isis_vertex *isis_vertex_queue_last(struct isis_vertex_queue *queue)
+__attribute__((__unused__)) static struct isis_vertex *
+isis_vertex_queue_last(struct isis_vertex_queue *queue)
 {
 	struct listnode *tail;
 
@@ -243,9 +231,8 @@ static struct isis_vertex *isis_vertex_queue_last(struct isis_vertex_queue *queu
 	return listgetdata(tail);
 }
 
-__attribute__((__unused__))
-static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
-				     struct isis_vertex *vertex)
+__attribute__((__unused__)) static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
+								 struct isis_vertex *vertex)
 {
 	assert(queue->insert_counter);
 	vertex->insert_counter = queue->insert_counter++;
@@ -258,8 +245,7 @@ static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
 	assert(inserted == vertex);
 }
 
-__attribute__((__unused__))
-static struct isis_vertex *
+__attribute__((__unused__)) static struct isis_vertex *
 isis_vertex_queue_pop(struct isis_vertex_queue *queue)
 {
 	assert(queue->insert_counter);
@@ -275,9 +261,8 @@ isis_vertex_queue_pop(struct isis_vertex_queue *queue)
 	return rv;
 }
 
-__attribute__((__unused__))
-static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
-				     struct isis_vertex *vertex)
+__attribute__((__unused__)) static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
+								 struct isis_vertex *vertex)
 {
 	assert(queue->insert_counter);
 
@@ -285,8 +270,7 @@ static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
 	hash_release(queue->hash, vertex);
 }
 
-#define ALL_QUEUE_ELEMENTS_RO(queue, node, data)                               \
-	ALL_LIST_ELEMENTS_RO((queue)->l.list, node, data)
+#define ALL_QUEUE_ELEMENTS_RO(queue, node, data) ALL_LIST_ELEMENTS_RO((queue)->l.list, node, data)
 
 /* End of vertex queue definitions */
 
@@ -299,8 +283,8 @@ struct isis_spftree {
 	struct hash *prefix_sids; /* SR Prefix-SIDs. */
 	struct list *sadj_list;
 	struct isis_spf_nodes adj_nodes;
-	struct isis_area *area;    /* back pointer to area */
-	unsigned int runcount;     /* number of runs since uptime */
+	struct isis_area *area;	   /* back pointer to area */
+	unsigned int runcount;	   /* number of runs since uptime */
 	time_t last_run_timestamp; /* last run timestamp as wall time for display */
 	time_t last_run_monotime;  /* last run as monotime for scheduling */
 	time_t last_run_duration;  /* last run duration in msec */
@@ -353,16 +337,15 @@ struct isis_spftree {
 	uint8_t flags;
 };
 #define F_SPFTREE_HOPCOUNT_METRIC 0x01
-#define F_SPFTREE_NO_ROUTES 0x02
-#define F_SPFTREE_NO_ADJACENCIES 0x04
+#define F_SPFTREE_NO_ROUTES	  0x02
+#define F_SPFTREE_NO_ADJACENCIES  0x04
 #ifndef FABRICD
 /* flex-algo */
 #define F_SPFTREE_DISABLED 0x08
 #endif /* ifndef FABRICD */
 
-__attribute__((__unused__))
-static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
-				enum vertextype vtype)
+__attribute__((__unused__)) static void isis_vertex_id_init(struct isis_vertex *vertex,
+							    const void *id, enum vertextype vtype)
 {
 	vertex->type = vtype;
 
@@ -375,10 +358,8 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
 	}
 }
 
-__attribute__((__unused__))
-static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue,
-					    const void *id,
-					    enum vertextype vtype)
+__attribute__((__unused__)) static struct isis_vertex *
+isis_find_vertex(struct isis_vertex_queue *queue, const void *id, enum vertextype vtype)
 {
 	struct isis_vertex querier;
 
@@ -386,9 +367,8 @@ static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue,
 	return hash_lookup(queue->hash, &querier);
 }
 
-__attribute__((__unused__))
-static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
-				       struct isis_vertex *vertex)
+__attribute__((__unused__)) static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
+								   struct isis_vertex *vertex)
 {
 	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 

@@ -15,7 +15,7 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 				     uint16_t new_pos)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-	struct listnode *area_node, *fa_node;
+	struct listnode *fa_node;
 	struct isis_area *area;
 	struct flex_algo *fa;
 	bool changed;
@@ -23,7 +23,7 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 	if (!isis)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, area_node, area)) {
+	frr_each (isis_area_list, &isis->area_list, area) {
 		changed = false;
 		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, fa_node,
 					  fa)) {
@@ -64,4 +64,8 @@ void isis_affinity_map_init(void)
 	affinity_map_set_update_hook(isis_affinity_map_update);
 }
 
+void isis_affinity_map_terminate(void)
+{
+	affinity_map_terminate();
+}
 #endif /* ifndef FABRICD */

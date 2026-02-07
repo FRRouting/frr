@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-backend {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/oper";
+  prefix frr-backend;
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for FRR backend management.
+
+     Copyright (c) 2024, LabN Consulting, L.L.C.
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2024-12-29 {
+    description "Initial revision";
+    reference "FRR source code";
+  }
+
+  container clients {
+    config false;
+    description "The backend clients";
+
+    list client {
+      key name;
+      description "A backend client";
+
+      leaf name {
+        type string;
+        description "Name of the backend client";
+      }
+
+      container state {
+        description "FRR backend operational state";
+
+        leaf candidate-config-version {
+          type uint64;
+          description "Local candidate config version.";
+        }
+        leaf running-config-version {
+          type uint64;
+          description "Local running config version.";
+        }
+        leaf edit-count {
+          type uint64;
+          description "Number of config edits handled.";
+        }
+        leaf avg-edit-time {
+          type uint64;
+          description "Average edit time in microseconds.";
+        }
+        leaf prep-count {
+          type uint64;
+          description "Number of config preps handled.";
+        }
+        leaf avg-prep-time {
+          type uint64;
+          description "Average prep time in microseconds.";
+        }
+        leaf apply-count {
+          type uint64;
+          description "Number of config applies handled.";
+        }
+        leaf avg-apply-time {
+          type uint64;
+          description "Average apply time in microseconds.";
+        }
+        leaf-list notify-selectors {
+          type string;
+          description
+            "List of paths identifying which state to send change
+               notifications for.";
+        }
+      }
+    }
+  }
+}

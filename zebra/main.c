@@ -34,7 +34,6 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
-#include "zebra/irdp.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ns.h"
@@ -57,7 +56,7 @@
 char *zserv_path;
 
 /* process id. */
-pid_t pid;
+pid_t zebra_pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
 struct event_loop *master;
@@ -80,6 +79,7 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
+#define OPTION_NEXTHOP_WEIGHT_16_BIT 2003
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -90,6 +90,7 @@ const struct option longopts[] = {
 	{ "retain", no_argument, NULL, 'r' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+	{ "nexthop-weight-16-bit", no_argument, NULL, OPTION_NEXTHOP_WEIGHT_16_BIT },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
@@ -134,7 +135,6 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct listnode *ln, *nn;
 	struct zserv *client;
 	static bool sigint_done;
 
@@ -163,15 +163,13 @@ static void sigint(void)
 	zebra_dplane_pre_finish();
 
 	/* Clean up GR related info. */
-	zebra_gr_stale_client_cleanup(zrouter.stale_client_list);
-	list_delete_all_node(zrouter.stale_client_list);
+	zebra_gr_stale_client_cleanup();
 
 	/* Clean up zapi clients and server module */
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
+	frr_each_safe (zserv_client_list, &zrouter.client_list, client)
 		zserv_close_client(client);
 
 	zserv_close();
-	list_delete_all_node(zrouter.client_list);
 
 	/* Once all the zclients are cleaned up, clean up the opaque module */
 	zebra_opaque_finish();
@@ -202,9 +200,6 @@ static void sigint(void)
 
 	rib_update_finish();
 
-	list_delete(&zrouter.client_list);
-	list_delete(&zrouter.stale_client_list);
-
 	/*
 	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
 	 * routes for removal from the kernel, unless ZEBRA_VRF_RETAIN is set.
@@ -216,6 +211,9 @@ static void sigint(void)
 	 * with the 'finalize' function.
 	 */
 	zebra_dplane_finish();
+
+	/* Clean up if any stale NHGs present */
+	zebra_nhg_sweep_table(zrouter.nhgs_id, true);
 }
 
 /*
@@ -253,9 +251,15 @@ void zebra_finalize(struct event *dummy)
 
 	label_manager_terminate();
 
+	affinity_map_terminate();
+
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
+
+	zserv_client_list_fini(&zrouter.client_list);
+	zserv_stale_client_list_fini(&zrouter.stale_client_list);
+
 	frr_fini();
 	exit(0);
 }
@@ -287,6 +291,7 @@ struct frr_signal_t zebra_signals[] = {
 
 /* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
@@ -296,15 +301,13 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_affinity_map_info,
 	&frr_zebra_route_map_info,
 };
-/* clang-format on */
 
-/* clang-format off */
 FRR_DAEMON_INFO(zebra, ZEBRA,
 	.vty_port = ZEBRA_VTY_PORT,
 	.proghelp =
 		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
 
-	.flags = FRR_NO_ZCLIENT,
+	.flags = FRR_NO_ZCLIENT | FRR_MGMTD_BACKEND,
 
 	.signals = zebra_signals,
 	.n_signals = array_size(zebra_signals),
@@ -314,6 +317,37 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 	.yang_modules = zebra_yang_modules,
 	.n_yang_modules = array_size(zebra_yang_modules),
 );
+
+static const char *const zebra_config_xpaths[] = {
+	"/frr-affinity-map:lib",
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-route-map:lib",
+	"/frr-zebra:zebra",
+	"/frr-interface:lib",
+	"/frr-vrf:lib",
+};
+
+static const char *const zebra_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-interface:lib/interface",
+	"/frr-vrf:lib/vrf",
+	"/frr-zebra:zebra",
+};
+
+static const char *const zebra_rpc_xpaths[] = {
+	"/frr-logging",
+};
+
+struct mgmt_be_client_cbs zebra_be_client_data = {
+	.config_xpaths = zebra_config_xpaths,
+	.nconfig_xpaths = array_size(zebra_config_xpaths),
+	.oper_xpaths = zebra_oper_xpaths,
+	.noper_xpaths = array_size(zebra_oper_xpaths),
+	.rpc_xpaths = zebra_rpc_xpaths,
+	.nrpc_xpaths = array_size(zebra_rpc_xpaths),
+};
 /* clang-format on */
 
 void zebra_main_router_started(void)
@@ -331,7 +365,7 @@ void zebra_main_router_started(void)
 	zrouter.rib_sweep_time = 0;
 	zrouter.graceful_restart = zebra_di.graceful_restart;
 	if (!zrouter.graceful_restart)
-		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, &zrouter.t_rib_sweep);
 	else {
 		int gr_cleanup_time;
 
@@ -353,10 +387,12 @@ int main(int argc, char **argv)
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
+	bool nexthop_weight_16_bit = false;
 
 	zserv_path = NULL;
 
-	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+	if_notify_oper_changes = true;
+	vrf_notify_oper_changes = true;
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -366,21 +402,22 @@ int main(int argc, char **argv)
 #endif
 		    ,
 		    longopts,
-		    "  -b, --batch               Runs in batch mode\n"
-		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
-		    "  -z, --socket              Set path of zebra socket\n"
-		    "  -e, --ecmp                Specify ECMP to use.\n"
-		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
-		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
+		    "  -b, --batch                 Runs in batch mode\n"
+		    "  -a, --allow_delete          Allow other processes to delete zebra routes\n"
+		    "  -z, --socket                Set path of zebra socket\n"
+		    "  -e, --ecmp                  Specify ECMP to use.\n"
+		    "  -r, --retain                When program terminates, retain added route by zebra.\n"
+		    "  -A, --asic-offload          FRR is interacting with an asic underneath the linux kernel\n"
+		    "      --v6-with-v4-nexthops   Underlying dataplane supports v6 routes with v4 nexthops\n"
+		    "      --nexthop-weight-16-bit Use 16 bit nexthop weights instead of 8\n"
 #ifdef HAVE_NETLINK
-		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
-		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
-		    "      --v6-rr-semantics     Use v6 RR semantics\n"
+		    "  -s, --nl-bufsize            Set netlink receive buffer size\n"
+		    "  -n, --vrfwnetns             Use NetNS as VRF backend (deprecated, use -w)\n"
+		    "      --v6-rr-semantics       Use v6 RR semantics\n"
 #else
-		    "  -s,                       Set kernel socket receive buffer size\n"
+		    "  -s,                         Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
-		    "  -R, --routing-table       Set kernel routing table\n");
+		    "  -R, --routing-table         Set kernel routing table\n");
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -409,7 +446,7 @@ int main(int argc, char **argv)
 					MULTIPATH_NUM);
 				return 1;
 			}
-			zrouter.multipath_num = parsed_multipath;
+			zrouter.zav.multipath_num = parsed_multipath;
 			break;
 		}
 		case 'z':
@@ -436,10 +473,12 @@ int main(int argc, char **argv)
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
-			zrouter.v6_rr_semantics = true;
+			zrouter.zav.v6_rr_semantics = true;
 			break;
 		case OPTION_ASIC_OFFLOAD:
 			if (!strcmp(optarg, "notify_on_offload"))
@@ -452,6 +491,9 @@ int main(int argc, char **argv)
 			v6_with_v4_nexthop = true;
 			break;
 #endif /* HAVE_NETLINK */
+		case OPTION_NEXTHOP_WEIGHT_16_BIT:
+			nexthop_weight_16_bit = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
@@ -461,7 +503,7 @@ int main(int argc, char **argv)
 
 	/* Zebra related initialize. */
 	libagentx_init();
-	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
+	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop, nexthop_weight_16_bit);
 	zserv_init();
 	zebra_rib_init();
 	zebra_if_init();
@@ -476,8 +518,7 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
-	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
-					       zrouter.master);
+	mgmt_be_client = mgmt_be_client_create("zebra", &zebra_be_client_data, 0, zrouter.master);
 	access_list_init_new(true);
 	prefix_list_init();
 
@@ -516,7 +557,7 @@ int main(int argc, char **argv)
 	 */
 
 	/* Needed for BSD routing socket. */
-	pid = getpid();
+	zebra_pid = getpid();
 
 	/* Start dataplane system */
 	zebra_dplane_start();

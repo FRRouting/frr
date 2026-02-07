@@ -167,7 +167,7 @@ void pim_clear_nocache_state(struct pim_interface *pim_ifp)
 		if (*oil_incoming_vif(c_oil) != pim_ifp->mroute_vif_index)
 			continue;
 
-		EVENT_OFF(c_oil->up->t_ka_timer);
+		event_cancel(&c_oil->up->t_ka_timer);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(c_oil->up->flags);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(c_oil->up->flags);
 		pim_upstream_del(pim_ifp->pim, c_oil->up, __func__);

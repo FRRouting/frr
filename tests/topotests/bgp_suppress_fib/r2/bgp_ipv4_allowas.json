@@ -47,7 +47,7 @@
       "sourced":true,
       "bestpath":{
         "overall":true,
-        "selectionReason":"Weight"
+        "selectionReason":"Admin Distance"
       },
       "fibInstalled":true,
       "nexthops":[

@@ -6,6 +6,20 @@ FRR Release Procedure
 ``<version>`` - version to be released, e.g. 7.3
 ``origin`` - FRR upstream repository
 
+
+Stage 0 - Pre-release Preparation
+---------------------------------
+
+#. Check dataplane API version number, and update if necessary
+
+   Check for dataplane API changes in ``zebra/zebra_dplane.h`` since
+   the previous release. If there has been a major API change, update
+   the major version number; otherwise update the minor version
+   number. The version number is in ``zebra/zebra_dplane.c``. The PRs
+   that made API changes should have updated this number, but it's
+   worth double-checking at release-time.
+
+
 Stage 1 - Preparation
 ---------------------
 
@@ -256,10 +270,10 @@ Stage 3 - Publish
    .. code-block:: console
 
       # The number of commits
-      % git log --oneline --no-merges base_8.2...base_8.1 | wc -l
+      % git log --oneline --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
       # The number of commiters
-      % git shortlog --summary --no-merges base_8.2...base_8.1 | wc -l
+      % git shortlog --summary --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
    Make sure to add a link to the GitHub releases page at the top.
 

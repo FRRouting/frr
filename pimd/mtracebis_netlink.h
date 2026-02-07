@@ -36,8 +36,7 @@ extern int rtnl_wilddump_request(struct rtnl_handle *rth, int fam, int type);
 extern int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req,
 			     int len);
 
-typedef int (*rtnl_filter_t)(const struct sockaddr_nl *, struct nlmsghdr *n,
-			     void *);
+typedef int (*rtnl_filter_t)(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg);
 
 struct rtnl_dump_filter_arg {
 	rtnl_filter_t filter;
@@ -54,8 +53,8 @@ extern int rtnl_dump_filter(struct rtnl_handle *rth, rtnl_filter_t filter,
 extern int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 		     unsigned groups, struct nlmsghdr *answer,
 		     rtnl_filter_t junk, void *jarg);
-extern int rtnl_send(struct rtnl_handle *rth, const char *buf, int);
-extern int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int);
+extern int rtnl_send(struct rtnl_handle *rth, const char *buf, int len);
+extern int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len);
 
 extern int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data);
 extern int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
@@ -86,8 +85,8 @@ extern int __parse_rtattr_nested_compat(struct rtattr *tb[], int max,
 		__parse_rtattr_nested_compat(tb, max, rta, len);               \
 	})
 
-extern int rtnl_listen(struct rtnl_handle *, rtnl_filter_t handler, void *jarg);
-extern int rtnl_from_file(FILE *, rtnl_filter_t handler, void *jarg);
+extern int rtnl_listen(struct rtnl_handle *rtnl, rtnl_filter_t handler, void *jarg);
+extern int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler, void *jarg);
 
 #define NLMSG_TAIL(nmsg)                                                       \
 	((struct rtattr *)(((uint8_t *)(nmsg))                                 \

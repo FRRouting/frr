@@ -15,14 +15,15 @@
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
-#define __dbg(fmt, ...)                                                        \
-	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
-#define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
+#define _log_warn(fmt, ...) zlog_warn("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define _log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 struct mgmt_ds_ctx {
-	Mgmtd__DatastoreId ds_id;
+	enum mgmt_ds_id ds_id;
 
 	bool locked;
+	uint64_t txn_locked;	 /* lock held by txn */
 	uint64_t vty_session_id; /* Owner of the lock or 0 */
 
 	bool config_ds;
@@ -40,6 +41,13 @@ const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1] = {
 	MGMTD_DS_NAME_OPERATIONAL, /* MGMTD_DS_OPERATIONAL */
 	"Unknown/Invalid",	 /* MGMTD_DS_ID_MAX */
 };
+
+/* Make sure that the datastore IDs match with the ones in mgmt_msg_native.h */
+_Static_assert(MGMTD_DS_NONE == MGMT_MSG_DATASTORE_NONE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_RUNNING == MGMT_MSG_DATASTORE_RUNNING, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_CANDIDATE == MGMT_MSG_DATASTORE_CANDIDATE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_OPERATIONAL == MGMT_MSG_DATASTORE_OPERATIONAL, "Datastore ID mismatch");
+
 
 static struct mgmt_master *mgmt_ds_mm;
 static struct mgmt_ds_ctx running, candidate, oper;
@@ -74,14 +82,12 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 	return 0;
 }
 
-static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
-					   struct mgmt_ds_ctx *dst)
+static int ds_copy(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src)
 {
 	if (!src || !dst)
 		return -1;
 
-	__dbg("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
-	      mgmt_ds_id2name(src->ds_id));
+	_dbg("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id), mgmt_ds_id2name(src->ds_id));
 
 	if (src->config_ds && dst->config_ds)
 		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
@@ -95,15 +101,14 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 	return 0;
 }
 
-static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
-					 struct mgmt_ds_ctx *dst)
+static int ds_merge(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src)
 {
 	int ret;
 
 	if (!src || !dst)
 		return -1;
 
-	__dbg("Merging DS %d with %d", dst->ds_id, src->ds_id);
+	_dbg("Merging DS %d with %d", dst->ds_id, src->ds_id);
 	if (src->config_ds && dst->config_ds)
 		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
 				      true);
@@ -113,7 +118,7 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 src->root.dnode_root, 0);
 	}
 	if (ret != 0) {
-		__log_err("merge failed with err: %d", ret);
+		_log_err("merge failed with err: %d", ret);
 		return ret;
 	}
 
@@ -151,9 +156,9 @@ void mgmt_ds_reset_candidate(void)
 }
 
 
-int mgmt_ds_init(struct mgmt_master *mm)
+int mgmt_ds_init(struct mgmt_master *m)
 {
-	if (mgmt_ds_mm || mm->running_ds || mm->candidate_ds || mm->oper_ds)
+	if (mgmt_ds_mm || m->running_ds || m->candidate_ds || m->oper_ds)
 		assert(!"MGMTD: Call ds_init only once!");
 
 	/* Use Running DS from NB module??? */
@@ -178,10 +183,10 @@ int mgmt_ds_init(struct mgmt_master *mm)
 	oper.config_ds = false;
 	oper.ds_id = MGMTD_DS_OPERATIONAL;
 
-	mm->running_ds = &running;
-	mm->candidate_ds = &candidate;
-	mm->oper_ds = &oper;
-	mgmt_ds_mm = mm;
+	m->running_ds = &running;
+	m->candidate_ds = &candidate;
+	m->oper_ds = &oper;
+	mgmt_ds_mm = m;
 
 	return 0;
 }
@@ -195,19 +200,16 @@ void mgmt_ds_destroy(void)
 	oper.root.dnode_root = NULL;
 }
 
-struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
-					  Mgmtd__DatastoreId ds_id)
+struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *m, enum mgmt_ds_id ds_id)
 {
 	switch (ds_id) {
 	case MGMTD_DS_CANDIDATE:
-		return (mm->candidate_ds);
+		return (m->candidate_ds);
 	case MGMTD_DS_RUNNING:
-		return (mm->running_ds);
+		return (m->running_ds);
 	case MGMTD_DS_OPERATIONAL:
-		return (mm->oper_ds);
+		return (m->oper_ds);
 	case MGMTD_DS_NONE:
-	case MGMTD__DATASTORE_ID__STARTUP_DS:
-	case _MGMTD__DATASTORE_ID_IS_INT_SIZE:
 		return 0;
 	}
 
@@ -222,43 +224,120 @@ bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds;
 }
 
-bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
+bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id, uint64_t *txn_id)
 {
-	assert(ds_ctx);
-	return (ds_ctx->locked && ds_ctx->vty_session_id == session_id);
+	if (!ds_ctx)
+		return false;
+
+	if (ds_ctx->locked && session_id)
+		*session_id = ds_ctx->vty_session_id;
+	if (ds_ctx->txn_locked && txn_id)
+		*txn_id = ds_ctx->txn_locked;
+
+	return ds_ctx->locked || ds_ctx->txn_locked;
 }
 
 int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 
-	if (ds_ctx->locked)
-		return EBUSY;
+	if (ds_ctx->locked) {
+		_log_err("LOCK already taken on DS:%s by session-id %Lu (requesting session-id %Lu)",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, session_id);
+		return -EBUSY;
+	}
+	if (ds_ctx->txn_locked) {
+		_log_err("LOCK already taken on DS:%s by session-less txn-id %Lu (requesting session-id %Lu)",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked, session_id);
+		return -EBUSY;
+	}
+	_dbg("LOCK on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id), session_id);
 
 	ds_ctx->locked = true;
 	ds_ctx->vty_session_id = session_id;
 	return 0;
 }
 
-void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
+void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 	if (!ds_ctx->locked)
-		zlog_warn(
-			"%s: WARNING: unlock on unlocked in DS:%s last session-id %" PRIu64,
-			__func__, mgmt_ds_id2name(ds_ctx->ds_id),
-			ds_ctx->vty_session_id);
+		_log_err("unlock on unlocked in DS:%s last session-id %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
+	else {
+		assert(ds_ctx->vty_session_id == session_id);
+		_dbg("releasing lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+		     ds_ctx->vty_session_id);
+	}
+
 	ds_ctx->locked = 0;
+	ds_ctx->vty_session_id = MGMTD_SESSION_ID_NONE;
+
+	if (ds_ctx->txn_locked)
+		_dbg("TXN-LOCK remains on DS:%s for txn-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+		     ds_ctx->txn_locked);
 }
 
-int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
-		     struct mgmt_ds_ctx *dst_ds_ctx, bool updt_cmt_rec)
+bool mgmt_ds_is_txn_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *txn_id)
 {
-	if (mgmt_ds_replace_dst_with_src_ds(src_ds_ctx, dst_ds_ctx) != 0)
+	if (ds_ctx && ds_ctx->txn_locked) {
+		*txn_id = ds_ctx->txn_locked;
+		return true;
+	}
+	return false;
+}
+
+uint64_t mgmt_ds_txn_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id)
+{
+	assert(ds_ctx);
+
+	if (ds_ctx->txn_locked && ds_ctx->txn_locked != txn_id) {
+		_log_err("TXN-LOCK txn lock held on DS:%s by txn-id: %Lu not txn-id: %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked, txn_id);
+		return ds_ctx->txn_locked;
+	}
+	if (ds_ctx->txn_locked == txn_id) {
+		_log_warn("TXN-LOCK double lock on DS:%s txn-id: %Lu",
+			  mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked);
+		return 0;
+	}
+	_dbg("TXN-LOCK on DS:%s session-id: %Lu txn-id: %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+	     ds_ctx->vty_session_id, txn_id);
+	ds_ctx->txn_locked = txn_id;
+	return 0;
+}
+
+void mgmt_ds_txn_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id)
+{
+	assert(ds_ctx);
+	if (ds_ctx->txn_locked && ds_ctx->txn_locked != txn_id) {
+		_log_err("TXN-UNLOCK: txn lock held on DS:%s by session-id: %Lu txn-id: %Lu not txn-id: %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id,
+			 ds_ctx->txn_locked, txn_id);
+		return;
+	}
+	if (!ds_ctx->txn_locked)
+		_log_warn("TXN-UNLOCK of unlocked on DS:%s session-id: %Lu txn-id: %Lu",
+			  mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, txn_id);
+	else
+		_dbg("TXN-UNLOCK on DS:%s session-id: %Lu txn-id: %Lu",
+		     mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, txn_id);
+	ds_ctx->txn_locked = 0;
+}
+
+void mgmt_ds_restore_nb_config(struct mgmt_ds_ctx *ds_ctx, struct nb_config *backup)
+{
+	assert(ds_ctx->config_ds);
+	nb_config_replace(ds_ctx->root.cfg_root, backup, false);
+}
+
+int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt_cmt_rec)
+{
+	if (ds_copy(dst, src) != 0)
 		return -1;
 
-	if (updt_cmt_rec && dst_ds_ctx->ds_id == MGMTD_DS_RUNNING)
-		mgmt_history_new_record(dst_ds_ctx);
+	if (updt_cmt_rec && dst->ds_id == MGMTD_DS_RUNNING)
+		mgmt_history_new_record(dst);
 
 	return 0;
 }
@@ -299,7 +378,7 @@ static int mgmt_walk_ds_nodes(
 
 	assert(mgmt_ds_node_iter_fn);
 
-	__dbg(" -- START: base xpath: '%s'", base_xpath);
+	_dbg(" -- START: base xpath: '%s'", base_xpath);
 
 	if (!base_dnode)
 		/*
@@ -310,9 +389,8 @@ static int mgmt_walk_ds_nodes(
 	if (!base_dnode)
 		return -1;
 
-	__dbg("           search base schema: '%s'",
-	      lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
-			sizeof(xpath)));
+	_dbg("           search base schema: '%s'",
+	     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath, sizeof(xpath)));
 
 	nbnode = (struct nb_node *)base_dnode->schema->priv;
 	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
@@ -335,7 +413,7 @@ static int mgmt_walk_ds_nodes(
 
 		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
 
-		__dbg(" -- Child xpath: %s", xpath);
+		_dbg(" -- Child xpath: %s", xpath);
 
 		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
 					 mgmt_ds_node_iter_fn, ctx);
@@ -343,7 +421,7 @@ static int mgmt_walk_ds_nodes(
 			break;
 	}
 
-	__dbg(" -- END: base xpath: '%s'", base_xpath);
+	_dbg(" -- END: base xpath: '%s'", base_xpath);
 
 	return ret;
 }
@@ -407,7 +485,7 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 		return -1;
 
 	if (mgmt_ds_load_cfg_from_file(file_path, &iter) != 0) {
-		__log_err("Failed to load config from the file %s", file_path);
+		_log_err("Failed to load config from the file %s", file_path);
 		return -1;
 	}
 
@@ -416,21 +494,18 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	parsed.ds_id = dst->ds_id;
 
 	if (merge)
-		mgmt_ds_merge_src_with_dst_ds(&parsed, dst);
+		ds_merge(dst, &parsed);
 	else
-		mgmt_ds_replace_dst_with_src_ds(&parsed, dst);
+		ds_copy(dst, &parsed);
 
 	nb_config_free(parsed.root.cfg_root);
 
 	return 0;
 }
 
-int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
-		      const char *base_xpath,
-		      void (*mgmt_ds_node_iter_fn)(const char *xpath,
-						   struct lyd_node *node,
-						   struct nb_node *nb_node,
-						   void *ctx),
+int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char *base_xpath,
+		      void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
+						   struct nb_node *nb_node, void *ctx),
 		      void *ctx)
 {
 	int ret = 0;
@@ -450,7 +525,7 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 	 * Oper-state should be kept in mind though for the prefix walk
 	 */
 
-	__dbg(" -- START DS walk for DSid: %d", ds_id);
+	_dbg(" -- START DS walk for DSid: %d", ds_id);
 
 	/* If the base_xpath is empty then crawl the sibblings */
 	if (xpath[0] == 0) {
@@ -506,15 +581,22 @@ void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 
 void mgmt_ds_status_write_one(struct vty *vty, struct mgmt_ds_ctx *ds_ctx)
 {
+	uint64_t session_id = 0;
+	uint64_t txn_id = 0;
+	bool locked;
+
 	if (!ds_ctx) {
 		vty_out(vty, "    >>>>> Datastore Not Initialized!\n");
 		return;
 	}
 
+	locked = mgmt_ds_is_locked(ds_ctx, &session_id, &txn_id);
 	vty_out(vty, "  DS: %s\n", mgmt_ds_id2name(ds_ctx->ds_id));
 	vty_out(vty, "    DS-Hndl: \t\t\t%p\n", ds_ctx);
 	vty_out(vty, "    Config: \t\t\t%s\n",
 		ds_ctx->config_ds ? "True" : "False");
+	vty_out(vty, "    Locked: \t\t\t%s Session-ID: %Lu Txn-ID: %Lu\n",
+		locked ? "True" : "False", session_id, txn_id);
 }
 
 void mgmt_ds_status_write(struct vty *vty)

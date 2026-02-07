@@ -563,7 +563,7 @@ our $Iterators	= qr{
 			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
 			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
 			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
-                        FOREACH_BE_CLIENT_BITS|FOREACH_MGMTD_BE_CLIENT_ID|
+                        FOREACH_BE_CLIENT_BITS|FOREACH_BE_ADAPTER_BITS|FOREACH_SESSION_IN_LIST|
 			LSDB_LOOP
 		  }x;
 
@@ -615,6 +615,8 @@ our $logFunctions = qr{(?x:
 	WARN(?:_RATELIMIT|_ONCE|)|
 	panic|
 	MODULE_[A-Z_]+|
+	(?:debug|log_err)_(?:b|f)e_client|
+	_(?:dbg|log_err)|
 	seq_vprintf|seq_printf|seq_puts
 )};
 
@@ -3245,7 +3247,7 @@ sub process {
 # A correctly formed commit description is:
 #    commit <SHA-1 hash length 12+ chars> ("Complete commit subject")
 # with the commit subject '("' prefix and '")' suffix
-# This is a fairly compilicated block as it tests for what appears to be
+# This is a fairly complicated block as it tests for what appears to be
 # bare SHA-1 hash with  minimum length of 5.  It also avoids several types of
 # possible SHA-1 matches.
 # A commit match can span multiple lines so this block attempts to find a
@@ -3806,8 +3808,9 @@ sub process {
 
 # at the beginning of a line any tabs must come first and anything
 # more than $tabsize must use tabs.
-		if ($rawline =~ /^\+\s* \t\s*\S/ ||
-		    $rawline =~ /^\+\s*        \s*/) {
+		if (($rawline =~ /^\+\s* \t\s*\S/ ||
+		     $rawline =~ /^\+\s*        \s*/) &&
+		    $rawline !~ /^\+\s*\\$/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
 			$rpt_cleaners = 1;
 			if (ERROR("CODE_INDENT",
@@ -4053,7 +4056,9 @@ sub process {
 #  1) within comments
 #  2) indented preprocessor commands
 #  3) hanging labels
-		if ($rawline =~ /^\+ / && $line !~ /^\+ *(?:$;|#|$Ident:)/)  {
+#  4) empty lines in multi-line macros
+		if ($rawline =~ /^\+ / && $line !~ /^\+ *(?:$;|#|$Ident:)/ &&
+		    $rawline !~ /^\+\s+\\$/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
 			if (WARN("LEADING_SPACE",
 				 "please, no spaces at the start of a line\n" . $herevet) &&
@@ -5536,7 +5541,7 @@ sub process {
 			my $to = $4;
 			my $newcomp = $comp;
 			if ($lead !~ /(?:$Operators|\.)\s*$/ &&
-			    $to !~ /^(?:Constant|[A-Z_][A-Z0-9_]*)$/ &&
+			    $to !~ /^(?:Constant|[A-Z_][A-Z0-9_]*)\s*$/ &&
 			    WARN("CONSTANT_COMPARISON",
 				 "Comparisons should place the constant on the right side of the test\n" . $herecurr) &&
 			    $fix) {
@@ -6285,13 +6290,14 @@ sub process {
 		while ($line =~ /(?:^|")([X\t]*)(?:"|$)/g) {
 			my $string = substr($rawline, $-[1], $+[1] - $-[1]);
 			$string =~ s/%%/__/g;
-			# check for %L
-			if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
-				WARN("PRINTF_L",
-				     "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
-				$show_L = 0;
-			}
-			# check for %Z
+                        # check for %L
+                        # OK in FRR
+                        # if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
+                        #       WARN("PRINTF_L",
+                        #            "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
+                        #       $show_L = 0;
+                        # }
+                        # check for %Z
 			if ($show_Z && $string =~ /%[\*\d\.\$]*Z([diouxX])/) {
 				WARN("PRINTF_Z",
 				     "%Z$1 is non-standard C, use %z$1\n" . $herecurr);

@@ -15,11 +15,18 @@ FRR implements OpenFabric in a daemon called *fabricd*
 Configuring fabricd
 ===================
 
-There are no *fabricd* specific options. Common options can be specified
-(:ref:`common-invocation-options`) to *fabricd*. *fabricd* needs to acquire
-interface information from *zebra* in order to function. Therefore *zebra* must
-be running before invoking *fabricd*. Also, if *zebra* is restarted then *fabricd*
-must be too.
+*fabricd* accepts all common invocations (:ref:`common-invocation-options`) and
+the following specific options.
+
+.. program:: fabricd
+
+.. option:: --dummy_as_loopback
+
+   Treat dummy interfaces as loopback interfaces.
+
+*fabricd* needs to acquire interface information from *zebra* in order to
+function. Therefore *zebra* must be running before invoking *fabricd*. Also, if
+*zebra* is restarted then *fabricd* must be too.
 
 Like other daemons, *fabricd* configuration is done in an OpenFabric specific
 configuration file :file:`fabricd.conf`.
@@ -202,17 +209,9 @@ Debugging OpenFabric
 
    OpenFabric Adjacency related packets.
 
-.. clicmd:: debug openfabric checksum-errors
-
-   OpenFabric LSP checksum errors.
-
 .. clicmd:: debug openfabric events
 
    OpenFabric Events.
-
-.. clicmd:: debug openfabric local-updates
-
-   OpenFabric local update packets.
 
 .. clicmd:: debug openfabric lsp-gen
 
@@ -226,10 +225,6 @@ Debugging OpenFabric
 
    OpenFabric packet dump.
 
-.. clicmd:: debug openfabric protocol-errors
-
-   OpenFabric LSP protocol errors.
-
 .. clicmd:: debug openfabric route-events
 
    OpenFabric Route related events.
@@ -240,16 +235,23 @@ Debugging OpenFabric
 
 .. clicmd:: debug openfabric spf-events
 
-.. clicmd:: debug openfabric spf-statistics
-
-.. clicmd:: debug openfabric spf-triggers
-
-   OpenFabric Shortest Path First Events, Timing and Statistic Data and
-   triggering events.
-
 .. clicmd:: debug openfabric update-packets
 
    Update-related packets.
+
+.. clicmd:: debug openfabric flooding
+
+.. clicmd:: debug openfabric bfd
+
+.. clicmd:: debug openfabric ldp-sync
+
+.. clicmd:: debug openfabric lfa
+
+.. clicmd:: debug openfabric sr-events
+
+.. clicmd:: debug openfabric te-events
+
+.. clicmd:: debug openfabric tx-queue
 
 .. clicmd:: show debugging openfabric
 

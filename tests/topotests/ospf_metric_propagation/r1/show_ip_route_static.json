@@ -3,44 +3,23 @@
     {
       "prefix":"10.48.48.0/24",
       "prefixLen":24,
-      "protocol":"ospf",
-      "vrfId":0,
-      "vrfName":"default",
-      "distance":20,
-      "metric":134,
-      "table":254,
-      "nexthops":[
-        {
-          "flags":3,
-          "fib":true,
-          "ip":"10.0.1.2",
-          "afi":"ipv4",
-          "interfaceName":"r1-eth0",
-          "active":true,
-          "weight":1
-        }
-      ]
-    },
-    {
-      "prefix":"10.48.48.0/24",
-      "prefixLen":24,
       "protocol":"bgp",
       "vrfId":0,
       "vrfName":"default",
       "selected":true,
       "destSelected":true,
-      "distance":20,
-      "metric":34,
+      "distance":1,
+      "metric":1,
       "installed":true,
       "table":254,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
-          "ip":"10.0.10.5",
+          "ip":"10.0.91.2",
           "afi":"ipv4",
-          "interfaceName":"r1-eth1",
-          "vrf":"blue",
+          "interfaceName":"r1-eth2",
+          "vrf":"green",
           "active":true,
           "weight":1
         }

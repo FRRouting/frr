@@ -171,3 +171,8 @@ associated with a particular ``bmp targets``:
 
    All BGP neighbors are included in Route Mirroring.  Options to select
    a subset of BGP sessions may be added in the future.
+
+.. clicmd:: bmp import-vrf-view VRF_OR_VIEW_NAME
+
+   Perform Route Mirroring and Route Monitoring from an other BGP
+   instance.

@@ -368,7 +368,6 @@ parts:
             - --enable-ospfclient=yes
             - --enable-ospfapi=yes
             - --enable-multipath=64
-            - --enable-rtadv
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd

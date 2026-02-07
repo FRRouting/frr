@@ -23,6 +23,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_abr.h"
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
@@ -104,7 +105,7 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
 	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
 
-	EVENT_OFF(lsa->refresh);
+	event_cancel(&lsa->refresh);
 	event_add_timer(master, ospf6_lsa_refresh, lsa, OSPF_LS_REFRESH_TIME,
 			&lsa->refresh);
 
@@ -169,8 +170,8 @@ void ospf6_lsa_purge(struct ospf6_lsa *lsa)
 	self = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				 lsa->header->adv_router, lsdb_self);
 	if (self) {
-		EVENT_OFF(self->expire);
-		EVENT_OFF(self->refresh);
+		event_cancel(&self->expire);
+		event_cancel(&self->refresh);
 		ospf6_lsdb_remove(self, lsdb_self);
 	}
 
@@ -251,8 +252,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 					   lsa->name);
 			lsa->external_lsa_id = old->external_lsa_id;
 		}
-		EVENT_OFF(old->expire);
-		EVENT_OFF(old->refresh);
+		event_cancel(&old->expire);
+		event_cancel(&old->refresh);
 		ospf6_flood_clear(old);
 	}
 
@@ -524,7 +525,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	} else {
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-			EVENT_OFF(on->thread_send_lsupdate);
+			event_cancel(&on->thread_send_lsupdate);
 			event_add_event(master, ospf6_lsupdate_send_neighbor,
 					on, 0, &on->thread_send_lsupdate);
 		}
@@ -557,10 +558,10 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 		/* If unknown LSA and U-bit clear, treat as link local
 		 * flooding scope
 		 */
-		if (!OSPF6_LSA_IS_KNOWN(lsa->header->type)
-		    && !(ntohs(lsa->header->type) & OSPF6_LSTYPE_UBIT_MASK)
-		    && (oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)) {
-
+		if (!OSPF6_LSA_IS_KNOWN(lsa->header->type) &&
+		    !(ntohs(lsa->header->type) & OSPF6_LSTYPE_UBIT_MASK) &&
+		    OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+		    (oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)) {
 			if (IS_OSPF6_DEBUG_FLOODING)
 				zlog_debug("Unknown LSA, do not flood");
 			continue;
@@ -1061,6 +1062,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						zlog_debug(
 							"%s, Not moving to HELPER role, So dicarding GraceLSA",
 							__func__);
+					ospf6_lsa_delete(new);
 					return;
 				}
 			}

@@ -28,7 +28,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2")}
+    topodef = {"s1": ("r1", "r2", "r3")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 

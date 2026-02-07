@@ -10,7 +10,6 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "prefix.h"
 #include "babel_interface.h"
 
-int babel_filter(int output, const unsigned char *prefix, unsigned short plen,
-                 unsigned int index);
+int babel_filter(int output, const unsigned char *prefix, unsigned short plen, unsigned int index);
 
 #endif /* BABELD_BABEL_FILTER_H */

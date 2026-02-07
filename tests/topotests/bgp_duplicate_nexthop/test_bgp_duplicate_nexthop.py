@@ -417,6 +417,18 @@ def test_bgp_ipv4_recursive_routes():
 
     check_ipv4_prefix_with_multiple_nexthops_linux("192.0.2.8")
 
+    # Calculate expected installed count: Count nexthops that are actually installed
+    output = json.loads(tgen.gears["r1"].vtysh_cmd("show ip route 192.0.2.8/32 json"))
+    expected_installed = 0
+    for nh in output["192.0.2.8/32"][0]["nexthops"]:
+        if nh.get("fib") == True:
+            expected_installed += 1
+
+    installed_num = output["192.0.2.8/32"][0]["internalNextHopFibInstalledNum"]
+    assert (
+        installed_num == expected_installed
+    ), f"Expected internalNextHopFibInstalledNum={expected_installed}, got {installed_num}"
+
 
 def test_bgp_ipv4_recursive_routes_when_no_mpath():
     """
