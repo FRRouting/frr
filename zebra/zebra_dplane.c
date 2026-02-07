@@ -131,6 +131,7 @@ struct dplane_route_info {
 	uint32_t zd_nexthop_mtu;
 
 	uint32_t zd_flags;
+	bool zd_replace;
 
 	/* Nexthop hash entry info */
 	struct dplane_nexthop_info nhe;
@@ -1947,6 +1948,29 @@ void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags)
 	ctx->u.rinfo.zd_flags = flags;
 }
 
+<<<<<<< HEAD
+=======
+bool dplane_ctx_route_get_replace(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.zd_replace;
+}
+
+void dplane_ctx_route_set_replace(struct zebra_dplane_ctx *ctx, bool replace)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_replace = replace;
+}
+
+void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.zd_metric = metric;
+}
+
+>>>>>>> e5358c0fc (zebra: Add replace semantics into route dplane ctx)
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -3397,6 +3421,7 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->zd_table_id = re->table;
 
 	ctx->u.rinfo.zd_flags = re->flags;
+	ctx->u.rinfo.zd_replace = true;
 	ctx->u.rinfo.zd_metric = re->metric;
 	ctx->u.rinfo.zd_old_metric = re->metric;
 	ctx->zd_vrf_id = re->vrf_id;
