@@ -3156,7 +3156,7 @@ static void zebra_evpn_es_show_entry(struct vty *vty, struct zebra_evpn_es *es,
 
 		/* Add bond state field for local ES */
 		if (es->flags & ZEBRA_EVPNES_LOCAL)
-			json_object_string_add(json, "bondState",
+			json_object_string_add(json, "state",
 					       (es->flags & ZEBRA_EVPNES_OPER_UP) ? "up" : "down");
 
 		if (listcount(es->es_vtep_list)) {
@@ -3184,7 +3184,7 @@ static void zebra_evpn_es_show_entry(struct vty *vty, struct zebra_evpn_es *es,
 
 		zebra_evpn_es_vtep_str(vtep_str, es, sizeof(vtep_str));
 
-		vty_out(vty, "%-30s %-4s %-21s %-9s %s\n", es->esi_str, type_str,
+		vty_out(vty, "%-30s %-4s %-21s %-5s %s\n", es->esi_str, type_str,
 			es->zif ? es->zif->ifp->name : "-", state_str, vtep_str);
 	}
 }
@@ -3317,7 +3317,7 @@ void zebra_evpn_es_show(struct vty *vty, bool uj)
 		json_array = json_object_new_array();
 	} else {
 		vty_out(vty, "Type: B bypass, L local, R remote, N non-DF\n");
-		vty_out(vty, "%-30s %-4s %-21s %-9s %s\n", "ESI", "Type", "ES-IF", "BondState",
+		vty_out(vty, "%-30s %-4s %-21s %-5s %s\n", "ESI", "Type", "ES-IF", "State",
 			"VTEPs");
 	}
 
