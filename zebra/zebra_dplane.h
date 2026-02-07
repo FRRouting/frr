@@ -524,6 +524,8 @@ void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance);
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
+bool dplane_ctx_route_get_replace(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_replace(struct zebra_dplane_ctx *ctx, bool replace);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
