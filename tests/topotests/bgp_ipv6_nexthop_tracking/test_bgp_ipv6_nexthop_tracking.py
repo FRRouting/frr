@@ -108,7 +108,7 @@ def test_bgp_ipv6_nexthop_tracking():
                     "resolvedPrefix": "fe80::/64",
                     "nexthops": [
                         {
-                            "interfaceName": "r1-eth1",
+                            "interfaceName": "r1-eth0",
                         }
                     ],
                 }
