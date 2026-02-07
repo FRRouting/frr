@@ -784,6 +784,7 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 	struct rtmsg *rtm;
 	struct rtattr **tb, *tb_array[RTA_MAX + 1];
 	uint32_t flags = 0;
+	bool replace = false;
 	struct prefix p;
 	struct prefix src_p = {};
 	bool selfroute;
@@ -879,6 +880,8 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 
 	if (h->nlmsg_flags & NLM_F_APPEND)
 		flags |= ZEBRA_FLAG_OUTOFSYNC;
+	if (h->nlmsg_flags & NLM_F_REPLACE)
+		replace = true;
 
 	/* Route which was inserted by Zebra. */
 	if (selfroute) {
@@ -1030,6 +1033,7 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 	else
 		dplane_ctx_set_src(ctx, NULL);
 	dplane_ctx_set_type(ctx, proto);
+	dplane_ctx_route_set_replace(ctx, replace);
 	dplane_ctx_set_flags(ctx, flags);
 	dplane_ctx_set_route_metric(ctx, metric);
 	dplane_ctx_set_route_mtu(ctx, mtu);
@@ -1328,9 +1332,8 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 			}
 		}
 		if (nhe_id || ng) {
-			rib_add_multipath(afi, SAFI_UNICAST, &p,
-					  (struct prefix_ipv6 *)&src_p,
-					  re, ng, startup);
+			rib_add_multipath(afi, SAFI_UNICAST, &p, (struct prefix_ipv6 *)&src_p, re,
+					  ng, startup, dplane_ctx_route_get_replace(ctx));
 			if (ng)
 				nexthop_group_delete(&ng);
 		} else {

@@ -386,27 +386,24 @@ extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
-extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		   unsigned short instance, uint32_t flags, struct prefix *p,
-		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		   uint32_t nhe_id, uint32_t table_id, uint32_t metric,
-		   uint32_t mtu, uint8_t distance, route_tag_t tag,
-		   bool startup);
+extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, unsigned short instance,
+		   uint32_t flags, struct prefix *p, struct prefix_ipv6 *src_p,
+		   const struct nexthop *nh, uint32_t nhe_id, uint32_t table_id, uint32_t metric,
+		   uint32_t mtu, uint8_t distance, route_tag_t tag, bool startup, bool replace);
 /*
  * Multipath route apis.
  */
-extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			     struct prefix_ipv6 *src_p, struct route_entry *re,
-			     struct nexthop_group *ng, bool startup);
+extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ipv6 *src_p,
+			     struct route_entry *re, struct nexthop_group *ng, bool startup,
+			     bool replace);
 /*
  * -1 -> some sort of error
  *  0 -> an add
  *  1 -> an update
  */
 extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
-				 struct prefix_ipv6 *src_p,
-				 struct route_entry *re,
-				 struct nhg_hash_entry *nhe, bool startup);
+				 struct prefix_ipv6 *src_p, struct route_entry *re,
+				 struct nhg_hash_entry *nhe, bool startup, bool replace);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, uint32_t flags,
