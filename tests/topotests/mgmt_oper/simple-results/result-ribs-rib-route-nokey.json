@@ -20,12 +20,8 @@
                         "protocol": "connected",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -37,12 +33,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -57,12 +49,8 @@
                         "protocol": "local",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -74,12 +62,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth0",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -94,12 +78,8 @@
                         "protocol": "static",
                         "distance": 1,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 73,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -111,12 +91,8 @@
                               "vrf": "rubout",
                               "gateway": "1.1.1.2",
                               "interface": "r1-eth0",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -133,3 +109,4 @@
     ]
   }
 }
+
