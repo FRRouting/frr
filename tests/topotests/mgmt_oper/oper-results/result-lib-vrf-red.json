@@ -8,6 +8,8 @@
           "active": true
         },
         "frr-zebra:zebra": {
+          "router-id": "4.4.4.1",
+          "ipv6-router-id": "2004:4444::1",
           "ribs": {
             "rib": [
               {

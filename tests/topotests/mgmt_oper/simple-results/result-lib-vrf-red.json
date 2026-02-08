@@ -8,6 +8,7 @@
           "active": true
         },
         "frr-zebra:zebra": {
+          "router-id": "3.3.3.1",
           "ribs": {
             "rib": [
               {
@@ -24,12 +25,8 @@
                         "protocol": "connected",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -41,12 +38,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -61,12 +54,8 @@
                         "protocol": "local",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -78,12 +67,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -107,12 +92,8 @@
                         "protocol": "connected",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -124,12 +105,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -144,12 +121,8 @@
                         "protocol": "local",
                         "distance": 0,
                         "metric": 0,
-                        "selected": [
-                          null
-                        ],
-                        "installed": [
-                          null
-                        ],
+                        "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
                         "internal-status": 16,
                         "uptime": "rubout",
@@ -161,12 +134,8 @@
                               "vrf": "rubout",
                               "gateway": "",
                               "interface": "r1-eth1",
-                              "active": [
-                                null
-                              ],
-                              "fib": [
-                                null
-                              ],
+                              "active": [null],
+                              "fib": [null],
                               "weight": 1
                             }
                           ]
@@ -201,3 +170,4 @@
     ]
   }
 }
+

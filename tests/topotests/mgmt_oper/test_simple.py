@@ -2,7 +2,7 @@
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2021, LabN Consulting, L.L.C.
+# Copyright (c) 2021,2026, LabN Consulting, L.L.C.
 # Copyright (c) 2019-2020 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
 #
@@ -11,6 +11,7 @@
 """
 Test static route functionality
 """
+
 import pytest
 from lib.topogen import Topogen
 from oper import check_kernel_32, do_oper_test
@@ -206,7 +207,7 @@ def test_oper_simple(tgen):
 
 
 to_gen_new_results = r"""
-scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
+scriptdir=$CONFIGDIR
 resdir=${scriptdir}/simple-results
 
 # Interfaces
@@ -248,7 +249,7 @@ echo '{}' > ${resdir}/result-intf-eth0-wd-trim.json
 vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact with-defaults all' > ${restdir}/result-intf-eth0-wd-all.json
 vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact with-defaults all-tag' > ${resdir}/result-intf-eth0-wd-all-tag.json
 
-scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
+scriptdir=$CONFIGDIR
 resdir=${scriptdir}/simple-results
 
 for f in ${resdir}/result*.json; do
