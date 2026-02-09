@@ -4369,8 +4369,17 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	zebra_nhe_init(&nhe, afi, (ng ? ng->nexthop : NULL));
 	if (ng)
 		nhe.nhg.nexthop = ng->nexthop;
+<<<<<<< HEAD
 	else if (re->nhe_id > 0)
+=======
+
+		if (RIB_SYSTEM_ROUTE(re))
+			SET_FLAG(nhe.flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+	} else if (re->nhe_id > 0) {
+>>>>>>> ce6311a7a (zebra: Notice that the nexthop group came from the kernel)
 		nhe.id = re->nhe_id;
+		SET_FLAG(nhe.flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL);
+	}
 
 	n = zebra_nhe_copy(&nhe, 0);
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup);
