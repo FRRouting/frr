@@ -54,6 +54,9 @@ static bool nb_db_enabled;
  */
 static bool transaction_in_progress;
 
+/* Current subscription cache state for notification streaming. */
+struct nb_subscription_cache *nb_current_subcr_cache;
+
 static int nb_callback_pre_validate(struct nb_context *context,
 				    const struct nb_node *nb_node,
 				    const struct lyd_node *dnode, char *errmsg,
@@ -2481,6 +2484,31 @@ int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 	ret = hook_call(nb_notification_tree_send, xpath, tree);
 
 	return ret;
+}
+
+/* Subscription hooks and functions for notification streaming. */
+DEFINE_HOOK(nb_empty_notification_send, (), ());
+
+void nb_empty_notification_send(void)
+{
+	hook_call(nb_empty_notification_send);
+}
+
+uint32_t nb_get_sample_time(void)
+{
+	if (nb_current_subcr_cache)
+		return nb_current_subcr_cache->sample_time;
+	return 0;
+}
+
+void nb_cache_subscriptions(struct event_loop *master __attribute__((unused)),
+			    const char *xpath, const char *action,
+			    uint32_t interval)
+{
+	/* Stub: subscription cache management to be implemented in follow-up PR */
+	DEBUGD(&nb_dbg_events,
+	       "Subscription registered: xpath=%s action=%s interval=%u",
+	       xpath, action, interval);
 }
 
 /* Running configuration user pointers management. */
