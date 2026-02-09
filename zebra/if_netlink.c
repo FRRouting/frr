@@ -1644,7 +1644,7 @@ void interface_list_second(struct zebra_ns *zns)
 	 * so we need to get the nexthop info
 	 * from the kernel before we can do that
 	 */
-	netlink_nexthop_read(zns);
+	nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
 
