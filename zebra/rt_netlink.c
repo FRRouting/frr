@@ -1259,7 +1259,7 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	if (!IS_IPADDR_NONE(gate_addr))
 		gate = (void *)&(gate_addr->ip.addr);
 
-	nhe_id = dplane_ctx_get_nhe_id(ctx);
+	nhe_id = dplane_ctx_get_nhg_id(ctx);
 
 	metric = dplane_ctx_get_metric(ctx);
 	distance = dplane_ctx_get_distance(ctx);
