@@ -22,8 +22,9 @@
 #include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node");
-DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration");
-DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry");
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Config");
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Config Entry");
+DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
 
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
@@ -452,7 +453,7 @@ void nb_config_diff_add_change(struct nb_config_cbs *changes,
 	if (!dnode->schema->priv)
 		return;
 
-	change = XCALLOC(MTYPE_TMP, sizeof(*change));
+	change = XCALLOC(MTYPE_NB_CONFIG, sizeof(*change));
 	change->cb.operation = operation;
 	change->cb.seq = *seq;
 	*seq = *seq + 1;
@@ -470,7 +471,7 @@ void nb_config_diff_del_changes(struct nb_config_cbs *changes)
 		change = (struct nb_config_change *)RB_ROOT(nb_config_cbs,
 							    changes);
 		RB_REMOVE(nb_config_cbs, changes, &change->cb);
-		XFREE(MTYPE_TMP, change);
+		XFREE(MTYPE_NB_CONFIG, change);
 	}
 }
 
@@ -2053,7 +2054,7 @@ nb_transaction_new(struct nb_context context, struct nb_config *config,
 	}
 	transaction_in_progress = true;
 
-	transaction = XCALLOC(MTYPE_TMP, sizeof(*transaction));
+	transaction = XCALLOC(MTYPE_NB_TRANS, sizeof(*transaction));
 	transaction->context = context;
 	if (comment)
 		strlcpy(transaction->comment, comment,
@@ -2067,7 +2068,7 @@ nb_transaction_new(struct nb_context context, struct nb_config *config,
 static void nb_transaction_free(struct nb_transaction *transaction)
 {
 	nb_config_diff_del_changes(&transaction->changes);
-	XFREE(MTYPE_TMP, transaction);
+	XFREE(MTYPE_NB_TRANS, transaction);
 	transaction_in_progress = false;
 }
 
@@ -2123,7 +2124,7 @@ nb_apply_finish_cb_new(struct nb_config_cbs *cbs, const struct nb_node *nb_node,
 {
 	struct nb_config_cb *cb;
 
-	cb = XCALLOC(MTYPE_TMP, sizeof(*cb));
+	cb = XCALLOC(MTYPE_NB_CONFIG, sizeof(*cb));
 	cb->operation = NB_CB_APPLY_FINISH;
 	cb->nb_node = nb_node;
 	cb->dnode = dnode;
@@ -2226,7 +2227,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 	while (!RB_EMPTY(nb_config_cbs, &cbs)) {
 		cb = RB_ROOT(nb_config_cbs, &cbs);
 		RB_REMOVE(nb_config_cbs, &cbs, cb);
-		XFREE(MTYPE_TMP, cb);
+		XFREE(MTYPE_NB_CONFIG, cb);
 	}
 }
 

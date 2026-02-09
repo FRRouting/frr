@@ -23,6 +23,9 @@ enum nb_cfg_format {
 /* Maximum config commands in a batch*/
 #define NB_CMD_BATCH_SIZE 5000
 
+/* Mem type for nb vty buffer */
+DECLARE_MTYPE(NB_CMDS);
+
 extern struct nb_config *vty_shared_candidate_config;
 
 /*

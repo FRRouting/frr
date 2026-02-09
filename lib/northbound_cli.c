@@ -22,6 +22,8 @@
 #include "northbound_db.h"
 #include "lib/northbound_cli_clippy.c"
 
+DEFINE_MTYPE(LIB, NB_CMDS, "NB vty commands");
+
 struct debug nb_dbg_cbs_config = { 0, "debug northbound callbacks configuration",
 				   "Northbound callbacks: configuration" };
 struct debug nb_dbg_cbs_state = { 0, "debug northbound callbacks state",
@@ -84,7 +86,7 @@ static void nb_cli_pending_commit_clear(struct vty *vty)
 {
 	vty->pending_commit = 0;
 	vty->buffer_cmd_count = 0;
-	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
+	XFREE(MTYPE_NB_CMDS, vty->pending_cmds_buf);
 	vty->pending_cmds_buflen = 0;
 	vty->pending_cmds_bufpos = 0;
 }
@@ -113,14 +115,14 @@ static int nb_cli_schedule_command(struct vty *vty)
 	if (!vty->pending_cmds_buf) {
 		vty->pending_cmds_buflen = 4096;
 		vty->pending_cmds_buf =
-			XCALLOC(MTYPE_TMP, vty->pending_cmds_buflen);
+			XCALLOC(MTYPE_NB_CMDS, vty->pending_cmds_buflen);
 	}
 
 	if ((strlen(vty->buf) + 3)
 	    > (vty->pending_cmds_buflen - vty->pending_cmds_bufpos)) {
 		vty->pending_cmds_buflen *= 2;
 		vty->pending_cmds_buf =
-			XREALLOC(MTYPE_TMP, vty->pending_cmds_buf,
+			XREALLOC(MTYPE_NB_CMDS, vty->pending_cmds_buf,
 				 vty->pending_cmds_buflen);
 	}
 	strlcat(vty->pending_cmds_buf, "- ", vty->pending_cmds_buflen);
