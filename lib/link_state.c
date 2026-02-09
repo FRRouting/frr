@@ -969,7 +969,8 @@ void ls_subnet_del(struct ls_ted *ted, struct ls_subnet *subnet)
 		return;
 
 	/* First, disconnect Subnet from associated Vertex */
-	listnode_delete(subnet->vertex->prefixes, subnet);
+	if (subnet->vertex && subnet->vertex->prefixes)
+		listnode_delete(subnet->vertex->prefixes, subnet);
 	/* Then delete Subnet */
 	subnets_del(&ted->subnets, subnet);
 	XFREE(MTYPE_LS_DB, subnet);
