@@ -1640,11 +1640,6 @@ void interface_list(struct zebra_ns *zns)
 void interface_list_second(struct zebra_ns *zns)
 {
 	zebra_if_update_all_links(zns);
-	/* We add routes for interface address,
-	 * so we need to get the nexthop info
-	 * from the kernel before we can do that
-	 */
-	nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
 
