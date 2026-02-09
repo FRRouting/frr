@@ -427,8 +427,8 @@ void dplane_ctx_set_ifp_change_flags(struct zebra_dplane_ctx *ctx, uint64_t chan
 uint64_t dplane_ctx_get_ifp_change_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_protodown(struct zebra_dplane_ctx *ctx, bool protodown);
 bool dplane_ctx_get_ifp_protodown(const struct zebra_dplane_ctx *ctx);
-void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup);
-bool dplane_ctx_get_ifp_startup(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_startup(struct zebra_dplane_ctx *ctx, bool startup);
+bool dplane_ctx_get_startup(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_protodown_set(struct zebra_dplane_ctx *ctx, bool set);
 bool dplane_ctx_get_ifp_protodown_set(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_rc_bitfield(struct zebra_dplane_ctx *ctx,

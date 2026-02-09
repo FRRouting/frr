@@ -1453,7 +1453,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	dplane_ctx_set_ifp_zif_type(ctx, zif_type);
 	dplane_ctx_set_ifindex(ctx, ifi->ifi_index);
 	dplane_ctx_set_ifname(ctx, name);
-	dplane_ctx_set_ifp_startup(ctx, startup);
+	dplane_ctx_set_startup(ctx, startup);
 	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
 	dplane_ctx_set_intf_txqlen(ctx, txqlen);
 

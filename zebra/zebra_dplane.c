@@ -211,7 +211,6 @@ struct dplane_intf_info {
 	enum zebra_slave_iftype zslave_type;
 	uint8_t bypass;
 	enum zebra_link_type zltype;
-	bool startup;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
 	bool no_bvinfo_avail;
@@ -440,6 +439,8 @@ struct zebra_dplane_ctx {
 
 	char zd_ifname[IFNAMSIZ];
 	ifindex_t zd_ifindex;
+
+	bool zd_startup;
 
 	/* Support info for different kinds of updates */
 	union {
@@ -1636,18 +1637,18 @@ ns_id_t dplane_ctx_get_ifp_link_nsid(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.intf.link_nsid;
 }
 
-void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup)
+void dplane_ctx_set_startup(struct zebra_dplane_ctx *ctx, bool startup)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	ctx->u.intf.startup = startup;
+	ctx->zd_startup = startup;
 }
 
-bool dplane_ctx_get_ifp_startup(const struct zebra_dplane_ctx *ctx)
+bool dplane_ctx_get_startup(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.intf.startup;
+	return ctx->zd_startup;
 }
 
 void dplane_ctx_set_ifp_protodown_set(struct zebra_dplane_ctx *ctx, bool set)
