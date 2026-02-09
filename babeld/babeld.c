@@ -303,12 +303,17 @@ void babel_clean_routing_process(void)
 	resend_delay = BABEL_DEFAULT_RESEND_DELAY;
 	change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
 
+	/* Check if babel_routing_process is initialized before accessing it */
+	if (!babel_routing_process)
+		return;
+
 	/* cancel events */
 	event_cancel(&babel_routing_process->t_read);
 	event_cancel(&babel_routing_process->t_update);
 
 	distribute_list_delete(&babel_routing_process->distribute_ctx);
 	XFREE(MTYPE_BABEL, babel_routing_process);
+	babel_routing_process = NULL;
 }
 
 /* Function used with timeout. */
