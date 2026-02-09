@@ -312,8 +312,22 @@ void babel_clean_routing_process(void)
     event_cancel(&babel_routing_process->t_read);
     event_cancel(&babel_routing_process->t_update);
 
+<<<<<<< HEAD
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
+=======
+	/* Check if babel_routing_process is initialized before accessing it */
+	if (!babel_routing_process)
+		return;
+
+	/* cancel events */
+	event_cancel(&babel_routing_process->t_read);
+	event_cancel(&babel_routing_process->t_update);
+
+	distribute_list_delete(&babel_routing_process->distribute_ctx);
+	XFREE(MTYPE_BABEL, babel_routing_process);
+	babel_routing_process = NULL;
+>>>>>>> cb76f1841 (babeld: fix NULL pointer dereference in babel_clean_routing_process)
 }
 
 /* Function used with timeout. */
