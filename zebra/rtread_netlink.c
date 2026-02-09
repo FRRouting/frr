@@ -17,6 +17,11 @@
 #include "zebra/rule_netlink.h"
 #include "zebra/tc_netlink.h"
 
+void nexthop_read(struct zebra_ns *zns)
+{
+	netlink_nexthop_read(zns);
+}
+
 void route_read(struct zebra_ns *zns)
 {
 	netlink_route_read(zns);
