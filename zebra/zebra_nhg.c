@@ -1300,6 +1300,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	if (PROTO_OWNED(nhe))
 		zebra_nhg_increment_ref(nhe);
 
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
@@ -3190,7 +3191,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	struct nhg_hash_entry *curr_nhe, *remove;
 	uint32_t curr_active = 0, backup_active = 0;
 
-	if (PROTO_OWNED(re->nhe))
+	if (PROTO_OWNED(re->nhe) ||
+	    CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL))
 		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
 
 	afi_t rt_afi = family2afi(rn->p.family);
