@@ -400,10 +400,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup);
-	case RTM_NEWNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup);
-	case RTM_DELNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup);
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
 		return netlink_qdisc_change(h, ns_id, startup);
@@ -425,6 +421,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELLINK:
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
 	case RTM_NEWTUNNEL:
@@ -467,6 +465,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 		return netlink_interface_addr_dplane(h, ns_id, startup);
+
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
+		return netlink_nexthop_change(h, ns_id, startup);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
@@ -1623,13 +1625,13 @@ void kernel_init(struct zebra_ns *zns)
 	 */
 	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
 		 ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
-		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) |
-		 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)) | ((uint32_t)1 << (RTNLGRP_TC - 1));
+		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) | ((uint32_t)1 << (RTNLGRP_TC - 1));
 
 	dplane_groups = (RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			 ((uint32_t)1 << (RTNLGRP_IPV4_NETCONF - 1)) |
 			 ((uint32_t)1 << (RTNLGRP_IPV6_NETCONF - 1)) |
-			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)));
+			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)) |
+			 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)));
 
 	/* Use setsockopt for > 31 group */
 	ext_groups = RTNLGRP_TUNNEL;
