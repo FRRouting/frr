@@ -1121,7 +1121,7 @@ static unsigned int bgp_ls_prefix_hash_key_internal(const struct bgp_ls_nlri *nl
 }
 
 /* Hash key generation for BGP-LS NLRI */
-unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri)
+unsigned int bgp_ls_nlri_hash_key(const struct bgp_ls_nlri *nlri)
 {
 	/* Include NLRI type in hash to ensure different types don't collide */
 	uint32_t key = jhash_1word(nlri->nlri_type, 0);
@@ -1142,6 +1142,114 @@ unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri)
 }
 
 /*
+ * Generate hash key for BGP-LS attribute
+ * This hashes all fields present in the attribute based on present_tlvs bitmask
+ */
+unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
+{
+	uint32_t key = 0;
+
+	if (!attr)
+		return 0;
+
+	/* Hash the present_tlvs bitmask first */
+	key = jhash_1word((uint32_t)(attr->present_tlvs >> 32), key);
+	key = jhash_1word((uint32_t)attr->present_tlvs, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_FLAGS_BIT))
+		key = jhash_1word(attr->node_flags, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT))
+		key = jhash(attr->node_name, strlen(attr->node_name), key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT))
+		key = jhash(attr->isis_area_id, attr->isis_area_id_len, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT))
+		key = jhash_1word(attr->ipv4_router_id_local.s_addr, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT))
+		key = jhash(&attr->ipv6_router_id_local, sizeof(struct in6_addr), key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE_BIT))
+		key = jhash_1word(attr->ipv4_router_id_remote.s_addr, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT))
+		key = jhash(&attr->ipv6_router_id_remote, sizeof(struct in6_addr), key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT))
+		key = jhash_1word(attr->admin_group, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MAX_LINK_BW_BIT)) {
+		uint32_t bw;
+
+		memcpy(&bw, &attr->max_link_bw, sizeof(uint32_t));
+		key = jhash_1word(bw, key);
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MAX_RESV_BW_BIT)) {
+		uint32_t bw;
+
+		memcpy(&bw, &attr->max_resv_bw, sizeof(uint32_t));
+		key = jhash_1word(bw, key);
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_UNRESV_BW_BIT))
+		key = jhash(attr->unreserved_bw, sizeof(attr->unreserved_bw), key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_TE_METRIC_BIT))
+		key = jhash_1word(attr->te_metric, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_LINK_PROTECTION_BIT))
+		key = jhash_1word(attr->link_protection, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MPLS_PROTOCOL_BIT))
+		key = jhash_1word(attr->mpls_protocol_mask, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT))
+		key = jhash_1word(attr->igp_metric, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_SRLG_BIT)) {
+		for (int i = 0; i < attr->srlg_count; i++)
+			key = jhash_1word(attr->srlg_values[i], key);
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT))
+		key = jhash(attr->link_name, strlen(attr->link_name), key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT))
+		key = jhash_1word(attr->igp_flags, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ROUTE_TAG_BIT)) {
+		for (int i = 0; i < attr->route_tag_count; i++)
+			key = jhash_1word(attr->route_tags[i], key);
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_EXTENDED_TAG_BIT)) {
+		for (int i = 0; i < attr->extended_tag_count; i++) {
+			key = jhash_1word((uint32_t)(attr->extended_tags[i] >> 32), key);
+			key = jhash_1word((uint32_t)attr->extended_tags[i], key);
+		}
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PREFIX_METRIC_BIT))
+		key = jhash_1word(attr->prefix_metric, key);
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
+		key = jhash_1word(attr->ospf_fwd_addr.s_addr, key);
+		key = jhash(&attr->ospf_fwd_addr6, sizeof(struct in6_addr), key);
+	}
+
+	if (attr->opaque_len > 0)
+		key = jhash(attr->opaque_data, attr->opaque_len, key);
+
+	for (int i = 0; i < attr->mt_id_count; i++)
+		key = jhash_1word(attr->mt_id[i], key);
+
+	return key;
+}
+
+/*
  * ===========================================================================
  * Hash Comparison Functions
  * ===========================================================================
@@ -1151,9 +1259,18 @@ unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri)
  * Hash table comparison function for BGP-LS NLRI
  * Returns 0 if equal, non-zero if not equal
  */
-int bgp_ls_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2)
+int bgp_ls_nlri_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2)
 {
 	return bgp_ls_nlri_cmp(n1, n2);
+}
+
+/*
+ * Hash table comparison function for BGP-LS attributes
+ * Returns 0 if equal, non-zero if not equal
+ */
+int bgp_ls_attr_hash_cmp(const struct bgp_ls_attr *a1, const struct bgp_ls_attr *a2)
+{
+	return bgp_ls_attr_cmp(a1, a2);
 }
 
 /*
@@ -1193,6 +1310,47 @@ struct bgp_ls_nlri *bgp_ls_nlri_lookup(struct bgp_ls_nlri_hash_head *hash, struc
 	lookup.nlri_data = nlri->nlri_data;
 
 	return bgp_ls_nlri_hash_find(hash, &lookup);
+}
+
+/* Insert or lookup BGP-LS attribute in hash table */
+struct bgp_ls_attr *bgp_ls_attr_get(struct bgp_ls_attr_hash_head *hash, struct bgp *bgp,
+				    struct bgp_ls_attr *attr)
+{
+	struct bgp_ls_attr *ls_attr;
+
+	ls_attr = bgp_ls_attr_lookup(hash, attr);
+	if (!ls_attr) {
+		ls_attr = bgp_ls_attr_copy(attr);
+
+		bgp_ls_attr_hash_add(hash, ls_attr);
+	}
+
+	ls_attr->refcnt++;
+	return ls_attr;
+}
+
+/*
+ * Lookup BGP-LS attribute in hash table
+ *
+ * Parameters:
+ *   hash - Hash table head
+ *   attr - Attribute to look up
+ *
+ * Returns:
+ *   Pointer to matching attribute if found, NULL otherwise
+ */
+struct bgp_ls_attr *bgp_ls_attr_lookup(struct bgp_ls_attr_hash_head *hash,
+				       const struct bgp_ls_attr *attr)
+{
+	struct bgp_ls_attr lookup;
+
+	if (!hash || !attr)
+		return NULL;
+
+	/* Set up lookup key - copy the attribute for comparison */
+	memcpy(&lookup, attr, sizeof(lookup));
+
+	return bgp_ls_attr_hash_find(hash, &lookup);
 }
 
 /*
@@ -1236,5 +1394,43 @@ void bgp_ls_nlri_unintern(struct bgp_ls_nlri **pls_nlri)
 		bgp_ls_nlri_hash_del(&bgp->ls_info->nlri_hash, ls_nlri);
 		bgp_ls_nlri_free(ls_nlri);
 		*pls_nlri = NULL;
+	}
+}
+
+/*
+ * Intern BGP-LS attribute (lookup and lock)
+ *
+ * Looks up an existing BGP-LS attribute in the hash table and increments its reference count.
+ * Returns the BGP-LS attribute if found, NULL otherwise.
+ */
+struct bgp_ls_attr *bgp_ls_attr_intern(struct bgp_ls_attr *ls_attr)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->ls_info || !ls_attr)
+		return NULL;
+
+	return bgp_ls_attr_get(&bgp->ls_info->ls_attr_hash, bgp, ls_attr);
+}
+
+/*
+ * Unintern BGP-LS attribute (unlock and potentially free)
+ *
+ * Decrements the reference count and frees the BGP-LS attribute if it reaches zero.
+ */
+void bgp_ls_attr_unintern(struct bgp_ls_attr **pls_attr)
+{
+	struct bgp_ls_attr *ls_attr = *pls_attr;
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->ls_info || !ls_attr)
+		return;
+
+	ls_attr->refcnt--;
+
+	if (ls_attr->refcnt == 0) {
+		bgp_ls_attr_hash_del(&bgp->ls_info->ls_attr_hash, ls_attr);
+		bgp_ls_attr_free(ls_attr);
+		*pls_attr = NULL;
 	}
 }
