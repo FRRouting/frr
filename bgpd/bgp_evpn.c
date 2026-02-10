@@ -4984,7 +4984,8 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr) {
 		STREAM_GET(&attr->esi, pkt, sizeof(esi_t));
 
-		if (bgp_evpn_is_esi_local_and_non_bypass(&attr->esi))
+		if (bgp_evpn_is_esi_local_and_non_bypass(&attr->esi) &&
+		    bgp_evpn_is_esi_valid(&attr->esi))
 			SET_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
 		else
 			UNSET_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
