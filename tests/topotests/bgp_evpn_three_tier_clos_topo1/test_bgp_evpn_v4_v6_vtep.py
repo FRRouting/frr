@@ -148,6 +148,9 @@ def tgen_and_ip_version(request):
     # Configure external router
     setup_ext1(tgen, ip_version)
 
+    # Configure ext-21 and leaf-21 VRF RED connectivity
+    setup_ext21_connectivity(tgen, ip_version)
+
     # Load FRR configuration for all routers from IP-version-specific directory
     router_list = tgen.routers()
 
@@ -161,6 +164,9 @@ def tgen_and_ip_version(request):
 
     # Start all routers
     tgen.start_router()
+
+    # Phase 2: Assign IPs on ext-21/leaf-21 after FRR has started
+    setup_ext21_post_start(tgen, ip_version)
 
     # Trigger ARP/NDP to populate MAC tables
     logger.info("Triggering ARP/NDP for MAC learning")
@@ -226,7 +232,7 @@ def build_topo(tgen):
     - 4 leafs (leaf-11, leaf-12, leaf-21, leaf-22)
     - 2 border ToRs (bordertor-11, bordertor-12) - EVPN VTEPs
     - 2 ToRs (tor-21, tor-22) - EVPN VTEPs
-    - 1 external router (ext-1)
+    - 2 external routers (ext-1, ext-21)
     - 5 hosts (host-111, host-121, host-211, host-221, host-1)
     """
 
@@ -242,6 +248,7 @@ def build_topo(tgen):
     tgen.add_router("tor-21")
     tgen.add_router("tor-22")
     tgen.add_router("ext-1")
+    tgen.add_router("ext-21")
     tgen.add_router("host-111")
     tgen.add_router("host-121")
     tgen.add_router("host-211")
@@ -372,6 +379,11 @@ def build_topo(tgen):
     switch = tgen.add_switch("s26")
     switch.add_link(tgen.gears["ext-1"], nodeif="swp6")
     switch.add_link(tgen.gears["host-1"], nodeif="swp4")
+
+    # Leaf-21 to ext-21 (one link)
+    switch = tgen.add_switch("s29")
+    switch.add_link(tgen.gears["leaf-21"], nodeif="swp5")
+    switch.add_link(tgen.gears["ext-21"], nodeif="swp1")
 
 
 def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
@@ -673,6 +685,74 @@ def setup_ext1(tgen, ip_version):
             logger.info(f"Configured {intf} on ext-1 (connected to host-1 swp{i-2})")
         else:
             logger.info(f"Interface {intf} does not exist on ext-1, skipping")
+
+
+def setup_ext21_connectivity(tgen, ip_version):
+    """
+    Phase 1: Create VRF RED and bind interfaces on ext-21 and leaf-21.
+
+    VRF RED must be created in Linux before FRR loads the config, similar to
+    how vrf1/vrf2 are created in setup_vtep(). This phase only creates the VRF
+    and moves interfaces into it. IP assignment is deferred to phase 2
+    (setup_ext21_post_start) because tgen.start_router() resets interface IPs.
+
+    Only needed for IPv4 underlay (ext-21 config is IPv4-only).
+
+    Args:
+        tgen: Topogen instance
+        ip_version: IP version for underlay ("ipv4" or "ipv6")
+    """
+    if ip_version != "ipv4":
+        return
+
+    # --- ext-21: Create VRF RED and move swp1 into it ---
+    router = tgen.gears["ext-21"]
+    logger.info("Configuring ext-21 VRF RED (phase 1: VRF + interface binding)")
+
+    router.run("ip link del RED 2>/dev/null || true")
+    router.run("ip link add RED type vrf table 1003")
+    router.run("ip link set dev RED up")
+    router.run("ip link set dev swp1 master RED")
+    router.run("ip link set dev swp1 up")
+
+    # --- leaf-21: Create VRF RED and move swp5 into it ---
+    router = tgen.gears["leaf-21"]
+    logger.info("Configuring leaf-21 VRF RED (phase 1: VRF + interface binding)")
+
+    router.run("ip link del RED 2>/dev/null || true")
+    router.run("ip link add RED type vrf table 1003")
+    router.run("ip link set dev RED up")
+    router.run("ip link set dev swp5 master RED")
+    router.run("ip link set dev swp5 up")
+
+
+def setup_ext21_post_start(tgen, ip_version):
+    """
+    Phase 2: Assign IP addresses on ext-21 and leaf-21 after FRR has started.
+
+    Called after tgen.start_router() to ensure IPs are not stripped during
+    FRR daemon initialization.
+
+    Only needed for IPv4 underlay (ext-21 config is IPv4-only).
+
+    Args:
+        tgen: Topogen instance
+        ip_version: IP version for underlay ("ipv4" or "ipv6")
+    """
+    if ip_version != "ipv4":
+        return
+
+    # --- ext-21: Assign IP on swp1 ---
+    router = tgen.gears["ext-21"]
+    logger.info("Configuring ext-21 VRF RED (phase 2: IP assignment)")
+
+    router.run("ip addr replace 10.1.10.2/24 dev swp1")
+
+    # --- leaf-21: Assign IP on swp5 ---
+    router = tgen.gears["leaf-21"]
+    logger.info("Configuring leaf-21 VRF RED (phase 2: IP assignment)")
+
+    router.run("ip addr replace 10.1.10.3/24 dev swp5")
 
 
 def _check_route_in_vrf(router, vrf, route, ip_version):
@@ -2835,6 +2915,132 @@ def test_l3vni_l2vni_transition_restore(tgen_and_ip_version):
     assert (
         result is None
     ), f"BGP L3VNI state validation failed for VNI {l3vni} after restore: {result}"
+
+
+def test_ext21_dynamic_neighbor(tgen_and_ip_version):
+    """
+    Verify ext-21 dynamic BGP neighbor is established with leaf-21 in VRF RED.
+
+    ext-21 uses 'bgp listen range 10.1.10.0/24 peer-group test' (dynamic neighbor)
+    in VRF RED (AS 651006). leaf-21 has an explicit neighbor 10.1.10.2 configured
+    in 'router bgp 651004 vrf RED'.
+
+    This test validates:
+    1. On ext-21 (VRF RED): The dynamic neighbor 10.1.10.3 (leaf-21) is discovered
+       via the listen range and reaches Established state.
+    2. On leaf-21 (VRF RED): The explicit neighbor 10.1.10.2 (ext-21) reaches
+       Established state.
+    3. Both sides see each other's correct remote AS.
+
+    Only runs for IPv4 underlay since ext-21 config is IPv4-only.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # ext-21 config only exists for IPv4 underlay
+    if ip_version != "ipv4":
+        pytest.skip("ext-21 is only configured for IPv4 underlay")
+
+    logger.info("Verifying ext-21 dynamic BGP neighbor with leaf-21 in VRF RED")
+
+    ext21 = tgen.gears["ext-21"]
+    leaf21 = tgen.gears["leaf-21"]
+
+    # --- Check ext-21 side: dynamic neighbor 10.1.10.3 (leaf-21) in VRF RED ---
+    def check_ext21_dynamic_neighbor():
+        output = ext21.vtysh_cmd("show bgp vrf RED summary json", isjson=True)
+        if not output:
+            return "ext-21: No BGP VRF RED summary output"
+
+        # Look for ipv4Unicast peers in VRF RED
+        if "ipv4Unicast" not in output:
+            return "ext-21: No ipv4Unicast address family in VRF RED"
+
+        af_data = output["ipv4Unicast"]
+        if "peers" not in af_data or not af_data["peers"]:
+            return "ext-21: No peers found in VRF RED ipv4Unicast"
+
+        # The dynamic neighbor should be 10.1.10.3 (leaf-21's swp5 in VRF RED)
+        peer_ip = "10.1.10.3"
+        if peer_ip not in af_data["peers"]:
+            return (
+                f"ext-21: Dynamic neighbor {peer_ip} not discovered via listen range. "
+                f"Active peers: {list(af_data['peers'].keys())}"
+            )
+
+        peer_data = af_data["peers"][peer_ip]
+        state = peer_data.get("state", "")
+        if state != "Established":
+            return (
+                f"ext-21: Dynamic neighbor {peer_ip} not Established (state: {state})"
+            )
+
+        # Verify the remote AS is correct (leaf-21 AS 651004)
+        remote_as = peer_data.get("remoteAs")
+        if remote_as != 651004:
+            return (
+                f"ext-21: Dynamic neighbor {peer_ip} has unexpected remote AS "
+                f"{remote_as}, expected 651004"
+            )
+
+        logger.info(
+            f"ext-21: Dynamic neighbor {peer_ip} is Established "
+            f"(remote AS {remote_as}, peer-group test)"
+        )
+        return None
+
+    test_func = partial(check_ext21_dynamic_neighbor)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f"ext-21 dynamic neighbor verification failed: {result}"
+
+    # --- Check leaf-21 side: explicit neighbor 10.1.10.2 (ext-21) in VRF RED ---
+    def check_leaf21_vrf_red_neighbor():
+        output = leaf21.vtysh_cmd("show bgp vrf RED summary json", isjson=True)
+        if not output:
+            return "leaf-21: No BGP VRF RED summary output"
+
+        if "ipv4Unicast" not in output:
+            return "leaf-21: No ipv4Unicast address family in VRF RED"
+
+        af_data = output["ipv4Unicast"]
+        if "peers" not in af_data or not af_data["peers"]:
+            return "leaf-21: No peers found in VRF RED ipv4Unicast"
+
+        peer_ip = "10.1.10.2"
+        if peer_ip not in af_data["peers"]:
+            return (
+                f"leaf-21: Neighbor {peer_ip} not found in VRF RED. "
+                f"Active peers: {list(af_data['peers'].keys())}"
+            )
+
+        peer_data = af_data["peers"][peer_ip]
+        state = peer_data.get("state", "")
+        if state != "Established":
+            return f"leaf-21: Neighbor {peer_ip} not Established (state: {state})"
+
+        # Verify the remote AS is correct (ext-21 AS 651006)
+        remote_as = peer_data.get("remoteAs")
+        if remote_as != 651006:
+            return (
+                f"leaf-21: Neighbor {peer_ip} has unexpected remote AS "
+                f"{remote_as}, expected 651006"
+            )
+
+        logger.info(
+            f"leaf-21: Neighbor {peer_ip} is Established " f"(remote AS {remote_as})"
+        )
+        return None
+
+    test_func = partial(check_leaf21_vrf_red_neighbor)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f"leaf-21 VRF RED neighbor verification failed: {result}"
+
+    logger.info(
+        "ext-21 dynamic neighbor verification completed successfully: "
+        "ext-21 (10.1.10.2, AS 651006) <-> leaf-21 (10.1.10.3, AS 651004) "
+        "in VRF RED is Established"
+    )
 
 
 def test_memory_leak(tgen_and_ip_version):

@@ -15,11 +15,12 @@ This test validates BGP EVPN functionality using:
 - **RFC 5549 Support:** IPv4 routes with IPv6 next-hops (IPv6 underlay mode)
 - **EVPN Type-5 (IP Prefix) routes** for external connectivity via L3VNI BGP peering
 - **FRR datacenter defaults** for optimized BGP timers with peer-groups
-- 3-tier CLOS topology with 16 nodes
+- 3-tier CLOS topology with 17 nodes
 - L2VNIs (1000111, 1000112) and L3VNIs (104001, 104002)
 - Multi-tenancy with 2 VRFs (vrf1, vrf2)
 - **Symmetric IRB** with L3VNI-based inter-subnet routing
 - **External router connectivity** via BorderToR L3VNI BGP peering
+- **Dynamic BGP neighbor** testing via ext-21 with `bgp listen range` in VRF RED
 - **Static blackhole routes** on ToRs for EVPN Type-5 route testing
 - VXLAN aging: 18000 centiseconds (180 seconds = 3 minutes), TTL: 64
 
@@ -71,15 +72,18 @@ This test validates BGP EVPN functionality using:
                         ║         EXTERNAL ROUTER & HOSTS                      ║
                         ╚══════════════════════════════════════════════════════╝
 
-    ┌─▼─────────▼──┐
-    │    ext-1     │
-    │  AS 655000   │
-    │  10.0.0.3     │
-    │  swp1.4001   │◄─── VRF1 BGP Peering (192.0.2.0/30, 2001:db8:144:1::/64)
-    │  swp1.4002   │◄─── VRF2 BGP Peering (192.0.2.4/30, 2001:db8:144:2::/64)
-    │  swp2.4001   │◄─── VRF1 BGP Peering (192.0.2.0/30, 2001:db8:144:11::/64)
-    │  swp2.4002   │◄─── VRF2 BGP Peering (192.0.2.4/30, 2001:db8:144:12::/64)
-    └──────────────┘
+    ┌─▼─────────▼──┐                              ┌──────────────┐
+    │    ext-1     │                              │   ext-21     │
+    │  AS 655000   │                              │  AS 651006   │
+    │  10.0.0.3     │                              │  10.0.0.4     │
+    │  swp1.4001   │◄─── VRF1 BGP Peering         │  VRF RED     │
+    │  swp1.4002   │◄─── VRF2 BGP Peering         │  swp1        │
+    │  swp2.4001   │◄─── VRF1 BGP Peering         │ 10.1.10.2/24 │
+    │  swp2.4002   │◄─── VRF2 BGP Peering         │  bgp listen  │
+    └──────────────┘                              └──────┬───────┘
+                                                         │
+                                              leaf-21 swp5 (VRF RED)
+                                               10.1.10.3/24
 
     VRF2/VLAN111                VRF2/VLAN111
     192.168.11.0/24                 192.168.11.0/24
@@ -105,14 +109,15 @@ This test validates BGP EVPN functionality using:
 - Each border ToR connects to 1 host (VLAN 111/VRF2 only)
 - Each ToR (tor-21, tor-22) connects to 1 host (VLAN 111/VRF2 only)
 - **ext-1 connects to host-1 with 4 links** (swp3-6 → swp1-4) for external connectivity
+- **leaf-21 connects to ext-21** (swp5 → swp1) for dynamic BGP neighbor testing in VRF RED
 
 ### Node Count
-- **Total:** 16 nodes
+- **Total:** 17 nodes
   - 2 Spines
   - 4 Leafs
   - 2 Border ToRs (EVPN VTEPs with host connections + external peering)
   - 2 ToRs (EVPN VTEPs with host connections)
-  - 1 External Router (BGP peering with BorderToRs + host connection)
+  - 2 External Routers (ext-1: BGP peering with BorderToRs; ext-21: dynamic neighbor with leaf-21)
   - 5 Hosts (4 EVPN hosts on VLAN 111, 1 external host on ext-1)
 
 ### VTEP Configuration
@@ -214,6 +219,28 @@ bordertor-12 (AS 660000)                     ext-1 (AS 655000)
 - **RFC 5549 support** - IPv4 routes with IPv6 next-hops (IPv6 underlay mode)
 - **External route filtering** - ext-1 advertises prefixes (198.51.100-103.0/24, 2001:db8:81::/48)
 
+
+### ext-21 Dynamic Neighbor Connectivity (IPv4 Only)
+
+ext-21 connects to leaf-21 via a single link for testing BGP dynamic neighbor
+discovery using `bgp listen range` in VRF RED.
+
+```
+ext-21 (AS 651006, VRF RED)              leaf-21 (AS 651004, VRF RED)
+│                                        │
+│  swp1 ── 10.1.10.2/24  ←→  10.1.10.3/24 ── swp5
+│  bgp listen range 10.1.10.0/24        │  neighbor 10.1.10.2 remote-as 651006
+│  peer-group test                       │
+│  (dynamic neighbor discovery)          │
+```
+
+**Key Features:**
+- **VRF RED** created at Linux level via iproute2 (phase 1: before FRR starts)
+- **IP assignment** via iproute2 (phase 2: after FRR starts)
+- **Dynamic neighbor:** ext-21 uses `bgp listen range` to accept connections from 10.1.10.0/24
+- **Explicit neighbor:** leaf-21 has `neighbor 10.1.10.2 remote-as 651006`
+- **IPv4 only:** ext-21 config exists only in `ipv4/` directory
+
 ### BGP Configuration
 
 #### AS Numbers
@@ -224,6 +251,7 @@ bordertor-12 (AS 660000)                     ext-1 (AS 655000)
 - tor-21: AS 650030
 - tor-22: AS 650031
 - ext-1: AS 655000
+- ext-21: AS 651006 (VRF RED, dynamic neighbor via `bgp listen range`)
 
 #### BGP Settings
 - **FRR Defaults:** `datacenter` (optimized BGP timers for datacenter)
@@ -283,6 +311,7 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
 - tor-21: 10.0.0.30/32, fd00:0:20::30/128 (VTEP)
 - tor-22: 10.0.0.31/32, fd00:0:20::31/128 (VTEP)
 - ext-1: 10.0.0.3/32, fd00:0:20::3/128
+- ext-21: 10.0.0.4/32 (IPv4 only)
 
 ## Test Cases
 
@@ -318,8 +347,13 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
     - Uses `evpn_verify_ping_connectivity()` from `lib/evpn.py`
     - IPv4 test when using IPv4 underlay, IPv6 test when using IPv6 underlay
 
+### Dynamic Neighbor Tests
+11. **test_ext21_dynamic_neighbor()** - Verify ext-21 dynamic BGP neighbor in VRF RED (IPv4 only)
+    - ext-21 uses `bgp listen range 10.1.10.0/24` to discover leaf-21 dynamically
+    - Validates Established state and correct remote AS on both sides
+
 ### Memory and Cleanup
-11. **test_memory_leak()** - Memory leak detection
+12. **test_memory_leak()** - Memory leak detection
 
 ## Generic EVPN Library Functions
 
@@ -402,6 +436,7 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
 - **L2 Connectivity:** EVPN Type-2 MAC/IP routes for intra-VLAN communication
 - **L3 Connectivity:** EVPN Type-5 IP prefix routes for inter-subnet routing via L3VNIs
 - **External Connectivity:** Per-VRF BGP peering with external router for Type-5 routes
+- **Dynamic BGP Neighbor:** ext-21 tests `bgp listen range` in VRF RED (IPv4 only)
 - **Symmetric IRB:** Inter-subnet routing with L3VNI encapsulation
 - **Multi-tenancy:** Separate VRFs (vrf1, vrf2) with independent routing tables
 - **Head-end Replication (HREP):** BUM traffic handling via HREP entries
@@ -446,11 +481,12 @@ bgp_evpn_three_tier_clos_topo1/
 ├── ipv6/                            # IPv6 underlay configs
 │   ├── spine-1/frr.conf
 │   ├── bordertor-11/frr.conf
-│   └── ... (all 16 nodes)
+│   └── ... (all nodes)
 ├── ipv4/                            # IPv4 underlay configs
 │   ├── spine-1/frr.conf
 │   ├── bordertor-11/frr.conf
-│   └── ... (all 16 nodes)
+│   ├── ext-21/frr.conf             # ext-21 (IPv4 only, VRF RED)
+│   └── ... (all nodes + ext-21)
 ├── README.md
 └── TOPOLOGY.md
 ```

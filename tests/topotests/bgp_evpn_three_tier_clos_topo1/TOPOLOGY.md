@@ -1,12 +1,13 @@
 # BGP EVPN VXLAN Topology 2 - Complete Node Diagram
 
 ## Overview
-- **Total Nodes:** 16
+- **Total Nodes:** 17
 - **Topology Type:** 3-Tier CLOS with EVPN
 - **Underlay:** eBGP (supports both IPv4 and IPv6 numbered)
 - **Overlay:** L2VPN EVPN
 - **VTEP Type:** Single VXLAN Device (SVD) - IPv6 VTEPs
 - **External Connectivity:** Per-VRF eBGP sessions for EVPN Type-5 routes + external host (host-1)
+- **Dynamic BGP Neighbor:** ext-21 with `bgp listen range` in VRF RED (IPv4 only)
 - **Test Modes:** Parametrized tests run with both IPv4 and IPv6 underlay configurations
 - **Addresses:** RFC-compliant private and documentation ranges (RFC 5737, RFC 3849, RFC 1918, RFC 4193)
 
@@ -376,6 +377,19 @@ corresponding IPv4 addresses are used (e.g., VTEP: 10.0.0.1 instead of fd00:0:20
   - **Route Filtering:** EXT_HOSTS (IPv4), EXT_HOSTS_v6 (IPv6) prefix-lists
   - **RFC 5549:** Supports capability extended-nexthop for IPv4 routes over IPv6 BGP sessions
 
+
+#### ext-21 (IPv4 Only)
+- **AS:** 651006 (VRF RED)
+- **Router-ID:** 10.0.0.4
+- **Loopback:** 10.0.0.4/32
+- **Interfaces:**
+  - swp1 → leaf-21 swp5 (10.1.10.2/24, VRF RED)
+- **VRFs:** RED (table 1003, created via iproute2)
+- **BGP:**
+  - **VRF RED:** `bgp listen range 10.1.10.0/24 peer-group test` (dynamic neighbor)
+  - peer-group test: remote-as 651004, update-source 10.1.10.2
+  - Timers: keepalive 3, hold 9, connect 10
+
 #### host-1 (External Host)
 - **Type:** External host connected to ext-1
 - **Purpose:** Represents external networks/hosts beyond the EVPN fabric
@@ -670,6 +684,7 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 | tor-21       | swp4       | host-211     | swp2       | VLAN 112                 | L2 (EVPN)     | Host access (VRF1)        |
 | tor-22       | swp3       | host-221     | swp1       | VLAN 111                 | L2 (EVPN)     | Host access               |
 | tor-22       | swp4       | host-221     | swp2       | VLAN 112                 | L2 (EVPN)     | Host access (VRF1)        |
+| leaf-21      | swp5       | ext-21       | swp1       | 10.1.10.3/24 (VRF RED) | eBGP (VRF RED) | Dynamic neighbor      |
 | ext-1        | swp3       | host-1       | swp1       | 198.51.100.0/24            | L3            | External host link 1      |
 | ext-1        | swp4       | host-1       | swp2       | 198.51.101.0/24            | L3            | External host link 2      |
 | ext-1        | swp5       | host-1       | swp3       | 198.51.102.0/24            | L3            | External host link 3      |
@@ -679,11 +694,11 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 
 ## Summary Statistics
 
-- **Total Nodes:** 16
+- **Total Nodes:** 17
 - **Spines:** 2 (Route Reflectors)
 - **Leafs:** 4 (2 per pod)
 - **VTEPs:** 4 (2 border ToRs + 2 ToRs) using Single VXLAN Device (SVD)
-- **External Routers:** 1
+- **External Routers:** 2 (ext-1: BorderToR peering, ext-21: dynamic neighbor with leaf-21)
 - **Hosts:** 5 (4 EVPN hosts on VLAN 111 + 1 external host on ext-1)
 - **Total BGP Sessions:** 28+ (IPv4/IPv6 underlay + per-VRF external)
 - **Total EVPN Sessions:** 20 (L2VPN EVPN overlay)
@@ -716,6 +731,7 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 - ✅ **ECMP** - `multipath-relax` + `compare-routerid` + `maximum-paths 16`
 - ✅ **Peer-groups** - TOR-LEAF-SPINE with aggressive timers
 - ✅ **AS-PATH allowas-in** - For CLOS topology with AS path relaxation
+- ✅ **Dynamic BGP Neighbor** - ext-21 uses `bgp listen range` in VRF RED (IPv4 only)
 
 ### Test Coverage
 - ✅ **Parametrized tests** - All tests run with both IPv4 and IPv6 underlay
@@ -750,7 +766,11 @@ The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation
 10. **`test_host_to_host_ping`** - Verifies end-to-end connectivity (host-211 → host-111)
     - IPv4 connectivity test (when using IPv4 underlay)
     - IPv6 connectivity test (when using IPv6 underlay)
-11. **`test_memory_leak`** - Memory leak detection
+11. **`test_ext21_dynamic_neighbor`** - Verify ext-21 dynamic BGP neighbor with leaf-21 in VRF RED
+   - Validates dynamic neighbor discovery via `bgp listen range 10.1.10.0/24`
+   - Checks Established state and correct remote AS on both sides
+   - IPv4 underlay only (skips IPv6)
+12. **`test_memory_leak`** - Memory leak detection
 
 ### Library Functions (`tests/topotests/lib/evpn.py`)
 
@@ -785,6 +805,8 @@ Generic EVPN helper functions for reuse across topotests:
 - **`setup_vtep`** - Configure TRUE SVD (Single VXLAN Device) on VTEPs
 - **`setup_bordertor_ext_connectivity`** - Configure VLAN sub-interfaces for L3VNI external peering
 - **`setup_ext1`** - Configure external router interfaces and VLAN sub-interfaces
+- **`setup_ext21_connectivity`** - Phase 1: Create VRF RED, bind interfaces on ext-21/leaf-21 (before FRR starts)
+- **`setup_ext21_post_start`** - Phase 2: Assign IPs on ext-21/leaf-21 via iproute2 (after FRR starts)
 
 ### MAC Learning
 
