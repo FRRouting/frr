@@ -326,6 +326,15 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 	}
 
+	if (install_local) {
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
+			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
+			0, 0, false);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_LOCAL, 0, flags, &plocal, NULL, &nh, 0,
+			zvrf->table_id, 0, 0, 0, 0, false);
+	}
+
 	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
 		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 
@@ -337,15 +346,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
 			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
 			zvrf->table_id, metric, 0, 0, 0, false);
-	}
-
-	if (install_local) {
-		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
-			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
-			0, 0, false);
-		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
-			ZEBRA_ROUTE_LOCAL, 0, flags, &plocal, NULL, &nh, 0,
-			zvrf->table_id, 0, 0, 0, 0, false);
 	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
