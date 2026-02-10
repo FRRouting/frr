@@ -495,6 +495,9 @@ struct bgp_ls_nlri {
 	struct bgp_ls_nlri_hash_item hash_item;
 };
 
+/* Forward declare the hash table */
+PREDECL_HASH(bgp_ls_attr_hash);
+
 /* BGP-LS Attribute (Type 29) */
 struct bgp_ls_attr {
 	uint64_t present_tlvs; /* Bitmask of present TLVs */
@@ -597,6 +600,11 @@ struct bgp_ls_attr {
 	/* Opaque Node Attribute (TLV 1025/1097/1157) */
 	uint16_t opaque_len;
 	uint8_t *opaque_data;
+
+	unsigned long refcnt; /* Reference count */
+
+	/* Hash table linkage */
+	struct bgp_ls_attr_hash_item hash_item;
 };
 
 /* Function prototypes */
@@ -646,11 +654,19 @@ extern const char *bgp_ls_ospf_route_type_str_json(enum bgp_ls_ospf_route_type r
  */
 
 /* Unified hash functions - dispatch internally based on nlri_type */
-extern unsigned int bgp_ls_hash_key(const struct bgp_ls_nlri *nlri);
-extern int bgp_ls_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2);
+extern unsigned int bgp_ls_nlri_hash_key(const struct bgp_ls_nlri *nlri);
+extern int bgp_ls_nlri_hash_cmp(const struct bgp_ls_nlri *n1, const struct bgp_ls_nlri *n2);
+
+extern unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *ls_attr);
+extern int bgp_ls_attr_hash_cmp(const struct bgp_ls_attr *a1, const struct bgp_ls_attr *a2);
 
 /* Declare the typesafe hash table */
-DECLARE_HASH(bgp_ls_nlri_hash, struct bgp_ls_nlri, hash_item, bgp_ls_hash_cmp, bgp_ls_hash_key);
+DECLARE_HASH(bgp_ls_nlri_hash, struct bgp_ls_nlri, hash_item, bgp_ls_nlri_hash_cmp,
+	     bgp_ls_nlri_hash_key);
+
+/* Declare the typesafe hash table */
+DECLARE_HASH(bgp_ls_attr_hash, struct bgp_ls_attr, hash_item, bgp_ls_attr_hash_cmp,
+	     bgp_ls_attr_hash_key);
 
 /*
  * ===========================================================================
@@ -669,5 +685,17 @@ extern struct bgp_ls_nlri *bgp_ls_nlri_lookup(struct bgp_ls_nlri_hash_head *hash
 /* NLRI interning (lookup + lock/unlock) */
 extern struct bgp_ls_nlri *bgp_ls_nlri_intern(struct bgp_ls_nlri *ls_nlri);
 extern void bgp_ls_nlri_unintern(struct bgp_ls_nlri **pls_nlri);
+
+/* Insert BGP-LS attribute into unified hash table */
+extern struct bgp_ls_attr *bgp_ls_attr_get(struct bgp_ls_attr_hash_head *hash, struct bgp *bgp,
+					   struct bgp_ls_attr *ls_attr);
+
+/* Lookup BGP-LS attribute in unified hash table */
+extern struct bgp_ls_attr *bgp_ls_attr_lookup(struct bgp_ls_attr_hash_head *hash,
+					      const struct bgp_ls_attr *ls_attr);
+
+/* BGP-LS attribute interning (lookup + lock/unlock) */
+extern struct bgp_ls_attr *bgp_ls_attr_intern(struct bgp_ls_attr *ls_attr);
+extern void bgp_ls_attr_unintern(struct bgp_ls_attr **pls_attr);
 
 #endif /* _FRR_BGP_LS_NLRI_H */
