@@ -982,11 +982,7 @@ void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet)
 		return;
 
 	/* First, remove associated Link State Subnet */
-	if (subnet->ls_pref) {
-		ls_prefix_del(subnet->ls_pref);
-		/* Set to NULL after deletion to prevent double free */
-		subnet->ls_pref = NULL;
-	}
+	ls_prefix_del(subnet->ls_pref);
 	/* Then, delete Subnet itself */
 	ls_subnet_del(ted, subnet);
 }
