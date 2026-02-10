@@ -2879,10 +2879,8 @@ int peer_delete(struct peer *peer)
 	/* Password configuration */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)) {
 		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		if (!accept_peer &&
-		    !BGP_CONNECTION_SU_UNSPEC(peer->connection) &&
-		    !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
-		    !CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR))
+		if (!accept_peer && !BGP_CONNECTION_SU_UNSPEC(peer->connection) &&
+		    !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			bgp_md5_unset(peer->connection);
 	}
 
