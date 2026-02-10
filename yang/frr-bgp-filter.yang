@@ -22,6 +22,9 @@ module frr-bgp-filter {
   revision 2020-01-15 {
     description
       "Initial revision";
+
+    reference
+      "FRRouting";
   }
 
   typedef list-sequence {
@@ -72,12 +75,17 @@ module frr-bgp-filter {
   }
 
   augment "/frr-filter:lib" {
+    description
+      "Augments the FRR filter library with community-list support";
+
     list community-list {
       key "name";
       description
         "Community-list instance";
       leaf name {
         type string;
+        description
+          "Name of the community-list instance";
       }
 
       list entry {
@@ -86,10 +94,14 @@ module frr-bgp-filter {
           "Community-list entry";
         leaf sequence {
           type list-sequence;
+          description
+            "Sequence number for the community-list entry";
         }
 
         leaf action {
           type list-action;
+          description
+            "Action to be taken when the community matches the entry";
         }
 
         leaf type {
@@ -140,6 +152,8 @@ module frr-bgp-filter {
         "Large community-list instance";
       leaf name {
         type string;
+        description
+          "Large community-list instance name";
       }
 
       list entry {
@@ -148,10 +162,14 @@ module frr-bgp-filter {
           "Large community-list entry";
         leaf sequence {
           type list-sequence;
+          description
+            "Sequence number for the large community-list entry";
         }
 
         leaf action {
           type list-action;
+          description
+            "Action to be taken when the large community matches the entry";
         }
 
         leaf type {
@@ -214,6 +232,8 @@ module frr-bgp-filter {
         "Extcommunity-list instance";
       leaf name {
         type string;
+        description
+          "Extcommunity-list instance name";
       }
 
       list entry {
@@ -222,10 +242,14 @@ module frr-bgp-filter {
           "Extcommunity-list entry";
         leaf sequence {
           type list-sequence;
+          description
+            "Sequence number for the extcommunity-list entry";
         }
 
         leaf action {
           type list-action;
+          description
+            "Action to be taken when the extcommunity matches the entry";
         }
 
         leaf type {
@@ -270,6 +294,8 @@ module frr-bgp-filter {
                   "Set BGP ext-community route-target attribute";
                 leaf-list extcommunity-rt {
                   type rt-types:route-target;
+                  description
+                    "List of route-target values for the ext-community RT attribute";
                 }
               }
 
@@ -278,6 +304,8 @@ module frr-bgp-filter {
                   "Set BGP ext-community site-of-origin attribute";
                 leaf-list extcommunity-soo {
                   type rt-types:route-target;
+                  description
+                    "List of route-target values for the ext-community SOO attribute";
                 }
               }
             }
@@ -312,10 +340,14 @@ module frr-bgp-filter {
           "AS-path access-list entry";
         leaf sequence {
           type list-sequence;
+          description
+            "Sequence number for the AS-path access-list entry";
         }
 
         leaf action {
           type list-action;
+          description
+            "Action to be taken when the AS-path matches the entry";
         }
 
         leaf as-path {
