@@ -175,6 +175,7 @@ def test_bgp_established():
         pytest.skip(tgen.errors)
 
     step("Test that BGP session between r1 and r2 is established")
+
     # Create a function to check BGP peer status on r1
     def check_bgp_peer():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -222,6 +223,7 @@ def test_bgp_routes_on_r2():
         pytest.skip(tgen.errors)
 
     step("Test that routes installed on r1 are properly received by r2")
+
     # Create a function to check the route count on r2
     def check_r2_routes():
         route_count = (
@@ -245,6 +247,7 @@ def test_bgp_routes_on_r2():
     assert success, f"Expected {expected_route_count} routes on r2 but found {result}"
 
     step("Test that all routes are installed in the FIB")
+
     # Create a function to check the FIB route count
     def check_fib_routes():
         output = net["r2"].cmd('vtysh -c "show ip route summary"')
@@ -272,6 +275,7 @@ def test_bgp_routes_on_r2():
     assert success, f"Expected {expected_route_count} routes in FIB but found {result}"
 
     step("Verify that the nexthop group for 39.99.0.0 routes has 128 members")
+
     # Create a function to check the nexthop group member count
     def check_nhg_members():
         output = net["r2"].cmd('vtysh -c "show ip route 39.99.0.0 json"')
@@ -302,8 +306,12 @@ def test_bgp_routes_on_r2():
             nhg_info = nhg_data.get(str(nhg_id), {})
             member_count = len(nhg_info.get("nexthops", []))
             logger.info(f"Nexthop group {nhg_id} has {member_count} members")
-            if (member_count != 128):
-                logger.info(net["r2"].cmd(f'vtysh -c "show nexthop-group rib {nhg_id}" -c "show bgp ipv4 uni" -c "show ip route 33.99.0.0 nexthop-group"'))
+            if member_count != 128:
+                logger.info(
+                    net["r2"].cmd(
+                        f'vtysh -c "show nexthop-group rib {nhg_id}" -c "show bgp ipv4 uni" -c "show ip route 33.99.0.0 nexthop-group"'
+                    )
+                )
             return member_count
         except (json.JSONDecodeError, KeyError) as e:
             logger.info(f"Error checking nexthop group members: {e}")
@@ -384,6 +392,7 @@ def test_bgp_shutdown_some_links():
         net["r2"].cmd(f"ip link set r2-eth{i} down")
 
     step("Test that 20 BGP peers are failed")
+
     # Create a function to check BGP peer status on r2
     def check_failed_peers():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -423,6 +432,7 @@ def test_bgp_shutdown_some_links():
     assert success, f"Expected 20 failed BGP peers but found {result}"
 
     step("Verify that the nexthop group ID hasn't changed")
+
     # Verify that the nexthop group ID hasn't changed
     def verify_nhg_unchanged():
         output = net["r2"].cmd('vtysh -c "show ip route bgp json"')
@@ -458,6 +468,7 @@ def test_bgp_shutdown_some_links():
         net["r2"].cmd(f"ip link set r2-eth{i} up")
 
     step("Test that all BGP peers are established")
+
     # Create a function to check that all BGP peers are established
     def check_all_peers_established():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -490,6 +501,7 @@ def test_bgp_shutdown_some_links():
     assert success, f"Expected 0 failed BGP peers but found {result}"
 
     step("Verify that the original nexthop group is still being used")
+
     # Final verification that the original nexthop group is still being used
     def verify_final_nhg():
         output = net["r2"].cmd('vtysh -c "show ip route bgp json"')
@@ -521,6 +533,232 @@ def test_bgp_shutdown_some_links():
     )
 
     assert success, "Nexthop group ID changed after interfaces were brought back up"
+
+
+def test_ip_nexthop_flush():
+    """
+    This test verifies that after flushing all kernel nexthops, zebra correctly
+    reinstalls routes and nexthop groups.
+    """
+    tgen = get_topogen()
+    net = tgen.net
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Pick 10 routes from zebra RIB for testing")
+
+    # Pick first 10 routes for testing
+    routes_output = net["r2"].cmd('vtysh -c "show ip route" | grep "B>*"')
+    routes_list = []
+
+    for line in routes_output.splitlines():
+        if line.startswith("B>*"):
+            parts = line.split()
+            if len(parts) >= 2:
+                route = parts[1]
+                routes_list.append(route)
+
+    test_routes = routes_list[:10] if len(routes_list) >= 10 else routes_list
+
+    if len(test_routes) < 10:
+        pytest.skip(
+            f"Not enough routes found in zebra. Found {len(test_routes)}, need at least 10"
+        )
+
+    logger.info(f"Testing with routes: {test_routes}")
+
+    def verify_route_in_zebra(route):
+        """
+        Verify that a route has correct flags and properties in zebra
+        Returns: (success, nhg_id, error_msg)
+        """
+        output = net["r2"].cmd(f'vtysh -c "show ip route {route} json"')
+        try:
+            route_data = json.loads(output)
+
+            if not route_data:
+                return False, None, f"Route {route} not found in zebra"
+
+            prefix = list(route_data.keys())[0]
+            routes = route_data[prefix]
+
+            if not routes or len(routes) == 0:
+                return False, None, f"Route {route} has no route entries in zebra"
+
+            r = routes[0]
+
+            if r.get("protocol") != "bgp":
+                return (
+                    False,
+                    None,
+                    f"Route {route} protocol is {r.get('protocol')}, expected bgp",
+                )
+
+            # Check flags
+            if not r.get("selected", False):
+                return False, None, f"Route {route} not selected in zebra"
+
+            if not r.get("installed", False):
+                return False, None, f"Route {route} not installed in zebra"
+
+            # Check nexthop counts
+            nexthop_count = len(r.get("nexthops", []))
+            if nexthop_count != 128:
+                return (
+                    False,
+                    None,
+                    f"Route {route} has {nexthop_count} nexthops, expected 128",
+                )
+
+            # Get nexthop group ID
+            nhg_id = r.get("nexthopGroupId")
+            if not nhg_id:
+                return False, None, f"Route {route} has no nexthop group ID"
+
+            return True, nhg_id, None
+
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            return False, None, f"Error parsing route {route}: {e}"
+
+    def verify_nhg_in_zebra(nhg_id):
+        """
+        Verify nexthop group properties in zebra
+        Returns: (success, error_msg)
+        """
+        output = net["r2"].cmd(f'vtysh -c "show nexthop-group rib {nhg_id} json"')
+        try:
+            nhg_data = json.loads(output)
+            nhg_info = nhg_data.get(str(nhg_id), {})
+
+            if not nhg_info:
+                return False, f"Nexthop group {nhg_id} not found in zebra"
+
+            # Check flags
+            if not nhg_info.get("valid", False):
+                return False, f"Nexthop group {nhg_id} not valid"
+
+            if not nhg_info.get("installed", False):
+                return False, f"Nexthop group {nhg_id} not installed"
+
+            # Check nexthop count
+            nexthop_count = nhg_info.get("nexthopCount", 0)
+            if nexthop_count != 128:
+                return (
+                    False,
+                    f"Nexthop group {nhg_id} has {nexthop_count} nexthops, expected 128",
+                )
+
+            return True, None
+
+        except (json.JSONDecodeError, KeyError) as e:
+            return False, f"Error parsing nexthop group {nhg_id}: {e}"
+
+    def verify_route_in_kernel(route, expected_nhg_id):
+        """
+        Verify that a route is installed in kernel with correct nhid
+        Returns: (success, error_msg)
+        """
+        output = net["r2"].cmd(f"ip route show {route}")
+
+        if not output or output.strip() == "":
+            return False, f"Route {route} not found in kernel"
+
+        # Check that nhid matches
+        if f"nhid {expected_nhg_id}" not in output:
+            return (
+                False,
+                f"Route {route} has wrong nhid in kernel (expected {expected_nhg_id})",
+            )
+
+        # Count nexthops
+        nexthop_lines = [line for line in output.splitlines() if "nexthop via" in line]
+        nexthop_count = len(nexthop_lines)
+
+        if nexthop_count != 128:
+            return (
+                False,
+                f"Route {route} has {nexthop_count} nexthops in kernel, expected 128",
+            )
+
+        return True, None
+
+    def verify_nhg_in_kernel(nhg_id):
+        """
+        Verify nexthop group exists in kernel
+        Returns: (success, error_msg)
+        """
+        output = net["r2"].cmd(f"ip nexthop show id {nhg_id}")
+
+        if not output or output.strip() == "":
+            return False, f"Nexthop group {nhg_id} not found in kernel"
+
+        if f"id {nhg_id} group" not in output:
+            return False, f"Nexthop group {nhg_id} format incorrect in kernel"
+
+        return True, None
+
+    def verify_all_routes(routes):
+        """
+        Verify all routes in both zebra and kernel
+        """
+        errors = []
+
+        # Verify each route
+        for route in routes:
+            success, nhg_id, error = verify_route_in_zebra(route)
+            if not success:
+                errors.append(error)
+                continue
+
+            # Check NHG in zebra
+            success, error = verify_nhg_in_zebra(nhg_id)
+            if not success:
+                errors.append(error)
+                continue
+
+            success, error = verify_route_in_kernel(route, nhg_id)
+            if not success:
+                errors.append(error)
+                continue
+
+            # Check NHG in kernel
+            success, error = verify_nhg_in_kernel(nhg_id)
+            if not success:
+                errors.append(error)
+
+        return len(errors) == 0, errors
+
+    step("Flush all nexthops in kernel using 'ip nexthop flush'")
+    net["r2"].cmd("ip nexthop flush")
+    logger.info("Nexthop flush completed")
+
+    step("Verify routes and nexthops are reinstalled")
+
+    def verify_post_flush_state():
+        success, errors = verify_all_routes(test_routes)
+        if not success:
+            logger.warning(f"Post-flush verification failed with errors: {errors}")
+        return success
+
+    # verify routes are reinstalled after flush
+    success, result = topotest.run_and_expect(
+        verify_post_flush_state,
+        True,
+        count=60,
+        wait=1,
+    )
+
+    assert success, "Routes failed to reinstall after nexthop flush"
+
+    step("Cleanup - remove all sharp routes to reduce teardown time")
+    net["r1"].cmd('vtysh -c "sharp remove routes 39.99.0.0 2000"')
+    sleep(10)
+
+    step(
+        "Test completed successfully - all routes and nexthops reinstalled after flush"
+    )
 
 
 if __name__ == "__main__":
