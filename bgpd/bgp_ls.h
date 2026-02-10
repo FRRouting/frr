@@ -17,6 +17,9 @@ struct bgp_ls {
 	/* Hash table for BGP-LS NLRIs (nodes, links, prefixes) */
 	struct bgp_ls_nlri_hash_head nlri_hash;
 
+	/* Hash table for BGP-LS Attributes */
+	struct bgp_ls_attr_hash_head ls_attr_hash;
+
 	/* NLRI ID allocator */
 	struct id_alloc *allocator;
 };
