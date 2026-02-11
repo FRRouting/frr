@@ -49,9 +49,9 @@ typedef enum {
  * Route-map match or set result "Eg: match evpn vni xx"
  * route-map match cmd always returns match/nomatch/noop
  *    match--> found a match
- *    nomatch--> didnt find a match
+ *    nomatch--> didn't find a match
  *    noop--> not applicable
- * route-map set retuns okay/error
+ * route-map set returns okay/error
  *    okay --> set was successful
  *    error --> set was not successful
  */

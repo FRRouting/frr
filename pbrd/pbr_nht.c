@@ -878,7 +878,7 @@ done:
 /* Given this update either from interface or nexthop tracking, re-validate this
  * nexthop.
  *
- * If the update is un-related, the subroutines shoud just return their cached
+ * If the update is un-related, the subroutines should just return their cached
  * valid state.
  */
 static void pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,

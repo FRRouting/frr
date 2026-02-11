@@ -21,7 +21,7 @@ extern "C" {
  * Why you ask?  Well because these are the turn on/off
  * functions and the only place we can really turn a
  * vrf on properly is in the call up from the os -> zebra
- * and the pass through of this informatoin from zebra -> protocols
+ * and the pass through of this information from zebra -> protocols
  */
 
 /*

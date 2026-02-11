@@ -92,7 +92,7 @@ extern void ns_add_hook(int type, int (*)(struct ns *));
 
 extern void ns_terminate(void);
 
-/* API to initialize NETNS managerment
+/* API to initialize NETNS management
  * parameter is the default ns_id
  */
 extern void ns_init_management(ns_id_t ns_id, ns_id_t internal_ns_idx);

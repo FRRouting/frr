@@ -173,7 +173,7 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 
 /*
  * Allocate an SRv6 SID object and initialize the fields common to all the
- * behaviors (i.e., SID address and behavor).
+ * behaviors (i.e., SID address and behavior).
  */
 struct static_srv6_sid *static_srv6_sid_alloc(struct prefix_ipv6 *addr)
 {

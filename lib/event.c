@@ -2311,7 +2311,7 @@ static inline void thread_process_io_inner_loop(struct event_loop *m,
 	 * m->handler.pfds while we were asleep is the .events
 	 * field in a given pollfd. Barring event_cancel() that
 	 * value should be a superset of the values we have in our
-	 * copy, so there's no need to update it. Similarily,
+	 * copy, so there's no need to update it. Similarly,
 	 * barring deletion, the fd should still be a valid index
 	 * into the master's pfds.
 	 *
@@ -2573,7 +2573,7 @@ unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 	/*
 	 * FreeBSD appears to have an issue when calling clock_gettime
 	 * with CLOCK_THREAD_CPUTIME_ID really close to each other
-	 * occassionally the now time will be before the start time.
+	 * occasionally the now time will be before the start time.
 	 * This is not good and FRR is ending up with CPU HOG's
 	 * when the subtraction wraps to very large numbers
 	 *

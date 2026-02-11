@@ -38,7 +38,7 @@
  * in completely unrelated things.
  *
  * What does work is the "unsupported platform" seqlock implementation based
- * on a pthread mutex + condvar, since TSAN of course suppports these.
+ * on a pthread mutex + condvar, since TSAN of course supports these.
  *
  * It may be possible to also fix this with TSAN annotations (__tsan_acquire
  * and __tsan_release), but using those (correctly) is not easy either, and

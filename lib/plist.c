@@ -535,7 +535,7 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 	struct prefix_list_entry *replace;
 	struct prefix_list_entry *point;
 
-	/* Automatic asignment of seq no. */
+	/* Automatic assignment of seq no. */
 	if (pentry->seq == -1)
 		pentry->seq = prefix_new_seq_get(plist);
 
@@ -592,7 +592,7 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 
 /**
  * Prefix list entry update start procedure:
- * Remove entry from previosly installed master list, tries and notify
+ * Remove entry from previously installed master list, tries and notify
  * observers.
  *
  * \param[in] ple prefix list entry.

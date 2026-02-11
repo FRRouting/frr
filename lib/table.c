@@ -131,7 +131,7 @@ static void route_table_free(struct route_table *rt)
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 				  0xf8, 0xfc, 0xfe, 0xff};
 
-/* Common prefix route genaration. */
+/* Common prefix route generation. */
 static void route_common(const struct prefix *n, const struct prefix *p,
 			 struct prefix *new)
 {

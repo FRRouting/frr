@@ -457,7 +457,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		/*
 		 * We can only announce current setting on poll, this
 		 * avoids timing mismatch with our peer and give it
-		 * the oportunity to learn. See `bs_final_handler` for
+		 * the opportunity to learn. See `bs_final_handler` for
 		 * more information.
 		 */
 		cp.timers.desired_min_tx =
@@ -839,13 +839,13 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 		case BFD_AUTH_NULL:
 			return false;
 		case BFD_AUTH_SIMPLE:
-			/* RFC5880 6.7: To be finshed. */
+			/* RFC5880 6.7: To be finished. */
 			return false;
 		case BFD_AUTH_CRYPTOGRAPHIC:
-			/* RFC5880 6.7: To be finshed. */
+			/* RFC5880 6.7: To be finished. */
 			return false;
 		default:
-			/* RFC5880 6.7: To be finshed. */
+			/* RFC5880 6.7: To be finished. */
 			return false;
 		}
 	}
@@ -1126,7 +1126,7 @@ void bfd_recv_cb(struct event *t)
 	/*
 	 * Detection timeout calculation:
 	 * The minimum detection timeout is the remote detection
-	 * multipler (number of packets to be missed) times the agreed
+	 * multiplier (number of packets to be missed) times the agreed
 	 * transmission interval.
 	 *
 	 * RFC 5880, Section 6.8.4.
@@ -1160,7 +1160,7 @@ void bfd_recv_cb(struct event *t)
 }
 
 /*
- * bp_bfd_echo_in: proccesses an BFD echo packet. On TTL == BFD_TTL_VAL
+ * bp_bfd_echo_in: processes an BFD echo packet. On TTL == BFD_TTL_VAL
  * the packet is looped back or returns the my discriminator ID along
  * with the TTL.
  *
@@ -2050,7 +2050,7 @@ void ptm_sbfd_initiator_snd(struct bfd_session *bfd, int fbit)
 		/*
 		 * We can only announce current setting on poll, this
 		 * avoids timing mismatch with our peer and give it
-		 * the oportunity to learn. See `bs_final_handler` for
+		 * the opportunity to learn. See `bs_final_handler` for
 		 * more information.
 		 */
 		cp.timers.desired_min_tx = htonl(bfd->cur_timers.desired_min_tx);

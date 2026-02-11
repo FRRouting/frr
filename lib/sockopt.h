@@ -145,7 +145,7 @@ extern int sockopt_tcp_mss_set(int sock, int tcp_maxseg);
  * the segment size for TCP session
  *
  * sock
- *    Socket to get max segement size.
+ *    Socket to get max segment size.
  */
 extern int sockopt_tcp_mss_get(int sock);
 

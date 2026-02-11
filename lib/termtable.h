@@ -297,7 +297,7 @@ struct json_object *ttable_json(struct ttable *tt, const char *const formats);
  * @param tt the table to convert
  * @param formats an array of characters indicating what JSON type should be
  * used.
- * @param formats an optinal string of row headers that overrids the first row of the table.
+ * @param formats an optional string of row headers that overrides the first row of the table.
  * This is useful to get naming convention that align with caml Format.
  */
 struct json_object *ttable_json_with_json_text(struct ttable *tt,

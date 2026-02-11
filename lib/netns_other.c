@@ -28,7 +28,7 @@ void ns_terminate(void)
 {
 }
 
-/* API to initialize NETNS managerment
+/* API to initialize NETNS management
  * parameter is the default ns_id
  */
 void ns_init_management(ns_id_t ns_id)

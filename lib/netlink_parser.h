@@ -61,7 +61,7 @@ struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type);
 /*
  * nl_attr_nest_end - finalize nesting of attributes.
  *
- * Updates the length field of the attribute header to include the appeneded
+ * Updates the length field of the attribute header to include the appended
  * attributes. Returns a total length of the Netlink message.
  */
 int nl_attr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
@@ -103,7 +103,7 @@ extern struct rtnexthop *nl_attr_rtnh(struct nlmsghdr *n, unsigned int maxlen);
 /*
  * nl_attr_rtnh_end - finalize adding a rtnexthop record.
  *
- * Updates the length field of the rtnexthop to include the appeneded
+ * Updates the length field of the rtnexthop to include the appended
  * attributes.
  */
 extern void nl_attr_rtnh_end(struct nlmsghdr *n, struct rtnexthop *rtnh);
@@ -127,7 +127,7 @@ extern struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen, int t
 /*
  * nl_rta_nest_end - finalize nesting of an aditionl optionl attributes.
  *
- * Updates the length field of the attribute header to include the appeneded
+ * Updates the length field of the attribute header to include the appended
  * attributes. Returns a total length of the Netlink message.
  */
 extern int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest);

@@ -63,7 +63,7 @@ static struct vrf_master {
 
 static int vrf_is_enabled(struct vrf *vrf);
 
-/* VRF list existance check by name. */
+/* VRF list existence check by name. */
 struct vrf *vrf_lookup_by_name(const char *name)
 {
 	struct vrf vrf;

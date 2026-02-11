@@ -55,7 +55,7 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta, int l
 		 * which puts data in the upper 8 bits of the
 		 * rta_type.  Mask it off and save the actual
 		 * underlying value to be placed into the array.
-		 * This way we don't accidently crash in the future
+		 * This way we don't accidentally crash in the future
 		 * when the kernel sends us new data and we try
 		 * to write well beyond the end of the array.
 		 */
@@ -68,7 +68,7 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta, int l
 }
 
 /*
- * Given a message header, locate and parse out the atttributes
+ * Given a message header, locate and parse out the attributes
  */
 struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max, void *buf,
 				   size_t len)

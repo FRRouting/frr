@@ -215,7 +215,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 					      NULL);
 		}
 
-		/* route + path procesing */
+		/* route + path processing */
 		snprintf(xpath_prefix, sizeof(xpath_prefix), FRR_STATIC_ROUTE_INFO_KEY_XPATH,
 			 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix, buf_src_prefix,
 			 yang_afi_safi_value2identity(args->afi, args->safi), table_id, distance);

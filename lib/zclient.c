@@ -2752,7 +2752,7 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Link Layer Type                                              |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |  Harware Address Length                                       |
+ * |  Hardware Address Length                                      |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Hardware Address      if HW length different from 0          |
  * |   ...                  max INTERFACE_HWADDR_MAX               |

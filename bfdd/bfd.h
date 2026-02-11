@@ -129,7 +129,7 @@ struct bfd_pkt {
 };
 
 /*
- * Format of authentification.
+ * Format of authentication.
  */
 struct bfd_auth {
 	uint8_t type;
@@ -538,7 +538,7 @@ void socket_close(int *s);
 /*
  * bfd_packet.c
  *
- * Contains the code related with receiving/seding, packing/unpacking BFD data.
+ * Contains the code related with receiving/sending, packing/unpacking BFD data.
  */
 int bp_set_ttlv6(int sd, uint8_t value);
 int bp_set_ttl(int sd, uint8_t value);

@@ -667,11 +667,11 @@ void zlog_hexdump(const void *mem, size_t len)
 
 /*
  * There are historical reasons why time since the epoch is 32
- * bit.  Since we need the backwards compatabilty, let's convert
+ * bit.  Since we need the backwards compatibility, let's convert
  * the time since the epoch(a time_t value ) to a uint32_t
  * We know that this is going to eventually never work right
  * but there is not much we can do since we cannot go
- * backwards(HA!) to fix poorly choosen data types
+ * backwards(HA!) to fix poorly chosen data types
  */
 uint32_t frr_time_t_to_uint32_t(time_t value)
 {

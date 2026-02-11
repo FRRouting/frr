@@ -922,7 +922,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	/*
 	 * No operation is required in this call back.
 	 * nexthop_srv6_segs_stack_entry_destroy() will take care
-	 * to reset the seg vaue.
+	 * to reset the seg value.
 	 */
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1012,7 +1012,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	/*
 	 * No operation is required in this call back.
 	 * nexthop_mpls_label_stack_entry_destroy() will take care
-	 * to reset the label vaue.
+	 * to reset the label value.
 	 */
 	switch (args->event) {
 	case NB_EV_VALIDATE:

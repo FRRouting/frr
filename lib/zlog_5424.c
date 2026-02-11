@@ -648,7 +648,7 @@ static void zlog_5424_sigsafe(struct zlog_target *zt, const char *text,
 
 	case ZLOG_FMT_3164:
 	case ZLOG_FMT_LOCAL:
-		/* this will unfortuantely be wrong by the timezone offset
+		/* this will unfortunately be wrong by the timezone offset
 		 * if the user selected non-UTC.  But not much we can do
 		 * about that...
 		 */

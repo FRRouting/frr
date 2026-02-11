@@ -41,7 +41,7 @@ typedef struct _vector *vector;
 
 #define VECTOR_MIN_SIZE 1
 
-/* (Sometimes) usefull macros.  This macro convert index expression to
+/* (Sometimes) useful macros.  This macro convert index expression to
  array expression. */
 /* Reference slot at given index, caller must ensure slot is active */
 #define vector_slot(V,I)  ((V)->index[(I)])

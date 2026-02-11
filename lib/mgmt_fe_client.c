@@ -145,7 +145,7 @@ static int fe_client_push_sent_msg(struct mgmt_fe_client *client, struct mgmt_ms
 }
 
 /**
- * fe_client_pop_sent_msg() - retreive the sent message for reference and freeing
+ * fe_client_pop_sent_msg() - retrieve the sent message for reference and freeing
  */
 static struct mgmt_msg_header *fe_client_pop_sent_msg(struct mgmt_fe_client *client,
 						      uint64_t session_id, uint64_t req_id,

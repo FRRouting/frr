@@ -222,7 +222,7 @@ void work_queue_unplug(struct work_queue *wq)
 {
 	SET_FLAG(wq->flags, WQ_UNPLUGGED);
 
-	/* if thread isnt already waiting, add one */
+	/* if thread isn't already waiting, add one */
 	work_queue_schedule(wq, wq->spec.hold);
 }
 

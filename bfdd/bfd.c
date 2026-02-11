@@ -487,7 +487,7 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 	xmt_TO = is_echo ? bfd->echo_xmt_TO : bfd->xmt_TO;
 
 	/*
-	 * From section 6.5.2: trasmit interval should be randomly jittered
+	 * From section 6.5.2: transmit interval should be randomly jittered
 	 * between
 	 * 75% and 100% of nominal value, unless detect_mult is 1, then should
 	 * be
@@ -1125,7 +1125,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 struct bfd_session *bs_registrate(struct bfd_session *bfd)
 {
-	/* Registrate session into data structures. */
+	/* Register session into data structures. */
 	bfd_key_insert(bfd);
 	bfd->discrs.my_discr = ptm_bfd_gen_ID();
 	bfd_id_insert(bfd);

@@ -118,11 +118,11 @@ void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 
 	/* Use myself_nexthop if the nexthop is not a link-local address,
 	 * because
-	 * we remain a right path without beeing the optimal one.
+	 * we remain a right path without being the optimal one.
 	 */
 	memset(&myself_nexthop, 0, sizeof(myself_nexthop));
 
-	/* Output stream get from ripng structre.  XXX this should be
+	/* Output stream get from ripng structure.  XXX this should be
 	   interface structure. */
 	s = ripng->obuf;
 

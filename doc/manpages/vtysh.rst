@@ -51,7 +51,7 @@ OPTIONS available for the vtysh command:
 
 .. option:: -n, --noerror
 
-   When executing cli that does not invoke a vtysh shell, if an error ocurrs ignore it for purposes of return codes from vtysh.
+   When executing cli that does not invoke a vtysh shell, if an error occurs ignore it for purposes of return codes from vtysh.
 
 .. option:: -H, --histfile
 

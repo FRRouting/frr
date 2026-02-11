@@ -119,7 +119,7 @@ extern struct list *srv6_sids;
 
 /*
  * Allocate an SRv6 SID object and initialize its fields, SID address and
- * behavor.
+ * behavior.
  */
 extern struct static_srv6_sid *static_srv6_sid_alloc(struct prefix_ipv6 *addr);
 extern void static_srv6_sid_free(struct static_srv6_sid *sid);

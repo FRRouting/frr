@@ -255,7 +255,7 @@ static void ys_pop_inner(struct nb_op_yield_state *ys)
 	pni = i > 0 ? &ys->node_infos[i - 1] : NULL;
 	ni = &ys->node_infos[i];
 
-	/* list_entry's propagate so only free the first occurance */
+	/* list_entry's propagate so only free the first occurrence */
 	if (ni->list_entry && (!pni || pni->list_entry != ni->list_entry)) {
 		nb_node = ni->schema ? ni->schema->priv : NULL;
 		if (nb_node)

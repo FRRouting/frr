@@ -57,7 +57,7 @@ extern "C" {
  * "the wire", easily, using common programming languages (e.g., C, rust, go,
  * python, ...)
  *
- * (*) Natrual aligned boundaries, i.e., uint16_t on 2-byte boundary, uint64_t
+ * (*) Natural aligned boundaries, i.e., uint16_t on 2-byte boundary, uint64_t
  * on 8-byte boundaries, ...)
  *
  * ------------------------------

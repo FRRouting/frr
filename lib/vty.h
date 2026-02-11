@@ -58,7 +58,7 @@ PREDECL_DLIST(vtys);
 struct vty {
 	struct vtys_item itm;
 
-	/* File descripter of this vty. */
+	/* File descriptor of this vty. */
 	int fd;
 
 	/* output FD, to support stdin/stdout combination */
@@ -109,7 +109,7 @@ struct vty {
 	/* Command max length. */
 	int max;
 
-	/* Histry of command */
+	/* History of command */
 	char *hist[VTY_MAXHIST];
 
 	/* History lookup current point */
@@ -212,7 +212,7 @@ struct vty {
 	unsigned long v_timeout;
 	struct event *t_timeout;
 
-	/* What address is this vty comming from. */
+	/* What address is this vty coming from. */
 	char address[SU_ADDRSTRLEN];
 
 	/* "frame" output.  This is buffered and will be printed if some

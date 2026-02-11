@@ -381,7 +381,7 @@ static int logging_daemon_file_create(struct nb_cb_create_args *args)
 	const char *daemon, *fname;
 	int level;
 
-	/* XXX Revist this and how it interacts with log file */
+	/* XXX Revisit this and how it interacts with log file */
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -405,7 +405,7 @@ static int logging_daemon_file_destroy(struct nb_cb_destroy_args *args)
 {
 	const char *daemon;
 
-	/* XXX Revist this and how it interacts with log file */
+	/* XXX Revisit this and how it interacts with log file */
 	/* Probably need to restore the /frr-logging:logging/file config */
 
 	if (args->event != NB_EV_APPLY)
@@ -429,7 +429,7 @@ static int logging_daemon_file_filename_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	/* XXX Revist this and how it interacts with log file */
+	/* XXX Revisit this and how it interacts with log file */
 
 	daemon = yang_dnode_get_string(args->dnode, "../daemon");
 	if (!strmatch(daemon, frr_get_progname()))
@@ -447,7 +447,7 @@ static int logging_daemon_file_level_modify(struct nb_cb_modify_args *args)
 	const char *daemon, *fname;
 	int level;
 
-	/* XXX Revist this and how it interacts with log file */
+	/* XXX Revisit this and how it interacts with log file */
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;

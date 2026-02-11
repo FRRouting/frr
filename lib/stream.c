@@ -1235,7 +1235,7 @@ void stream_reset(struct stream *s)
 	s->getp = s->endp = 0;
 }
 
-/* Write stream contens to the file discriptor. */
+/* Write stream contents to the file descriptor. */
 int stream_flush(struct stream *s, int fd)
 {
 	int nbytes;

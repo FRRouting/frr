@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Zebra logging funcions.
+ * Zebra logging functions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
  */
 
