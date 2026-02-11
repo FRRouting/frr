@@ -7440,7 +7440,7 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 		cinfo->total_counter++;
 
 		/* Save dest's prefix */
-		memcpy(&pfx, &dest->rn->p, sizeof(struct prefix));
+		prefix_copy(&pfx, &dest->rn->p);
 
 		ain = dest->adj_in;
 		while (ain) {
@@ -7480,6 +7480,10 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 			/* Reset the counter */
 			cinfo->curr_counter = 0;
 			set_clearing_resume_info(cinfo, table, &pfx, inner_p);
+
+			/* Unref, since we're breaking the iteration */
+			bgp_dest_unlock_node(dest);
+
 			ret = -1;
 			break;
 		}
@@ -7584,7 +7588,7 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 							   safi2str(outer_table->safi), pbuf);
 
 					/* Capture last prefix */
-					memcpy(&pfx, &dest->rn->p, sizeof(struct prefix));
+					prefix_copy(&pfx, &dest->rn->p);
 
 					/* This will resume the "inner" walk if necessary */
 					ret = walk_batch_table_helper(cinfo, table, true /*inner*/);
@@ -7595,6 +7599,9 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 						 */
 						set_clearing_resume_info(cinfo, outer_table, &pfx,
 									 false);
+
+						/* Unref, since we're breaking the iteration */
+						bgp_dest_unlock_node(dest);
 						break;
 					}
 				}
