@@ -1048,6 +1048,8 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
 	if (bgp_attr_get_nhc(attr))
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
+	if (attr->ls_attr)
+		MIX(bgp_ls_attr_hash_key(attr->ls_attr));
 
 	return key;
 }
@@ -1097,7 +1099,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
-		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)))
+		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
+		    bgp_ls_attr_same(attr1->ls_attr, attr2->ls_attr))
 			return true;
 	}
 
@@ -1349,6 +1352,13 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			nhc->refcnt++;
 	}
 
+	if (attr->ls_attr) {
+		if (!attr->ls_attr->refcnt)
+			attr->ls_attr = bgp_ls_attr_intern(attr->ls_attr);
+		else
+			attr->ls_attr->refcnt++;
+	}
+
 	/* At this point, attr only contains intern'd pointers.  that means
 	 * if we find it in attrhash, it has all the same pointers and we
 	 * correctly updated the refcounts on these.
@@ -1583,6 +1593,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bre = bgp_attr_get_evpn_overlay(attr);
 	evpn_overlay_unintern(&bre);
 	bgp_attr_set_evpn_overlay(attr, NULL);
+
+	bgp_ls_attr_unintern(&attr->ls_attr);
 }
 
 /* Clear cached intern_attr if it points to the attr that is being uninterned */
