@@ -227,7 +227,7 @@ def tgen_and_ip_version(request):
 
 def build_topo(tgen):
     """
-    Build 3-tier CLOS topology with 16 nodes:
+    Build 3-tier CLOS topology with 17 nodes:
     - 2 spines (spine-1, spine-2)
     - 4 leafs (leaf-11, leaf-12, leaf-21, leaf-22)
     - 2 border ToRs (bordertor-11, bordertor-12) - EVPN VTEPs
@@ -3040,6 +3040,181 @@ def test_ext21_dynamic_neighbor(tgen_and_ip_version):
         "ext-21 dynamic neighbor verification completed successfully: "
         "ext-21 (10.1.10.2, AS 651006) <-> leaf-21 (10.1.10.3, AS 651004) "
         "in VRF RED is Established"
+    )
+
+
+def test_ext21_dynamic_neighbor_password(tgen_and_ip_version):
+    """
+    Verify that adding and removing a password on ext-21's peer-group
+    correctly tears down and re-establishes the dynamic BGP neighbor
+    with leaf-21 in VRF RED.
+
+    This validates the fix for the stale per-peer TCP MD5 entry bug:
+    when a password is set on a peer-group with a dynamic neighbor listen
+    range, a /32 MD5 entry is installed on the listen socket for each
+    existing dynamic member.  When the password is later removed, the
+    prefix-range /24 entry is cleared but the per-peer /32 entry was
+    previously left behind, causing the kernel to silently drop the
+    reconnecting peer's SYN.
+
+    Sequence:
+      1. Verify ext-21 dynamic neighbor (10.1.10.3) is Established.
+      2. Apply 'neighbor test password test4' on ext-21 VRF RED.
+      3. Confirm the session is torn down:
+         - ext-21: dynamic neighbor deleted (summary returns empty JSON {})
+         - leaf-21: static neighbor 10.1.10.2 is NOT Established (e.g. Connect)
+      4. Remove the password with 'no neighbor test password'.
+      5. Confirm the dynamic neighbor re-establishes to Established state.
+
+    Only runs for IPv4 underlay since ext-21 config is IPv4-only.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    if ip_version != "ipv4":
+        pytest.skip("ext-21 is only configured for IPv4 underlay")
+
+    ext21 = tgen.gears["ext-21"]
+    leaf21 = tgen.gears["leaf-21"]
+
+    # ---- Helper: check ext-21 dynamic neighbor is Established ----
+    def check_ext21_established():
+        output = ext21.vtysh_cmd("show bgp vrf RED summary json", isjson=True)
+        if not output:
+            return "ext-21: VRF RED summary is empty (no dynamic peers yet)"
+
+        if "ipv4Unicast" not in output:
+            return "ext-21: No ipv4Unicast in VRF RED summary (no dynamic peers yet)"
+
+        af_data = output["ipv4Unicast"]
+        if "peers" not in af_data or not af_data["peers"]:
+            return "ext-21: No peers found in VRF RED ipv4Unicast"
+
+        peer_ip = "10.1.10.3"
+        if peer_ip not in af_data["peers"]:
+            return (
+                f"ext-21: Dynamic neighbor {peer_ip} not found. "
+                f"Active peers: {list(af_data['peers'].keys())}"
+            )
+
+        peer_data = af_data["peers"][peer_ip]
+        state = peer_data.get("state", "")
+        if state != "Established":
+            return (
+                f"ext-21: Dynamic neighbor {peer_ip} state is {state}, "
+                f"expected Established"
+            )
+        return None
+
+    # ---- Helper: verify session is torn down after password set ----
+    # Two-sided check:
+    #   ext-21 (dynamic side): returns {} when the dynamic peer is deleted,
+    #     since there are no configured peers -- only listen ranges.
+    #   leaf-21 (static side): the configured neighbor 10.1.10.2 stays in
+    #     the summary but transitions to a non-Established state (e.g.
+    #     Connect, Active).  This proves the session was genuinely disrupted
+    #     and that leaf-21's BGP process is still healthy.
+    def check_session_torn_down():
+        # -- ext-21: dynamic peer must be gone --
+        ext_output = ext21.vtysh_cmd("show bgp vrf RED summary json", isjson=True)
+        # When all dynamic peers are deleted, FRR returns {} for the VRF
+        # summary.  If ipv4Unicast is present, the dynamic peer might
+        # still be lingering.
+        if ext_output and "ipv4Unicast" in ext_output:
+            af_data = ext_output["ipv4Unicast"]
+            peers = af_data.get("peers", {})
+            peer_ip = "10.1.10.3"
+            if peer_ip in peers:
+                state = peers[peer_ip].get("state", "unknown")
+                return (
+                    f"ext-21: Dynamic neighbor {peer_ip} still present "
+                    f"(state: {state}), waiting for deletion"
+                )
+
+        # -- leaf-21: static neighbor must NOT be Established --
+        leaf_output = leaf21.vtysh_cmd("show bgp vrf RED summary json", isjson=True)
+        if not leaf_output:
+            return "leaf-21: No BGP VRF RED summary output"
+
+        if "ipv4Unicast" not in leaf_output:
+            return "leaf-21: ipv4Unicast missing from VRF RED summary"
+
+        af_data = leaf_output["ipv4Unicast"]
+        peers = af_data.get("peers", {})
+        peer_ip = "10.1.10.2"
+
+        if peer_ip not in peers:
+            return (
+                f"leaf-21: Static neighbor {peer_ip} missing from VRF RED "
+                f"(expected present in non-Established state)"
+            )
+
+        state = peers[peer_ip].get("state", "")
+        if state == "Established":
+            return (
+                f"leaf-21: Neighbor {peer_ip} is still Established "
+                f"after password was set on ext-21 peer-group"
+            )
+
+        logger.info(
+            f"Session torn down confirmed: ext-21 dynamic peer gone, "
+            f"leaf-21 neighbor {peer_ip} state is {state}"
+        )
+        return None
+
+    # Step 1: Confirm the session is Established before we begin
+    logger.info("Step 1: Verify ext-21 dynamic neighbor is Established")
+    test_func = partial(check_ext21_established)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), f"Pre-condition failed - ext-21 dynamic neighbor not Established: {result}"
+
+    # Step 2: Apply password on peer-group
+    logger.info("Step 2: Applying 'neighbor test password test4' on ext-21 VRF RED")
+    ext21.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 651006 vrf RED
+        neighbor test password test4
+        exit
+        exit
+        """
+    )
+
+    # Step 3: Verify the session is torn down (check both sides)
+    logger.info("Step 3: Verify session is torn down after password set")
+    test_func = partial(check_session_torn_down)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"Session was not torn down after password set: {result}"
+
+    # Step 4: Remove password from peer-group
+    logger.info("Step 4: Removing password with 'no neighbor test password' on ext-21")
+    ext21.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 651006 vrf RED
+        no neighbor test password
+        exit
+        exit
+        """
+    )
+
+    # Step 5: Verify the dynamic neighbor re-establishes
+    logger.info(
+        "Step 5: Verify ext-21 dynamic neighbor re-establishes after password removal"
+    )
+    test_func = partial(check_ext21_established)
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
+    assert result is None, (
+        f"ext-21 dynamic neighbor did not re-establish after password removal: "
+        f"{result}"
+    )
+
+    logger.info(
+        "ext-21 password test completed: dynamic neighbor correctly torn down "
+        "on password set and re-established after password removal"
     )
 
 

@@ -351,9 +351,13 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
 11. **test_ext21_dynamic_neighbor()** - Verify ext-21 dynamic BGP neighbor in VRF RED (IPv4 only)
     - ext-21 uses `bgp listen range 10.1.10.0/24` to discover leaf-21 dynamically
     - Validates Established state and correct remote AS on both sides
+12. **test_ext21_dynamic_neighbor_password()** - Verify password add/remove on peer-group with dynamic neighbor (IPv4 only)
+    - Sets `neighbor test password test4` and confirms the dynamic neighbor is torn down
+    - Removes the password and confirms the dynamic neighbor re-establishes
+    - Validates the fix for stale per-peer TCP MD5 entry on the listen socket
 
 ### Memory and Cleanup
-12. **test_memory_leak()** - Memory leak detection
+13. **test_memory_leak()** - Memory leak detection
 
 ## Generic EVPN Library Functions
 

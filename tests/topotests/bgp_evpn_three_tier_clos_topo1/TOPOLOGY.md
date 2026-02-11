@@ -770,7 +770,12 @@ The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation
    - Validates dynamic neighbor discovery via `bgp listen range 10.1.10.0/24`
    - Checks Established state and correct remote AS on both sides
    - IPv4 underlay only (skips IPv6)
-12. **`test_memory_leak`** - Memory leak detection
+12. **`test_ext21_dynamic_neighbor_password`** - Verify password add/remove on peer-group with dynamic neighbor
+   - Sets `neighbor test password test4`, confirms dynamic neighbor torn down (ext-21 + leaf-21)
+   - Removes password, confirms dynamic neighbor re-establishes
+   - Validates fix for stale per-peer TCP MD5 entry (bgpd commit 2d53b65)
+   - IPv4 underlay only (skips IPv6)
+13. **`test_memory_leak`** - Memory leak detection
 
 ### Library Functions (`tests/topotests/lib/evpn.py`)
 
