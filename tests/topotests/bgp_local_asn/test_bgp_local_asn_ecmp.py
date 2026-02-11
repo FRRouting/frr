@@ -41,7 +41,6 @@ from lib.common_config import (
     step,
     check_address_types,
     check_router_status,
-    create_static_routes,
     verify_fib_routes,
 )
 
