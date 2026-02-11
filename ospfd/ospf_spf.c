@@ -58,7 +58,7 @@ static void ospf_spf_set_reason(ospf_spf_reason_t reason)
 }
 
 /*
- * Heap related functions, for the managment of the candidates, to
+ * Heap related functions, for the management of the candidates, to
  * be used with pqueue.
  */
 static int vertex_cmp(const struct vertex *v1, const struct vertex *v2)

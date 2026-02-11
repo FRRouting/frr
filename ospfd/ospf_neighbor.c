@@ -55,7 +55,7 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
 
-	/* Allcate new neighbor. */
+	/* Allocate new neighbor. */
 	nbr = XCALLOC(MTYPE_OSPF_NEIGHBOR, sizeof(struct ospf_neighbor));
 
 	/* Relate neighbor to the interface. */
@@ -177,8 +177,8 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 	} else {
 		/*
 		 * This neighbor was not found, but before we move on and
-		 * free the neighbor structre, make sure that it was not
-		 * indexed incorrectly and ended up in the "worng" place
+		 * free the neighbor structure, make sure that it was not
+		 * indexed incorrectly and ended up in the "wrong" place
 		 */
 
 		/* Reverse the lookup rules */

@@ -552,7 +552,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 
 	/* PtP links with /32 masks adds host routes to remote, directly
 	 * connected hosts, see RFC 2328, 12.4.1.1, Option 1.
-	 * Such routes can just be ignored for the sake of tidyness.
+	 * Such routes can just be ignored for the sake of tidiness.
 	 */
 	if (parent_is_root && link->link_data.s_addr == 0xffffffff
 	    && ospf_if_lookup_by_local_addr(area->ospf, NULL, link->link_id)) {

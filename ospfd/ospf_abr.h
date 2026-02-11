@@ -9,7 +9,7 @@
 
 #define OSPF_ABR_TASK_DELAY 	5
 #define OSPF_ABR_DNA_TIMER 10
-/* Delay in announceing Non-DNA routers
+/* Delay in announcing Non-DNA routers
  * so that LSAs are completely synced
  * before generating indication LSAs.
  */

@@ -21,14 +21,14 @@ struct ospf_lsa_list_entry {
 	union {
 		/*
 		 * Time associated with the list entry. For example, for a
-		 * neigbhor link retransmission list, this is the
+		 * neighbor link retransmission list, this is the
 		 * retransmission time.
 		 */
 		struct timeval list_entry_timeval;
 
 		/*
-		 * Destanation address specific to the LSA list. For example,
-		 * the distination for an associated direct LS acknowledgment.
+		 * Destination address specific to the LSA list. For example,
+		 * the destination for an associated direct LS acknowledgment.
 		 */
 		struct in_addr list_entry_dst_addr;
 	} u;

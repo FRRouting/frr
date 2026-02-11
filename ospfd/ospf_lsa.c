@@ -386,7 +386,7 @@ uint8_t router_lsa_flags(struct ospf_area *area)
 		/* Just sanity check */
 		UNSET_FLAG(flags, ROUTER_LSA_VIRTUAL);
 
-	/* Set Shortcut ABR behabiour flag. */
+	/* Set Shortcut ABR behaviour flag. */
 	UNSET_FLAG(flags, ROUTER_LSA_SHORTCUT);
 	if (area->ospf->abr_type == OSPF_ABR_SHORTCUT)
 		if (!OSPF_IS_AREA_BACKBONE(area))
@@ -1099,7 +1099,7 @@ static struct ospf_lsa *ospf_network_lsa_new(struct ospf_interface *oi)
 
 	/* Remember prior network LSA sequence numbers, even if we stop
 	 * originating one for this oi, to try avoid re-originating LSAs with a
-	 * prior sequence number, and thus speed up adjency forming &
+	 * prior sequence number, and thus speed up adjacency forming &
 	 * convergence.
 	 */
 	if ((oip = ospf_lookup_if_params(oi->ifp, oi->address->u.prefix4))) {
@@ -1301,7 +1301,7 @@ ospf_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
 	if (!(new = ospf_summary_lsa_new(area, (struct prefix *)p, metric, id)))
 		return NULL;
 
-	/* Instlal LSA to LSDB. */
+	/* Install LSA to LSDB. */
 	new = ospf_lsa_install(area->ospf, NULL, new);
 
 	/* Update LSA origination count. */
@@ -3014,7 +3014,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		/* Ref rfc3623 section 3.2.3
 		 * Installing new lsa or change in the existing LSA
 		 * or flushing existing LSA leads to topo change
-		 * and trigger SPF caculation.
+		 * and trigger SPF calculation.
 		 * So, router should be aborted from HELPER role
 		 * if it is detected as TOPO  change.
 		 */
@@ -3909,10 +3909,10 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 	if (lsa) {
 		struct as_external_lsa *al =
 			(struct as_external_lsa *)lsa->data;
-		/* Ref rfc2328,Appendex E.1
+		/* Ref rfc2328,Appendix E.1
 		 * If router already originated the external lsa with lsid
 		 * as the current prefix, and the masklens are same then
-		 * terminate the LSID algorithem.
+		 * terminate the LSID algorithm.
 		 */
 		if (ip_masklen(al->mask) == p->prefixlen) {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -3923,7 +3923,7 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 			id->s_addr = 0xffffffff;
 			return LSID_NOT_AVAILABLE;
 		} else if (ip_masklen(al->mask) < p->prefixlen) {
-			/* Ref rfc2328,Appendex E.2
+			/* Ref rfc2328,Appendix E.2
 			 * the current prefix masklen is greater than the
 			 * existing LSA, then generate the Link state ID,
 			 * by setting all host bits in prefix addressa and
@@ -3946,7 +3946,7 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 				return LSID_NOT_AVAILABLE;
 			}
 		} else {
-			/* Ref rfc2328,Appendex E.3
+			/* Ref rfc2328,Appendix E.3
 			 * the current prefix masklen is lesser than the
 			 * existing LSA,then the originated LSA has to be
 			 * refreshed by modifying masklen, cost and tag.

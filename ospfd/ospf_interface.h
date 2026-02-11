@@ -42,8 +42,7 @@
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
 
 struct ospf_if_params {
-	DECLARE_IF_PARAM(uint32_t,
-			 transmit_delay); /* Interface Transmisson Delay */
+	DECLARE_IF_PARAM(uint32_t, transmit_delay); /* Interface Transmission Delay */
 	DECLARE_IF_PARAM(uint32_t,
 			 output_cost_cmd); /* Command Interface Output Cost */
 	DECLARE_IF_PARAM(uint32_t,
@@ -232,11 +231,11 @@ struct ospf_interface {
 	struct prefix *address;      /* Interface prefix */
 	struct connected *connected; /* Pointer to connected */
 
-	/* Configured varables. */
+	/* Configured variables. */
 	struct ospf_if_params *params;
 
 	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
-	uint32_t output_cost;  /* Acutual Interface Output Cost */
+	uint32_t output_cost;  /* Actual Interface Output Cost */
 
 	/* Neighbor information. */
 	struct route_table *nbrs;       /* OSPF Neighbor List */

@@ -461,7 +461,7 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 						   opaque_type, functab);
 
 				/* Dequeue listnode entry from the function table
-				 * list coreesponding to the opaque LSA type.
+				 * list corresponding to the opaque LSA type.
 				 * Note that the list deletion callback frees
 				 * the functab entry memory.
 				 */
@@ -797,7 +797,7 @@ int ospf_opaque_is_owned(struct ospf_lsa *lsa)
 }
 
 /*
- * Cleanup Link-Local LSAs assocaited with an interface that is being deleted.
+ * Cleanup Link-Local LSAs associated with an interface that is being deleted.
  * Since these LSAs are stored in the area link state database (LSDB) as opposed
  * to a separate per-interface, they must be deleted from the area database.
  * Since their flooding scope is solely the deleted OSPF interface, there is no
@@ -1492,7 +1492,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * removed the test for
 			 *   (! list_isempty (oipt->id_list))   * Handler is
 			 * already active. *
-			 * because opaque cababilities ON -> OFF -> ON result in
+			 * because opaque capabilities ON -> OFF -> ON result in
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
@@ -1517,7 +1517,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * removed the test for
 			 *   (! list_isempty (oipt->id_list))   * Handler is
 			 * already active. *
-			 * because opaque cababilities ON -> OFF -> ON result in
+			 * because opaque capabilities ON -> OFF -> ON result in
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
@@ -1542,7 +1542,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * removed the test for
 			 *   (! list_isempty (oipt->id_list))   * Handler is
 			 * already active. *
-			 * because opaque cababilities ON -> OFF -> ON result in
+			 * because opaque capabilities ON -> OFF -> ON result in
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */

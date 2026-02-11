@@ -298,7 +298,7 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 
 /*
  * OSPF neighbor link state retransmission timer handler. Unicast
- * unacknowledged LSAs to the neigbhors.
+ * unacknowledged LSAs to the neighbors.
  */
 void ospf_ls_rxmt_timer(struct event *event)
 {
@@ -326,7 +326,7 @@ void ospf_ls_rxmt_timer(struct event *event)
 		rxmt_window.tv_usec = (retransmit_window % 1000) * 1000;
 
 		/*
-		 * Calculate the latest retransmit time for LSAs transmited in
+		 * Calculate the latest retransmit time for LSAs transmitted in
 		 * this timer pass by adding the retransmission window to the
 		 * current time. Calculate the next retransmission time by adding
 		 * the retransmit interval to the current time.
@@ -897,7 +897,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * from DR and BDR.
 		 * So, helper might receives ONW_WAY hello from
 		 * RESTARTER. So not allowing to change the state if it
-		 * receives one_way hellow when it acts as HELPER for
+		 * receives one_way hello when it acts as HELPER for
 		 * that specific neighbor.
 		 */
 		if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
@@ -1176,7 +1176,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	 * XXX HACK by Hasso Tepper. Setting N/P bit in NSSA area DD packets is
 	 * not
 	 * required. In fact at least JunOS sends DD packets with P bit clear.
-	 * Until proper solution is developped, this hack should help.
+	 * Until proper solution is developed, this hack should help.
 	 *
 	 * Update: According to the RFCs, N bit is specified /only/ for Hello
 	 * options, unfortunately its use in DD options is not specified. Hence
@@ -3998,7 +3998,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi,
 	ospf_make_header(OSPF_MSG_LS_ACK, oi, op->s);
 
 	/* Determine the destination address - for direct acks,
-	 * the list entries always include the distination address.
+	 * the list entries always include the destination address.
 	 */
 	if (direct_ack) {
 		ls_ack_list_first = ospf_lsa_list_first(ls_ack_list);

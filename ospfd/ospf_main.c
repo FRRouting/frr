@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* Invoked by a priviledged user? -- endo. */
+	/* Invoked by a privileged user? -- endo. */
 	if (geteuid() != 0) {
 		errno = EPERM;
 		perror(ospfd_di.progname);

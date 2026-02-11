@@ -1582,7 +1582,7 @@ void ospf_generate_indication_lsa(struct ospf *ospf, struct ospf_area *area)
 
 	area_fr_not_supp = ospf_check_fr_enabled_all(ospf) ? false : true;
 
-	/* If any one of the area doestn't support FR, generate
+	/* If any one of the area doesn't support FR, generate
 	 * indication LSA on behalf of that area.
 	 */
 
@@ -2065,7 +2065,7 @@ void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
 	 *if (IS_DEBUG_OSPF_NSSA)
 	 * zlog_debug ("ospf_abr_nssa_task(): announce nssa defaults");
 	 *ospf_abr_announce_nssa_defaults (ospf);
-	 * havnt a clue what above is supposed to do.
+	 * haven't a clue what above is supposed to do.
 	 */
 
 	/* Flush any unapproved previous translates from Global Data Base */

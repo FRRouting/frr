@@ -117,7 +117,7 @@ struct ospf_area_fr_info {
 				      * (excluding self)
 				      */
 	bool area_ind_lsa_recvd;     /* Indication lsa received in this area */
-	bool area_dc_clear;	  /* Area has atleast one lsa with dc bit 0(
+	bool area_dc_clear;	     /* Area has at least one lsa with dc bit 0(
 				      * excluding indication lsa)
 				      */
 	struct ospf_lsa *indication_lsa_self; /* Indication LSA generated
@@ -267,7 +267,7 @@ struct ospf {
 	struct event *t_asbr_check;		 /* ASBR check timer. */
 	struct event *t_asbr_redist_update; /* ASBR redistribution update
 					       timer. */
-	struct event *t_distribute_update; /* Distirbute list update timer. */
+	struct event *t_distribute_update;  /* Distribute list update timer. */
 	struct event *t_spf_calc;	   /* SPF calculation timer. */
 	struct event *t_ase_calc;	   /* ASE calculation timer. */
 	struct event *t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
@@ -350,7 +350,7 @@ struct ospf {
 	struct route_table *distance_table;
 
 	/* Used during ospf instance going down send LSDB
-	 * update to neighbors immediatly */
+	 * update to neighbors immediately */
 	uint8_t inst_shutdown;
 
 	/* Enable or disable sending proactive ARP requests. */

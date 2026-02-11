@@ -526,7 +526,7 @@ static void ospf_external_lsa_default_routemap_timer(struct event *event)
 	p.prefixlen = 0;
 	p.prefix.s_addr = INADDR_ANY;
 
-	/* Get the default extenal info. */
+	/* Get the default external info. */
 	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE,
 					       ospf->instance, &p);
 	if (!default_ei) {
@@ -1065,7 +1065,7 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 	p.prefix.s_addr = INADDR_ANY;
 
 
-	/* Get the default extenal info. */
+	/* Get the default external info. */
 	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE,
 					       ospf->instance, &p);
 	if (!default_ei) {
@@ -1391,7 +1391,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 					/* Handling the case where the
 					 * external route prefix
-					 * and aggegate prefix is same
+					 * and aggregate prefix is same
 					 * If same don't flush the
 					 * originated
 					 * external LSA.

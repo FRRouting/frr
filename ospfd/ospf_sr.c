@@ -238,7 +238,7 @@ static struct sr_node *get_sr_node_by_nexthop(struct ospf *ospf,
  *    needed to manage the SRLB range and allocates this number.
  *  - ospf_sr_local_block_request_label() pick up the first available label and
  *    set corresponding bit
- *  - ospf_sr_local_block_release_label() release label by reseting the
+ *  - ospf_sr_local_block_release_label() release label by resetting the
  *    corresponding bit and set the next label to the first free position
  */
 
@@ -2198,7 +2198,7 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 	}
 
 	/*
-	 * Try to reserve the new SRGB from the Label Manger. If the
+	 * Try to reserve the new SRGB from the Label Manager. If the
 	 * allocation fails, disable SR until new blocks are successfully
 	 * allocated.
 	 */

@@ -123,7 +123,7 @@ static struct log_ref ferr_ospf_err[] = {
 	{
 		.code = EC_OSPF_INIT_FAIL,
 		.title = "OSPF Initialization failure",
-		.description = "OSPF failed to initialized OSPF default insance",
+		.description = "OSPF failed to initialized OSPF default instance",
 		.suggestion = "Ensure there is adequate memory on the device. If the problem persists, report the problem for troubleshooting"
 	},
 	{

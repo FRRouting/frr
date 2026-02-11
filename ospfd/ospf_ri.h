@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of RFC4970 Router Information
- * with support of RFC5088 PCE Capabilites announcement
+ * with support of RFC5088 PCE Capabilities announcement
  * and support of draft-ietf-ospf-segment-routing-extensions-18
  * for Segment Routing Capabilities announcement
  *

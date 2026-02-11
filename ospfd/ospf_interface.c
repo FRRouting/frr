@@ -205,7 +205,7 @@ struct ospf_interface *ospf_if_table_lookup(struct interface *ifp,
 	p = *prefix;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	/* route_node_get implicitely locks */
+	/* route_node_get implicitly locks */
 	if ((rn = route_node_lookup(IF_OIFS(ifp), &p))) {
 		rninfo = (struct ospf_interface *)rn->info;
 		route_unlock_node(rn);
@@ -421,7 +421,7 @@ int ospf_if_is_up(struct ospf_interface *oi)
 	return if_is_up(oi->ifp);
 }
 
-/* Lookup OSPF interface by router LSA posistion */
+/* Lookup OSPF interface by router LSA position */
 struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *area,
 						 int lsa_pos)
 {

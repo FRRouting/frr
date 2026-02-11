@@ -193,7 +193,7 @@ DEFINE_MTYPE_STATIC(OSPFD, SNMP, "OSPF SNMP");
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
 
-/* Because DR/DROther values are exhanged wrt RFC */
+/* Because DR/DROther values are exchanged wrt RFC */
 #define ISM_SNMP(x)                                                            \
 	(((x) == ISM_DROther) ? ISM_DR : ((x) == ISM_DR) ? ISM_DROther : (x))
 
@@ -497,7 +497,7 @@ static struct variable ospf_variables[] = {
 	 3,
 	 {14, 1, 6}}};
 
-/* The administrative status of OSPF.  When OSPF is enbled on at least
+/* The administrative status of OSPF.  When OSPF is enabled on at least
    one interface return 1. */
 static int ospf_admin_stat(struct ospf *ospf)
 {
@@ -854,8 +854,8 @@ static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, uint8_t *type,
 	else
 		i = *type;
 
-	/* Sanity check, if LSA type unknwon
-	   merley skip any LSA */
+	/* Sanity check, if LSA type unknown
+	   merely skip any LSA */
 	if ((i < OSPF_MIN_LSA) || (i >= OSPF_MAX_LSA)) {
 		zlog_debug("Strange request with LSA type %d", i);
 		return NULL;

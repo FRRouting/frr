@@ -880,7 +880,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	list_delete(&ospf->areas);
 	list_delete(&ospf->oi_write_q);
 
-	/* Reset GR helper data structers */
+	/* Reset GR helper data structures */
 	ospf_gr_helper_instance_stop(ospf);
 
 	close(ospf->fd);

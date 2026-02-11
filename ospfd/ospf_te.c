@@ -113,7 +113,7 @@ int ospf_mpls_te_init(void)
 	}
 
 	/*
-	 * Wee need also to register Opaque LSA Type 6 i.e. Inter-AS RFC5392 for
+	 * We need also to register Opaque LSA Type 6 i.e. Inter-AS RFC5392 for
 	 * both AREA and AS at least to have the possibility to call the show()
 	 * function when looking to the opaque LSA of the OSPF database.
 	 */

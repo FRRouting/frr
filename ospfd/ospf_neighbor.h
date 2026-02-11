@@ -33,10 +33,10 @@ struct ospf_neighbor {
 
 	/* Last sent Database Description packet. */
 	struct ospf_packet *last_send;
-	/* Timestemp when last Database Description packet was sent */
+	/* Timestamp when last Database Description packet was sent */
 	struct timeval last_send_ts;
 
-	/* Last received Databse Description packet. */
+	/* Last received Database Description packet. */
 	struct {
 		uint8_t options;
 		uint8_t flags;
@@ -73,7 +73,7 @@ struct ospf_neighbor {
 	struct timeval ts_last_regress;  /* last regressive NSM change     */
 	const char *last_regress_str;    /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
-	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmited.   */
+	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

@@ -117,7 +117,7 @@ static void ospf_flood_delayed_lsa_ack(struct ospf_neighbor *inbr,
 	   RFC 2328 Section 13.5 */
 
 	/* Whether LSA is more recent or not, and whether this is in
-	   response to the LSA being sent out recieving interface has been
+	   response to the LSA being sent out receiving interface has been
 	   worked out previously */
 
 	/* Deal with router as BDR */
@@ -513,7 +513,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 		ospf_refresh_dna_type5_and_type7_lsas(ospf);
 	}
 
-	/* Check if we recived an indication LSA flush on backbone
+	/* Check if we received an indication LSA flush on backbone
 	 * network.
 	 */
 	ospf_recv_indication_lsa_flush(new);
@@ -807,7 +807,7 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		   if back out on the interface. The LSA will be  retransmitted
 		   upon expiration of each neighbor's retransmission timer. This
 		   will allow time to receive a multicast multicast link state
-		   acknoweldgement and remove the LSA from each neighbor's link
+		   acknowledgement and remove the LSA from each neighbor's link
 		   state retransmission list. */
 		if (oi->p2mp_delay_reflood &&
 		    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) &&

@@ -425,7 +425,7 @@ bool is_valid_summary_addr(struct prefix_ipv4 *p)
 	if (p->prefix.s_addr == INADDR_ANY)
 		return false;
 
-	/*Host route shouldn't be configured as summary addres*/
+	/*Host route shouldn't be configured as summary address*/
 	if (p->prefixlen == IPV4_MAX_BITLEN)
 		return false;
 
@@ -670,7 +670,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 			   __func__, &aggr->p.prefix, aggr->p.prefixlen);
 
 	/* This case to handle when the overlapping aggregator address
-	 * is availbe.Best match will be considered.So need to delink
+	 * is available.Best match will be considered.So need to delink
 	 * from old aggregator and link to the new aggr.
 	 */
 	if (ei->aggr_route) {
