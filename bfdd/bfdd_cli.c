@@ -234,7 +234,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	/* Apply settings immediatly. */
+	/* Apply settings immediately. */
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -350,7 +350,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	/* Apply settings immediatly. */
+	/* Apply settings immediately. */
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -487,7 +487,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	/* Apply settings immediatly. */
+	/* Apply settings immediately. */
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -602,7 +602,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	/* Apply settings immediatly. */
+	/* Apply settings immediately. */
 	return nb_cli_apply_changes(vty, NULL);
 }
 
