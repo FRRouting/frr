@@ -316,6 +316,9 @@ struct attr {
 
 	/* Next-hop characteristics */
 	struct bgp_nhc *nhc;
+
+	/* For BGP-LS Attribute (RFC 9552) */
+	struct bgp_ls_attr *ls_attr;
 };
 
 /* rmap_change_flags definition */
