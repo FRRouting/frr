@@ -1187,10 +1187,13 @@ def test_BGP_GR_15_p2(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-        # Verifying BGP RIB routes
+        # Verifying BGP RIB routes (r2's 102.x via r1); use longer retry
+        # as r1->r6 propagation after GR can be delayed under load.
         dut = "r6"
         input_dict_2 = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2)
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_dict_2, retry_timeout=60
+        )
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying RIB routes before shutting down BGPd daemon
