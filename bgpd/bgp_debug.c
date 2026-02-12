@@ -545,7 +545,7 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 }
 
 /* dump notify packet */
-void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
+void bgp_notify_print(const struct peer *peer, const struct bgp_notify *bgp_notify,
 		      const char *direct, bool hard_reset)
 {
 	const char *subcode_str;
