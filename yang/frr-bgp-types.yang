@@ -40,18 +40,27 @@ module frr-bgp-types {
   revision 2019-12-03 {
     description
       "Initial revision.";
+
+    reference
+      "FRRouting";
   }
 
   typedef plist-ref {
     type string;
+    description
+      "Reference to a plist.";
   }
 
   typedef access-list-ref {
     type string;
+    description
+      "Reference to an access list.";
   }
 
   typedef as-path-filter-ref {
     type string;
+    description
+      "Reference to an AS path filter, which specifies a filter for AS paths in BGP routing.";
   }
 
   typedef bgp-instance-type {
@@ -72,6 +81,8 @@ module frr-bgp-types {
           "BGP instance view.";
       }
     }
+    description
+      "BGP instance type, which specifies the type of BGP instance.";
   }
 
   typedef as-type {
@@ -92,6 +103,8 @@ module frr-bgp-types {
           "External BGP peer.";
       }
     }
+    description
+      "AS type, which specifies the type of AS or BGP peer.";
   }
 
   typedef add-path-type {
@@ -112,6 +125,8 @@ module frr-bgp-types {
           "Add path feature is disabled.";
       }
     }
+    description
+      "Add path type, which specifies how paths are advertised to a neighbor.";
   }
 
   typedef bfd-session-type {
@@ -132,6 +147,8 @@ module frr-bgp-types {
           "Not Configured.";
       }
     }
+    description
+      "BFD session type, which can be single-hop, multi-hop, or not-configured.";
   }
 
   typedef direction {
@@ -147,5 +164,7 @@ module frr-bgp-types {
           "OUT, egress, Tx.";
       }
     }
+    description
+      "Direction of traffic flow, either ingress or egress.";
   }
 }
