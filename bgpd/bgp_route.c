@@ -12552,6 +12552,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", (suppressed due to dampening)");
 	}
 
+	if (bgp_path_suppressed(path)) {
+		if (json_paths)
+			json_object_boolean_true_add(json_path, "suppressed");
+	}
+
 	if (!json_paths)
 		vty_out(vty, "\n");
 
