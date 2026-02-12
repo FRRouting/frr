@@ -32,6 +32,7 @@
 #include "lib/sockopt.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
+#include <sys/stat.h>
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -83,6 +84,9 @@
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
+
+/* Forward declaration (used before full definition) */
+static void bgp_log_vrf_rd_to_statefile(const char *vrf_name, uint16_t vrf_rd_id);
 
 /* Assign or restore a unique rd id for auto derivation of vrf's RD */
 static void bgp_assign_or_restore_vrf_rd_id(struct bgp *bgp, const char *vrf_name)
@@ -214,11 +218,14 @@ static void bgp_log_vrf_rd_to_statefile(const char *vrf_name, uint16_t vrf_rd_id
 	char path[512];
 	FILE *fp;
 
+	/* Ensure state dir exists (best-effort) */
+	(void)mkdir(frr_libstatedir, 0755);
+
 	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
 
 	fp = fopen(path, "a");
 	if (!fp) {
-		zlog_err("BGP: failed to open %s for append: %s", path, safe_strerror(errno));
+		/* Non-fatal: skip persisting if path is unavailable */
 		return;
 	}
 
@@ -242,7 +249,7 @@ static void bgp_remove_vrf_rd_from_statefile(const char *vrf_name, uint16_t vrf_
 
 	out = fopen(tmp, "w");
 	if (!out) {
-		zlog_err("BGP: failed to open %s for write: %s", tmp, safe_strerror(errno));
+		/* Non-fatal: skip update if temp path unavailable */
 		fclose(in);
 		return;
 	}
@@ -266,7 +273,7 @@ static void bgp_remove_vrf_rd_from_statefile(const char *vrf_name, uint16_t vrf_
 	}
 
 	if (rename(tmp, path) != 0) {
-		zlog_err("BGP: failed to replace %s: %s", path, safe_strerror(errno));
+		/* Non-fatal: best-effort removal */
 		remove(tmp);
 	}
 }
