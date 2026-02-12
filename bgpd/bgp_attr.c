@@ -3991,6 +3991,38 @@ otc_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
+/* BGP-LS attribute (rfc9552) */
+static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
+{
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
+	struct attr *const attr = args->attr;
+	int ret;
+	struct bgp_ls_attr *ls_attr;
+
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto ls_attr_ignore;
+
+	ls_attr = bgp_ls_attr_alloc();
+
+	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
+	if (ret != 0) {
+		bgp_ls_attr_free(ls_attr);
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	attr->ls_attr = bgp_ls_attr_intern(ls_attr);
+
+	bgp_ls_attr_free(ls_attr);
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+ls_attr_ignore:
+	stream_forward_getp(connection->curr, args->length);
+
+	return bgp_attr_ignore(peer, args->type);
+}
+
 /* BGP unknown attribute treatment. */
 static enum bgp_attr_parse_ret
 bgp_attr_unknown(struct bgp_attr_parser_args *args)
@@ -4371,6 +4403,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 			break;
 		case BGP_ATTR_NHC:
 			ret = bgp_attr_nhc(&attr_args);
+			break;
+		case BGP_ATTR_LINK_STATE:
+			ret = bgp_attr_ls(&attr_args);
 			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
