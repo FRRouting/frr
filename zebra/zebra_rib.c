@@ -1647,7 +1647,7 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	 * v6 link-locals, and we also support multiple addresses in the same
 	 * subnet on a single interface.
 	 */
-	if (re1->type == ZEBRA_ROUTE_CONNECT &&
+	if ((re1->type == ZEBRA_ROUTE_CONNECT || re1->type == ZEBRA_ROUTE_LOCAL) &&
 	    (re1->nhe->nhg.nexthop->ifindex == re2->nhe->nhg.nexthop->ifindex))
 		return true;
 
