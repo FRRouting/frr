@@ -803,13 +803,19 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 {
 	struct bgp_notify bn = {};
 
+	/* Validate inner length */
+	if (notify->length < 2)
+		goto done;
+
 	bn.code = notify->raw_data[0];
 	bn.subcode = notify->raw_data[1];
 	bn.length = notify->length - 2;
+	if (bn.length > 0) {
+		bn.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
+		memcpy(bn.raw_data, notify->raw_data + 2, bn.length);
+	}
 
-	bn.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
-	memcpy(bn.raw_data, notify->raw_data + 2, bn.length);
-
+done:
 	return bn;
 }
 
@@ -2575,6 +2581,14 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	struct bgp_notify inner = {};
 	bool hard_reset = false;
 
+	/* Validate message size */
+	if (size < 2) {
+		flog_err(EC_BGP_NOTIFY_RCV,
+			 "%s [Error] Notify packet error (packet length is short)",
+			 peer->host);
+		return BGP_Stop;
+	}
+
 	if (peer->notify.data) {
 		XFREE(MTYPE_BGP_NOTIFICATION, peer->notify.data);
 		peer->notify.length = 0;
@@ -2586,16 +2600,24 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	outer.length = size - 2;
 	outer.data = NULL;
 	outer.raw_data = NULL;
-	if (outer.length) {
+	if (outer.length > 0) {
 		outer.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, outer.length);
 		memcpy(outer.raw_data, stream_pnt(connection->curr), outer.length);
 	}
 
 	hard_reset =
 		bgp_notify_received_hard_reset(peer, outer.code, outer.subcode);
-	if (hard_reset && outer.length) {
-		inner = bgp_notify_decapsulate_hard_reset(&outer);
+	if (hard_reset) {
+		/* Hard reset treatment: we expect but don't require inner error codes */
 		peer->notify.hard_reset = true;
+		/* If we have at least an inner code and subcode, capture them */
+		if (outer.length > 1) {
+			inner = bgp_notify_decapsulate_hard_reset(&outer);
+		} else {
+			inner = outer;
+			inner.length = 0;
+			inner.raw_data = NULL;
+		}
 	} else {
 		inner = outer;
 	}
@@ -2604,7 +2626,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	peer->notify.code = inner.code;
 	peer->notify.subcode = inner.subcode;
 	/* For further diagnostic record returned Data. */
-	if (inner.length) {
+	if (inner.length > 0) {
 		peer->notify.length = inner.length;
 		peer->notify.data =
 			XMALLOC(MTYPE_BGP_NOTIFICATION, inner.length);
@@ -2617,7 +2639,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 		int first = 0;
 		char c[4];
 
-		if (inner.length) {
+		if (inner.length > 0) {
 			inner.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
 					     inner.length * 3);
 			for (i = 0; i < inner.length; i++)
@@ -2639,19 +2661,20 @@ static int bgp_notify_receive(struct peer_connection *connection,
 		}
 
 		bgp_notify_print(peer, &inner, "received", hard_reset);
-		if (inner.length) {
+		if (inner.length > 0) {
 			XFREE(MTYPE_BGP_NOTIFICATION, inner.data);
 			inner.length = 0;
 		}
-		if (outer.length) {
-			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
-			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
-
+		if (outer.length > 0) {
 			/* If this is a Hard Reset notification, we MUST free
 			 * the inner (encapsulated) notification too.
 			 */
-			if (hard_reset)
+			if (hard_reset && (inner.raw_data != outer.raw_data))
 				XFREE(MTYPE_BGP_NOTIFICATION, inner.raw_data);
+
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
+
 			outer.length = 0;
 		}
 	}
