@@ -76,7 +76,12 @@ enum zebra_if_flags {
 	 * and inherited by the bond (if one or more bond members are in
 	 * a bypass state the bond is placed in a bypass state)
 	 */
-	ZIF_FLAG_LACP_BYPASS = (1 << 5)
+	ZIF_FLAG_LACP_BYPASS = (1 << 5),
+
+	/* Kernel protodown state from RTM_NEWLINK - used to detect kernel
+	 * protodown transitions independently from ZIF_FLAG_PROTODOWN
+	 */
+	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6)
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
