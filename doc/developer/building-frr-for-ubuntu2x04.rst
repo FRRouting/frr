@@ -11,7 +11,7 @@ Installing Dependencies
    sudo apt-get install \
       git autoconf automake libtool make libreadline-dev texinfo \
       pkg-config libpam0g-dev libjson-c-dev bison flex \
-      libc-ares-dev python3-dev python3-sphinx \
+      libc-ares-dev python3-dev python3-sphinx python3-pytest \
       install-info build-essential libsnmp-dev perl \
       libcap-dev libelf-dev libunwind-dev \
       protobuf-c-compiler libprotobuf-c-dev
