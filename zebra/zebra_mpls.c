@@ -1223,6 +1223,7 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 	lsp_free_nhlfe(lsp);
 
 	hash_release(lsp_table, &lsp->ile);
+	zebra_sr_policy_lsp_deleted(lsp);
 	XFREE(MTYPE_LSP, lsp);
 
 	*plsp = NULL;
@@ -3812,6 +3813,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			lm_release_chunk_call(&client, in_label, in_label);
 		lsp = hash_release(slsp_table, &tmp_ile);
 		lsp_free_nhlfe(lsp);
+		zebra_sr_policy_lsp_deleted(lsp);
 		XFREE(MTYPE_LSP, lsp);
 	}
 
@@ -4169,7 +4171,7 @@ static void lsp_table_free(void *p)
 	struct zebra_lsp *lsp = p;
 
 	lsp_free_nhlfe(lsp);
-
+	zebra_sr_policy_lsp_deleted(lsp);
 	XFREE(MTYPE_LSP, lsp);
 }
 

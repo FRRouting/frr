@@ -338,6 +338,19 @@ static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 	zebra_sr_policy_notify_update(policy);
 }
 
+/* call sr_policy_deactivate, if lsp matches policy->lsp */
+void zebra_sr_policy_lsp_deleted(struct zebra_lsp *lsp)
+{
+	struct zebra_sr_policy *policy;
+
+	RB_FOREACH (policy, zebra_sr_policy_instance_head, &zebra_sr_policy_instances) {
+		if (policy->lsp == lsp) {
+			zebra_sr_policy_deactivate(policy);
+			policy->lsp = NULL;
+		}
+	}
+}
+
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel)
 {
