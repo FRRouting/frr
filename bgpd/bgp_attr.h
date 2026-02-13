@@ -210,6 +210,11 @@ struct attr {
 	/* EVPN DF preference for DF election on local ESs */
 	uint16_t df_pref;
 
+	/* MP Nexthop length */
+	uint8_t mp_nexthop_len;
+
+	uint8_t encap_tunneltype;
+
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
 
@@ -252,14 +257,14 @@ struct attr {
 	/* Aggregator ASN */
 	as_t aggregator_as;
 
-	/* MP Nexthop length */
-	uint8_t mp_nexthop_len;
-
 	/* route tag */
 	route_tag_t tag;
 
 	/* Label index */
 	uint32_t label_index;
+
+	/* rmap set table */
+	uint32_t rmap_table_id;
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
@@ -287,11 +292,6 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
-
-	uint8_t encap_tunneltype;
-
-	/* rmap set table */
-	uint32_t rmap_table_id;
 
 	/* Link bandwidth value, if any. */
 	uint64_t link_bw;
