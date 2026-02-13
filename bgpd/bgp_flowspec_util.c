@@ -171,6 +171,12 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	int psize;
 	uint8_t prefix_offset = 0;
 
+	/* Need at least 1 byte for prefixlen. */
+	if (max_len < 1) {
+		*error = -1;
+		return 0;
+	}
+
 	*error = 0;
 	memset(&prefix_local, 0, sizeof(prefix_local));
 	/* read the prefix length */
@@ -179,6 +185,12 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	offset++;
 	prefix_local.family = afi2family(afi);
 	if (prefix_local.family == AF_INET6) {
+		/* Need one more byte for IPv6 offset. */
+		if (offset >= max_len) {
+			*error = -1;
+			return offset;
+		}
+
 		prefix_offset = nlri_ptr[offset];
 		if (ipv6_offset)
 			*ipv6_offset = prefix_offset;
@@ -254,13 +266,32 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 	struct bgp_pbr_match_val *mval = (struct bgp_pbr_match_val *)result;
 
 	*error = 0;
+
+	/* do/while executes at least once, so guard first deref */
+	if (max_len < 1) {
+		*error = -1;
+		return 0;
+	}
+
 	do {
 		if (loop > BGP_PBR_MATCH_VAL_MAX)
 			*error = -2;
+
+		if (offset >= max_len) {
+			*error = -1;
+			break;
+		}
+
 		hex2bin(&nlri_ptr[offset], op);
 		offset++;
 		len = 2*op[2]+op[3];
 		value_size = 1 << len;
+
+		if (offset > max_len || (uint32_t)value_size > (max_len - offset)) {
+			*error = -1;
+			break;
+		}
+
 		value = hexstr2num(&nlri_ptr[offset], value_size);
 		/* can not be < and > at the same time */
 		if (op[5] == 1 && op[6] == 1)
@@ -358,11 +389,19 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 	int len_written;
 
 	*error = 0;
+
+	/* do/while executes at least once, so guard first deref */
+	if (max_len < 1) {
+		*error = -1;
+		return 0;
+	}
+
 	do {
 		if (loop > BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
 			return offset;
 		}
+
 		hex2bin(&nlri_ptr[offset], op);
 		/* if first element, AND bit can not be set */
 		if (op[1] == 1 && loop == 0)
@@ -370,6 +409,12 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 		offset++;
 		len = 2 * op[2] + op[3];
 		value_size = 1 << len;
+
+		if (offset > max_len || (uint32_t)value_size > (max_len - offset)) {
+			*error = -1;
+			break;
+		}
+
 		value = hexstr2num(&nlri_ptr[offset], value_size);
 		switch (type) {
 		case BGP_FLOWSPEC_RETURN_STRING:
