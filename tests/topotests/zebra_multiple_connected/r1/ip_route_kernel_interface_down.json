@@ -10,8 +10,9 @@
       "internalNextHopActiveNum":0,
       "nexthops":[
         {
-          "flags":0,
-          "interfaceName":"r1-eth2"
+          "flags":512,
+          "interfaceName":"r1-eth2",
+          "linkDown":true
         }
       ]
 
