@@ -9,6 +9,7 @@
 /* C++ compatibility */
 #ifdef __cplusplus
 #include <stdint.h>
+#include <ctime>
 #include <atomic>
 using std::atomic_int;
 using std::memory_order;
@@ -23,9 +24,12 @@ typedef std::atomic<bool>		atomic_bool;
 typedef std::atomic<size_t>		atomic_size_t;
 typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 typedef std::atomic<uintptr_t>		atomic_uintptr_t;
+typedef std::atomic<std::time_t>	atomic_time_t;
 
 #else
 #include <stdatomic.h>
+#include <time.h>
+typedef _Atomic(time_t) atomic_time_t;
 #endif
 
 #endif /* _FRRATOMIC_H */
