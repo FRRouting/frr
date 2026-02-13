@@ -122,16 +122,27 @@ def test_kernel_default_route_selected_on_r2():
     ), "Kernel default route did not become the selected route on r2: {}".format(result)
 
     # Verify RIP sees the default route as kernel-redistribute (K(r)), not from r1 (R)
-    output = r2.vtysh_cmd("show ip rip", isjson=False)
-    default_lines = [line for line in output.splitlines() if "0.0.0.0/0" in line]
+    def _check_rip_default_is_kernel():
+        output = r2.vtysh_cmd("show ip rip", isjson=False)
+        default_lines = [line for line in output.splitlines() if "0.0.0.0/0" in line]
+        if not default_lines:
+            return "Default route 0.0.0.0/0 not found in 'show ip rip'. Output:\n{}".format(
+                output
+            )
+        for line in default_lines:
+            if "K(r)" not in line:
+                return (
+                    "RIP should show default route as kernel-redistribute K(r) 0.0.0.0/0, "
+                    "not from r1. Line: {}".format(line)
+                )
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check_rip_default_is_kernel, None, count=60, wait=1
+    )
     assert (
-        default_lines
-    ), "Default route 0.0.0.0/0 not found in 'show ip rip'. Output:\n{}".format(output)
-    for line in default_lines:
-        assert "K(r)" in line, (
-            "RIP should show default route as kernel-redistribute K(r) 0.0.0.0/0, "
-            "not from r1. Line: {}".format(line)
-        )
+        result is None
+    ), "RIP default route selection did not reflect kernel: {}".format(result)
 
 
 def test_static_default_route_brought_into_rip_on_r2():
