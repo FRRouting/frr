@@ -119,12 +119,12 @@ static void bgp_packet_add(struct peer_connection *connection,
 		 * after it'll get confused
 		 */
 		if (!stream_fifo_count_safe(connection->obuf))
-			peer->last_sendq_ok = monotime(NULL);
+			connection->last_sendq_ok = monotime(NULL);
 
 		stream_fifo_push(connection->obuf, s);
 	}
 
-	delta = monotime(NULL) - peer->last_sendq_ok;
+	delta = monotime(NULL) - connection->last_sendq_ok;
 
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 		holdtime = atomic_load_explicit(&peer->holdtime, memory_order_relaxed);
@@ -149,11 +149,11 @@ static void bgp_packet_add(struct peer_connection *connection,
 			 peer, sendholdtime);
 		event_add_event(bm->master, bgp_event_stop_with_notify, connection, 0,
 				&connection->t_stop_with_notify);
-	} else if (delta > (intmax_t)holdtime && monotime(NULL) - peer->last_sendq_warn > 5) {
+	} else if (delta > (intmax_t)holdtime && monotime(NULL) - connection->last_sendq_warn > 5) {
 		flog_warn(EC_BGP_SENDQ_STUCK_WARN,
 			  "%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
 			  peer, holdtime);
-		peer->last_sendq_warn = monotime(NULL);
+		connection->last_sendq_warn = monotime(NULL);
 	}
 }
 
