@@ -1493,10 +1493,17 @@ struct peer_connection {
 
 	struct stream *curr;
 
-	/* only updated under io_mtx.
+	/*
+	 * Timestamp of the last outgoing messge to the peer.
+	 * This timestamp is written on multiple threads and read
+	 * on the master pthread.  As such it must be atomic.
+	 */
+	atomic_time_t last_sendq_ok;
+	/*
+	 * only updated under io_mtx.
 	 * last_sendq_warn is only for ratelimiting log warning messages.
 	 */
-	time_t last_sendq_ok, last_sendq_warn;
+	time_t last_sendq_warn;
 };
 
 /* Declare the FIFO list implementation */

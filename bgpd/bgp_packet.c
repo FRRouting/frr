@@ -119,12 +119,14 @@ static void bgp_packet_add(struct peer_connection *connection,
 		 * after it'll get confused
 		 */
 		if (!stream_fifo_count_safe(connection->obuf))
-			connection->last_sendq_ok = monotime(NULL);
+			atomic_store_explicit(&connection->last_sendq_ok, monotime(NULL),
+					      memory_order_relaxed);
 
 		stream_fifo_push(connection->obuf, s);
 	}
 
-	delta = monotime(NULL) - connection->last_sendq_ok;
+	delta = monotime(NULL) -
+		atomic_load_explicit(&connection->last_sendq_ok, memory_order_relaxed);
 
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 		holdtime = atomic_load_explicit(&peer->holdtime, memory_order_relaxed);

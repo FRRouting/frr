@@ -495,7 +495,7 @@ done : {
 	if (update_last_write) {
 		atomic_store_explicit(&peer->last_write, now,
 				      memory_order_relaxed);
-		connection->last_sendq_ok = now;
+		atomic_store_explicit(&connection->last_sendq_ok, now, memory_order_relaxed);
 	}
 }
 
