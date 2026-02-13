@@ -183,6 +183,19 @@ struct attr {
 	/* Distance as applied by Route map */
 	uint8_t distance;
 
+	uint8_t df_alg;
+
+	/* EVPN flags */
+	uint8_t evpn_flags;
+#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
+#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
+/* NA router flag (R-bit) support in EVPN */
+#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
+
+	/* has the route-map changed any attribute?
+	   Used on the peer outbound side. */
+	uint16_t rmap_change_flags;
+
 	/* Cache to avoid repeated interning within a single UPDATE section */
 	struct {
 		bool valid;
@@ -195,15 +208,10 @@ struct attr {
 	} attr_intern_reuse;
 
 	/* EVPN DF preference for DF election on local ESs */
-	uint8_t df_alg;
 	uint16_t df_pref;
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
-
-	/* has the route-map changed any attribute?
-	   Used on the peer outbound side. */
-	uint16_t rmap_change_flags;
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
@@ -246,13 +254,6 @@ struct attr {
 
 	/* MP Nexthop length */
 	uint8_t mp_nexthop_len;
-
-	/* EVPN flags */
-	uint8_t evpn_flags;
-#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
-#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
-/* NA router flag (R-bit) support in EVPN */
-#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
 
 	/* route tag */
 	route_tag_t tag;
