@@ -1963,7 +1963,11 @@ def test_l3vni_rmac_change(tgen_and_ip_version):
     # Step 2: Change the MAC address (trigger RMAC change)
     logger.info("Step 2: Changing router MAC on tor-21")
 
-    new_mac = initial_rmac[:-2] + "99"  # Change last byte to 99
+    new_mac = initial_rmac[:-2] + "99"
+
+    if new_mac == initial_rmac:
+        new_mac = initial_rmac[:-2] + "98"
+
     logger.info(f"Changing vlan4001 MAC from {original_mac} to {new_mac}")
 
     tor21.run(f"ip link set dev vlan4001 down")
