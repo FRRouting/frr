@@ -324,6 +324,7 @@ int bfd_session_enable(struct bfd_session *bs)
 {
 	struct interface *ifp = NULL;
 	struct vrf *vrf = NULL;
+	struct bfd_vrf_global *bvrf;
 	int psock;
 
 	/* We are using data plane, we don't need software. */
@@ -348,6 +349,7 @@ int bfd_session_enable(struct bfd_session *bs)
 	}
 
 	assert(vrf);
+	bvrf = vrf->info;
 
 	if (bs->key.ifname[0]) {
 		ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
@@ -410,6 +412,16 @@ int bfd_session_enable(struct bfd_session *bs)
 	 */
 	bs->sock = psock;
 
+	/*
+	 * Track active sessions per VRF for dynamic socket management.
+	 * Open VRF listening sockets on the first session;
+	 */
+	if (bvrf) {
+		if (bvrf->bg_session_count == 0)
+			bfd_vrf_start_sockets(bvrf);
+		bvrf->bg_session_count++;
+	}
+
 	/* Only start timers if we are using active mode. */
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE) == 0) {
 		if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
@@ -446,8 +458,24 @@ void bfd_session_disable(struct bfd_session *bs)
 
 	frrtrace(2, frr_bfd, session_enable_event, false, bs);
 
-	/* Free up socket resources. */
+	/* Free up socket resources and update VRF session count. */
 	if (bs->sock != -1) {
+		if (bs->vrf && bs->vrf->info) {
+			struct bfd_vrf_global *bvrf = bs->vrf->info;
+
+			if (bvrf->bg_session_count > 0) {
+				bvrf->bg_session_count--;
+
+				/*
+				 * Last session in this VRF: close the shared
+				 * listening sockets if no reflectors need them.
+				 */
+				if (bvrf->bg_session_count == 0 &&
+				    bvrf->bg_reflector_count == 0)
+					bfd_vrf_stop_sockets(bvrf);
+			}
+		}
+
 		close(bs->sock);
 		bs->sock = -1;
 	}
@@ -2546,50 +2574,17 @@ static int bfd_vrf_delete(struct vrf *vrf)
 
 static int bfd_vrf_enable(struct vrf *vrf)
 {
-	struct bfd_vrf_global *bvrf = vrf->info;
-
 	if (bglobal.debug_zebra)
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
 
 	frrtrace(2, frr_bfd, vrf_lifecycle, 3, vrf->vrf_id);
 
-	/* Don't open sockets when using data plane */
-	if (bglobal.bg_use_dplane)
-		goto skip_sockets;
+	/*
+	 * Sockets are no longer opened here statically.
+	 * They will be created dynamically when the first BFD session
+	 * is enabled for this VRF (see bfd_session_enable()).
+	 */
 
-	if (!bfd_vrf_is_perm(vrf->name))
-		return 0;
-
-	if (bvrf->bg_shop == -1)
-		bvrf->bg_shop = bp_udp_shop(vrf);
-	if (bvrf->bg_mhop == -1)
-		bvrf->bg_mhop = bp_udp_mhop(vrf);
-	if (bvrf->bg_shop6 == -1)
-		bvrf->bg_shop6 = bp_udp6_shop(vrf);
-	if (bvrf->bg_mhop6 == -1)
-		bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
-	if (bvrf->bg_initv6 == -1)
-		bvrf->bg_initv6 = bp_initv6_socket(vrf);
-
-	if (bvrf->bg_ev[0] == NULL && bvrf->bg_shop != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-			       &bvrf->bg_ev[0]);
-	if (bvrf->bg_ev[1] == NULL && bvrf->bg_mhop != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-			       &bvrf->bg_ev[1]);
-	if (bvrf->bg_ev[2] == NULL && bvrf->bg_shop6 != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-			       &bvrf->bg_ev[2]);
-	if (bvrf->bg_ev[3] == NULL && bvrf->bg_mhop6 != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-			       &bvrf->bg_ev[3]);
-	if (bvrf->bg_ev[6] == NULL && bvrf->bg_initv6 != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_initv6, &bvrf->bg_ev[6]);
-
-	/* Toggle echo if VRF was disabled. */
-	bfd_vrf_toggle_echo(bvrf);
-
-skip_sockets:
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);
@@ -2616,23 +2611,10 @@ static int bfd_vrf_disable(struct vrf *vrf)
 
 	frrtrace(2, frr_bfd, vrf_lifecycle, 4, vrf->vrf_id);
 
-	/* Disable read/write poll triggering. */
-	event_cancel(&bvrf->bg_ev[0]);
-	event_cancel(&bvrf->bg_ev[1]);
-	event_cancel(&bvrf->bg_ev[2]);
-	event_cancel(&bvrf->bg_ev[3]);
-	event_cancel(&bvrf->bg_ev[4]);
-	event_cancel(&bvrf->bg_ev[5]);
-	event_cancel(&bvrf->bg_ev[6]);
-
-	/* Close all descriptors. */
-	socket_close(&bvrf->bg_echo);
-	socket_close(&bvrf->bg_shop);
-	socket_close(&bvrf->bg_mhop);
-	socket_close(&bvrf->bg_shop6);
-	socket_close(&bvrf->bg_mhop6);
-	socket_close(&bvrf->bg_echov6);
-	socket_close(&bvrf->bg_initv6);
+	/* Close all sockets and cancel events for this VRF. */
+	bfd_vrf_stop_sockets(bvrf);
+	bvrf->bg_session_count = 0;
+	bvrf->bg_reflector_count = 0;
 
 	return 0;
 }
@@ -2673,6 +2655,8 @@ unsigned long bfd_get_session_count(void)
 struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip)
 {
 	struct sbfd_reflector *sr;
+	struct vrf *vrf;
+	struct bfd_vrf_global *bvrf;
 
 	sr = sbfd_discr_lookup(discr);
 	if (sr)
@@ -2684,6 +2668,16 @@ struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr 
 
 	sbfd_discr_insert(sr);
 
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf) {
+		bvrf = vrf->info;
+		if (bvrf) {
+			if (bvrf->bg_reflector_count == 0 &&
+			    bvrf->bg_session_count == 0)
+				bfd_vrf_start_sockets(bvrf);
+			bvrf->bg_reflector_count++;
+		}
+	}
 
 	return sr;
 }
@@ -2691,6 +2685,8 @@ struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr 
 void sbfd_reflector_free(const uint32_t discr)
 {
 	struct sbfd_reflector *sr;
+	struct vrf *vrf;
+	struct bfd_vrf_global *bvrf;
 
 	sr = sbfd_discr_lookup(discr);
 	if (!sr)
@@ -2699,7 +2695,16 @@ void sbfd_reflector_free(const uint32_t discr)
 	sbfd_discr_delete(discr);
 	XFREE(MTYPE_SBFD_REFLECTOR, sr);
 
-	return;
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf) {
+		bvrf = vrf->info;
+		if (bvrf && bvrf->bg_reflector_count > 0) {
+			bvrf->bg_reflector_count--;
+			if (bvrf->bg_reflector_count == 0 &&
+			    bvrf->bg_session_count == 0)
+				bfd_vrf_stop_sockets(bvrf);
+		}
+	}
 }
 
 void sbfd_reflector_flush(void)
@@ -2752,4 +2757,95 @@ void bfd_rtt_init(struct bfd_session *bfd)
 	bfd->rtt_index = 0;
 	for (i = 0; i < BFD_RTT_SAMPLE; i++)
 		bfd->rtt[i] = 0;
+}
+
+/*
+ * Dynamic BFD socket management functions.
+ *
+ * Sockets are created on demand when the first BFD session is enabled
+ * for a VRF, and closed when the last session is disabled.
+ */
+
+/*
+ * bfd_vrf_start_sockets: open all listening sockets for a VRF.
+ *
+ * Sockets are created dynamically on demand when the first BFD session
+ * is enabled for this VRF. This function is idempotent - it only opens
+ * sockets that are not already open.
+ */
+int bfd_vrf_start_sockets(struct bfd_vrf_global *bvrf)
+{
+	/* Don't open sockets when using data plane. */
+	if (bglobal.bg_use_dplane)
+		return 0;
+
+	if (!bfd_vrf_is_perm(bvrf->vrf->name))
+		return 0;
+
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF start sockets %s id %u", bvrf->vrf->name,
+			   bvrf->vrf->vrf_id);
+
+	if (bvrf->bg_shop == -1)
+		bvrf->bg_shop = bp_udp_shop(bvrf->vrf);
+	if (bvrf->bg_mhop == -1)
+		bvrf->bg_mhop = bp_udp_mhop(bvrf->vrf);
+	if (bvrf->bg_shop6 == -1)
+		bvrf->bg_shop6 = bp_udp6_shop(bvrf->vrf);
+	if (bvrf->bg_mhop6 == -1)
+		bvrf->bg_mhop6 = bp_udp6_mhop(bvrf->vrf);
+	if (bvrf->bg_initv6 == -1)
+		bvrf->bg_initv6 = bp_initv6_socket(bvrf->vrf);
+
+	if (bvrf->bg_ev[0] == NULL && bvrf->bg_shop != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+			       &bvrf->bg_ev[0]);
+	if (bvrf->bg_ev[1] == NULL && bvrf->bg_mhop != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+			       &bvrf->bg_ev[1]);
+	if (bvrf->bg_ev[2] == NULL && bvrf->bg_shop6 != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+			       &bvrf->bg_ev[2]);
+	if (bvrf->bg_ev[3] == NULL && bvrf->bg_mhop6 != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+			       &bvrf->bg_ev[3]);
+	if (bvrf->bg_ev[6] == NULL && bvrf->bg_initv6 != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_initv6,
+			       &bvrf->bg_ev[6]);
+
+	/* Open echo sockets if any session in this VRF uses echo mode. */
+	bfd_vrf_toggle_echo(bvrf);
+
+	return 0;
+}
+
+/*
+ * bfd_vrf_stop_sockets: close all listening sockets for a VRF.
+ *
+ * Called when the last BFD session in a VRF is disabled, or when
+ * the VRF itself is disabled/deleted.
+ */
+void bfd_vrf_stop_sockets(struct bfd_vrf_global *bvrf)
+{
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF stop sockets %s id %d", bvrf->vrf->name,
+			   bvrf->vrf->vrf_id);
+
+	/* Disable read/write poll triggering. */
+	event_cancel(&bvrf->bg_ev[0]);
+	event_cancel(&bvrf->bg_ev[1]);
+	event_cancel(&bvrf->bg_ev[2]);
+	event_cancel(&bvrf->bg_ev[3]);
+	event_cancel(&bvrf->bg_ev[4]);
+	event_cancel(&bvrf->bg_ev[5]);
+	event_cancel(&bvrf->bg_ev[6]);
+
+	/* Close all descriptors. */
+	socket_close(&bvrf->bg_echo);
+	socket_close(&bvrf->bg_shop);
+	socket_close(&bvrf->bg_mhop);
+	socket_close(&bvrf->bg_shop6);
+	socket_close(&bvrf->bg_mhop6);
+	socket_close(&bvrf->bg_echov6);
+	socket_close(&bvrf->bg_initv6);
 }
