@@ -51,6 +51,25 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
+    tgen.net['r1'].cmd('ip link set dev r1-eth0 down')
+    tgen.net['r1'].cmd('ip link set dev r1-eth1 down')
+    tgen.net['r2'].cmd('ip link set dev r2-eth0 down')
+    tgen.net['r2'].cmd('ip link set dev r2-eth1 down')
+    tgen.net['r3'].cmd('ip link set dev r3-eth0 down')
+    tgen.net['r3'].cmd('ip link set dev r3-eth1 down')
+    tgen.net['r1'].cmd('sysctl net/ipv6/conf/r1-eth0/addr_gen_mode=1')
+    tgen.net['r1'].cmd('sysctl net/ipv6/conf/r1-eth1/addr_gen_mode=1')
+    tgen.net['r2'].cmd('sysctl net/ipv6/conf/r2-eth0/addr_gen_mode=1')
+    tgen.net['r2'].cmd('sysctl net/ipv6/conf/r2-eth1/addr_gen_mode=1')
+    tgen.net['r3'].cmd('sysctl net/ipv6/conf/r3-eth0/addr_gen_mode=1')
+    tgen.net['r3'].cmd('sysctl net/ipv6/conf/r3-eth1/addr_gen_mode=1')
+    tgen.net['r1'].cmd('ip link set dev r1-eth0 up')
+    tgen.net['r1'].cmd('ip link set dev r1-eth1 up')
+    tgen.net['r2'].cmd('ip link set dev r2-eth0 up')
+    tgen.net['r2'].cmd('ip link set dev r2-eth1 up')
+    tgen.net['r3'].cmd('ip link set dev r3-eth0 up')
+    tgen.net['r3'].cmd('ip link set dev r3-eth1 up')
+
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
         router.load_config(
