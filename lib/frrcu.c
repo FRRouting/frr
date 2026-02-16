@@ -154,16 +154,18 @@ struct rcu_thread *rcu_thread_new(void *arg)
 {
 	struct rcu_thread *rt, *cur = arg;
 
-	/* new thread always starts with rcu_read_lock held at depth 1, and
-	 * holding the same epoch as the parent (this makes it possible to
-	 * use RCU for things passed into the thread through its arg)
-	 */
 	rt = XCALLOC(MTYPE_RCU_THREAD, sizeof(*rt));
-	rt->depth = 1;
 
 	seqlock_init(&rt->rcu);
-	if (cur)
+	if (cur) {
+		/* new thread with a parent always starts with rcu_read_lock held
+		 * at depth 1, and holding the same epoch as the parent (this
+		 * makes it possible to use RCU for things passed into the
+		 * thread through its arg)
+		 */
 		seqlock_acquire(&rt->rcu, &cur->rcu);
+		rt->depth = 1;
+	}
 
 	rcu_threads_add_tail(&rcu_threads, rt);
 
