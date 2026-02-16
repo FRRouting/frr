@@ -1,7 +1,6 @@
 log stdout
 !
 interface lo
- ip ospf network point-to-point
  ip ospf passive
 exit
 !
