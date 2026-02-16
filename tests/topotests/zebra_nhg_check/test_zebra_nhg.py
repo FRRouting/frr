@@ -302,8 +302,12 @@ def test_bgp_routes_on_r2():
             nhg_info = nhg_data.get(str(nhg_id), {})
             member_count = len(nhg_info.get("nexthops", []))
             logger.info(f"Nexthop group {nhg_id} has {member_count} members")
-            if (member_count != 128):
-                logger.info(net["r2"].cmd(f'vtysh -c "show nexthop-group rib {nhg_id}" -c "show bgp ipv4 uni" -c "show ip route 33.99.0.0 nexthop-group"'))
+            if member_count != 128:
+                logger.info(
+                    net["r2"].cmd(
+                        f'vtysh -c "show nexthop-group rib {nhg_id}" -c "show bgp ipv4 uni" -c "show ip route 33.99.0.0 nexthop-group"'
+                    )
+                )
             return member_count
         except (json.JSONDecodeError, KeyError) as e:
             logger.info(f"Error checking nexthop group members: {e}")
@@ -378,6 +382,25 @@ def test_bgp_shutdown_some_links():
 
     assert success, "BGP routes are not using the same nexthop group"
 
+<<<<<<< HEAD
+=======
+    step("Collect route update skips before link shutdown")
+
+    def get_route_updates_skipped():
+        output = net["r2"].cmd('vtysh -c "show zebra dplane detailed"')
+        match = re.search(r"Route updates skipped:\s+(\d+)", output)
+        if not match:
+            logger.error("Failed to parse route updates skipped from zebra dplane")
+            return -1
+        return int(match.group(1))
+
+    skipped_updates_before = get_route_updates_skipped()
+    assert (
+        skipped_updates_before != -1
+    ), "Could not retrieve route updates skipped before shutdown"
+    logger.info(f"Route updates skipped before shutdown: {skipped_updates_before}")
+
+>>>>>>> fbbc11890 (tests: Do not fail zebra_nhg_check if skipped is not 0 on initial)
     # Shutdown interfaces r2-eth30 through r2-eth49
     step("Shutdown interfaces r2-eth30 through r2-eth49")
     for i in range(30, 50):
@@ -452,6 +475,31 @@ def test_bgp_shutdown_some_links():
 
     assert success, "Nexthop group ID changed after interface shutdowns"
 
+<<<<<<< HEAD
+=======
+    step("Verify route update skips increased after shutdowns")
+
+    def check_route_updates_skipped_increase():
+        skipped_now = get_route_updates_skipped()
+        if skipped_now < 0:
+            return False
+        logger.info(
+            "Route updates skipped after shutdown: %s (before: %s)",
+            skipped_now,
+            skipped_updates_before,
+        )
+        return skipped_now > skipped_updates_before
+
+    success, result = topotest.run_and_expect(
+        check_route_updates_skipped_increase,
+        True,
+        count=60,
+        wait=1,
+    )
+
+    assert success, "Route updates skipped did not increase after shutdowns"
+
+>>>>>>> fbbc11890 (tests: Do not fail zebra_nhg_check if skipped is not 0 on initial)
     step("Bring interfaces r2-eth30 through r2-eth49 back up")
     # Bring interfaces r2-eth30 through r2-eth49 back up
     for i in range(30, 50):
