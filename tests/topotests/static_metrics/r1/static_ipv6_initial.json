@@ -1,0 +1,212 @@
+{
+  "2001:db8:0:1::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 0
+    }
+  ],
+  "2001:db8:0:2::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:0:3::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 2
+    }
+  ],
+  "2001:db8:0:4::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:0:5::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:0:6::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:0:7::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:0:8::/64": [
+    {
+      "protocol": "static",
+      "distance": 1,
+      "metric": 1
+    }
+  ],
+  "2001:db8:1:1::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:2::/64": [
+    {
+      "protocol": "static",
+      "distance": 6,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:3::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:4::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:5::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:6::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:1:7::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 0
+    }
+  ],
+  "2001:db8:2:1::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:2:2::/64": [
+    {
+      "protocol": "static",
+      "distance": 6,
+      "metric": 2
+    }
+  ],
+  "2001:db8:2:3::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:2:4::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:2:5::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:2:6::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:2:7::/64": [
+    {
+      "protocol": "static",
+      "distance": 5,
+      "metric": 1
+    }
+  ],
+  "2001:db8:3:1::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:2::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:3::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:4::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:5::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:6::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:7::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ],
+  "2001:db8:3:8::/64": [
+    {
+      "protocol": "static",
+      "distance": 7,
+      "metric": 10
+    }
+  ]
+}
