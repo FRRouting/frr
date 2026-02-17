@@ -133,7 +133,6 @@ def get_bgp_neighbor_stats(router, neighbor_ip):
         logger.warning(
             f"Failed to get BGP neighbor stats for {neighbor_ip} from {router.name}"
         )
-        pass
     return {"connectionsEstablished": 0, "connectionsDropped": 0}
 
 
