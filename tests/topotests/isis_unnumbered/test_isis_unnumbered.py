@@ -124,17 +124,28 @@ def test_isis_route_installation():
 
     # Check for routes in 'show ip route json'
     for rname, router in tgen.routers().items():
-        filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
-        expected = json.loads(open(filename, "r").read())
+        filename_ip = "{0}/{1}/{1}_route.json".format(CWD, rname)
+        expected_ip = json.loads(open(filename_ip, "r").read())
+        filename_ipv6 = "{0}/{1}/{1}_route6.json".format(CWD, rname)
+        expected_ipv6 = json.loads(open(filename_ipv6, "r").read())
 
-        def compare_isis_installed_routes(router, expected):
-            "Helper function to test ISIS routes installed in rib."
+        def compare_isis_installed_ip_routes(router, expected):
+            "Helper function to test ISIS ip routes installed in rib."
             actual = router.vtysh_cmd("show ip route json", isjson=True)
             return topotest.json_cmp(actual, expected)
 
-        test_func = functools.partial(compare_isis_installed_routes, router, expected)
+        def compare_isis_installed_ipv6_routes(router, expected):
+            "Helper function to test ISIS ipv6 routes installed in rib."
+            actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_isis_installed_ip_routes, router, expected_ip)
         (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
-        assert result, "Router '{}' routes mismatch:\n{}".format(rname, diff)
+        assert result, "Router '{}' ip routes mismatch:\n{}".format(rname, diff)
+
+        test_func = functools.partial(compare_isis_installed_ipv6_routes, router, expected_ipv6)
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        assert result, "Router '{}' ipv6 routes mismatch:\n{}".format(rname, diff)
 
 
 def test_isis_linux_route_installation():
@@ -148,14 +159,20 @@ def test_isis_linux_route_installation():
 
     # Check for routes in `ip route`
     for rname, router in tgen.routers().items():
-        filename = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
-        expected = json.loads(open(filename, "r").read())
+        filename_ip = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
+        filename_ipv6 = "{0}/{1}/{1}_route_linux6.json".format(CWD, rname)
+        expected_ip = json.loads(open(filename_ip, "r").read())
+        expected_ipv6 = json.loads(open(filename_ipv6, "r").read())
         # use `ip route` directly and not `topotest.ip4_route(router)` so that
         # we can check the `onlink` flag.
-        actual = json.loads(router.run("ip -json route"))
+        actual_ip = json.loads(router.run("ip -json route"))
+        actual_ipv6 = json.loads(router.run("ip -6 -json route"))
 
-        assertmsg = "Router '{}' OS routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assertmsg = "Router '{}' OS ip routes mismatch".format(rname)
+        assert topotest.json_cmp(actual_ip, expected_ip) is None, assertmsg
+
+        assertmsg = "Router '{}' OS ipv6 routes mismatch".format(rname)
+        assert topotest.json_cmp(actual_ipv6, expected_ipv6) is None, assertmsg
 
 
 def test_isis_summary_json():
