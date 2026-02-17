@@ -93,7 +93,7 @@ struct pim_vxlan {
  *
  * Note: This doesn't mean that only (*, G) mroutes are used for tunnel
  * termination. (S, G) mroutes with ipmr-lo in the OIL can also be
- * used for tunnel termiation if SPT switchover happens; however such
+ * used for tunnel termination if SPT switchover happens; however such
  * SG entries are created by traffic and will NOT be a part of the vxlan SG
  * database.
  */

@@ -721,7 +721,7 @@ static void on_ifjoin_prune_pending_timer(struct event *t)
 			/*
 			 * SGRpt prune pending expiry has to install
 			 * SG entry with empty olist to drop the SG
-			 * traffic incase no other intf exists.
+			 * traffic in case no other intf exists.
 			 * On that scenario, SG entry wouldn't have
 			 * got installed until Prune pending timer
 			 * expired. So install now.

@@ -305,7 +305,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 
 	/*
 	 * So we have a non plist rp_info found in the lookup and no plists
-	 * at all to be choosen, return it!
+	 * at all to be chosen, return it!
 	 */
 	if (!best)
 		return rp_info;

@@ -1196,7 +1196,7 @@ int pim_mroute_del_vif(struct interface *ifp)
  *
  * This is a protection against implementation mistakes.
  *
- * PIM protocol implicitely ensures loopfree multicast topology.
+ * PIM protocol implicitly ensures loopfree multicast topology.
  *
  * IGMP must be protected against adding looped MFC entries created
  * by both source and receiver attached to the same interface. See
@@ -1284,7 +1284,7 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	 * it is owned by the pimreg for the incoming IIF
 	 * So set pimreg as the IIF temporarily to cause
 	 * the packets to be forwarded.  Then set it
-	 * to the correct IIF afterwords.
+	 * to the correct IIF afterwards.
 	 */
 	if (!c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil)) &&
 	    *oil_incoming_vif(c_oil) != 0) {

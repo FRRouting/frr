@@ -177,7 +177,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 	return true;
 }
 
-/* Upstream add evaluation needs to happen everytime -
+/* Upstream add evaluation needs to happen every time -
  * 1. Peer reference is added or removed.
  * 2. The RP for a group changes.
  * 3. joinDesired for the associated (*, G) changes
@@ -411,7 +411,7 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		pim_msdp_sa_peer_ip_set(sa, mp, rp);
 		/* start/re-start the state timer to prevent cache expiry */
 		pim_msdp_sa_state_timer_setup(sa, true /* start */);
-		/* We re-evaluate SA "SPT-trigger" everytime we hear abt it from
+		/* We re-evaluate SA "SPT-trigger" every time we hear abt it from
 		 * a
 		 * peer. XXX: If this becomes too much of a periodic overhead we
 		 * can make it event based */
@@ -609,7 +609,7 @@ void pim_msdp_i_am_rp_changed(struct pim_instance *pim)
 			 * contents after */
 			pim_msdp_sa_deref(sa, PIM_MSDP_SAF_LOCAL);
 		} else {
-			/* if the souce is still active check if we can
+			/* if the source is still active check if we can
 			 * influence SPT */
 			pim_msdp_sa_upstream_update(sa, NULL /* xg_up */,
 						    "rp-change");
@@ -1101,7 +1101,7 @@ static void pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 		break;
 
 	case connect_success:
-		/* connect was sucessful move to established */
+		/* connect was successful move to established */
 		pim_msdp_peer_established(mp);
 		break;
 
@@ -1112,7 +1112,7 @@ static void pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 		PIM_MSDP_PEER_READ_ON(mp);
 		/* also restart connect-retry timer to reset the socket if
 		 * connect is
-		 * not sucessful */
+		 * not successful */
 		pim_msdp_peer_cr_timer_setup(mp, true /* start */);
 		break;
 	}

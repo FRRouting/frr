@@ -144,7 +144,7 @@ int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, str
 /* Tracked nexthop update from zebra */
 void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route *nhr);
 
-/* NHT init and finish funcitons */
+/* NHT init and finish functions */
 void pim_nht_init(struct pim_instance *pim);
 void pim_nht_terminate(struct pim_instance *pim);
 

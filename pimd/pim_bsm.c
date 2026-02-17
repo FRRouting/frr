@@ -127,9 +127,9 @@ int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *node1,
 		       const struct bsm_rpinfo *node2)
 {
 	/* RP election Algo :
-	 * Step-1 : Loweset Rp priority  will have higher precedance.
+	 * Step-1 : Loweset Rp priority  will have higher precedence.
 	 * Step-2 : If priority same then higher hash val will have
-	 *	    higher precedance.
+	 *	    higher precedence.
 	 * Step-3 : If Hash val is same then highest rp address will
 	 *	    become elected RP.
 	 */
@@ -878,7 +878,7 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 		 * mtu            ---> size of the pim packet - PIM header
 		 * curgrp         ---> current group on the fragment
 		 * grpinfo        ---> current group on the input buffer
-		 * this_pkt_rem   ---> bytes remaing on the current fragment
+		 * this_pkt_rem   ---> bytes remaining on the current fragment
 		 * rp_fit_cnt     ---> num of rp for current grp that
 		 *                     fits this frag
 		 * total_rp_cnt   ---> total rp present for the group in the buf

@@ -69,7 +69,7 @@ MACRO_REQUIRE_SEMICOLON()
  * information is not injected into PIM interface state.
 
  * The function pim_if_membership_refresh() fetches all IGMPv3 local
- * membership information into PIM. It is intented to be called
+ * membership information into PIM. It is intended to be called
  * whenever PIM is enabled on the interface in order to collect missed
  * local membership information.
  */

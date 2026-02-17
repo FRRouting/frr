@@ -52,7 +52,7 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 	}
 
 	stream_reset(router->mlag_stream);
-	/* ADD Hedaer */
+	/* ADD Header */
 	stream_putl(router->mlag_stream, fill_msg_type);
 	/*
 	 * In case of Bulk actual size & msg_cnt will be updated
@@ -70,7 +70,7 @@ static void pim_mlag_zebra_flush_buffer(void)
 {
 	uint32_t msg_type;
 
-	/* Stream had bulk messages update the Hedaer */
+	/* Stream had bulk messages update the Header */
 	if (mlag_bulk_cnt > 1) {
 		/*
 		 * No need to reset the pointer, below api reads from data[0]
@@ -130,7 +130,7 @@ static void pim_mlag_zebra_check_for_buffer_flush(uint32_t curr_msg_type,
 }
 
 /*
- * Thsi thread reads the clients data from the Gloabl queue and encodes with
+ * This thread reads the clients data from the Global queue and encodes with
  * protobuf and pass on to the MLAG socket.
  */
 static void pim_mlag_zthread_handler(struct event *event)
@@ -151,7 +151,7 @@ static void pim_mlag_zthread_handler(struct event *event)
 		return;
 
 	for (wr_count = 0; wr_count < PIM_MLAG_POST_LIMIT; wr_count++) {
-		/* FIFO is empty,wait for teh message to be add */
+		/* FIFO is empty,wait for the message to be add */
 		if (stream_fifo_count_safe(router->mlag_fifo) == 0)
 			break;
 

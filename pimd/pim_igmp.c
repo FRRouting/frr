@@ -1495,7 +1495,7 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	}
 
 	/*
-	  Non-existant group is created as INCLUDE {empty}:
+	  Non-existent group is created as INCLUDE {empty}:
 
 	  RFC 3376 - 5.1. Action on Change of Interface State
 

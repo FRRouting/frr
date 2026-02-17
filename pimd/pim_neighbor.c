@@ -344,7 +344,7 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 	// Register PIM Neighbor with BFD
 	pim_bfd_info_nbr_create(pim_ifp, neigh);
 
-	/* flood to the new neighor if needed */
+	/* flood to the new neighbor if needed */
 	if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
 		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
 			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed &&

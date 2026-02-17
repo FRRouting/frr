@@ -1757,10 +1757,10 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route
 		if (!ifp->info) {
 			/*
 			 * Though Multicast is not enabled on this
-			 * Interface store it in database otheriwse we
+			 * Interface store it in database otherwise we
 			 * may miss this update and this will not cause
 			 * any issue, because while choosing the path we
-			 * are ommitting the Interfaces which are not
+			 * are omitting the Interfaces which are not
 			 * multicast enabled
 			 */
 			if (PIM_DEBUG_PIM_NHT) {

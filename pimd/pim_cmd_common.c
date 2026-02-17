@@ -824,7 +824,7 @@ void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up)
 	json_object_boolean_add(
 		json, "sourceStream",
 		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM));
-	/* XXX: need to print ths flag in the plain text display as well */
+	/* XXX: need to print this flag in the plain text display as well */
 	json_object_boolean_add(
 		json, "sourceMsdp",
 		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_MSDP));

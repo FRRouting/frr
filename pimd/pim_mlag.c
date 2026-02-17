@@ -427,7 +427,7 @@ static void pim_mlag_up_local_add_send(struct pim_instance *pim,
 	stream_putl(s, ntohl(up->sg.grp.s_addr));
 
 	stream_putl(s, pim_up_mlag_local_cost(up));
-	/* XXX - who is addding*/
+	/* XXX - who is adding*/
 	stream_putl(s, MLAG_OWNER_VXLAN);
 	/* XXX - am_i_DR field should be removed */
 	stream_putc(s, false);
@@ -888,7 +888,7 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 	return 0;
 }
 
-/****************End of PIM Mesasge processing handler********************/
+/****************End of PIM Message processing handler********************/
 
 int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 {
@@ -896,7 +896,7 @@ int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 		zlog_debug("%s: Received Process-Up from Mlag", __func__);
 
 	/*
-	 * Incase of local MLAG restart, PIM needs to replay all the data
+	 * In case of local MLAG restart, PIM needs to replay all the data
 	 * since MLAG is empty.
 	 */
 	router->connected_to_mlag = true;

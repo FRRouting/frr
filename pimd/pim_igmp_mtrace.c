@@ -694,7 +694,7 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	/* ...insert new response block... */
 
-	/* calculate new mtrace lenght with extra response */
+	/* calculate new mtrace length with extra response */
 	mtrace_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
 
 	/* copy received query/request */

@@ -571,7 +571,7 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
  * Number of Joined Sources (2 bytes)
  * Number of Pruned Sources (2 bytes)
  *
- * This leads to a missleading representation from casual
+ * This leads to a misleading representation from casual
  * reading and making assumptions.  Be careful!
  *
  *   0                   1                   2                   3

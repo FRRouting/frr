@@ -1743,7 +1743,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 
 		/*
 		 * The pimreg interface might has been removed from
-		 * kerenl with the VRF's deletion.  It must be
+		 * kernel with the VRF's deletion.  It must be
 		 * recreated, so delete the old one first.
 		 */
 		if (pim->regiface->info)

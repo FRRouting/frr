@@ -436,7 +436,7 @@ static void on_join_timer(struct event *t)
 	}
 
 	/*
-	 * In the case of a FHR we will not ahve anyone to send this to.
+	 * In the case of a FHR we will not have anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
@@ -838,7 +838,7 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
-	/* Ignore RP mapping when the upsteam state
+	/* Ignore RP mapping when the upstream state
 	 * is NOT Joined on a FHR
 	 */
 	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
@@ -1312,7 +1312,7 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up, struct pim_ifchannel *
 	if (chrpt)
 		return 0;
 
-	/* Check if the OIF can be inherited fron the (*,G) entry
+	/* Check if the OIF can be inherited from the (*,G) entry
 	 */
 	if (starch) {
 		if (!pim_macro_ch_lost_assert(starch)
