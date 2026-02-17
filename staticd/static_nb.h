@@ -141,16 +141,28 @@ int routing_control_plane_protocols_name_validate(
 
 /* xpath macros */
 /* route-list */
-#define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                                            \
-	"/frr-routing:routing/control-plane-protocols/"                                            \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
-	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"             \
+#define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                                           \
+	"/frr-routing:routing/control-plane-protocols/"                                           \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                 \
+	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"            \
+	"path-list[table-id='%u'][distance='%u'][metric='%u']"
+
+#define FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                                               \
+	"/frr-routing:routing/control-plane-protocols/"                                           \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                 \
+	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"            \
+	"path-list[table-id='%u'][metric='%u']"
+
+#define FRR_STATIC_ROUTE_INFO_KEY_NO_METRIC_XPATH                                                 \
+	"/frr-routing:routing/control-plane-protocols/"                                           \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                 \
+	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"            \
 	"path-list[table-id='%u'][distance='%u']"
 
-#define FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                                                \
-	"/frr-routing:routing/control-plane-protocols/"                                            \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
-	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"             \
+#define FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_METRIC_XPATH                                        \
+	"/frr-routing:routing/control-plane-protocols/"                                           \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                 \
+	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"            \
 	"path-list[table-id='%u']"
 
 
@@ -187,6 +199,16 @@ int routing_control_plane_protocols_name_validate(
 /* route-list/frr-nexthops */
 #define FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH                               \
 	FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                            \
+	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+/* route-list/frr-nexthops */
+#define FRR_DEL_S_ROUTE_NH_KEY_NO_METRIC_XPATH                                                    \
+	FRR_STATIC_ROUTE_INFO_KEY_NO_METRIC_XPATH                                                 \
+	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+/* route-list/frr-nexthops */
+#define FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_METRIC_XPATH                                           \
+	FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_METRIC_XPATH                                        \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
 /* srv6 */
