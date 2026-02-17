@@ -186,10 +186,9 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 			}
 			break;
 		case AF_INET6:
-			if (!IN6_IS_ADDR_LINKLOCAL(&nexthop->ip.ipv6)
-			    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop->ip.ipv6)) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&nexthop->ip.ipv6) &&
+				IPV6_ADDR_SAME(&nexthop->ip.ipv6, &in6addr_any))
 				continue;
-			}
 			api_nh->gate.ipv6 = nexthop->ip.ipv6;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			break;
