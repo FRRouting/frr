@@ -120,6 +120,14 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
+<<<<<<< HEAD
+=======
+	char flavor[SRV6_FLAVORS_STRLEN], *p_flavor;
+	struct interface *ifp;
+
+	flavor[0] = '\0';
+	p_flavor = seg6local_flavors2str(flavor, sizeof(flavor), &ctx->flv);
+>>>>>>> aa1b7027e (lib: display End.DX2 route with appropriate oif attribute)
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
@@ -147,6 +155,9 @@ const char *seg6local_context2str(char *str, size_t size,
 		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
 		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
+		snprintfrr(str, size, "oif %s", ifp ? ifp->name : "<unknown>");
+		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
