@@ -4554,6 +4554,11 @@ displays IPv6 routing table.
 
    This command displays information related BGP router and Graceful Restart.
 
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] bestpath [json]
+
+   This command displays the BGP best path selection criteria configured
+   for the specified VRF or view.
+
 Some other commands provide additional options for filtering the output.
 
 .. clicmd:: show [ip] bgp regexp LINE

@@ -12372,6 +12372,212 @@ DEFPY(show_bgp_router,
 	return CMD_SUCCESS;
 }
 
+static void bgp_show_bestpath(struct vty *vty, struct bgp *bgp, json_object *json)
+{
+	bool use_json = json != NULL;
+	const char *link_bw_handling_str;
+
+	switch (bgp->lb_handling) {
+	case BGP_LINK_BW_ECMP:
+		link_bw_handling_str = "ecmp";
+		break;
+	case BGP_LINK_BW_IGNORE_BW:
+		link_bw_handling_str = "ignore";
+		break;
+	case BGP_LINK_BW_SKIP_MISSING:
+		link_bw_handling_str = "skip-missing";
+		break;
+	case BGP_LINK_BW_DEFWT_4_MISSING:
+		link_bw_handling_str = "default-weight-for-missing";
+		break;
+	default:
+		link_bw_handling_str = "ecmp";
+		break;
+	}
+
+	if (use_json) {
+		json_object *bestpath = json_object_new_object();
+
+		json_object_boolean_add(bestpath, "asPathIgnore",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE));
+
+		json_object_boolean_add(bestpath, "asPathConfed",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED));
+
+		json_object_boolean_add(bestpath, "asPathMultiPathRelax",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX));
+
+		json_object_boolean_add(bestpath, "asPathMultiPathRelaxAsSet",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET));
+
+		json_object_boolean_add(bestpath, "peerTypeRelax",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX));
+
+		json_object_boolean_add(bestpath, "compareRouterId",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID));
+
+		json_object_boolean_add(bestpath, "medConfed",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED));
+
+		json_object_boolean_add(bestpath, "medMissingAsWorst",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST));
+
+		json_object_string_add(bestpath, "linkBwHandling", link_bw_handling_str);
+
+		json_object_boolean_add(bestpath, "alwaysCompareMed",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED));
+
+		json_object_boolean_add(bestpath, "deterministicMed",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED));
+
+		json_object_object_add(json, "bestPath", bestpath);
+	} else {
+		vty_out(vty, "Best Path Selection Criteria:\n");
+		vty_out(vty, "  Ignore AS path is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE) ? "Enabled" : "Disabled");
+		vty_out(vty, "  Include confederation ASNs in AS path is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED) ? "Enabled" : "Disabled");
+
+		vty_out(vty, "  AS path multi-path-relax is %s",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX) ? "Enabled"
+										: "Disabled");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
+				vty_out(vty, " (aggregate ASes as AS-SET)");
+		}
+		vty_out(vty, "\n");
+
+		vty_out(vty, "  Peer type relax is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX) ? "Enabled"
+										  : "Disabled");
+
+		vty_out(vty, "  Compare router ID is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID) ? "Enabled"
+									   : "Disabled");
+
+		vty_out(vty, "  BGP bestpath MED confed is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED) ? "Enabled" : "Disabled");
+
+		vty_out(vty, "  BGP bestpath MED missing-as-worst is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST) ? "Enabled"
+									      : "Disabled");
+
+		vty_out(vty, "  Link Bandwidth handling set to: %s\n", link_bw_handling_str);
+
+		vty_out(vty, "  Always compare MED is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED) ? "Enabled"
+									    : "Disabled");
+		vty_out(vty, "  Deterministic MED is %s\n",
+			CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) ? "Enabled"
+									   : "Disabled");
+	}
+}
+
+DEFPY(show_bgp_vrf_bestpath, show_bgp_vrf_bestpath_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME$vrf_name] bestpath [json]",
+      SHOW_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      "Display the best path selection criteria\n"
+      JSON_STR)
+{
+	struct bgp *bgp = NULL;
+	struct listnode *node = NULL;
+	struct list *inst = bm->bgp;
+	json_object *json = NULL;
+	json_object *json_instance = NULL;
+	bool uj = use_json(argc, argv);
+	const char *name = vrf_name;
+	bool show_all_vrfs = false;
+	bool show_all_views = false;
+	int idx_vrf_view = 0;
+	const char *inst_name;
+	const char *type_str;
+
+	if (uj)
+		json = json_object_new_object();
+
+	/* Determine if 'vrf all' or 'view all' was specified */
+	if (name && strmatch(name, "all")) {
+		if (argv_find(argv, argc, "vrf", &idx_vrf_view))
+			show_all_vrfs = true;
+		else if (argv_find(argv, argc, "view", &idx_vrf_view))
+			show_all_views = true;
+	}
+
+	/* Handle specific VRF/VIEW case */
+	if (name && !show_all_vrfs && !show_all_views) {
+		bgp = strmatch(name, VRF_DEFAULT_NAME)
+			      ? bgp_get_default()
+			      : bgp_lookup_by_name(name);
+
+		if (!bgp) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty, "%% Specified BGP instance not found\n");
+			return CMD_WARNING;
+		}
+
+		/* Output single VRF/VIEW info */
+		if (uj) {
+			json_instance = json_object_new_object();
+			bgp_show_bestpath(vty, bgp, json_instance);
+			json_object_object_add(json, name, json_instance);
+			vty_json(vty, json);
+		} else {
+			type_str = (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) ? "View" : "VRF";
+			vty_out(vty, "%s %s\n", type_str, name);
+			bgp_show_bestpath(vty, bgp, NULL);
+		}
+		return CMD_SUCCESS;
+	}
+
+	/* Handle all VRFs and/or VIEWs case */
+	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
+
+		switch (bgp->inst_type) {
+		case BGP_INSTANCE_TYPE_DEFAULT:
+			inst_name = VRF_DEFAULT_NAME;
+			type_str = "VRF";
+			/* Skip if showing views only */
+			if (show_all_views)
+				continue;
+			break;
+		case BGP_INSTANCE_TYPE_VRF:
+			inst_name = bgp->name;
+			type_str = "VRF";
+			/* Skip if showing views only */
+			if (show_all_views)
+				continue;
+			break;
+		case BGP_INSTANCE_TYPE_VIEW:
+			inst_name = bgp->name;
+			type_str = "View";
+			/* Skip if showing vrfs only */
+			if (show_all_vrfs)
+				continue;
+			break;
+		default:
+			continue;
+		}
+
+		if (uj) {
+			json_instance = json_object_new_object();
+			bgp_show_bestpath(vty, bgp, json_instance);
+			json_object_object_add(json, inst_name, json_instance);
+		} else {
+			vty_out(vty, "%s %s\n", type_str, inst_name);
+			bgp_show_bestpath(vty, bgp, NULL);
+		}
+	}
+
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_mac_hash,
        show_bgp_mac_hash_cmd,
        "show bgp mac hash",
@@ -22977,6 +23183,9 @@ void bgp_vty_init(void)
 
 	/* Some overall BGP information */
 	install_element(VIEW_NODE, &show_bgp_router_cmd);
+
+	/* "show bgp vrfs bestpath" command. */
+	install_element(VIEW_NODE, &show_bgp_vrf_bestpath_cmd);
 
 	/* Community-list. */
 	community_list_vty();
