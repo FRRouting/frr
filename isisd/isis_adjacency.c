@@ -970,5 +970,14 @@ bool isis_adj_ipv6_usable(const struct isis_adjacency *adj)
 	if (!circuit)
 		return false;
 
-	return (listcount(circuit->ipv6_link) && adj->ll_ipv6_count);
+	if (listcount(circuit->ipv6_link) && adj->ll_ipv6_count)
+		return true;
+
+	/*
+	 * Unnumbered: neither end has a link-local address, so the only
+	 * usable nexthop is the global address exchanged in TLV 233
+	 * (RFC 6119). This mirrors the v6_usable test done on reception
+	 * of an IIH.
+	 */
+	return (isis_circuit_ipv6_non_link_addrs(circuit) && adj->global_ipv6_count);
 }
