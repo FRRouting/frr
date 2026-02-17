@@ -7130,7 +7130,7 @@ DEFUN_YANG (set_community,
 	}
 	XFREE(MTYPE_TMP, str);
 
-	/* Set communites attribute string.  */
+	/* Set communities attribute string.  */
 	str = community_str(com, false, false);
 
 	if (additive) {

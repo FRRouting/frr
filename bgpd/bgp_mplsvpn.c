@@ -803,7 +803,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		return;
 
 	/*
-	 * skip when bgp vpn instance ins't allocated
+	 * skip when bgp vpn instance isn't allocated
 	 * or srv6 locator isn't allocated
 	 */
 	if (!bgp_vpn)
@@ -897,7 +897,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		return;
 
 	/*
-	 * skip when bgp vpn instance ins't allocated
+	 * skip when bgp vpn instance isn't allocated
 	 * or srv6 locator isn't allocated
 	 */
 	if (!bgp_vpn)
