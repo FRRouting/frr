@@ -188,7 +188,7 @@ int frrlua_table_get_integer(lua_State *L, const char *key);
  */
 void frrlua_export_logging(lua_State *L);
 
-/* A helper fuction that dumps the Lua stack */
+/* A helper function that dumps the Lua stack */
 void lua_table_dump(lua_State *L, int index, struct buffer *buf, int level);
 
 /*

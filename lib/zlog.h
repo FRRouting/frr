@@ -242,7 +242,7 @@ extern struct zlog_target *zlog_target_clone(struct memtype *mt,
  * NULL.
  *
  * Returns oldzt so you can zlog_target_free(zlog_target_replace(old, new));
- * (Some log targets may need extra cleanup inbetween, but remember the old
+ * (Some log targets may need extra cleanup in between, but remember the old
  * target MUST remain functional until the end of the current RCU cycle.)
  */
 extern struct zlog_target *zlog_target_replace(struct zlog_target *oldzt,

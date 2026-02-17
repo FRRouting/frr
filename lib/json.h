@@ -105,7 +105,7 @@ static inline struct json_object *json_object_new_stringf(const char *fmt, ...)
  *   json_object_object_add(parent, key, child)
  *   json_object_object_addv(parent, child, key, va)
  *   json_object_object_addf(parent, child, key, ...)
- * (would be weird to have the child inbetween the format string and args)
+ * (would be weird to have the child in between the format string and args)
  */
 PRINTFRR(3, 0)
 extern void json_object_object_addv(struct json_object *parent,

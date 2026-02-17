@@ -81,7 +81,7 @@ extern int distribute_list_no_parser(struct distribute_ctx *ctx,
  */
 
 /*
- * Define your own create callback and then call thes helper with your
+ * Define your own create callback and then call this helper with your
  * distribute list context when a list entry is created. Additionally, plug the
  * destroy callback into the frr_module_yang_info struct, or call it if you have
  * your own callback destroy function.

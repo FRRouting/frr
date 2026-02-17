@@ -482,7 +482,7 @@ static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t 
 	 * and to eventually replace the running config, but we should be able
 	 * to go back and just use the original list. The only possible issue is
 	 * if the list includes any new changes. We should maybe build a new
-	 * list and then validate that it is the same as the original lsit (or a
+	 * list and then validate that it is the same as the original list (or a
 	 * subset of it) in development mode, but not in production build.
 	 *
 	 * Anyway we should time it to see if this is a big deal or not.
@@ -493,7 +493,7 @@ static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t 
 	if (err != NB_OK) {
 		err_buf[sizeof(err_buf) - 1] = 0;
 		if (err == NB_ERR_VALIDATION) {
-			/* maybe symantic validation error isn't a LOGERR? */
+			/* maybe semantic validation error isn't a LOGERR? */
 			log_err_be_client("Failed to validate configs txn-id: %" PRIu64
 					  " %zu batches, err: '%s'",
 					  txn->txn_id, num_processed, err_buf);

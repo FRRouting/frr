@@ -539,7 +539,7 @@ static void pretty_print_graph(struct vty *vty, struct graph_node *start,
 /** stuff that should go in command.c + command.h */
 static void init_cmdgraph(struct vty *vty, struct graph **graph)
 {
-	// initialize graph, add start noe
+	// initialize graph, add start node
 	*graph = graph_new();
 	nodegraph_free = *graph;
 	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);

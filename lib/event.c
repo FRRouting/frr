@@ -90,7 +90,7 @@ struct fd_handler {
 };
 #endif
 
-/* Master of the theads. */
+/* Master of the threads. */
 struct event_loop {
 	char *name;
 
@@ -1189,7 +1189,7 @@ done:
 		;
 
 		/* When poll() is used, we need to remove the io_pipe[0]
-		 * from m->handler.copy and decreate "num" as fast as
+		 * from m->handler.copy and decrease "num" as fast as
 		 * possible. Otherwise, when current thread is awakened,
 		 * even if there is no ready I/O task, thread_process_io
 		 * will still iterate over m->handler.copy until io_pipe[0]

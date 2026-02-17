@@ -101,7 +101,7 @@ struct bfd_session_params {
 	/** Currently selected source. */
 	struct bfd_source_cache *source_cache;
 
-	/** Global BFD paramaters list. */
+	/** Global BFD parameters list. */
 	TAILQ_ENTRY(bfd_session_params) entry;
 };
 

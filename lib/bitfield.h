@@ -71,7 +71,7 @@ DECLARE_MTYPE(BITFIELD);
 	} while (0)
 
 /*
- * allocate and assign 0th bit in the bitfiled.
+ * allocate and assign 0th bit in the bitfield.
  */
 #define bf_assign_zero_index(v)                                                \
 	do {                                                                   \

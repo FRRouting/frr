@@ -1349,7 +1349,7 @@ void frr_daemon_state_save(struct json_object **statep)
 	json_len = strlen(json_str);
 
 	/* To correctly fsync() and ensure we have either consistent old state
-	 * or consistent new state but no fs-damage garbage inbetween, we need
+	 * or consistent new state but no fs-damage garbage in between, we need
 	 * to work with a directory fd.  If we need that anyway we might as
 	 * well use the dirfd with openat() & co in fd-relative operations.
 	 */

@@ -225,7 +225,7 @@ static ssize_t printfrr_asnotation(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const void *ptr,
 				   enum asnotation_mode asnotation)
 {
-	/* for alignemnt up to 33 chars - %33pASD for instance - */
+	/* for alignment up to 33 chars - %33pASD for instance - */
 	char as_str[ASN_STRING_MAX_SIZE*3];
 	const as_t *asn;
 

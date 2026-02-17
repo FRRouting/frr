@@ -566,7 +566,7 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
  *	A: The dynamic array, can be NULL.
  *
  * Return:
- *	The address of the end of the array (past the last elment) or NULL
+ *	The address of the end of the array (past the last element) or NULL
  *	if `A` is NULL.
  */
 #define darr_end(A) ((A) + darr_len(A))

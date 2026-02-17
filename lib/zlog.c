@@ -91,7 +91,7 @@ static bool zlog_default_immediate;
  *
  * Note: you MUST NOT pass the format string + va_list to non-FRR format
  * string functions (e.g. vsyslog, sd_journal_printv, ...) since FRR uses an
- * extended prinf() with additional formats (%pI4 and the like).
+ * extended printf() with additional formats (%pI4 and the like).
  *
  * Also remember to use va_copy() on args.
  */

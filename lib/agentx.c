@@ -311,7 +311,7 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 		struct variable cvp;
 		unsigned int iindex;
 		/*
-		 * this allows the behaviour of smux_trap with a singe index
+		 * this allows the behaviour of smux_trap with a single index
 		 * for all objects to be maintained whilst allowing traps which
 		 * have different indices per object to be supported
 		 */

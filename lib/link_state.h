@@ -677,7 +677,7 @@ extern struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
 
 /**
  * Find Edge in the Link State Data Base by the source (local IPv4 or IPv6
- * address or local ID) informations of the Link State Attributes
+ * address or local ID) information of the Link State Attributes
  *
  * @param ted		Link State Data Base
  * @param attributes	Link State Attributes

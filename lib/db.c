@@ -64,7 +64,7 @@ int db_close(void)
 	return 0;
 }
 
-/* Helper function to handle formating. */
+/* Helper function to handle formatting. */
 static int db_vbindf(struct sqlite3_stmt *ss, const char *fmt, va_list vl)
 {
 	const char *sptr = fmt;

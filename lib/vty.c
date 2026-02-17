@@ -420,7 +420,7 @@ void vty_hello(struct vty *vty)
 		if (f) {
 			while (fgets(buf, sizeof(buf), f)) {
 				char *s;
-				/* work backwards to ignore trailling isspace()
+				/* work backwards to ignore trailing isspace()
 				 */
 				for (s = buf + strlen(buf);
 				     (s > buf) && isspace((unsigned char)s[-1]);
