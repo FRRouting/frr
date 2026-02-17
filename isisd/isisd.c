@@ -331,7 +331,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 			"/frr-isisd:isis/instance/is-type");
 
 	/*
-	 * intialize the databases
+	 * initialize the databases
 	 */
 	if (area->is_type & IS_LEVEL_1)
 		lsp_db_init(&area->lspdb[0]);

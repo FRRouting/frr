@@ -1306,7 +1306,7 @@ static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree, struct isis
 
 	/*
 	 * Special case to make unit tests work (use implicit-null labels
-	 * instead of artifical ones).
+	 * instead of artificial ones).
 	 */
 	if (CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
 		return MPLS_LABEL_IMPLICIT_NULL;

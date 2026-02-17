@@ -18,7 +18,7 @@ PREDECL_RBTREE_UNIQ(lspdb);
 
 struct isis;
 /* Structure for isis_lsp, this structure will only support the fixed
- * System ID (Currently 6) (atleast for now). In order to support more
+ * System ID (Currently 6) (at least for now). In order to support more
  * We will have to split the header into two parts, and for readability
  * sake it should better be avoided */
 struct isis_lsp {

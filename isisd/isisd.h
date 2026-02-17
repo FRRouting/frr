@@ -206,7 +206,7 @@ struct isis_area {
 	uint16_t lsp_refresh[ISIS_LEVELS];
 	/* minimum time allowed before lsp retransmission */
 	uint16_t lsp_gen_interval[ISIS_LEVELS];
-	/* min interval between between consequtive SPFs */
+	/* min interval between consecutive SPFs */
 	uint16_t min_spf_interval[ISIS_LEVELS];
 	/* the percentage of LSP mtu size used, before generating a new frag */
 	int lsp_frag_threshold;

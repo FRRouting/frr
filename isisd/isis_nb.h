@@ -552,7 +552,7 @@ DECLARE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
 DECLARE_HOOK(isis_hook_lsp_too_large,
 	     (const struct isis_circuit *circuit, uint32_t pdu_size, const uint8_t *lsp_id),
 	     (circuit, pdu_size, lsp_id));
-/* Note: no isis_hook_corrupted_lsp - because this notificaiton is not used */
+/* Note: no isis_hook_corrupted_lsp - because this notification is not used */
 DECLARE_HOOK(isis_hook_lsp_exceed_max, (const struct isis_area *area, const uint8_t *lsp_id),
 	     (area, lsp_id));
 DECLARE_HOOK(isis_hook_max_area_addr_mismatch,

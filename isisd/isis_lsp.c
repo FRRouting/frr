@@ -833,7 +833,7 @@ static uint16_t lsp_rem_lifetime(struct isis_area *area, int level)
 
 	/* No jitter if the max refresh will be less than configure gen interval
 	 */
-	/* N.B. this calucation is acceptable since rem_lifetime is in
+	/* N.B. this calculation is acceptable since rem_lifetime is in
 	 * [332,65535] at
 	 * this point */
 	if (area->lsp_gen_interval[level - 1] > (rem_lifetime - 300))

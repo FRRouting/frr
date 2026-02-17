@@ -1306,7 +1306,7 @@ static int isis_snmp_adj_lookup_next(oid *oid_idx, size_t oid_idx_len,
 	data_len = 0;
 
 	/*
-	 * Note: we rely on the fact that data indexes are consequtive
+	 * Note: we rely on the fact that data indexes are consecutive
 	 * starting from 1
 	 */
 

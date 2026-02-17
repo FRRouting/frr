@@ -12,7 +12,7 @@
 #define _ZEBRA_ISIS_FLAGS_H
 
 /* The grand plan is to support 1024 circuits so we have 32*32 bit flags
- * the support will be achived using the newest drafts */
+ * the support will be achieved using the newest drafts */
 #define ISIS_MAX_CIRCUITS 32 /* = 1024 */
 
 /*

@@ -4924,7 +4924,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 
 		switch (type) {
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
-			/* Check that SRGB is correctly formated */
+			/* Check that SRGB is correctly formatted */
 			if (length < SUBTLV_RANGE_LABEL_SIZE || length > SUBTLV_RANGE_INDEX_SIZE) {
 				stream_forward_getp(s, length);
 				break;
@@ -4991,7 +4991,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 			}
 			break;
 		case ISIS_SUBTLV_SRLB:
-			/* Check that SRLB is correctly formated */
+			/* Check that SRLB is correctly formatted */
 			if (length < SUBTLV_RANGE_LABEL_SIZE || length > SUBTLV_RANGE_INDEX_SIZE) {
 				stream_forward_getp(s, length);
 				break;
@@ -5047,7 +5047,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		case ISIS_SUBTLV_NODE_MSD:
 			sbuf_push(log, indent, "Unpacking Node MSD sub-TLV...\n");
 
-			/* Check that MSD is correctly formated */
+			/* Check that MSD is correctly formatted */
 			if (length % 2) {
 				sbuf_push(log, indent, "WARNING: Unexpected MSD sub-TLV length\n");
 				stream_forward_getp(s, length);
@@ -5173,7 +5173,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		case ISIS_SUBTLV_SRV6_CAPABILITIES:
 			sbuf_push(log, indent, "Unpacking SRv6 Capabilities sub-TLV...\n");
 			/* Check that SRv6 capabilities sub-TLV is correctly
-			 * formated */
+			 * formatted */
 			if (length < ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE) {
 				sbuf_push(log, indent,
 					  "WARNING: Unexpected SRv6 Capabilities sub-TLV size (expected %d or more bytes, got %hhu)\n",

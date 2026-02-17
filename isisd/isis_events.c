@@ -184,12 +184,12 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
  * EVENTS for LSP generation
  *
  * 1) an Adajacency or Circuit Up/Down event
- * 2) a chnage in Circuit metric
+ * 2) a change in Circuit metric
  * 3) a change in Reachable Address metric
  * 4) a change in manualAreaAddresses
  * 5) a change in systemID
  * 6) a change in DIS status
- * 7) a chnage in the waiting status
+ * 7) a change in the waiting status
  *
  * ***********************************************************************
  *

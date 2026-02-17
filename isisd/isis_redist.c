@@ -205,7 +205,7 @@ static void isis_redist_update_ext_reach(struct isis_area *area, int level,
 			area_info.distance = 255;
 	}
 
-	/* Allow synthesized default routes only on always orignate */
+	/* Allow synthesized default routes only on always originate */
 	if (area_info.origin == DEFAULT_ROUTE
 	    && redist->redist != DEFAULT_ORIGINATE_ALWAYS)
 		area_info.distance = 255;

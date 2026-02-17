@@ -707,7 +707,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		 * ISO 10589 - 8.4.1 Enabling of broadcast circuits
 		 */
 
-		/* initilizing the hello sending threads
+		/* initializing the hello sending threads
 		 * for a broadcast IF
 		 */
 
@@ -900,7 +900,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->tx_queue = NULL;
 	}
 
-	/* send one gratuitous hello to spead up convergence */
+	/* send one gratuitous hello to speed up convergence */
 	if (circuit->state == C_STATE_UP) {
 		if (circuit->is_type & IS_LEVEL_1)
 			send_hello(circuit, IS_LEVEL_1);

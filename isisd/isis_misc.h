@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_misc.h
- *                             Miscellanous routines
+ *                             Miscellaneous routines
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology

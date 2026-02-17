@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_misc.h
- *                             Miscellanous routines
+ *                             Miscellaneous routines
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
@@ -31,7 +31,7 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_dynhn.h"
 
-/* staticly assigned vars for printing purposes */
+/* statically assigned vars for printing purposes */
 static char sys_hostname[ISO_SYSID_STRLEN];
 struct in_addr new_prefix;
 /* len of xxYxxMxWxdxxhxxmxxs + place for #0 termination */
