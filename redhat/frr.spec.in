@@ -921,7 +921,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - Major highlights:
 -   Introduce local host routes
 -   Require libyang 2.1.128
--   Add suport to configire a log file per daemon
+-   Add support to configure a log file per daemon
 -   BGP BMP Loc-RIB (RFC9069) support
 -   eBGP-OAD (One Administrative Domain) support
 -   BGP RPKI VRF support
@@ -1003,7 +1003,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 * Wed Jul 13 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.3
 - General:
--    Add camelcase json keys in addition to pascalcase (Wrong JSON keys will be depracated)
+-    Add camelcase json keys in addition to pascalcase (Wrong JSON keys will be deprecated)
 -    Fix corruption when route-map delete/add sequence happens (fast re-add)
 -    Reworked gRPC
 -    RFC5424 & journald extended syslog target
@@ -1091,7 +1091,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Add support for end.dt4
 -    Add to `show zebra` the type of vrf devices being used
 -    Allow *BSD to specify a receive buffer size
--    Allow multiple connected routes to be choosen for kernel routes
+-    Allow multiple connected routes to be chosen for kernel routes
 -    Allow system routes to recurse through themselves
 -    Do not send RAs w/o link-local v6 or on bridge-ports
 -    Evpn disable remove l2vni from l3vni list
@@ -1207,7 +1207,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 * Tue Nov  2 2021 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.1
 -    FRR 8.1 brings a long list of enhancements and fixes with 1200 commits from
--    75 developers. Thanks to all contributers.
+-    75 developers. Thanks to all contributors.
 - New Features:
 -    Lua hooks are now feature complete, with one hook available for use (http://docs.frrouting.org/en/latest/scripting.html)
 -    Improvements to SRv6 (Segment Routing over IPv6) (http://docs.frrouting.org/en/latest/zebra.html#segment-routing-ipv6)
@@ -1317,7 +1317,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Simplify msdp peer handling
 - zebra :
 -    Add "json" option to "show interface"
--    Various improvment to dataplane interface
+-    Various improvement to dataplane interface
 -    Add message counts for `show zebra client`
 -    Add nhg id to show ip route json
 -    Add show command for ra interface lists
@@ -1335,7 +1335,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    TI-LFA has been implemented in IS-IS and OSPF
 -    Ability for Zebra to dump netlink messages in a human-friendly format
 -    LDP gained SNMP support
--    libyang minimun version is now 2.0
+-    libyang minimum version is now 2.0
 - BABEL:
 -    Add `distribute-list` commands
 -    Fix memory leak in connected route handling
@@ -1486,7 +1486,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    In some situations handle vrf appropriately when receiving packets
 - BGP:
 -    Peer Group Inheritance Fixes
--    Dissallow attempt to peer peers reachable via blackholes
+-    Disallow attempt to peer peers reachable via blackholes
 -    Send BMP down message when reachability fails
 -    Cleanup handling of aggregator data when the AGG AS is 0
 -    Handle `neighbor <peer-group allowas-in` config changes properly
@@ -1544,11 +1544,11 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - ZEBRA:
 -    Always install blackhole routes using kernel routes instead of nexthops
 -    Various memory leaks and using uninited data fixes
--    Dissallow resolution to duplicate nexthops that created infinite nexthops
+-    Disallow resolution to duplicate nexthops that created infinite nexthops
 -    Apply the route-map delay-timer globally
 -    Some routes were stuck in Queued state when using the FPM
 -    Better handle vrf creation when using namespaces
--    Set NUD_NOARP on sticky mac entries in addtion to NTF_STICKY
+-    Set NUD_NOARP on sticky mac entries in addition to NTF_STICKY
 -    Allow `set src X` to work on startup
 - FRR Library:
 -    Fix a variety of memory leaks
@@ -1574,7 +1574,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -   Add `bgp shutdown message MSG...` command
 -   Add v6 Flowspec support
 -   Add `neighbor <neigh> shutdown rtt` command
--   Allow update-delay to be applied globaly
+-   Allow update-delay to be applied globally
 - EVPN
 -   Beginning of MultiHoming Support
 - ISIS
@@ -1736,7 +1736,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -   Rework BGP dampening to be per AFI/SAFI
 -   Do not send next-hop as :: in MP_REACH_NLRI if no link-local exists
 -   Override peer's TTL only if peer-group is configured with TTL
--   Remove error message for unkown afi/safi combination
+-   Remove error message for unknown afi/safi combination
 -   Keep the session down if maximum-prefix is reached
 - OSPFd
 -   Fix BFD down not tearing down OSPF adjacency for point-to-point net
@@ -1768,7 +1768,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - ALL Daemons
 -   -N <namespace> to allow for config file locating when running FRR inside
      of a namespace
--   Impoved Testing across all daemons
+-   Improved Testing across all daemons
 - BFD
 -   VRF Support
 -   Conversion to Northbound interface
@@ -1881,7 +1881,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 * Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
 - Staticd: New daemon responsible for management of static routes
 - ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
-- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsible
+- BFDd: new daemon for BFD (Bidirectional Forwarding Detection). Responsible
   for notifying link changes to make routing protocols converge faster.
 - various bug fixes
 
@@ -1944,7 +1944,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - Cleanup configure: remove --enable-ipv6 (default now), --enable-nssa,
     --enable-netlink
 - Remove support for old fedora 4/5
-- Fix for package nameing
+- Fix for package naming
 - Fix Weekdays of previous changelogs (bogus dates)
 - Add conditional logic to only build tex footnotes with supported texi2html
 - Added pimd to files section and fix double listing of /var/lib*/quagga
