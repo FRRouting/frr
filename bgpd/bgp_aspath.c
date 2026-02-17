@@ -1588,7 +1588,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		assegment_free(as2seghead);
 
 		/* we've now prepended as1's segment chain to as2, merging
-		 * the inbetween AS_SEQUENCE of seg2 in the process
+		 * the in between AS_SEQUENCE of seg2 in the process
 		 */
 		aspath_str_update(as2, false);
 		as2->count = aspath_count_hops_internal(as2);

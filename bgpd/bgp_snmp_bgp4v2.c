@@ -543,7 +543,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	} else {
 
 		/* bgp4V2NlriAfi  is already get  */
-		/* it is comming from the name parameter */
+		/* it is coming from the name parameter */
 
 		/* get bgp4V2NlriSafi */
 		/* Bgp4V2SubsequentAddressFamilyIdentifierTC */

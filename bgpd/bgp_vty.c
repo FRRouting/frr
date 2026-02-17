@@ -13607,7 +13607,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 					vty_out(vty, " %8u", 0);
 				}
-				/* Make sure `Desc` column is the lastest in
+				/* Make sure `Desc` column is the latest in
 				 * the output.
 				 * If the description is not set, try
 				 * to print the software version if the

@@ -1184,7 +1184,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 		uint8_t *end = data + ecom->unit_size;
 		size_t len = end - data;
 
-		/* Sanity check for extended communities lenght, to avoid
+		/* Sanity check for extended communities length, to avoid
 		 * overrun when dealing with bits, e.g. ptr_get_be64().
 		 */
 		if (len < ecom->unit_size) {

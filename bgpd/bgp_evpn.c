@@ -7787,7 +7787,7 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->l2vnis->cmp = vni_list_cmp;
 	bgp->evpn_info =
 		XCALLOC(MTYPE_BGP_EVPN_INFO, sizeof(struct bgp_evpn_info));
-	/* By default Duplicate Address Dection is enabled.
+	/* By default Duplicate Address Detection is enabled.
 	 * Max-moves (N) 5, detection time (M) 180
 	 * default action is warning-only
 	 * freeze action permanently freezes address,

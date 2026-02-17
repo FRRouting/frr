@@ -2367,8 +2367,8 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
  */
 static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 {
-	/* If we have already advertise type-5 routes with a diffrent RD, we
-	 * have to delete and withdraw them firs
+	/* If we have already advertise type-5 routes with a different RD, we
+	 * have to delete and withdraw them first
 	 */
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
