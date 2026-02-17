@@ -1,8 +1,8 @@
 [
   {
-    "dst": "10:254::2",
-    "gateway": "10:254::2",
-    "dev": "r1-eth0",
+    "dst": "10:254::1",
+    "gateway": "10:254::1",
+    "dev": "r2-eth0",
     "protocol": "isis",
     "metric": 20,
     "flags": [
@@ -12,7 +12,7 @@
   {
     "dst": "10:254::3",
     "gateway": "10:254::3",
-    "dev": "r1-eth1",
+    "dev": "r2-eth1",
     "protocol": "isis",
     "metric": 20,
     "flags": [

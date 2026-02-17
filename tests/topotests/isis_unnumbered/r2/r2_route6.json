@@ -1,5 +1,5 @@
 {
-  "10:254::1/128": [
+  "10:254::2/128": [
     {
       "nexthops": [
         {
@@ -9,12 +9,12 @@
           "interfaceName": "lo"
         }
       ],
-      "prefix": "10:254::1/128",
+      "prefix": "10:254::2/128",
       "protocol": "connected",
       "selected": true
     }
   ],
-  "10:254::2/128": [
+  "10:254::1/128": [
     {
       "distance": 115,
       "metric": 20,
@@ -23,11 +23,11 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceName": "r1-eth0",
-          "ip": "10:254::2"
+          "interfaceName": "r2-eth0",
+          "ip": "10:254::1"
         }
       ],
-      "prefix": "10:254::2/128",
+      "prefix": "10:254::1/128",
       "protocol": "isis",
       "selected": true
     }
@@ -41,7 +41,7 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceName": "r1-eth1",
+          "interfaceName": "r2-eth1",
           "ip": "10:254::3"
         }
       ],
@@ -51,3 +51,4 @@
     }
   ]
 }
+
