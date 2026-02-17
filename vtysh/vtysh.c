@@ -3423,13 +3423,10 @@ DEFUN (vtysh_show_history,
  * Without this helper, each daemon would print its own
  * JSON object, leading to invalid JSON output.
  */
-static void show_memory_json_send(const char *daemon)
+static void show_collate_json_send(const char *daemon, const char *command_line)
 {
 	unsigned int i;
 	bool first = true;
-	char command_line[128];
-
-	snprintf(command_line, sizeof(command_line), "do show memory json");
 
 	vty_out(gvty, "{");
 
@@ -3463,29 +3460,37 @@ static void show_memory_json_send(const char *daemon)
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
-       "show memory [" DAEMONS_LIST "] [json]",
+       "show <memory|rcu> [" DAEMONS_LIST "] [json]",
        SHOW_STR
        "Memory statistics\n"
+       "RCU (read-copy-update) statistics\n"
        DAEMONS_STR
        JSON_STR)
 {
 	int json_idx = 0;
+	bool rcu = !strcmp(argv[1]->text, "rcu");
 
 	/* Non JSON commands - no functional change. */
 	if (!argv_find(argv, argc, "json", &json_idx)) {
+		char text_buf[128];
+
 		if (argc == 3)
 			return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 
-		return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
+		snprintfrr(text_buf, sizeof(text_buf), "%s statistics for %%s:\n",
+			   rcu ? "RCU" : "Memory");
+		return show_per_daemon(vty, argv, argc, text_buf);
 	}
+
+	const char *cmd = rcu ? "do show rcu json" : "do show memory json";
 
 	/* E.g., `show memory bgpd json` */
 	if (argc == 4) {
 		argc--;
-		show_memory_json_send(argv[argc - 1]->text);
+		show_collate_json_send(argv[argc - 1]->text, cmd);
 	} else {
 		/* E.g., `show memory json` */
-		show_memory_json_send(NULL);
+		show_collate_json_send(NULL, cmd);
 	}
 
 	return CMD_SUCCESS;

@@ -21,6 +21,7 @@
 
 #include "log.h"
 #include "memory.h"
+#include "seqlock.h"
 #include "module.h"
 #include "defaults.h"
 #include "lib_vty.h"
@@ -236,6 +237,51 @@ DEFUN_NOSH (show_modules,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (show_rcu,
+	    show_rcu_cmd,
+	    "show rcu [json]",
+	    "Show running system information\n"
+	    "RCU (read-copy-update) statistics\n"
+	    JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct json_object *json = NULL;
+	struct rcu_stats stats;
+
+	rcu_stats(&stats);
+
+	if (uj) {
+		json = json_object_new_object();
+
+		json_object_boolean_add(json, "rcuActive", stats.rcu_active);
+		if (!stats.rcu_active) {
+			vty_json(vty, json);
+			return CMD_SUCCESS;
+		}
+
+		json_object_int_add(json, "seqHead", stats.seq_head / SEQLOCK_INCR);
+		json_object_int_add(json, "seqLag", stats.seq_delta / (int)SEQLOCK_INCR);
+		json_object_int_add(json, "nThreadsHolding", stats.holding);
+		json_object_int_add(json, "queueLength", stats.qlen);
+		json_object_int_add(json, "totalCallsExecuted", stats.completed);
+
+		vty_json(vty, json);
+	} else {
+		if (!stats.rcu_active) {
+			vty_out(vty, "%% RCU not in use by this daemon\n");
+			return CMD_SUCCESS;
+		}
+
+		vty_out(vty, "RCU sequence counter: 0x%08x\n", stats.seq_head / SEQLOCK_INCR);
+		vty_out(vty, "RCU sequence lag:     %d\n", stats.seq_delta / (int)SEQLOCK_INCR);
+		vty_out(vty, "Threads holding RCU:  %zu\n", stats.holding);
+		vty_out(vty, "Queue length:         %zu\n", stats.qlen);
+		vty_out(vty, "Total calls executed: %zu\n", stats.completed);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (frr_defaults,
        frr_defaults_cmd,
        "frr defaults PROFILE...",
@@ -348,6 +394,7 @@ void lib_cmd_init(void)
 
 	install_element(VIEW_NODE, &show_memory_cmd);
 	install_element(VIEW_NODE, &show_modules_cmd);
+	install_element(VIEW_NODE, &show_rcu_cmd);
 
 	install_element(CONFIG_NODE, &start_config_cmd);
 	install_element(CONFIG_NODE, &end_config_cmd);

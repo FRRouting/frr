@@ -636,6 +636,15 @@ Terminal Mode Commands
    If ``json`` is specified, the output is formatted as JSON data for easier
    parsing by external tools.
 
+.. clicmd:: show rcu [json]
+
+   Shows statistics on RCU (read-copy-update) operation.
+
+   Since RCU is not widely in use yet in FRR, it is not unexpected for these
+   counters to read zero.  If the numbers for ``RCU sequence lag`` or
+   ``Queue length`` become excessively large (more than thousands), that may
+   indicate either a heavily loaded system or an FRR bug.
+
 .. clicmd:: show motd
 
    Show current motd banner.
