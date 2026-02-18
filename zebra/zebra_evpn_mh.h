@@ -14,6 +14,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "bitfield.h"
+#include "typesafe.h"
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
 #include "zebra_nhg.h"
@@ -136,6 +137,25 @@ struct zebra_evpn_l2_nh {
 	uint32_t ref_cnt;
 };
 
+PREDECL_SORTLIST_UNIQ(mh_vtep_list);
+PREDECL_DLIST(mh_vtep_es_list);
+
+/* Global ES peer VTEP - one per unique peer VTEP on local ESs.
+ * Used for "show evpn es-peer" (SPH VTEP list) with real SPH offset.
+ */
+struct zebra_evpn_mh_vtep {
+	struct ipaddr vtep_ip;
+
+	/* List of zebra_evpn_es_vtep entries (ES-VTEPs using this peer VTEP) */
+	struct mh_vtep_es_list_head es_vtep_list;
+
+	/* Link in zmh_info->mh_vtep_list */
+	struct mh_vtep_list_item listnode;
+
+	/* SPH offset (index) for display / future dataplane use */
+	uint32_t sph_offset;
+};
+
 /* PE attached to an ES */
 struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
@@ -145,12 +165,18 @@ struct zebra_evpn_es_vtep {
 	/* Rxed Type-4 route from this VTEP */
 #define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
 #define ZEBRA_EVPNES_VTEP_DEL_IN_PROG (1 << 1)
+	/* ES VTEP is associated with a local ES (on mh_vtep_list) */
+#define ZEBRA_EVPNES_VTEP_LOCAL (1 << 2)
 
 	/* MAC nexthop info */
 	struct zebra_evpn_l2_nh *nh;
 
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
+
+	/* [LOCAL ES only] backpointer to global MH VTEP; link in mh_vtep->es_vtep_list */
+	struct zebra_evpn_mh_vtep *mh_vtep;
+	struct mh_vtep_es_list_item vtep_listnode;
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
@@ -238,6 +264,13 @@ struct zebra_evpn_mh_info {
 	/* L2-NH table - key: vtep_up, data: zebra_evpn_nh */
 	struct hash *nh_ip_table;
 
+	/* SPH offset bitmap for ES peer VTEPs (show evpn es-peer) */
+	bitfield_t sph_id_bitmap;
+#define EVPN_SPH_ID_MAX (16)
+
+	/* List of ES peer VTEPs (zebra_evpn_mh_vtep) - peers on local ESs */
+	struct mh_vtep_list_head mh_vtep_list;
+
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
 #define ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
@@ -324,6 +357,7 @@ extern void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up);
 extern void zebra_evpn_es_show(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
+extern void zebra_evpn_mh_vtep_show(struct vty *vty, bool uj);
 extern void zebra_evpn_update_all_es(struct zebra_evpn *zevpn);
 extern void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS);
 int zebra_evpn_remote_es_add(const esi_t *esi, struct ipaddr *vtep_ip, bool esr_rxed,

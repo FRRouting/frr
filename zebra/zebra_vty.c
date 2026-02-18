@@ -2980,6 +2980,20 @@ DEFPY(show_evpn_es,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_es_peer, show_evpn_es_peer_cmd,
+      "show evpn es-peer [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Ethernet Segment peer\n"
+      JSON_STR)
+{
+	bool uj = !!json;
+
+	zebra_evpn_mh_vtep_show(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es_evi,
       show_evpn_es_evi_cmd,
       "show evpn es-evi [vni (1-16777215)$vni] [detail$detail] [json$json]",
@@ -4464,6 +4478,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_cmd);
+	install_element(VIEW_NODE, &show_evpn_es_peer_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
