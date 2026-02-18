@@ -528,6 +528,70 @@ def test_show_bgp_rd_json_output():
     json.loads(r1.vtysh_cmd(f"show bgp ipv4 vpn rd {list(rds)[0]} json"))
 
 
+def test_show_bgp_vrf_bestpath_json():
+    """
+    Test 'show bgp bestpath', 'show bgp bestpath json', and
+    'show bgp vrf VRFNAME bestpath [json]' for VRFs default, DONNA, EVA.
+    Expected output (this topology): all best-path options disabled,
+    linkBandwidth "ecmp(default)".
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Expected bestPath for all VRFs in this topology (all disabled, ecmp default)
+    expected_bestpath = {
+        "asPathIgnore": False,
+        "asPathConfed": False,
+        "asPathMultiPathRelaxEnabled": False,
+        "peerTypeRelax": False,
+        "compareRouterId": False,
+        "medConfed": False,
+        "medMissingASWorst": False,
+        "linkBandwidth": "ecmp(default)",
+        "alwaysCompareMed": False,
+        "deterministicMed": False,
+    }
+
+    # --- show bgp bestpath (VTY) ---
+    vty_out = r1.vtysh_cmd("show bgp bestpath")
+    for vrf_name in ["DONNA", "default", "EVA"]:
+        assert "VRF {}".format(vrf_name) in vty_out
+    assert "Best Path Selection Criteria:" in vty_out
+    assert "AS path ignore is Disabled" in vty_out
+    assert "Deterministic MED is Disabled" in vty_out
+    assert "Link Bandwidth handling set to: ecmp(default)" in vty_out
+
+    # --- show bgp bestpath json (all VRFs) ---
+    output = json.loads(r1.vtysh_cmd("show bgp bestpath json"))
+    assert "vrfs" in output, "show bgp bestpath json missing 'vrfs'"
+    vrfs = output["vrfs"]
+    for vrf_name in ["default", "DONNA", "EVA"]:
+        assert vrf_name in vrfs, "show bgp bestpath json missing vrf '{}'".format(
+            vrf_name
+        )
+        bestpath = vrfs[vrf_name].get("bestPath")
+        assert bestpath is not None, "show bgp bestpath json missing bestPath for {}".format(
+            vrf_name
+        )
+        result = topotest.json_cmp(bestpath, expected_bestpath)
+        assert result is None, "show bgp bestpath json vrf {}: {}".format(
+            vrf_name, result
+        )
+
+    # --- show bgp vrf VRFNAME bestpath json (single VRF) ---
+    for vrf_name in ["default", "DONNA", "EVA"]:
+        cmd = "show bgp vrf {} bestpath json".format(vrf_name)
+        single = json.loads(r1.vtysh_cmd(cmd))
+        assert vrf_name in single, "{} missing key '{}'".format(cmd, vrf_name)
+        single_bestpath = single[vrf_name].get("bestPath")
+        assert single_bestpath is not None
+        result = topotest.json_cmp(single_bestpath, expected_bestpath)
+        assert result is None, "{}: {}".format(cmd, result)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

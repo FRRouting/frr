@@ -468,6 +468,72 @@ def test_show_bgp_router_json():
     ), "show bgp router json output does not match expected: {}".format(result)
 
 
+def test_show_bgp_bestpath_json():
+    """
+    Test 'show bgp bestpath', 'show bgp bestpath json', and
+    'show bgp vrf default bestpath json' for default VRF.
+    Expected (this topology): asPathMultiPathRelaxEnabled true,
+    linkBandwidth ecmp(default), deterministicMed false.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Expected bestPath for default VRF in this topology
+    expected_bestpath = {
+        "asPathIgnore": False,
+        "asPathConfed": False,
+        "asPathMultiPathRelaxEnabled": True,
+        "peerTypeRelax": False,
+        "compareRouterId": False,
+        "medConfed": False,
+        "medMissingASWorst": False,
+        "linkBandwidth": "ecmp(default)",
+        "alwaysCompareMed": False,
+        "deterministicMed": False,
+    }
+
+    # --- show bgp bestpath (VTY) ---
+    step("Verify 'show bgp bestpath' VTY output")
+    vty_out = r1.vtysh_cmd("show bgp bestpath")
+    assert "VRF default" in vty_out
+    assert "Best Path Selection Criteria:" in vty_out
+    assert "AS path ignore is Disabled" in vty_out
+    assert "AS path multi-path-relax is Enabled" in vty_out
+    assert "Deterministic MED is Disabled" in vty_out
+    assert "Link Bandwidth handling set to: ecmp(default)" in vty_out
+
+    # --- show bgp bestpath json (all VRFs) ---
+    step("Verify 'show bgp bestpath json' output")
+    output = json.loads(r1.vtysh_cmd("show bgp bestpath json"))
+    assert "vrfs" in output, "show bgp bestpath json missing 'vrfs'"
+    assert "default" in output["vrfs"], "show bgp bestpath json missing vrfs.default"
+    bestpath = output["vrfs"]["default"].get("bestPath")
+    assert bestpath is not None, "show bgp bestpath json missing vrfs.default.bestPath"
+    result = topotest.json_cmp(bestpath, expected_bestpath)
+    assert (
+        result is None
+    ), "show bgp bestpath json output does not match expected: {}".format(result)
+
+    # --- show bgp vrf default bestpath json (single VRF) ---
+    step("Verify 'show bgp vrf default bestpath json' (single VRF form)")
+    output_vrf = json.loads(r1.vtysh_cmd("show bgp vrf default bestpath json"))
+    assert "default" in output_vrf, "show bgp vrf default bestpath json missing 'default'"
+    bestpath_vrf = output_vrf["default"].get("bestPath")
+    assert (
+        bestpath_vrf is not None
+    ), "show bgp vrf default bestpath json missing bestPath"
+    result_vrf = topotest.json_cmp(bestpath_vrf, expected_bestpath)
+    assert (
+        result_vrf is None
+    ), "show bgp vrf default bestpath json does not match expected: {}".format(
+        result_vrf
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
