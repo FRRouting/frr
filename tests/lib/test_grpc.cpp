@@ -45,6 +45,7 @@ struct event_loop *master;
 struct zebra_privs_t static_privs = {0};
 struct frrmod_runtime *grpc_module;
 char binpath[2 * MAXPATHLEN + 1];
+bool test_success;
 
 extern const char *json_expect1;
 extern const char *json_expect2;
@@ -107,6 +108,7 @@ static void static_startup(void)
 	}
 	if (!grpc_module)
 		exit(1);
+        std::cout << "Module loaded: " << grpc_module->load_name << std::endl;
 
 	static_debug_init();
 
@@ -487,6 +489,7 @@ void *grpc_client_test_start(void *arg)
 	try {
 		grpc_client_run_test();
 		std::cout << "TEST PASSED" << std::endl;
+		test_success = true;
 	} catch (std::exception &e) {
 		std::cout << "Exception in test: " << e.what() << std::endl;
 	}
@@ -519,7 +522,7 @@ static void grpc_thread_stop(struct event *event)
 	std::cout << __func__ << ": static_shutdown" << std::endl;
 	static_shutdown();
 	std::cout << __func__ << ": exit cleanly" << std::endl;
-	exit(0);
+	exit(!test_success);
 }
 
 /*
@@ -562,7 +565,7 @@ int main(int argc, char **argv)
 	struct event thread;
 	while (event_fetch(master, &thread))
 		event_call(&thread);
-	return 0;
+	return !test_success;
 }
 
 // clang-format off
