@@ -444,7 +444,7 @@ void grpc_client_run_test(void)
 		snprintf(xpath_buf + slen, sizeof(xpath_buf) - slen,
 			 "[prefix='13.0.%d.0/24']"
 			 "[afi-safi='frr-routing:ipv4-unicast']/"
-			 "path-list[table-id='0'][distance='1']/"
+			 "path-list[table-id='0'][distance='1'][metric='0']/"
 			 "frr-nexthops/nexthop[nh-type='blackhole']"
 			 "[vrf='default'][gateway=''][interface='(null)']",
 			 i);
@@ -584,6 +584,7 @@ const char *json_expect1 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -638,6 +639,7 @@ const char *json_loadconf1 = R"NONCE(
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "frr-nexthops": {
                       "nexthop": [
                         {
@@ -683,6 +685,7 @@ const char *json_expect2 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -706,6 +709,7 @@ const char *json_expect2 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -729,6 +733,7 @@ const char *json_expect2 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -752,6 +757,7 @@ const char *json_expect2 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -775,6 +781,7 @@ const char *json_expect2 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -828,6 +835,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -851,6 +859,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -874,6 +883,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -897,6 +907,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -920,6 +931,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
@@ -943,6 +955,7 @@ const char *json_expect3 = R"NONCE({
                   {
                     "table-id": 0,
                     "distance": 1,
+                    "metric": 0,
                     "tag": 0,
                     "frr-nexthops": {
                       "nexthop": [
