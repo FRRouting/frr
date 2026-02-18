@@ -273,14 +273,13 @@ static void ys_free_inner(struct nb_op_yield_state *ys,
 	ni->inner = NULL;
 }
 
-static void nb_op_get_keys(struct lyd_node_inner *list_node,
-			   struct yang_list_keys *keys)
+static void nb_op_get_keys(const struct lyd_node *list_node, struct yang_list_keys *keys)
 {
 	struct lyd_node *child;
 	uint n = 0;
 
 	keys->num = 0;
-	LY_LIST_FOR (list_node->child, child) {
+	LY_LIST_FOR (lyd_child(list_node), child) {
 		if (!lysc_is_key(child->schema))
 			break;
 		strlcpy(keys->key[n], yang_dnode_get_string(child, NULL),
@@ -481,11 +480,11 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	ni->list_entry = index == 0 ? NULL : ni[-1].list_entry;
 
 	/* Assert that we are walking the rightmost branch */
-	assert(!inner->parent || inner == inner->parent->child->prev);
+	assert(!lyd_parent(inner) || inner == lyd_child(lyd_parent(inner))->prev);
 
 	if (CHECK_FLAG(inner->schema->nodetype, LYS_CONTAINER)) {
 		/* containers have only zero or one child on a branch of a tree */
-		inner = ((struct lyd_node_inner *)inner)->child;
+		inner = lyd_child(inner);
 		assert(!inner || inner->prev == inner);
 		ni->lookup_next_ok = yield_ok &&
 				     (index == 0 || ni[-1].lookup_next_ok);
@@ -520,7 +519,7 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 		if (i != ni->position || !ni->list_entry)
 			return NB_ERR_NOT_FOUND;
 	} else {
-		nb_op_get_keys((struct lyd_node_inner *)inner, &ni->keys);
+		nb_op_get_keys(inner, &ni->keys);
 		/* A list entry cannot be present in a tree w/o it's keys */
 		assert(ni->keys.num == yang_snode_num_keys(inner->schema));
 
@@ -599,7 +598,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
 		struct lyd_node *leaf = node;
 
-		node = &node->parent->node;
+		node = lyd_parent(node);
 
 		/* Have to trim the leaf from the xpath now */
 		ret = yang_xpath_pop_node(xpath);
@@ -618,8 +617,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 
 	inner = node;
-	for (len = 1; inner->parent; len++)
-		inner = &inner->parent->node;
+	for (len = 1; lyd_parent(inner); len++)
+		inner = lyd_parent(inner);
 
 	darr_append_nz_mt(ys->node_infos, len, MTYPE_NB_NODE_INFOS);
 
@@ -632,7 +631,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	xplen = strlen(xpath);
 	darr_free(ys->xpath);
 	ys->xpath = xpath;
-	for (i = len; i > 0; i--, inner = &inner->parent->node) {
+	for (i = len; i > 0; i--, inner = lyd_parent(inner)) {
 		ni = &ys->node_infos[i - 1];
 		ni->inner = inner;
 		ni->schema = inner->schema;
@@ -743,8 +742,7 @@ static enum nb_error nb_op_libyang_cb_get(struct nb_op_yield_state *ys,
 		return NB_OK;
 	else if (err != LY_SUCCESS)
 		return NB_ERR;
-	if (lyd_dup_single_to_ctx(node, snode->module->ctx, (struct lyd_node_inner *)parent, 0,
-				  &node))
+	if (lyd_dup_single_to_ctx(node, snode->module->ctx, LYD_API_PARENT_TYPE(parent), 0, &node))
 		return NB_ERR;
 	return NB_OK;
 }
@@ -769,7 +767,7 @@ static enum nb_error nb_op_libyang_cb_get_leaflist(struct nb_op_yield_state *ys,
 
 	for (i = 0; i < set->count; i++) {
 		if (lyd_dup_single_to_ctx(set->dnodes[i], snode->module->ctx,
-					  (struct lyd_node_inner *)parent, 0, NULL)) {
+					  LYD_API_PARENT_TYPE(parent), 0, NULL)) {
 			ret = NB_ERR;
 			break;
 		}
@@ -879,7 +877,7 @@ static const void *nb_op_list_get_next(struct nb_op_yield_state *ys, struct nb_n
 static enum nb_error nb_op_list_get_keys(struct nb_op_yield_state *ys, struct nb_node *nb_node,
 					 const void *list_entry, struct yang_list_keys *keys)
 {
-	const struct lyd_node_inner *list_node = list_entry;
+	const struct lyd_node *list_node = list_entry;
 	const struct lyd_node *child;
 	uint count = 0;
 
@@ -894,7 +892,7 @@ static enum nb_error nb_op_list_get_keys(struct nb_op_yield_state *ys, struct nb
 	 * node we count on that here.
 	 */
 
-	LY_LIST_FOR (lyd_child(&list_node->node), child) {
+	LY_LIST_FOR (lyd_child(list_node), child) {
 		if (!lysc_is_key(child->schema))
 			break;
 		if (count == LIST_MAXKEYS) {
@@ -1828,10 +1826,7 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 			 */
 
 			if (!node) {
-				err = yang_lyd_new_list((struct lyd_node_inner *)
-								ni[-1]
-									.inner,
-							sib, &ni->keys, &node);
+				err = yang_lyd_new_list(ni[-1].inner, sib, &ni->keys, &node);
 				if (err) {
 					ret = NB_ERR_RESOURCE;
 					goto done;
