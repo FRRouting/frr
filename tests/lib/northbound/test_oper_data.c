@@ -404,16 +404,16 @@ DEFUN(test_rpc_no_args, test_rpc_no_args_cmd, "test rpc-no-args",
       "Test\n"
       "RPC\n")
 {
-	struct lyd_node_inner *output = NULL;
+	struct lyd_node *output = NULL;
 	int ret;
 
-	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-no-args", (struct lyd_node **)&output);
+	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-no-args", &output);
 	if (ret != CMD_SUCCESS) {
 		vty_out(vty, "RPC failed\n");
 		return ret;
 	}
-	assert(output->child == NULL);
-	yang_dnode_free(&output->node);
+	assert(lyd_child(output) == NULL);
+	yang_dnode_free(output);
 
 	return CMD_SUCCESS;
 }
