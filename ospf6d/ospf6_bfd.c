@@ -27,6 +27,8 @@
 #include "ospf6_zebra.h"
 #include "ospf6_bfd.h"
 
+unsigned char conf_debug_ospf6_bfd;
+
 /*
  * ospf6_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
  *                           neighbor state is changed to/from 2way.
@@ -108,9 +110,9 @@ static void ospf6_bfd_callback(struct bfd_session_params *bsp,
 	 * but the OSPFv6 adjacency should remain up.
 	 */
 	if (bss->state == BSS_ADMIN_DOWN && bss->previous_state == BSS_UP) {
-		/* Don't tear down OSPFv6 neighbor, just log the event */
-		zlog_info("OSPFv6 BFD: Neighbor %pI6: Received Admin Down from peer - adjacency maintained",
-			  &on->linklocal_addr);
+		if (IS_OSPF6_DEBUG_BFD)
+			zlog_debug("OSPFv6 BFD: Neighbor %pI6: Received Admin Down from peer - adjacency maintained",
+				   &on->linklocal_addr);
 		return;
 	}
 
@@ -287,6 +289,39 @@ DEFUN (no_ipv6_ospf6_bfd,
 	ospf6_bfd_reg_dereg_all_nbr(oi, false);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN(debug_ospf6_bfd, debug_ospf6_bfd_cmd,
+      "debug ospf6 bfd",
+      DEBUG_STR OSPF6_STR "Bidirectional Forwarding Detection\n")
+{
+	OSPF6_DEBUG_BFD_ON();
+	bfd_protocol_integration_set_debug(true);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf6_bfd, no_debug_ospf6_bfd_cmd,
+      "no debug ospf6 bfd",
+      NO_STR DEBUG_STR OSPF6_STR "Bidirectional Forwarding Detection\n")
+{
+	OSPF6_DEBUG_BFD_OFF();
+	bfd_protocol_integration_set_debug(false);
+	return CMD_SUCCESS;
+}
+
+int config_write_ospf6_debug_bfd(struct vty *vty)
+{
+	if (IS_OSPF6_DEBUG_BFD)
+		vty_out(vty, "debug ospf6 bfd\n");
+	return 0;
+}
+
+void install_element_ospf6_debug_bfd(void)
+{
+	install_element(ENABLE_NODE, &debug_ospf6_bfd_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf6_bfd_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_bfd_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf6_bfd_cmd);
 }
 
 void ospf6_bfd_init(void)

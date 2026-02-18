@@ -95,6 +95,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_gr_helper(vty);
 	config_write_ospf6_debug_auth(vty);
 	config_write_ospf6_debug_event(vty);
+	config_write_ospf6_debug_bfd(vty);
 
 	return 0;
 }
@@ -1481,6 +1482,7 @@ void ospf6_init(struct event_loop *mst)
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
 	install_element_ospf6_debug_event();
+	install_element_ospf6_debug_bfd();
 	install_element_ospf6_debug_auth();
 	ospf6_interface_auth_trailer_cmd_init();
 	install_element_ospf6_clear_intf_auth();
