@@ -1771,6 +1771,10 @@ state:
 	msg->refer_id = txn_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_GET_TREE;
+<<<<<<< HEAD
+=======
+#if (LY_VERSION_MAJOR < 4) || (LY_VERSION_MAJOR >= 5)
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 	/* Always operate with the binary format in the backend */
 	msg->result_type = LYD_LYB;
 	strlcpy(msg->xpath, xpath, slen + 1);

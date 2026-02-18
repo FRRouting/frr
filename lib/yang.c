@@ -939,6 +939,17 @@ done:
 	return err;
 }
 
+static LY_ERR yang_parse_op(const struct ly_ctx *ctx, struct lyd_node *parent, struct ly_in *in,
+			    LYD_FORMAT format, enum lyd_type data_type, struct lyd_node **tree,
+			    struct lyd_node **op)
+{
+	return lyd_parse_op(ctx, parent, in, format, data_type,
+#if (LY_VERSION_MAJOR >= 4)
+			    format == LYD_LYB ? LYD_PARSE_LYB_SKIP_CTX_CHECK : 0,
+#endif
+			    tree, op);
+}
+
 LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 			       const char *data, struct lyd_node **notif)
 {
@@ -953,8 +964,12 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 		return err;
 	}
 
+<<<<<<< HEAD
 	err = lyd_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG,
 			   &tree, NULL);
+=======
+	err = yang_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG, &tree, NULL);
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
@@ -979,8 +994,61 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	return LY_SUCCESS;
 }
 
+<<<<<<< HEAD
 LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
 		      bool reply, struct lyd_node **rpc)
+=======
+LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char *data, bool reply,
+			       struct lyd_node **rpc)
+{
+	const struct lysc_node *snode;
+	struct lyd_node *dnode = NULL;
+	struct ly_in *in = NULL;
+	LY_ERR err;
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		zlog_err("Failed to find RPC/action schema node: %s", xpath);
+		return LY_ENOTFOUND;
+	}
+	if (snode->nodetype != LYS_RPC && snode->nodetype != LYS_ACTION) {
+		zlog_err("Node '%s' is not an RPC/action", xpath);
+		return LY_ENOTFOUND;
+	}
+	/* Get the tree for the RPC/Action */
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
+	if (err) {
+		zlog_err("Failed to create parent node for action: %s", ly_last_errmsg());
+		goto done;
+	}
+
+	if (!data)
+		goto done;
+
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+		goto done;
+	}
+
+	err = yang_parse_op(ly_native_ctx, dnode, in, format,
+			    reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF, NULL, NULL);
+	ly_in_free(in, 0);
+	if (err) {
+		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
+		goto done;
+	}
+done:
+	if (err)
+		lyd_free_all(dnode);
+	else
+		*rpc = dnode;
+	return err;
+}
+
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bool reply,
+		      struct lyd_node **rpc)
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 {
 	const struct lysc_node *snode;
 	struct lyd_node *parent = NULL;
@@ -1023,9 +1091,14 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
 		return err;
 	}
 
+<<<<<<< HEAD
 	err = lyd_parse_op(ly_native_ctx, parent, in, format,
 			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
 			   NULL, rpc);
+=======
+	err = yang_parse_op(ly_native_ctx, parent, in, format,
+			    reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG, NULL, rpc);
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 	ly_in_free(in, 0);
 	if (err) {
 		lyd_free_all(parent);
@@ -1459,10 +1532,8 @@ int yang_xpath_pop_node(char *xpath)
  * Safe to remove after libyang v2.1.xxx is required (.144 has a bug so
  * something > .144) https://github.com/CESNET/libyang/issues/2149
  */
-LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
-			 const struct lysc_node *snode,
-			 const struct yang_list_keys *list_keys,
-			 struct lyd_node **node)
+LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
+			 const struct yang_list_keys *list_keys, struct lyd_node **node)
 {
 #if defined(HAVE_LYD_NEW_LIST3) && 0
 	LY_ERR err;
@@ -1472,11 +1543,10 @@ LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 	for (int i = 0; i < list_keys->num; i++)
 		keys[i] = list_keys->key[i];
 
-	err = lyd_new_list3(&parent->node, snode->module, snode->name, keys,
-			    NULL, 0, node);
+	err = lyd_new_list3(parent, snode->module, snode->name, keys, NULL, 0, node);
 	return err;
 #else
-	struct lyd_node *pnode = &parent->node;
+	struct lyd_node *pnode = parent;
 	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
 
 	assert(list_keys->num <= 8);
@@ -1560,7 +1630,7 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	/* Mark */
 	for (i = 0; i < set->count; i++) {
-		for (node = set->dnodes[i]; node; node = &node->parent->node) {
+		for (node = set->dnodes[i]; node; node = lyd_parent(node)) {
 			if (node->priv)
 				break;
 			if (node == set->dnodes[i])
@@ -1638,6 +1708,54 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
 	return LY_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+
+/*
+ * Handle NBC API changes between versions of Libyang
+ */
+
+#undef lyd_new_term_bin
+#undef lyd_change_term_bin
+#undef lyd_new_path2
+#undef lyd_new_ext_term
+
+#if (LY_VERSION_MAJOR >= 4)
+#define LY_SZ(x) ((x)*8)
+#else
+#define LY_SZ(x) (x)
+#endif
+
+LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *module,
+			 const char *name, const void *value, uint32_t size, uint32_t options,
+			 struct lyd_node **node)
+{
+	return lyd_new_term_bin(parent, module, name, value, LY_SZ(size), options, node);
+}
+
+LY_ERR yang_change_term_bin(struct lyd_node *term, const void *value, uint32_t size)
+{
+	return lyd_change_term_bin(term, value, LY_SZ(size));
+}
+
+LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
+		      const void *value, uint32_t size, LYD_ANYDATA_VALUETYPE value_type,
+		      uint32_t options, struct lyd_node **new_parent, struct lyd_node **new_node)
+{
+	return lyd_new_path2(parent, ctx, path, value, LY_SZ(size), value_type, options,
+			     new_parent, new_node);
+}
+
+#if (LY_VERSION_MAJOR >= 3) && (LY_VERSION_MAJOR < 5)
+LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name, const void *value,
+			 uint32_t size, uint32_t options, struct lyd_node **node)
+{
+	return lyd_new_ext_term(ext, name, value, LY_SZ(size), options, node);
+}
+#endif
+#undef LY_SZ
+
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 /*
  * Safe to remove after libyang v2.1.128 is required
  */

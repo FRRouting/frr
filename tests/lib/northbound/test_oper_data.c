@@ -369,6 +369,46 @@ DEFUN(test_rpc, test_rpc_cmd, "test rpc",
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFUN(test_rpc_no_args, test_rpc_no_args_cmd, "test rpc-no-args",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node *output = NULL;
+	int ret;
+
+	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-no-args", &output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+	assert(lyd_child(output) == NULL);
+	yang_dnode_free(output);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(test_rpc_both_args, test_rpc_both_args_cmd, "test rpc-both-args",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node *output = NULL;
+	int ret;
+
+	nb_cli_rpc_enqueue(vty, "data", "in-data");
+	ret = nb_cli_rpc(vty, "/frr-test-module:rpc-both-args", &output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+	vty_out(vty, "result %s\n", yang_dnode_get_string(output, "result"));
+	yang_dnode_free(output);
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> ca824ba98 (lib: update to handle libyang5 req changes)
 static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
 };
