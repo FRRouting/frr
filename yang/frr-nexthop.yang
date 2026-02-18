@@ -57,17 +57,20 @@ module frr-nexthop {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-01-23 {
+    description
+      "Add support for 16-bit weights.";
+
+    reference
+      "FRRouting";
+  }
+
   revision 2019-08-15 {
     description
       "Initial revision.";
 
     reference
       "FRRouting";
-  }
-
-  revision 2026-01-23 {
-    description
-      "Add support for 16-bit weights.";
   }
 
   typedef optional-ip-address {
