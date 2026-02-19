@@ -748,6 +748,20 @@ Interfaces
    Recommendation 2 from RFC 4222 to improve adjacency robustness under
    congestion.
 
+.. clicmd:: ip ospf dscp (all|low-control) (0-63)
+
+   Set the DSCP value applied to OSPF control packets. The ``all`` option
+   marks all OSPF packets with the specified DSCP value. The ``low-control``
+   option marks only low‑priority OSPF control packets.
+
+   Example:
+
+   .. code-block:: frr
+
+      ! mark only low‑priority OSPF control packets with DSCP 40:
+      interface eth0
+        ip ospf dscp low-control 40
+
 .. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
 
    Set the length of time during which Grace-LSAs are sent at 1-second intervals
