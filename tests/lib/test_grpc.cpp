@@ -142,7 +142,14 @@ static void static_startup(void)
 
 	frr_pthread_init();
 
-	// frr_config_fork();
+	// Call frr_grpc_module_late_init() via frr_late_init hook. Usually
+	// done by frr_config_fork() but we can't call that as it would pass
+	// a NULL event loop
+        assert(_hook_frr_late_init.entries);
+        typedef int(*frr_late_init_hook_fptr)(struct event_loop *);
+        frr_late_init_hook_fptr fn = (frr_late_init_hook_fptr)_hook_frr_late_init.entries->hookfn;
+        fn(master);
+
 	hook_call(test_grpc_late_init, master);
 }
 
@@ -403,7 +410,7 @@ void assert_no_diff(const std::string &s1, const std::string &s2)
 void assert_config_same(NorthboundClient &client, const std::string &compare)
 {
 	std::string confs = client.Get("/frr-routing:routing",
-				       frr::GetRequest::ALL, frr::JSON, true);
+				       frr::GetRequest::CONFIG, frr::JSON, true);
 	assert_no_diff(confs, compare);
 	std::cout << "ok" << std::endl;
 }
