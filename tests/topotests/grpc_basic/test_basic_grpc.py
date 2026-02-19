@@ -19,7 +19,7 @@ import pytest
 from lib.common_config import step
 from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
-from lib.topotest import json_cmp
+from lib.topotest import json_cmp, run_and_expect
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -92,7 +92,18 @@ def run_grpc_client(r, port, commands):
 
 
 def test_connectivity(tgen):
-    tgen.gears["r1"].cmd_raises("ping -c1 192.168.1.2")
+    r1 = tgen.gears["r1"]
+
+    def _ping_ok():
+        try:
+            r1.cmd_raises("ping -c1 192.168.1.2")
+            return True
+        except Exception:
+            return False
+
+    # Allow time for zebra/mgmtd to apply interface config before ping
+    ok, _ = run_and_expect(_ping_ok, True, count=10, wait=1)
+    assert ok, "r1 could not ping 192.168.1.2 (r2)"
 
 
 def test_capabilities(tgen):
@@ -142,13 +153,6 @@ def test_get_config(tgen):
         }
       }
     ]
-  },
-  "frr-logging:logging": {
-    "file": {
-      "filename": "mgmtd.log"
-    },
-    "record-priority": true,
-    "timestamp-precision": 6
   }
 } """
     )

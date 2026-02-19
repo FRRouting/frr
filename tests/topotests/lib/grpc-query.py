@@ -15,6 +15,8 @@ import tempfile
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
+# When run as a subprocess (e.g. --check), topotests is not on sys.path; add it so munet can be found.
+sys.path.insert(0, os.path.dirname(CWD))
 
 try:
     # Make sure we don't run-into ourselves in parallel operating environment
