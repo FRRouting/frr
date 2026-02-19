@@ -741,6 +741,13 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
+.. clicmd:: ip ospf dead-timer-reset any-control
+
+   Enable resetting the OSPF neighbor inactivity timer upon receipt of any
+   valid OSPF control packet, not only Hello packets. This implements
+   Recommendation 2 from RFC 4222 to improve adjacency robustness under
+   congestion.
+
 .. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
 
    Set the length of time during which Grace-LSAs are sent at 1-second intervals

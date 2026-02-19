@@ -9,6 +9,7 @@ OSPFD
 
    ospf-api
    ospf-ls-retrans
+   ospf-dead-timer-reset
    ospf-sr
    cspf
 
