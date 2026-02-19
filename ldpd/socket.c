@@ -70,10 +70,15 @@ ldp_create_socket(int af, enum socket_type type)
 		break;
 	}
 	frr_with_privs(&ldpd_privs) {
-		if (sock_set_reuse(fd, 1) == -1) {
+		if (sock_set_reuseaddr(fd, 1) == -1) {
 			close(fd);
 			return (-1);
 		}
+		if (sock_set_reuseport(fd, 1) == -1) {
+			close(fd);
+			return -1;
+		}
+
 		if (bind(fd, &local_su.sa, sockaddr_len(&local_su.sa)) == -1) {
 			log_warnx("%s: error binding socket: %s", __func__,
 			    safe_strerror(errno));
@@ -225,8 +230,7 @@ sock_set_recvbuf(int fd)
 		bsize /= 2;
 }
 
-int
-sock_set_reuse(int fd, int enable)
+int sock_set_reuseaddr(int fd, int enable)
 {
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
 		log_warn("%s: error setting SO_REUSEADDR", __func__);
@@ -234,6 +238,17 @@ sock_set_reuse(int fd, int enable)
 	}
 
 	return (0);
+}
+
+int sock_set_reuseport(int fd, int enable)
+{
+#ifdef GNU_LINUX
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0) {
+		log_warn("%s: error setting SO_REUSEPORT", __func__);
+		return -1;
+	}
+#endif
+	return 0;
 }
 
 int
