@@ -20,6 +20,7 @@
 #include "lib/mgmt_fe_client_clippy.c"
 
 PREDECL_LIST(mgmt_sessions);
+PREDECL_LIST(mgmt_fe_clients);
 
 struct mgmt_fe_client_session {
 	uint64_t client_id;  /* FE client identifies itself with this ID */
@@ -44,7 +45,10 @@ struct mgmt_fe_client {
 	uintptr_t user_data;
 	struct mgmt_sessions_head sessions;
 	struct mgmt_msg_header **sent_msgs; /* un-replied session-less sent messages */
+	struct mgmt_fe_clients_item list_linkage;
 };
+
+DECLARE_LIST(mgmt_fe_clients, struct mgmt_fe_client, list_linkage);
 
 #define FOREACH_SESSION_IN_LIST(client, session)                               \
 	frr_each_safe (mgmt_sessions, &(client)->sessions, (session))
@@ -54,8 +58,9 @@ struct debug mgmt_dbg_fe_client = {
 	.desc = "Management frontend client operations"
 };
 
-/* NOTE: only one client per proc for now. */
-static struct mgmt_fe_client *__fe_client;
+static struct mgmt_fe_clients_head fe_clients;
+// INIT_LIST is bad-buggy in typesafe.h
+// static struct mgmt_fe_clients_head fe_clients = INIT_LIST(fe_clients);
 
 static inline const char *dsid2name(enum mgmt_ds_id id)
 {
@@ -223,8 +228,8 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 	msg->code = MGMT_MSG_CODE_SESSION_REQ;
 	msg->req_id = session->client_id;
 	if (create) {
-		debug_fe_client("Sending SESSION_REQ create message for client-id %Lu",
-				session->client_id);
+		debug_fe_client("Sending SESSION_REQ create message for client-id %Lu (%s)",
+				session->client_id, client->name);
 		/* we need to queue before sending short-circuit so it's there when replied to */
 		darr_push(client->sent_msgs, (struct mgmt_msg_header *)msg);
 	} else {
@@ -754,13 +759,13 @@ static int mgmt_fe_client_notify_disconnect(struct msg_conn *conn)
 
 static void mgmt_debug_client_fe_set(uint32_t mode, bool set)
 {
+	struct mgmt_fe_client *client;
+
 	DEBUG_FLAGS_SET(&mgmt_dbg_fe_client, mode, set);
 
-	if (!__fe_client)
-		return;
-
-	__fe_client->client.conn.debug = DEBUG_MODE_CHECK(&mgmt_dbg_fe_client,
-							  DEBUG_MODE_ALL);
+	frr_each (mgmt_fe_clients, &fe_clients, client)
+		client->client.conn.debug = DEBUG_MODE_CHECK(&mgmt_dbg_fe_client,
+							    DEBUG_MODE_ALL);
 }
 
 DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
@@ -785,11 +790,7 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 	struct mgmt_fe_client *client;
 	char server_path[MAXPATHLEN];
 
-	if (__fe_client)
-		return NULL;
-
 	client = XCALLOC(MTYPE_MGMTD_FE_CLIENT, sizeof(*client));
-	__fe_client = client;
 
 	client->name = XSTRDUP(MTYPE_MGMTD_FE_CLIENT_NAME, client_name);
 	client->user_data = user_data;
@@ -807,7 +808,12 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN, true,
 			"FE-client", debug_check_fe_client());
 
-	debug_fe_client("Initialized client '%s'", client_name);
+	debug_fe_client("Initialized mgmtd frontend client '%s'", client_name);
+
+	if (fe_clients.sh.last_next == 0)
+		mgmt_fe_clients_init(&fe_clients);
+
+	mgmt_fe_clients_add_tail(&fe_clients, client);
 
 	return client;
 }
@@ -893,9 +899,9 @@ void mgmt_fe_client_destroy(struct mgmt_fe_client *client)
 {
 	struct mgmt_fe_client_session *session;
 
-	assert(client == __fe_client);
-
 	debug_fe_client("Destroying MGMTD Frontend Client '%s'", client->name);
+
+	mgmt_fe_clients_del(&fe_clients, client);
 
 	FOREACH_SESSION_IN_LIST (client, session)
 		mgmt_fe_destroy_client_session(client, session->client_id);
@@ -906,6 +912,4 @@ void mgmt_fe_client_destroy(struct mgmt_fe_client *client)
 
 	XFREE(MTYPE_MGMTD_FE_CLIENT_NAME, client->name);
 	XFREE(MTYPE_MGMTD_FE_CLIENT, client);
-
-	__fe_client = NULL;
 }
