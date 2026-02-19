@@ -19,6 +19,14 @@
 #include "northbound_db.h"
 #include "frr_pthread.h"
 
+extern "C" {
+#include "mgmt_defines.h"
+#include "mgmt_fe_client.h"
+}
+
+#include <cinttypes>
+#include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -44,11 +52,30 @@ static struct frr_pthread *fpt;
 
 static bool grpc_running;
 
-#define grpc_debug(...)                                                        \
-	do {                                                                   \
-		if (nb_dbg_client_grpc)                                        \
-			zlog_debug(__VA_ARGS__);                               \
+/* mgmtd frontend client: when set, gRPC uses FE API for config/state */
+static struct mgmt_fe_client *grpc_fe_client;
+static uint64_t grpc_fe_session_id;
+static uint64_t grpc_fe_client_id;
+static uint64_t grpc_fe_req_id_next;
+static bool grpc_fe_connected;
+static bool grpc_fe_session_ready;
+
+/* Pending GET: wait for get_tree_notify while pumping event loop */
+static pthread_mutex_t grpc_fe_pending_mtx = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t grpc_fe_pending_req_id;
+static bool grpc_fe_pending_done;
+static std::string *grpc_fe_pending_result;
+static int grpc_port = GRPC_DEFAULT_PORT;
+
+#define grpc_debug(fmt, ...)                                                                      \
+	do {                                                                                      \
+		if (nb_dbg_client_grpc)                                                           \
+			zlog_debug("GRPCD: %s: " fmt, __func__, ##__VA_ARGS__);                   \
 	} while (0)
+
+
+static int frr_grpc_start_server(uint port);
+static void frr_grpc_stop_server(void);
 
 // ------------------------------------------------------
 //                      New Types
@@ -241,7 +268,7 @@ template <typename Q, typename S> class UnaryRpcState : public RpcStateBase
 			::grpc::ServerCompletionQueue *cq,
 			bool no_copy) override
 	{
-		grpc_debug("%s, posting a request for: %s", __func__, name);
+		grpc_debug("posting a request for: %s", name);
 		auto copy = no_copy ? this
 				    : new UnaryRpcState(cdb, requestf, callback,
 							name);
@@ -293,7 +320,7 @@ class StreamRpcState : public RpcStateBase
 			::grpc::ServerCompletionQueue *cq,
 			bool no_copy) override
 	{
-		grpc_debug("%s, posting a request for: %s", __func__, name);
+		grpc_debug("posting a request for: %s", name);
 		auto copy =
 			no_copy ? this
 				: new StreamRpcState(requestsf, callback, name);
@@ -411,6 +438,208 @@ static struct lyd_node *dnode_from_data_tree(const frr::DataTree *dt,
 	return dnode;
 }
 
+/* FE client get_tree_notify: runs on main thread, signals pending GET */
+static int grpc_fe_get_tree_notify(struct mgmt_fe_client *client,
+				   uintptr_t user_data, uint64_t client_id,
+				   uint64_t session_id, uintptr_t session_ctx,
+				   uint64_t req_id, enum mgmt_ds_id ds_id,
+				   LYD_FORMAT result_type, void *result,
+				   size_t len, int partial_error)
+{
+	(void)client;
+	(void)user_data;
+	(void)client_id;
+	(void)session_id;
+	(void)session_ctx;
+	(void)ds_id;
+	(void)result_type;
+	(void)partial_error;
+
+	if (req_id != grpc_fe_pending_req_id)
+		return 0;
+
+	pthread_mutex_lock(&grpc_fe_pending_mtx);
+	grpc_fe_pending_done = true;
+	if (grpc_fe_pending_result && result && len > 0)
+		grpc_fe_pending_result->assign((const char *)result, len);
+	pthread_mutex_unlock(&grpc_fe_pending_mtx);
+	return 0;
+}
+
+static void grpc_fe_connect_notify(struct mgmt_fe_client *client,
+				   uintptr_t user_data, bool connected)
+{
+	(void)client;
+	(void)user_data;
+	grpc_fe_connected = connected;
+
+	/* have connection get session -- this actually short-circuits */
+	mgmt_fe_create_client_session(grpc_fe_client, grpc_fe_client_id, 0);
+}
+
+
+static void grpc_fe_session_notify(struct mgmt_fe_client *client,
+				   uintptr_t user_data, uint64_t client_id,
+				   bool create, bool success,
+				   uintptr_t session_id_val,
+				   uintptr_t user_session_client)
+{
+	(void)client;
+	(void)user_data;
+	(void)user_session_client;
+
+	if (!create || !success) {
+		grpc_debug("unexpected session notify: create %d success %d client_id %ld", create,
+			   success, (long)client_id);
+		if (!create)
+			frr_grpc_stop_server();
+		return;
+	}
+
+	/* We have a session - start handling gRPC requests */
+	grpc_debug("got session: %lu", (long)session_id_val);
+	grpc_fe_session_id = (uint64_t)session_id_val;
+	grpc_fe_session_ready = true;
+
+	if (frr_grpc_start_server(grpc_port) < 0) {
+		/* should kill session on failure and retry, better would be to move retry to better spot */
+		abort();
+	}
+}
+
+static grpc::Status grpc_fe_get_path_via_mgmtd(frr::DataTree *dt,
+					       const std::string &path,
+					       int type, LYD_FORMAT lyd_format,
+					       bool with_defaults)
+{
+	uint8_t flags;
+	uint8_t defaults = with_defaults ? GET_DATA_DEFAULTS_ALL
+					 : GET_DATA_DEFAULTS_TRIM;
+	uint64_t req_id;
+	struct event ev;
+	struct lyd_node *dnode = NULL;
+	struct lyd_node *dnode_config = NULL;
+	struct lyd_node *dnode_state = NULL;
+	LY_ERR err;
+	std::string result_store;
+
+	grpc_fe_pending_result = &result_store;
+
+	auto send_get = [&](uint8_t datastore, uint8_t get_flags) -> grpc::Status {
+		req_id = ++grpc_fe_req_id_next;
+		pthread_mutex_lock(&grpc_fe_pending_mtx);
+		grpc_fe_pending_req_id = req_id;
+		grpc_fe_pending_done = false;
+		result_store.clear();
+		pthread_mutex_unlock(&grpc_fe_pending_mtx);
+
+		if (mgmt_fe_send_get_data_req(
+			    grpc_fe_client, grpc_fe_session_id, req_id,
+			    datastore, LYD_LYB, get_flags, defaults,
+			    path.empty() ? "/" : path.c_str())) {
+			return grpc::Status(grpc::StatusCode::UNAVAILABLE,
+					    "Failed to send GET_DATA to mgmtd");
+		}
+
+		while (true) {
+			pthread_mutex_lock(&grpc_fe_pending_mtx);
+			if (grpc_fe_pending_done)
+				break;
+			pthread_mutex_unlock(&grpc_fe_pending_mtx);
+			if (event_fetch(main_master, &ev))
+				event_call(&ev);
+		}
+		pthread_mutex_unlock(&grpc_fe_pending_mtx);
+
+		if (result_store.empty())
+			return grpc::Status(grpc::StatusCode::INTERNAL,
+					    "No data from mgmtd");
+
+		uint32_t parse_opts = LYD_PARSE_ONLY;
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+		parse_opts |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+		err = lyd_parse_data_mem(ly_native_ctx, result_store.data(),
+					LYD_LYB, parse_opts, 0, &dnode);
+		if (err != LY_SUCCESS) {
+			return grpc::Status(
+				grpc::StatusCode::INTERNAL,
+				std::string("Failed to parse mgmtd result: ") +
+					ly_errmsg(ly_native_ctx));
+		}
+		return grpc::Status::OK;
+	};
+
+	if (type == frr::GetRequest_DataType_CONFIG) {
+		flags = GET_DATA_FLAG_CONFIG;
+		grpc::Status st = send_get(MGMTD_DS_RUNNING, flags);
+		if (!st.ok()) {
+			grpc_fe_pending_result = nullptr;
+			return st;
+		}
+		dnode_config = dnode;
+		dnode = NULL;
+	} else if (type == frr::GetRequest_DataType_STATE) {
+		flags = GET_DATA_FLAG_STATE;
+		grpc::Status st = send_get(MGMTD_DS_OPERATIONAL, flags);
+		if (!st.ok()) {
+			grpc_fe_pending_result = nullptr;
+			return st;
+		}
+		dnode_state = dnode;
+		dnode = NULL;
+	} else {
+		/* ALL: get config and state, merge */
+		flags = GET_DATA_FLAG_CONFIG;
+		grpc::Status st = send_get(MGMTD_DS_RUNNING, flags);
+		if (!st.ok()) {
+			grpc_fe_pending_result = nullptr;
+			return st;
+		}
+		dnode_config = dnode;
+		dnode = NULL;
+
+		flags = GET_DATA_FLAG_STATE;
+		st = send_get(MGMTD_DS_OPERATIONAL, flags);
+		if (!st.ok()) {
+			yang_dnode_free(dnode_config);
+			grpc_fe_pending_result = nullptr;
+			return st;
+		}
+		dnode_state = dnode;
+		dnode = NULL;
+
+		if (lyd_merge_siblings(&dnode_state, dnode_config,
+				       LYD_MERGE_DESTRUCT) != LY_SUCCESS) {
+			yang_dnode_free(dnode_state);
+			yang_dnode_free(dnode_config);
+			grpc_fe_pending_result = nullptr;
+			return grpc::Status(grpc::StatusCode::INTERNAL,
+					    "Failed to merge config and state");
+		}
+		dnode = dnode_state;
+	}
+
+	struct lyd_node *dnode_final =
+		dnode ? dnode : (dnode_config ? dnode_config : dnode_state);
+	int validate_opts = (type == frr::GetRequest_DataType_CONFIG)
+				    ? LYD_VALIDATE_NO_STATE
+				    : 0;
+	err = lyd_validate_all(&dnode_final, ly_native_ctx, validate_opts, NULL);
+	if (err)
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_validate_all() failed: %s",
+			  __func__, ly_errmsg(ly_native_ctx));
+	if (!err)
+		err = data_tree_from_dnode(dt, dnode_final, lyd_format,
+					   with_defaults);
+	yang_dnode_free(dnode_final);
+	grpc_fe_pending_result = nullptr;
+	if (err)
+		return grpc::Status(grpc::StatusCode::INTERNAL,
+				    "Failed to dump data");
+	return grpc::Status::OK;
+}
+
 static struct lyd_node *get_dnode_config(const std::string &path)
 {
 	struct lyd_node *dnode;
@@ -440,80 +669,9 @@ static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 			     int type, LYD_FORMAT lyd_format,
 			     bool with_defaults)
 {
-	struct lyd_node *dnode_config = NULL;
-	struct lyd_node *dnode_state = NULL;
-	struct lyd_node *dnode_final;
-
-	// Configuration data.
-	if (type == frr::GetRequest_DataType_ALL
-	    || type == frr::GetRequest_DataType_CONFIG) {
-		dnode_config = get_dnode_config(path);
-		if (!dnode_config)
-			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Data path not found");
-	}
-
-	// Operational data.
-	if (type == frr::GetRequest_DataType_ALL
-	    || type == frr::GetRequest_DataType_STATE) {
-		dnode_state = get_dnode_state(path);
-		if (!dnode_state) {
-			if (dnode_config)
-				yang_dnode_free(dnode_config);
-			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Failed to fetch operational data");
-		}
-	}
-
-	switch (type) {
-	case frr::GetRequest_DataType_ALL:
-		//
-		// Combine configuration and state data into a single
-		// dnode.
-		//
-		if (lyd_merge_siblings(&dnode_state, dnode_config,
-				       LYD_MERGE_DESTRUCT)
-		    != LY_SUCCESS) {
-			yang_dnode_free(dnode_state);
-			yang_dnode_free(dnode_config);
-			return grpc::Status(
-				grpc::StatusCode::INTERNAL,
-				"Failed to merge configuration and state data",
-				ly_errmsg(ly_native_ctx));
-		}
-
-		dnode_final = dnode_state;
-		break;
-	case frr::GetRequest_DataType_CONFIG:
-		dnode_final = dnode_config;
-		break;
-	case frr::GetRequest_DataType_STATE:
-		dnode_final = dnode_state;
-		break;
-	}
-
-	// Validate data to create implicit default nodes if necessary.
-	int validate_opts = 0;
-	if (type == frr::GetRequest_DataType_CONFIG)
-		validate_opts = LYD_VALIDATE_NO_STATE;
-	else
-		validate_opts = 0;
-
-	LY_ERR err = lyd_validate_all(&dnode_final, ly_native_ctx,
-				      validate_opts, NULL);
-
-	if (err)
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_validate_all() failed: %s",
-			  __func__, ly_errmsg(ly_native_ctx));
-	// Dump data using the requested format.
-	if (!err)
-		err = data_tree_from_dnode(dt, dnode_final, lyd_format,
-					   with_defaults);
-	yang_dnode_free(dnode_final);
-	if (err)
-		return grpc::Status(grpc::StatusCode::INTERNAL,
-				    "Failed to dump data");
-	return grpc::Status::OK;
+	assert(grpc_fe_client && grpc_fe_connected && grpc_fe_session_ready);
+	grpc_debug("calling mgmtd get");
+	return grpc_fe_get_path_via_mgmtd(dt, path, type, lyd_format, with_defaults);
 }
 
 
@@ -525,7 +683,7 @@ grpc::Status HandleUnaryGetCapabilities(
 	UnaryRpcState<frr::GetCapabilitiesRequest, frr::GetCapabilitiesResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	grpc_debug("entered");
 
 	// Response: string frr_version = 1;
 	tag->response.set_frr_version(FRR_VERSION);
@@ -551,6 +709,7 @@ grpc::Status HandleUnaryGetCapabilities(
 	tag->response.add_supported_encodings(frr::JSON);
 	tag->response.add_supported_encodings(frr::XML);
 
+	grpc_debug("exiting");
 	return grpc::Status::OK;
 }
 
@@ -560,14 +719,15 @@ typedef std::list<std::string> GetContextType;
 bool HandleStreamingGet(
 	StreamRpcState<frr::GetRequest, frr::GetResponse, GetContextType> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	grpc_debug("entered");
 
 	auto mypathps = &tag->context;
 	if (tag->is_initial_process()) {
 		// Fill our context container first time through
-		grpc_debug("%s: initialize streaming state", __func__);
+		grpc_debug("initialize streaming state");
 		auto paths = tag->request.path();
 		for (const std::string &path : paths) {
+			grpc_debug("paths: %s", path.c_str());
 			mypathps->push_back(std::string(path));
 		}
 	}
@@ -580,6 +740,7 @@ bool HandleStreamingGet(
 	bool with_defaults = tag->request.with_defaults();
 
 	if (mypathps->empty()) {
+		grpc_debug("empty paths -- finish");
 		tag->async_responder.Finish(grpc::Status::OK, tag);
 		return false;
 	}
@@ -597,6 +758,7 @@ bool HandleStreamingGet(
 			  encoding2lyd_format(encoding), with_defaults);
 
 	if (!status.ok()) {
+		grpc_debug("fail get");
 		tag->async_responder.WriteAndFinish(
 			response, grpc::WriteOptions(), status, tag);
 		return false;
@@ -617,7 +779,7 @@ grpc::Status HandleUnaryCreateCandidate(
 	UnaryRpcState<frr::CreateCandidateRequest, frr::CreateCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	grpc_debug("entered");
 
 	struct candidate *candidate = tag->cdb->create_candidate();
 	if (!candidate)
@@ -1225,12 +1387,14 @@ static void *grpc_pthread_start(void *arg)
 }
 
 
-static int frr_grpc_init(uint port)
+static int frr_grpc_start_server(uint port)
 {
 	struct frr_pthread_attr attr = {
 		.start = grpc_pthread_start,
 		.stop = NULL,
 	};
+
+	assert(fpt == NULL);
 
 	grpc_debug("%s: entered", __func__);
 
@@ -1247,17 +1411,13 @@ static int frr_grpc_init(uint port)
 	return 0;
 }
 
-static int frr_grpc_finish(void)
+static void frr_grpc_stop_server(void)
 {
 	grpc_debug("%s: entered", __func__);
 
 	if (!fpt)
-		return 0;
+		return;
 
-	/*
-	 * Shut the server down here in main thread. This will cause the wait on
-	 * the completion queue (cq.Next()) to exit and cleanup everything else.
-	 */
 	pthread_mutex_lock(&s_server_lock);
 	grpc_running = false;
 	if (s_server) {
@@ -1270,6 +1430,30 @@ static int frr_grpc_finish(void)
 	grpc_debug("%s: joining and destroy grpc thread", __func__);
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
+	fpt = NULL;
+}
+
+static int frr_grpc_finish(void)
+{
+	grpc_debug("%s: entered", __func__);
+
+	if (!fpt)
+		return 0;
+
+	/*
+	 * Shut the server down here in main thread. This will cause the wait on
+	 * the completion queue (cq.Next()) to exit and cleanup everything else.
+	 */
+
+	frr_grpc_stop_server();
+
+	if (grpc_fe_client) {
+		mgmt_fe_client_destroy(grpc_fe_client);
+		grpc_fe_client = NULL;
+		grpc_fe_session_id = 0;
+		grpc_fe_connected = false;
+		grpc_fe_session_ready = false;
+	}
 
 	// Fix protobuf 'memory leaks' during shutdown.
 	// https://groups.google.com/g/protobuf/c/4y_EmQiCGgs
@@ -1278,42 +1462,48 @@ static int frr_grpc_finish(void)
 	return 0;
 }
 
-/*
- * This is done this way because module_init and module_late_init are both
- * called during daemon pre-fork initialization. Because the GRPC library
- * spawns threads internally, we need to delay initializing it until after
- * fork. This is done by scheduling this init function as an event task, since
- * the event loop doesn't run until after fork.
- */
-static void frr_grpc_module_very_late_init(struct event *event)
-{
-	const char *args = THIS_MODULE->load_args;
-	uint port = GRPC_DEFAULT_PORT;
-
-	if (args) {
-		port = std::stoul(args);
-		if (port < 1024 || port > UINT16_MAX) {
-			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: port number must be between 1025 and %d",
-				 __func__, UINT16_MAX);
-			goto error;
-		}
-	}
-
-	if (frr_grpc_init(port) < 0)
-		goto error;
-
-	return;
-
-error:
-	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
-}
-
 static int frr_grpc_module_late_init(struct event_loop *tm)
 {
+	const char *progname = frr_get_progname();
+	const char *args = THIS_MODULE->load_args;
+
+	/* Get the port to serve gRPC requests from */
+	if (args) {
+		uint port = std::stoul(args);
+		if (port < 1024 || port > UINT16_MAX) {
+			flog_err(EC_LIB_GRPC_INIT, "%s: port number must be between 1024 and %d",
+				 __func__, UINT16_MAX);
+			abort();
+			return -1;
+		}
+		grpc_port = port;
+	}
+
 	main_master = tm;
+
+	/*
+	 * gRPC northbound runs only on mgmtd and uses the mgmtd frontend client
+	 * API for config/state so it can configure and query all daemons.
+	 * When loaded in other daemons, do nothing.
+	 */
+	if (!progname || strcmp(progname, "mgmtd") != 0) {
+		zlog_info("gRPC module: only supported when loaded in mgmtd (current: %s), skipping",
+			  progname ? progname : "unknown");
+		return -1;
+	}
+
+	/* Create mgmtd frontend client so gRPC uses mgmtd for config/state */
+	static struct mgmt_fe_client_cbs fe_cbs = {
+		.client_connect_notify = grpc_fe_connect_notify,
+		.client_session_notify = grpc_fe_session_notify,
+		.get_tree_notify = grpc_fe_get_tree_notify,
+	};
+	grpc_fe_client = mgmt_fe_client_create("grpc-nb", &fe_cbs, 0, main_master);
+	assert(grpc_fe_client);
+
+	/* client connect will drive rest of the initialization */
+
 	hook_register(frr_fini, frr_grpc_finish);
-	event_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;
 }
 

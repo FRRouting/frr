@@ -39,12 +39,17 @@ Northbound gRPC Features
 
 .. _grpc-config:
 
-Daemon gRPC Configuration
-=========================
+Mgmtd gRPC Configuration
+========================
+
+The *gRPC* northbound runs only on **mgmtd**. It listens on a single port
+and serves config/state for all daemons via the mgmtd frontend. Get requests
+are fulfilled through mgmtd; CreateCandidate, Edit, Commit and other RPCs
+may be extended to use mgmtd in a follow-up.
 
 The *gRPC* module accepts the following run time option:
 
-- ``port``: the port to listen to (defaults to ``50051``).
+- ``port``: the port to listen on (defaults to ``50051``).
 
 
 .. note::
@@ -53,14 +58,12 @@ The *gRPC* module accepts the following run time option:
    supported.
 
 
-To configure FRR daemons to listen to gRPC you need to append the
-following parameter to the daemon's command line: ``-M grpc``
-(optionally ``-M grpc:PORT`` to specify listening port).
+To enable gRPC you must load the module on **mgmtd** only, by appending
+``-M grpc`` (or ``-M grpc:PORT``) to the mgmtd command line.
 
-To do that in production you need to edit the ``/etc/frr/daemons`` file
-so the daemons get started with the command line argument. Example:
+Example in ``/etc/frr/daemons``:
 
 ::
 
    # other daemons...
-   bfdd_options="  --daemon -A 127.0.0.1 -M grpc"
+   mgmtd_options=" -M grpc:50051"
