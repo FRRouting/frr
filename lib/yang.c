@@ -1116,6 +1116,10 @@ LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
 {
 	LY_ERR err;
 
+	/* Can't use binary+shrink due to required restrictions */
+	if (format == LYD_LYB)
+		options &= ~LYD_PRINT_SHRINK;
+
 	err = lyd_print_clb(yang_print_darr, darr, root, format, options);
 	if (err)
 		zlog_err("Failed to save yang tree: %s", ly_last_errmsg());

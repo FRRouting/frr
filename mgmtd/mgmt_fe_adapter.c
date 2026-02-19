@@ -1007,10 +1007,10 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 
 	/*
 	 * Not shrinking can triple or more the size of the result, as a result
-	 * we should probably not send indented results by default and have the
-	 * FE client do this instead.
+	 * we should not send indented results by default and have the FE client
+	 * do this instead.
 	 */
-	/* wd_options |= LYD_PRINT_SHRINK; */
+	wd_options |= LYD_PRINT_SHRINK;
 
 	if (msg->datastore == MGMT_MSG_DATASTORE_OPERATIONAL)
 		in_oper = true;
@@ -1400,7 +1400,9 @@ static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64
 
 	if (result) {
 		darrp = mgmt_msg_native_get_darrp(msg);
-		ret = yang_print_tree_append(darrp, result, result_type, 0);
+		ret = yang_print_tree_append(darrp, result, result_type,
+					     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+					      LYD_PRINT_WITHSIBLINGS));
 		if (ret != LY_SUCCESS) {
 			_log_err("Error building rpc-reply result for client %s session-id %" PRIu64
 				 " req-id %" PRIu64 " result type %u",
