@@ -1036,6 +1036,25 @@ void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry,
 		ospf6_asbr_lsa_remove(lsa, asbr_entry);
 }
 
+void ospf6_asbr_recalculate_external_routes(struct ospf6 *ospf6)
+{
+	struct ospf6_lsa *lsa, *lsanext;
+
+	for (ALL_LSDB(ospf6->lsdb, lsa, lsanext)) {
+		if (ntohs(lsa->header->type) != OSPF6_LSTYPE_AS_EXTERNAL ||
+		    OSPF6_LSA_IS_MAXAGE(lsa))
+			continue;
+
+		/*
+		 * Forwarding-address reachability may change when non-external
+		 * routes are updated. Re-run remove/add to keep external route
+		 * installation in sync with current topology.
+		 */
+		ospf6_asbr_lsa_remove(lsa, NULL);
+		ospf6_asbr_lsa_add(lsa);
+	}
+}
+
 
 /* redistribute function */
 static void ospf6_asbr_routemap_set(struct ospf6_redist *red,

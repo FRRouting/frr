@@ -254,10 +254,12 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
 	struct ospf6 *ospf6 = NULL;
 	struct ospf6_area *oa = NULL;
+	bool global_scope = false;
 
-	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL) {
 		ospf6 = route->table->scope;
-	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		global_scope = true;
+	} else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
 		oa = (struct ospf6_area *)route->table->scope;
 		ospf6 = oa->ospf6;
 	} else {
@@ -271,16 +273,21 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 
 	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
+	if (global_scope && route->path.type != OSPF6_PATH_TYPE_EXTERNAL1 &&
+	    route->path.type != OSPF6_PATH_TYPE_EXTERNAL2)
+		ospf6_asbr_recalculate_external_routes(ospf6);
 }
 
 static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
 	struct ospf6 *ospf6 = NULL;
 	struct ospf6_area *oa = NULL;
+	bool global_scope = false;
 
-	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL) {
 		ospf6 = route->table->scope;
-	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		global_scope = true;
+	} else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
 		oa = (struct ospf6_area *)route->table->scope;
 		ospf6 = oa->ospf6;
 	} else {
@@ -295,6 +302,9 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_remove(route, ospf6);
+	if (global_scope && route->path.type != OSPF6_PATH_TYPE_EXTERNAL1 &&
+	    route->path.type != OSPF6_PATH_TYPE_EXTERNAL2)
+		ospf6_asbr_recalculate_external_routes(ospf6);
 }
 
 static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
