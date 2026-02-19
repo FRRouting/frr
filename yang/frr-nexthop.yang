@@ -68,12 +68,9 @@ module frr-nexthop {
   revision 2019-08-15 {
     description
       "Initial revision.";
-<<<<<<< HEAD
-=======
 
     reference
       "FRRouting";
->>>>>>> 3fd1097a3 (yang: Revision staements are not given in reverse chronological order)
   }
 
   typedef optional-ip-address {
