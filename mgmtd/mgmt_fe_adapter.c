@@ -558,6 +558,7 @@ static int fe_adapter_send_rpc_reply(struct mgmt_fe_session_ctx *session,
 	msg->code = MGMT_MSG_CODE_RPC_REPLY;
 	msg->result_type = result_type;
 
+<<<<<<< HEAD
 	if (result) {
 		darrp = mgmt_msg_native_get_darrp(msg);
 		ret = yang_print_tree_append(darrp, result, result_type, 0);
@@ -565,6 +566,73 @@ static int fe_adapter_send_rpc_reply(struct mgmt_fe_session_ctx *session,
 			_log_err("Error building rpc-reply result for client %s session-id %" PRIu64
 				 " req-id %" PRIu64 " result type %u",
 				 session->adapter->name, session->session_id, req_id, result_type);
+=======
+	if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "Invalid message rcvd from session-id: %" PRIu64,
+				      session->session_id);
+		goto done;
+	}
+
+	if (session->txn_id != MGMTD_TXN_ID_NONE) {
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
+				      "Transaction in progress txn-id: %" PRIu64
+				      " for session-id: %" PRIu64,
+				      session->txn_id, session->session_id);
+		goto done;
+	}
+
+	switch (msg->defaults) {
+	case GET_DATA_DEFAULTS_EXPLICIT:
+		wd_options = LYD_PRINT_WD_EXPLICIT;
+		break;
+	case GET_DATA_DEFAULTS_TRIM:
+		wd_options = LYD_PRINT_WD_TRIM;
+		break;
+	case GET_DATA_DEFAULTS_ALL:
+		wd_options = LYD_PRINT_WD_ALL;
+		break;
+	case GET_DATA_DEFAULTS_ALL_ADD_TAG:
+		wd_options = LYD_PRINT_WD_IMPL_TAG;
+		break;
+	default:
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "Invalid defaults value %u for session-id: %" PRIu64,
+				      msg->defaults, session->session_id);
+		goto done;
+	}
+
+	/*
+	 * Not shrinking can triple or more the size of the result, as a result
+	 * we should not send indented results by default and have the FE client
+	 * do this instead.
+	 */
+	wd_options |= LYD_PRINT_SHRINK;
+
+	if (msg->datastore == MGMT_MSG_DATASTORE_OPERATIONAL)
+		in_oper = true;
+
+	/* Check for yang-library shortcut */
+	if (in_oper && CHECK_FLAG(msg->flags, GET_DATA_FLAG_STATE) &&
+	    (!strcmp("/*", msg->xpath) || nb_oper_is_yang_lib_query(msg->xpath))) {
+		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
+					      ly_ctx_get_change_count(ly_native_ctx));
+		if (err) {
+			fe_session_send_error(session, req_id, false, err,
+					      "Error getting yang-library data, session-id: %" PRIu64
+					      " error: %s",
+					      session->session_id, ly_last_errmsg());
+			goto done;
+		} else if (nb_oper_is_yang_lib_query(msg->xpath)) {
+			struct lyd_node *result;
+
+			yang_lyd_trim_xpath(&ylib, msg->xpath);
+			result = ylib;
+			if (CHECK_FLAG(msg->flags, GET_DATA_FLAG_EXACT))
+				result = yang_dnode_get(result, msg->xpath);
+			(void)fe_session_send_tree_data(session, req_id, false, msg->result_type,
+							wd_options, result, 0);
+>>>>>>> 1e4957e03 (lib: dont shrink binary format)
 			goto done;
 		}
 	}
@@ -615,8 +683,396 @@ static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
 	return ret;
 }
 
+<<<<<<< HEAD
 static int fe_adapter_native_send_session_reply(struct mgmt_fe_client_adapter *adapter,
 						uint64_t session_id, uint64_t req_id, bool created)
+=======
+
+int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+				    struct mgmt_edit_req **edit, enum mgmt_result result,
+				    const char *errstr)
+{
+	struct mgmt_fe_session_ctx *session;
+	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
+	const enum mgmt_ds_id run_id = MGMTD_DS_RUNNING;
+	struct mgmt_ds_ctx *can_ds = mgmt_ds_get_ctx_by_id(mm, can_id);
+	struct mgmt_ds_ctx *run_ds = mgmt_ds_get_ctx_by_id(mm, run_id);
+	int ret;
+
+	/*
+	 * When a session is deleted (e.g., disconnects) while there's an
+	 * active TXN we can get a NULL return here when the TXN completes. We
+	 * still want to do any cleanup that the session cleanup could not
+	 * accomplish b/c of the outstanding TXN.
+	 */
+	session = fe_session_lookup(session_id);
+	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
+		session = NULL;
+
+	/*
+	 * Deal with the backup candidate config. If the edit was successful we
+	 * free the backup. If it failed we restore the datastore from the
+	 * backup.
+	 */
+	if (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES)
+		nb_config_free((*edit)->nb_backup);
+	else
+		mgmt_ds_restore_nb_config(can_ds, (*edit)->nb_backup);
+
+	if (!session)
+		return -ENOENT;
+
+	if ((*edit)->unlock_running)
+		mgmt_fe_session_unlock_ds(run_id, run_ds, session);
+	if ((*edit)->unlock_candidate)
+		mgmt_fe_session_unlock_ds(can_id, can_ds, session);
+
+
+	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES)
+		ret = fe_session_send_error(session, req_id, false, mgmt_result_to_error(result),
+					    "%s", errstr);
+	else
+		ret = fe_session_send_edit_reply(session, req_id,
+						 result == MGMTD_SUCCESS /*changed*/,
+						 (*edit)->created, (*edit)->xpath_created, errstr);
+	XFREE(MTYPE_MGMTD_TXN_REQ, *edit);
+
+	assert(session->cfg_txn_id == txn_id);
+	mgmt_destroy_txn(&session->cfg_txn_id);
+
+	return ret;
+}
+
+static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
+{
+	struct mgmt_msg_edit *msg = _msg;
+	const enum mgmt_ds_id can_id = MGMTD_DS_CANDIDATE;
+	const enum mgmt_ds_id run_id = MGMTD_DS_RUNNING;
+	struct mgmt_ds_ctx *can_ds = mgmt_ds_get_ctx_by_id(mm, can_id);
+	struct mgmt_ds_ctx *run_ds = mgmt_ds_get_ctx_by_id(mm, run_id);
+	struct mgmt_edit_req *edit;
+	struct nb_config *nb_config;
+	uint64_t txn_id = MGMTD_TXN_ID_NONE;
+	bool implicit_can_lock = false;
+	bool implicit_run_lock = false;
+	const char *xpath, *data;
+	char errstr[BUFSIZ];
+	bool commit;
+	int ret;
+
+	/* grab the deprecated commit flag -- the lock flag isn't required at all */
+	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
+
+	/*
+	 * Validate input args and obtain any needed locks
+	 */
+
+	commit = commit || msg->datastore == MGMT_MSG_DATASTORE_RUNNING;
+	if (!commit && msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
+		fe_session_send_error(session, msg->req_id, false, -EINVAL,
+				      "Unsupported datastore");
+		return;
+	}
+
+	/* Decode the target xpath and config changes */
+	xpath = mgmt_msg_native_xpath_data_decode(msg, msg_len, data);
+	if (!xpath) {
+		fe_session_send_error(session, msg->req_id, false, -EINVAL, "Invalid message");
+		return;
+	}
+
+	/* If committing, make sure no other txn has locks on the datastores */
+	if (commit &&
+	    (mgmt_ds_is_txn_locked(can_ds, &txn_id) || mgmt_ds_is_txn_locked(run_ds, &txn_id))) {
+		fe_session_send_error(session, msg->req_id, false, -EBUSY,
+				      "datastores are locked by another transaction txn-id: %Lu",
+				      txn_id);
+		return;
+	}
+
+	/* We always ensure the candidate DS is locked */
+	if (!session->ds_locked[can_id]) {
+		if (mgmt_fe_session_write_lock_ds(can_id, can_ds, session)) {
+			fe_session_send_error(session, msg->req_id, false, -EBUSY,
+					      "Candidate DS is locked by another session");
+			return;
+		}
+		implicit_can_lock = true;
+	}
+
+	/* And if modifying running, ensure it is locked too */
+	if (commit && !session->ds_locked[run_id]) {
+		if (mgmt_fe_session_write_lock_ds(run_id, run_ds, session)) {
+			if (implicit_can_lock)
+				mgmt_fe_session_unlock_ds(can_id, can_ds, session);
+			fe_session_send_error(session, msg->req_id, false, -EBUSY,
+					      "Running DS is locked by another session");
+			return;
+		}
+		implicit_run_lock = true;
+	}
+
+	/*
+	 * Everythign valid and setup, proceed to make the edit.
+	 */
+
+	errstr[0] = '\0';
+	nb_config = mgmt_ds_get_nb_config(can_ds);
+
+	edit = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_edit_req));
+	edit->unlock_candidate = implicit_can_lock;
+	edit->unlock_running = implicit_run_lock;
+	edit->nb_backup = nb_config_dup(nb_config); /* keep a backup of candidate */
+
+	/* Make edits to the candidate DS */
+	ret = nb_candidate_edit_tree(nb_config, msg->operation, msg->request_type, xpath, data,
+				     &edit->created, edit->xpath_created, errstr, sizeof(errstr));
+	if (ret && ret == NB_ERR_NO_CHANGES)
+		ret = NB_OK;
+	else if (ret)
+		_dbg("Edit failed for txn-id %Lu req-id %Lu: %s: restoring candidate", txn_id,
+		     msg->req_id, errstr[0] ? errstr : "unknown reason");
+	else if (commit) {
+		/* Get a TXN for the commit */
+		txn_id = mgmt_create_txn(session->session_id, MGMTD_TXN_TYPE_CONFIG);
+		if (txn_id == MGMTD_SESSION_ID_NONE) {
+			ret = NB_ERR_EXISTS; /* should not happen as we have the locks */
+			goto reply;
+		}
+		session->cfg_txn_id = txn_id;
+
+		_dbg("Created new config txn-id: %Lu for session-id: %Lu", txn_id,
+		     session->session_id);
+
+		/* And this is modifying the running */
+		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id,
+						run_ds, false /*abort*/, false /*validate-only*/,
+						true /*implicit*/, false /*unlock*/, edit);
+		return;
+	}
+reply:
+	mgmt_fe_adapter_send_edit_reply(session->session_id, txn_id, msg->req_id, &edit,
+					nb_error_to_mgmt_result(ret), errstr);
+}
+
+/* --------------------- */
+/* NOTIFY-SELECT Message */
+/* --------------------- */
+
+/*
+ * Handle an Notify Select message - there's no reply for this message.
+ */
+static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session, void *_msg,
+					    size_t msg_len)
+{
+	struct mgmt_msg_notify_select *msg = _msg;
+	uint64_t req_id = msg->req_id;
+	struct nb_node **nb_nodes;
+	const char **selectors = NULL;
+	const char **new;
+	const char **sp;
+	uint64_t rm_clients = 0;
+
+
+	if (msg_len >= sizeof(*msg)) {
+		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
+		if (!selectors) {
+			fe_session_send_error(session, req_id, false, -EINVAL, "Invalid message");
+			return;
+		}
+	}
+
+	/* Validate all selectors, they need to resolve to actual northbound_nodes */
+	darr_foreach_p (selectors, sp) {
+		nb_nodes = nb_nodes_find(*sp);
+		if (!nb_nodes) {
+			fe_session_send_error(session, req_id, false, -EINVAL,
+					      "Selector doesn't resolve to a node: %s", *sp);
+			darr_free_free(selectors);
+			return;
+		}
+		darr_free(nb_nodes);
+	}
+
+	if (msg->replace) {
+		/* KISS: remove all existing selectors, add back new set */
+		rm_clients = ns_string_remove_session(session->session_id);
+		darr_free_free(session->notify_xpaths);
+		session->notify_xpaths = selectors;
+	} else if (selectors) {
+		/* TODO: would be nice to sort the stored selectors and eliminate dups */
+		new = darr_append_nz(session->notify_xpaths, darr_len(selectors));
+		memcpy(new, selectors, darr_len(selectors) * sizeof(*selectors));
+	} else {
+		_log_err("Invalid msg from session-id: %Lu: no selectors present in non-replace msg",
+			 session->session_id);
+		darr_free_free(selectors);
+		selectors = NULL;
+		goto done;
+	}
+
+	if (session->notify_xpaths && DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
+		_dbg("Update NOTIFY selectors '%pSAd' (replace: %d) for session-id: %Lu",
+		     session->notify_xpaths, msg->replace, session->session_id);
+	}
+
+	ns_string_add_session(req_id, selectors, session->session_id, msg->replace, rm_clients);
+done:
+	if (session->notify_xpaths != selectors)
+		darr_free(selectors);
+}
+
+/* ----------- */
+/* RPC Message */
+/* ----------- */
+
+static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
+				     uint8_t result_type, bool restconf,
+				     const struct lyd_node *result)
+{
+	struct mgmt_msg_rpc_reply *msg;
+	uint8_t **darrp = NULL;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc_reply, 0, MTYPE_MSG_NATIVE_RPC_REPLY);
+	msg->refer_id = session->session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_RPC_REPLY;
+	msg->result_type = result_type;
+	msg->restconf = restconf;
+
+	if (result) {
+		darrp = mgmt_msg_native_get_darrp(msg);
+		ret = yang_print_tree_append(darrp, result, result_type,
+					     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+					      LYD_PRINT_WITHSIBLINGS));
+		if (ret != LY_SUCCESS) {
+			_log_err("Error building rpc-reply result for client %s session-id %" PRIu64
+				 " req-id %" PRIu64 " result type %u",
+				 session->adapter->name, session->session_id, req_id, result_type);
+			goto done;
+		}
+	}
+
+	_dbg("Sending rpc-reply from adapter %s to session-id %" PRIu64 " req-id %" PRIu64
+	     " len %u",
+	     session->adapter->name, session->session_id, req_id, mgmt_msg_native_get_msg_len(msg));
+
+	ret = fe_adapter_send_msg(session->adapter, msg, mgmt_msg_native_get_msg_len(msg), false);
+done:
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
+}
+
+void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+				    LYD_FORMAT result_type, bool restconf,
+				    const struct lyd_node *result)
+{
+	struct mgmt_fe_session_ctx *session;
+
+	session = fe_session_lookup(session_id);
+	if (!session)
+		return;
+
+	/* XXXchopps why do we care about this? Why not allow multple? */
+	assert(session->txn_id == txn_id);
+
+	if (fe_session_send_rpc_reply(session, req_id, result_type, restconf, result))
+		fe_session_send_error(session, req_id, false, -EIO, "Failed sending RPC reply");
+
+	mgmt_destroy_txn(&session->txn_id);
+}
+
+static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
+{
+	struct mgmt_msg_rpc *msg = _msg;
+	const struct lysc_node *snode;
+	const char *xpath, *data;
+	uint64_t req_id = msg->req_id;
+	uint64_t clients;
+
+	_dbg("Received RPC request from client %s for session-id %" PRIu64 " req-id %" PRIu64,
+	     session->adapter->name, session->session_id, msg->req_id);
+
+	xpath = mgmt_msg_native_xpath_data_decode(msg, msg_len, data);
+	if (!xpath) {
+		fe_session_send_error(session, req_id, false, -EINVAL, "Invalid message");
+		return;
+	}
+
+	if (session->txn_id != MGMTD_TXN_ID_NONE) {
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
+				      "Transaction in progress txn-id: %" PRIu64
+				      " for session-id: %" PRIu64,
+				      session->txn_id, session->session_id);
+		return;
+	}
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		fe_session_send_error(session, req_id, false, -ENOENT, "No such path: %s", xpath);
+		return;
+	}
+
+	if (snode->nodetype != LYS_RPC && snode->nodetype != LYS_ACTION) {
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "Not an RPC or action path: %s", xpath);
+		return;
+	}
+
+	clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "RPC");
+	if (!clients) {
+		_dbg("No backends implement xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
+		     xpath, session->txn_id, session->session_id);
+
+		fe_session_send_error(session, req_id, false, -ENOENT,
+				      "No backends implement xpath: %s", xpath);
+		return;
+	}
+
+	/* Start a RPC Transaction */
+	session->txn_id = mgmt_create_txn(session->session_id,
+					  MGMTD_TXN_TYPE_RPC);
+	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
+		fe_session_send_error(session, req_id, false, -EINPROGRESS,
+				      "Failed to create an RPC transaction");
+		return;
+	}
+
+	_dbg("Created new rpc txn-id: %" PRIu64 " for session-id: %" PRIu64, session->txn_id,
+	     session->session_id);
+
+	/* Create an RPC request under the transaction */
+	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, msg->restconf,
+			  xpath, data, mgmt_msg_native_data_len_decode(msg, msg_len));
+}
+
+/* -------------------- */
+/* New Session Requests */
+/* -------------------- */
+
+static int fe_adapter_conn_send_error(struct msg_conn *conn, uint64_t session_id, uint64_t req_id,
+				      bool short_circuit_ok, int16_t error, const char *errfmt,
+				      ...) PRINTFRR(6, 7);
+static int fe_adapter_conn_send_error(struct msg_conn *conn, uint64_t session_id, uint64_t req_id,
+				      bool short_circuit_ok, int16_t error, const char *errfmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, errfmt);
+
+	ret = vmgmt_msg_native_send_error(conn, session_id, req_id, short_circuit_ok, error,
+					  errfmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+static int fe_adapter_send_session_reply(struct mgmt_fe_client_adapter *adapter,
+					 uint64_t session_id, uint64_t req_id, bool created)
+>>>>>>> 1e4957e03 (lib: dont shrink binary format)
 {
 	struct mgmt_msg_session_reply *msg;
 	bool scok = adapter->conn->is_short_circuit;
