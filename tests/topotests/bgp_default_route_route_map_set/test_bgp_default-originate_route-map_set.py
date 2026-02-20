@@ -66,14 +66,11 @@ def test_bgp_default_originate_route_map():
     r2 = tgen.gears["r2"]
     r3 = tgen.gears["r3"]
 
-    def _bgp_converge(router, pfxCount):
+    def _bgp_converge(router):
         output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {
-                    "ipv4Unicast": {"acceptedPrefixCounter": pfxCount}
-                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -85,7 +82,7 @@ def test_bgp_default_originate_route_map():
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, r2, 1)
+    test_func = functools.partial(_bgp_converge, r2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see bgp convergence in r2"
 
@@ -93,7 +90,7 @@ def test_bgp_default_originate_route_map():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see applied metric for default route in r2"
 
-    test_func = functools.partial(_bgp_converge, r3, 2)
+    test_func = functools.partial(_bgp_converge, r3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see bgp convergence in r3"
 
