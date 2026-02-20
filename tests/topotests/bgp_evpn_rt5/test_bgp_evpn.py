@@ -311,9 +311,13 @@ def test_router_check_ip():
             }
         ]
     }
-    result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show ipv6 route vrf vrf-101 fd01::2/128 json", expected
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ipv6 route vrf vrf-101 fd01::2/128 json",
+        expected,
     )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "ipv6 route check failed"
 
 
@@ -385,13 +389,17 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
                 },
             }
         }
-    result = topotest.router_json_cmp(
-        router, "show evpn next-hops vni all json", expected
+    test_func = partial(
+        topotest.router_json_cmp, router, "show evpn next-hops vni all json", expected
     )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "evpn next-hops check failed"
 
     expected = {"101": {"numRmacs": 1}}
-    result = topotest.router_json_cmp(router, "show evpn rmac vni all json", expected)
+    test_func = partial(
+        topotest.router_json_cmp, router, "show evpn rmac vni all json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "evpn rmac number check failed"
 
 
@@ -993,7 +1001,8 @@ def _validate_evpn_rmacs(router, expected):
                     # Compare VTEP IPs - a forgiving comparison
                     if detail["vtepIp"].find(jvni[rmac]["vtepIp"]) < 0:
                         return "VTEP {} failed, not found in VNI {}".format(
-                            detail["vtepIp"], vni)
+                            detail["vtepIp"], vni
+                        )
             if vtep_ip in vtep_ips:
                 # VTEP IP is occuring for more than one RMAC in the same VNI
                 return "Duplicate VTEP IP {} found in VNI {}".format(vtep_ip, vni)

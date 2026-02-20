@@ -9,7 +9,6 @@
 
 import os
 import sys
-from time import sleep
 from functools import partial
 import pytest
 
@@ -352,12 +351,21 @@ def p2mp_broadcast_neighbor_filter_common(delay_reflood):
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf neighbor-filter nbr-filter")
 
     step("Verify the R1 configuration of 'ip ospf neighbor-filter nbr-filter'")
-    neighbor_filter_cfg = (
-        tgen.net["r1"]
-        .cmd(
-            'vtysh -c "show running ospfd" | grep "^ ip ospf neighbor-filter nbr-filter"'
+
+    def check_neighbor_filter_config():
+        return (
+            tgen.net["r1"]
+            .cmd(
+                'vtysh -c "show running ospfd" | grep "^ ip ospf neighbor-filter nbr-filter"'
+            )
+            .rstrip()
         )
-        .rstrip()
+
+    _, neighbor_filter_cfg = topotest.run_and_expect(
+        check_neighbor_filter_config,
+        " ip ospf neighbor-filter nbr-filter",
+        count=30,
+        wait=1,
     )
     assertmsg = (
         "'ip ospf neighbor-filter nbr-filter' applied, but not present in configuration"
@@ -402,9 +410,14 @@ def p2mp_broadcast_neighbor_filter_common(delay_reflood):
 
     step("Remove neighbor filter configuration and verify")
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip ospf neighbor-filter")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf neighbor-filter'", warn=False
-    )
+
+    def check_neighbor_filter_removed():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf neighbor-filter'", warn=False
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(check_neighbor_filter_removed, 1, count=30, wait=1)
     assertmsg = "'ip ospf neighbor' not applied, but present in R1 configuration"
     assert rc, assertmsg
 
@@ -490,16 +503,22 @@ def test_p2mp_broadcast_neighbor_filter_delay_reflood():
         "Add redistribution and spaced static routes to r1 to test delay flood retransmission"
     )
     r1.vtysh_cmd("conf t\nrouter ospf\nredistribute static")
-    r1.vtysh_cmd("conf t\nip route 20.1.1.1/32 null0")
-    sleep(1)
-    r1.vtysh_cmd("conf t\nip route 20.1.1.2/32 null0")
-    sleep(1)
-    r1.vtysh_cmd("conf t\nip route 20.1.1.3/32 null0")
-    sleep(1)
-    r1.vtysh_cmd("conf t\nip route 20.1.1.4/32 null0")
-    sleep(1)
-    r1.vtysh_cmd("conf t\nip route 20.1.1.5/32 null0")
-    sleep(1)
+
+    def check_static_route_installed(prefix):
+        output = r1.vtysh_cmd(f"show ip route {prefix} json", isjson=True)
+        return prefix in output
+
+    for prefix in [
+        "20.1.1.1/32",
+        "20.1.1.2/32",
+        "20.1.1.3/32",
+        "20.1.1.4/32",
+        "20.1.1.5/32",
+    ]:
+        r1.vtysh_cmd(f"conf t\nip route {prefix} null0")
+        test_func = partial(check_static_route_installed, prefix)
+        _, route_ready = topotest.run_and_expect(test_func, True, count=20, wait=0.5)
+        assert route_ready is True, f"Static route {prefix} not installed on r1"
 
     step(
         "Verify the routes are installed on r1 with delay-reflood in P2MP partial mesh"

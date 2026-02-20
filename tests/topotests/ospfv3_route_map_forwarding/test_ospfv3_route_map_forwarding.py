@@ -88,10 +88,10 @@ def test_ospfv3_neighbor_established():
         pytest.skip(tgen.errors)
 
     logger.info("Waiting for OSPFv3 neighbor to establish")
-    
+
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
-    
+
     # Check R1 has R2 as neighbor
     def check_r1_neighbor():
         output = r1.vtysh_cmd("show ipv6 ospf6 neighbor json")
@@ -99,7 +99,10 @@ def test_ospfv3_neighbor_established():
             data = json.loads(output)
             if "neighbors" in data:
                 for neighbor in data["neighbors"]:
-                    if neighbor.get("neighborId") == "10.0.0.2" and neighbor.get("state") == "Full":
+                    if (
+                        neighbor.get("neighborId") == "10.0.0.2"
+                        and neighbor.get("state") == "Full"
+                    ):
                         return True
             return False
         except:
@@ -108,7 +111,7 @@ def test_ospfv3_neighbor_established():
     test_func = check_r1_neighbor
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
     assert result, "R1 neighbor with R2 did not reach Full state"
-    
+
     logger.info("OSPFv3 neighbor R1<->R2 established")
 
 
@@ -119,9 +122,9 @@ def test_initial_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("Waiting for OSPFv3 to converge and routes to be exchanged")
-    
+
     r2 = tgen.gears["r2"]
-    
+
     # Wait for R2 to see the external LSA from R1
     def check_r2_has_external_lsa():
         output = r2.vtysh_cmd("show ipv6 ospf6 database as-external json")
@@ -141,7 +144,7 @@ def test_initial_convergence():
     test_func = check_r2_has_external_lsa
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
     assert result, "R2 did not receive external LSA from R1"
-    
+
     logger.info("External LSA for 2001:db8:100::/64 successfully received on R2")
 
 
@@ -154,18 +157,16 @@ def test_initial_forwarding_address():
     r2 = tgen.gears["r2"]
 
     logger.info("Checking initial forwarding address from route-map")
-    
-    # Get the external LSA and check forwarding address
-    # Use LSA ID (0.0.0.1) and advertising router (10.0.0.1)
-    # Note: This format doesn't support 'detail' keyword, so omit it (shows detail by default)
-    output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
-    
-    logger.info("LSA detail output:\n%s" % output)
-    
-    # The route-map sets forwarding address to 2001:db8:ffff::1
-    assert "2001:db8:ffff::1" in output, \
-        "Initial forwarding address not set correctly by route-map"
-    
+
+    def check_initial_forwarding_address():
+        output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
+        return "2001:db8:ffff::1" in output
+
+    _, result = topotest.run_and_expect(
+        check_initial_forwarding_address, True, count=30, wait=1
+    )
+    assert result, "Initial forwarding address not set correctly by route-map"
+
     logger.info("Initial forwarding address correctly set to 2001:db8:ffff::1")
 
 
@@ -192,7 +193,7 @@ def test_modify_routemap_no_forwarding():
                 break
 
     logger.info("Modifying route-map to remove forwarding-address")
-    
+
     # Modify route-map on R1 - remove forwarding-address, only set metric
     r1.vtysh_cmd(
         """
@@ -204,7 +205,7 @@ def test_modify_routemap_no_forwarding():
     )
 
     # Wait for LSA to be updated (sequence number should increment)
-    
+
     def check_lsa_updated():
         output = r2.vtysh_cmd("show ipv6 ospf6 database as-external json")
         data = json.loads(output)
@@ -217,24 +218,23 @@ def test_modify_routemap_no_forwarding():
                         return current_seq > initial_seq
                     return False
         return False
-    
+
     test_func = check_lsa_updated
     _, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
     assert result, "LSA was not updated after route-map change"
 
-    # Check forwarding address on R2
-    output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
-    
-    logger.info("LSA after route-map modification:\n%s" % output)
-    
-    # EXPECTED BEHAVIOR: When forwarding-address is removed from route-map,
-    # it should be cleared (not preserved). This is correct operator behavior.
-    
-    # Verify the forwarding address was cleared as expected
-    assert "2001:db8:ffff::1" not in output, \
-        "Forwarding address should be cleared when removed from route-map"
-    
-    logger.info("PASS: Forwarding address correctly cleared when removed from route-map")
+    def check_forwarding_cleared():
+        output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
+        return "2001:db8:ffff::1" not in output
+
+    _, result = topotest.run_and_expect(
+        check_forwarding_cleared, True, count=30, wait=1
+    )
+    assert result, "Forwarding address should be cleared when removed from route-map"
+
+    logger.info(
+        "PASS: Forwarding address correctly cleared when removed from route-map"
+    )
 
 
 def test_explicitly_clear_forwarding():
@@ -250,7 +250,7 @@ def test_explicitly_clear_forwarding():
     r2 = tgen.gears["r2"]
 
     logger.info("Explicitly setting forwarding-address to :: in route-map")
-    
+
     # Set forwarding address explicitly to :: (unspecified)
     r1.vtysh_cmd(
         """
@@ -267,21 +267,22 @@ def test_explicitly_clear_forwarding():
         if "2001:db8:ffff::1" in output:
             return False  # Still has old forwarding address
         return True
-    
+
     test_func = check_lsa_updated
     _, result = topotest.run_and_expect(test_func, True, count=20, wait=0.5)
     assert result, "LSA was not updated after route-map change"
 
-    # Check forwarding address on R2
-    output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
-    
-    logger.info("LSA after explicitly setting :: :\n%s" % output)
-    
-    # When explicitly set to ::, it should clear and allow auto-calculation
-    # So we should NOT see 2001:db8:ffff::1 anymore
-    assert "2001:db8:ffff::1" not in output, \
-        "Forwarding address should have been cleared when explicitly set to ::"
-    
+    def check_forwarding_cleared_to_unspecified():
+        output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
+        return "2001:db8:ffff::1" not in output
+
+    _, result = topotest.run_and_expect(
+        check_forwarding_cleared_to_unspecified, True, count=30, wait=1
+    )
+    assert (
+        result
+    ), "Forwarding address should have been cleared when explicitly set to ::"
+
     logger.info("PASS: Explicit :: correctly cleared forwarding address")
 
 
@@ -308,7 +309,7 @@ def test_change_forwarding_address():
                 break
 
     logger.info("Changing forwarding-address to a new value (2001:db8:eeee::1)")
-    
+
     # Change forwarding address to a new value
     r1.vtysh_cmd(
         """
@@ -332,25 +333,23 @@ def test_change_forwarding_address():
                         return current_seq > initial_seq
                     return False
         return False
-    
+
     test_func = check_lsa_updated
     _, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
     assert result, "LSA was not updated after route-map change"
 
-    # Check forwarding address on R2
-    output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
-    
-    logger.info("LSA after changing forwarding-address:\n%s" % output)
-    
-    # Verify the new forwarding address is present
-    assert "2001:db8:eeee::1" in output, \
-        "New forwarding address 2001:db8:eeee::1 should be present in LSA"
-    
-    # Verify the old forwarding address is gone
-    assert "2001:db8:ffff::1" not in output, \
-        "Old forwarding address 2001:db8:ffff::1 should not be present"
-    
-    logger.info("PASS: Forwarding address successfully changed to new value 2001:db8:eeee::1")
+    def check_forwarding_changed():
+        output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
+        return "2001:db8:eeee::1" in output and "2001:db8:ffff::1" not in output
+
+    _, result = topotest.run_and_expect(
+        check_forwarding_changed, True, count=30, wait=1
+    )
+    assert result, "Forwarding address did not converge to the new value"
+
+    logger.info(
+        "PASS: Forwarding address successfully changed to new value 2001:db8:eeee::1"
+    )
 
 
 def test_change_forwarding_to_unspecified():
@@ -375,7 +374,7 @@ def test_change_forwarding_to_unspecified():
                 break
 
     logger.info("Changing forwarding-address from 2001:db8:eeee::1 to ::")
-    
+
     # Change forwarding address to :: (unspecified)
     r1.vtysh_cmd(
         """
@@ -399,27 +398,25 @@ def test_change_forwarding_to_unspecified():
                         return current_seq > initial_seq
                     return False
         return False
-    
+
     test_func = check_lsa_updated
     _, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
     assert result, "LSA was not updated after route-map change"
 
-    # Check forwarding address on R2
-    output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
-    
-    logger.info("LSA after changing forwarding-address to :::\n%s" % output)
-    
-    # Verify the forwarding address was cleared
-    assert "2001:db8:eeee::1" not in output, \
-        "Forwarding address should be cleared when set to ::"
-    
-    assert "2001:db8:ffff::1" not in output, \
-        "Old forwarding address should not reappear"
-    
-    # Verify metric was updated to confirm LSA change
-    assert "Metric:   400" in output or "Metric: 400" in output, \
-        "Metric should be updated to 400"
-    
+    def check_forwarding_and_metric_updated():
+        output = r2.vtysh_cmd("show ipv6 ospf6 database as-external 0.0.0.1 10.0.0.1")
+        metric_ok = "Metric:   400" in output or "Metric: 400" in output
+        return (
+            "2001:db8:eeee::1" not in output
+            and "2001:db8:ffff::1" not in output
+            and metric_ok
+        )
+
+    _, result = topotest.run_and_expect(
+        check_forwarding_and_metric_updated, True, count=30, wait=1
+    )
+    assert result, "Forwarding address/metric did not converge to expected values"
+
     logger.info("PASS: Forwarding address correctly cleared when changed to ::")
 
 

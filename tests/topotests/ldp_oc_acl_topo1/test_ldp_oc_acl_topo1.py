@@ -49,7 +49,6 @@ import os
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -222,7 +221,6 @@ def test_ldp_bindings_all_routes():
     # remove ACL that blocks advertising everything but host routes */
     cmd = 'vtysh -c "configure terminal" -c "mpls ldp" -c "address-family ipv4" -c "no label local allocate host-routes"'
     tgen.net["r1"].cmd(cmd)
-    sleep(2)
 
     for rname in ["r1", "r2", "r3", "r4"]:
         router_compare_json_output(

@@ -124,16 +124,16 @@ def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, non_broadcast):
     topo_router = tgen.gears[router]
 
     step("Test running configuration for P2MP configuration")
-    rc = 0
     rc, _, _ = tgen.net[router].cmd_status(
-        "show running ospfd | grep 'ip ospf network point-to-multipoint'", warn=False
+        "vtysh -c 'show running ospfd' | grep -q 'ip ospf network point-to-multipoint'",
+        warn=False,
     )
     assertmsg = (
         "'ip ospf network point-to-multipoint' applied, but not present in "
         + router
-        + "configuration"
+        + " configuration"
     )
-    assert rc, assertmsg
+    assert rc == 0, assertmsg
 
     step("Test OSPF interface for P2MP settings")
     input_dict = {
@@ -235,9 +235,16 @@ def test_p2mp_non_broadcast_connectivity():
     verify_p2mp_interface(tgen, "r1", 3, 3, True)
 
     step("Verify router r1 interface r1-eth0 p2mp non-broadcast configuration")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf network point-to-multipoint non-broadcast'",
-        warn=False,
+
+    def check_p2mp_non_broadcast_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "vtysh -c 'show running ospfd' | grep -q 'ip ospf network point-to-multipoint non-broadcast'",
+            warn=False,
+        )
+        return rc == 0
+
+    _, rc = topotest.run_and_expect(
+        check_p2mp_non_broadcast_config, True, count=30, wait=1
     )
     assertmsg = "'ip ospf network point-to-multipoint non-broadcast' applied, but not present in R1 configuration"
     assert rc, assertmsg
@@ -260,12 +267,11 @@ def test_p2mp_non_broadcast_connectivity():
 
     step("Remove r1 interface r1-eth0 p2mp non-broadcast configuration")
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf network point-to-multipoint")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf network point-to-multipoint non-broadcast'",
-        warn=False,
+    matched, _ = topotest.run_and_expect(
+        check_p2mp_non_broadcast_config, False, count=30, wait=1
     )
     assertmsg = "'ip ospf network point-to-multipoint non-broadcast' not applied, but present in r1 configuration"
-    assert rc, assertmsg
+    assert matched, assertmsg
 
     step("Verify router r1 interface OSPF point-to-multipoint broadcast interface")
     verify_p2mp_interface(tgen, "r1", 3, 3, False)
@@ -274,9 +280,8 @@ def test_p2mp_non_broadcast_connectivity():
     r1.vtysh_cmd(
         "conf t\ninterface r1-eth0\nip ospf network point-to-multipoint non-broadcast"
     )
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep 'ip ospf network point-to-multipoint non-broadcast'",
-        warn=False,
+    _, rc = topotest.run_and_expect(
+        check_p2mp_non_broadcast_config, True, count=30, wait=1
     )
     assertmsg = "'ip ospf netrwork point-to-multipoint non-broadcast' applied, but not present in R1 configuration"
     assert rc, assertmsg

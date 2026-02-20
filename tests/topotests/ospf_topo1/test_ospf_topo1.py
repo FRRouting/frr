@@ -17,7 +17,6 @@ import os
 import re
 import sys
 from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -203,6 +202,16 @@ def compare_show_ipv6_ospf6(rname, expected):
         title1="Current output",
         title2="Expected output",
     )
+
+
+def compare_ipv4_kernel_routes(router, expected):
+    "Compare IPv4 kernel routes against expected routes."
+    return topotest.json_cmp(topotest.ip4_route(router), expected)
+
+
+def compare_ipv6_kernel_routes(router, expected):
+    "Compare IPv6 kernel routes against expected routes."
+    return topotest.json_cmp(topotest.ip6_route(router), expected)
 
 
 def test_ospf_convergence():
@@ -444,7 +453,6 @@ def test_ospf_link_down_kernel_route():
             'Checking OSPF IPv4 kernel routes in "%s" after link down', router.name
         )
 
-        routes = topotest.ip4_route(router)
         expected = {
             "10.0.1.0/24": {},
             "10.0.2.0/24": {},
@@ -478,18 +486,9 @@ def test_ospf_link_down_kernel_route():
         assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        count = 0
-        not_found = True
-        while not_found and count < 10:
-            not_found = topotest.json_cmp(routes, expected)
-            if not_found:
-                sleep(1)
-                routes = topotest.ip4_route(router)
-                count += 1
-            else:
-                not_found = False
-                break
-        assert not_found is False, assertmsg
+        test_func = partial(compare_ipv4_kernel_routes, router, expected)
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        assert result is None, assertmsg
 
 
 def test_ospf6_link_down():
@@ -527,7 +526,6 @@ def test_ospf6_link_down_kernel_route():
             'Checking OSPF IPv6 kernel routes in "%s" after link down', router.name
         )
 
-        routes = topotest.ip6_route(router)
         expected = {
             "2001:db8:1::/64": {},
             "2001:db8:2::/64": {},
@@ -561,19 +559,9 @@ def test_ospf6_link_down_kernel_route():
         assertmsg = 'OSPF IPv6 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        count = 0
-        not_found = True
-        while not_found and count < 10:
-            not_found = topotest.json_cmp(routes, expected)
-            if not_found:
-                sleep(1)
-                routes = topotest.ip6_route(router)
-                count += 1
-            else:
-                not_found = False
-                break
-
-        assert not_found is False, assertmsg
+        test_func = partial(compare_ipv6_kernel_routes, router, expected)
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        assert result is None, assertmsg
 
 
 def test_memory_leak():

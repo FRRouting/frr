@@ -52,7 +52,6 @@ import os
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -246,23 +245,18 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
 
 
 def ensure_gr_is_in_zebra(rname):
-    retry = True
-    retry_times = 10
     tgen = get_topogen()
 
-    while retry and retry_times > 0:
+    def check_gr_capability():
         out = tgen.net[rname].cmd(
             'vtysh -c "show zebra client" | grep "Client: ospf6$" -A 40 | grep "Capabilities "'
         )
+        return "Graceful Restart" in out
 
-        if "Graceful Restart" not in out:
-            sleep(2)
-            retry_times -= 1
-        else:
-            retry = False
+    _, result = topotest.run_and_expect(check_gr_capability, True, count=10, wait=2)
 
     assertmsg = "%s does not appear to have Graceful Restart setup" % rname
-    assert not retry and retry_times > 0, assertmsg
+    assert result is True, assertmsg
 
 
 #

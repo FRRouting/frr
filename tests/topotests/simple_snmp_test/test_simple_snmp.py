@@ -22,9 +22,9 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
-from time import sleep
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
@@ -70,23 +70,22 @@ def setup_module(mod):
                 (TopoRouter.RD_OSPF6, "-M snmp"),
             ],
         )
-        router.load_config(TopoRouter.RD_SNMP,
-                           os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-                           "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap")
-
+        router.load_config(
+            TopoRouter.RD_SNMP,
+            os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
+        )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
-    # Why this sleep?  If you are using zebra w/ snmp we have a chicken
-    # and egg problem with the snmpd.  snmpd is being started up with
-    # ip addresses, and as such snmpd may not be ready to listen yet
-    # (see startup stuff in topotest.py ) with the 2 second delay
-    # on starting snmpd after zebra.  As such if we want to test
-    # anything in zebra we need to sleep a bit to allow the connection
-    # to happen.  I have no good way to test to see if zebra is up
-    # and running with snmp at this point in time.  So this will have
-    # to do.
-    sleep(17)
+
+    # Wait until SNMP is answering before tests start.
+    def _snmp_ready():
+        r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
+        return r1_snmp.test_oid("bgpVersion", "10")
+
+    _, ready = topotest.run_and_expect(_snmp_ready, True, count=40, wait=1)
+    assert ready is True, "SNMP daemon did not become ready in time"
 
 
 def teardown_module():

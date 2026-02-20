@@ -20,7 +20,6 @@ import re
 import sys
 import pytest
 import json
-from time import sleep
 
 from lib.common_config import (
     kill_router_daemons,
@@ -103,7 +102,6 @@ def teardown_module(_mod):
 
 
 def test_bgp_route_install_r1():
-    failures = 0
     tgen = get_topogen()
     net = tgen.net
     expected_route_count = 2000
@@ -130,17 +128,7 @@ def test_bgp_route_install_r1():
     ipv4_cmd = f"vtysh -c 'sharp install routes 39.99.0.0 nexthop {ipv4_nexthop} {expected_route_count}'"
     net["r1"].cmd(ipv4_cmd)
 
-    # Initialize actual counts
-    ipv4_actual_count = 0
-    max_attempts = 12  # 60 seconds max (12 * 5)
-    attempt = 0
-
-    # Wait until IPv4 routes are installed
-    while (ipv4_actual_count != expected_route_count) and attempt < max_attempts:
-        sleep(5)
-        attempt += 1
-
-        # Get current IPv4 route count
+    def check_ipv4_route_count():
         ipv4_count_str = (
             net["r2"]
             .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
@@ -150,19 +138,15 @@ def test_bgp_route_install_r1():
         try:
             ipv4_actual_count = int(ipv4_count_str)
         except ValueError:
-            ipv4_actual_count = 0
+            return 0
+        return ipv4_actual_count
 
-        print(f"Attempt {attempt}")
-        print(f"IPv4 Routes found: {ipv4_actual_count} / {expected_route_count}")
-
-    # Verify we have the expected number of routes
-    if ipv4_actual_count != expected_route_count:
-        sys.stderr.write(
-            f"Failed to install expected IPv4 routes: got {ipv4_actual_count}, expected {expected_route_count}\n"
-        )
-        failures += 1
-    else:
-        print("IPv4 routes successfully installed")
+    success, result = topotest.run_and_expect(
+        check_ipv4_route_count, expected_route_count, count=60, wait=1
+    )
+    assert (
+        success
+    ), f"Failed to install expected IPv4 routes: got {result}, expected {expected_route_count}"
 
 
 def test_bgp_established():
@@ -175,6 +159,7 @@ def test_bgp_established():
         pytest.skip(tgen.errors)
 
     step("Test that BGP session between r1 and r2 is established")
+
     # Create a function to check BGP peer status on r1
     def check_bgp_peer():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -222,6 +207,7 @@ def test_bgp_routes_on_r2():
         pytest.skip(tgen.errors)
 
     step("Test that routes installed on r1 are properly received by r2")
+
     # Create a function to check the route count on r2
     def check_r2_routes():
         route_count = (
@@ -245,6 +231,7 @@ def test_bgp_routes_on_r2():
     assert success, f"Expected {expected_route_count} routes on r2 but found {result}"
 
     step("Test that all routes are installed in the FIB")
+
     # Create a function to check the FIB route count
     def check_fib_routes():
         output = net["r2"].cmd('vtysh -c "show ip route summary"')
@@ -272,6 +259,7 @@ def test_bgp_routes_on_r2():
     assert success, f"Expected {expected_route_count} routes in FIB but found {result}"
 
     step("Verify that the nexthop group for 39.99.0.0 routes has 128 members")
+
     # Create a function to check the nexthop group member count
     def check_nhg_members():
         output = net["r2"].cmd('vtysh -c "show ip route 39.99.0.0 json"')
@@ -405,6 +393,7 @@ def test_bgp_shutdown_some_links():
         net["r2"].cmd(f"ip link set r2-eth{i} down")
 
     step("Test that 20 BGP peers are failed")
+
     # Create a function to check BGP peer status on r2
     def check_failed_peers():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -444,6 +433,7 @@ def test_bgp_shutdown_some_links():
     assert success, f"Expected 20 failed BGP peers but found {result}"
 
     step("Verify that the nexthop group ID hasn't changed")
+
     # Verify that the nexthop group ID hasn't changed
     def verify_nhg_unchanged():
         output = net["r2"].cmd('vtysh -c "show ip route bgp json"')
@@ -501,6 +491,7 @@ def test_bgp_shutdown_some_links():
         net["r2"].cmd(f"ip link set r2-eth{i} up")
 
     step("Test that all BGP peers are established")
+
     # Create a function to check that all BGP peers are established
     def check_all_peers_established():
         output = net["r2"].cmd('vtysh -c "show bgp ipv4 uni summary json"')
@@ -533,6 +524,7 @@ def test_bgp_shutdown_some_links():
     assert success, f"Expected 0 failed BGP peers but found {result}"
 
     step("Verify that the original nexthop group is still being used")
+
     # Final verification that the original nexthop group is still being used
     def verify_final_nhg():
         output = net["r2"].cmd('vtysh -c "show ip route bgp json"')

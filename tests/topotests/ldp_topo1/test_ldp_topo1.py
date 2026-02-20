@@ -163,11 +163,16 @@ def test_router_running():
 
     print("\n\n** Check if FRR is running on each Router node")
     print("******************************************\n")
-    sleep(5)
 
     # Starting Routers
     for i in range(1, 5):
-        fatal_error = net["r%s" % i].checkRouterRunning()
+
+        def _router_is_running(router_idx):
+            return net["r%s" % router_idx].checkRouterRunning()
+
+        test_func = partial(_router_is_running, i)
+        _, result = topotest.run_and_expect(test_func, "", count=20, wait=1)
+        fatal_error = result
         assert fatal_error == "", fatal_error
 
 
@@ -265,61 +270,45 @@ def test_mpls_ldp_neighbor_establish():
     # Wait for MPLS LDP neighbors to establish.
     print("\n\n** Verify MPLS LDP neighbors to establish")
     print("******************************************\n")
-    timeout = 90
-    while timeout > 0:
-        print("Timeout in %s: " % timeout),
-        sys.stdout.flush()
-        # Look for any node not yet converged
+
+    def _all_ldp_neighbors_operational():
         for i in range(1, 5):
-            established = (
+            output = (
                 net["r%s" % i]
                 .cmd('vtysh -c "show mpls ldp neighbor" 2> /dev/null')
                 .rstrip()
             )
 
-            # On current version, we need to make sure they all turn to OPERATIONAL on all lines
-            #
-            lines = ("\n".join(established.splitlines()) + "\n").splitlines(1)
-            # Check all lines to be either table header (starting with ^AF or show OPERATIONAL)
+            lines = ("\n".join(output.splitlines()) + "\n").splitlines(1)
             header = r"^AF.*"
             operational = r"^ip.*OPERATIONAL.*"
             found_operational = 0
-            for j in range(1, len(lines)):
-                if (not re.search(header, lines[j])) and (
-                    not re.search(operational, lines[j])
-                ):
-                    established = ""  # Empty string shows NOT established
-                if re.search(operational, lines[j]):
+
+            for line in lines[1:]:
+                if (not re.search(header, line)) and (not re.search(operational, line)):
+                    logger.info(
+                        "r%s has non-operational LDP neighbor line: %s", i, line
+                    )
+                    return False
+                if re.search(operational, line):
                     found_operational += 1
 
-            logger.info("Found operational %d" % found_operational)
+            logger.info("r%s operational neighbors: %d", i, found_operational)
             if found_operational < 1:
-                # Need at least one operational neighbor
-                established = ""  # Empty string shows NOT established
-            else:
-                if found_operational != neighbors_operational[i]:
-                    established = ""
-            if not established:
-                print("Waiting for r%s" % i)
-                sys.stdout.flush()
-                break
-        if not established:
-            sleep(5)
-            timeout -= 5
-        else:
-            print("Done")
-            break
-    else:
-        # Bail out with error if a router fails to converge
+                return False
+            if found_operational != neighbors_operational[i]:
+                return False
+
+        return True
+
+    _, established = topotest.run_and_expect(
+        _all_ldp_neighbors_operational, True, count=18, wait=5
+    )
+    if not established:
         fatal_error = "MPLS LDP neighbors did not establish"
-        assert False, "MPLS LDP neighbors did not establish"
+    assert established, "MPLS LDP neighbors did not establish"
 
     print("MPLS LDP neighbors established.")
-
-    if timeout < 60:
-        # Only wait if we actually went through a convergence
-        print("\nwaiting 15s for LDP sessions to establish")
-        sleep(15)
 
     # Make sure that all daemons are running
     for i in range(1, 5):
@@ -671,8 +660,6 @@ def test_zebra_ipv4_routingtable_with_ldp():
     router["r1"].vtysh_cmd(
         "config \n mpls ldp \n addr ipv4 \n no neighbor 2.2.2.2 targeted \n end"
     )
-
-    sleep(5)
 
     # Make sure with label in route with their original state
     test_func = partial(show_route_with_label)

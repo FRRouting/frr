@@ -18,7 +18,6 @@ import os
 import re
 import sys
 import pytest
-from time import sleep
 import functools
 
 
@@ -136,8 +135,27 @@ def test_converge_protocols():
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
 
-    # Not really implemented yet - just sleep 11 secs for now
-    sleep(21)
+    reffile = "%s/r1/rip_status.ref" % thisDir
+    if os.path.isfile(reffile):
+        expected = open(reffile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        def _verify_r1_rip_status():
+            actual = get_topogen().gears["r1"].vtysh_cmd("show ip rip status").rstrip()
+            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            return topotest.get_textdiff(
+                actual,
+                expected,
+                title1="actual IP RIP status",
+                title2="expected IP RIP status",
+            )
+
+        success, diff = topotest.run_and_expect(
+            _verify_r1_rip_status, "", count=30, wait=1
+        )
+        assert success, "RIP did not converge in time:\n{}".format(diff)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
@@ -158,7 +176,6 @@ def test_rip_status():
     # Verify RIP Status
     print("\n\n** Verifing RIP status")
     print("******************************************\n")
-    failures = 0
     for i in range(1, 4):
         refTableFile = "%s/r%s/rip_status.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
@@ -167,35 +184,33 @@ def test_rip_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                get_topogen().gears["r%s" % i]
-                .vtysh_cmd("show ip rip status")
-                .rstrip()
-            )
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _verify_rip_status(router_idx, expected_data):
+                actual = (
+                    get_topogen()
+                    .gears["r%s" % router_idx]
+                    .vtysh_cmd("show ip rip status")
+                    .rstrip()
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IP RIP status",
-                title2="expected IP RIP status",
-            )
+                return topotest.get_textdiff(
+                    actual,
+                    expected_data,
+                    title1="actual IP RIP status",
+                    title2="expected IP RIP status",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write("r%s failed IP RIP status check:\n%s\n" % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "IP RIP status failed for router r%s:\n%s" % (i, diff)
+            test_func = functools.partial(_verify_rip_status, i, expected)
+            success, diff = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "IP RIP status failed for router r{}:\n{}".format(i, diff)
+            print("r%s ok" % i)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
@@ -216,7 +231,6 @@ def test_rip_routes():
     # Verify RIP Status
     print("\n\n** Verifing RIP routes")
     print("******************************************\n")
-    failures = 0
     for i in range(1, 4):
         refTableFile = "%s/r%s/show_ip_rip.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
@@ -225,29 +239,29 @@ def test_rip_routes():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = get_topogen().gears["r%s" % i].vtysh_cmd("show ip rip").rstrip()
-            # Drop Time
-            actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _verify_show_ip_rip(router_idx, expected_data):
+                actual = (
+                    get_topogen()
+                    .gears["r%s" % router_idx]
+                    .vtysh_cmd("show ip rip")
+                    .rstrip()
+                )
+                # Drop Time
+                actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW IP RIP",
-                title2="expected SHOW IP RIP",
-            )
+                return topotest.get_textdiff(
+                    actual,
+                    expected_data,
+                    title1="actual SHOW IP RIP",
+                    title2="expected SHOW IP RIP",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write("r%s failed SHOW IP RIP check:\n%s\n" % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "SHOW IP RIP failed for router r%s:\n%s" % (i, diff)
+            test_func = functools.partial(_verify_show_ip_rip, i, expected)
+            success, diff = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "SHOW IP RIP failed for router r{}:\n{}".format(i, diff)
+            print("r%s ok" % i)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
@@ -263,7 +277,9 @@ def test_zebra_ipv4_routingTable():
         # Actual output from router
         output = get_topogen().gears["r%s" % i].vtysh_cmd("show ip route")
         # Filter only RIP routes (lines starting with R)
-        actual = "\n".join(line for line in output.splitlines() if line.startswith("R")).rstrip()
+        actual = "\n".join(
+            line for line in output.splitlines() if line.startswith("R")
+        ).rstrip()
         # Drop timers on end of line
         actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
         # Fix newlines (make them all the same)
