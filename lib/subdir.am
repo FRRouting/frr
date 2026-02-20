@@ -426,6 +426,10 @@ if GRPC
 module_LTLIBRARIES += lib/grpc.la
 endif
 
+# Include top_srcdir so grpc can #include "mgmtd/mgmt_grpc_internal.h".
+# grpc.so has undefined refs to mgmt_grpc_get_tree_internal and mm; only mgmtd
+# provides them at load time (module loads only in mgmtd).
+lib_grpc_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)
 lib_grpc_la_CXXFLAGS = $(WERROR) $(GRPC_CFLAGS)
 lib_grpc_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
