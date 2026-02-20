@@ -15,6 +15,7 @@ test_bgp_snmp_mplsl3vpn.py: Test mplsL3Vpn MIB [RFC4382].
 import os
 import sys
 from time import sleep
+from functools import partial
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -239,17 +240,13 @@ def test_pe1_converge_evpn():
     assert result, assertmsg
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
-    count = 0
-    passed = False
-    while count < 125:
-        if r1_snmp.test_oid_walk("bgpPeerLocalAddr.10.4.4.4", ["10.1.1.1"]):
-            passed = True
-            break
-        count += 1
-        sleep(1)
-    # tgen.mininet_cli()
+
+    def _peer_local_addr_ready():
+        return r1_snmp.test_oid_walk("bgpPeerLocalAddr.10.4.4.4", ["10.1.1.1"])
+
+    _, result = topotest.run_and_expect(_peer_local_addr_ready, True, count=125, wait=1)
     assertmsg = "BGP Peer 10.4.4.4 did not connect"
-    assert passed, assertmsg
+    assert result is True, assertmsg
 
 
 interfaces_up_test = {
@@ -295,20 +292,24 @@ def test_r1_mplsvpn_scalars_interface():
     r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
     r1.vtysh_cmd("conf t\ninterface r1-eth4\nshutdown")
 
-    for item in interfaces_up_test.keys():
-        assertmsg = "{} should be {}: value {}".format(
-            item, interfaces_down_test[item], r1_snmp.get_next(item)
-        )
-        assert r1_snmp.test_oid(item, interfaces_down_test[item]), assertmsg
+    def _check_scalars(expected):
+        for item in interfaces_up_test.keys():
+            if not r1_snmp.test_oid(item, expected[item]):
+                return False
+        return True
+
+    _, result = topotest.run_and_expect(
+        partial(_check_scalars, interfaces_down_test), True, count=30, wait=1
+    )
+    assert result is True, "MPLS L3VPN scalar values did not converge after shutdown"
 
     r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
     r1.vtysh_cmd("conf t\ninterface r1-eth4\nno shutdown")
 
-    for item in interfaces_up_test.keys():
-        assertmsg = "{} should be {}: value {}".format(
-            item, interfaces_up_test[item], r1_snmp.get_next(item)
-        )
-        assert r1_snmp.test_oid(item, interfaces_up_test[item]), assertmsg
+    _, result = topotest.run_and_expect(
+        partial(_check_scalars, interfaces_up_test), True, count=30, wait=1
+    )
+    assert result is True, "MPLS L3VPN scalar values did not converge after no shutdown"
 
 
 def router_interface_get_ifindex(router, interface):
@@ -381,11 +382,16 @@ def test_r1_mplsvpn_IfTable():
     # an inactive vrf should not affect these values
     r1.cmd("ip link set r1-eth5 down")
 
-    for item in iftable_up_test.keys():
-        assertmsg = "{} should be {} oids {} full dict {}:".format(
-            item, iftable_up_test[item], oids, r1_snmp.walk(item)
-        )
-        assert r1_snmp.test_oid_walk(item, iftable_up_test[item], oids), assertmsg
+    def _check_iftable(expected):
+        for item in expected.keys():
+            if not r1_snmp.test_oid_walk(item, expected[item], oids):
+                return False
+        return True
+
+    _, result = topotest.run_and_expect(
+        partial(_check_iftable, iftable_up_test), True, count=30, wait=1
+    )
+    assert result is True, "mplsL3VpnIf table did not converge after link down"
 
     r1.cmd("ip link set r1-eth5 up")
 
@@ -452,20 +458,26 @@ def test_r1_mplsvpn_VrfTable():
     )
     ts_val_last_1 = get_timetick_val(ts_last)
     r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
-    active_int = r1_snmp.get(
-        "mplsL3VpnVrfActiveInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
-    )
-    assertmsg = "mplsL3VpnVrfActiveInterfaces incorrect should be 1 value {}".format(
-        active_int
-    )
-    assert active_int == "1", assertmsg
 
-    ts_last = r1_snmp.get(
-        "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
+    def _check_vrf_active_and_last_changed(last_changed_before):
+        active_int = r1_snmp.get(
+            "mplsL3VpnVrfActiveInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
+        )
+        ts_last = r1_snmp.get(
+            "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
+        )
+        ts_val_last = get_timetick_val(ts_last)
+        return active_int == "1" and ts_val_last > last_changed_before
+
+    _, result = topotest.run_and_expect(
+        partial(_check_vrf_active_and_last_changed, ts_val_last_1),
+        True,
+        count=30,
+        wait=1,
     )
-    ts_val_last_2 = get_timetick_val(ts_last)
-    assertmsg = "mplsL3VpnVrfConfLastChanged does not update on interface change"
-    assert ts_val_last_2 > ts_val_last_1, assertmsg
+    assert (
+        result is True
+    ), "VRF active interface/timestamp did not converge after shutdown"
     r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
 
     # take Last changed time, fiddle with associated interfaces, ensure
@@ -477,22 +489,25 @@ def test_r1_mplsvpn_VrfTable():
     r1.cmd("ip link set r1-eth6 master VRF-a")
     r1.cmd("ip link set r1-eth6 up")
 
-    associated_int = r1_snmp.get(
-        "mplsL3VpnVrfAssociatedInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
-    )
-    assertmsg = (
-        "mplsL3VpnVrfAssociatedInterfaces incorrect should be 3 value {}".format(
-            associated_int
+    def _check_vrf_associated_and_last_changed(last_changed_before):
+        associated_int = r1_snmp.get(
+            "mplsL3VpnVrfAssociatedInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
         )
-    )
+        ts_last = r1_snmp.get(
+            "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
+        )
+        ts_val_last = get_timetick_val(ts_last)
+        return associated_int == "3" and ts_val_last > last_changed_before
 
-    assert associated_int == "3", assertmsg
-    ts_last = r1_snmp.get(
-        "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
+    _, result = topotest.run_and_expect(
+        partial(_check_vrf_associated_and_last_changed, ts_val_last_1),
+        True,
+        count=30,
+        wait=1,
     )
-    ts_val_last_2 = get_timetick_val(ts_last)
-    assertmsg = "mplsL3VpnVrfConfLastChanged does not update on interface change"
-    assert ts_val_last_2 > ts_val_last_1, assertmsg
+    assert (
+        result is True
+    ), "VRF associated interface/timestamp did not converge after interface move"
     r1.cmd("ip link del r1-eth6 master VRF-a")
     r1.cmd("ip link set r1-eth6 down")
 
@@ -536,18 +551,12 @@ def test_r1_mplsvpn_perf_table():
     oid_a = snmp_str_to_oid("VRF-a")
     oid_b = snmp_str_to_oid("VRF-b")
 
-    # poll for 10 seconds for routes to appear
-    count = 0
-    passed = False
-    while count < 60:
-        if r1_snmp.test_oid_walk(
+    def _perf_routes_ready():
+        return r1_snmp.test_oid_walk(
             "mplsL3VpnVrfPerfCurrNumRoutes.{}".format(oid_a), ["7"]
-        ):
-            passed = True
-            break
-        count += 1
-        sleep(1)
-    # tgen.mininet_cli()
+        )
+
+    _, passed = topotest.run_and_expect(_perf_routes_ready, True, count=60, wait=1)
     assertmsg = "mplsL3VpnVrfPerfCurrNumRoutes shouold be 7 got {}".format(
         r1_snmp.get("mplsL3VpnVrfPerfCurrNumRoutes.{}".format(oid_a))
     )

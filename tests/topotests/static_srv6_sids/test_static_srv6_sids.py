@@ -203,11 +203,14 @@ def test_srv6_static_sids_wrong_sid_block():
         """
     )
 
-    output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
-    if "fcbb:bbbb:1:fe50::/64" in output:
-        assert (
-            False
-        ), "Failed. Expected no entry for fcbb:bbbb:1:fe50::/64 since loc and node block dont match"
+    def wrong_sid_not_installed():
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        return "fcbb:bbbb:1:fe50::/64" not in output
+
+    _, result = topotest.run_and_expect(wrong_sid_not_installed, True, count=30, wait=1)
+    assert (
+        result is True
+    ), "Failed. Expected no entry for fcbb:bbbb:1:fe50::/64 since loc and node block dont match"
 
 
 def test_srv6_static_sids_sid_delete_all():

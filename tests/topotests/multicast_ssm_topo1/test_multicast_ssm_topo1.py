@@ -58,11 +58,11 @@ def test_multicast_ssm():
     "Test SSM group"
     pim_test = [
         {"address": "229.0.0.100", "type": "ASM"},
-        {"address": "230.0.0.100", "type": "SSM"}
+        {"address": "230.0.0.100", "type": "SSM"},
     ]
     pim6_test = [
         {"address": "FF32::100", "type": "ASM"},
-        {"address": "FF35::100", "type": "SSM"}
+        {"address": "FF35::100", "type": "SSM"},
     ]
 
     tgen = get_topogen()
@@ -72,12 +72,30 @@ def test_multicast_ssm():
     router = tgen.gears["r1"]
 
     for test in pim_test:
-        output = router.vtysh_cmd(f"show ip pim group-type {test['address']} json", isjson=True)
-        assert test["type"] == output["groupType"], "Wrong group type"
+
+        def check_group_type_v4():
+            output = router.vtysh_cmd(
+                f"show ip pim group-type {test['address']} json", isjson=True
+            )
+            return output.get("groupType")
+
+        _, result = topotest.run_and_expect(
+            check_group_type_v4, test["type"], count=20, wait=1
+        )
+        assert result == test["type"], "Wrong group type"
 
     for test in pim6_test:
-        output = router.vtysh_cmd(f"show ipv6 pim group-type {test['address']} json", isjson=True)
-        assert test["type"] == output["groupType"], "Wrong group type"
+
+        def check_group_type_v6():
+            output = router.vtysh_cmd(
+                f"show ipv6 pim group-type {test['address']} json", isjson=True
+            )
+            return output.get("groupType")
+
+        _, result = topotest.run_and_expect(
+            check_group_type_v6, test["type"], count=20, wait=1
+        )
+        assert result == test["type"], "Wrong group type"
 
 
 def test_memory_leak():

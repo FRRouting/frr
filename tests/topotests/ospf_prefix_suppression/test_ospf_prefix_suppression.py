@@ -286,10 +286,19 @@ def test_broadcast_stub_suppression():
     r1.vtysh_cmd("conf t\ninterface r1-eth4\nip ospf prefix-suppression")
 
     step("Verify the R1 configuration of 'ip ospf prefix-suppression'")
-    prefix_suppression_cfg = (
-        tgen.net["r1"]
-        .cmd('vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression"')
-        .rstrip()
+
+    def check_prefix_suppression_config():
+        return (
+            tgen.net["r1"]
+            .cmd('vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression"')
+            .rstrip()
+        )
+
+    _, prefix_suppression_cfg = topotest.run_and_expect(
+        check_prefix_suppression_config,
+        " ip ospf prefix-suppression",
+        count=30,
+        wait=1,
     )
     assertmsg = "'ip ospf prefix-suppression' applied, but not present in configuration"
     assert prefix_suppression_cfg == " ip ospf prefix-suppression", assertmsg
@@ -348,8 +357,15 @@ def test_broadcast_stub_suppression():
     r1.vtysh_cmd("conf t\ninterface r1-eth4\nno ip ospf prefix-suppression")
 
     step("Verify no R1 configuration of 'ip ospf prefix-suppression")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+
+    def check_no_prefix_suppression_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(
+        check_no_prefix_suppression_config, 1, count=30, wait=1
     )
     assertmsg = (
         "'ip ospf prefix-suppression' not applied, but present in R1 configuration"
@@ -412,12 +428,21 @@ def test_broadcast_transit_suppression():
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip ospf prefix-suppression 10.1.1.1")
 
     step("Verify the R1 configuration of 'ip ospf prefix-suppression 10.1.1.1'")
-    prefix_suppression_cfg = (
-        tgen.net["r1"]
-        .cmd(
-            'vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression 10.1.1.1"'
+
+    def check_prefix_suppression_addr_config():
+        return (
+            tgen.net["r1"]
+            .cmd(
+                'vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression 10.1.1.1"'
+            )
+            .rstrip()
         )
-        .rstrip()
+
+    _, prefix_suppression_cfg = topotest.run_and_expect(
+        check_prefix_suppression_addr_config,
+        " ip ospf prefix-suppression 10.1.1.1",
+        count=30,
+        wait=1,
     )
     assertmsg = "'ip ospf prefix-suppression 10.1.1.1' applied, but not present in configuration"
     assert prefix_suppression_cfg == " ip ospf prefix-suppression 10.1.1.1", assertmsg
@@ -488,8 +513,16 @@ def test_broadcast_transit_suppression():
     r2.vtysh_cmd("conf t\ninterface r2-eth0\nno ip ospf prefix-suppression 10.1.1.2")
 
     step("Verify no R1 configuration of 'ip ospf prefix-suppression")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf prefix-suppression 10.1.1.1'", warn=False
+
+    def check_no_prefix_suppression_addr_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf prefix-suppression 10.1.1.1'",
+            warn=False,
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(
+        check_no_prefix_suppression_addr_config, 1, count=30, wait=1
     )
     assertmsg = "'ip ospf prefix-suppression 10.1.1.1' not applied, but present in R1 configuration"
     assert rc, assertmsg
@@ -608,8 +641,15 @@ def test_nbma_transit_suppression():
     r2.vtysh_cmd("conf t\ninterface r2-eth1\nno ip ospf prefix-suppression")
 
     step("Verify no R1 configuration of 'ip ospf prefix-suppression")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+
+    def check_no_nbma_prefix_suppression_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(
+        check_no_nbma_prefix_suppression_config, 1, count=30, wait=1
     )
     assertmsg = (
         "'ip ospf prefix-suppression' not applied, but present in R1 configuration"
@@ -682,12 +722,21 @@ def test_p2p_suppression():
     r2.vtysh_cmd("conf t\ninterface r2-eth2\nip ospf prefix-suppression 10.1.3.2")
 
     step("Verify the R1 configuration of 'ip ospf prefix-suppression 10.1.3.1'")
-    prefix_suppression_cfg = (
-        tgen.net["r1"]
-        .cmd(
-            'vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression 10.1.3.1"'
+
+    def check_prefix_suppression_p2p_config():
+        return (
+            tgen.net["r1"]
+            .cmd(
+                'vtysh -c "show running ospfd" | grep "^ ip ospf prefix-suppression 10.1.3.1"'
+            )
+            .rstrip()
         )
-        .rstrip()
+
+    _, prefix_suppression_cfg = topotest.run_and_expect(
+        check_prefix_suppression_p2p_config,
+        " ip ospf prefix-suppression 10.1.3.1",
+        count=30,
+        wait=1,
     )
     assertmsg = "'ip ospf prefix-suppression 10.1.3.1' applied, but not present in configuration"
     assert prefix_suppression_cfg == " ip ospf prefix-suppression 10.1.3.1", assertmsg
@@ -738,8 +787,16 @@ def test_p2p_suppression():
     r2.vtysh_cmd("conf t\ninterface r2-eth2\nno ip ospf prefix-suppression 10.1.3.2")
 
     step("Verify no R1 configuration of 'ip ospf prefix-suppression")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf prefix-suppression 10.1.3.1'", warn=False
+
+    def check_no_prefix_suppression_p2p_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf prefix-suppression 10.1.3.1'",
+            warn=False,
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(
+        check_no_prefix_suppression_p2p_config, 1, count=30, wait=1
     )
     assertmsg = "'ip ospf prefix-suppressio 10.1.3.1' not applied, but present in R1 configuration"
     assert rc, assertmsg
@@ -854,8 +911,15 @@ def test_p2mp_suppression():
     r2.vtysh_cmd("conf t\ninterface r2-eth3\nno ip ospf prefix-suppression")
 
     step("Verify no R1 configuration of 'ip ospf prefix-suppression")
-    rc, _, _ = tgen.net["r1"].cmd_status(
-        "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+
+    def check_no_bcast_prefix_suppression_config():
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf prefix-suppression'", warn=False
+        )
+        return rc
+
+    _, rc = topotest.run_and_expect(
+        check_no_bcast_prefix_suppression_config, 1, count=30, wait=1
     )
     assertmsg = (
         "'ip ospf prefix-suppression' not applied, but present in R1 configuration"

@@ -73,10 +73,14 @@ def test_rip_del_instance(tgen):
 
     router = tgen.gears["r1"]
 
-    output = router.vtysh_cmd("show running-config")
-
     step("Checking if RIP is configured")
-    assert "router rip" in output, "RIP was not configured on r1"
+
+    def check_rip_configured():
+        output = router.vtysh_cmd("show running-config")
+        return "router rip" in output
+
+    _, result = topotest.run_and_expect(check_rip_configured, True, count=20, wait=1)
+    assert result, "RIP was not configured on r1"
 
     step("Deleting RIP instance via CLI")
     router.vtysh_cmd(

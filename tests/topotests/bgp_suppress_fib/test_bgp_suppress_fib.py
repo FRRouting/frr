@@ -225,11 +225,13 @@ def test_local_vs_non_local():
 
     r2 = tgen.gears["r2"]
 
-    output = json.loads(r2.vtysh_cmd("show bgp ipv4 uni 60.0.0.0/24 json"))
-    paths = output["paths"]
-    for i in range(len(paths)):
-        if "fibPending" in paths[i]:
-            assert False, "Route 60.0.0.0/24 should not have fibPending"
+    def check_no_fib_pending():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 uni 60.0.0.0/24 json"))
+        paths = output.get("paths", [])
+        return all("fibPending" not in path for path in paths)
+
+    _, result = topotest.run_and_expect(check_no_fib_pending, True, count=20, wait=1)
+    assert result is True, "Route 60.0.0.0/24 should not have fibPending"
 
 
 def test_ip_protocol_any_fib_filter():

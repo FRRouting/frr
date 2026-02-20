@@ -152,10 +152,15 @@ def test_zebra_received_nhe_kept_remove_routes():
             break
 
     step("Verify NHG {} has refcount of 2".format(nhg_id))
+
     # Get the NHG information
-    nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
-    nhg_json = json.loads(nhg_info)
-    assert nhg_json[str(nhg_id)]["refCount"] == 4, "NHG refcount is not 4"
+    def check_nhg_refcount_4():
+        nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
+        nhg_json = json.loads(nhg_info)
+        return nhg_json.get(str(nhg_id), {}).get("refCount")
+
+    _, result = topotest.run_and_expect(check_nhg_refcount_4, 4, count=30, wait=1)
+    assert result == 4, "NHG refcount is not 4"
 
 
 def test_zebra_received_nhe_kept_add_routes():
@@ -219,10 +224,15 @@ def test_zebra_received_nhe_kept_add_routes():
         ), f"Route {prefix} has different NHG ID"
 
     step("Verify NHG {} has refcount of 10".format(nhg_id))
+
     # Get the NHG information
-    nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
-    nhg_json = json.loads(nhg_info)
-    assert nhg_json[str(nhg_id)]["refCount"] == 20, "NHG refcount is not 20"
+    def check_nhg_refcount_20():
+        nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
+        nhg_json = json.loads(nhg_info)
+        return nhg_json.get(str(nhg_id), {}).get("refCount")
+
+    _, result = topotest.run_and_expect(check_nhg_refcount_20, 20, count=30, wait=1)
+    assert result == 20, "NHG refcount is not 20"
 
 
 def test_zebra_received_nhe_kept_remove_all_routes():
@@ -272,14 +282,17 @@ def test_zebra_received_nhe_kept_remove_all_routes():
     assert result, "Routes were not properly removed"
 
     step("Get NHG information")
+
     # Get all NHG information
-    nhg_info = r1.vtysh_cmd("show nexthop-group rib json")
-    nhg_json = json.loads(nhg_info)
+    def check_nhg_removed():
+        nhg_info = r1.vtysh_cmd("show nexthop-group rib json")
+        nhg_json = json.loads(nhg_info)
+        return str(nhg_id) not in nhg_json
+
+    _, result = topotest.run_and_expect(check_nhg_removed, True, count=30, wait=1)
 
     # Verify the specific NHG we looked up is no longer present
-    assert (
-        str(nhg_id) not in nhg_json
-    ), f"NHG {nhg_id} still exists after removing all routes"
+    assert result, f"NHG {nhg_id} still exists after removing all routes"
 
 
 if __name__ == "__main__":

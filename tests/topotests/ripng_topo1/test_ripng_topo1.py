@@ -18,7 +18,6 @@ import os
 import re
 import sys
 import pytest
-from time import sleep
 import functools
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -126,13 +125,35 @@ def test_converge_protocols():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
 
-    # Not really implemented yet - just sleep 11 secs for now
-    sleep(11)
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+    reffile = "%s/r1/ripng_status.ref" % thisDir
+
+    if os.path.isfile(reffile):
+        expected = open(reffile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        def _verify_r1_ripng_status():
+            actual = (
+                get_topogen().gears["r1"].vtysh_cmd("show ipv6 ripng status").rstrip()
+            )
+            actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
+            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            return topotest.get_textdiff(
+                actual,
+                expected,
+                title1="actual IPv6 RIPng status",
+                title2="expected IPv6 RIPng status",
+            )
+
+        success, diff = topotest.run_and_expect(
+            _verify_r1_ripng_status, "", count=30, wait=1
+        )
+        assert success, "RIPng did not converge in time:\n{}".format(diff)
 
     # Make sure that all daemons are running
     for i in range(1, 4):
@@ -153,7 +174,6 @@ def test_ripng_status():
     # Verify RIP Status
     print("\n\n** Verifying RIPng status")
     print("******************************************\n")
-    failures = 0
     for i in range(1, 4):
         refTableFile = "%s/r%s/ripng_status.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
@@ -162,42 +182,39 @@ def test_ripng_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                get_topogen().gears["r%s" % i]
-                .vtysh_cmd("show ipv6 ripng status")
-                .rstrip()
-            )
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IPv6 RIPng status",
-                title2="expected IPv6 RIPng status",
-            )
-
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write(
-                    "r%s failed IPv6 RIPng status check:\n%s\n" % (i, diff)
+            def _verify_ripng_status(router_idx, expected_data):
+                actual = (
+                    get_topogen()
+                    .gears["r%s" % router_idx]
+                    .vtysh_cmd("show ipv6 ripng status")
+                    .rstrip()
                 )
-                failures += 1
-            else:
-                print("r%s ok" % i)
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            assert failures == 0, "IPv6 RIPng status failed for router r%s:\n%s" % (
-                i,
-                diff,
+                return topotest.get_textdiff(
+                    actual,
+                    expected_data,
+                    title1="actual IPv6 RIPng status",
+                    title2="expected IPv6 RIPng status",
+                )
+
+            test_func = functools.partial(_verify_ripng_status, i, expected)
+            success, diff = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "IPv6 RIPng status failed for router r{}:\n{}".format(
+                i, diff
             )
+            print("r%s ok" % i)
 
     # Make sure that all daemons are running
     for i in range(1, 4):
@@ -218,7 +235,6 @@ def test_ripng_routes():
     # Verify RIPng Status
     print("\n\n** Verifying RIPng routes")
     print("******************************************\n")
-    failures = 0
     for i in range(1, 4):
         refTableFile = "%s/r%s/show_ipv6_ripng.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
@@ -227,41 +243,36 @@ def test_ripng_routes():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                get_topogen().gears["r%s" % i].vtysh_cmd("show ipv6 ripng").rstrip()
-            )
-            # Drop Time
-            actual = re.sub(r" [0-9][0-9]:[0-5][0-9]", " XX:XX", actual)
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(
-                r" fe80::[0-9a-f: ]+", " fe80::XXXX:XXXX:XXXX:XXXX   ", actual
-            )
-            # Remove trailing spaces on all lines
-            actual = "\n".join([line.rstrip() for line in actual.splitlines()])
+            def _verify_show_ipv6_ripng(router_idx, expected_data):
+                actual = (
+                    get_topogen()
+                    .gears["r%s" % router_idx]
+                    .vtysh_cmd("show ipv6 ripng")
+                    .rstrip()
+                )
+                # Drop Time
+                actual = re.sub(r" [0-9][0-9]:[0-5][0-9]", " XX:XX", actual)
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r" fe80::[0-9a-f: ]+", " fe80::XXXX:XXXX:XXXX:XXXX   ", actual
+                )
+                # Remove trailing spaces on all lines
+                actual = "\n".join([line.rstrip() for line in actual.splitlines()])
 
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW IPv6 RIPng",
-                title2="expected SHOW IPv6 RIPng",
-            )
+                return topotest.get_textdiff(
+                    actual,
+                    expected_data,
+                    title1="actual SHOW IPv6 RIPng",
+                    title2="expected SHOW IPv6 RIPng",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write("r%s failed SHOW IPv6 RIPng check:\n%s\n" % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "SHOW IPv6 RIPng failed for router r%s:\n%s" % (
-                i,
-                diff,
-            )
+            test_func = functools.partial(_verify_show_ipv6_ripng, i, expected)
+            success, diff = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "SHOW IPv6 RIPng failed for router r{}:\n{}".format(i, diff)
+            print("r%s ok" % i)
 
     # Make sure that all daemons are running
     for i in range(1, 4):
@@ -277,7 +288,9 @@ def test_zebra_ipv6_routingTable():
         # Actual output from router
         output = get_topogen().gears["r%s" % i].vtysh_cmd("show ipv6 route")
         # Filter only RIPng routes (lines starting with R)
-        actual = "\n".join(line for line in output.splitlines() if line.startswith("R")).rstrip()
+        actual = "\n".join(
+            line for line in output.splitlines() if line.startswith("R")
+        ).rstrip()
         # Mask out Link-Local mac address portion. They are random...
         actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
         # Drop timers on end of line

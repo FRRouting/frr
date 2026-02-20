@@ -36,13 +36,25 @@ import os
 import re
 import sys
 import pytest
-from time import sleep
 
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
 pytestmark = [pytest.mark.ldpd]
+
+
+def _hello_packet_counts(output):
+    pattern = r"\n\s+(\d+)"
+    return [int(count) for count in re.findall(pattern, output)]
+
+
+def _has_hello_packets(tgen):
+    output = tgen.gears["r3"].run("iptables -t filter -L -v -n")
+    matches = _hello_packet_counts(output)
+    return len(matches) == 3 and all(count > 0 for count in matches)
+
 
 def build_topo(tgen):
     # Setup Routers
@@ -54,6 +66,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
 
 def setup_module(module):
 
@@ -80,7 +93,7 @@ def teardown_module(module):
 
 
 def test_default_behaviour():
-    
+
     global fatal_error
 
     # Skip if previous fatal error condition is raised
@@ -90,40 +103,50 @@ def test_default_behaviour():
     tgen = get_topogen()
 
     # Setup counters
-    tgen.gears["r3"].run("""
+    tgen.gears["r3"].run(
+        """
             iptables -t filter -A INPUT -s 10.0.1.1 -p udp --dport 646 -j ACCEPT
             iptables -t filter -A INPUT -s 10.0.1.2 -p udp --dport 646 -j ACCEPT
             iptables -t filter -A OUTPUT -s 10.0.1.3 -p udp --dport 646 -j ACCEPT
-            """)
+            """
+    )
 
     # Setup the LDP service
     for router in ["r3", "r2", "r1"]:
-        tgen.gears[router].vtysh_multicmd([
-                            "configure terminal",
-                            "mpls ldp",
-                            "address-family ipv4",
-                            f"interface {router}-eth0",
-                            "end"])
+        tgen.gears[router].vtysh_multicmd(
+            [
+                "configure terminal",
+                "mpls ldp",
+                "address-family ipv4",
+                f"interface {router}-eth0",
+                "end",
+            ]
+        )
 
-    sleep(7)
+    _, ready = topotest.run_and_expect(
+        lambda: _has_hello_packets(tgen), True, count=15, wait=1
+    )
+    assert ready is True, "No LDP hello messages detected in iptables counters"
 
     # Get values from counters
     output = tgen.gears["r3"].run("iptables -t filter -L -v -n")
 
     # Disable the LDP service
     for router in ["r3", "r2", "r1"]:
-        tgen.gears[router].vtysh_multicmd([
-                            "configure terminal",
-                            "mpls ldp",
-                            "address-family ipv4",
-                            f"no interface {router}-eth0",
-                            "end"])
+        tgen.gears[router].vtysh_multicmd(
+            [
+                "configure terminal",
+                "mpls ldp",
+                "address-family ipv4",
+                f"no interface {router}-eth0",
+                "end",
+            ]
+        )
 
     # Remove counter
     tgen.gears["r3"].run("iptables -t filter -F")
 
-    pattern = r"\n\s+(\d+)"
-    matches = re.findall(pattern, output)
+    matches = _hello_packet_counts(output)
 
     # Each router should send at least 2 packets of LDP hello,
     # one at the start and one after the "interval"(default 5 sec)
@@ -132,11 +155,11 @@ def test_default_behaviour():
     # Router 10.0.1.3(3.3.3.3) sent 2 packets plus 2 packets to the 1.1.1.1 and 4 packets to the 2.2.2.2 - in total 8
     # Check that any hello packets are being sent out at all
     assert len(matches) == 3, "Expected 3 packet count entries"
-    assert all(int(count) > 0 for count in matches), "No LDP hello messages detected"
+    assert all(count > 0 for count in matches), "No LDP hello messages detected"
 
 
 def test_disable_establish_hello():
-    
+
     global fatal_error
 
     # Skip if previous fatal error condition is raised
@@ -146,47 +169,58 @@ def test_disable_establish_hello():
     tgen = get_topogen()
 
     # Setup counters
-    tgen.gears["r3"].run("""
+    tgen.gears["r3"].run(
+        """
             iptables -t filter -A INPUT -s 10.0.1.1 -p udp --dport 646 -j ACCEPT
             iptables -t filter -A INPUT -s 10.0.1.2 -p udp --dport 646 -j ACCEPT
             iptables -t filter -A OUTPUT -s 10.0.1.3 -p udp --dport 646 -j ACCEPT
-            """)
+            """
+    )
 
     # Setup the LDP service with disable-establish-hello option
     for router in ["r3", "r2", "r1"]:
-        tgen.gears[router].vtysh_multicmd([
-                            "configure terminal",
-                            "mpls ldp",
-                            "address-family ipv4",
-                            f"interface {router}-eth0",
-                            "disable-establish-hello",
-                            "end"])
+        tgen.gears[router].vtysh_multicmd(
+            [
+                "configure terminal",
+                "mpls ldp",
+                "address-family ipv4",
+                f"interface {router}-eth0",
+                "disable-establish-hello",
+                "end",
+            ]
+        )
 
-    sleep(7)
+    _, ready = topotest.run_and_expect(
+        lambda: _has_hello_packets(tgen), True, count=15, wait=1
+    )
+    assert ready is True, "No LDP hello messages detected in iptables counters"
 
     # Get values from counters
     output = tgen.gears["r3"].run("iptables -t filter -L -v -n")
 
     # Disable the LDP service
     for router in ["r3", "r2", "r1"]:
-        tgen.gears[router].vtysh_multicmd([
-                            "configure terminal",
-                            "mpls ldp",
-                            "address-family ipv4",
-                            f"no interface {router}-eth0",
-                            "end"])
+        tgen.gears[router].vtysh_multicmd(
+            [
+                "configure terminal",
+                "mpls ldp",
+                "address-family ipv4",
+                f"no interface {router}-eth0",
+                "end",
+            ]
+        )
 
     # Remove counter
     tgen.gears["r3"].run("iptables -t filter -F")
 
-    pattern = r"\n\s+(\d+)"
-    matches = re.findall(pattern, output)
+    matches = _hello_packet_counts(output)
 
     # With disabled sending LDP hello message on attempt to establish TCP connection
     # Each router should only send 2 packets, at start and after 5 seconds(default interval)
     # Check that any hello packets are being sent out at all
     assert len(matches) == 3, "Expected 3 packet count entries"
-    assert all(int(count) > 0 for count in matches), "No LDP hello messages detected"
+    assert all(count > 0 for count in matches), "No LDP hello messages detected"
+
 
 if __name__ == "__main__":
 
