@@ -15,6 +15,12 @@ import tempfile
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
+TOPOTESTS_DIR = os.path.dirname(CWD)
+if TOPOTESTS_DIR not in sys.path:
+    sys.path.insert(0, TOPOTESTS_DIR)
+
+tmpdir = None
+commander = None
 
 try:
     # Make sure we don't run-into ourselves in parallel operating environment
@@ -48,7 +54,8 @@ try:
         logging.error("can't import proto definition modules %s", error)
         raise
 finally:
-    commander.cmd_nostatus(f"rm -rf {tmpdir}")
+    if commander and tmpdir:
+        commander.cmd_nostatus(f"rm -rf {tmpdir}")
 
 
 class GRPCClient:
