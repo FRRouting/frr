@@ -267,8 +267,11 @@ static void pim_addr_change(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	pim_if_dr_election(ifp); /* router's own DR Priority (addr) changes --
-				    Done TODO T30 */
+	pim_if_dr_election(ifp);
+
+	if (!pim_ifp->pim_enable)
+		return;
+
 	pim_if_update_join_desired(pim_ifp); /* depends on DR */
 	pim_if_update_could_assert(ifp);     /* depends on DR */
 	pim_if_update_my_assert_metric(ifp); /* depends on could_assert */
@@ -464,13 +467,8 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 	}
 
 
-	if (changed) {
-		if (!pim_ifp->pim_enable) {
-			return;
-		}
-
+	if (changed)
 		pim_addr_change(ifp);
-	}
 
 	/* XXX: if we have unnumbered interfaces we need to run detect address
 	 * address change on all of them when the lo address changes */
