@@ -2677,7 +2677,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	RESET_FLAG(attr->rmap_change_flags);
 
 	/* If local-preference is not set. */
-	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED) &&
+	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
+	     peer->sub_sort == BGP_PEER_EBGP_OAD) &&
 	    (!bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))) {
 		bgp_attr_set(attr, BGP_ATTR_LOCAL_PREF);
 		attr->local_pref = bgp->default_local_pref;
