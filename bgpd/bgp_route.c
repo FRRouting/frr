@@ -2694,10 +2694,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 */
 	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
 	    bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC)) {
-		if (from != bgp->peer_self && !transparent
-		    && !CHECK_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_MED_UNCHANGED))
+		if (from != bgp->peer_self && !transparent &&
+		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED)) {
+			attr->med = 0;
 			UNSET_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)));
+		}
 	}
 
 	/* Since the nexthop attribute can vary per peer, it is not explicitly
@@ -3129,12 +3130,17 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * EBGP. Note in route reflection the nexthop is usually unmodified
 	 * and the AIGP should not be adjusted in that case.
 	 */
-	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer)) {
-		if (nh_reset ||
-		    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
-			uint64_t aigp = bgp_aigp_metric_total(pi);
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP)) {
+		if (AIGP_TRANSMIT_ALLOWED(peer)) {
+			if (nh_reset ||
+			    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
+				uint64_t aigp = bgp_aigp_metric_total(pi);
 
-			bgp_attr_set_aigp_metric(attr, aigp);
+				bgp_attr_set_aigp_metric(attr, aigp);
+			}
+		} else {
+			attr->aigp_metric = 0;
+			bgp_attr_unset(attr, BGP_ATTR_AIGP);
 		}
 	}
 
@@ -3189,6 +3195,21 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				ecommunity_free(&new_ecomm);
 			}
 		}
+	}
+
+	/*
+	 * The match clause (e.g., "match tag" or "match local-preference") in
+	 * the outbound route-map should operate on the original attribute.
+	 * Clear parameters that are either entirely local or non-applicable
+	 * for EBGP, only after the outbound route-map has been processed.
+	 */
+	attr->tag = 0;
+	attr->weight = 0;
+	attr->distance = 0;
+
+	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD) {
+		attr->local_pref = 0;
+		bgp_attr_unset(attr, BGP_ATTR_LOCAL_PREF);
 	}
 
 	return true;
