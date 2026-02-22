@@ -109,10 +109,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					vty_out(vty, "Default local pref %u, ",
 						bgp->default_local_pref);
 					vty_out(vty, "local AS %u\n", bgp->as);
-					vty_out(vty,
-						"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
-					vty_out(vty,
-						"Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
+					vty_out(vty, BGP_SHOW_SCODE_HEADER);
+					vty_out(vty, BGP_SHOW_OCODE_HEADER);
 					vty_out(vty, V4_HEADER);
 				}
 				header = 0;
