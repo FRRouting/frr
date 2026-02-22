@@ -234,9 +234,13 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 	size_t level = SKIPLIST_MAXDEPTH, newlevel, auxlevel;
 	struct sskip_item *prev = &head->hitem, *next, *auxprev, *auxnext;
 	int cmpval;
+	unsigned long rnd;
 
 	/* level / newlevel are 1-counted here */
-	newlevel = __builtin_ctz(frr_weak_random()) + 1;
+	do {
+		rnd = (unsigned long)frr_weak_random();
+	} while (rnd == 0);
+	newlevel = __builtin_ctzl(rnd) + 1;
 	if (newlevel > SKIPLIST_MAXDEPTH)
 		newlevel = SKIPLIST_MAXDEPTH;
 
