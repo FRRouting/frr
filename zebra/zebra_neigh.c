@@ -36,13 +36,36 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_INFO, "Zebra neigh table");
 DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_ENT, "Zebra neigh entry");
 
 #define ZEBRA_NUD_VALID	      0xDE
+#define ZEBRA_NUD_INCOMPLETE  0x01
+#define ZEBRA_NUD_REACHABLE   0x02
+#define ZEBRA_NUD_STALE	      0x04
+#define ZEBRA_NUD_DELAY	      0x08
+#define ZEBRA_NUD_PROBE	      0x10
 #define ZEBRA_NUD_FAILED      0x20
+#define ZEBRA_NUD_NOARP	      0x40
 #define ZEBRA_NUD_PERMANENT   0x80
+#define ZEBRA_NUD_NONE	      0x00
+
 #define ZEBRA_NTF_EXT_LEARNED 0x10
 
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx);
 static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx);
+
+static const char *zebra_neigh_state2str(uint32_t state, char *buf, size_t buflen)
+{
+	snprintf(buf, buflen, "%s%s%s%s%s%s%s%s",
+		 CHECK_FLAG(state, ZEBRA_NUD_INCOMPLETE) ? "INCOMPLETE " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_REACHABLE) ? "REACHABLE " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_STALE) ? "STALE " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_NOARP) ? "NOARP " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_PROBE) ? "PROBE " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_DELAY) ? "DELAY " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_PERMANENT) ? "PERMANENT " : "",
+		 CHECK_FLAG(state, ZEBRA_NUD_FAILED) ? "FAILED " : "");
+
+	return buf;
+}
 
 static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 			      const struct zebra_neigh_ent *n2)
@@ -84,7 +107,7 @@ static struct zebra_neigh_ent *zebra_neigh_find(ifindex_t ifindex,
 }
 
 static struct zebra_neigh_ent *
-zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac)
+zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac, uint32_t ndm_state)
 {
 	struct zebra_neigh_ent *n;
 
@@ -97,6 +120,7 @@ zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac)
 		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
 	}
 
+	n->neigh_state = ndm_state;
 	/* Add to rb_tree */
 	if (RB_INSERT(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, n)) {
 		XFREE(MTYPE_ZNEIGH_ENT, n);
@@ -107,9 +131,12 @@ zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac)
 	n->pbr_rule_list = list_new();
 	listset_app_node_mem(n->pbr_rule_list);
 
-	if (IS_ZEBRA_DEBUG_NEIGH)
-		zlog_debug("zebra neigh new if %d %pIA %pEA", n->ifindex,
-			   &n->ip, &n->mac);
+	if (IS_ZEBRA_DEBUG_NEIGH) {
+		char state_buf[180];
+
+		zlog_debug("zebra neigh new if %d %pIA %pEA %s", n->ifindex, &n->ip, &n->mac,
+			   zebra_neigh_state2str(n->neigh_state, state_buf, sizeof(state_buf)));
+	}
 
 	return n;
 }
@@ -179,17 +206,23 @@ void zebra_neigh_del_all(struct interface *ifp)
 }
 
 /* kernel neigh add */
-void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac)
+void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip, struct ethaddr *mac,
+		     uint16_t ndm_state)
 {
 	struct zebra_neigh_ent *n;
 
-	if (IS_ZEBRA_DEBUG_NEIGH)
-		zlog_debug("zebra neigh add if %s/%d %pIA %pEA", ifp->name,
-			   ifp->ifindex, ip, mac);
+	if (IS_ZEBRA_DEBUG_NEIGH) {
+		char state_buf[180];
+
+		zlog_debug("zebra neigh add if %s/%d %pIA %pEA %s %u", ifp->name, ifp->ifindex, ip,
+			   mac, zebra_neigh_state2str(ndm_state, state_buf, sizeof(state_buf)),
+			   ndm_state);
+	}
 
 	n = zebra_neigh_find(ifp->ifindex, ip);
 	if (n) {
+		n->neigh_state = ndm_state;
+
 		if (!memcmp(&n->mac, mac, sizeof(*mac)))
 			return;
 
@@ -199,7 +232,7 @@ void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 		/* update rules linked to the neigh */
 		zebra_neigh_pbr_rules_update(n);
 	} else {
-		zebra_neigh_new(ifp->ifindex, ip, mac);
+		zebra_neigh_new(ifp->ifindex, ip, mac, ndm_state);
 	}
 }
 
@@ -241,7 +274,7 @@ void zebra_neigh_ref(int ifindex, struct ipaddr *ip,
 	zebra_neigh_read_on_first_ref();
 	n = zebra_neigh_find(ifindex, ip);
 	if (!n)
-		n = zebra_neigh_new(ifindex, ip, NULL);
+		n = zebra_neigh_new(ifindex, ip, NULL, 0);
 
 	/* link the pbr entry to the neigh */
 	if (rule->action.neigh == n)
@@ -259,22 +292,23 @@ static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n)
 {
 	char mac_buf[ETHER_ADDR_STRLEN];
 	char ip_buf[INET6_ADDRSTRLEN];
+	char state_buf[180];
 	struct interface *ifp;
 
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
 					n->ifindex);
 	ipaddr2str(&n->ip, ip_buf, sizeof(ip_buf));
 	prefix_mac2str(&n->mac, mac_buf, sizeof(mac_buf));
-	vty_out(vty, "%-20s %-30s %-18s %u\n", ifp ? ifp->name : "-", ip_buf,
-		mac_buf, listcount(n->pbr_rule_list));
+	vty_out(vty, "%-20s %-30s %-18s %-10u %-40s\n", ifp ? ifp->name : "-", ip_buf,
+		mac_buf, listcount(n->pbr_rule_list), zebra_neigh_state2str(n->neigh_state, state_buf, sizeof(state_buf)));
 }
 
 void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi)
 {
 	struct zebra_neigh_ent *n;
 
-	vty_out(vty, "%-20s %-30s %-18s %s\n", "Interface", "Neighbor", "MAC",
-		"#Rules");
+	vty_out(vty, "%-20s %-30s %-18s %-10s %-40s\n", "Interface", "Neighbor", "MAC",
+		"#Rules", "State");
 	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
 		if (afi != AF_UNSPEC && n->ip.ipa_type != afi)
 			continue;
@@ -477,7 +511,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			if (is_own)
 				zebra_neigh_del(ifp, &ip);
 			else
-				zebra_neigh_add(ifp, &ip, &mac);
+				zebra_neigh_add(ifp, &ip, &mac, ndm_state);
 
 			if (link_if)
 				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
