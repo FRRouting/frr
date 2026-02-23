@@ -1771,9 +1771,17 @@ zebra Terminal Mode Commands
 
    Display whether the host's IP v6 forwarding is enabled or not.
 
-.. clicmd:: show ip neigh
+.. clicmd:: show ip neighbor [json]
 
    Display the ip neighbor table
+
+.. clicmd:: show ipv6 neighbor [json]
+
+   Display the ipv6 neighbor table
+
+.. clicmd:: show neighbor [json]
+
+   Display the v4 and v6 neighbor table.
 
 .. clicmd:: show pbr rule
 
