@@ -1399,6 +1399,82 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		}
 	}
 
+	/* Display tracker info if any active trackers exist */
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 0) {
+		struct nhg_event_tracker *tracker;
+		char timer_buf[MONOTIME_STRLEN];
+
+		if (json) {
+			json_object *json_trackers = json_object_new_array();
+
+			frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+				json_object *jt = json_object_new_object();
+
+				json_object_int_add(jt, "trackerId", tracker->nhg_tracker_id);
+				json_object_string_add(jt, "event",
+						       tracker->event == NHG_TRACKER_EVENT_INTF_UP
+							       ? "UP"
+							       : "DOWN");
+				json_object_int_add(jt, "ifindex", tracker->ifindex);
+				json_object_int_add(jt, "matchedRoutes",
+						    tracker->matched_table.re_count);
+				json_object_int_add(jt, "unmatchedRoutes",
+						    tracker->unmatched_table.re_count);
+				if (event_is_scheduled(tracker->timer))
+					json_object_string_add(jt, "timerRemaining",
+							       event_timer_to_hhmmss(timer_buf,
+										     sizeof(timer_buf),
+										     tracker->timer));
+
+				if (tracker->nhg_tracker_snapshot) {
+					json_object *json_snap_nhs = json_object_new_array();
+					struct nexthop *snh;
+
+					for (ALL_NEXTHOPS(tracker->nhg_tracker_snapshot->nhg, snh)) {
+						json_object *jsnh = json_object_new_object();
+						show_nexthop_json_helper(jsnh, snh, NULL, NULL);
+						json_object_array_add(json_snap_nhs, jsnh);
+					}
+					json_object_object_add(jt, "snapshotNexthops",
+							       json_snap_nhs);
+				}
+
+				json_object_array_add(json_trackers, jt);
+			}
+			json_object_object_add(json, "trackers", json_trackers);
+		} else {
+			vty_out(vty, "     Trackers: %zu\n",
+				nhg_event_tracker_list_count(&nhe->tracker_list));
+
+			frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+				vty_out(vty,
+					"       Tracker %u: event=%s ifindex=%u matched=%u unmatched=%u",
+					tracker->nhg_tracker_id,
+					tracker->event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN",
+					tracker->ifindex, tracker->matched_table.re_count,
+					tracker->unmatched_table.re_count);
+
+				if (event_is_scheduled(tracker->timer))
+					vty_out(vty, " timer=%s",
+						event_timer_to_hhmmss(timer_buf, sizeof(timer_buf),
+								      tracker->timer));
+				vty_out(vty, "\n");
+
+				if (tracker->nhg_tracker_snapshot) {
+					struct nexthop *snh;
+
+					vty_out(vty, "         Snapshot NHG %u:\n",
+						tracker->nhg_tracker_snapshot->id);
+					for (ALL_NEXTHOPS(tracker->nhg_tracker_snapshot->nhg, snh)) {
+						vty_out(vty, "           ");
+						show_route_nexthop_helper(vty, NULL, NULL, snh);
+						vty_out(vty, "\n");
+					}
+				}
+			}
+		}
+	}
+
 	if (json_nhe_hdr)
 		json_object_object_addf(json_nhe_hdr, json, "%u", nhe->id);
 }
