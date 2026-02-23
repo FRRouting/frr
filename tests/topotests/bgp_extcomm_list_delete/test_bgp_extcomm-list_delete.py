@@ -193,7 +193,7 @@ def test_rt_extcomm_list_expanded_delete():
     _unset_extcomm_list(r2, "rt", "1.1.1.1:1")
 
     # set the extended community with regex for deletion
-    _set_extcomm_list_regex(r2, "rt", "1\.1\.1\.[1-2]:1")
+    _set_extcomm_list_regex(r2, "rt", "1.1.1.[1-2]:1")
 
     # check for the deletion of the extended community
     test_func = functools.partial(

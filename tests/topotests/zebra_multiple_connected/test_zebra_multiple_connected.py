@@ -21,8 +21,6 @@ import json
 from functools import partial
 from lib.topolog import logger
 
-pytestmark = pytest.mark.random_order(disabled=True)
-
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

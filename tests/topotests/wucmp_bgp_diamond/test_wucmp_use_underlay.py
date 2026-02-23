@@ -37,9 +37,9 @@ def build_topo(tgen):
     """
     Build a diamond topology:
           r1 (AS 65001)
-         /  \
+         / \\
         r2  r3 (AS 65002/65003)
-         \  /
+         \\ /
           r4 (AS 65004)
 
     All nodes have eBGP sessions with their directly connected peers.
