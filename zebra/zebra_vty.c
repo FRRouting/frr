@@ -2927,30 +2927,31 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_ip_neigh, show_ip_neigh_cmd, "show ip neighbor",
-      SHOW_STR IP_STR "neighbors\n")
+DEFPY(show_ip_neigh, show_ip_neigh_cmd, "show ip neighbor [json$json]",
+      SHOW_STR IP_STR "neighbors\n" JSON_STR)
 
 {
-	zebra_neigh_show(vty, AF_INET);
+	zebra_neigh_show(vty, AF_INET, !!json);
 
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_ipv6_neigh, show_ipv6_neigh_cmd, "show ipv6 neighbor",
-      SHOW_STR IPV6_STR "neighbors\n")
+DEFPY(show_ipv6_neigh, show_ipv6_neigh_cmd, "show ipv6 neighbor [json$json]",
+      SHOW_STR IPV6_STR "neighbors\n" JSON_STR)
 {
-	zebra_neigh_show(vty, AF_INET6);
+	zebra_neigh_show(vty, AF_INET6, !!json);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(show_neigh,
       show_neigh_cmd,
-      "show neighbor",
+      "show neighbor [json$json]",
       SHOW_STR
-      "neighbors\n")
+      "neighbors\n"
+      JSON_STR)
 {
-	zebra_neigh_show(vty, AF_UNSPEC);
+	zebra_neigh_show(vty, AF_UNSPEC, !!json);
 
 	return CMD_SUCCESS;
 }

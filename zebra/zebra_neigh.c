@@ -11,6 +11,7 @@
 #include "command.h"
 #include "hash.h"
 #include "if.h"
+#include "lib/json.h"
 #include "jhash.h"
 #include "linklist.h"
 #include "log.h"
@@ -54,16 +55,25 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx);
 
 static const char *zebra_neigh_state2str(uint32_t state, char *buf, size_t buflen)
 {
-	snprintf(buf, buflen, "%s%s%s%s%s%s%s%s",
-		 CHECK_FLAG(state, ZEBRA_NUD_INCOMPLETE) ? "INCOMPLETE " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_REACHABLE) ? "REACHABLE " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_STALE) ? "STALE " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_NOARP) ? "NOARP " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_PROBE) ? "PROBE " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_DELAY) ? "DELAY " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_PERMANENT) ? "PERMANENT " : "",
-		 CHECK_FLAG(state, ZEBRA_NUD_FAILED) ? "FAILED " : "");
+	uint32_t len;
 
+	len = snprintf(buf, buflen, "%s%s%s%s%s%s%s%s",
+		       CHECK_FLAG(state, ZEBRA_NUD_INCOMPLETE) ? "INCOMPLETE " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_REACHABLE) ? "REACHABLE " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_STALE) ? "STALE " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_NOARP) ? "NOARP " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_PROBE) ? "PROBE " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_DELAY) ? "DELAY " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_PERMANENT) ? "PERMANENT " : "",
+		       CHECK_FLAG(state, ZEBRA_NUD_FAILED) ? "FAILED " : "");
+
+	if (len == 0)
+		return buf;
+	/*
+	 * Let's kill the final space as it makes json output
+	 * look funny
+	 */
+	buf[len - 1] = '\0';
 	return buf;
 }
 
@@ -288,7 +298,8 @@ void zebra_neigh_ref(int ifindex, struct ipaddr *ip,
 	listnode_add(n->pbr_rule_list, &rule->action.neigh_listnode);
 }
 
-static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n)
+static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n,
+				 json_object *json_neigh)
 {
 	char mac_buf[ETHER_ADDR_STRLEN];
 	char ip_buf[INET6_ADDRSTRLEN];
@@ -299,20 +310,52 @@ static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n)
 					n->ifindex);
 	ipaddr2str(&n->ip, ip_buf, sizeof(ip_buf));
 	prefix_mac2str(&n->mac, mac_buf, sizeof(mac_buf));
-	vty_out(vty, "%-20s %-30s %-18s %-10u %-40s\n", ifp ? ifp->name : "-", ip_buf,
-		mac_buf, listcount(n->pbr_rule_list), zebra_neigh_state2str(n->neigh_state, state_buf, sizeof(state_buf)));
+
+	if (json_neigh) {
+		json_object_string_add(json_neigh, "interface", ifp ? ifp->name : "-");
+		json_object_string_add(json_neigh, "neighbor", ip_buf);
+		json_object_string_add(json_neigh, "mac", mac_buf);
+		json_object_int_add(json_neigh, "ruleCount", listcount(n->pbr_rule_list));
+		zebra_neigh_state2str(n->neigh_state, state_buf, sizeof(state_buf));
+		json_object_string_add(json_neigh, "state", state_buf);
+	} else {
+		vty_out(vty, "%-20s %-30s %-18s %-10u %-40s\n", ifp ? ifp->name : "-", ip_buf,
+			mac_buf, listcount(n->pbr_rule_list),
+			zebra_neigh_state2str(n->neigh_state, state_buf, sizeof(state_buf)));
+	}
 }
 
-void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi)
+void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi, bool use_json)
 {
 	struct zebra_neigh_ent *n;
+	json_object *json = NULL;
+	json_object *json_neighbors = NULL;
 
-	vty_out(vty, "%-20s %-30s %-18s %-10s %-40s\n", "Interface", "Neighbor", "MAC",
-		"#Rules", "State");
+	if (use_json) {
+		json = json_object_new_object();
+		json_neighbors = json_object_new_array();
+	}
+
+	if (!use_json)
+		vty_out(vty, "%-20s %-30s %-18s %-10s %-40s\n", "Interface", "Neighbor", "MAC",
+			"#Rules", "State");
+
 	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
 		if (afi != AF_UNSPEC && n->ip.ipa_type != afi)
 			continue;
-		zebra_neigh_show_one(vty, n);
+		if (use_json) {
+			json_object *json_neigh = json_object_new_object();
+
+			zebra_neigh_show_one(vty, n, json_neigh);
+			json_object_array_add(json_neighbors, json_neigh);
+		} else {
+			zebra_neigh_show_one(vty, n, NULL);
+		}
+	}
+
+	if (use_json) {
+		json_object_object_add(json, "neighbors", json_neighbors);
+		vty_json(vty, json);
 	}
 }
 
