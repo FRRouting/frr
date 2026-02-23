@@ -4919,6 +4919,7 @@ static void rib_process_dplane_results(struct event *event)
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_list_head ctxlist;
 	bool shut_p = false;
+	uint32_t work_left_to_do = 0;
 
 #ifdef HAVE_SCRIPTING
 	char *script_name =
@@ -4938,12 +4939,15 @@ static void rib_process_dplane_results(struct event *event)
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
+		int limit = zebra_dplane_get_work_limit();
+
 		dplane_ctx_q_init(&ctxlist);
 
 		/* Take lock controlling queue of results */
 		frr_with_mutex (&dplane_mutex) {
 			/* Dequeue list of context structs */
-			dplane_ctx_list_append(&ctxlist, &rib_dplane_q);
+			work_left_to_do = dplane_ctx_list_append_count_max(&ctxlist, &rib_dplane_q,
+									   limit);
 		}
 
 		/* Dequeue context block */
@@ -5101,6 +5105,10 @@ static void rib_process_dplane_results(struct event *event)
 	if (fs)
 		frrscript_delete(fs);
 #endif
+
+	if (work_left_to_do)
+		event_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
+				&t_dplane);
 }
 
 /*

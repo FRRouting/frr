@@ -715,6 +715,11 @@ struct event_loop *dplane_get_thread_master(void)
 	return zdplane_info.dg_master;
 }
 
+uint32_t zebra_dplane_get_work_limit(void)
+{
+	return zdplane_info.dg_updates_per_cycle;
+}
+
 /*
  * Allocate a dataplane update context
  */
@@ -989,6 +994,24 @@ void dplane_ctx_list_append(struct dplane_ctx_list_head *to_list,
 
 	while ((ctx = dplane_ctx_list_pop(from_list)) != NULL)
 		dplane_ctx_list_add_tail(to_list, ctx);
+}
+
+/*
+ * Append a list of context blocks to another list
+ *
+ * limit is applied to the number transferred.
+ */
+uint32_t dplane_ctx_list_append_count_max(struct dplane_ctx_list_head *to_list,
+					  struct dplane_ctx_list_head *from_list, uint32_t limit)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	while (limit && (ctx = dplane_ctx_list_pop(from_list)) != NULL) {
+		dplane_ctx_list_add_tail(to_list, ctx);
+		limit--;
+	}
+
+	return dplane_ctx_list_count(from_list);
 }
 
 struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q)
