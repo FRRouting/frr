@@ -406,6 +406,8 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 
 	nhe_re_tree_init(&nhe->re_head);
 
+	zebra_nhg_tracker_init(nhe);
+
 	return nhe;
 }
 
@@ -509,8 +511,7 @@ uint32_t zebra_nhg_id_key(const void *arg)
 }
 
 /* Helper with common nhg/nhe nexthop comparison logic */
-static bool nhg_compare_nexthops(const struct nexthop *nh1,
-				 const struct nexthop *nh2)
+bool nhg_compare_nexthops(const struct nexthop *nh1, const struct nexthop *nh2)
 {
 	assert(nh1 != NULL && nh2 != NULL);
 
@@ -1131,11 +1132,13 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 			 * my individual nexthop and mark it as no longer ACTIVE
 			 */
 			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
+			bool nh_deactivated = false;
 
 			while (nexthop) {
 				if (nexthop_same_no_weight(nexthop, nhe->nhg.nexthop)) {
 					/* Invalid Nexthop */
 					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+					nh_deactivated = true;
 				} else {
 					/*
 					 * If other nexthops in the nexthop
@@ -1147,6 +1150,11 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 				}
 				nexthop = nexthop->next;
 			}
+
+			if (nh_deactivated)
+				zebra_nhg_tracker_create(rb_node_dep->nhe,
+							 nhe->nhg.nexthop->ifindex,
+							 NHG_TRACKER_EVENT_INTF_DOWN);
 		}
 		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
 	}
@@ -1161,6 +1169,9 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+
+		zebra_nhg_tracker_create(nhe, nhe->nhg.nexthop->ifindex,
+					 NHG_TRACKER_EVENT_INTF_DOWN);
 	}
 
 	/* If anything else in the group is valid, the group is valid */
@@ -1742,6 +1753,8 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_dependents);
+
+	zebra_nhg_tracker_fini(nhe);
 }
 
 void zebra_nhg_free(struct nhg_hash_entry *nhe)
@@ -4201,6 +4214,8 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		nh = rb_node_dep->nhe->nhg.nexthop;
 
+		zebra_nhg_tracker_create(rb_node_dep->nhe, ifp->ifindex, NHG_TRACKER_EVENT_INTF_UP);
+
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			frrtrace(3, frr_zebra, zebra_interface_nhg_reinstall, ifp,
 				 rb_node_dep->nhe, 1);
@@ -4239,9 +4254,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				while (nhop_dependent && !nexthop_same_no_weight(nhop_dependent, nh))
 					nhop_dependent = nhop_dependent->next;
 
-				if (nhop_dependent)
+				if (nhop_dependent) {
 					SET_FLAG(nhop_dependent->flags,
 						 NEXTHOP_FLAG_ACTIVE);
+
+					zebra_nhg_tracker_create(rb_node_dependent->nhe,
+								 ifp->ifindex,
+								 NHG_TRACKER_EVENT_INTF_UP);
+				}
 
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) Setting Reinstall flag",
