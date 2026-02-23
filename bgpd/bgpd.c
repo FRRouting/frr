@@ -3813,6 +3813,7 @@ peer_init:
 
 	bgp->v_update_delay = bm->v_update_delay;
 	bgp->v_establish_wait = bm->v_establish_wait;
+	bgp->v_advertisement_delay = bm->v_advertisement_delay;
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
@@ -4431,6 +4432,7 @@ int bgp_delete(struct bgp *bgp)
 	event_cancel(&bgp->t_maxmed_onstartup);
 	event_cancel(&bgp->t_update_delay);
 	event_cancel(&bgp->t_establish_wait);
+	event_cancel(&bgp->t_advertisement_delay);
 
 	/* If the clearing event is scheduled, there's an extra ref to
 	 * this 'bgp' - ensure we unlock.

@@ -191,6 +191,8 @@ struct bgp_master {
 	/* global update-delay timer values */
 	uint16_t v_update_delay;
 	uint16_t v_establish_wait;
+	/* global advertisement-delay timer value */
+	uint16_t v_advertisement_delay;
 
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
@@ -681,6 +683,14 @@ struct bgp {
 	uint32_t restarted_peers;
 	uint32_t received_eors;
 #define BGP_UPDATE_DELAY_DEFAULT 0
+#define BGP_ADVERTISEMENT_DELAY_DEFAULT 0
+
+	/* Advertisement delay (hold route advertisements after first peer establishes) */
+	struct event *t_advertisement_delay;
+	bool advertisement_delay_over;
+	bool advertisement_delay_started;
+	uint16_t v_advertisement_delay;
+	char advertisement_delay_resume_time[64];
 
 	/* Reference bandwidth for BGP link-bandwidth. Used when
 	 * the LB value has to be computed based on some other
@@ -2745,6 +2755,9 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 
 extern bool bgp_update_delay_active(struct bgp *bgp);
 extern bool bgp_update_delay_configured(struct bgp *bgp);
+extern bool bgp_advertisement_delay_active(struct bgp *bgp);
+extern bool bgp_advertisement_delay_applicable(struct bgp *bgp);
+extern bool bgp_advertisement_delay_configured(struct bgp *bgp);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *peer, as_t as,
 			   enum peer_asn_type as_type, const char *as_str);

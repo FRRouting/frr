@@ -1286,8 +1286,12 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		/* This is to apply read-only mode on this clear. */
-		if (stype == BGP_CLEAR_SOFT_NONE)
+		if (stype == BGP_CLEAR_SOFT_NONE) {
 			bgp->update_delay_over = 0;
+			event_cancel(&bgp->t_advertisement_delay);
+			bgp->advertisement_delay_started = 0;
+			bgp->advertisement_delay_over = 0;
+		}
 
 		if (afi_safi_unspec)
 			bgp_clearing_batch_end_event_start(bgp);
@@ -2571,6 +2575,13 @@ void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 	}
 }
 
+void bgp_config_write_advertisement_delay(struct vty *vty, struct bgp *bgp)
+{
+	if (bgp_advertisement_delay_configured(bgp) &&
+	    bgp->v_advertisement_delay != bm->v_advertisement_delay)
+		vty_out(vty, " advertisement-delay %d\n", bgp->v_advertisement_delay);
+}
+
 /* Global update-delay configuration */
 DEFPY (bgp_global_update_delay,
        bgp_global_update_delay_cmd,
@@ -2620,6 +2631,94 @@ DEFPY (no_bgp_update_delay,
 	return bgp_update_delay_deconfig_vty(vty);
 }
 
+/* Global advertisement-delay configuration */
+DEFPY(bgp_global_advertisement_delay, bgp_global_advertisement_delay_cmd,
+      "bgp advertisement-delay (1-3600)$delay",
+      BGP_STR
+      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+      "Delay in seconds\n")
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	bm->v_advertisement_delay = delay;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp->v_advertisement_delay = bm->v_advertisement_delay;
+
+	return CMD_SUCCESS;
+}
+
+/* Global advertisement-delay deconfiguration */
+DEFPY(no_bgp_global_advertisement_delay, no_bgp_global_advertisement_delay_cmd,
+      "no bgp advertisement-delay [(1-3600)]",
+      NO_STR BGP_STR
+      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+      "Delay in seconds\n")
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	bm->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+		if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
+			event_cancel(&bgp->t_advertisement_delay);
+			bgp->advertisement_delay_started = 0;
+			bgp->advertisement_delay_over = 0;
+			if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
+				bgp->main_peers_update_hold = 0;
+				bgp_start_routeadv(bgp);
+			}
+		} else {
+			event_cancel(&bgp->t_advertisement_delay);
+			bgp->advertisement_delay_started = 0;
+			bgp->advertisement_delay_over = 0;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* Per-instance advertisement-delay configuration */
+DEFPY(bgp_advertisement_delay, bgp_advertisement_delay_cmd, "advertisement-delay (1-3600)$delay",
+      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+      "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp->v_advertisement_delay = delay;
+
+	return CMD_SUCCESS;
+}
+
+/* Per-instance advertisement-delay deconfiguration */
+DEFPY(no_bgp_advertisement_delay, no_bgp_advertisement_delay_cmd,
+      "no advertisement-delay [(1-3600)]",
+      NO_STR
+      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+      "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+	if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
+		event_cancel(&bgp->t_advertisement_delay);
+		bgp->advertisement_delay_started = 0;
+		bgp->advertisement_delay_over = 0;
+		if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
+			bgp->main_peers_update_hold = 0;
+			bgp_start_routeadv(bgp);
+		}
+	} else {
+		event_cancel(&bgp->t_advertisement_delay);
+		bgp->advertisement_delay_started = 0;
+		bgp->advertisement_delay_over = 0;
+	}
+
+	return CMD_SUCCESS;
+}
 
 static int bgp_wpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
 				      bool set)
@@ -12546,6 +12645,9 @@ DEFPY(show_bgp_router,
 				    zebra_announce_count(&bm->zebra_announce_early_head));
 		json_object_int_add(json, "bgpUpdateDelayTime", bm->v_update_delay);
 		json_object_int_add(json, "bgpEstablishWaitTime", bm->v_establish_wait);
+		if (bm->v_advertisement_delay != BGP_ADVERTISEMENT_DELAY_DEFAULT)
+			json_object_int_add(json, "bgpAdvertisementDelayTime",
+					    bm->v_advertisement_delay);
 		json_object_int_add(json, "bgpRmapDelayTimer", bm->rmap_update_timer);
 		json_object_int_add(json, "bgpRmapDelayTimerRemaining",
 				    event_timer_remain_second(bm->t_rmap_update));
@@ -12561,6 +12663,9 @@ DEFPY(show_bgp_router,
 		vty_out(vty, "BGP Global Update Delay Timers:\n");
 		vty_out(vty, "  Update Delay Time: %ds\n", bm->v_update_delay);
 		vty_out(vty, "  Establish Wait Time: %ds\n", bm->v_establish_wait);
+		if (bm->v_advertisement_delay != BGP_ADVERTISEMENT_DELAY_DEFAULT)
+			vty_out(vty, "  Advertisement Delay Time: %ds\n",
+				bm->v_advertisement_delay);
 
 		vty_out(vty, "BGP route-map Delay Timer: %ds (remaining: %lds)\n",
 			bm->rmap_update_timer, event_timer_remain_second(bm->t_rmap_update));
@@ -13336,6 +13441,105 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
  * sure `Desc` is the latest column to show because it can contain
  * whitespaces and the whole output will be tricky.
  */
+static void bgp_show_summary_update_delay(struct vty *vty, struct bgp *bgp,
+					  json_object *json, bool use_json)
+{
+	if (!bgp_update_delay_configured(bgp))
+		return;
+
+	if (use_json) {
+		json_object_int_add(json, "updateDelayLimit",
+				    bgp->v_update_delay);
+		if (bgp->v_update_delay != bgp->v_establish_wait)
+			json_object_int_add(json, "updateDelayEstablishWait",
+					    bgp->v_establish_wait);
+		if (bgp_update_delay_active(bgp)) {
+			json_object_string_add(json,
+					       "updateDelayFirstNeighbor",
+					       bgp->update_delay_begin_time);
+			json_object_boolean_true_add(json,
+						     "updateDelayInProgress");
+		} else if (bgp->update_delay_over) {
+			json_object_string_add(json,
+					       "updateDelayFirstNeighbor",
+					       bgp->update_delay_begin_time);
+			json_object_string_add(json,
+					       "updateDelayBestpathResumed",
+					       bgp->update_delay_end_time);
+			json_object_string_add(
+				json, "updateDelayZebraUpdateResume",
+				bgp->update_delay_zebra_resume_time);
+			if (bgp->update_delay_peers_resume_time[0] != '\0')
+				json_object_string_add(
+					json, "updateDelayPeerUpdateResume",
+					bgp->update_delay_peers_resume_time);
+		}
+	} else {
+		vty_out(vty,
+			"Read-only mode update-delay limit: %d seconds\n",
+			bgp->v_update_delay);
+		if (bgp->v_update_delay != bgp->v_establish_wait)
+			vty_out(vty,
+				"                   Establish wait: %d seconds\n",
+				bgp->v_establish_wait);
+		if (bgp_update_delay_active(bgp)) {
+			vty_out(vty,
+				"  First neighbor established: %s\n",
+				bgp->update_delay_begin_time);
+			vty_out(vty, "  Delay in progress\n");
+		} else if (bgp->update_delay_over) {
+			vty_out(vty,
+				"  First neighbor established: %s\n",
+				bgp->update_delay_begin_time);
+			vty_out(vty,
+				"          Best-paths resumed: %s\n",
+				bgp->update_delay_end_time);
+			vty_out(vty,
+				"        zebra update resumed: %s\n",
+				bgp->update_delay_zebra_resume_time);
+			if (bgp->update_delay_peers_resume_time[0] != '\0')
+				vty_out(vty,
+					"        peers update resumed: %s\n",
+					bgp->update_delay_peers_resume_time);
+		}
+	}
+}
+
+static void bgp_show_summary_advertisement_delay(struct vty *vty,
+						  struct bgp *bgp,
+						  json_object *json,
+						  bool use_json)
+{
+	if (!bgp_advertisement_delay_configured(bgp))
+		return;
+
+	if (use_json) {
+		json_object_int_add(json, "advertisementDelay",
+				    bgp->v_advertisement_delay);
+		if (bgp_advertisement_delay_active(bgp)) {
+			json_object_boolean_true_add(
+				json, "advertisementDelayInProgress");
+			json_object_int_add(
+				json, "advertisementDelayRemainingSeconds",
+				event_timer_remain_second(
+					bgp->t_advertisement_delay));
+		} else if (bgp->advertisement_delay_resume_time[0] != '\0')
+			json_object_string_add(
+				json, "advertisementDelayResumeTime",
+				bgp->advertisement_delay_resume_time);
+	} else {
+		vty_out(vty, "Advertisement delay: %d seconds\n",
+			bgp->v_advertisement_delay);
+		if (bgp_advertisement_delay_active(bgp))
+			vty_out(vty, "  %lu seconds remaining\n",
+				event_timer_remain_second(
+					bgp->t_advertisement_delay));
+		else if (bgp->advertisement_delay_resume_time[0] != '\0')
+			vty_out(vty, "  advertisements resumed: %s\n",
+				bgp->advertisement_delay_resume_time);
+	}
+}
+
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, enum peer_asn_type as_type,
 			    as_t as, uint16_t show_flags)
@@ -13507,81 +13711,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "\n");
 			}
 
-			if (bgp_update_delay_configured(bgp)) {
-				if (use_json) {
-					json_object_int_add(
-						json, "updateDelayLimit",
-						bgp->v_update_delay);
+			bgp_show_summary_update_delay(vty, bgp, json,
+						     use_json);
 
-					if (bgp->v_update_delay
-					    != bgp->v_establish_wait)
-						json_object_int_add(
-							json,
-							"updateDelayEstablishWait",
-							bgp->v_establish_wait);
-
-					if (bgp_update_delay_active(bgp)) {
-						json_object_string_add(
-							json,
-							"updateDelayFirstNeighbor",
-							bgp->update_delay_begin_time);
-						json_object_boolean_true_add(
-							json,
-							"updateDelayInProgress");
-					} else {
-						if (bgp->update_delay_over) {
-							json_object_string_add(
-								json,
-								"updateDelayFirstNeighbor",
-								bgp->update_delay_begin_time);
-							json_object_string_add(
-								json,
-								"updateDelayBestpathResumed",
-								bgp->update_delay_end_time);
-							json_object_string_add(
-								json,
-								"updateDelayZebraUpdateResume",
-								bgp->update_delay_zebra_resume_time);
-							json_object_string_add(
-								json,
-								"updateDelayPeerUpdateResume",
-								bgp->update_delay_peers_resume_time);
-						}
-					}
-				} else {
-					vty_out(vty,
-						"Read-only mode update-delay limit: %d seconds\n",
-						bgp->v_update_delay);
-					if (bgp->v_update_delay
-					    != bgp->v_establish_wait)
-						vty_out(vty,
-							"                   Establish wait: %d seconds\n",
-							bgp->v_establish_wait);
-
-					if (bgp_update_delay_active(bgp)) {
-						vty_out(vty,
-							"  First neighbor established: %s\n",
-							bgp->update_delay_begin_time);
-						vty_out(vty,
-							"  Delay in progress\n");
-					} else {
-						if (bgp->update_delay_over) {
-							vty_out(vty,
-								"  First neighbor established: %s\n",
-								bgp->update_delay_begin_time);
-							vty_out(vty,
-								"          Best-paths resumed: %s\n",
-								bgp->update_delay_end_time);
-							vty_out(vty,
-								"        zebra update resumed: %s\n",
-								bgp->update_delay_zebra_resume_time);
-							vty_out(vty,
-								"        peers update resumed: %s\n",
-								bgp->update_delay_peers_resume_time);
-						}
-					}
-				}
-			}
+			bgp_show_summary_advertisement_delay(vty, bgp, json,
+							     use_json);
 
 			if (use_json) {
 				if (bgp_maxmed_onstartup_configured(bgp)
@@ -20933,6 +21067,9 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "\n");
 	}
 
+	if (bm->v_advertisement_delay != BGP_ADVERTISEMENT_DELAY_DEFAULT)
+		vty_out(vty, "bgp advertisement-delay %d\n", bm->v_advertisement_delay);
+
 	if (bm->wait_for_fib) {
 		if (bm->suppress_fib_adv_delay != BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY)
 			vty_out(vty, "bgp suppress-fib-pending %u\n",
@@ -21213,6 +21350,9 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP update-delay. */
 		bgp_config_write_update_delay(vty, bgp);
+
+		/* BGP advertisement-delay. */
+		bgp_config_write_advertisement_delay(vty, bgp);
 
 		if (bgp->v_maxmed_onstartup
 		    != BGP_MAXMED_ONSTARTUP_UNCONFIGURED) {
@@ -22008,6 +22148,10 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
 	install_element(CONFIG_NODE, &no_bgp_global_update_delay_cmd);
 
+	/* global bgp advertisement-delay command */
+	install_element(CONFIG_NODE, &bgp_global_advertisement_delay_cmd);
+	install_element(CONFIG_NODE, &no_bgp_global_advertisement_delay_cmd);
+
 	/* global bgp graceful-shutdown command */
 	install_element(CONFIG_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(CONFIG_NODE, &no_bgp_graceful_shutdown_cmd);
@@ -22095,6 +22239,10 @@ void bgp_vty_init(void)
 	/* bgp update-delay command */
 	install_element(BGP_NODE, &bgp_update_delay_cmd);
 	install_element(BGP_NODE, &no_bgp_update_delay_cmd);
+
+	/* bgp advertisement-delay command */
+	install_element(BGP_NODE, &bgp_advertisement_delay_cmd);
+	install_element(BGP_NODE, &no_bgp_advertisement_delay_cmd);
 
 	install_element(BGP_NODE, &bgp_wpkt_quanta_cmd);
 	install_element(BGP_NODE, &bgp_rpkt_quanta_cmd);

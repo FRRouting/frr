@@ -1004,6 +1004,30 @@ bool bgp_update_delay_configured(struct bgp *bgp)
 	return false;
 }
 
+bool bgp_advertisement_delay_applicable(struct bgp *bgp)
+{
+	/* advertisement_delay_over is set when the delay has completed;
+	 * until then, the delay is applicable.
+	 */
+	if (!bgp->advertisement_delay_over)
+		return true;
+	return false;
+}
+
+bool bgp_advertisement_delay_active(struct bgp *bgp)
+{
+	if (bgp->t_advertisement_delay)
+		return true;
+	return false;
+}
+
+bool bgp_advertisement_delay_configured(struct bgp *bgp)
+{
+	if (bgp->v_advertisement_delay)
+		return true;
+	return false;
+}
+
 /* Do the post-processing needed when bgp comes out of the read-only mode
    on ending the update delay. */
 void bgp_update_delay_end(struct bgp *bgp)
@@ -1296,6 +1320,65 @@ static void bgp_establish_wait_timer(struct event *event)
 	bgp = EVENT_ARG(event);
 	event_cancel(&bgp->t_establish_wait);
 	bgp_check_update_delay(bgp);
+}
+
+/* Advertisement-delay timer expiry callback.
+ * When both update-delay and advertisement-delay are configured, route
+ * advertisements are released at max(update-delay, advertisement-delay).
+ * Whichever finishes last clears main_peers_update_hold and calls
+ * bgp_start_routeadv(). The other release point is in bgp_route.c
+ * (bgp_process_main_one, end-of-initial-update path).
+ */
+static void bgp_advertisement_delay_timer(struct event *thread)
+{
+	struct bgp *bgp;
+
+	bgp = EVENT_ARG(thread);
+	event_cancel(&bgp->t_advertisement_delay);
+	bgp->advertisement_delay_over = 1;
+
+	/* Update-delay is still in progress or best-path/zebra post-processing
+	 * has not completed yet. Route advertisements will be released from
+	 * bgp_route.c once update-delay post-processing finishes.
+	 */
+	if (bgp_update_delay_active(bgp) || bgp->main_zebra_update_hold) {
+		zlog_info("Advertisement delay expired for %s, update-delay processing not yet complete",
+			  bgp->name_pretty);
+		return;
+	}
+
+	zlog_info("Advertisement delay ended for %s.", bgp->name_pretty);
+
+	frr_timestamp(3, bgp->advertisement_delay_resume_time,
+		      sizeof(bgp->advertisement_delay_resume_time));
+
+	bgp->main_peers_update_hold = 0;
+	bgp_start_routeadv(bgp);
+}
+
+/*
+ * Begin advertisement-delay.
+ * Set the hold flag and start the timer.
+ */
+static void bgp_advertisement_delay_begin(struct bgp *bgp)
+{
+	bgp->advertisement_delay_started = 1;
+	bgp->main_peers_update_hold = 1;
+	event_add_timer(bm->master, bgp_advertisement_delay_timer, bgp, bgp->v_advertisement_delay,
+			&bgp->t_advertisement_delay);
+	zlog_info("Advertisement delay started - %d seconds for %s", bgp->v_advertisement_delay,
+		  bgp->name_pretty);
+}
+
+/*
+ * Handle first peer Established for advertisement-delay.
+ */
+static void bgp_advertisement_delay_process_status_change(struct peer *peer)
+{
+	struct bgp *bgp = peer->bgp;
+
+	if (peer_established(peer->connection) && !bgp->advertisement_delay_started)
+		bgp_advertisement_delay_begin(bgp);
 }
 
 /* Steps to begin the update delay:
@@ -1963,11 +2046,20 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			bgp->maxmed_onstartup_over = 1;
 	}
 
-	/* Check for GR restarter or update-delay processing. */
+	/* Check for GR restarter, update-delay, or advertisement-delay.
+	 * When GR is not applicable, both update-delay and advertisement-delay
+	 * can run independently.
+	 */
 	if (gr_path_select_deferral_applicable(bgp))
 		bgp_gr_process_peer_status_change(peer);
-	else if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
-		bgp_update_delay_process_status_change(peer);
+	else {
+		if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
+			bgp_update_delay_process_status_change(peer);
+
+		if (bgp_advertisement_delay_configured(bgp) &&
+		    bgp_advertisement_delay_applicable(bgp))
+			bgp_advertisement_delay_process_status_change(peer);
+	}
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,

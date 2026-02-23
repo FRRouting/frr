@@ -4105,9 +4105,22 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 			if (bgp_fibupd_safi(safi))
 				bgp_zebra_announce_table(bgp, afi, safi);
 		}
-		bgp->main_peers_update_hold = 0;
 
-		bgp_start_routeadv(bgp);
+		/* When both update-delay and advertisement-delay are
+		 * configured, advertisements are released at
+		 * max(update-delay, advertisement-delay). If ad-delay
+		 * is still running, keep holding; otherwise release.
+		 * The other release point is
+		 * bgp_advertisement_delay_timer().
+		 */
+		if (bgp_advertisement_delay_configured(bgp) &&
+		    bgp_advertisement_delay_active(bgp)) {
+			zlog_info("%s: advertisement-delay timer still running, holding route advertisements",
+				  bgp->name_pretty);
+		} else {
+			bgp->main_peers_update_hold = 0;
+			bgp_start_routeadv(bgp);
+		}
 		return;
 	}
 
@@ -4188,7 +4201,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		}
 
 		/* If there is a change of interest to peers, reannounce the
-		 * route. */
+		 * route.
+		 */
 		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) ||
 		    CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) ||
 		    bgp_zebra_has_route_changed(old_select)) {
