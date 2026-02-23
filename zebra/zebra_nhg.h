@@ -415,6 +415,9 @@ extern void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vr
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
+/* Compare two nexthops including ACTIVE flag state */
+extern bool nhg_compare_nexthops(const struct nexthop *nh1, const struct nexthop *nh2);
+
 extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 
 /* Format NHG flags into a comma-separated string for display */

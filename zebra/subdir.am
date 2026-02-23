@@ -92,6 +92,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_netns_id.c \
 	zebra/zebra_netns_notify.c \
 	zebra/zebra_nhg.c \
+	zebra/zebra_nhg_tracker.c \
 	zebra/zebra_ns.c \
 	zebra/zebra_opaque.c \
 	zebra/zebra_pbr.c \
@@ -175,6 +176,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_netns_notify.h \
 	zebra/zebra_nhg.h \
 	zebra/zebra_nhg_private.h \
+	zebra/zebra_nhg_tracker.h \
 	zebra/zebra_ns.h \
 	zebra/zebra_opaque.h \
 	zebra/zebra_pbr.h \

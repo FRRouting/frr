@@ -10,15 +10,15 @@
 #ifndef __ZEBRA_NHG_TRACKER_H__
 #define __ZEBRA_NHG_TRACKER_H__
 
-#include "lib/event.h"
-#include "lib/table.h"
-#include "lib/typesafe.h"
+#include "typesafe.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct nhg_hash_entry;
+struct event;
+struct route_table;
 
 #define NHG_TRACKER_DEFAULT_TIMEOUT_SEC 300
 
@@ -78,6 +78,20 @@ extern uint32_t nhg_event_tracker_hash_key(const struct nhg_event_tracker *t);
 
 DECLARE_HASH(nhg_event_tracker_hash, struct nhg_event_tracker, tracker_hash_link,
 	     nhg_event_tracker_hash_cmp, nhg_event_tracker_hash_key);
+
+/* Init/fini tracker list and hash inside nhg_hash_entry */
+extern void zebra_nhg_tracker_init(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_tracker_fini(struct nhg_hash_entry *nhe);
+
+/* Lookup tracker by snapshot NHG state */
+extern struct nhg_event_tracker *zebra_nhg_tracker_lookup(struct nhg_hash_entry *nhe,
+							  struct nhg_hash_entry *snapshot);
+
+/* Create and cleanup tracker */
+extern struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe,
+							  ifindex_t ifindex,
+							  enum nhg_tracker_event_intf event);
+extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker);
 
 #ifdef __cplusplus
 }
