@@ -269,14 +269,17 @@ static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n)
 		mac_buf, listcount(n->pbr_rule_list));
 }
 
-void zebra_neigh_show(struct vty *vty)
+void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi)
 {
 	struct zebra_neigh_ent *n;
 
 	vty_out(vty, "%-20s %-30s %-18s %s\n", "Interface", "Neighbor", "MAC",
 		"#Rules");
-	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree)
+	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
+		if (afi != AF_UNSPEC && n->ip.ipa_type != afi)
+			continue;
 		zebra_neigh_show_one(vty, n);
+	}
 }
 
 void zebra_neigh_init(void)

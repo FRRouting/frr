@@ -2927,11 +2927,30 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_evpn_neigh, show_neigh_cmd, "show ip neigh",
+DEFPY(show_ip_neigh, show_ip_neigh_cmd, "show ip neighbor",
       SHOW_STR IP_STR "neighbors\n")
 
 {
-	zebra_neigh_show(vty);
+	zebra_neigh_show(vty, AF_INET);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_ipv6_neigh, show_ipv6_neigh_cmd, "show ipv6 neighbor",
+      SHOW_STR IPV6_STR "neighbors\n")
+{
+	zebra_neigh_show(vty, AF_INET6);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_neigh,
+      show_neigh_cmd,
+      "show neighbor",
+      SHOW_STR
+      "neighbors\n")
+{
+	zebra_neigh_show(vty, AF_UNSPEC);
 
 	return CMD_SUCCESS;
 }
@@ -4509,6 +4528,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
 	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);
 
+	install_element(VIEW_NODE, &show_ip_neigh_cmd);
+	install_element(VIEW_NODE, &show_ipv6_neigh_cmd);
 	install_element(VIEW_NODE, &show_neigh_cmd);
 
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);

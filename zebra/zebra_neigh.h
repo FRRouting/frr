@@ -44,7 +44,7 @@ extern void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac);
 extern void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip);
 extern void zebra_neigh_del_all(struct interface *ifp);
-extern void zebra_neigh_show(struct vty *vty);
+extern void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi);
 extern void zebra_neigh_init(void);
 extern void zebra_neigh_terminate(void);
 extern void zebra_neigh_deref(struct zebra_pbr_rule *rule);
