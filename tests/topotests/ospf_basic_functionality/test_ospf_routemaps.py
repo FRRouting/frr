@@ -635,7 +635,7 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
     routemaps = {
         "r0": {
             "route_maps": {
-                "rmap_ipv4": [{"action": "permit", "set": {"med": 123}, "seq_id": 10}]
+                "rmap_ipv4": [{"action": "permit", "set": {"metric": 123}, "seq_id": 10}]
             }
         }
     }
@@ -661,7 +661,7 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
                     {
                         "action": "permit",
                         "match": {"med": 123},
-                        "set": {"med": 150},
+                        "set": {"metric": 150},
                         "seq_id": 10,
                     }
                 ]
@@ -696,7 +696,7 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
                     {
                         "action": "permit",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 150},
+                        "set": {"metric": 150},
                         "call": "rmap_match_pf_2_ipv4",
                         "seq_id": 10,
                     }
@@ -705,7 +705,7 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
                     {
                         "action": "permit",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 200},
+                        "set": {"metric": 200},
                         "seq_id": 10,
                     }
                 ],
@@ -737,20 +737,20 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
                         "action": "permit",
                         "seq_id": "10",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 150},
+                        "set": {"metric": 150},
                         "continue": "30",
                         "seq_id": 10,
                     },
                     {
                         "action": "permit",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 100},
+                        "set": {"metric": 100},
                         "seq_id": 20,
                     },
                     {
                         "action": "permit",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 50},
+                        "set": {"metric": 50},
                         "seq_id": 30,
                     },
                 ]
@@ -782,13 +782,13 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
                         "action": "permit",
                         "seq_id": "20",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 100},
+                        "set": {"metric": 100},
                     },
                     {
                         "action": "permit",
                         "seq_id": "30",
                         "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
-                        "set": {"med": 200},
+                        "set": {"metric": 200},
                     },
                 ]
             }
