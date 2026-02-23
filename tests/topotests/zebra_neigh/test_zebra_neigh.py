@@ -77,15 +77,29 @@ def test_zebra_neighbors():
         "ip neigh add 192.168.0.4 lladdr 12:21:80:11:b1:20 dev r1-eth0 nud reachable extern_learn"
     )
 
-    output = r1.vtysh_cmd("show ip neigh").strip()
-    expected = """
-Interface            Neighbor                       MAC                #Rules
-r1-eth0              192.168.0.2                    12:21:80:11:b1:18  0
-r1-eth0              192.168.0.4                    12:21:80:11:b1:20  0
-"""
-    expected = expected.strip()
+    # Expected neighbors (192.168.0.3 is filtered - extern_learn proto zebra)
+    expected = {
+        "neighbors": [
+            {
+                "interface": "r1-eth0",
+                "neighbor": "192.168.0.2",
+                "mac": "12:21:80:11:b1:18",
+                "ruleCount": 0,
+                "state": "REACHABLE",
+            },
+            {
+                "interface": "r1-eth0",
+                "neighbor": "192.168.0.4",
+                "mac": "12:21:80:11:b1:20",
+                "ruleCount": 0,
+                "state": "REACHABLE",
+            },
+        ]
+    }
 
-    assert output == expected, '"r1" neighbor output mismatches'
+    test_func = partial(topotest.router_json_cmp, r1, "show ip neighbor json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result is None, '"r1" neighbor JSON output mismatches: {}'.format(result)
 
 
 def test_memory_leak():
