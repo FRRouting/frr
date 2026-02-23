@@ -610,8 +610,9 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 		if (pim_msdp_peer_rpf_check(peer, rp))
 			continue;
 		/* Don't forward inside the meshed group. */
-		if ((mp->flags & PIM_MSDP_PEERF_IN_GROUP)
-		    && strcmp(mp->mesh_group_name, peer->mesh_group_name) == 0)
+		if ((mp->flags & PIM_MSDP_PEERF_IN_GROUP) &&
+		    (peer->flags & PIM_MSDP_PEERF_IN_GROUP) &&
+		    strcmp(mp->mesh_group_name, peer->mesh_group_name) == 0)
 			continue;
 
 		pim_msdp_pkt_sa_tx_one_to_one_peer(peer, rp, sg);
