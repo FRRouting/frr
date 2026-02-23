@@ -175,6 +175,78 @@ def test_bgp_convergence():
     # tgen.mininet_cli()
 
 
+def test_bgp_neighbors_brief():
+    "Test 'show bgp neighbors [<ip>] brief' and 'show bgp neighbors [<ip>] brief json'"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    neighbor_ip = "192.168.0.2"
+    neighbor_ip2 = "192.168.101.2"
+
+    def _check_brief_text(out, expect_neighbors):
+        assert "Neighbor" in out and "AS " in out, "brief text missing header"
+        assert (
+            "MsgRcvd" in out and "MsgSent" in out
+        ), "brief text missing MsgRcvd/MsgSent"
+        assert (
+            "ResetTime" in out and "State " in out
+        ), "brief text missing ResetTime/State"
+        assert (
+            "Afi/Safi" in out and "PfxRcd" in out and "PfxSnt" in out
+        ), "brief text missing Afi/Safi or PfxRcd/PfxSnt"
+        for n in expect_neighbors:
+            assert n in out, "brief text missing neighbor %s" % n
+        assert "Established" in out or "IPv4" in out, "brief text missing State or AFI"
+
+    def _check_brief_json_nbr(nbr):
+        assert "hostname" in nbr, "brief json missing hostname"
+        assert "remoteAs" in nbr, "brief json missing remoteAs"
+        assert "localAs" in nbr, "brief json missing localAs"
+        assert "messageStats" in nbr, "brief json missing messageStats"
+        assert "totalSent" in nbr["messageStats"], "brief json missing totalSent"
+        assert "totalRecv" in nbr["messageStats"], "brief json missing totalRecv"
+        assert "addressFamilyInfo" in nbr, "brief json missing addressFamilyInfo"
+        afi_info = nbr["addressFamilyInfo"]
+        assert (
+            isinstance(afi_info, dict) and len(afi_info) >= 1
+        ), "brief json addressFamilyInfo should have at least one entry"
+        for afi_obj in afi_info.values():
+            assert (
+                "acceptedPrefixCounter" in afi_obj
+            ), "brief json AF entry missing acceptedPrefixCounter"
+            assert (
+                "sentPrefixCounter" in afi_obj
+            ), "brief json AF entry missing sentPrefixCounter"
+
+    # 1. Single neighbor text: show bgp neighbors <ip> brief
+    logger.info(f"Checking 'show bgp neighbors {neighbor_ip} brief' text output")
+    out = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip} brief")
+    _check_brief_text(out, [neighbor_ip])
+    assert "65000" in out, "brief text missing AS 65000"
+
+    # 2. All neighbors text: show bgp neighbors brief
+    logger.info(f"Checking 'show bgp neighbors brief' text output (all neighbors)")
+    out_all = r1.vtysh_cmd("show bgp neighbors brief")
+    _check_brief_text(out_all, [neighbor_ip, neighbor_ip2])
+
+    # 3. Single neighbor JSON: show bgp neighbors <ip> brief json
+    logger.info(f"Checking 'show bgp neighbors {neighbor_ip} brief json' structure")
+    out_json = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip} brief json", isjson=True)
+    assert neighbor_ip in out_json, "brief json missing neighbor key"
+    _check_brief_json_nbr(out_json[neighbor_ip])
+
+    # 4. All neighbors JSON: show bgp neighbors brief json
+    logger.info(f"Checking 'show bgp neighbors brief json' structure (all neighbors)")
+    out_json_all = r1.vtysh_cmd("show bgp neighbors brief json", isjson=True)
+    assert (
+        neighbor_ip in out_json_all and neighbor_ip2 in out_json_all
+    ), "brief json (all) missing expected neighbor keys"
+    _check_brief_json_nbr(out_json_all[neighbor_ip])
+    _check_brief_json_nbr(out_json_all[neighbor_ip2])
+
+
 def get_shut_msg_count(tgen):
     shuts = {}
     for rtrNum in [2, 4]:
