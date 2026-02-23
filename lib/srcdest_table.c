@@ -293,6 +293,73 @@ const char *srcdest_rnode2str(const struct route_node *rn, char *str, int size)
 	return srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, str, size);
 }
 
+/* Find next node; may have same or different dest as 'dst_pu' */
+struct route_node *srcdest_table_get_next(struct route_table *table,
+					  union prefixconstptr dst_pu,
+					  const struct prefix_ipv6 *src_p)
+{
+	struct route_node *rn, *next;
+	struct srcdest_rnode *srn;
+
+	/* The next node may be the srcnode that follows 'src',
+	 * or it may be the first node that follows 'dst' (or it may be NULL).
+	 */
+
+	/* Optimistic case: if matching node is still present, just return next */
+	rn = srcdest_rnode_lookup(table, dst_pu, src_p);
+	if (rn) {
+		rn = srcdest_route_next(rn);
+		goto done;
+	}
+
+	/* See if dst prefix is still in the table; if not, look for next dest */
+	rn = route_node_lookup_maynull(table, dst_pu);
+	if (rn == NULL) {
+		/* Just offer next prefix node */
+		rn = route_table_get_next(table, dst_pu);
+		goto done;
+	}
+
+	/* Without a source prefix, just advance to next dest */
+	if (src_p == NULL || src_p->prefixlen == 0) {
+		rn = srcdest_route_next(rn);
+		goto done;
+	}
+
+	/* At this point, note that 'rn' has a refcount incremented */
+
+	/* dest is present: look for successor to source node 'src',
+	 * or move to next dest
+	 */
+	next = NULL;
+	if (rnode_is_dstnode(rn)) {
+		srn = srcdest_rnode_from_rnode(rn);
+		if (srn->src_table) {
+			/* Lookup 'src' */
+			next = route_node_lookup_maynull(srn->src_table, src_p);
+			if (next) {
+				next = srcdest_route_next(next);
+			} else {
+				/* Need to search for successor to 'src', if any */
+				next = route_table_get_next(srn->src_table, src_p);
+			}
+
+			/* Done with rn now */
+			if (next) {
+				route_unlock_node(rn);
+				rn = next;
+			}
+		}
+	}
+
+	/* No srcdest 'next'; just move to next dest prefix */
+	if (next == NULL)
+		rn = srcdest_route_next(rn);
+
+done:
+	return rn;
+}
+
 printfrr_ext_autoreg_p("RN", printfrr_rn);
 static ssize_t printfrr_rn(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)

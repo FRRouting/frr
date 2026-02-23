@@ -87,6 +87,11 @@ static inline void *srcdest_rnode_table_info(struct route_node *rn)
 	return route_table_get_info(srcdest_rnode_table(rn));
 }
 
+/* Find next srcdest prefix; may have same or different dest as 'dst_pu' */
+struct route_node *srcdest_table_get_next(struct route_table *table,
+					  union prefixconstptr dst_pu,
+					  const struct prefix_ipv6 *src_p);
+
 #ifdef __cplusplus
 }
 #endif
