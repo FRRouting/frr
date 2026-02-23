@@ -9,6 +9,7 @@
 
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
+#include "zebra/zebra_nhg_tracker.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,6 +92,10 @@ struct nhg_hash_entry {
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
 	struct event *timer;
+
+	/* NHG event trackers: deferred activation after interface up/down */
+	struct nhg_event_tracker_list_head tracker_list;
+	struct nhg_event_tracker_hash_head tracker_hash;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
