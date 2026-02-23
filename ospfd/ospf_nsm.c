@@ -36,6 +36,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_quicknbr.h"
 
 DEFINE_HOOK(ospf_nsm_change,
 	    (struct ospf_neighbor * on, int state, int oldstate),
@@ -337,6 +338,12 @@ static int nsm_adj_ok(struct ospf_neighbor *nbr)
 		ospf_proactively_arp(nbr);
 	} else if (nbr->state >= NSM_ExStart && adj == 0)
 		next_state = NSM_TwoWay;
+	else if (nbr->state == NSM_TwoWay && IS_QUICKNBR(nbr) && adj == 1)
+		/*
+		 * Quick neighbor placeholder; only form adjacency when appropriate
+		 * per RFC2328 10.4.
+		 */
+		next_state = NSM_ExStart;
 
 	return next_state;
 }
