@@ -414,9 +414,113 @@ static void run_prng_test(void)
 	test_state_free(test);
 }
 
+/* Get an interesting dest prefix */
+static void get_dest_prefix(struct prng *prng, struct prefix_ipv6 *p)
+{
+	do {
+		get_rand_prefix(prng, p);
+	} while (p->prefix.s6_addr32[0] == 0);
+}
+
+static void run_srcdest_next_test(void)
+{
+	const int NEXT_ARR_MAX = 8;
+	struct test_state *test = test_state_new();
+	struct prng *prng = prng_new(0);
+	int i, idx;
+	struct prefix_ipv6 dstp, dstp2, srcp;
+	struct prefix_ipv6 src_array[NEXT_ARR_MAX];
+	const struct prefix_ipv6 *lowdst, *highdst;
+	struct route_node *rn;
+	const struct prefix *pfx1, *pfx2;
+
+	/* Add some prefixes: two dests, with some srcs */
+	get_dest_prefix(prng, &dstp);
+	get_dest_prefix(prng, &dstp2);
+
+	/* Establish the order between the dests */
+	lowdst = &dstp;
+	highdst = &dstp2;
+	if (route_table_prefix_iter_cmp((struct prefix *)&dstp,
+					(struct prefix *)&dstp2) > 0) {
+		lowdst = &dstp2;
+		highdst = &dstp;
+	}
+
+	/* Create some routes */
+	for (i = 0; i < NEXT_ARR_MAX; i++) {
+get_srcpfx:
+		get_rand_prefix(prng, &srcp);
+		if (srcp.prefixlen < 8)
+			goto get_srcpfx;
+
+		test_state_add_route(test, &dstp, &srcp);
+		test_state_add_route(test, &dstp2, &srcp);
+	}
+
+	/* Capture ordered list of source prefixes */
+	i = 0;
+	for (rn = route_top(test->table); rn; rn = srcdest_route_next(rn)) {
+		if (rn->info) {
+			srcdest_rnode_prefixes(rn, &pfx1, &pfx2);
+
+			if (i < NEXT_ARR_MAX)
+				src_array[i] = *(struct prefix_ipv6 *)pfx2;
+			else
+				break;
+			i++;
+		}
+	}
+
+	/* Check node in the middle of 'lowdst' subtree */
+	idx = 6;
+	rn = srcdest_table_get_next(test->table, lowdst, &src_array[idx]);
+	while (rn && rn->info == NULL)
+		rn = srcdest_route_next(rn);
+
+	assert(rn != NULL);
+
+	srcdest_rnode_prefixes(rn, &pfx1, &pfx2);
+	assert(prefix_cmp(pfx2, &src_array[idx + 1]) == 0);
+
+	route_unlock_node(rn);
+	rn = NULL;
+
+	/* Check boundary between lowdst and highdst */
+	idx = 7;
+	rn = srcdest_table_get_next(test->table, lowdst, &src_array[idx]);
+	while (rn && rn->info == NULL)
+		rn = srcdest_route_next(rn);
+
+	assert(rn != NULL);
+
+	srcdest_rnode_prefixes(rn, &pfx1, &pfx2);
+	assert(prefix_cmp(pfx1, highdst) == 0);
+
+	route_unlock_node(rn);
+	rn = NULL;
+
+	/* Check last node, end of the prefixes */
+	idx = 7;
+	rn = srcdest_table_get_next(test->table, highdst, &src_array[idx]);
+	while (rn && rn->info == NULL)
+		rn = srcdest_route_next(rn);
+
+	assert(rn == NULL);
+
+	/* Clean up */
+
+	prng_free(prng);
+	test_state_free(test);
+}
+
 int main(int argc, char *argv[])
 {
 	run_prng_test();
 	printf("PRNG Test successful.\n");
+
+	run_srcdest_next_test();
+	printf("srcdest Next Test successful.\n");
+
 	return 0;
 }

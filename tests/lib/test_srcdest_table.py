@@ -6,4 +6,4 @@ class TestSrcdestTable(frrtest.TestMultiOut):
     program = "./test_srcdest_table"
 
 
-TestSrcdestTable.onesimple("PRNG Test successful.")
+TestSrcdestTable.onesimple("srcdest Next Test successful.")
