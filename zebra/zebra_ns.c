@@ -311,6 +311,7 @@ void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
 		interface_list_second(zns);
 		break;
 	case ZEBRA_DPLANE_ADDRESSES_READ:
+		neigh_read(zns);
 		route_read(zns);
 
 		vlan_read(zns);
