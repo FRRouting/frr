@@ -63,15 +63,15 @@ module frr-staticd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2019-12-03 {
-    description
-      "Initial revision.";
-    reference "FRRouting";
-  }
-
   revision 2026-01-23 {
     description
       "Augments the nexthop container with a 'weight' leaf.";
+    reference "FRRouting";
+  }
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
     reference "FRRouting";
   }
 
@@ -224,6 +224,8 @@ module frr-staticd {
             }
           }
           augment "path-list/frr-nexthops/nexthop" {
+            description
+              "Augments the 'nexthop' container to add a 'weight' leaf for ECMP purposes.";
             leaf weight {
               type uint16 {
                 range "1..65535";
