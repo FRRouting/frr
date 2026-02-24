@@ -4096,8 +4096,15 @@ void bgp_process_packet(struct event *event)
 		bgp_size_t size;
 		char notify_data_length[2];
 
-		frr_with_mutex (&connection->io_mtx)
+		bool rearm_reads = false;
+
+		frr_with_mutex (&connection->io_mtx) {
+			rearm_reads = (bm->inq_limit && connection->ibuf->count >= bm->inq_limit);
 			connection->curr = stream_fifo_pop(connection->ibuf);
+		}
+
+		if (rearm_reads)
+			bgp_reads_on(connection);
 
 		if (connection->curr == NULL) {
 			frr_with_mutex (&bm->peer_connection_mtx)

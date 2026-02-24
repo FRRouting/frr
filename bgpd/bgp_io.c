@@ -309,8 +309,9 @@ done:
 		return;
 	}
 
-	event_add_read(fpt->master, bgp_process_reads, connection,
-		       connection->fd, &connection->t_read);
+	if (ret != -ENOMEM)
+		event_add_read(fpt->master, bgp_process_reads, connection, connection->fd,
+			       &connection->t_read);
 	if (added_pkt) {
 		frr_with_mutex (&bm->peer_connection_mtx) {
 			if (!peer_connection_fifo_member(&bm->connection_fifo, connection))
