@@ -621,6 +621,11 @@ void zebra_pbr_expand_action_update(bool enable)
 	zebra_pbr_expand_action = enable;
 }
 
+/*
+ * PBR currently only works in the default vrf/namespace
+ * if we ever change this we will need to change how we get the table,
+ * zns and ifindex handling as well.
+ */
 static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 {
 	struct prefix p;
@@ -632,6 +637,7 @@ static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 	const struct nexthop *nexthop;
 	struct zebra_pbr_action *action = &rule->action;
 	struct ipaddr ip;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
 	if (!zebra_pbr_expand_action)
 		return;
@@ -671,7 +677,7 @@ static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 			action->ifindex = nexthop->ifindex;
 			ip.ipa_type = AF_INET;
 			ip.ipaddr_v4 = action->gate.ipv4;
-			zebra_neigh_ref(action->ifindex, &ip, rule);
+			zebra_neigh_ref(zns->ns_id, action->ifindex, &ip, rule);
 			break;
 
 		case NEXTHOP_TYPE_IPV6:
@@ -681,7 +687,7 @@ static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 			action->ifindex = nexthop->ifindex;
 			ip.ipa_type = AF_INET6;
 			ip.ipaddr_v6 = action->gate.ipv6;
-			zebra_neigh_ref(action->ifindex, &ip, rule);
+			zebra_neigh_ref(zns->ns_id, action->ifindex, &ip, rule);
 			break;
 
 		case NEXTHOP_TYPE_BLACKHOLE:
