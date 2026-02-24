@@ -488,6 +488,12 @@ void bm_wait_for_fib_set(bool set)
 				continue;
 
 			peer_notify_config_change(peer->connection);
+			/* Since this is a local config change, not a graceful restart.
+			 * Clear NSF_WAIT so clearing properly removes paths instead of
+			 * marking them STALE. Routes need a fresh Zebra round-trip to
+			 * set FIB_INSTALLED correctly.
+			 */
+			UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 		}
 	}
 }
@@ -570,6 +576,12 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 			continue;
 
 		peer_notify_config_change(peer->connection);
+		/* Since this is a local config change, not a graceful restart.
+		 * Clear NSF_WAIT so clearing properly removes paths instead of
+		 * marking them STALE. Routes need a fresh Zebra round-trip to
+		 * set FIB_INSTALLED correctly.
+		 */
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	}
 }
 
