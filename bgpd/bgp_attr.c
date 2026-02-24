@@ -165,6 +165,8 @@ static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 	struct cluster_list *find;
 
 	find = hash_get(cluster_hash, cluster, cluster_hash_alloc);
+	if (find != cluster)
+		cluster_free(cluster);
 	find->refcnt++;
 
 	return find;
