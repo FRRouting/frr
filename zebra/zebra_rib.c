@@ -1335,6 +1335,10 @@ static void rib_process(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
+		/* Skip entries parked in an NHG tracker */
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+			continue;
+
 		/*
 		 * If the route entry has changed, verify/resolve
 		 * the nexthops associated with the entry.
@@ -1636,8 +1640,7 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 }
 
 /* Route comparison logic, with various special cases. */
-static bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
-			       bool replace)
+bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2, bool replace)
 {
 	if (re1->type != re2->type)
 		return false;
@@ -3933,6 +3936,13 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 	}
 
 	re->rn = rn;
+	/* If this RE's NHG has active trackers, park the RE in one
+	 * of them instead of proceeding to rib_queue_add.
+	 */
+	 struct nhg_event_tracker *tracker = NULL;
+	 if (re->nhe && nhg_event_tracker_list_count(&re->nhe->tracker_list) > 0)
+		 tracker = zebra_nhg_tracker_park_re(rn, re);
+
 	re_list_add_head(&dest->routes, re);
 
 	afi = (rn->p.family == AF_INET)
@@ -3947,6 +3957,15 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 		}
 	}
 
+	/* If this RE's NHG has active trackers, park the RE in one
+	 * of them instead of proceeding to rib_queue_add.
+	 */
+		if (tracker) {
+			zebra_nhg_tracker_flush_if_full(tracker, re->nhe);
+			return;
+	}
+
+	/* No active trackers: proceed to best-path selection. */
 	rib_queue_add(rn);
 }
 

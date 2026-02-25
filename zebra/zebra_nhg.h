@@ -96,6 +96,18 @@ struct nhg_hash_entry {
 	/* NHG event trackers: deferred activation after interface up/down */
 	struct nhg_event_tracker_list_head tracker_list;
 	struct nhg_event_tracker_hash_head tracker_hash;
+	/* Per-NHG prefix-to-tracker lookup hash.
+	 * Key: (prefix, type, instance).
+	 *   prefix   -- the route prefix (e.g. 10.0.0.0/24).
+	 *   type     -- the protocol type (e.g. ZEBRA_ROUTE_BGP).
+	 *   instance -- the protocol instance number. 0 for most
+	 *               protocols.
+	 * The key uniquely identifies one RE.  Two REs for the same
+	 * prefix but different protocols are separate entries.
+	 * Value: struct nhg_event_tracker *tracker -- the tracker
+	 * that currently owns this (prefix, type, instance).
+	 */
+	struct tracker_prefix_map_head tracker_prefix_map;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
@@ -425,6 +437,9 @@ extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 
 /* Format NHG flags into a comma-separated string for display */
 extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
+
+extern bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
+				      const struct route_node *rn);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

@@ -148,6 +148,8 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
+/* Route Entry is parked in an NHG tracker and should not be processed yet */
+#define ROUTE_ENTRY_TRACKER          0x40
 /*
  * Route entries that are going to the dplane for a Route Replace
  * let's note the fact that this is happening.  This will
@@ -465,6 +467,9 @@ extern unsigned long rib_score_proto_table(uint8_t proto,
 					   struct route_table *table);
 
 extern int rib_queue_add(struct route_node *rn);
+
+extern bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
+			       bool replace);
 
 struct nhg_ctx; /* Forward declaration */
 
