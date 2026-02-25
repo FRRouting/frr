@@ -11,10 +11,14 @@
 #define __ZEBRA_NHG_TRACKER_H__
 
 #include "typesafe.h"
+#include "prefix.h"
+#include "memory.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+DECLARE_MTYPE(NHG_TRACKER_PREFIX_MAP);
 
 struct nhg_hash_entry;
 struct event;
@@ -29,6 +33,15 @@ enum nhg_tracker_event_intf {
 
 PREDECL_DLIST(nhg_event_tracker_list);
 PREDECL_HASH(nhg_event_tracker_hash);
+PREDECL_HASH(tracker_prefix_map);
+
+struct tracker_prefix_map_entry {
+	struct prefix p;
+	int type;
+	uint16_t instance;
+	struct nhg_event_tracker *tracker;
+	struct tracker_prefix_map_item item;
+};
 
 /* Matched/unmatched route table wrappers */
 struct nhg_tracker_matched_table {
@@ -78,6 +91,18 @@ extern uint32_t nhg_event_tracker_hash_key(const struct nhg_event_tracker *t);
 
 DECLARE_HASH(nhg_event_tracker_hash, struct nhg_event_tracker, tracker_hash_link,
 	     nhg_event_tracker_hash_cmp, nhg_event_tracker_hash_key);
+
+/*
+ * Typesafe hash for tracker_prefix_map: (prefix, type, instance) -> tracker
+ */
+extern uint32_t
+tracker_prefix_map_hash_key(const struct tracker_prefix_map_entry *e);
+extern int
+tracker_prefix_map_hash_cmp(const struct tracker_prefix_map_entry *a,
+			    const struct tracker_prefix_map_entry *b);
+
+DECLARE_HASH(tracker_prefix_map, struct tracker_prefix_map_entry, item,
+	     tracker_prefix_map_hash_cmp, tracker_prefix_map_hash_key);
 
 /* Init/fini tracker list and hash inside nhg_hash_entry */
 extern void zebra_nhg_tracker_init(struct nhg_hash_entry *nhe);

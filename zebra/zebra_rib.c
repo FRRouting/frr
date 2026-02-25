@@ -3859,6 +3859,243 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
  *
  */
 
+/*
+ * Collapse a stale tracker into a target tracker.
+ * Moves all prefixes from old_tracker's matched and unmatched tables
+ * into new_tracker's unmatched table, updates the prefix_map, then
+ * destroys the old tracker.
+ */
+static void rib_tracker_collapse(struct tracker_prefix_map_head *prefix_map,
+				 struct nhg_event_tracker *old_tracker,
+				 struct nhg_event_tracker *new_tracker)
+{
+	struct route_node *old_trn;
+	struct route_node *trn;
+	struct route_table *dst_table = new_tracker->unmatched_table.unmatched_table;
+
+	/* Iterate every route_node in the old tracker's matched table.
+	 * Each old_trn->info holds a pointer to the RIB route_node
+	 * for that prefix.  Move it into the new tracker's unmatched
+	 * table (dst_table).  If the new tracker already has an entry
+	 * for this prefix (a different RE was already parked there),
+	 * both point to the same RIB RN, so just release the extra
+	 * lock from route_node_get.  Then clear the old entry and
+	 * release its insertion lock.
+	 */
+	for (old_trn = route_top(old_tracker->matched_table.matched_table); old_trn;
+	     old_trn = route_next(old_trn)) {
+		if (!old_trn->info)
+			continue;
+
+		trn = route_node_get(dst_table, &old_trn->p);
+		if (!trn->info)
+			trn->info = old_trn->info;
+		else
+			route_unlock_node(trn);
+
+		old_trn->info = NULL;
+		route_unlock_node(old_trn);
+	}
+
+	/* Same logic for the old tracker's unmatched table. */
+	for (old_trn = route_top(old_tracker->unmatched_table.unmatched_table); old_trn;
+	     old_trn = route_next(old_trn)) {
+		if (!old_trn->info)
+			continue;
+
+		trn = route_node_get(dst_table, &old_trn->p);
+		if (!trn->info)
+			trn->info = old_trn->info;
+		else
+			route_unlock_node(trn);
+
+		old_trn->info = NULL;
+		route_unlock_node(old_trn);
+	}
+
+	new_tracker->unmatched_table.re_count += old_tracker->matched_table.re_count +
+						 old_tracker->unmatched_table.re_count;
+	old_tracker->matched_table.re_count = 0;
+	old_tracker->unmatched_table.re_count = 0;
+
+	{
+		struct tracker_prefix_map_entry *entry;
+
+		frr_each_safe (tracker_prefix_map, prefix_map, entry) {
+			if (entry->tracker == old_tracker)
+				entry->tracker = new_tracker;
+		}
+	}
+
+	zebra_nhg_tracker_free(old_tracker->parent_nhe, old_tracker);
+}
+
+/*
+ * Evict a stale RE from an older tracker and collapse that tracker.
+ *
+ * Tracker RNs point to the original RIB RNs, so if an equivalent RE
+ * existed in the old tracker it has already been marked
+ * ROUTE_ENTRY_REMOVED by the early route sub-queue
+ * (process_subq_early_route_add).  When the collapse copies the
+ * prefix to the new tracker, both the old (REMOVED) and new REs are
+ * reachable through the same RIB RN, but the old one is dead and
+ * will be cleaned up when rib_process eventually runs.
+ */
+static void rib_tracker_decount_stale_re(struct tracker_prefix_map_head *prefix_map,
+					 struct nhg_event_tracker *tracker,
+					 struct tracker_prefix_map_entry *old_entry,
+					 struct route_node *rn)
+{
+	struct nhg_event_tracker *old_tracker = old_entry->tracker;
+	struct route_node *old_rn;
+
+	/* Find the prefix in the old tracker's matched table;
+	 * if not there, try unmatched.
+	 */
+	old_rn = route_node_lookup(old_tracker->matched_table.matched_table, &rn->p);
+	if (old_rn) {
+		/* Decrement re_count for the triggering RE only.
+		 * Do NOT clear old_rn->info: the prefix may have
+		 * other REs that the collapse will move to the
+		 * new tracker.  One unlock for route_node_lookup's
+		 * ref; the collapse handles the insertion ref.
+		 */
+		if (old_tracker->matched_table.re_count > 0)
+			old_tracker->matched_table.re_count--;
+		route_unlock_node(old_rn);
+	} else {
+		old_rn = route_node_lookup(old_tracker->unmatched_table.unmatched_table, &rn->p);
+		if (old_rn) {
+			/* Same as matched branch: decrement
+			 * re_count for the triggering RE only;
+			 * keep the prefix for the collapse.
+			 */
+			if (old_tracker->unmatched_table.re_count > 0)
+				old_tracker->unmatched_table.re_count--;
+			route_unlock_node(old_rn);
+		}
+	}
+
+	old_entry->tracker = tracker;
+
+	rib_tracker_collapse(prefix_map, old_tracker, tracker);
+}
+
+/*
+ * Add an RN to a tracker table (matched or unmatched).
+ * Uses prefix_map to ensure each prefix is owned by exactly one tracker.
+ * Does not bump re_count on same-protocol replace.
+ */
+static void rib_tracker_table_add(struct tracker_prefix_map_head *prefix_map,
+				  struct nhg_event_tracker *tracker,
+				  struct route_table *tracker_table, uint32_t *re_count,
+				  struct route_node *rn, struct route_entry *re)
+{
+	struct route_node *trn;
+	struct route_entry *existing_re;
+	struct tracker_prefix_map_entry lookup_key;
+	struct tracker_prefix_map_entry *old_entry;
+
+	memset(&lookup_key, 0, sizeof(lookup_key));
+	prefix_copy(&lookup_key.p, &rn->p);
+	lookup_key.type = re->type;
+	lookup_key.instance = re->instance;
+
+	old_entry = tracker_prefix_map_find(prefix_map, &lookup_key);
+	if (old_entry && old_entry->tracker != tracker)
+		rib_tracker_decount_stale_re(prefix_map, tracker, old_entry, rn);
+
+	/* Add to target tracker table.  The tracker table has its own
+	 * route_nodes (trn), but trn->info points to the RIB's route_node
+	 * (rn), not to an individual route_entry.  The RIB rn holds the
+	 * actual REs in rn->info (rib_dest_t) -> dest->routes.
+	 */
+
+
+	/* Return an existing RN associated with that prefix or create
+	 * one (if none exists).  Increment the lock.
+	 */
+	trn = route_node_get(tracker_table, &rn->p);
+	if (!trn->info) {
+		trn->info = rn;
+		(*re_count)++;
+	} else {
+		/* Prefix already exists in this tracker.  Check whether
+		 * a live (non-REMOVED) RE from the same protocol is
+		 * already on the RIB route_node.  If so, that RE was
+		 * already counted in re_count, so don't increment again.
+		 * If the incoming RE is from a different protocol (e.g.
+		 * OSPF was parked here, now BGP arrives), increment.
+		 */
+		bool is_replace = false;
+
+		route_unlock_node(trn);
+
+		RNODE_FOREACH_RE (rn, existing_re) {
+			if (existing_re == re)
+				continue;
+			if (CHECK_FLAG(existing_re->status, ROUTE_ENTRY_REMOVED))
+				continue;
+			if (rib_compare_routes(re, existing_re, true)) {
+				is_replace = true;
+				break;
+			}
+		}
+		if (!is_replace)
+			(*re_count)++;
+	}
+
+	/* Insert into prefix_map if no entry existed */
+	if (!old_entry) {
+		struct tracker_prefix_map_entry *new_entry;
+
+		new_entry = XCALLOC(MTYPE_NHG_TRACKER_PREFIX_MAP, sizeof(*new_entry));
+		prefix_copy(&new_entry->p, &rn->p);
+		new_entry->type = re->type;
+		new_entry->instance = re->instance;
+		new_entry->tracker = tracker;
+		tracker_prefix_map_add(prefix_map, new_entry);
+	}
+}
+
+/*
+ * Park an RE in the appropriate tracker instead of queuing it
+ * for best-path selection.  Called from rib_link when the RE's
+ * NHG has active trackers.
+ */
+static void rib_tracker_park_re(struct route_node *rn, struct route_entry *re)
+{
+	struct nhg_event_tracker *tracker;
+	struct tracker_prefix_map_head *prefix_map = &re->nhe->tracker_prefix_map;
+	bool matched = false;
+
+	/* Walk trackers oldest-to-newest; a tracker matches when
+	 * its snapshot has the same active nexthops as the RE
+	 * (inactive nexthops are skipped by the comparison).
+	 */
+	frr_rev_each (nhg_event_tracker_list, &re->nhe->tracker_list, tracker) {
+		if (zebra_nhg_nexthop_compare(re->nhe->nhg.nexthop,
+					      tracker->nhg_tracker_snapshot->nhg.nexthop, rn)) {
+			rib_tracker_table_add(prefix_map, tracker,
+					      tracker->matched_table.matched_table,
+					      &tracker->matched_table.re_count, rn, re);
+			matched = true;
+			break;
+		}
+	}
+
+	/* No tracker snapshot matched; place RE in the newest
+	 * tracker's unmatched table (head of list = newest).
+	 */
+	if (!matched) {
+		tracker = nhg_event_tracker_list_first(&re->nhe->tracker_list);
+		if (tracker)
+			rib_tracker_table_add(prefix_map, tracker,
+					      tracker->unmatched_table.unmatched_table,
+					      &tracker->unmatched_table.re_count, rn, re);
+	}
+}
+
 /* Add RE to head of the route node. */
 static void rib_link(struct route_node *rn, struct route_entry *re)
 {
@@ -3891,6 +4128,15 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 		}
 	}
 
+	/* If this RE's NHG has active trackers, park the RE in one
+	 * of them instead of proceeding to rib_queue_add.
+	 */
+	if (re->nhe && nhg_event_tracker_list_count(&re->nhe->tracker_list) > 0) {
+		rib_tracker_park_re(rn, re);
+		return;
+	}
+
+	/* No active trackers: proceed to best-path selection. */
 	rib_queue_add(rn);
 }
 

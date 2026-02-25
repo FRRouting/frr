@@ -19,6 +19,31 @@
 #include "zebra/zebra_router.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER, "NHG Event Tracker");
+DEFINE_MTYPE(ZEBRA, NHG_TRACKER_PREFIX_MAP, "NHG Tracker Prefix Map Entry");
+
+/*
+ * tracker_prefix_map hash.
+ * Key:   (prefix, protocol type, protocol instance).
+ * Value: pointer to the tracker that owns this (prefix, type, instance).
+ */
+uint32_t tracker_prefix_map_hash_key(const struct tracker_prefix_map_entry *e)
+{
+	uint32_t key;
+
+	key = prefix_hash_key(&e->p);
+	key = jhash_2words((uint32_t)e->type, (uint32_t)e->instance, key);
+	return key;
+}
+
+int tracker_prefix_map_hash_cmp(const struct tracker_prefix_map_entry *a,
+				const struct tracker_prefix_map_entry *b)
+{
+	if (a->type != b->type)
+		return 1;
+	if (a->instance != b->instance)
+		return 1;
+	return prefix_cmp(&a->p, &b->p) != 0;
+}
 
 /*
  * Hash key: parent NHG ID + nexthop hashes.
@@ -100,6 +125,7 @@ void zebra_nhg_tracker_init(struct nhg_hash_entry *nhe)
 {
 	nhg_event_tracker_list_init(&nhe->tracker_list);
 	nhg_event_tracker_hash_init(&nhe->tracker_hash);
+	tracker_prefix_map_init(&nhe->tracker_prefix_map);
 }
 
 /*
@@ -113,6 +139,15 @@ void zebra_nhg_tracker_fini(struct nhg_hash_entry *nhe)
 		zebra_nhg_tracker_free(nhe, t);
 
 	nhg_event_tracker_hash_fini(&nhe->tracker_hash);
+
+	{
+		struct tracker_prefix_map_entry *entry;
+
+		while ((entry = tracker_prefix_map_pop(
+				&nhe->tracker_prefix_map)) != NULL)
+			XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
+	}
+	tracker_prefix_map_fini(&nhe->tracker_prefix_map);
 }
 
 /*
@@ -189,6 +224,25 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 			  tracker->nhg_tracker_id);
 
 	event_cancel(&tracker->timer);
+
+	/* Clean up any prefix_map entries that still point to this
+	 * tracker.  Iterates over all entries in the per-NHG
+	 * tracker_prefix_map hash.  For each entry whose tracker
+	 * pointer matches the tracker being freed, removes it
+	 * from the hash and frees its memory.
+	 */
+	{
+		struct tracker_prefix_map_entry *entry;
+
+		frr_each_safe (tracker_prefix_map, &nhe->tracker_prefix_map,
+			       entry) {
+			if (entry->tracker == tracker) {
+				tracker_prefix_map_del(
+					&nhe->tracker_prefix_map, entry);
+				XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
+			}
+		}
+	}
 
 	if (tracker->matched_table.matched_table) {
 		route_table_finish(tracker->matched_table.matched_table);

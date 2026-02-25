@@ -1109,7 +1109,7 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 				nexthop = nexthop->next;
 			}
 
-			if (nh_deactivated)
+			if (nh_deactivated && nhe->nhg.nexthop)
 				zebra_nhg_tracker_create(rb_node_dep->nhe,
 							 nhe->nhg.nexthop->ifindex,
 							 NHG_TRACKER_EVENT_INTF_DOWN);
@@ -3037,9 +3037,8 @@ void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t 
  * from the old_re to the new_re, when an interface goes down and the
  * new nhg sent down from the upper level protocol would resolve to it
  */
-static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
-				      const struct nexthop *old_nhop,
-				      const struct route_node *rn)
+bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
+			       const struct route_node *rn)
 {
 	bool same = true;
 
