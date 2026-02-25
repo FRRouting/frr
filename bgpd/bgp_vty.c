@@ -5416,6 +5416,9 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		ret = peer_group_bind(bgp, NULL, peer, group, &as);
 	}
 
+	/* if need start listening */
+	bgp_need_listening(bgp, vty);
+
 	return bgp_vty_return(vty, ret);
 }
 
