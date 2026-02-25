@@ -21,6 +21,7 @@
 #include "termtable.h"
 #include "affinitymap.h"
 #include "frrdistance.h"
+#include "workqueue.h"
 #include "lib/frrscript.h"
 
 #include "zebra/zebra_router.h"
@@ -4266,6 +4267,26 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(zebra_test_metaq_plug,
+	     zebra_test_metaq_plug_cmd,
+	     "[no] zebra test metaq disable",
+	     NO_STR
+	     ZEBRA_STR
+	     "Test command\n"
+	     "Meta queue\n"
+	     "Plug the meta queue (prevent processing)\n")
+{
+	if (zrouter.ribq == NULL)
+		return CMD_WARNING;
+
+	if (no)
+		work_queue_unplug(zrouter.ribq);
+	else
+		work_queue_plug(zrouter.ribq);
+
+	return CMD_SUCCESS;
+}
+
 /* Display Zebra MetaQ counters */
 DEFUN (show_zebra_metaq_counters,
        show_zebra_metaq_counters_cmd,
@@ -4549,6 +4570,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
+	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
