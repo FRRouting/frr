@@ -66,6 +66,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
 static pthread_mutex_t dplane_mutex;
 static struct event *t_dplane;
 static struct dplane_ctx_list_head rib_dplane_q;
+static _Atomic uint32_t rib_dplane_q_max;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
@@ -5120,8 +5121,14 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 {
 	/* Take lock controlling queue of results */
 	frr_with_mutex (&dplane_mutex) {
+		uint32_t q_count, q_high;
+
 		/* Enqueue context blocks */
 		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
+		q_count = dplane_ctx_queue_count(&rib_dplane_q);
+		q_high = atomic_load_explicit(&rib_dplane_q_max, memory_order_relaxed);
+		if (q_count > q_high)
+			atomic_store_explicit(&rib_dplane_q_max, q_count, memory_order_relaxed);
 	}
 
 	/* Ensure event is signalled to zebra main pthread */
@@ -5140,6 +5147,11 @@ uint32_t zebra_rib_dplane_results_count(void)
 	}
 
 	return count;
+}
+
+uint32_t zebra_rib_dplane_results_max(void)
+{
+	return atomic_load_explicit(&rib_dplane_q_max, memory_order_relaxed);
 }
 
 /*
