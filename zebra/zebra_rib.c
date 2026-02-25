@@ -3230,13 +3230,29 @@ static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
 {
 	struct nhg_hash_entry *nhe = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
-	struct wq_nhg_wrapper *w;
+	struct wq_nhg_wrapper *w, *ow;
+	struct listnode *node, *nnode;
 	uint64_t curr, high;
 
 	nhe = (struct nhg_hash_entry *)data;
 
 	if (!nhe)
 		return -1;
+
+	/* For NHG wrapper type, replace any existing queue entry with the
+	 * same nh id: keep the current NHE and remove the old one.
+	 */
+	for (ALL_LIST_ELEMENTS(mq->subq[qindex], node, nnode, ow)) {
+		if (ow->type == WQ_NHG_WRAPPER_TYPE_NHG && ow->u.nhe->id == nhe->id) {
+			list_delete_node(mq->subq[qindex], node);
+			mq->size--;
+			atomic_fetch_sub_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+			atomic_fetch_sub_explicit(&mq->total_subq[qindex], 1, memory_order_relaxed);
+			zebra_nhg_free(ow->u.nhe);
+			XFREE(MTYPE_WQ_WRAPPER, ow);
+			break;
+		}
+	}
 
 	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_nhg_wrapper));
 
