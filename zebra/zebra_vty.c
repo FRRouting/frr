@@ -59,6 +59,7 @@
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
 	bool header_done; /* common header already displayed */
+	bool brief;	  /* brief json output */
 };
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
@@ -508,7 +509,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct route_entry *re,
 			      json_object *json, bool is_fib, bool show_ng, bool show_nhg_summary,
-			      bool ecmp_gt, bool ecmp_lt, bool ecmp_eq, uint16_t ecmp_count)
+			      bool ecmp_gt, bool ecmp_lt, bool ecmp_eq, uint16_t ecmp_count,
+			      bool brief)
 {
 	const struct nexthop *nexthop;
 	int len = 0;
@@ -546,133 +548,127 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 	if (json) {
 		json_route = json_object_new_object();
 
-		json_object_string_add(json_route, "prefix",
-				       srcdest_rnode2str(rn, buf, sizeof(buf)));
-		json_object_int_add(json_route, "prefixLen", rn->p.prefixlen);
-		json_object_string_add(json_route, "protocol",
-				       zebra_route_string(re->type));
-
-		if (re->instance)
-			json_object_int_add(json_route, "instance",
-					    re->instance);
-
-		json_object_int_add(json_route, "vrfId", re->vrf_id);
-		json_object_string_add(json_route, "vrfName",
-				       vrf_id_to_name(re->vrf_id));
-
+		/* Rearranged to group fields for brief vs full JSON.
+		 * Brief JSON section: the following fields are emitted for both
+		 * "show ip route brief json" and "show ip route json".
+		 */
+		json_object_string_add(json_route, "protocol", zebra_route_string(re->type));
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
-
 		if (dest->selected_fib == re)
-			json_object_boolean_true_add(json_route,
-						     "destSelected");
-
-		json_object_int_add(json_route, "distance",
-				    re->distance);
+			json_object_boolean_true_add(json_route, "destSelected");
+		json_object_int_add(json_route, "distance", re->distance);
 		json_object_int_add(json_route, "metric", re->metric);
-
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			json_object_boolean_true_add(json_route, "installed");
-
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
-			json_object_boolean_true_add(json_route, "failed");
-
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
 			json_object_boolean_true_add(json_route, "queued");
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
+			json_object_boolean_true_add(json_route, "offloaded");
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
+			json_object_boolean_false_add(json_route, "offloaded");
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
+			json_object_boolean_true_add(json_route, "failed");
+		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
+		json_object_int_add(json_route, "vrfId", re->vrf_id);
+		json_object_string_add(json_route, "vrfName", vrf_id_to_name(re->vrf_id));
+		json_object_string_add(json_route, "uptime", up_str);
+		/* The following fields are for full JSON only (prefix, nexthops, NHG summary/detail). */
+		if (!brief) {
+			json_object_string_add(json_route, "prefix",
+					       srcdest_rnode2str(rn, buf, sizeof(buf)));
+			json_object_int_add(json_route, "prefixLen", rn->p.prefixlen);
 
-		/* NHG Summary JSON output */
-		if (show_nhg_summary) {
-			uint16_t nh_ecmp_count = nexthop_group_nexthop_num_no_recurse(nhg);
-			uint16_t fib_nh_count = nexthop_group_fib_nexthop_num(nhg);
+			if (re->instance)
+				json_object_int_add(json_route, "instance", re->instance);
 
-			if (re->tag)
-				json_object_int_add(json_route, "tag", re->tag);
 
-			if (re->table)
-				json_object_int_add(json_route, "table", re->table);
+			/* NHG Summary JSON output */
+			if (show_nhg_summary) {
+				uint16_t nh_ecmp_count = nexthop_group_nexthop_num_no_recurse(nhg);
+				uint16_t fib_nh_count = nexthop_group_fib_nexthop_num(nhg);
 
-			json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
-			json_object_int_add(json_route, "ecmpCount", nh_ecmp_count);
-			json_object_int_add(json_route, "fibInstalledCount", fib_nh_count);
+				if (re->tag)
+					json_object_int_add(json_route, "tag", re->tag);
 
-			if (re->nhe_installed_id != 0)
-				json_object_int_add(json_route, "installedNexthopGroupId",
-						    re->nhe_installed_id);
+				if (re->table)
+					json_object_int_add(json_route, "table", re->table);
 
-			if (re->nhe_received)
-				json_object_int_add(json_route, "receivedNexthopGroupId",
-						    re->nhe_received->id);
+				json_object_int_add(json_route, "ecmpCount", nh_ecmp_count);
+				json_object_int_add(json_route, "fibInstalledCount", fib_nh_count);
 
-			if (re->nhe) {
-				json_object_int_add(json_route, "nexthopGroupFlags",
-						    re->nhe->flags);
-				json_object_boolean_add(json_route, "nexthopGroupValid",
-							CHECK_FLAG(re->nhe->flags,
-								   NEXTHOP_GROUP_VALID));
-			}
-		} else {
-			/* Normal detailed output */
-			if (CHECK_FLAG(re->flags, ZEBRA_FLAG_TRAPPED))
-				json_object_boolean_true_add(json_route, "trapped");
+				if (re->nhe_installed_id != 0)
+					json_object_int_add(json_route, "installedNexthopGroupId",
+							    re->nhe_installed_id);
 
-			if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
-				json_object_boolean_true_add(json_route, "offloaded");
+				if (re->nhe_received)
+					json_object_int_add(json_route, "receivedNexthopGroupId",
+							    re->nhe_received->id);
 
-			if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
-				json_object_boolean_false_add(json_route, "offloaded");
+				if (re->nhe) {
+					json_object_int_add(json_route, "nexthopGroupFlags",
+							    re->nhe->flags);
+					json_object_boolean_add(json_route, "nexthopGroupValid",
+								CHECK_FLAG(re->nhe->flags,
+									   NEXTHOP_GROUP_VALID));
+				}
+			} else {
+				/* Normal detailed output */
+				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_TRAPPED))
+					json_object_boolean_true_add(json_route, "trapped");
 
-			if (re->tag)
-				json_object_int_add(json_route, "tag", re->tag);
 
-			if (re->table)
-				json_object_int_add(json_route, "table", re->table);
+				if (re->tag)
+					json_object_int_add(json_route, "tag", re->tag);
 
-			json_object_int_add(json_route, "internalStatus", re->status);
-			json_object_int_add(json_route, "internalFlags", re->flags);
-			json_object_int_add(json_route, "internalNextHopNum",
-					    nexthop_group_nexthop_num(&(re->nhe->nhg)));
-			json_object_int_add(json_route, "internalNextHopActiveNum",
-					    nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
-			json_object_int_add(json_route, "internalNextHopFibInstalledNum",
-					    nexthop_group_fib_nexthop_num(&(re->nhe->nhg)));
-			json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
+				if (re->table)
+					json_object_int_add(json_route, "table", re->table);
 
-			if (re->nhe_installed_id != 0)
-				json_object_int_add(json_route, "installedNexthopGroupId",
-						    re->nhe_installed_id);
-			if (re->nhe_received)
-				json_object_int_add(json_route, "receivedNexthopGroupId",
-						    re->nhe_received->id);
+				json_object_int_add(json_route, "internalStatus", re->status);
+				json_object_int_add(json_route, "internalFlags", re->flags);
+				json_object_int_add(json_route, "internalNextHopNum",
+						    nexthop_group_nexthop_num(&(re->nhe->nhg)));
+				json_object_int_add(json_route, "internalNextHopActiveNum",
+						    nexthop_group_active_nexthop_num(
+							    &(re->nhe->nhg)));
+				json_object_int_add(json_route, "internalNextHopFibInstalledNum",
+						    nexthop_group_fib_nexthop_num(&(re->nhe->nhg)));
+				if (re->nhe_installed_id != 0)
+					json_object_int_add(json_route, "installedNexthopGroupId",
+							    re->nhe_installed_id);
+				if (re->nhe_received)
+					json_object_int_add(json_route, "receivedNexthopGroupId",
+							    re->nhe_received->id);
 
-			json_object_string_add(json_route, "uptime", up_str);
-
-			json_nexthops = json_object_new_array();
-			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-				json_nexthop = json_object_new_object();
-				show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
-
-				json_object_array_add(json_nexthops,
-						      json_nexthop);
-			}
-
-			json_object_object_add(json_route, "nexthops", json_nexthops);
-
-			/* If there are backup nexthops, include them */
-			nhg = zebra_nhg_get_backup_nhg(re->nhe);
-
-			if (nhg && nhg->nexthop) {
 				json_nexthops = json_object_new_array();
-
 				for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 					json_nexthop = json_object_new_object();
-
 					show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
+
 					json_object_array_add(json_nexthops, json_nexthop);
 				}
 
-				json_object_object_add(json_route, "backupNexthops", json_nexthops);
+				json_object_object_add(json_route, "nexthops", json_nexthops);
+
+				/* If there are backup nexthops, include them */
+				nhg = zebra_nhg_get_backup_nhg(re->nhe);
+
+				if (nhg && nhg->nexthop) {
+					json_nexthops = json_object_new_array();
+
+					for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+						json_nexthop = json_object_new_object();
+
+						show_nexthop_json_helper(json_nexthop, nexthop, rn,
+									 re);
+						json_object_array_add(json_nexthops, json_nexthop);
+					}
+
+					json_object_object_add(json_route, "backupNexthops",
+							       json_nexthops);
+				}
+				zebra_show_ip_route_opaque(NULL, re, json_route);
 			}
-			zebra_show_ip_route_opaque(NULL, re, json_route);
 		}
 
 		json_object_array_add(json, json_route);
@@ -805,7 +801,7 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 		if (use_fib && re != dest->selected_fib)
 			continue;
 		vty_show_ip_route(vty, rn, re, json_prefix, use_fib, false, false, false, false,
-				  false, 0);
+				  false, 0, false);
 
 		/* Add flags and status to the last object */
 		json_object *json_route =
@@ -933,7 +929,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 			}
 
 			vty_show_ip_route(vty, rn, re, json_prefix, use_fib, show_ng,
-					  show_nhg_summary, ecmp_gt, ecmp_lt, ecmp_eq, ecmp_count);
+					  show_nhg_summary, ecmp_gt, ecmp_lt, ecmp_eq, ecmp_count,
+					  ctx->brief);
 		}
 
 		if (json_prefix) {
@@ -1714,6 +1711,7 @@ DEFPY (show_route,
            " FRR_IP_REDIST_STR_ZEBRA "$type_str\
            |ospf$type_str (1-65535)$ospf_instance_id\
           >]\
+       [<brief$brief>] \
          |ipv6$ipv6 <fib$fib|route>\
           [{\
            table <(1-4294967295)$table|all$table_all>\
@@ -1725,6 +1723,7 @@ DEFPY (show_route,
            |X:X::X:X/M$prefix longer-prefixes\
           }]\
           [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
+       [<brief$brief>] \
         >\
        [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]] [failed$failed] [json$json]",
        SHOW_STR
@@ -1744,6 +1743,7 @@ DEFPY (show_route,
        FRR_IP_REDIST_HELP_STR_ZEBRA
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
+       "Brief\n"
        IPV6_STR
        "IP forwarding table\n"
        "IP routing table\n"
@@ -1757,7 +1757,6 @@ DEFPY (show_route,
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n"
        FRR_IP6_REDIST_HELP_STR_ZEBRA
-       "Nexthop Group Information\n"
        "Show ECMP count summary\n"
        "Filter by ECMP count\n"
        "Greater than (>)\n"
@@ -1765,7 +1764,9 @@ DEFPY (show_route,
        "Equal to (=)\n"
        "ECMP count value\n"
        "Show only failed routes\n"
-       JSON_STR)
+       "Brief\n"
+       JSON_STR
+       "Nexthop Group Information\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
@@ -1775,6 +1776,7 @@ DEFPY (show_route,
 	struct zebra_vrf *zvrf;
 	struct route_show_ctx ctx = {
 		.multi = vrf_all || table_all,
+		.brief = !!brief,
 	};
 
 	if (!vrf_is_backend_netns()) {
