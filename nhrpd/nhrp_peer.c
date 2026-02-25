@@ -563,6 +563,9 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	/* CIE payload for the reply packet */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma,
 			    &pp->if_ad->addr);
+	if (!cie)
+		goto err;
+
 	cie->holding_time = htons(pp->if_ad->holdtime);
 	cie->mtu = htons(pp->if_ad->mtu);
 	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA)
@@ -718,6 +721,9 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 				cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
 						    &p->peer->vc->remote.nbma,
 						    &p->src_proto);
+				if (!cie)
+					goto err;
+
 				cie->prefix_length =
 					8 * sockunion_get_addrlen(
 						    &p->if_ad->addr);

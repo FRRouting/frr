@@ -155,6 +155,9 @@ struct nhrp_cie_header *nhrp_cie_push(struct zbuf *zb, uint8_t code,
 	struct nhrp_cie_header *cie;
 
 	cie = zbuf_push(zb, struct nhrp_cie_header);
+	if (!cie)
+		return NULL;
+
 	*cie = (struct nhrp_cie_header){
 		.code = code,
 	};
@@ -240,6 +243,9 @@ struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb,
 		return NULL;
 
 	plen = htons(ext->length);
+	if (plen > zbuf_used(zb))
+		return NULL;
+
 	zbuf_init(payload, zbuf_pulln(zb, plen), plen, plen);
 	return ext;
 }
