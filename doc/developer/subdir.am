@@ -66,6 +66,7 @@ dev_RSTFILES = \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
 	doc/developer/topotests-markers.rst \
+	doc/developer/topotest-multicast.rst \
 	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
 	doc/developer/xrefs.rst \

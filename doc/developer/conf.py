@@ -141,6 +141,7 @@ exclude_patterns = [
     "building-libyang.rst",
     "topotests-snippets.rst",
     "topotests-markers.rst",
+    "topotest-multicast.rst",
     "include-compile.rst",
 ]
 

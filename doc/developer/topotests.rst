@@ -1608,6 +1608,7 @@ logging messages can be displayed by modifying the test configuration file
 
 Instructions for use, write or debug topologies can be found in :ref:`topotests-guidelines`.
 To learn/remember common code snippets see :ref:`topotests-snippets`.
+For information on multicast testing in topotests, see :ref:`topotest-multicast`.
 
 Before creating a new topology, make sure that there isn't one already that
 does what you need. If nothing is similar, then you may create a new topology,
@@ -1617,6 +1618,8 @@ preferably, using the newest template
 .. include:: topotests-markers.rst
 
 .. include:: topotests-snippets.rst
+
+.. include:: topotest-multicast.rst
 
 License
 -------
