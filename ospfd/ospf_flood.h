@@ -69,6 +69,8 @@ extern void ospf_ls_retransmit_clear(struct ospf_neighbor *nbr);
 extern void ospf_ls_retransmit_set_timer(struct ospf_neighbor *nbr);
 
 extern struct ospf_lsa *ospf_ls_retransmit_lookup(struct ospf_neighbor *nbr, struct ospf_lsa *lsa);
+/*RFC4222/R4 changes*/
+extern uint32_t compute_ls_rxmt_offset(uint32_t unacked_count);
 extern void ospf_ls_retransmit_delete_nbr_area(struct ospf_area *area, struct ospf_lsa *lsa);
 extern void ospf_ls_retransmit_delete_nbr_as(struct ospf *ospf, struct ospf_lsa *lsa);
 extern void ospf_ls_retransmit_add_nbr_all(struct ospf_interface *oi, struct ospf_lsa *lsa);
@@ -83,5 +85,7 @@ extern struct external_info *ospf_external_info_check(struct ospf *ospf, struct 
 extern void ospf_lsdb_init(struct ospf_lsdb *lsdb);
 extern void ospf_area_update_fr_state(struct ospf_area *area);
 extern void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf);
+
+extern void ospf_rxmt_effective_time(const struct ospf_neighbor *nbr, const struct ospf_lsa_list_entry *lse, struct timeval *out);
 
 #endif /* _ZEBRA_OSPF_FLOOD_H */

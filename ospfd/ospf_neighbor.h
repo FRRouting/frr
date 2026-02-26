@@ -70,8 +70,8 @@ struct ospf_neighbor {
 
 	/* Statistics */
 	struct timeval ts_last_progress; /* last advance of NSM            */
-	struct timeval ts_last_regress;  /* last regressive NSM change     */
-	const char *last_regress_str;    /* Event which last regressed NSM */
+	struct timeval ts_last_regress;	 /* last regressive NSM change     */
+	const char *last_regress_str;	 /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 
@@ -80,6 +80,12 @@ struct ospf_neighbor {
 
 	/* ospf graceful restart HELPER info */
 	struct ospf_helper_info gr_helper_info;
+
+	/* rfc4222 recommendation 4 */
+	uint32_t lsu_gap_ms;	     /* current gap (ms) */
+	uint64_t next_send_ms;	     /* next allowed send time */
+	uint64_t gap_last_change_ms; /* last time we adjusted G */
+	uint32_t ls_rxmt_unacked;    /* count of sent but unacked retransmit LSAs */
 };
 
 /* Macros. */

@@ -45,6 +45,9 @@ struct ospf_packet {
 
 	/* OSPF packet length. */
 	uint16_t length;
+	/* rfc 4222 Rec 4: LSAs serialized into this packet (locked) */
+	struct list *sent_lsas;		/* list of struct ospf_lsa* */
+	struct ospf_interface *sent_oi; /* optional: convenience for logging */
 };
 
 /* OSPF packet queue structure. */
@@ -140,7 +143,10 @@ extern void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr,
 extern void ospf_ls_ack_send_delayed(struct ospf_interface *oi);
 extern void ospf_ls_retransmit(struct ospf_interface *oi, struct ospf_lsa *lsa);
 extern void ospf_ls_req_event(struct ospf_neighbor *nbr);
-
+extern bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *);
+extern void ospf_ls_upd_enqueue_to_dst(struct ospf_interface *oi, struct list *update,
+				       struct in_addr dst);
+extern uint64_t ospf_now_ms(void);
 extern void ospf_ls_rxmt_timer(struct event *event);
 extern void ospf_ls_ack_delayed_timer(struct event *event);
 extern void ospf_poll_timer(struct event *event);
