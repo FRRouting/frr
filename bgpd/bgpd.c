@@ -9479,6 +9479,7 @@ void bgp_clearing_batch_begin(struct bgp *bgp)
 	/* Batch is open for more peers */
 	SET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN);
 
+	/* coverity[leaked_storage] - cinfo is stored in clearing_list */
 	bgp_clearing_info_add_head(&bgp->clearing_list, cinfo);
 }
 
@@ -9602,6 +9603,7 @@ void bgp_clearing_batch_add_dest(struct bgp_clearing_info *cinfo,
 			   sizeof(struct bgp_clearing_dest));
 
 	destinfo->dest = dest;
+	/* coverity[leaked_storage] - destinfo is stored in destlist and freed by bgp_clearing_batch_completed() */
 	bgp_clearing_destlist_add_tail(&cinfo->destlist, destinfo);
 }
 
