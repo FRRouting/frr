@@ -951,6 +951,7 @@ void backup_seen(struct event *event)
 void neighbor_change(struct event *event)
 {
 	struct ospf6_interface *oi;
+	int ret;
 
 	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
@@ -959,9 +960,14 @@ void neighbor_change(struct event *event)
 		zlog_debug("Interface Event %s: [NeighborChange]",
 			   oi->interface->name);
 
-	if (oi->state == OSPF6_INTERFACE_DROTHER ||
-	    oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)
-		ospf6_interface_state_change(dr_election(oi), oi);
+	if (oi->state == OSPF6_INTERFACE_DROTHER || oi->state == OSPF6_INTERFACE_BDR ||
+	    oi->state == OSPF6_INTERFACE_DR) {
+		ret = ospf6_interface_state_change(dr_election(oi), oi);
+
+		/* In this case router LSA is not originated elsewhere */
+		if (oi->type == OSPF_IFTYPE_BROADCAST && ret == -1 && oi->bdrouter == htonl(0))
+			OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	}
 }
 
 void interface_down(struct event *event)
