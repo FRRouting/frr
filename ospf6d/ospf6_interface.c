@@ -951,6 +951,7 @@ void backup_seen(struct event *event)
 void neighbor_change(struct event *event)
 {
 	struct ospf6_interface *oi;
+	int ret;
 
 	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
@@ -959,9 +960,31 @@ void neighbor_change(struct event *event)
 		zlog_debug("Interface Event %s: [NeighborChange]",
 			   oi->interface->name);
 
-	if (oi->state == OSPF6_INTERFACE_DROTHER ||
-	    oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)
-		ospf6_interface_state_change(dr_election(oi), oi);
+	if (!oi->area)
+		return;
+
+	if (oi->state == OSPF6_INTERFACE_DROTHER || oi->state == OSPF6_INTERFACE_BDR ||
+	    oi->state == OSPF6_INTERFACE_DR) {
+		ret = ospf6_interface_state_change(dr_election(oi), oi);
+
+		/* When new DR/BDR is elected, one of them was usually in Twoway state
+		 * (if it was neither DR nor BDR before that). It then changes state to
+		 * Full and for all DROther routers OSPF6_ROUTER_LSA_SCHEDULE is called
+		 * in ospf6_neighbor_state_change when they see this change.
+		 *
+		 * But when there is no new BDR, current BDR becomes DR without any
+		 * such state change (it is already in Full state) and router LSA is
+		 * not originated anywhere for DROther.
+		 *
+		 * Check: ret == -1 means that there was no state change for current
+		 * router (it didn't become DR/BDR and didn't become not DR/BDR), in
+		 * such case if BDR is 0, previous BDR became DR, there was no state
+		 * change and we need to originate LSA here.
+		 */
+		if (oi->type == OSPF_IFTYPE_BROADCAST && ret == -1 &&
+		    oi->bdrouter == htonl(0))
+			OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	}
 }
 
 void interface_down(struct event *event)
