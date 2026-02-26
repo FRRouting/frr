@@ -1006,7 +1006,7 @@ static void ospf_ext_pref_lsa_body_set(struct stream *s, struct ext_itf *exti)
 
 	/* Build LSA body for an Extended Prefix TLV */
 	build_tlv_header(s, &exti->prefix.header);
-	stream_put(s, TLV_DATA(&exti->prefix.header), EXT_TLV_PREFIX_SIZE);
+	stream_put(s, TLV_DATA(&exti->prefix), EXT_TLV_PREFIX_SIZE);
 	/* Then add Prefix SID SubTLV */
 	build_tlv(s, &exti->node_sid.header);
 }
@@ -1032,7 +1032,7 @@ static void ospf_ext_link_lsa_body_set(struct stream *s, struct ext_itf *exti)
 
 		/* Build LSA body for an Extended Link TLV with Adj. SID */
 		build_tlv_header(s, &exti->link.header);
-		stream_put(s, TLV_DATA(&exti->link.header), EXT_TLV_LINK_SIZE);
+		stream_put(s, TLV_DATA(&exti->link), EXT_TLV_LINK_SIZE);
 		/* then add Adjacency SubTLVs */
 		build_tlv(s, &exti->adj_sid[1].header);
 		build_tlv(s, &exti->adj_sid[0].header);
@@ -1048,7 +1048,7 @@ static void ospf_ext_link_lsa_body_set(struct stream *s, struct ext_itf *exti)
 
 		/* Build LSA body for an Extended Link TLV with LAN SID */
 		build_tlv_header(s, &exti->link.header);
-		stream_put(s, TLV_DATA(&exti->link.header), EXT_TLV_LINK_SIZE);
+		stream_put(s, TLV_DATA(&exti->link), EXT_TLV_LINK_SIZE);
 		/* then add LAN-Adjacency SubTLVs */
 		build_tlv(s, &exti->lan_sid[1].header);
 		build_tlv(s, &exti->lan_sid[0].header);
