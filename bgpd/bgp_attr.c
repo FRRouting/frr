@@ -2802,8 +2802,11 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		length -= 4;
 
 		if (tlv_length != length) {
-			zlog_info("%s: tlv_length(%d) != length(%d)",
-				  __func__, tlv_length, length);
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Tunnel Encap attribute length %d does not match remaining attribute length %d",
+				 tlv_length, length);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+						  args->total);
 		}
 	}
 
