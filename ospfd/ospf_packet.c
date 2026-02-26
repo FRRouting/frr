@@ -554,9 +554,9 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 }
 
 /*
- * OSPF neighbor link state retransmission timer handler. Unicast
- * unacknowledged LSAs to the neighbors.
- * rfc 4222 Add an effective time. 
+ * OSPF neighbor link-state retransmission timer handler.
+ * Retransmits pending unacked LSAs and triggers RFC4222/R5 dynamic
+ * adjacency-pacing adjustment based on retransmit activity.
  */
 void ospf_ls_rxmt_timer(struct event *event)
 {
