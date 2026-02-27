@@ -36,8 +36,14 @@
 #define BGP_MAX_SUBGROUP_COALESCE_TIME 10000
 #define BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME 50
 
+<<<<<<< HEAD
 #define PEER_UPDGRP_FLAGS                                                      \
 	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS)
+=======
+#define PEER_UPDGRP_FLAGS                                                                         \
+	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS |                          \
+	 PEER_FLAG_AS_LOOP_DETECTION | PEER_FLAG_SEND_NHC_ATTRIBUTE)
+>>>>>>> af4c66373 (bgpd: Add missing PEER_FLAG_SEND_NHC_ATTRIBUTE for update group flags)
 
 #define PEER_UPDGRP_AF_FLAGS                                                   \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |             \
