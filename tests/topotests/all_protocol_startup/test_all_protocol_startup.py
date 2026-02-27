@@ -852,9 +852,7 @@ def test_ospfv2_interfaces():
             actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
 
             # Drop time in next due
-            actual = re.sub(
-                r"Hello due in [-0-9\.]+s", "Hello due in XX.XXXs", actual
-            )
+            actual = re.sub(r"Hello due in [-0-9\.]+s", "Hello due in XX.XXXs", actual)
             # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
             actual = re.sub(
                 r"MTU mismatch detection:([a-z]+.*)",
@@ -1647,6 +1645,170 @@ def test_nexthop_group_replace():
 
     # Verify it updated. We can just check install and ecmp count here.
     verify_route_nexthop_group("3.3.3.1/32", False, 3)
+
+
+def test_show_nexthop_group_rib_brief_json():
+    """Check 'show nexthop-group rib ... brief json' return valid brief JSON.
+
+    Commands covered:
+      1) show nexthop-group rib brief json
+      2) show nexthop-group rib <id> brief json
+      3) show nexthop-group rib singleton ip brief json
+      4) show nexthop-group rib singleton ipv6 brief json
+      5) show nexthop-group rib zebra brief json
+    """
+    global fatal_error
+
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying show nexthop-group rib brief json commands")
+    print("******************************************\n")
+
+    tgen = get_topogen()
+    r1 = tgen.routers()["r1"]
+    full_only_fields = {"type", "refCount", "timeToDeletion"}
+
+    def _extract_json(s):
+        """Extract first complete JSON object from string (handles trailing)."""
+        s = s.strip()
+        if not s:
+            return None, "empty output"
+        start = s.find("{")
+        if start == -1:
+            return None, "no JSON object in output"
+        depth = 0
+        for i in range(start, len(s)):
+            if s[i] == "{":
+                depth += 1
+            elif s[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(s[start : i + 1]), None
+                    except json.JSONDecodeError as e:
+                        return None, str(e)
+        return None, "unclosed JSON object"
+
+    def _check_brief_nhg_entry(obj):
+        """Brief entries have uptime, vrf; no type/refCount/timeToDeletion."""
+        if not isinstance(obj, dict):
+            return "NHG entry is not a dict"
+        if "uptime" not in obj:
+            return "Brief entry missing 'uptime'"
+        if "vrf" not in obj:
+            return "Brief entry missing 'vrf'"
+        for key in full_only_fields:
+            if key in obj:
+                return "Brief entry should not have '{}'".format(key)
+        return None
+
+    # 1) show nexthop-group rib brief json
+    out = r1.vtysh_cmd("show nexthop-group rib brief json").strip()
+    err = None
+    if not out:
+        data = {}
+    else:
+        data, parse_err = _extract_json(out)
+        if parse_err:
+            err = "show nexthop-group rib brief json: invalid JSON: {}".format(
+                parse_err
+            )
+        elif data is not None and not isinstance(data, dict):
+            err = "show nexthop-group rib brief json: top-level is not a dict"
+        elif data is None:
+            data = {}
+    if err is None:
+        for vrfname, vrfdata in data.items():
+            if not isinstance(vrfdata, dict):
+                continue
+            for nhg_id_str, nhg_obj in vrfdata.items():
+                err = _check_brief_nhg_entry(nhg_obj)
+                if err:
+                    err = "{} (vrf={}, id={}): {}".format(
+                        "show nexthop-group rib brief json",
+                        vrfname,
+                        nhg_id_str,
+                        err,
+                    )
+                    break
+            if err:
+                break
+    assert err is None, err
+    print("r1 show nexthop-group rib brief json ok")
+
+    # 2) show nexthop-group rib <id> brief json (use first available id)
+    nhg_id_used = None
+    for vrfname, vrfdata in data.items():
+        if isinstance(vrfdata, dict) and vrfdata:
+            nhg_id_used = next(iter(vrfdata.keys()))
+            break
+    if nhg_id_used is not None:
+        out = r1.vtysh_cmd(
+            "show nexthop-group rib {} brief json".format(nhg_id_used)
+        ).strip()
+        data_id, parse_err = _extract_json(out)
+        if parse_err:
+            assert (
+                False
+            ), "show nexthop-group rib {} brief json: invalid JSON: {}".format(
+                nhg_id_used, parse_err
+            )
+        if data_id is None:
+            data_id = {}
+        # Output is {"<id>": { brief NHG object }}
+        if not isinstance(data_id, dict) or len(data_id) != 1:
+            assert (
+                False
+            ), "show nexthop-group rib {} brief json: expected single key".format(
+                nhg_id_used
+            )
+        nhg_obj = next(iter(data_id.values()))
+        err = _check_brief_nhg_entry(nhg_obj)
+        assert err is None, "show nexthop-group rib {} brief json: {}".format(
+            nhg_id_used, err
+        )
+        print("r1 show nexthop-group rib {} brief json ok".format(nhg_id_used))
+
+    # 3) show nexthop-group rib singleton ip brief json
+    out = r1.vtysh_cmd("show nexthop-group rib singleton ip brief json").strip()
+    data3, parse_err = _extract_json(out)
+    if parse_err:
+        assert (
+            False
+        ), "show nexthop-group rib singleton ip brief json: invalid JSON: {}".format(
+            parse_err
+        )
+    assert isinstance(
+        data3, dict
+    ), "show nexthop-group rib singleton ip brief json: top-level is not a dict"
+    print("r1 show nexthop-group rib singleton ip brief json ok")
+
+    # 4) show nexthop-group rib singleton ipv6 brief json
+    out = r1.vtysh_cmd("show nexthop-group rib singleton ipv6 brief json").strip()
+    data4, parse_err = _extract_json(out)
+    if parse_err:
+        assert (
+            False
+        ), "show nexthop-group rib singleton ipv6 brief json: invalid JSON: {}".format(
+            parse_err
+        )
+    assert isinstance(
+        data4, dict
+    ), "show nexthop-group rib singleton ipv6 brief json: top-level is not a dict"
+    print("r1 show nexthop-group rib singleton ipv6 brief json ok")
+
+    # 5) show nexthop-group rib zebra brief json
+    out = r1.vtysh_cmd("show nexthop-group rib zebra brief json").strip()
+    data5, parse_err = _extract_json(out)
+    if parse_err:
+        assert (
+            False
+        ), "show nexthop-group rib zebra brief json: invalid JSON: {}".format(parse_err)
+    assert isinstance(
+        data5, dict
+    ), "show nexthop-group rib zebra brief json: top-level is not a dict"
+    print("r1 show nexthop-group rib zebra brief json ok")
 
 
 def test_mpls_interfaces():
