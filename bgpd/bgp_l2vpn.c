@@ -381,6 +381,85 @@ struct l2vpn_svc *bgp_l2vpn_vpws_evi_match(uint32_t ethtag)
 	return NULL;
 }
 
+/* Read new evpn vpws status and data from zebra.
+ * Update is need:
+ *  - evpn vpws local status switching from EVPN_LOCAL_TX_FAULT to EVPN_NOT_FORWARDING.
+ *  - evpn vpws local status is fell back to EVPN_LOCAL_TX_FAULT.
+ */
+void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
+{
+	struct l2vpn *l2vpn;
+	struct l2vpn_svc *l2vpn_svc, s;
+	struct bgpevpn *vpn;
+	struct interface *ifp;
+	bool update_needed = false;
+	struct bgp_interface *binfo;
+	struct bgp *bgp = bgp_get_evpn();
+
+	strlcpy(s.ifname, zapi->ifname, IFNAMSIZ);
+	RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
+		if (l2vpn->type != L2VPN_TYPE_VPWS)
+			continue;
+
+		l2vpn_svc = RB_FIND(l2vpn_svc_head, &l2vpn->svc_tree, &s);
+		if (!l2vpn_svc)
+			continue;
+
+		if (l2vpn_svc->local_status != zapi->status) {
+			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+				zlog_debug("VPWS local-ac %u remote-ac %u, switch status from %s to %s",
+					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+					   evpn_status_to_str(l2vpn_svc->local_status),
+					   evpn_status_to_str(zapi->status));
+		}
+
+		/* handle AC interface switching */
+		if (memcmp(l2vpn_svc->local_ac, zapi->local_ac, IFNAMSIZ)) {
+			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+				zlog_debug("VPWS local-ac %u remote-ac %u, new interface AC %s",
+					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+					   zapi->local_ac);
+			/* AC ready to AC no ready */
+			if (l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT &&
+			    zapi->status == EVPN_LOCAL_TX_FAULT) {
+				if (!memcmp(&l2vpn_svc->esi, zero_esi, sizeof(esi_t))) {
+					ifp = if_lookup_by_name(l2vpn_svc->local_ac, bgp->vrf_id);
+					if (ifp) {
+						binfo = ifp->info;
+						UNSET_FLAG(binfo->flags,
+							   BGP_INTERFACE_EVPN_SINGLE_HOMED);
+					}
+				}
+				if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+					zlog_debug("VPWS local-ac %u remote-ac %u, fell back to %s",
+						   l2vpn_svc->remote_ac_id, l2vpn_svc->remote_ac_id,
+						   evpn_status_to_str(l2vpn_svc->local_status));
+				update_needed = true;
+			}
+			strlcpy(l2vpn_svc->local_ac, zapi->local_ac, IFNAMSIZ);
+		}
+
+		/* run VPWS EVPN_LOCAL_TX_FAULT -> EVPN_NOT_FORWARDING */
+		if (l2vpn_svc->local_status == EVPN_LOCAL_TX_FAULT &&
+		    zapi->status == EVPN_NOT_FORWARDING)
+			update_needed = true;
+
+		l2vpn_svc->local_status = zapi->status;
+		if (update_needed) {
+			/* send eventual withdraw RT1 */
+			if (CHECK_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE)) {
+				vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
+				bgp_l2vpn_vpws_local_withdraw(bgp, l2vpn_svc, vpn);
+			}
+
+			/* send update RT1 */
+			bgp_l2vpn_vpws_run(l2vpn_svc);
+		}
+
+		break;
+	}
+}
+
 void bgp_l2vpn_ifp_up(struct interface *ifp, bool up)
 {
 	struct l2vpn *l2vpn;

@@ -50,6 +50,20 @@ extern const struct frr_yang_module_info frr_l2vpn_cli_info;
 #define EVPN_LOCAL_RX_FAULT PW_LOCAL_RX_FAULT
 #define EVPN_LOCAL_TX_FAULT PW_LOCAL_TX_FAULT
 
+static inline const char *
+evpn_status_to_str(uint32_t status)
+{
+	if (status == EVPN_LOCAL_TX_FAULT)
+		return "evpn_local_tx_fault";
+	if (status == EVPN_LOCAL_RX_FAULT)
+		return "evpn_local_rx_fault";
+	if (status == EVPN_FORWARDING)
+		return "evpn_forwarding";
+	if (status == EVPN_NOT_FORWARDING)
+		return "evpn_not_forwarding";
+	return "Unspec";
+}
+
 /*
  * Protocol-specific information about the L2VPN.
  */

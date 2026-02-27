@@ -4551,12 +4551,16 @@ static int bgp_zebra_read_evpn_status_update(ZAPI_CALLBACK_ARGS)
 	struct zapi_l2vpn_status evpn_status;
 
 	zebra_read_l2vpn_status_update(cmd, zclient, length, vrf_id, &evpn_status);
+	stream_get(&evpn_status.esi, zclient->ibuf, sizeof(esi_t));
+	stream_get(evpn_status.local_ac, zclient->ibuf, IFNAMSIZ);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: EVPN %s status 0x%x", evpn_status.ifname,
+		zlog_debug("%s: EVPN %s status 0x%x local_ac %s", evpn_status.ifname,
 			   (evpn_status.status == EVPN_FORWARDING) ? "up" : "down",
-			   evpn_status.status);
+			   evpn_status.status, evpn_status.local_ac);
 	/* update status in L2VPN */
+	bgp_l2vpn_svc_update_status(&evpn_status);
+
 	return 0;
 }
 

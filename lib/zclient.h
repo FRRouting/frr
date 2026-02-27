@@ -704,8 +704,10 @@ struct zapi_l2vpn_svc {
 
 struct zapi_l2vpn_status {
 	char ifname[IFNAMSIZ];
+	char local_ac[IFNAMSIZ];
 	ifindex_t ifindex;
 	uint32_t status;
+	esi_t esi;
 };
 
 /* IGP instance data associated to a RLFA. */
