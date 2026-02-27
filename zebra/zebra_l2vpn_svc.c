@@ -21,6 +21,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_l2vpn_svc.h"
+#include "zebra/zebra_evpn_mh.h"
 
 DEFINE_MTYPE_STATIC(LIB, L2VPN_SVC, "L2VPN Service");
 
@@ -37,6 +38,7 @@ static void zebra_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *);
 static void zebra_l2vpn_svc_install_retry(struct event *thread);
 static int zebra_l2vpn_svc_check_reachability(const struct zebra_l2vpn_svc *);
 static void zebra_l2vpn_svc_update_status(struct zebra_l2vpn_svc *, int);
+static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc);
 
 static inline int l2vpn_svc_compare(const struct zebra_l2vpn_svc *a,
 				    const struct zebra_l2vpn_svc *b)
@@ -48,7 +50,8 @@ RB_GENERATE(zebra_l2vpn_svc_head, zebra_l2vpn_svc, svc_entry, l2vpn_svc_compare)
 RB_GENERATE(zstatic_l2vpn_svc_head, zebra_l2vpn_svc, static_svc_entry, l2vpn_svc_compare)
 
 struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *ifname,
-					    uint8_t protocol, struct zserv *client)
+					    uint8_t protocol, union l2vpn_protocol_fields data,
+					    struct zserv *client)
 {
 	struct zebra_l2vpn_svc *svc;
 
@@ -70,6 +73,15 @@ struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *
 	if (svc->protocol == ZEBRA_ROUTE_STATIC) {
 		RB_INSERT(zstatic_l2vpn_svc_head, &zvrf->static_l2vpn_svc_tree, svc);
 		QOBJ_REG(svc, zebra_l2vpn_svc);
+	}
+
+	if (svc->protocol == ZEBRA_ROUTE_BGP) {
+		svc->status = EVPN_NOT_FORWARDING;
+		if (!data.bgp.vni)
+			return svc;
+
+		svc->data.bgp.vni = data.bgp.vni;
+		zebra_evpn_bgp_vni_check(svc);
 	}
 
 	return svc;
@@ -104,6 +116,8 @@ void zebra_l2vpn_svc_change(struct zebra_l2vpn_svc *svc, ifindex_t ifindex, int 
 			    union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,
 			    uint8_t flags, union l2vpn_protocol_fields *data)
 {
+	bool nht_exists;
+
 	svc->ifindex = ifindex;
 	svc->type = type;
 	svc->af = af;
@@ -114,7 +128,6 @@ void zebra_l2vpn_svc_change(struct zebra_l2vpn_svc *svc, ifindex_t ifindex, int 
 	svc->data = *data;
 
 	if (zebra_l2vpn_svc_enabled(svc)) {
-		bool nht_exists;
 		zebra_register_rnh_l2vpn_svc(svc->vrf_id, svc, &nht_exists);
 		if (nht_exists)
 			zebra_l2vpn_svc_update(svc);
@@ -251,6 +264,109 @@ static void zebra_l2vpn_svc_update_status(struct zebra_l2vpn_svc *svc, int statu
 		zsend_l2vpn_svc_update(svc->client, svc);
 }
 
+static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc)
+{
+	int status;
+	struct vrf *vrf;
+	struct zebra_if *zif;
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf;
+	struct zebra_evpn *zevpn;
+	vni_t vni = svc->data.bgp.vni;
+	struct zebra_l2info_brslave *br_slave;
+	struct interface *br_if, *ifp, *ifp_match = NULL;
+
+	if (IS_ZEBRA_DEBUG_PW)
+		zlog_debug("VPWS VXLAN: validating reachability for VNI %u", vni);
+
+	status = EVPN_LOCAL_TX_FAULT;
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: missing zebra evpn for VNI %u", vni);
+
+		goto out;
+	}
+
+	if (strcmp(svc->ifname, zevpn->vxlan_if->name)) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: pseudowire interface %s does not match the vni %u",
+				   svc->ifname, vni);
+
+		goto out;
+	}
+
+	svc->ifindex = zevpn->vxlan_if->ifindex;
+	br_if = zevpn->bridge_if;
+	if (!br_if) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: missing bridge for VNI %u", vni);
+
+		goto out;
+	}
+
+	zvrf = br_if->vrf->info;
+	zns = zvrf->zns;
+	memset(&svc->data.bgp.local_ac, 0, IFNAMSIZ);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL || !ifp->info)
+				continue;
+			if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) ||
+			    ifp->ifindex == zevpn->vxlan_if->ifindex)
+				continue;
+
+			zif = (struct zebra_if *)ifp->info;
+			br_slave = &zif->brslave_info;
+			if (br_slave->ns_id != zns->ns_id)
+				continue;
+			if (br_slave->bridge_ifindex != br_if->ifindex)
+				continue;
+
+			if (!ifp_match)
+				ifp_match = ifp;
+			else {
+				if (IS_ZEBRA_DEBUG_PW)
+					zlog_debug("VPWS VXLAN: multiple ACs for VNI %u", vni);
+
+				goto out;
+			}
+		}
+	}
+
+	if (!ifp_match) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: missing AC for VNI %u", vni);
+
+		goto out;
+	}
+
+	/* Check AC status */
+	strlcpy(svc->data.bgp.local_ac, ifp_match->name, IFNAMSIZ);
+	zif = (struct zebra_if *)ifp_match->info;
+	if (!zif->es_info.es) {
+		/* Single-homed */
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: AC %s is active for VNI %u", ifp_match->name, vni);
+
+		status = EVPN_NOT_FORWARDING;
+		memset(&svc->data.bgp.esi, 0, sizeof(esi_t));
+	} else {
+		memcpy(&svc->data.bgp.esi, &zif->es_info.es->esi, sizeof(esi_t));
+		if (CHECK_FLAG(zif->es_info.es->flags, ZEBRA_EVPNES_READY_FOR_BGP))
+			status = EVPN_NOT_FORWARDING;
+
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("VPWS VXLAN: multihoming AC %s is %s for VNI %u",
+				   ifp_match->name, status == EVPN_LOCAL_TX_FAULT ? "inactive"
+				   : "active", vni);
+	}
+
+out:
+	svc->status = status;
+	zebra_l2vpn_svc_update_status(svc, status);
+}
+
 static int zebra_pw_check_reachability_strict(const struct zebra_l2vpn_svc *svc,
 					      struct route_entry *re)
 {
@@ -344,8 +460,15 @@ static int zebra_l2vpn_svc_check_reachability(const struct zebra_l2vpn_svc *svc)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				continue;
 
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) &&
-			    nexthop->nh_label != NULL) {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				continue;
+
+			if (svc->protocol == ZEBRA_ROUTE_BGP && svc->data.bgp.vni) {
+				found_p = true;
+				break;
+			}
+
+			if (nexthop->nh_label != NULL) {
 				found_p = true;
 				break;
 			}
@@ -434,6 +557,7 @@ DEFUN_NOSH (pseudowire_if,
 	struct zebra_l2vpn_svc *svc;
 	const char *ifname;
 	int idx = 0;
+	union l2vpn_protocol_fields data = {};
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
@@ -447,7 +571,7 @@ DEFUN_NOSH (pseudowire_if,
 	}
 
 	if (!svc)
-		svc = zebra_l2vpn_svc_add(zvrf, ifname, ZEBRA_ROUTE_STATIC, NULL);
+		svc = zebra_l2vpn_svc_add(zvrf, ifname, ZEBRA_ROUTE_STATIC, data, NULL);
 	VTY_PUSH_CONTEXT(PW_NODE, svc);
 
 	return CMD_SUCCESS;
@@ -594,6 +718,9 @@ DEFUN (show_pseudowires,
 	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
 		char buf_nbr[INET6_ADDRSTRLEN];
 		char buf_labels[64];
+
+		if (svc->protocol == ZEBRA_ROUTE_BGP && svc->data.bgp.vni)
+			continue;
 
 		inet_ntop(svc->af, &svc->nexthop, buf_nbr, sizeof(buf_nbr));
 
