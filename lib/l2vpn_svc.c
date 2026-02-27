@@ -122,6 +122,8 @@ l2vpn_svc_new(struct l2vpn *l2vpn, const char *ifname)
 	svc = XCALLOC(MTYPE_L2VPN_SVC, sizeof(*svc));
 
 	svc->l2vpn = l2vpn;
+	svc->ignore_mtu_mismatch = true;
+	svc->enabled = true;
 	strlcpy(svc->ifname, ifname, sizeof(svc->ifname));
 
 	return svc;
@@ -235,6 +237,10 @@ const char *l2vpn_svc_error_code(uint32_t status)
 		return ("no remote label");
 	case F_L2VPN_MTU_MISMATCH:
 		return ("mtu mismatch between peers");
+	case F_L2VPN_NO_REMOTE_AD:
+		return ("missing remote EAD-per-EVI");
+	case F_L2VPN_AD_MISMATCH:
+		return ("remote EAD-per-EVI mismatch");
 	default:
 		snprintf(buf, sizeof(buf), "[%0x]", status);
 		return buf;

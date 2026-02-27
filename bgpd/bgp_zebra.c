@@ -58,6 +58,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_te.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_l2vpn.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -222,8 +223,10 @@ static int bgp_ifp_up(struct interface *ifp)
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	struct bgp_interface *iifp;
 
 	bgp = ifp->vrf->info;
+	iifp = ifp->info;
 
 	bgp_mac_add_mac_entry(ifp);
 	bgp_srv6_unicast_ifp_update(ifp, true);
@@ -251,6 +254,9 @@ static int bgp_ifp_up(struct interface *ifp)
 		vpn_leak_postchange_all(true);
 	}
 
+	if (CHECK_FLAG(iifp->flags, BGP_INTERFACE_EVPN_SINGLE_HOMED))
+		bgp_l2vpn_ifp_up(ifp, true);
+
 	return 0;
 }
 
@@ -261,8 +267,10 @@ static int bgp_ifp_down(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 	struct peer *peer;
+	struct bgp_interface *iifp;
 
 	bgp = ifp->vrf->info;
+	iifp = ifp->info;
 
 	bgp_mac_del_mac_entry(ifp);
 	bgp_srv6_unicast_ifp_update(ifp, false);
@@ -307,6 +315,9 @@ static int bgp_ifp_down(struct interface *ifp)
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP6);
 		vpn_leak_postchange_all(true);
 	}
+
+	if (CHECK_FLAG(iifp->flags, BGP_INTERFACE_EVPN_SINGLE_HOMED))
+		bgp_l2vpn_ifp_up(ifp, false);
 
 	return 0;
 }

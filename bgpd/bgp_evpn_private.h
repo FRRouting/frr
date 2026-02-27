@@ -63,6 +63,7 @@ struct bgpevpn {
 /* Attach both L2-VNI and L3-VNI if needed for this VPN */
 #define VNI_FLAG_USE_TWO_LABELS 0x20
 #define VNI_FLAG_ADD		0x40 /* L2VNI Add */
+#define VNI_FLAG_VPWS		0x80 /* VNI is a VPWS tunnel */
 
 	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 

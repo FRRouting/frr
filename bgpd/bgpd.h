@@ -902,6 +902,7 @@ struct bgp_interface {
 #define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
 /* L3VPN multi domain switching */
 #define BGP_INTERFACE_MPLS_L3VPN_SWITCHING (1 << 1)
+#define BGP_INTERFACE_EVPN_SINGLE_HOMED	   (1 << 2)
 	uint32_t flags;
 };
 

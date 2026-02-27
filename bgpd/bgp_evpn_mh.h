@@ -413,17 +413,19 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 				 struct in_addr originator_ip, bool oper_up,
 				 uint16_t df_pref, bool bypass);
+void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni,
 				     uint32_t eth_tag, struct ecommunity_val *ecom_l2attr);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni,
 				     uint32_t eth_tag);
-extern enum zclient_send_status
-bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
-extern enum zclient_send_status
-bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
+extern struct bgp_evpn_es_evi *bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi);
+extern enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
+							   const struct prefix_evpn *p,
+							   const struct bgp_path_info *pi);
+extern enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
+							   const struct prefix_evpn *p,
+							   const struct bgp_path_info *pi);
 extern enum zclient_send_status bgp_evpn_remote_es_add(struct bgp *bgp, struct bgpevpn *vpn,
 						       const struct prefix_evpn *p);
 extern enum zclient_send_status bgp_evpn_remote_es_del(struct bgp *bgp, struct bgpevpn *vpn,
@@ -467,5 +469,5 @@ extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 					     struct ecommunity *ecom, bool del);
 extern void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
 								struct bgp_evpn_es_evi *es_evi);
-
+extern struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi);
 #endif /* _FRR_BGP_EVPN_MH_H */

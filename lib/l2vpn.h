@@ -13,6 +13,8 @@
 extern "C" {
 #endif
 
+#include "lib/prefix.h"
+
 typedef enum { L2VPN_TYPE_VPWS = 1, L2VPN_TYPE_VPLS = 2 } l2vpn_types;
 
 extern void l2vpn_cli_init(void);
@@ -57,6 +59,12 @@ union l2vpn_protocol_fields {
 		uint32_t pwid;
 		char vpn_name[L2VPN_NAME_LEN];
 	} ldp;
+	struct {
+		char vpn_name[L2VPN_NAME_LEN];
+		char local_ac[IFNAMSIZ];
+		uint32_t vni;
+		esi_t esi;
+	} bgp;
 };
 
 #ifdef __cplusplus
