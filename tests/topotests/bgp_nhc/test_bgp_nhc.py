@@ -43,6 +43,70 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def test_bgp_r6_peers():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r6 = tgen.gears["r6"]
+
+    def _bgp_r6_peers_check():
+        output = json.loads(r6.vtysh_cmd("show bgp ipv4 uni summ json"))
+        expected = {
+            "peers": {
+                "10.255.16.1": {
+                    "state": "Idle (Admin)",
+                    "peerState": "Admin",
+                },
+                "10.255.67.7": {
+                    "hostname": "r7",
+                    "remoteAs": 65007,
+                    "state": "Established",
+                    "peerState": "OK",
+                },
+                "10.255.68.8": {
+                    "hostname": "r8",
+                    "remoteAs": 65008,
+                    "state": "Established",
+                    "peerState": "OK",
+                },
+            },
+            "totalPeers": 3,
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_r6_peers_check)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r6 does not have expected peer states (r7/r8 Established, r1 Idle)"
+
+    r6.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65006
+        no neighbor 10.255.16.1 shutdown
+        """
+    )
+
+    def _bgp_r6_r1_established():
+        output = json.loads(r6.vtysh_cmd("show bgp ipv4 uni summ json"))
+        expected = {
+            "peers": {
+                "10.255.16.1": {
+                    "hostname": "r1",
+                    "remoteAs": 65001,
+                    "state": "Established",
+                    "peerState": "OK",
+                },
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_r6_r1_established)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 did not reach Established state on r6"
+
+
 def test_bgp_nhc():
     tgen = get_topogen()
 
@@ -96,7 +160,7 @@ def test_bgp_nhc():
     test_func = functools.partial(
         _bgp_converge,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see NHC attributes as expected"
 
     def check_weighted_ecmp_with_nnhn():
@@ -117,7 +181,7 @@ def test_bgp_nhc():
     test_func = functools.partial(
         check_weighted_ecmp_with_nnhn,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see weighted ECMP with NNHN as expected"
 
 
