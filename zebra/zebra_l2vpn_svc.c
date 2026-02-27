@@ -187,14 +187,17 @@ static void zebra_l2vpn_svc_install(struct zebra_l2vpn_svc *svc)
 		 * at all.  So let's just leave the retry mechanism for
 		 * the moment.
 		 */
-		zebra_l2vpn_svc_install_failure(svc, PW_NOT_FORWARDING);
+		if (svc->protocol == ZEBRA_ROUTE_BGP)
+			zebra_l2vpn_svc_install_failure(svc, EVPN_NOT_FORWARDING);
+		else
+			zebra_l2vpn_svc_install_failure(svc, PW_NOT_FORWARDING);
 		return;
 	}
 }
 
 static void zebra_l2vpn_svc_uninstall(struct zebra_l2vpn_svc *svc)
 {
-	if (svc->status != PW_FORWARDING)
+	if (svc->status != PW_FORWARDING || svc->status != EVPN_FORWARDING)
 		return;
 
 	if (IS_ZEBRA_DEBUG_PW)
@@ -225,8 +228,13 @@ void zebra_l2vpn_svc_handle_dplane_results(struct zebra_dplane_ctx *ctx)
 	} else {
 		if (op == DPLANE_OP_PW_INSTALL && svc->status != PW_FORWARDING)
 			zebra_l2vpn_svc_update_status(svc, PW_FORWARDING);
+		else if (op == DPLANE_OP_EVPN_VXLAN_INSTALL && svc->status != EVPN_FORWARDING)
+			zebra_l2vpn_svc_update_status(svc, EVPN_FORWARDING);
 		else if (op == DPLANE_OP_PW_UNINSTALL && zebra_l2vpn_svc_enabled(svc))
 			zebra_l2vpn_svc_update_status(svc, PW_NOT_FORWARDING);
+		else if (op == DPLANE_OP_EVPN_VXLAN_UNINSTALL)
+			zebra_l2vpn_svc_update_status(svc, svc->data.bgp.local_ac[0]
+						      ? EVPN_NOT_FORWARDING : EVPN_LOCAL_TX_FAULT);
 	}
 }
 

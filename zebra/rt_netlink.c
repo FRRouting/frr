@@ -3806,7 +3806,8 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
-	if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_VTEP_DELETE) {
+	if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_VTEP_DELETE ||
+	    op == DPLANE_OP_EVPN_VXLAN_INSTALL || op == DPLANE_OP_EVPN_VXLAN_UNINSTALL) {
 		vni_t vni = dplane_ctx_neigh_get_vni(ctx);
 
 		if (vni > 0) {
@@ -4935,10 +4936,10 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
 		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH, buf, buflen);
 	else if (op == DPLANE_OP_NEIGH_DELETE || op == DPLANE_OP_NEIGH_IP_DELETE)
 		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH, buf, buflen);
-	else if (op == DPLANE_OP_VTEP_ADD)
+	else if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_EVPN_VXLAN_INSTALL)
 		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_NEWNEIGH, buf,
 						     buflen);
-	else if (op == DPLANE_OP_VTEP_DELETE)
+	else if (op == DPLANE_OP_VTEP_DELETE || op == DPLANE_OP_EVPN_VXLAN_UNINSTALL)
 		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_DELNEIGH, buf,
 						     buflen);
 	else if (op == DPLANE_OP_NEIGH_TABLE_UPDATE)

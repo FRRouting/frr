@@ -59,7 +59,8 @@ DECLARE_HOOK(l2vpn_svc_install, (struct zebra_l2vpn_svc *svc), (svc));
 DECLARE_HOOK(l2vpn_svc_uninstall, (struct zebra_l2vpn_svc *svc), (svc));
 
 struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *ifname,
-					    uint8_t protocol, struct zserv *client);
+					    uint8_t protocol, union l2vpn_protocol_fields data,
+					    struct zserv *client);
 void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc);
 void zebra_l2vpn_svc_change(struct zebra_l2vpn_svc *svc, ifindex_t ifindex, int type, int af,
 			    union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,

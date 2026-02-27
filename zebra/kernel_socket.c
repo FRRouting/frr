@@ -1565,6 +1565,8 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			res = kernel_mac_update_ctx(ctx);
 			break;
 
+		case DPLANE_OP_EVPN_VXLAN_INSTALL:
+		case DPLANE_OP_EVPN_VXLAN_UNINSTALL:
 		case DPLANE_OP_NEIGH_INSTALL:
 		case DPLANE_OP_NEIGH_UPDATE:
 		case DPLANE_OP_NEIGH_DELETE:

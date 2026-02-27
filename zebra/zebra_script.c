@@ -348,6 +348,8 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		}
 		lua_setfield(L, -2, "neigh");
 		break;
+	case DPLANE_OP_EVPN_VXLAN_INSTALL:
+	case DPLANE_OP_EVPN_VXLAN_UNINSTALL:
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
 		break;
