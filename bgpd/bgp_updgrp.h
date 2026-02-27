@@ -38,7 +38,7 @@
 
 #define PEER_UPDGRP_FLAGS                                                                         \
 	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS |                          \
-	 PEER_FLAG_AS_LOOP_DETECTION)
+	 PEER_FLAG_AS_LOOP_DETECTION | PEER_FLAG_SEND_NHC_ATTRIBUTE)
 
 #define PEER_UPDGRP_AF_FLAGS                                                                      \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |                                \
