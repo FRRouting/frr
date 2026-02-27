@@ -14628,7 +14628,7 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *
 	json_object *json_paths = NULL;
 	json_object *json_flags = NULL;
 	bool best_path_selected = false;
-
+	int prefix_path_count = 0, multi_path_count = 0;
 	const struct prefix *p = bgp_dest_get_prefix(bgp_node);
 
 	for (pi = bgp_dest_get_bgp_path_info(bgp_node); pi; pi = pi->next) {
@@ -14646,7 +14646,6 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *
 			/* Instantiate json_paths only if path is valid */
 			json_paths = json_object_new_array();
 			json_flags = json_object_new_object();
-
 			if (pfx_rd)
 				json_header = json_object_new_object();
 			else
@@ -14673,10 +14672,22 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *
 			route_vty_out_detail(vty, bgp, bgp_node, bgp_dest_get_prefix(bgp_node), pi,
 					     afi, safi, rpki_curr_state, json_paths, attr,
 					     show_opts);
+
+		prefix_path_count++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+			multi_path_count++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			best_path_selected = true;
 	}
 
 	if (json && json_paths) {
 		json_object_object_add(json_header, "paths", json_paths);
+		json_object_int_add(json_header, "pathCount", prefix_path_count);
+		/* add +1 to the multipath count because it does
+		 * not include the best path itself
+		 */
+		json_object_int_add(json_header, "multiPathCount",
+				    best_path_selected ? multi_path_count + 1 : 0);
 
 		bgp_fib_flags_info(vty, bgp, bgp_node, json_flags, best_path_selected);
 		json_object_object_add(json_header, "flags", json_flags);
