@@ -1965,10 +1965,11 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	if (from_bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]) {
 		struct bgp_path_info info;
 		route_map_result_t ret;
+		struct bgp_path_info_extra path_extra;
+		struct peer *peer = path_vrf->peer ? path_vrf->peer : to_bgp->peer_self;
 
-		memset(&info, 0, sizeof(info));
-		info.peer = path_vrf->peer ? path_vrf->peer : to_bgp->peer_self;
-		info.attr = &static_attr;
+		prep_for_rmap_apply(&info, &path_extra, path_vrf->net, path_vrf, peer, NULL,
+				    &static_attr);
 		ret = route_map_apply(from_bgp->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_TOVPN],
 				      p, &info);
@@ -2568,12 +2569,11 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 	if (to_bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN]) {
 		struct bgp_path_info info;
 		route_map_result_t ret;
+		struct bgp_path_info_extra path_extra;
+		struct peer *fpeer = from ? from : to_bgp->peer_self;
 
-		memset(&info, 0, sizeof(info));
-		info.peer = from ? from : to_bgp->peer_self;
-		info.attr = &static_attr;
-		info.extra = path_vpn->extra; /* Used for source-vrf filter */
-		info.net = path_vpn->net;     /* Used to detect afi and safi */
+		prep_for_rmap_apply(&info, &path_extra, path_vpn->net, path_vpn, fpeer, NULL,
+				    &static_attr);
 		ret = route_map_apply(to_bgp->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_FROMVPN],
 				      p, &info);

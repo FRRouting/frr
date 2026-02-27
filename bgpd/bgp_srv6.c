@@ -234,12 +234,13 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	if (bgp->srv6_unicast[afi].rmap_name) {
 		rmap = route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name);
 		if (rmap) {
+			struct bgp_path_info_extra extra;
+
 			attr_tmp = *bpi->attr;
-			info.attr = &attr_tmp;
-			info.peer = bgp->peer_self;
-			memset(&info, 0, sizeof(info));
 			p = bgp_dest_get_prefix(bpi->net);
 
+			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,
+					    &attr_tmp);
 			ret = route_map_apply(rmap, p, &info);
 
 			if (ret == RMAP_DENYMATCH) {

@@ -2100,12 +2100,9 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 
 	/* Route map apply. */
 	if (rmap) {
-		memset(&rmap_path, 0, sizeof(rmap_path));
-		/* Duplicate current value to new structure for modification. */
-		rmap_path.peer = peer;
-		rmap_path.attr = attr;
+		prep_for_rmap_apply(&rmap_path, &extra, dest, NULL, peer, NULL, attr);
 		rmap_path.extra = &extra;
-		rmap_path.net = dest;
+
 		extra.labels = &bgp_labels;
 
 		bgp_labels.num_labels = num_labels;
@@ -9157,15 +9154,14 @@ static bool aggr_suppress_map_test(struct bgp *bgp,
 	route_map_result_t rmr = RMAP_DENYMATCH;
 	struct bgp_path_info rmap_path = {};
 	struct attr attr = {};
+	struct bgp_path_info_extra path_extra;
 
 	/* No route map entries created, just don't match. */
 	if (aggregate->suppress_map == NULL)
 		return false;
 
-	/* Call route map matching and return result. */
+	prep_for_rmap_apply(&rmap_path, &path_extra, pi->net, pi, bgp->peer_self, NULL, &attr);
 	attr.aspath = aspath_empty(bgp->asnotation);
-	rmap_path.peer = bgp->peer_self;
-	rmap_path.attr = &attr;
 
 	SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
 	rmr = route_map_apply(aggregate->suppress_map, p, &rmap_path);
