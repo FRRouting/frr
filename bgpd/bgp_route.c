@@ -2078,7 +2078,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 {
 	struct bgp_filter *filter;
 	struct bgp_path_info rmap_path = { 0 };
-	struct bgp_path_info_extra extra = { 0 };
+	struct bgp_path_info_extra extra;
 	struct bgp_labels bgp_labels = {};
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
@@ -2786,7 +2786,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    filter->advmap.aname &&
 	    route_map_lookup_by_name(filter->advmap.aname)) {
 		struct bgp_path_info rmap_path = {0};
-		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
+		struct bgp_path_info_extra dummy_rmap_path_extra;
 		struct attr dummy_attr = *attr;
 
 		/* Fill temp path_info */
@@ -2812,7 +2812,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (!post_attr &&
 	    (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
 		struct bgp_path_info rmap_path = {0};
-		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
+		struct bgp_path_info_extra dummy_rmap_path_extra;
 		struct attr dummy_attr = {0};
 
 		/* Fill temp path_info.

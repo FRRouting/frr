@@ -662,17 +662,19 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 				       struct peer *from, struct attr *attr)
 {
 	memset(dst_pi, 0, sizeof(struct bgp_path_info));
+	memset(dst_pie, 0, sizeof(struct bgp_path_info_extra));
 	dst_pi->peer = peer;
 	dst_pi->from = from;
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
-	dst_pi->flags = src_pi->flags;
-	dst_pi->type = src_pi->type;
-	dst_pi->sub_type = src_pi->sub_type;
-	if (src_pi->extra) {
-		memcpy(dst_pie, src_pi->extra,
-		       sizeof(struct bgp_path_info_extra));
-		dst_pi->extra = dst_pie;
+	if (src_pi) {
+		dst_pi->flags = src_pi->flags;
+		dst_pi->type = src_pi->type;
+		dst_pi->sub_type = src_pi->sub_type;
+		if (src_pi->extra) {
+			memcpy(dst_pie, src_pi->extra, sizeof(struct bgp_path_info_extra));
+			dst_pi->extra = dst_pie;
+		}
 	}
 }
 
