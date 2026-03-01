@@ -315,8 +315,11 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	msg.msg_controllen = sizeof(cmsg_buf);
 
 	bytesread = recvmsg(circuit->fd, &msg, MSG_DONTWAIT);
-	if (bytesread < 0) {
-		zlog_warn("%s: recvfrom() failed", __func__);
+	if (bytesread < LLC_LEN) {
+		if (bytesread < 0)
+			zlog_warn("%s: recvfrom() failed", __func__);
+		else
+			zlog_warn("%s: packet too short", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -338,7 +341,6 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	if (vlan_packet)
 		return ISIS_WARNING;
-
 	/* then we lose the LLC */
 	stream_write(circuit->rcv_stream, temp_buff + LLC_LEN,
 		     bytesread - LLC_LEN);
