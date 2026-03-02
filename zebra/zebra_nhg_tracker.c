@@ -125,7 +125,16 @@ void zebra_nhg_tracker_move_routes(struct route_table *src_table, uint32_t *src_
 			trn->info = old_trn->info;
 			(*dst_count)++;
 		} else {
+			/* release the lock held during node find */
 			route_unlock_node(trn);
+			/*
+			 * we end up here if there is a duplicate RN in 2 trackers
+			 * So there are now two tracker-side locks on the same RIB rn
+			 * and we need to unlock the old tracker's reference
+			 */
+			zlog_info("%s warning: duplicate RIB RN %pRN already in dst table, releasing src reference",
+				  __func__, (struct route_node *)old_trn->info);
+			route_unlock_node((struct route_node *)old_trn->info);
 		}
 
 		old_trn->info = NULL;
@@ -224,6 +233,7 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 	trn = route_node_get(tracker_table, &rn->p);
 	if (!trn->info) {
 		trn->info = rn;
+		route_lock_node(rn);
 		(*re_count)++;
 		zlog_info("%s: added %pRN (type %s) to tracker %u, re_count=%u", __func__, rn,
 			  zebra_route_string(re->type), tracker->nhg_tracker_id, *re_count);
@@ -249,8 +259,8 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 		}
 		if (!is_replace)
 			(*re_count)++;
+		route_unlock_node(trn);
 	}
-	route_unlock_node(trn);
 
 	if (prefix_map) {
 		struct tracker_prefix_map_entry lookup_key;
@@ -541,11 +551,31 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 	}
 
 	if (tracker->matched_table.matched_table) {
+		struct route_node *trn;
+
+		for (trn = route_top(tracker->matched_table.matched_table); trn;
+		     trn = route_next(trn)) {
+			if (trn->info) {
+				route_unlock_node(trn->info);
+				trn->info = NULL;
+				route_unlock_node(trn);
+			}
+		}
 		route_table_finish(tracker->matched_table.matched_table);
 		tracker->matched_table.matched_table = NULL;
 	}
 
 	if (tracker->unmatched_table.unmatched_table) {
+		struct route_node *trn;
+
+		for (trn = route_top(tracker->unmatched_table.unmatched_table); trn;
+		     trn = route_next(trn)) {
+			if (trn->info) {
+				route_unlock_node(trn->info);
+				trn->info = NULL;
+				route_unlock_node(trn);
+			}
+		}
 		route_table_finish(tracker->unmatched_table.unmatched_table);
 		tracker->unmatched_table.unmatched_table = NULL;
 	}
