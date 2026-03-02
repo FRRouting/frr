@@ -213,14 +213,11 @@ static void zebra_nhg_tracker_decount_stale_re(struct tracker_prefix_map_head *p
 }
 
 /*
- * Add an RN to a tracker table (matched or unmatched).
- * Uses prefix_map to ensure each prefix is owned by exactly one tracker.
- */
-/*
- * Add a RIB route_node to a tracker table and update the prefix_map.
+ * Add a RIB route_node to a tracker table (matched or unmatched)
+ * and update the prefix_map.
  * If the prefix is new, sets trn->info = rn and increments re_count.
- * If the prefix exists and the incoming RE is from a new protocol,
- * increments re_count.  Same-protocol replace does not increment.
+ * If the prefix already exists, releases the get-lock (no re_count change).
+ * Uses prefix_map to ensure each prefix is owned by exactly one tracker.
  */
 void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_count,
 			      struct tracker_prefix_map_head *prefix_map,
@@ -228,7 +225,6 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 			      struct route_entry *re)
 {
 	struct route_node *trn;
-	struct route_entry *existing_re;
 
 	trn = route_node_get(tracker_table, &rn->p);
 	if (!trn->info) {
@@ -238,27 +234,6 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 		zlog_info("%s: added %pRN (type %s) to tracker %u, re_count=%u", __func__, rn,
 			  zebra_route_string(re->type), tracker->nhg_tracker_id, *re_count);
 	} else {
-		/* Prefix already exists in this tracker.  Check whether
-		 * a live (non-REMOVED) RE from the same protocol is
-		 * already on the RIB route_node.  If so, that RE was
-		 * already counted in re_count, so don't increment again.
-		 * If the incoming RE is from a different protocol (e.g.
-		 * OSPF was parked here, now BGP arrives), increment.
-		 */
-		bool is_replace = false;
-
-		RNODE_FOREACH_RE (rn, existing_re) {
-			if (existing_re == re)
-				continue;
-			if (CHECK_FLAG(existing_re->status, ROUTE_ENTRY_REMOVED))
-				continue;
-			if (rib_compare_routes(re, existing_re, true)) {
-				is_replace = true;
-				break;
-			}
-		}
-		if (!is_replace)
-			(*re_count)++;
 		route_unlock_node(trn);
 	}
 
