@@ -156,10 +156,14 @@ static int bgp_te_create_context(struct bgp_nexthop_cache *bnc)
 	bgp_te = bgp_te_entry_add(bnc->srte_color, &ip_endpoint);
 	if (!bgp_te)
 		return 0;
+
+	bgp_te->bnc_afi = bnc->afi;
+	bgp_te->bnc_ifindex = bnc->ifindex_ipv6_ll;
+	bgp_te->bnc_prefix = bnc->prefix;
+
 	bgp_zebra_te_register(VRF_DEFAULT, bnc->srte_color, &ip_endpoint);
 	ipaddr2str(&bgp_te->endpoint, endpoint, sizeof(endpoint));
 	TE_DEBUG("TE entry Color %u NH %s added", bnc->srte_color, endpoint);
-	bgp_te->bnc = bnc;
 	return 1;
 }
 
@@ -228,13 +232,19 @@ static void bgp_te_add_te_entries(void)
 
 static void bgp_te_flush_te_entries(void)
 {
+	struct bgp *bgp = bgp_get_default();
+	struct bgp_nexthop_cache *bnc;
 	struct bgp_te_entry *entry;
 
 	while (!RB_EMPTY(bgp_te_entry_head, &bgp_te_entries)) {
 		entry = RB_ROOT(bgp_te_entry_head, &bgp_te_entries);
 		/* XXX inform Pathd */
-		if (entry->bnc)
-			SET_FLAG(entry->bnc->flags, BGP_NEXTHOP_TE_REGISTER);
+
+		bnc = bnc_find(&bgp->nexthop_cache_table[entry->bnc_afi],
+			       &entry->bnc_prefix, entry->color,
+			       entry->bnc_ifindex);
+		if (bnc)
+			SET_FLAG(bnc->flags, BGP_NEXTHOP_TE_REGISTER);
 		bgp_te_entry_remove(entry);
 	}
 }

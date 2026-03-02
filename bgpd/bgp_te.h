@@ -35,8 +35,10 @@ struct bgp_te_entry {
 	/* Endpoint */
 	struct ipaddr endpoint;
 
-	/* callback pointer */
-	struct bgp_nexthop_cache *bnc;
+	/* Fields to retrieve corresponding nexthop cache */
+	afi_t bnc_afi;
+	ifindex_t bnc_ifindex;
+	struct prefix bnc_prefix;
 
 	/* response */
 	/* Name */
