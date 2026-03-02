@@ -252,6 +252,19 @@ int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr 
 		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
 	}
 
+	/* Prefix-SID (TLV 1158) */
+	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_SR)) {
+		if (bgp_ls_attr_prefix_sid_len(ls_prefix->sr.sid_flag) == -1) {
+			zlog_warn("BGP-LS: %s TED contains wrong combination of V-Flag and L-Flag for Prefix SID",
+				  __func__);
+		} else {
+			attr->prefix_sid.sid = ls_prefix->sr.sid;
+			attr->prefix_sid.sid_flag = ls_prefix->sr.sid_flag;
+			attr->prefix_sid.algo = ls_prefix->sr.algo;
+			attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_SID_BIT);
+		}
+	}
+
 	return 0;
 }
 
