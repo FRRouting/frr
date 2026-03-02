@@ -179,7 +179,9 @@ static void zebra_nhg_tracker_collapse(struct tracker_prefix_map_head *prefix_ma
 }
 
 /*
- * Evict a stale RE from an older tracker and collapse that tracker.
+ * Remove a stale prefix entry from an older tracker's table
+ * and collapse that tracker into the new one.
+ * The RE itself remains in the RIB.
  */
 static void zebra_nhg_tracker_decount_stale_re(struct tracker_prefix_map_head *prefix_map,
 					       struct nhg_event_tracker *tracker,
@@ -187,19 +189,38 @@ static void zebra_nhg_tracker_decount_stale_re(struct tracker_prefix_map_head *p
 					       struct route_node *rn)
 {
 	struct nhg_event_tracker *old_tracker = old_entry->tracker;
-	struct route_node *old_rn;
+	struct route_node *old_trn;
 
-	old_rn = route_node_lookup(old_tracker->matched_table.matched_table, &rn->p);
-	if (old_rn) {
+	/* If the prefix exists in the old tracker's matched or
+	 * unmatched table, decrement its re_count and remove the
+	 * tracker table entry (release rn and trn locks, clear
+	 * trn->info).  The RE stays in the RIB.
+	 */
+	old_trn = route_node_lookup(old_tracker->matched_table.matched_table, &rn->p);
+	if (old_trn) {
 		if (old_tracker->matched_table.re_count > 0)
 			old_tracker->matched_table.re_count--;
-		route_unlock_node(old_rn);
+		if (old_trn->info) {
+			route_unlock_node(old_trn->info);
+			old_trn->info = NULL;
+			/* data-lock from original route_node_get */
+			route_unlock_node(old_trn);
+		}
+		/* lookup-lock from route_node_lookup above */
+		route_unlock_node(old_trn);
 	} else {
-		old_rn = route_node_lookup(old_tracker->unmatched_table.unmatched_table, &rn->p);
-		if (old_rn) {
+		old_trn = route_node_lookup(old_tracker->unmatched_table.unmatched_table, &rn->p);
+		if (old_trn) {
 			if (old_tracker->unmatched_table.re_count > 0)
 				old_tracker->unmatched_table.re_count--;
-			route_unlock_node(old_rn);
+			if (old_trn->info) {
+				route_unlock_node(old_trn->info);
+				old_trn->info = NULL;
+				/* data-lock from original route_node_get */
+				route_unlock_node(old_trn);
+			}
+			/* lookup-lock from route_node_lookup above */
+			route_unlock_node(old_trn);
 		}
 	}
 
