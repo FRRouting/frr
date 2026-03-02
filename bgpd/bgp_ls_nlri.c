@@ -422,6 +422,15 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return ret;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		if (attr1->prefix_sid.sid != attr2->prefix_sid.sid)
+			return attr1->prefix_sid.sid - attr2->prefix_sid.sid;
+		if (attr1->prefix_sid.sid_flag != attr2->prefix_sid.sid_flag)
+			return attr1->prefix_sid.sid_flag - attr2->prefix_sid.sid_flag;
+		if (attr1->prefix_sid.algo != attr2->prefix_sid.algo)
+			return attr1->prefix_sid.algo - attr2->prefix_sid.algo;
+	}
+
 	if (attr1->opaque_len != attr2->opaque_len)
 		return attr1->opaque_len - attr2->opaque_len;
 	if (attr1->opaque_len > 0) {
@@ -1242,6 +1251,9 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
 		key = jhash_1word(attr->ospf_fwd_addr.s_addr, key);
 		key = jhash(&attr->ospf_fwd_addr6, sizeof(struct in6_addr), key);
 	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT))
+		key = jhash(&attr->prefix_sid, sizeof(attr->prefix_sid), key);
 
 	if (attr->opaque_len > 0)
 		key = jhash(attr->opaque_data, attr->opaque_len, key);
@@ -2273,7 +2285,53 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		}
 	}
 
+	/* Prefix SID (TLV 1158) */
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		int sid_len = bgp_ls_attr_prefix_sid_len(attr->prefix_sid.sid_flag);
+
+		if (sid_len == -1) {
+			/* Should be impossible here */
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: %s wrong combination of V-Flag and L-Flag for Prefix SID",
+				  __func__);
+		} else {
+			if (stream_put_tlv_hdr(s, BGP_LS_ATTR_PREFIX_SID, 4 + sid_len) < 0)
+				return -1;
+			if (STREAM_WRITEABLE(s) < (size_t)4 + sid_len)
+				return -1;
+			stream_putc(s, attr->prefix_sid.sid_flag);
+			stream_putc(s, attr->prefix_sid.algo);
+			stream_putw(s, 0); /* Reserved = 0 */
+			/* SID Label/Index - three or four bytes */
+			if (sid_len == 3)
+				stream_put3(s, attr->prefix_sid.sid);
+			else if (sid_len == 4)
+				stream_putl(s, attr->prefix_sid.sid);
+		}
+	}
+
 	return stream_get_endp(s) - start_pos;
+}
+
+/*
+ * Get Prefix-SID attribute SID length by flags
+ *
+ * @return 3 or 4 in normal case, -1 in error case
+ */
+int bgp_ls_attr_prefix_sid_len(uint8_t flags)
+{
+	/*
+	 * IS-IS: RFC 8667, 2.1.1; OSPFv2: RFC8665, 5; OSPFv3: RFC8666, 6:
+	 *
+	 * All other combinations of V-Flag and L-Flag [all other = V-Flag!=L-Flag]
+	 * are invalid and any SID Advertisement received with an invalid setting
+	 * for V- and L-Flags MUST be ignored.
+	 */
+	if (CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_VALUE) !=
+	    CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_LOCAL))
+		return -1;
+
+	return CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_VALUE) ? 3 : 4;
 }
 
 /*
@@ -3661,6 +3719,66 @@ static int parse_extended_tag(struct stream *s, uint16_t length, struct bgp_ls_a
 }
 
 /*
+ * Parse Prefix SID (TLV 1158)
+ * RFC 9085 Section 2.3.1
+ */
+static int parse_prefix_sid(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	int flags;
+	int sid_len;
+
+	if (length != 7 && length != 8) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Invalid Prefix SID length (%u bytes, expected 7 or 8)", length);
+		return -1;
+	}
+
+	/*
+	 * IS-IS in RFC8667 2.1 references RFC8402, in section 3.1:
+	 *		Multiple SIDs MAY be allocated to the same prefix so long
+	 *		as the tuple <prefix, topology, algorithm> is unique.
+	 *
+	 * RFC8665 (OSPFv2), 5; RFC8666 (OSPFv3), 6:
+	 *		It MAY appear more than once in the parent TLV
+	 */
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Only one Prefix SID per prefix is supported, ignoring another one");
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
+	flags = stream_getc(s);
+	sid_len = bgp_ls_attr_prefix_sid_len(flags);
+
+	if (sid_len == -1) {
+		stream_forward_getp(s, length - 1);
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: %s wrong combination of V-Flag and L-Flag for Prefix SID, ignoring",
+			  __func__);
+		return 0;
+	}
+
+	if (sid_len + 4 != length) {
+		stream_forward_getp(s, length - 1);
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: %s V-Flag value contradicts length of Prefix SID, ignoring",
+			  __func__);
+		return 0;
+	}
+
+	attr->prefix_sid.sid_flag = flags;
+	attr->prefix_sid.algo = stream_getc(s);
+	stream_getw(s); /* Reserved, ignore two octets */
+	attr->prefix_sid.sid = 0;
+	for (int i = 0; i < sid_len; i++)
+		attr->prefix_sid.sid = (attr->prefix_sid.sid << 8) | stream_getc(s);
+	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT);
+
+	return 0;
+}
+
+/*
  * Parse BGP-LS Attribute TLVs
  * RFC 9552 Section 5.3.1
  */
@@ -3827,6 +3945,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_OSPF_FWD_ADDR:
 			if (parse_ospf_fwd_addr(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_PREFIX_SID:
+			if (parse_prefix_sid(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -4001,6 +4124,17 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 			snprintfrr(buf, INET6_BUFSIZ, "%pI6", &ls_attr->ospf_fwd_addr6);
 			json_object_string_add(json_ls_attr, "forwardingAddrV6", buf);
 		}
+	}
+
+	/* Prefix SID */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		json_object *jpref = json_object_new_object();
+
+		json_object_object_add(json_ls_attr, "prefixSid", jpref);
+		json_object_int_add(jpref, "sid", ls_attr->prefix_sid.sid);
+		snprintfrr(buf, INET6_BUFSIZ, "0x%x", ls_attr->prefix_sid.sid_flag);
+		json_object_string_add(jpref, "flags", buf);
+		json_object_int_add(jpref, "algo", ls_attr->prefix_sid.algo);
 	}
 
 	return json_ls_attr;
@@ -4193,13 +4327,21 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
 		if (ls_attr->ospf_fwd_addr.s_addr != INADDR_ANY) {
 			CHECK_WRAP();
-			vty_out(vty, "Forwarding addr: %pI4", &ls_attr->ospf_fwd_addr);
+			col += vty_out(vty, "Forwarding addr: %pI4", &ls_attr->ospf_fwd_addr);
 		} else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6)) {
 			CHECK_WRAP();
-			vty_out(vty, "Forwarding addr: %pI6", &ls_attr->ospf_fwd_addr6);
+			col += vty_out(vty, "Forwarding addr: %pI6", &ls_attr->ospf_fwd_addr6);
 		}
 	}
 
+	/* Prefix SID */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "Prefix-SID: %u Flags 0x%x algo %hhu", ls_attr->prefix_sid.sid,
+			       ls_attr->prefix_sid.sid_flag, ls_attr->prefix_sid.algo);
+	}
+
+	(void)col; /* Don't complain about last 'col +=' */
 #undef CHECK_WRAP
 #undef COL_WIDTH
 #undef INIT_INDENT
