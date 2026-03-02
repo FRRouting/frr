@@ -1151,10 +1151,19 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 				nexthop = nexthop->next;
 			}
 
-			if (nh_deactivated && nhe->nhg.nexthop)
-				zebra_nhg_tracker_create(rb_node_dep->nhe,
-							 nhe->nhg.nexthop->ifindex,
-							 NHG_TRACKER_EVENT_INTF_DOWN);
+			if (nh_deactivated && nhe->nhg.nexthop) {
+				struct zebra_if *zif = nhe->ifp ? nhe->ifp->info : NULL;
+
+				/* Multiple singleton per intf. update existing tracker snapshot as required*/
+				if (zif && nhg_connected_tree_count(&zif->nhg_dependents) > 1)
+					zebra_nhg_tracker_create_or_update(rb_node_dep->nhe,
+									   nhe->nhg.nexthop->ifindex,
+									   NHG_TRACKER_EVENT_INTF_DOWN);
+				else
+					zebra_nhg_tracker_create(rb_node_dep->nhe,
+								 nhe->nhg.nexthop->ifindex,
+								 NHG_TRACKER_EVENT_INTF_DOWN);
+			}
 		}
 		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
 	}
@@ -4257,9 +4266,15 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					SET_FLAG(nhop_dependent->flags,
 						 NEXTHOP_FLAG_ACTIVE);
 
-					zebra_nhg_tracker_create(rb_node_dependent->nhe,
-								 ifp->ifindex,
-								 NHG_TRACKER_EVENT_INTF_UP);
+					/* Multiple singleton per intf. update existing tracker snapshot as required*/
+					if (nhg_connected_tree_count(&zif->nhg_dependents) > 1)
+						zebra_nhg_tracker_create_or_update(
+							rb_node_dependent->nhe, ifp->ifindex,
+							NHG_TRACKER_EVENT_INTF_UP);
+					else
+						zebra_nhg_tracker_create(rb_node_dependent->nhe,
+									 ifp->ifindex,
+									 NHG_TRACKER_EVENT_INTF_UP);
 				}
 
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)

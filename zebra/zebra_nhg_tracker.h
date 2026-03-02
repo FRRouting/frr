@@ -136,6 +136,12 @@ extern void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker,
 extern struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe,
 							  ifindex_t ifindex,
 							  enum nhg_tracker_event_intf event);
+
+/* Create or update tracker for multi-singleton event batches */
+extern struct nhg_event_tracker *
+zebra_nhg_tracker_create_or_update(struct nhg_hash_entry *nhe, ifindex_t ifindex,
+				   enum nhg_tracker_event_intf event);
+
 extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker);
 
 #ifdef __cplusplus

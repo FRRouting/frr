@@ -466,6 +466,32 @@ struct nhg_event_tracker *zebra_nhg_tracker_lookup(struct nhg_hash_entry *nhe,
 }
 
 /*
+ * The new event produces an NHG state that matches an existing
+ * tracker.  Reuse the matching tracker and collapse all other
+ * trackers into it - other tracker's routes become unmatched in keeper
+ */
+static void zebra_nhg_tracker_loop_detection(struct nhg_hash_entry *nhe,
+					     struct nhg_event_tracker *keeper)
+{
+	struct nhg_event_tracker *t, *next;
+	struct tracker_prefix_map_head *prefix_map = &nhe->tracker_prefix_map;
+
+	for (t = nhg_event_tracker_list_first(&nhe->tracker_list); t; t = next) {
+		next = nhg_event_tracker_list_next(&nhe->tracker_list, t);
+
+		if (t == keeper)
+			continue;
+
+		zlog_info("%s: NHG %u loop: collapsing old tracker %u (matched=%u unmatched=%u) into keeper %u (matched=%u unmatched=%u)",
+			  __func__, nhe->id, t->nhg_tracker_id, t->matched_table.re_count,
+			  t->unmatched_table.re_count, keeper->nhg_tracker_id,
+			  keeper->matched_table.re_count, keeper->unmatched_table.re_count);
+
+		zebra_nhg_tracker_collapse(prefix_map, t, keeper);
+	}
+}
+
+/*
  * Create a new tracker upon interface event.
  */
 struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, ifindex_t ifindex,
@@ -481,9 +507,9 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	existing = zebra_nhg_tracker_lookup(nhe, snapshot);
 	if (existing) {
 		zebra_nhg_free(snapshot);
-		zlog_info("%s: duplicate state for NHG %u, reusing tracker %u", __func__, nhe->id,
-			  existing->nhg_tracker_id);
-		// todo: consolidate the things here?
+		zlog_info("%s: already existing tracker found for NHG %u, reusing tracker %u",
+			  __func__, nhe->id, existing->nhg_tracker_id);
+		zebra_nhg_tracker_loop_detection(nhe, existing);
 		return existing;
 	}
 
@@ -515,6 +541,41 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 		  nhg_event_tracker_list_count(&nhe->tracker_list));
 
 	return tracker;
+}
+
+/*
+ * Create or update a tracker when multiple singletons on the same
+ * interface affect the same NHG.  If a tracker already exists
+ * for this ifindex+event with 0 routes, update its snapshot in-place.
+ */
+struct nhg_event_tracker *zebra_nhg_tracker_create_or_update(struct nhg_hash_entry *nhe,
+							     ifindex_t ifindex,
+							     enum nhg_tracker_event_intf event)
+{
+	struct nhg_event_tracker *existing;
+	struct nhg_hash_entry *snapshot;
+
+	frr_each (nhg_event_tracker_list, &nhe->tracker_list, existing) {
+		if (existing->ifindex == ifindex && existing->event == event &&
+		    existing->matched_table.re_count == 0 &&
+		    existing->unmatched_table.re_count == 0) {
+			snapshot = zebra_nhe_copy(nhe, nhe->id);
+
+			nhg_event_tracker_hash_del(&nhe->tracker_hash, existing);
+
+			zebra_nhg_free(existing->nhg_tracker_snapshot);
+			existing->nhg_tracker_snapshot = snapshot;
+
+			nhg_event_tracker_hash_add(&nhe->tracker_hash, existing);
+
+			zlog_info("%s: NHG %u updated tracker %u snapshot (event=%s ifindex=%u)",
+				  __func__, nhe->id, existing->nhg_tracker_id,
+				  event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN", ifindex);
+			return existing;
+		}
+	}
+
+	return zebra_nhg_tracker_create(nhe, ifindex, event);
 }
 
 /*
