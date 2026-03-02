@@ -3957,8 +3957,8 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 		}
 	}
 
-	/* If this RE's NHG has active trackers, park the RE in one
-	 * of them instead of proceeding to rib_queue_add.
+	/* If the RE was parked in a tracker, flush if full.
+	 * In this case, do not queue rn to rib_queue_add.
 	 */
 		if (tracker) {
 			zebra_nhg_tracker_flush_if_full(tracker, re->nhe);
