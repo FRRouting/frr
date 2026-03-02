@@ -114,6 +114,10 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 		psize = *pnt++;
 		if (psize >= FLOWSPEC_NLRI_SIZELIMIT) {
+			/* We're going to look at next octet */
+			if (pnt + 1 > lim)
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
+
 			psize &= 0x0f;
 			psize = psize << 8;
 			psize |= *pnt++;
