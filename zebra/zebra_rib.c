@@ -2564,6 +2564,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV6:
 				case NEXTHOP_TYPE_BLACKHOLE:
+					zlog_err("%s: unexpected EVPN nexthop type %u for route add %pFX",
+						 __func__, tmp_nh->type, &ere->p);
 					continue;
 				}
 				zebra_rib_queue_evpn_route_add(tmp_nh->vrf_id, &tmp_nh->rmac,
@@ -2702,18 +2704,19 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 		/* Free up the evpn nhs of the re to be replaced.*/
 		for (ALL_NEXTHOPS(same->nhe->nhg, tmp_nh)) {
-			struct ipaddr vtep_ip;
-
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (ere->afi == AFI_IP) {
+				struct ipaddr vtep_ip = {};
+
+				if (tmp_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V4;
-					memcpy(&(vtep_ip.ipaddr_v4), &(tmp_nh->gate.ipv4),
-					       sizeof(struct in_addr));
-				} else {
+					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
+				} else if (tmp_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V6;
-					memcpy(&(vtep_ip.ipaddr_v6), &(tmp_nh->gate.ipv6),
-					       sizeof(struct in6_addr));
+					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+				} else {
+					zlog_err("%s: unexpected EVPN nexthop type %u for route update %pFX",
+						 __func__, tmp_nh->type, &ere->p);
+					continue;
 				}
 				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
@@ -2941,16 +2944,19 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		 * uninstalled if no more refs.
 		 */
 		for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
-			struct ipaddr vtep_ip;
-
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (ere->afi == AFI_IP) {
+				struct ipaddr vtep_ip = {};
+
+				if (tmp_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V4;
 					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
-				} else {
+				} else if (tmp_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V6;
 					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+				} else {
+					zlog_err("%s: unexpected EVPN nexthop type %u for route delete %pFX",
+						 __func__, tmp_nh->type, &ere->p);
+					continue;
 				}
 				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
