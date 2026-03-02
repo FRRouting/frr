@@ -305,7 +305,7 @@ int bgp_unreach_tlv_parse(uint8_t *data, uint16_t len, struct bgp_unreach_nlri *
 	/* Validate minimum length for Reporter TLV */
 	if (len < BGP_UNREACH_REPORTER_TLV_MIN_LEN) {
 		flog_err(EC_BGP_UNREACH_PARSE_FAILURE,
-			 "Unreachability TLV too short: %u bytes (min %u)", len,
+			 "[UNREACH] Unreachability TLV too short: %u bytes (min %u)", len,
 			 BGP_UNREACH_REPORTER_TLV_MIN_LEN);
 		frrtrace(6, frr_bgp, unreach_tlv_parse_error,
 			 UNREACH_TLV_ERR_NLRI_TOO_SHORT, 0, len, 0, 0,
@@ -672,7 +672,7 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 		/* Fetch prefix length (must lie within this NLRI's bound) */
 		if (pnt >= nlri_end) {
 			flog_err(EC_BGP_UNREACH_PARSE_FAILURE,
-				 "%s: Premature end of unreachability NLRI", peer->host);
+				 "[UNREACH] %s: Premature end of unreachability NLRI", peer->host);
 			frrtrace(4, frr_bgp, unreach_nlri_parse_error,
 				 UNREACH_NLRI_ERR_PREMATURE_END, peer->host,
 				 peer->bgp->name_pretty, &p);
@@ -807,11 +807,18 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 		prefix_copy(&unreach.prefix, &p);
 
 		if (withdraw || treat_as_withdraw) {
+			if (BGP_DEBUG(unreachability, UNREACHABILITY))
+				zlog_debug("[UNREACH] %s: Withdraw unreachability %pFX", peer->host,
+					   &p);
 			frrtrace(3, frr_bgp, unreach_nlri_withdraw_received,
 				 peer->bgp->name_pretty, peer->host, &p);
 			bgp_withdraw(peer, &p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0);
 		} else if (attr) {
+			if (BGP_DEBUG(unreachability, UNREACHABILITY))
+				zlog_debug("[UNREACH] %s: Receive unreachability %pFX reporter %pI4%s",
+					   peer->host, &p, &unreach.reporter,
+					   unreach.has_reporter_as ? " AS present" : "");
 			/*
 			 * Pass the stack-allocated Reporter TLV data as an
 			 * explicit parameter to bgp_update(). bgp_update()
@@ -827,13 +834,14 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 			bgp_update(peer, &p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
 				   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL, &unreach);
 		} else {
-			if (BGP_DEBUG(update, UPDATE_IN))
-				zlog_debug("%s: Missing attributes for unreachability update %pFX, skipping",
+			if (BGP_DEBUG(update, UPDATE_IN) ||
+			    BGP_DEBUG(unreachability, UNREACHABILITY))
+				zlog_debug("[UNREACH] %s: Missing attributes for unreachability update %pFX, skipping",
 					   peer->host, &p);
 		}
 
-		if (BGP_DEBUG(update, UPDATE_IN))
-			zlog_debug("%s: Processed unreachability info for %pFX via %s",
+		if (BGP_DEBUG(update, UPDATE_IN) || BGP_DEBUG(unreachability, UNREACHABILITY))
+			zlog_debug("[UNREACH] %s: Processed unreachability info for %pFX via %s",
 				   peer->host, &p,
 				   (withdraw || treat_as_withdraw) ? "bgp_withdraw()"
 								   : "bgp_update()");
@@ -873,6 +881,9 @@ int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_nlri *nl
 
 	/* Create new path or update existing */
 	if (!bpi) {
+		if (BGP_DEBUG(unreachability, UNREACHABILITY))
+			zlog_debug("[UNREACH] %s: UNREACH INFO ADD %pFX (new path)",
+				   bgp->name_pretty, &nlri->prefix);
 		/* Initialize attributes (no TLV data in attr) */
 		if (attr) {
 			attr_new = *attr;
@@ -920,8 +931,9 @@ int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_nlri *nl
 			bpi->extra->unreach = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_UNREACH,
 						      sizeof(struct bgp_path_info_extra_unreach));
 
-		if (bgp_debug_update(NULL, &nlri->prefix, NULL, 0)) {
-			zlog_debug("UNREACH UPDATE %pFX: old reason=%u new reason=%u",
+		if (bgp_debug_update(NULL, &nlri->prefix, NULL, 0) ||
+		    BGP_DEBUG(unreachability, UNREACHABILITY)) {
+			zlog_debug("[UNREACH] UNREACH UPDATE %pFX: old reason=%u new reason=%u",
 				   &nlri->prefix,
 				   bpi->extra->unreach->reason_code,
 				   nlri->reason_code);
@@ -964,6 +976,9 @@ void bgp_unreach_info_delete(struct bgp *bgp, afi_t afi, const struct prefix *pr
 
 	for (bpi = bgp_dest_get_bgp_path_info(dest); bpi; bpi = bpi->next) {
 		if (bpi->peer == bgp->peer_self) {
+			if (BGP_DEBUG(unreachability, UNREACHABILITY))
+				zlog_debug("[UNREACH] %s: UNREACH INFO DELETE %pFX",
+					   bgp->name_pretty, prefix);
 			frrtrace(2, frr_bgp, unreach_info_delete, bgp->name_pretty, prefix);
 			bgp_rib_remove(dest, bpi, bgp->peer_self, afi, SAFI_UNREACH);
 			break;

@@ -5271,21 +5271,23 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 			 * silently emitting a prefix with no Reporter TLV.
 			 */
 			if (bgp_unreach_tlv_encode(s, &nlri) < 0)
-				zlog_warn("UNREACH ENCODE: insufficient stream space for Reporter TLV, prefix=%pFX",
+				zlog_warn("[UNREACH] UNREACH ENCODE: insufficient stream space for Reporter TLV, prefix=%pFX",
 					  p);
 		} else if (path == NULL) {
 			/* path=NULL indicates this is a withdrawal - TLVs are not
 			 * included in withdrawals per protocol spec, this is expected.
 			 */
 			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("UNREACH ENCODE: withdrawal for prefix=%pFX (no TLVs)",
-				  p);
+				zlog_debug("[UNREACH] UNREACH ENCODE: withdrawal for prefix=%pFX (no TLVs)",
+					   p);
 		} else if (!path->extra) {
 			/* path exists but no extra data - this is unexpected for updates */
-			zlog_warn("UNREACH ENCODE: path->extra=NULL for prefix=%pFX", p);
+			zlog_warn("[UNREACH] UNREACH ENCODE: path->extra=NULL for prefix=%pFX",
+				  p);
 		} else if (!path->extra->unreach) {
 			/* path exists but no unreach data - this is unexpected for updates */
-			zlog_warn("UNREACH ENCODE: path->extra->unreach=NULL for prefix=%pFX", p);
+			zlog_warn("[UNREACH] UNREACH ENCODE: path->extra->unreach=NULL for prefix=%pFX",
+				  p);
 		}
 
 		/* Backfill the NLRI Length over prefix + Reporter TLV(s). */
