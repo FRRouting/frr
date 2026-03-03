@@ -151,6 +151,18 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote);
  */
 uint32_t path_ted_rcvd_message(struct ls_message *msg);
 
+/**
+ * @return		is ted enabled
+ */
+bool path_is_ted_enabled(void);
+
+/**
+ * Turn mpls_te off
+ *
+ * @return		0 on success, 1 if could not unregister Link state
+ */
+uint32_t path_ted_mpls_te_off(void);
+
 #ifdef __cplusplus
 }
 #endif
