@@ -118,15 +118,16 @@ void bgp_advertise_attr_unintern(struct hash *hash,
 	if (baa->refcnt)
 		baa->refcnt--;
 
-	if (baa->refcnt && baa->attr)
+	/* Remove from hash BEFORE unintern (while attr is still valid) */
+	if (!baa->refcnt && baa->attr)
+		hash_release(hash, baa);
+
+	/* ALWAYS unintern to balance the prior intern */
+	if (baa->attr)
 		bgp_attr_unintern(&baa->attr);
-	else {
-		if (baa->attr) {
-			hash_release(hash, baa);
-			bgp_attr_unintern(&baa->attr);
-		}
+
+	if (!baa->refcnt)
 		bgp_advertise_attr_free(baa);
-	}
 }
 
 bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
