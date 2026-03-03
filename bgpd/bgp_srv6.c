@@ -561,7 +561,6 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 {
 	struct bgp_srv6_per_locator_cache_head *tree;
 	struct bgp_srv6_per_locator_cache *iter;
-	struct srv6_locator *locator;
 	safi_t safi;
 	char buf[PREFIX2STR_BUFFER];
 	struct bgp_dest *dest;
@@ -581,14 +580,9 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 			json = json_object_new_object();
 
 			json_object_string_add(json, "afi", afi2str(afi));
-			json_object_string_add(json, "locatorName", iter->locator_name);
-			locator = bgp_srv6_locator_lookup_all_by_name(iter->locator_name);
-			if (locator)
-				json_object_string_addf(json, "locatorPrefix", "%pFX",
-							&locator->prefix);
 			json_object_int_add(json, "pathCount", iter->path_count);
 			json_object_string_add(json, "lastUpdate",
-					       time_to_string_no_cr(iter->last_update, buf));
+					       time_to_string(iter->last_update, buf));
 			if (iter->sid_policy.tovpn_sid) {
 				json_object_string_addf(json, "sid", "%pI6",
 							iter->sid_policy.tovpn_sid);
@@ -631,7 +625,7 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 		}
 
 		vty_out(vty, " %s, #paths %u\n", iter->locator_name, iter->path_count);
-		vty_out(vty, "  Last update: %s\n", time_to_string_no_cr(iter->last_update, buf));
+		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
 		if (iter->sid_policy.tovpn_sid)
 			vty_out(vty, "  SID %pI6, label %u\n", iter->sid_policy.tovpn_sid,
 				iter->sid_policy.tovpn_sid_transpose_label);
