@@ -1068,7 +1068,7 @@ void pcep_lib_parse_lsp_symbolic_name(
 	uint16_t size = tlv->symbolic_path_name_length;
 	assert(path->name == NULL);
 	size = size > MAX_PATH_NAME_SIZE ? MAX_PATH_NAME_SIZE : size;
-	path->name = XCALLOC(MTYPE_PCEP, size);
+	path->name = XCALLOC(MTYPE_PCEP, size + 1);
 	strlcpy((char *)path->name, tlv->symbolic_path_name, size + 1);
 }
 
