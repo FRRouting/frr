@@ -860,7 +860,9 @@ def test_evpn_vtep_change():
     # 4. Verify new VTEP appears and old VTEP is removed
     test_fn = partial(check_remote_es_vtep_present, dut, esi, secondary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
-    assertmsg = f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
+    assertmsg = (
+        f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
+    )
     assert result is None, assertmsg
 
     test_fn = partial(check_remote_es_vtep_absent, dut, esi, primary_vtep)
@@ -1025,6 +1027,218 @@ def test_evpn_es_config_without_bridge():
                 evpn mh es-sys-mac 44:38:39:ff:ff:01
             """
         )
+
+
+def test_evpn_max_esi_type2_behavior():
+    """
+    Configure MAX-ESI on rack-2 hostbond1 interfaces and verify that
+    rack-1 handles MAX-ESI as reserved:
+    1) no ES entry is created/learned for MAX-ESI
+    2) Type-2 route is still received in BGP
+    3) zebra installs the remote MAC from Type-2 route alone
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    max_esi = "ff:ff:ff:ff:ff:ff:ff:ff:ff:ff"
+    receiver = tgen.gears["torm11"]
+    senders = [tgen.gears["torm21"], tgen.gears["torm22"]]
+
+    # hostd21 is dual-homed via hostbond1 on rack-2 TORs.
+    vni = 1000
+    _, hostd21_mac = compute_host_ip_mac("hostd21")
+
+    def check_es_absent(dut, esi):
+        out = dut.vtysh_cmd("show bgp l2vp evpn es %s json" % esi)
+        es = json.loads(out)
+        if es:
+            return "esi %s still present on %s: %s" % (esi, dut.name, es)
+        return None
+
+    def check_type2_in_bgp(dut, mac):
+        out = dut.vtysh_cmd("show bgp l2vpn evpn route type 2")
+        out = out.lower()
+        if mac.lower() not in out:
+            return "type-2 for MAC %s missing on %s" % (mac, dut.name)
+        return None
+
+    def check_remote_mac_installed_any_esi(dut, vni_id, mac):
+        out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni_id, mac))
+        mac_js = json.loads(out)
+        info = mac_js.get(mac)
+        if not info:
+            return "MAC %s not installed in zebra on %s" % (mac, dut.name)
+        if info.get("type", "") != "remote":
+            return "MAC %s is not remote on %s: %s" % (mac, dut.name, info)
+        return None
+
+    # Move hostbond1 from type-3 ESI to explicit type-0 MAX-ESI.
+    for tor in senders:
+        tor.vtysh_cmd(
+            "\n".join(
+                [
+                    "conf",
+                    "interface hostbond1",
+                    f"evpn mh es-id {max_esi}",
+                    "no evpn mh es-sys-mac",
+                ]
+            )
+        )
+
+    # Trigger MAC/IP activity so Type-2 updates are refreshed quickly.
+    ping_anycast_gw(tgen)
+
+    # MAX-ESI is reserved; receiver should not learn/create an ES for it.
+    test_fn = partial(check_es_absent, receiver, max_esi)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" still has remote ES "{max_esi}" after MAX-ESI config'
+    )
+    assert result is None, assertmsg
+
+    # Verify the remote host MAC route is present in BGP.
+    test_fn = partial(check_type2_in_bgp, receiver, hostd21_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" missing Type-2 MAC {hostd21_mac} ' "after MAX-ESI config"
+    )
+    assert result is None, assertmsg
+
+    # Verify the remote host MAC is installed in zebra (without ES dependency).
+    test_fn = partial(check_remote_mac_installed_any_esi, receiver, vni, hostd21_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" did not install hostd21 MAC {hostd21_mac} '
+        "in zebra after MAX-ESI config"
+    )
+    assert result is None, assertmsg
+
+    # Block EAD (type-1) and ES (type-4) on receiver, keep type-2.
+    receiver.vtysh_cmd(
+        """
+        conf
+          route-map RM-BLOCK-ES-EAD deny 10
+            match evpn route-type ead
+          route-map RM-BLOCK-ES-EAD deny 20
+            match evpn route-type es
+          route-map RM-BLOCK-ES-EAD permit 100
+          router bgp 65002
+            address-family l2vpn evpn
+              neighbor 192.168.1.1 route-map RM-BLOCK-ES-EAD in
+              neighbor 192.168.5.1 route-map RM-BLOCK-ES-EAD in
+        """
+    )
+    receiver.vtysh_cmd("clear bgp l2vpn evpn 192.168.1.1 soft in")
+    receiver.vtysh_cmd("clear bgp l2vpn evpn 192.168.5.1 soft in")
+
+    # Re-trigger host traffic to refresh type-2 updates.
+    ping_anycast_gw(tgen)
+
+    # ES (type-4) should now be absent.
+    test_fn = partial(check_es_absent, receiver, max_esi)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = f'"{receiver.name}" still has ES route for {max_esi} after filter'
+    assert result is None, assertmsg
+
+    # Type-2 should still be present in BGP.
+    test_fn = partial(check_type2_in_bgp, receiver, hostd21_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" missing Type-2 MAC {hostd21_mac} '
+        f"after EAD/ES filter was applied"
+    )
+    assert result is None, assertmsg
+
+    # Zebra should still install remote MAC from MAC/IP route alone.
+    test_fn = partial(check_remote_mac_installed_any_esi, receiver, vni, hostd21_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" failed to keep MAC {hostd21_mac} installed in zebra '
+        "with only Type-2 available"
+    )
+    assert result is None, assertmsg
+
+
+def test_evpn_zero_esi_type2_behavior():
+    """
+    Configure zero ESI on rack-2 hostbond2 interfaces and verify:
+    1) Type-2 route is received in BGP on receiver.
+    2) Remote MAC is installed in zebra without ES association and with
+       remote-VTEP forwarding semantics.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    zero_esi = "00:00:00:00:00:00:00:00:00:00"
+    receiver = tgen.gears["torm11"]
+    senders = [tgen.gears["torm21"], tgen.gears["torm22"]]
+
+    # hostd22 is dual-homed via hostbond2 on rack-2 TORs.
+    vni = 1000
+    _, hostd22_mac = compute_host_ip_mac("hostd22")
+
+    def check_type2_in_bgp(dut, mac):
+        out = dut.vtysh_cmd("show bgp l2vpn evpn route type 2")
+        if mac.lower() not in out.lower():
+            return "type-2 for MAC %s missing on %s" % (mac, dut.name)
+        return None
+
+    def check_zero_esi_mac_installed(dut, vni_id, mac):
+        out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni_id, mac))
+        mac_js = json.loads(out)
+        info = mac_js.get(mac)
+        if not info:
+            return "MAC %s not installed in zebra on %s" % (mac, dut.name)
+        if info.get("type", "") != "remote":
+            return "MAC %s is not remote on %s: %s" % (mac, dut.name, info)
+
+        # For zero-ESI we expect no ES association in zebra output.
+        esi = info.get("esi", "")
+        if esi and esi != zero_esi:
+            return "unexpected non-zero ESI %s for MAC %s on %s" % (esi, mac, dut.name)
+
+        # Remote MAC should use remote VTEP forwarding semantics.
+        if not info.get("remoteVtep", ""):
+            return "remoteVtep missing for zero-ESI MAC %s on %s: %s" % (
+                mac,
+                dut.name,
+                info,
+            )
+        return None
+
+    # Move hostbond2 from type-3 ESI to explicit zero ESI.
+    for tor in senders:
+        tor.vtysh_cmd(
+            "\n".join(
+                [
+                    "conf",
+                    "interface hostbond2",
+                    f"evpn mh es-id {zero_esi}",
+                    "no evpn mh es-sys-mac",
+                ]
+            )
+        )
+
+    # Trigger MAC/IP activity so Type-2 updates are refreshed quickly.
+    ping_anycast_gw(tgen)
+
+    # 1) Type-2 should be present in BGP (received).
+    test_fn = partial(check_type2_in_bgp, receiver, hostd22_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = f'"{receiver.name}" missing Type-2 MAC {hostd22_mac} for zero-ESI case'
+    assert result is None, assertmsg
+
+    # 2) Type-2 should be correctly installed in zebra.
+    test_fn = partial(check_zero_esi_mac_installed, receiver, vni, hostd22_mac)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = (
+        f'"{receiver.name}" failed zero-ESI install handling for MAC {hostd22_mac}'
+    )
+    assert result is None, assertmsg
 
 
 if __name__ == "__main__":
