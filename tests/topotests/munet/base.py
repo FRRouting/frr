@@ -47,6 +47,38 @@ root_hostname = subprocess.check_output("hostname")
 our_pid = os.getpid()
 
 
+def get_docker_container_id():
+    """Detect if running inside Docker and return container ID.
+
+    Returns the Docker container ID if running inside a container, None otherwise.
+    This is used to prepend 'docker exec' to commands that need to run inside
+    the container from the host (e.g., tmux panes).
+    """
+    try:
+        # Try cgroup v1 format first
+        with open("/proc/1/cgroup") as file:
+            cgroup = file.read()
+        m = re.search(r"[0-9]+:cpuset:/docker/([a-f0-9]+)", cgroup)
+        if m:
+            return m.group(1)
+
+        # For cgroup v2, check mountinfo for docker container path
+        with open("/proc/self/mountinfo") as file:
+            mountinfo = file.read()
+        m = re.search(r"/docker/containers/([a-f0-9]+)/", mountinfo)
+        if m:
+            return m.group(1)
+
+        # Fallback: if hostname looks like a container ID, use it
+        # Docker containers often have hostname set to short container ID
+        hostname = subprocess.check_output(["hostname"], text=True).strip()
+        if re.match(r"^[a-f0-9]{12}$", hostname):
+            return hostname
+    except (IOError, OSError, subprocess.CalledProcessError):
+        pass
+    return None
+
+
 detailed_cmd_logging = False
 
 
@@ -1507,6 +1539,18 @@ class Commander:  # pylint: disable=R0904
                 + " "
                 + cmd
             )
+
+            # If running inside Docker, prepend docker exec to run the command inside the container
+            # This is needed because tmux runs on the host but the namespaces are inside the container
+            container_id = get_docker_container_id()
+            if container_id:
+                # Try to find docker or podman on the host
+                docker_path = get_exec_path_host(["docker", "podman"])
+                if not docker_path:
+                    # Fallback to common paths
+                    docker_path = "/usr/bin/docker"
+                # Use -it flags for interactive terminal
+                nscmd = f"{docker_path} exec -it {container_id} {nscmd}"
 
         if "TMUX" in os.environ and not forcex:
             cmd = [get_exec_path_host("tmux")]
