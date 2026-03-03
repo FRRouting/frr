@@ -520,6 +520,13 @@ struct bgp_ls_attr {
 	uint8_t isis_area_id_len;
 	uint8_t *isis_area_id;
 
+	/* SR Capabilities (TLV 1034), only one range supported */
+	struct bgp_ls_srgb {
+		uint32_t lower_bound; /* MPLS label lower bound */
+		uint32_t range_size;  /* MPLS label range size */
+		uint8_t flag;	      /* IS-IS SRGB flags */
+	} srgb;
+
 	/* Multi-Topology IDs (multiple TLVs, same as descriptor) */
 	uint8_t mt_id_count;
 	uint16_t *mt_id;
