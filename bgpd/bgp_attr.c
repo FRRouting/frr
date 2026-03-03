@@ -143,13 +143,16 @@ static bool cluster_hash_cmp(const void *p1, const void *p2)
 	const struct cluster_list *cluster1 = p1;
 	const struct cluster_list *cluster2 = p2;
 
+	/* Check length first - must match for equality */
+	if (cluster1->length != cluster2->length)
+		return false;
+
+	/* If same pointer and same length, they're equal */
 	if (cluster1->list == cluster2->list)
 		return true;
 
+	/* Check for NULL pointers */
 	if (!cluster1->list || !cluster2->list)
-		return false;
-
-	if (cluster1->length != cluster2->length)
 		return false;
 
 	return (memcmp(cluster1->list, cluster2->list, cluster1->length) == 0);
