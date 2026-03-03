@@ -118,7 +118,7 @@ static inline time_t monotime_to_realtime(const struct timeval *mono,
 /* Char buffer size for time-to-string api */
 #define MONOTIME_STRLEN 32
 
-static inline char *_time_to_string(time_t ts, char *buf, bool no_cr)
+static inline char *time_to_string(time_t ts, char *buf)
 {
 	struct timeval tv;
 	time_t tbuf;
@@ -126,26 +126,7 @@ static inline char *_time_to_string(time_t ts, char *buf, bool no_cr)
 	monotime(&tv);
 	tbuf = time(NULL) - (tv.tv_sec - ts);
 
-	ctime_r(&tbuf, buf);
-
-	if (no_cr) {
-		size_t len = strlen(buf);
-
-		if (len && buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-	}
-
-	return buf;
-}
-
-static inline char *time_to_string(time_t ts, char *buf)
-{
-	return _time_to_string(ts, buf, false);
-}
-
-static inline char *time_to_string_no_cr(time_t ts, char *buf)
-{
-	return _time_to_string(ts, buf, true);
+	return ctime_r(&tbuf, buf);
 }
 
 /* Convert interval to human-friendly string, used in cli output e.g. */
