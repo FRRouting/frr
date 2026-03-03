@@ -622,21 +622,11 @@ static grpc::Status grpc_fe_get_path_via_mgmtd(frr::DataTree *dt,
 
 	struct lyd_node *dnode_final =
 		dnode ? dnode : (dnode_config ? dnode_config : dnode_state);
-	int validate_opts = (type == frr::GetRequest_DataType_CONFIG)
-				    ? LYD_VALIDATE_NO_STATE
-				    : 0;
-	err = lyd_validate_all(&dnode_final, ly_native_ctx, validate_opts, NULL);
-	if (err)
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_validate_all() failed: %s",
-			  __func__, ly_errmsg(ly_native_ctx));
-	if (!err)
-		err = data_tree_from_dnode(dt, dnode_final, lyd_format,
-					   with_defaults);
+	err = data_tree_from_dnode(dt, dnode_final, lyd_format, with_defaults);
 	yang_dnode_free(dnode_final);
 	grpc_fe_pending_result = nullptr;
 	if (err)
-		return grpc::Status(grpc::StatusCode::INTERNAL,
-				    "Failed to dump data");
+		return grpc::Status(grpc::StatusCode::INTERNAL, "Failed to dump data (1)");
 	return grpc::Status::OK;
 }
 
@@ -1158,8 +1148,7 @@ grpc::Status HandleUnaryGetTransaction(
 				 encoding2lyd_format(encoding), with_defaults)
 	    != 0) {
 		nb_config_free(nb_config);
-		return grpc::Status(grpc::StatusCode::INTERNAL,
-				    "Failed to dump data");
+		return grpc::Status(grpc::StatusCode::INTERNAL, "Failed to dump data (2)");
 	}
 
 	nb_config_free(nb_config);

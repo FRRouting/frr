@@ -124,6 +124,8 @@ def main(*args):
 
     c = GRPCClient(args.server, args.port)
 
+    logging.debug("GRPC channel: %s", c)
+
     for action in next_action(args.actions):
         action = action.casefold()
         logging.debug("GOT ACTION: %s", action)

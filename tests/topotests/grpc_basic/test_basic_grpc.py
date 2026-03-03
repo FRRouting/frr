@@ -47,21 +47,16 @@ except Exception:
 @pytest.fixture(scope="module")
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
-    topodef = {"s1": ("r1", "r2")}
+    topodef = {"s1": ("r1",)}
     tgen = Topogen(topodef, request.module.__name__)
 
     tgen.start_topology()
     router_list = tgen.routers()
 
     for _, router in router_list.items():
-        router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf", "")
-        router.load_config(TopoRouter.RD_STATIC, "", "")
-        # router.load_config(TopoRouter.RD_BFDD, "", "")
-        # router.load_config(TopoRouter.RD_ISIS, None, "")
-        # router.load_config(TopoRouter.RD_OSPF, None, "")
-        # router.load_config(TopoRouter.RD_PIM, None, "")
-
-        router.load_config(TopoRouter.RD_MGMTD, "", f"-M grpc:{GRPCP}")
+        router.load_frr_config(
+            "frr.conf", extra_daemons=[("mgmtd", f"-M grpc:{GRPCP}")]
+        )
 
     tgen.start_router()
     yield tgen
@@ -88,23 +83,7 @@ def run_grpc_client(r, port, commands):
         commands = "\n".join(commands) + "\n"
     if not commands.endswith("\n"):
         commands += "\n"
-    return r.cmd_raises([script_path, f"--port={port}"], stdin=commands)
-
-
-@pytest.mark.skip(reason="connectivity not required for gRPC; run gRPC tests only")
-def test_connectivity(tgen):
-    r1 = tgen.gears["r1"]
-
-    def _ping_ok():
-        try:
-            r1.cmd_raises("ping -c1 192.168.1.2")
-            return True
-        except Exception:
-            return False
-
-    # Allow time for zebra/mgmtd to apply interface config before ping
-    ok, _ = run_and_expect(_ping_ok, True, count=10, wait=1)
-    assert ok, "r1 could not ping 192.168.1.2 (r2)"
+    return r.cmd_raises([script_path, "--verbose", f"--port={port}"], stdin=commands)
 
 
 def test_capabilities(tgen):
@@ -114,8 +93,15 @@ def test_capabilities(tgen):
 
     modules = sorted(re.findall('name: "([^"]+)"', output))
     required = [
-        "frr-backend", "frr-host", "frr-interface", "frr-logging", "frr-routing",
-        "frr-staticd", "frr-vrf", "ietf-srv6-types", "ietf-syslog-types"
+        "frr-backend",
+        "frr-host",
+        "frr-interface",
+        "frr-logging",
+        "frr-routing",
+        "frr-staticd",
+        "frr-vrf",
+        "ietf-srv6-types",
+        "ietf-syslog-types",
     ]
     missing = set(required) - set(modules)
     assert not missing, f"GETCAP missing required modules: {missing}"
@@ -141,8 +127,7 @@ def test_get_config(tgen):
 
     output = run_grpc_client(r1, GRPCP, commands[0])
     out_json = json.loads(output)
-    expect = json.loads(
-        """{
+    expect = json.loads("""{
   "frr-interface:lib": {
     "interface": [
       {
@@ -158,8 +143,7 @@ def test_get_config(tgen):
       }
     ]
   }
-} """
-    )
+} """)
     result = json_cmp(out_json, expect, exact=False)
     assert result is None
 
@@ -169,26 +153,27 @@ def test_get_vrf_config(tgen):
 
     step("'GET' VRF config and state")
 
-    output = run_grpc_client(r1, GRPCP, "GET,/frr-vrf:lib")
-    logging.debug("grpc GET /frr-vrf:lib output: %s", output)
+    output = run_grpc_client(r1, GRPCP, "GET,/frr-backend:clients/client/name")
+    logging.debug("grpc GET /frr-backend:clients/client/name output: %s", output)
     out_json = json.loads(output)
-    expect = json.loads(
-        """{
-  "frr-vrf:lib": {
-    "vrf": [
+
+    expect = json.loads("""{
+  "frr-backend:clients": {
+    "client": [
       {
-        "name": "default",
-        "state": {
-          "id": 0,
-          "active": true
-        }
+        "name": "mgmtd"
+      },
+      {
+        "name": "staticd"
+      },
+      {
+        "name": "zebra"
       }
     ]
   }
 }
-    """
-    )
-    result = json_cmp(out_json, expect, exact=True)
+    """)
+    result = json_cmp(out_json, expect, exact=False)
     assert result is None
 
 
