@@ -89,6 +89,7 @@ ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", no
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
 ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 0,     "Table-Direct",         zebra
 ZEBRA_ROUTE_ALL,        any,       none,   '-', 0, 0, 0,     "-",             none
+ZEBRA_ROUTE_FRR,        frr,       none,   'Z', 1, 1, 0,     "FRR",           zebra
 
 
 ## help strings
@@ -120,3 +121,5 @@ ZEBRA_ROUTE_VRRP, "Virtual Router Redundancy Protocol (VRRP)"
 ZEBRA_ROUTE_OPENFABRIC, "OpenFabric Routing Protocol"
 ZEBRA_ROUTE_NHG, "Zebra Nexthop Groups (NHG)"
 ZEBRA_ROUTE_TABLE_DIRECT,  "Non-main Kernel Routing Table - Direct"
+ZEBRA_ROUTE_SRTE, "Segment-Routing Traffic Engineering"
+ZEBRA_ROUTE_FRR, "FRR Internal"

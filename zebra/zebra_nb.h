@@ -279,6 +279,11 @@ int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime
 #if HAVE_BFDD == 0
 int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
 #endif
+int lib_interface_zebra_neigh_throttle_enable_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_neigh_throttle_enable_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_neigh_throttle_disable_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_neigh_throttle_disable_destroy(struct nb_cb_destroy_args *args);
+
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

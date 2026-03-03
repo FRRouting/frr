@@ -2890,6 +2890,16 @@ module frr-zebra {
         description
           "Enable PTM on the interface.";
       }
+
+      leaf neigh-throttle-enable {
+        type boolean;
+        description "Enable neighbor glean throttling on the interface.";
+      }
+      leaf neigh-throttle-disable {
+        type boolean;
+        description "Disable neighbor glean throttling on the interface.";
+      }
+
       container state {
         config false;
         description
