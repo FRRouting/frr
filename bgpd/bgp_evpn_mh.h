@@ -225,6 +225,8 @@ struct bgp_evpn_es_evi {
 /* created via a remote VTEP imported by BGP */
 #define BGP_EVPNES_EVI_REMOTE           (1 << 1)
 #define BGP_EVPNES_EVI_INCONS_VTEP_LIST (1 << 2)
+/* deferred route cleanup needed when VRF becomes available */
+#define BGP_EVPNES_EVI_SWEEP_LOCAL_ROUTES (1 << 3)
 
 	/* memory used for adding the es_evi to es_evi->vpn->es_evi_rb_tree */
 	RB_ENTRY(bgp_evpn_es_evi) rb_node;
