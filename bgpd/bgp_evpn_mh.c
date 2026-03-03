@@ -1745,8 +1745,8 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	es_info = (pi->extra && pi->extra->evpn && pi->extra->evpn->mh_info)
 			  ? pi->extra->evpn->mh_info->es_info
 			  : NULL;
-	/* if the esi is zero just unlink the path from the old es */
-	if (!esi || !memcmp(esi, zero_esi, sizeof(*esi))) {
+	/* reserved ESIs (zero or MAX-ESI) are not linked to an ES */
+	if (esi_is_reserved(esi)) {
 		if (es_info)
 			bgp_evpn_path_es_unlink(es_info);
 		return;
@@ -3356,7 +3356,7 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 
 	/* non-es path, use legacy-exploded multipath */
 	esi = bgp_evpn_attr_get_esi(parent_pi->attr);
-	if (!memcmp(esi, zero_esi, sizeof(*esi)))
+	if (esi_is_reserved(esi))
 		return false;
 
 	/* we don't support NHG for d-vni yet */
