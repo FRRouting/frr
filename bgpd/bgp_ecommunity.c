@@ -1345,10 +1345,12 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 
 				++pnt;
 				memcpy(&flags, pnt, 2);
+				flags = ntohs(flags);
 				++pnt;
 				++pnt;
 
 				memcpy(&l2mtu, pnt, 2);
+				l2mtu = ntohs(l2mtu);
 
 				snprintf(encbuf, sizeof(encbuf),
 					 "L2: P flag:%c, B Flag %c, C word %c, MTU %d",
