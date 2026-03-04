@@ -85,6 +85,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
 static int nhrp_if_delete_hook(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
 
 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
 
@@ -101,6 +103,30 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->source);
 	if (nifp->auth_token)
 		zbuf_free(nifp->auth_token);
+
+	/*
+	 * If this interface is a GRE tunnel subscribed to an NBMA source,
+	 * detach its notifier from the source's list.
+	 */
+	if (nifp->nbmaifp) {
+		struct nhrp_interface *src_nifp = nifp->nbmaifp->info;
+
+		notifier_del(&nifp->nbmanifp_notifier, &src_nifp->notifier_list);
+		nifp->nbmaifp = NULL;
+	}
+
+	/*
+	 * If this interface is an NBMA source, detach any GRE tunnels
+	 * subscribed to its notifier list.
+	 */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->nbmaifp == ifp) {
+			notifier_del(&gnifp->nbmanifp_notifier, &nifp->notifier_list);
+			gnifp->nbmaifp = NULL;
+		}
+	}
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;
