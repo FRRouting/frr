@@ -394,11 +394,22 @@ void nhrp_interface_update(struct interface *ifp)
 
 int nhrp_ifp_create(struct interface *ifp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
+
 	debugf(NHRP_DEBUG_IF, "if-add: %s, ifindex: %u, hw_type: %d %s",
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
 
 	nhrp_interface_update_nbma(ifp, NULL);
+
+	/* Re-trigger NBMA for GRE tunnels sourced on this interface. */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->source && strcmp(gnifp->source, ifp->name) == 0)
+			nhrp_interface_update_nbma(gre_ifp, NULL);
+	}
 
 	return 0;
 }
@@ -494,6 +505,8 @@ int nhrp_ifp_down(struct interface *ifp)
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
@@ -505,6 +518,16 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
 	nhrp_interface_update_cache_config(ifc->ifp, true, PREFIX_FAMILY(ifc->address));
+
+	/* Re-trigger NBMA - address may arrive after nhrp_ifp_create. */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->source &&
+		    strcmp(gnifp->source, ifc->ifp->name) == 0)
+			nhrp_interface_update_nbma(gre_ifp, NULL);
+	}
+
 	return 0;
 }
 
