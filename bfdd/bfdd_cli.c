@@ -885,16 +885,6 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!no && !bglobal.bg_use_dplane) {
-#ifdef BFD_LINUX
-		vty_out(vty,
-			"%% Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.\n");
-#else
-		vty_out(vty,
-			"%% Current implementation of echo mode works only when the peer is also FRR.\n");
-#endif /* BFD_LINUX */
-	}
-
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -1278,6 +1268,20 @@ void bfd_cli_show_sbfd_reflector(struct vty *vty, const struct lyd_node *dnode, 
 		yang_dnode_get_uint32(dnode, "discriminator"));
 }
 
+struct cmd_node bfd_node = {
+	.name = "bfd",
+	.node = BFD_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-bfd)# ",
+};
+
+struct cmd_node bfd_peer_node = {
+	.name = "bfd peer",
+	.node = BFD_PEER_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-peer)# ",
+};
+
 struct cmd_node bfd_profile_node = {
 	.name = "bfd profile",
 	.node = BFD_PROFILE_NODE,
@@ -1288,6 +1292,12 @@ struct cmd_node bfd_profile_node = {
 void
 bfdd_cli_init(void)
 {
+	install_node(&bfd_node);
+	install_default(BFD_NODE);
+
+	install_node(&bfd_peer_node);
+	install_default(BFD_PEER_NODE);
+
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(CONFIG_NODE, &bfd_config_reset_cmd);
 
@@ -1340,3 +1350,233 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
 }
+
+/* clang-format off */
+const struct frr_yang_module_info frr_bfdd_cli_info = {
+	.name = "frr-bfdd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd",
+			.cbs.cli_show = bfd_cli_show_header,
+			.cbs.cli_show_end = bfd_cli_show_header_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile",
+			.cbs.cli_show = bfd_cli_show_profile,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/echo-mode",
+			.cbs.cli_show = bfd_cli_show_echo,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop",
+			.cbs.cli_show = bfd_cli_show_single_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/echo-mode",
+			.cbs.cli_show = bfd_cli_show_echo,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop",
+			.cbs.cli_show = bfd_cli_show_multi_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo",
+			.cbs.cli_show = bfd_cli_show_sbfd_echo_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init",
+			.cbs.cli_show = bfd_cli_show_sbfd_init_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sbfd-reflector",
+			.cbs.cli_show = bfd_cli_show_sbfd_reflector,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+/* clang-format on */

@@ -12,6 +12,7 @@
 #include "lib/northbound_cli.h"
 #include "lib/vty.h"
 #include "lib/termtable.h"
+#include "lib/mgmt_be_client.h"
 
 #include "bfd.h"
 #include "bfd_trace.h"
@@ -1370,25 +1371,8 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
-static int bfdd_write_config(struct vty *vty);
-struct cmd_node bfd_node = {
-	.name = "bfd",
-	.node = BFD_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-bfd)# ",
-	.config_write = bfdd_write_config,
-};
-
-struct cmd_node bfd_peer_node = {
-	.name = "bfd peer",
-	.node = BFD_PEER_NODE,
-	.parent_node = BFD_NODE,
-	.prompt = "%s(config-bfd-peer)# ",
-};
-
-static int bfdd_write_config(struct vty *vty)
+static int config_write_debug(struct vty *vty)
 {
-	struct lyd_node *dnode;
 	int written = 0;
 
 	if (bglobal.debug_dplane) {
@@ -1411,14 +1395,15 @@ static int bfdd_write_config(struct vty *vty)
 		written = 1;
 	}
 
-	dnode = yang_dnode_get(running_config->dnode, "/frr-bfdd:bfdd");
-	if (dnode) {
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-		written = 1;
-	}
-
 	return written;
 }
+
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
+};
 
 static void bfd_profile_var(vector comps, struct cmd_token *token)
 {
@@ -1477,6 +1462,10 @@ static const struct cmd_variable_handler bfd_vars[] = {
 
 void bfdd_vty_init(void)
 {
+	install_node(&debug_node);
+
+	mgmt_be_client_lib_vty_init();
+
 	install_element(ENABLE_NODE, &bfd_show_peers_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_clear_peer_counters_cmd);
@@ -1501,15 +1490,5 @@ void bfdd_vty_init(void)
 
 	install_element(VIEW_NODE, &sbfd_reflector_show_info_cmd);
 
-	/* Install BFD node and commands. */
-	install_node(&bfd_node);
-	install_default(BFD_NODE);
-
-	/* Install BFD peer node. */
-	install_node(&bfd_peer_node);
-	install_default(BFD_PEER_NODE);
-
 	cmd_variable_handler_register(bfd_vars);
-
-	bfdd_cli_init();
 }

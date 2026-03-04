@@ -2398,13 +2398,13 @@ DEFSH(VTYSH_PBRD, vtysh_no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 #endif /* HAVE_PBRD */
 
 #if HAVE_BFDD > 0
-DEFUNSH(VTYSH_BFDD, bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
+DEFUNSH(VTYSH_MGMTD, bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
 {
 	vty->node = BFD_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
+DEFUNSH(VTYSH_MGMTD, bfd_peer_enter, bfd_peer_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
 	"Configure peer\n"
 	"IPv4 peer address\n"
@@ -2422,7 +2422,7 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BFDD, sbfd_echo_peer_enter, sbfd_echo_peer_enter_cmd,
+DEFUNSH(VTYSH_MGMTD, sbfd_echo_peer_enter, sbfd_echo_peer_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> bfd-mode sbfd-echo bfd-name BFDNAME [multihop$multihop] local-address <A.B.C.D|X:X::X:X> [vrf NAME] srv6-source-ipv6 X:X::X:X srv6-encap-data X:X::X:X...",
 	"Configure peer\n"
 	"IPv4 peer address\n"
@@ -2446,7 +2446,7 @@ DEFUNSH(VTYSH_BFDD, sbfd_echo_peer_enter, sbfd_echo_peer_enter_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BFDD, sbfd_init_peer_enter, sbfd_init_peer_enter_cmd,
+DEFUNSH(VTYSH_MGMTD, sbfd_init_peer_enter, sbfd_init_peer_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> bfd-mode sbfd-init bfd-name BFDNAME [multihop$multihop] local-address <A.B.C.D|X:X::X:X> [vrf NAME] remote-discr (1-4294967295) srv6-source-ipv6 X:X::X:X srv6-encap-data X:X::X:X...",
 	"Configure peer\n"
 	"IPv4 peer address\n"
@@ -2473,7 +2473,7 @@ DEFUNSH(VTYSH_BFDD, sbfd_init_peer_enter, sbfd_init_peer_enter_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BFDD, sbfd_init_peer_raw_enter, sbfd_init_peer_raw_enter_cmd,
+DEFUNSH(VTYSH_MGMTD, sbfd_init_peer_raw_enter, sbfd_init_peer_raw_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> bfd-mode sbfd-init bfd-name BFDNAME [multihop$multihop] local-address <A.B.C.D|X:X::X:X> [vrf NAME] remote-discr (1-4294967295)",
 	"Configure peer\n"
 	"IPv4 peer address\n"
@@ -2495,7 +2495,7 @@ DEFUNSH(VTYSH_BFDD, sbfd_init_peer_raw_enter, sbfd_init_peer_raw_enter_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
+DEFUNSH(VTYSH_MGMTD, bfd_profile_enter, bfd_profile_enter_cmd,
 	"profile BFDPROF",
 	BFD_PROFILE_STR
 	BFD_PROFILE_NAME_STR)
@@ -2889,7 +2889,7 @@ DEFUNSH(VTYSH_ISISD, vtysh_quit_isis_srv6_node_msd, vtysh_quit_isis_srv6_node_ms
 #endif /* HAVE_ISISD */
 
 #if HAVE_BFDD > 0
-DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
+DEFUNSH(VTYSH_MGMTD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);

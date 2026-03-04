@@ -27,6 +27,9 @@ static uint64_t mgmt_client_id_next;
 
 char const *const mgmt_daemons[] = {
 	"zebra",
+#ifdef HAVE_BFDD
+	"bfdd",
+#endif
 #ifdef HAVE_RIPD
 	"ripd",
 #endif

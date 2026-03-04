@@ -1002,6 +1002,17 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (echo && !bglobal.bg_use_dplane) {
+#ifdef BFD_LINUX
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.");
+#else
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Current implementation of echo mode works only when the peer is also FRR.");
+#endif
+		}
+		return NB_OK;
+
 	case NB_EV_PREPARE:
 		return NB_OK;
 

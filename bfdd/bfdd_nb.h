@@ -10,6 +10,7 @@
 #define _FRR_BFDD_NB_H_
 
 extern const struct frr_yang_module_info frr_bfdd_info;
+extern const struct frr_yang_module_info frr_bfdd_cli_info;
 
 /* Mandatory callbacks. */
 int bfdd_bfd_create(struct nb_cb_create_args *args);
@@ -247,5 +248,7 @@ int bfdd_bfd_sbfd_reflector_create(struct nb_cb_create_args *args);
 int bfdd_bfd_sbfd_reflector_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_sbfd_reflector_source_address_modify(struct nb_cb_modify_args *args);
 void bfd_cli_show_sbfd_reflector(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+extern void bfdd_cli_init(void);
 
 #endif /* _FRR_BFDD_NB_H_ */
