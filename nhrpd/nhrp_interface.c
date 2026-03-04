@@ -223,7 +223,7 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
-		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
+		nbmaifp = if_lookup_by_name(nifp->source, ifp->vrf->vrf_id);
 
 	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
 		debugf(NHRP_DEBUG_IF, "%s: Ignoring non GRE interface type %u",
