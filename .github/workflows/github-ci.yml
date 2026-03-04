@@ -53,6 +53,9 @@ jobs:
         with:
           name: ${{ matrix.cfg.platform }}-image
           path: /tmp/frr-${{ matrix.cfg.platform }}.tar
+          # Docker images are intermediate CI artifacts; keep for a short period.
+          retention-days: 7
+          if-no-files-found: error
       - name: Clear any previous results
         # So if all jobs are re-run then all tests will be re-run
         run: |
@@ -65,6 +68,8 @@ jobs:
           name: test-results-${{ matrix.cfg.platform }}
           path: test-results-${{ matrix.cfg.platform }}
           overwrite: true
+          retention-days: 14
+          if-no-files-found: error
       - name: Cleanup
         if: ${{ always() }}
         run: rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
@@ -199,6 +204,9 @@ jobs:
             test-results-${{ matrix.cfg.platform }}
             test-results-${{ matrix.cfg.platform }}-initial
           overwrite: true
+          # Keep test artifacts longer to aid flaky test/debug investigations.
+          retention-days: 14
+          if-no-files-found: warn
       - name: Cleanup
         if: ${{ always() }}
         run: |
