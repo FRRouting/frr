@@ -4110,8 +4110,11 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	if (!mtu)
 		mtu = ifp->mtu;
 
-	/* if gre link already set or mtu did not change, do not set it */
-	if (gre_zif->link && gre_zif->link == ifp_link && mtu == ifp->mtu)
+	/*
+	 * Compare by ifindex rather than pointer -- a recreated link
+	 * interface may reuse the same address, defeating pointer checks.
+	 */
+	if (gre_zif->link_ifindex == ifp_link->ifindex && mtu == ifp->mtu)
 		return;
 
 	dplane_gre_set(ifp, ifp_link, mtu, gre_info);
