@@ -4105,9 +4105,7 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	if (!zif || !gre_zif)
 		return;
 
-	gre_info = &zif->l2info.gre;
-	if (!gre_info)
-		return;
+	gre_info = &gre_zif->l2info.gre;
 
 	if (!mtu)
 		mtu = ifp->mtu;
