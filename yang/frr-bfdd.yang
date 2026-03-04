@@ -401,6 +401,11 @@ module frr-bfdd {
       description "Number of control packets received";
     }
 
+    leaf control-packet-input-count-bad {
+      type uint64;
+      description "Number of control packets received that were not correct";
+    }
+
     leaf control-packet-output-count {
       type uint64;
       description "Number of control packets sent";

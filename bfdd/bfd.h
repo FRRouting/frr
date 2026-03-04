@@ -274,6 +274,7 @@ struct bfd_key {
 } __attribute__((packed));
 
 struct bfd_session_stats {
+	uint64_t rx_bad_ctrl_pkt;
 	uint64_t rx_ctrl_pkt;
 	uint64_t tx_ctrl_pkt;
 	uint64_t rx_echo_pkt;

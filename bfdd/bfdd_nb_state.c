@@ -266,6 +266,18 @@ bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_get_elem(
 
 /*
  * XPath:
+ * /frr-bfdd:bfdd/bfd/sessions/single-hop/stats/control-packet-input-count-bad
+ */
+struct yang_data *bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct bfd_session *bs = args->list_entry;
+
+	return yang_data_new_uint64(args->xpath, bs->stats.rx_bad_ctrl_pkt);
+}
+
+/*
+ * XPath:
  * /frr-bfdd:bfdd/bfd/sessions/single-hop/stats/control-packet-output-count
  */
 struct yang_data *

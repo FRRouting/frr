@@ -136,6 +136,71 @@ static void ts_end(void)
 
 #define TYPE ATOMSORT_NONUNIQ
 #include "test_typelist.h"
+PREDECL_RBTREE_UNIQ(rtree);
+struct item {
+	uint32_t ival;
+	struct rtree_item link;
+};
+
+static int rcomp(const struct item *a, const struct item *b)
+{
+	if (a->ival < b->ival)
+		return -1;
+	else if (a->ival > b->ival)
+		return 1;
+	else
+		return 0;
+}
+
+DECLARE_RBTREE_UNIQ(rtree, struct item, link, rcomp);
+
+
+static void count_rb_one(const struct typed_rb_entry *re, int *count_p)
+{
+	if (re) {
+		(*count_p) += 1;
+
+		count_rb_one(re->rbt_left, count_p);
+		count_rb_one(re->rbt_right, count_p);
+	}
+}
+
+static void show_rb_counts(const struct rtree_head *rt)
+{
+	int left = 0, right = 0;
+	const struct typed_rb_entry *re;
+
+	re = rt->rr.rbt_root;
+
+	if (re) {
+		count_rb_one(re->rbt_left, &left);
+		count_rb_one(re->rbt_right, &right);
+	}
+
+	printf("RBTree counts: left %d, right %d\n", left, right);
+}
+
+#define RBMAX_COUNT 10000
+static struct item rbarr[RBMAX_COUNT];
+
+static void test_rb_pop(void)
+{
+	int i;
+	struct rtree_head head;
+	struct item *ptr;
+
+	rtree_init(&head);
+
+	memset(rbarr, 0, sizeof(rbarr));
+
+	printf("\nAdding %d integers, in order\n", RBMAX_COUNT);
+	for (i = 0; i < RBMAX_COUNT; i++) {
+		rbarr[i].ival = i;
+		rtree_add(&head, (&rbarr[i]));
+	}
+
+	show_rb_counts(&head);
+}
 
 int main(int argc, char **argv)
 {
@@ -156,6 +221,7 @@ int main(int argc, char **argv)
 	test_ATOMSORT_UNIQ();
 	test_ATOMSORT_NONUNIQ();
 
+	test_rb_pop();
 	log_memstats(NULL, true);
 	return 0;
 }

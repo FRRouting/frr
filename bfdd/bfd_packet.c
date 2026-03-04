@@ -918,6 +918,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%zd bytes)", mlen);
+
 		return;
 	}
 
@@ -995,6 +996,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, vrfid, bfd->vrf->vrf_id); /* actual pkt vrf, expected session vrf */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -1005,6 +1007,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, bfd->ses_state);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'remote discriminator' is zero, not overridden");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -1020,6 +1023,7 @@ void bfd_recv_cb(struct event *t)
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
 				 bfd->mh_ttl, ttl);
+			bfd->stats.rx_bad_ctrl_pkt++;
 			return;
 		}
 	} else {
