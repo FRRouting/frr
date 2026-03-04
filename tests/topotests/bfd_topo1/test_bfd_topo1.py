@@ -92,6 +92,51 @@ def test_bfd_connection():
         assert result is None, assertmsg
 
 
+def test_bfd_yang_operational_data():
+    "Verify BFD session stats are retrievable via YANG operational data."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("querying BFD operational data via YANG on r1")
+
+    r1 = tgen.gears["r1"]
+    output = json.loads(
+        r1.vtysh_cmd(
+            "show yang operational-data /frr-bfdd:bfdd/bfd/sessions bfdd",
+        )
+    )
+
+    logger.info(output)
+    sessions = output["frr-bfdd:bfdd"]["bfd"]["sessions"]["single-hop"]
+    assert len(sessions) > 0, "Expected at least one single-hop BFD session"
+
+    session = sessions[0]
+    stats = session["stats"]
+
+    expected_keys = [
+        "control-packet-input-count",
+        "control-packet-input-count-bad",
+        "control-packet-output-count",
+        "echo-packet-input-count",
+        "echo-packet-output-count",
+        "session-down-count",
+        "session-up-count",
+    ]
+    for key in expected_keys:
+        assert key in stats, "Missing expected stats key '{}'".format(key)
+
+    assert (
+        int(stats["control-packet-input-count"]) > 0
+    ), "Expected control-packet-input-count > 0 for an established session"
+    assert (
+        int(stats["control-packet-output-count"]) > 0
+    ), "Expected control-packet-output-count > 0 for an established session"
+    assert (
+        int(stats["control-packet-input-count-bad"]) >= 0
+    ), "control-packet-input-count-bad should be a non-negative integer"
+
+
 def test_bgp_convergence():
     "Assert that BGP is converging."
     tgen = get_topogen()
