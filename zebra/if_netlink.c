@@ -373,7 +373,6 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	if (!gre_info)
 		return 0;
 
-	req->ifi.ifi_change = 0xFFFFFFFF;
 	link_idx = dplane_ctx_gre_get_link_ifindex(ctx);
 	mtu = dplane_ctx_gre_get_mtu(ctx);
 
