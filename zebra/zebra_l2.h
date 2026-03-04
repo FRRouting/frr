@@ -70,6 +70,10 @@ struct zebra_l2info_gre {
 	struct in_addr vtep_ip_remote; /* IFLA_GRE_REMOTE */
 	uint32_t ikey;
 	uint32_t okey;
+	uint16_t iflags;	/* IFLA_GRE_IFLAGS, raw __be16 */
+	uint16_t oflags;	/* IFLA_GRE_OFLAGS, raw __be16 */
+	uint8_t ttl;		/* IFLA_GRE_TTL */
+	uint8_t tos;		/* IFLA_GRE_TOS */
 	ifindex_t ifindex_link; /* Interface index of interface
 				 * linked with GRE
 				 */
