@@ -800,7 +800,12 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " %-20s\n", bs->profile_name ? bs->profile_name : "-");
 	} else {
 		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		vty_out(vty, " %-40s", satostr(&bs->local_address));
+		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+			vty_out(vty, " %-40s",
+				inet_ntop(bs->key.family, &bs->key.local, addr_buf,
+					  sizeof(addr_buf)));
+		else
+			vty_out(vty, " %-40s", satostr(&bs->local_address));
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
 
