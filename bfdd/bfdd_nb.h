@@ -100,8 +100,9 @@ struct yang_data *bfdd_bfd_sessions_single_hop_stats_session_up_count_get_elem(
 struct yang_data *
 bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_get_elem(
 	struct nb_cb_get_elem_args *args);
-struct yang_data *
-bfdd_bfd_sessions_single_hop_stats_control_packet_output_count_get_elem(
+struct yang_data *bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *bfdd_bfd_sessions_single_hop_stats_control_packet_output_count_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
 bfdd_bfd_sessions_single_hop_stats_negotiated_echo_transmission_interval_get_elem(

@@ -570,6 +570,7 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tZebra notifications: %" PRIu64 "\n",
 		bs->stats.znotification);
 	vty_out(vty, "\t\tTx fail packet: %" PRIu64 "\n", bs->stats.tx_fail_pkt);
+	vty_out(vty, "\t\tRX fail packet: %" PRIu64 "\n", bs->stats.rx_bad_ctrl_pkt);
 	vty_out(vty, "\n");
 }
 
@@ -586,6 +587,7 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "control-packet-input", bs->stats.rx_ctrl_pkt);
+	json_object_int_add(jo, "controlPacketBadInput", bs->stats.rx_bad_ctrl_pkt);
 	json_object_int_add(jo, "control-packet-output", bs->stats.tx_ctrl_pkt);
 	json_object_int_add(jo, "echo-packet-input", bs->stats.rx_echo_pkt);
 	json_object_int_add(jo, "echo-packet-output", bs->stats.tx_echo_pkt);
@@ -778,6 +780,7 @@ static void _clear_peer_counter(struct bfd_session *bs)
 	/* Clear only pkt stats, intention is not to loose system
 	   events counters */
 	bs->stats.rx_ctrl_pkt = 0;
+	bs->stats.rx_bad_ctrl_pkt = 0;
 	bs->stats.tx_ctrl_pkt = 0;
 	bs->stats.rx_echo_pkt = 0;
 	bs->stats.tx_echo_pkt = 0;
