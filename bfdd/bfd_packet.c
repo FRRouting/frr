@@ -991,7 +991,7 @@ void bfd_recv_cb(struct event *t)
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
+	if (bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		frrtrace(8, frr_bfd, packet_validation_error, 8, is_mhop, &peer, &local, ifindex,
 			 vrfid, vrfid, bfd->vrf->vrf_id); /* actual pkt vrf, expected session vrf */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
