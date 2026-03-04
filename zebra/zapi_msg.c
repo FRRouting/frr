@@ -4057,7 +4057,7 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	struct interface *ifp;
 	struct interface *ifp_link;
 	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
-	struct zebra_if *zif, *gre_zif;
+	struct zebra_if *gre_zif;
 	struct zebra_l2info_gre *gre_info;
 	unsigned int mtu;
 
@@ -4080,13 +4080,10 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 		return;
 
 	gre_zif = (struct zebra_if *)ifp->info;
-	zif = (struct zebra_if *)ifp_link->info;
-	if (!zif || !gre_zif)
+	if (!ifp_link->info || !gre_zif)
 		return;
 
-	gre_info = &zif->l2info.gre;
-	if (!gre_info)
-		return;
+	gre_info = &gre_zif->l2info.gre;
 
 	if (!mtu)
 		mtu = ifp->mtu;
