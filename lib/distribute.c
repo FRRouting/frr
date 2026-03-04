@@ -502,12 +502,12 @@ static int distribute_list_leaf_update(const struct lyd_node *dnode,
 {
 	struct distribute_ctx *ctx;
 	struct lyd_node *dir_node = lyd_parent(dnode);
-	struct lyd_node_inner *list_node = dir_node->parent;
-	struct lyd_node *intf_key = list_node->child;
+	struct lyd_node *list_node = lyd_parent(dir_node);
+	struct lyd_node *intf_key = lyd_child(list_node);
 	bool ipv4 = ip_version == 4 ? true : false;
 	bool prefix;
 
-	ctx = nb_running_get_entry_non_rec(&list_node->node, NULL, false);
+	ctx = nb_running_get_entry_non_rec(list_node, NULL, false);
 
 	prefix = dnode->schema->name[0] == 'p' ? true : false;
 	if (no)
@@ -561,8 +561,8 @@ static int distribute_list_leaf_cli_show(struct vty *vty,
 					 int ip_version)
 {
 	struct lyd_node *dir_node = lyd_parent(dnode);
-	struct lyd_node_inner *list_node = dir_node->parent;
-	struct lyd_node *intf_key = list_node->child;
+	struct lyd_node *list_node = lyd_parent(dir_node);
+	struct lyd_node *intf_key = lyd_child(list_node);
 	bool ipv6 = ip_version == 6 ? true : false;
 	bool prefix;
 

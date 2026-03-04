@@ -189,7 +189,13 @@ def test_oper_simple(tgen):
         ),
         (
             '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
-            "simple-results/result-intf-eth0-wd-all-tag.json",
+            (
+                # Output is different between libyang3 and libyang5(devel)
+                "simple-results/result-intf-eth0-wd-all-tag.json",
+                # This is the new output with libyang5 it uses a different namespace,
+                # it seems odd, but also not our issue.
+                "simple-results/result-intf-eth0-wd-all-tag-default.json",
+            ),
             "with-config exact with-defaults all-tag",
         ),
     ]
@@ -246,13 +252,13 @@ scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/simple-results
 
 for f in ${resdir}/result*.json; do
-   sed -i -e 's/"\(phy-address\|revision\|uptime\)": ".*"/"\1": "rubout"/' $f
-   sed -i -e 's/"\(candidate\|running\)-config-version": ".*"/"\1-config-version": "rubout"/' $f
-   sed -i -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": [0-9][0-9]*/"\1": "rubout"/' $f
-   sed -i -e 's,"vrf": "[0-9]*","vrf": "rubout",' $f
-   sed -i -e 's,"module-set-id": "[0-9]*","module-set-id": "rubout",' $f
-   sed -i -e 's,"\(apply\|edit\|prep\)-count": "[0-9]*","\1-count": "rubout",' $f
-   sed -i -e 's,"avg-\(apply\|edit\|prep\)-time": "[0-9]*","avg-\1-time": "rubout",' $f
+   sed -i -e 's/"\(phy-address\|revision\|uptime\)": \?"[^"]*"/"\1":"rubout"/g' $f
+   sed -i -e 's/"\(candidate\|running\)-config-version": \?"[^"]*"/"\1-config-version":"rubout"/g' $f
+   sed -i -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": \?[0-9][0-9]*/"\1":"rubout"/g' $f
+   sed -i -e 's/"vrf": \?"[0-9]*"/"vrf":"rubout"/g' $f
+   sed -i -e 's/"module-set-id": \?"[0-9]*"/"module-set-id":"rubout"/g' $f
+   sed -i -e 's/"\(apply\|edit\|prep\)-count": \?"[0-9]*"/"\1-count":"rubout"/g' $f
+   sed -i -e 's/"avg-\(apply\|edit\|prep\)-time": \?"[0-9]*"/"avg-\1-time":"rubout"/g' $f
 done
 """  # noqa: 501
 

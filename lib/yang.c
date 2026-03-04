@@ -949,6 +949,17 @@ done:
 	return err;
 }
 
+static LY_ERR yang_parse_op(const struct ly_ctx *ctx, struct lyd_node *parent, struct ly_in *in,
+			    LYD_FORMAT format, enum lyd_type data_type, struct lyd_node **tree,
+			    struct lyd_node **op)
+{
+	return lyd_parse_op(ctx, parent, in, format, data_type,
+#if (LY_VERSION_MAJOR >= 4)
+			    format == LYD_LYB ? LYD_PARSE_LYB_SKIP_CTX_CHECK : 0,
+#endif
+			    tree, op);
+}
+
 LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 			       const char *data, struct lyd_node **notif)
 {
@@ -963,11 +974,7 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 		return err;
 	}
 
-	err = lyd_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG,
-#if (LY_VERSION_MAJOR >= 4)
-			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
-#endif
-			   &tree, NULL);
+	err = yang_parse_op(ly_native_ctx, NULL, in, format, LYD_TYPE_NOTIF_YANG, &tree, NULL);
 	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
@@ -1025,12 +1032,8 @@ LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char 
 		goto done;
 	}
 
-	err = lyd_parse_op(ly_native_ctx, dnode, in, format,
-			   reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF,
-#if (LY_VERSION_MAJOR >= 4)
-			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
-#endif
-			   NULL, NULL);
+	err = yang_parse_op(ly_native_ctx, dnode, in, format,
+			    reply ? LYD_TYPE_REPLY_RESTCONF : LYD_TYPE_RPC_RESTCONF, NULL, NULL);
 	ly_in_free(in, 0);
 	if (err) {
 		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
@@ -1088,12 +1091,8 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bo
 		return err;
 	}
 
-	err = lyd_parse_op(ly_native_ctx, parent, in, format,
-			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
-#if (LY_VERSION_MAJOR >= 4)
-			   LYD_PARSE_LYB_SKIP_CTX_CHECK /* parse_options */,
-#endif
-			   NULL, rpc);
+	err = yang_parse_op(ly_native_ctx, parent, in, format,
+			    reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG, NULL, rpc);
 	ly_in_free(in, 0);
 	if (err) {
 		lyd_free_all(parent);
@@ -1116,6 +1115,10 @@ LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
 			      LYD_FORMAT format, uint32_t options)
 {
 	LY_ERR err;
+
+	/* Can't use binary+shrink due to required restrictions */
+	if (format == LYD_LYB)
+		options &= ~LYD_PRINT_SHRINK;
 
 	err = lyd_print_clb(yang_print_darr, darr, root, format, options);
 	if (err)
@@ -1535,10 +1538,8 @@ int yang_xpath_pop_node(char *xpath)
  * Safe to remove after libyang v2.1.xxx is required (.144 has a bug so
  * something > .144) https://github.com/CESNET/libyang/issues/2149
  */
-LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
-			 const struct lysc_node *snode,
-			 const struct yang_list_keys *list_keys,
-			 struct lyd_node **node)
+LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
+			 const struct yang_list_keys *list_keys, struct lyd_node **node)
 {
 #if defined(HAVE_LYD_NEW_LIST3) && 0
 	LY_ERR err;
@@ -1548,11 +1549,10 @@ LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 	for (int i = 0; i < list_keys->num; i++)
 		keys[i] = list_keys->key[i];
 
-	err = lyd_new_list3(&parent->node, snode->module, snode->name, keys,
-			    NULL, 0, node);
+	err = lyd_new_list3(parent, snode->module, snode->name, keys, NULL, 0, node);
 	return err;
 #else
-	struct lyd_node *pnode = &parent->node;
+	struct lyd_node *pnode = parent;
 	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
 
 	assert(list_keys->num <= 8);
@@ -1636,7 +1636,7 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	/* Mark */
 	for (i = 0; i < set->count; i++) {
-		for (node = set->dnodes[i]; node; node = &node->parent->node) {
+		for (node = set->dnodes[i]; node; node = lyd_parent(node)) {
 			if (node->priv)
 				break;
 			if (node == set->dnodes[i])
@@ -1750,7 +1750,7 @@ LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const c
 			     new_parent, new_node);
 }
 
-#if (LY_VERSION_MAJOR >= 3)
+#if (LY_VERSION_MAJOR >= 3) && (LY_VERSION_MAJOR < 5)
 LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name, const void *value,
 			 uint32_t size, uint32_t options, struct lyd_node **node)
 {
