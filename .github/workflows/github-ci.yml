@@ -9,6 +9,15 @@ on:
       - 'rc/**'
       - 'ci/**'
 
+# Cancel older in-progress runs for the same ref to save runners.
+concurrency:
+  group: github-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Restrict default GITHUB_TOKEN to read-only repository contents.
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
@@ -17,7 +26,11 @@ jobs:
   Build:
     runs-on: ${{ matrix.cfg.os }}
     name: ${{ matrix.cfg.name }}
+    # Guardrail in case a build leg hangs.
+    timeout-minutes: 45
     strategy:
+      # Keep all matrix legs running so we get full failure signal.
+      fail-fast: false
       matrix:
         cfg:
         -  { os: 'ubuntu-latest', rel: '22.04',  name: 'Ubuntu 22.04 amd64 Build',platform : 'amd64_u22' }
@@ -60,7 +73,11 @@ jobs:
     runs-on: ${{ matrix.cfg.os }}
     needs: Build
     name: ${{ matrix.cfg.name }}
+    # Topotest runs can be long; still cap runtime for stuck jobs.
+    timeout-minutes: 180
     strategy:
+      # Keep running remaining platforms when one leg fails.
+      fail-fast: false
       matrix:
         cfg:
         -  { os: 'ubuntu-latest', rel: '22.04',  name: 'Ubuntu 22.04 amd64 Test',platform : 'amd64_u22' }
@@ -85,18 +102,26 @@ jobs:
           path: test-results-${{ matrix.cfg.platform }}
       - name: Run topotests
         run: |
+          # Fail fast on command errors, undefined vars, and pipeline failures.
+          set -euo pipefail
           uname -a
           MODPKGVER=$(uname -r)
           # Retry loop for apt-get update in case of transient mirror failures
           APT_RETRIES=3
           for i in $(seq 1 ${APT_RETRIES}); do sudo apt-get update -y && break || sleep 10; done
+          # Retry install as well; mirrors can fail between update and install.
+          install_ok=0
+          for i in $(seq 1 ${APT_RETRIES}); do
+            sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict && install_ok=1 && break || sleep 10
+          done
+          [ "${install_ok}" -eq 1 ] || { echo "ERROR: apt-get install failed after ${APT_RETRIES} attempts" >&2; exit 1; }
           # Github is running old kernels but installing newer packages :(
-          sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
           sudo modprobe vrf || true
           sudo modprobe mpls-iptunnel
           sudo modprobe mpls-router
           docker load --input /tmp/frr-${{ matrix.cfg.platform }}.tar
 
+          ADD_DOCKER_ENV=""
           if ! grep CONFIG_IP_MROUTE_MULTIPLE_TABLES=y /boot/config*; then
             ADD_DOCKER_ENV+="-e MROUTE_VRF_MISSING=1"
           fi
@@ -130,7 +155,7 @@ jobs:
               echo "ERROR: No topotests.xml available perhaps docker run aborted?" >&2
               exit 1;
             fi
-            echo "WARNING: analyyze.py returned error but grabbed results anyway." >&2
+            echo "WARNING: analyze.py returned error but grabbed results anyway." >&2
           fi
 
           # Save some information useful for debugging
