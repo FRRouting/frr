@@ -225,9 +225,19 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 		}
 		nifp->i_grekey = gre_info->ikey;
 		nifp->o_grekey = gre_info->okey;
-		nifp->link_idx = gre_info->ifindex_link;
-		nifp->link_vrf_id = gre_info->vrfid_link;
 		saddr.s_addr = gre_info->vtep_ip.s_addr;
+
+		/*
+		 * Only overwrite link_idx when GRE cache matches the resolved
+		 * source interface, to avoid reverting a corrected ifindex.
+		 */
+		if (!nbmaifp ||
+		    (ifindex_t)gre_info->ifindex_link ==
+			    nbmaifp->ifindex) {
+			nifp->link_idx = gre_info->ifindex_link;
+			if (gre_info->vrfid_link != VRF_UNKNOWN)
+				nifp->link_vrf_id = gre_info->vrfid_link;
+		}
 
 		debugf(NHRP_DEBUG_IF, "%s: GRE: %x %x %x", ifp->name,
 		       nifp->i_grekey, nifp->link_idx, saddr.s_addr);
