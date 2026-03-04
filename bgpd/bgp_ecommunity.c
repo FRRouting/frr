@@ -1352,20 +1352,27 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				memcpy(&l2mtu, pnt, 2);
 				l2mtu = ntohs(l2mtu);
 
-				snprintf(encbuf, sizeof(encbuf),
-					 "L2: P flag:%c, B Flag %c, C word %c, MTU %d",
+				snprintf(encbuf, sizeof(encbuf), "L2: Cflags %s%s%s%s, MTU %d",
+					 (CHECK_FLAG(flags,
+						     ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_CONTROL_WORD_FLAG) ||
+					  CHECK_FLAG(flags,
+						     ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_PRIMARY_PE_FLAG) ||
+					  CHECK_FLAG(flags,
+						     ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_BACKUP_PE_FLAG))
+						 ? ""
+						 : "none",
 					 CHECK_FLAG(flags,
 						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_PRIMARY_PE_FLAG)
-						 ? 'Y'
-						 : 'N',
+						 ? "P"
+						 : "",
 					 CHECK_FLAG(flags,
 						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_BACKUP_PE_FLAG)
-						 ? 'Y'
-						 : 'N',
+						 ? "B"
+						 : "",
 					 CHECK_FLAG(flags,
 						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_CONTROL_WORD_FLAG)
-						 ? 'Y'
-						 : 'N',
+						 ? "C"
+						 : "",
 					 l2mtu);
 			} else
 				unk_ecom = true;
