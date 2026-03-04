@@ -23,8 +23,60 @@ defaults:
     shell: bash
 
 jobs:
+  Prepare-MIB-Cache:
+    runs-on: ubuntu-latest
+    name: Prepare shared MIB cache
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Ensure local MIB cache directory exists
+        run: mkdir -p docker/ubuntu-ci/mib-cache
+      - name: Restore cached MIB files
+        uses: actions/cache@v4
+        with:
+          path: docker/ubuntu-ci/mib-cache
+          key: mib-cache-v1-ubuntu24
+      - name: Populate missing MIB cache files
+        run: |
+          set -euo pipefail
+          fetch_to_cache() {
+            src_url="$1"
+            cache_name="$2"
+            dest_path="docker/ubuntu-ci/mib-cache/${cache_name}"
+            if [ -s "${dest_path}" ]; then
+              echo "Using cached ${cache_name}"
+              return 0
+            fi
+            attempt=1
+            max_attempts=8
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              wget --tries=1 --timeout=30 --retry-connrefused "${src_url}" -O "${dest_path}.tmp" && mv "${dest_path}.tmp" "${dest_path}" && return 0
+              rm -f "${dest_path}.tmp"
+              sleep_time=$((attempt * 5))
+              echo "Retrying cache fetch (${attempt}/${max_attempts}) for ${cache_name} in ${sleep_time}s" >&2
+              sleep "${sleep_time}"
+              attempt=$((attempt + 1))
+            done
+            rm -f "${dest_path}.tmp" "${dest_path}"
+            echo "ERROR: Failed to cache ${cache_name} from ${src_url}" >&2
+            return 1
+          }
+          fetch_to_cache https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib IANA-SMF-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib IANA-ENTITY-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianapowerstateset-mib/ianapowerstateset-mib IANAPowerStateSet-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianaolsrv2linkmetrictype-mib/ianaolsrv2linkmetrictype-mib IANA-OLSRv2-LINK-METRIC-TYPE-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianaenergyrelation-mib/ianaenergyrelation-mib IANA-ENERGY-RELATION-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianabfdtcstd-mib/ianabfdtcstd-mib IANA-BFD-TC-STD-MIB
+          fetch_to_cache https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib IANA-STORAGE-MEDIA-TYPE-MIB
+          fetch_to_cache https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib IEEE8021-CFM-MIB
+          fetch_to_cache https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib LLDP-MIB
+
   Build:
     runs-on: ${{ matrix.cfg.os }}
+    needs: Prepare-MIB-Cache
     name: ${{ matrix.cfg.name }}
     # Guardrail in case a build leg hangs.
     timeout-minutes: 45
@@ -32,22 +84,48 @@ jobs:
       # Keep all matrix legs running so we get full failure signal.
       fail-fast: false
       matrix:
+        # cache_base controls Buildx cache sharing across related variants.
+        # Most legs use their own scope; LTTng reuses the amd64_u24 base scope.
         cfg:
-        -  { os: 'ubuntu-latest', rel: '22.04',  name: 'Ubuntu 22.04 amd64 Build',platform : 'amd64_u22' }
-        -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 Build',platform : 'amd64_u24' }
-        -  { os: 'ubuntu-22.04-arm' ,rel: '22.04',  name: 'Ubuntu 22.04 arm64 Build',platform : 'arm64_u22' }
-        -  { os: 'ubuntu-22.04-arm' ,rel: '24.04',  name: 'Ubuntu 24.04 arm64 Build',platform : 'arm64_u24' }
-        -  { os: 'ubuntu-latest' ,rel: '24.04',  name: 'Ubuntu 24.04 amd64 LTTng Build',platform : 'amd64_u24_lttng', lttng: 'true' }
+        -  { os: 'ubuntu-latest',    rel: '22.04',  name: 'Ubuntu 22.04 amd64 Build',       platform: 'amd64_u22',       cache_base: 'amd64_u22' }
+        -  { os: 'ubuntu-latest',    rel: '24.04',  name: 'Ubuntu 24.04 amd64 Build',       platform: 'amd64_u24',       cache_base: 'amd64_u24' }
+        -  { os: 'ubuntu-22.04-arm', rel: '22.04',  name: 'Ubuntu 22.04 arm64 Build',       platform: 'arm64_u22',       cache_base: 'arm64_u22' }
+        -  { os: 'ubuntu-22.04-arm', rel: '24.04',  name: 'Ubuntu 24.04 arm64 Build',       platform: 'arm64_u24',       cache_base: 'arm64_u24' }
+        -  { os: 'ubuntu-latest',    rel: '24.04',  name: 'Ubuntu 24.04 amd64 LTTng Build', platform: 'amd64_u24_lttng', cache_base: 'amd64_u24', lttng: 'true' }
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Build docker image
-        run: |
-          docker build --no-cache -t frr-${{ matrix.cfg.platform }} --build-arg=UBUNTU_VERSION=${{ matrix.cfg.rel }} --build-arg=ENABLE_LTTNG=${{ matrix.cfg.lttng || 'false' }} -f docker/ubuntu-ci/Dockerfile .
-          docker save --output /tmp/frr-${{ matrix.cfg.platform }}.tar frr-${{ matrix.cfg.platform }}
+      - name: Ensure local MIB cache directory exists
+        run: mkdir -p docker/ubuntu-ci/mib-cache
+      - name: Restore cached MIB files
+        if: ${{ matrix.cfg.rel == '24.04' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: docker/ubuntu-ci/mib-cache
+          key: mib-cache-v1-ubuntu24
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build docker image (cached)
+        uses: docker/build-push-action@v6
+        env:
+          # Temporary diagnostic to make Buildx cache behavior visible in job summary.
+          DOCKER_BUILD_SUMMARY: true
+        with:
+          context: .
+          file: docker/ubuntu-ci/Dockerfile
+          tags: frr-${{ matrix.cfg.platform }}
+          build-args: |
+            UBUNTU_VERSION=${{ matrix.cfg.rel }}
+            ENABLE_LTTNG=${{ matrix.cfg.lttng || 'false' }}
+            FRR_SOURCE_REV=${{ github.sha }}
+          # Keep existing test flow: export as docker image tar artifact.
+          outputs: type=docker,dest=/tmp/frr-${{ matrix.cfg.platform }}.tar
+          # Reuse/persist BuildKit layers per CI platform variant.
+          cache-from: type=gha,scope=github-ci-${{ matrix.cfg.cache_base }}
+          cache-to: type=gha,mode=max,scope=github-ci-${{ matrix.cfg.cache_base }}
       - name: Upload docker image artifact
         uses: actions/upload-artifact@v4
         with:
