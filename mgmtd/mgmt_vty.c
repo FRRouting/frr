@@ -28,6 +28,7 @@
 #include "ripngd/ripng_nb.h"
 #include "staticd/static_vty.h"
 #include "zebra/zebra_cli.h"
+#include "bfdd/bfdd_nb.h"
 
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
@@ -621,6 +622,9 @@ void mgmt_vty_init(void)
 #endif
 #ifdef HAVE_STATICD
 	static_vty_init();
+#endif
+#ifdef HAVE_BFDD
+	bfdd_cli_init();
 #endif
 	install_node(&mgmtd_node);
 

@@ -24,6 +24,8 @@
 #include "lib/version.h"
 #include "lib/command.h"
 #include "lib/plist.h"
+#include "lib/northbound.h"
+#include "mgmt_be_client.h"
 
 
 /*
@@ -41,6 +43,7 @@ static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW
 
 /* BFD daemon information. */
 static struct frr_daemon_info bfdd_di;
+static struct mgmt_be_client *mgmt_be_client;
 
 void socket_close(int *s)
 {
@@ -64,6 +67,10 @@ static void sigusr1_handler(void)
 static FRR_NORETURN void sigterm_handler(void)
 {
 	bglobal.bg_shutdown = true;
+
+	nb_oper_cancel_all_walks();
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
 
 	/* Signalize shutdown. */
 	frr_early_fini();
@@ -115,6 +122,7 @@ static struct frr_signal_t bfd_signals[] = {
 };
 
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
@@ -133,7 +141,37 @@ FRR_DAEMON_INFO(bfdd, BFD,
 
 	.yang_modules = bfdd_yang_modules,
 	.n_yang_modules = array_size(bfdd_yang_modules),
+
+	/* mgmtd will load the per-daemon config file now */
+	.flags = FRR_NO_SPLIT_CONFIG | FRR_MGMTD_BACKEND,
 );
+
+static const char *const bfdd_config_xpaths[] = {
+	"/frr-filter:lib",
+	"/frr-host:host",
+	"/frr-logging:logging",
+	"/frr-interface:lib/interface",
+	"/frr-bfdd:bfdd",
+	"/frr-vrf:lib",
+};
+
+static const char *const bfdd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	"/frr-bfdd:bfdd",
+};
+
+static const char *const bfdd_rpc_xpaths[] = {
+	"/frr-logging",
+};
+
+static struct mgmt_be_client_cbs bfdd_be_client_data = {
+	.config_xpaths = bfdd_config_xpaths,
+	.nconfig_xpaths = array_size(bfdd_config_xpaths),
+	.oper_xpaths = bfdd_oper_xpaths,
+	.noper_xpaths = array_size(bfdd_oper_xpaths),
+	.rpc_xpaths = bfdd_rpc_xpaths,
+	.nrpc_xpaths = array_size(bfdd_rpc_xpaths),
+};
 
 #define OPTION_DPLANEADDR 2000
 #define OPTION_VRF_LIST	  20001
@@ -378,8 +416,9 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	/* Install commands. */
 	bfdd_vty_init();
+	mgmt_be_client = mgmt_be_client_create("bfdd", &bfdd_be_client_data,
+					       0, master);
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();
