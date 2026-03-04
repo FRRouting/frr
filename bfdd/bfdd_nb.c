@@ -324,6 +324,12 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/stats/control-packet-input-count-bad",
+			.cbs = {
+				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/stats/control-packet-output-count",
 			.cbs = {
 				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_output_count_get_elem,
@@ -518,6 +524,12 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/stats/control-packet-input-count",
 			.cbs = {
 				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/stats/control-packet-input-count-bad",
+			.cbs = {
+				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem,
 			}
 		},
 		{
@@ -789,6 +801,12 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/stats/control-packet-input-count-bad",
+			.cbs = {
+				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/stats/control-packet-output-count",
 			.cbs = {
 				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_output_count_get_elem,
@@ -1025,6 +1043,12 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/stats/control-packet-input-count",
 			.cbs = {
 				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/stats/control-packet-input-count-bad",
+			.cbs = {
+				.get_elem = bfdd_bfd_sessions_single_hop_stats_control_packet_input_count_bad_get_elem,
 			}
 		},
 		{
