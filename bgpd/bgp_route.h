@@ -1017,6 +1017,7 @@ extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,
 			     char *pfx_buf, afi_t afi, safi_t safi,
 			     enum bgp_path_selection_reason *reason);
+extern int bgp_multipath_count(struct bgp_dest *dest);
 #define bgp_path_info_add(A, B)                                                \
 	bgp_path_info_add_with_caller(__func__, (A), (B))
 #define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))

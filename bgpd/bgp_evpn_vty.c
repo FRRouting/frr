@@ -17,6 +17,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
@@ -3210,6 +3211,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 		char rd_str[RD_ADDRSTRLEN];
 		json_object *json_rd = NULL; /* contains routes for an RD */
 		int add_rd_to_json = 0;
+		uint32_t rd_prefix_cnt = 0;
 		uint64_t tbl_ver;
 		const struct prefix *rd_destp = bgp_dest_get_prefix(rd_dest);
 
@@ -3244,6 +3246,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				(const struct prefix_evpn *)bgp_dest_get_prefix(
 					dest);
 			int add_prefix_to_json = 0;
+			int prefix_path_count = 0, best_path_selected = 0;
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 
 			if (type && evp->prefix.route_type != type)
@@ -3305,6 +3308,9 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				json_object *json_path = NULL;
 
 				path_cnt++;
+				prefix_path_count++;
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					best_path_selected = 1;
 				add_prefix_to_json = 1;
 				add_rd_to_json = 1;
 
@@ -3331,6 +3337,23 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 					json_object_object_add(json_prefix,
 							       "paths",
 							       json_paths);
+					json_object_int_add(json_prefix,
+							   "pathCount",
+							   prefix_path_count);
+					json_object_int_add(json_prefix,
+							   "multiPathCount",
+							   bgp_path_info_mpath_count(dest) + 1);
+					{
+						json_object *json_flags =
+							json_object_new_object();
+						json_object_boolean_add(
+							json_flags, "bestPathExists",
+							(bool)best_path_selected);
+						json_object_object_add(json_prefix,
+								       "flags",
+								       json_flags);
+					}
+					rd_prefix_cnt++;
 					json_object_object_addf(json_rd,
 								json_prefix,
 								"%pFX", p);
@@ -3345,6 +3368,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 
 		if (json) {
 			if (add_rd_to_json) {
+				json_object_int_add(json_rd, "numRoutes",
+						    rd_prefix_cnt);
 				vty_json_no_pretty(vty, json_rd);
 			} else {
 				vty_out(vty, "{}");
