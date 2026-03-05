@@ -54,6 +54,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/gm-watermark-limit",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_gm_watermark_limit_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_gm_watermark_limit_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-pim:pim/address-family",
 			.cbs = {
 				.create = pim_address_family_create,

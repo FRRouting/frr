@@ -270,6 +270,14 @@ module frr-pim {
         "RP keep alive Timer in seconds.";
     }
 
+    leaf gm-watermark-limit {
+      type uint16 {
+        range "1..max";
+      }
+      description
+        "Group count threshold for IGMP/MLD watermark warnings.";
+    }
+
     leaf send-v6-secondary {
       when "../frr-pim:address-family = 'frr-rt:ipv4'" {
         description

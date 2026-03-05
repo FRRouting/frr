@@ -217,6 +217,58 @@ def test_pim_igmp_report():
             p.wait()
 
 
+def test_pim_igmp_group_watermark():
+    "Configure and verify IGMP watermark warning using retry checks"
+    logger.info("Verify ip igmp watermark-warn configuration on r1")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Ensure a clean baseline before testing.
+    r1.vtysh_cmd("conf t\nno ip igmp watermark-warn")
+
+    # Send an IGMP report to ensure the groups output has active state while
+    # checking the watermark value.
+    cmd = [os.path.join(CWD, "mcast-rx.py"), "229.1.1.9", "r2-eth0"]
+    p = r2.popen(cmd)
+    try:
+        expected = {"watermarkLimit": 0}
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip igmp groups json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        assertmsg = '"{}" default watermark JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
+
+        r1.vtysh_cmd("conf t\nip igmp watermark-warn 11")
+        expected = {"watermarkLimit": 11}
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip igmp groups json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        assertmsg = '"{}" configured watermark JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
+
+        r1.vtysh_cmd("conf t\nno ip igmp watermark-warn")
+        expected = {"watermarkLimit": 0}
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip igmp groups json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        assertmsg = '"{}" cleared watermark JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
+    finally:
+        if p:
+            p.terminate()
+            p.wait()
+        r1.vtysh_cmd("conf t\nno ip igmp watermark-warn")
+
+
 def test_pim_ssm_ping():
     "Test SSM ping functionality between r1 and r2"
     logger.info("Testing SSM ping from r1 to r2")
