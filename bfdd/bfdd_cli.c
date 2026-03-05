@@ -1265,42 +1265,6 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void _sbfd_reflector_show(struct hash_bucket *hb, void *arg)
-{
-	struct sbfd_reflector *sr = hb->data;
-	struct ttable *tt;
-	char buf[INET6_ADDRSTRLEN];
-
-	tt = (struct ttable *)arg;
-
-	ttable_add_row(tt, "%u|%s|%s|%s", sr->discr,
-		       inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf)), "Active", "Software");
-}
-
-DEFPY(
-	sbfd_reflector_show_info, sbfd_reflector_show_info_cmd,
-	"show sbfd reflector",
-	"show\n"
-    "seamless BFD\n"
-    "sbfd reflector\n")
-{
-	struct ttable *tt;
-	char *out;
-
-	vty_out(vty, "sbfd reflector discriminator :\n");
-	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "SBFD-Discr|SourceIP|State|CreateType");
-	ttable_rowseps(tt, 0, BOTTOM, true, '-');
-
-	sbfd_discr_iterate(_sbfd_reflector_show, tt);
-
-	out = ttable_dump(tt, "\n");
-	vty_out(vty, "%s", out);
-	XFREE(MTYPE_TMP_TTABLE, out);
-	ttable_del(tt);
-
-	return CMD_SUCCESS;
-}
 void bfd_cli_peer_profile_show(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
@@ -1396,7 +1360,7 @@ bfdd_cli_init(void)
 	install_element(BFD_NODE, &sbfd_reflector_cmd);
 	install_element(BFD_NODE, &no_sbfd_reflector_all_cmd);
 	install_element(BFD_NODE, &no_sbfd_reflector_cmd);
-	install_element(VIEW_NODE, &sbfd_reflector_show_info_cmd);
+
 	install_element(BFD_PEER_NODE, &bfd_peer_shutdown_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_mult_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_rx_cmd);

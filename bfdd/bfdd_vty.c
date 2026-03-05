@@ -11,6 +11,7 @@
 #include "lib/log.h"
 #include "lib/northbound_cli.h"
 #include "lib/vty.h"
+#include "lib/termtable.h"
 
 #include "bfd.h"
 #include "bfd_trace.h"
@@ -1213,6 +1214,43 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+static void _sbfd_reflector_show(struct hash_bucket *hb, void *arg)
+{
+	struct sbfd_reflector *sr = hb->data;
+	struct ttable *tt;
+	char buf[INET6_ADDRSTRLEN];
+
+	tt = (struct ttable *)arg;
+
+	ttable_add_row(tt, "%u|%s|%s|%s", sr->discr,
+		       inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf)), "Active", "Software");
+}
+
+DEFPY(
+	sbfd_reflector_show_info, sbfd_reflector_show_info_cmd,
+	"show sbfd reflector",
+	"show\n"
+	"seamless BFD\n"
+	"sbfd reflector\n")
+{
+	struct ttable *tt;
+	char *out;
+
+	vty_out(vty, "sbfd reflector discriminator :\n");
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "SBFD-Discr|SourceIP|State|CreateType");
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	sbfd_discr_iterate(_sbfd_reflector_show, tt);
+
+	out = ttable_dump(tt, "\n");
+	vty_out(vty, "%s", out);
+	XFREE(MTYPE_TMP_TTABLE, out);
+	ttable_del(tt);
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Function definitions.
  */
@@ -1405,6 +1443,8 @@ void bfdd_vty_init(void)
 	install_element(CONFIG_NODE, &bfd_debug_peer_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_zebra_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
+
+	install_element(VIEW_NODE, &sbfd_reflector_show_info_cmd);
 
 	/* Install BFD node and commands. */
 	install_node(&bfd_node);
