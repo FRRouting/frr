@@ -1420,6 +1420,61 @@ static int bfdd_write_config(struct vty *vty)
 	return written;
 }
 
+static void bfd_profile_var(vector comps, struct cmd_token *token)
+{
+	extern struct bfdproflist bplist;
+	struct bfd_profile *bp;
+
+	TAILQ_FOREACH (bp, &bplist, entry) {
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, bp->name));
+	}
+}
+
+struct bfd_peer_var_walk_ctx {
+	vector comps;
+	struct cmd_token *token;
+};
+
+static void bfd_peer_var_walker(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_peer_var_walk_ctx *ctx = arg;
+	struct bfd_session *bs = hb->data;
+	char addr_buf[INET6_ADDRSTRLEN];
+	enum cmd_token_type match_type;
+
+	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		return;
+
+	if (bs->key.family == AF_INET)
+		match_type = IPV4_TKN;
+	else if (bs->key.family == AF_INET6)
+		match_type = IPV6_TKN;
+	else
+		return;
+
+	if (ctx->token->type != match_type)
+		return;
+
+	if (inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf)))
+		vector_set(ctx->comps, XSTRDUP(MTYPE_COMPLETION, addr_buf));
+}
+
+static void bfd_peer_var(vector comps, struct cmd_token *token)
+{
+	struct bfd_peer_var_walk_ctx ctx = {
+		.comps = comps,
+		.token = token,
+	};
+
+	bfd_key_iterate(bfd_peer_var_walker, &ctx);
+}
+
+static const struct cmd_variable_handler bfd_vars[] = {
+	{ .varname = "peer", .completions = bfd_peer_var },
+	{ .tokenname = "BFDPROF", .completions = bfd_profile_var },
+	{ .completions = NULL }
+};
+
 void bfdd_vty_init(void)
 {
 	install_element(ENABLE_NODE, &bfd_show_peers_counters_cmd);
@@ -1453,6 +1508,8 @@ void bfdd_vty_init(void)
 	/* Install BFD peer node. */
 	install_node(&bfd_peer_node);
 	install_default(BFD_PEER_NODE);
+
+	cmd_variable_handler_register(bfd_vars);
 
 	bfdd_cli_init();
 }
