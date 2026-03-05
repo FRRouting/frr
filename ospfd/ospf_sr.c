@@ -985,7 +985,8 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh, size_t size)
 	struct ext_subtlv_rmt_itf_addr *rmt_itf;
 
 	struct tlv_header *sub_tlvh;
-	uint16_t length = 0, sum = 0, i = 0;
+	uint32_t length = 0, sum = 0;
+	uint16_t i = 0;
 
 	/* Check TLV size */
 	if ((ntohs(tlvh->length) > size)
@@ -1000,7 +1001,15 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh, size_t size)
 	length = ntohs(tlvh->length) - EXT_TLV_LINK_SIZE;
 	sub_tlvh = (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE
 					 + EXT_TLV_LINK_SIZE);
-	for (; sum < length && sub_tlvh; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
+	for (; sum < length && sub_tlvh;) {
+		uint32_t tlv_size = TLV_SIZE(sub_tlvh);
+
+		if (tlv_size > length - sum) {
+			zlog_warn("Malformed Extended Link sub-TLV size %u (remaining %u)",
+				  tlv_size, length - sum);
+			break;
+		}
+
 		switch (ntohs(sub_tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
 			adj_sid = (struct ext_subtlv_adj_sid *)sub_tlvh;
@@ -1041,7 +1050,9 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh, size_t size)
 		default:
 			break;
 		}
-		sum += TLV_SIZE(sub_tlvh);
+		sum += tlv_size;
+		if (sum < length)
+			sub_tlvh = TLV_HDR_NEXT(sub_tlvh);
 	}
 
 	IPV4_ADDR_COPY(&srl->itf_addr, &link->link_data);
@@ -1062,7 +1073,7 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 	struct ext_subtlv_prefix_sid *psid;
 
 	struct tlv_header *sub_tlvh;
-	uint16_t length = 0, sum = 0;
+	uint32_t length = 0, sum = 0;
 
 	/* Check TLV size */
 	if ((ntohs(tlvh->length) > size)
@@ -1077,7 +1088,15 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 	length = ntohs(tlvh->length) - EXT_TLV_PREFIX_SIZE;
 	sub_tlvh = (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE
 					 + EXT_TLV_PREFIX_SIZE);
-	for (; sum < length && sub_tlvh; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
+	for (; sum < length && sub_tlvh;) {
+		uint32_t tlv_size = TLV_SIZE(sub_tlvh);
+
+		if (tlv_size > length - sum) {
+			zlog_warn("Malformed Extended Prefix sub-TLV size %u (remaining %u)",
+				  tlv_size, length - sum);
+			break;
+		}
+
 		switch (ntohs(sub_tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
 			psid = (struct ext_subtlv_prefix_sid *)sub_tlvh;
@@ -1102,7 +1121,9 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 		default:
 			break;
 		}
-		sum += TLV_SIZE(sub_tlvh);
+		sum += tlv_size;
+		if (sum < length)
+			sub_tlvh = TLV_HDR_NEXT(sub_tlvh);
 	}
 
 	osr_debug("  |-  Found SID %u for prefix %pFX", srp->sid,
@@ -1364,7 +1385,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	struct ri_sr_tlv_sid_label_range *ri_srlb = NULL;
 	struct ri_sr_tlv_sr_algorithm *algo = NULL;
 	struct sr_block srgb;
-	uint16_t length = 0, sum = 0;
+	uint32_t length = 0, sum = 0;
 	uint8_t msd = 0;
 
 	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4",
@@ -1392,8 +1413,15 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	srgb.range_size = 0;
 	srgb.lower_bound = 0;
 
-	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);
-	     tlvh = TLV_HDR_NEXT(tlvh)) {
+	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);) {
+		uint32_t tlv_size = TLV_SIZE(tlvh);
+
+		if (tlv_size > length - sum) {
+			zlog_warn("Malformed RI TLV size %u (remaining %u)", tlv_size,
+				  length - sum);
+			break;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
@@ -1410,7 +1438,9 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		default:
 			break;
 		}
-		sum += TLV_SIZE(tlvh);
+		sum += tlv_size;
+		if (sum < length)
+			tlvh = TLV_HDR_NEXT(tlvh);
 	}
 
 	/* Check if Segment Routing Capabilities has been found */
