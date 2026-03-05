@@ -4094,7 +4094,7 @@ DEFUN (show_zebra,
 		       zrouter.zav.supports_nhgs ? "Available" : "Unavailable");
 
 	ttable_add_row(table, "Allow Non FRR route deletion|%s",
-		       zrouter.allow_delete ? "Yes" : "No");
+		       zrouter.allow_delete ? "No" : "Yes");
 	ttable_add_row(table, "v4 All LinkDown Routes|%s",
 		       zrouter.all_linkdownv4 ? "On" : "Off");
 	ttable_add_row(table, "v4 Default LinkDown Routes|%s",
