@@ -904,7 +904,7 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
 	return CMD_SUCCESS;
 }
 
-static void ospf6_reinstall_routes(struct ospf6 *ospf6)
+void ospf6_reinstall_routes(struct ospf6 *ospf6)
 {
 	struct ospf6_route *route;
 
