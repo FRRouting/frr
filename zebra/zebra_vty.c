@@ -2714,25 +2714,27 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	}
 }
 
-DEFUN (allow_external_route_update,
-       allow_external_route_update_cmd,
-       "allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes\n")
+DEFPY_YANG (allow_external_route_update,
+	    allow_external_route_update_cmd,
+	    "allow-external-route-update",
+	    "Allow FRR routes to be overwritten by external processes\n")
 {
-	zrouter.allow_delete = true;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_CREATE,
+			      NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_allow_external_route_update,
-       no_allow_external_route_update_cmd,
-       "no allow-external-route-update",
-       NO_STR
-       "Allow FRR routes to be overwritten by external processes\n")
+DEFPY_YANG (no_allow_external_route_update,
+	    no_allow_external_route_update_cmd,
+	    "no allow-external-route-update",
+	    NO_STR
+	    "Allow FRR routes to be overwritten by external processes\n")
 {
-	zrouter.allow_delete = false;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_DESTROY,
+			      NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* show vrf */

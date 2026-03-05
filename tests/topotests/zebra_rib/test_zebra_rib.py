@@ -416,6 +416,115 @@ def test_route_map_usage():
     assert ok, result
 
 
+def test_allow_external_route_update_kernel_delete_behavior():
+    "Validate kernel delete handling with allow-external-route-update toggled"
+    logger.info("Testing allow-external-route-update kernel delete behavior")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of previous test failure")
+
+    r1 = tgen.gears["r1"]
+    prefix = "203.0.113.0/24"
+    nexthop = "192.168.210.2"
+
+    def check_route_in_zebra(expected_present):
+        output = r1.vtysh_cmd("show ip route {} json".format(prefix), isjson=True)
+        present = bool(output and output != {})
+        if present == expected_present:
+            return None
+        return "zebra route presence mismatch for {} (expected_present={})".format(
+            prefix, expected_present
+        )
+
+    def check_route_in_kernel(expected_present):
+        output = r1.run("ip route show {}".format(prefix)).strip()
+        present = bool(output)
+        if present == expected_present:
+            return None
+        return "kernel route presence mismatch for {} (expected_present={})".format(
+            prefix, expected_present
+        )
+
+    def check_allow_external_route_update_in_show_run(expected_present):
+        output = r1.vtysh_cmd("show running")
+        present = "allow-external-route-update" in output
+        if present == expected_present:
+            return None
+        return (
+            "show running allow-external-route-update mismatch "
+            "(expected_present={})".format(expected_present)
+        )
+
+    # Make sure the test starts from a clean state.
+    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
+
+    #
+    # a) enable allow-external-route-update:
+    #    kernel delete should be accepted and FRR route should stay deleted.
+    #
+    step("Enable allow-external-route-update and install static route")
+    r1.vtysh_cmd("conf\nallow-external-route-update")
+    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+
+    test_func = partial(check_allow_external_route_update_in_show_run, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_zebra, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_kernel, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Delete route from kernel and verify FRR keeps it deleted")
+    r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
+
+    test_func = partial(check_route_in_zebra, False)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_kernel, False)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    #
+    # b) disable allow-external-route-update:
+    #    external delete should not be accepted and zebra should restore route.
+    #
+    step("Disable allow-external-route-update")
+    r1.vtysh_cmd("conf\nno allow-external-route-update")
+    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+
+    test_func = partial(check_allow_external_route_update_in_show_run, False)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_zebra, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_kernel, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Delete route from kernel and verify FRR reprograms it")
+    r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
+
+    test_func = partial(check_route_in_zebra, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    test_func = partial(check_route_in_kernel, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    r1.vtysh_cmd("conf\nno allow-external-route-update")
+    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
+    r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
+
+
 def test_protodown():
     "Run protodown basic functionality test and report results."
     pdown = False

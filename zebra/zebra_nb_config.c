@@ -232,8 +232,9 @@ int zebra_allow_external_route_update_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		zrouter.allow_delete = true;
 		break;
 	}
 
@@ -246,8 +247,9 @@ int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		zrouter.allow_delete = false;
 		break;
 	}
 
