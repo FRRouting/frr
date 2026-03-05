@@ -1283,7 +1283,7 @@ DEFPY(
 
 	out = ttable_dump(tt, "\n");
 	vty_out(vty, "%s", out);
-	XFREE(MTYPE_TMP, out);
+	XFREE(MTYPE_TMP_TTABLE, out);
 	ttable_del(tt);
 
 	return CMD_SUCCESS;
