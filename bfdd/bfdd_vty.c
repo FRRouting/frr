@@ -1348,22 +1348,6 @@ struct cmd_node bfd_peer_node = {
 	.prompt = "%s(config-bfd-peer)# ",
 };
 
-static void _sbfd_reflector_write_config(struct hash_bucket *hb, void *arg)
-{
-	struct sbfd_reflector *sr = hb->data;
-	char buf[INET6_ADDRSTRLEN];
-	struct vty *vty;
-
-	vty = (struct vty *)arg;
-	inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf));
-	vty_out(vty, "  sbfd reflector source-address %s discriminator %u\n", buf, sr->discr);
-}
-
-static void sbfd_reflector_write_config(struct vty *vty)
-{
-	sbfd_discr_iterate(_sbfd_reflector_write_config, vty);
-}
-
 static int bfdd_write_config(struct vty *vty)
 {
 	struct lyd_node *dnode;
@@ -1394,9 +1378,6 @@ static int bfdd_write_config(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 		written = 1;
 	}
-
-	/*sbfd config*/
-	sbfd_reflector_write_config(vty);
 
 	return written;
 }
