@@ -94,26 +94,6 @@ RIP Configuration
    `no router rip` command. RIP must be enabled before carrying out any of the
    RIP commands.
 
-.. clicmd:: network NETWORK
-   :daemon: ripd
-
-   Set the RIP enable interface by NETWORK. The interfaces which have addresses
-   matching with NETWORK are enabled.
-
-   This group of commands either enables or disables RIP interfaces between
-   certain numbers of a specified network address. For example, if the network
-   for 10.0.0.0/24 is RIP enabled, this would result in all the addresses from
-   10.0.0.0 to 10.0.0.255 being enabled for RIP. The `no network` command will
-   disable RIP for the specified network.
-
-.. clicmd:: network IFNAME
-   :daemon: ripd
-
-   Set a RIP enabled interface by IFNAME. Both the sending and
-   receiving of RIP packets will be enabled on the port specified in the
-   `network ifname` command. The `no network ifname` command will disable
-   RIP on the specified interface.
-
 .. clicmd:: neighbor A.B.C.D
 
 
@@ -168,6 +148,16 @@ RIP Configuration
 
    Set the default BFD profile to use for all RIP peers. This profile will be
    used when no specific profile is configured on an interface.
+
+
+In order to enable RIP functionality in the interfaces the following interface
+configuration is available:
+
+.. clicmd:: ip rip
+
+   Enables the RIP reception and sending of packets with other RIP router
+   neighbors.
+
 
 .. _rip-version-control:
 
