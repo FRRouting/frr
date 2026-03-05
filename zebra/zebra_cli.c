@@ -120,6 +120,13 @@ static void zebra_route_map_delay_cli_write(struct vty *vty,
 	vty_out(vty, "zebra route-map delay-timer %u\n", delay);
 }
 
+static void zebra_allow_external_route_update_cli_write(struct vty *vty,
+							const struct lyd_node *dnode,
+							bool show_defaults)
+{
+	vty_out(vty, "allow-external-route-update\n");
+}
+
 DEFPY_YANG (multicast_new,
 	multicast_new_cmd,
 	"[no] multicast <enable$on|disable$off>",
@@ -2790,6 +2797,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 		{
 			.xpath = "/frr-zebra:zebra/route-map-delay",
 			.cbs.cli_show = zebra_route_map_delay_cli_write,
+		},
+		{
+			.xpath = "/frr-zebra:zebra/allow-external-route-update",
+			.cbs.cli_show = zebra_allow_external_route_update_cli_write,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
