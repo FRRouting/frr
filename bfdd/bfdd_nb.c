@@ -996,6 +996,20 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sbfd-reflector",
+			.cbs = {
+				.create = bfdd_bfd_sbfd_reflector_create,
+				.destroy = bfdd_bfd_sbfd_reflector_destroy,
+				.cli_show = bfd_cli_show_sbfd_reflector,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sbfd-reflector/source-address",
+			.cbs = {
+				.modify = bfdd_bfd_sbfd_reflector_source_address_modify,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

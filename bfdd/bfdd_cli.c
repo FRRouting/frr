@@ -1134,11 +1134,23 @@ DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+static void sbfd_reflector_enqueue_create(struct vty *vty, uint32_t discr, const char *srcip_str)
+{
+	char xpath[XPATH_MAXLEN], xpath_sa[XPATH_MAXLEN + 32];
+
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+		 discr);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_sa, sizeof(xpath_sa), "%s/source-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_sa, NB_OP_MODIFY, srcip_str);
+}
+
+DEFPY_YANG(
 	sbfd_reflector, sbfd_reflector_cmd,
 	"sbfd reflector source-address X:X::X:X$srcip discriminator WORD...",
-    "seamless BFD\n"
-    "sbfd reflector\n"
+	"seamless BFD\n"
+	"sbfd reflector\n"
 	"binding source ip address\n"
 	IPV6_STR
 	"discriminator\n"
@@ -1147,26 +1159,22 @@ DEFPY(
 	int idx_discr = 5;
 	int i;
 	uint32_t j;
-	uint32_t discr = 0;
-	uint32_t discr_from = 0;
-	uint32_t discr_to = 0;
+	uint32_t discr_from, discr_to;
+	char range_buf[64];
 
 	for (i = idx_discr; i < argc; i++) {
-		/* check validity*/
-		char *pstr = argv[i]->arg;
+		const char *pstr = argv[i]->arg;
 
-		/*single discr*/
 		if (strspn(pstr, "0123456789") == strlen(pstr)) {
-			discr = atol(pstr);
-			sbfd_reflector_new(discr, &srcip);
-		}
-		/*discr segment*/
-		else if (strspn(pstr, "0123456789-") == strlen(pstr)) {
-			char *token = strtok(argv[i]->arg, "-");
+			sbfd_reflector_enqueue_create(vty, atol(pstr), srcip_str);
+		} else if (strspn(pstr, "0123456789-") == strlen(pstr)) {
+			strlcpy(range_buf, pstr, sizeof(range_buf));
+			char *token = strtok(range_buf, "-");
 
+			discr_from = 0;
+			discr_to = 0;
 			if (token)
 				discr_from = atol(token);
-
 			token = strtok(NULL, "-");
 			if (token)
 				discr_to = atol(token);
@@ -1174,38 +1182,50 @@ DEFPY(
 			if (discr_from >= discr_to) {
 				vty_out(vty, "input discriminator range %u-%u is illegal\n",
 					discr_from, discr_to);
+				continue;
 			}
 
 			for (j = discr_from; j <= discr_to; j++)
-				sbfd_reflector_new(j, &srcip);
-		}
-		/*illegal input*/
-		else
-			vty_out(vty, "input discriminator %s is illegal\n", (char *)argv[i]);
+				sbfd_reflector_enqueue_create(vty, j, srcip_str);
+		} else
+			vty_out(vty, "input discriminator %s is illegal\n", argv[i]->arg);
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+static int reflector_del_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = arg;
+	char xpath[XPATH_MAXLEN];
+	uint32_t discr;
+
+	discr = yang_dnode_get_uint32(dnode, "discriminator");
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+		 discr);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return YANG_ITER_CONTINUE;
+}
+
+DEFPY_YANG(
 	no_sbfd_reflector_all, no_sbfd_reflector_all_cmd,
 	"no sbfd reflector [all]",
 	NO_STR
-    "seamless BFD\n"
-    "sbfd reflector\n"
+	"seamless BFD\n"
+	"sbfd reflector\n"
 	"all\n")
 {
-	sbfd_reflector_flush();
+	const struct lyd_node *dnode;
 
-	if (sbfd_discr_get_count()) {
-		vty_out(vty, "delete all reflector discriminator failed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	dnode = yang_dnode_get(vty->candidate_config->dnode, "/frr-bfdd:bfdd/bfd");
+	if (dnode)
+		yang_dnode_iterate(reflector_del_iter_cb, vty, dnode, "./sbfd-reflector");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_sbfd_reflector, no_sbfd_reflector_cmd,
 	"no sbfd reflector (0-4294967295)$start_discr [(0-4294967295)$end_discr]",
 	NO_STR
@@ -1214,8 +1234,8 @@ DEFPY(
 	"start discriminator\n"
 	"end discriminator\n")
 {
-	struct sbfd_reflector *sr;
-	int32_t i;
+	char xpath[XPATH_MAXLEN];
+	uint32_t i;
 
 	if (end_discr == 0) {
 		if (start_discr == 0) {
@@ -1223,33 +1243,26 @@ DEFPY(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		sr = sbfd_discr_lookup(start_discr);
-		if (!sr) {
-			vty_out(vty, "input reflector discriminator does not exist.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		// notify bfdsyncd
-		//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-		sbfd_reflector_free(start_discr);
-
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+			 (uint32_t)start_discr);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	} else {
 		if (end_discr <= start_discr) {
 			vty_out(vty, "input reflector discriminator is illegal.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		for (i = start_discr; i <= end_discr; i++) {
-			sr = sbfd_discr_lookup(i);
-			if (sr) {
-				// notify bfdsyncd
-				//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-				sbfd_reflector_free(i);
-			}
+		for (i = (uint32_t)start_discr; i <= (uint32_t)end_discr; i++) {
+			snprintf(xpath, sizeof(xpath),
+				 "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']", i);
+			if (!yang_dnode_exists(vty->candidate_config->dnode, xpath))
+				continue;
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		}
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void _sbfd_reflector_show(struct hash_bucket *hb, void *arg)
@@ -1292,6 +1305,13 @@ void bfd_cli_peer_profile_show(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, "  profile %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+void bfd_cli_show_sbfd_reflector(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " sbfd reflector source-address %s discriminator %u\n",
+		yang_dnode_get_string(dnode, "source-address"),
+		yang_dnode_get_uint32(dnode, "discriminator"));
 }
 
 struct cmd_node bfd_profile_node = {
