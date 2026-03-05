@@ -427,14 +427,37 @@ def test_allow_external_route_update_kernel_delete_behavior():
     prefix = "203.0.113.0/24"
     nexthop = "192.168.210.2"
 
-    def check_route_in_zebra(expected_present):
+    def check_route_in_zebra(expected_present, expected_installed):
         output = r1.vtysh_cmd("show ip route {} json".format(prefix), isjson=True)
-        present = bool(output and output != {})
-        if present == expected_present:
+        present = bool(output and output.get(prefix))
+        if present != expected_present:
+            return "zebra route presence mismatch for {} (expected_present={})".format(
+                prefix, expected_present
+            )
+
+        if not present:
             return None
-        return "zebra route presence mismatch for {} (expected_present={})".format(
-            prefix, expected_present
-        )
+
+        route = output[prefix][0]
+        installed = bool(route.get("installed", False))
+        fib_installed_num = int(route.get("internalNextHopFibInstalledNum", 0))
+        if installed != expected_installed:
+            return (
+                "zebra installed mismatch for {} "
+                "(expected_installed={}, installed={}, fib_installed_num={})"
+            ).format(prefix, expected_installed, installed, fib_installed_num)
+
+        if expected_installed and fib_installed_num <= 0:
+            return (
+                "zebra fib install count mismatch for {} " "(expected > 0, got {})"
+            ).format(prefix, fib_installed_num)
+
+        if not expected_installed and fib_installed_num != 0:
+            return (
+                "zebra fib install count mismatch for {} " "(expected 0, got {})"
+            ).format(prefix, fib_installed_num)
+
+        return None
 
     def check_route_in_kernel(expected_present):
         output = r1.run("ip route show {}".format(prefix)).strip()
@@ -464,13 +487,14 @@ def test_allow_external_route_update_kernel_delete_behavior():
     #
     step("Enable allow-external-route-update and install static route")
     r1.vtysh_cmd("conf\nallow-external-route-update")
-    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
 
     test_func = partial(check_allow_external_route_update_in_show_run, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
-    test_func = partial(check_route_in_zebra, True)
+    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+
+    test_func = partial(check_route_in_zebra, True, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
@@ -479,9 +503,9 @@ def test_allow_external_route_update_kernel_delete_behavior():
     assert result is None, result
 
     step("Delete route from kernel and verify FRR keeps it deleted")
-    r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
+    r1.run("ip route del {}".format(prefix))
 
-    test_func = partial(check_route_in_zebra, False)
+    test_func = partial(check_route_in_zebra, True, False)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
@@ -495,13 +519,15 @@ def test_allow_external_route_update_kernel_delete_behavior():
     #
     step("Disable allow-external-route-update")
     r1.vtysh_cmd("conf\nno allow-external-route-update")
-    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
 
     test_func = partial(check_allow_external_route_update_in_show_run, False)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
-    test_func = partial(check_route_in_zebra, True)
+    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
+    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+
+    test_func = partial(check_route_in_zebra, True, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
@@ -510,9 +536,9 @@ def test_allow_external_route_update_kernel_delete_behavior():
     assert result is None, result
 
     step("Delete route from kernel and verify FRR reprograms it")
-    r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
+    r1.run("ip route del {}".format(prefix))
 
-    test_func = partial(check_route_in_zebra, True)
+    test_func = partial(check_route_in_zebra, True, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
