@@ -80,6 +80,12 @@ static const char *zebra_neigh_state2str(uint32_t state, char *buf, size_t bufle
 static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 			      const struct zebra_neigh_ent *n2)
 {
+	if (n1->ns_id < n2->ns_id)
+		return -1;
+
+	if (n1->ns_id > n2->ns_id)
+		return 1;
+
 	if (n1->ifindex < n2->ifindex)
 		return -1;
 
@@ -106,23 +112,24 @@ static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 }
 RB_GENERATE(zebra_neigh_rb_head, zebra_neigh_ent, rb_node, zebra_neigh_rb_cmp);
 
-static struct zebra_neigh_ent *zebra_neigh_find(ifindex_t ifindex,
-						struct ipaddr *ip)
+static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip)
 {
 	struct zebra_neigh_ent tmp;
 
+	tmp.ns_id = ns_id;
 	tmp.ifindex = ifindex;
 	memcpy(&tmp.ip, ip, sizeof(*ip));
 	return RB_FIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &tmp);
 }
 
-static struct zebra_neigh_ent *
-zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac, uint32_t ndm_state)
+static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip,
+					       struct ethaddr *mac, uint32_t ndm_state)
 {
 	struct zebra_neigh_ent *n;
 
 	n = XCALLOC(MTYPE_ZNEIGH_ENT, sizeof(struct zebra_neigh_ent));
 
+	n->ns_id = ns_id;
 	memcpy(&n->ip, ip, sizeof(*ip));
 	n->ifindex = ifindex;
 	if (mac) {
@@ -184,7 +191,7 @@ static void zebra_neigh_free(struct zebra_neigh_ent *n)
 }
 
 /* kernel neigh del */
-void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip)
+void zebra_neigh_del(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip)
 {
 	struct zebra_neigh_ent *n;
 
@@ -192,7 +199,7 @@ void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip)
 		zlog_debug("zebra neigh del if %s/%d %pIA", ifp->name,
 			   ifp->ifindex, ip);
 
-	n = zebra_neigh_find(ifp->ifindex, ip);
+	n = zebra_neigh_find(ns_id, ifp->ifindex, ip);
 	if (!n)
 		return;
 	zebra_neigh_free(n);
@@ -202,12 +209,16 @@ void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip)
 void zebra_neigh_del_all(struct interface *ifp)
 {
 	struct zebra_neigh_ent *n, *next;
+	struct zebra_ns *zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		zlog_debug("zebra neigh delete all for interface %s/%d",
 			   ifp->name, ifp->ifindex);
 
 	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, next) {
+		if (zns->ns_id != n->ns_id)
+			continue;
+
 		if (n->ifindex == ifp->ifindex) {
 			/* Free the neighbor directly instead of looking it up again */
 			zebra_neigh_free(n);
@@ -216,7 +227,7 @@ void zebra_neigh_del_all(struct interface *ifp)
 }
 
 /* kernel neigh add */
-void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip, struct ethaddr *mac,
+void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, struct ethaddr *mac,
 		     uint16_t ndm_state)
 {
 	struct zebra_neigh_ent *n;
@@ -224,12 +235,13 @@ void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip, struct ethaddr *m
 	if (IS_ZEBRA_DEBUG_NEIGH) {
 		char state_buf[180];
 
-		zlog_debug("zebra neigh add if %s/%d %pIA %pEA %s %u", ifp->name, ifp->ifindex, ip,
-			   mac, zebra_neigh_state2str(ndm_state, state_buf, sizeof(state_buf)),
+		zlog_debug("zebra neigh add ns: %u if %s/%d %pIA %pEA %s %u", ns_id, ifp->name,
+			   ifp->ifindex, ip, mac,
+			   zebra_neigh_state2str(ndm_state, state_buf, sizeof(state_buf)),
 			   ndm_state);
 	}
 
-	n = zebra_neigh_find(ifp->ifindex, ip);
+	n = zebra_neigh_find(ns_id, ifp->ifindex, ip);
 	if (n) {
 		n->neigh_state = ndm_state;
 
@@ -242,7 +254,7 @@ void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip, struct ethaddr *m
 		/* update rules linked to the neigh */
 		zebra_neigh_pbr_rules_update(n);
 	} else {
-		zebra_neigh_new(ifp->ifindex, ip, mac, ndm_state);
+		zebra_neigh_new(ns_id, ifp->ifindex, ip, mac, ndm_state);
 	}
 }
 
@@ -272,8 +284,7 @@ static void zebra_neigh_read_on_first_ref(void)
 	}
 }
 
-void zebra_neigh_ref(int ifindex, struct ipaddr *ip,
-		     struct zebra_pbr_rule *rule)
+void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra_pbr_rule *rule)
 {
 	struct zebra_neigh_ent *n;
 
@@ -282,9 +293,9 @@ void zebra_neigh_ref(int ifindex, struct ipaddr *ip,
 			   ip, rule->rule.seq);
 
 	zebra_neigh_read_on_first_ref();
-	n = zebra_neigh_find(ifindex, ip);
+	n = zebra_neigh_find(ns_id, ifindex, ip);
 	if (!n)
-		n = zebra_neigh_new(ifindex, ip, NULL, 0);
+		n = zebra_neigh_new(ns_id, ifindex, ip, NULL, 0);
 
 	/* link the pbr entry to the neigh */
 	if (rule->action.neigh == n)
@@ -306,8 +317,7 @@ static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n,
 	char state_buf[180];
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-					n->ifindex);
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), n->ifindex);
 	ipaddr2str(&n->ip, ip_buf, sizeof(ip_buf));
 	prefix_mac2str(&n->mac, mac_buf, sizeof(mac_buf));
 
@@ -552,9 +562,9 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 		if (ndm_state & ZEBRA_NUD_VALID) {
 			/* Add local neighbors to the l3 interface database */
 			if (is_own)
-				zebra_neigh_del(ifp, &ip);
+				zebra_neigh_del(ns_id, ifp, &ip);
 			else
-				zebra_neigh_add(ifp, &ip, &mac, ndm_state);
+				zebra_neigh_add(ns_id, ifp, &ip, &mac, ndm_state);
 
 			if (link_if)
 				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
@@ -563,7 +573,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			return;
 		}
 
-		zebra_neigh_del(ifp, &ip);
+		zebra_neigh_del(ns_id, ifp, &ip);
 		if (link_if)
 			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 		return;
@@ -577,7 +587,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	/* Process the delete - it may result in re-adding the neighbor if it is
 	 * a valid "remote" neighbor.
 	 */
-	zebra_neigh_del(ifp, &ip);
+	zebra_neigh_del(ns_id, ifp, &ip);
 	if (link_if)
 		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 }
