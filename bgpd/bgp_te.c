@@ -240,11 +240,13 @@ static void bgp_te_flush_te_entries(void)
 		entry = RB_ROOT(bgp_te_entry_head, &bgp_te_entries);
 		/* XXX inform Pathd */
 
-		bnc = bnc_find(&bgp->nexthop_cache_table[entry->bnc_afi],
-			       &entry->bnc_prefix, entry->color,
-			       entry->bnc_ifindex);
-		if (bnc)
-			SET_FLAG(bnc->flags, BGP_NEXTHOP_TE_REGISTER);
+		if (bgp) {
+			bnc = bnc_find(&bgp->nexthop_cache_table[entry->bnc_afi],
+				       &entry->bnc_prefix, entry->color,
+				       entry->bnc_ifindex);
+			if (bnc)
+				SET_FLAG(bnc->flags, BGP_NEXTHOP_TE_REGISTER);
+		}
 		bgp_te_entry_remove(entry);
 	}
 }
