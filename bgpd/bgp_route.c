@@ -13406,6 +13406,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
 	bool detail_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
 	bool detail_routes = CHECK_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+	int prefix_path_count = 0, best_path_selected = 0;
 
 	if (output_cum && *output_cum != 0)
 		header = false;
@@ -13465,6 +13466,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			continue;
 
 		display = 0;
+		prefix_path_count = 0;
+		best_path_selected = 0;
 		if (use_json)
 			json_paths = json_object_new_array();
 		else
@@ -13775,6 +13778,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				}
 			}
 			display++;
+			prefix_path_count++;
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+				best_path_selected = 1;
 		}
 
 		if (display) {
@@ -13857,6 +13863,34 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			 */
 			vty_json_no_pretty(vty, json_paths);
 
+			if (json_detail_header_used) {
+				json_object *json_flags = json_object_new_object();
+
+				json_object_boolean_add(json_flags, "bestPathExists",
+							(bool)best_path_selected);
+				if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)) {
+					json_object_boolean_add(json_flags, "fibInstalled",
+								CHECK_FLAG(dest->flags,
+									   BGP_NODE_FIB_INSTALLED));
+					json_object_boolean_add(json_flags, "fibWaitForInstall",
+								CHECK_FLAG(dest->flags,
+									   BGP_NODE_FIB_INSTALL_PENDING));
+					json_object_boolean_add(
+						json_flags, "fibInstallFailed",
+						!(CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED) ||
+						  CHECK_FLAG(dest->flags,
+							     BGP_NODE_FIB_INSTALL_PENDING)));
+					json_object_boolean_add(json_flags, "fibSuppress", true);
+				}
+
+				vty_out(vty, ",\"multiPathCount\":%d\n",
+					best_path_selected ? (int)bgp_path_info_mpath_count(dest)
+							   : 0);
+				vty_out(vty, ",\"flags\": ");
+				vty_json_no_pretty(vty, json_flags);
+				/* vty_json_no_pretty (vty_json_helper) already frees json_flags */
+			}
+
 			/* End per-prefix dictionary */
 			if (json_detail_header_used)
 				vty_out(vty, "} ");
@@ -13882,6 +13916,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 		if (is_last) {
 			unsigned long i;
 			for (i = 0; i < *json_header_depth; ++i) {
+				if (i == 1)
+					vty_out(vty, ",\"numRoutes\":%lu\n", output_count);
 				vty_out(vty, " } ");
 				/* Put this information before closing the last `}` */
 				if (i == *json_header_depth - 2)
