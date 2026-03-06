@@ -128,7 +128,9 @@ Functions provided:
 +------------------------------------+-------+------+------+---------+------------+
 | _del, _pop                         | yes   | yes  | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
-|  _pop_all                          | --    | --   | yes  | yes     | yes        |
+|  _pop_all                          | --    | --   | yes  | --      | --         |
++------------------------------------+-------+------+------+---------+------------+
+|  _pop_final                        | --    | --   | --   | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
 | _find, _const_find                 | --    | --   | yes  | yes     | --         |
 +------------------------------------+-------+------+------+---------+------------+
@@ -541,6 +543,24 @@ sorted containers can be searched for a value.
 
    Search the container for an item that compares less than
    ``ref``.  See :c:func:`Z_find()` above.
+
+.. note::
+
+      This function can only be used with RB trees.
+
+.. c:function:: itemtype *Z_pop_final(struct Z_head *)
+
+   Remove and return the first/lowest item in the tree, or ``NULL``
+   if the structure is empty.  This is specifically designed for use when
+   clearing/cleaning an entire rbtree. This is close to O(1);
+   it does not invoke any "rebalance" operation on the underlying tree.
+
+   Example use when deleting all items:
+
+   .. code-block:: c
+
+      while ((item = Z_pop_final(head)))
+          item_free(item);
 
 
 API for hash tables
