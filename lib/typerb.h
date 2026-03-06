@@ -31,6 +31,7 @@ struct typed_rb_entry {
 struct typed_rb_root {
 	struct typed_rb_entry *rbt_root;
 	size_t count;
+	bool final_p;
 };
 
 struct typed_rb_entry *typed_rb_insert(struct typed_rb_root *rbt,
@@ -169,6 +170,18 @@ macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
 {                                                                              \
 	return typed_rb_member(&h->rr, &item->field.re);                       \
+}                                                                              \
+macro_inline type *prefix ## _pop_final(struct prefix##_head *h)               \
+{                                                                              \
+	struct typed_rb_entry *re;                                             \
+	re = typed_rb_min(&h->rr);                                             \
+	if (!re) {                                                             \
+		h->rr.final_p = false;                                         \
+		return NULL;                                                   \
+	}                                                                      \
+	h->rr.final_p = true;                                                  \
+	typed_rb_remove(&h->rr, re);                                           \
+	return container_of(re, type, field.re);                               \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
