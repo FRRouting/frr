@@ -849,10 +849,19 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Fri Mar 06 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0-dev
-- FRR Development 10.6.0
+* Fri Mar 06 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0
+- New upstream release FRR 10.6.0
+- Major highlights:
+-   EVPN Graceful Restart support and EVPNv6/IPv6 VTEP improvements
+-   BGP labeled-unicast multiple MPLS labels support
+-   BGP software-version capability latest-encoding option
+-   BGP underlay-weight and nexthop-characteristic based ECMP weighting
+-   OSPFv2 forwarding-address-self command
+-   PIM/PIMv6 IGMP/MLD join filtering support
+-   16-bit nexthop weight support and BFD LTTng tracing
+-   Packaging/build defaults moved to libyang3
 
 * Sun Nov 09 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5.0
 - New upstream release FRR 10.5.0
