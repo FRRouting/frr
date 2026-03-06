@@ -17,6 +17,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
@@ -3195,12 +3196,15 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 	int rd_header;
 	afi_t afi;
 	safi_t safi;
-	uint32_t prefix_cnt, path_cnt;
+	uint32_t prefix_cnt, path_cnt, rd_prefix_cnt;
 	int first = true;
+	int prefix_path_count;
+	bool best_path_selected;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
-	prefix_cnt = path_cnt = 0;
+	prefix_cnt = 0;
+	path_cnt = 0;
 
 	/* EVPN routing table is a 2-level table with the first level being
 	 * the RD.
@@ -3232,6 +3236,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 		}
 
 		rd_header = 1;
+		rd_prefix_cnt = 0;
 
 		/* Display all prefixes for an RD */
 		for (dest = bgp_table_top(table); dest;
@@ -3240,6 +3245,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 				NULL; /* contains prefix under a RD */
 			json_object *json_paths =
 				NULL; /* array of paths under a prefix*/
+			json_object *json_flags = NULL;
 			const struct prefix_evpn *evp =
 				(const struct prefix_evpn *)bgp_dest_get_prefix(
 					dest);
@@ -3275,8 +3281,11 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 				}
 
 				prefix_cnt++;
+				rd_prefix_cnt++;
 			}
 
+			prefix_path_count = 0;
+			best_path_selected = false;
 			if (json) {
 				json_prefix = json_object_new_object();
 				if (!brief) {
@@ -3325,27 +3334,48 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 					if (json)
 						json_object_array_add(json_paths, json_path);
 				}
+
+				prefix_path_count++;
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					best_path_selected = true;
 			}
 
 			if (json) {
+				json_object_int_add(json_prefix, "pathCount", prefix_path_count);
+				json_object_int_add(json_prefix, "multiPathCount",
+						    best_path_selected
+							    ? bgp_path_info_mpath_count(dest)
+							    : 0);
 				if (add_prefix_to_json) {
 					if (!brief)
 						json_object_object_add(json_prefix, "paths",
 								       json_paths);
+					else if (json_paths)
+						json_object_free(json_paths);
+
+					json_flags = json_object_new_object();
+					json_object_boolean_add(json_flags, "bestPathExists",
+								best_path_selected);
+					json_object_object_add(json_prefix, "flags", json_flags);
 					json_object_object_addf(json_rd,
 								json_prefix,
 								"%pFX", p);
 				} else {
 					json_object_free(json_prefix);
-					if (!brief) {
+					if (json_paths)
 						json_object_free(json_paths);
-						json_paths = NULL;
-					}
-
+					if (json_flags)
+						json_object_free(json_flags);
 					json_prefix = NULL;
+					json_paths = NULL;
+					json_flags = NULL;
 				}
 			}
 		}
+
+		/* Set numRoutes once per RD after the prefix loop */
+		if (json && add_rd_to_json)
+			json_object_int_add(json_rd, "numRoutes", rd_prefix_cnt);
 
 		if (json) {
 			if (add_rd_to_json) {
