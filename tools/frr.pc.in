@@ -5,6 +5,7 @@
 moduledir="@e_moduledir@"
 prefix="@prefix@"
 includedir=${prefix}/include/frr
+libdir="@libdir@"
 #
 # these are needed to make the build work
 #
@@ -14,6 +15,7 @@ Name: @PACKAGE@
 Description: FRRouting packaged-source-tree build support
 URL: @PACKAGE_BUGREPORT@
 Version: @PACKAGE_VERSION@
+Libs: -L${libdir} -lfrr
 Cflags: -I${includedir} -I${includedir}/lib		 \
 	-fms-extensions -DMULTIPATH_NUM=${multipath_num} \
 	-Wno-missing-field-initializers -Wno-unused-parameter
