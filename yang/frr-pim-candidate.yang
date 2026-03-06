@@ -94,19 +94,27 @@ module frr-pim-candidate {
       }
 
       choice source-address-or-interface {
-        description "IP address to use for BSR operation";
         default if-loopback;
+        description "IP address to use for BSR operation";
         leaf address {
           type inet:ip-address;
+          description
+            "Use this specific IP address as the source address for BSR operation.";
         }
         leaf interface {
           type frr-interface:interface-ref;
+          description
+            "Use the IP address of the specified interface for BSR operation.";
         }
         leaf if-loopback {
           type empty;
+          description
+            "Use the loopback interface IP address for BSR operation.";
         }
         leaf if-any {
           type empty;
+          description
+            "Use any available interface IP address for BSR operation.";
         }
       }
     } // candidate-bsr
@@ -146,19 +154,27 @@ module frr-pim-candidate {
       }
 
       choice source-address-or-interface {
-        description "IP address to use for RP operation";
         default if-loopback;
+        description "IP address to use for RP operation";
         leaf address {
           type inet:ip-address;
+          description
+            "Use this specific IP address as the source address for RP operation.";
         }
         leaf interface {
           type frr-interface:interface-ref;
+          description
+            "Use the IP address of the specified interface for RP operation.";
         }
         leaf if-loopback {
           type empty;
+          description
+            "Use the loopback interface IP address for RP operation.";
         }
         leaf if-any {
           type empty;
+          description
+            "Use any available interface IP address for RP operation.";
         }
       }
     }
