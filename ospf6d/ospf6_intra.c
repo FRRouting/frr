@@ -1508,6 +1508,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 			for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
 						  o_path)) {
+				ifp = NULL;
 				ls_entry = ospf6_route_lookup(
 							&o_path->ls_prefix,
 							oa->spf_table);
