@@ -246,6 +246,12 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_IGP_METRIC_MAX_LEN 3
 
 /*
+ * IGP MSD Type
+ * RFC 8491 Section 6, Figure 6
+ */
+#define BGP_LS_IGP_MSD_TYPE_BASE_MPLS 1
+
+/*
  * Maximum values for arrays
  */
 #define BGP_LS_MAX_SRLG	      64 /* Maximum SRLGs per link */
@@ -526,6 +532,9 @@ struct bgp_ls_attr {
 		uint32_t range_size;  /* MPLS label range size */
 		uint8_t flag;	      /* IS-IS SRGB flags */
 	} srgb;
+
+	/* Node MSD (TLV 266) */
+	uint8_t msd;
 
 	/* Multi-Topology IDs (multiple TLVs, same as descriptor) */
 	uint8_t mt_id_count;

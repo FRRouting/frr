@@ -305,6 +305,11 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->srgb.range_size, attr2->srgb.range_size);
 	}
 
+	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT)) {
+		if (attr1->msd != attr2->msd)
+			return numcmp(attr1->msd, attr2->msd);
+	}
+
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
 		ret = IPV4_ADDR_CMP(&attr1->ipv4_router_id_local, &attr2->ipv4_router_id_local);
 		if (ret != 0)
@@ -1200,6 +1205,9 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
 		key = jhash(&attr->srgb.lower_bound, sizeof(attr->srgb.lower_bound), key);
 		key = jhash(&attr->srgb.range_size, sizeof(attr->srgb.range_size), key);
 	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT))
+		key = jhash(&attr->msd, sizeof(attr->msd), key);
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT))
 		key = jhash_1word(attr->ipv4_router_id_local.s_addr, key);
@@ -2161,6 +2169,16 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		stream_put3(s, attr->srgb.range_size);
 		stream_put_tlv_hdr(s, BGP_LS_ATTR_SID_LABEL, 3);
 		stream_put3(s, attr->srgb.lower_bound);
+	}
+
+	/* Node MSD (TLV 266) */
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT)) {
+		if (stream_put_tlv_hdr(s, BGP_LS_ATTR_NODE_MSD, 2) < 0)
+			return -1;
+		if (STREAM_WRITEABLE(s) < 2)
+			return -1;
+		stream_putc(s, BGP_LS_IGP_MSD_TYPE_BASE_MPLS);
+		stream_putc(s, attr->msd);
 	}
 
 	/* IPv4 Router-ID of Local Node (TLV 1028) */
@@ -3528,6 +3546,65 @@ static int parse_sr_capabilities(struct stream *s, uint16_t length, struct bgp_l
 }
 
 /*
+ * Parse Node MSD TLV (TLV 266)
+ * RFC 8814 Section 3
+ */
+static int parse_node_msd(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	uint8_t t;
+	uint8_t v;
+	uint8_t msd = 255;
+	bool had_msd = false;
+
+	/*
+	 * RFC8476 (OSPFv2/OSPFv3)
+	 *		When multiple Node MSD TLVs are received from a given router, the
+	 *		receiver MUST use the first occurrence of the TLV in the Router
+	 *		Information (RI) LSA.
+	 *
+	 * RFC8491 (IS-IS) 2: (not implemented, just taking first TLV here)
+	 *		If there exist multiple Node MSD advertisements for the same MSD-Type
+	 *		originated by the same router, the procedures defined in [RFC7981]
+	 *		apply.
+	 */
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Multiple Node MSD TLV received, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
+	if (length < 2 || length % 2 != 0) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Node MSD length (%u bytes)", length);
+		return -1;
+	}
+
+	for (int i = 0; i < length; i += 2) {
+		t = stream_getc(s);
+		v = stream_getc(s);
+		if (t == BGP_LS_IGP_MSD_TYPE_BASE_MPLS) {
+			if (had_msd) {
+				flog_warn(EC_BGP_UPDATE_RCV,
+					  "BGP-LS: Several MSD Values of Base MPLS Imposition MSD type, choosing minimum");
+			}
+			had_msd = true;
+			msd = MIN(msd, v);
+		}
+	}
+
+	if (!had_msd) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Received Node MSD without value for Base MPLS Imposition MSD type, skipping");
+		return 0;
+	}
+
+	attr->msd = msd;
+	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT);
+
+	return 0;
+}
+
+/*
  * Parse Administrative Group TLV (TLV 1088)
  * RFC 5305 Section 3.1
  */
@@ -4322,6 +4399,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 				return -1;
 			break;
 
+		case BGP_LS_ATTR_NODE_MSD:
+			if (parse_node_msd(s, length, attr) < 0)
+				return -1;
+			break;
+
 		case BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL:
 			if (parse_ipv4_router_id_local(s, length, attr) < 0)
 				return -1;
@@ -4543,6 +4625,10 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object_int_add(jsrcap, "lowerBound", ls_attr->srgb.lower_bound);
 		json_object_int_add(jsrcap, "rangeSize", ls_attr->srgb.range_size);
 	}
+
+	/* Node MSD */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT))
+		json_object_int_add(json_ls_attr, "msd", ls_attr->msd);
 
 	/* Administrative Group */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT))
@@ -4766,6 +4852,12 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 		col += vty_out(vty, "SR Capabilities: flags 0x%x range %d-%d", ls_attr->srgb.flag,
 			       ls_attr->srgb.lower_bound,
 			       ls_attr->srgb.lower_bound + ls_attr->srgb.range_size);
+	}
+
+	/* Node MSD */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_MSD_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "MSD: %d", ls_attr->msd);
 	}
 
 	/* SRLG */

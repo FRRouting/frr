@@ -59,6 +59,12 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
 		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_SR_CAPABILITIES_BIT);
 	}
 
+	/* Node MSD (TLV 266) */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_MSD)) {
+		attr->msd = ls_node->msd;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_NODE_MSD_BIT);
+	}
+
 	/* IPv4 Router-ID (TLV 1028) */
 	if (CHECK_FLAG(ls_node->flags, LS_NODE_ROUTER_ID)) {
 		attr->ipv4_router_id_local = ls_node->router_id;
