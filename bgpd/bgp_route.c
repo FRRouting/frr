@@ -16495,9 +16495,6 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 					    peer->change_local_as
 						    ? peer->change_local_as
 						    : peer->local_as);
-			json_object_string_add(
-				json, "bgpOriginatingDefaultNetwork",
-				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		} else {
 			vty_out(vty,
 				"BGP table version is %" PRIu64
