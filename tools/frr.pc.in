@@ -13,7 +13,7 @@ multipath_num="@MULTIPATH_NUM@"
 Name: @PACKAGE@
 Description: FRRouting packaged-source-tree build support
 URL: @PACKAGE_BUGREPORT@
-Version: @PACKAGE_VERSION@
+Version: @FRR_PACKAGE_VERSION@
 Cflags: -I${includedir} -I${includedir}/lib		 \
 	-fms-extensions -DMULTIPATH_NUM=${multipath_num} \
 	-Wno-missing-field-initializers -Wno-unused-parameter
