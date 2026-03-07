@@ -1497,7 +1497,7 @@ case "${enable_vtysh}" in
   ], [
     dnl readline failed - it might be incorrectly linked and missing its
     dnl termcap/tinfo/curses dependency.  see if we can fix that...
-    AC_SEARCH_LIBS([tputs], [termcap tinfo curses ncurses], [
+    AC_SEARCH_LIBS([tputs], [termcap tinfo curses ncurses ncursesw], [
       LIBREADLINE="$ac_cv_search_tputs"
     ], [
       AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
