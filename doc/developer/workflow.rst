@@ -1055,6 +1055,39 @@ clang-format
 
    https://clang.llvm.org/docs/ClangFormat.html
 
+Editor Integration (clangd / VS Code / Cursor)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FRR uses autoconf/automake, and many headers (notably ``config.h``) are
+generated into the **build directory**. Editors that use ``clangd`` need a
+``compile_commands.json`` database so they see the same include paths and
+defines as the real build.
+
+Recommended setup:
+
+1. **Configure and build with Bear** to capture compile commands.
+
+   - In-tree build::
+
+       ./configure <your options>
+       bear -- make -j$(nproc)
+
+   - Out-of-tree build (recommended)::
+
+       mkdir -p build
+       cd build
+       ../configure <your options>
+       bear -- make -j$(nproc)
+
+2. **Ensure ``compile_commands.json`` is visible at the repo root**.
+   If you build out-of-tree, symlink it into the source tree::
+
+       ln -sf /path/to/build/compile_commands.json /path/to/frr/compile_commands.json
+
+Once present in the workspace root, both VS Code (clangd extension) and
+Cursor should resolve symbols and macros correctly (e.g., ``MULTIPATH_NUM``
+from ``config.h``).
+
 checkpatch.sh
 checkpatch.pl
 

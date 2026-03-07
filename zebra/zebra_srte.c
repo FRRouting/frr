@@ -5,6 +5,8 @@
 
 #include <zebra.h>
 
+#include "zebra/zebra_memory.h"
+
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
 

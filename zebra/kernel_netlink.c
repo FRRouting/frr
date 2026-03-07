@@ -42,6 +42,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_memory.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
