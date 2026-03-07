@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="UTF-8"/> 
+    <title>{{ nodeid }}</title>
+    <link href="../topotato/protomato.css" rel="stylesheet" type="text/css"/>
+    <script src="../pako_inflate.min.js" type="text/javascript"></script>
+    <script src="../topotato/protomato.js" type="text/javascript"></script>
+  </head>
+  <body onload="init()">
+    <div id="filters">
+      <div class="fblock">
+        <label class="ftitle">log messages <input type="checkbox" onclick="onclicklog(event)" id="cf-log"/></label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-error"/> err</label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-warn"/> warn</label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-notif"/> notify</label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-info"/> info</label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-debug"/> debug</label>
+        <label class="fitems"><input type="checkbox" onclick="onclicklog(event)" id="cf-prio-startup"/> startup/???</label>
+      </div>
+      <div class="fblock">
+        <label class="ftitle">CLI <input type="checkbox" onclick="onclickcli(event)" id="cf-cli"/></label>
+        <label class="fitems"><input type="checkbox" onclick="onclickcli(event)" id="cf-cli-repeat"/> repeats with identical output (⇡)</label>
+      </div>
+    </div>
+    <div id="vsplit">
+      <div id="main">
+        <h1>{{ nodeid }}</h1>
+        {{ topotatocls | docrender }}
+        <ul>
+          {%- if extrafiles['dotfilesvg'] %}
+            <li><a href="{{ extrafiles['dotfilesvg'].filename }}">Download network diagram (as shown to the right, SVG)</a></li>
+          {%- endif %}
+          {%- if extrafiles['packets'] %}
+            <li><a href="{{ extrafiles['packets'].filename }}">Download captured packets (pcap-ng)</a></li>
+          {%- else %}
+            packet capture not available (test run without wireshark installed?)
+          {%- endif %}
+        </ul>
+        <dl>
+          {%- for item in items %}
+            {%- from item.template import header %}
+            {{- header(item) }}
+          {%- endfor %}
+        </dl>
+        <div class="items">
+          {%- for item in items %}
+            {%- from item.template import main %}
+            {{- main(item) }}
+          {%- endfor %}
+        </div>
+      </div>
+      <div id="divider"></div>
+      <div id="infopane">
+        {%- if toposvg %}
+        {{ toposvg | safe }}
+        {%- endif %}
+      </div>
+    </div>
+  </body>
+  <script type="text/javascript" defer="defer">
+    const data = "{{ data_bz | safe }}";
+  </script>
+</html>
