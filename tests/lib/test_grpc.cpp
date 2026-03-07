@@ -45,6 +45,7 @@ struct event_loop *master;
 struct zebra_privs_t static_privs = {0};
 struct frrmod_runtime *grpc_module;
 char binpath[2 * MAXPATHLEN + 1];
+bool test_success;
 
 extern const char *json_expect1;
 extern const char *json_expect2;
@@ -107,6 +108,7 @@ static void static_startup(void)
 	}
 	if (!grpc_module)
 		exit(1);
+        std::cout << "Module loaded: " << grpc_module->load_name << std::endl;
 
 	static_debug_init();
 
@@ -140,7 +142,14 @@ static void static_startup(void)
 
 	frr_pthread_init();
 
-	// frr_config_fork();
+	// Call frr_grpc_module_late_init() via frr_late_init hook. Usually
+	// done by frr_config_fork() but we can't call that as it would pass
+	// a NULL event loop
+        assert(_hook_frr_late_init.entries);
+        typedef int(*frr_late_init_hook_fptr)(struct event_loop *);
+        frr_late_init_hook_fptr fn = (frr_late_init_hook_fptr)_hook_frr_late_init.entries->hookfn;
+        fn(master);
+
 	hook_call(test_grpc_late_init, master);
 }
 
@@ -401,7 +410,7 @@ void assert_no_diff(const std::string &s1, const std::string &s2)
 void assert_config_same(NorthboundClient &client, const std::string &compare)
 {
 	std::string confs = client.Get("/frr-routing:routing",
-				       frr::GetRequest::ALL, frr::JSON, true);
+				       frr::GetRequest::CONFIG, frr::JSON, true);
 	assert_no_diff(confs, compare);
 	std::cout << "ok" << std::endl;
 }
@@ -487,6 +496,7 @@ void *grpc_client_test_start(void *arg)
 	try {
 		grpc_client_run_test();
 		std::cout << "TEST PASSED" << std::endl;
+		test_success = true;
 	} catch (std::exception &e) {
 		std::cout << "Exception in test: " << e.what() << std::endl;
 	}
@@ -519,7 +529,7 @@ static void grpc_thread_stop(struct event *event)
 	std::cout << __func__ << ": static_shutdown" << std::endl;
 	static_shutdown();
 	std::cout << __func__ << ": exit cleanly" << std::endl;
-	exit(0);
+	exit(!test_success);
 }
 
 /*
@@ -562,7 +572,7 @@ int main(int argc, char **argv)
 	struct event thread;
 	while (event_fetch(master, &thread))
 		event_call(&thread);
-	return 0;
+	return !test_success;
 }
 
 // clang-format off
