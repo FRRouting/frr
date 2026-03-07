@@ -106,6 +106,27 @@ def get_unicast_sid(afi):
     return True
 
 @retry(retry_timeout=10)
+def check_srv6_localsid_behavior(router, sid, expected_behavior):
+    """
+    Verify the SRv6 endpoint behavior registered for `sid` in the
+    local-SID table of `router` matches `expected_behavior`
+    (e.g. "End.DT4", "End.DT6", "End.DT46").
+    """
+    output = json.loads(
+        router.vtysh_cmd("show segment-routing srv6 sid %s json" % sid)
+    )
+    sid_info = output.get(sid, None)
+    if sid_info is None:
+        return "SID %s not found in local-SID table on %s" % (sid, router.name)
+    behavior = sid_info.get("behavior", "")
+    if behavior != expected_behavior:
+        return "%s: SID %s expected behavior %s, got %s" % (
+            router.name, sid, expected_behavior, behavior
+        )
+    return True
+
+
+@retry(retry_timeout=10)
 def check_route(router, cmd, expect_route, expect_sid, expect_installed=True):
     tgen = get_topogen()
 
@@ -457,6 +478,248 @@ def test_ping():
     check_ping("c2", "10.100.1.2", True, 3, 3)
     check_ping("c1", "fd00:300::2", True, 3, 3)
     check_ping("c2", "fd00:100::2", True, 3, 3)
+
+
+def test_bgp_srv6_sid_dt46_initial():
+    """
+    Verify the baseline End.DT4 / End.DT6 behaviors before any 'behavior dt46'
+    configuration.  Re-announces prefixes withdrawn by test_srv6_withdraw so
+    that route checks in the subsequent DT46 tests have a known good state.
+    """
+
+    tgen = get_topogen()
+
+    # Re-announce prefixes withdrawn by test_srv6_withdraw.
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        network 10.0.0.1/32
+        exit-address-family
+        address-family ipv6 unicast
+        network fd00:200::/64
+        """
+    )
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    r1_sid_v4 = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    r1_sid_v6 = r1_unicast_sid
+
+    logger.info("Check R1 SID %s has behavior End.DT4" % r1_sid_v4)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v4, "End.DT4")
+    assert res is True, res
+
+    logger.info("Check R1 SID %s has behavior End.DT6" % r1_sid_v6)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v6, "End.DT6")
+    assert res is True, res
+
+    logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_sid_v4)
+    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
+                      "10.0.0.1/32", r1_sid_v4)
+    assert res is True, res
+
+    logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_sid_v6)
+    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
+                      "fd00:200::/64", r1_sid_v6)
+    assert res is True, res
+
+    logger.info("Check connectivity c1 -> c2 (IPv4)")
+    check_ping("c1", "10.100.3.2", True, count=5, wait=0.5)
+
+    logger.info("Check connectivity c1 -> c2 (IPv6)")
+    check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
+
+
+def test_bgp_srv6_sid_dt46_enable_ipv4():
+    """
+    Configure 'behavior dt46' on the IPv4 address-family.
+    Verify the IPv4 SID transitions to End.DT46 while the IPv6 SID
+    remains End.DT6.
+    """
+
+    tgen = get_topogen()
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export explicit 2001:db8:1:1:a1::
+        """
+    )
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        sid export auto behavior dt46
+        """
+    )
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    r1_sid_v4 = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    r1_sid_v6 = r1_unicast_sid
+
+    logger.info("Check R1 SID %s has behavior End.DT46" % r1_sid_v4)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v4, "End.DT46")
+    assert res is True, res
+
+    logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_sid_v4)
+    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
+                      "10.0.0.1/32", r1_sid_v4)
+    assert res is True, res
+
+    logger.info("Check R1 SID %s still has behavior End.DT6 (IPv6 unaffected)" % r1_sid_v6)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v6, "End.DT6")
+    assert res is True, res
+
+    logger.info("Check fd00:200::/64 sid %s still installed on R3" % r1_sid_v6)
+    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
+                      "fd00:200::/64", r1_sid_v6)
+    assert res is True, res
+
+    logger.info("Check connectivity c1 -> c2 (IPv4)")
+    check_ping("c1", "10.100.3.2", True, count=5, wait=0.5)
+
+    logger.info("Check connectivity c1 -> c2 (IPv6)")
+    check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
+
+
+def test_bgp_srv6_sid_dt46_enable_ipv6():
+    """
+    Configure 'behavior dt46' on the IPv6 address-family (IPv4 already
+    configured in test_bgp_srv6_sid_dt46_enable_ipv4).
+    Verify both the IPv4 and IPv6 SIDs now show End.DT46.
+    """
+
+    tgen = get_topogen()
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv6 unicast
+        no sid export 55
+        """
+    )
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv6 unicast
+        sid export auto behavior dt46
+        """
+    )
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    r1_sid_v6 = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    r1_sid_v4 = r1_unicast_sid
+
+    logger.info("Check R1 SID %s has behavior End.DT46" % r1_sid_v6)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v6, "End.DT46")
+    assert res is True, res
+
+    logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_sid_v6)
+    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
+                      "fd00:200::/64", r1_sid_v6)
+    assert res is True, res
+
+    logger.info("Check R1 SID %s still has behavior End.DT46 (IPv4 unaffected)" % r1_sid_v4)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v4, "End.DT46")
+    assert res is True, res
+
+    logger.info("Check 10.0.0.1/32 sid %s still installed on R2" % r1_sid_v4)
+    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
+                      "10.0.0.1/32", r1_sid_v4)
+    assert res is True, res
+
+    logger.info("Check connectivity c1 -> c2 (IPv4)")
+    check_ping("c1", "10.100.3.2", True, count=5, wait=0.5)
+
+    logger.info("Check connectivity c1 -> c2 (IPv6)")
+    check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
+
+
+def test_bgp_srv6_sid_dt46_restore():
+    """
+    Remove 'behavior dt46' and restore the original explicit/index SID config.
+    Verify both SIDs return to End.DT4 / End.DT6.
+    """
+
+    tgen = get_topogen()
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export auto
+        exit-address-family
+        address-family ipv6 unicast
+        no sid export auto
+        exit-address-family
+        """
+    )
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        sid export explicit 2001:db8:1:1:a1::
+        exit-address-family
+        address-family ipv6 unicast
+        sid export 55
+        exit-address-family
+        """
+    )
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    r1_sid_v4 = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    r1_sid_v6 = r1_unicast_sid
+
+    logger.info("Check R1 SID %s has behavior End.DT4" % r1_sid_v4)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v4, "End.DT4")
+    assert res is True, res
+
+    logger.info("Check R1 SID %s has behavior End.DT6" % r1_sid_v6)
+    res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v6, "End.DT6")
+    assert res is True, res
+
+    logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_sid_v4)
+    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
+                      "10.0.0.1/32", r1_sid_v4)
+    assert res is True, res
+
+    logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_sid_v6)
+    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
+                      "fd00:200::/64", r1_sid_v6)
+    assert res is True, res
+
+    logger.info("Check connectivity c1 -> c2 (IPv4)")
+    check_ping("c1", "10.100.3.2", True, count=5, wait=0.5)
+
+    logger.info("Check connectivity c1 -> c2 (IPv6)")
+    check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
 
 
 def teardown_module(mod):

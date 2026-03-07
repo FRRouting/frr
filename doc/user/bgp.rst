@@ -3527,7 +3527,7 @@ Configuration of the SRv6 SID used to advertise the Global IPv4/v6 Table is
 accomplished via the following command, which lives under ``address-family ipv4
 unicast``/``address-family ipv6 unicast`` only in the default VRF:
 
-.. clicmd:: sid export <(1..1048575)|auto|explicit X:X::X:X> [route-map RNAME]
+.. clicmd:: sid export <(1..1048575)|auto|explicit X:X::X:X> [behavior dt46] [route-map RNAME]
 
    Enables a SRv6 SID to be attached to routes in the current unicast
    address-family, received routes that already have a SID attached are ignored.
@@ -3538,8 +3538,35 @@ unicast``/``address-family ipv6 unicast`` only in the default VRF:
    configured or if SID allocation is failed, automatic or explicit SID
    assignment will not complete, which will block corresponding routes SID
    assignment.
+
    If the ``route-map RNAME`` is configured, routes are filtered according to
    its rules.
+
+   By default, the SID behavior is determined by the address-family:
+   **End.DT4** under ``address-family ipv4 unicast`` and **End.DT6** under
+   ``address-family ipv6 unicast``.  For uSID locators, ``uDT4`` and
+   ``uDT6`` are used respectively.
+
+   The optional ``behavior dt46`` keyword overrides this default and requests
+   an **End.DT46** SID (or ``uDT46`` for uSID locators).
+
+   Example — configure both the IPv4 and IPv6 address-families to use a
+   shared End.DT46 SID:
+
+   .. code-block:: frr
+
+      router bgp 65001
+       address-family ipv4 unicast
+        sid export auto behavior dt46
+       exit-address-family
+       address-family ipv6 unicast
+        sid export auto behavior dt46
+       exit-address-family
+      !
+
+   When both address-families specify ``behavior dt46``, the SID Manager
+   allocates a single SID that handles both IPv4 and IPv6 traffic.
+
 
 .. clicmd:: neighbor <X:X::X:X|WORD> <encapsulation-srv6|encapsulation-srv6-relax>
 
