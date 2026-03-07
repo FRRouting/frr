@@ -11,6 +11,8 @@
 #include "lib/log.h"
 #include "lib/northbound_cli.h"
 #include "lib/vty.h"
+#include "lib/termtable.h"
+#include "lib/mgmt_be_client.h"
 
 #include "bfd.h"
 #include "bfd_trace.h"
@@ -1213,6 +1215,43 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+static void _sbfd_reflector_show(struct hash_bucket *hb, void *arg)
+{
+	struct sbfd_reflector *sr = hb->data;
+	struct ttable *tt;
+	char buf[INET6_ADDRSTRLEN];
+
+	tt = (struct ttable *)arg;
+
+	ttable_add_row(tt, "%u|%s|%s|%s", sr->discr,
+		       inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf)), "Active", "Software");
+}
+
+DEFPY(
+	sbfd_reflector_show_info, sbfd_reflector_show_info_cmd,
+	"show sbfd reflector",
+	"show\n"
+	"seamless BFD\n"
+	"sbfd reflector\n")
+{
+	struct ttable *tt;
+	char *out;
+
+	vty_out(vty, "sbfd reflector discriminator :\n");
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "SBFD-Discr|SourceIP|State|CreateType");
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	sbfd_discr_iterate(_sbfd_reflector_show, tt);
+
+	out = ttable_dump(tt, "\n");
+	vty_out(vty, "%s", out);
+	XFREE(MTYPE_TMP_TTABLE, out);
+	ttable_del(tt);
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Function definitions.
  */
@@ -1332,41 +1371,8 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
-static int bfdd_write_config(struct vty *vty);
-struct cmd_node bfd_node = {
-	.name = "bfd",
-	.node = BFD_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-bfd)# ",
-	.config_write = bfdd_write_config,
-};
-
-struct cmd_node bfd_peer_node = {
-	.name = "bfd peer",
-	.node = BFD_PEER_NODE,
-	.parent_node = BFD_NODE,
-	.prompt = "%s(config-bfd-peer)# ",
-};
-
-static void _sbfd_reflector_write_config(struct hash_bucket *hb, void *arg)
+static int config_write_debug(struct vty *vty)
 {
-	struct sbfd_reflector *sr = hb->data;
-	char buf[INET6_ADDRSTRLEN];
-	struct vty *vty;
-
-	vty = (struct vty *)arg;
-	inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf));
-	vty_out(vty, "  sbfd reflector source-address %s discriminator %u\n", buf, sr->discr);
-}
-
-static void sbfd_reflector_write_config(struct vty *vty)
-{
-	sbfd_discr_iterate(_sbfd_reflector_write_config, vty);
-}
-
-static int bfdd_write_config(struct vty *vty)
-{
-	struct lyd_node *dnode;
 	int written = 0;
 
 	if (bglobal.debug_dplane) {
@@ -1389,20 +1395,77 @@ static int bfdd_write_config(struct vty *vty)
 		written = 1;
 	}
 
-	dnode = yang_dnode_get(running_config->dnode, "/frr-bfdd:bfdd");
-	if (dnode) {
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-		written = 1;
-	}
-
-	/*sbfd config*/
-	sbfd_reflector_write_config(vty);
-
 	return written;
 }
 
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
+};
+
+static void bfd_profile_var(vector comps, struct cmd_token *token)
+{
+	extern struct bfdproflist bplist;
+	struct bfd_profile *bp;
+
+	TAILQ_FOREACH (bp, &bplist, entry) {
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, bp->name));
+	}
+}
+
+struct bfd_peer_var_walk_ctx {
+	vector comps;
+	struct cmd_token *token;
+};
+
+static void bfd_peer_var_walker(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_peer_var_walk_ctx *ctx = arg;
+	struct bfd_session *bs = hb->data;
+	char addr_buf[INET6_ADDRSTRLEN];
+	enum cmd_token_type match_type;
+
+	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		return;
+
+	if (bs->key.family == AF_INET)
+		match_type = IPV4_TKN;
+	else if (bs->key.family == AF_INET6)
+		match_type = IPV6_TKN;
+	else
+		return;
+
+	if (ctx->token->type != match_type)
+		return;
+
+	if (inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf)))
+		vector_set(ctx->comps, XSTRDUP(MTYPE_COMPLETION, addr_buf));
+}
+
+static void bfd_peer_var(vector comps, struct cmd_token *token)
+{
+	struct bfd_peer_var_walk_ctx ctx = {
+		.comps = comps,
+		.token = token,
+	};
+
+	bfd_key_iterate(bfd_peer_var_walker, &ctx);
+}
+
+static const struct cmd_variable_handler bfd_vars[] = {
+	{ .varname = "peer", .completions = bfd_peer_var },
+	{ .tokenname = "BFDPROF", .completions = bfd_profile_var },
+	{ .completions = NULL }
+};
+
 void bfdd_vty_init(void)
 {
+	install_node(&debug_node);
+
+	mgmt_be_client_lib_vty_init();
+
 	install_element(ENABLE_NODE, &bfd_show_peers_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_clear_peer_counters_cmd);
@@ -1425,13 +1488,7 @@ void bfdd_vty_init(void)
 	install_element(CONFIG_NODE, &bfd_debug_zebra_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
 
-	/* Install BFD node and commands. */
-	install_node(&bfd_node);
-	install_default(BFD_NODE);
+	install_element(VIEW_NODE, &sbfd_reflector_show_info_cmd);
 
-	/* Install BFD peer node. */
-	install_node(&bfd_peer_node);
-	install_default(BFD_PEER_NODE);
-
-	bfdd_cli_init();
+	cmd_variable_handler_register(bfd_vars);
 }

@@ -31,12 +31,11 @@ import pytest
 import json
 import re
 import time
-import pdb
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -59,25 +58,26 @@ test_sbfd_topo1.py: test simple sbfd with IPv6 encap. RT1 is sbfd Initiator, RT2
 """
 pytestmark = [pytest.mark.bfdd]
 
-def show_bfd_check(router, status, type='echo', encap=None):
+
+def show_bfd_check(router, status, type="echo", encap=None):
     output = router.cmd("vtysh -c 'show bfd peers'")
     if encap:
         # check encap data if any
-        pattern1 = re.compile(r'encap-data {}'.format(encap))
+        pattern1 = re.compile(r"encap-data {}".format(encap))
         ret = pattern1.findall(output)
         if len(ret) <= 0:
             logger.info("encap-data not match")
             return False
 
     # check  status
-    pattern2 = re.compile(r'Status: {}'.format(status))
+    pattern2 = re.compile(r"Status: {}".format(status))
     ret = pattern2.findall(output)
     if len(ret) <= 0:
         logger.info("Status not match")
         return False
 
     # check type
-    pattern3 = re.compile(r'Peer Type: {}'.format(type))
+    pattern3 = re.compile(r"Peer Type: {}".format(type))
     ret = pattern3.findall(output)
     if len(ret) <= 0:
         logger.info("Peer Type not match")
@@ -85,6 +85,7 @@ def show_bfd_check(router, status, type='echo', encap=None):
 
     logger.info("all check passed")
     return True
+
 
 def build_topo(tgen):
     "Test topology builder"
@@ -96,13 +97,14 @@ def build_topo(tgen):
     #
     # Create 2 routers
     for routern in range(1, 3):
-        tgen.add_router('r{}'.format(routern))
+        tgen.add_router("r{}".format(routern))
 
     # Create a switch with just one router connected to it to simulate a
     # empty network.
-    switch = tgen.add_switch('s1')
-    switch.add_link(tgen.gears['r1'])
-    switch.add_link(tgen.gears['r2'])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -117,7 +119,8 @@ def setup_module(mod):
     for rname, router in router_list.items():
         router.load_frr_config(
             os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BFD, None)])
+            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BFD, None)],
+        )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
@@ -126,9 +129,10 @@ def setup_module(mod):
     # daemon exists.
     for router in router_list.values():
         # Check for Version
-        if router.has_version('<', '5.1'):
-            tgen.set_error('Unsupported FRR version')
+        if router.has_version("<", "5.1"):
+            tgen.set_error("Unsupported FRR version")
             break
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -150,18 +154,21 @@ def test_sbfd_config_check():
         pytest.skip(tgen.errors)
 
     # config sbfd
-    r1 = tgen.net['r1']
+    r1 = tgen.net["r1"]
     check_ping("r1", "2001::20", True, 10, 1)
-    r1.cmd("vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'")
-
-    r2 = tgen.net['r2']
-    r2.cmd("vtysh -c 'config t' -c 'bfd' -c 'sbfd reflector source-address 2001::20 discriminator 1234'")
-
-    check_func = partial(
-        show_bfd_check, r1, 'up', type='sbfd initiator'
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'"
     )
+
+    r2 = tgen.net["r2"]
+    r2.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'sbfd reflector source-address 2001::20 discriminator 1234'"
+    )
+
+    check_func = partial(show_bfd_check, r1, "up", type="sbfd initiator")
     success, _ = topotest.run_and_expect(check_func, True, count=15, wait=1)
     assert success is True, "sbfd not up in 15 seconds"
+
 
 # step 2: shutdown if and no shutdown if then check sbfd status
 def test_sbfd_updown_interface():
@@ -175,25 +182,22 @@ def test_sbfd_updown_interface():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    r1 = tgen.net['r1']
-    r2 = tgen.net['r2']
+    r1 = tgen.net["r1"]
+    r2 = tgen.net["r2"]
 
     # shutdown interface
     r2.cmd("vtysh -c 'config t' -c 'interface r2-eth0' -c 'shutdown'")
 
-    check_func = partial(
-        show_bfd_check, r1, 'down', type='sbfd initiator'
-    )
+    check_func = partial(show_bfd_check, r1, "down", type="sbfd initiator")
     success, _ = topotest.run_and_expect(check_func, True, count=15, wait=1)
     assert success is True, "sbfd not down in 15 seconds after shut"
 
     # up interface
     r2.cmd("vtysh -c 'config t' -c 'interface r2-eth0' -c 'no shutdown'")
-    check_func = partial(
-        show_bfd_check, r1, 'up', type='sbfd initiator'
-    )
+    check_func = partial(show_bfd_check, r1, "up", type="sbfd initiator")
     success, _ = topotest.run_and_expect(check_func, True, count=15, wait=1)
     assert success is True, "sbfd not up in 15 seconds after no shut"
+
 
 # step 3: change transmit-interval and check sbfd status according to the interval time
 def test_sbfd_change_transmit_interval():
@@ -207,43 +211,192 @@ def test_sbfd_change_transmit_interval():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    r1 = tgen.net['r1']
-    r2 = tgen.net['r2']
+    r1 = tgen.net["r1"]
+    r2 = tgen.net["r2"]
 
-    r1.cmd("vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234' -c 'transmit-interval 3000'")
-    #wait sometime for polling finish
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234' -c 'transmit-interval 3000'"
+    )
+    # wait sometime for polling finish
     time.sleep(1)
 
     # shutdown interface
     r2.cmd("vtysh -c 'config t' -c 'interface r2-eth0' -c 'shutdown'")
 
-    #wait enough time for timeout
-    check_func = partial(
-        show_bfd_check, r1, 'down', type='sbfd initiator'
-    )
+    # wait enough time for timeout
+    check_func = partial(show_bfd_check, r1, "down", type="sbfd initiator")
     success, _ = topotest.run_and_expect(check_func, True, count=5, wait=3)
     assert success is True, "sbfd not down as expected"
 
     r2.cmd("vtysh -c 'config t' -c 'interface r2-eth0' -c 'no shutdown'")
-    check_func = partial(
-        show_bfd_check, r1, 'up', type='sbfd initiator'
-    )
+    check_func = partial(show_bfd_check, r1, "up", type="sbfd initiator")
     success, _ = topotest.run_and_expect(check_func, True, count=15, wait=1)
     assert success is True, "sbfd not up in 15 seconds after no shut"
 
-    r1.cmd("vtysh -c 'config t' -c 'bfd' -c 'no peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'")
-    success = show_bfd_check(r1, 'up', type='sbfd initiator')
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'no peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'"
+    )
+    success = show_bfd_check(r1, "up", type="sbfd initiator")
     assert success is False, "sbfd not deleted as unexpected"
+
+
+# step 4: verify reflector running-config is generated via YANG cli_show
+def test_sbfd_reflector_running_config():
+    "Assert reflector appears in running-config (YANG cli_show validation)."
+    result = required_linux_kernel_version("4.5")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.net["r2"]
+
+    # The reflector created in step 1 should still be present
+    output = r2.cmd("vtysh -c 'show running-config'")
+    assert (
+        "sbfd reflector source-address 2001::20 discriminator 1234" in output
+    ), "reflector not found in running-config: {}".format(output)
+
+
+# step 5: create additional reflectors, verify, then delete
+def test_sbfd_reflector_create_delete():
+    "Assert creating and deleting individual reflectors works via YANG."
+    result = required_linux_kernel_version("4.5")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.net["r2"]
+
+    # Create a second reflector
+    r2.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'sbfd reflector source-address 2001::20 discriminator 5678'"
+    )
+
+    def check_both_reflectors(router):
+        output = router.cmd("vtysh -c 'show running-config'")
+        return "discriminator 1234" in output and "discriminator 5678" in output
+
+    success, _ = topotest.run_and_expect(
+        partial(check_both_reflectors, r2), True, count=20, wait=1
+    )
+    assert success is True, "reflectors 1234 and 5678 not both in running-config"
+
+    # Delete reflector 5678
+    r2.cmd("vtysh -c 'config t' -c 'bfd' -c 'no sbfd reflector 5678'")
+
+    def check_only_1234(router):
+        output = router.cmd("vtysh -c 'show running-config'")
+        return "discriminator 1234" in output and "discriminator 5678" not in output
+
+    success, _ = topotest.run_and_expect(
+        partial(check_only_1234, r2), True, count=20, wait=1
+    )
+    assert success is True, "reflector 5678 should be gone, 1234 should remain"
+
+
+# step 6: delete all reflectors, verify SBFD session goes down
+def test_sbfd_reflector_delete_all():
+    "Assert 'no sbfd reflector' removes all reflectors."
+    result = required_linux_kernel_version("4.5")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.net["r1"]
+    r2 = tgen.net["r2"]
+
+    # Re-create initiator so we can observe it going down
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'"
+    )
+    check_func = partial(show_bfd_check, r1, "up", type="sbfd initiator")
+    success, _ = topotest.run_and_expect(check_func, True, count=20, wait=1)
+    assert success is True, "sbfd not up before reflector delete-all test"
+
+    # Delete all reflectors on r2
+    r2.cmd("vtysh -c 'config t' -c 'bfd' -c 'no sbfd reflector'")
+
+    def check_no_reflectors(router):
+        output = router.cmd("vtysh -c 'show running-config'")
+        return "sbfd reflector" not in output
+
+    success, _ = topotest.run_and_expect(
+        partial(check_no_reflectors, r2), True, count=20, wait=1
+    )
+    assert success is True, "reflectors should be gone after 'no sbfd reflector'"
+
+    # Initiator should go down since reflector is gone
+    check_func = partial(show_bfd_check, r1, "down", type="sbfd initiator")
+    success, _ = topotest.run_and_expect(check_func, True, count=20, wait=1)
+    assert success is True, "sbfd should be down after all reflectors removed"
+
+    # Cleanup: remove initiator
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'no peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'"
+    )
+
+
+# step 7: verify show sbfd reflector command
+def test_sbfd_show_reflector():
+    "Assert 'show sbfd reflector' displays reflector info."
+    result = required_linux_kernel_version("4.5")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.net["r2"]
+
+    # Create a reflector
+    r2.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'sbfd reflector source-address 2001::20 discriminator 9999'"
+    )
+
+    def check_reflector_present(router):
+        output = router.cmd("vtysh -c 'show sbfd reflector'")
+        return "9999" in output and "2001::20" in output
+
+    success, _ = topotest.run_and_expect(
+        partial(check_reflector_present, r2), True, count=20, wait=1
+    )
+    assert success is True, "discriminator 9999 not found in 'show sbfd reflector'"
+
+    # Cleanup
+    r2.cmd("vtysh -c 'config t' -c 'bfd' -c 'no sbfd reflector 9999'")
+
+    def check_reflector_gone(router):
+        output = router.cmd("vtysh -c 'show sbfd reflector'")
+        return "9999" not in output
+
+    success, _ = topotest.run_and_expect(
+        partial(check_reflector_gone, r2), True, count=20, wait=1
+    )
+    assert (
+        success is True
+    ), "discriminator 9999 should be gone from 'show sbfd reflector'"
+
 
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

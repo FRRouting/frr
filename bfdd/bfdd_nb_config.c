@@ -1002,6 +1002,17 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (echo && !bglobal.bg_use_dplane) {
+#ifdef BFD_LINUX
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.");
+#else
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Current implementation of echo mode works only when the peer is also FRR.");
+#endif
+		}
+		return NB_OK;
+
 	case NB_EV_PREPARE:
 		return NB_OK;
 
@@ -1222,6 +1233,51 @@ int bfdd_bfd_sessions_sbfd_multi_hop_modify(struct nb_cb_modify_args *args)
 }
 
 int bfdd_bfd_sessions_sbfd_multi_hop_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sbfd-reflector
+ */
+int bfdd_bfd_sbfd_reflector_create(struct nb_cb_create_args *args)
+{
+	struct sbfd_reflector *sr;
+	uint32_t discr;
+	struct in6_addr srcip;
+	const char *srcip_str;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	discr = yang_dnode_get_uint32(args->dnode, "discriminator");
+	srcip_str = yang_dnode_get_string(args->dnode, "source-address");
+	inet_pton(AF_INET6, srcip_str, &srcip);
+
+	sr = sbfd_reflector_new(discr, &srcip);
+	nb_running_set_entry(args->dnode, sr);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sbfd_reflector_destroy(struct nb_cb_destroy_args *args)
+{
+	uint32_t discr;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	nb_running_unset_entry(args->dnode);
+	discr = yang_dnode_get_uint32(args->dnode, "discriminator");
+	sbfd_reflector_free(discr);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sbfd-reflector/source-address
+ */
+int bfdd_bfd_sbfd_reflector_source_address_modify(struct nb_cb_modify_args *args)
 {
 	return NB_OK;
 }

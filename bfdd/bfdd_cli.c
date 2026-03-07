@@ -885,16 +885,6 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!no && !bglobal.bg_use_dplane) {
-#ifdef BFD_LINUX
-		vty_out(vty,
-			"%% Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.\n");
-#else
-		vty_out(vty,
-			"%% Current implementation of echo mode works only when the peer is also FRR.\n");
-#endif /* BFD_LINUX */
-	}
-
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -1134,11 +1124,23 @@ DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+static void sbfd_reflector_enqueue_create(struct vty *vty, uint32_t discr, const char *srcip_str)
+{
+	char xpath[XPATH_MAXLEN], xpath_sa[XPATH_MAXLEN + 32];
+
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+		 discr);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_sa, sizeof(xpath_sa), "%s/source-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_sa, NB_OP_MODIFY, srcip_str);
+}
+
+DEFPY_YANG(
 	sbfd_reflector, sbfd_reflector_cmd,
 	"sbfd reflector source-address X:X::X:X$srcip discriminator WORD...",
-    "seamless BFD\n"
-    "sbfd reflector\n"
+	"seamless BFD\n"
+	"sbfd reflector\n"
 	"binding source ip address\n"
 	IPV6_STR
 	"discriminator\n"
@@ -1147,26 +1149,22 @@ DEFPY(
 	int idx_discr = 5;
 	int i;
 	uint32_t j;
-	uint32_t discr = 0;
-	uint32_t discr_from = 0;
-	uint32_t discr_to = 0;
+	uint32_t discr_from, discr_to;
+	char range_buf[64];
 
 	for (i = idx_discr; i < argc; i++) {
-		/* check validity*/
-		char *pstr = argv[i]->arg;
+		const char *pstr = argv[i]->arg;
 
-		/*single discr*/
 		if (strspn(pstr, "0123456789") == strlen(pstr)) {
-			discr = atol(pstr);
-			sbfd_reflector_new(discr, &srcip);
-		}
-		/*discr segment*/
-		else if (strspn(pstr, "0123456789-") == strlen(pstr)) {
-			char *token = strtok(argv[i]->arg, "-");
+			sbfd_reflector_enqueue_create(vty, atol(pstr), srcip_str);
+		} else if (strspn(pstr, "0123456789-") == strlen(pstr)) {
+			strlcpy(range_buf, pstr, sizeof(range_buf));
+			char *token = strtok(range_buf, "-");
 
+			discr_from = 0;
+			discr_to = 0;
 			if (token)
 				discr_from = atol(token);
-
 			token = strtok(NULL, "-");
 			if (token)
 				discr_to = atol(token);
@@ -1174,38 +1172,50 @@ DEFPY(
 			if (discr_from >= discr_to) {
 				vty_out(vty, "input discriminator range %u-%u is illegal\n",
 					discr_from, discr_to);
+				continue;
 			}
 
 			for (j = discr_from; j <= discr_to; j++)
-				sbfd_reflector_new(j, &srcip);
-		}
-		/*illegal input*/
-		else
-			vty_out(vty, "input discriminator %s is illegal\n", (char *)argv[i]);
+				sbfd_reflector_enqueue_create(vty, j, srcip_str);
+		} else
+			vty_out(vty, "input discriminator %s is illegal\n", argv[i]->arg);
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+static int reflector_del_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = arg;
+	char xpath[XPATH_MAXLEN];
+	uint32_t discr;
+
+	discr = yang_dnode_get_uint32(dnode, "discriminator");
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+		 discr);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return YANG_ITER_CONTINUE;
+}
+
+DEFPY_YANG(
 	no_sbfd_reflector_all, no_sbfd_reflector_all_cmd,
 	"no sbfd reflector [all]",
 	NO_STR
-    "seamless BFD\n"
-    "sbfd reflector\n"
+	"seamless BFD\n"
+	"sbfd reflector\n"
 	"all\n")
 {
-	sbfd_reflector_flush();
+	const struct lyd_node *dnode;
 
-	if (sbfd_discr_get_count()) {
-		vty_out(vty, "delete all reflector discriminator failed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	dnode = yang_dnode_get(vty->candidate_config->dnode, "/frr-bfdd:bfdd/bfd");
+	if (dnode)
+		yang_dnode_iterate(reflector_del_iter_cb, vty, dnode, "./sbfd-reflector");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_sbfd_reflector, no_sbfd_reflector_cmd,
 	"no sbfd reflector (0-4294967295)$start_discr [(0-4294967295)$end_discr]",
 	NO_STR
@@ -1214,8 +1224,8 @@ DEFPY(
 	"start discriminator\n"
 	"end discriminator\n")
 {
-	struct sbfd_reflector *sr;
-	int32_t i;
+	char xpath[XPATH_MAXLEN];
+	uint32_t i;
 
 	if (end_discr == 0) {
 		if (start_discr == 0) {
@@ -1223,76 +1233,54 @@ DEFPY(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		sr = sbfd_discr_lookup(start_discr);
-		if (!sr) {
-			vty_out(vty, "input reflector discriminator does not exist.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		// notify bfdsyncd
-		//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-		sbfd_reflector_free(start_discr);
-
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']",
+			 (uint32_t)start_discr);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	} else {
 		if (end_discr <= start_discr) {
 			vty_out(vty, "input reflector discriminator is illegal.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		for (i = start_discr; i <= end_discr; i++) {
-			sr = sbfd_discr_lookup(i);
-			if (sr) {
-				// notify bfdsyncd
-				//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-				sbfd_reflector_free(i);
-			}
+		for (i = (uint32_t)start_discr; i <= (uint32_t)end_discr; i++) {
+			snprintf(xpath, sizeof(xpath),
+				 "/frr-bfdd:bfdd/bfd/sbfd-reflector[discriminator='%u']", i);
+			if (!yang_dnode_exists(vty->candidate_config->dnode, xpath))
+				continue;
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		}
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void _sbfd_reflector_show(struct hash_bucket *hb, void *arg)
-{
-	struct sbfd_reflector *sr = hb->data;
-	struct ttable *tt;
-	char buf[INET6_ADDRSTRLEN];
-
-	tt = (struct ttable *)arg;
-
-	ttable_add_row(tt, "%u|%s|%s|%s", sr->discr,
-		       inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf)), "Active", "Software");
-}
-
-DEFPY(
-	sbfd_reflector_show_info, sbfd_reflector_show_info_cmd,
-	"show sbfd reflector",
-	"show\n"
-    "seamless BFD\n"
-    "sbfd reflector\n")
-{
-	struct ttable *tt;
-	char *out;
-
-	vty_out(vty, "sbfd reflector discriminator :\n");
-	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "SBFD-Discr|SourceIP|State|CreateType");
-	ttable_rowseps(tt, 0, BOTTOM, true, '-');
-
-	sbfd_discr_iterate(_sbfd_reflector_show, tt);
-
-	out = ttable_dump(tt, "\n");
-	vty_out(vty, "%s", out);
-	XFREE(MTYPE_TMP_TTABLE, out);
-	ttable_del(tt);
-
-	return CMD_SUCCESS;
-}
 void bfd_cli_peer_profile_show(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, "  profile %s\n", yang_dnode_get_string(dnode, NULL));
 }
+
+void bfd_cli_show_sbfd_reflector(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " sbfd reflector source-address %s discriminator %u\n",
+		yang_dnode_get_string(dnode, "source-address"),
+		yang_dnode_get_uint32(dnode, "discriminator"));
+}
+
+struct cmd_node bfd_node = {
+	.name = "bfd",
+	.node = BFD_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-bfd)# ",
+};
+
+struct cmd_node bfd_peer_node = {
+	.name = "bfd peer",
+	.node = BFD_PEER_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-peer)# ",
+};
 
 struct cmd_node bfd_profile_node = {
 	.name = "bfd profile",
@@ -1301,64 +1289,15 @@ struct cmd_node bfd_profile_node = {
 	.prompt = "%s(config-bfd-profile)# ",
 };
 
-static void bfd_profile_var(vector comps, struct cmd_token *token)
-{
-	extern struct bfdproflist bplist;
-	struct bfd_profile *bp;
-
-	TAILQ_FOREACH (bp, &bplist, entry) {
-		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, bp->name));
-	}
-}
-
-struct bfd_peer_var_walk_ctx {
-	vector comps;
-	struct cmd_token *token;
-};
-
-static void bfd_peer_var_walker(struct hash_bucket *hb, void *arg)
-{
-	struct bfd_peer_var_walk_ctx *ctx = arg;
-	struct bfd_session *bs = hb->data;
-	char addr_buf[INET6_ADDRSTRLEN];
-	enum cmd_token_type match_type;
-
-	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
-		return;
-
-	if (bs->key.family == AF_INET)
-		match_type = IPV4_TKN;
-	else if (bs->key.family == AF_INET6)
-		match_type = IPV6_TKN;
-	else
-		return;
-
-	if (ctx->token->type != match_type)
-		return;
-
-	if (inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf)))
-		vector_set(ctx->comps, XSTRDUP(MTYPE_COMPLETION, addr_buf));
-}
-
-static void bfd_peer_var(vector comps, struct cmd_token *token)
-{
-	struct bfd_peer_var_walk_ctx ctx = {
-		.comps = comps,
-		.token = token,
-	};
-
-	bfd_key_iterate(bfd_peer_var_walker, &ctx);
-}
-
-static const struct cmd_variable_handler bfd_vars[] = {
-	{ .varname = "peer", .completions = bfd_peer_var },
-	{ .tokenname = "BFDPROF", .completions = bfd_profile_var },
-	{ .completions = NULL }
-};
-
 void
 bfdd_cli_init(void)
 {
+	install_node(&bfd_node);
+	install_default(BFD_NODE);
+
+	install_node(&bfd_peer_node);
+	install_default(BFD_PEER_NODE);
+
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(CONFIG_NODE, &bfd_config_reset_cmd);
 
@@ -1376,7 +1315,7 @@ bfdd_cli_init(void)
 	install_element(BFD_NODE, &sbfd_reflector_cmd);
 	install_element(BFD_NODE, &no_sbfd_reflector_all_cmd);
 	install_element(BFD_NODE, &no_sbfd_reflector_cmd);
-	install_element(VIEW_NODE, &sbfd_reflector_show_info_cmd);
+
 	install_element(BFD_PEER_NODE, &bfd_peer_shutdown_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_mult_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_rx_cmd);
@@ -1392,8 +1331,6 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &no_bfd_peer_minimum_ttl_cmd);
 
 	/* Profile commands. */
-	cmd_variable_handler_register(bfd_vars);
-
 	install_node(&bfd_profile_node);
 	install_default(BFD_PROFILE_NODE);
 
@@ -1413,3 +1350,233 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
 }
+
+/* clang-format off */
+const struct frr_yang_module_info frr_bfdd_cli_info = {
+	.name = "frr-bfdd",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd",
+			.cbs.cli_show = bfd_cli_show_header,
+			.cbs.cli_show_end = bfd_cli_show_header_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile",
+			.cbs.cli_show = bfd_cli_show_profile,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/echo-mode",
+			.cbs.cli_show = bfd_cli_show_echo,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop",
+			.cbs.cli_show = bfd_cli_show_single_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/echo-mode",
+			.cbs.cli_show = bfd_cli_show_echo,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop",
+			.cbs.cli_show = bfd_cli_show_multi_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo",
+			.cbs.cli_show = bfd_cli_show_sbfd_echo_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/desired-echo-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/required-echo-receive-interval",
+			.cbs.cli_show = bfd_cli_show_required_echo_receive_interval,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init",
+			.cbs.cli_show = bfd_cli_show_sbfd_init_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/profile",
+			.cbs.cli_show = bfd_cli_peer_profile_show,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/detection-multiplier",
+			.cbs.cli_show = bfd_cli_show_mult,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/desired-transmission-interval",
+			.cbs.cli_show = bfd_cli_show_tx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/required-receive-interval",
+			.cbs.cli_show = bfd_cli_show_rx,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/administrative-down",
+			.cbs.cli_show = bfd_cli_show_shutdown,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/passive-mode",
+			.cbs.cli_show = bfd_cli_show_passive,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/log-session-changes",
+			.cbs.cli_show = bfd_cli_show_log_session_changes,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/minimum-ttl",
+			.cbs.cli_show = bfd_cli_show_minimum_ttl,
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sbfd-reflector",
+			.cbs.cli_show = bfd_cli_show_sbfd_reflector,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+/* clang-format on */
