@@ -23,6 +23,10 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ke
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_keep_alive_timer_modify(
 	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_gm_watermark_limit_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_gm_watermark_limit_destroy(
+	struct nb_cb_destroy_args *args);
 int pim_address_family_create(struct nb_cb_create_args *args);
 int pim_address_family_destroy(struct nb_cb_destroy_args *args);
 int pim_address_family_packets_modify(struct nb_cb_modify_args *args);
