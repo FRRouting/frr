@@ -19,6 +19,14 @@
 #include "northbound_db.h"
 #include "frr_pthread.h"
 
+extern "C" {
+#include "mgmt_defines.h"
+#include "mgmt_msg_native.h"
+#include "mgmtd/mgmt_grpc_internal.h"
+}
+/* Resolved at load time when grpc.so is loaded by mgmtd (undefined in other daemons) */
+extern "C" struct mgmt_master *mm;
+
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -436,10 +444,59 @@ static struct lyd_node *get_dnode_state(const std::string &path)
 	return dnode;
 }
 
+/*
+ * Try to fulfill Get(CONFIG) via mgmtd internal API (when grpc.so is loaded
+ * by mgmtd). Returns true if the response was filled in dt and the caller
+ * should return OK; false to fall through to get_dnode_config path.
+ */
+static bool get_config_via_mgmtd_internal(frr::DataTree *dt,
+					  const std::string &path,
+					  LYD_FORMAT lyd_format,
+					  bool with_defaults)
+{
+	uint32_t wd = with_defaults ? LYD_PRINT_WD_ALL : LYD_PRINT_WD_TRIM;
+	uint8_t *lyb = NULL;
+	size_t len = 0;
+	struct lyd_node *dnode = NULL;
+	uint32_t parse_opts = LYD_PARSE_ONLY;
+	LY_ERR err;
+
+	if (mgmt_grpc_get_tree_internal(mm, MGMTD_DS_RUNNING,
+					 path.empty() ? "/" : path.c_str(),
+					 GET_DATA_FLAG_CONFIG, wd, LYD_LYB,
+					 &lyb, &len) != 0 || !lyb || len == 0)
+		goto fallback;
+
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+	parse_opts |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+	err = lyd_parse_data_mem(ly_native_ctx, (const char *)lyb, LYD_LYB,
+				 parse_opts, 0, &dnode);
+	XFREE(MTYPE_TMP, lyb);
+	if (err != LY_SUCCESS || !dnode)
+		goto fallback;
+
+	err = data_tree_from_dnode(dt, dnode, lyd_format, with_defaults);
+	yang_dnode_free(dnode);
+	if (err)
+		return false;
+	return true;
+
+fallback:
+	if (lyb)
+		XFREE(MTYPE_TMP, lyb);
+	return false;
+}
+
 static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 			     int type, LYD_FORMAT lyd_format,
 			     bool with_defaults)
 {
+	/* When loaded by mgmtd, use direct internal API for CONFIG. */
+	if (type == frr::GetRequest_DataType_CONFIG && mm &&
+	    get_config_via_mgmtd_internal(dt, path, lyd_format, with_defaults))
+		return grpc::Status::OK;
+
 	struct lyd_node *dnode_config = NULL;
 	struct lyd_node *dnode_state = NULL;
 	struct lyd_node *dnode_final;
