@@ -11624,6 +11624,10 @@ DEFUN (show_ip_ospf_route,
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
+	/* Display header information */
+	if (!uj)
+		vty_out(vty, "%s", SHOW_OSPF_ROUTE_HEADER);
+
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		bool ospf_output = false;
