@@ -1836,7 +1836,30 @@ Configuring Peers
    If ``force`` is set, then ALL prefixes are counted for maximum instead of
    accepted only. This is useful for cases where an inbound filter is applied,
    but you want maximum-prefix to act on ALL (including filtered) prefixes. This
-   option requires `soft-reconfiguration inbound` to be enabled for the peer.
+   option requires :clicmd:`neighbor PEER soft-reconfiguration inbound` to be enabled for the peer.
+
+.. clicmd:: neighbor PEER soft-reconfiguration inbound
+
+   Allow inbound soft reconfiguration for this peer. Normally, route changes
+   from a peer require a full BGP session reset (hard reset) to take effect
+   when inbound policy is changed. This command stores all received route
+   updates (including those that are rejected by inbound policy) in an
+   unmodified form, allowing the routes to be re-evaluated when inbound policy
+   changes without tearing down the BGP session.
+
+   When this option is enabled, the router maintains a separate Adj-RIB-In
+   table for the peer, which uses additional memory. With this table, the
+   ``clear bgp PEER soft in`` command can be used to apply new inbound policies
+   without resetting the session.
+
+   .. note::
+
+      If both peers support the route-refresh capability, a soft
+      reconfiguration can be performed without this option by using
+      ``clear bgp PEER in``. However, ``soft-reconfiguration inbound``
+      is still needed if you want to use features such as
+      ``maximum-prefix ... force`` that need to count all received prefixes
+      (including filtered ones).
 
 .. clicmd:: neighbor PEER maximum-prefix-out NUMBER
 
