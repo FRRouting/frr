@@ -74,6 +74,7 @@ struct ospf_neighbor {
 	const char *last_regress_str;    /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
+	uint64_t dead_timer_resets;      /* Number of times dead-timer was reset RFC4222 rec 2*/
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

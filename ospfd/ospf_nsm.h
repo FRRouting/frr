@@ -52,6 +52,7 @@
 	event_execute(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Prototypes. */
+extern void ospf_nsm_restart_inactivity_timer(struct ospf_neighbor *nbr);
 extern void ospf_nsm_event(struct event *e);
 extern void ospf_check_nbr_loading(struct ospf_neighbor *nbr);
 extern int ospf_db_summary_isempty(struct ospf_neighbor *nbr);

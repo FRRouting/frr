@@ -296,6 +296,37 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
+static void ospf_maybe_restart_inactivity(struct ospf_interface *oi, struct ospf_neighbor *nbr,
+					  const struct ip *iph)
+{
+	in_addr_t dst;
+
+	if (!nbr)
+		return;
+
+	/* Only apply when configured */
+	if (!OSPF_IF_PARAM(oi, dead_timer_any))
+		return;
+
+	/* Only once the neighbor is at or beyond 2-Way */
+	if (nbr->state < NSM_TwoWay)
+		return;
+
+	dst = ntohl(iph->ip_dst.s_addr);
+
+	/* Any unicast OSPF packet */
+	bool is_unicast = !IN_MULTICAST(dst);
+
+	/* Any OSPF packet to AllSPFRouters over a point-to-point link */
+	bool is_p2p_allspf = (oi->type == OSPF_IFTYPE_POINTOPOINT &&
+			      dst == OSPF_ALLSPFROUTERS); /* 224.0.0.5 in host order */
+
+	if (is_unicast || is_p2p_allspf) {
+		ospf_nsm_restart_inactivity_timer(nbr);
+		nbr->dead_timer_resets++;
+	}
+}
+
 /*
  * OSPF neighbor link state retransmission timer handler. Unicast
  * unacknowledged LSAs to the neighbors.
@@ -384,6 +415,44 @@ void ospf_ls_ack_delayed_timer(struct event *event)
 	if (ospf_lsa_list_count(&oi->ls_ack_delayed))
 		ospf_ls_ack_send_delayed(oi);
 }
+/* RFC4222 Helpers */
+
+/* Unused helper - could be used to preserve ECN bits if needed in future */
+/*
+static inline uint8_t dscp_to_tos(uint8_t dscp, uint8_t old_tos)
+{
+	dscp &= 0x3f;
+	return (uint8_t)((dscp << 2) | (old_tos & 0x03));
+}
+*/
+
+static inline uint8_t ospf_tos_for_type(struct ospf_interface *oi, uint8_t type)
+{
+	uint8_t dscp;
+
+	switch (type) {
+	case OSPF_MSG_HELLO:
+	case OSPF_MSG_LS_ACK:
+		/* Always highest priority */
+		dscp = OSPF_IF_PARAM(oi, dscp_ospf_all);
+		break;
+
+	case OSPF_MSG_DB_DESC:
+	case OSPF_MSG_LS_REQ:
+	case OSPF_MSG_LS_UPD:
+		/* Bulk control traffic: low control */
+		dscp = OSPF_IF_PARAM(oi, dscp_low_control);
+		break;
+
+	default:
+		dscp = OSPF_IF_PARAM(oi, dscp_low_control);
+		break;
+	}
+
+	dscp &= 0x3f;		     /* clamp to 6 bits */
+	return (uint8_t)(dscp << 2); /* DSCP in bits 7..2, ECN = 0 */
+}
+
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
@@ -562,7 +631,8 @@ static void ospf_write(struct event *event)
 					overflow ip_hl.. */
 
 		iph.ip_v = IPVERSION;
-		iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
+		/* RFC4222 allow Hellos to have higher priority */
+		iph.ip_tos = ospf_tos_for_type(oi, type);
 		iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
 
 #if defined(__DragonFly__)
@@ -1228,6 +1298,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 			ntohl(dd->dd_seqnum), nbr->dd_seqnum);
 
+	/* 
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Process DD packet by neighbor status. */
 	switch (nbr->state) {
 	case NSM_Down:
@@ -1474,6 +1549,11 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		return;
 	}
 
+	/* 
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Send Link State Update for ALL requested LSAs. */
 	ls_upd = list_new();
 	length = OSPF_HEADER_SIZE + OSPF_LS_UPD_MIN_SIZE;
@@ -1717,6 +1797,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					   NULL));
 		return;
 	}
+	/* 
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 
 	/* Get list of LSAs from Link State Update packet. - Also performs
 	 * Stages 1 (validate LSA checksum) and 2 (check for LSA consistent
@@ -2106,6 +2191,12 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 					   NULL));
 		return;
 	}
+	/* 
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
+
 
 	while (size >= OSPF_LSA_HEADER_SIZE) {
 		struct ospf_lsa *lsa, *lsr;

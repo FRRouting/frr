@@ -94,6 +94,7 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
 	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
 
+	nbr->dead_timer_resets = 0;    /* rfc 4222 rec 2 */
 	return nbr;
 }
 
