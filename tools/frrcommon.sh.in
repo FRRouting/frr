@@ -219,11 +219,17 @@ daemon_stop() {
 
 	debug "kill -2 $pid"
 	kill -2 "$pid"
-	cnt=1200
+	cnt=600
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
 		[ $(( cnt -= 1 )) -gt 0 ] || break
 	done
+	if kill -0 "$pid" 2>/dev/null; then
+		[ "$2" = "--quiet" ] || log_failure_msg "Failed to stop $dmninst, sending SIGKILL"
+		debug "kill -9 $pid"
+		kill -9 "$pid"
+		sleep .1
+	fi
 	if kill -0 "$pid" 2>/dev/null; then
 		[ "$2" = "--quiet" ] || log_failure_msg "Failed to stop $dmninst, pid $pid still running"
 		still_running=1
