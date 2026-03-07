@@ -2123,6 +2123,10 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		} else
 			peer->af_sflags[afi][safi] = 0;
 
+		/* Reset SNMP prefix counters */
+		peer->pwithdraw_cnt[afi][safi] = 0;
+		peer->psuppressed_cnt[afi][safi] = 0;
+
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
 
