@@ -132,6 +132,8 @@ const char *afi2str_lower(afi_t afi)
 		return "ipv6";
 	case AFI_L2VPN:
 		return "l2vpn";
+	case AFI_BGP_LS:
+		return "bgp-ls";
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		return "bad-value";
@@ -150,6 +152,8 @@ const char *afi2str(afi_t afi)
 		return "IPv6";
 	case AFI_L2VPN:
 		return "l2vpn";
+	case AFI_BGP_LS:
+		return "BGP-LS";
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		return "bad-value";
@@ -176,6 +180,8 @@ const char *safi2str(safi_t safi)
 		return "labeled-unicast";
 	case SAFI_FLOWSPEC:
 		return "flowspec";
+	case SAFI_BGP_LS:
+		return "bgp-ls";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";

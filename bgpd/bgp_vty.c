@@ -174,6 +174,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV4_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV4_NODE;
+		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -194,6 +195,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV6_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV6_NODE;
+		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -204,6 +206,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		break;
 	case AFI_L2VPN:
 		return BGP_EVPN_NODE;
+	case AFI_BGP_LS:
+		return BGP_LS_NODE;
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		// We should never be here but to clarify the switch statement..
@@ -245,6 +249,9 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "L2VPN EVPN";
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			return "Link-State Link-State";
 	}
 
 	return "Unknown";
@@ -287,6 +294,9 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "l2VpnEvpn";
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			return "linkState";
 	}
 
 	return "Unknown";
@@ -442,6 +452,9 @@ afi_t bgp_node_afi(struct vty *vty)
 	case BGP_EVPN_NODE:
 		afi = AFI_L2VPN;
 		break;
+	case BGP_LS_NODE:
+		afi = AFI_BGP_LS;
+		break;
 	default:
 		afi = AFI_IP;
 		break;
@@ -473,6 +486,9 @@ safi_t bgp_node_safi(struct vty *vty)
 	case BGP_FLOWSPECV4_NODE:
 	case BGP_FLOWSPECV6_NODE:
 		safi = SAFI_FLOWSPEC;
+		break;
+	case BGP_LS_NODE:
+		safi = SAFI_BGP_LS;
 		break;
 	default:
 		safi = SAFI_UNICAST;
@@ -604,6 +620,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv4-flowspec";
+		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -624,6 +641,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv6-flowspec";
+		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -634,12 +652,29 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return "l2vpn-evpn";
+		case SAFI_BGP_LS:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_MPLS_VPN:
 		case SAFI_ENCAP:
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			return "unknown-afi/safi";
+		}
+		break;
+	case AFI_BGP_LS:
+		switch (safi) {
+		case SAFI_BGP_LS:
+			return "link-state";
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_FLOWSPEC:
+		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -11445,6 +11480,18 @@ DEFUN_NOSH (address_family_evpn,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH(address_family_link_state,
+	address_family_link_state_cmd,
+	"address-family link-state [link-state]",
+	"Enter Address Family command mode\n"
+	"Link-State Address Family\n"
+	"Link-State Subsequent Address Family\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	vty->node = BGP_LS_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (bgp_segment_routing_srv6,
             bgp_segment_routing_srv6_cmd,
             "segment-routing srv6",
@@ -11683,7 +11730,8 @@ DEFUN_NOSH (exit_address_family,
 	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_VPNV6_NODE
 	    || vty->node == BGP_EVPN_NODE
 	    || vty->node == BGP_FLOWSPECV4_NODE
-	    || vty->node == BGP_FLOWSPECV6_NODE)
+	    || vty->node == BGP_FLOWSPECV6_NODE
+	    || vty->node == BGP_LS_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -20482,6 +20530,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			vty_frame(vty, "l2vpn evpn");
+	} else if (afi == AFI_BGP_LS) {
+		if (safi == SAFI_BGP_LS)
+			vty_frame(vty, "link-state link-state");
 	}
 	vty_frame(vty, "\n");
 
@@ -21145,6 +21196,9 @@ int bgp_config_write(struct vty *vty)
 		/* EVPN configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
 
+		/* BGP-LS configuration.  */
+		bgp_config_write_family(vty, bgp, AFI_BGP_LS, SAFI_BGP_LS);
+
 		hook_call(bgp_inst_config_write, bgp, vty);
 
 #ifdef ENABLE_BGP_VNC
@@ -21267,6 +21321,14 @@ static struct cmd_node bgp_srv6_node = {
 	.node = BGP_SRV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-srv6)# ",
+};
+
+static struct cmd_node bgp_ls_node = {
+	.name = "bgp link-state",
+	.node = BGP_LS_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static void community_list_vty(void);
@@ -21588,6 +21650,7 @@ void bgp_vty_init(void)
 	install_node(&bgp_flowspecv4_node);
 	install_node(&bgp_flowspecv6_node);
 	install_node(&bgp_srv6_node);
+	install_node(&bgp_ls_node);
 
 	/* Install default VTY commands to new nodes.  */
 	install_default(BGP_NODE);
@@ -21604,6 +21667,7 @@ void bgp_vty_init(void)
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
+	install_default(BGP_LS_NODE);
 
 	/* "global bgp inq-limit command */
 	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
@@ -21995,6 +22059,7 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
+	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
 
 	/* "no neighbor activate" commands. */
 	install_element(BGP_NODE, &no_neighbor_activate_hidden_cmd);
@@ -22009,6 +22074,7 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
 
 	/* "neighbor peer-group" set commands. */
 	install_element(BGP_NODE, &neighbor_set_peer_group_cmd);
@@ -23054,6 +23120,7 @@ void bgp_vty_init(void)
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
 	install_element(BGP_NODE, &address_family_evpn_cmd);
+	install_element(BGP_NODE, &address_family_link_state_cmd);
 
 	/* "exit-address-family" command. */
 	install_element(BGP_IPV4_NODE, &exit_address_family_cmd);
@@ -23067,6 +23134,7 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
+	install_element(BGP_LS_NODE, &exit_address_family_cmd);
 
 	/* BGP retain all route-target */
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
