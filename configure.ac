@@ -1136,6 +1136,10 @@ if test "$EXTRAVERSION" != "" ; then
 fi
 AC_SUBST([EXTRAVERSION])
 
+dnl pkg-config version must be numeric only (pkgconf on Alpine rejects non-numeric versions)
+FRR_PACKAGE_VERSION="`echo ${PACKAGE_VERSION} | tr -c -d '[[.0-9]]'`"
+AC_SUBST([FRR_PACKAGE_VERSION])
+
 if test "$with_pkg_git_version" = "yes"; then
 	if test -e "${srcdir}/.git"; then
 		AC_DEFINE([GIT_VERSION], [1], [include git version info])
