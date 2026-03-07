@@ -1809,7 +1809,7 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [brief] [json]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
    is only meaningful if you have started zebra with the --vrfwnetns
@@ -1821,6 +1821,11 @@ zebra Terminal Mode Commands
    was not installed because no-one was using it at that point and
    Zebra can delay installing this route until it is used by something
    else.
+
+   With **brief**, the output omits the full-detail fields (type, refCount,
+   timeToDeletion) and shows a condensed nexthop list; groups with
+   dependencies list only ``depends`` and not per-nexthop detail.  With
+   **json**, the output is in JSON format;
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
