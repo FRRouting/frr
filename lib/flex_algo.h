@@ -58,10 +58,11 @@ struct flex_algo {
 	struct admin_group admin_group_include_any;
 	struct admin_group admin_group_include_all;
 
-	/* Exclude SRLG Sub-TLV is not yet supported by IS-IS
-	 * True if a Exclude SRLG Sub-TLV has been found
-	 */
-	bool exclude_srlg;
+	/* Exclude SRLG - RFC 9350 Section 6.5 */
+#define FLEX_ALGO_MAX_SRLG 16
+	uint32_t exclude_srlgs[FLEX_ALGO_MAX_SRLG];
+	uint8_t exclude_srlg_count;
+	bool exclude_srlg; /* True if Exclude SRLG Sub-TLV has been received */
 
 	/* True if an unsupported sub-TLV other Exclude SRLG
 	 * has been received.

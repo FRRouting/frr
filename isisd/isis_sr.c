@@ -723,7 +723,8 @@ void sr_adj_sid_add_single(const struct isis_adjacency *adj, int family,
 			struct mpls_label_stack *label_stack;
 
 			label_stack = vadj->label_stack;
-			adjinfo2nexthop(family, sra->backup_nexthops, tadj, NULL, label_stack);
+			adjinfo2nexthop(family, sra->backup_nexthops, tadj, NULL, label_stack,
+					NULL);
 		}
 	}
 
