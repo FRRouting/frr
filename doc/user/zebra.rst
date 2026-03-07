@@ -153,6 +153,11 @@ Standard Commands
 
 .. clicmd:: interface IFNAME
 
+.. note::
+
+   When configuring and building FRR with the `--enable-transparent-altnames`
+   flag the interface command will also match on interface altnames.
+
 
 .. clicmd:: interface IFNAME vrf VRF
 
