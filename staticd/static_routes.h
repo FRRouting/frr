@@ -93,6 +93,8 @@ struct static_path {
 	struct static_path_list_item list;
 	/* Administrative distance. */
 	uint8_t distance;
+	/* Route metric. */
+	uint32_t metric;
 	/* Tag */
 	route_tag_t tag;
 	/* Table-id */
@@ -225,8 +227,8 @@ extern struct route_node *static_add_route(afi_t afi, safi_t safi,
 					   struct static_vrf *svrf);
 extern void static_del_route(struct route_node *rn);
 
-extern struct static_path *static_add_path(struct route_node *rn,
-					   uint32_t table_id, uint8_t distance);
+extern struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
+					   uint8_t distance, uint32_t metric);
 extern void static_del_path(struct static_path *pn);
 
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
