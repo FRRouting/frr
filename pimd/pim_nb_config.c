@@ -1567,6 +1567,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		yang_dnode_get_ip(&peer_ip, args->dnode, "./peer-ip");
+		if (!pim_is_valid_ipddress(&peer_ip)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid peer ip address");
+			return NB_ERR_VALIDATION;
+		}
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
