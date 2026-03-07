@@ -65,8 +65,7 @@ log_in6addr_scope(const struct in6_addr *addr, ifindex_t ifindex)
 	return (log_sockaddr(&sa_in6));
 }
 
-const char *
-log_addr(int af, const union ldpd_addr *addr)
+const char *log_addr(int af, const union g_addr *addr)
 {
 	static char	 buf[NUM_LOGS][INET6_ADDRSTRLEN];
 	static int	 round = 0;
@@ -74,11 +73,11 @@ log_addr(int af, const union ldpd_addr *addr)
 	switch (af) {
 	case AF_INET:
 		round = (round + 1) % NUM_LOGS;
-		if (inet_ntop(AF_INET, &addr->v4, buf[round], sizeof(buf[round])) == NULL)
+		if (inet_ntop(AF_INET, &addr->ipv4, buf[round], sizeof(buf[round])) == NULL)
 			return ("???");
 		return (buf[round]);
 	case AF_INET6:
-		return (log_in6addr(&addr->v6));
+		return (log_in6addr(&addr->ipv6));
 	default:
 		break;
 	}
@@ -232,17 +231,17 @@ const char *
 log_fec(const struct fec *fec)
 {
 	static char	buf[64];
-	union ldpd_addr	addr;
+	union g_addr addr;
 
 	switch (fec->type) {
 	case FEC_TYPE_IPV4:
-		addr.v4 = fec->u.ipv4.prefix;
+		addr.ipv4 = fec->u.ipv4.prefix;
 		if (snprintf(buf, sizeof(buf), "ipv4 %s/%u",
 		    log_addr(AF_INET, &addr), fec->u.ipv4.prefixlen) == -1)
 			return ("???");
 		break;
 	case FEC_TYPE_IPV6:
-		addr.v6 = fec->u.ipv6.prefix;
+		addr.ipv6 = fec->u.ipv6.prefix;
 		if (snprintf(buf, sizeof(buf), "ipv6 %s/%u",
 		    log_addr(AF_INET6, &addr), fec->u.ipv6.prefixlen) == -1)
 			return ("???");
