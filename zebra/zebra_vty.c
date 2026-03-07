@@ -61,6 +61,13 @@ struct route_show_ctx {
 	bool header_done; /* common header already displayed */
 };
 
+struct redist_show_ctx {
+	struct vty *vty;
+	json_object *json;
+	const char *redist_proto;
+	bool redist_found;
+};
+
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
 			    bool use_fib, bool use_json, route_tag_t tag,
 			    const struct prefix *longer_prefix_p, bool supernets_only, int type,
@@ -410,6 +417,61 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
+static void redist_iterate(const struct route_node *rn, const struct route_entry *re,
+			   struct redist_show_ctx *ctx, void (*cb)(struct redist_show_ctx *ctx))
+{
+	const struct zserv *client;
+
+	ctx->redist_found = false;
+
+	frr_each (zserv_client_list_const, &zrouter.client_list, client) {
+		if (zebra_redistribute_check(rn, re, client)) {
+			ctx->redist_proto = zebra_route_string(client->proto);
+			cb(ctx);
+			ctx->redist_found = true;
+		}
+	}
+}
+
+static void redist_vty_cb(struct redist_show_ctx *ctx)
+{
+	if (ctx->redist_found)
+		vty_out(ctx->vty, ",");
+	else
+		vty_out(ctx->vty, "  Redistributing via");
+
+	vty_out(ctx->vty, " %s", ctx->redist_proto);
+}
+
+static void redist_json_cb(struct redist_show_ctx *ctx)
+{
+	if (!ctx->redist_found)
+		ctx->json = json_object_new_array();
+	json_array_string_add(ctx->json, ctx->redist_proto);
+}
+
+static void show_redistributing_protocol(struct vty *vty, const struct route_node *rn,
+					 const struct route_entry *re)
+{
+	struct redist_show_ctx ctx = { .vty = vty };
+
+	redist_iterate(rn, re, &ctx, redist_vty_cb);
+
+	if (ctx.redist_found)
+		vty_out(vty, "\n");
+}
+
+static void json_add_redistributing_protocol(struct json_object *json, const struct route_node *rn,
+					     const struct route_entry *re)
+{
+	struct redist_show_ctx ctx = { .json = NULL };
+
+	redist_iterate(rn, re, &ctx, redist_json_cb);
+
+	if (ctx.redist_found)
+		json_object_object_add(json, "redistributingVia", ctx.json);
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -465,6 +527,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
+
+		show_redistributing_protocol(vty, rn, re);
 
 		uptime2str(re->uptime, buf, sizeof(buf));
 
@@ -570,6 +634,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		json_object_int_add(json_route, "distance",
 				    re->distance);
 		json_object_int_add(json_route, "metric", re->metric);
+
+		json_add_redistributing_protocol(json_route, rn, re);
 
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			json_object_boolean_true_add(json_route, "installed");
