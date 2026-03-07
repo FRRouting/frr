@@ -1823,6 +1823,12 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 	}
 }
 
+/* Callback for dplane_clean_ctx_queue() to filter dplane contexts by ns_id */
+static bool dplane_context_cb_ns_id(struct zebra_dplane_ctx *ctx, void *ns_id)
+{
+	return dplane_ctx_get_ns_id(ctx) == *(ns_id_t *)ns_id;
+}
+
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	event_cancel(&zns->t_netlink);
@@ -1838,8 +1844,11 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
-	if (complete)
+	if (complete) {
+		/* Clean up outstanding update contexts */
+		dplane_clean_ctx_queue(dplane_context_cb_ns_id, &zns->ns_id);
 		kernel_nlsock_fini(&zns->netlink_dplane_out);
+	}
 }
 
 /*
