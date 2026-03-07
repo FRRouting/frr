@@ -58,6 +58,7 @@ class Tshark:
         Ensures the tshark process is terminated.
         """
         self.process.terminate()
+        self.process.join()
 
     def get_packets(self):
         """
