@@ -2188,6 +2188,43 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+/* `match metric <proto> [range METRIC] METRIC' */
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_metric_detail(void *rule, const struct prefix *prefix, void *object)
+{
+	struct route_map_metric_compiled *mc;
+	struct bgp_path_info *bp;
+
+	mc = rule;
+	bp = object;
+
+	/* Route type */
+	if (mc->proto != bp->type)
+		return RMAP_NOMATCH;
+	/* What does external metric mean here? Strictly OSPF external metric types? */
+	if (mc->external && bp->type != ZEBRA_ROUTE_OSPF)
+		return RMAP_NOMATCH;
+	/* Metric (optional range) */
+	if (!CHECK_FLAG(bp->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
+		return RMAP_NOMATCH;
+	} else if (mc->range && (mc->min_metric > bp->attr->med || mc->max_metric < bp->attr->med)) {
+		return RMAP_NOMATCH;
+	} else if (mc->metric != bp->attr->med) {
+		return RMAP_NOMATCH;
+	}
+
+	return RMAP_MATCH;
+}
+
+/* Route map commands for metric detail matching. */
+static const struct route_map_rule_cmd route_match_metric_detail_cmd = {
+	"metric detail",
+	route_match_metric_detail,
+	route_map_rule_metric_detail_compile,
+	route_map_rule_metric_detail_free,
+};
+
 static enum route_map_cmd_result_t
 route_set_srte_color(void *rule, const struct prefix *prefix, void *object)
 {
@@ -8228,6 +8265,9 @@ void bgp_route_map_init(void)
 	route_map_match_metric_hook(generic_match_add);
 	route_map_no_match_metric_hook(generic_match_delete);
 
+	route_map_match_metric_detail_hook(generic_match_add);
+	route_map_no_match_metric_detail_hook(generic_match_delete);
+
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
@@ -8268,6 +8308,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_ecommunity_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 	route_map_install_match(&route_match_metric_cmd);
+	route_map_install_match(&route_match_metric_detail_cmd);
 	route_map_install_match(&route_match_origin_cmd);
 	route_map_install_match(&route_match_probability_cmd);
 	route_map_install_match(&route_match_interface_cmd);

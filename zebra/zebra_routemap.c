@@ -63,6 +63,40 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+/* `match metric <proto> [range METRIC] METRIC' */
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_metric_detail(void *rule, const struct prefix *prefix, void *object)
+{
+	struct route_map_metric_compiled *mc;
+	struct zebra_rmap_obj *rm_data;
+
+	mc = rule;
+	rm_data = object;
+
+	/* Route type */
+	if (mc->proto != rm_data->re->type)
+		return RMAP_NOMATCH;
+	/* What does external metric mean here? Strictly OSPF external metric types? */
+	if (mc->external && rm_data->re->type != ZEBRA_ROUTE_OSPF)
+		return RMAP_NOMATCH;
+	/* Metric (optional range) */	
+	if (mc->range && (mc->min_metric > rm_data->re->metric || mc->max_metric < rm_data->re->metric)) {
+		return RMAP_NOMATCH;
+	} else if (mc->metric != rm_data->re->metric) {
+		return RMAP_NOMATCH;
+	}
+
+	return RMAP_MATCH;
+}
+
+/* Route map commands for metric detail matching. */
+static const struct route_map_rule_cmd route_match_metric_detail_cmd = {
+	"metric detail",
+	route_match_metric_detail,
+	route_map_rule_metric_detail_compile,
+	route_map_rule_metric_detail_free,
+};
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
@@ -1391,6 +1425,9 @@ void zebra_route_map_init(void)
 	route_map_match_ipv6_next_hop_type_hook(generic_match_add);
 	route_map_no_match_ipv6_next_hop_type_hook(generic_match_delete);
 
+	route_map_match_metric_detail_hook(generic_match_add);
+	route_map_no_match_metric_detail_hook(generic_match_delete);
+
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
@@ -1406,6 +1443,7 @@ void zebra_route_map_init(void)
 	route_map_install_match(&route_match_ipv6_next_hop_type_cmd);
 	route_map_install_match(&route_match_source_protocol_cmd);
 	route_map_install_match(&route_match_source_instance_cmd);
+	route_map_install_match(&route_match_metric_detail_cmd);
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
