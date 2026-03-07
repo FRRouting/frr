@@ -2509,7 +2509,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 		 * of route(s) from another routing protocol into RIP, received
 		 * through that interface, does not work.
 		 */
-		if (rip_enable_network_lookup2(connected) < 0) {
+		if (!rip_network_is_enabled(connected)) {
 			if (RIP_DEBUG_SEND)
 				zlog_debug("Neighbor %pI4 is not in any `network` statement!",
 					   &p->u.prefix4);
@@ -2733,8 +2733,6 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip_peer_list_init(&rip->peer_list);
 	rip->distance_table = route_table_init();
 	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
-	rip->enable_interface = vector_init(1);
-	rip->enable_network = route_table_init();
 	rip->passive_nondefault = vector_init(1);
 	rip_offset_list_init(&rip->offset_list_master);
 
@@ -3204,7 +3202,7 @@ DEFUN (show_ip_rip_status,
 		if (!ri->running)
 			continue;
 
-		if (ri->enable_network || ri->enable_interface) {
+		if (ri->enabled) {
 			if (ri->ri_send == RI_RIP_UNSPEC)
 				send_version =
 					lookup_msg(ri_version_msg,
@@ -3234,8 +3232,7 @@ DEFUN (show_ip_rip_status,
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		ri = ifp->info;
 
-		if ((ri->enable_network || ri->enable_interface) &&
-		    ri->passive) {
+		if (ri->enabled && ri->passive) {
 			if (!found_passive) {
 				vty_out(vty, "  Passive Interface(s):\n");
 				found_passive = 1;
@@ -3368,10 +3365,7 @@ void rip_clean(struct rip *rip)
 	distribute_list_delete(&rip->distribute_ctx);
 	if_rmap_ctx_delete(rip->if_rmap_ctx);
 
-	rip_clean_network(rip);
 	rip_passive_nondefault_clean(rip);
-	vector_free(rip->enable_interface);
-	route_table_finish(rip->enable_network);
 	vector_free(rip->passive_nondefault);
 
 	struct rip_offset_list *offset;

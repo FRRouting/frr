@@ -297,59 +297,6 @@ void cli_show_rip_neighbor(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-ripd:ripd/instance/network
- */
-DEFPY_YANG (rip_network_prefix,
-       rip_network_prefix_cmd,
-       "[no] network A.B.C.D/M",
-       NO_STR
-       "Enable routing on an IP network\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), "./network[.='%s']", network_str);
-
-	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
-			      NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void cli_show_rip_network_prefix(struct vty *vty, const struct lyd_node *dnode,
-				 bool show_defaults)
-{
-	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
-}
-
-/*
- * XPath: /frr-ripd:ripd/instance/interface
- */
-DEFPY_YANG (rip_network_if,
-       rip_network_if_cmd,
-       "[no] network WORD",
-       NO_STR
-       "Enable routing on an IP network\n"
-       "Interface name\n")
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), "./interface[.='%s']", network);
-
-	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
-			      NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void cli_show_rip_network_interface(struct vty *vty,
-				    const struct lyd_node *dnode,
-				    bool show_defaults)
-{
-	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
-}
-
-/*
  * XPath: /frr-ripd:ripd/instance/offset-list
  */
 DEFPY_YANG (rip_offset_list,
@@ -665,6 +612,39 @@ void cli_show_ripd_instance_default_bfd_profile(struct vty *vty,
 {
 	vty_out(vty, " bfd default-profile %s\n",
 		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip
+ */
+DEFPY_YANG(ip_rip_interface_enable, ip_rip_interface_enable_cmd,
+	   "[no] ip rip",
+	   NO_STR
+	   IP_STR
+	   RIP_STR)
+{
+	const struct lyd_node *interface_dnode = yang_dnode_get(vty->candidate_config->dnode,
+								VTY_CURR_XPATH);
+
+	if (interface_dnode == NULL) {
+		vty_out(vty, "%% Failed to find interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-ripd:rip/enable", no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_lib_interface_rip_enable(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		vty_out(vty, " ip rip\n");
+	} else {
+		if (show_defaults)
+			vty_out(vty, " no ip rip\n");
+	}
 }
 
 /*
@@ -1280,8 +1260,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_distance_cmd);
 	install_element(RIP_NODE, &rip_distance_source_cmd);
 	install_element(RIP_NODE, &rip_neighbor_cmd);
-	install_element(RIP_NODE, &rip_network_prefix_cmd);
-	install_element(RIP_NODE, &rip_network_if_cmd);
 	install_element(RIP_NODE, &rip_offset_list_cmd);
 	install_element(RIP_NODE, &rip_passive_default_cmd);
 	install_element(RIP_NODE, &rip_passive_interface_cmd);
@@ -1295,6 +1273,7 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_bfd_default_profile_cmd);
 	install_default(RIP_NODE);
 
+	install_element(INTERFACE_NODE, &ip_rip_interface_enable_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_receive_version_cmd);
@@ -1351,14 +1330,6 @@ const struct frr_yang_module_info frr_ripd_cli_info = {
 			.cbs.cli_show = cli_show_rip_neighbor,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/instance/network",
-			.cbs.cli_show = cli_show_rip_network_prefix,
-		},
-		{
-			.xpath = "/frr-ripd:ripd/instance/interface",
-			.cbs.cli_show = cli_show_rip_network_interface,
-		},
-		{
 			.xpath = "/frr-ripd:ripd/instance/offset-list",
 			.cbs.cli_show = cli_show_rip_offset_list,
 		},
@@ -1413,6 +1384,10 @@ const struct frr_yang_module_info frr_ripd_cli_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-bfd-profile",
 			.cbs.cli_show = cli_show_ripd_instance_default_bfd_profile,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/enable",
+			.cbs.cli_show = cli_show_lib_interface_rip_enable,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",
