@@ -234,6 +234,7 @@ void test_send_message(void)
 	initialize_pcc();
 
 	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+
 	pcep_session *session = connect_pce(config, &dest_address);
 	verify_socket_comm_times_called(0, 0, 1, 1, 0, 0, 0);
 

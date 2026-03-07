@@ -615,6 +615,52 @@ def test_msdp_shutdown():
         assert val is None, "multicast route convergence failure"
 
 
+def test_msdp_peer_duplicate():
+    "Test that adding a duplicate MSDP peer does not leak memory."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Get initial peer count
+    initial_peers = r1.vtysh_cmd("show ip msdp peer json", isjson=True)
+    initial_count = len(initial_peers) if initial_peers else 0
+
+    # Try to add a peer that already exists (192.168.0.2 is already configured)
+    # This should not create a duplicate or leak memory
+    r1.vtysh_cmd(
+        """
+    configure terminal
+    router pim
+     msdp peer 192.168.0.2 source 192.168.0.1
+    """
+    )
+
+    # Verify peer count hasn't increased (no duplicate created)
+    def check_peer_count():
+        peers = r1.vtysh_cmd("show ip msdp peer json", isjson=True)
+        count = len(peers) if peers else 0
+        return count == initial_count
+
+    _, result = topotest.run_and_expect(check_peer_count, True, count=10, wait=1)
+    assert result, "Duplicate peer was created or peer count changed"
+
+    # Verify the peer still exists and is in established state
+    r1_expect = {
+        "192.168.0.2": {
+            "peer": "192.168.0.2",
+            "local": "192.168.0.1",
+            "state": "established",
+        }
+    }
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip msdp peer json", r1_expect
+    )
+    _, val = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert val is None, "Peer state incorrect after duplicate add attempt"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
