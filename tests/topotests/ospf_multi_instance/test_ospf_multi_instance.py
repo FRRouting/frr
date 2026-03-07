@@ -112,10 +112,16 @@ def test_multi_instance_default_origination():
     r1.vtysh_cmd("conf t\nip route 0.0.0.0/0 Null0")
 
     step("Verify the R1 configuration and install of 'ip route 0.0.0.0/0 Null0'")
-    prefix_suppression_cfg = (
-        tgen.net["r1"]
-        .cmd('vtysh -c "show running" | grep "^ip route 0.0.0.0/0 Null0"')
-        .rstrip()
+
+    def check_default_route_config():
+        return (
+            tgen.net["r1"]
+            .cmd('vtysh -c "show running" | grep "^ip route 0.0.0.0/0 Null0"')
+            .rstrip()
+        )
+
+    _, prefix_suppression_cfg = topotest.run_and_expect(
+        check_default_route_config, "ip route 0.0.0.0/0 Null0", count=30, wait=1
     )
     assertmsg = "'ip route 0.0.0.0/0 Null0' applied, but not present in configuration"
     assert prefix_suppression_cfg == "ip route 0.0.0.0/0 Null0", assertmsg
