@@ -46,15 +46,15 @@ def _check_sharpd_chunk(router, expected_chunk_file):
     return topotest.json_cmp(output, expected)
 
 
-def _check_srv6_locator(router, expected_locator_file):
+def _check_srv6_locator(router, expected_locator_file, exact):
     logger.info("checking zebra locator status")
     output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
     expected = open_json_file("{}/{}".format(CWD, expected_locator_file))
-    return topotest.json_cmp(output, expected)
+    return topotest.json_cmp(output, expected, exact)
 
 
-def check_srv6_locator(router, expected_file):
-    func = functools.partial(_check_srv6_locator, router, expected_file)
+def check_srv6_locator(router, expected_file, exact=False):
+    func = functools.partial(_check_srv6_locator, router, expected_file, exact)
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
 
