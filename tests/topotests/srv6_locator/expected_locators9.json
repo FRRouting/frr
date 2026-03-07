@@ -1,0 +1,15 @@
+{
+    "locators":[
+      {
+        "name": "loc1",
+        "prefix": "fcbb:bbbb:1::/48",
+        "statusUp": true
+      },
+      {
+        "name": "loc2",
+        "prefix": "fcbb:bbbb:2::/48",
+        "statusUp": true
+      }
+    ]
+  }
+    

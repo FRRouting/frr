@@ -251,6 +251,47 @@ def test_srv6_no_prefix_explicit():
     check_sharpd_chunk(router, "expected_chunks6.json")
 
 
+def test_srv6_no_locators():
+    """
+    Verify that 'no locators' under 'srv6' removes all configured locators
+    at once, leaving the SRv6 instance intact but with an empty locator list.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    logger.info("Re-add loc1 and loc2")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+            locator loc2
+             prefix fcbb:bbbb:2::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators9.json")
+    check_sharpd_chunk(router, "expected_chunks1.json")
+
+    logger.info("Issue 'no locators' and verify all locators are removed")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           no locators
+        """
+    )
+    check_srv6_locator(router, "expected_locators6.json", exact=True)
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
