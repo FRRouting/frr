@@ -1799,6 +1799,8 @@ static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
 	if (subnet) {
 		/* Re-attach the subnet to the vertex if necessary */
 		if (subnet->vertex != vertex) {
+			/* First, remove from old vertex's prefixes list */
+			listnode_delete(subnet->vertex->prefixes, subnet);
 			subnet->vertex = vertex;
 			listnode_add_sort_nodup(vertex->prefixes, subnet);
 		}
