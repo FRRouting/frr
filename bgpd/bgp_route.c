@@ -189,6 +189,20 @@ uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi)
 	return h;
 }
 
+// coverity[INFINITE_LOOP]  // Suppress false positive
+// coverity[PW.NON_CONST_PRINTF_FORMAT_STRING]  // Suppress false positive
+DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
+
+void bgp_pi_hash_table_init(struct bgp_pi_hash_head *h)
+{
+	bgp_pi_hash_init(h);
+}
+
+void bgp_pi_hash_table_fini(struct bgp_pi_hash_head *h)
+{
+	bgp_pi_hash_fini(h);
+}
+
 static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 						   char *buf, size_t len)
 {
