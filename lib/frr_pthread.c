@@ -253,15 +253,6 @@ void frr_pthread_stop_all(void)
 	}
 }
 
-static void *frr_pthread_attr_non_controlled_start(void *arg)
-{
-	struct frr_pthread *fpt = arg;
-
-	fpt->running = true;
-
-	return NULL;
-}
-
 /* Create a FRR pthread context from a non FRR pthread initialized from an
  * external library in order to allow logging */
 int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
@@ -270,22 +261,6 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 	struct rcu_thread *rcu_thread = rcu_thread_new(NULL);
 
 	rcu_thread_start(rcu_thread);
-
-	struct frr_pthread_attr attr = {
-		.start = frr_pthread_attr_non_controlled_start,
-		.stop = frr_pthread_attr_default.stop,
-	};
-	struct frr_pthread *fpt;
-
-	fpt = frr_pthread_new(&attr, name, os_name);
-	if (!fpt)
-		return -1;
-
-	fpt->thread = thread;
-	fpt->rcu_thread = rcu_thread;
-	fpt->started = true;
-
-	frr_pthread_inner(fpt);
 
 	return 0;
 }
