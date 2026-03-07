@@ -141,6 +141,7 @@ static int ospf_route_exist_new_table(struct route_table *rt,
 				      struct prefix_ipv4 *prefix)
 {
 	struct route_node *rn;
+	struct ospf_route *or;
 
 	assert(rt);
 	assert(prefix);
@@ -151,7 +152,8 @@ static int ospf_route_exist_new_table(struct route_table *rt,
 	}
 	route_unlock_node(rn);
 
-	if (!rn->info) {
+	or = rn->info;
+	if (!or || or->connected) {
 		return 0;
 	}
 
@@ -509,6 +511,11 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->u.std.origin = (struct lsa_header *)lsa;
 	or->u.std.transit = true;
 
+	if (list_isempty(v->parents) ||
+	    ((struct vertex_parent *)listnode_head(v->parents))
+			    ->nexthop->router.s_addr == INADDR_ANY)
+		or->connected = true;
+
 	ospf_route_copy_nexthops_from_vertex(area, or, v);
 
 	rn->info = or ;
@@ -651,6 +658,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	or->cost = cost;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
+	if (list_isempty(v->parents))
+		or->connected = true;
 
 	/* Nexthop is depend on connection type. */
 	if (v != area->spf) {

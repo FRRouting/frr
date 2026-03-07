@@ -198,6 +198,9 @@ struct ospf6_route {
 
 	/* For Aggr routes */
 	bool to_be_processed;
+
+	/* Connected route. */
+	bool connected;
 };
 
 #define OSPF6_DEST_TYPE_NONE       0

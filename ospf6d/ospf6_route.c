@@ -484,6 +484,7 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 	new->route_option = route->route_option;
 	new->linkstate_id = route->linkstate_id;
 	new->path = route->path;
+	new->connected = route->connected;
 	ospf6_copy_nexthops(new->nh_list, route->nh_list);
 	ospf6_copy_paths(new->paths, route->paths);
 	new->rnode = NULL;

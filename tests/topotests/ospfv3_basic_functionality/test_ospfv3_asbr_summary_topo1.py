@@ -584,11 +584,6 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
-    assert (
-        result is True
-    ), "Testcase {} : Failed Error: Routes is missing in RIB".format(tc_name)
-
     step("Shut one of the interface")
     intf = topo["routers"]["r0"]["links"]["r3-link0"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)

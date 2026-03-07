@@ -59,20 +59,6 @@
       ]
     }
   ],
-  "5.5.5.5\/32":[
-    {
-      "prefix":"5.5.5.5\/32",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":0,
-      "nexthops":[
-        {
-          "directlyConnected":true,
-          "interfaceName":"lo"
-        }
-      ]
-    }
-  ],
   "6.6.6.6\/32":[
     {
       "prefix":"6.6.6.6\/32",
@@ -158,20 +144,6 @@
         {
           "ip":"10.0.5.4",
           "afi":"ipv4",
-          "interfaceName":"eth-rt4"
-        }
-      ]
-    }
-  ],
-  "10.0.5.0\/24":[
-    {
-      "prefix":"10.0.5.0\/24",
-      "protocol":"ospf",
-      "distance":110,
-      "metric":10,
-      "nexthops":[
-        {
-          "directlyConnected":true,
           "interfaceName":"eth-rt4"
         }
       ]

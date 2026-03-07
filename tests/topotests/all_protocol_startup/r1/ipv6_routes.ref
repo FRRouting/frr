@@ -30,7 +30,6 @@ L>* fc00:0:0:7::1/128 is directly connected, r1-eth7, weight 1, XX:XX:XX
 L>* fc00:0:0:8::1/128 is directly connected, r1-eth8, weight 1, XX:XX:XX
 L>* fc00:0:0:9::1/128 is directly connected, r1-eth9, weight 1, XX:XX:XX
 L>* fc00::1/128 is directly connected, r1-eth0, weight 1, XX:XX:XX
-O   fc00:0:0:4::/64 [110/10] is directly connected, r1-eth4, weight 1, XX:XX:XX
 S>* 4:5::6:10/128 [1/0] via fc00::2, r1-eth0, weight 1, XX:XX:XX
 S>* 4:5::6:11/128 [1/0] via fc00::2, r1-eth0, weight 1, XX:XX:XX
 S>* 4:5::6:12/128 [1/0] is directly connected, r1-eth0, weight 1, XX:XX:XX

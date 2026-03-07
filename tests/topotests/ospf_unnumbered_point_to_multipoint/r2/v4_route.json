@@ -22,20 +22,6 @@
     {
       "prefix": "10.0.20.1\/32",
       "prefixLen": 32,
-      "protocol": "ospf",
-      "vrfId": 0,
-      "vrfName": "default",
-      "distance": 110,
-      "metric": 10,
-      "table": 254,
-      "internalStatus": 0,
-      "internalFlags": 0,
-      "internalNextHopNum": 1,
-      "internalNextHopActiveNum": 1
-    },
-    {
-      "prefix": "10.0.20.1\/32",
-      "prefixLen": 32,
       "protocol": "local",
       "vrfId": 0,
       "vrfName": "default",
