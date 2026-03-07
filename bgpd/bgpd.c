@@ -80,6 +80,7 @@
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_ls.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -340,6 +341,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, true, is_config);
 
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_all(bgp);
+
 	hook_call(bgp_routerid_update, bgp, true);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
@@ -358,6 +362,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 		bgp_evpn_handle_router_id_update(bgp, false);
 
 	vpn_handle_router_id_update(bgp, false, is_config);
+
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_export_bgp_topology(bgp);
 
 	hook_call(bgp_routerid_update, bgp, false);
 	return 0;
@@ -2636,6 +2643,19 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 			peer_notify_config_change(other->connection);
 	}
 
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS) {
+		if (peer->connection->su.sa.sa_family == AF_INET6) {
+			SET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6);
+			UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV4);
+		} else if (peer->connection->su.sa.sa_family == AF_INET) {
+			SET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV4);
+			UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6);
+		} else {
+			UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV4);
+			UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6);
+		}
+	}
+
 	return 0;
 }
 
@@ -2700,6 +2720,24 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		/* connect to table manager */
 		bgp_zebra_init_tm_connect(bgp);
 	}
+
+	/*
+	 * Register with zebra link-state database when the first peer is
+	 * activated for BGP-LS. This allows BGP to receive IGP topology
+	 * updates from ISIS/OSPF for distribution to BGP-LS peers.
+	 */
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && !bgp_ls_is_registered(bgp)) {
+		if (!bgp_ls_register(bgp)) {
+			zlog_err("BGP-LS: Failed to register with link-state database for instance %s",
+				 bgp->name_pretty);
+			return -1;
+		}
+
+		if (BGP_DEBUG(linkstate, LINKSTATE) || BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("BGP-LS: Registered with link-state database for instance %s (first peer with BGP-LS activated: %s)",
+				   bgp->name_pretty, peer->host);
+	}
+
 	return ret;
 }
 
@@ -2744,6 +2782,11 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 			}
 		} else
 			peer_notify_config_change(peer->connection);
+	}
+
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS) {
+		UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV4);
+		UNSET_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6);
 	}
 
 	return false;
@@ -2796,6 +2839,34 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		bgp->allocate_mpls_labels[afi][safi_check] = 0;
 		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi_check);
 	}
+
+	/*
+	 * Unregister from zebra link-state database when the last peer is
+	 * deactivated for BGP-LS. This stops receiving IGP topology updates
+	 * from ISIS/OSPF since no BGP-LS peers remain active.
+	 */
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_ls_is_registered(bgp)) {
+		bool last_peer = true;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, tmp_peer)) {
+			if (tmp_peer != peer && tmp_peer->afc[AFI_BGP_LS][SAFI_BGP_LS]) {
+				last_peer = false;
+				break;
+			}
+		}
+
+		if (last_peer) {
+			if (!bgp_ls_unregister(bgp)) {
+				zlog_err("BGP-LS: Failed to unregister from link-state database for instance %s",
+					 bgp->name_pretty);
+			} else {
+				if (BGP_DEBUG(linkstate, LINKSTATE) || BGP_DEBUG(zebra, ZEBRA))
+					zlog_debug("BGP-LS: Unregistered from link-state database for instance %s (last peer with BGP-LS deactivated: %s)",
+						   bgp->name_pretty, peer->host);
+			}
+		}
+	}
+
 	return ret;
 }
 
@@ -3818,6 +3889,7 @@ peer_init:
 		bgp_evpn_vrf_es_init(bgp);
 		bgp_pbr_init(bgp);
 		bgp_srv6_init(bgp);
+		bgp_ls_init(bgp);
 	}
 
 	/*initialize global GR FSM */
@@ -3830,6 +3902,9 @@ peer_init:
 	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
+
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_node(bgp);
 
 	return bgp;
 }
@@ -4607,6 +4682,7 @@ void bgp_free(struct bgp *bgp)
 
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
+	bgp_ls_cleanup(bgp);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		enum vpn_policy_direction dir;
@@ -4979,7 +5055,8 @@ enum bgp_peer_active peer_active(struct peer_connection *connection)
 	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
 		return BGP_PEER_ACTIVE;
 
 	return BGP_PEER_AF_UNCONFIGURED;
@@ -5000,7 +5077,8 @@ bool peer_active_nego(struct peer *peer)
 	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
+	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS])
 		return true;
 	return false;
 }

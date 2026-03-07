@@ -18,6 +18,7 @@
 #include "bgp_addpath.h"
 #include "bgp_trace.h"
 #include "bgp_mpath.h"
+#include "bgp_ls.h"
 
 void bgp_table_lock(struct bgp_table *rt)
 {
@@ -98,6 +99,12 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 		/* Free mpath if exists */
 		if (dest->mpath)
 			bgp_path_info_mpath_free(&dest->mpath);
+
+		if (dest->ls_nlri) {
+			if (rt->bgp && rt->bgp->ls_info)
+				bgp_ls_nlri_hash_del(&rt->bgp->ls_info->nlri_hash, dest->ls_nlri);
+			bgp_ls_nlri_free(dest->ls_nlri);
+		}
 
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
