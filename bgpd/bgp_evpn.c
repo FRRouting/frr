@@ -969,7 +969,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	/* If the ESI is valid that becomes the nexthop; tape out the
 	 * VTEP-IP for that case
 	 */
-	if (bgp_evpn_is_esi_valid(esi)) {
+	if (!esi_is_reserved(esi)) {
 		esi_valid = true;
 		stream_put_ipaddr(s, &zero_remote_vtep_ip);
 	} else {
@@ -1964,7 +1964,7 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 		return;
 
 	esi = bgp_evpn_attr_get_esi(attr);
-	if (bgp_evpn_is_esi_valid(esi)) {
+	if (!esi_is_reserved(esi)) {
 		if (setup_sync) {
 			uint32_t max_sync_seq = 0;
 			bool active_on_peer = false;
@@ -2305,7 +2305,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
 		SET_FLAG(attr.es_flags, ATTR_ES_PROXY_ADVERT);
 
-	if (esi && bgp_evpn_is_esi_valid(esi)) {
+	if (esi && !esi_is_reserved(esi)) {
 		memcpy(&attr.esi, esi, sizeof(esi_t));
 		/* ES should not be marked local if ESI is in bypass */
 		if (bgp_evpn_is_esi_local_and_non_bypass(esi))
@@ -5243,19 +5243,19 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * An update containing a non-zero gateway IP and a non-zero ESI
 	 * at the same time is should be treated as withdraw
 	 */
-	if (bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+	if (!esi_is_reserved(&evpn->eth_s_id) &&
 	    !ipaddr_is_zero(&evpn->gw_ip)) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%s - Rx EVPN Type-5 ESI and gateway-IP both non-zero.",
 			 peer->host);
 		is_valid_update = false;
-	} else if (bgp_evpn_is_esi_valid(&evpn->eth_s_id))
+	} else if (!esi_is_reserved(&evpn->eth_s_id))
 		evpn->type = OVERLAY_INDEX_ESI;
 	else if (!ipaddr_is_zero(&evpn->gw_ip))
 		evpn->type = OVERLAY_INDEX_GATEWAY_IP;
 	if (attr) {
 		if (is_zero_mac(&attr->rmac) &&
-		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+		    esi_is_reserved(&evpn->eth_s_id) &&
 		    ipaddr_is_zero(&evpn->gw_ip) && label == 0) {
 			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",

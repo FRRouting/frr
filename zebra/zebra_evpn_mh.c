@@ -1998,7 +1998,7 @@ static struct zebra_evpn_es *zebra_evpn_es_new(const esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 
-	if (!memcmp(esi, zero_esi, sizeof(esi_t)))
+	if (esi_is_reserved(esi))
 		return NULL;
 
 	es = XCALLOC(MTYPE_ZES, sizeof(struct zebra_evpn_es));
@@ -2785,8 +2785,8 @@ bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi)
 
 	es = zebra_evpn_es_find(esi);
 	if (!es) {
-		/* If non-zero esi implicitly create a new ES */
-		if (memcmp(esi, zero_esi, sizeof(esi_t))) {
+		/* Reserved ESIs (zero and MAX-ESI) are never ES-referenced. */
+		if (!esi_is_reserved(esi)) {
 			es = zebra_evpn_es_new(esi);
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 				zlog_debug("auto es %s add on mac ref",

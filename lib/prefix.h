@@ -488,6 +488,7 @@ extern unsigned prefix_hash_key(const void *pp);
 
 extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);
+extern bool esi_is_reserved(const esi_t *esi);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 extern bool ipv4_unicast_valid(const struct in_addr *addr);
