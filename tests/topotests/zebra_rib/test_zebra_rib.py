@@ -293,7 +293,12 @@ def test_zebra_kernel_override():
         pytest.skip("skipped because of previous test failure")
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\nip route 4.5.1.0/24 192.168.216.3")
+    r1.vtysh_cmd(
+        """
+        conf
+        ip route 4.5.1.0/24 192.168.216.3
+        """
+    )
     json_file = "{}/r1/v4_route_1_static_override.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
@@ -306,7 +311,12 @@ def test_zebra_kernel_override():
     logger.info(
         "Test that the removal of the static route allows the kernel to take back over"
     )
-    r1.vtysh_cmd("conf\nno ip route 4.5.1.0/24 192.168.216.3")
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip route 4.5.1.0/24 192.168.216.3
+        """
+    )
     json_file = "{}/r1/v4_route_1.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
@@ -328,20 +338,76 @@ def test_route_map_usage():
 
     r1 = tgen.gears["r1"]
     # set the delay timer to 1 to improve test coverage (HA)
-    r1.vtysh_cmd("conf\nzebra route-map delay-timer 1")
-    r1.vtysh_cmd("conf\nroute-map static permit 10\nset src 192.168.215.1")
-    r1.vtysh_cmd("conf\naccess-list 5 seq 5 permit 10.0.0.44/32")
-    r1.vtysh_cmd("conf\naccess-list 10 seq 5 permit 10.0.1.0/24")
     r1.vtysh_cmd(
-        "conf\nroute-map sharp permit 10\nmatch ip address 10\nset src 192.168.214.1"
+        """
+        conf
+        zebra route-map delay-timer 1
+        """
     )
-    r1.vtysh_cmd("conf\nroute-map sharp permit 20\nset src 192.168.213.1")
-    r1.vtysh_cmd("conf\nip protocol static route-map static")
-    r1.vtysh_cmd("conf\nip protocol sharp route-map sharp")
+    r1.vtysh_cmd(
+        """
+        conf
+        route-map static permit 10
+          set src 192.168.215.1
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        access-list 5 seq 5 permit 10.0.0.44/32
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        access-list 10 seq 5 permit 10.0.1.0/24
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        route-map sharp permit 10
+          match ip address 10
+          set src 192.168.214.1
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        route-map sharp permit 20
+          set src 192.168.213.1
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        ip protocol static route-map static
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        ip protocol sharp route-map sharp
+        """
+    )
     sleep(4)
-    r1.vtysh_cmd("conf\nip route 10.100.100.100/32 192.168.216.3")
-    r1.vtysh_cmd("conf\nip route 10.100.100.101/32 10.0.0.44")
-    r1.vtysh_cmd("sharp install route 10.0.0.0 nexthop 192.168.216.3 500")
+    r1.vtysh_cmd(
+        """
+        conf
+        ip route 10.100.100.100/32 192.168.216.3
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        ip route 10.100.100.101/32 10.0.0.44
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        sharp install route 10.0.0.0 nexthop 192.168.216.3 500
+        """
+    )
 
     def check_initial_routes_installed(router):
         output = json.loads(router.vtysh_cmd("show ip route summ json"))
@@ -402,7 +468,13 @@ def test_route_map_usage():
         " and test that the routes installed are correct"
     )
 
-    r1.vtysh_cmd("conf\nroute-map sharp deny 5\nmatch ip address 5")
+    r1.vtysh_cmd(
+        """
+        conf
+        route-map sharp deny 5
+          match ip address 5
+        """
+    )
     # we are only checking the kernel here as that this will give us the implied
     # testing of both the route-map and staticd withdrawing the route
     # let's spot check that the routes were installed correctly
@@ -479,20 +551,39 @@ def test_allow_external_route_update_kernel_delete_behavior():
         )
 
     # Make sure the test starts from a clean state.
-    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip route {} {}
+        """.format(
+            prefix, nexthop
+        )
+    )
 
     #
     # a) enable allow-external-route-update:
     #    kernel delete should be accepted and FRR route should stay deleted.
     #
     step("Enable allow-external-route-update and install static route")
-    r1.vtysh_cmd("conf\nallow-external-route-update")
+    r1.vtysh_cmd(
+        """
+        conf
+        allow-external-route-update
+        """
+    )
 
     test_func = partial(check_allow_external_route_update_in_show_run, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
-    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+    r1.vtysh_cmd(
+        """
+        conf
+        ip route {} {}
+        """.format(
+            prefix, nexthop
+        )
+    )
 
     test_func = partial(check_route_in_zebra, True, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -518,14 +609,33 @@ def test_allow_external_route_update_kernel_delete_behavior():
     #    external delete should not be accepted and zebra should restore route.
     #
     step("Disable allow-external-route-update")
-    r1.vtysh_cmd("conf\nno allow-external-route-update")
+    r1.vtysh_cmd(
+        """
+        conf
+        no allow-external-route-update
+        """
+    )
 
     test_func = partial(check_allow_external_route_update_in_show_run, False)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
-    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
-    r1.vtysh_cmd("conf\nip route {} {}".format(prefix, nexthop))
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip route {} {}
+        """.format(
+            prefix, nexthop
+        )
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        ip route {} {}
+        """.format(
+            prefix, nexthop
+        )
+    )
 
     test_func = partial(check_route_in_zebra, True, True)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -546,8 +656,20 @@ def test_allow_external_route_update_kernel_delete_behavior():
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, result
 
-    r1.vtysh_cmd("conf\nno allow-external-route-update")
-    r1.vtysh_cmd("conf\nno ip route {} {}".format(prefix, nexthop))
+    r1.vtysh_cmd(
+        """
+        conf
+        no allow-external-route-update
+        """
+    )
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip route {} {}
+        """.format(
+            prefix, nexthop
+        )
+    )
     r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
 
 
