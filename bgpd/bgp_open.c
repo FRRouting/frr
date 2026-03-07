@@ -883,6 +883,7 @@ static int bgp_capability_hostname(struct peer *peer, struct peer_connection *co
 	char str[BGP_MAX_HOSTNAME + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
+	bool hostname_received = false;
 
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
@@ -907,6 +908,7 @@ static int bgp_capability_hostname(struct peer *peer, struct peer_connection *co
 		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 
 		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		hostname_received = true;
 	}
 
 	if (stream_get_getp(s) + 1 > end) {
@@ -914,6 +916,8 @@ static int bgp_capability_hostname(struct peer *peer, struct peer_connection *co
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received invalid domain name len (hostname capability) from peer %s",
 			__func__, peer->host);
+		if (hostname_received)
+			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 		return -1;
 	}
 
@@ -923,6 +927,8 @@ static int bgp_capability_hostname(struct peer *peer, struct peer_connection *co
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received runt domain name (hostname capability) from peer %s",
 			__func__, peer->host);
+		if (hostname_received)
+			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 		return -1;
 	}
 
