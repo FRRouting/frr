@@ -15,6 +15,75 @@ on daemon startup. Refer to :ref:`loadable-module-support` on the latter.  If
 you do not start the daemons with snmp module support snmp will not work
 properly.
 
+BGP SNMP Support
+================
+
+In addition to the standard BGP4-MIB (:rfc:`4273`) and BGP4V2-MIB, FRR also
+supports the CISCO-BGP4-MIB (OID 1.3.6.1.4.1.9.9.187). This MIB provides
+extended information about BGP peers, capabilities, routes, and prefix
+statistics organized by address family, along with SNMP trap notifications
+for peer state changes and prefix threshold events.
+
+**Global Scalars** (cbgpGlobal, .1.3):
+
+- cbgpLocalAs: the local BGP AS number
+- cbgpNotifsEnable: bitmask of enabled notification types
+
+**Peer Tables** (cbgpPeerTable, cbgpPeer2Table, cbgpPeer3Table):
+
+- Peer state, timers, connection details, and FSM transition counters
+- Accepted, denied, filtered, withdrawn, and suppressed prefix counts per AFI/SAFI
+- Advertised prefix counts per address family
+- Prefix limits, thresholds, and clear thresholds per address family
+- MinASOriginationInterval and MinRouteAdvertisementInterval
+- Previous state and last error text for diagnostics
+- cbgpPeer3Table adds VRF-aware indexing
+
+**Capability Tables** (cbgpPeerCapsTable, cbgpPeer2CapsTable):
+
+- Received BGP capabilities reconstructed from parsed peer state
+- Zero per-peer memory overhead (capabilities built on demand)
+- Supported capability codes: MP (1), Route Refresh (2), Extended Nexthop (5),
+  Extended Message (6), Role (9), Graceful Restart (64), 4-byte AS (65),
+  Dynamic (67), Addpath (69), Enhanced Route Refresh (70), LLGR (71),
+  FQDN (73), Route Refresh Old/Cisco (128)
+
+**Address Family Prefix Tables** (cbgpPeerAddrFamilyPrefixTable, cbgpPeer2AddrFamilyPrefixTable):
+
+- Accepted, denied, advertised, withdrawn, and suppressed prefix counters
+- Prefix admin limit and threshold/clear-threshold configuration
+- Per-AFI/SAFI granularity (IPv4/IPv6 unicast, L2VPN EVPN, etc.)
+
+**Route Table** (cbgpRouteTable):
+
+- Loc-RIB entries for IPv4 unicast, IPv6 unicast, and L2VPN EVPN
+- Per-route attributes: origin, AS-path, next-hop, MED, local-pref
+- Aggregator information, best-path indication, and unknown attributes (transit data)
+- EVPN route type encoding (Type-1 through Type-5)
+
+**Trap Notifications** (cbgpNotifications, .0):
+
+Ten notification types are supported:
+
+- cbgpFsmStateChange (1): legacy IPv4 peer FSM state change
+- cbgpBackwardTransition (2): legacy IPv4 backward transition (Established to lower)
+- cbgpPrefixThresholdExceeded (3): legacy IPv4 prefix threshold exceeded
+- cbgpPrefixThresholdClear (4): legacy IPv4 prefix threshold cleared
+- cbgpPeer2EstablishedNotification (5): IPv4/IPv6 peer established
+- cbgpPeer2BackwardTransNotification (6): IPv4/IPv6 backward transition
+- cbgpPeer2FsmStateChange (7): IPv4/IPv6 FSM state change
+- cbgpPeer2BackwardTransition (8): IPv4/IPv6 backward transition (extended)
+- cbgpPeer2PrefixThresholdExceeded (9): IPv4/IPv6 prefix threshold exceeded
+- cbgpPeer2PrefixThresholdClear (10): IPv4/IPv6 prefix threshold cleared
+
+To receive traps, configure ``trap2sink`` in your ``snmpd.conf``::
+
+   trap2sink localhost public
+
+The CISCO-BGP4-MIB is particularly useful for monitoring BGP peers and
+routes in multi-protocol environments and provides more detailed statistics
+than the standard BGP4-MIB.
+
 .. _getting-and-installing-an-snmp-agent:
 
 Getting and installing an SNMP agent
@@ -121,6 +190,41 @@ An example below is how to query SNMP for BGP:
 
       $ # BGP4-MIB (https://www.circitor.fr/Mibs/Mib/B/BGP4-MIB.mib)
       $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.2.1.15
+
+      $ # CISCO-BGP4-MIB (https://raw.githubusercontent.com/cisco/cisco-mibs/main/v2/CISCO-BGP4-MIB.my)
+
+      $ # cbgpRouteTable - BGP route entries (IPv4/IPv6 unicast, L2VPN EVPN)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.1.1
+
+      $ # cbgpPeerTable - Basic peer information (legacy IPv4, deprecated)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.1
+
+      $ # cbgpPeerCapsTable - Legacy peer capabilities (IPv4 only)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.2
+
+      $ # cbgpPeerAddrFamilyTable - Address families supported by peer
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.3
+
+      $ # cbgpPeerAddrFamilyPrefixTable - Prefix counts per address family
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.4
+
+      $ # cbgpPeer2Table - Extended peer information (IPv4 and IPv6)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.5
+
+      $ # cbgpPeer2CapsTable - Peer2 capabilities (IPv4 and IPv6)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.6
+
+      $ # cbgpPeer2AddrFamilyTable - Address families for Peer2 entries
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.7
+
+      $ # cbgpPeer2AddrFamilyPrefixTable - Prefix counts for Peer2 entries
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.8
+
+      $ # cbgpPeer3Table - VRF-aware peer information
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.2.9
+
+      $ # cbgpGlobal - Global scalars (local AS, notification enables)
+      $ snmpwalk -c public -v2c -On -Ln localhost .1.3.6.1.4.1.9.9.187.1.3
 
       $ # BGP4V2-MIB (http://www.circitor.fr/Mibs/Mib/B/BGP4V2-MIB.mib)
       $ # Information about the peers (bgp4V2PeerTable):
