@@ -38,9 +38,8 @@ static void on_trace(const char *label, struct interface *ifp, pim_addr src)
 		zlog_debug("%s: from %pPA on %s", label, &src, ifp->name);
 }
 
-static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
-		      uint16_t holdtime, pim_addr upstream, pim_sgaddr *sg,
-		      uint8_t source_flags)
+static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
+		      pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
 #if PIM_IPV == 6
@@ -92,12 +91,16 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 				  sg);
 			return;
 		}
+
 		/*
-		 * If the RP sent in the message is not
-		 * our RP for the group, drop the message
+		 * If the RP sent in the message is not our RP for the group,
+		 * drop the message - unless the user has specified the
+		 * allow-rp option, which means we skip this check and use our
+		 * RP instead, provided policy allows it. This latter bit is a
+		 * non-RFC-compliant option.
 		 */
 		rpf_addr = rp->rpf_addr;
-		if (pim_addr_cmp(sg->src, rpf_addr)) {
+		if (pim_addr_cmp(sg->src, rpf_addr) && !pim_is_rp_allowed(pim_ifp, &sg->src)) {
 			zlog_warn(
 				"%s: Specified RP(%pPAs) in join is different than our configured RP(%pPAs)",
 				__func__, &sg->src, &rpf_addr);
@@ -316,8 +319,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				continue;
 			}
 
-			recv_join(ifp, neigh, msg_holdtime, msg_upstream_addr,
-				  &sg, msg_source_flags);
+			recv_join(ifp, neigh, msg_holdtime, msg_upstream_addr, &sg,
+				  msg_source_flags);
 
 			if (pim_addr_is_any(sg.src)) {
 				struct pim_ifchannel *throwaway;

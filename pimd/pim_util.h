@@ -29,4 +29,21 @@ enum filter_type pim_access_list_apply(struct access_list *access, const struct 
 bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_addr *src);
 void pim_get_all_mcast_group(struct prefix *prefix);
 bool pim_addr_is_multicast(pim_addr addr);
+
+/*
+ * For 'ip pim allow-rp'. This checks if a given RP address is allowed.
+ *
+ * Returns false if allow-rp is not enabled on the interface.
+ * Returns true if allow-rp is enabled and no prefix-list is configured.
+ * Returns true/false based on prefix-list match if one is configured.
+ *
+ * pim_ifp
+ *    The PIM interface the (*,G) JOIN with the RP address being checked was
+ *    received on.
+ *
+ * rp
+ *    The RP address that was received.
+ */
+bool pim_is_rp_allowed(struct pim_interface *pim_ifp, pim_addr *rp);
+
 #endif /* PIM_UTIL_H */
