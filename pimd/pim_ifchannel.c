@@ -1269,8 +1269,6 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
-	if (!pim_ifp->pim_enable)
-		return;
 
 	pim_ifchannel_find(ifp, sg, &ch, &chrpt);
 	orig = ch;
