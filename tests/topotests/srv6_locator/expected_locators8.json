@@ -1,0 +1,9 @@
+{
+  "locators":[
+    {
+      "name": "loc1",
+      "prefix": "::/0",
+      "statusUp": false
+    }
+  ]
+}
