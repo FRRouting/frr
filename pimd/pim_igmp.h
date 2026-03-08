@@ -15,13 +15,6 @@
 #include "pim_igmp_stats.h"
 #include "pim_str.h"
 
-/*
-  The following sizes are likely to support
-  any message sent within local MTU.
-*/
-#define PIM_IGMP_BUFSIZE_READ         (20000)
-#define PIM_IGMP_BUFSIZE_WRITE        (20000)
-
 #define PIM_IGMP_MEMBERSHIP_QUERY     (0x11)
 #define PIM_IGMP_V1_MEMBERSHIP_REPORT (0x12)
 #define PIM_IGMP_V2_MEMBERSHIP_REPORT (0x16)
@@ -199,6 +192,8 @@ struct gm_group {
 #if PIM_IPV == 4
 struct pim_instance;
 
+size_t igmp_get_max_payload(struct interface *ifp);
+
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct gm_group *group);
 void igmp_anysource_forward_stop(struct gm_group *group);
@@ -225,9 +220,8 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 			 const char *ifname);
 
 void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
-		     int query_buf_size, int num_sources,
-		     struct in_addr dst_addr, struct in_addr group_addr,
-		     int query_max_response_time_dsec, uint8_t s_flag,
+		     size_t query_buf_size, int num_sources, struct in_addr dst_addr,
+		     struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
 		     struct gm_sock *igmp);
 void igmp_group_delete(struct gm_group *group);
 

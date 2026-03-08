@@ -73,12 +73,10 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source);
 struct gm_source *igmp_find_source_by_addr(struct gm_group *group,
 					   struct in_addr src_addr);
 
-void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
-			char *query_buf, int query_buf_size, int num_sources,
-			struct in_addr dst_addr, struct in_addr group_addr,
-			int query_max_response_time_dsec, uint8_t s_flag,
-			uint8_t querier_robustness_variable,
-			uint16_t querier_query_interval);
+void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
+			size_t query_buf_size, int num_sources, struct in_addr dst_addr,
+			struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
+			uint8_t querier_robustness_variable, uint16_t querier_query_interval);
 
 void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str, char *igmp_msg,
 			int igmp_msg_len);
