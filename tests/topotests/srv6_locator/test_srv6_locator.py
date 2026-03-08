@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: ISC
 
 #
-# test_srv6_manager.py
+# test_srv6_locator.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2020 by
@@ -10,8 +10,8 @@
 #
 
 """
-test_srv6_manager.py:
-Test for SRv6 manager on zebra
+test_srv6_locator.py:
+Test SRv6 locator management.
 """
 
 import os
