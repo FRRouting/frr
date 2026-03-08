@@ -991,6 +991,45 @@ DEFPY (locator_prefix,
 	return CMD_SUCCESS;
 }
 
+DEFPY (no_locator_prefix,
+       no_locator_prefix_cmd,
+       "no prefix [X:X::X:X/M$prefix [block-len (16-64)$block_bit_len] \
+	        [node-len (0-64)$node_bit_len] [func-bits (0-64)$func_bit_len]]",
+       NO_STR
+       "Configure SRv6 locator prefix\n"
+       "Specify SRv6 locator prefix\n"
+       "Configure SRv6 locator block length in bits\n"
+       "Specify SRv6 locator block length in bits\n"
+       "Configure SRv6 locator node length in bits\n"
+       "Specify SRv6 locator node length in bits\n"
+       "Configure SRv6 locator function length in bits\n"
+       "Specify SRv6 locator function length in bits\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+
+	if (IPV6_ADDR_SAME(&locator->prefix.prefix, &in6addr_any))
+		/* Prefix not configured, nothing to do */
+		return CMD_SUCCESS;
+
+	locator->status_up = false;
+
+	zebra_notify_srv6_locator_delete(locator);
+	zebra_srv6_sid_entry_del_by_locator_all_sids(locator);
+	zebra_srv6_sid_locator_block_release(locator);
+
+	list_delete_all_node(locator->chunks);
+
+	memset(&locator->prefix, 0, sizeof(locator->prefix));
+	locator->prefix.family = AF_INET6;
+
+	locator->block_bits_length = 0;
+	locator->node_bits_length = 0;
+	locator->function_bits_length = 0;
+	locator->argument_bits_length = 0;
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (locator_behavior,
        locator_behavior_cmd,
        "[no] behavior usid",
@@ -1774,6 +1813,7 @@ void zebra_srv6_vty_init(void)
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+	install_element(SRV6_LOC_NODE, &no_locator_prefix_cmd);
 	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
 	install_element(SRV6_LOC_NODE, &locator_flavor_psp_cmd);
 	install_element(SRV6_LOC_NODE, &locator_sid_format_cmd);
