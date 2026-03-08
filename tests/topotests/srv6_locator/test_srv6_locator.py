@@ -150,6 +150,107 @@ def test_srv6():
     check_sharpd_chunk(router, "expected_chunks6.json")
 
 
+def test_srv6_no_prefix():
+    """'no prefix' marks the locator DOWN and clears the prefix fields."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # Configure loc1 with a prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Issue 'no prefix' (no arguments)
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             no prefix
+        """
+    )
+    check_srv6_locator(router, "expected_locators8.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Re-adding the prefix brings the locator back UP
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+
+def test_srv6_no_prefix_explicit():
+    """'no prefix X:X::X:X/M' (with explicit prefix) behaves identically to 'no prefix'."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # Configure loc1 with a prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+
+    # Issue 'no prefix' with the explicit prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             no prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators8.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Re-adding the prefix brings the locator back UP
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
