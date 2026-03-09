@@ -3915,7 +3915,7 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 					true /* es_evi_re_reval */);
 	}
 
-	zebra_evpn_arp_nd_udp_sock_create();
+	zebra_evpn_arp_nd_failover_enable();
 }
 
 /* called when a vni is removed or becomes oper down or is removed from a
