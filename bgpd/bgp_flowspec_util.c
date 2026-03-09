@@ -274,8 +274,10 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 	}
 
 	do {
-		if (loop > BGP_PBR_MATCH_VAL_MAX)
+		if (loop >= BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
+			return offset;
+		}
 
 		if (offset >= max_len) {
 			*error = -1;
@@ -397,7 +399,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 	}
 
 	do {
-		if (loop > BGP_PBR_MATCH_VAL_MAX) {
+		if (loop >= BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
 			return offset;
 		}
