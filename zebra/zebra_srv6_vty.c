@@ -959,6 +959,8 @@ DEFPY (locator_prefix,
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
+	locator->status_up = true;
+
 	if (list_isempty(locator->chunks)) {
 		chunk = srv6_locator_chunk_alloc();
 		chunk->prefix = *prefix;
