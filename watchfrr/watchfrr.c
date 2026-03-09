@@ -120,6 +120,7 @@ static struct global_state {
 	int numdaemons;
 	int numpids;
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
+	bool collect_core;
 } gs = {
 	.phase = PHASE_INIT,
 	.vtydir = frr_runstatedir,
@@ -197,6 +198,7 @@ static const struct option longopts[] = {
 #ifdef GNU_LINUX
 	{"netns", optional_argument, NULL, OPTION_NETNS},
 #endif
+	{"collect-core", no_argument, NULL, 'c'},
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{NULL, 0, NULL, 0}};
@@ -290,6 +292,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		name of the daemon should be substituted.\n\
 		(default: '%s')\n\
     --dry	Do not start or restart anything, just log.\n\
+-c, --collect-core\n\
+		Send SIGABRT immediately to collect a core dump when a\n\
+		heartbeat is missed.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s/watchfrr.pid).\n\
 -b, --blank-string\n\
@@ -511,6 +516,12 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 		/* user supplied command string has a %s for the daemon name */
 		snprintf(cmd, sizeof(cmd), command, restart->name);
 #pragma GCC diagnostic pop
+
+		if (gs.collect_core)
+			setenv("FRR_COLLECT_CORE", "1", 1);
+		else
+			unsetenv("FRR_COLLECT_CORE");
+
 		if ((restart->pid = run_background(cmd)) > 0) {
 			event_add_timer(master, restart_kill, restart,
 					gs.restart_timeout, &restart->t_kill);
@@ -1381,7 +1392,7 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:di:k:l:N:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
+	frr_opt_add("b:cdi:k:l:N:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1458,6 +1469,9 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 		} break;
+		case 'c':
+			gs.collect_core = true;
+			break;
 		case OPTION_NETNS:
 			netns_en = true;
 			if (optarg && strchr(optarg, '/')) {

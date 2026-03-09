@@ -217,8 +217,14 @@ daemon_stop() {
 		return 1
 	fi
 
-	debug "kill -2 $pid"
-	kill -2 "$pid"
+	if [ "$FRR_COLLECT_CORE" = "1" ]; then
+		debug "kill -6 $pid"
+		kill -6 "$pid"
+	else
+		debug "kill -2 $pid"
+		kill -2 "$pid"
+	fi
+
 	cnt=1200
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
