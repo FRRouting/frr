@@ -4657,9 +4657,12 @@ incoming/outgoing directions.
 
    EVPN prefixes can also be filtered by EVPN route type.
 
-.. clicmd:: show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] self-originate [json]
+.. clicmd:: show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] [self-originate] [brief] [json]
 
-   Display self-originated EVPN prefixes which can also be filtered by EVPN route type.
+   Display the global EVPN routing table. With ``detail``, show per-path
+   information. With ``brief`` and ``json``, output a minimal loc-rib in JSON
+   format (prefix keys per RD only, no paths or detail). Route type and
+   self-originate filters apply to both normal and brief output.
 
 .. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
 
