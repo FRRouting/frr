@@ -4675,11 +4675,11 @@ daemon project, while :clicmd:`show bgp` command is the new format. The choice
 has been done to keep old format with IPv4 routing table, while new format
 displays IPv6 routing table.
 
-.. clicmd:: show ip bgp [all] [wide|json [detail]]
+.. clicmd:: show ip bgp [all] [wide|json [detail|brief]]
 
 .. clicmd:: show ip bgp A.B.C.D [json]
 
-.. clicmd:: show bgp [all] [wide|json [detail]]
+.. clicmd:: show bgp [all] [wide|json [detail|brief]]
 
 .. clicmd:: show bgp X:X::X:X [json]
 
@@ -4710,6 +4710,13 @@ displays IPv6 routing table.
 
    If ``detail`` option is specified after ``json``, more verbose JSON output
    will be displayed.
+
+   If ``brief`` option is specified after ``json``, a brief JSON output is
+   displayed: only the loc-rib structure with prefix keys (no per-path
+   details). This is intended for large routing tables and automation. The
+   same ``json brief`` form applies to the VRF/address-family commands, e.g.
+   :clicmd:`show bgp vrf NAME ipv4 unicast json brief` and
+   :clicmd:`show bgp vrf NAME ipv6 unicast json brief`.
 
 .. clicmd:: show bgp router [json]
 
