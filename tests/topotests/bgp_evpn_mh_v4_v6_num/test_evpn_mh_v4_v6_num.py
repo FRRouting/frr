@@ -28,6 +28,7 @@ import pytest
 import json
 import platform
 import time
+import re
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pim6d, pytest.mark.evpn]
 
@@ -1081,6 +1082,54 @@ def ping_anycast_gw(tgen):
             )
 
 
+def get_arp_nd_redirect_stats(dut):
+    """
+    Parse `show evpn arp-nd-redirect` text output into integer counters.
+    """
+    out = dut.vtysh_cmd("show evpn arp-nd-redirect")
+
+    patterns = {
+        "ipv4_arp": r"IPv4 ARP:\s+(\d+)",
+        "ipv6_nd": r"IPv6 neighbor discovery:\s+(\d+)",
+        "redirected": r"Redirected packets:\s+(\d+)",
+        "not_ready": r"Not ready:\s+(\d+)",
+        "vni_missing": r"VNI missing:\s+(\d+)",
+        "mac_missing": r"MAC missing:\s+(\d+)",
+        "dest_not_local_es": r"Dest is not local ES:\s+(\d+)",
+        "dest_es_oper_up": r"Dest ES oper-up:\s+(\d+)",
+    }
+
+    stats = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, out)
+        stats[key] = int(match.group(1)) if match else 0
+
+    return stats
+
+
+def check_arp_nd_redirect_counter_progress(dut, before):
+    """
+    Verify ARP-ND redirect accounting path is active by expecting one of:
+    - IPv6 ND packets increased, or
+    - redirect packets increased, or
+    - skip counters increased.
+    """
+    after = get_arp_nd_redirect_stats(dut)
+
+    if (
+        after["ipv6_nd"] > before["ipv6_nd"]
+        or after["redirected"] > before["redirected"]
+        or after["mac_missing"] > before["mac_missing"]
+        or after["dest_not_local_es"] > before["dest_not_local_es"]
+        or after["dest_es_oper_up"] > before["dest_es_oper_up"]
+    ):
+        return None
+
+    return "ARP-ND redirect counters did not progress: before={} after={}".format(
+        before, after
+    )
+
+
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
     """
     checks if mac is present and if desination matches the one provided
@@ -1276,6 +1325,37 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
+
+
+def test_evpn_arp_nd_redirect_counters(tgen_and_ip_version):
+    """
+    Validate ARP-ND redirect accounting path by generating IPv6 neighbor churn
+    from dual-attached hosts and verifying counters progress.
+    """
+    tgen, ip_version = tgen_and_ip_version
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = tgen.gears["torm11"]
+
+    # Ensure command is available and feature state is visible.
+    summary = dut.vtysh_cmd("show evpn arp-nd-redirect")
+    assert "EVPN ARP-reply/NA redirect:" in summary
+
+    before = get_arp_nd_redirect_stats(dut)
+
+    # Force neighbor rediscovery repeatedly to drive ND/ARP-ND accounting.
+    for _ in range(6):
+        for host_name in ("hostd11", "hostd12", "hostd21", "hostd22"):
+            host = tgen.gears[host_name]
+            host.run("ip -6 neigh flush dev torbond 2>/dev/null || true")
+            host.run("ping6 -I torbond -c 1 2001:db8:45::1 >/dev/null 2>&1 || true")
+        time.sleep(1)
+
+    test_fn = partial(check_arp_nd_redirect_counter_progress, dut, before)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=1)
+    assert result is None, result
 
 
 if __name__ == "__main__":
