@@ -147,6 +147,15 @@ struct access_master {
 /* Prototypes for access-list. */
 extern void access_list_init(void);
 extern void access_list_init_new(bool in_backend);
+
+/*
+ * Flag to skip prefix-list CLI processing.
+ * When set to true, CLI commands for prefix-lists will return CMD_SUCCESS
+ * without doing any work. This is useful for daemons like bfdd that don't
+ * use prefix-lists but need to parse config files that contain them.
+ * Note: access-list CLI commands are NOT skipped by this flag.
+ */
+extern bool filter_cli_skip_processing;
 extern void access_list_reset(void);
 extern void access_list_add_hook(void (*func)(struct access_list *));
 extern void access_list_delete_hook(void (*func)(struct access_list *));
