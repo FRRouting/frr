@@ -1213,6 +1213,13 @@ class TopoRouter(TopoGear):
     def has_mpls(self):
         return self.net.hasmpls
 
+    def has_crypto_openssl(self):
+        "Get Build option to know if openssl is used."
+        output = self.vtysh_cmd("show version")
+        if "with-crypto=openssl" in output:
+            return True
+        return False
+
 
 class TopoSwitch(TopoGear):
     """
