@@ -1166,14 +1166,24 @@ BGP GR Show Commands
 BGP Show Neighbors Brief Command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [brief] [json]
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [graceful-restart] [json [brief [established|failed]]]
 
-   Display BGP neighbor information. When the ``brief`` option is included, output
-   is shortened to one line per neighbor (text) or a reduced JSON structure
-   (hostname, remoteAs, localAs, lastResetDueTo, status, lastResetTimerMsecs,
-   messageStats with totalSent/totalRecv, and addressFamilyInfo with
-   acceptedPrefixCounter/sentPrefixCounter per AFI/SAFI). Optional ``json``
-   formats the output as JSON.
+   Display BGP neighbor information. Without ``json``, output is the usual
+   detailed text. With ``json``, output is full neighbor detail in JSON.
+
+   The ``brief`` keyword is only valid together with ``json``. Use ``json brief``
+   for a reduced JSON object per neighbor (hostname, remoteAs, localAs,
+   lastResetDueTo, status, lastResetTimerMsecs, messageStats with
+   totalSent/totalRecv, and addressFamilyInfo with acceptedPrefixCounter and
+   sentPrefixCounter per AFI/SAFI).
+
+   After ``json brief``, you may add ``established`` to include only neighbors in
+   Established state, or ``failed`` for neighbors not in Established (for
+   example Idle, Active, Connect).
+
+   ``graceful-restart`` shows graceful-restart-related neighbor information; it
+   may be combined with ``json`` as in the command grammar above. See also
+   :clicmd:`show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]`.
 
 Long-lived Graceful Restart
 ---------------------------
