@@ -19,6 +19,33 @@
 
 #include "lib/filter_cli_clippy.c"
 
+/*
+ * Prefix-list NB handlers no-op until access_list_init_new(), prefix_list_init(),
+ * or filter_cli_init() marks the lib ready (mgmtd only uses filter_cli_init).
+ */
+static bool filter_cli_prefix_nb_ready;
+
+void filter_cli_mark_lib_initialized(void)
+{
+	filter_cli_prefix_nb_ready = true;
+}
+
+static bool filter_cli_skip_prefix_list_nb(void)
+{
+	return !filter_cli_prefix_nb_ready;
+}
+
+static int filter_cli_skip(void)
+{
+	static bool logged;
+
+	if (!logged) {
+		zlog_debug("prefix-list config ignored (filter lib not initialized)");
+		logged = true;
+	}
+	return CMD_SUCCESS;
+}
+
 #define ACCESS_LIST_STR "Access list entry\n"
 #define ACCESS_LIST_ZEBRA_STR "Access list name\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
@@ -1184,6 +1211,9 @@ DEFPY_YANG(
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
 
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
+
 	/*
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
@@ -1274,6 +1304,8 @@ DEFPY_YANG(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return plist_remove(vty, "ipv4", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
@@ -1287,6 +1319,8 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return plist_remove(vty, "ipv4", name, seq, NULL, NULL, 0, 0);
 }
 
@@ -1299,6 +1333,9 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR)
 {
 	char xpath[XPATH_MAXLEN];
+
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
@@ -1319,6 +1356,9 @@ DEFPY_YANG(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
+
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
@@ -1341,6 +1381,8 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return filter_remove_check_empty(vty, "prefix", "ipv4", name, 0, true);
 }
 
@@ -1373,6 +1415,9 @@ DEFPY_YANG(
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 
 	/*
 	 * Backward compatibility: don't complain about duplicated values,
@@ -1464,6 +1509,8 @@ DEFPY_YANG(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return plist_remove(vty, "ipv6", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
 }
@@ -1477,6 +1524,8 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return plist_remove(vty, "ipv6", name, seq, NULL, NULL, 0, 0);
 }
 
@@ -1489,6 +1538,9 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR)
 {
 	char xpath[XPATH_MAXLEN];
+
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
@@ -1509,6 +1561,9 @@ DEFPY_YANG(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
+
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
@@ -1531,6 +1586,8 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_REMARK_STR)
 {
+	if (filter_cli_skip_prefix_list_nb())
+		return filter_cli_skip();
 	return filter_remove_check_empty(vty, "prefix", "ipv6", name, 0, true);
 }
 
@@ -1677,4 +1734,6 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &ipv6_prefix_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_remark_line_cmd);
+
+	filter_cli_mark_lib_initialized();
 }

@@ -70,7 +70,7 @@ extern struct event_loop *master;
 		VTYSH_VRRPD | VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD
 #else
 #define VTYSH_ACL_CONFIG                                                       \
-	VTYSH_BFDD | VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
+	VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |               \
 		VTYSH_FABRICD | VTYSH_LDPD | VTYSH_NHRPD | VTYSH_OSPF6D |      \
 		VTYSH_OSPFD | VTYSH_PBRD | VTYSH_PIMD | VTYSH_PIM6D |          \
 		VTYSH_VRRPD | VTYSH_MGMTD
@@ -87,7 +87,7 @@ extern struct event_loop *master;
 
 #define VTYSH_L2VPN  VTYSH_LDPD | VTYSH_BGPD | VTYSH_MGMTD
 #define VTYSH_ACL_SHOW                                                         \
-	VTYSH_BFDD | VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
+	VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
 		VTYSH_FABRICD | VTYSH_LDPD | VTYSH_NHRPD | VTYSH_OSPF6D |      \
 		VTYSH_OSPFD | VTYSH_PBRD | VTYSH_PIMD | VTYSH_PIM6D |          \
 		VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_VRRPD | VTYSH_ZEBRA
