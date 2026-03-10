@@ -48,6 +48,36 @@ extern struct zebra_privs_t zserv_privs;
  * via the VxLAN overlay if the destination associated with the DMAC
  * is oper-down
  ****************************************************************************/
+static vlanid_t zebra_evpn_arp_nd_resolve_vlan(struct zebra_if *zif, uint16_t vlan)
+{
+	uint16_t vid;
+	vlanid_t fallback_vid = 0;
+
+	if (vlan)
+		return vlan;
+
+	if (!bf_is_inited(zif->vlan_bitmap))
+		return 0;
+
+	/*
+	 * Untagged access traffic may come in without auxdata VLAN.
+	 * Fall back to the first configured VLAN on the access port.
+	 */
+	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
+		/*
+		 * Prefer a non-default VLAN when available. Access ports often
+		 * retain VLAN 1 membership alongside their effective PVID.
+		 */
+		if (vid != 1)
+			return vid;
+
+		if (!fallback_vid)
+			fallback_vid = vid;
+	}
+
+	return fallback_vid;
+}
+
 static void zebra_evpn_arp_nd_pkt_dump(struct zebra_if *zif, uint16_t vlan,
 				       uint8_t *data, int len)
 {
@@ -56,7 +86,7 @@ static void zebra_evpn_arp_nd_pkt_dump(struct zebra_if *zif, uint16_t vlan,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT) {
 		zlog_debug("evpn arp_nd pkt on %s vlan %d "
 			   "[dm=%02x:%02x:%02x:%02x:%02x:%02x sm=%02x:%02x:%02x:%02x:%02x:%02x et=0x%x]",
-			   zif->ifp->name, vlan ? vlan : zif->pvid, (uint8_t)ethh->h_dest[0],
+			   zif->ifp->name, vlan, (uint8_t)ethh->h_dest[0],
 			   (uint8_t)ethh->h_dest[1], (uint8_t)ethh->h_dest[2],
 			   (uint8_t)ethh->h_dest[3], (uint8_t)ethh->h_dest[4],
 			   (uint8_t)ethh->h_dest[5], (uint8_t)ethh->h_source[0],
@@ -127,27 +157,40 @@ void zebra_evpn_arp_nd_if_print(struct vty *vty, struct zebra_if *zif)
 
 #ifdef GNU_LINUX
 /* Send to the ES peer VTEP-IP */
-static void zebra_evpn_arp_nd_udp_send(struct in_addr vtep_ip, uint8_t *data,
+static void zebra_evpn_arp_nd_udp_send(const struct ipaddr *vtep_ip, uint8_t *data,
 				       int len)
 {
-	struct sockaddr_in sin;
+	struct sockaddr_storage ss;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	socklen_t addrlen = 0;
 	ssize_t sent_len;
+	char ipbuf[INET6_ADDRSTRLEN];
 
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	/* XXX - the VxLAN UDP port is user configurable so we
-	 * need to get that info via if_netlink instead of using the
-	 * standard port
-	 */
-	sin.sin_port = htons(ZEBRA_EVPN_VXLAN_UDP_PORT);
-	sin.sin_addr = vtep_ip;
+	memset(&ss, 0, sizeof(ss));
+	if (IS_IPADDR_V4(vtep_ip)) {
+		sin = (struct sockaddr_in *)&ss;
+		sin->sin_family = AF_INET;
+		sin->sin_port = htons(ZEBRA_EVPN_VXLAN_UDP_PORT);
+		sin->sin_addr = vtep_ip->ipaddr_v4;
+		addrlen = sizeof(*sin);
+	} else if (IS_IPADDR_V6(vtep_ip)) {
+		sin6 = (struct sockaddr_in6 *)&ss;
+		sin6->sin6_family = AF_INET6;
+		sin6->sin6_port = htons(ZEBRA_EVPN_VXLAN_UDP_PORT);
+		sin6->sin6_addr = vtep_ip->ipaddr_v6;
+		addrlen = sizeof(*sin6);
+	} else {
+		return;
+	}
 
-	sent_len = sendto(zevpn_arp_nd_info.udp_fd, data, len, 0, (struct sockaddr *)&sin,
-			  sizeof(sin));
+	sent_len = sendto(zevpn_arp_nd_info.udp_fd, data, len, 0, (struct sockaddr *)&ss,
+			  addrlen);
 	if (sent_len < 0) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-			zlog_debug("evpn arp_nd UDP sendto %pI4 failed: %s",
-			   &vtep_ip, safe_strerror(errno));
+			zlog_debug("evpn arp_nd UDP sendto %s failed: %s",
+				   ipaddr2str(vtep_ip, ipbuf, sizeof(ipbuf)),
+				   safe_strerror(errno));
 	}
 }
 #endif
@@ -173,12 +216,13 @@ struct vxlanhdr {
 
 /* vxlan encapsulate the data */
 static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn,
-					  struct in_addr vtep_ip, uint8_t *data,
+					  const struct ipaddr *vtep_ip, uint8_t *data,
 					  int len)
 {
 	struct vxlanhdr *vxh;
 	uint8_t vxlan_data[ZEBRA_EVPN_ARP_ND_MAX_PKT_LEN +
 			   sizeof(struct vxlanhdr *)];
+	char ipbuf[INET6_ADDRSTRLEN];
 
 	++zevpn_arp_nd_info.stat.redirect;
 	/* pre-pend a vxlan header */
@@ -188,19 +232,20 @@ static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn,
 	memcpy(vxlan_data + sizeof(struct vxlanhdr), data, len);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-		zlog_debug("evpn arp_nd of len %lu redirect to vni %d %pI4 with vxh(0x%x 0x%x)",
-			   (unsigned long)(len + sizeof(struct vxlanhdr)), zevpn->vni, &vtep_ip,
+		zlog_debug("evpn arp_nd of len %lu redirect to vni %d %s with vxh(0x%x 0x%x)",
+			   (unsigned long)(len + sizeof(struct vxlanhdr)), zevpn->vni,
+			   ipaddr2str(vtep_ip, ipbuf, sizeof(ipbuf)),
 			   vxh->vx_flags, vxh->vx_vni);
 
 	zebra_evpn_arp_nd_udp_send(vtep_ip, vxlan_data,
 				   len + sizeof(struct vxlanhdr));
 }
 /* Locate an ES peer to redirect the packet to */
-static struct in_addr zebra_evpn_arp_nd_get_vtep(struct zebra_evpn_es *es,
-						 struct ethhdr *ethh)
+static struct ipaddr zebra_evpn_arp_nd_get_vtep(struct zebra_evpn_es *es,
+						struct ethhdr *ethh)
 {
 	struct zebra_evpn_es_vtep *es_vtep = NULL;
-	struct in_addr nh;
+	struct ipaddr nh = {.ipa_type = IPADDR_NONE};
 
 	/* XXX - use a modulo hash to loadbalance the traffic instead
 	 * of redirecting to the first active nexthop
@@ -210,8 +255,6 @@ static struct in_addr zebra_evpn_arp_nd_get_vtep(struct zebra_evpn_es *es,
 
 	if (es_vtep)
 		nh = es_vtep->vtep_ip;
-	else
-		nh.s_addr = 0;
 
 	return nh;
 }
@@ -233,9 +276,12 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	struct zebra_evpn_access_bd *acc_bd;
 	struct zebra_mac *zmac;
 	struct zebra_evpn_es *es;
-	struct in_addr nh;
+	struct ipaddr nh;
+	vlanid_t pkt_vlan;
 
-	zebra_evpn_arp_nd_pkt_dump(zif, vlan, data, len);
+	pkt_vlan = zebra_evpn_arp_nd_resolve_vlan(zif, vlan);
+
+	zebra_evpn_arp_nd_pkt_dump(zif, pkt_vlan, data, len);
 
 	if (ntohs(ethh->h_proto) == ETH_P_ARP) {
 		++zif->arp_nd_info.arp_pkts;
@@ -251,7 +297,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 		++zevpn_arp_nd_info.stat.not_ready;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
 			zlog_debug("evpn arp_nd on %s vlan %d; not ready to redirect",
-				   zif->ifp->name, vlan);
+				   zif->ifp->name, pkt_vlan);
 		return 0;
 	}
 	/* zif is ZEBRA_IF_SLAVE_BRIDGE - can be vxlan or local port
@@ -266,13 +312,12 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 				   zif->ifp->name);
 		return 0;
 	}
-	acc_bd = zebra_evpn_acc_vl_find(vlan ? vlan : zif->pvid,
-					zif->brslave_info.br_if);
+	acc_bd = zebra_evpn_acc_vl_find(pkt_vlan, zif->brslave_info.br_if);
 	if (!acc_bd || !acc_bd->zevpn) {
 		++zevpn_arp_nd_info.stat.vni_missing;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
 			zlog_debug("evpn arp_nd on %s (bridge %s) vlan %d; access-vlan:vni mapping missing",
-				   zif->ifp->name, zif->brslave_info.br_if->name, vlan);
+				   zif->ifp->name, zif->brslave_info.br_if->name, pkt_vlan);
 		return 0;
 	}
 
@@ -310,7 +355,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	 * redirect the traffic to
 	 */
 	nh = zebra_evpn_arp_nd_get_vtep(es, ethh);
-	if (!nh.s_addr) {
+	if (ipaddr_is_zero(&nh)) {
 		++zevpn_arp_nd_info.stat.nh_missing;
 		zlog_debug("evpn arp_nd on %s vni %d; no ES peers",
 			   zif->ifp->name, acc_bd->zevpn->vni);
@@ -318,7 +363,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	}
 
 
-	zebra_evpn_arp_nd_vxlan_encap(acc_bd->zevpn, nh, data, len);
+	zebra_evpn_arp_nd_vxlan_encap(acc_bd->zevpn, &nh, data, len);
 
 	return 0;
 }
@@ -418,6 +463,7 @@ static void zebra_evpn_arp_nd_read(struct event *t)
 	fd = EVENT_FD(t);
 
 	for (count = 0; count < ZEBRA_EVPN_ARP_ND_PKT_MAX; ++count) {
+		vlan = 0;
 		if (zebra_evpn_arp_nd_recvmsg(fd, buf, sizeof(buf), &vlan, &len, &errno_ret) < 0) {
 			if (errno_ret == EINTR)
 				continue;
@@ -590,7 +636,7 @@ void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable)
 		zebra_evpn_arp_nd_pkt_read_enable(zif);
 	} else {
 		zif->flags &= ~ZIF_FLAG_ARP_ND_SNOOP;
-		EVENT_OFF(zif->arp_nd_info.t_pkt_read);
+		event_cancel(&zif->arp_nd_info.t_pkt_read);
 		if (zif->arp_nd_info.pkt_fd > 0) {
 			close(zif->arp_nd_info.pkt_fd);
 			zif->arp_nd_info.pkt_fd = -1;
