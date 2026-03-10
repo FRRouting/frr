@@ -563,6 +563,25 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 	ptm_bfd_start_xmt_timer(bfd, true);
 }
 
+const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type)
+{
+	switch (auth_type) {
+	case BFD_AUTH_TYPE_KEYED_MD5:
+		return "keyed-md5";
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_MD5:
+		return "meticulous keyed-md5";
+	case BFD_AUTH_TYPE_SIMPLE_PASSWORD:
+		return "simple-password";
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1:
+		return "meticulous keyed-sha1";
+	case BFD_AUTH_TYPE_KEYED_SHA1:
+		return "keyed-sha1";
+	case BFD_AUTH_TYPE_RESERVED:
+		return "none";
+	}
+	return "none";
+}
+
 enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
 						      bool meticulous)
 {
