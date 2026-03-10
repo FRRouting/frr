@@ -173,7 +173,7 @@ struct ospf6 {
 	struct event *t_spf_calc; /* SPF calculation timer. */
 	struct event *t_ase_calc; /* ASE calculation timer. */
 	struct event *maxage_remover;
-	struct event *t_distribute_update; /* Distirbute update timer. */
+	struct event *t_distribute_update; /* Distribute update timer. */
 	struct event *t_ospf6_receive;	   /* OSPF6 receive timer */
 	struct event *t_external_aggr;	   /* OSPF6 aggregation timer */
 #define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
@@ -191,7 +191,7 @@ struct ospf6 {
 	struct route_table *distance_table;
 
 	/* Used during ospf instance going down send LSDB
-	 * update to neighbors immediatly */
+	 * update to neighbors immediately */
 	uint8_t inst_shutdown;
 
 	/* Max number of multiple paths

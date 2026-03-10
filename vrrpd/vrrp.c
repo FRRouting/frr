@@ -106,7 +106,7 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
  * master/backup status.
  *
  * ifp
- *    The interface to check owernship of. This should be the base interface of
+ *    The interface to check ownership of. This should be the base interface of
  *    a VRRP router.
  *
  * vr
@@ -2342,7 +2342,7 @@ int vrrp_config_write_global(struct vty *vty)
 		vty_out(vty, "vrrp autoconfigure%s\n",
 			vrrp_autoconfig_version == 2 ? " version 2" : "");
 
-	/* FIXME: needs to be udpated for full YANG conversion. */
+	/* FIXME: needs to be updated for full YANG conversion. */
 	if (vd.priority != VRRP_DEFAULT_PRIORITY && ++writes)
 		vty_out(vty, "vrrp default priority %hhu\n", vd.priority);
 

@@ -46,7 +46,7 @@ static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void babel_distribute_update(struct distribute_ctx *ctx, struct distribute *dist);
 
-/* Informations relative to the babel running daemon. */
+/* Information relative to the babel running daemon. */
 static struct babel *babel_routing_process = NULL;
 static unsigned char *receive_buffer = NULL;
 static int receive_buffer_size = 0;
@@ -194,7 +194,7 @@ static void babel_read_protocol(struct event *event)
 }
 
 /* Zebra will give some information, especially about interfaces. This function
- must be call with a litte timeout wich may give zebra the time to do his job,
+ must be call with a little timeout which may give zebra the time to do his job,
  making these inits have sense. */
 static void babel_init_routing_process(struct event *event)
 {
@@ -482,7 +482,7 @@ static void babel_fill_with_next_timeout(struct timeval *tv)
 }
 
 /* set the t_update thread of the babel routing process to be launch in
- 'timeout' (approximate at the milisecond) */
+ 'timeout' (approximate at the millisecond) */
 static void babel_set_timer(struct timeval *timeout)
 {
 	long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
