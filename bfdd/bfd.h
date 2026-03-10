@@ -154,6 +154,15 @@ struct bfd_auth {
 	uint8_t length;
 };
 
+/*
+ * Format of payload of bfd authenticated packets - follows bfd_auth
+ */
+struct bfd_auth_sub {
+	uint8_t key_id;
+	uint8_t password[16];
+	uint8_t reserved;
+};
+
 
 /*
  * Format of Echo packet.
