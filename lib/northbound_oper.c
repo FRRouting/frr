@@ -933,9 +933,6 @@ static enum nb_error nb_op_iter_leaf(struct nb_op_yield_state *ys,
 	enum nb_error ret = NB_OK;
 	LY_ERR err;
 
-	if (CHECK_FLAG(snode->flags, LYS_CONFIG_W))
-		return NB_OK;
-
 	/* Ignore list keys. */
 	if (lysc_is_key(snode))
 		return NB_OK;
@@ -951,6 +948,10 @@ static enum nb_error nb_op_iter_leaf(struct nb_op_yield_state *ys,
 		       xpath, ni->list_entry);
 		return nb_node->cbs.get(nb_node, ni->list_entry, ni->inner);
 	}
+
+	/* YANG NMDA: Config true can be queried as state, but only if we have callback */
+	if (!nb_node->cbs.get_elem)
+		return NB_OK;
 
 	data = nb_callback_get_elem(nb_node, xpath, ni->list_entry);
 	if (data == NULL)
@@ -982,9 +983,6 @@ static enum nb_error nb_op_iter_leaflist(struct nb_op_yield_state *ys,
 	enum nb_error ret = NB_OK;
 	LY_ERR err;
 
-	if (CHECK_FLAG(snode->flags, LYS_CONFIG_W))
-		return NB_OK;
-
 	/* Check for new simple get */
 	if (nb_node->cbs.get) {
 		/* XXX: need to run through translator */
@@ -996,6 +994,10 @@ static enum nb_error nb_op_iter_leaflist(struct nb_op_yield_state *ys,
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE))
 		/* XXX: need to run through translator */
 		return nb_op_libyang_cb_get_leaflist(ys, nb_node, ni->inner, xpath);
+
+	/* YANG NMDA: Config true can be queried as state, but only if we have callback */
+	if (!nb_node->cbs.get_elem || !nb_node->cbs.get_next)
+		return NB_OK;
 
 	do {
 		struct yang_data *data;
@@ -1425,6 +1427,7 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 		case LYS_CASE:
 		case LYS_CHOICE:
 		case LYS_CONTAINER:
+			/* Check no oper-state below, and skip if so */
 			if (CHECK_FLAG(nn->flags, F_NB_NODE_CONFIG_ONLY)) {
 				sib = nb_op_sib_next(ys, sib);
 				continue;
@@ -1491,8 +1494,8 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 				 * will push our node info below. The top is our
 				 * parent.
 				 */
-				if (CHECK_FLAG(nn->flags,
-					       F_NB_NODE_CONFIG_ONLY)) {
+				/* Check no oper-state below, and skip if so */
+				if (CHECK_FLAG(nn->flags, F_NB_NODE_CONFIG_ONLY)) {
 					sib = nb_op_sib_next(ys, sib);
 					continue;
 				}
