@@ -47,8 +47,9 @@ Test Execution Order:
 8. test_vrf_routes                      - Display VRF routes (informational)
 9. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
 10. test_evpn_check_overlay_route       - Verify EVPN Type-5 overlay route in VRF RIB
-11. test_host_to_host_ping              - Verify end-to-end connectivity
-12. test_memory_leak                    - Memory leak detection
+11. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
+12. test_host_to_host_ping              - Verify end-to-end connectivity
+13. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -76,6 +77,8 @@ from lib.evpn import (
     evpn_verify_bgp_vni_state,
     evpn_verify_l3vni_remote_rmacs,
     evpn_verify_l3vni_remote_nexthops,
+    evpn_verify_l3vni_nexthops,
+    evpn_verify_no_remote_vtep_in_l3vni,
     evpn_verify_vrf_rib_route,
     evpn_verify_overlay_route_in_kernel,
     evpn_trigger_arp_scapy,
@@ -2223,6 +2226,81 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
         f"EVPN Type-5 overlay route verification completed successfully "
         f"(RIB + kernel, {ip_version} underlay)"
     )
+
+
+def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
+    """
+    Verify EVPN remote VTEP lifecycle across uplink flap.
+
+    1. Pre-check: remote VTEPs are present before any disruption.
+    2. Bring swp1 and swp2 (uplinks to leaf layer) down and verify all remote
+       VTEP next-hops are removed (no stale entries).
+    3. Bring swp1 and swp2 back up and verify remote VTEPs are learned again.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["tor-21"]
+    l3vni_list = ["104001", "104002"]
+    expected_remote_vteps = [
+        VTEP_IPS[ip_version]["bordertor-11"],
+        VTEP_IPS[ip_version]["bordertor-12"],
+        VTEP_IPS[ip_version]["tor-22"],
+    ]
+
+    logger.info(
+        "tor-21: verifying remote VTEPs present before uplink flap ({})".format(
+            ip_version
+        )
+    )
+    test_func = partial(
+        evpn_verify_l3vni_nexthops,
+        router,
+        l3vni_list,
+        expected_remote_vteps,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, (
+        "tor-21: remote VTEPs not present before uplink flap: {}".format(result)
+    )
+
+    try:
+        logger.info(
+            "tor-21: bringing uplinks swp1 and swp2 down ({})".format(ip_version)
+        )
+        router.run("ip link set dev swp1 down")
+        router.run("ip link set dev swp2 down")
+
+        test_func = partial(
+            evpn_verify_no_remote_vtep_in_l3vni,
+            router,
+            l3vni_list,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, (
+            "tor-21: stale VTEP entries after uplink down: {}".format(result)
+        )
+        logger.info("tor-21: no stale VTEP entries after uplinks down")
+
+        logger.info("tor-21: bringing uplinks swp1 and swp2 up")
+        router.run("ip link set dev swp1 up")
+        router.run("ip link set dev swp2 up")
+
+        test_func = partial(
+            evpn_verify_l3vni_nexthops,
+            router,
+            l3vni_list,
+            expected_remote_vteps,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, (
+            "tor-21: remote VTEPs not restored after uplink up: {}".format(result)
+        )
+        logger.info("tor-21: remote VTEPs restored after uplinks up")
+    finally:
+        router.run("ip link set dev swp1 up 2>/dev/null || true")
+        router.run("ip link set dev swp2 up 2>/dev/null || true")
 
 
 def test_host_to_host_ping(tgen_and_ip_version):
