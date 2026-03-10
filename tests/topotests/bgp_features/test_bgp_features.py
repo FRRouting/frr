@@ -176,7 +176,7 @@ def test_bgp_convergence():
 
 
 def test_bgp_neighbors_brief():
-    "Test 'show bgp neighbors [<ip>] brief' and 'show bgp neighbors [<ip>] brief json'"
+    "Test 'show bgp neighbors [<ip>] json brief' (brief is only valid with json)"
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -185,20 +185,11 @@ def test_bgp_neighbors_brief():
     neighbor_ip = "192.168.0.2"
     neighbor_ip2 = "192.168.101.2"
 
-    def _check_brief_text(out, expect_neighbors):
-        assert "Neighbor" in out and "AS " in out, "brief text missing header"
-        assert (
-            "MsgRcvd" in out and "MsgSent" in out
-        ), "brief text missing MsgRcvd/MsgSent"
-        assert (
-            "ResetTime" in out and "State " in out
-        ), "brief text missing ResetTime/State"
-        assert (
-            "Afi/Safi" in out and "PfxRcd" in out and "PfxSnt" in out
-        ), "brief text missing Afi/Safi or PfxRcd/PfxSnt"
-        for n in expect_neighbors:
-            assert n in out, f"brief text missing neighbor {n}"
-        assert "Established" in out or "IPv4" in out, "brief text missing State or AFI"
+    # Text output remains the full neighbor display (no 'brief' keyword).
+    logger.info(f"Checking 'show bgp neighbors {neighbor_ip}' text output")
+    out = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip}")
+    assert neighbor_ip in out, "full text output missing neighbor address"
+    assert "BGP neighbor" in out, "full text output missing BGP neighbor header"
 
     def _check_brief_json_nbr(nbr):
         assert "hostname" in nbr, "brief json missing hostname"
@@ -220,31 +211,124 @@ def test_bgp_neighbors_brief():
                 "sentPrefixCounter" in afi_obj
             ), "brief json AF entry missing sentPrefixCounter"
 
-    # 1. Single neighbor text: show bgp neighbors <ip> brief
-    logger.info(f"Checking 'show bgp neighbors {neighbor_ip} brief' text output")
-    out = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip} brief")
-    _check_brief_text(out, [neighbor_ip])
-    assert "65000" in out, "brief text missing AS 65000"
-
-    # 2. All neighbors text: show bgp neighbors brief
-    logger.info(f"Checking 'show bgp neighbors brief' text output (all neighbors)")
-    out_all = r1.vtysh_cmd("show bgp neighbors brief")
-    _check_brief_text(out_all, [neighbor_ip, neighbor_ip2])
-
-    # 3. Single neighbor JSON: show bgp neighbors <ip> brief json
-    logger.info(f"Checking 'show bgp neighbors {neighbor_ip} brief json' structure")
-    out_json = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip} brief json", isjson=True)
+    # 1. Single neighbor JSON: show bgp neighbors <ip> json brief
+    logger.info(f"Checking 'show bgp neighbors {neighbor_ip} json brief' structure")
+    out_json = r1.vtysh_cmd(f"show bgp neighbors {neighbor_ip} json brief", isjson=True)
     assert neighbor_ip in out_json, "brief json missing neighbor key"
     _check_brief_json_nbr(out_json[neighbor_ip])
 
-    # 4. All neighbors JSON: show bgp neighbors brief json
-    logger.info(f"Checking 'show bgp neighbors brief json' structure (all neighbors)")
-    out_json_all = r1.vtysh_cmd("show bgp neighbors brief json", isjson=True)
+    # 2. All neighbors JSON: show bgp neighbors json brief
+    logger.info("Checking 'show bgp neighbors json brief' structure (all neighbors)")
+    out_json_all = r1.vtysh_cmd("show bgp neighbors json brief", isjson=True)
     assert (
         neighbor_ip in out_json_all and neighbor_ip2 in out_json_all
     ), "brief json (all) missing expected neighbor keys"
     _check_brief_json_nbr(out_json_all[neighbor_ip])
     _check_brief_json_nbr(out_json_all[neighbor_ip2])
+
+
+def test_bgp_neighbors_established_failed():
+    "Test 'show bgp neighbors json brief established' and 'json brief failed'"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    neighbor_est = "192.168.0.2"
+    neighbor_fail = "192.168.101.2"
+
+    def _check_brief_json_nbr(nbr):
+        assert "hostname" in nbr, "brief json missing hostname"
+        assert "remoteAs" in nbr, "brief json missing remoteAs"
+        assert "localAs" in nbr, "brief json missing localAs"
+        assert "messageStats" in nbr, "brief json missing messageStats"
+        assert "addressFamilyInfo" in nbr, "brief json missing addressFamilyInfo"
+
+    # --- All peers up: established = both, failed = none ---
+    logger.info("Checking 'show bgp neighbors json brief established' (all peers up)")
+    json_est = r1.vtysh_cmd("show bgp neighbors json brief established", isjson=True)
+    assert (
+        neighbor_est in json_est and neighbor_fail in json_est
+    ), "established json should contain both neighbors when all up"
+    _check_brief_json_nbr(json_est[neighbor_est])
+    _check_brief_json_nbr(json_est[neighbor_fail])
+
+    logger.info(
+        "Checking 'show bgp neighbors json brief failed' (all peers up -> empty)"
+    )
+    json_fail = r1.vtysh_cmd("show bgp neighbors json brief failed", isjson=True)
+    assert (
+        neighbor_est not in json_fail and neighbor_fail not in json_fail
+    ), "failed json should have no neighbors when all are established"
+
+    # --- Shut one peer so we have one established, one failed ---
+    logger.info(
+        f"Shutting down neighbor {neighbor_fail} on r1 to test established/failed"
+    )
+    tgen.net["r1"].cmd(
+        f'vtysh -c "conf t" -c "router bgp 65000" '
+        f'-c "neighbor {neighbor_fail} shutdown"'
+    )
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65100" '
+        '-c "neighbor 192.168.101.1 shutdown"'
+    )
+
+    # Wait for peer to leave Established
+    for _ in range(30):
+        out_sum = r1.vtysh_cmd("show ip bgp summary json", isjson=True)
+        peers = {}
+        for key in out_sum:
+            if isinstance(out_sum[key], dict) and "peers" in out_sum[key]:
+                peers.update(out_sum[key]["peers"])
+        if neighbor_fail in peers:
+            state = peers[neighbor_fail].get("state", "") or peers[neighbor_fail].get(
+                "stateStr", ""
+            )
+            if str(state).lower() != "established":
+                break
+        time.sleep(1)
+    else:
+        assert (
+            False
+        ), f"neighbor {neighbor_fail} did not leave Established state after shutdown"
+
+    # --- established: only 192.168.0.2; failed: only 192.168.101.2 ---
+    logger.info("Checking 'show bgp neighbors json brief established' (one peer down)")
+    json_est = r1.vtysh_cmd("show bgp neighbors json brief established", isjson=True)
+    assert neighbor_est in json_est, f"established json should contain {neighbor_est}"
+    assert (
+        neighbor_fail not in json_est
+    ), "established json should not contain shut peer"
+    _check_brief_json_nbr(json_est[neighbor_est])
+
+    logger.info("Checking 'show bgp neighbors json brief failed' (one peer down)")
+    json_fail = r1.vtysh_cmd("show bgp neighbors json brief failed", isjson=True)
+    assert neighbor_fail in json_fail, "failed json should contain shut peer"
+    assert (
+        neighbor_est not in json_fail
+    ), "failed json should not contain established peer"
+    _check_brief_json_nbr(json_fail[neighbor_fail])
+
+    # --- Restore neighbor ---
+    logger.info(f"Restoring neighbor {neighbor_fail} on r1")
+    tgen.net["r1"].cmd(
+        f'vtysh -c "conf t" -c "router bgp 65000" '
+        f'-c "no neighbor {neighbor_fail} shutdown"'
+    )
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65100" '
+        '-c "no neighbor 192.168.101.1 shutdown"'
+    )
+
+    # Wait for reconvergence
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip bgp summary json",
+        json.loads(open(os.path.join(CWD, "r1/bgp_summary.json")).read()),
+    )
+    topotest.run_and_expect(test_func, None, count=60, wait=2)
 
 
 def get_shut_msg_count(tgen):
