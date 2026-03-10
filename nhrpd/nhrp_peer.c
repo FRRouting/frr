@@ -65,6 +65,8 @@ static void nhrp_peer_notify_up(struct event *t)
 		nhrp_peer_ref(p);
 		notifier_call(&p->notifier_list, NOTIFY_PEER_UP);
 		nhrp_peer_unref(p);
+	} else {
+		p->requested = p->fallback_requested = 0;
 	}
 }
 
