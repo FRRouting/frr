@@ -18,6 +18,7 @@
 #include "mgmtd/mgmt_ds.h"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
+#include "bfdd/bfdd_nb.h"
 #include "routemap.h"
 #include "routing_nb.h"
 #include "srv6.h"
@@ -127,6 +128,10 @@ static struct frr_signal_t mgmt_signals[] = {
 extern const struct frr_yang_module_info frr_staticd_cli_info;
 #endif
 
+#ifdef HAVE_BFDD
+extern const struct frr_yang_module_info frr_bfdd_cli_info;
+#endif
+
 /*
  * These are modules that are only needed by mgmtd and hence not included into
  * the lib and backend daemons.
@@ -184,6 +189,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 #endif
 #ifdef HAVE_STATICD
 	&frr_staticd_cli_info,
+#endif
+#ifdef HAVE_BFDD
+	&frr_bfdd_cli_info,
 #endif
 };
 

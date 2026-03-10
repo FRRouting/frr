@@ -49,6 +49,12 @@ module frr-bfdd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-03-05 {
+    description "Add SBFD reflector list";
+    reference
+      "RFC 7880: Seamless Bidirectional Forwarding Detection (S-BFD).";
+  }
+
   revision 2025-03-03 {
     description "Add log-session-changes leaf";
     reference
@@ -667,6 +673,23 @@ module frr-bfdd {
             description
               "This container provides statistics for sessions.";
           }
+        }
+      }
+
+      list sbfd-reflector {
+        key "discriminator";
+        description
+          "SBFD reflector configuration per RFC 7880.";
+
+        leaf discriminator {
+          type discriminator;
+          description "SBFD reflector discriminator value";
+        }
+
+        leaf source-address {
+          type inet:ipv6-address;
+          mandatory true;
+          description "IPv6 source address for the SBFD reflector";
         }
       }
       description
