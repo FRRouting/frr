@@ -24,6 +24,8 @@
 #include "lib/version.h"
 #include "lib/command.h"
 #include "lib/plist.h"
+#include "lib/hook.h"
+#include "lib/keychain.h"
 
 
 /*
@@ -71,6 +73,8 @@ static FRR_NORETURN void sigterm_handler(void)
 	/* Stop receiving message from zebra. */
 	bfdd_zclient_stop();
 
+	keychain_terminate();
+
 	/* Shutdown and free all protocol related memory. */
 	bfd_shutdown();
 
@@ -114,15 +118,18 @@ static struct frr_signal_t bfd_signals[] = {
 	},
 };
 
+/* clang-format off */
+
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	/* CLI-only filter YANG; do not use frr_filter_info (no filter backend). */
 	&frr_filter_cli_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
 	&frr_vrf_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
-/* clang-format off */
 FRR_DAEMON_INFO(bfdd, BFD,
 	.vty_port = BFDD_VTY_PORT,
 	.proghelp = "Implementation of the BFD protocol.",
@@ -367,6 +374,8 @@ int main(int argc, char *argv[])
 
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
+
+	keychain_init();
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
