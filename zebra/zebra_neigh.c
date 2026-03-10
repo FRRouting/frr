@@ -273,17 +273,6 @@ void zebra_neigh_deref(struct zebra_pbr_rule *rule)
 		zebra_neigh_free(n);
 }
 
-/* XXX - this needs to work with evpn's neigh read */
-static void zebra_neigh_read_on_first_ref(void)
-{
-	static bool neigh_read_done;
-
-	if (!neigh_read_done) {
-		neigh_read(zebra_ns_lookup(NS_DEFAULT));
-		neigh_read_done = true;
-	}
-}
-
 void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra_pbr_rule *rule)
 {
 	struct zebra_neigh_ent *n;
@@ -292,7 +281,6 @@ void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra
 		zlog_debug("zebra neigh ref if %d %pIA by pbr rule %u", ifindex,
 			   ip, rule->rule.seq);
 
-	zebra_neigh_read_on_first_ref();
 	n = zebra_neigh_find(ns_id, ifindex, ip);
 	if (!n)
 		n = zebra_neigh_new(ns_id, ifindex, ip, NULL, 0);
