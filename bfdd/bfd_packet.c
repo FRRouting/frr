@@ -833,27 +833,8 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 	if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
 		return false;
 
-	const struct bfd_auth *auth = (const struct bfd_auth *)(cp + 1);
-
-	if (cp->len < BFD_PKT_LEN + auth->length)
-		return false;
-
-	switch (auth->type) {
-	case BFD_AUTH_NULL:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	case BFD_AUTH_SIMPLE:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	case BFD_AUTH_CRYPTOGRAPHIC:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	default:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	}
-
-	return false; /* unreachable, defensive */
+	/* TODO handle authentication type */
+	return false; /* defensive */
 }
 
 void bfd_recv_cb(struct event *t)
@@ -1074,7 +1055,7 @@ void bfd_recv_cb(struct event *t)
 	/* Check authentication. */
 	if (!bfd_check_auth(bfd, cp)) {
 		/* Extract auth type from packet for tracing */
-		uint8_t auth_type __attribute__((unused)) = BFD_AUTH_NULL;
+		uint8_t auth_type __attribute__((unused)) = BFD_AUTH_TYPE_RESERVED;
 
 		if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
 			if (cp->len >= BFD_PKT_LEN + sizeof(struct bfd_auth)) {
