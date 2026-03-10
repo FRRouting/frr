@@ -670,7 +670,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 			   __func__, &aggr->p.prefix, aggr->p.prefixlen);
 
 	/* This case to handle when the overlapping aggregator address
-	 * is available.Best match will be considered.So need to delink
+	 * is available. Best match will be considered. So need to unlink
 	 * from old aggregator and link to the new aggr.
 	 */
 	if (ei->aggr_route) {

@@ -348,7 +348,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		if (is_debug)
 			zlog_debug("To neighbor %s", on->name);
 
-		/* (a) if neighbor state < Exchange, examin next */
+		/* (a) if neighbor state < Exchange, examine next */
 		if (on->state < OSPF6_NEIGHBOR_EXCHANGE) {
 			if (is_debug)
 				zlog_debug(
@@ -370,7 +370,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						"Not on request-list for this neighbor");
 				/* fall through */
 			} else {
-				/* If new LSA less recent, examin next neighbor
+				/* If new LSA less recent, examine next neighbor
 				 */
 				if (ospf6_lsa_compare(lsa, req) > 0) {
 					if (is_debug)
@@ -381,7 +381,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 
 				/* If the same instance, delete from
 				   request-list and
-				   examin next neighbor */
+				   examine next neighbor */
 				if (ospf6_lsa_compare(lsa, req) == 0) {
 					if (is_debug)
 						zlog_debug(
@@ -419,7 +419,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		}
 
 		/* (c) If the new LSA was received from this neighbor,
-		   examin next neighbor */
+		   examine next neighbor */
 		if (from == on) {
 			if (is_debug)
 				zlog_debug(
@@ -482,7 +482,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		}
 	}
 
-	/* (2) examin next interface if not added to retrans-list */
+	/* (2) examine next interface if not added to retrans-list */
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
@@ -492,7 +492,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	}
 
 	/* (3) If the new LSA was received on this interface,
-	   and it was from DR or BDR, examin next interface */
+	   and it was from DR or BDR, examine next interface */
 	if (from && from->ospf6_if == oi
 	    && (from->router_id == oi->drouter
 		|| from->router_id == oi->bdrouter)) {
@@ -503,7 +503,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	}
 
 	/* (4) If the new LSA was received on this interface,
-	   and the interface state is BDR, examin next interface */
+	   and the interface state is BDR, examine next interface */
 	if (from && from->ospf6_if == oi) {
 		if (oi->state == OSPF6_INTERFACE_BDR) {
 			if (is_debug)
@@ -689,7 +689,7 @@ static void ospf6_acknowledge_lsa_bdrouter(struct ospf6_lsa *lsa,
 	/* LSA is more recent than database copy, but was not flooded
 	   back out receiving interface. Delayed acknowledgement sent
 	   if advertisement received from Designated Router,
-	   otherwide do nothing. */
+	   otherwise do nothing. */
 	if (ismore_recent < 0) {
 		if (oi->drouter == from->router_id) {
 			if (is_debug)
@@ -1005,7 +1005,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		if (old) {
 			if (ospf6_lsa_check_min_arrival(old, from)) {
 				ospf6_lsa_delete(new);
-				return; /* examin next lsa */
+				return; /* examine next lsa */
 			}
 		}
 
@@ -1228,7 +1228,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			/* MinLSArrival check as per RFC 2328 13 (8) */
 			if (ospf6_lsa_check_min_arrival(old, from)) {
 				ospf6_lsa_delete(new);
-				return; /* examin next lsa */
+				return; /* examine next lsa */
 			}
 
 			ospf6_lsdb_add(ospf6_lsa_copy(old),

@@ -10,7 +10,7 @@
 /* OSPF protocol version */
 #define OSPFV3_VERSION           3
 
-/* TOS field normaly null */
+/* TOS field normally null */
 #define DEFAULT_TOS_VALUE      0x0
 
 #define ALLSPFROUTERS6 "ff02::5"

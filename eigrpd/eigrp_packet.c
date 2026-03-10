@@ -496,7 +496,7 @@ void eigrp_read(struct event *event)
 	   because this is at the beginning of the stream data buffer. */
 	iph = (struct ip *)STREAM_DATA(ibuf);
 
-	// Substract IPv4 header size from EIGRP Packet itself
+	// Subtract IPv4 header size from EIGRP Packet itself
 	if (iph->ip_v == 4)
 		length = (iph->ip_len) - 20U;
 
@@ -601,7 +601,7 @@ void eigrp_read(struct event *event)
 		return;
 	}
 
-	/* calcualte the eigrp packet length, and move the pounter to the
+	/* calculate the eigrp packet length, and move the pointer to the
 	   start of the eigrp TLVs */
 	opcode = eigrph->opcode;
 

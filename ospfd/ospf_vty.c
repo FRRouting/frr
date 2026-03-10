@@ -9050,7 +9050,7 @@ DEFUN (ip_ospf_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	// Check if we have an address arg and proccess it
+	// Check if we have an address arg and process it
 	if (argc == idx + 3) {
 		if (!inet_aton(argv[idx + 2]->arg, &addr)) {
 			vty_out(vty,
@@ -9116,7 +9116,7 @@ DEFUN (no_ip_ospf_area,
 
 	argv_find(argv, argc, "area", &idx);
 
-	// Check if we have an address arg and proccess it
+	// Check if we have an address arg and process it
 	if (argc == idx + 3) {
 		if (!inet_aton(argv[idx + 2]->arg, &addr)) {
 			vty_out(vty,

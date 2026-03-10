@@ -1366,7 +1366,7 @@ lde_send_labelrequest(struct lde_nbr *ln, struct fec_node *fn,
 			lde_req_add(ln, &fn->fec, 1);
 		}
 	} else {
-		/* if Wilcard just send label request */
+		/* if Wildcard just send label request */
 		/* SLRq.3: send label request */
 		lde_imsg_compose_ldpe(IMSG_REQUEST_ADD,
 		    ln->peerid, 0, &map, sizeof(map));

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * EIGRP Dump Functions and Debbuging.
+ * EIGRP Dump Functions and Debugging.
  * Copyright (C) 2013-2014
  * Authors:
  *   Donnie Savage

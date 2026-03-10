@@ -509,7 +509,7 @@ int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 	if (prefix->state == EIGRP_FSM_STATE_ACTIVE_3) {
 		struct list *successors = eigrp_topology_get_successor(prefix);
 
-		assert(successors); // It's like Napolean and Waterloo
+		assert(successors); // It's like Napoleon and Waterloo
 
 		ne = listnode_head(successors);
 		eigrp_send_reply(ne->adv_router, prefix);

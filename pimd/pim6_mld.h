@@ -105,7 +105,7 @@ struct gm_sg {
 	 *   len(src->subs_negative) == len(grp->subs_positive)
 	 *   && len(src->subs_positive) == 0
 	 * (i.e. all receivers for the group opted to exclude this S,G and
-	 * noone did an SSM join for the S,G)
+	 * no one did an SSM join for the S,G)
 	 */
 	union {
 		struct {

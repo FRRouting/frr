@@ -582,7 +582,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			 * from DR and BDR.
 			 * So, helper might receives ONE_WAY hello from
 			 * RESTARTER. So not allowing to change the state if it
-			 * receives one_way hellow when it acts as HELPER for
+			 * receives one_way hello when it acts as HELPER for
 			 * that specific neighbor.
 			 */
 			event_execute(master, oneway_received, on, 0, NULL);

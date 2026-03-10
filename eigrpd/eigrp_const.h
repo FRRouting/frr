@@ -140,7 +140,7 @@ enum eigrp_fsm_events {
 	/* Query from succ, FC not satisfied */
 	EIGRP_FSM_EVENT_Q_FCN,
 
-	/* last reply, FC satisifed with current value of FDij */
+	/* last reply, FC satisfied with current value of FDij */
 	EIGRP_FSM_EVENT_LR_FCS,
 
 	/* distance increase while in a active state */
@@ -163,9 +163,9 @@ enum eigrp_fsm_events {
  * External routes originate from some other protocol - these are them
  */
 #define NULL_PROTID		0		/*!< unknown protocol */
-#define IGRP_PROTID		1		/*!< IGRP.. whos your daddy! */
+#define IGRP_PROTID		1		/*!< IGRP.. who's your daddy! */
 #define EIGRP_PROTID		2		/*!< EIGRP - Just flat out the best */
-#define STATIC_PROTID		3		/*!< Staticly configured source */
+#define STATIC_PROTID		3		/*!< Statically configured source */
 #define RIP_PROTID		4		/*!< Routing Information Protocol */
 #define HELLO_PROTID		5		/*!< Hello? RFC-891 you there? */
 #define OSPF_PROTID		6		/*!< OSPF - Open Shortest Path First */
@@ -218,13 +218,13 @@ enum eigrp_fsm_events {
  *      Multiprotocol   0x0600                  ** wide metrics
  *      MultiTopology   0x00f0                  ** deprecated
  */
-#define EIGRP_TLV_RANGEMASK     0xfff0          /*!< should be 0xff00 - opps */
+#define EIGRP_TLV_RANGEMASK     0xfff0          /*!< should be 0xff00 - oops */
 #define EIGRP_TLV_GENERAL       0x0000
 
 /**
  * 1.2 TLV Definitions  ** legacy
- * These are considered legacyu and are only used for backward compability with
- * older Cisco Routers.  They should not be your first choice for packet codings
+ * These are considered legacy and are only used for backward compatibility with
+ * older Cisco Routers.  They should not be your first choice for packet codings.
  */
 #define EIGRP_TLV_IPv4          0x0100          /*!< Classic IPv4 TLV encoding */
 #define EIGRP_TLV_ATALK         0x0200          /*!< Classic Appletalk TLV encoding*/
@@ -254,7 +254,7 @@ enum eigrp_fsm_events {
 #define EIGRP_TLV_PEER_TIDLIST          (EIGRP_TLV_GENERAL | 0x0008)    /*!< peer sub-topology list */
 
 /* Older cisco routers send TIDLIST value wrong, adding for backwards
- * compatabily */
+ * compatibility */
 #define EIGRP_TLV_PEER_MTRLIST          (EIGRP_TLV_GENERAL | 0x00f5)
 
 /**

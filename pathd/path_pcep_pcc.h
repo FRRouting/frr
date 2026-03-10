@@ -107,7 +107,7 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state);
 /* Send a report explicitly. When doing so the PCC may send multiple reports
  * due to expectations from vendors for the first report to be with a DOWN
- * status. The parameter is_stable is used for that purpose as a hint wheter
+ * status. The parameter is_stable is used for that purpose as a hint whether
  * to expect an update for the report */
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state, struct path *path,

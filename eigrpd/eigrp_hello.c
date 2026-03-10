@@ -202,7 +202,7 @@ eigrp_hello_authentication_decode(struct stream *s,
 /**
  * @fn eigrp_sw_version_decode
  *
- * @param[in]		nbr	neighbor the ACK shoudl be sent to
+ * @param[in]		nbr	neighbor the ACK should be sent to
  * @param[in]		param	pointer to TLV software version information
  *
  * @return void
@@ -231,7 +231,7 @@ static void eigrp_sw_version_decode(struct eigrp_neighbor *nbr,
 /**
  * @fn eigrp_peer_termination_decode
  *
- * @param[in]		nbr	neighbor the ACK shoudl be sent to
+ * @param[in]		nbr	neighbor the ACK should be sent to
  * @param[in]		tlv	pointer to TLV software version information
  *
  * @return void
@@ -606,7 +606,7 @@ static uint16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
  *
  * @param[in]		ei	pointer to interface hello packet came in on
  * @param[in]		s	packet stream TLV is stored to
- * @param[in]		ack	 if non-zero, neigbors sequence packet to ack
+ * @param[in]		ack	 if non-zero, neighbors sequence packet to ack
  * @param[in]		flags  type of hello packet
  * @param[in]		nbr_addr  pointer to neighbor address for Peer
  * Termination TLV
@@ -629,7 +629,7 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 	ep = eigrp_packet_new(EIGRP_PACKET_MTU(ei->ifp->mtu), NULL);
 
 	if (ep) {
-		// encode common header feilds
+		// encode common header fields
 		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei->eigrp, ep->s, 0,
 					 0, ack);
 
@@ -698,7 +698,7 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
  *
  * @par
  *  Send (unicast) a hello packet with the destination address
- *  associated with the neighbor.  The eigrp header ACK feild will be
+ *  associated with the neighbor.  The eigrp header ACK field will be
  *  updated to the neighbor's sequence number to acknolodge any
  *  outstanding packets
  */
@@ -706,7 +706,7 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
 
-	/* if packet succesfully created, add it to the interface queue */
+	/* if packet successfully created, add it to the interface queue */
 	ep = eigrp_hello_encode(nbr->ei, nbr->src.s_addr,
 				nbr->recv_sequence_number, EIGRP_HELLO_NORMAL,
 				NULL);
@@ -742,7 +742,7 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
  * @par
  * Build and enqueue a generic (multicast) periodic hello packet for
  * sending.  If no packets are currently queues, the packet will be
- * sent immadiatly
+ * sent immediately
  */
 void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 		      struct in_addr *nbr_addr)
@@ -752,7 +752,7 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 	if (IS_DEBUG_EIGRP_PACKET(0, SEND))
 		zlog_debug("Queueing [Hello] Interface(%s)", IF_NAME(ei));
 
-	/* if packet was succesfully created, then add it to the interface queue
+	/* if packet was successfully created, then add it to the interface queue
 	 */
 	ep = eigrp_hello_encode(ei, htonl(EIGRP_MULTICAST_ADDRESS), 0, flags,
 				nbr_addr);

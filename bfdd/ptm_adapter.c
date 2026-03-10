@@ -450,7 +450,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		strlcpy(bpc->bpc_vrfname, VRF_DEFAULT_NAME, sizeof(bpc->bpc_vrfname));
 	}
 
-	/* Read control plane independant configuration. */
+	/* Read control plane independent configuration. */
 	STREAM_GETC(msg, bpc->bpc_cbit);
 
 	/* Handle profile names. */

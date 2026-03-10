@@ -216,7 +216,7 @@ static void babel_init_random(void)
 }
 
 /*
- Load the state file: check last babeld's running state, usefull in case of
+ Load the state file: check last babeld's running state, useful in case of
  "/etc/init.d/babeld restart"
  */
 void babel_load_state_file(void)

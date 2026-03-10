@@ -777,7 +777,7 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 			return;
 		}
 		/* in INCLUDE mode => ALLOW_NEW_SOURCES is functionally
-		 * idential to IS_INCLUDE (because the list of sources in
+		 * identical to IS_INCLUDE (because the list of sources in
 		 * IS_INCLUDE is not exhaustive)
 		 */
 		break;
@@ -2448,7 +2448,7 @@ void gm_ifp_update(struct interface *ifp)
 	}
 
 	/*
-	 * If ipv6 mld is not enabled on interface, do not start mld activites.
+	 * If ipv6 mld is not enabled on interface, do not start mld activities.
 	 */
 	if (!pim_ifp->gm_enable)
 		return;

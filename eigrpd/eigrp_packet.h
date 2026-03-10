@@ -55,7 +55,7 @@ extern void eigrp_unack_packet_retrans(struct event *event);
 extern void eigrp_unack_multicast_packet_retrans(struct event *event);
 
 /*
- * untill there is reason to have their own header, these externs are found in
+ * until there is reason to have their own header, these externs are found in
  * eigrp_hello.c
  */
 extern void eigrp_sw_version_initialize(void);

@@ -56,7 +56,7 @@ struct route_table *eigrp_topology_new(void)
 }
 
 /*
- * Returns new created toplogy node
+ * Returns new created topology node
  * cmp - assigned function for comparing topology entry
  */
 struct eigrp_prefix_descriptor *eigrp_prefix_descriptor_new(void)

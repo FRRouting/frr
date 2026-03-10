@@ -189,7 +189,7 @@ void lde_rlfa_label_update(const struct fec *fec)
 
 	/*
 	 * TODO: use an rb-tree lookup to restrict the iteration to the RLFAs
-	 * that were effectivelly affected by the label update.
+	 * that were effectively affected by the label update.
 	 */
 	RB_FOREACH (rnode, ldp_rlfa_node_head, &rlfa_node_tree) {
 		struct ldp_rlfa_client *rclient;

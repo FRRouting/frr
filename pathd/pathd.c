@@ -1161,7 +1161,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 	switch (status) {
 	case ZEBRA_SR_POLICY_DOWN:
 		switch (policy->status) {
-		/* If the policy is GOING_UP, and zebra faild
+		/* If the policy is GOING_UP, and zebra failed
 		   to install it, we wait for zebra to retry */
 		/* TODO: Add some timeout after which we would
 				 get is back to DOWN and remove the
