@@ -328,6 +328,9 @@ struct bfd_config_timers {
 	uint32_t required_min_echo_rx;
 };
 
+/** BFD profiles list. */
+extern struct bfdproflist bplist;
+
 #define BFD_RTT_SAMPLE 8
 
 /*

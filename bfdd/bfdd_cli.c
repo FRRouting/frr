@@ -1303,7 +1303,6 @@ struct cmd_node bfd_profile_node = {
 
 static void bfd_profile_var(vector comps, struct cmd_token *token)
 {
-	extern struct bfdproflist bplist;
 	struct bfd_profile *bp;
 
 	TAILQ_FOREACH (bp, &bplist, entry) {
