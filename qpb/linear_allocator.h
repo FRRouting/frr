@@ -65,7 +65,7 @@ typedef struct linear_allocator_t_ {
 /*
  * linear_allocator_block_t
  *
- * Header structure at the begining of each block.
+ * Header structure at the beginning of each block.
  */
 typedef struct linear_allocator_block_t_ {
 	uint32_t flags;

@@ -1061,7 +1061,7 @@ int pim_if_del_vif(struct interface *ifp)
 	return 0;
 }
 
-// DBS - VRF Revist
+// DBS - VRF Revisit
 struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 					   ifindex_t vif_index)
 {

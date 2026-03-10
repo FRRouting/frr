@@ -60,7 +60,7 @@ struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
 {
 	struct eigrp_neighbor *nbr;
 
-	/* Allcate new neighbor. */
+	/* Allocate new neighbor. */
 	nbr = XCALLOC(MTYPE_EIGRP_NEIGHBOR, sizeof(struct eigrp_neighbor));
 
 	/* Relate neighbor to the interface. */
@@ -77,7 +77,7 @@ struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
  *                                   proto_item *ti)
  *
  * @par
- * Create a new neighbor structure and initalize it.
+ * Create a new neighbor structure and initialize it.
  */
 static struct eigrp_neighbor *eigrp_nbr_add(struct eigrp_interface *ei,
 					    struct eigrp_header *eigrph,

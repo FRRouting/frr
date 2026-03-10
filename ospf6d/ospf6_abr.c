@@ -1207,7 +1207,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	route->path.type = OSPF6_PATH_TYPE_INTER;
 	route->path.cost = abr_entry->path.cost + cost;
 
-	/* copy brouter rechable nexthops into the route. */
+	/* copy brouter reachable nexthops into the route. */
 	ospf6_route_copy_nexthops(route, abr_entry);
 
 	/* (7) If the routes are identical, copy the next hops over to existing

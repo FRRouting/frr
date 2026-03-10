@@ -181,7 +181,7 @@ struct eigrp_interface {
 	/* Statistics fields. */
 	uint32_t hello_in;   /* Hello message input count. */
 	uint32_t update_in;  /* Update message input count. */
-	uint32_t query_in;   /* Querry message input count. */
+	uint32_t query_in;   /* Query message input count. */
 	uint32_t reply_in;   /* Reply message input count. */
 	uint32_t hello_out;  /* Hello message output count. */
 	uint32_t update_out; /* Update message output count. */
@@ -222,7 +222,7 @@ struct eigrp_neighbor {
 	struct eigrp_interface *ei;
 
 	/* EIGRP neighbor Information */
-	uint8_t state; /* neigbor status. */
+	uint8_t state; /* neighbor status. */
 
 	uint32_t recv_sequence_number; /* Last received sequence Number. */
 	uint32_t init_sequence_number;
