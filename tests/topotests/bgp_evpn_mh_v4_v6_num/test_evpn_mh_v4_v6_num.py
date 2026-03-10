@@ -999,6 +999,38 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
+def wait_for_es_peer_set_ready(dut, esi, down_vteps, count=45, wait=1):
+    """
+    Poll ES state until peer set converges or timeout expires.
+    Returns None when ready, otherwise the last mismatch from check_one_es().
+    """
+    test_fn = partial(check_one_es, dut, esi, down_vteps)
+    _, result = topotest.run_and_expect(test_fn, None, count=count, wait=wait)
+    return result
+
+
+def check_link_oper_down(node, intf):
+    out = node.run("ip -o link show dev {} | awk -F'[<>]' '{{print $2}}'".format(intf)).strip()
+    if not out:
+        return "interface {} not found".format(intf)
+    flags = set(flag for flag in out.split(",") if flag)
+    if "LOWER_UP" in flags:
+        return "{} still LOWER_UP ({})".format(intf, out)
+    return None
+
+
+def check_port_vlan_pvid(node, intf, expected_vlan):
+    out = node.run("bridge vlan show dev {}".format(intf))
+    if not out:
+        return "no bridge vlan output for {}".format(intf)
+
+    pat = r"{}\s+{}\s+PVID".format(re.escape(intf), expected_vlan)
+    if re.search(pat, out, flags=re.MULTILINE):
+        return None
+
+    return "expected {} PVID on {} but got:\n{}".format(expected_vlan, intf, out)
+
+
 def test_evpn_es(tgen_and_ip_version):
     """
     Two ES are setup on each rack. This test checks if -
@@ -1093,6 +1125,7 @@ def get_arp_nd_redirect_stats(dut):
         "ipv6_nd": r"IPv6 neighbor discovery:\s+(\d+)",
         "redirected": r"Redirected packets:\s+(\d+)",
         "not_ready": r"Not ready:\s+(\d+)",
+        "if_down_or_no_bridge": r"Interface down or no bridge:\s+(\d+)",
         "vni_missing": r"VNI missing:\s+(\d+)",
         "mac_missing": r"MAC missing:\s+(\d+)",
         "dest_not_local_es": r"Dest is not local ES:\s+(\d+)",
@@ -1128,6 +1161,143 @@ def check_arp_nd_redirect_counter_progress(dut, before):
     return "ARP-ND redirect counters did not progress: before={} after={}".format(
         before, after
     )
+
+
+def check_arp_nd_redirect_counter_progress_any(duts_before):
+    """
+    Return success if redirect accounting progresses on any DUT.
+    This topology can ingress on either rack-1 ToR depending on hashing.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+
+        if (
+            after["ipv6_nd"] > before["ipv6_nd"]
+            or after["redirected"] > before["redirected"]
+            or after["mac_missing"] > before["mac_missing"]
+            or after["dest_not_local_es"] > before["dest_not_local_es"]
+            or after["dest_es_oper_up"] > before["dest_es_oper_up"]
+        ):
+            return None
+
+    return "ARP-ND redirect counters did not progress on any DUT: {}".format(details)
+
+
+def check_redirected_counter_progress_any(duts_before):
+    """
+    Return success only if redirected counter progresses on any DUT.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+        if after["redirected"] > before["redirected"]:
+            return None
+
+    return "Redirected counter did not progress on any DUT: {}".format(details)
+
+
+def check_arp_redirect_progress_any(duts_before):
+    """
+    Return success only if both IPv4 ARP accounting and redirected counter
+    progress on any DUT.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+        if after["ipv4_arp"] > before["ipv4_arp"] and after["redirected"] > before["redirected"]:
+            return None
+
+    return "ARP redirect counters did not progress on any DUT: {}".format(details)
+
+
+def _detect_host_bond_if(host):
+    """
+    Return the host bond interface name used by this topology.
+    """
+    out = host.run("ip -o link show | awk -F': ' '{print $2}'")
+    interfaces = [line.strip() for line in out.splitlines() if line.strip()]
+    for candidate in ("torbond", "torbond_1", "torbond1"):
+        if candidate in interfaces:
+            return candidate
+    return "torbond"
+
+
+def _get_global_ipv6_on_intf(host, intf):
+    out = host.run(
+        "ip -6 -o addr show dev {} scope global | awk '{{print $4}}' | head -n1".format(
+            intf
+        )
+    ).strip()
+    if not out:
+        return None
+    return out.split("/")[0]
+
+
+def _get_global_ipv4_on_intf(host, intf):
+    out = host.run(
+        "ip -4 -o addr show dev {} scope global | awk '{{print $4}}' | head -n1".format(
+            intf
+        )
+    ).strip()
+    if not out:
+        return None
+    return out.split("/")[0]
+
+
+def _fallback_host_ipv4(host_name):
+    """
+    Build deterministic IPv4 host address used by this topology (VLAN1000).
+    """
+    host_id = host_name.split("hostd")[1]
+    return "45.0.0.{}".format(host_id)
+
+
+def _send_unicast_na(host, intf, src_ip, dst_ip, dst_mac):
+    """
+    Send unicast NA frames (ICMPv6 type 136) to match zebra's unicast ND snoop path.
+    """
+    cmd = (
+        "python3 -c \"from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;"
+        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+        "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{dst_ip}')/"
+        "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
+        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+    ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    host.run(cmd)
+
+
+def _send_unicast_ns(host, intf, src_ip, target_ip, dst_mac):
+    """
+    Send unicast NS frames (ICMPv6 type 135) to match zebra's unicast ND snoop path.
+    """
+    cmd = (
+        "python3 -c \"from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;"
+        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+        "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{target_ip}')/"
+        "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
+        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+    ).format(
+        intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac
+    )
+    host.run(cmd)
+
+
+def _send_unicast_arp_reply(host, intf, src_ip, dst_ip, dst_mac):
+    """
+    Send unicast ARP reply frames to exercise ARP redirect path.
+    """
+    cmd = (
+        "python3 -c \"from scapy.all import Ether,ARP,sendp;"
+        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+        "pkt=Ether(src=srcmac,dst='{dst_mac}')/"
+        "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
+        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+    ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    host.run(cmd)
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
@@ -1337,25 +1507,201 @@ def test_evpn_arp_nd_redirect_counters(tgen_and_ip_version):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    dut = tgen.gears["torm11"]
-
-    # Ensure command is available and feature state is visible.
-    summary = dut.vtysh_cmd("show evpn arp-nd-redirect")
-    assert "EVPN ARP-reply/NA redirect:" in summary
-
-    before = get_arp_nd_redirect_stats(dut)
+    # Depending on ECMP/hash, ingress can be observed on either rack-1 ToR.
+    duts = [tgen.gears["torm11"], tgen.gears["torm12"]]
+    duts_before = []
+    for dut in duts:
+        summary = dut.vtysh_cmd("show evpn arp-nd-redirect")
+        assert "EVPN ARP-reply/NA redirect:" in summary
+        before_stats = get_arp_nd_redirect_stats(dut)
+        duts_before.append((dut, before_stats))
+        logger.info("%s arp-nd redirect counters before: %s", dut.name, before_stats)
 
     # Force neighbor rediscovery repeatedly to drive ND/ARP-ND accounting.
-    for _ in range(6):
+    # Use runtime interface discovery since host bond names can differ.
+    host_if = {}
+    for host_name in ("hostd11", "hostd12", "hostd21", "hostd22"):
+        host_if[host_name] = _detect_host_bond_if(tgen.gears[host_name])
+
+    # Host-to-host targets drive ND exchanges; use deterministic peer MAC/IP
+    # from topology data so injections do not depend on neighbor-table learning.
+    peer_targets = {
+        "hostd11": "2001:db8:45::12",
+        "hostd12": "2001:db8:45::11",
+        "hostd21": "2001:db8:45::22",
+        "hostd22": "2001:db8:45::21",
+    }
+    gw_ip = "2001:db8:45::1"
+    injected = 0
+
+    for _ in range(10):
         for host_name in ("hostd11", "hostd12", "hostd21", "hostd22"):
             host = tgen.gears[host_name]
-            host.run("ip -6 neigh flush dev torbond 2>/dev/null || true")
-            host.run("ping6 -I torbond -c 1 2001:db8:45::1 >/dev/null 2>&1 || true")
+            intf = host_if[host_name]
+            host.run("ip -6 neigh flush dev {} 2>/dev/null || true".format(intf))
+            host.run(
+                "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(intf, gw_ip)
+            )
+            host.run(
+                "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(
+                    intf, peer_targets[host_name]
+                )
+            )
+            src_ip = _get_global_ipv6_on_intf(host, intf)
+            _, peer_mac = compute_host_ip_mac(
+                "hostd12"
+                if host_name == "hostd11"
+                else "hostd11"
+                if host_name == "hostd12"
+                else "hostd22"
+                if host_name == "hostd21"
+                else "hostd21"
+            )
+            if src_ip:
+                _send_unicast_na(
+                    host,
+                    intf,
+                    src_ip,
+                    peer_targets[host_name],
+                    peer_mac,
+                )
+                _send_unicast_ns(host, intf, src_ip, peer_targets[host_name], peer_mac)
+                injected += 1
         time.sleep(1)
 
-    test_fn = partial(check_arp_nd_redirect_counter_progress, dut, before)
-    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=1)
+    assert injected > 0, "No unicast NS/NA injections were generated"
+
+    test_fn = partial(check_arp_nd_redirect_counter_progress_any, duts_before)
+    _, result = topotest.run_and_expect(test_fn, None, count=40, wait=1)
+
+    for dut, _ in duts_before:
+        after_stats = get_arp_nd_redirect_stats(dut)
+        logger.info("%s arp-nd redirect counters after: %s", dut.name, after_stats)
+
     assert result is None, result
+
+
+def test_evpn_arp_nd_redirected_counter(tgen_and_ip_version):
+    """
+    Strict redirect validation:
+    - force local ES-down + peer-up condition
+    - send targeted ND traffic
+    - verify Redirected packets increments.
+    """
+    tgen, ip_version = tgen_and_ip_version
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    duts = [tgen.gears["torm11"], tgen.gears["torm12"]]
+    redirect_before = []
+    for dut in duts:
+        summary = dut.vtysh_cmd("show evpn arp-nd-redirect")
+        assert "EVPN ARP-reply/NA redirect:" in summary
+        stats = get_arp_nd_redirect_stats(dut)
+        redirect_before.append((dut, stats))
+        logger.info("%s redirected-before strict check: %s", dut.name, stats)
+
+    # Force ingress to torm11 and create ES-down only on torm11:
+    # - pin hostd12 ingress to torm11 by disabling hostd12-eth1 (towards torm12),
+    # - keep hostd11 reachable via torm12 (peer-up),
+    # - make torm11 local ES member down so redirect is expected there.
+    torm11 = tgen.gears["torm11"]
+    src_host = tgen.gears["hostd12"]
+    strict_esi = host_es_map.get("hostd11")
+    precheck_count = int(os.environ.get("TOPOTEST_STRICT_PRECHECK_COUNT", "45"))
+    precheck_wait = float(os.environ.get("TOPOTEST_STRICT_PRECHECK_WAIT", "1"))
+    logger.info(
+        "strict redirect precheck: waiting up to %.1fs for ES %s peer set readiness",
+        precheck_count * precheck_wait,
+        strict_esi,
+    )
+    es_precheck = wait_for_es_peer_set_ready(
+        torm11, strict_esi, [], count=precheck_count, wait=precheck_wait
+    )
+    if es_precheck is not None:
+        pytest.skip(
+            "strict redirect precheck failed (ES peer set not ready after {:.1f}s) for {}: {}".format(
+                precheck_count * precheck_wait, strict_esi, es_precheck
+            )
+        )
+
+    # Force local ES-down on torm11 by dropping the torm11-facing member link.
+    # Keep hostbond1 object present so destination ES remains local but non-oper-up.
+    torm11.run("ip link set dev torm11-eth2 down 2>/dev/null || true")
+    src_host.run("ip link set dev hostd12-eth1 down 2>/dev/null || true")
+    down_check_fn = partial(check_link_oper_down, torm11, "hostbond1")
+    _, down_result = topotest.run_and_expect(down_check_fn, None, count=20, wait=1)
+    assert down_result is None, "torm11 hostbond1 did not transition down: {}".format(
+        down_result
+    )
+    # Put hostd12 ingress (hostbond2) into VLAN1000 temporarily so it can
+    # target hostd11's MAC (also on VLAN1000) and exercise redirect path.
+    torm11.run("bridge vlan del vid 1 dev hostbond2 2>/dev/null || true")
+    torm11.run("bridge vlan del vid 1 pvid untagged dev hostbond2 2>/dev/null || true")
+    torm11.run("bridge vlan del vid 1001 dev hostbond2 2>/dev/null || true")
+    torm11.run("bridge vlan del vid 1001 pvid untagged dev hostbond2 2>/dev/null || true")
+    torm11.run("bridge vlan add vid 1000 dev hostbond2 2>/dev/null || true")
+    torm11.run("bridge vlan add vid 1000 pvid untagged dev hostbond2 2>/dev/null || true")
+    pvid_check_fn = partial(check_port_vlan_pvid, torm11, "hostbond2", 1000)
+    _, pvid_result = topotest.run_and_expect(pvid_check_fn, None, count=10, wait=1)
+    assert pvid_result is None, pvid_result
+
+    try:
+        src_if = _detect_host_bond_if(src_host)
+        src_ip6 = _get_global_ipv6_on_intf(src_host, src_if)
+        src_ip4 = _get_global_ipv4_on_intf(src_host, src_if) or _fallback_host_ipv4(
+            src_host.name
+        )
+        dst_ip6, dst_mac = compute_host_ip_mac("hostd11")
+        dst_ip6 = dst_ip6.split("/")[0]
+        dst_ip4 = "45.0.0.11"
+        for dbg_dut in duts:
+            dbg_es = dbg_dut.vtysh_cmd("show evpn es {} json".format(strict_esi))
+            dbg_mac = dbg_dut.vtysh_cmd(
+                "show evpn mac vni 1000 mac {} json".format(dst_mac)
+            )
+            dbg_redirect = dbg_dut.vtysh_cmd("show evpn arp-nd-redirect")
+            dbg_link = dbg_dut.run(
+                "ip -d link show dev hostbond2; bridge link show dev hostbond2; "
+                "bridge vlan show dev hostbond2"
+            )
+            logger.info("%s strict-debug es(%s): %s", dbg_dut.name, strict_esi, dbg_es)
+            logger.info("%s strict-debug mac(%s): %s", dbg_dut.name, dst_mac, dbg_mac)
+            logger.info("%s strict-debug redirect:\n%s", dbg_dut.name, dbg_redirect)
+            logger.info("%s strict-debug hostbond2:\n%s", dbg_dut.name, dbg_link)
+
+        for _ in range(12):
+            src_host.run("ip -6 neigh flush dev {} 2>/dev/null || true".format(src_if))
+            src_host.run("ip neigh flush dev {} 2>/dev/null || true".format(src_if))
+            src_host.run("ping -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip4))
+            _send_unicast_arp_reply(src_host, src_if, src_ip4, dst_ip4, dst_mac)
+            # keep ND traffic too so we preserve existing visibility
+            src_host.run(
+                "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip6)
+            )
+            if src_ip6:
+                _send_unicast_ns(src_host, src_if, src_ip6, dst_ip6, dst_mac)
+                _send_unicast_na(src_host, src_if, src_ip6, dst_ip6, dst_mac)
+            time.sleep(1)
+
+        redirect_fn = partial(check_arp_redirect_progress_any, redirect_before)
+        _, redirect_result = topotest.run_and_expect(redirect_fn, None, count=40, wait=1)
+    finally:
+        # Restore hostbond2 VLAN mapping back to VLAN1001.
+        torm11.run("bridge vlan del vid 1000 dev hostbond2 2>/dev/null || true")
+        torm11.run("bridge vlan del vid 1000 pvid untagged dev hostbond2 2>/dev/null || true")
+        torm11.run("bridge vlan add vid 1 dev hostbond2 2>/dev/null || true")
+        torm11.run("bridge vlan add vid 1001 dev hostbond2 2>/dev/null || true")
+        torm11.run("bridge vlan add vid 1001 pvid untagged dev hostbond2 2>/dev/null || true")
+        src_host.run("ip link set dev hostd12-eth1 up 2>/dev/null || true")
+        torm11.run("ip link set dev torm11-eth2 up 2>/dev/null || true")
+
+    for dut, _ in redirect_before:
+        stats = get_arp_nd_redirect_stats(dut)
+        logger.info("%s redirected-after strict check: %s", dut.name, stats)
+
+    assert redirect_result is None, redirect_result
 
 
 if __name__ == "__main__":
