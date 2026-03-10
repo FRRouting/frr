@@ -3269,7 +3269,7 @@ static int parse_igp_metric(struct stream *s, uint16_t length, struct bgp_ls_att
  */
 static int parse_srlg(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
 {
-	uint8_t count;
+	uint16_t count;
 	int i;
 
 	if (length % 4 != 0) {
