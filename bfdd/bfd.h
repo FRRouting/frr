@@ -20,6 +20,7 @@
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/vrf.h"
+#include "lib/keychain.h"
 #include "lib/bfd.h"
 
 #ifdef BFD_DEBUG
@@ -39,6 +40,10 @@
 #define BPC_DEF_TRANSMITINTERVAL     300 /* milliseconds */
 #define BPC_DEF_ECHORECEIVEINTERVAL  50	 /* milliseconds */
 #define BPC_DEF_ECHOTRANSMITINTERVAL 50	 /* milliseconds */
+
+#define MAXKEYCHAINNAMELEN 32
+
+#define BFD_AUTH_SIMPLE_PASSWD_MAX_LEN 16
 
 DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CLIENT);
@@ -95,12 +100,22 @@ struct bfd_peer_cfg {
 	vrf_id_t vrf_id;
 	char bfd_name[BFD_NAME_SIZE + 1];
 	uint8_t bfd_name_len;
+
+	struct {
+		/* Keychain name for authentication */
+		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+	} auth_config;
 };
 
-/* bfd Authentication Type. */
-#define BFD_AUTH_NULL 0
-#define BFD_AUTH_SIMPLE 1
-#define BFD_AUTH_CRYPTOGRAPHIC 2
+/* BFD Authentication Types from RFC 5880 */
+enum bfd_auth_type {
+	BFD_AUTH_TYPE_RESERVED = 0, /* Reserved */
+	BFD_AUTH_TYPE_SIMPLE_PASSWORD = 1,
+	BFD_AUTH_TYPE_KEYED_MD5 = 2,
+	BFD_AUTH_TYPE_METICULOUS_KEYED_MD5 = 3,
+	BFD_AUTH_TYPE_KEYED_SHA1 = 4,
+	BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 = 5,
+};
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -316,6 +331,11 @@ struct bfd_profile {
 	/** Minimum required echo receive interval (in microseconds). */
 	uint32_t min_echo_rx;
 
+	struct {
+		/* Keychain name for authentication */
+		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+	} auth_config;
+
 	/** Profile list entry. */
 	TAILQ_ENTRY(bfd_profile) entry;
 };
@@ -409,6 +429,7 @@ struct bfd_session {
 	uint8_t segnum;
 	struct in6_addr out_sip6;
 	struct in6_addr seg_list[SRV6_MAX_SEGS];
+	struct keychain *kc; /* Currently active keychain for this session */
 };
 
 struct bfd_diag_str_list {
