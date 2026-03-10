@@ -3668,7 +3668,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (do_mpath && new_select) {
 		bool first_reason = true;
-		enum bgp_path_selection_reason ignore;
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (debug)
@@ -3687,10 +3686,15 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				if (!peer_established(pi->peer->connection))
 					continue;
 
-			bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg, debug, pfx_buf,
-					  afi, safi, first_reason ? &dest->reason : &ignore);
+			reason = dest->reason;
+			bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg, debug,
+					  pfx_buf, afi, safi, &reason);
 
-			first_reason = false;
+			if (!paths_eq && first_reason) {
+				dest->reason = reason;
+				first_reason = false;
+			}
+
 			if (paths_eq) {
 				if (debug)
 					zlog_debug(
