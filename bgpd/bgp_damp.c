@@ -200,6 +200,8 @@ static void bgp_reuse_timer(struct event *t)
 			bgp_path_info_unset_flag(bdi->dest, bdi->path,
 						 BGP_PATH_DAMPED);
 			bdi->suppress_time = 0;
+			if (bdi->path->peer->psuppressed_cnt[bdi->afi][bdi->safi])
+				bdi->path->peer->psuppressed_cnt[bdi->afi][bdi->safi]--;
 
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
 				bgp_path_info_unset_flag(bdi->dest, bdi->path,
@@ -318,6 +320,7 @@ int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 		bdi->suppress_time = t_now;
 		bgp_no_reuse_list_delete(bdi);
 		bgp_reuse_list_add(bdi, bdc);
+		path->peer->psuppressed_cnt[afi][safi]++;
 	}
 	return BGP_DAMP_USED;
 }
@@ -352,6 +355,8 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 		bgp_reuse_list_delete(bdi);
 		bgp_no_reuse_list_add(bdi, bdc);
 		bdi->suppress_time = 0;
+		if (path->peer->psuppressed_cnt[afi][safi])
+			path->peer->psuppressed_cnt[afi][safi]--;
 		status = BGP_DAMP_USED;
 	} else
 		status = BGP_DAMP_SUPPRESSED;
@@ -376,6 +381,11 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, struct reuselist *list,
 	struct bgp *bgp = bpi->peer->bgp;
 
 	bgp_damp_info_unclaim(bdi, list);
+
+	if (CHECK_FLAG(bpi->flags, BGP_PATH_DAMPED)) {
+		if (bpi->peer->psuppressed_cnt[afi][safi])
+			bpi->peer->psuppressed_cnt[afi][safi]--;
+	}
 
 	bpi->extra->damp_info = NULL;
 	bgp_path_info_unset_flag(dest, bpi, BGP_PATH_HISTORY | BGP_PATH_DAMPED);
