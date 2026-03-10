@@ -112,6 +112,8 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 				    zevpn_arp_nd_info.stat.redirect);
 		json_object_int_add(json, "notReadyPkts",
 				    zevpn_arp_nd_info.stat.not_ready);
+		json_object_int_add(json, "ifDownOrNoBridgePkts",
+				    zevpn_arp_nd_info.stat.if_down_or_no_bridge);
 		json_object_int_add(json, "vniMissingPkts",
 				    zevpn_arp_nd_info.stat.vni_missing);
 		json_object_int_add(json, "macMissingPkts",
@@ -120,6 +122,8 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 				    zevpn_arp_nd_info.stat.es_non_local);
 		json_object_int_add(json, "esUpPkts",
 				    zevpn_arp_nd_info.stat.es_up);
+		json_object_int_add(json, "nhMissingPkts",
+				    zevpn_arp_nd_info.stat.nh_missing);
 	} else {
 		vty_out(vty, "EVPN ARP-reply/NA redirect: %s\n",
 			(zevpn_arp_nd_info.flags & ZEBRA_EVPN_ARP_ND_FAILOVER)
@@ -134,6 +138,8 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 		vty_out(vty, "  Skipped packets:\n");
 		vty_out(vty, "    Not ready: %u\n",
 			zevpn_arp_nd_info.stat.not_ready);
+		vty_out(vty, "    Interface down or no bridge: %u\n",
+			zevpn_arp_nd_info.stat.if_down_or_no_bridge);
 		vty_out(vty, "    VNI missing: %u\n",
 			zevpn_arp_nd_info.stat.vni_missing);
 		vty_out(vty, "    MAC missing: %u\n",
@@ -142,6 +148,8 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 			zevpn_arp_nd_info.stat.es_non_local);
 		vty_out(vty, "    Dest ES oper-up: %u\n",
 			zevpn_arp_nd_info.stat.es_up);
+		vty_out(vty, "    Nexthop missing: %u\n",
+			zevpn_arp_nd_info.stat.nh_missing);
 	}
 
 	if (uj)
@@ -306,6 +314,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	 * presence of bridge slave info
 	 */
 	if (!if_is_operative(zif->ifp) || !zif->brslave_info.br_if) {
+		++zevpn_arp_nd_info.stat.if_down_or_no_bridge;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
 			zlog_debug("evpn arp_nd zif brslave_info bridge intf is"
 				   "NULL or interface is down for %s",

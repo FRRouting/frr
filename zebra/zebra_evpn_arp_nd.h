@@ -31,6 +31,7 @@ struct zebra_evpn_arp_nd_stats {
 	uint32_t arp;
 	uint32_t na;
 	uint32_t not_ready;
+	uint32_t if_down_or_no_bridge;
 	uint32_t vni_missing;
 	uint32_t mac_missing;
 	uint32_t es_non_local;
