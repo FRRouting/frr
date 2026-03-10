@@ -119,6 +119,8 @@ extern void keychain_init(void);
 extern void keychain_init_new(bool in_backend);
 extern void keychain_terminate(void);
 extern struct keychain *keychain_lookup(const char *);
+extern struct key *keychain_key_find(const struct keychain *keychain,
+				     const struct timespec *now_ts);
 extern struct key *key_lookup_for_accept(const struct keychain *keychain,
 					 uint32_t index);
 extern struct key *key_match_for_accept(const struct keychain *keychain,

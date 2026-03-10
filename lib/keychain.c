@@ -185,6 +185,33 @@ struct key *key_lookup_for_send(const struct keychain *keychain)
 	return NULL;
 }
 
+/**
+ * Find an active key for sending at a specific time.
+ *
+ * @param keychain The keychain to search within.
+ * @param now_ts The current time as a timespec.
+ * @return The active key, or NULL if no active key is found.
+ */
+struct key *keychain_key_find(const struct keychain *keychain, const struct timespec *now_ts)
+{
+	struct listnode *node;
+	struct key *key;
+	time_t now_sec;
+
+	if (!keychain || !now_ts)
+		return NULL;
+
+	now_sec = now_ts->tv_sec; /* Use seconds part for comparison with time_t lifetimes */
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (key->send.start == 0 || /* Always valid if start is 0 */
+		    (key->send.start <= now_sec &&
+		     (key->send.end >= now_sec || key->send.end == (time_t)-1))) /* -1 for infinite */
+			return key;
+	}
+	return NULL;
+}
+
 struct key *key_get(const struct keychain *keychain, uint32_t index)
 {
 	struct key *key;
