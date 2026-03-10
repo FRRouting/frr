@@ -249,7 +249,7 @@ bool ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 					if (ospf6_nexthop_is_same(anh, bnh))
 						identical = true;
 				}
-				/* Currnet List A element not found List B
+				/* Current List A element not found List B
 				 * Non-Identical lists return */
 				if (identical == false)
 					return false;

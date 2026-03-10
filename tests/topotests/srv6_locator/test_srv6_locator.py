@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: ISC
 
 #
-# test_srv6_manager.py
+# test_srv6_locator.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2020 by
@@ -10,8 +10,8 @@
 #
 
 """
-test_srv6_manager.py:
-Test for SRv6 manager on zebra
+test_srv6_locator.py:
+Test SRv6 locator management.
 """
 
 import os
@@ -37,6 +37,32 @@ def open_json_file(filename):
             return json.load(f)
     except IOError:
         assert False, "Could not read file {}".format(filename)
+
+
+def _check_sharpd_chunk(router, expected_chunk_file):
+    logger.info("checking sharpd locator chunk status")
+    output = json.loads(router.vtysh_cmd("show sharp segment-routing srv6 json"))
+    expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
+    return topotest.json_cmp(output, expected)
+
+
+def _check_srv6_locator(router, expected_locator_file):
+    logger.info("checking zebra locator status")
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
+    expected = open_json_file("{}/{}".format(CWD, expected_locator_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_srv6_locator(router, expected_file):
+    func = functools.partial(_check_srv6_locator, router, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def check_sharpd_chunk(router, expected_file):
+    func = functools.partial(_check_sharpd_chunk, router, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
 
 
 def setup_module(mod):
@@ -66,28 +92,6 @@ def test_srv6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r1"]
-
-    def _check_srv6_locator(router, expected_locator_file):
-        logger.info("checking zebra locator status")
-        output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
-        expected = open_json_file("{}/{}".format(CWD, expected_locator_file))
-        return topotest.json_cmp(output, expected)
-
-    def _check_sharpd_chunk(router, expected_chunk_file):
-        logger.info("checking sharpd locator chunk status")
-        output = json.loads(router.vtysh_cmd("show sharp segment-routing srv6 json"))
-        expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_srv6_locator(router, expected_file):
-        func = functools.partial(_check_srv6_locator, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
-
-    def check_sharpd_chunk(router, expected_file):
-        func = functools.partial(_check_sharpd_chunk, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
 
     # FOR DEVELOPER:
     # If you want to stop some specific line and start interactive shell,
@@ -143,6 +147,107 @@ def test_srv6():
         """
     )
     check_srv6_locator(router, "expected_locators6.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+
+def test_srv6_no_prefix():
+    """'no prefix' marks the locator DOWN and clears the prefix fields."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # Configure loc1 with a prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Issue 'no prefix' (no arguments)
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             no prefix
+        """
+    )
+    check_srv6_locator(router, "expected_locators8.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Re-adding the prefix brings the locator back UP
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+
+def test_srv6_no_prefix_explicit():
+    """'no prefix X:X::X:X/M' (with explicit prefix) behaves identically to 'no prefix'."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # Configure loc1 with a prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+
+    # Issue 'no prefix' with the explicit prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             no prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators8.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
+
+    # Re-adding the prefix brings the locator back UP
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
     check_sharpd_chunk(router, "expected_chunks6.json")
 
 

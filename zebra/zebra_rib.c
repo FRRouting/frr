@@ -66,6 +66,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
 static pthread_mutex_t dplane_mutex;
 static struct event *t_dplane;
 static struct dplane_ctx_list_head rib_dplane_q;
+static _Atomic uint32_t rib_dplane_q_max;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
@@ -2563,6 +2564,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV6:
 				case NEXTHOP_TYPE_BLACKHOLE:
+					zlog_err("%s: unexpected EVPN nexthop type %u for route add %pFX",
+						 __func__, tmp_nh->type, &ere->p);
 					continue;
 				}
 				zebra_rib_queue_evpn_route_add(tmp_nh->vrf_id, &tmp_nh->rmac,
@@ -2701,18 +2704,19 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 		/* Free up the evpn nhs of the re to be replaced.*/
 		for (ALL_NEXTHOPS(same->nhe->nhg, tmp_nh)) {
-			struct ipaddr vtep_ip;
-
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (ere->afi == AFI_IP) {
+				struct ipaddr vtep_ip = {};
+
+				if (tmp_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V4;
-					memcpy(&(vtep_ip.ipaddr_v4), &(tmp_nh->gate.ipv4),
-					       sizeof(struct in_addr));
-				} else {
+					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
+				} else if (tmp_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V6;
-					memcpy(&(vtep_ip.ipaddr_v6), &(tmp_nh->gate.ipv6),
-					       sizeof(struct in6_addr));
+					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+				} else {
+					zlog_err("%s: unexpected EVPN nexthop type %u for route update %pFX",
+						 __func__, tmp_nh->type, &ere->p);
+					continue;
 				}
 				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
@@ -2940,16 +2944,19 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		 * uninstalled if no more refs.
 		 */
 		for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
-			struct ipaddr vtep_ip;
-
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (ere->afi == AFI_IP) {
+				struct ipaddr vtep_ip = {};
+
+				if (tmp_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V4;
 					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
-				} else {
+				} else if (tmp_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 					vtep_ip.ipa_type = IPADDR_V6;
 					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+				} else {
+					zlog_err("%s: unexpected EVPN nexthop type %u for route delete %pFX",
+						 __func__, tmp_nh->type, &ere->p);
+					continue;
 				}
 				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
@@ -3229,13 +3236,29 @@ static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
 {
 	struct nhg_hash_entry *nhe = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
-	struct wq_nhg_wrapper *w;
+	struct wq_nhg_wrapper *w, *ow;
+	struct listnode *node, *nnode;
 	uint64_t curr, high;
 
 	nhe = (struct nhg_hash_entry *)data;
 
 	if (!nhe)
 		return -1;
+
+	/* For NHG wrapper type, replace any existing queue entry with the
+	 * same nh id: keep the current NHE and remove the old one.
+	 */
+	for (ALL_LIST_ELEMENTS(mq->subq[qindex], node, nnode, ow)) {
+		if (ow->type == WQ_NHG_WRAPPER_TYPE_NHG && ow->u.nhe->id == nhe->id) {
+			list_delete_node(mq->subq[qindex], node);
+			mq->size--;
+			atomic_fetch_sub_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+			atomic_fetch_sub_explicit(&mq->total_subq[qindex], 1, memory_order_relaxed);
+			zebra_nhg_free(ow->u.nhe);
+			XFREE(MTYPE_WQ_WRAPPER, ow);
+			break;
+		}
+	}
 
 	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_nhg_wrapper));
 
@@ -5120,8 +5143,14 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 {
 	/* Take lock controlling queue of results */
 	frr_with_mutex (&dplane_mutex) {
+		uint32_t q_count, q_high;
+
 		/* Enqueue context blocks */
 		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
+		q_count = dplane_ctx_queue_count(&rib_dplane_q);
+		q_high = atomic_load_explicit(&rib_dplane_q_max, memory_order_relaxed);
+		if (q_count > q_high)
+			atomic_store_explicit(&rib_dplane_q_max, q_count, memory_order_relaxed);
 	}
 
 	/* Ensure event is signalled to zebra main pthread */
@@ -5140,6 +5169,11 @@ uint32_t zebra_rib_dplane_results_count(void)
 	}
 
 	return count;
+}
+
+uint32_t zebra_rib_dplane_results_max(void)
+{
+	return atomic_load_explicit(&rib_dplane_q_max, memory_order_relaxed);
 }
 
 /*

@@ -154,7 +154,7 @@ sighup(void)
 
 	/*
 	 * Do a full configuration reload. In other words, reset vty_conf
-	 * and build a new configuartion from scratch.
+	 * and build a new configuration from scratch.
 	 */
 	ldp_config_reset(vty_conf);
 	vty_read_config(NULL, ldpd_di.config_file, config_default);

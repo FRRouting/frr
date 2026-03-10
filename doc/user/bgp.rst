@@ -1163,6 +1163,17 @@ BGP GR Show Commands
 
    This command will display information about the neighbors graceful-restart status
 
+BGP Show Neighbors Brief Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [brief] [json]
+
+   Display BGP neighbor information. When the ``brief`` option is included, output
+   is shortened to one line per neighbor (text) or a reduced JSON structure
+   (hostname, remoteAs, localAs, lastResetDueTo, status, lastResetTimerMsecs,
+   messageStats with totalSent/totalRecv, and addressFamilyInfo with
+   acceptedPrefixCounter/sentPrefixCounter per AFI/SAFI). Optional ``json``
+   formats the output as JSON.
 
 Long-lived Graceful Restart
 ---------------------------
@@ -1836,7 +1847,30 @@ Configuring Peers
    If ``force`` is set, then ALL prefixes are counted for maximum instead of
    accepted only. This is useful for cases where an inbound filter is applied,
    but you want maximum-prefix to act on ALL (including filtered) prefixes. This
-   option requires `soft-reconfiguration inbound` to be enabled for the peer.
+   option requires :clicmd:`neighbor PEER soft-reconfiguration inbound` to be enabled for the peer.
+
+.. clicmd:: neighbor PEER soft-reconfiguration inbound
+
+   Allow inbound soft reconfiguration for this peer. Normally, route changes
+   from a peer require a full BGP session reset (hard reset) to take effect
+   when inbound policy is changed. This command stores all received route
+   updates (including those that are rejected by inbound policy) in an
+   unmodified form, allowing the routes to be re-evaluated when inbound policy
+   changes without tearing down the BGP session.
+
+   When this option is enabled, the router maintains a separate Adj-RIB-In
+   table for the peer, which uses additional memory. With this table, the
+   ``clear bgp PEER soft in`` command can be used to apply new inbound policies
+   without resetting the session.
+
+   .. note::
+
+      If both peers support the route-refresh capability, a soft
+      reconfiguration can be performed without this option by using
+      ``clear bgp PEER in``. However, ``soft-reconfiguration inbound``
+      is still needed if you want to use features such as
+      ``maximum-prefix ... force`` that need to count all received prefixes
+      (including filtered ones).
 
 .. clicmd:: neighbor PEER maximum-prefix-out NUMBER
 
@@ -3374,9 +3408,14 @@ address-family:
    source or destination VRF's.
 
    This shortcut syntax mode is not compatible with the explicit
-   `import vpn` and `export vpn` statements for the two VRF's involved.
+   ``import vpn`` and ``export vpn`` statements for the two VRF's involved.
    The CLI will disallow attempts to configure incompatible leaking
    modes.
+
+.. clicmd:: import vrf route-map NAME
+
+   Specifies an optional route-map to be applied to routes imported using the
+   ``import vrf VRFNAME`` shortcut syntax.
 
 .. clicmd:: bgp retain route-target all
 
@@ -3556,7 +3595,7 @@ Ethernet Virtual Network - EVPN
 -------------------------------
 
 Note: When using EVPN features and if you have a large number of hosts, make
-sure to adjust the size of the arp  neighbor cache to avoid neighbor table
+sure to adjust the size of the arp neighbor cache to avoid neighbor table
 overflow and/or excessive garbage collection. On Linux, the size of the table
 and garbage collection frequency can be controlled via the following
 sysctl configurations:
@@ -3578,17 +3617,42 @@ For more information, see ``man 7 arp``.
 Enabling EVPN
 ^^^^^^^^^^^^^
 
-EVPN should be enabled on the BGP instance corresponding to the VRF acting as
-the underlay for the VXLAN tunneling. In most circumstances this will be the
-default VRF. The command to enable EVPN for a BGP instance is
-``advertise-all-vni`` which lives under ``address-family l2vpn evpn``:
+EVPN is a technology for network virtualization. Virtualization is
+fundamentally the act of dividing a physical resource into multiple
+virtual resources, e.g. for the purpose of isolation or sharing a
+single physical resource among tenants.
 
-.. code-block:: frr
+For networking and EVPN, the physical resource is the network fabric
+that actually transports the traffic. This is called the *underlay*.
+The virtual network resources, like a "virtual VLAN", that are provided
+running layered on top of the underlay are called *overlay*.
 
-   router bgp 65001
-    !
-    address-family l2vpn evpn
-     advertise-all-vni
+EVPN works by encapsulating overlay traffic, e.g. in VXLAN, MPLS, or
+GENEVE, when it is transported over the underlay. All encapsulations
+attach some kind of label to overlay traffic, which allows underlay
+devices to identify into which virtual network resource a packet belongs.
+
+In order to activate EVPN in FRR, you must tell FRR which (IP-)VRF
+should be used for the underlay. This will typically be the default VRF.
+There can only be a single underlay VRF.
+
+Specifying ``advertise-all-vni``, which lives under
+``address-family l2vpn evpn``, marks this VRF as underlay and enables EVPN.
+
+.. clicmd:: advertise-all-vni
+
+   This command defines the VRF to be used as the underlay for EVPN-VXLAN and enables EVPN. In most
+   cases, this will be the default VRF. It is mandatory for EVPN-VXLAN to work.
+
+   This command can only be configured in a single VRF. Any attempt to configure it in multiple VRFs
+   will be rejected (e.g. ``% Please unconfigure EVPN in VRF default``)
+
+   .. code-block:: frr
+
+      router bgp 65001
+       !
+       address-family l2vpn evpn
+        advertise-all-vni
 
 A more comprehensive configuration example can be found in the :ref:`evpn` page.
 
@@ -3599,27 +3663,123 @@ EVPN BUM Handling
 
 .. clicmd:: flooding <disable|head-end-replication>
 
-This command controls the handling of BUM (Broadcast, Unknown Unicast, and
-Multicast) traffic in EVPN. The default behavior is to flood BUM traffic
-across all VTEPs in the EVPN instance. BUM traffic can also be handled
-per VNI by entering ``vni`` context first.
+   This command controls the handling of BUM (Broadcast, Unknown Unicast, and
+   Multicast) traffic in EVPN. The default behavior is to flood BUM traffic
+   across all VTEPs in the EVPN instance. BUM traffic can also be handled
+   per VNI by entering ``vni`` context first.
 
-When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
-VNI or globally.
+   When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
+   VNI or globally.
 
-.. _bgp-evpn-l3-route-targets:
 
-EVPN L3 Route-Targets
-^^^^^^^^^^^^^^^^^^^^^
+.. _bgp-evpn-downstream-vni:
+
+EVPN Downstream VNI
+^^^^^^^^^^^^^^^^^^^
+
+EVPN Downstream VNI is a feature that allows the destination (egress) VTEP to
+dictate which VNI the source (ingress) VTEP should use when sending traffic to it
+destined to a certain IP-VRF. This allows easy building of flexible VPN topologies.
+
+Without EVPN Downstream VNI, you must painstakingly configure the same VNI for all
+relevant VRFs across all devices.
+
+With Downstream VNI, the "destination" VNI is simply extracted from the advertised routes
+(MPLS Label 2 Route Type 2, MPLS Label for Route Type 5).
+
+Imagine a scenario where you have hundreds of VRFs and want to leak routes between them.
+
+Without Downstream VNI, you would have to configure all VRFs that you might want to leak from
+on all devices, and you would have to make sure to use the same VNI per VRF across all devices.
+This is a recipe for misconfiguration and operational complexity.
+
+With Downstream VNI, you can simply configure import Route Targets on the VRFs you want to leak to
+(and of course the export Route Targets on the VRFs you want to leak from),
+and the destination VNI will be automatically extracted from the imported routes
+and used as the source VNI for sending traffic to the destination IP-VRF.
+
+Note that in FRR, Downstream VNI requires the use of single VXLAN devices (SVD)
+for the dataplane and will not work with traditional VXLAN devices.
+
+.. _bgp-evpn-ip-vrf-route-targets:
+
+EVPN IP-VRF Route Targets
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. clicmd:: route-target <import|export|both> <RTLIST|auto>
 
-Modify the route-target set for EVPN advertised type-2/type-5 routes.
-RTLIST is a list of any of matching
-``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)`` where ``*`` indicates wildcard
-matching for the AS number. It will be set to match any AS number. This is
-useful in datacenter deployments with Downstream VNI. ``auto`` is used to
-retain the autoconfigure that is default behavior for L3 RTs.
+   Configure the route-target set for EVPN for a specific IP-VRF.
+   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``
+   where ``*`` indicates wildcard matching for the AS number
+   (match any AS number). Note that wildcards are only applicable to ``import``.
+   Wildcards are particularly useful in eBGP-datacenter deployments, where each leaf
+   has a unique AS number and thus uses a unique export-RT, but you want to import all routes
+   from all leaves.
+   ``auto`` is used to retain the autoconfigure that is default behavior for L3 RTs.
+
+   Route Targets allow building flexible VPN topologies by controlling the leaking of
+   routes between different IP-VRFs. For EVPN, the Downstream VNI feature makes this easy.
+
+   When using ``import``, the configured RTs are used to select which
+   EVPN VPN routes are imported into the local VRF. When using
+   ``export``, the configured RTs are attached to advertised EVPN VPN routes. Note that
+   the ``export`` Route Target only applies to routes that are originated in the local VRF.
+   An export Route Target will not be attached to routes that are learned from other peers
+   that are re-advertised. ``both`` applies the list to import and export.
+
+   EVPN attaches the IP-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`)
+   and Route Type 5 (IP Prefix Route, :rfc:`9136`).
+
+   Example:
+
+   .. code-block:: frr
+
+      router bgp 64496 vrf myvrf
+       !
+       address-family l2vpn evpn
+        route-target import 64496:12344
+        route-target import 64496:17000000
+        route-target export 64496:12344
+       exit-address-family
+      exit
+
+.. _bgp-evpn-mac-vrf-l2vni-route-targets:
+
+EVPN MAC-VRF / L2VNI Route Targets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: route-target <import|export|both> <RTLIST>
+
+   Configure the route-target set for EVPN for a specific MAC-VRF / L2VNI (the
+   terms are equivalent for FRR, because FRR uses the "VLAN-Based Service Interface" model,
+   as defined in :rfc:`9135`)
+
+   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN)``. Note that it is currently
+   not possible to manually define wildcard imports like for IP-VRFs, and there is also no explicit
+   ``auto`` option like for IP-VRFs.
+
+   This command can only be executed in the BGP underlay (IP-)VRF
+   (i.e. the VRF that has ``advertise-all-vni`` configured).
+   Any attempt to configure this command in a different (IP-)VRF will be rejected
+   (``This command is only supported under EVPN VRF``).
+
+   EVPN attaches the MAC-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`).
+
+   Example:
+
+   .. code-block:: frr
+
+      router bgp 64496
+       !
+       address-family l2vpn evpn
+        advertise-all-vni
+        vni 1234
+         route-target import 555:666
+         route-target export 1234:1234
+        exit-vni
+       exit-address-family
+      exit
+
 
 .. _bgp-evpn-advertise-pip:
 
@@ -3667,21 +3827,22 @@ the same behavior of using same next-hop and RMAC values.
 
 .. clicmd:: advertise-pip [ip <addr> [mac <addr>]]
 
-Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
-parameters.
+   Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
+   parameters.
 
 EVPN advertise-svi-ip
 ^^^^^^^^^^^^^^^^^^^^^
 Typically, the SVI IP address is reused on VTEPs across multiple racks. However,
 if you have unique SVI IP addresses that you want to be reachable you can use the
-advertise-svi-ip option. This option advertises the SVI IP/MAC address as a type-2
-route and eliminates the need for any flooding over VXLAN to reach the IP from a
-remote VTEP.
+advertise-svi-ip option.
 
 .. clicmd:: advertise-svi-ip
 
-Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
-at the same time.
+   This option advertises the SVI IP/MAC address as a type-2
+   route and eliminates the need for any flooding over VXLAN to reach the IP from a
+   remote VTEP.
+   Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
+   at the same time.
 
 .. _bgp-evpn-overlay-index-gateway-ip:
 
@@ -5829,6 +5990,8 @@ Show command json output:
 .. include:: wecmp_linkbw.rst
 
 .. include:: flowspec.rst
+
+.. include:: bgp-linkstate.rst
 
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009

@@ -713,7 +713,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 		} else
 			return SNMP_INTEGER(0);
 	case EIGRPQUERIESSENT: /* 7 */
-		/* Querry packets output count */
+		/* Query packets output count */
 		if (eigrp) {
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
@@ -724,7 +724,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 		} else
 			return SNMP_INTEGER(0);
 	case EIGRPQUERIESRCVD: /* 8 */
-		/* Querry packets input count */
+		/* Query packets input count */
 		if (eigrp) {
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
@@ -791,7 +791,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 		} else
 			return SNMP_INTEGER(0);
 	case EIGRPSIAQUERIESSENT: /* 15 */
-		/* SIA querry packets output count */
+		/* SIA query packets output count */
 		if (eigrp) {
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
@@ -802,7 +802,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 		} else
 			return SNMP_INTEGER(0);
 	case EIGRPSIAQUERIESRCVD: /* 16 */
-		/* SIA querry packets input count */
+		/* SIA query packets input count */
 		if (eigrp) {
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,

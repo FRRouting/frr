@@ -3703,11 +3703,11 @@ DEFPY_ATTR(ip_pim_register_accept_list,
 	return ret;
 }
 
-DEFPY (pim_joinprune_time,
-       pim_joinprune_time_cmd,
-       "join-prune-interval (1-65535)$jpi",
-       "Join Prune Send Interval\n"
-       "Seconds\n")
+DEFPY_YANG (pim_joinprune_time,
+	    pim_joinprune_time_cmd,
+	    "join-prune-interval (1-65535)$jpi",
+	    "Join Prune Send Interval\n"
+	    "Seconds\n")
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
@@ -3752,15 +3752,16 @@ DEFPY_ATTR(ip_pim_joinprune_time,
 	return ret;
 }
 
-DEFPY (no_pim_joinprune_time,
-       no_pim_joinprune_time_cmd,
-       "no join-prune-interval [(1-65535)]",
-       NO_STR
-       "Join Prune Send Interval\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim_joinprune_time,
+	    no_pim_joinprune_time_cmd,
+	    "no join-prune-interval [(1-65535)]",
+	    NO_STR
+	    "Join Prune Send Interval\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_join_prune_cmd(vty);
 }
+
 DEFPY_ATTR(no_ip_pim_joinprune_time,
 			  no_ip_pim_joinprune_time_cmd,
 			  "no ip pim join-prune-interval [(1-65535)]",
@@ -3803,11 +3804,11 @@ DEFPY_ATTR(no_ip_pim_joinprune_time,
 	return ret;
 }
 
-DEFPY (pim_register_suppress,
-       pim_register_suppress_cmd,
-       "register-suppress-time (1-65535)$rst",
-       "Register Suppress Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim_register_suppress,
+	    pim_register_suppress_cmd,
+	    "register-suppress-time (1-65535)$rst",
+	    "Register Suppress Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
@@ -3852,12 +3853,12 @@ DEFPY_ATTR(ip_pim_register_suppress,
 	return ret;
 }
 
-DEFPY (no_pim_register_suppress,
-       no_pim_register_suppress_cmd,
-       "no register-suppress-time [(1-65535)]",
-       NO_STR
-       "Register Suppress Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim_register_suppress,
+	    no_pim_register_suppress_cmd,
+	    "no register-suppress-time [(1-65535)]",
+	    NO_STR
+	    "Register Suppress Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_register_suppress_cmd(vty);
 }
@@ -3903,12 +3904,12 @@ DEFPY_ATTR(no_ip_pim_register_suppress,
 	return ret;
 }
 
-DEFPY (pim_rp_keep_alive,
-       pim_rp_keep_alive_cmd,
-       "rp keep-alive-timer (1-65535)$kat",
-       "Rendezvous Point\n"
-       "Keep alive Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim_rp_keep_alive,
+	    pim_rp_keep_alive_cmd,
+	    "rp keep-alive-timer (1-65535)$kat",
+	    "Rendezvous Point\n"
+	    "Keep alive Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
@@ -3954,13 +3955,13 @@ DEFPY_ATTR(ip_pim_rp_keep_alive,
 	return ret;
 }
 
-DEFPY (no_pim_rp_keep_alive,
-       no_pim_rp_keep_alive_cmd,
-       "no rp keep-alive-timer [(1-65535)]",
-       NO_STR
-       "Rendezvous Point\n"
-       "Keep alive Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim_rp_keep_alive,
+	    no_pim_rp_keep_alive_cmd,
+	    "no rp keep-alive-timer [(1-65535)]",
+	    NO_STR
+	    "Rendezvous Point\n"
+	    "Keep alive Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
@@ -4007,11 +4008,11 @@ DEFPY_ATTR(no_ip_pim_rp_keep_alive,
 	return ret;
 }
 
-DEFPY (pim_keep_alive,
-       pim_keep_alive_cmd,
-       "keep-alive-timer (1-65535)$kat",
-       "Keep alive Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim_keep_alive,
+	    pim_keep_alive_cmd,
+	    "keep-alive-timer (1-65535)$kat",
+	    "Keep alive Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
@@ -4056,12 +4057,12 @@ DEFPY_ATTR(ip_pim_keep_alive,
 	return ret;
 }
 
-DEFPY (no_pim_keep_alive,
-       no_pim_keep_alive_cmd,
-       "no keep-alive-timer [(1-65535)]",
-       NO_STR
-       "Keep alive Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim_keep_alive,
+	    no_pim_keep_alive_cmd,
+	    "no keep-alive-timer [(1-65535)]",
+	    NO_STR
+	    "Keep alive Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
@@ -4107,11 +4108,11 @@ DEFPY_ATTR(no_ip_pim_keep_alive,
 	return ret;
 }
 
-DEFPY (pim_packets,
-       pim_packets_cmd,
-       "packets (1-255)",
-       "packets to process at one time per fd\n"
-       "Number of packets\n")
+DEFPY_YANG (pim_packets,
+	    pim_packets_cmd,
+	    "packets (1-255)",
+	    "packets to process at one time per fd\n"
+	    "Number of packets\n")
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
@@ -4156,12 +4157,12 @@ DEFPY_ATTR(ip_pim_packets,
 	return ret;
 }
 
-DEFPY (no_pim_packets,
-       no_pim_packets_cmd,
-       "no packets [(1-255)]",
-       NO_STR
-       "packets to process at one time per fd\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim_packets,
+	    no_pim_packets_cmd,
+	    "no packets [(1-255)]",
+	    NO_STR
+	    "packets to process at one time per fd\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_pim_packet_cmd(vty);
 }
@@ -4207,33 +4208,63 @@ DEFPY_ATTR(no_ip_pim_packets,
 	return ret;
 }
 
-DEFPY (ip_igmp_group_watermark,
-       ip_igmp_group_watermark_cmd,
-       "ip igmp watermark-warn (1-65535)$limit",
-       IP_STR
-       IGMP_STR
-       "Configure group limit for watermark warning\n"
-       "Group count to generate watermark warning\n")
+DEFPY_YANG (ip_igmp_group_watermark,
+	    ip_igmp_group_watermark_cmd,
+	    "ip igmp watermark-warn (1-65535)$limit",
+	    IP_STR
+	    IGMP_STR
+	    "Configure group limit for watermark warning\n"
+	    "Group count to generate watermark warning\n")
 {
-	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-	pim->gm_watermark_limit = limit;
+	char xpath[XPATH_MAXLEN];
+	char watermark_xpath[XPATH_MAXLEN + 32];
+	const char *vrf_name;
 
-	return CMD_SUCCESS;
+	vrf_name = pim_cli_get_vrf_name(vty);
+	if (!vrf_name) {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrf_name,
+		 FRR_PIM_AF_XPATH_VAL);
+	snprintf(watermark_xpath, sizeof(watermark_xpath), "%s/gm-watermark-limit", xpath);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, watermark_xpath, NB_OP_MODIFY, limit_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_ip_igmp_group_watermark,
-       no_ip_igmp_group_watermark_cmd,
-       "no ip igmp watermark-warn [(1-65535)$limit]",
-       NO_STR
-       IP_STR
-       IGMP_STR
-       "Unconfigure group limit for watermark warning\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_ip_igmp_group_watermark,
+	    no_ip_igmp_group_watermark_cmd,
+	    "no ip igmp watermark-warn [(1-65535)$limit]",
+	    NO_STR
+	    IP_STR
+	    IGMP_STR
+	    "Unconfigure group limit for watermark warning\n"
+	    IGNORED_IN_NO_STR)
 {
-	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-	pim->gm_watermark_limit = 0;
+	char xpath[XPATH_MAXLEN];
+	char watermark_xpath[XPATH_MAXLEN + 32];
+	const char *vrf_name;
 
-	return CMD_SUCCESS;
+	vrf_name = pim_cli_get_vrf_name(vty);
+	if (!vrf_name) {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrf_name,
+		 FRR_PIM_AF_XPATH_VAL);
+	snprintf(watermark_xpath, sizeof(watermark_xpath), "%s/gm-watermark-limit", xpath);
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode, watermark_xpath))
+		return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, watermark_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (pim_v6_secondary,

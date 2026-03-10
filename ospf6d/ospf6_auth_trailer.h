@@ -33,7 +33,7 @@ extern unsigned char conf_debug_ospf6_auth[2];
 #define OSPF6_AUTH_TRAILER_MANUAL_KEY (1 << 1)
 #define OSPF6_AUTH_TRAILER_KEYCHAIN_VALID (1 << 2)
 
-/* According to sesion 4.1 of RFC7166 defining the trailer struct */
+/* According to session 4.1 of RFC7166 defining the trailer struct */
 struct ospf6_auth_hdr {
 	uint16_t type;
 	uint16_t length;

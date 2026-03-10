@@ -1,0 +1,92 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph template {
+	label="msdp_topo_5";
+
+    # Hosts
+    h1 [
+        shape=doubleoctagon
+        label="h1",
+        fillcolor="#4f4f4f",
+        style=filled,
+    ];
+
+    h2 [
+        shape=doubleoctagon
+        label="h2",
+        fillcolor="#4f4f4f",
+        style=filled,
+    ];
+
+
+	# Routers
+	r1 [
+		shape=doubleoctagon,
+		label="r1\n10.254.254.1",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r2 [
+		shape=doubleoctagon
+		label="r2\n10.254.254.2",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r3 [
+		shape=doubleoctagon
+		label="r3\n10.254.254.3",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# Switches
+	s1 [
+		shape=oval,
+		label="s1\n192.168.0.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		shape=oval,
+		label="s2\n192.168.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s3 [
+		shape=oval,
+		label="s3\n192.168.2.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s4 [
+		shape=oval,
+		label="s4\n192.168.3.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# Connections
+	r1 -- s1 [label="eth0\n.1"];
+    r1 -- s3 [label="eth1\n.1"];
+
+	r2 -- s1 [label="eth0\n.2"];
+	r2 -- s2 [label="eth1\n.2"];
+
+    r3 -- s2 [label="eth0\n.1"];
+    r3 -- s4 [label="eth1\n.1"];
+
+    h1 -- s3 [label="eth0\n.2"];
+    h2 -- s4 [label="eth0\n.2"];
+}

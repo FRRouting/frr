@@ -51,7 +51,7 @@ pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 /**
  * Gives the IPv4 router ID received from Zebra.
  *
- * @param router_id The in_addr strucure where to store the router id
+ * @param router_id The in_addr structure where to store the router id
  * @return true if the router ID was available, false otherwise
  */
 bool get_ipv4_router_id(struct in_addr *router_id)
@@ -70,7 +70,7 @@ bool get_ipv4_router_id(struct in_addr *router_id)
 /**
  * Gives the IPv6 router ID received from Zebra.
  *
- * @param router_id The in6_addr strucure where to store the router id
+ * @param router_id The in6_addr structure where to store the router id
  * @return true if the router ID was available, false otherwise
  */
 bool get_ipv6_router_id(struct in6_addr *router_id)

@@ -415,7 +415,7 @@ uint32_t ospf6_new_ls_id(uint16_t type, uint32_t adv_router,
 	struct ospf6_lsa *lsa;
 	uint32_t id = 1, tmp_id;
 
-	/* This routine is curently invoked only for Inter-Prefix LSAs for
+	/* This routine is currently invoked only for Inter-Prefix LSAs for
 	 * non-summarized routes (no area/range).
 	 */
 	for (ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa)) {

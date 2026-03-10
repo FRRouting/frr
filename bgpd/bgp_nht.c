@@ -808,8 +808,8 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
-		if ((bnc->nexthop_num == 1 && bnc->nexthop &&
-		     bnc->nexthop->ifindex != ifp->ifindex) &&
+		if (!(bnc->nexthop_num == 1 && bnc->nexthop &&
+		      bnc->nexthop->ifindex == ifp->ifindex) &&
 		    (bnc->ifindex_ipv6_ll != ifp->ifindex))
 			continue;
 
@@ -1518,7 +1518,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (old_path_valid != bnc_is_valid_nexthop)
 			hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 
-		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
+		if (old_path_valid != bnc_is_valid_nexthop ||
+		    CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
 		    CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 			bgp_process(bgp_path, dest, path, afi, safi);
 	}

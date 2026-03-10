@@ -82,7 +82,7 @@ uint32_t eigrp_master_hash_hash(const struct eigrp *a)
  * Note:
  * router id for EIGRP is really just a 32 bit number. Cisco historically
  * displays it in dotted decimal notation, and will pickup an IP address
- * from an interface so it can be 'auto-configed" to a uniqe value
+ * from an interface so it can be 'auto-configed" to a unique value
  *
  * This does not work for IPv6, and to make the code simpler, its
  * stored and processed internerall as a 32bit number

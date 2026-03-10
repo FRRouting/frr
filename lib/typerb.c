@@ -149,6 +149,10 @@ static inline void rbe_remove_color(struct rbt_tree *rbt,
 {
 	struct rb_entry *tmp;
 
+	/* Avoid rebalancing if tree is in finalize/cleanup mode */
+	if (rbt->final_p)
+		return;
+
 	while ((rbe == NULL || RBE_COLOR(rbe) == RB_BLACK)
 	       && rbe != RBH_ROOT(rbt) && parent) {
 		if (RBE_LEFT(parent) == rbe) {

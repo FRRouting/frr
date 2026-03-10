@@ -21,6 +21,7 @@
 #include "termtable.h"
 #include "affinitymap.h"
 #include "frrdistance.h"
+#include "workqueue.h"
 #include "lib/frrscript.h"
 
 #include "zebra/zebra_router.h"
@@ -2713,25 +2714,27 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	}
 }
 
-DEFUN (allow_external_route_update,
-       allow_external_route_update_cmd,
-       "allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes\n")
+DEFPY_YANG (allow_external_route_update,
+	    allow_external_route_update_cmd,
+	    "allow-external-route-update",
+	    "Allow FRR routes to be overwritten by external processes\n")
 {
-	zrouter.allow_delete = true;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_CREATE,
+			      NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_allow_external_route_update,
-       no_allow_external_route_update_cmd,
-       "no allow-external-route-update",
-       NO_STR
-       "Allow FRR routes to be overwritten by external processes\n")
+DEFPY_YANG (no_allow_external_route_update,
+	    no_allow_external_route_update_cmd,
+	    "no allow-external-route-update",
+	    NO_STR
+	    "Allow FRR routes to be overwritten by external processes\n")
 {
-	zrouter.allow_delete = false;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_DESTROY,
+			      NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* show vrf */
@@ -4091,7 +4094,7 @@ DEFUN (show_zebra,
 		       zrouter.zav.supports_nhgs ? "Available" : "Unavailable");
 
 	ttable_add_row(table, "Allow Non FRR route deletion|%s",
-		       zrouter.allow_delete ? "Yes" : "No");
+		       zrouter.allow_delete ? "No" : "Yes");
 	ttable_add_row(table, "v4 All LinkDown Routes|%s",
 		       zrouter.all_linkdownv4 ? "On" : "Off");
 	ttable_add_row(table, "v4 Default LinkDown Routes|%s",
@@ -4262,6 +4265,26 @@ DEFUN (zebra_show_routing_tables_summary,
        "Summary Information\n")
 {
 	zebra_router_show_table_summary(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(zebra_test_metaq_plug,
+	     zebra_test_metaq_plug_cmd,
+	     "[no] zebra test metaq disable",
+	     NO_STR
+	     ZEBRA_STR
+	     "Test command\n"
+	     "Meta queue\n"
+	     "Plug the meta queue (prevent processing)\n")
+{
+	if (zrouter.ribq == NULL)
+		return CMD_WARNING;
+
+	if (no)
+		work_queue_unplug(zrouter.ribq);
+	else
+		work_queue_plug(zrouter.ribq);
 
 	return CMD_SUCCESS;
 }
@@ -4549,6 +4572,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
+	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);

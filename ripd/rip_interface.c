@@ -570,7 +570,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 			hook_call(rip_ifaddr_del, ifc);
 
-			/* Chech whether this prefix needs to be removed */
+			/* Check whether this prefix needs to be removed */
 			rip_apply_address_del(ifc);
 		}
 

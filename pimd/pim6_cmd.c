@@ -93,11 +93,11 @@ DEFPY (no_router_pim6,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (pim6_joinprune_time,
-       pim6_joinprune_time_cmd,
-       "join-prune-interval (1-65535)$jpi",
-       "Join Prune Send Interval\n"
-       "Seconds\n")
+DEFPY_YANG (pim6_joinprune_time,
+	    pim6_joinprune_time_cmd,
+	    "join-prune-interval (1-65535)$jpi",
+	    "Join Prune Send Interval\n"
+	    "Seconds\n")
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
@@ -141,15 +141,16 @@ DEFPY_ATTR(ipv6_joinprune_time,
 	return ret;
 }
 
-DEFPY (no_pim6_joinprune_time,
-       no_pim6_joinprune_time_cmd,
-       "no join-prune-interval [(1-65535)]",
-       NO_STR
-       "Join Prune Send Interval\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim6_joinprune_time,
+	    no_pim6_joinprune_time_cmd,
+	    "no join-prune-interval [(1-65535)]",
+	    NO_STR
+	    "Join Prune Send Interval\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_join_prune_cmd(vty);
 }
+
 DEFPY_ATTR(no_ipv6_pim_joinprune_time,
            no_ipv6_pim_joinprune_time_cmd,
            "no ipv6 pim join-prune-interval [(1-65535)]",
@@ -451,11 +452,11 @@ DEFPY_ATTR(no_ipv6_pim_spt_switchover_infinity_plist,
 	return ret;
 }
 
-DEFPY (pim6_packets,
-       pim6_packets_cmd,
-       "packets (1-255)",
-       "packets to process at one time per fd\n"
-       "Number of packets\n")
+DEFPY_YANG (pim6_packets,
+	    pim6_packets_cmd,
+	    "packets (1-255)",
+	    "packets to process at one time per fd\n"
+	    "Number of packets\n")
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
@@ -500,12 +501,12 @@ DEFPY_ATTR(ipv6_pim_packets,
 	return ret;
 }
 
-DEFPY (no_pim6_packets,
-       no_pim6_packets_cmd,
-       "no packets [(1-255)]",
-       NO_STR
-       "packets to process at one time per fd\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim6_packets,
+	    no_pim6_packets_cmd,
+	    "no packets [(1-255)]",
+	    NO_STR
+	    "packets to process at one time per fd\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_pim_packet_cmd(vty);
 }
@@ -551,11 +552,11 @@ DEFPY_ATTR(no_ipv6_pim_packets,
 	return ret;
 }
 
-DEFPY (pim6_keep_alive,
-       pim6_keep_alive_cmd,
-       "keep-alive-timer (1-65535)$kat",
-       "Keep alive Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim6_keep_alive,
+	    pim6_keep_alive_cmd,
+	    "keep-alive-timer (1-65535)$kat",
+	    "Keep alive Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
@@ -600,12 +601,12 @@ DEFPY_ATTR(ipv6_pim_keep_alive,
 	return ret;
 }
 
-DEFPY (no_pim6_keep_alive,
-       no_pim6_keep_alive_cmd,
-       "no keep-alive-timer [(1-65535)]",
-       NO_STR
-       "Keep alive Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim6_keep_alive,
+	    no_pim6_keep_alive_cmd,
+	    "no keep-alive-timer [(1-65535)]",
+	    NO_STR
+	    "Keep alive Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
@@ -651,12 +652,12 @@ DEFPY_ATTR(no_ipv6_pim_keep_alive,
 	return ret;
 }
 
-DEFPY (pim6_rp_keep_alive,
-       pim6_rp_keep_alive_cmd,
-       "rp keep-alive-timer (1-65535)$kat",
-       "Rendezvous Point\n"
-       "Keep alive Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim6_rp_keep_alive,
+	    pim6_rp_keep_alive_cmd,
+	    "rp keep-alive-timer (1-65535)$kat",
+	    "Rendezvous Point\n"
+	    "Keep alive Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
@@ -702,13 +703,13 @@ DEFPY_ATTR(ipv6_pim_rp_keep_alive,
 	return ret;
 }
 
-DEFPY (no_pim6_rp_keep_alive,
-       no_pim6_rp_keep_alive_cmd,
-       "no rp keep-alive-timer [(1-65535)]",
-       NO_STR
-       "Rendezvous Point\n"
-       "Keep alive Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim6_rp_keep_alive,
+	    no_pim6_rp_keep_alive_cmd,
+	    "no rp keep-alive-timer [(1-65535)]",
+	    NO_STR
+	    "Rendezvous Point\n"
+	    "Keep alive Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
@@ -755,11 +756,11 @@ DEFPY_ATTR(no_ipv6_pim_rp_keep_alive,
 	return ret;
 }
 
-DEFPY (pim6_register_suppress,
-       pim6_register_suppress_cmd,
-       "register-suppress-time (1-65535)$rst",
-       "Register Suppress Timer\n"
-       "Seconds\n")
+DEFPY_YANG (pim6_register_suppress,
+	    pim6_register_suppress_cmd,
+	    "register-suppress-time (1-65535)$rst",
+	    "Register Suppress Timer\n"
+	    "Seconds\n")
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
@@ -804,12 +805,12 @@ DEFPY_ATTR(ipv6_pim_register_suppress,
 	return ret;
 }
 
-DEFPY (no_pim6_register_suppress,
-       no_pim6_register_suppress_cmd,
-       "no register-suppress-time [(1-65535)]",
-       NO_STR
-       "Register Suppress Timer\n"
-       IGNORED_IN_NO_STR)
+DEFPY_YANG (no_pim6_register_suppress,
+	    no_pim6_register_suppress_cmd,
+	    "no register-suppress-time [(1-65535)]",
+	    NO_STR
+	    "Register Suppress Timer\n"
+	    IGNORED_IN_NO_STR)
 {
 	return pim_process_no_register_suppress_cmd(vty);
 }

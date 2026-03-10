@@ -912,12 +912,24 @@ void bfd_recv_cb(struct event *t)
 			vrfid = ifp->vrf->vrf_id;
 	}
 
+	/* Find the session that this packet belongs. */
+	cp = (struct bfd_pkt *)(msgbuf);
+	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
+	if (bfd == NULL) {
+		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
+			 vrfid, ntohl(cp->discrs.my_discr));
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "no session found");
+		return;
+	}
+
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		frrtrace(8, frr_bfd, packet_validation_error, 1, is_mhop, &peer, &local, ifindex,
 			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%zd bytes)", mlen);
+		bfd->stats.rx_bad_ctrl_pkt++;
+
 		return;
 	}
 
@@ -927,6 +939,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, ttl, BFD_TTL_VAL);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -937,12 +950,12 @@ void bfd_recv_cb(struct event *t)
 	 * - Short packets;
 	 * - Invalid discriminator;
 	 */
-	cp = (struct bfd_pkt *)(msgbuf);
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
 		frrtrace(8, frr_bfd, packet_validation_error, 3, is_mhop, &peer, &local, ifindex,
 			 vrfid, BFD_GETVER(cp->diag), BFD_VERSION);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "bad version %d", BFD_GETVER(cp->diag));
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -951,6 +964,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, 0, 1); /* actual=0, expected>=1 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect multiplier set to zero");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -958,6 +972,7 @@ void bfd_recv_cb(struct event *t)
 		frrtrace(8, frr_bfd, packet_validation_error, 5, is_mhop, &peer, &local, ifindex,
 			 vrfid, cp->len, (uint32_t)mlen);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -966,6 +981,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, 1, 0); /* actual=1 (M bit set), expected=0 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect non-zero Multipoint (M) flag");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -975,26 +991,19 @@ void bfd_recv_cb(struct event *t)
 			 1); /* actual discriminator from packet, expected!=0 */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
-	/* Find the session that this packet belongs. */
-	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
-	if (bfd == NULL) {
-		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
-			 vrfid, ntohl(cp->discrs.my_discr));
-		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "no session found");
-		return;
-	}
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
+	if (bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		frrtrace(8, frr_bfd, packet_validation_error, 8, is_mhop, &peer, &local, ifindex,
 			 vrfid, vrfid, bfd->vrf->vrf_id); /* actual pkt vrf, expected session vrf */
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -1005,6 +1014,7 @@ void bfd_recv_cb(struct event *t)
 			 vrfid, bfd->ses_state);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'remote discriminator' is zero, not overridden");
+		bfd->stats.rx_bad_ctrl_pkt++;
 		return;
 	}
 
@@ -1020,6 +1030,7 @@ void bfd_recv_cb(struct event *t)
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
 				 bfd->mh_ttl, ttl);
+			bfd->stats.rx_bad_ctrl_pkt++;
 			return;
 		}
 	} else {

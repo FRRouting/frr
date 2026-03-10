@@ -160,7 +160,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	int fd = -1, sock, ret;
 	unsigned int seq;
 	ns_id_t return_nsid = NS_UNKNOWN;
-	int nl_errno;
+	int nl_errno = 0;
 
 	/* netns path check */
 	if (!netnspath && fd_param == -1)

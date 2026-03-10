@@ -619,6 +619,7 @@ extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t ins
 
 extern void zebra_vty_init(void);
 extern uint32_t zebra_rib_dplane_results_count(void);
+extern uint32_t zebra_rib_dplane_results_max(void);
 
 extern pid_t zebra_pid;
 

@@ -138,7 +138,16 @@ def test_zebra_fec_nexthop_resolution_finalise_ospf_config():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(2)
+    def _all_routers_running():
+        for rname in ("r1", "r2", "r3", "r4", "r5", "r6", "r7"):
+            if tgen.net[rname].checkRouterRunning() != "":
+                return False
+        return True
+
+    _, ready = topotest.run_and_expect(_all_routers_running, True, count=10, wait=1)
+    assert (
+        ready is True
+    ), "Routers were not ready before applying OSPF post-start config"
 
     tgen.net["r1"].cmd("vtysh -f {}/r1/ospfd.conf.after".format(CWD))
     tgen.net["r2"].cmd("vtysh -f {}/r2/ospfd.conf.after".format(CWD))
