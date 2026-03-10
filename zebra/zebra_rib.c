@@ -1839,6 +1839,78 @@ done:
 	return rn;
 }
 
+static void rib_process_result_import_table_add(struct route_node *rn, struct route_entry *re)
+{
+	struct zebra_vrf *zvrf;
+	rib_dest_t *dest;
+	const char *rmap_name;
+	afi_t afi;
+	safi_t safi;
+
+	if (!rn || !re)
+		return;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!dest || re != dest->selected_fib)
+		return;
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ||
+	    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+		return;
+
+	afi = family2afi(rn->p.family);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	if (!zvrf)
+		return;
+
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (!is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table))
+			continue;
+
+		rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
+		zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+	}
+}
+
+static void rib_process_result_import_table_del(const struct zebra_dplane_ctx *ctx)
+{
+	const struct nexthop_group *nhg;
+	const struct prefix *p;
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id;
+	uint32_t metric;
+	uint32_t nhe_id;
+	uint32_t flags;
+	uint8_t distance;
+
+	if (!ctx)
+		return;
+
+	afi = dplane_ctx_get_afi(ctx);
+	table_id = dplane_ctx_get_table(ctx);
+	p = dplane_ctx_get_dest(ctx);
+	zvrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
+	if (!p || !zvrf || afi == AFI_MAX)
+		return;
+
+	nhg = dplane_ctx_get_ng(ctx);
+	metric = dplane_ctx_get_metric(ctx);
+	distance = dplane_ctx_get_distance(ctx);
+	nhe_id = dplane_ctx_get_nhe_id(ctx);
+	flags = dplane_ctx_get_flags(ctx);
+
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (!is_zebra_import_table_enabled(afi, safi, dplane_ctx_get_vrf(ctx), table_id))
+			continue;
+
+		rib_delete(afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE, table_id, flags, p,
+			   NULL, nhg ? nhg->nexthop : NULL, nhe_id, zvrf->table_id, metric,
+			   distance, false);
+	}
+}
+
 
 /*
  * Route-update results processing after async dataplane update.
@@ -2009,6 +2081,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				 */
 				re->nhe_installed_id = dplane_ctx_get_nhe_id(ctx);
 
+				rib_process_result_import_table_add(rn, re);
+
 				/* Redistribute if this is the selected re */
 				if (dest && re == dest->selected_fib)
 					redistribute_update(rn, re, old_re);
@@ -2075,6 +2149,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 			}
+			rib_process_result_import_table_del(ctx);
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 
 			if (zvrf)
@@ -3884,9 +3959,6 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 static void rib_link(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
-	afi_t afi;
-	safi_t safi;
-	const char *rmap_name;
 
 	assert(re && rn);
 
@@ -3899,18 +3971,6 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 	}
 
 	re_list_add_head(&dest->routes, re);
-
-	afi = (rn->p.family == AF_INET)
-		      ? AFI_IP
-		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
-			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-
-			rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
-			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
-		}
-	}
 
 	rib_queue_add(rn);
 }
@@ -3964,9 +4024,6 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 void rib_delnode(struct route_node *rn, struct route_entry *re)
 {
-	afi_t afi;
-	safi_t safi;
-
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "rn %p, re %p, removing",
 			    (void *)rn, (void *)re);
@@ -3975,22 +4032,6 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 		route_entry_dump(&rn->p, NULL, re);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_REMOVED);
-
-	afi = (rn->p.family == AF_INET)
-		      ? AFI_IP
-		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
-			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-
-			zebra_del_import_table_entry(zvrf, safi, rn, re);
-			/* Just clean up if non main table */
-			if (IS_ZEBRA_DEBUG_RIB)
-				zlog_debug("%s %s(%u):%pRN: Freeing route rn %p, re %p (%s)",
-					   safi2str(safi), vrf_id_to_name(re->vrf_id), re->vrf_id,
-					   rn, rn, re, zebra_route_string(re->type));
-		}
-	}
 
 	rib_queue_add(rn);
 }
