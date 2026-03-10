@@ -98,6 +98,8 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
+	/* Keychain authentication parameters */
+	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
 }
 
 struct bfd_profile *bfd_profile_new(const char *name)
@@ -232,6 +234,15 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_log_session_changes(bs, bp->log_session_changes);
 	else
 		bfd_set_log_session_changes(bs, bs->peer_profile.log_session_changes);
+
+	/* Determine effective authentication settings */
+	bs->kc = NULL;
+	/* Peer-specific config takes precedence */
+	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
+		bs->kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
+
+	if (bs->kc == NULL && bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
+		bs->kc = keychain_lookup(bs->profile->auth_config.key_chain_name);
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
