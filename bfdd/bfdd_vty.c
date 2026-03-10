@@ -156,8 +156,25 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	uint32_t min = 0;
 	uint32_t avg = 0;
 	uint32_t max = 0;
+	struct key *key = NULL;
+	enum bfd_auth_type auth_type;
 
 	_display_peer_header(vty, bs);
+
+	if (bs->kc)
+		key = bfd_keychain_key_find_active(bs->kc);
+	if (key) {
+		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, false);
+
+		vty_out(vty, "\t\tAuthentication is enabled");
+		vty_out(vty, " (key-chain-name %s, crypto-used %s)\n", bs->kc->name,
+			bfd_auth_type_get_description(auth_type));
+	} else if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
+		vty_out(vty, "\t\tAuthentication is configured (key-chain-name %s)\n",
+			bs->peer_profile.auth_config.key_chain_name);
+	else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
+		vty_out(vty, "\t\tAuthentication is configured (key-chain-name %s)\n",
+			bs->profile->auth_config.key_chain_name);
 
 	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tRemote ID: %u\n", bs->discrs.remote_discr);
@@ -297,9 +314,38 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	uint32_t min = 0;
 	uint32_t avg = 0;
 	uint32_t max = 0;
+	struct json_object *auth_jo = json_object_new_object();
+	struct key *key = NULL;
+	enum bfd_auth_type auth_type;
 
 	if (bs->key.ifname[0])
 		json_object_string_add(jo, "interface", bs->key.ifname);
+
+	if (bs->kc)
+		key = bfd_keychain_key_find_active(bs->kc);
+
+	if (key) {
+		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, false);
+		json_object_boolean_add(auth_jo, "enabled", true);
+		json_object_boolean_add(auth_jo, "configured", true);
+		json_object_string_add(auth_jo, "key-chain-name", bs->kc->name);
+		json_object_string_add(auth_jo, "cryptoName",
+				       bfd_auth_type_get_description(auth_type));
+	} else {
+		json_object_boolean_add(auth_jo, "enabled", false);
+		if (bs->peer_profile.auth_config.key_chain_name[0] != '\0') {
+			json_object_boolean_add(auth_jo, "configured", true);
+			json_object_string_add(auth_jo, "key-chain-name",
+					       bs->peer_profile.auth_config.key_chain_name);
+		} else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0') {
+			json_object_boolean_add(auth_jo, "configured", true);
+			json_object_string_add(auth_jo, "key-chain-name",
+					       bs->profile->auth_config.key_chain_name);
+		} else
+			json_object_boolean_add(auth_jo, "configured", false);
+	}
+	json_object_object_add(jo, "authentication", auth_jo);
+
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
