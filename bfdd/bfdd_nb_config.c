@@ -762,6 +762,45 @@ int bfdd_bfd_profile_authentication_key_chain_destroy(struct nb_cb_destroy_args 
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
  */
+
+int bfdd_bfd_sessions_common_authentication_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	const char *key_chain_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bs) /* Should not happen */
+		return NB_ERR_NOT_FOUND;
+
+	key_chain_name = yang_dnode_get_string(args->dnode, NULL);
+	if (strlen(key_chain_name) == 0)
+		/* ignoring request. should not happen */
+		return NB_OK;
+	strlcpy(bs->peer_profile.auth_config.key_chain_name, key_chain_name,
+		sizeof(bs->peer_profile.auth_config.key_chain_name));
+	bfd_session_apply(bs);
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_authentication_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (args->event != NB_EV_APPLY || !bs)
+		return NB_OK;
+
+	memset(bs->peer_profile.auth_config.key_chain_name, 0,
+	       sizeof(bs->peer_profile.auth_config.key_chain_name));
+	bfd_session_apply(bs);
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
+ */
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)
 {
 	return bfd_session_create(args, false, BFD_MODE_TYPE_BFD);

@@ -45,6 +45,8 @@ int bfdd_bfd_sessions_single_hop_source_addr_modify(
 int bfdd_bfd_sessions_single_hop_source_addr_destroy(
 	struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_profile_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_common_authentication_key_chain_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_common_authentication_key_chain_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_profile_destroy(
 	struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
