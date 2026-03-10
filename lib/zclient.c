@@ -3351,7 +3351,7 @@ static int zclient_read_sync_response(struct zclient *zclient,
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t cmd;
-	fd_set readfds;
+	struct pollfd pfd;
 	int ret;
 
 	ret = 0;
@@ -3360,11 +3360,17 @@ static int zclient_read_sync_response(struct zclient *zclient,
 		s = zclient->ibuf;
 		stream_reset(s);
 
-		/* wait until response arrives */
-		FD_ZERO(&readfds);
-		FD_SET(zclient->sock, &readfds);
-		select(zclient->sock + 1, &readfds, NULL, NULL, NULL);
-		if (!FD_ISSET(zclient->sock, &readfds))
+		/* wait until response arrives (poll avoids FD_SETSIZE limit) */
+		pfd.fd = zclient->sock;
+		pfd.events = POLLIN;
+		if (poll(&pfd, 1, -1) < 0) {
+			if (errno == EINTR)
+				continue;
+			flog_err(EC_LIB_ZAPI_SOCKET, "%s: poll failed: %s",
+				 __func__, safe_strerror(errno));
+			return -1;
+		}
+		if (!(pfd.revents & POLLIN))
 			continue;
 		/* read response */
 		ret = zclient_read_header(s, zclient->sock, &size, &marker,
