@@ -2876,40 +2876,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			return false;
 	}
 
-	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
-	bgp_peer_as_override(bgp, afi, safi, peer, attr);
-
-	/* draft-ietf-idr-deprecate-as-set-confed-set-16 */
-	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
-		struct aspath *aspath_new;
-
-		/* An aggregate prefix MUST NOT be announced to the contributing ASes */
-		if (pi->sub_type == BGP_ROUTE_AGGREGATE &&
-		    aspath_loop_check(attr->aspath, peer->as)) {
-			zlog_warn("%pBP [Update:SEND] %pFX is filtered by `bgp reject-as-sets`",
-				  peer, p);
-			return false;
-		}
-
-		/* When aggregating prefixes, network operators MUST use consistent brief
-		 * aggregation as described in Section 5.2. In consistent brief aggregation,
-		 * the AGGREGATOR and ATOMIC_AGGREGATE Path Attributes are included, but the
-		 * AS_PATH does not have AS_SET or AS_CONFED_SET path segment types.
-		 */
-		if (attr->aspath->refcnt)
-			aspath_new = aspath_dup(attr->aspath);
-		else
-			aspath_new = attr->aspath;
-
-		attr->aspath = aspath_delete_as_set_seq(aspath_new);
-
-		/* rfc9774 says:
-		 * The ATOMIC_AGGREGATE Path Attribute is subsequently attached
-		 * to the BGP route, if AS_SETs are dropped.
-		 */
-		bgp_attr_set(attr, BGP_ATTR_ATOMIC_AGGREGATE);
-	}
-
 	/* If neighbor soo is configured, then check if the route has
 	 * SoO extended community and validate against the configured
 	 * one. If they match, do not announce, to prevent routing
@@ -2938,18 +2904,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (aspath_check_as_zero(attr->aspath))
 		return false;
 
-	if ((bgp_in_graceful_shutdown(bgp)) ||
-	    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))) {
-		if (peer->sort == BGP_PEER_IBGP ||
-		    peer->sort == BGP_PEER_CONFED ||
-		    peer->sub_sort == BGP_PEER_EBGP_OAD) {
-			bgp_attr_set(attr, BGP_ATTR_LOCAL_PREF);
-			attr->local_pref = BGP_GSHUT_LOCAL_PREF;
-		} else {
-			bgp_attr_add_gshut_community(attr);
-		}
-	}
-
 	/* A BGP speaker that has advertised the "Long-lived Graceful Restart
 	 * Capability" to a neighbor MUST perform the following upon receiving
 	 * a route from that neighbor with the "LLGR_STALE" community, or upon
@@ -2964,6 +2918,64 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV) &&
 	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_ADV))
 		return false;
+
+	/* Perform operations that involve memory allocation.
+	 * Note: the reject_as_sets aggregate loop check below still performs
+	 * an early return, but it operates on the aspath already modified by
+	 * bgp_peer_remove_private_as() and bgp_peer_as_override().
+	 */
+	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
+	bgp_peer_as_override(bgp, afi, safi, peer, attr);
+
+	/* draft-ietf-idr-deprecate-as-set-confed-set-16
+	 * An aggregate prefix MUST NOT be announced to the contributing ASes.
+	 * This check must occur after bgp_peer_remove_private_as() and
+	 * bgp_peer_as_override() as those functions may remove peer->as from
+	 * the path (e.g., with neighbor as-override or remove-private-AS).
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		if (pi->sub_type == BGP_ROUTE_AGGREGATE &&
+		    aspath_loop_check(attr->aspath, peer->as)) {
+			zlog_warn("%pBP [Update:SEND] %pFX is filtered by `bgp reject-as-sets`",
+				  peer, p);
+			return false;
+		}
+	}
+
+	/* draft-ietf-idr-deprecate-as-set-confed-set-16
+	 * When aggregating prefixes, network operators MUST use consistent brief
+	 * aggregation as described in Section 5.2. In consistent brief aggregation,
+	 * the AGGREGATOR and ATOMIC_AGGREGATE Path Attributes are included, but the
+	 * AS_PATH does not have AS_SET or AS_CONFED_SET path segment types.
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		struct aspath *aspath_new;
+
+		if (attr->aspath->refcnt)
+			aspath_new = aspath_dup(attr->aspath);
+		else
+			aspath_new = attr->aspath;
+
+		attr->aspath = aspath_delete_as_set_seq(aspath_new);
+
+		/* rfc9774 says:
+		 * The ATOMIC_AGGREGATE Path Attribute is subsequently attached
+		 * to the BGP route, if AS_SETs are dropped.
+		 */
+		bgp_attr_set(attr, BGP_ATTR_ATOMIC_AGGREGATE);
+	}
+
+	if ((bgp_in_graceful_shutdown(bgp)) ||
+	    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))) {
+		if (peer->sort == BGP_PEER_IBGP ||
+		    peer->sort == BGP_PEER_CONFED ||
+		    peer->sub_sort == BGP_PEER_EBGP_OAD) {
+			bgp_attr_set(attr, BGP_ATTR_LOCAL_PREF);
+			attr->local_pref = BGP_GSHUT_LOCAL_PREF;
+		} else {
+			bgp_attr_add_gshut_community(attr);
+		}
+	}
 
 	/* After route-map has been applied, we check to see if the nexthop to
 	 * be carried in the attribute (that is used for the announcement) can
