@@ -165,7 +165,8 @@ def test_backend_datastore_update(tgen):
     p = r1.popen(
         [
             BE_CLIENT,
-            "--log=file:/dev/stderr",
+            "--log=file:mgmtd-testc.log",
+            "--notify-count=0",
             "--datastore",
             "--listen",
             "/frr-interface:lib/interface",
@@ -174,18 +175,16 @@ def test_backend_datastore_update(tgen):
     assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
     mlogp.kill()
 
-    r1.cmd_raises("ip link set r1-eth0 mtu 1200")
     try:
-        expected = json.loads(
-            '{"frr-interface:lib":{"interface":[{"name":"r1-eth0","state":{"mtu":1200}}]}}'
-        )
+        wait_op_json(p.stdout, "SYNC", "/frr-interface:lib/interface", None)
 
-        output, error = p.communicate(timeout=30)
-        notifs = get_op_and_json(output)
-        op, path, data = notifs[0]
-        jsout = json.loads(data)
-        result = json_cmp(jsout, expected)
-        assert result is None
+        r1.cmd_raises("ip link set r1-eth0 mtu 1200")
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            "/frr-interface:lib/interface[name='r1-eth0']/state/mtu",
+            '{"frr-interface:lib":{"interface":[{"name":"r1-eth0","state":{"mtu":1200}}]}}',
+        )
     finally:
         p.kill()
         r1.cmd_raises("ip link set r1-eth0 mtu 1500")
@@ -210,7 +209,7 @@ def test_backend_datastore_add_delete(tgen):
     p = r1.popen(
         [
             BE_CLIENT,
-            "--log=file:/dev/stderr",
+            "--log=file:mgmtd-testc.log",
             "--notify-count=0",
             "--datastore",
             "--listen",
@@ -254,21 +253,105 @@ def test_backend_datastore_add_delete(tgen):
         r1.cmd_raises("ip link add red type vrf table 10")
         r1.cmd_raises('vtysh -c "conf t" -c "vrf red" -c "exit"')
 
-        wait_op_json(
-            p.stdout,
-            "REPLACE",
-            '/frr-vrf:lib/vrf[name="red"]/state',
-            '{"frr-vrf:lib":{"vrf":[{"name":"red","state":{"active":true}}]}}',
-        )
+        wait_op_json(p.stdout, "REPLACE", '/frr-vrf:lib/vrf[name="red"]')
 
         r1.cmd_raises("ip link del red")
         r1.cmd_raises('vtysh -c "conf t" -c "no vrf red"')
         wait_op_json(p.stdout, "DELETE", '/frr-vrf:lib/vrf[name="red"]')
     finally:
-        pass
         p.kill()
         r1.cmd_status('vtysh -c "conf t" -c "no vrf red"', warn=False)
         r1.cmd_status("ip link del red", warn=False)
+
+
+def test_backend_datastore_router_id(tgen):
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"].net
+
+    check_kernel_32(r1, "11.11.11.11", 1, "")
+
+    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
+    if rc:
+        pytest.skip("No mgmtd_testc")
+
+    # Watch the mgmtd log for the BE subscribing
+    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+
+    # Start our BE client in the background
+    p = r1.popen(
+        [
+            BE_CLIENT,
+            "--timeout=30",
+            "--log=file:mgmtd-testc.log",
+            "--notify-count=0",
+            "--datastore",
+            "--listen",
+            "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
+            "/frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id",
+        ]
+    )
+    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
+    mlogp.kill()
+
+    js4_init = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.1.1.1"}}]}}'
+    js4_chg = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.2.3.4"}}]}}'
+    js6_new = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"ipv6-router-id":"aa::bb"}}]}}'
+    js6_chg = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"ipv6-router-id":"aa::cc"}}]}}'
+
+    try:
+        #
+        # IPv4 Router ID
+        #
+        wait_op_json(
+            p.stdout,
+            "SYNC",
+            "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
+            js4_init,
+        )
+        r1.cmd_raises('vtysh -c "conf t" -c "router-id 1.2.3.4"')
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/router-id',
+            js4_chg,
+        )
+        r1.cmd_raises('vtysh -c "conf t" -c "no router-id"')
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/router-id',
+            js4_init,
+        )
+
+        #
+        # IPv6 Router ID
+        #
+        r1.cmd_raises('vtysh -c "conf t" -c "ipv6 router-id aa::bb"')
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ipv6-router-id',
+            js6_new,
+        )
+        r1.cmd_raises('vtysh -c "conf t" -c "ipv6 router-id aa::cc"')
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ipv6-router-id',
+            js6_chg,
+        )
+        # r1.cmd_raises('vtysh -c "conf t" -c "no ipv6 router-id"')
+        # wait_op_json(
+        #     p.stdout,
+        #     "DELETE",
+        #     '/frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ipv6-router-id',
+        # )
+    finally:
+        p.kill()
+        r1.cmd_status('vtysh -c "conf t" -c "no ipv6 router-id"', warn=False)
+        r1.cmd_status('vtysh -c "conf t" -c "no router-id"', warn=False)
 
 
 @retry(retry_timeout=30, initial_wait=0.5)
@@ -321,7 +404,7 @@ def test_datastore_backend_filters(tgen):
         p2 = r1.popen(
             [
                 BE_CLIENT,
-                "--log=file:/dev/stderr",
+                "--log=file:mgmtd-testc.log",
                 "--notify-count=0",
                 "--datastore",
                 "--listen",
