@@ -3887,7 +3887,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 		tlv_code = stream_getw(s);
 		tlv_length = stream_getw(s);
 
-		if (length < tlv_length) {
+		if (length < tlv_length + BGP_NHC_TLV_MIN_LEN) {
 			zlog_err("%pBP rcvd BGP NHC TLV length %d exceeds remaining length %d",
 				 peer, tlv_length, length);
 			bgp_nhc_free(nhc);
