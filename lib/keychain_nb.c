@@ -30,18 +30,23 @@ static int key_chains_key_chain_create(struct nb_cb_create_args *args)
 	name = yang_dnode_get_string(args->dnode, "name");
 	keychain = keychain_get(name);
 	keychain_touch(keychain);
+	nb_running_set_entry(args->dnode, keychain);
 	return NB_OK;
 }
 
 static int key_chains_key_chain_destroy(struct nb_cb_destroy_args *args)
 {
 	const char *name;
+	struct keychain *kc;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "name");
-	keychain_delete(keychain_lookup(name));
+	kc = keychain_lookup(name);
+	if (kc)
+		keychain_delete(kc); /* keychain_delete should call the hook */
+
 	return NB_OK;
 }
 
@@ -194,6 +199,7 @@ static int key_chains_key_chain_key_create(struct nb_cb_create_args *args)
 	assert(keyid <= UINT32_MAX);
 	key = key_get(keychain, (uint32_t)keyid);
 	assert(key);
+	nb_running_set_entry(args->dnode, key);
 	hook_call(keychain_updated, keychain->name);
 
 	keychain_touch(keychain);
