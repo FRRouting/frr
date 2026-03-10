@@ -550,6 +550,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 		break;
 	case AFI_L2VPN:
 	case AFI_MAX:
+	case AFI_BGP_LS:
 	case AFI_UNSPEC:
 		break;
 	}

@@ -1,0 +1,11 @@
+{
+	"10.0.3.4": {
+		"neighborCapabilities": {
+			"multiprotocolExtensions": {
+				"linkState": {
+					"advertisedAndReceived": true
+				}
+			}
+		}
+	}
+}
