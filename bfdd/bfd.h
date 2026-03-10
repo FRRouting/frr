@@ -683,6 +683,8 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mh
 					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
+							     bool meticulous);
 void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
 

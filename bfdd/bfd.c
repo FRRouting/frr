@@ -563,6 +563,24 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 	ptm_bfd_start_xmt_timer(bfd, true);
 }
 
+enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
+						      bool meticulous)
+{
+	switch (kc_algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
+	case KEYCHAIN_ALGO_NULL:
+		return BFD_AUTH_TYPE_SIMPLE_PASSWORD;
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+	case KEYCHAIN_ALGO_MAX:
+	default:
+		return BFD_AUTH_TYPE_RESERVED;
+	}
+}
+
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 {
 	/* Send the scheduled control packet */
