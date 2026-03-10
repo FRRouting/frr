@@ -1,0 +1,9 @@
+[
+  {
+    "multihop": false,
+    "peer": "10.0.1.2",
+    "vrf": "default",
+    "interface": "eth-rt2",
+    "status": "up"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "::ffff:2.2.2.2\/128":[
+    {
+      "prefix":"::ffff:2.2.2.2\/128",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt2",
+          "active":true
+        }
+      ]
+    }
+  ]
+}

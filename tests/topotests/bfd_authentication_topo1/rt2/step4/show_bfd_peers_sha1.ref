@@ -1,0 +1,14 @@
+[
+  {
+    "multihop": false,
+    "peer": "10.0.1.1",
+    "vrf": "default",
+    "interface": "eth-rt1",
+    "authentication": {
+      "enabled": true,
+      "key-chain-name": "efgh",
+      "cryptoName": "keyed-sha1"
+    },
+    "status": "down"
+  }
+]

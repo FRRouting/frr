@@ -1,0 +1,9 @@
+[
+  {
+    "peer": "10.0.1.2",
+    "interface": "eth-rt2",
+    "status": "down",
+    "diagnostic": "control detection time expired",
+    "remote-diagnostic": "ok"
+  }
+]

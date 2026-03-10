@@ -1,0 +1,13 @@
+[
+    {
+    "multihop":false,
+    "peer":"10.0.1.1",
+    "vrf":"default",
+    "interface":"eth-rt1",
+    "status":"up",
+    "authentication":{
+      "type":"key-chain",
+      "key-chain-name":"KC1"
+    }
+    }
+]
