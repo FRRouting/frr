@@ -743,6 +743,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 	struct nexthop_group *ng;
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	afi_t afi;
+	uint32_t import_flags;
 
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
@@ -751,7 +752,6 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 							 rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
-		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
 		zebra_del_import_table_entry(zvrf, safi, rn, re);
 		return 0;
 	}
@@ -769,15 +769,15 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 			break;
 	}
 
-	if (same) {
-		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
+	if (same)
 		zebra_del_import_table_entry(zvrf, safi, rn, same);
-	}
 
-	UNSET_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE);
+	import_flags = re->flags;
+	UNSET_FLAG(import_flags, ZEBRA_FLAG_SELECTED);
+	UNSET_FLAG(import_flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 
-	newre = zebra_rib_route_entry_new(0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
-					  zvrf->table_id, re->metric, re->mtu,
+	newre = zebra_rib_route_entry_new(0, ZEBRA_ROUTE_TABLE, re->table, import_flags,
+					  re->nhe_id, zvrf->table_id, re->metric, re->mtu,
 					  zebra_import_table_distance[afi][safi][re->table],
 					  re->tag);
 
@@ -923,8 +923,7 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
 	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 		return;
 
-	table = zebra_vrf_get_table_with_table_id(afi, safi,
-						  zvrf->vrf->vrf_id, table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: Table id=%d not found for VRF %s(%u)", __func__, table_id,
