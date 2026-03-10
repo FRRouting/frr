@@ -186,6 +186,26 @@ def check_mpls_ldp_binding():
     return topotest.json_cmp(output, expected)
 
 
+def check_label_table_state(ldp_regex=None, bgp_present=None, required_lines=None):
+    tgen = get_topogen()
+    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
+
+    if ldp_regex and not re.search(ldp_regex, output):
+        return "LDP label chunk state mismatch"
+
+    if bgp_present is True and "Proto bgp: " not in output:
+        return "Failed to see BGP label chunk"
+    if bgp_present is False and "Proto bgp: " in output:
+        return "Unexpected BGP label chunk"
+
+    if required_lines:
+        for line in required_lines:
+            if line not in output:
+                return "Missing expected label chunk: {}".format(line)
+
+    return None
+
+
 def test_convergence():
     "Test protocol convergence"
 
@@ -211,13 +231,13 @@ def test_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: [2222/2222]" in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        required_lines=["Proto bgp: [2222/2222]"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_16():
@@ -252,13 +272,13 @@ def test_vpn_label_export_16():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Unexpected BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp" not in output, "Unexpected BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        bgp_present=False,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_2222():
@@ -293,13 +313,13 @@ def test_vpn_label_export_2222():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Unexpected BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: [2222/2222]" in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        required_lines=["Proto bgp: [2222/2222]"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_auto():
@@ -334,13 +354,13 @@ def test_vpn_label_export_auto():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        bgp_present=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_no_auto():
@@ -382,13 +402,13 @@ def test_vpn_label_export_no_auto():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " not in output, "Unexpected BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        bgp_present=False,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_auto_back():
@@ -427,13 +447,13 @@ def test_vpn_label_export_auto_back():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        bgp_present=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_export_manual_from_auto():
@@ -479,13 +499,13 @@ def test_vpn_label_export_manual_from_auto():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
-    output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
-    assert re.match(
-        r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]", output
-    ), "Failed to see LDP label chunk"
-
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(
+        check_label_table_state,
+        ldp_regex=r"Proto ldp: \[16/(1[7-9]|[2-9]\d+|\d{3,})\]",
+        bgp_present=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 def test_vpn_label_configure_dynamic_range():
@@ -511,8 +531,9 @@ def test_vpn_label_configure_dynamic_range():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(check_label_table_state, bgp_present=True)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify debug label-table state"
 
 
 if __name__ == "__main__":
@@ -533,8 +554,14 @@ def test_vpn_label_restart_ldp():
     step("Kill LDP on R2")
     kill_router_daemons(tgen, "r2", ["ldpd"])
 
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto ldp: " not in output, "Unexpected LDP label chunk"
+    _, result = topotest.run_and_expect(
+        lambda: "Proto ldp: "
+        not in tgen.gears["r2"].vtysh_cmd("show debugging label-table"),
+        True,
+        count=60,
+        wait=0.5,
+    )
+    assert result is True, "Unexpected LDP label chunk"
 
     step("Bring up LDP on R2")
 
@@ -544,9 +571,12 @@ def test_vpn_label_restart_ldp():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see LDP label on R2"
 
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto ldp: [628/691]" in output, "Failed to see LDP label chunk [628/691]"
-    assert "Proto ldp: [692/755]" in output, "Failed to see LDP label chunk [692/755]"
+    test_func = functools.partial(
+        check_label_table_state,
+        required_lines=["Proto ldp: [628/691]", "Proto ldp: [692/755]"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to verify LDP label chunk ranges"
 
 
 def test_vpn_label_unconfigure_dynamic_range():
@@ -565,8 +595,9 @@ def test_vpn_label_unconfigure_dynamic_range():
         "no label vpn export auto"
     )
 
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " not in output, "Unexpected BGP label chunk"
+    test_func = functools.partial(check_label_table_state, bgp_present=False)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Unexpected BGP label chunk"
 
     tgen.gears["r2"].vtysh_cmd(
         "conf\n"
@@ -583,5 +614,6 @@ def test_vpn_label_unconfigure_dynamic_range():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
-    output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
-    assert "Proto bgp: " in output, "Failed to see BGP label chunk"
+    test_func = functools.partial(check_label_table_state, bgp_present=True)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP label chunk"

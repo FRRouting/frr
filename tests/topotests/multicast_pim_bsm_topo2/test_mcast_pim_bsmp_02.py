@@ -42,6 +42,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
@@ -982,32 +983,49 @@ def test_BSM_fragmentation_p1(request):
     fhr_node.run("ip link set f1-i1-eth2 mtu 100")
     inter_node.run("ip link set i1-f1-eth0 mtu 100")
 
-    # Use scapy to send pre-defined packet from senser to receiver
-    result = scapy_send_bsr_raw_packet(tgen, topo, "b1", "f1", "packet2")
+    # Use scapy to send pre-defined packet from sender to receiver.
+    # Poll in case link MTU updates are not fully applied yet.
+    _, result = topotest.run_and_expect(
+        lambda: scapy_send_bsr_raw_packet(tgen, topo, "b1", "f1", "packet2"),
+        True,
+        count=10,
+        wait=1,
+    )
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
+    _, result = topotest.run_and_expect(
+        lambda: app_helper.run_join("r1", GROUP_ADDRESS, "l1"),
+        True,
+        count=10,
+        wait=1,
+    )
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
     step("Verify if b1 chosen as BSR")
-    result = verify_pim_bsr(tgen, topo, "f1", bsr_ip)
+    _, result = topotest.run_and_expect(
+        lambda: verify_pim_bsr(tgen, topo, "f1", bsr_ip),
+        True,
+        count=20,
+        wait=1,
+    )
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     # Verify if bsrp list is same across f1, i1 and l1
     step("Verify if bsrp list is same across f1, i1 and l1 after fragmentation")
-    bsrp_f1 = fhr_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
-    logger.info("show_ip_pim_bsrp_info_json f1: \n %s", bsrp_f1)
-    bsrp_i1 = inter_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
-    logger.info("show_ip_pim_bsrp_info_json i1: \n %s", bsrp_i1)
-    bsrp_l1 = lhr_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
-    logger.info("show_ip_pim_bsrp_info_json l1: \n %s", bsrp_l1)
 
-    if bsrp_f1 == bsrp_l1:
-        result = True
-    else:
-        result = "bsrp info in f1 is not same in l1"
+    def _check_bsrp_match_after_fragmentation():
+        bsrp_f1 = fhr_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
+        logger.info("show_ip_pim_bsrp_info_json f1: \n %s", bsrp_f1)
+        bsrp_i1 = inter_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
+        logger.info("show_ip_pim_bsrp_info_json i1: \n %s", bsrp_i1)
+        bsrp_l1 = lhr_node.vtysh_cmd("show ip pim bsrp-info json", isjson=True)
+        logger.info("show_ip_pim_bsrp_info_json l1: \n %s", bsrp_l1)
+        return bsrp_f1 == bsrp_l1
 
+    _, result = topotest.run_and_expect(
+        _check_bsrp_match_after_fragmentation, True, count=20, wait=1
+    )
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     step("clear  BSM database before moving to next case")

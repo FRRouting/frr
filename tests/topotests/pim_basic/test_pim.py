@@ -283,11 +283,12 @@ def test_pim_ssm_ping():
 
     r2.vtysh_cmd("conf\nip ssmpingd 10.0.20.2")
 
-    # Run ssmping from r1 to r2
-    output = r1.run("ssmping -I r1-eth0 10.0.20.2 -c 5")
+    def _check_ssmping():
+        output = r1.run("ssmping -I r1-eth0 10.0.20.2 -c 5")
+        return "5 packets received" in output
 
-    # Check if we got successful responses
-    assert "5 packets received" in output, "SSM ping failed"
+    _, result = topotest.run_and_expect(_check_ssmping, True, count=20, wait=1)
+    assert result is True, "SSM ping failed"
 
 
 def test_memory_leak():
@@ -310,36 +311,43 @@ def test_pim_static_mroute():
 
     r1 = tgen.gears["r1"]
 
-    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
-    assert "239.1.1.1" not in ip_mroute_json.keys()
+    expected = {"239.1.1.1": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge initial mroute state"
 
     # Add ip mroute with iif=r1-eth0 oil=r1-eth1
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth1 239.1.1.1 10.0.0.1")
 
     # Expect to find oil=[r1-eth1] in ip mroute command
-    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
-    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == ["r1-eth1"]
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": "*", "r1-eth2": None}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after adding r1-eth1"
 
     # Add ip mroute with iif=r1-eth0 oil=r1-eth2
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth2 239.1.1.1 10.0.0.1")
 
     # Expect to find oil=[r1-eth1,r1-eth2] in ip mroute command
-    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
-    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == [
-        "r1-eth1",
-        "r1-eth2",
-    ]
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": "*", "r1-eth2": "*"}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after adding r1-eth2"
 
     # Remove ip mroute with oil=r1-eth1
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth1 239.1.1.1 10.0.0.1")
-    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
     # This assert right here would break back in the day because only one oif was handled by the datamodel
-    assert list(ip_mroute_json["239.1.1.1"]["10.0.0.1"]["oil"].keys()) == ["r1-eth2"]
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": None, "r1-eth2": "*"}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after removing r1-eth1"
 
     r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth2 239.1.1.1 10.0.0.1")
     # Expect a clean state
-    ip_mroute_json = r1.vtysh_cmd("show ip mroute json", isjson=True)
-    assert "239.1.1.1" not in ip_mroute_json.keys()
+    expected = {"239.1.1.1": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge final mroute state"
 
 
 if __name__ == "__main__":

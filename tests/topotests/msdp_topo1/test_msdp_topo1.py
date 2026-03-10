@@ -560,14 +560,16 @@ def test_msdp_log_events():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    r1_log = tgen.gears["r1"].net.getLog("log", "pimd")
+    def check_msdp_log_messages():
+        r1_log = tgen.gears["r1"].net.getLog("log", "pimd")
+        peer_ok = re.search(
+            "MSDP peer 192.168.1.2 state changed to established", r1_log
+        )
+        sa_ok = re.search(r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
+        return peer_ok is not None and sa_ok is not None
 
-    # Look up for informational messages that should have been enabled.
-    match = re.search("MSDP peer 192.168.1.2 state changed to established", r1_log)
-    assert match is not None
-
-    match = re.search(r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
-    assert match is not None
+    _, result = topotest.run_and_expect(check_msdp_log_messages, True, count=30, wait=1)
+    assert result is True, "Expected MSDP log messages not found"
 
 
 def test_msdp_shutdown():

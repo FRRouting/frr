@@ -306,9 +306,13 @@ def test_router_check_ip():
             }
         ]
     }
-    result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd00::2/128 json", expected
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ipv6 route vrf r1-vrf-101 fd00::2/128 json",
+        expected,
     )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "ipv6 route check failed"
 
 
@@ -325,13 +329,17 @@ def _test_router_check_evpn_contexts(router):
         }
     }
 
-    result = topotest.router_json_cmp(
-        router, "show evpn next-hops vni all json", expected
+    test_func = partial(
+        topotest.router_json_cmp, router, "show evpn next-hops vni all json", expected
     )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "evpn next-hops check failed"
 
     expected = {"101": {"numRmacs": 1}}
-    result = topotest.router_json_cmp(router, "show evpn rmac vni all json", expected)
+    test_func = partial(
+        topotest.router_json_cmp, router, "show evpn rmac vni all json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "evpn rmac number check failed"
 
 

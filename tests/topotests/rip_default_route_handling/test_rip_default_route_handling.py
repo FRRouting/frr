@@ -79,17 +79,26 @@ def test_rip_default_route_received_on_r2():
     assert result is None, "r2 did not receive default route via RIP: {}".format(result)
 
     # Verify RIP sees the default route as from r1 (R(n)), not kernel
-    output = r2.vtysh_cmd("show ip rip", isjson=False)
-    default_lines = [line for line in output.splitlines() if "0.0.0.0/0" in line]
-    assert (
-        default_lines
-    ), "Default route 0.0.0.0/0 not found in 'show ip rip'. Output:\n{}".format(output)
-    for line in default_lines:
-        assert (
-            "R(n)" in line
-        ), "RIP should show default route as from r1: R(n) 0.0.0.0/0. Line: {}".format(
-            line
-        )
+    def _check_rip_default_is_from_r1():
+        output = r2.vtysh_cmd("show ip rip", isjson=False)
+        default_lines = [line for line in output.splitlines() if "0.0.0.0/0" in line]
+        if not default_lines:
+            return "Default route 0.0.0.0/0 not found in 'show ip rip'. Output:\n{}".format(
+                output
+            )
+        for line in default_lines:
+            if "R(n)" not in line:
+                return "RIP should show default route as from r1: R(n) 0.0.0.0/0. Line: {}".format(
+                    line
+                )
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check_rip_default_is_from_r1, None, count=60, wait=1
+    )
+    assert result is None, "RIP default route did not converge to R(n) view: {}".format(
+        result
+    )
 
 
 def test_kernel_default_route_selected_on_r2():
