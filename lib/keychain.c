@@ -16,6 +16,7 @@ DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
 
 DEFINE_QOBJ_TYPE(keychain);
 DEFINE_QOBJ_TYPE(key);
+DEFINE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
 
 /* Master list of key chain. */
 struct list *keychain_list;
@@ -103,10 +104,11 @@ struct keychain *keychain_get(const char *name)
 
 void keychain_delete(struct keychain *keychain)
 {
-	XFREE(MTYPE_KEYCHAIN, keychain->name);
-
-	list_delete(&keychain->key);
 	listnode_delete(keychain_list, keychain);
+	/* from now, keychain_lookup() will fail */
+	hook_call(keychain_removed, keychain->name);
+	list_delete(&keychain->key);
+	XFREE(MTYPE_KEYCHAIN, keychain->name);
 	keychain_free(keychain);
 }
 

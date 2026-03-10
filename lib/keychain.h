@@ -128,6 +128,7 @@ const char *keychain_algo_str(enum keychain_hash_algo hash_algo);
 
 
 DECLARE_HOOK(keychain_updated, (const char *keychain_name), (keychain_name));
+DECLARE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
 
 #ifdef __cplusplus
 }
