@@ -1100,6 +1100,40 @@ def evpn_verify_l3vni_nexthops(router, l3vni_list, expected_remote_vteps):
     return None
 
 
+def evpn_verify_no_remote_vtep_in_l3vni(router, l3vni_list):
+    """
+    Verify L3VNI next-hops contain no remote VTEP entries.
+    Returns None on success, error string on failure (for use with run_and_expect).
+    """
+    import ipaddress
+
+    for vni in l3vni_list:
+        json_output = router.vtysh_cmd(
+            "show evpn next-hops vni {} json".format(vni), isjson=True
+        )
+        if json_output is None:
+            return (
+                f"VNI {vni}: No JSON output from 'show evpn next-hops vni {vni} json'"
+            )
+        if not isinstance(json_output, dict):
+            return f"VNI {vni}: Invalid JSON output format, expected dict, got {type(json_output)}"
+
+        found_vtep_ips = set()
+        for key in json_output.keys():
+            try:
+                ipaddress.ip_address(key)
+                found_vtep_ips.add(key)
+            except ValueError:
+                continue
+        if found_vtep_ips:
+            return (
+                "VNI {}: expected no remote VTEPs, found {}".format(
+                    vni, sorted(found_vtep_ips)
+                )
+            )
+    return None
+
+
 def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
     """
     Helper function to discover VTEP IP addresses from VXLAN devices.
