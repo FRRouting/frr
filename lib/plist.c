@@ -18,6 +18,7 @@
 
 #include <typesafe.h>
 #include "plist_int.h"
+#include "filter.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST, "Prefix List");
 DEFINE_MTYPE_STATIC(LIB, MPREFIX_LIST_STR, "Prefix List Str");
@@ -1698,6 +1699,8 @@ void prefix_list_init(void)
 
 	prefix_list_init_ipv4();
 	prefix_list_init_ipv6();
+
+	filter_cli_mark_lib_initialized();
 }
 
 void prefix_list_reset(void)

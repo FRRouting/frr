@@ -147,6 +147,8 @@ struct access_master {
 /* Prototypes for access-list. */
 extern void access_list_init(void);
 extern void access_list_init_new(bool in_backend);
+
+extern void filter_cli_mark_lib_initialized(void);
 extern void access_list_reset(void);
 extern void access_list_add_hook(void (*func)(struct access_list *));
 extern void access_list_delete_hook(void (*func)(struct access_list *));

@@ -115,7 +115,8 @@ static struct frr_signal_t bfd_signals[] = {
 };
 
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
-	&frr_filter_info,
+	/* CLI-only filter YANG; do not use frr_filter_info (no filter backend). */
+	&frr_filter_cli_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
 	&frr_vrf_info,
@@ -372,8 +373,7 @@ int main(int argc, char *argv[])
 
 	bfd_vrf_init(perm_vrfs);
 
-	access_list_init();
-	prefix_list_init();
+	/* No access_list_init / prefix_list_init (bfdd is not in VTYSH_ACL_CONFIG). */
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
