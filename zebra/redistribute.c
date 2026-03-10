@@ -714,6 +714,26 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 	}
 }
 
+static struct route_entry *zebra_import_table_selected_route(struct route_node *rn)
+{
+	rib_dest_t *dest;
+	struct route_entry *re;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!dest)
+		return NULL;
+
+	re = dest->selected_fib;
+	if (!re)
+		return NULL;
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ||
+	    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+		return NULL;
+
+	return re;
+}
+
 int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct route_node *rn,
 				 struct route_entry *re, const char *rmap_name)
 {
@@ -840,18 +860,7 @@ int zebra_import_table(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_i
 	}
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
-		/* For each entry in the non-default routing table,
-		 * add the entry in the main table
-		 */
-		if (!rn->info)
-			continue;
-
-		RNODE_FOREACH_RE (rn, re) {
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-				continue;
-			break;
-		}
-
+		re = zebra_import_table_selected_route(rn);
 		if (!re)
 			continue;
 
@@ -914,7 +923,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
 	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 		return;
 
-	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, safi,
+						  zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: Table id=%d not found for VRF %s(%u)", __func__, table_id,
@@ -923,19 +933,7 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t a
 	}
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
-		/*
-		 * For each entry in the non-default routing table,
-		 * add the entry in the main table
-		 */
-		if (!rn->info)
-			continue;
-
-		RNODE_FOREACH_RE (rn, re) {
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-				continue;
-			break;
-		}
-
+		re = zebra_import_table_selected_route(rn);
 		if (!re)
 			continue;
 
