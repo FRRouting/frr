@@ -1247,6 +1247,12 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	if (bpc->bpc_mhop)
 		SET_FLAG(bfd->flags, BFD_SESS_FLAG_MH);
 
+	if (bpc->auth_config.key_chain_name[0]) {
+		strlcpy(bfd->peer_profile.auth_config.key_chain_name,
+			bpc->auth_config.key_chain_name,
+			sizeof(bfd->peer_profile.auth_config.key_chain_name));
+	}
+
 	bfd->key.mhop = bpc->bpc_mhop;
 
 	if (bs_registrate(bfd) == NULL)
