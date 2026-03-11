@@ -335,8 +335,8 @@ struct bgp_ls_node_descriptor {
 	as_t asn;		   /* Autonomous System Number */
 	uint32_t bgp_ls_id;	   /* BGP-LS Identifier (deprecated) */
 	uint32_t ospf_area_id;	   /* OSPF Area ID */
-	uint8_t igp_router_id_len; /* Length of IGP Router ID (4 or 8 bytes) */
-	uint8_t igp_router_id[8];  /* IGP Router ID (ISIS or OSPF) */
+	uint8_t igp_router_id_len; /* Length of IGP Router ID (4-16 bytes) */
+	uint8_t igp_router_id[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* IGP Router ID (ISIS, OSPF, Direct, or Static configuration) */
 };
 
 /*
