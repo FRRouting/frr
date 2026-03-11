@@ -1322,13 +1322,15 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	/* RFC2332 5.3.4 - Authentication is always done pairwise on an NHRP
 	 * hop-by-hop basis; i.e. regenerated at each hop. */
 	nhrp_packet_debug(zb, "Recv");
-	if (nifp->auth_token &&
-	    (hdr->type != NHRP_PACKET_ERROR_INDICATION ||
-	     hdr->u.error.code != NHRP_ERROR_AUTHENTICATION_FAILURE)) {
+	if (nifp->auth_token) {
 		if (!nhrp_connection_authorized(&pp)) {
-			nhrp_packet_send_error(&pp,
-					       NHRP_ERROR_AUTHENTICATION_FAILURE,
-					       0);
+			if (!(hdr->type == NHRP_PACKET_ERROR_INDICATION &&
+			      hdr->u.error.code ==
+				      htons(NHRP_ERROR_AUTHENTICATION_FAILURE)))
+				nhrp_packet_send_error(
+					&pp,
+					NHRP_ERROR_AUTHENTICATION_FAILURE,
+					0);
 			info = "authentication failure";
 			goto drop;
 		}
