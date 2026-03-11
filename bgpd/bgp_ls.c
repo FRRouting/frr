@@ -659,6 +659,9 @@ int bgp_nlri_parse_ls(struct peer *peer, struct attr *attr, struct bgp_nlri *pac
 	struct bgp_dest *dest;
 	int ret = BGP_NLRI_PARSE_OK;
 
+	if (!peer || !peer->bgp || !peer->bgp->ls_info || !packet)
+		return BGP_NLRI_PARSE_ERROR;
+
 	s = stream_new(packet->length);
 	stream_put(s, packet->nlri, packet->length);
 	stream_set_getp(s, 0);
