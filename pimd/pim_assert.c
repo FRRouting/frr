@@ -289,7 +289,6 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	msg_metric.ip_address = src_addr;
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
