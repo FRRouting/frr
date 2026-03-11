@@ -1394,7 +1394,7 @@ DEFUN_YANG (config_exit,
 
 static int root_on_exit(struct vty *vty)
 {
-	if (vty_shell(vty))
+	if (vty_is_shell(vty))
 		exit(0);
 	else
 		vty->status = VTY_CLOSE;
@@ -2010,7 +2010,7 @@ DEFUN (no_config_password,
 	bool warned = false;
 
 	if (host.password) {
-		if (!vty_shell_serv(vty)) {
+		if (!vty_is_shell_serv(vty)) {
 			vty_out(vty, NO_PASSWD_CMD_WARNING);
 			warned = true;
 		}
@@ -2019,7 +2019,7 @@ DEFUN (no_config_password,
 	host.password = NULL;
 
 	if (host.password_encrypt) {
-		if (!warned && !vty_shell_serv(vty))
+		if (!warned && !vty_is_shell_serv(vty))
 			vty_out(vty, NO_PASSWD_CMD_WARNING);
 		XFREE(MTYPE_HOST, host.password_encrypt);
 	}
@@ -2092,7 +2092,7 @@ DEFUN (no_config_enable_password,
 	bool warned = false;
 
 	if (host.enable) {
-		if (!vty_shell_serv(vty)) {
+		if (!vty_is_shell_serv(vty)) {
 			vty_out(vty, NO_PASSWD_CMD_WARNING);
 			warned = true;
 		}
@@ -2101,7 +2101,7 @@ DEFUN (no_config_enable_password,
 	host.enable = NULL;
 
 	if (host.enable_encrypt) {
-		if (!warned && !vty_shell_serv(vty))
+		if (!warned && !vty_is_shell_serv(vty))
 			vty_out(vty, NO_PASSWD_CMD_WARNING);
 		XFREE(MTYPE_HOST, host.enable_encrypt);
 	}
