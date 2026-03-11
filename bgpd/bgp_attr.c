@@ -4922,10 +4922,10 @@ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct at
 
 	/* Write BGP-LS attribute header (RFC 9552 Section 4) */
 	attr_start = stream_get_endp(s);
-	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
 	stream_putc(s, BGP_ATTR_LINK_STATE);
 	len_pos = stream_get_endp(s);
-	stream_putc(s, 0); /* Placeholder for length */
+	stream_putw(s, 0); /* Placeholder for extended length */
 
 	ret = bgp_ls_encode_attr(s, ls_attr);
 
@@ -4936,9 +4936,13 @@ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct at
 	}
 
 	/* Update the length field */
-	attr_len = stream_get_endp(s) - len_pos - 1;
+	attr_len = stream_get_endp(s) - len_pos - 2;
+	if (attr_len > UINT16_MAX) {
+		stream_set_endp(s, attr_start);
+		return;
+	}
 
-	stream_putc_at(s, len_pos, attr_len);
+	stream_putw_at(s, len_pos, attr_len);
 }
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const struct prefix *p,
