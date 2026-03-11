@@ -704,6 +704,9 @@ done:
  */
 bool bgp_ls_register(struct bgp *bgp)
 {
+	if (!bgp->ls_info)
+		return false;
+
 	/* Already registered */
 	if (bgp_ls_is_registered(bgp))
 		return true;
@@ -727,6 +730,9 @@ bool bgp_ls_register(struct bgp *bgp)
  */
 bool bgp_ls_unregister(struct bgp *bgp)
 {
+	if (!bgp->ls_info)
+		return false;
+
 	/* Not registered */
 	if (!bgp_ls_is_registered(bgp))
 		return true;
@@ -791,6 +797,9 @@ void bgp_ls_cleanup(struct bgp *bgp)
 	struct bgp_ls_attr *ls_attr;
 
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
+		return;
+
+	if (!bgp->ls_info)
 		return;
 
 	bgp_ls_unregister(bgp);
