@@ -614,7 +614,7 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 
 	/* IGMP version 3 is the only one where we process the RXed query */
 	if (query_version == 3) {
-		igmp_v3_recv_query(igmp, from_str, igmp_msg);
+		igmp_v3_recv_query(igmp, from_str, igmp_msg, igmp_msg_len);
 	}
 
 	return 0;
