@@ -3870,6 +3870,9 @@ peer_init:
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 
+	/* Initialize IPv6 nexthop prefer-global defaults */
+	bgp_init_ipv6_nexthop_prefer_global(bgp);
+
 	if (!hidden)
 		QOBJ_REG(bgp, bgp);
 

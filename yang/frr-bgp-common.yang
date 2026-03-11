@@ -877,6 +877,21 @@ submodule frr-bgp-common {
     }
   }
 
+  grouping ipv6-nexthop-prefer-global {
+    description
+      "Configuration for IPv6 nexthop global address preference.";
+
+    leaf prefer-global {
+      type boolean;
+      default "false";
+      description
+        "Prefer global over link-local IPv6 addresses when both
+         are available as nexthops. When set to 'true', global
+         IPv6 addresses are preferred. When set to 'false' (default),
+         link-local addresses are preferred.";
+    }
+  }
+
   grouping mp-afi-safi-agg-route-config {
     description
       "Grouping for AFI/SAFI aggregate route configuration.";
