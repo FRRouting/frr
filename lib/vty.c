@@ -3458,12 +3458,12 @@ char *vty_get_cwd(void)
 	return vty_cwd;
 }
 
-int vty_shell(struct vty *vty)
+int vty_is_shell(const struct vty *vty)
 {
 	return vty->type == VTY_SHELL ? 1 : 0;
 }
 
-int vty_shell_serv(struct vty *vty)
+int vty_is_shell_serv(const struct vty *vty)
 {
 	return vty->type == VTY_SHELL_SERV ? 1 : 0;
 }
