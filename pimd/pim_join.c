@@ -54,7 +54,6 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 			holdtime, &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 #if PIM_IPV == 6
 	if (pim_ifp->pim->embedded_rp.enable && pim_embedded_rp_extract(&sg->grp, &embedded_rp) &&
@@ -132,7 +131,6 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 			holdtime, &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_prune_recv;
 
