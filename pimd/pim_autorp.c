@@ -113,6 +113,38 @@ static void pim_autorp_free(struct pim_autorp *autorp)
 		XFREE(MTYPE_PIM_AUTORP_ANNOUNCE, autorp->announce_pkt);
 }
 
+<<<<<<< HEAD
+=======
+static bool autorp_is_pim_interface(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	return (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable &&
+		(!pim_ifp->pim_passive_enable));
+}
+
+static bool autorp_buf_advance(size_t *offset, size_t buf_size, size_t len)
+{
+	if (*offset > buf_size || len > (buf_size - *offset))
+		return false;
+
+	*offset += len;
+	return true;
+}
+
+static bool pim_autorp_should_enable_socket(struct pim_autorp *autorp)
+{
+	struct interface *ifp;
+
+	/* Only enable the socket if there are any PIM enabled interfaces */
+	FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
+		if (autorp_is_pim_interface(ifp))
+			return true;
+	}
+	return false;
+}
+
+>>>>>>> 78453074b (pimd: Fix out of bounds read in AutoRP code)
 static bool pim_autorp_should_close(struct pim_autorp *autorp)
 {
 	/* If discovery or mapping agent is active, then we need the socket open */
@@ -269,24 +301,39 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			   rpcnt, holdtime);
 
 	for (i = 0; i < rpcnt; ++i) {
-		if ((buf_size - offset) < AUTORP_RPLEN) {
+		if (!autorp_buf_advance(&offset, buf_size, AUTORP_RPLEN)) {
 			zlog_warn("%s: Failed to parse AutoRP Announcement RP, invalid buffer size (%u < %u)",
-				  __func__, (uint32_t)(buf_size - offset), AUTORP_RPLEN);
+				  __func__, (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+				  AUTORP_RPLEN);
 			return false;
 		}
 
-		rp = (struct autorp_pkt_rp *)(buf + offset);
-		offset += AUTORP_RPLEN;
+		rp = (struct autorp_pkt_rp *)(buf + offset - AUTORP_RPLEN);
 
 		rp_addr.s_addr = rp->addr;
 
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
+			size_t grp_bytes = AUTORP_GRPLEN * (size_t)rp->grpcnt;
+
 			if (PIM_DEBUG_AUTORP)
+<<<<<<< HEAD
 				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pI4",
 					   __func__, rp->pimver, (in_addr_t *)&(rp->addr));
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
+=======
+				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pPA",
+					   __func__, rp->pimver, &rp_addr);
+			/* Skip the groups only if they are entirely present in the packet. */
+			if (!autorp_buf_advance(&offset, buf_size, grp_bytes)) {
+				zlog_warn("%s: Failed to skip groups for unsupported AutoRP Announcement RP %pPA (%u < %u)",
+					  __func__, &rp_addr,
+					  (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+					  (uint32_t)grp_bytes);
+				return false;
+			}
+>>>>>>> 78453074b (pimd: Fix out of bounds read in AutoRP code)
 			continue;
 		}
 
@@ -298,11 +345,18 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			continue;
 		}
 
+<<<<<<< HEAD
 		if ((buf_size - offset) < AUTORP_GRPLEN) {
 			zlog_warn("%s: Buffer underrun parsing groups for RP %pI4", __func__,
 				  (in_addr_t *)&(rp->addr));
+=======
+		if (!autorp_buf_advance(&offset, buf_size, AUTORP_GRPLEN)) {
+			zlog_warn("%s: Buffer underrun parsing groups for RP %pPA", __func__,
+				  &rp_addr);
+>>>>>>> 78453074b (pimd: Fix out of bounds read in AutoRP code)
 			return false;
 		}
+		offset -= AUTORP_GRPLEN;
 
 		/* Store all announced RP's, calculate what to send in discovery when discovery is sent. */
 		ma_rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(struct pim_autorp_rp));
@@ -341,15 +395,15 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			struct pim_autorp_grppfix *lgrp;
 			struct pim_autorp_grppfix *tgrp;
 
-			if ((buf_size - offset) < AUTORP_GRPLEN) {
+			if (!autorp_buf_advance(&offset, buf_size, AUTORP_GRPLEN)) {
 				zlog_warn("%s: Failed parsing AutoRP announcement, RP(%pI4), invalid buffer size (%u < %u)",
-					  __func__, &rp_addr, (uint32_t)(buf_size - offset),
+					  __func__, &rp_addr,
+					  (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
 					  AUTORP_GRPLEN);
 				return false;
 			}
 
-			grp = (struct autorp_pkt_grp *)(buf + offset);
-			offset += AUTORP_GRPLEN;
+			grp = (struct autorp_pkt_grp *)(buf + offset - AUTORP_GRPLEN);
 
 			lgrp = XCALLOC(MTYPE_PIM_AUTORP_GRPPFIX, sizeof(struct pim_autorp_grppfix));
 			lgrp->grp.family = AF_INET;
@@ -752,14 +806,14 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 	}
 
 	for (i = 0; i < rpcnt; ++i) {
-		if ((buf_size - offset) < AUTORP_RPLEN) {
+		if (!autorp_buf_advance(&offset, buf_size, AUTORP_RPLEN)) {
 			zlog_warn("%s: Failed to parse AutoRP discovery message, invalid buffer size (%u < %u)",
-				  __func__, (uint32_t)(buf_size - offset), AUTORP_RPLEN);
+				  __func__, (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+				  AUTORP_RPLEN);
 			return false;
 		}
 
-		rp = (struct autorp_pkt_rp *)(buf + offset);
-		offset += AUTORP_RPLEN;
+		rp = (struct autorp_pkt_rp *)(buf + offset - AUTORP_RPLEN);
 
 		rp_addr.s_addr = rp->addr;
 
@@ -769,11 +823,25 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
+			size_t grp_bytes = AUTORP_GRPLEN * (size_t)rp->grpcnt;
+
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Ignoring unsupported PIM version in AutoRP Discovery for RP %pI4",
+<<<<<<< HEAD
 					   __func__, (in_addr_t *)&(rp->addr));
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
+=======
+					   __func__, &rp_addr);
+			/* Skip the groups only if they are entirely present in the packet. */
+			if (!autorp_buf_advance(&offset, buf_size, grp_bytes)) {
+				zlog_warn("%s: Failed to skip groups for unsupported AutoRP Discovery RP %pPA (%u < %u)",
+					  __func__, &rp_addr,
+					  (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+					  (uint32_t)grp_bytes);
+				return false;
+			}
+>>>>>>> 78453074b (pimd: Fix out of bounds read in AutoRP code)
 			continue;
 		}
 
@@ -786,14 +854,21 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		}
 
 		/* Make sure there is enough buffer to parse all the groups */
-		if ((buf_size - offset) < (AUTORP_GRPLEN * rp->grpcnt)) {
+		if (!autorp_buf_advance(&offset, buf_size, AUTORP_GRPLEN * (size_t)rp->grpcnt)) {
 			if (PIM_DEBUG_AUTORP)
+<<<<<<< HEAD
 				zlog_debug("%s: Buffer underrun parsing groups for RP %pI4 (%u < %u)",
 					   __func__, (in_addr_t *)&(rp->addr),
 					   (uint32_t)(buf_size - offset),
+=======
+				zlog_debug("%s: Buffer underrun parsing groups for RP %pPA (%u < %u)",
+					   __func__, &rp_addr,
+					   (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+>>>>>>> 78453074b (pimd: Fix out of bounds read in AutoRP code)
 					   (uint32_t)(AUTORP_GRPLEN * rp->grpcnt));
 			return false;
 		}
+		offset -= AUTORP_GRPLEN * (size_t)rp->grpcnt;
 
 		/* Get the first group so we can check for a negative prefix */
 		/* Don't add to offset yet to make the multiple group loop easier */
