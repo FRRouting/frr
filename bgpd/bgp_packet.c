@@ -3632,7 +3632,7 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 #define GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE 4
 	uint16_t gr_restart_flag_time;
 	uint8_t *data = pnt + 3;
-	uint8_t *end = pnt + hdr->length;
+	uint8_t *end = data + hdr->length;
 	size_t len = end - data;
 	afi_t afi;
 	safi_t safi;
