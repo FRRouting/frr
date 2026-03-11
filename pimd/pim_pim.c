@@ -447,9 +447,6 @@ static void pim_sock_read_on(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	assert(ifp);
-	assert(ifp->info);
-
 	pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {

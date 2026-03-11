@@ -110,7 +110,6 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		on_trace(__func__, ifp, src_addr);
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
