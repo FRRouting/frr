@@ -269,14 +269,20 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		   struct zbuf *extpayload)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_afi_data *ad = &nifp->afi[htons(hdr->afnum)];
+	struct nhrp_afi_data *ad;
 	struct nhrp_extension_header *dst;
 	struct nhrp_cie_header *cie;
 	uint16_t type;
+	uint16_t afnum;
 
 	type = htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY;
 	if (type == NHRP_EXTENSION_END)
 		return 0;
+
+	afnum = htons(hdr->afnum);
+	if (!IS_VALID_AFI(afnum))
+		goto err;
+	ad = &nifp->afi[afnum];
 
 	dst = nhrp_ext_push(zb, hdr, htons(ext->type));
 	if (!dst)
