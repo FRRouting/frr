@@ -85,7 +85,7 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	*len = r;
 	*ifindex = lladdr.sll_ifindex;
 
-	if (*addrlen <= (size_t)lladdr.sll_addr) {
+	if (lladdr.sll_halen <= *addrlen) {
 		if (memcmp(lladdr.sll_addr, "\x00\x00\x00\x00", 4) != 0) {
 			memcpy(addr, lladdr.sll_addr, lladdr.sll_halen);
 			*addrlen = lladdr.sll_halen;
