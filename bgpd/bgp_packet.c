@@ -974,9 +974,13 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	 * Some callers should not attempt this - the io pthread for example
 	 * should not touch internals of the peer struct.
 	 */
+<<<<<<< HEAD
 	if (use_curr && peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
 		assert(packetsize <= peer->max_packet_size);
+=======
+	if (use_curr && connection->curr) {
+>>>>>>> 571d9c647 (bgpd: remove unneeded asserts in packet reads)
 		if (peer->last_reset_cause)
 			stream_free(peer->last_reset_cause);
 		peer->last_reset_cause = stream_dup(peer->curr);
