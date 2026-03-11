@@ -336,6 +336,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	if (bgp_ls_populate_node_attr(vertex->node, ls_attr) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Node attributes");
 		bgp_ls_attr_free(ls_attr);
+		return -1;
 	}
 
 	/* Install in RIB */
