@@ -3483,7 +3483,7 @@ static int parse_igp_flags(struct stream *s, uint16_t length, struct bgp_ls_attr
  */
 static int parse_route_tag(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
 {
-	uint8_t count;
+	uint16_t count;
 	int i;
 
 	if (length % 4 != 0) {
