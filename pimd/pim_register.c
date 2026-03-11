@@ -144,15 +144,24 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 
 	memset(&sg, 0, sizeof(sg));
 	l = pim_parse_addr_group(&sg, buf, buf_size);
-	buf += l;
-	buf_size -= l;
-	pim_parse_addr_ucast(&sg.src, buf, buf_size, &wrong_af);
-
-	if (wrong_af) {
-		zlog_err("invalid AF in Register-Stop on %s", ifp->name);
+	if (l < 1) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("Failure to properly parse S,G data because %d is not of sufficient space",
+				   buf_size);
 		return -1;
 	}
 
+	buf += l;
+	buf_size -= l;
+	l = pim_parse_addr_ucast(&sg.src, buf, buf_size, &wrong_af);
+	if (l < 0) {
+		if (wrong_af)
+			zlog_err("Invalid AF in Register-Stop on %s", ifp->name);
+		else if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("Failure to parse unicast address, because %d is not of sufficient space",
+				   buf_size);
+		return -1;
+	}
 
 	if (PIM_DEBUG_PIM_REG)
 		zlog_debug("Received Register stop for %pSG", &sg);
