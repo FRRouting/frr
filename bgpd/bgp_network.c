@@ -530,6 +530,9 @@ static void bgp_accept(struct event *event)
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
 				frrtrace(3, frr_bgp, bgp_err_str, dynamic_peer->host,
 					 dynamic_peer->flags, 1);
+
+				incoming->fd = -1;
+				close(bgp_sock);
 				return;
 			}
 
