@@ -4984,6 +4984,14 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		goto fail;
 	}
 
+	/* Validate ipaddr_len against the NLRI length */
+	if ((psize != 33 + (ipaddr_len / 8)) && (psize != 36 + (ipaddr_len / 8))) {
+		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+			 "%u:%s - Rx EVPN Type-2 NLRI with invalid IP address length %d",
+			 peer->bgp->vrf_id, peer->host, ipaddr_len);
+		goto fail;
+	}
+
 	if (ipaddr_len) {
 		ipaddr_len /= 8; /* Convert to bytes. */
 		p.prefix.macip_addr.ip.ipa_type = (ipaddr_len == IPV4_MAX_BYTELEN)
@@ -5081,6 +5089,15 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Get the IP. */
 	ipaddr_len = *pfx++;
+
+	/* Validate */
+	if (psize != 13 + (ipaddr_len / 8)) {
+		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+			 "%u:%s - Rx EVPN Type-3 NLRI with invalid IP address length %d",
+			 peer->bgp->vrf_id, peer->host, ipaddr_len);
+		return -1;
+	}
+
 	if (ipaddr_len == IPV4_MAX_BITLEN) {
 		p.prefix.imet_addr.ip.ipa_type = IPADDR_V4;
 		memcpy(&p.prefix.imet_addr.ip.ip.addr, pfx, IPV4_MAX_BYTELEN);
