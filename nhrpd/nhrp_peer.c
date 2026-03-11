@@ -1270,7 +1270,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	nbma_afi = htons(hdr->afnum);
 	proto_afi = proto2afi(htons(hdr->protocol_type));
 	if (hdr->type > NHRP_PACKET_MAX || hdr->version != NHRP_VERSION_RFC2332
-	    || nbma_afi >= AFI_MAX || proto_afi == AF_UNSPEC
+	    || !IS_VALID_AFI(nbma_afi) || proto_afi == AF_UNSPEC
 	    || packet_types[hdr->type].type == PACKET_UNKNOWN
 	    || htons(hdr->packet_size) > realsize) {
 		zlog_info(
