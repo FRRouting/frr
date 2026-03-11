@@ -119,7 +119,7 @@ static void pim_reg_stop_upstream(struct pim_instance *pim,
 	}
 }
 
-int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
+int pim_register_stop_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf, int buf_size)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
@@ -167,16 +167,32 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		zlog_debug("Received Register stop for %pSG", &sg);
 
 	rp = RP(pim_ifp->pim, sg.grp);
-	if (rp) {
-		/* As per RFC 7761, Section 4.9.4:
-		 * A special wildcard value consisting of an address field of
-		 * all zeros can be used to indicate any source.
-		 */
-		if ((pim_addr_cmp(sg.src, rp->rpf_addr) == 0) ||
-		    pim_addr_is_any(sg.src)) {
-			handling_star = true;
-			sg.src = PIMADDR_ANY;
-		}
+	if (!rp) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("%s: Ignoring Register-Stop%pSG from %pPA with no RP mapping",
+				   __func__, &sg, &src_addr);
+		return 0;
+	}
+
+	/*
+	 * RFC 7761 defines Register-Stop as a unicast message from the RP
+	 * back to the sender of the Register message. Reject packets from
+	 * any other source so non-RP peers cannot suppress registration.
+	 */
+	if (pim_addr_cmp(src_addr, rp->rpf_addr) != 0) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("%s: Ignoring Register-Stop%pSG from %pPA, expected RP %pPA",
+				   __func__, &sg, &src_addr, &rp->rpf_addr);
+		return 0;
+	}
+
+	/* As per RFC 7761, Section 4.9.4:
+	 * A special wildcard value consisting of an address field of
+	 * all zeros can be used to indicate any source.
+	 */
+	if ((pim_addr_cmp(sg.src, rp->rpf_addr) == 0) || pim_addr_is_any(sg.src)) {
+		handling_star = true;
+		sg.src = PIMADDR_ANY;
 	}
 
 	/*
