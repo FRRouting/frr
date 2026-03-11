@@ -711,6 +711,12 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	socklen_t tolen;
 	unsigned char *msg_start;
 
+	if (pim_msg_size < 0 || sendlen > (int)sizeof(buffer)) {
+		zlog_warn("Oversized PIM msg dropped: msg_size=%d exceeds send buffer",
+			  pim_msg_size);
+		return -1;
+	}
+
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
 	ip->ip_v = 4;
