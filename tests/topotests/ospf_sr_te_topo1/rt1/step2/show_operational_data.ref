@@ -1,6 +1,14 @@
 {
   "frr-pathd:pathd": {
     "srte": {
+      "segment-list": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "test"
+        }
+      ],
       "policy": [
         {
           "color": 1,
