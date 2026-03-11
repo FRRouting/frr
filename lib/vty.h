@@ -406,8 +406,8 @@ extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive, bool file_lock);
 extern void vty_config_exit(struct vty *vty);
 extern int vty_config_node_exit(struct vty *vty);
-extern int vty_shell(struct vty *vty);
-extern int vty_shell_serv(struct vty *vty);
+extern int vty_is_shell(const struct vty *vty);
+extern int vty_is_shell_serv(const struct vty *vty);
 extern void vty_hello(struct vty *vty);
 
 /* ^Z / SIGTSTP handling */
