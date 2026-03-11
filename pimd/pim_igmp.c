@@ -703,13 +703,14 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 
 	igmp_msg = (char *)ip_hdr + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
-	msg_type = *igmp_msg;
 
 	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
 		zlog_warn("IGMP message size=%d shorter than minimum=%d",
 			  igmp_msg_len, PIM_IGMP_MIN_LEN);
 		return false;
 	}
+
+	msg_type = *igmp_msg;
 
 	if ((msg_type != PIM_IGMP_MTRACE_RESPONSE)
 	    && (msg_type != PIM_IGMP_MTRACE_QUERY_REQUEST)) {
