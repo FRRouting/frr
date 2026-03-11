@@ -164,6 +164,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
+	if (ip_hlen < sizeof(*ip_hdr) || ip_hlen > len) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("Ignoring malformed PIM packet with IPv4 header length %zu and packet length %zu",
+				   ip_hlen, len);
+		return -1;
+	}
+
 	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	pim_msg = buf + ip_hlen;
