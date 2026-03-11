@@ -2399,7 +2399,7 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			break;
 
 		case BGP_LS_TLV_IGP_ROUTER_ID:
-			/* Variable length: 4, 6, 7, or 8 bytes */
+			/* Variable length: 4 to 16 bytes */
 			if (sub_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 			    sub_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
