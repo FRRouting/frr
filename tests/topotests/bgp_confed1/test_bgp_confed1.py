@@ -9,7 +9,7 @@
 
 """
 test_bgp_confed1.py: Test the FRR BGP confederations with AS member
-same as confederation Id, verify BGP prefixes and path distribution  
+same as confederation Id, verify BGP prefixes and path distribution
 """
 
 import os
@@ -100,6 +100,35 @@ def test_bgp_confed_ipv4_unicast():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for bgp peers exchanging UPDATES")
+
+    for router in tgen.routers().values():
+        ref_file = "{}/{}/bgp_ipv4_unicast.json".format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
+        test_func = partial(
+            topotest.router_json_cmp, router, "show bgp ipv4 unicast json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=40, wait=2.5)
+        assertmsg = "{}: BGP UPDATE exchange failure".format(router.name)
+        assert res is None, assertmsg
+
+    logger.info(
+        "waiting for bgp peers exchanging UPDATES after removing and adding confederation"
+    )
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+          router bgp
+            no bgp confederation identifier
+        """
+    )
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+          router bgp
+            bgp confederation identifier 300
+        """
+    )
 
     for router in tgen.routers().values():
         ref_file = "{}/{}/bgp_ipv4_unicast.json".format(CWD, router.name)
