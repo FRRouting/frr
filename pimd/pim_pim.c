@@ -346,7 +346,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					 pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_REG_STOP:
-		return pim_register_stop_recv(ifp, pim_msg + PIM_MSG_HEADER_LEN,
+		return pim_register_stop_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_GRAFT_ACK:
