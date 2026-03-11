@@ -123,19 +123,29 @@ void ospf_packet_free(struct ospf_packet *op)
 	XFREE(MTYPE_OSPF_PACKET, op);
 }
 
-/* rfc 4222 Pacing helpers */
+/* RFC4222/R4: Destructor for LSA pointers stored in the sent_lsas list on an
+ * ospf_packet.  Called automatically by list_delete() to release the lock
+ * taken when the LSA was added to the list. */
 static void ospf_lsa_unlock_del(void *data)
 {
 	struct ospf_lsa *lsa = data;
 	ospf_lsa_unlock(&lsa);
 }
 
+/* RFC4222/R4+R5 shared: Initialise the sent_lsas tracking list on a newly
+ * allocated ospf_packet.  Every LSA serialised into the packet is added to
+ * this list (locked) so that ospf_write() can update ls_rxmt_unacked for
+ * each recipient neighbor after the packet is placed on the wire.  The list
+ * is used by both R4 (per-neighbor gap adjustment) and R5 (interface-wide
+ * congestion detection). */
 static void ospf_packet_sent_lsas_init(struct ospf_packet *op)
 {
 	op->sent_lsas = list_new();
 	op->sent_lsas->del = ospf_lsa_unlock_del; /* auto-unlock on delete */
 }
 
+/* RFC4222/R4+R5 shared: Release the sent_lsas list and drop all LSA locks.
+ * Called when the ospf_packet is freed after it has been sent (or discarded). */
 static void ospf_packet_sent_lsas_fini(struct ospf_packet *op)
 {
 	if (!op || !op->sent_lsas)
@@ -144,6 +154,10 @@ static void ospf_packet_sent_lsas_fini(struct ospf_packet *op)
 	op->sent_lsas = NULL;
 }
 
+/* RFC4222/R4: Return the current monotonic clock value in milliseconds.
+ * Used throughout the R4 gap-pacing code to compare and update next_send_ms
+ * and gap_last_change_ms without converting between timeval and uint64_t at
+ * every call site. */
 extern uint64_t ospf_now_ms(void)
 {
 	struct timeval tv;
@@ -151,6 +165,16 @@ extern uint64_t ospf_now_ms(void)
 	return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)tv.tv_usec / 1000ULL;
 }
 
+/* RFC4222/R4: Core gap-adjustment algorithm (RFC 4222 Section 3, Rec. 4).
+ * Evaluates the number of unacknowledged LSAs U(t) for a neighbor against the
+ * configured high-water mark H and low-water mark L, then updates the per-
+ * neighbor inter-LSA send gap G according to:
+ *   U > H  =>  G = min(G * F, Gmax)   (back off: congestion detected)
+ *   U < L  =>  G = max(G / F, Gmin)   (speed up: congestion has cleared)
+ *   otherwise  G unchanged
+ * A rate-limit of T ms between successive adjustments prevents oscillation.
+ * Called from ospf_rec4_gate_time_for_dst() before each queued send and from
+ * the ACK receive path when an LSA is removed from the retransmit list. */
 static inline void pace_maybe_adjust_gap(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 					 uint64_t now_ms)
 {
@@ -191,22 +215,36 @@ static inline void pace_maybe_adjust_gap(struct ospf_interface *oi, struct ospf_
 		nbr->next_send_ms = now_ms;
 }
 
+/* RFC4222/R4: Returns true if dst is any IPv4 multicast address.  Used to
+ * choose between unicast and multicast recipient-filtering logic when
+ * determining which neighbors are affected by a given LSU destination. */
 static inline bool ospf_dst_is_multicast(struct in_addr dst)
 {
 	return IN_MULTICAST(ntohl(dst.s_addr));
 }
 
+/* RFC4222/R4: Returns true if dst is 224.0.0.5 (AllSPFRouters).  LSUs sent
+ * to this address are received by every OSPF-speaking router on the segment,
+ * so all Exchange-or-better neighbors must be considered when computing the
+ * pacing gate time. */
 static inline bool ospf_dst_is_allspf(struct in_addr dst)
 {
 	return dst.s_addr == htonl(OSPF_ALLSPFROUTERS); /* 224.0.0.5 */
 }
 
+/* RFC4222/R4: Returns true if dst is 224.0.0.6 (AllDRouters).  LSUs sent to
+ * this address are received only by the DR and BDR, so recipient filtering
+ * must restrict gap-pacing consideration to those two neighbors. */
 static inline bool ospf_dst_is_alldr(struct in_addr dst)
 {
 	return dst.s_addr == htonl(OSPF_ALLDROUTERS); /* 224.0.0.6 */
 }
 
-/* True if this neighbor is DR or BDR on the segment (based on its Hello). */
+/* RFC4222/R4: Returns true if this neighbor is currently the DR or BDR on the
+ * segment, determined from the DR/BDR addresses carried in its Hello packets.
+ * Used to filter recipients when an LSU is addressed to AllDRouters
+ * (224.0.0.6) so that the pacing gate is only applied to the two neighbors
+ * that will actually receive the packet. */
 static inline bool ospf_nbr_is_dr_or_bdr(const struct ospf_neighbor *nbr)
 {
 	const struct in_addr nbr_ip = nbr->address.u.prefix4;
@@ -223,7 +261,15 @@ struct ospf_lsu_pace_arg {
 	struct in_addr dst;
 };
 
-
+/* RFC4222/R4: Compute the earliest time at which an LSU may be sent to the
+ * given destination address on interface oi.  For each neighbor that will
+ * receive the packet (unicast: the addressed neighbor; AllSPFRouters: every
+ * Exchange-or-better neighbor; AllDRouters: DR and BDR only), the current
+ * gap G is re-evaluated via pace_maybe_adjust_gap() and the neighbor's
+ * next_send_ms is recorded.  The return value is the maximum next_send_ms
+ * across all matched neighbors — i.e., the send is gated by the slowest
+ * (most congested) recipient.  Returns now_ms unchanged when no neighbor
+ * matches, so the caller is not artificially delayed. */
 static uint64_t ospf_rec4_gate_time_for_dst(struct ospf_interface *oi, struct in_addr dst,
 					    uint64_t now_ms)
 {
@@ -269,6 +315,12 @@ static uint64_t ospf_rec4_gate_time_for_dst(struct ospf_interface *oi, struct in
 	return matched ? gate_ms : now_ms;
 }
 
+/* RFC4222/R4: Advance the next_send_ms timestamp for every neighbor that
+ * received the LSU just sent to dst.  After a packet carrying sent_count LSAs
+ * is placed on the wire, each recipient's send gate is pushed forward by
+ * (G * sent_count) ms from whichever is later — now or the existing gate.
+ * This enforces the inter-packet gap and prevents back-to-back bursts even
+ * when the event loop fires faster than the configured gap. */
 static void lsu_sent_for_dst(struct ospf_interface *oi, struct in_addr dst, uint64_t now_ms,
 			     uint32_t sent_count)
 {
@@ -301,6 +353,11 @@ static void lsu_sent_for_dst(struct ospf_interface *oi, struct in_addr dst, uint
 	}
 }
 
+/* RFC4222/R4: Returns true if R4 gap pacing is currently enabled on the
+ * interface.  Used as a fast check before deciding whether to route an LSU
+ * through the paced queue or send it immediately via the legacy path.  A
+ * single enabled interface flag covers all neighbors on the interface because
+ * R4 is configured per-interface, not per-neighbor. */
 bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *oi)
 {
 	struct route_node *rn;
@@ -323,6 +380,12 @@ bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *oi)
 	return false;
 }
 
+/* RFC4222/R4: Returns true when R4 gap pacing should be applied to an LSU
+ * bound for dst.  For unicast destinations the per-interface flag is
+ * sufficient.  For multicast destinations we additionally verify that at
+ * least one neighbor on the interface has pacing enabled, so that a
+ * multicast LSU is never held in the paced queue when there are no paced
+ * recipients. */
 static bool ospf_ls_upd_dst_gap_pacing(struct ospf_interface *oi, struct in_addr dst)
 {
 	if (!oi->rec4_gap_pacing)
@@ -336,7 +399,14 @@ static bool ospf_ls_upd_dst_gap_pacing(struct ospf_interface *oi, struct in_addr
 	return oi->rec4_gap_pacing;
 }
 
-/* RFC4222/R5: Track sent LSAs for dynamic adjacency pacing (independent of R4) */
+/* RFC4222/R4+R5 shared: Record that lsa has been placed on the wire toward
+ * dst and increment ls_rxmt_unacked on every neighbor that received it.
+ * The counted_sent flag on the retransmit-list node prevents double-counting
+ * if the same LSA is retransmitted before its ACK arrives.
+ * ls_rxmt_unacked is consumed by:
+ *   R4 — pace_maybe_adjust_gap() reads it per-neighbor as U(t)
+ *   R5 — ospf_adj_total_unacked() sums it across all neighbors on the oi
+ * Must be called unconditionally regardless of which features are enabled. */
 static inline void ospf_count_sent_lsa(struct ospf_interface *oi, struct in_addr dst,
 				       struct ospf_lsa *lsa)
 {
@@ -657,6 +727,11 @@ void ospf_ls_rxmt_timer(struct event *event)
 		if (listcount(update) > 0) {
 			zlog_debug("RETRANS_SEND_PACKET: Sending %d LSAs to neighbor %pI4",
 				   listcount(update), &nbr->router_id);
+			/* RFC4222/R4: When gap pacing is enabled, retransmissions
+			 * are routed through the paced per-destination queue
+			 * rather than sent directly.  This ensures the gap G is
+			 * honoured between successive packets to this neighbor
+			 * just as it is for initial flood LSUs. */
 			if (nbr->oi->rec4_gap_pacing) {
 				struct in_addr dst = nbr->address.u.prefix4;
 				ospf_ls_upd_enqueue_to_dst(nbr->oi, update, dst);
@@ -2486,6 +2561,11 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 					   &lsa->data->id, ntohl(lsa->data->ls_seqnum),
 					   ospf_ls_retransmit_count(nbr));
 				ospf_ls_retransmit_delete(nbr, lsr);
+				/* RFC4222/R4: An ACK arriving means the neighbor
+				 * has processed the LSA, so congestion may be
+				 * easing.  Re-evaluate U(t) against L immediately
+				 * so the gap G can be reduced without waiting for
+				 * the next scheduled send event. */
 				if (nbr->oi->rec4_gap_pacing) {
 					uint64_t now_ms = ospf_now_ms();
 					pace_maybe_adjust_gap(nbr->oi, nbr, now_ms);
@@ -4185,6 +4265,13 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 
 static void ospf_ls_upd_send_queue_event(struct event *thread);
 
+/* RFC4222/R4: Add all LSAs in update to the per-destination sub-queue inside
+ * oi->ls_upd_queue keyed by dst, then schedule ospf_ls_upd_send_queue_event
+ * if it is not already pending.  Separating LSAs by destination allows the
+ * drain event to apply an independent send gate (next_send_ms) to each
+ * unicast or multicast target, implementing the per-neighbor pacing required
+ * by Rec. 4.  Called from ospf_ls_rxmt_timer() for retransmissions when R4
+ * is enabled on the interface. */
 void ospf_ls_upd_enqueue_to_dst(struct ospf_interface *oi, struct list *update, struct in_addr dst)
 {
 	struct route_node *rn;
@@ -4230,6 +4317,17 @@ void ospf_ls_upd_enqueue_to_dst(struct ospf_interface *oi, struct list *update, 
 }
 
 
+/* RFC4222/R4: Drain event for the per-interface paced LSU queue.  Iterates
+ * every destination sub-queue in oi->ls_upd_queue.  For each destination:
+ *   - If R4 pacing is not active for that dst, the queued LSAs are sent
+ *     immediately (legacy behaviour preserved).
+ *   - If R4 pacing is active, ospf_rec4_gate_time_for_dst() is called to
+ *     obtain the earliest allowed send time and pace_maybe_adjust_gap() is
+ *     invoked for every matching neighbor.  If the gate has been reached the
+ *     next packet is built and sent; otherwise the event re-arms itself for
+ *     the remaining delay.
+ * The event re-schedules itself (timer or immediate) as long as any queue
+ * entry remains, ensuring all queued LSAs are eventually drained. */
 static void ospf_ls_upd_send_queue_event(struct event *thread)
 {
 	struct ospf_interface *oi = EVENT_ARG(thread);
@@ -4313,6 +4411,14 @@ static void ospf_ls_upd_send_queue_event(struct event *thread)
 	}
 }
 
+/* RFC4222/R4: Build and enqueue one LS Update packet from the head of update
+ * addressed to addr.  When R4 gap pacing is active for this destination:
+ *   - ospf_make_ls_upd() limits the number of LSAs per packet to
+ *     rec4_max_lsas so that each packet represents one inter-gap interval.
+ *   - After the packet is queued, lsu_sent_for_dst() advances next_send_ms
+ *     for every neighbor that will receive it, enforcing the current gap G.
+ * When send_lsupd_now is set (MaxAge flush or shutdown) the packet is written
+ * to the socket immediately without waiting for the normal write event. */
 void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
 			    struct in_addr addr, int send_lsupd_now)
 {
@@ -4443,11 +4549,14 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 	for (ALL_LIST_ELEMENTS_RO(update, node, lsa))
 		listnode_add((struct list *)rn->info, ospf_lsa_lock(lsa));
 
-	/*
-	 * Legacy behavior when Rec4 is OFF:
-	 * - honor send_lsupd_now (flush)
-	 * - otherwise schedule the legacy queue event (which now sends immediately)
-	 */
+	/* RFC4222/R4: Choose send path based on whether gap pacing is active.
+	 * When R4 is OFF the legacy behaviour is preserved: send_lsupd_now
+	 * flushes immediately, otherwise a queue event is scheduled that drains
+	 * the queue without any inter-packet delay.
+	 * When R4 is ON all LSUs — including initial floods — are held in the
+	 * per-destination queue and released by ospf_ls_upd_send_queue_event()
+	 * only when the send gate (next_send_ms) for the destination has been
+	 * reached, enforcing the current gap G for every recipient. */
 	bool gap_pacing = ospf_oi_any_nbr_gap_pacing(oi);
 
 	if (!gap_pacing) {
@@ -4473,11 +4582,10 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 		return;
 	}
 
-	/*
-	 * Rec4 behavior when ON:
-	 * - do NOT flush now
-	 * - just kick the armer, which will arm per-destination pacing timers
-	 */
+	/* RFC4222/R4: Gap pacing is active — queue the LSAs and schedule the
+	 * drain event.  send_lsupd_now is intentionally ignored here: all LSUs
+	 * must pass through ospf_ls_upd_send_queue_event() so that the gate
+	 * time computed by ospf_rec4_gate_time_for_dst() is always respected. */
 	(void)send_lsupd_now;
 	if (!oi->t_ls_upd_event)
 		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0, &oi->t_ls_upd_event);
