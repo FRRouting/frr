@@ -183,7 +183,8 @@ static int read_ibuf_work(struct peer_connection *connection)
 	pktsize = ntohs(pktsize);
 
 	/* if this fails we are seriously screwed */
-	assert(pktsize <= connection->peer->max_packet_size);
+	if (pktsize > connection->peer->max_packet_size)
+		return -EBADMSG;
 
 	/*
 	 * If we have that much data, chuck it into its own
