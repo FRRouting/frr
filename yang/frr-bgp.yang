@@ -391,6 +391,8 @@ module frr-bgp {
 
     uses mp-afi-unicast-common;
 
+    uses ipv6-nexthop-prefer-global;
+
     uses global-filter-config;
 
     uses global-afi-safi-vpn-config;
@@ -406,6 +408,8 @@ module frr-bgp {
     uses global-group-use-multiple-paths;
 
     uses route-flap-dampening;
+
+    uses ipv6-nexthop-prefer-global;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-multicast" {
@@ -512,6 +516,8 @@ module frr-bgp {
     uses route-flap-dampening;
 
     uses admin-distance;
+
+    uses ipv6-nexthop-prefer-global;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-flowspec" {

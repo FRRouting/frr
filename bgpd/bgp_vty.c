@@ -137,6 +137,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_COMPARE_AIGP,
 	{ .val_bool = false },
 );
 
+FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
+	{ .val_bool = false },
+);
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -737,6 +741,50 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		ret = BGP_SUCCESS;
 	}
 	return ret;
+}
+
+/*
+ * Check if the given AFI/SAFI combination supports nexthop prefer-global.
+ * Currently limited to IPv6 UNICAST, MULTICAST, and LABELED_UNICAST.
+ */
+static inline bool bgp_nexthop_prefer_global_supported(afi_t afi, safi_t safi)
+{
+	return (afi == AFI_IP6 && BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi));
+}
+
+/*
+ * Initialize nexthop prefer-global setting for all applicable IPv6 SAFIs.
+ * This applies to UNICAST, MULTICAST, and LABELED_UNICAST only.
+ */
+void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp)
+{
+	safi_t safi;
+
+	if (!DFLT_BGP_IPV6_NEXTHOP_PREFER_GLOBAL)
+		return;
+
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi))
+			bgp->nexthop_prefer_global[AFI_IP6][safi] = true;
+	}
+}
+
+/*
+ * Write nexthop prefer-global configuration for the given AFI/SAFI.
+ * Only writes non-default values to minimize configuration output.
+ */
+static void bgp_config_write_ipv6_nexthop_prefer_global(struct vty *vty, struct bgp *bgp,
+							afi_t afi, safi_t safi)
+{
+	/* Only applicable to specific IPv6 SAFIs */
+	if (!bgp_nexthop_prefer_global_supported(afi, safi))
+		return;
+
+	/* Only write if different from default */
+	if (bgp->nexthop_prefer_global[afi][safi] != SAVE_BGP_IPV6_NEXTHOP_PREFER_GLOBAL) {
+		vty_out(vty, "  %snexthop prefer-global\n",
+			bgp->nexthop_prefer_global[afi][safi] ? "" : "no ");
+	}
 }
 
 /*
@@ -2805,6 +2853,34 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " equal-cluster-length");
 		vty_out(vty, "\n");
 	}
+}
+
+/*
+ * nexthop prefer-global configuration command handler.
+ * Enables or disables preferring global IPv6 addresses over link-local
+ * addresses when both are available as nexthops.
+ */
+DEFPY (bgp_af_nexthop_prefer_global,
+       bgp_af_nexthop_prefer_global_cmd,
+       "[no] nexthop prefer-global",
+       NO_STR
+       "Nexthop\n"
+       "Prefer global over link-local if both exist\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	bool enable = !no;
+
+	if (!bgp || !bgp_nexthop_prefer_global_supported(afi, safi))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (bgp->nexthop_prefer_global[afi][safi] != enable) {
+		bgp->nexthop_prefer_global[afi][safi] = enable;
+		bgp_clear_soft_in(bgp, afi, safi);
+	}
+
+	return CMD_SUCCESS;
 }
 
 /* BGP timers.  */
@@ -20635,6 +20711,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	bgp_config_write_redistribute(vty, bgp, afi, safi);
 
+	bgp_config_write_ipv6_nexthop_prefer_global(vty, bgp, afi, safi);
+
 	/* BGP flag dampening. */
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
 		bgp_config_write_damp(vty, bgp, afi, safi);
@@ -21890,6 +21968,11 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);
 
 	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_cmd);
+
+	/* "nexthop prefer-global" commands */
+	install_element(BGP_IPV6_NODE, &bgp_af_nexthop_prefer_global_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_af_nexthop_prefer_global_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_af_nexthop_prefer_global_cmd);
 
 	/* "maximum-paths" commands. */
 	install_element(BGP_NODE, &bgp_maxpaths_hidden_cmd);

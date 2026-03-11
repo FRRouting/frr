@@ -550,6 +550,13 @@ struct bgp_clearing_info {
 /* Batch has 'inner' resume info set */
 #define BGP_CLEARING_INFO_FLAG_INNER (1 << 2)
 
+/*
+ * Helper macro to check if a SAFI supports nexthop prefer-global.
+ * Currently limited to IPv6 UNICAST, MULTICAST, and LABELED_UNICAST.
+ */
+#define BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi)                                        \
+	((safi) == SAFI_UNICAST || (safi) == SAFI_MULTICAST || (safi) == SAFI_LABELED_UNICAST)
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -1084,6 +1091,13 @@ struct bgp {
 	bool allow_martian;
 
 	enum asnotation_mode asnotation;
+
+	/*
+	 * IPv6 nexthop prefer-global configuration.
+	 * When enabled, prefer global IPv6 addresses over link-local
+	 * addresses when both are available as nexthops.
+	 */
+	bool nexthop_prefer_global[AFI_MAX][SAFI_MAX];
 
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
