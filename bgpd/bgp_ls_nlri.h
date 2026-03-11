@@ -251,6 +251,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_MAX_SRLG	      64 /* Maximum SRLGs per link */
 #define BGP_LS_MAX_UNRESV_BW  8	 /* 8 priority classes */
 #define BGP_LS_MAX_ROUTE_TAGS 16 /* Maximum route tags */
+#define BGP_LS_MAX_EXT_ADMIN_GROUPS 256 /* Maximum number of admin groups in Extended Admin Group TLV */
 
 /*
  * Bit positions for attribute presence bitmasks

@@ -3634,6 +3634,8 @@ static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_attr
  */
 static int parse_ext_admin_group(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
 {
+	size_t nb_words;
+
 	/* Length must be multiple of 4 (each word is 32 bits) */
 	if (length % 4 != 0) {
 		flog_warn(EC_BGP_UPDATE_RCV,
@@ -3647,7 +3649,13 @@ static int parse_ext_admin_group(struct stream *s, uint16_t length, struct bgp_l
 		return -1;
 	}
 
-	size_t nb_words = length / 4;
+	nb_words = length / 4;
+	if (nb_words > BGP_LS_MAX_EXT_ADMIN_GROUPS) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Extended Admin Group TLV too large (%zu words, max %zu)",
+			  nb_words, (size_t)BGP_LS_MAX_EXT_ADMIN_GROUPS);
+		return -1;
+	}
 
 	/* Decode each 32-bit word */
 	for (size_t i = 0; i < nb_words; i++) {
