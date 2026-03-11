@@ -3591,11 +3591,8 @@ static int parse_ext_admin_group(struct stream *s, uint16_t length, struct bgp_l
 	}
 
 	/* Decode each 32-bit word */
-	for (size_t i = 0; i < nb_words; i++) {
-		uint32_t word = ntohl(stream_getl(s));
-
-		admin_group_bulk_set(&attr->ext_admin_group, word, i);
-	}
+	for (size_t i = 0; i < nb_words; i++)
+		admin_group_bulk_set(&attr->ext_admin_group, stream_getl(s), i);
 
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT);
 
