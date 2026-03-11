@@ -2433,6 +2433,11 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 
 		switch (sub_type) {
 		case BGP_LS_TLV_AS_NUMBER:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate AS Number TLV in node descriptor");
+				return -1;
+			}
 			if (sub_len != BGP_LS_AS_NUMBER_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid AS Number TLV length %u (expected %u)",
@@ -2444,6 +2449,11 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			break;
 
 		case BGP_LS_TLV_BGP_LS_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate BGP-LS ID TLV in node descriptor");
+				return -1;
+			}
 			if (sub_len != BGP_LS_BGP_LS_ID_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid BGP-LS ID TLV length %u (expected %u)",
@@ -2455,6 +2465,11 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			break;
 
 		case BGP_LS_TLV_OSPF_AREA_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate OSPF Area ID TLV in node descriptor");
+				return -1;
+			}
 			if (sub_len != BGP_LS_OSPF_AREA_ID_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid OSPF Area ID TLV length %u (expected %u)",
@@ -2466,6 +2481,11 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			break;
 
 		case BGP_LS_TLV_IGP_ROUTER_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IGP Router-ID TLV in node descriptor");
+				return -1;
+			}
 			/* Variable length: 4 to 16 bytes */
 			if (sub_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 			    sub_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
@@ -2549,6 +2569,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 
 		switch (tlv_type) {
 		case BGP_LS_TLV_LINK_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate Link ID TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_LINK_ID_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid Link ID TLV length %u (expected %u)",
@@ -2561,6 +2586,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_IPV4_INTF_ADDR:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IPv4 Interface Address TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_IPV4_ADDR_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid IPv4 Interface Address TLV length %u",
@@ -2572,6 +2602,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_IPV4_NEIGH_ADDR:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IPv4 Neighbor Address TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_IPV4_ADDR_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid IPv4 Neighbor Address TLV length %u",
@@ -2583,6 +2618,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_IPV6_INTF_ADDR:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IPv6 Interface Address TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_IPV6_ADDR_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid IPv6 Interface Address TLV length %u",
@@ -2594,6 +2634,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_IPV6_NEIGH_ADDR:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IPv6 Neighbor Address TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_IPV6_ADDR_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid IPv6 Neighbor Address TLV length %u",
@@ -2605,6 +2650,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_MT_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate MT-ID TLV in link descriptor");
+				return -1;
+			}
 			/* Variable length: 2*n bytes where n is number of MT-IDs */
 			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
 				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
@@ -2619,6 +2669,11 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			break;
 
 		case BGP_LS_TLV_REMOTE_AS_NUMBER:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_REMOTE_AS_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate Remote AS Number TLV in link descriptor");
+				return -1;
+			}
 			if (tlv_len != 4) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid Remote AS Number TLV length %u (expected 4)",
@@ -2688,6 +2743,11 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 
 		switch (tlv_type) {
 		case BGP_LS_TLV_MT_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate MT-ID TLV in prefix descriptor");
+				return -1;
+			}
 			/* Variable length: 2*n bytes where n is number of MT-IDs */
 			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
 				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
@@ -2702,6 +2762,12 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 			break;
 
 		case BGP_LS_TLV_OSPF_ROUTE_TYPE:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs,
+					     BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate OSPF Route Type TLV in prefix descriptor");
+				return -1;
+			}
 			if (tlv_len != BGP_LS_OSPF_ROUTE_TYPE_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: Invalid OSPF Route Type TLV length %u", tlv_len);
@@ -2712,6 +2778,11 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 			break;
 
 		case BGP_LS_TLV_IP_REACH_INFO:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_IP_REACH_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate IP Reachability Info TLV in prefix descriptor");
+				return -1;
+			}
 			/* Variable length: prefix_len + ceil(prefix_len/8) */
 			if (tlv_len < 1) {
 				flog_warn(EC_BGP_LS_PACKET,
@@ -3159,6 +3230,11 @@ static int parse_node_flags(struct stream *s, uint16_t length, struct bgp_ls_att
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_FLAGS_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Node Flags TLV");
+		return -1;
+	}
+
 	attr->node_flags = stream_getc(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_NODE_FLAGS_BIT);
 
@@ -3177,6 +3253,11 @@ static int parse_node_name(struct stream *s, uint16_t length, struct bgp_ls_attr
 {
 	if (length == 0)
 		return 0;
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Node Name TLV");
+		return -1;
+	}
 
 	/* Allocate space for node name (null-terminated) */
 	attr->node_name = XCALLOC(MTYPE_BGP_LS_ATTR, length + 1);
@@ -3199,6 +3280,19 @@ static int parse_isis_area_id(struct stream *s, uint16_t length, struct bgp_ls_a
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT)) {
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IS-IS Area-ID TLVs
+		 * to encode synonymous area addresses. We currently support
+		 * only one IS-IS Area-ID TLV; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IS-IS Area-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
 	attr->isis_area_id = XCALLOC(MTYPE_BGP_LS_ATTR, length);
 	stream_get(attr->isis_area_id, s, length);
 	attr->isis_area_id_len = length;
@@ -3219,6 +3313,11 @@ static int parse_admin_group(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Admin Group TLV");
+		return -1;
+	}
+
 	attr->admin_group = stream_getl(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT);
 
@@ -3236,6 +3335,11 @@ static int parse_max_link_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 	if (length != 4) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Max Link BW length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MAX_LINK_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Maximum Link Bandwidth TLV");
 		return -1;
 	}
 
@@ -3261,6 +3365,11 @@ static int parse_max_resv_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MAX_RESV_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Maximum Reservable Bandwidth TLV");
+		return -1;
+	}
+
 	bw_bits = stream_getl(s);
 	memcpy(&attr->max_resv_bw, &bw_bits, 4);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_MAX_RESV_BW_BIT);
@@ -3280,6 +3389,11 @@ static int parse_unresv_bw(struct stream *s, uint16_t length, struct bgp_ls_attr
 	if (length != 32) { /* 8 priorities * 4 bytes each */
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Unreserved BW length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_UNRESV_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Unreserved Bandwidth TLV");
 		return -1;
 	}
 
@@ -3303,6 +3417,11 @@ static int parse_te_metric(struct stream *s, uint16_t length, struct bgp_ls_attr
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_TE_METRIC_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate TE Default Metric TLV");
+		return -1;
+	}
+
 	attr->te_metric = stream_getl(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_TE_METRIC_BIT);
 
@@ -3318,6 +3437,11 @@ static int parse_igp_metric(struct stream *s, uint16_t length, struct bgp_ls_att
 	if (length < 1 || length > BGP_LS_IGP_METRIC_MAX_LEN) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid IGP Metric length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IGP Metric TLV");
 		return -1;
 	}
 
@@ -3351,6 +3475,11 @@ static int parse_srlg(struct stream *s, uint16_t length, struct bgp_ls_attr *att
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_SRLG_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate SRLG TLV");
+		return -1;
+	}
+
 	attr->srlg_values = XMALLOC(MTYPE_BGP_LS_ATTR, count * sizeof(uint32_t));
 	for (i = 0; i < count; i++)
 		attr->srlg_values[i] = stream_getl(s);
@@ -3368,6 +3497,11 @@ static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_attr
 {
 	if (length == 0)
 		return 0;
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Link Name TLV");
+		return -1;
+	}
 
 	attr->link_name = XCALLOC(MTYPE_BGP_LS_ATTR, length + 1);
 	stream_get(attr->link_name, s, length);
@@ -3387,6 +3521,11 @@ static int parse_ext_admin_group(struct stream *s, uint16_t length, struct bgp_l
 		flog_warn(EC_BGP_UPDATE_RCV,
 			  "BGP-LS: Invalid Extended Admin Group TLV length %u (must be multiple of 4)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Extended Admin Group TLV");
 		return -1;
 	}
 
@@ -3415,6 +3554,11 @@ static int parse_link_delay(struct stream *s, uint16_t length, struct bgp_ls_att
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Unidirectional Link Delay TLV");
+		return -1;
+	}
+
 	attr->delay = stream_getl(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT);
 
@@ -3429,6 +3573,12 @@ static int parse_min_max_delay(struct stream *s, uint16_t length, struct bgp_ls_
 	if (length != 8) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Min/Max Delay length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MIN_MAX_DELAY_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: duplicate Min/Max Unidirectional Link Delay TLV");
 		return -1;
 	}
 
@@ -3450,6 +3600,12 @@ static int parse_link_jitter(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_JITTER_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: duplicate Unidirectional Delay Variation TLV");
+		return -1;
+	}
+
 	attr->jitter = stream_getl(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_JITTER_BIT);
 
@@ -3464,6 +3620,11 @@ static int parse_packet_loss(struct stream *s, uint16_t length, struct bgp_ls_at
 	if (length != 4) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Packet Loss length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PKT_LOSS_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Unidirectional Link Loss TLV");
 		return -1;
 	}
 
@@ -3484,6 +3645,11 @@ static int parse_residual_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Residual Bandwidth TLV");
+		return -1;
+	}
+
 	stream_get(&attr->residual_bw, s, 4);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT);
 
@@ -3498,6 +3664,11 @@ static int parse_available_bw(struct stream *s, uint16_t length, struct bgp_ls_a
 	if (length != 4) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Available BW length (%u bytes)",
 			  length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Available Bandwidth TLV");
 		return -1;
 	}
 
@@ -3518,6 +3689,11 @@ static int parse_utilized_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Utilized Bandwidth TLV");
+		return -1;
+	}
+
 	stream_get(&attr->utilized_bw, s, 4);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT);
 
@@ -3532,6 +3708,11 @@ static int parse_igp_flags(struct stream *s, uint16_t length, struct bgp_ls_attr
 {
 	if (length < 1) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: IGP Flags TLV too short (%u bytes)", length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IGP Flags TLV");
 		return -1;
 	}
 
@@ -3565,6 +3746,11 @@ static int parse_route_tag(struct stream *s, uint16_t length, struct bgp_ls_attr
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ROUTE_TAG_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Route Tag TLV");
+		return -1;
+	}
+
 	attr->route_tags = XMALLOC(MTYPE_BGP_LS_ATTR, count * sizeof(uint32_t));
 	for (i = 0; i < count; i++)
 		attr->route_tags[i] = stream_getl(s);
@@ -3586,6 +3772,11 @@ static int parse_prefix_metric(struct stream *s, uint16_t length, struct bgp_ls_
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_PREFIX_METRIC_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Prefix Metric TLV");
+		return -1;
+	}
+
 	attr->prefix_metric = stream_getl(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_PREFIX_METRIC_BIT);
 
@@ -3598,16 +3789,22 @@ static int parse_prefix_metric(struct stream *s, uint16_t length, struct bgp_ls_
  */
 static int parse_ospf_fwd_addr(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
 {
-	if (length == 4) {
-		/* IPv4 */
-		stream_get(&attr->ospf_fwd_addr, s, 4);
-	} else if (length == 16) {
-		/* IPv6 */
-		stream_get(&attr->ospf_fwd_addr6, s, 16);
-	} else {
+	if (length != 4 && length != 16) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid OSPF Fwd Addr length (%u bytes)",
 			  length);
 		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate OSPF Forwarding Address TLV");
+		return -1;
+	}
+	if (length == 4) {
+		/* IPv4 */
+		stream_get(&attr->ospf_fwd_addr, s, 4);
+	} else {
+		/* IPv6 */
+		stream_get(&attr->ospf_fwd_addr6, s, 16);
 	}
 
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT);
@@ -3621,6 +3818,19 @@ static int parse_ipv4_router_id_local(struct stream *s, uint16_t length, struct 
 		flog_warn(EC_BGP_UPDATE_RCV,
 			  "BGP-LS: Invalid IPv4 Router-ID Local length (%u bytes)", length);
 		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IPv4 Local Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID. We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv4 Local Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv4_router_id_local, s, 4);
@@ -3637,6 +3847,19 @@ static int parse_ipv6_router_id_local(struct stream *s, uint16_t length, struct 
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT)) {
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IPv6 Local Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID. We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv6 Local Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
 	stream_get(&attr->ipv6_router_id_local, s, 16);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT);
 	return 0;
@@ -3649,6 +3872,19 @@ static int parse_ipv4_router_id_remote(struct stream *s, uint16_t length, struct
 		flog_warn(EC_BGP_UPDATE_RCV,
 			  "BGP-LS: Invalid IPv4 Router-ID Remote length (%u bytes)", length);
 		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE_BIT)) {
+		/*
+		 * RFC 9552 Section 5.3.2.1 allows multiple IPv4 Remote Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID. We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv4 Remote Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv4_router_id_remote, s, 4);
@@ -3665,6 +3901,19 @@ static int parse_ipv6_router_id_remote(struct stream *s, uint16_t length, struct
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT)) {
+		/*
+		 * RFC 9552 Section 5.3.2.1 allows multiple IPv6 Remote Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID. We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv6 Remote Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
 	stream_get(&attr->ipv6_router_id_remote, s, 16);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT);
 	return 0;
@@ -3679,6 +3928,11 @@ static int parse_link_protection(struct stream *s, uint16_t length, struct bgp_l
 		return -1;
 	}
 
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_LINK_PROTECTION_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Link Protection Type TLV");
+		return -1;
+	}
+
 	attr->link_protection = stream_getw(s);
 	BGP_LS_TLV_SET(attr->present_tlvs, BGP_LS_ATTR_LINK_PROTECTION_BIT);
 	return 0;
@@ -3690,6 +3944,11 @@ static int parse_mpls_protocol_mask(struct stream *s, uint16_t length, struct bg
 	if (length != 1) {
 		flog_warn(EC_BGP_UPDATE_RCV,
 			  "BGP-LS: Invalid MPLS Protocol Mask length (%u bytes)", length);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_MPLS_PROTOCOL_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate MPLS Protocol Mask TLV");
 		return -1;
 	}
 
@@ -3714,6 +3973,11 @@ static int parse_extended_tag(struct stream *s, uint16_t length, struct bgp_ls_a
 	if (count > BGP_LS_MAX_ROUTE_TAGS) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Too many Extended Tags (%u, max %u)", count,
 			  BGP_LS_MAX_ROUTE_TAGS);
+		return -1;
+	}
+
+	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_EXTENDED_TAG_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Extended Route Tag TLV");
 		return -1;
 	}
 
