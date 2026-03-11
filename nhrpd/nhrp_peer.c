@@ -1102,6 +1102,7 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 	union sockunion src_nbma, src_proto, dst_proto;
 	struct nhrp_packet_header *hdr;
 	struct zbuf zhdr;
+	const char *name = "Unknown";
 	int reply;
 
 	if (likely(!(debug_flags & NHRP_DEBUG_COMMON)))
@@ -1109,10 +1110,21 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 
 	zbuf_init(&zhdr, zb->buf, zb->tail - zb->buf, zb->tail - zb->buf);
 	hdr = nhrp_packet_pull(&zhdr, &src_nbma, &src_proto, &dst_proto);
+	if (!hdr) {
+		debugf(NHRP_DEBUG_COMMON, "%s Truncated packet", dir);
+		return;
+	}
+	if (hdr->type > NHRP_PACKET_MAX) {
+		debugf(NHRP_DEBUG_COMMON, "%s Unknown(%u) %pSU -> %pSU", dir,
+		       hdr->type, &src_proto, &dst_proto);
+		return;
+	}
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
+	if (packet_types[hdr->type].name)
+		name = packet_types[hdr->type].name;
 	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
-	       (packet_types[hdr->type].name ? : "Unknown"),
+	       name,
 	       hdr->type, reply ? &dst_proto : &src_proto,
 	       reply ? &src_proto : &dst_proto);
 }
