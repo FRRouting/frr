@@ -181,6 +181,21 @@ struct pim_jp {
 	struct pim_jp_groups groups[1];
 } __attribute__((packed));
 
+static inline bool pim_sgaddr_enough_space(int buf_size)
+{
+	if (buf_size < 0)
+		return false;
+
+#if PIM_IPV == 4
+	if ((size_t)buf_size < sizeof(struct ip))
+		return false;
+#else
+	if ((size_t)buf_size < sizeof(struct ip6_hdr))
+		return false;
+#endif
+	return true;
+}
+
 #if PIM_IPV == 4
 static inline pim_sgaddr pim_sgaddr_from_iphdr(const void *iphdr)
 {
