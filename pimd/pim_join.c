@@ -51,7 +51,6 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 			holdtime, &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_join_recv;
 
@@ -123,7 +122,6 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 			holdtime, &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_prune_recv;
 
