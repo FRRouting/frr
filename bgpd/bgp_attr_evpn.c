@@ -113,19 +113,21 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 }
 
 /*
- * return true if attr contains default gw extended community
+ * Determine whether 'attr' contains default gw extended community
  */
 uint8_t bgp_attr_default_gw(struct attr *attr)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
 
+	/* Reset default-gw flag */
+	UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
-	/* If there is a default gw extendd community return true otherwise
-	 * return 0 */
+	/* Look for a default gw extended community */
 	for (i = 0; i < ecom->size; i++) {
 		uint8_t *pnt;
 		uint8_t type, sub_type;
@@ -135,11 +137,19 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 		sub_type = *pnt++;
 
 		if ((type == ECOMMUNITY_ENCODE_OPAQUE
+<<<<<<< HEAD
 		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
 			return 1;
 	}
 
 	return 0;
+=======
+		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW)) {
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+			break;
+		}
+	}
+>>>>>>> 821b70fbe (bgpd: fix logic handling EVPN_FLAG_DEFAULT_GW)
 }
 
 /*
