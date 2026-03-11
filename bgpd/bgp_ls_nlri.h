@@ -548,7 +548,7 @@ struct bgp_ls_attr {
 	uint32_t igp_metric;
 
 	/* Shared Risk Link Group (TLV 1096) */
-	uint8_t srlg_count;
+	uint16_t srlg_count;
 	uint32_t *srlg_values;
 
 	/* Link Name (TLV 1098) */
