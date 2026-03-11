@@ -2792,6 +2792,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		uint16_t orf_len;
 
 		if (subtype) {
+			/* When the BGP speaker receives a ROUTE-REFRESH message
+			 * with a "Message Subtype" field other than 0, 1, or 2,
+			 * it MUST ignore the received ROUTE-REFRESH message.
+			 */
+			if (subtype > 2) {
+				zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored",
+					  peer->host, subtype);
+				return BGP_PACKET_NOOP;
+			}
+
 			/* If the length, excluding the fixed-size message
 			 * header, of the received ROUTE-REFRESH message with
 			 * Message Subtype 1 and 2 is not 4, then the BGP
@@ -2806,16 +2816,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 				bgp_notify_send(connection,
 						BGP_NOTIFY_ROUTE_REFRESH_ERR,
 						BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN);
+				return BGP_Stop;
 			}
-
-			/* When the BGP speaker receives a ROUTE-REFRESH message
-			 * with a "Message Subtype" field other than 0, 1, or 2,
-			 * it MUST ignore the received ROUTE-REFRESH message.
-			 */
-			if (subtype > 2)
-				zlog_err(
-					"%s Enhanced Route Refresh invalid subtype",
-					peer->host);
 		}
 
 		if (msg_length < 5) {
