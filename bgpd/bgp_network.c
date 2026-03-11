@@ -498,11 +498,24 @@ static void bgp_accept(struct event *thread)
 			connection1->su_local = sockunion_getsockname(connection1->fd);
 			connection1->su_remote = sockunion_dup(&su);
 
+<<<<<<< HEAD
 			if (bgp_set_socket_ttl(connection1) < 0) {
 				peer1->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, peer1->host,
 					 safe_strerror(errno), errno);
+=======
+			if (bgp_set_socket_ttl(incoming) < 0) {
+				peer_set_last_reset(dynamic_peer, PEER_DOWN_SOCKET_ERROR);
+				flog_err(EC_BGP_TTL_SECURITY_FAIL,
+					 "%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
+					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
+				frrtrace(3, frr_bgp, bgp_err_str, dynamic_peer->host,
+					 dynamic_peer->flags, 1);
+
+				incoming->fd = -1;
+				close(bgp_sock);
+>>>>>>> 3178f840f (bgpd: close dynamic peer socket in ttl error path)
 				return;
 			}
 
