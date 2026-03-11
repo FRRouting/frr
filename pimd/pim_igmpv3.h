@@ -80,8 +80,8 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 			uint8_t querier_robustness_variable,
 			uint16_t querier_query_interval);
 
-void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
-			char *igmp_msg);
+void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str, char *igmp_msg,
+			int igmp_msg_len);
 
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len);
