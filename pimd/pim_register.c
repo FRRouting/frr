@@ -502,7 +502,16 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	}
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
+	if (tlv_buf_size < PIM_MSG_REGISTER_BIT_RESERVED_LEN) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("PIM Register payload size=%d shorter than reserved bits",
+				   tlv_buf_size);
+		return -1;
+	}
+
+	bits = (uint32_t *)tlv_buf;
 	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
+	tlv_buf_size -= PIM_MSG_REGISTER_BIT_RESERVED_LEN;
 
 	if (!if_address_is_local(&dest_addr, PIM_AF, pim->vrf->vrf_id)) {
 		if (PIM_DEBUG_PIM_REG)
@@ -533,7 +542,12 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	 * tlv_buf when received from the caller points at the B bit
 	 * We need to know the inner source and dest
 	 */
-	bits = (uint32_t *)tlv_buf;
+	if (!pim_sgaddr_enough_space(tlv_buf_size)) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("PIM message size left=%d shorter than amount needed to read to verify packet",
+				   tlv_buf_size);
+		return -1;
+	}
 
 	/*
 	 * tlv_buf points to the start of the |B|N|... Reserved
@@ -551,28 +565,30 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	 * in addition to the outer PIM Header's checksum. Validation of
 	 * inner PIM header checksum is done here.
 	 */
-	if ((*bits & PIM_REGISTER_NR_BIT) &&
-	    ((tlv_buf_size - PIM_MSG_REGISTER_BIT_RESERVED_LEN) >
-	     (int)sizeof(struct ip6_hdr))) {
+	if (*bits & PIM_REGISTER_NR_BIT) {
 		uint16_t computed_checksum;
 		uint16_t received_checksum;
 		struct ipv6_ph ph;
+		const uint8_t *inner_buf = ip_hdr;
 		struct pim_msg_header *header;
 
-		header = (struct pim_msg_header
-				  *)(tlv_buf +
-				     PIM_MSG_REGISTER_BIT_RESERVED_LEN +
-				     sizeof(struct ip6_hdr));
+		if (tlv_buf_size < (int)(sizeof(struct ip6_hdr) + sizeof(struct pim_msg_header))) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("Ignoring Null Register message%pSG from %pPA due to truncated encapsulated dummy PIM header",
+					   &sg, &src_addr);
+			return 0;
+		}
+
+		header = (struct pim_msg_header *)(inner_buf + sizeof(struct ip6_hdr));
 		ph.src = sg.src;
 		ph.dst = sg.grp;
 		ph.ulpl = htonl(PIM_MSG_HEADER_LEN);
 		ph.next_hdr = IPPROTO_PIM;
 
 		received_checksum = header->checksum;
-
 		header->checksum = 0;
-		computed_checksum = in_cksum_with_ph6(
-			&ph, header, htonl(PIM_MSG_HEADER_LEN));
+		computed_checksum = in_cksum_with_ph6(&ph, header, PIM_MSG_HEADER_LEN);
+		header->checksum = received_checksum;
 
 		if (computed_checksum != received_checksum) {
 			if (PIM_DEBUG_PIM_PACKETS)
