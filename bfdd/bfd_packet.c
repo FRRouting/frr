@@ -1107,8 +1107,8 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		return -1;
 	}
 
-	/* Short packet, better not risk reading it. */
-	if (rlen < (ssize_t)sizeof(*bep)) {
+	/* Short packet, better not risk reading it at selected offset. */
+	if (rlen < (ssize_t)(bfd_offset + sizeof(*bep))) {
 		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "small echo packet");
 		return -1;
