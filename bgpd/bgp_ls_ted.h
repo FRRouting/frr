@@ -44,7 +44,7 @@ extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_l
  * @param attr BGP-LS prefix attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr **attr);
+extern int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr);
 
 /*
  * ===========================================================================
