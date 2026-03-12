@@ -367,7 +367,6 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	/* Validate router ID length */
 	if (router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
-		zlog_err("BGP-LS: Invalid router ID length %u", router_id_len);
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Invalid router ID length %u", router_id_len);
 		return -1;
 	}
@@ -403,7 +402,6 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	/* Withdraw from RIB */
 	ret = bgp_ls_withdraw(bgp, &nlri);
 	if (ret < 0) {
-		zlog_err("BGP-LS: Failed to withdraw Node NLRI");
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to withdraw Node NLRI");
 		return -1;
 	}
