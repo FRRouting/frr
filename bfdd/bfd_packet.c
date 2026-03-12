@@ -2015,6 +2015,14 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 		return 0;
 	}
 	cp = (struct bfd_pkt *)(msgbuf);
+	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
+		zlog_debug("drop sbfd init packet: bad version %u", BFD_GETVER(cp->diag));
+		return 0;
+	}
+	if ((cp->len < BFD_PKT_LEN) || (cp->len > rlen)) {
+		zlog_debug("drop sbfd init packet: bad len %u (rx %zd)", cp->len, rlen);
+		return 0;
+	}
 	if (!CHECK_FLAG(cp->flags, BFD_DEMANDBIT)) {
 		/*Control Packet from SBFDInitiator should have Demand bit set to 1 according to RFC7880*/
 		return 0;
@@ -2035,7 +2043,7 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 
 		sa = (struct sockaddr *)&peer.sa_sin6;
 
-		if (sendto(sd, msgbuf, rlen, 0, sa, sizeof(peer.sa_sin6)) <= 0) {
+		if (sendto(sd, msgbuf, cp->len, 0, sa, sizeof(peer.sa_sin6)) <= 0) {
 			zlog_debug("packet-send: send failure: %s", strerror(errno));
 			return -1;
 		}
