@@ -4190,7 +4190,9 @@ static int bgp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		break;
 
 	default:
-		zlog_warn("%s: Unknown opaque message type %d", __func__, info.type);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Ignoring unknown opaque message type %d", __func__,
+				   info.type);
 		break;
 	}
 
