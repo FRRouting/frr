@@ -884,6 +884,11 @@ void bfd_recv_cb(struct event *t)
 				     &local, &peer);
 	}
 
+	if (mlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return;
+	}
+
 	/*
 	 * With netns backend, we have a separate socket in each VRF. It means
 	 * that bvrf here is correct and we believe the bvrf->vrf->vrf_id.
@@ -899,10 +904,29 @@ void bfd_recv_cb(struct event *t)
 			vrfid = ifp->vrf->vrf_id;
 	}
 
+<<<<<<< HEAD
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%zd bytes)", mlen);
+=======
+	/* Require a full fixed BFD control header before parsing/session lookup. */
+	if (mlen < BFD_PKT_LEN) {
+		/* No resolved session at this point to charge rx_bad_ctrl_pkt. */
+		frrtrace(8, frr_bfd, packet_validation_error, 1, is_mhop, &peer, &local, ifindex,
+			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small (%zd bytes)", mlen);
+		return;
+	}
+
+	/* Find the session that this packet belongs. */
+	cp = (struct bfd_pkt *)(msgbuf);
+	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
+	if (bfd == NULL) {
+		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
+			 vrfid, ntohl(cp->discrs.my_discr));
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "no session found");
+>>>>>>> d6f779ebb (bfdd: validate control packet length before session lookup)
 		return;
 	}
 
@@ -1146,6 +1170,11 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
 				     &local, &peer);
 		bfd_offset = 0;
+	}
+
+	if (rlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return -1;
 	}
 
 	/* Short packet, better not risk reading it. */
@@ -2035,6 +2064,10 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 	uint8_t msgbuf[1516];
 
 	rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex, &local, &peer);
+	if (rlen < 0) {
+		/* bfd_recv_ipv6 already logged the receive error. */
+		return 0;
+	}
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*cp)) {
 		zlog_debug("small bfd packet");
