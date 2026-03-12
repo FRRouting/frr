@@ -211,7 +211,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 	memcpy(&alt, buf, sizeof(alt));
 	alt_len = ntohs(alt.length);
 	alt_family = ntohs(alt.family);
-	if (alt_len > len - TLV_HDR_SIZE) {
+	if ((alt_len < 2) || (alt_len > len - TLV_HDR_SIZE)) {
 		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 		return (-1);
 	}
