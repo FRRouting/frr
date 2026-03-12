@@ -1116,6 +1116,29 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 
 	/* Test for loopback for ipv6, ipv4 is looped in forwarding plane */
 	if ((*ttl == BFD_TTL_VAL) && (sd == bvrf->bg_echov6)) {
+		struct bfd_key key;
+		struct vrf *vrf;
+		struct interface *ifp = NULL;
+
+		/*
+		 * Reflect only for known sessions to avoid turning the echo
+		 * socket into an unauthenticated packet reflector.
+		 */
+		vrfid = bvrf->vrf->vrf_id;
+		if (ifindex) {
+			ifp = if_lookup_by_index(ifindex, vrfid);
+			if (ifp)
+				vrfid = ifp->vrf->vrf_id;
+		}
+		vrf = vrf_lookup_by_id(vrfid);
+		gen_bfd_key(&key, &peer, &local, false, ifp ? ifp->name : NULL,
+			    vrf ? vrf->name : VRF_DEFAULT_NAME, NULL);
+		if (!bfd_key_lookup(&key)) {
+			cp_debug(false, &peer, &local, ifindex, vrfid,
+				 "unknown IPv6 echo source, dropping");
+			return -1;
+		}
+
 		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
 			    (struct sockaddr *)&peer,
 			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin)
