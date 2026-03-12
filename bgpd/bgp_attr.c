@@ -3002,16 +3002,46 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		struct bgp_attr_encap_subtlv *tlv;
 
 		if (BGP_ATTR_ENCAP == type) {
+			if (length < 1) {
+				flog_err(EC_BGP_ATTR_LEN,
+					 "Tunnel Encap attribute length %d too short for sub-TLV",
+					 length);
+				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+							  args->total);
+			}
 			subtype = stream_getc(BGP_INPUT(peer));
 			if (subtype < 128) {
+				if (length < 2) {
+					flog_err(EC_BGP_ATTR_LEN,
+						 "Tunnel Encap attribute length %d too short for sub-TLV",
+						 length);
+					return bgp_attr_malformed(args,
+								  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+								  args->total);
+				}
 				sublength = stream_getc(BGP_INPUT(peer));
 				length -= 2;
 			} else {
+				if (length < 3) {
+					flog_err(EC_BGP_ATTR_LEN,
+						 "Tunnel Encap attribute length %d too short for sub-TLV",
+						 length);
+					return bgp_attr_malformed(args,
+								  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+								  args->total);
+				}
 				sublength = stream_getw(BGP_INPUT(peer));
 				length -= 3;
 			}
 #ifdef ENABLE_BGP_VNC
 		} else {
+			if (length < 4) {
+				flog_err(EC_BGP_ATTR_LEN,
+					 "Tunnel Encap attribute length %d too short for sub-TLV",
+					 length);
+				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+							  args->total);
+			}
 			subtype = stream_getw(BGP_INPUT(peer));
 			sublength = stream_getw(BGP_INPUT(peer));
 			length -= 4;
