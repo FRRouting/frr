@@ -855,11 +855,11 @@ See [Appendix J](#appendix-j-proxy-arp-implementation) for complete implementati
 
 **Week 1-2: ZAPI Protocol Extension**
 - [ ] Define new ZAPI message types:
-  - `ZEBRA_NEIGH_ADDED` (arpd → zebra)
-  - `ZEBRA_NEIGH_DELETED` (arpd → zebra)
+  - Reuse existing `ZEBRA_NEIGH_ADDED` (arpd → zebra)
+  - Reuse existing `ZEBRA_NEIGH_REMOVED` (arpd → zebra)
   - `ZEBRA_NEIGH_PROBE_REQUEST` (zebra → arpd)
 - [ ] Implement ZAPI client in arpd
-- [ ] Implement ZAPI handler in zebra
+- [ ] Implement ZAPI handler in zebra (see [Appendix F.3](#appendix-f3-zebra-zapi-handler) - must preserve ns_id, neigh_state, pbr_rule_list)
 - [ ] Update zebra neighbor database from arpd
 
 **Week 3-4: Zebra Integration**
@@ -1057,7 +1057,9 @@ graph TB
 
 ### arpd → zebra API
 
-**ZAPI Operations** (in `arpd/arpd_zebra.c`): See [Appendix F.2](#appendix-f2-arpd-zapi-implementation) for ZAPI functions that send neighbor updates to zebra and handle probe requests.
+**ZAPI Operations**: 
+- **arpd side** (in `arpd/arpd_zebra.c`): See [Appendix F.2](#appendix-f2-arpd-zapi-implementation) for ZAPI functions that send neighbor updates to zebra and handle probe requests.
+- **zebra side** (in `zebra/zebra_zapi.c`): See [Appendix F.3](#appendix-f3-zebra-zapi-handler) for ZAPI handler that processes neighbor updates from arpd while preserving PBR functionality.
 
 ### CLI Commands
 
@@ -1134,10 +1136,10 @@ arpd config:
 **Kernel configuration** (enable userspace mode on interface):
 ```bash
 # Enable userspace ARP on eth0
-sysctl -w net.ipv4.conf.eth0.arp_mode=1
+sysctl -w net.ipv4.conf.eth0.arp_mode=2
 
 # Enable userspace NDP on eth0
-sysctl -w net.ipv6.conf.eth0.ndisc_mode=1
+sysctl -w net.ipv6.conf.eth0.ndisc_mode=2
 ```
 
 **Example**: Hybrid mode (kernel ARP on eth0, userspace on eth1)
@@ -1146,7 +1148,7 @@ sysctl -w net.ipv6.conf.eth0.ndisc_mode=1
 sysctl -w net.ipv4.conf.eth0.arp_mode=0
 
 # eth1: userspace ARP
-sysctl -w net.ipv4.conf.eth1.arp_mode=1
+sysctl -w net.ipv4.conf.eth1.arp_mode=2
 ```
 
 #### Appendix B.2: Kernel Data Structure Modifications
@@ -1157,20 +1159,20 @@ sysctl -w net.ipv4.conf.eth1.arp_mode=1
 // IPv4: Add arp_mode to struct in_device
 struct in_device {
     // ... existing fields ...
-    int arp_mode;  // 0=kernel, 1=userspace
+    int arp_mode;  // 0=kernel, 1=hybrid, 2=userspace
 };
 
 // IPv6: Add ndisc_mode to struct inet6_dev
 struct inet6_dev {
     // ... existing fields ...
-    int ndisc_mode;  // 0=kernel, 1=userspace
+    int ndisc_mode;  // 0=kernel, 1=hybrid, 2=userspace
 };
 
 // Helper macros
 #define IN_DEV_ARP_USERSPACE(in_dev) \
-    ((in_dev) && (in_dev)->arp_mode == 1)
+    ((in_dev) && (in_dev)->arp_mode == 2)
 #define IN6_DEV_NDISC_USERSPACE(idev) \
-    ((idev) && (idev)->ndisc_mode == 1)
+    ((idev) && (idev)->ndisc_mode == 2)
 ```
 
 #### Appendix B.3: Advanced Kernel Modes
@@ -1297,7 +1299,7 @@ int ndisc_rcv(struct sk_buff *skb)
     struct net_device *dev = skb->dev;
     struct inet6_dev *idev = __in6_dev_get(dev);
     
-    if (idev && idev->cnf.ndisc_userspace) {
+    if (IN6_DEV_NDISC_USERSPACE(idev)) {
         // Forward to userspace
         neigh_forward_to_userspace(skb, dev);
         consume_skb(skb);
@@ -1315,21 +1317,30 @@ int ndisc_rcv(struct sk_buff *skb)
 
 #### Appendix E.1: Zebra Neighbor Entry Structure
 
-**File**: `zebra/zebra_neigh.c`
+**File**: `zebra/zebra_neigh.h`
+
+**Proposed extension** to existing structure (preserve all existing fields):
 
 ```c
 struct zebra_neigh_ent {
-    ifindex_t ifindex;
-    struct ipaddr ip;
-    struct ethaddr mac;
-    uint32_t flags;
+    // Existing fields (DO NOT REMOVE - required for PBR)
+    ns_id_t ns_id;                // Namespace ID
+    ifindex_t ifindex;            // Interface index
+    struct ipaddr ip;             // IPv4 or IPv6 address
+    struct ethaddr mac;           // MAC address
+    uint16_t neigh_state;         // State from kernel (NUD_REACHABLE, etc.)
+    uint32_t flags;               // Existing flags (ZEBRA_NEIGH_ENT_ACTIVE)
+    RB_ENTRY(zebra_neigh_ent) rb_node;  // RB tree linkage
+    struct list *pbr_rule_list;   // PBR rules referencing this neighbor
+    
+    // New fields for arpd integration (to be added)
+    vrf_id_t vrf_id;              // VRF for multi-VRF/EVPN support
     enum neigh_source {
         NEIGH_SOURCE_KERNEL,      // Learned from kernel (legacy)
         NEIGH_SOURCE_ARPD,        // Learned from arpd (local learning)
         NEIGH_SOURCE_EVPN_REMOTE, // EVPN RT-2 from remote VTEP
         NEIGH_SOURCE_STATIC,      // Static configuration
     } source;
-    RB_ENTRY(zebra_neigh_ent) rb_node;
 };
 ```
 
@@ -1344,6 +1355,7 @@ struct zebra_neigh_ent {
 struct arpd_neighbor {
     // Key fields
     ifindex_t ifindex;              // Interface index
+    vrf_id_t vrf_id;                // VRF ID (for multi-VRF/EVPN)
     int family;                     // AF_INET (ARP) or AF_INET6 (NDP)
     union {
         struct in_addr ipv4;        // IPv4 address (for ARP)
@@ -1450,8 +1462,11 @@ struct arpd_interface {
 enum zebra_message_types {
     // ... existing messages ...
     
+    // Reuse existing types (already defined at lines 222-223):
     ZEBRA_NEIGH_ADDED,              // arpd → zebra: new neighbor learned
-    ZEBRA_NEIGH_DELETED,            // arpd → zebra: neighbor deleted
+    ZEBRA_NEIGH_REMOVED,            // arpd → zebra: neighbor deleted
+    
+    // New types to be added:
     ZEBRA_NEIGH_UPDATED,            // arpd → zebra: neighbor state changed
     ZEBRA_NEIGH_PROBE_REQUEST,      // zebra → arpd: probe this IP
     ZEBRA_NEIGH_FLUSH_REQUEST,      // zebra → arpd: flush interface
@@ -1459,6 +1474,7 @@ enum zebra_message_types {
 
 // Message structure: ZEBRA_NEIGH_ADDED
 struct zapi_neigh_add {
+    vrf_id_t vrf_id;                 // VRF ID (for multi-VRF/EVPN)
     ifindex_t ifindex;
     struct ipaddr ip;                // IPv4 or IPv6
     struct ethaddr mac;
@@ -1468,6 +1484,7 @@ struct zapi_neigh_add {
 
 // Message structure: ZEBRA_NEIGH_PROBE_REQUEST
 struct zapi_neigh_probe {
+    vrf_id_t vrf_id;                 // VRF ID (for multi-VRF/EVPN)
     ifindex_t ifindex;
     struct ipaddr ip;
     uint32_t flags;                  // PROBE_FORCE, etc.
@@ -1487,7 +1504,9 @@ int arpd_zebra_neigh_add(struct arpd_neighbor *neigh)
     s = zclient->obuf;
     stream_reset(s);
     
-    zclient_create_header(s, ZEBRA_NEIGH_ADDED, VRF_DEFAULT);
+    // Use neighbor's VRF instead of hard-coded VRF_DEFAULT
+    zclient_create_header(s, ZEBRA_NEIGH_ADDED, neigh->vrf_id);
+    stream_putl(s, neigh->vrf_id);
     stream_putl(s, neigh->ifindex);
     stream_put_ipaddr(s, &neigh->ip);
     stream_put(s, &neigh->mac, ETH_ALEN);
@@ -1503,22 +1522,104 @@ int arpd_zebra_neigh_add(struct arpd_neighbor *neigh)
 static int arpd_zebra_neigh_probe(ZAPI_HANDLER_ARGS)
 {
     struct stream *s = zclient->ibuf;
+    vrf_id_t vrf_id;
     ifindex_t ifindex;
     struct ipaddr ip;
     uint32_t flags;
     
+    STREAM_GETL(s, vrf_id);
     STREAM_GETL(s, ifindex);
     STREAM_GET_IPADDR(s, &ip);
     STREAM_GETL(s, flags);
     
     // Trigger ARP/NDP probe
-    arpd_neigh_probe(ifindex, &ip, flags);
+    arpd_neigh_probe(vrf_id, ifindex, &ip, flags);
     
     return 0;
 stream_failure:
     return -1;
 }
 ```
+
+#### Appendix F.3: Zebra ZAPI Handler
+
+**File**: `zebra/zebra_zapi.c`
+
+**Important**: Handler must preserve all existing zebra_neigh_ent fields to maintain PBR functionality.
+
+```c
+// Handle ZEBRA_NEIGH_ADDED from arpd
+static int zebra_neigh_handle_add(ZAPI_CALLBACK_ARGS)
+{
+    struct stream *s = msg;
+    vrf_id_t vrf_id;
+    ifindex_t ifindex;
+    struct ipaddr ip;
+    struct ethaddr mac;
+    uint8_t state;
+    uint32_t flags;
+    struct interface *ifp;
+    ns_id_t ns_id;
+    uint16_t neigh_state;
+    
+    // Decode ZAPI message
+    STREAM_GETL(s, vrf_id);
+    STREAM_GETL(s, ifindex);
+    STREAM_GET_IPADDR(s, &ip);
+    STREAM_GET(s, &mac, ETH_ALEN);
+    STREAM_GETC(s, state);
+    STREAM_GETL(s, flags);
+    
+    // Get interface and derive namespace ID (needed for pbr_rule_list)
+    ifp = if_lookup_by_index(ifindex, vrf_id);
+    if (!ifp) {
+        zlog_warn("ZEBRA_NEIGH_ADDED: unknown interface %u in VRF %u",
+                  ifindex, vrf_id);
+        return 0;
+    }
+    ns_id = ifp->vrf->ns_id;
+    
+    // Convert arpd state to kernel neigh_state (preserve existing format)
+    neigh_state = arpd_state_to_nud(state);
+    
+    // Call existing zebra_neigh_add() to maintain PBR integration
+    // This function manages pbr_rule_list and all other neighbor tracking
+    zebra_neigh_add(ns_id, ifp, &ip, &mac, neigh_state);
+    
+    return 0;
+stream_failure:
+    zlog_err("Failed to decode ZEBRA_NEIGH_ADDED message");
+    return -1;
+}
+
+// Helper: Convert arpd state to kernel NUD state
+static uint16_t arpd_state_to_nud(uint8_t arpd_state)
+{
+    switch (arpd_state) {
+    case NEIGH_REACHABLE:
+        return NUD_REACHABLE;
+    case NEIGH_STALE:
+        return NUD_STALE;
+    case NEIGH_PROBE:
+        return NUD_PROBE;
+    case NEIGH_INCOMPLETE:
+        return NUD_INCOMPLETE;
+    case NEIGH_FAILED:
+        return NUD_FAILED;
+    case NEIGH_PERMANENT:
+        return NUD_PERMANENT;
+    default:
+        return NUD_NONE;
+    }
+}
+```
+
+**Note**: The existing `zebra_neigh_add()` function (in `zebra/zebra_neigh.c`) already handles:
+- Creating/updating `zebra_neigh_ent` with all required fields (ns_id, neigh_state, pbr_rule_list)
+- Maintaining PBR rule references via `pbr_rule_list`
+- Notifying other consumers (bgpd, EVPN, etc.)
+
+By reusing this function, we preserve all existing functionality while adding arpd as a new neighbor source.
 
 ---
 
