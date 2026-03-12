@@ -480,6 +480,14 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 
 	dest = bgp_afi_node_get(bgp->rib[AFI_BGP_LS][SAFI_BGP_LS], AFI_BGP_LS, SAFI_BGP_LS, &p,
 				NULL);
+
+	/*
+	 * Unintern any existing NLRI reference before installing the new one
+	 * to avoid leaking the previous interned pointer.
+	 */
+	if (dest->ls_nlri)
+		bgp_ls_nlri_unintern(&dest->ls_nlri);
+
 	dest->ls_nlri = ls_nlri;
 
 	/* Make default attribute. */
@@ -530,7 +538,7 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 	/* Process change */
 	bgp_process(bgp, dest, new, AFI_BGP_LS, SAFI_BGP_LS);
 
-	/* route_node_get unlock */
+	/* Unlock node from bgp_afi_node_get */
 	bgp_dest_unlock_node(dest);
 
 	/* Unintern original */
