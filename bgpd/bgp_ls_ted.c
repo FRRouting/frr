@@ -355,6 +355,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	ret = bgp_ls_update(bgp, &nlri, ls_attr);
 	if (ret < 0) {
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to originate Node NLRI");
+		bgp_ls_attr_free(ls_attr);
 		return -1;
 	}
 
