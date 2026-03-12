@@ -607,7 +607,8 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Remote Node if available */
-	if (edge && edge->attributes && CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
+	if (edge && edge->destination && edge->destination->node &&
+	    CHECK_FLAG(edge->destination->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.link.remote_node.asn = edge->destination->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.link.remote_node.present_tlvs,
 			       BGP_LS_NODE_DESC_AS_BIT);
