@@ -600,6 +600,14 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	BGP_LS_TLV_SET(nlri.nlri_data.link.local_node.present_tlvs,
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
+	/* Set AS Number for Local Node if available */
+	if (edge && edge->source && edge->source->node &&
+	    CHECK_FLAG(edge->source->node->flags, LS_NODE_AS_NUMBER)) {
+		nlri.nlri_data.link.local_node.asn = edge->source->node->as_number;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.local_node.present_tlvs,
+			       BGP_LS_NODE_DESC_AS_BIT);
+	}
+
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
 	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
