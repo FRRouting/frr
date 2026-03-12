@@ -824,17 +824,16 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 static bool bfd_check_auth(const struct bfd_session *bfd,
 			   const struct bfd_pkt *cp)
 {
-	if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
-		/* RFC5880 4.1: Authentication Section is present. */
-		struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
-		uint16_t pkt_auth_type = ntohs(auth->type);
+	(void)bfd;
 
-		if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
-			return false;
+	if (!CHECK_FLAG(cp->flags, BFD_ABIT))
+		return true;
 
-		if (cp->len < BFD_PKT_LEN + auth->length)
-			return false;
+	/* RFC5880 4.1: Authentication Section is present. */
+	if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
+		return false;
 
+<<<<<<< HEAD
 		switch (pkt_auth_type) {
 		case BFD_AUTH_NULL:
 			return false;
@@ -848,8 +847,29 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 			/* RFC5880 6.7: To be finshed. */
 			return false;
 		}
+=======
+	const struct bfd_auth *auth = (const struct bfd_auth *)(cp + 1);
+
+	if (cp->len < BFD_PKT_LEN + auth->length)
+		return false;
+
+	switch (auth->type) {
+	case BFD_AUTH_NULL:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	case BFD_AUTH_SIMPLE:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	case BFD_AUTH_CRYPTOGRAPHIC:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	default:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+>>>>>>> ef88ba312 (bfdd: tighten auth header parsing skeleton)
 	}
-	return true;
+
+	return false; /* unreachable, defensive */
 }
 
 void bfd_recv_cb(struct event *t)
