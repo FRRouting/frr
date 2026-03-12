@@ -544,6 +544,16 @@ def test_mroutes_updated_with_correct_oil_iif_when_receiver_is_in_and_outside_DU
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
         shutdown_bringup_interface(tgen, "r1", intf, False)
 
+    result = verify_upstream_iif(
+        tgen,
+        "r1",
+        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        + r1_r3_links,
+        "*",
+        IGMP_JOIN_RANGE_1,
+    )
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     step(
         "After shut of upstream interface from DUT verify mroutes has moved "
         "to another interface (R2 or R3) and updated with correct OIL/IIF using"
@@ -733,6 +743,16 @@ def test_mroutes_updated_with_correct_oil_iif_when_receiver_is_in_and_outside_DU
     for i in range(1, 5, 2):
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
         shutdown_bringup_interface(tgen, "r1", intf, False)
+
+    result = verify_upstream_iif(
+        tgen,
+        "r1",
+        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        + r1_r3_links,
+        "*",
+        IGMP_JOIN_RANGE_1,
+    )
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
         "After shut of upstream interface from DUT verify mroutes has moved "
@@ -939,6 +959,15 @@ def test_mroutes_updated_with_correct_oil_iif_when_source_is_in_and_outside_DUT_
     for i in range(1, 5, 2):
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
         shutdown_bringup_interface(tgen, "r1", intf, False)
+    result = verify_upstream_iif(
+        tgen,
+        "r1",
+        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        + r1_r3_links,
+        "*",
+        IGMP_JOIN_RANGE_1,
+    )
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
         "After shut of upstream interface from DUT verify mroutes has moved "
@@ -988,6 +1017,16 @@ def test_mroutes_updated_with_correct_oil_iif_when_source_is_in_and_outside_DUT_
     for i in range(1, 5, 2):
         intf = topo["routers"]["r4"]["links"]["r2-link{}".format(i)]["interface"]
         shutdown_bringup_interface(tgen, "r4", intf, False)
+
+    result = verify_upstream_iif(
+        tgen,
+        "r4",
+        [topo["routers"]["r4"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        + r4_r3_links,
+        "*",
+        IGMP_JOIN_RANGE_1,
+    )
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
         "After shut of upstream interface from R4 verify mroutes has moved "
