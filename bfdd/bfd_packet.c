@@ -1222,6 +1222,8 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		return -1;
 	}
 
+	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
+
 	/* Test for loopback for ipv6, ipv4 is looped in forwarding plane */
 	if ((*ttl == BFD_TTL_VAL) && (sd == bvrf->bg_echov6)) {
 		struct bfd_key key;
@@ -1249,15 +1251,18 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 			return -1;
 		}
 
-		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
-			    (struct sockaddr *)&peer,
-			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin)
-						    : sizeof(peer.sa_sin6));
+		if (bep->len < sizeof(*bep) || (ssize_t)bep->len > rlen - (ssize_t)bfd_offset) {
+			cp_debug(false, &peer, &local, ifindex, vrfid,
+				 "invalid echo length %u (rx %zd), dropping", bep->len, rlen);
+			return -1;
+		}
+
+		bp_udp_send(sd, *ttl - 1, msgbuf, bep->len, (struct sockaddr *)&peer,
+			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin) : sizeof(peer.sa_sin6));
 		return -1;
 	}
 
 	/* Read my discriminator from BFD Echo packet. */
-	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
 	*my_discr = ntohl(bep->my_discr);
 	if (*my_discr == 0) {
 		frrtrace(6, frr_bfd, echo_packet_error, 2, &peer, &local, ifindex, vrfid, rlen);
