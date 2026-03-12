@@ -589,8 +589,13 @@ int bgp_ls_withdraw(struct bgp *bgp, struct bgp_ls_nlri *nlri)
 	p.prefixlen = 32;
 	p.u.val32[0] = ls_nlri->id;
 
-	dest = bgp_afi_node_get(bgp->rib[AFI_BGP_LS][SAFI_BGP_LS], AFI_BGP_LS, SAFI_BGP_LS, &p,
-				NULL);
+	dest = bgp_node_lookup(bgp->rib[AFI_BGP_LS][SAFI_BGP_LS], &p);
+	if (!dest) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("%s: No RIB entry found for NLRI type=%u", __func__,
+				   nlri->nlri_type);
+		return 0;
+	}
 
 	/* Find path from local peer */
 	for (bpi = bgp_dest_get_bgp_path_info(dest); bpi; bpi = bpi->next)
@@ -614,7 +619,7 @@ int bgp_ls_withdraw(struct bgp *bgp, struct bgp_ls_nlri *nlri)
 			zlog_debug("%s: No path found for NLRI type=%u", __func__, nlri->nlri_type);
 	}
 
-	/* Unlock node from bgp_afi_node_get */
+	/* Unlock node from bgp_node_lookup */
 	bgp_dest_unlock_node(dest);
 
 	return 0;
