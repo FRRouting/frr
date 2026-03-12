@@ -1139,8 +1139,14 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		return -1;
 	}
 
+<<<<<<< HEAD
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*bep)) {
+=======
+	/* Short packet, better not risk reading it at selected offset. */
+	if (rlen < (ssize_t)(bfd_offset + sizeof(*bep))) {
+		frrtrace(6, frr_bfd, echo_packet_error, 1, &peer, &local, ifindex, vrfid, rlen);
+>>>>>>> d2645ab31 (bfdd: account for FP offset in echo length checks)
 		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "small echo packet");
 		return -1;
