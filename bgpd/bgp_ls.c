@@ -750,12 +750,25 @@ bool bgp_ls_unregister(struct bgp *bgp)
 	if (!bgp_ls_is_registered(bgp))
 		return true;
 
+	/*
+	 * Clear the local registration flag *before* the zebra call.
+	 *
+	 * If ls_unregister() fails, BGP has lost sync with zebra.  Leaving
+	 * registered_ls_db set to true in that case would make
+	 * bgp_ls_is_registered() report "still registered", preventing any
+	 * subsequent bgp_ls_register() call from attempting re-registration
+	 * and leaving BGP permanently unable to receive link-state updates.
+	 *
+	 * By clearing the flag eagerly, bgp_ls_register() will see
+	 * registered_ls_db=false and attempt re-registration, giving the
+	 * system a chance to recover.
+	 */
+	bgp->ls_info->registered_ls_db = false;
+
 	if (ls_unregister(bgp_zclient, false) != 0) {
 		zlog_err("BGP-LS: Failed to unregister from Link State database");
 		return false;
 	}
-
-	bgp->ls_info->registered_ls_db = false;
 
 	zlog_info("BGP-LS: Unregistered from Link State database for BGP instance %s",
 		  bgp->name_pretty);
