@@ -459,7 +459,12 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (old_best) {
 		old_mpath_count = bgp_path_info_mpath_count(dest);
-		if (old_mpath_count == 1)
+		/* Only mark old best as multipath when we have a new best path.
+		 * When new_best is NULL (e.g. only path became invalid/holddown),
+		 * the old path is not "another ECMP path" and should not show
+		 * as multipath.
+		 */
+		if (new_best && old_mpath_count == 1)
 			SET_FLAG(old_best->flags, BGP_PATH_MULTIPATH);
 		old_cum_bw = bgp_path_info_mpath_cumbw(dest);
 		bgp_path_info_mpath_count_set(dest, 0);
