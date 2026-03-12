@@ -93,10 +93,21 @@ def test_zebra_received_nhe_kept():
             ), f"Route {prefix} has different NHG ID"
 
         # Get the NHG information
-        logger.info("Verify NHG {} has refcount of 10".format(nhg_id))
+        logger.info("Verify NHG {} has refcount of 5".format(nhg_id))
         nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
         nhg_json = json.loads(nhg_info)
-        assert nhg_json[str(nhg_id)]["refCount"] == 10, "NHG refcount is not 10"
+        assert nhg_json[str(nhg_id)]["refCount"] == 5, "NHG refcount is not 5"
+
+        # Verify that receivedNexthopGroupId is distinct from nexthopGroupId.
+        # After fix, nhe_received points to the original unresolved NHG received
+        # from the upper protocol, while re->nhe points to the resolved NHG.
+        # They must be different objects.
+        for i in range(1, 6):
+            prefix = f"10.0.0.{i}/32"
+            route = route_json[prefix][0]
+            assert (
+                route["receivedNexthopGroupId"] != route["nexthopGroupId"]
+            ), f"Route {prefix}: receivedNexthopGroupId should differ from nexthopGroupId after resolution"
 
     assert not _check_zebra_routes()
 
@@ -154,13 +165,13 @@ def test_zebra_received_nhe_kept_remove_routes():
     step("Verify NHG {} has refcount of 2".format(nhg_id))
 
     # Get the NHG information
-    def check_nhg_refcount_4():
+    def check_nhg_refcount_2():
         nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
         nhg_json = json.loads(nhg_info)
         return nhg_json.get(str(nhg_id), {}).get("refCount")
 
-    _, result = topotest.run_and_expect(check_nhg_refcount_4, 4, count=30, wait=1)
-    assert result == 4, "NHG refcount is not 4"
+    _, result = topotest.run_and_expect(check_nhg_refcount_2, 2, count=30, wait=1)
+    assert result == 2, "NHG refcount is not 2"
 
 
 def test_zebra_received_nhe_kept_add_routes():
@@ -226,13 +237,13 @@ def test_zebra_received_nhe_kept_add_routes():
     step("Verify NHG {} has refcount of 10".format(nhg_id))
 
     # Get the NHG information
-    def check_nhg_refcount_20():
+    def check_nhg_refcount_10():
         nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
         nhg_json = json.loads(nhg_info)
         return nhg_json.get(str(nhg_id), {}).get("refCount")
 
-    _, result = topotest.run_and_expect(check_nhg_refcount_20, 20, count=30, wait=1)
-    assert result == 20, "NHG refcount is not 20"
+    _, result = topotest.run_and_expect(check_nhg_refcount_10, 10, count=30, wait=1)
+    assert result == 10, "NHG refcount is not 10"
 
 
 def test_zebra_received_nhe_kept_remove_all_routes():
@@ -293,6 +304,105 @@ def test_zebra_received_nhe_kept_remove_all_routes():
 
     # Verify the specific NHG we looked up is no longer present
     assert result, f"NHG {nhg_id} still exists after removing all routes"
+
+
+def test_zebra_received_nhe_kept_nexthop_change():
+    """Test that receivedNexthopGroupId updates when a route's nexthop changes.
+
+    After the fix, nhe_received holds the NHG originally received from the upper
+    protocol. When a route is updated with a new nexthop, receivedNexthopGroupId
+    should change to reflect the new received NHG, not remain stale.
+    Also verifies that receivedNexthopGroupId always differs from nexthopGroupId,
+    since nhe_received holds the unresolved NHG while re->nhe holds the resolved one.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Add route 10.0.0.1/32 via 10.0.0.0 and record original receivedNexthopGroupId")
+    r1.vtysh_cmd("configure terminal\n ip route 10.0.0.1/32 10.0.0.0\n end")
+
+    def get_received_nhg_id():
+        route_info = r1.vtysh_cmd("show ip route 10.0.0.1/32 json")
+        route_json = json.loads(route_info)
+        if "10.0.0.1/32" not in route_json:
+            return None
+        route = route_json["10.0.0.1/32"][0]
+        return route.get("receivedNexthopGroupId")
+
+    def check_route_has_rcv_id():
+        return get_received_nhg_id() is not None
+
+    _, result = topotest.run_and_expect(check_route_has_rcv_id, True, count=30, wait=1)
+    assert result, "Route 10.0.0.1/32 missing receivedNexthopGroupId"
+    original_rcv_id = get_received_nhg_id()
+    assert original_rcv_id is not None, "Route 10.0.0.1/32 missing receivedNexthopGroupId"
+
+    step("Verify received NHG refcount is 1 (only this route holds a nhe_received ref)")
+
+    def check_rcv_nhg_refcount_1():
+        nhg_info = r1.vtysh_cmd(
+            "show nexthop-group rib {} json".format(original_rcv_id)
+        )
+        nhg_json = json.loads(nhg_info)
+        return nhg_json.get(str(original_rcv_id), {}).get("refCount")
+
+    _, result = topotest.run_and_expect(check_rcv_nhg_refcount_1, 1, count=30, wait=1)
+    assert result == 1, (
+        "Received NHG refcount should be 1: only nhe_received holds a ref, "
+        "re->nhe points to the resolved NHG which is a different object"
+    )
+
+    step("Verify receivedNexthopGroupId differs from nexthopGroupId (unresolved vs resolved)")
+    route_info = r1.vtysh_cmd("show ip route 10.0.0.1/32 json")
+    route_json = json.loads(route_info)
+    route = route_json["10.0.0.1/32"][0]
+    assert (
+        route["receivedNexthopGroupId"] != route["nexthopGroupId"]
+    ), "receivedNexthopGroupId should differ from nexthopGroupId after nexthop resolution"
+
+    step("Update route 10.0.0.1/32 to use a direct nexthop 192.168.1.1")
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        " no ip route 10.0.0.1/32 10.0.0.0\n"
+        " ip route 10.0.0.1/32 192.168.1.1\n"
+        "end"
+    )
+
+    step("Verify receivedNexthopGroupId changed to reflect new received NHG")
+
+    def check_rcv_id_changed():
+        new_id = get_received_nhg_id()
+        if new_id is None:
+            return False
+        return new_id != original_rcv_id
+
+    _, result = topotest.run_and_expect(check_rcv_id_changed, True, count=30, wait=1)
+    assert result, "receivedNexthopGroupId should update when route nexthop changes"
+    new_rcv_id = get_received_nhg_id()
+    assert (
+        new_rcv_id is not None and new_rcv_id != original_rcv_id
+    ), "receivedNexthopGroupId should update when route nexthop changes"
+
+    step("Verify old received NHG is removed from rib after route nexthop change")
+
+    def check_old_rcv_nhg_removed():
+        nhg_info = r1.vtysh_cmd("show nexthop-group rib json")
+        nhg_json = json.loads(nhg_info)
+        return str(original_rcv_id) not in nhg_json
+
+    _, result = topotest.run_and_expect(
+        check_old_rcv_nhg_removed, True, count=30, wait=1
+    )
+    assert result, (
+        f"Old received NHG {original_rcv_id} should be removed after "
+        "route nexthop change releases its nhe_received ref"
+    )
+
+    step("Cleanup: remove the test route")
+    r1.vtysh_cmd("configure terminal\n no ip route 10.0.0.1/32 192.168.1.1\n end")
 
 
 if __name__ == "__main__":
