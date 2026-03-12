@@ -1920,20 +1920,17 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 	seg = aspath->segments;
 
 	/* CONFEDs should get reconciled too.. */
-	hops = (aspath_count_hops(aspath) + aspath_count_confeds(aspath))
-	       - aspath_count_hops(as4path);
+	hops = (aspath_count_hops(aspath) + aspath_count_confeds(aspath)) -
+	       (aspath_count_hops(as4path) + aspath_count_confeds(as4path));
 
 	if (hops < 0) {
-		if (BGP_DEBUG(as4, AS4))
-			flog_warn(
-				EC_BGP_ASPATH_FEWER_HOPS,
-				"[AS4] Fewer hops in AS_PATH than NEW_AS_PATH");
-		/* Something's gone wrong. The RFC says we should now ignore
-		 * AS4_PATH,
-		 * which is daft behaviour - it contains vital loop-detection
-		 * information which must have been removed from AS_PATH.
+		flog_warn(EC_BGP_ASPATH_FEWER_HOPS,
+			  "[AS4] Fewer hops in AS_PATH than AS4_PATH, ignoring AS4_PATH (RFC 6793)");
+		/* RFC 6793 4.1.3:
+		 * if AS_PATH < AS4_PATH, AS4_PATH SHALL be ignored and
+		 * AS_PATH SHALL be taken as-is.
 		 */
-		hops = aspath_count_hops(aspath);
+		return aspath_dup(aspath);
 	}
 
 	if (!hops) {
