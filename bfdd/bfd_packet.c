@@ -503,7 +503,7 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN || errno != EWOULDBLOCK || errno != EINTR)
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
 			zlog_err("%s: recv failed: %s", __func__,
 				 strerror(errno));
 
@@ -581,7 +581,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN)
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
 			zlog_err("ipv4-recv: recv failed: %s", strerror(errno));
 
 		return -1;
@@ -693,7 +693,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN)
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
 			zlog_err("ipv6-recv: recv failed: %s", strerror(errno));
 
 		return -1;
