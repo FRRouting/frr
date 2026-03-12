@@ -219,50 +219,37 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr 
 /*
  * Populate BGP-LS Attributes from Link State Prefix
  */
-int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr **attr)
+int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr)
 {
-	bool encoded = false;
-
 	if (!ls_prefix || !attr)
 		return -1;
 
-	*attr = bgp_ls_attr_alloc();
-
 	/* IGP Flags (TLV 1152) */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_IGP_FLAG)) {
-		(*attr)->igp_flags = ls_prefix->igp_flag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_IGP_FLAGS_BIT);
-		encoded = true;
+		attr->igp_flags = ls_prefix->igp_flag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_IGP_FLAGS_BIT);
 	}
 
 	/* Route Tags (TLV 1153) - single tag */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_ROUTE_TAG)) {
-		(*attr)->route_tag_count = 1;
-		(*attr)->route_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint32_t));
-		(*attr)->route_tags[0] = ls_prefix->route_tag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_ROUTE_TAG_BIT);
-		encoded = true;
+		attr->route_tag_count = 1;
+		attr->route_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint32_t));
+		attr->route_tags[0] = ls_prefix->route_tag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_ROUTE_TAG_BIT);
 	}
 
 	/* Extended Tags (TLV 1154) - single extended tag */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_EXTENDED_TAG)) {
-		(*attr)->extended_tag_count = 1;
-		(*attr)->extended_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint64_t));
-		(*attr)->extended_tags[0] = ls_prefix->extended_tag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_EXTENDED_TAG_BIT);
-		encoded = true;
+		attr->extended_tag_count = 1;
+		attr->extended_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint64_t));
+		attr->extended_tags[0] = ls_prefix->extended_tag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_EXTENDED_TAG_BIT);
 	}
 
 	/* Prefix Metric (TLV 1155) */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_METRIC)) {
-		(*attr)->prefix_metric = ls_prefix->metric;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
-		encoded = true;
-	}
-
-	if (!encoded) {
-		bgp_ls_attr_free(*attr);
-		attr = NULL;
+		attr->prefix_metric = ls_prefix->metric;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
 	}
 
 	return 0;
@@ -776,7 +763,8 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 		       BGP_LS_PREFIX_DESC_IP_REACH_BIT);
 
 	/* Populate BGP-LS attributes from Link State subnet */
-	if (bgp_ls_populate_prefix_attr(subnet->ls_pref, &ls_attr) < 0) {
+	ls_attr = bgp_ls_attr_alloc();
+	if (bgp_ls_populate_prefix_attr(subnet->ls_pref, ls_attr) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Prefix attributes");
 		bgp_ls_attr_free(ls_attr);
 		return -1;
