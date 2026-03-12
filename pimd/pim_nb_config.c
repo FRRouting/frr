@@ -2216,6 +2216,38 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static int pim_interface_num_get(const struct lyd_node *if_dnode)
+{
+	const struct lyd_node *iter, *lib_dnode;
+	int cnt = 0;
+
+	lib_dnode = lyd_parent(if_dnode);
+
+	LY_LIST_FOR (lyd_child(lib_dnode), iter) {
+		const struct lyd_node *gmp_enable;
+		const struct lyd_node *pim_enable;
+
+		if (iter->schema->nodetype != LYS_LIST)
+			continue;
+
+		gmp_enable =
+			yang_dnode_getf(iter,
+					"frr-gmp:gmp/address-family[address-family='%s']/enable",
+					FRR_PIM_AF_XPATH_VAL);
+		pim_enable =
+			yang_dnode_getf(iter,
+					"frr-pim:pim/address-family[address-family='%s']/pim-enable",
+					FRR_PIM_AF_XPATH_VAL);
+
+		if ((gmp_enable && yang_dnode_get_bool(gmp_enable, NULL)) ||
+		    (pim_enable && yang_dnode_get_bool(pim_enable, NULL))) {
+			cnt++;
+		}
+	}
+
+	return cnt;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/pim-enable
  */
@@ -2223,17 +2255,13 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	int mcast_if_count;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		mcast_if_count =
-			yang_get_list_elements_count(if_dnode);
-
 		/* Limiting mcast interfaces to number of VIFs */
-		if (mcast_if_count == MAXVIFS) {
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (pim_interface_num_get(if_dnode) > MAXVIFS) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) reached.",
 				 MAXVIFS);
@@ -4563,17 +4591,14 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 	struct interface *ifp;
 	bool gm_enable;
-	int mcast_if_count;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		mcast_if_count =
-			yang_get_list_elements_count(if_dnode);
 		/* Limiting mcast interfaces to number of VIFs */
-		if (mcast_if_count == MAXVIFS) {
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (pim_interface_num_get(if_dnode) > MAXVIFS) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(
 				args->errmsg, args->errmsg_len,
