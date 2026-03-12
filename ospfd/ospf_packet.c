@@ -1533,7 +1533,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 					 struct stream *s,
 					 struct ospf_interface *oi, size_t size)
 {
-	uint16_t count, sum;
+	uint32_t count;
+	uint16_t sum;
 	uint32_t length;
 	struct lsa_header *lsah;
 	struct ospf_lsa *lsa;

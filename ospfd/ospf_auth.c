@@ -173,9 +173,9 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 
 	if (nbr &&
-	    ntohl(nbr->crypt_seqnum) > ntohl(ospfh->u.crypt.crypt_seqnum)) {
+	    ntohl(nbr->crypt_seqnum) >= ntohl(ospfh->u.crypt.crypt_seqnum)) {
 		flog_warn(EC_OSPF_AUTH,
-			  "interface %s: ospf_check_hmac_sha bad sequence %u (expect %d), Router-ID: %pI4",
+			  "interface %s: ospf_check_hmac_sha bad sequence %u (expect > %u), Router-ID: %pI4",
 			  IF_NAME(oi), ntohl(ospfh->u.crypt.crypt_seqnum),
 			  ntohl(nbr->crypt_seqnum), &ospfh->router_id);
 		return 0;
@@ -238,9 +238,9 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 
 	if (nbr &&
-	    ntohl(nbr->crypt_seqnum) > ntohl(ospfh->u.crypt.crypt_seqnum)) {
+	    ntohl(nbr->crypt_seqnum) >= ntohl(ospfh->u.crypt.crypt_seqnum)) {
 		flog_warn(EC_OSPF_AUTH,
-			  "interface %s: %s bad sequence %d (expect %d), Router-ID: %pI4",
+			  "interface %s: %s bad sequence %u (expect > %u), Router-ID: %pI4",
 			  IF_NAME(oi), __func__, ntohl(ospfh->u.crypt.crypt_seqnum),
 			  ntohl(nbr->crypt_seqnum), &ospfh->router_id);
 		return 0;
