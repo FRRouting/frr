@@ -416,7 +416,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	/* Check for passive mode with zero discriminator */
-	if (bfd->discrs.remote_discr == 0 && 
+	if (bfd->discrs.remote_discr == 0 &&
 		CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE))
 		return;
 
@@ -889,6 +889,11 @@ void bfd_recv_cb(struct event *t)
 				     &local, &peer);
 	}
 
+	if (mlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return;
+	}
+
 	/*
 	 * With netns backend, we have a separate socket in each VRF. It means
 	 * that bvrf here is correct and we believe the bvrf->vrf->vrf_id.
@@ -904,10 +909,18 @@ void bfd_recv_cb(struct event *t)
 			vrfid = ifp->vrf->vrf_id;
 	}
 
-	/* Implement RFC 5880 6.8.6 */
+	/* Require a full fixed BFD control header before parsing/session lookup. */
 	if (mlen < BFD_PKT_LEN) {
-		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%zd bytes)", mlen);
+		/* No resolved session at this point to charge rx_bad_ctrl_pkt. */
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small (%zd bytes)", mlen);
+		return;
+	}
+
+	/* Find the session that this packet belongs. */
+	cp = (struct bfd_pkt *)(msgbuf);
+	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
+	if (bfd == NULL) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "no session found");
 		return;
 	}
 
@@ -925,7 +938,6 @@ void bfd_recv_cb(struct event *t)
 	 * - Short packets;
 	 * - Invalid discriminator;
 	 */
-	cp = (struct bfd_pkt *)(msgbuf);
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "bad version %d", BFD_GETVER(cp->diag));
@@ -955,17 +967,10 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
-	/* Find the session that this packet belongs. */
-	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
-	if (bfd == NULL) {
-		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "no session found");
-		return;
-	}
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
+	if (bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
 		return;
@@ -1151,6 +1156,11 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
 				     &local, &peer);
 		bfd_offset = 0;
+	}
+
+	if (rlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return -1;
 	}
 
 	/* Short packet, better not risk reading it. */
@@ -2040,6 +2050,10 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 	uint8_t msgbuf[1516];
 
 	rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex, &local, &peer);
+	if (rlen < 0) {
+		/* bfd_recv_ipv6 already logged the receive error. */
+		return 0;
+	}
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*cp)) {
 		zlog_debug("small bfd packet");
