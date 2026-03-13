@@ -12,6 +12,7 @@
 """
 test_isis_topo1.py: Test ISIS topology.
 """
+
 import datetime
 import functools
 import json
@@ -32,7 +33,6 @@ from lib.common_config import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
 
 pytestmark = [pytest.mark.isisd]
 
@@ -136,7 +136,7 @@ def test_isis_convergence():
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
+        result, diff = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
 
@@ -154,13 +154,10 @@ def test_isis_route_installation():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
 
-        def compare_isis_installed_routes(router, expected):
-            "Helper function to test ISIS routes installed in rib."
-            actual = router.vtysh_cmd("show ip route json", isjson=True)
-            return topotest.json_cmp(actual, expected)
-
-        test_func = functools.partial(compare_isis_installed_routes, router, expected)
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        test_func = functools.partial(
+            _helper_compare_isis_installed_routes, router, expected
+        )
+        result, _ = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -205,7 +202,7 @@ def test_isis_route6_installation():
         test_func = functools.partial(
             compare_isis_v6_installed_routes, router, expected
         )
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        result, diff = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -368,13 +365,11 @@ def test_isis_overload_on_startup():
 
     # Configure set-overload-bit on-startup on r3
     r3 = tgen.gears["r3"]
-    r3.vtysh_cmd(
-        f"""
+    r3.vtysh_cmd(f"""
           configure
             router isis 1
               set-overload-bit on-startup {overload_time}
-        """
-    )
+        """)
     # Restart r3
     logger.info("Stop router")
     stop_router(tgen, "r3")
@@ -392,14 +387,12 @@ def test_isis_overload_on_startup():
     check_lsp_overload_bit("r1", "r3.00-00", "0/0/1")
 
     # Attempt to unset overload bit while timer is still running
-    r3.vtysh_cmd(
-        """
+    r3.vtysh_cmd("""
           configure
             router isis 1
               no set-overload-bit on-startup
               no set-overload-bit
-        """
-    )
+        """)
 
     # Check overload bit is still set
     check_lsp_overload_bit("r1", "r3.00-00", "0/0/1")
@@ -440,14 +433,12 @@ def test_isis_overload_on_startup_cancel_timer():
 
     # Configure set-overload-bit on-startup on r3
     r3 = tgen.gears["r3"]
-    r3.vtysh_cmd(
-        f"""
+    r3.vtysh_cmd(f"""
           configure
             router isis 1
               set-overload-bit on-startup {overload_time}
               set-overload-bit
-        """
-    )
+        """)
     # Restart r3
     logger.info("Stop router")
     stop_router(tgen, "r3")
@@ -461,13 +452,11 @@ def test_isis_overload_on_startup_cancel_timer():
     check_overload_timer("r3", True)
 
     # Unset overload bit while timer is running
-    r3.vtysh_cmd(
-        """
+    r3.vtysh_cmd("""
           configure
             router isis 1
               no set-overload-bit
-        """
-    )
+        """)
 
     # Check that overload timer is cancelled
     check_overload_timer("r3", False)
@@ -493,14 +482,12 @@ def test_isis_overload_on_startup_override_timer():
 
     # Configure set-overload-bit on-startup on r3
     r3 = tgen.gears["r3"]
-    r3.vtysh_cmd(
-        f"""
+    r3.vtysh_cmd(f"""
           configure
             router isis 1
               set-overload-bit on-startup {overload_time}
               set-overload-bit
-        """
-    )
+        """)
     # Restart r3
     logger.info("Stop router")
     stop_router(tgen, "r3")
@@ -538,8 +525,7 @@ def test_isis_advertise_passive_only():
     lsp_id = "r1.00-00"
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd(
-        """
+    r1.vtysh_cmd("""
         configure
         router isis 1
          no redistribute ipv4 connected level-2
@@ -549,27 +535,39 @@ def test_isis_advertise_passive_only():
          ipv6 router isis 1
          isis passive
         end
-        """
-    )
+        """)
 
     result = check_advertised_prefixes(
         r1, lsp_id, expected_prefixes_no_advertise_passive_only
     )
     assert result is True, result
 
-    r1.vtysh_cmd(
-        """
+    r1.vtysh_cmd("""
         configure
         router isis 1
          advertise-passive-only
         end
-        """
-    )
+        """)
 
     result = check_advertised_prefixes(
         r1, lsp_id, expected_prefixes_advertise_passive_only
     )
     assert result is True, result
+
+    logger.info("Checking router for installed ISIS routes with advertise-passive-only")
+
+    # routes must be installed
+    rname = "r1"
+    router = r1
+    filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
+    expected = json.loads(open(filename, "r").read())
+
+    test_func = functools.partial(
+        _helper_compare_isis_installed_routes, router, expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, wait=1, count=10)
+    assertmsg = "Router '{}' routes mismatch:\n{}".format(rname, _)
+    assert result, assertmsg
 
 
 def test_isis_hello_padding_during_adjacency_formation():
@@ -586,45 +584,37 @@ def test_isis_hello_padding_during_adjacency_formation():
     r3 = tgen.gears["r3"]
 
     # Reduce hello-multiplier to make the adjacency go down faster.
-    r3.vtysh_cmd(
-        """
+    r3.vtysh_cmd("""
         configure
         interface r3-eth0
             isis hello-multiplier 2
-        """
-    )
+        """)
 
     r1 = tgen.gears["r1"]
-    cmd_output = r1.vtysh_cmd(
-        """
+    cmd_output = r1.vtysh_cmd("""
         configure
         interface r1-eth0
             isis hello padding during-adjacency-formation
         end
         debug isis adj-packets
-        """
-    )
+        """)
     result = check_last_iih_packet_for_padding(r1, expect_padding=False)
     assert result is True, result
 
-    r3.vtysh_cmd(
-        """
+    r3.vtysh_cmd("""
         configure
         interface r3-eth0
             shutdown
-        """
-    )
+        """)
     result = check_last_iih_packet_for_padding(r1, expect_padding=True)
     assert result is True, result
 
     r3 = tgen.gears["r3"]
-    r3.vtysh_cmd(
-        """
+    r3.vtysh_cmd("""
         configure
         interface r3-eth0
             no shutdown
-        """
-    )
+        """)
     result = check_last_iih_packet_for_padding(r1, expect_padding=False)
     assert result is True, result
 
@@ -894,3 +884,9 @@ def show_isis_topology(router):
 
     dict_merge(l1, l2)
     return l1
+
+
+def _helper_compare_isis_installed_routes(router, expected):
+    "Helper function to test ISIS routes installed in rib."
+    actual = router.vtysh_cmd("show ip route json", isjson=True)
+    return topotest.json_cmp(actual, expected)
