@@ -17403,14 +17403,15 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 		if (use_json) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
-			json_object_string_add(
-				json_no, "warning",
-				"No such neighbor or address family");
+			json_object_string_addf(json_no, "warning",
+						"No such neighbor with address family %s",
+						get_afi_safi_str(afi, safi, false));
 			vty_out(vty, "%s\n",
 				json_object_to_json_string(json_no));
 			json_object_free(json_no);
 		} else
-			vty_out(vty, "%% No such neighbor or address family\n");
+			vty_out(vty, "%% No such neighbor with address family %s\n",
+				get_afi_safi_str(afi, safi, false));
 		return CMD_WARNING;
 	}
 
