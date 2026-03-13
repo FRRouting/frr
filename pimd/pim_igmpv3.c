@@ -1697,8 +1697,8 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	}
 }
 
-void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
-			char *igmp_msg)
+void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str, char *igmp_msg,
+			int igmp_msg_len)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1711,6 +1711,12 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
+
+	if ((size_t)igmp_msg_len < IGMP_V3_SOURCES_OFFSET) {
+		zlog_warn("IGMP query v3 from %s on %s is too short: %d < %u", from_str, ifp->name,
+			  igmp_msg_len, IGMP_V3_SOURCES_OFFSET);
+		return;
+	}
 
 	/*
 	 * RFC 3376: 4.1.6. QRV (Querier's Robustness Variable)
@@ -1782,10 +1788,22 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 
 			group = find_group_by_addr(igmp, group_addr);
 			if (group) {
-				int recv_num_sources = ntohs(*(
-					uint16_t
-						*)(igmp_msg
-						   + IGMP_V3_NUMSOURCES_OFFSET));
+				uint16_t recv_num_sources_n;
+				size_t expected_msg_len;
+				int recv_num_sources;
+
+				memcpy(&recv_num_sources_n, igmp_msg + IGMP_V3_NUMSOURCES_OFFSET,
+				       sizeof(recv_num_sources_n));
+				recv_num_sources = ntohs(recv_num_sources_n);
+				expected_msg_len =
+					IGMP_V3_SOURCES_OFFSET +
+					((size_t)recv_num_sources * sizeof(struct in_addr));
+				if ((size_t)igmp_msg_len < expected_msg_len) {
+					zlog_warn("IGMP query v3 from %s on %s truncated source list: len=%d expected=%zu",
+						  from_str, ifp->name, igmp_msg_len,
+						  expected_msg_len);
+					return;
+				}
 
 				/*
 				 * RFC 3376: 6.6.1. Timer Updates
