@@ -583,7 +583,7 @@ struct bgp_ls_attr {
 	uint8_t igp_flags;
 
 	/* Route Tags (TLV 1153) */
-	uint8_t route_tag_count;
+	uint16_t route_tag_count;
 	uint32_t *route_tags;
 
 	/* Extended Tags (TLV 1154) */

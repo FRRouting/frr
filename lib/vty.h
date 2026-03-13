@@ -406,8 +406,8 @@ extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive, bool file_lock);
 extern void vty_config_exit(struct vty *vty);
 extern int vty_config_node_exit(struct vty *vty);
-extern int vty_shell(struct vty *vty);
-extern int vty_shell_serv(struct vty *vty);
+extern int vty_is_shell(const struct vty *vty);
+extern int vty_is_shell_serv(const struct vty *vty);
 extern void vty_hello(struct vty *vty);
 
 /* ^Z / SIGTSTP handling */
@@ -419,8 +419,18 @@ extern void vty_stdio_close(void);
 /* Applications can check vty status */
 static inline bool vty_is_closed(const struct vty *vty)
 {
-	return (vty == NULL || vty->status == VTY_CLOSE || vty->fd < 0 ||
-		vty->wfd < 0);
+	if (vty == NULL || vty->status == VTY_CLOSE)
+		return true;
+	/*
+	 * VTY_SHELL (vtysh) uses fd = wfd = -1 and outputs
+	 * through vty->of (stdout) instead of socket FDs. If FDs are
+	 * valid, the VTY can produce output. Otherwise, fall back to
+	 * checking the FILE output path used by VTY_SHELL.
+	 */
+	if (vty->fd >= 0 && vty->wfd >= 0)
+		return false;
+
+	return (vty->of == NULL && vty->of_saved == NULL);
 }
 
 /*

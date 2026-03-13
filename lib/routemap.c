@@ -801,7 +801,7 @@ struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *nam
 	struct route_map *route_map = route_map_lookup_by_name(name);
 
 	if (!route_map)
-		if (vty_shell_serv(vty))
+		if (vty_is_shell_serv(vty))
 			vty_out(vty, "The route-map '%s' does not exist.\n", name);
 
 	return route_map;

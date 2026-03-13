@@ -1127,7 +1127,8 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 {
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
-	struct ls_edge *reverse_edge;
+	struct ls_edge *reverse_edge = NULL;
+	bool reverse_edge_dst_updated = false;
 	struct ls_subnet *subnet;
 
 	if (!bgp || !bgp->ls_info || !bgp->ls_info->ted || !msg)
@@ -1171,37 +1172,70 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
 			zlog_debug("%s: Link edge", __func__);
 
-		/*
-		 * An ADD for edge A->B may arrive before the reverse edge B->A
-		 * exists in TED. In that case edge->destination is NULL, so we
-		 * cannot originate the link yet and stop here. When B->A is later
-		 * added, its ADD processing will also look up and process A->B.
-		 */
-		if (msg->event == LS_MSG_EVENT_ADD && !edge->destination) {
-			if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
-				zlog_debug("%s: Skip edge add without destination", __func__);
-			break;
-		}
-
-		bgp_ls_process_edge(bgp, edge, msg->event);
-
-		if (msg->event == LS_MSG_EVENT_ADD) {
-			/*
-			 * After we get an edge A->B, check whether the reverse edge B->A
-			 * is already in TED and process it. This originates the Link NLRI
-			 * for the direction that was previously skipped when A->B lacked a
-			 * destination.
-			 */
+		if (msg->event == LS_MSG_EVENT_ADD || msg->event == LS_MSG_EVENT_UPDATE) {
+			/* Search for the reverse edge and link both directions. */
 			reverse_edge = ls_find_edge_by_destination(bgp->ls_info->ted,
 								   edge->attributes);
-			if (reverse_edge)
-				bgp_ls_process_edge(bgp, reverse_edge, msg->event);
-			else
-				zlog_warn("%s: Reverse edge not found", __func__);
-		}
+			if (reverse_edge) {
+				/* Attach destination to reverse edge if missing. */
+				if (reverse_edge->destination == NULL && edge->source) {
+					vertex = edge->source;
+					listnode_add_sort_nodup(vertex->incoming_edges,
+								reverse_edge);
+					reverse_edge->destination = vertex;
+					reverse_edge_dst_updated = true;
+				}
+				/* Attach destination to this edge if missing. */
+				if (edge->destination == NULL && reverse_edge->source) {
+					vertex = reverse_edge->source;
+					listnode_add_sort_nodup(vertex->incoming_edges, edge);
+					edge->destination = vertex;
+				}
+			}
 
-		if (msg->event == LS_MSG_EVENT_DELETE)
+			if (!edge->destination) {
+				/*
+				 * An ADD for edge A->B may arrive before the reverse edge B->A
+				 * exists in TED. In that case edge->destination is NULL, so we
+				 * cannot originate the link yet and skip it for now. When B->A is
+				 * later added, its ADD/UPDATE processing will also look up and
+				 * process A->B.
+				 */
+				if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
+					zlog_debug("%s: Skip edge add/update without destination",
+						   __func__);
+				break;
+			}
+
+			bgp_ls_process_edge(bgp, edge, msg->event);
+
+			/*
+			 * After we process edge A->B, check whether reverse edge B->A is
+			 * already in TED and process it. This originates the Link NLRI for
+			 * the direction that was previously skipped when A->B lacked a
+			 * destination.
+			 */
+			if (reverse_edge &&
+			    (msg->event == LS_MSG_EVENT_ADD || reverse_edge_dst_updated)) {
+				uint8_t reverse_event = msg->event;
+
+				if (msg->event == LS_MSG_EVENT_UPDATE && reverse_edge_dst_updated)
+					reverse_event = LS_MSG_EVENT_ADD;
+
+				bgp_ls_process_edge(bgp, reverse_edge, reverse_event);
+			} else if (!reverse_edge &&
+				   (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE)))
+				zlog_debug("%s: Reverse edge not yet in TED, will be processed on arrival",
+					   __func__);
+
+		} else if (msg->event == LS_MSG_EVENT_DELETE) {
+			bgp_ls_process_edge(bgp, edge, msg->event);
 			ls_edge_del_all(bgp->ls_info->ted, edge);
+		} else {
+			if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
+				zlog_debug("%s: Unknown event type %u for edge", __func__,
+					   msg->event);
+		}
 
 		break;
 
