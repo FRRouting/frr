@@ -3479,6 +3479,12 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+				/* Expected: delayed-install optimization */
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: NHG %pNG delayed-install optimization (flags 0x%x)",
+						   __func__, nhe, nhe->flags);
+			}
 			break;
 		case ZEBRA_DPLANE_REQUEST_FAILURE:
 			flog_err(
@@ -3487,16 +3493,9 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 				nhe);
 			break;
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
-			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
-				/* Expected: delayed-install optimization */
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug("%s: NHG %pNG delayed-install optimization (flags 0x%x)",
-						   __func__, nhe, nhe->flags);
-			} else {
-				flog_err(EC_ZEBRA_DP_INVALID_RC,
-					 "DPlane returned an invalid result code for attempt of installation of %pNG into the kernel",
-					 nhe);
-			}
+			flog_err(EC_ZEBRA_DP_INVALID_RC,
+				 "DPlane returned an invalid result code for attempt of installation of %pNG into the kernel",
+				 nhe);
 			break;
 		}
 	}
