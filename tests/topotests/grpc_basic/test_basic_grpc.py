@@ -43,6 +43,14 @@ pytestmark = [
 script_path = os.path.realpath(os.path.join(CWD, "../lib/grpc-query.py"))
 
 try:
+    import grpc  # noqa: F401
+    import grpc_tools  # noqa: F401
+except ImportError:
+    pytest.skip(
+        "skipping; gRPC modules not installed", allow_module_level=True
+    )
+
+try:
     commander.cmd_raises([script_path, "--check"])
 except Exception:
     pytest.skip(
