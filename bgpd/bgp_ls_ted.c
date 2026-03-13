@@ -506,6 +506,8 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
 		nlri.nlri_data.link.link_desc.link_remote_id = edge->attributes->standard.remote_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
 	}
 
 	/* IPv4 Interface Address (TLV 259) */
@@ -647,6 +649,8 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
 		nlri.nlri_data.link.link_desc.link_remote_id = edge->attributes->standard.remote_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
 	}
 
 	/* IPv4 Interface Address (TLV 259) */
