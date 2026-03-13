@@ -769,7 +769,7 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 			}
 
 			memcpy(&stlv, buf + off, sizeof(stlv));
-			if (stlv.length > pw_len) {
+			if ((stlv.length < SUBTLV_HDR_SIZE) || (stlv.length > pw_len)) {
 				session_shutdown(nbr, S_BAD_TLV_LEN, msg->id, msg->type);
 				return (-1);
 			}
