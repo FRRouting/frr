@@ -2167,7 +2167,17 @@ static inline void thread_process_io_inner_loop(struct event_loop *m,
 
 	set_ev.ev.data.fd = fd;
 	hash_ev = epoll_event_hash_find(&(m->handler.epoll_event_hash), &set_ev);
-	assert(hash_ev);
+	if (!hash_ev) {
+		/*
+		 * This fd was already cancelled and removed from the
+		 * epoll_event_hash before fd_poll() was called, but
+		 * the kernel had already queued this revent for the fd.
+		 * Nothing left to process.
+		 */
+		zlog_debug("%s: stale epoll event on fd %d (events 0x%x)", m->name ? m->name : "",
+			   fd, revent->events);
+		return;
+	}
 
 	is_regular = CHECK_FLAG(hash_ev->flags, FRR_EV_FD_IS_REGULAR);
 
