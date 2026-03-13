@@ -219,50 +219,37 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr 
 /*
  * Populate BGP-LS Attributes from Link State Prefix
  */
-int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr **attr)
+int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr)
 {
-	bool encoded = false;
-
 	if (!ls_prefix || !attr)
 		return -1;
 
-	*attr = bgp_ls_attr_alloc();
-
 	/* IGP Flags (TLV 1152) */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_IGP_FLAG)) {
-		(*attr)->igp_flags = ls_prefix->igp_flag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_IGP_FLAGS_BIT);
-		encoded = true;
+		attr->igp_flags = ls_prefix->igp_flag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_IGP_FLAGS_BIT);
 	}
 
 	/* Route Tags (TLV 1153) - single tag */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_ROUTE_TAG)) {
-		(*attr)->route_tag_count = 1;
-		(*attr)->route_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint32_t));
-		(*attr)->route_tags[0] = ls_prefix->route_tag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_ROUTE_TAG_BIT);
-		encoded = true;
+		attr->route_tag_count = 1;
+		attr->route_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint32_t));
+		attr->route_tags[0] = ls_prefix->route_tag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_ROUTE_TAG_BIT);
 	}
 
 	/* Extended Tags (TLV 1154) - single extended tag */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_EXTENDED_TAG)) {
-		(*attr)->extended_tag_count = 1;
-		(*attr)->extended_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint64_t));
-		(*attr)->extended_tags[0] = ls_prefix->extended_tag;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_EXTENDED_TAG_BIT);
-		encoded = true;
+		attr->extended_tag_count = 1;
+		attr->extended_tags = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(uint64_t));
+		attr->extended_tags[0] = ls_prefix->extended_tag;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_EXTENDED_TAG_BIT);
 	}
 
 	/* Prefix Metric (TLV 1155) */
 	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_METRIC)) {
-		(*attr)->prefix_metric = ls_prefix->metric;
-		(*attr)->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
-		encoded = true;
-	}
-
-	if (!encoded) {
-		bgp_ls_attr_free(*attr);
-		attr = NULL;
+		attr->prefix_metric = ls_prefix->metric;
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
 	}
 
 	return 0;
@@ -309,6 +296,9 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	if (!bgp || !router_id)
 		return -1;
 
+	if (!vertex || !vertex->node)
+		return -1;
+
 	/* Validate router ID length */
 	if (router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
@@ -331,7 +321,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
-	if (vertex && vertex->node && CHECK_FLAG(vertex->node->flags, LS_NODE_AS_NUMBER)) {
+	if (CHECK_FLAG(vertex->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.node.local_node.asn = vertex->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.node.local_node.present_tlvs,
 			       BGP_LS_NODE_DESC_AS_BIT);
@@ -349,12 +339,14 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	if (bgp_ls_populate_node_attr(vertex->node, ls_attr) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Node attributes");
 		bgp_ls_attr_free(ls_attr);
+		return -1;
 	}
 
 	/* Install in RIB */
 	ret = bgp_ls_update(bgp, &nlri, ls_attr);
 	if (ret < 0) {
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to originate Node NLRI");
+		bgp_ls_attr_free(ls_attr);
 		return -1;
 	}
 
@@ -376,10 +368,12 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	if (!bgp || !router_id)
 		return -1;
 
+	if (!vertex || !vertex->node)
+		return -1;
+
 	/* Validate router ID length */
 	if (router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
-		zlog_err("BGP-LS: Invalid router ID length %u", router_id_len);
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Invalid router ID length %u", router_id_len);
 		return -1;
 	}
@@ -399,7 +393,7 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
-	if (vertex && vertex->node && CHECK_FLAG(vertex->node->flags, LS_NODE_AS_NUMBER)) {
+	if (CHECK_FLAG(vertex->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.node.local_node.asn = vertex->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.node.local_node.present_tlvs,
 			       BGP_LS_NODE_DESC_AS_BIT);
@@ -415,7 +409,6 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	/* Withdraw from RIB */
 	ret = bgp_ls_withdraw(bgp, &nlri);
 	if (ret < 0) {
-		zlog_err("BGP-LS: Failed to withdraw Node NLRI");
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to withdraw Node NLRI");
 		return -1;
 	}
@@ -444,6 +437,9 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 	if (!bgp || !local_router_id || !remote_router_id)
 		return -1;
 
+	if (!edge || !edge->attributes)
+		return -1;
+
 	/* Validate router ID lengths */
 	if (local_router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    local_router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE ||
@@ -468,7 +464,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Local Node if available */
-	if (edge && edge->source && edge->source->node &&
+	if (edge->source && edge->source->node &&
 	    CHECK_FLAG(edge->source->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.link.local_node.asn = edge->source->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.link.local_node.present_tlvs,
@@ -483,7 +479,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Remote Node if available */
-	if (edge && edge->destination && edge->destination->node &&
+	if (edge->destination && edge->destination->node &&
 	    CHECK_FLAG(edge->destination->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.link.remote_node.asn = edge->destination->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.link.remote_node.present_tlvs,
@@ -501,58 +497,52 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 	}
 
 	/* Populate Link Descriptor from Link State edge attributes */
-	if (edge && edge->attributes) {
-		/* Link Local/Remote Identifiers (TLV 258) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID)) {
-			nlri.nlri_data.link.link_desc.link_local_id =
-				edge->attributes->standard.local_id;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_LINK_ID_BIT);
-		}
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
-			nlri.nlri_data.link.link_desc.link_remote_id =
-				edge->attributes->standard.remote_id;
-		}
+	/* Link Local/Remote Identifiers (TLV 258) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID)) {
+		nlri.nlri_data.link.link_desc.link_local_id = edge->attributes->standard.local_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
+	}
 
-		/* IPv4 Interface Address (TLV 259) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR)) {
-			nlri.nlri_data.link.link_desc.ipv4_intf_addr =
-				edge->attributes->standard.local;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV4_INTF_BIT);
-		}
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
+		nlri.nlri_data.link.link_desc.link_remote_id = edge->attributes->standard.remote_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
+	}
 
-		/* IPv4 Neighbor Address (TLV 260) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR)) {
-			nlri.nlri_data.link.link_desc.ipv4_neigh_addr =
-				edge->attributes->standard.remote;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
-		}
+	/* IPv4 Interface Address (TLV 259) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR)) {
+		nlri.nlri_data.link.link_desc.ipv4_intf_addr = edge->attributes->standard.local;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV4_INTF_BIT);
+	}
 
-		/* IPv6 Interface Address (TLV 261) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6)) {
-			nlri.nlri_data.link.link_desc.ipv6_intf_addr =
-				edge->attributes->standard.local6;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV6_INTF_BIT);
-		}
+	/* IPv4 Neighbor Address (TLV 260) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR)) {
+		nlri.nlri_data.link.link_desc.ipv4_neigh_addr = edge->attributes->standard.remote;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
+	}
 
-		/* IPv6 Neighbor Address (TLV 262) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR6)) {
-			nlri.nlri_data.link.link_desc.ipv6_neigh_addr =
-				edge->attributes->standard.remote6;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
-		}
+	/* IPv6 Interface Address (TLV 261) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6)) {
+		nlri.nlri_data.link.link_desc.ipv6_intf_addr = edge->attributes->standard.local6;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV6_INTF_BIT);
+	}
 
-		/* Remote AS Number (TLV 264) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
-			nlri.nlri_data.link.link_desc.remote_asn =
-				edge->attributes->standard.remote_as;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_REMOTE_AS_BIT);
-		}
+	/* IPv6 Neighbor Address (TLV 262) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR6)) {
+		nlri.nlri_data.link.link_desc.ipv6_neigh_addr = edge->attributes->standard.remote6;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
+	}
+
+	/* Remote AS Number (TLV 264) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
+		nlri.nlri_data.link.link_desc.remote_asn = edge->attributes->standard.remote_as;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_REMOTE_AS_BIT);
 	}
 
 	/* Populate BGP-LS attributes from Link State edge */
@@ -590,6 +580,9 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	if (!bgp || !local_router_id || !remote_router_id)
 		return -1;
 
+	if (!edge || !edge->attributes)
+		return -1;
+
 	/* Validate router ID lengths */
 	if (local_router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    local_router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE ||
@@ -613,6 +606,14 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	BGP_LS_TLV_SET(nlri.nlri_data.link.local_node.present_tlvs,
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
+	/* Set AS Number for Local Node if available */
+	if (edge->source && edge->source->node &&
+	    CHECK_FLAG(edge->source->node->flags, LS_NODE_AS_NUMBER)) {
+		nlri.nlri_data.link.local_node.asn = edge->source->node->as_number;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.local_node.present_tlvs,
+			       BGP_LS_NODE_DESC_AS_BIT);
+	}
+
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
 	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
@@ -621,7 +622,8 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Remote Node if available */
-	if (edge && edge->attributes && CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
+	if (edge->destination && edge->destination->node &&
+	    CHECK_FLAG(edge->destination->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.link.remote_node.asn = edge->destination->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.link.remote_node.present_tlvs,
 			       BGP_LS_NODE_DESC_AS_BIT);
@@ -638,58 +640,52 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	}
 
 	/* Populate Link Descriptor from Link State edge attributes */
-	if (edge && edge->attributes) {
-		/* Link Local/Remote Identifiers (TLV 258) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID)) {
-			nlri.nlri_data.link.link_desc.link_local_id =
-				edge->attributes->standard.local_id;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_LINK_ID_BIT);
-		}
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
-			nlri.nlri_data.link.link_desc.link_remote_id =
-				edge->attributes->standard.remote_id;
-		}
+	/* Link Local/Remote Identifiers (TLV 258) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID)) {
+		nlri.nlri_data.link.link_desc.link_local_id = edge->attributes->standard.local_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
+	}
 
-		/* IPv4 Interface Address (TLV 259) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR)) {
-			nlri.nlri_data.link.link_desc.ipv4_intf_addr =
-				edge->attributes->standard.local;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV4_INTF_BIT);
-		}
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
+		nlri.nlri_data.link.link_desc.link_remote_id = edge->attributes->standard.remote_id;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_LINK_ID_BIT);
+	}
 
-		/* IPv4 Neighbor Address (TLV 260) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR)) {
-			nlri.nlri_data.link.link_desc.ipv4_neigh_addr =
-				edge->attributes->standard.remote;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
-		}
+	/* IPv4 Interface Address (TLV 259) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR)) {
+		nlri.nlri_data.link.link_desc.ipv4_intf_addr = edge->attributes->standard.local;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV4_INTF_BIT);
+	}
 
-		/* IPv6 Interface Address (TLV 261) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6)) {
-			nlri.nlri_data.link.link_desc.ipv6_intf_addr =
-				edge->attributes->standard.local6;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV6_INTF_BIT);
-		}
+	/* IPv4 Neighbor Address (TLV 260) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR)) {
+		nlri.nlri_data.link.link_desc.ipv4_neigh_addr = edge->attributes->standard.remote;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
+	}
 
-		/* IPv6 Neighbor Address (TLV 262) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR6)) {
-			nlri.nlri_data.link.link_desc.ipv6_neigh_addr =
-				edge->attributes->standard.remote6;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
-		}
+	/* IPv6 Interface Address (TLV 261) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6)) {
+		nlri.nlri_data.link.link_desc.ipv6_intf_addr = edge->attributes->standard.local6;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV6_INTF_BIT);
+	}
 
-		/* Remote AS Number (TLV 264) */
-		if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
-			nlri.nlri_data.link.link_desc.remote_asn =
-				edge->attributes->standard.remote_as;
-			BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
-				       BGP_LS_LINK_DESC_REMOTE_AS_BIT);
-		}
+	/* IPv6 Neighbor Address (TLV 262) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR6)) {
+		nlri.nlri_data.link.link_desc.ipv6_neigh_addr = edge->attributes->standard.remote6;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
+	}
+
+	/* Remote AS Number (TLV 264) */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_REMOTE_AS)) {
+		nlri.nlri_data.link.link_desc.remote_asn = edge->attributes->standard.remote_as;
+		BGP_LS_TLV_SET(nlri.nlri_data.link.link_desc.present_tlvs,
+			       BGP_LS_LINK_DESC_REMOTE_AS_BIT);
 	}
 
 	/* Withdraw from RIB */
@@ -723,6 +719,9 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 	if (!bgp || !router_id || !prefix)
 		return -1;
 
+	if (!subnet || !subnet->ls_pref)
+		return -1;
+
 	/* Validate router ID length */
 	if (router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
@@ -754,7 +753,7 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
-	if (subnet && subnet->vertex && subnet->vertex->node &&
+	if (subnet->vertex && subnet->vertex->node &&
 	    CHECK_FLAG(subnet->vertex->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.prefix.local_node.asn = subnet->vertex->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.prefix.local_node.present_tlvs,
@@ -775,7 +774,8 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 		       BGP_LS_PREFIX_DESC_IP_REACH_BIT);
 
 	/* Populate BGP-LS attributes from Link State subnet */
-	if (bgp_ls_populate_prefix_attr(subnet->ls_pref, &ls_attr) < 0) {
+	ls_attr = bgp_ls_attr_alloc();
+	if (bgp_ls_populate_prefix_attr(subnet->ls_pref, ls_attr) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Prefix attributes");
 		bgp_ls_attr_free(ls_attr);
 		return -1;
@@ -809,6 +809,9 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	if (!bgp || !router_id || !prefix)
 		return -1;
 
+	if (!subnet || !subnet->ls_pref)
+		return -1;
+
 	/* Validate router ID length */
 	if (router_id_len < BGP_LS_IGP_ROUTER_ID_MIN_SIZE ||
 	    router_id_len > BGP_LS_IGP_ROUTER_ID_MAX_SIZE) {
@@ -840,7 +843,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 		       BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
-	if (subnet && subnet->vertex && subnet->vertex->node &&
+	if (subnet->vertex && subnet->vertex->node &&
 	    CHECK_FLAG(subnet->vertex->node->flags, LS_NODE_AS_NUMBER)) {
 		nlri.nlri_data.prefix.local_node.asn = subnet->vertex->node->as_number;
 		BGP_LS_TLV_SET(nlri.nlri_data.prefix.local_node.present_tlvs,
