@@ -524,6 +524,9 @@ static void bgp_accept(struct event *thread)
 				dynamic_peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
+
+				incoming->fd = -1;
+				close(bgp_sock);
 				return;
 			}
 

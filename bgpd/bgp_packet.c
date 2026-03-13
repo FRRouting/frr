@@ -981,8 +981,6 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	 * should not touch internals of the peer struct.
 	 */
 	if (use_curr && peer->curr) {
-		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= peer->max_packet_size);
 		if (peer->last_reset_cause)
 			stream_free(peer->last_reset_cause);
 		peer->last_reset_cause = stream_dup(peer->curr);
