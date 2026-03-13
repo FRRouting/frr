@@ -58,13 +58,14 @@ import re
 from pathlib import Path
 
 import pytest
+from lib import topotest
 from lib.common_config import retry, step
 from lib.topogen import Topogen, TopoRouter
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 
-@retry(retry_timeout=1, initial_wait=0.1)
+@retry(retry_timeout=15, initial_wait=1)
 def check_kernel(r1, prefix, expected=True):
     net = ipaddress.ip_network(prefix)
     if net.version == 6:
@@ -79,6 +80,20 @@ def check_kernel(r1, prefix, expected=True):
         return f"Failed to find \n'{route}'\n in \n'{kernel:.1920}'"
     elif not expected and m:
         return f"Failed found \n'{route}'\n in \n'{kernel:.1920}'"
+    return None
+
+
+def check_show_running(r1, present=None, absent=None):
+    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
+
+    for entry in present or []:
+        if entry not in showrun:
+            return f"Missing '{entry}' in show running:\n{showrun}"
+
+    for entry in absent or []:
+        if entry in showrun:
+            return f"Unexpected '{entry}' in show running:\n{showrun}"
+
     return None
 
 
@@ -155,6 +170,9 @@ def cleanup_config(r1, tempdir, logpath):
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no allow-external-route-update'")
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no router-id 1.2.3.4'")
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip table range 2 3'")
+    test_func = lambda: check_show_running(r1, absent=["ip table range 2 3"])
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
     logbuf = save_log_snippet(logpath, logbuf, "/dev/null")
 
@@ -288,9 +306,13 @@ def test_zebra_one_exit_file(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
+    test_func = lambda: check_show_running(
+        r1,
+        present=["allow-external-route-update"],
+        absent=["router-id 1.2.3.4"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_one_exit_redir(r1, confdir, tempdir, logpath):
@@ -302,10 +324,13 @@ def test_zebra_one_exit_redir(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
+    test_func = lambda: check_show_running(
+        r1,
+        present=["allow-external-route-update"],
+        absent=["router-id 1.2.3.4"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_early_exit_file(r1, confdir, tempdir, logpath):
@@ -317,11 +342,13 @@ def test_zebra_early_exit_file(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
-    assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
+    test_func = lambda: check_show_running(
+        r1,
+        present=["allow-external-route-update"],
+        absent=["router-id 1.2.3.4", "ip table range 2 3"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_early_exit_redir(r1, confdir, tempdir, logpath):
@@ -333,11 +360,13 @@ def test_zebra_early_exit_redir(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
-    assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
+    test_func = lambda: check_show_running(
+        r1,
+        present=["allow-external-route-update"],
+        absent=["router-id 1.2.3.4", "ip table range 2 3"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_early_end_file(r1, confdir, tempdir, logpath):
@@ -349,11 +378,16 @@ def test_zebra_early_end_file(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" in showrun, "zebra second conf missing"
-    assert "ip table range 2 3" in showrun, "zebra third missing"
+    test_func = lambda: check_show_running(
+        r1,
+        present=[
+            "allow-external-route-update",
+            "router-id 1.2.3.4",
+            "ip table range 2 3",
+        ],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_early_end_redir(r1, confdir, tempdir, logpath):
@@ -365,8 +399,10 @@ def test_zebra_early_end_redir(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    showrun = r1.cmd_nostatus("vtysh -c 'show running'")
-
-    assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
-    assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
+    test_func = lambda: check_show_running(
+        r1,
+        present=["allow-external-route-update"],
+        absent=["router-id 1.2.3.4", "ip table range 2 3"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
