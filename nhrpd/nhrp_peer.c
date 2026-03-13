@@ -835,8 +835,10 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 	union sockunion src_nbma, src_proto, dst_proto;
 
 	hdr = nhrp_packet_pull(&origmsg, &src_nbma, &src_proto, &dst_proto);
-	if (!hdr)
+	if (!hdr) {
+		debugf(NHRP_DEBUG_COMMON, "Truncated Error Indication packet");
 		return;
+	}
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Error Indication from %pSU about packet to %pSU ignored",
