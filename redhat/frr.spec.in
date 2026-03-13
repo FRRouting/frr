@@ -849,7 +849,33 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Feb 17 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Fri Mar 13 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Fri Mar 13 2026 Donatas Abraitis <donatas@opensourcerouting.org> 10.5.3
+- bfdd
+-     Fix wrong memory free when using ttable code
+- bgpd
+-     Add missing peer_flag_send_nhc_attribute for update group flags
+-     Check if the nhc length is enough to fill tlv value + tlv header
+-     Check more during nlri parsing
+-     Fix condition when evaluating paths
+-     Fix memory leak in cluster_intern()
+-     Fix off-by-one error in flowspec operator array bounds check
+-     Fix test for open message with remote-as auto
+- eigrpd
+-     Handle the gr neighbor list safely in update_receive
+- lib
+-     Fix vty_is_closed() falsely reporting vty_shell as closed
+-     Fix zclient crash when many peers reconnect after frr restart
+- nhrpd
+-     Correct addrlen check in os_recvmsg()
+-     Fix packet and buffer handling errors
+- ospfd
+-     Harden te/sr tlv iteration against malformed lengths
+-     Reject equal cryptographic sequence numbers
+-     Use 32-bit ls update lsa count
+- pimd
+-     When address change ensure dr changes too
 
 * Tue Feb 17 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.5.2
 - New upstream release FRR 10.5.2
