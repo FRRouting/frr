@@ -163,6 +163,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		struct tlv 	tlv;
 		uint16_t	tlv_type;
 		uint16_t	tlv_len;
+		uint32_t intbuf;
 
 		if (len < sizeof(tlv)) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
@@ -193,7 +194,8 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 				return (-1);
 			}
 
-			nm.pw_status = ntohl(*(uint32_t *)buf);
+			memcpy(&intbuf, buf, 4);
+			nm.pw_status = ntohl(intbuf);
 			SET_FLAG(nm.flags, F_NOTIF_PW_STATUS);
 			break;
 		case TLV_TYPE_FEC:
