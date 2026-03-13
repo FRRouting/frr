@@ -170,6 +170,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
+	if (ip_hlen < sizeof(*ip_hdr) || ip_hlen > len) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("Ignoring malformed PIM packet with IPv4 header length %zu and packet length %zu",
+				   ip_hlen, len);
+		return -1;
+	}
+
 	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	pim_msg = buf + ip_hlen;
@@ -346,7 +353,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					 pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_REG_STOP:
-		return pim_register_stop_recv(ifp, pim_msg + PIM_MSG_HEADER_LEN,
+		return pim_register_stop_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_GRAFT_ACK:
@@ -522,9 +529,6 @@ static void pim_sock_read(struct event *t)
 static void pim_sock_read_on(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-
-	assert(ifp);
-	assert(ifp->info);
 
 	pim_ifp = ifp->info;
 
@@ -791,6 +795,12 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	int sendlen = sizeof(*ip) + pim_msg_size;
 	socklen_t tolen;
 	unsigned char *msg_start;
+
+	if (pim_msg_size < 0 || sendlen > (int)sizeof(buffer)) {
+		zlog_warn("Oversized PIM msg dropped: msg_size=%d exceeds send buffer",
+			  pim_msg_size);
+		return -1;
+	}
 
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
