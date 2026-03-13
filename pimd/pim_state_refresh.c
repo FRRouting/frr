@@ -117,6 +117,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	msg_metric.metric_preference &= ~0x80000000;			     /* clear highest bit */
 
 	curr += 4;
+	curr_size -= 4;
 
 	/*
 	 * Parse assert route metric
@@ -125,6 +126,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	msg_metric.route_metric = pim_read_uint32_host(curr);
 
 	curr += 4;
+	curr_size -= 4;
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: from %pPAs on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
@@ -134,10 +136,13 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 
 	msg_metric.ip_address = src_addr;
 
-	struct pim_staterefresh_header *header = (struct pim_staterefresh_header *)curr;
+	if ((size_t)curr_size < (size_t)sizeof(struct pim_staterefresh_header)) {
+		zlog_warn("%s: Message length left %d is less than sizeof pim_staterefresh_header %zu",
+			  __func__, curr_size, sizeof(struct pim_staterefresh_header));
+		return -4;
+	}
 
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
+	struct pim_staterefresh_header *header = (struct pim_staterefresh_header *)curr;
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
