@@ -627,7 +627,7 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 
 	/* IGMP version 3 is the only one where we process the RXed query */
 	if (query_version == 3) {
-		igmp_v3_recv_query(igmp, from_str, igmp_msg);
+		igmp_v3_recv_query(igmp, from_str, igmp_msg, igmp_msg_len);
 	}
 
 	return 0;
@@ -718,13 +718,14 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 
 	igmp_msg = (char *)ip_hdr + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
-	msg_type = *igmp_msg;
 
 	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
 		zlog_warn("IGMP message size=%d shorter than minimum=%d",
 			  igmp_msg_len, PIM_IGMP_MIN_LEN);
 		return false;
 	}
+
+	msg_type = *igmp_msg;
 
 	if ((msg_type != PIM_IGMP_MTRACE_RESPONSE)
 	    && (msg_type != PIM_IGMP_MTRACE_QUERY_REQUEST)) {
