@@ -3451,21 +3451,23 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 				   nhe->flags);
 	}
 
-	if ((type != ZEBRA_ROUTE_CONNECT && type != ZEBRA_ROUTE_LOCAL &&
-	     type != ZEBRA_ROUTE_KERNEL) &&
-	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-	}
-
 	/* Make sure all depends are installed/queued */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		zebra_nhg_install_kernel(rb_node_dep->nhe, type);
 	}
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
+	/*
+	 * Clear QUEUED flag for non-system routes to allow re-installation
+	 * when the NHG is shared between multiple protocols.
+	 */
+	if (!RSYSTEM_ROUTE(type))
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+
+	if ((CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) ||
+	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) &&
 	    (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
-	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) &&
+	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL) ||
+	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		/* Change its type to us since we are installing it */
 		if (!ZEBRA_NHG_CREATED(nhe)) {
@@ -3473,6 +3475,19 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 			frrtrace(2, frr_zebra, zebra_nhg_install_kernel, nhe, 1);
 		} else
 			frrtrace(2, frr_zebra, zebra_nhg_install_kernel, nhe, 2);
+
+		/*
+		 * If this NHG was created for a system route (kernel/connect/local)
+		 * and is now being used by a non-system route, clear the
+		 * INITIAL_DELAY_INSTALL flag so it will be actually installed
+		 * to the kernel (not just skip kernel for FPM).
+		 */
+		if (!RSYSTEM_ROUTE(type)) {
+			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			}
+		}
 
 		enum zebra_dplane_result ret = dplane_nexthop_add(nhe);
 

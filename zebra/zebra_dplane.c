@@ -4835,17 +4835,14 @@ dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 
 	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
 	if (ret == AOK) {
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-
-			dplane_ctx_free(&ctx);
-			atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in,
-						  1, memory_order_relaxed);
-
-			return ZEBRA_DPLANE_REQUEST_SUCCESS;
-		}
+		/*
+		 * If the NHG has the 'initial delay' flag set (kernel/connected/
+		 * local routes), we still enqueue it to dplane so FPM providers
+		 * can program it (e.g. for SONiC RIF creation), but we ask the
+		 * kernel provider to skip actual kernel programming.
+		 */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+			dplane_ctx_set_skip_kernel(ctx);
 
 		ret = dplane_update_enqueue(ctx);
 	}
