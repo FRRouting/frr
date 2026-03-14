@@ -777,6 +777,17 @@ extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
 extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr);
 
 /*
+ * Convert BGP-LS Attributes to JSON object
+ *
+ * @param ls_attr Pointer to BGP-LS attribute structure to convert
+ *
+ * Used for "show bgp" commands to display link-state topology information in json
+ *
+ * @return json object
+ */
+extern struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr);
+
+/*
  * Display BGP-LS Attributes to VTY output
  *
  * @param vty VTY output context
