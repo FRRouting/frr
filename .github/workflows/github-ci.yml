@@ -29,13 +29,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
       - name: Ensure local MIB cache directory exists
         run: mkdir -p docker/ubuntu-ci/mib-cache
       - name: Restore cached MIB files
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: docker/ubuntu-ci/mib-cache
           key: mib-cache-v1-ubuntu24
@@ -95,14 +95,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
       - name: Ensure local MIB cache directory exists
         run: mkdir -p docker/ubuntu-ci/mib-cache
       - name: Restore cached MIB files
         if: ${{ matrix.cfg.rel == '24.04' }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: docker/ubuntu-ci/mib-cache
           key: mib-cache-v1-ubuntu24
@@ -127,7 +127,7 @@ jobs:
           cache-from: type=gha,scope=github-ci-${{ matrix.cfg.cache_base }}
           cache-to: type=gha,mode=max,scope=github-ci-${{ matrix.cfg.cache_base }}
       - name: Upload docker image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.cfg.platform }}-image
           path: /tmp/frr-${{ matrix.cfg.platform }}.tar
@@ -141,7 +141,7 @@ jobs:
           mkdir -p test-results-${{ matrix.cfg.platform }}
           touch test-results-${{ matrix.cfg.platform }}/cleared-results.txt
       - name: Save cleared previous results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.cfg.platform }}
           path: test-results-${{ matrix.cfg.platform }}
@@ -169,17 +169,17 @@ jobs:
         -  { os: 'ubuntu-22.04-arm' ,rel: '24.04',  name: 'Ubuntu 24.04 arm64 Test',platform : 'arm64_u24' }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
       - name: Fetch docker image artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.cfg.platform }}-image
           path: /tmp
       - name: Fetch previous results
         if: ${{ github.run_attempt > 1 }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: test-results-${{ matrix.cfg.platform }}
           path: test-results-${{ matrix.cfg.platform }}
@@ -275,7 +275,7 @@ jobs:
           fi
       - name: Upload test results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.cfg.platform }}
           path: |
