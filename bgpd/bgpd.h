@@ -21,6 +21,16 @@
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
 
+enum bgp_bp_install_type {
+	BGP_BP_INSTALL_ROUTE,
+};
+
+struct bgp_bp_install_node {
+	struct zebra_announce_item zai;
+	enum bgp_bp_install_type type;
+	void *ptr;
+};
+
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
