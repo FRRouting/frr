@@ -24,6 +24,7 @@ defaults:
 
 jobs:
   Prepare-MIB-Cache:
+    if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
     runs-on: ubuntu-latest
     name: Prepare shared MIB cache
     timeout-minutes: 20
@@ -75,6 +76,7 @@ jobs:
           fetch_to_cache https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib LLDP-MIB
 
   Build:
+    if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
     runs-on: ${{ matrix.cfg.os }}
     needs: Prepare-MIB-Cache
     name: ${{ matrix.cfg.name }}
@@ -153,6 +155,7 @@ jobs:
         run: rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
 
   Test:
+    if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
     runs-on: ${{ matrix.cfg.os }}
     needs: Build
     name: ${{ matrix.cfg.name }}
