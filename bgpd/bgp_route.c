@@ -12248,6 +12248,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_string = NULL;
 	json_object *json_int = NULL;
 	json_object *json_adv_to = NULL;
+	json_object *json_ls_attr = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -13393,8 +13394,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Display BGP-LS attributes if this is link-state SAFI */
-	if (safi == SAFI_BGP_LS && !json_paths) {
-		if (attr && attr->ls_attr)
+	if (safi == SAFI_BGP_LS && attr && attr->ls_attr) {
+		if (json_paths) {
+			json_ls_attr = bgp_ls_attr_to_json(attr->ls_attr);
+			json_object_object_add(json_path, "linkStateAttrs", json_ls_attr);
+		} else
 			bgp_ls_attr_display(vty, attr->ls_attr);
 	}
 
