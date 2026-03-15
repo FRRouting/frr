@@ -42,6 +42,16 @@ EXTRA_DIST += tests/isisd/test_isis_lspdb.py
 
 
 if ISISD
+check_PROGRAMS += tests/isisd/test_isis_remove_excess_adjs
+endif
+tests_isisd_test_isis_remove_excess_adjs_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/isisd
+tests_isisd_test_isis_remove_excess_adjs_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_remove_excess_adjs_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_remove_excess_adjs_SOURCES = tests/isisd/test_isis_remove_excess_adjs.c tests/isisd/test_common.c
+EXTRA_DIST += tests/isisd/test_isis_remove_excess_adjs.py
+
+
+if ISISD
 check_PROGRAMS += tests/isisd/test_isis_spf
 endif
 tests_isisd_test_isis_spf_CFLAGS = $(TESTS_CFLAGS)
