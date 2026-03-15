@@ -138,7 +138,9 @@ static void remove_excess_adjs(struct list *adjs)
 		}
 	}
 
+	vadj = listgetdata(excess);
 	list_delete_node(adjs, excess);
+	isis_vertex_adj_free(vadj);
 
 	return;
 }
