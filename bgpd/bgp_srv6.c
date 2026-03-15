@@ -68,8 +68,7 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	}
 
 	ctx.vrf_id = bgp->vrf_id;
-	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
 	if (!bgp_zebra_request_srv6_sid(&ctx, &unicast_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
 			 bgp->name_pretty, afi2str(afi));
@@ -95,8 +94,7 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 		if (CHECK_FLAG(bgp->srv6_unicast[afi].sid_locator->flags, SRV6_LOCATOR_USID))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.table = ifp->vrf->data.l.table_id;
-		act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 :
-			ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		act = bgp_srv6_unicast_action(bgp, afi);
 		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, bgp->srv6_unicast[afi].sid,
 				      IPV6_MAX_BITLEN, ifp->ifindex, act, &ctx);
 		unicast_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
@@ -137,8 +135,7 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	if (bgp->srv6_unicast[afi].zebra_sid_last_sent)
 		bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
-	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
 	ctx.vrf_id = bgp->vrf_id;
 	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 }
@@ -160,8 +157,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 			bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
 		ctx.vrf_id = bgp->vrf_id;
-		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
 		bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 
 		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
@@ -268,12 +264,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				     sizeof(struct bgp_attr_srv6_l3service));
 	dest->srv6_unicast->sid_flags = 0x00;
 	dest->srv6_unicast->endpoint_behavior =
-			afi == AFI_IP ? (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
-						 : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
-				      : (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
-						 : SRV6_ENDPOINT_BEHAVIOR_END_DT6);
+		bgp_srv6_unicast_endpoint_behavior_codepoint(bgp, afi, locator);
 	dest->srv6_unicast->loc_block_len = locator->block_bits_length;
 	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
 	dest->srv6_unicast->func_len = locator->function_bits_length;
