@@ -4033,7 +4033,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr))
 			break;
 		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
-			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr))
+			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr) &&
+			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr) &&
+			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))
 			break;
 
 		/* Un-export VPN to VRF routes */
@@ -4077,15 +4079,77 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP].sid);
 
 		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
-			if (bgp_vrf->tovpn_sid_locator) {
-				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
-				bgp_vrf->tovpn_sid_locator = NULL;
-			}
-			bgp_vrf->tovpn_sid_transpose_label = 0;
+			if (is_srv6_vpn_vrf_enabled(bgp_vrf)) {
+				if (bgp_vrf->tovpn_sid_locator) {
+					srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+					bgp_vrf->tovpn_sid_locator = NULL;
+				}
 
-			/* Unregister the SID */
-			sid_unregister(bgp, bgp_vrf->tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+				bgp_vrf->tovpn_sid_transpose_label = 0;
+
+				/* Unregister the SID */
+				sid_unregister(bgp, bgp_vrf->tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+			}
+
+			if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) ||
+			    is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6)) {
+				/* Shared DT46 local SID: delete in zebra at most once across both AFIs. */
+				bool shared_sid_deleted_in_zebra = false;
+				struct interface *ifp_dt46 = if_lookup_by_name(DEFAULT_SRV6_IFNAME,
+									       VRF_DEFAULT);
+
+				/* DT46 has one shared local SID in zebra, so send ROUTE_DELETE once. */
+				/* Withdraw the DT46 SID for IPv4 unicast. */
+				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) &&
+				    sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) {
+					/* Send ROUTE_DELETE if we still have last-sent state. */
+					if (ifp_dt46 &&
+					    bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_last_sent) {
+						bgp_srv6_unicast_sid_endpoint(bgp_vrf, AFI_IP,
+									      ifp_dt46, false);
+						shared_sid_deleted_in_zebra = true;
+					} else {
+						XFREE(MTYPE_BGP_SRV6_SID,
+						      bgp_vrf->srv6_unicast[AFI_IP]
+							      .zebra_sid_last_sent);
+					}
+
+					/* Remove per-route SRv6 attributes and free SID/locator state. */
+					bgp_srv6_unicast_withdraw(bgp_vrf, AFI_IP);
+					srv6_locator_free(
+						bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
+					bgp_vrf->srv6_unicast[AFI_IP].sid_locator = NULL;
+					XFREE(MTYPE_BGP_SRV6_SID,
+					      bgp_vrf->srv6_unicast[AFI_IP].sid);
+				}
+
+				/* Withdraw the DT46 SID for IPv6 unicast. */
+				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6) &&
+				    sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr)) {
+					/* Send ROUTE_DELETE only if not already sent by AFI_IP path above. */
+					if (!shared_sid_deleted_in_zebra && ifp_dt46 &&
+					    bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent) {
+						bgp_srv6_unicast_sid_endpoint(bgp_vrf, AFI_IP6,
+									      ifp_dt46, false);
+					} else {
+						XFREE(MTYPE_BGP_SRV6_SID,
+						      bgp_vrf->srv6_unicast[AFI_IP6]
+							      .zebra_sid_last_sent);
+					}
+
+					/* Remove per-route SRv6 attributes and free SID/locator state. */
+					bgp_srv6_unicast_withdraw(bgp_vrf, AFI_IP6);
+					srv6_locator_free(
+						bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
+					bgp_vrf->srv6_unicast[AFI_IP6].sid_locator = NULL;
+					XFREE(MTYPE_BGP_SRV6_SID,
+					      bgp_vrf->srv6_unicast[AFI_IP6].sid);
+				}
+
+				/* Unregister the SID */
+				sid_unregister(bgp_vrf, &sid_addr);
+			}
 		} else {
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6",
