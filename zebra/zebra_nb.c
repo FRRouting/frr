@@ -841,6 +841,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_router_id_modify,
 				.destroy = lib_vrf_zebra_router_id_destroy,
+				.get = lib_vrf_zebra_router_id_get,
 			}
 		},
 		{
@@ -848,6 +849,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_router_id_modify,
 				.destroy = lib_vrf_zebra_ipv6_router_id_destroy,
+				.get = lib_vrf_zebra_ipv6_router_id_get,
 			}
 		},
 		{

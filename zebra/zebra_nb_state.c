@@ -15,6 +15,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/ipforward.h"
+#include "zebra/router-id.h"
 #include "zebra/zebra_mpls.h"
 
 /*
@@ -232,6 +233,58 @@ lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args)
 	return yang_data_new_string(args->xpath, bond->name);
 }
 
+
+static enum nb_error _router_id_get(const struct nb_node *nb_node, const struct vrf *vrf,
+				    struct lyd_node *parent, afi_t afi)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	const struct lysc_node *snode = nb_node->snode;
+	char buf[PREFIX2STR_BUFFER];
+	struct prefix p;
+	LY_ERR err;
+
+	if (!zvrf)
+		goto done;
+
+	if (router_id_get(afi, &p, zvrf))
+		goto done;
+
+	if ((afi == AFI_IP && p.u.prefix4.s_addr == INADDR_ANY) ||
+	    (afi == AFI_IP6 && !memcmp(&p.u.prefix6, &in6addr_any, sizeof(in6addr_any))))
+		goto done;
+
+	inet_ntop(afi == AFI_IP ? AF_INET : AF_INET6, &p.u.prefix, buf, sizeof(buf));
+	err = lyd_new_term(parent, snode->module, snode->name, buf, LYD_NEW_VAL_CANON, NULL);
+	if (err != LY_SUCCESS)
+		return NB_ERR;
+done:
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/router-id
+ */
+
+enum nb_error lib_vrf_zebra_router_id_get(const struct nb_node *nb_node,
+					  const void *parent_list_entry, struct lyd_node *parent)
+{
+	return _router_id_get(nb_node, (const struct vrf *)parent_list_entry, parent, AFI_IP);
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id
+ */
+
+enum nb_error lib_vrf_zebra_ipv6_router_id_get(const struct nb_node *nb_node,
+					       const void *parent_list_entry,
+					       struct lyd_node *parent)
+{
+	return _router_id_get(nb_node, (const struct vrf *)parent_list_entry, parent, AFI_IP6);
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib
+ */
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrf = (struct vrf *)args->parent_list_entry;

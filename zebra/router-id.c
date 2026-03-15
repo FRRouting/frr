@@ -111,10 +111,29 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	return -1;
 }
 
+static void _notify_router_id_change(afi_t afi, struct prefix *new, struct zebra_vrf *zvrf)
+{
+	struct zserv *client;
+	char vrf_path[XPATH_MAXLEN];
+
+	if (afi == AFI_IP)
+		snprintf(vrf_path, sizeof(vrf_path),
+			 "/frr-vrf:lib/vrf[name=\"%s\"]/frr-zebra:zebra/router-id",
+			 zvrf->vrf->name);
+	else
+		snprintf(vrf_path, sizeof(vrf_path),
+			 "/frr-vrf:lib/vrf[name=\"%s\"]/frr-zebra:zebra/ipv6-router-id",
+			 zvrf->vrf->name);
+
+	nb_notif_add(vrf_path);
+
+	frr_each (zserv_client_list, &zrouter.client_list, client)
+		zsend_router_id_update(client, afi, new, zvrf_id(zvrf));
+}
+
 int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
 	struct prefix after, before;
-	struct zserv *client;
 
 	router_id_get(afi, &before, zvrf);
 
@@ -141,8 +160,7 @@ int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	if (prefix_same(&before, &after))
 		return 0;
 
-	frr_each (zserv_client_list, &zrouter.client_list, client)
-		zsend_router_id_update(client, afi, &after, zvrf->vrf->vrf_id);
+	_notify_router_id_change(afi, &after, zvrf);
 
 	return 0;
 }
@@ -152,7 +170,6 @@ void router_id_add_address(struct connected *ifc)
 	struct list *l = NULL;
 	struct prefix before;
 	struct prefix after;
-	struct zserv *client;
 	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
@@ -188,8 +205,7 @@ void router_id_add_address(struct connected *ifc)
 	if (prefix_same(&before, &after))
 		return;
 
-	frr_each (zserv_client_list, &zrouter.client_list, client)
-		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
+	_notify_router_id_change(afi, &after, zvrf);
 }
 
 void router_id_del_address(struct connected *ifc)
@@ -198,7 +214,6 @@ void router_id_del_address(struct connected *ifc)
 	struct list *l;
 	struct prefix after;
 	struct prefix before;
-	struct zserv *client;
 	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
@@ -237,8 +252,7 @@ void router_id_del_address(struct connected *ifc)
 	if (prefix_same(&before, &after))
 		return;
 
-	frr_each (zserv_client_list, &zrouter.client_list, client)
-		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
+	_notify_router_id_change(afi, &after, zvrf);
 }
 
 DEFUN (show_ip_router_id,
