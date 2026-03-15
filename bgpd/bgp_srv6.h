@@ -49,6 +49,7 @@ bgp_srv6_unicast_endpoint_behavior_codepoint(struct bgp *bgp, afi_t afi,
 
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
+void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,

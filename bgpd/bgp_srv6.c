@@ -62,6 +62,41 @@ static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 	return afi == AFI_IP;
 }
 
+void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi)
+{
+	afi_t other_afi = afi == AFI_IP ? AFI_IP6 : AFI_IP;
+	bool sid_still_used;
+	struct interface *ifp;
+	struct srv6_sid_ctx ctx = {};
+
+	if (!CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46))
+		return;
+
+	sid_still_used = bgp->srv6_unicast[afi].sid &&
+			 is_srv6_unicast_dt46_enabled(bgp, other_afi) &&
+			 sid_same(bgp->srv6_unicast[afi].sid, bgp->srv6_unicast[other_afi].sid);
+
+	if (!sid_still_used) {
+		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+		if (ifp && bgp->srv6_unicast[afi].zebra_sid_last_sent)
+			bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
+
+		if (bgp->srv6_unicast[afi].sid_locator) {
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+			ctx.vrf_id = bgp->vrf_id;
+			bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+		}
+		if (bgp->srv6_unicast[afi].sid)
+			sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
+	}
+
+	srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+	bgp->srv6_unicast[afi].sid_locator = NULL;
+	bgp_srv6_unicast_withdraw(bgp, afi);
+	XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+	XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
+}
+
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 {
 	uint32_t sid_func;
@@ -175,6 +210,11 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 		zlog_debug("%s: vrf %s: deleting sid %pI6 for vrf id %d", __func__,
 			   bgp->name_pretty, bgp->srv6_unicast[afi].sid, bgp->vrf_id);
 
+	if (CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46)) {
+		bgp_srv6_unicast_sid_withdraw_dt46(bgp, afi);
+		return;
+	}
+
 	ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn("%s interface not found, nothing to uninstall",
@@ -200,6 +240,23 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 
 	if (!is_srv6_unicast_enabled(bgp, afi))
 		return;
+
+	if (CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46)) {
+		bgp_srv6_unicast_sid_withdraw_dt46(bgp, afi);
+
+		if (bgp->srv6_unicast[afi].sid_explicit)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
+
+		if (bgp->srv6_unicast[afi].rmap_name) {
+			route_map_counter_decrement(
+				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+		}
+
+		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+		UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		return;
+	}
 
 	if (bgp->srv6_unicast[afi].sid) {
 		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
