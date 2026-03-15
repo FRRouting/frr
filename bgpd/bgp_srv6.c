@@ -17,6 +17,51 @@
 
 extern struct zclient *bgp_zclient;
 
+static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
+{
+	afi_t other_afi = (afi == AFI_IP) ? AFI_IP6 : AFI_IP;
+
+	/* DT46 is not enabled on both AFIs, so this AFI must request its own SID. */
+	if (!is_srv6_unicast_dt46_enabled(bgp, afi) ||
+	    !is_srv6_unicast_dt46_enabled(bgp, other_afi))
+		return true;
+
+	/* Other AFI already owns the shared SID: copy and reuse it. */
+	if (bgp->srv6_unicast[other_afi].sid && bgp->srv6_unicast[other_afi].sid_locator) {
+		/* Free any stale state before (re-)assigning. */
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+		srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+		bgp->srv6_unicast[afi].sid_locator = NULL;
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
+
+		bgp->srv6_unicast[afi].sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+		*bgp->srv6_unicast[afi].sid = *bgp->srv6_unicast[other_afi].sid;
+
+		bgp->srv6_unicast[afi].sid_locator =
+			srv6_locator_alloc(bgp->srv6_unicast[other_afi].sid_locator->name);
+		srv6_locator_copy(bgp->srv6_unicast[afi].sid_locator,
+				  bgp->srv6_unicast[other_afi].sid_locator);
+
+		/*
+		 * The other AFI already installed this local SID, so this AFI must
+		 * not send another ROUTE_ADD.
+		 * Set zebra_sid_last_sent to remember that this SID is already
+		 * installed in zebra.
+		 */
+		bgp->srv6_unicast[afi].zebra_sid_last_sent = XCALLOC(MTYPE_BGP_SRV6_SID,
+								     sizeof(struct in6_addr));
+		*bgp->srv6_unicast[afi].zebra_sid_last_sent = *bgp->srv6_unicast[afi].sid;
+
+		return false;
+	}
+
+	/*
+	 * Other AFI has no SID yet. Let only AFI_IP send the SID Manager request;
+	 * AFI_IP6 defers until the ALLOCATED callback fires.
+	 */
+	return afi == AFI_IP;
+}
+
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 {
 	uint32_t sid_func;
@@ -40,6 +85,11 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	/* locator no set */
 	if (!locator_bgp)
 		return;
+
+	if (!bgp_srv6_unicast_dt46_needs_sid_request(bgp, afi)) {
+		bgp_srv6_unicast_announce(bgp, afi);
+		return;
+	}
 
 	unicast_sid_index = bgp->srv6_unicast[afi].sid_index;
 	unicast_sid_auto = CHECK_FLAG(bgp->af_flags[afi][safi],
