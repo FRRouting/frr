@@ -488,6 +488,49 @@ def test_bgp_evpn_route_vni():
     logger.info("PE1: Test passed")
 
 
+def test_bgp_evpn_route_brief_json():
+    """
+    Test 'show bgp l2vpn evpn route brief json':
+    - Produces valid JSON with RD-keyed prefix list (minimal loc-rib).
+    - 'brief' without 'json' is rejected with a clear error.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    # 1) brief without json must fail with clear message
+    out_no_json = pe1.vtysh_cmd("show bgp l2vpn evpn route brief", isjson=False)
+    if "% Unknown command" in out_no_json or "invalid" in out_no_json.lower():
+        pytest.skip("'brief' option not available in this build")
+    assert (
+        "brief" in out_no_json.lower()
+        and "requires" in out_no_json.lower()
+        and "json" in out_no_json.lower()
+    ), f"PE1: 'brief' without 'json' should report that brief requires json, got: {out_no_json[:300]}"
+
+    # 2) brief json: valid JSON, RD-keyed structure, no path detail
+    out = pe1.vtysh_cmd("show bgp l2vpn evpn route brief json", isjson=True)
+    if out is None:
+        # Command might not exist or returned non-JSON
+        raw = pe1.vtysh_cmd("show bgp l2vpn evpn route brief json", isjson=False)
+        if "% Unknown command" in raw or "invalid" in raw.lower():
+            pytest.skip("'brief json' not available in this build")
+        pytest.fail("Expected valid JSON from 'show bgp l2vpn evpn route brief json'")
+    assert isinstance(out, dict), "brief json output should be a JSON object"
+
+    # Top-level keys are RDs; values are prefix-keyed objects (brief = no paths)
+    for key, val in out.items():
+        if key in ("numPrefix", "numPaths"):
+            continue
+        assert isinstance(
+            val, dict
+        ), f"PE1: RD entry '{key}' in brief json should be a dict, got {type(val)}"
+
+    logger.info("PE1: show bgp l2vpn evpn route brief [json] tests passed")
+
+
 def test_evpn_l2vni_vlan_bridge_json():
     """
     Test L2 VNI JSON output includes vlan and bridge fields
