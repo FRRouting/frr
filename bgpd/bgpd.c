@@ -4303,6 +4303,7 @@ int bgp_delete(struct bgp *bgp)
 		if (dest_table->bgp == bgp) {
 			zebra_announce_del(&bm->zebra_announce_head, inode);
 			bgp_path_info_unlock(dest->za_bgp_pi);
+			dest->za_inode = NULL;
 			bgp_dest_unlock_node(dest);
 			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
 		}
