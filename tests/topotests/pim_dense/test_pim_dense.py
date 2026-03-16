@@ -44,9 +44,9 @@ TOPOLOGY = """
                                                |   10.100.0.0/24
                                                |
                                                | .1 r1-eth1 (p)
-              +--+--+                       +--+--+
-              | H4  |                       | R1  |
-              +--+--+                       +--+--+
+              +--+--+                       +--+--+  r1-eth2 (d)   r3-eth3 (sd)
+              | H4  |                       | R1  |-------------------------------| R3 |
+              +--+--+                       +--+--+  .1    10.1.3.1/24         .2
         h4-eth0  | .2                          | .1 r1-eth0 (d)
                  |                             |
  10.101.0.0/24   |                             |   10.0.0.0/24
@@ -279,24 +279,24 @@ def test_pim_dense_flood_prune(request):
         "r1": {
             "src_address": "10.100.0.2",
             "iif": "r1-eth1",
-            "oil": "none",
-            "joinState": "NotJoined",
+            "oil": "r1-eth0",
+            "joinState": "Joined",
         },
         "r2": {
             "src_address": "10.100.0.2",
             "iif": "r2-eth0",
-            "oil": "none",
+            "oil": "r2-eth2",
             "joinState": "Joined",
         },
         "r3": {
             "src_address": "10.100.0.2",
             "iif": "r3-eth0",
-            "oil": "none",
+            "oil": "r3-eth3",
             "joinState": "Joined",
         },
     }
 
-    step("Verify 'show ip mroute' showing routes with no OIL on all the nodes")
+    step("Verify 'show ip mroute' showing routes with correct OIL on all nodes")
     for dut, data in prune_dict.items():
         result = verify_mroutes(
             tgen, dut, data["src_address"], DENSE_GROUP, data["iif"], data["oil"]
@@ -316,6 +316,19 @@ def test_pim_dense_flood_prune(request):
             joinState=data["joinState"],
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify legacy downstream branches are pruned from OIL")
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r2", "10.100.0.2", DENSE_GROUP, ["r2-eth2"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r3", "10.100.0.2", DENSE_GROUP, ["r3-eth3"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
 
 def test_pim_dense_graft_r4(request):
@@ -340,7 +353,7 @@ def test_pim_dense_graft_r4(request):
         "r3": {
             "src_address": "10.100.0.2",
             "iif": "r3-eth0",
-            "oil": "none",
+            "oil": "r3-eth3",
             "joinState": "Joined",
         },
         "r2": {
@@ -377,6 +390,19 @@ def test_pim_dense_graft_r4(request):
             joinState=data["joinState"],
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify R4 graft keeps only expected transit OIL branches")
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r2", "10.100.0.2", DENSE_GROUP, ["r2-eth2"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r3", "10.100.0.2", DENSE_GROUP, ["r3-eth3"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
 
 def test_pim_dense_graft_r5(request):
@@ -571,6 +597,19 @@ def test_pim_dense_prune_r4(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+    step("Verify R6 prune removed non-required transit branches")
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r2", "10.100.0.2", DENSE_GROUP, ["r2-eth2"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    test_func = functools.partial(
+        verify_mroute_oil_exact, tgen, "r3", "10.100.0.2", DENSE_GROUP, ["r3-eth3"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     # step("Verify 'show ip pim upstream' showing correct IIF and join state on all the nodes")
     # for dut, data in prune_dict.items():
     #     result = verify_upstream_iif(tgen, dut, data["iif"], data["src_address"], DENSE_GROUP, joinState=data["joinState"])
@@ -645,18 +684,18 @@ def test_pim_dense_prune_r6(request):
         "r3": {
             "src_address": "10.100.0.2",
             "iif": "r3-eth0",
-            "oil": "none",
-            "joinState": "NotJoined",
+            "oil": "r3-eth3",
+            "joinState": "Joined",
         },
         "r2": {
             "src_address": "10.100.0.2",
             "iif": "r2-eth0",
-            "oil": "none",
-            "joinState": "NotJoined",
+            "oil": "r2-eth2",
+            "joinState": "Joined",
         },
     }
 
-    step("Verify 'show ip mroute' showing routes with no OIL")
+    step("Verify 'show ip mroute' showing routes with correct OIL")
     for dut, data in prune_dict.items():
         result = verify_mroutes(
             tgen, dut, data["src_address"], DENSE_GROUP, data["iif"], data["oil"]
@@ -697,6 +736,24 @@ def verify_mroute_pimreg_absent(tgen, router, group, group_type):
                     )
                 )
 
+    return None
+
+
+def verify_mroute_oil_exact(tgen, router, src, group, expected_oil):
+    """
+    Verify exact OIL membership for a specific (S,G) entry.
+    """
+    output = tgen.gears[router].vtysh_cmd("show ip mroute {} json".format(group), isjson=True)
+    mroute = output.get(group, {}).get(src, {})
+    if not mroute:
+        return "No mroute found for ({},{}) on {}".format(src, group, router)
+
+    actual_oil = sorted([oif for oif in mroute.get("oil", {}).keys() if oif != "pimreg"])
+    expected_oil = sorted(expected_oil)
+    if actual_oil != expected_oil:
+        return "OIL mismatch on {} for ({},{}): expected {}, got {}".format(
+            router, src, group, expected_oil, actual_oil
+        )
     return None
 
 
@@ -801,6 +858,88 @@ def test_pim_verify_pimreg_not_in_ssm_dense(request):
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Dense mode test failed: {}".format(result)
+
+
+def test_pim_dense_to_sparse_on_rp_add(request):
+    "Verify existing dense (S,G) transitions when RP is added"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    routers = ["r1", "r2", "r3", "r4", "r5", "r6"]
+
+    step("Reset dynamic RP mapping for dense test group")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                no rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Ensure only source traffic is active for transition check")
+    app_helper.stop_host("h4")
+    app_helper.stop_host("h5")
+    app_helper.stop_host("h6")
+    app_helper.stop_host("h1")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify (S,G) exists before RP add")
+
+    def _r1_upstream_exists():
+        output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        group = output.get(DENSE_GROUP, {})
+        if "10.100.0.2" not in group:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+        return None
+
+    _, result = topotest.run_and_expect(_r1_upstream_exists, None, count=30, wait=1)
+    assert result is None, "Upstream not present before RP add: {}".format(result)
+
+    step("Add RP mapping for dense group range")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Verify existing upstream transitions to Sparse mode state")
+
+    def _r1_upstream_rp_driven():
+        output = tgen.gears["r1"].vtysh_cmd(
+            "show ip pim upstream 10.100.0.2 {} json".format(DENSE_GROUP), isjson=True
+        )
+        upstream = output.get(DENSE_GROUP, {}).get("10.100.0.2", {})
+        if not upstream:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+        if upstream.get("joinState") != "Joined":
+            return "joinState is not Joined: {}".format(upstream.get("joinState"))
+        return None
+
+    _, result = topotest.run_and_expect(_r1_upstream_rp_driven, None, count=60, wait=1)
+    assert result is None, "DM to SM transition check failed: {}".format(result)
+
+    step("Verify kernel mroute state after DM to SM transition")
+    for dut, iif, oil in [
+        ("r1", "r1-eth1", "r1-eth0"),
+        ("r2", "r2-eth0", "r2-eth2"),
+        ("r3", "r3-eth0", "r3-eth3"),
+    ]:
+        test_func = functools.partial(
+            verify_mroutes, tgen, dut, "10.100.0.2", DENSE_GROUP, iif, oil
+        )
+        _, result = topotest.run_and_expect(test_func, True, count=30, wait=1)
+        assert result is True, "Kernel mroute validation failed on {}: {}".format(
+            dut, result
+        )
 
 
 def test_memory_leak():
