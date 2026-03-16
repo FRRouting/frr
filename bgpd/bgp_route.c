@@ -8283,8 +8283,10 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
-	if (afi == AFI_IP)
+	if (afi == AFI_IP) {
 		nh_length = IPV4_MAX_BYTELEN;
+		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
+	}
 
 	/* NHC */
 	nhc = XCALLOC(MTYPE_BGP_NHC, sizeof(struct bgp_nhc));
@@ -10590,9 +10592,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	 */
 	assert(attr.aspath);
 
-	if (p->family == AF_INET6)
-		UNSET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
-
 	switch (nhtype) {
 	case NEXTHOP_TYPE_IFINDEX:
 		switch (p->family) {
@@ -10600,6 +10599,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			attr.nexthop.s_addr = INADDR_ANY;
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 			attr.mp_nexthop_global_in.s_addr = INADDR_ANY;
+			bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 			break;
 		case AF_INET6:
 			memset(&attr.mp_nexthop_global, 0,
@@ -10613,6 +10613,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		attr.nexthop = nexthop->ipv4;
 		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 		attr.mp_nexthop_global_in = nexthop->ipv4;
+		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -10625,6 +10626,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			attr.nexthop.s_addr = INADDR_ANY;
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 			attr.mp_nexthop_global_in.s_addr = INADDR_ANY;
+			bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 			break;
 		case AF_INET6:
 			memset(&attr.mp_nexthop_global, 0,
