@@ -390,6 +390,7 @@ DECLARE_RBTREE_UNIQ(rb_pim_upstream, struct pim_upstream, upstream_rb,
 		    pim_upstream_compare);
 
 void pim_upstream_register_reevaluate(struct pim_instance *pim);
+void pim_upstream_dense_reevaluate(struct pim_instance *pim);
 
 void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim);
 void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,

@@ -336,6 +336,7 @@ void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 #endif /* PIM_IPV == 4 */
 	pim_upstream_reeval_use_rpt(pim);
 	/* re-check dense groups */
+	pim_upstream_dense_reevaluate(pim);
 	pim_upstream_register_reevaluate(pim);
 }
 
