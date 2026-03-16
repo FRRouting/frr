@@ -1878,6 +1878,8 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 		dest = inode->ptr;
 
 		table = bgp_dest_table(dest);
+		assert(table->bgp->zebra_announce_queue_cnt > 0);
+		table->bgp->zebra_announce_queue_cnt--;
 		install = CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
 		if (table->afi == AFI_L2VPN && table->safi == SAFI_EVPN) {
 			is_evpn = true;
@@ -2057,6 +2059,7 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 		inode->type = BGP_BP_INSTALL_ROUTE;
 		inode->ptr = dest;
 		zebra_announce_add_tail(&bm->zebra_announce_head, inode);
+		bgp->zebra_announce_queue_cnt++;
 		/*
 		 * If neither flag is set and za_bgp_pi is not set then it is a bug
 		 */

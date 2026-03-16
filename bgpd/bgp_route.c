@@ -16082,6 +16082,12 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_out(vty, "\n");
 	}
 
+	if (!json)
+		vty_out(vty, "%-30s: %12u\n", "Zebra announce queue",
+			bgp->zebra_announce_queue_cnt);
+	else
+		json_object_int_add(json, "zebraAnnounceQueue", bgp->zebra_announce_queue_cnt);
+
 	switch (afi) {
 	case AFI_IP:
 		bitlen = IPV4_MAX_BITLEN;
