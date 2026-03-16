@@ -632,8 +632,10 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
 	bgp_dest_set_defer_flag(dest, false);
-	if (pi->peer)
+	if (pi->peer) {
 		pi->peer->stat_pfx_loc_rib++;
+		LIST_INSERT_HEAD(&pi->peer->paths, pi, peer_thread);
+	}
 	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
@@ -659,8 +661,10 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	if (table)
 		bgp_pi_hash_del(&table->pi_hash, pi);
 
-	if (pi->peer)
+	if (pi->peer) {
 		pi->peer->stat_pfx_loc_rib--;
+		LIST_REMOVE(pi, peer_thread);
+	}
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
 	bgp_path_info_unlock(pi);
@@ -680,8 +684,10 @@ static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 	if (table)
 		bgp_pi_hash_del(&table->pi_hash, pi);
 
-	if (pi->peer)
+	if (pi->peer) {
 		pi->peer->stat_pfx_loc_rib--;
+		LIST_REMOVE(pi, peer_thread);
+	}
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 	bgp_path_info_unlock(pi);
 
@@ -7050,6 +7056,9 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 		if (pi->peer != peer)
 			continue;
 
+		if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			continue;
+
 		/* graceful restart STALE flag set.
 		 * Note: we intentionally do NOT check for BGP_PATH_STALE here.
 		 * A route may already be stale (e.g., from a prior enhanced
@@ -7134,7 +7143,10 @@ static void bgp_clear_node_queue_init(struct peer *peer)
 static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 				  struct bgp_table *table)
 {
+	struct bgp_adj_in *ain, *ain_next;
+	struct bgp_path_info *pi, *pi_temp;
 	struct bgp_dest *dest;
+	struct bgp_dest *last_queued = NULL;
 	int force = peer->bgp->process_queue ? 0 : 1;
 
 	if (!table)
@@ -7144,82 +7156,54 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 	if (!table)
 		return;
 
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		struct bgp_path_info *pi, *next;
-		struct bgp_adj_in *ain;
-		struct bgp_adj_in *ain_next;
+	/*
+	 * Walk the per-peer adj-in list instead of scanning the entire routing
+	 * table.  This turns O(table_size) into O(peer_adj_in_count).
+	 */
+	for (ain = peer->adj_in_head; ain; ain = ain_next) {
+		ain_next = ain->peer_adj_next;
 
-		/* XXX:TODO: This is suboptimal, every non-empty route_node is
-		 * queued for every clearing peer, regardless of whether it is
-		 * relevant to the peer at hand.
-		 *
-		 * Overview: There are 3 different indices which need to be
-		 * scrubbed, potentially, when a peer is removed:
-		 *
-		 * 1 peer's routes visible via the RIB (ie accepted routes)
-		 * 2 peer's routes visible by the (optional) peer's adj-in index
-		 * 3 other routes visible by the peer's adj-out index
-		 *
-		 * 3 there is no hurry in scrubbing, once the struct peer is
-		 * removed from bgp->peer, we could just GC such deleted peer's
-		 * adj-outs at our leisure.
-		 *
-		 * 1 and 2 must be 'scrubbed' in some way, at least made
-		 * invisible via RIB index before peer session is allowed to be
-		 * brought back up. So one needs to know when such a 'search' is
-		 * complete.
-		 *
-		 * Ideally:
-		 *
-		 * - there'd be a single global queue or a single RIB walker
-		 * - rather than tracking which route_nodes still need to be
-		 *   examined on a peer basis, we'd track which peers still
-		 *   aren't cleared
-		 *
-		 * Given that our per-peer prefix-counts now should be reliable,
-		 * this may actually be achievable. It doesn't seem to be a huge
-		 * problem at this time,
-		 *
-		 * It is possible that we have multiple paths for a prefix from
-		 * a peer
-		 * if that peer is using AddPath.
-		 */
-		ain = dest->adj_in;
-		while (ain) {
-			ain_next = ain->next;
+		if (bgp_dest_table(ain->dest) != table)
+			continue;
 
-			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
+		dest = ain->dest;
+		bgp_adj_in_remove(&dest, ain);
+	}
 
-			ain = ain_next;
+	/*
+	 * Walk the per-peer path list instead of scanning the entire routing
+	 * table.  This turns O(table_size) into O(peer_path_count).
+	 */
+	LIST_FOREACH_SAFE (pi, &peer->paths, peer_thread, pi_temp) {
+		if (!pi->net || bgp_dest_table(pi->net) != table)
+			continue;
 
+		if (force) {
+			dest = bgp_path_info_reap(pi->net, pi);
 			assert(dest);
-		}
+		} else {
+			struct bgp_clear_node_queue *cnq;
 
-		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
-			next = pi->next;
-			if (pi->peer != peer)
+			dest = pi->net;
+
+			/*
+			 * With AddPath we may have multiple paths per dest.
+			 * Avoid queueing the same dest multiple times;
+			 * the worker handles all paths on the dest.
+			 */
+			if (dest == last_queued)
 				continue;
+			last_queued = dest;
 
-			if (force) {
-				dest = bgp_path_info_reap(dest, pi);
-				assert(dest);
-			} else {
-				struct bgp_clear_node_queue *cnq;
-
-				/* both unlocked in bgp_clear_node_queue_del */
-				bgp_table_lock(bgp_dest_table(dest));
-				bgp_dest_lock_node(dest);
-				cnq = XCALLOC(
-					MTYPE_BGP_CLEAR_NODE_QUEUE,
-					sizeof(struct bgp_clear_node_queue));
-				cnq->dest = dest;
-				work_queue_add(peer->clear_node_queue, cnq);
-				break;
-			}
+			/* both unlocked in bgp_clear_node_queue_del */
+			bgp_table_lock(bgp_dest_table(dest));
+			bgp_dest_lock_node(dest);
+			cnq = XCALLOC(MTYPE_BGP_CLEAR_NODE_QUEUE,
+				      sizeof(struct bgp_clear_node_queue));
+			cnq->dest = dest;
+			work_queue_add(peer->clear_node_queue, cnq);
 		}
 	}
-	return;
 }
 
 void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
@@ -7739,27 +7723,21 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_table *table;
 	struct bgp_dest *dest;
-	struct bgp_adj_in *ain;
-	struct bgp_adj_in *ain_next;
+	struct bgp_adj_in *ain, *ain_next;
 
 	table = peer->bgp->rib[afi][safi];
 
-	/* It is possible that we have multiple paths for a prefix from a peer
-	 * if that peer is using AddPath.
+	/*
+	 * Walk the per-peer adj-in list instead of the entire routing table.
 	 */
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		ain = dest->adj_in;
+	for (ain = peer->adj_in_head; ain; ain = ain_next) {
+		ain_next = ain->peer_adj_next;
 
-		while (ain) {
-			ain_next = ain->next;
+		if (bgp_dest_table(ain->dest) != table)
+			continue;
 
-			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
-
-			ain = ain_next;
-
-			assert(dest);
-		}
+		dest = ain->dest;
+		bgp_adj_in_remove(&dest, ain);
 	}
 }
 

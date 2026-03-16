@@ -1712,6 +1712,8 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_dire
 	peer->last_reset = PEER_DOWN_NONE;
 	peer->down_last_reset = PEER_DOWN_NONE;
 
+	LIST_INIT(&peer->paths);
+
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
