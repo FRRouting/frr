@@ -31,6 +31,9 @@ static struct route_node *nhrp_route_update_get(const struct prefix *p,
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(p));
 
+	if (!IS_VALID_AFI(afi))
+		return NULL;
+
 	if (!zebra_rib[afi])
 		return NULL;
 
@@ -262,6 +265,9 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 	struct prefix lookup;
 	afi_t afi = family2afi(sockunion_family(addr));
 
+	if (!IS_VALID_AFI(afi) || !zebra_rib[afi])
+		return 0;
+
 	sockunion2hostprefix(addr, &lookup);
 
 	rn = route_node_match(zebra_rib[afi], &lookup);
@@ -303,6 +309,9 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 	uint32_t network_id = 0;
 	afi_t afi = family2afi(sockunion_family(addr));
 	int i;
+
+	if (!IS_VALID_AFI(afi))
+		return NHRP_ROUTE_BLACKHOLE;
 
 	if (ifp) {
 		nifp = ifp->info;
