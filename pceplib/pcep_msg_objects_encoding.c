@@ -22,6 +22,7 @@
 
 #include "pcep_msg_objects.h"
 #include "pcep_msg_encoding.h"
+#include "pcep_msg_tools.h"
 #include "pcep_utils_logging.h"
 #include "pcep_utils_memory.h"
 
@@ -1439,6 +1440,7 @@ void decode_ipv6(const uint32_t *src, struct in6_addr *dst_ipv6)
 struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 					      const uint8_t *obj_buf)
 {
+	bool err_p = false;
 	struct pcep_object_ro *obj =
 		(struct pcep_object_ro *)common_object_create(
 			hdr, sizeof(struct pcep_object_ro));
@@ -1455,7 +1457,6 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 
 	uint16_t read_count = 0;
 	int num_sub_objects = 1;
-	uint32_t *uint32_ptr;
 	uint16_t obj_body_length =
 		hdr->encoded_object_length - OBJECT_HEADER_LENGTH;
 
@@ -1466,24 +1467,43 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		bool flag_l = (obj_buf[read_count] & 0x80);
 		uint8_t subobj_type = (obj_buf[read_count++] & 0x7f);
 		uint8_t subobj_length = obj_buf[read_count++];
+		uint8_t req_length;
 
 		if (subobj_length <= OBJECT_RO_SUBOBJ_HEADER_LENGTH) {
 			pcep_log(LOG_INFO,
 				 "%s: Invalid ro subobj type [%d] length [%d]",
 				 __func__, subobj_type, subobj_length);
-			pceplib_free(PCEPLIB_MESSAGES, obj);
+			pcep_obj_free_object((struct pcep_object_header *)obj);
 			return NULL;
+		}
+
+		if ((subobj_length - OBJECT_RO_SUBOBJ_HEADER_LENGTH) >
+		    (obj_body_length - read_count)) {
+			pcep_log(LOG_INFO,
+				 "%s: Too-long ro subobj type [%d] length [%d]",
+				 __func__, subobj_type, subobj_length);
+			err_p = true;
+			break;
 		}
 
 		switch (subobj_type) {
 		case RO_SUBOBJ_TYPE_IPV4: {
+			/* Validate length */
+			if (subobj_length != LENGTH_2WORDS) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
+
 			struct pcep_ro_subobj_ipv4 *ipv4 = pceplib_malloc(
 				PCEPLIB_MESSAGES,
 				sizeof(struct pcep_ro_subobj_ipv4));
 			ipv4->ro_subobj.flag_subobj_loose_hop = flag_l;
 			ipv4->ro_subobj.ro_subobj_type = subobj_type;
-			uint32_ptr = (uint32_t *)(obj_buf + read_count);
-			ipv4->ip_addr.s_addr = *uint32_ptr;
+			memcpy(&(ipv4->ip_addr.s_addr), (obj_buf + read_count),
+			       LENGTH_1WORD);
 			read_count += LENGTH_1WORD;
 			ipv4->prefix_length = obj_buf[read_count++];
 			ipv4->flag_local_protection =
@@ -1494,12 +1514,21 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		} break;
 
 		case RO_SUBOBJ_TYPE_IPV6: {
+			/* Validate length */
+			if (subobj_length != LENGTH_5WORDS) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
+
 			struct pcep_ro_subobj_ipv6 *ipv6 = pceplib_malloc(
 				PCEPLIB_MESSAGES,
 				sizeof(struct pcep_ro_subobj_ipv6));
 			ipv6->ro_subobj.flag_subobj_loose_hop = flag_l;
 			ipv6->ro_subobj.ro_subobj_type = subobj_type;
-			decode_ipv6((uint32_t *)obj_buf, &ipv6->ip_addr);
+			memcpy(&(ipv6->ip_addr), (obj_buf + read_count), sizeof(struct in6_addr));
 			read_count += LENGTH_4WORDS;
 			ipv6->prefix_length = obj_buf[read_count++];
 			ipv6->flag_local_protection =
@@ -1510,6 +1539,15 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		} break;
 
 		case RO_SUBOBJ_TYPE_LABEL: {
+			/* Validate length */
+			if (subobj_length != LENGTH_2WORDS) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
+
 			struct pcep_ro_subobj_32label *label = pceplib_malloc(
 				PCEPLIB_MESSAGES,
 				sizeof(struct pcep_ro_subobj_32label));
@@ -1519,13 +1557,23 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 				(obj_buf[read_count++]
 				 & OBJECT_SUBOBJ_LABEL_FLAG_GLOGAL);
 			label->class_type = obj_buf[read_count++];
-			label->label = ntohl(obj_buf[read_count]);
+			memcpy(&(label->label), obj_buf + read_count, LENGTH_1WORD);
+			label->label = ntohl(label->label);
 			read_count += LENGTH_1WORD;
 
 			dll_append(obj->sub_objects, label);
 		} break;
 
 		case RO_SUBOBJ_TYPE_UNNUM: {
+			/* Validate length */
+			if (subobj_length != 2 + LENGTH_2WORDS) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
+
 			struct pcep_ro_subobj_unnum *unum = pceplib_malloc(
 				PCEPLIB_MESSAGES,
 				sizeof(struct pcep_ro_subobj_unnum));
@@ -1534,29 +1582,41 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			set_ro_subobj_fields(
 				(struct pcep_object_ro_subobj *)unum, flag_l,
 				subobj_type);
-			uint32_ptr = (uint32_t *)(obj_buf + read_count);
-			unum->interface_id = ntohl(uint32_ptr[0]);
-			unum->router_id.s_addr = uint32_ptr[1];
-			read_count += 2;
+
+			memcpy(&(unum->interface_id), (obj_buf + read_count), LENGTH_1WORD);
+			read_count += LENGTH_1WORD;
+			unum->interface_id = ntohl(unum->interface_id);
+			memcpy(&(unum->router_id.s_addr), (obj_buf + read_count), LENGTH_1WORD);
+			read_count += LENGTH_1WORD;
 
 			dll_append(obj->sub_objects, unum);
 		} break;
 
 		case RO_SUBOBJ_TYPE_ASN: {
+			/* Validate length */
+			if (subobj_length != LENGTH_1WORD) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
+
 			struct pcep_ro_subobj_asn *asn = pceplib_malloc(
 				PCEPLIB_MESSAGES,
 				sizeof(struct pcep_ro_subobj_asn));
 			asn->ro_subobj.flag_subobj_loose_hop = flag_l;
 			asn->ro_subobj.ro_subobj_type = subobj_type;
-			uint16_t *uint16_ptr =
-				(uint16_t *)(obj_buf + read_count);
-			asn->asn = ntohs(*uint16_ptr);
+			memcpy(&(asn->asn), (obj_buf + read_count), 2);
+			asn->asn = ntohs(asn->asn);
 			read_count += 2;
 
 			dll_append(obj->sub_objects, asn);
 		} break;
 
 		case RO_SUBOBJ_TYPE_SR: {
+			uint32_t ival;
+
 			/* SR-ERO subobject format
 			 *
 			 * 0                   1                   2 3 0 1 2 3 4
@@ -1570,6 +1630,16 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			 * //                   NAI (variable, optional) //
 			 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 			 */
+
+			/* Validate length */
+			req_length = LENGTH_1WORD;
+			if (subobj_length < req_length) {
+				pcep_log(LOG_INFO,
+					 "%s: Invalid length ro subobj type [%d] length [%d]",
+					 __func__, subobj_type, subobj_length);
+				err_p = true;
+				break;
+			}
 
 			struct pcep_ro_subobj_sr *sr_subobj = pceplib_malloc(
 				PCEPLIB_MESSAGES,
@@ -1591,119 +1661,202 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 				(obj_buf[read_count] & OBJECT_SUBOBJ_SR_FLAG_M);
 			read_count++;
 
-			/* If the sid_absent flag is true, then dont decode the
-			 * sid */
-			uint32_ptr = (uint32_t *)(obj_buf + read_count);
+			/* Decode the sid unless the sid_absent flag is true */
 			if (sr_subobj->flag_s == false) {
-				sr_subobj->sid = ntohl(*uint32_ptr);
+				/* Validate length */
+				req_length += LENGTH_1WORD;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
+				memcpy(&ival, (obj_buf + read_count), LENGTH_1WORD);
+				sr_subobj->sid = ntohl(ival);
 				read_count += LENGTH_1WORD;
-				uint32_ptr += 1;
 			}
 
 			switch (sr_subobj->nai_type) {
 			case PCEP_SR_SUBOBJ_NAI_IPV4_NODE: {
+				/* Validate length */
+				req_length += LENGTH_1WORD;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in_addr *ipv4 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in_addr));
-				ipv4->s_addr = *uint32_ptr;
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
 				read_count += LENGTH_1WORD;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_IPV6_NODE: {
+				/* Validate length */
+				req_length += LENGTH_4WORDS;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in6_addr *ipv6 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr, ipv6);
+				memcpy(ipv6, obj_buf + read_count, LENGTH_4WORDS);
 				dll_append(sr_subobj->nai_list, ipv6);
 				read_count += LENGTH_4WORDS;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY: {
+				/* Validate length */
+				req_length += LENGTH_4WORDS;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in_addr *ipv4 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[0];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[1];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[2];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[3];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
-				read_count += LENGTH_4WORDS;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY: {
+				req_length += LENGTH_2WORDS;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in_addr *ipv4 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[0];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[1];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
-				read_count += LENGTH_2WORDS;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY: {
+				req_length += LENGTH_8WORDS;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in6_addr *ipv6 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr, ipv6);
+				memcpy(ipv6, obj_buf + read_count, LENGTH_4WORDS);
 				dll_append(sr_subobj->nai_list, ipv6);
+				read_count += LENGTH_4WORDS;
 
 				ipv6 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr + 4, ipv6);
+				memcpy(ipv6, obj_buf + read_count, LENGTH_4WORDS);
 				dll_append(sr_subobj->nai_list, ipv6);
+				read_count += LENGTH_4WORDS;
 
-				read_count += LENGTH_8WORDS;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY: {
+				req_length += LENGTH_10WORDS;
+				if (subobj_length < req_length) {
+					pcep_log(LOG_INFO,
+						 "%s: Invalid length ro subobj type [%d] length [%d]",
+						 __func__, subobj_type, subobj_length);
+					err_p = true;
+					break;
+				}
+
 				struct in6_addr *ipv6 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr, ipv6);
+				memcpy(ipv6, obj_buf + read_count, LENGTH_4WORDS);
 				dll_append(sr_subobj->nai_list, ipv6);
+				read_count += LENGTH_4WORDS;
 
 				struct in_addr *ipv4 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[4];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
 				ipv6 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr + 5, ipv6);
+				memcpy(ipv6, obj_buf + read_count, LENGTH_4WORDS);
 				dll_append(sr_subobj->nai_list, ipv6);
+				read_count += LENGTH_4WORDS;
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[9];
+				memcpy(&(ipv4->s_addr), obj_buf + read_count,
+				       LENGTH_1WORD);
 				dll_append(sr_subobj->nai_list, ipv4);
+				read_count += LENGTH_1WORD;
 
-				read_count += LENGTH_10WORDS;
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_ABSENT:
 			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
+
 		} break;
 
 		default:
@@ -1711,9 +1864,22 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 				LOG_INFO,
 				"%s: pcep_decode_obj_ro skipping unrecognized sub-object type [%d]",
 				__func__, subobj_type);
-			read_count += subobj_length;
+
+			/* Just advance; note that the subtlv len includes the
+			 * header octets
+			 */
+			read_count += (subobj_length -
+				       OBJECT_RO_SUBOBJ_HEADER_LENGTH);
 			break;
 		}
+
+		if (err_p)
+			break;
+	}
+
+	if (err_p && obj) {
+		pcep_obj_free_object((struct pcep_object_header *)obj);
+		obj = NULL;
 	}
 
 	return (struct pcep_object_header *)obj;
