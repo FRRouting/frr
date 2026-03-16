@@ -553,8 +553,10 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	 * If we have been given an install but nothing is valid
 	 * go ahead and delete the route for double plus fun
 	 */
-	if (!nh_num && install)
+	if (!nh_num && install) {
 		install = false;
+		zlog_warn("%s: No valid nexthops for route %pFX, suppressing install", __func__, p);
+	}
 
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
