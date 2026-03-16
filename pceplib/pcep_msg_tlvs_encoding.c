@@ -1186,8 +1186,12 @@ pcep_decode_tlv_pol_name(struct pcep_object_tlv_header *tlv_hdr,
 	struct pcep_object_tlv_srpag_pol_name *tlv =
 		(struct pcep_object_tlv_srpag_pol_name *)common_tlv_create(
 			tlv_hdr, sizeof(struct pcep_object_tlv_srpag_pol_name));
+	uint16_t len = tlv->header.encoded_tlv_length;
 
-	memcpy(tlv->name, tlv_body_buf, tlv->header.encoded_tlv_length);
+	if (len > MAX_POLICY_NAME)
+		len = MAX_POLICY_NAME;
+
+	memcpy(tlv->name, tlv_body_buf, len);
 
 	return (struct pcep_object_tlv_header *)tlv;
 }
