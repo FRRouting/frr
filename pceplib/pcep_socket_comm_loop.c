@@ -68,9 +68,9 @@ void write_message(int socket_fd, const char *message, unsigned int msg_length)
 	ssize_t bytes_sent = 0;
 	unsigned int total_bytes_sent = 0;
 
-	while ((uint32_t)bytes_sent < msg_length) {
+	while (total_bytes_sent < msg_length) {
 		bytes_sent = write(socket_fd, message + total_bytes_sent,
-				   msg_length);
+				   msg_length - total_bytes_sent);
 
 		pcep_log(
 			LOG_INFO,
@@ -78,16 +78,19 @@ void write_message(int socket_fd, const char *message, unsigned int msg_length)
 			__func__, time(NULL), pthread_self(), socket_fd,
 			msg_length, bytes_sent);
 
+		/* At this time, this code path can't / doesn't handle various
+		 * error conditions, and there's no context to support retries.
+		 * All errors just return immediately.
+		 */
 		if (bytes_sent < 0) {
-			if (errno != EAGAIN && errno != EWOULDBLOCK) {
-				pcep_log(LOG_WARNING, "%s: send() failure",
-					 __func__);
-
-				return;
-			}
-		} else {
-			total_bytes_sent += bytes_sent;
+			pcep_log(LOG_WARNING, "%s: send() failure", __func__);
+			return;
+		} else if (bytes_sent == 0) {
+			pcep_log(LOG_WARNING, "%s: write() unable to send", __func__);
+			return;
 		}
+
+		total_bytes_sent += bytes_sent;
 	}
 }
 
