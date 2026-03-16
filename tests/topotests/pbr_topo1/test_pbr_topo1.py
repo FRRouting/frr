@@ -133,6 +133,30 @@ def runit(router, tag, cmd, expfile):
         assert result is None, assertmsg
 
 
+def nhg_cmp(router, cmd, expected):
+    """Compare nexthop-groups JSON dict output against expected list.
+
+    The JSON output is a dict keyed by table ID (plus nhgCount).
+    Extract the group values and compare as a list against expected.
+    """
+    output = router.vtysh_cmd(cmd, isjson=True)
+    actual_groups = [v for k, v in output.items() if isinstance(v, dict)]
+    return topotest.json_cmp(actual_groups, expected)
+
+
+def runit_nhg(router, tag, cmd, expfile):
+    logger.info(expfile)
+
+    expected = json.loads(open(expfile).read())
+
+    test_func = partial(nhg_cmp, router, cmd, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" mismatches on {}'.format(tag, router.name)
+    if result is not None:
+        gather_pbr_data_on_error(router)
+        assert result is None, assertmsg
+
+
 def test_pbr_data():
     "Test PBR"
 
@@ -160,7 +184,7 @@ def test_pbr_data():
             "{}/{}/pbr-map.json".format(CWD, router.name),
         )
 
-        runit(
+        runit_nhg(
             router,
             "show pbr nexthop-groups",
             "show pbr nexthop-groups json",
@@ -429,14 +453,13 @@ def test_pbr_nhg_with_vrf_disable_enable():
         if not nhg_data:
             return "Nexthop-group C data is empty"
 
-        # Find the nexthop-group with name "C" (ID is variable)
+        # Find the nexthop-group with name "C" (table ID key is variable)
         nhg = None
 
-        if isinstance(nhg_data, list):
-            for item in nhg_data:
-                if isinstance(item, dict) and item.get("name") == "C":
-                    nhg = item
-                    break
+        for key, item in nhg_data.items():
+            if isinstance(item, dict) and item.get("name") == "C":
+                nhg = item
+                break
 
         if nhg is None:
             return "Nexthop-group C not found in output"
