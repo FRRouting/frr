@@ -16552,6 +16552,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 
 					if (route_filtered ||
 					    ret == RMAP_DENY) {
+						memset(&pathi, 0,
+						       sizeof(struct
+							      bgp_path_info));
 						pathi.attr = &attr;
 						pathi.peer = peer;
 						buildit.info = &pathi;
