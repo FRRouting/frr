@@ -1010,7 +1010,9 @@ def wait_for_es_peer_set_ready(dut, esi, down_vteps, count=45, wait=1):
 
 
 def check_link_oper_down(node, intf):
-    out = node.run("ip -o link show dev {} | awk -F'[<>]' '{{print $2}}'".format(intf)).strip()
+    out = node.run(
+        "ip -o link show dev {} | awk -F'[<>]' '{{print $2}}'".format(intf)
+    ).strip()
     if not out:
         return "interface {} not found".format(intf)
     flags = set(flag for flag in out.split(",") if flag)
@@ -1208,7 +1210,10 @@ def check_arp_redirect_progress_any(duts_before):
     for dut, before in duts_before:
         after = get_arp_nd_redirect_stats(dut)
         details[dut.name] = {"before": before, "after": after}
-        if after["ipv4_arp"] > before["ipv4_arp"] and after["redirected"] > before["redirected"]:
+        if (
+            after["ipv4_arp"] > before["ipv4_arp"]
+            and after["redirected"] > before["redirected"]
+        ):
             return None
 
     return "ARP redirect counters did not progress on any DUT: {}".format(details)
@@ -1261,7 +1266,7 @@ def _send_unicast_na(host, intf, src_ip, dst_ip, dst_mac):
     Send unicast NA frames (ICMPv6 type 136) to match zebra's unicast ND snoop path.
     """
     cmd = (
-        "python3 -c \"from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;"
+        'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
         "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
         "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{dst_ip}')/"
         "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
@@ -1275,14 +1280,12 @@ def _send_unicast_ns(host, intf, src_ip, target_ip, dst_mac):
     Send unicast NS frames (ICMPv6 type 135) to match zebra's unicast ND snoop path.
     """
     cmd = (
-        "python3 -c \"from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;"
+        'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
         "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
         "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{target_ip}')/"
         "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
         "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
-    ).format(
-        intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac
-    )
+    ).format(intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac)
     host.run(cmd)
 
 
@@ -1291,7 +1294,7 @@ def _send_unicast_arp_reply(host, intf, src_ip, dst_ip, dst_mac):
     Send unicast ARP reply frames to exercise ARP redirect path.
     """
     cmd = (
-        "python3 -c \"from scapy.all import Ether,ARP,sendp;"
+        'python3 -c "from scapy.all import Ether,ARP,sendp;'
         "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
         "pkt=Ether(src=srcmac,dst='{dst_mac}')/"
         "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
@@ -1539,9 +1542,7 @@ def test_evpn_arp_nd_redirect_counters(tgen_and_ip_version):
             host = tgen.gears[host_name]
             intf = host_if[host_name]
             host.run("ip -6 neigh flush dev {} 2>/dev/null || true".format(intf))
-            host.run(
-                "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(intf, gw_ip)
-            )
+            host.run("ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(intf, gw_ip))
             host.run(
                 "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(
                     intf, peer_targets[host_name]
@@ -1640,9 +1641,13 @@ def test_evpn_arp_nd_redirected_counter(tgen_and_ip_version):
     torm11.run("bridge vlan del vid 1 dev hostbond2 2>/dev/null || true")
     torm11.run("bridge vlan del vid 1 pvid untagged dev hostbond2 2>/dev/null || true")
     torm11.run("bridge vlan del vid 1001 dev hostbond2 2>/dev/null || true")
-    torm11.run("bridge vlan del vid 1001 pvid untagged dev hostbond2 2>/dev/null || true")
+    torm11.run(
+        "bridge vlan del vid 1001 pvid untagged dev hostbond2 2>/dev/null || true"
+    )
     torm11.run("bridge vlan add vid 1000 dev hostbond2 2>/dev/null || true")
-    torm11.run("bridge vlan add vid 1000 pvid untagged dev hostbond2 2>/dev/null || true")
+    torm11.run(
+        "bridge vlan add vid 1000 pvid untagged dev hostbond2 2>/dev/null || true"
+    )
     pvid_check_fn = partial(check_port_vlan_pvid, torm11, "hostbond2", 1000)
     _, pvid_result = topotest.run_and_expect(pvid_check_fn, None, count=10, wait=1)
     assert pvid_result is None, pvid_result
@@ -1674,7 +1679,9 @@ def test_evpn_arp_nd_redirected_counter(tgen_and_ip_version):
         for _ in range(12):
             src_host.run("ip -6 neigh flush dev {} 2>/dev/null || true".format(src_if))
             src_host.run("ip neigh flush dev {} 2>/dev/null || true".format(src_if))
-            src_host.run("ping -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip4))
+            src_host.run(
+                "ping -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip4)
+            )
             _send_unicast_arp_reply(src_host, src_if, src_ip4, dst_ip4, dst_mac)
             # keep ND traffic too so we preserve existing visibility
             src_host.run(
@@ -1686,14 +1693,20 @@ def test_evpn_arp_nd_redirected_counter(tgen_and_ip_version):
             time.sleep(1)
 
         redirect_fn = partial(check_arp_redirect_progress_any, redirect_before)
-        _, redirect_result = topotest.run_and_expect(redirect_fn, None, count=40, wait=1)
+        _, redirect_result = topotest.run_and_expect(
+            redirect_fn, None, count=40, wait=1
+        )
     finally:
         # Restore hostbond2 VLAN mapping back to VLAN1001.
         torm11.run("bridge vlan del vid 1000 dev hostbond2 2>/dev/null || true")
-        torm11.run("bridge vlan del vid 1000 pvid untagged dev hostbond2 2>/dev/null || true")
+        torm11.run(
+            "bridge vlan del vid 1000 pvid untagged dev hostbond2 2>/dev/null || true"
+        )
         torm11.run("bridge vlan add vid 1 dev hostbond2 2>/dev/null || true")
         torm11.run("bridge vlan add vid 1001 dev hostbond2 2>/dev/null || true")
-        torm11.run("bridge vlan add vid 1001 pvid untagged dev hostbond2 2>/dev/null || true")
+        torm11.run(
+            "bridge vlan add vid 1001 pvid untagged dev hostbond2 2>/dev/null || true"
+        )
         src_host.run("ip link set dev hostd12-eth1 up 2>/dev/null || true")
         torm11.run("ip link set dev torm11-eth2 up 2>/dev/null || true")
 

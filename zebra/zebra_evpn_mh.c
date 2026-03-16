@@ -38,6 +38,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_arp_nd.h"
@@ -75,14 +76,13 @@ esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 #define TC_SUDO_STR ""
 #define TC_BIN_STR  "/usr/sbin/tc"
 
-extern struct zebra_privs_t zserv_privs;
-
 static int zebra_program_using_fork_exec(char *cmd, int debug)
 {
-#define PCONDCHECK(x)                                                          \
-	if (!(x)) {                                                            \
-		perror(#x " failed");                                          \
-	}
+#define PCONDCHECK(x)                                                                             \
+	do {                                                                                      \
+		if (!(x))                                                                         \
+			perror(#x " failed");                                                     \
+	} while (0)
 	pid_t pid;
 	int exitstat, rc;
 	sigset_t sigs, prevsigs;
@@ -100,24 +100,24 @@ static int zebra_program_using_fork_exec(char *cmd, int debug)
 		return -1;
 	} else if (pid == 0) {
 		if (setpgid(0, 0) < 0)
-			zlog_warn("%s FAILED setpgid for child: %s cmd %s",
-				  __func__, safe_strerror(errno), cmd);
+			zlog_warn("%s FAILED setpgid for child: %s cmd %s", __func__,
+				  safe_strerror(errno), cmd);
 		rc = execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
 		if (debug)
-			zlog_debug("%s tc rule rc %u errno %s for cmd %s",
-				   __func__, rc, safe_strerror(errno), cmd);
+			zlog_debug("%s tc rule rc %u errno %s for cmd %s", __func__, rc,
+				   safe_strerror(errno), cmd);
 		exit(0);
 	}
 
 	if (setpgid(pid, pid) < 0 && errno != EACCES)
-		zlog_warn("%s FAILED child pid %u decouple process group cmd %s",
-			  __func__, pid, cmd);
+		zlog_warn("%s FAILED child pid %jd decouple process group cmd %s", __func__,
+			  (intmax_t)pid, cmd);
 
 	PCONDCHECK(sigprocmask(SIG_SETMASK, &prevsigs, NULL) == 0);
 
 	if (waitpid(pid, &exitstat, 0) == -1) {
-		zlog_warn("%s FAILED waitpid for pid %u: %s cmd %s",
-			  __func__, pid, safe_strerror(errno), cmd);
+		zlog_warn("%s FAILED waitpid for pid %jd: %s cmd %s", __func__,
+			  (intmax_t)pid, safe_strerror(errno), cmd);
 		return -1;
 	}
 	return 0;
@@ -134,8 +134,7 @@ static void zebra_evpn_mh_tc_program(char *cmd)
 	}
 
 	frr_with_privs (&zserv_privs) {
-		rc = zebra_program_using_fork_exec(cmd,
-						   IS_ZEBRA_DEBUG_EVPN_MH_ES);
+		rc = zebra_program_using_fork_exec(cmd, IS_ZEBRA_DEBUG_EVPN_MH_ES);
 	}
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("%s rc %d cmd %s", __func__, rc, cmd);
@@ -1285,7 +1284,6 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 {
 	vlanid_t vid;
 	struct zebra_evpn_es *es;
-
 	if (bf_is_inited(zif->vlan_bitmap)) {
 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 		{
@@ -1726,6 +1724,11 @@ static struct zebra_evpn_es_vtep *zebra_evpn_es_vtep_find(struct zebra_evpn_es *
 	return NULL;
 }
 
+/* A list of remote VTEPs is maintained for each ES. This list includes -
+ * 1. VTEPs for which we have imported the ESR i.e. ES peers.
+ * 2. VTEPs that have an "active" ES-EVI VTEP, i.e. EAD-per-ES and
+ *    EAD-per-EVI have been imported into one or more EVPNs.
+ */
 static int zebra_evpn_mh_vtep_cmp(const struct zebra_evpn_mh_vtep *a,
 				  const struct zebra_evpn_mh_vtep *b)
 {
@@ -1864,6 +1867,9 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 			   caller);
 	backup_nhg_id = (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) ? es->nhg_id : 0;
 
+	/* Program SPH filters for active ES peers on this ES bridge-port.
+	 * This supersedes legacy tc-based per-uplink SPH handling.
+	 */
 	memset(&sph_filters, 0, sizeof(sph_filters));
 	if (es->flags & ZEBRA_EVPNES_BYPASS) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
@@ -2610,9 +2616,8 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	zif = es->zif;
 
 	/* Remove the VTEPs as local ES peers */
-	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
+	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep))
 		zebra_evpn_es_vtep_local_clear(zvtep);
-	}
 
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the contents and start over
@@ -4153,9 +4158,6 @@ void zebra_evpn_mh_config_write(struct vty *vty)
 	if (zmh_info->startup_delay_time != ZEBRA_EVPN_MH_STARTUP_DELAY_DEF)
 		vty_out(vty, "evpn mh startup-delay %d\n",
 			zmh_info->startup_delay_time);
-
-	if (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF)
-		vty_out(vty, "evpn mh redirect-off\n");
 }
 
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
@@ -4212,13 +4214,16 @@ int zebra_evpn_mh_garp_flood_off(struct vty *vty, bool flood_off)
 
 int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off)
 {
-	/* This knob needs to be set before ESs are configured
-	 * i.e. cannot be changed on the fly
-	 */
-	if (redirect_off)
+	(void)vty;
+
+	if (redirect_off) {
 		zmh_info->flags |= ZEBRA_EVPN_MH_REDIRECT_OFF;
-	else
+		zebra_evpn_arp_nd_failover_disable();
+	} else {
 		zmh_info->flags &= ~ZEBRA_EVPN_MH_REDIRECT_OFF;
+		if (CHECK_FLAG(zmh_info->flags, ZEBRA_EVPN_MH_ENABLE))
+			zebra_evpn_arp_nd_failover_enable();
+	}
 
 	return 0;
 }
