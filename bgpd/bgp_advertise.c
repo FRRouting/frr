@@ -188,7 +188,16 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	adj->uptime = monotime(NULL);
 	adj->addpath_rx_id = addpath_id;
 	adj->labels = bgp_labels_intern(labels);
+	adj->dest = dest;
 	BGP_ADJ_IN_ADD(dest, adj);
+
+	/* Link into per-peer adj-in list for fast teardown */
+	adj->peer_adj_next = peer->adj_in_head;
+	adj->peer_adj_prev = NULL;
+	if (peer->adj_in_head)
+		peer->adj_in_head->peer_adj_prev = adj;
+	peer->adj_in_head = adj;
+
 	peer->stat_pfx_adj_rib_in++;
 	bgp_dest_lock_node(dest);
 }
@@ -197,8 +206,17 @@ void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
 	bgp_labels_unintern(&bai->labels);
-	if (bai->peer)
+	if (bai->peer) {
 		bai->peer->stat_pfx_adj_rib_in--;
+
+		/* Unlink from per-peer adj-in list */
+		if (bai->peer_adj_prev)
+			bai->peer_adj_prev->peer_adj_next = bai->peer_adj_next;
+		else
+			bai->peer->adj_in_head = bai->peer_adj_next;
+		if (bai->peer_adj_next)
+			bai->peer_adj_next->peer_adj_prev = bai->peer_adj_prev;
+	}
 	BGP_ADJ_IN_DEL(*dest, bai);
 	*dest = bgp_dest_unlock_node(*dest);
 	peer_unlock(bai->peer); /* adj_in peer reference */

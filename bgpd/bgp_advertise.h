@@ -89,6 +89,13 @@ struct bgp_adj_in {
 	struct bgp_adj_in *next;
 	struct bgp_adj_in *prev;
 
+	/* For per-peer adj-in list (fast peer teardown) */
+	struct bgp_adj_in *peer_adj_next;
+	struct bgp_adj_in *peer_adj_prev;
+
+	/* Back pointer to the prefix node */
+	struct bgp_dest *dest;
+
 	/* Received peer.  */
 	struct peer *peer;
 

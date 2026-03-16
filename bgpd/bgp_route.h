@@ -292,6 +292,9 @@ struct bgp_path_info {
 	/* For nexthop linked list */
 	LIST_ENTRY(bgp_path_info) nh_thread;
 
+	/* For per-peer path list (fast peer teardown) */
+	LIST_ENTRY(bgp_path_info) peer_thread;
+
 	/* Back pointer to the prefix node */
 	struct bgp_dest *net;
 
