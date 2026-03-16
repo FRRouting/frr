@@ -10,7 +10,7 @@
 This is to verify "bgp suppress-duplicates" functionality. The route is
 sourced by network command, and its attributes are set by route-map.
 
-Note: this tests requires these two fixes: PR #20325 and PR #20533.
+Note: these fixes are required: PR #20325, PR #20533, and PR #20884.
 
 Note: The "route-map delay-timer" is 5 seconds as the default, and is
 configured as 1 in this test. It's necessary to wait for more than the
@@ -85,7 +85,73 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
-def test_bgp_suppress_duplicates():
+
+def _bgp_check_neighbor(router, neighbor):
+    output = json.loads(
+        router.vtysh_cmd("show bgp neighbor {} json".format(neighbor))
+    )
+    expected = {
+        neighbor: {
+            "bgpState": "Established",
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def _bgp_get_mrai_expire_secs(router, neighbor):
+    output = json.loads(
+        router.vtysh_cmd("show bgp neighbor {} json".format(neighbor))
+    )
+    expire_msecs = output[neighbor].get("mraiTimerExpireInMsecs")
+    if expire_msecs is not None:
+        # round up
+        expire_secs = ((int(expire_msecs)) + 999) / 1000
+    else:
+        expire_secs = 0
+    return expire_secs
+
+
+def _bgp_get_duplicate_count(router, neighbor):
+    output = json.loads(
+        router.vtysh_cmd("show bgp neighbors {} json".format(neighbor))
+    )
+    dup_count = []
+    dup_count.append(output[neighbor]["addressFamilyInfo"]["ipv4Unicast"]["receivedPrefixDup"])
+    return dup_count
+
+
+def _bgp_check_route_attributes(router, prefix, neighbor, metric):
+    output = json.loads(
+        router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+    )
+    expected = {
+        "prefix": prefix,
+        "paths": [
+            {
+                "metric": metric,
+                "peer": {
+                    "peerId": neighbor,
+                }
+            }
+        ],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def _bgp_check_route_non_exist(router, prefix):
+    output = json.loads(
+        router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+    )
+
+    # If paths exist and are non-empty, route exists (should not)
+    if output.get("paths"):
+        return "Route {} should not be in BGP".format(prefix)
+
+    return None
+
+
+def test_bgp_suppress_duplicates_tc1():
+    """TC 1: Attribute A --> Attribute A."""
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -94,80 +160,18 @@ def test_bgp_suppress_duplicates():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-
-    def _bgp_check_neighbor(router, neighbor):
-        output = json.loads(
-            router.vtysh_cmd("show bgp neighbor {} json".format(neighbor))
-        )
-        expected = {
-            neighbor:{
-                "bgpState": "Established",
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-
-    def _bgp_get_mrai_expire_secs(router, neighbor):
-        output = json.loads(
-            router.vtysh_cmd("show bgp neighbor {} json".format(neighbor))
-        )
-        expire_msecs = output[neighbor].get("mraiTimerExpireInMsecs")
-        if expire_msecs is not None:
-            # round up
-            expire_secs = ((int(expire_msecs)) + 999) / 1000
-        else:
-            expire_secs = 0
-        return expire_secs
-
-
-    def _bgp_get_duplicate_count(router, neighbor):
-        output = json.loads(
-            router.vtysh_cmd("show bgp neighbors {} json".format(neighbor))
-        )
-        dup_count = []
-        dup_count.append(output[neighbor]["addressFamilyInfo"]["ipv4Unicast"]["receivedPrefixDup"])
-        return dup_count
-
-
-    def _bgp_check_route_attributes(router, prefix, neighbor, local_pref, metric):
-        output = json.loads(
-            router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
-        )
-        expected = {
-            "prefix":prefix,
-            "paths":[
-                {
-                    "metric":metric,
-                    "locPrf":local_pref,
-                    "peer":{
-                        "peerId":neighbor,
-                    }
-                }
-            ]
-        }
-        return topotest.json_cmp(output, expected)
-
-
-    def _bgp_check_route_non_exist(router, prefix):
-      output = json.loads(
-          router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
-      )
-
-      # If paths exist and are non-empty, route exists (should not)
-      if output.get("paths"):
-          return "Route {} should not be in BGP".format(prefix)
-
-      return None
-
-
     step("Check BGP session is established")
     test_func = functools.partial(_bgp_check_neighbor, r1, "192.168.12.2")
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "BGP neighbor 192.168.12.2 not established"
 
+    step("Wait for initial route to be received at r2")
+    test_func = functools.partial(_bgp_check_route_attributes, r2, "10.5.5.5/32", "192.168.12.1", 2000)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "BGP route not received at r2"
+
     dup_string = _bgp_get_duplicate_count(r2, "192.168.12.1")
     dup_before = int(dup_string[0])
-
 
     step("TC: Attribute A --> Attribute A")
     r1.vtysh_cmd(
@@ -180,11 +184,11 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 600, 2000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 2000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -194,9 +198,22 @@ def test_bgp_suppress_duplicates():
     assert dup_before == dup_after, "BGP dup count changed from {} to {}".format(
         dup_before, dup_after)
 
-    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 100, 2000)
+    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 2000)
     assert result is None, "BGP route attributes mismatch"
 
+
+def test_bgp_suppress_duplicates_tc2():
+    """TC 2: Attribute A --> Attribute B --> Attribute A."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    dup_string = _bgp_get_duplicate_count(r2, "192.168.12.1")
+    dup_before = int(dup_string[0])
 
     step("TC: Attribute A --> Attribute B --> Attribute A")
     r1.vtysh_cmd(
@@ -209,12 +226,12 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 3000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 3000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
     step("Make sure MRAI is expired, and update is sent out")
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -228,7 +245,7 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 2000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 2000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
@@ -242,11 +259,11 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 3000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 3000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -256,9 +273,22 @@ def test_bgp_suppress_duplicates():
     assert dup_before == dup_after, "BGP dup count changed from {} to {}".format(
         dup_before, dup_after)
 
-    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 100, 3000)
+    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 3000)
     assert result is None, "BGP route attributes mismatch"
 
+
+def test_bgp_suppress_duplicates_tc3():
+    """TC 3: Attribute A --> Attribute B --> Attribute B."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    dup_string = _bgp_get_duplicate_count(r2, "192.168.12.1")
+    dup_before = int(dup_string[0])
 
     step("TC: Attribute A --> Attribute B --> Attribute B")
     r1.vtysh_cmd(
@@ -271,12 +301,12 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 2000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 2000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
     step("Make sure MRAI is expired, and update is sent out")
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -290,7 +320,7 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 3000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 3000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
@@ -304,11 +334,11 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 600, 3000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 3000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -318,9 +348,22 @@ def test_bgp_suppress_duplicates():
     assert dup_before == dup_after, "BGP dup count changed from {} to {}".format(
         dup_before, dup_after)
 
-    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 100, 3000)
+    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 3000)
     assert result is None, "BGP route attributes mismatch"
 
+
+def test_bgp_suppress_duplicates_tc4():
+    """TC 4: Attribute A --> Withdraw --> Attribute A."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    dup_string = _bgp_get_duplicate_count(r2, "192.168.12.1")
+    dup_before = int(dup_string[0])
 
     step("TC: Attribute A --> Withdraw --> Attribute A")
     r1.vtysh_cmd(
@@ -333,14 +376,18 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 2000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 2000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
     step("Make sure MRAI is expired, and update is sent out")
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
+
+    test_func = functools.partial(_bgp_check_route_attributes, r2, "10.5.5.5/32", "192.168.12.1", 2000)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "BGP force update not received at r2"
 
     r1.vtysh_cmd(
         """
@@ -366,11 +413,11 @@ def test_bgp_suppress_duplicates():
     )
 
     # For route-map to take effect
-    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 500, 2000)
+    test_func = functools.partial(_bgp_check_route_attributes, r1, "10.5.5.5/32", "0.0.0.0", 2000)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "bgp route not created with correct attributes"
 
-    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2");
+    secs = _bgp_get_mrai_expire_secs(r1, "192.168.12.2")
     if secs > 0:
         sleep(secs + 1)
 
@@ -380,7 +427,7 @@ def test_bgp_suppress_duplicates():
     assert dup_before == dup_after, "BGP dup count changed from {} to {}".format(
         dup_before, dup_after)
 
-    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 100, 2000)
+    result = _bgp_check_route_attributes(r2, "10.5.5.5/32", "192.168.12.1", 2000)
     assert result is None, "BGP route is missing or attributes mismatch"
 
 
