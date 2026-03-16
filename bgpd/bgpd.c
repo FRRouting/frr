@@ -4302,6 +4302,7 @@ int bgp_delete(struct bgp *bgp)
 		dest_table = bgp_dest_table(dest);
 		if (dest_table->bgp == bgp) {
 			zebra_announce_del(&bm->zebra_announce_head, inode);
+			bgp->zebra_announce_queue_cnt--;
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			dest->za_inode = NULL;
 			bgp_dest_unlock_node(dest);

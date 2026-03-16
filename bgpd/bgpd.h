@@ -1109,6 +1109,9 @@ struct bgp {
 	 */
 	bool nexthop_prefer_global[AFI_MAX][SAFI_MAX];
 
+	/* Number of dests queued in the global zebra_announce_head for this instance */
+	uint32_t zebra_announce_queue_cnt;
+
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
