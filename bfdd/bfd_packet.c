@@ -502,7 +502,7 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN || errno != EWOULDBLOCK || errno != EINTR) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 			frrtrace(3, frr_bfd, socket_error, 4, 0, errno);
 			zlog_err("%s: recv failed: %s", __func__,
 				 strerror(errno));
@@ -582,7 +582,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 			frrtrace(3, frr_bfd, socket_error, 4, 2, errno);
 			zlog_err("ipv4-recv: recv failed: %s", strerror(errno));
 		}
@@ -696,7 +696,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 			frrtrace(3, frr_bfd, socket_error, 4, 4, errno);
 			zlog_err("ipv6-recv: recv failed: %s", strerror(errno));
 		}
@@ -824,32 +824,36 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 static bool bfd_check_auth(const struct bfd_session *bfd,
 			   const struct bfd_pkt *cp)
 {
-	if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
-		/* RFC5880 4.1: Authentication Section is present. */
-		struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
-		uint16_t pkt_auth_type = ntohs(auth->type);
+	(void)bfd;
 
-		if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
-			return false;
+	if (!CHECK_FLAG(cp->flags, BFD_ABIT))
+		return true;
 
-		if (cp->len < BFD_PKT_LEN + auth->length)
-			return false;
+	/* RFC5880 4.1: Authentication Section is present. */
+	if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
+		return false;
 
-		switch (pkt_auth_type) {
-		case BFD_AUTH_NULL:
-			return false;
-		case BFD_AUTH_SIMPLE:
-			/* RFC5880 6.7: To be finished. */
-			return false;
-		case BFD_AUTH_CRYPTOGRAPHIC:
-			/* RFC5880 6.7: To be finished. */
-			return false;
-		default:
-			/* RFC5880 6.7: To be finished. */
-			return false;
-		}
+	const struct bfd_auth *auth = (const struct bfd_auth *)(cp + 1);
+
+	if (cp->len < BFD_PKT_LEN + auth->length)
+		return false;
+
+	switch (auth->type) {
+	case BFD_AUTH_NULL:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	case BFD_AUTH_SIMPLE:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	case BFD_AUTH_CRYPTOGRAPHIC:
+		/* RFC5880 6.7: To be finished. */
+		return false;
+	default:
+		/* RFC5880 6.7: To be finished. */
+		return false;
 	}
-	return true;
+
+	return false; /* unreachable, defensive */
 }
 
 void bfd_recv_cb(struct event *t)
@@ -897,6 +901,11 @@ void bfd_recv_cb(struct event *t)
 				     &local, &peer);
 	}
 
+	if (mlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return;
+	}
+
 	/*
 	 * With netns backend, we have a separate socket in each VRF. It means
 	 * that bvrf here is correct and we believe the bvrf->vrf->vrf_id.
@@ -912,6 +921,15 @@ void bfd_recv_cb(struct event *t)
 			vrfid = ifp->vrf->vrf_id;
 	}
 
+	/* Require a full fixed BFD control header before parsing/session lookup. */
+	if (mlen < BFD_PKT_LEN) {
+		/* No resolved session at this point to charge rx_bad_ctrl_pkt. */
+		frrtrace(8, frr_bfd, packet_validation_error, 1, is_mhop, &peer, &local, ifindex,
+			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small (%zd bytes)", mlen);
+		return;
+	}
+
 	/* Find the session that this packet belongs. */
 	cp = (struct bfd_pkt *)(msgbuf);
 	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
@@ -919,17 +937,6 @@ void bfd_recv_cb(struct event *t)
 		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
 			 vrfid, ntohl(cp->discrs.my_discr));
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "no session found");
-		return;
-	}
-
-	/* Implement RFC 5880 6.8.6 */
-	if (mlen < BFD_PKT_LEN) {
-		frrtrace(8, frr_bfd, packet_validation_error, 1, is_mhop, &peer, &local, ifindex,
-			 vrfid, (uint32_t)mlen, BFD_PKT_LEN);
-		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%zd bytes)", mlen);
-		bfd->stats.rx_bad_ctrl_pkt++;
-
 		return;
 	}
 
@@ -1211,25 +1218,60 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		bfd_offset = 0;
 	}
 
-	/* Short packet, better not risk reading it. */
-	if (rlen < (ssize_t)sizeof(*bep)) {
+	if (rlen < 0) {
+		/* bfd_recv_ipv4/v6 already logged the receive error. */
+		return -1;
+	}
+
+	/* Short packet, better not risk reading it at selected offset. */
+	if (rlen < (ssize_t)(bfd_offset + sizeof(*bep))) {
 		frrtrace(6, frr_bfd, echo_packet_error, 1, &peer, &local, ifindex, vrfid, rlen);
 		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "small echo packet");
 		return -1;
 	}
 
+	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
+
 	/* Test for loopback for ipv6, ipv4 is looped in forwarding plane */
 	if ((*ttl == BFD_TTL_VAL) && (sd == bvrf->bg_echov6)) {
-		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
-			    (struct sockaddr *)&peer,
-			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin)
-						    : sizeof(peer.sa_sin6));
+		struct bfd_key key;
+		struct vrf *vrf;
+		struct interface *ifp = NULL;
+
+		/*
+		 * Reflect only for known sessions to avoid turning the echo
+		 * socket into an unauthenticated packet reflector.
+		 */
+		vrfid = bvrf->vrf->vrf_id;
+		if (ifindex) {
+			ifp = if_lookup_by_index(ifindex, vrfid);
+			if (ifp)
+				vrfid = ifp->vrf->vrf_id;
+		}
+		vrf = vrf_lookup_by_id(vrfid);
+		gen_bfd_key(&key, &peer, &local, false, ifp ? ifp->name : NULL,
+			    vrf ? vrf->name : VRF_DEFAULT_NAME, NULL);
+		if (!bfd_key_lookup(&key)) {
+			frrtrace(6, frr_bfd, echo_packet_error, 3, &peer, &local, ifindex, vrfid,
+				 0);
+			cp_debug(false, &peer, &local, ifindex, vrfid,
+				 "unknown IPv6 echo source, dropping");
+			return -1;
+		}
+
+		if (bep->len < sizeof(*bep) || (ssize_t)bep->len > rlen - (ssize_t)bfd_offset) {
+			cp_debug(false, &peer, &local, ifindex, vrfid,
+				 "invalid echo length %u (rx %zd), dropping", bep->len, rlen);
+			return -1;
+		}
+
+		bp_udp_send(sd, *ttl - 1, msgbuf, bep->len, (struct sockaddr *)&peer,
+			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin) : sizeof(peer.sa_sin6));
 		return -1;
 	}
 
 	/* Read my discriminator from BFD Echo packet. */
-	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
 	*my_discr = ntohl(bep->my_discr);
 	if (*my_discr == 0) {
 		frrtrace(6, frr_bfd, echo_packet_error, 2, &peer, &local, ifindex, vrfid, rlen);
@@ -2106,12 +2148,24 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 	uint8_t msgbuf[1516];
 
 	rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex, &local, &peer);
+	if (rlen < 0) {
+		/* bfd_recv_ipv6 already logged the receive error. */
+		return 0;
+	}
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*cp)) {
 		zlog_debug("small bfd packet");
 		return 0;
 	}
 	cp = (struct bfd_pkt *)(msgbuf);
+	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
+		zlog_debug("drop sbfd init packet: bad version %u", BFD_GETVER(cp->diag));
+		return 0;
+	}
+	if ((cp->len < BFD_PKT_LEN) || (cp->len > rlen)) {
+		zlog_debug("drop sbfd init packet: bad len %u (rx %zd)", cp->len, rlen);
+		return 0;
+	}
 	if (!CHECK_FLAG(cp->flags, BFD_DEMANDBIT)) {
 		/*Control Packet from SBFDInitiator should have Demand bit set to 1 according to RFC7880*/
 		return 0;
@@ -2132,7 +2186,7 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 
 		sa = (struct sockaddr *)&peer.sa_sin6;
 
-		if (sendto(sd, msgbuf, rlen, 0, sa, sizeof(peer.sa_sin6)) <= 0) {
+		if (sendto(sd, msgbuf, cp->len, 0, sa, sizeof(peer.sa_sin6)) <= 0) {
 			zlog_debug("packet-send: send failure: %s", strerror(errno));
 			return -1;
 		}
