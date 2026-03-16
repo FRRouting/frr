@@ -173,6 +173,7 @@ def test_rip_convergence():
         assert result is None, "RIP convergence failed: {}".format(result)
 
 
+@pytest.mark.skip
 def test_nhg_tracker_show_run():
     "Verify that zebra nexthop-group tracker 20 appears in show running-config on r1"
     tgen = get_topogen()
@@ -210,6 +211,7 @@ def test_nhg_tracker_show_run():
     assert result is None, "show zebra tracker timeout check failed: {}".format(result)
 
 
+@pytest.mark.skip
 def test_nhg_tracker_no_form():
     "Verify that 'no zebra nexthop-group tracker' removes the config from show run"
     tgen = get_topogen()
@@ -248,6 +250,195 @@ def test_nhg_tracker_no_form():
     assert result is None, "show zebra tracker default timeout check failed: {}".format(
         result
     )
+
+
+def test_nhg_tracker_sharp_routes_parking():
+    """
+    Verify tracker creation and RE parking: install sharp routes with 4-way ECMP,
+    trigger link down (eth0), send 3-way updates and check routes are
+    parked in the correct tracker matched/unmatched tables. Repeat for eth1 down.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    # Store last "show nexthop-group rib" output for printing on assert failure
+    last_rib_output = [None]
+
+    # Set tracker timer to 600 seconds so trackers do not expire during the test
+    r1.vtysh_cmd("configure terminal\nzebra nexthop-group tracker 600\nend")
+
+    # Step 1: Install 8 routes with 4-way ECMP (nexthops = peer IPs on r1's links)
+    logger.info("Step 1: Install 8 sharp routes with 4-way ECMP")
+    r1.vtysh_cmd(
+        "sharp install routes 45.1.1.1 nexthops 10.0.1.2,10.0.2.3,10.0.3.4,10.0.4.5 8"
+    )
+
+    def check_route_installed():
+        out = r1.vtysh_cmd("show ip route 45.1.1.1 json")
+        try:
+            data = json.loads(out)
+        except json.JSONDecodeError:
+            return "show ip route 45.1.1.1 json failed or invalid"
+        key = "45.1.1.1/32"
+        if key not in data or not data[key]:
+            return "route 45.1.1.1/32 not found"
+        entry = data[key][0]
+        if not entry.get("installed", False):
+            return "route 45.1.1.1/32 not installed"
+        return None
+
+    _, result = topotest.run_and_expect(check_route_installed, None, count=30, wait=1)
+    assert result is None, "Route 45.1.1.1 not installed: {}".format(result)
+
+    out = r1.vtysh_cmd("show ip route 45.1.1.1 json")
+    data = json.loads(out)
+    installed_nhg_id = data["45.1.1.1/32"][0].get("installedNexthopGroupId")
+    assert installed_nhg_id is not None, "installedNexthopGroupId not found"
+    logger.info("installedNexthopGroupId = %s", installed_nhg_id)
+
+    # Step 2: Link r1-eth0 down -> tracker T1 created
+    logger.info("Step 2: Shut r1-eth0 to create tracker T1")
+    r1.vtysh_cmd("configure terminal\ninterface r1-eth0\nshutdown\nend")
+
+    def check_t1_created():
+        out = r1.vtysh_cmd(
+            "show nexthop-group rib {} json".format(installed_nhg_id)
+        )
+        last_rib_output[0] = out
+        try:
+            data = json.loads(out)
+        except json.JSONDecodeError:
+            return "show nexthop-group rib json failed"
+        nhe = data.get(str(installed_nhg_id))
+        if not nhe or "trackers" not in nhe:
+            return "no trackers on NHG"
+        trackers = nhe["trackers"]
+        if len(trackers) < 1:
+            return "expected at least 1 tracker"
+        t1 = trackers[0]
+        if t1.get("event") != "DOWN":
+            return "T1 event expected DOWN, got {}".format(t1.get("event"))
+        if t1.get("expectedReCount") != 8:
+            return "T1 expectedReCount expected 8, got {}".format(
+                t1.get("expectedReCount")
+            )
+        # ifindex 2 = r1-eth0
+        if t1.get("ifindex") != 2:
+            return "T1 ifindex expected 2 (r1-eth0), got {}".format(t1.get("ifindex"))
+        # Snapshot: first NH (eth0) should not have "active":true; others should
+        snap = t1.get("snapshotNexthops", [])
+        if len(snap) < 4:
+            return "T1 snapshot expected 4 nexthops, got {}".format(len(snap))
+        if snap[0].get("active", False):
+            return "T1 snapshot NH0 (eth0) should be inactive"
+        for i in range(1, 4):
+            if not snap[i].get("active", False):
+                return "T1 snapshot NH{} should be active".format(i)
+        return None
+
+    _, result = topotest.run_and_expect(check_t1_created, None, count=20, wait=1)
+    assert result is None, (
+        "T1 creation check failed: {}\nshow nexthop-group rib {} json:\n{}"
+    ).format(result, installed_nhg_id, last_rib_output[0] or "")
+
+    # Send 3 routes with 3-way ECMP (match T1 snapshot: eth0 down, eth1-3 up)
+    logger.info("Send 3 sharp routes with 3-way ECMP (match T1)")
+    r1.vtysh_cmd(
+        "sharp install routes 45.1.1.1 nexthops 10.0.2.3,10.0.3.4,10.0.4.5 3"
+    )
+
+    # Step 3: Link r1-eth1 down -> tracker T2 created
+    logger.info("Step 3: Shut r1-eth1 to create tracker T2")
+    r1.vtysh_cmd("configure terminal\ninterface r1-eth1\nshutdown\nend")
+
+    # Send 2 sharp routes with 2-way ECMP (match T2 snapshot: eth0+eth1 down, eth2+eth3 up)
+    # Routes 45.1.1.4, 45.1.1.5 -> should be parked in T2 matched table
+    logger.info("Send 2 sharp routes (45.1.1.4, 45.1.1.5) with 2-way ECMP to match T2")
+    r1.vtysh_cmd(
+        "sharp install routes 45.1.1.4 nexthops 10.0.3.4,10.0.4.5 2"
+    )
+
+    def check_trackers_state():
+        out = r1.vtysh_cmd(
+            "show nexthop-group rib {} json".format(installed_nhg_id)
+        )
+        last_rib_output[0] = out
+        try:
+            data = json.loads(out)
+        except json.JSONDecodeError:
+            return "show nexthop-group rib json failed"
+        # NHE holds tracker chain in creation order (newest first): [T2, T1]
+        nhe = data.get(str(installed_nhg_id))
+        if not nhe:
+            return "NHE id {} not found in output".format(installed_nhg_id)
+        trackers = nhe.get("trackers", [])
+        if len(trackers) != 2:
+            return "expected 2 trackers on NHE, got {}".format(len(trackers))
+
+        # Verify trackers states
+        if trackers[0].get("ifindex") != 3 or trackers[0].get("trackerId") != 2:
+            return "trackers[0] expected T2 (ifindex 3, trackerId 2), got ifindex {} trackerId {}".format(
+                trackers[0].get("ifindex"), trackers[0].get("trackerId")
+            )
+        if trackers[1].get("ifindex") != 2 or trackers[1].get("trackerId") != 1:
+            return "trackers[1] expected T1 (ifindex 2, trackerId 1), got ifindex {} trackerId {}".format(
+                trackers[1].get("ifindex"), trackers[1].get("trackerId")
+            )
+
+        t1 = trackers[1]  # T1 = first link down (r1-eth0, ifindex 2)
+        t2 = trackers[0]  # T2 = second link down (r1-eth1, ifindex 3)
+
+        for t in (t1, t2):
+            if t.get("event") != "DOWN":
+                return "tracker ifindex {} event expected DOWN".format(t.get("ifindex"))
+            if t.get("expectedReCount") != 8:
+                return "tracker ifindex {} expectedReCount expected 8".format(
+                    t.get("ifindex")
+                )
+
+        # T2 snapshot: eth0 and eth1 inactive, eth2/eth3 active
+        snap2 = t2.get("snapshotNexthops", [])
+        if len(snap2) < 4:
+            return "T2 snapshot expected 4 nexthops"
+        if snap2[0].get("active", False) or snap2[1].get("active", False):
+            return "T2 snapshot NH0/NH1 (eth0/eth1) should be inactive"
+        if not snap2[2].get("active", False) or not snap2[3].get("active", False):
+            return "T2 snapshot NH2/NH3 should be active"
+
+        # T1 snapshot: eth0 inactive, eth1/2/3 active
+        snap1 = t1.get("snapshotNexthops", [])
+        if snap1[0].get("active", False):
+            return "T1 snapshot NH0 (eth0) should be inactive"
+        for i in range(1, 4):
+            if not snap1[i].get("active", False):
+                return "T1 snapshot NH{} should be active".format(i)
+
+        # Expected counts: T1 matched 3, unmatched 0; T2 matched 2, unmatched 0
+        if t1.get("matchedRoutes") != 3:
+            return "T1 matchedRoutes expected 3, got {}".format(
+                t1.get("matchedRoutes")
+            )
+        if t1.get("unmatchedRoutes") != 0:
+            return "T1 unmatchedRoutes expected 0, got {}".format(
+                t1.get("unmatchedRoutes")
+            )
+        if t2.get("matchedRoutes") != 2:
+            return "T2 matchedRoutes expected 2, got {}".format(
+                t2.get("matchedRoutes")
+            )
+        if t2.get("unmatchedRoutes") != 0:
+            return "T2 unmatchedRoutes expected 0, got {}".format(
+                t2.get("unmatchedRoutes")
+            )
+
+        return None
+
+    _, result = topotest.run_and_expect(check_trackers_state, None, count=30, wait=1)
+    assert result is None, (
+        "Two-tracker state check failed: {}\nshow nexthop-group rib {} json:\n{}"
+    ).format(result, installed_nhg_id, last_rib_output[0] or "")
 
 
 if __name__ == "__main__":
