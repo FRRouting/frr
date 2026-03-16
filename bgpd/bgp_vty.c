@@ -12476,6 +12476,8 @@ DEFPY(show_bgp_router,
 	if (uj) {
 		json_object_int_add(json, "bgpInputQueueLimit", bm->inq_limit);
 		json_object_int_add(json, "bgpOutputQueueLimit", bm->outq_limit);
+		json_object_int_add(json, "zebraAnnounceCount",
+				    zebra_announce_count(&bm->zebra_announce_head));
 		json_object_int_add(json, "bgpUpdateDelayTime", bm->v_update_delay);
 		json_object_int_add(json, "bgpEstablishWaitTime", bm->v_establish_wait);
 		json_object_int_add(json, "bgpRmapDelayTimer", bm->rmap_update_timer);
@@ -12485,6 +12487,8 @@ DEFPY(show_bgp_router,
 	} else {
 		vty_out(vty, "BGP Input Queue Limit: %d\n", bm->inq_limit);
 		vty_out(vty, "BGP Output Queue Limit: %d\n", bm->outq_limit);
+		vty_out(vty, "Zebra Announce Count: %zu\n",
+			zebra_announce_count(&bm->zebra_announce_head));
 
 		vty_out(vty, "BGP Global Update Delay Timers:\n");
 		vty_out(vty, "  Update Delay Time: %ds\n", bm->v_update_delay);
