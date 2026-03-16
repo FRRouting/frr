@@ -987,6 +987,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 		if (peer->shared_network
 		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local))
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+	} else {
+		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 	}
 
 	if (peer->default_rmap[afi][safi].name) {

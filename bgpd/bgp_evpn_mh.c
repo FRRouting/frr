@@ -100,6 +100,7 @@ void bgp_evpn_vtep_ip_to_attr_nh(const struct ipaddr *vtep_ip, struct attr *attr
 		attr->nexthop = vtep_ip->ipaddr_v4;
 		attr->mp_nexthop_global_in = vtep_ip->ipaddr_v4;
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+		bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 	} else if (IS_IPADDR_V6(vtep_ip)) {
 		IPV6_ADDR_COPY(&attr->mp_nexthop_global, &vtep_ip->ipaddr_v6);
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;

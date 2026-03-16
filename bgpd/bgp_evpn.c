@@ -8366,6 +8366,7 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 			attr->nexthop = bgp_vrf->originator_ip.ipaddr_v4;
 			attr->mp_nexthop_global_in = bgp_vrf->originator_ip.ipaddr_v4;
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+			bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 		} else {
 			IPV6_ADDR_COPY(&attr->mp_nexthop_global, &bgp_vrf->originator_ip.ipaddr_v6);
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
@@ -8386,6 +8387,7 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 			if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr != INADDR_ANY) {
 				attr->nexthop = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
 				attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
+				bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 			} else if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr == INADDR_ANY) {
 				if (bgp_debug_zebra(NULL))
 					zlog_debug("VRF %s evp %pFX advertise-pip primary ip is not configured",
