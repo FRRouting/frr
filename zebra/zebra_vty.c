@@ -1406,19 +1406,29 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 0) {
 		struct nhg_event_tracker *tracker;
 		char timer_buf[MONOTIME_STRLEN];
+		json_object *json_trackers = NULL;
 
-		if (json) {
-			json_object *json_trackers = json_object_new_array();
+		if (json)
+			json_trackers = json_object_new_array();
+		else
+			vty_out(vty, "     Trackers: %zu\n",
+				nhg_event_tracker_list_count(&nhe->tracker_list));
 
-			frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+		frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+			struct interface *ifp;
+			const char *event_str;
+
+			ifp = if_lookup_by_index(tracker->ifindex, nhe->vrf_id);
+			event_str = tracker->event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN";
+
+			if (json_trackers) {
 				json_object *jt = json_object_new_object();
 
 				json_object_int_add(jt, "trackerId", tracker->nhg_tracker_id);
-				json_object_string_add(jt, "event",
-						       tracker->event == NHG_TRACKER_EVENT_INTF_UP
-							       ? "UP"
-							       : "DOWN");
+				json_object_string_add(jt, "event", event_str);
 				json_object_int_add(jt, "ifindex", tracker->ifindex);
+				if (ifp)
+					json_object_string_add(jt, "interfaceName", ifp->name);
 				json_object_int_add(jt, "matchedRoutes",
 						    tracker->matched_table.re_count);
 				json_object_int_add(jt, "unmatchedRoutes",
@@ -1444,18 +1454,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				}
 
 				json_object_array_add(json_trackers, jt);
-			}
-			json_object_object_add(json, "trackers", json_trackers);
-		} else {
-			vty_out(vty, "     Trackers: %zu\n",
-				nhg_event_tracker_list_count(&nhe->tracker_list));
-
-			frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+			} else {
 				vty_out(vty,
-					"       Tracker %u: event=%s ifindex=%u matched=%u unmatched=%u expected_re=%u",
-					tracker->nhg_tracker_id,
-					tracker->event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN",
-					tracker->ifindex, tracker->matched_table.re_count,
+					"       Tracker %u: event=%s interface=%s(%u) matched=%u unmatched=%u expected_re=%u",
+					tracker->nhg_tracker_id, event_str,
+					ifp ? ifp->name : "unknown", tracker->ifindex,
+					tracker->matched_table.re_count,
 					tracker->unmatched_table.re_count, tracker->orig_re_count);
 
 				if (event_is_scheduled(tracker->timer))
@@ -1477,6 +1481,9 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				}
 			}
 		}
+
+		if (json_trackers)
+			json_object_object_add(json, "trackers", json_trackers);
 	}
 
 	if (json_nhe_hdr)
