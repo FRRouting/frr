@@ -10157,9 +10157,9 @@ DEFPY(sid_export,
 			return CMD_SUCCESS;
 
 		if (bgp->srv6_unicast[afi].rmap_name) {
-			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
 			route_map_counter_decrement(
 				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
 			bgp->srv6_unicast[afi].rmap_name = NULL;
 		}
 		if (bgp->srv6_unicast[afi].sid_explicit) {
