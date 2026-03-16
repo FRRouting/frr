@@ -32,13 +32,13 @@ struct ethhdr;
 #include "vlan.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_private.h"
+#include "zebra/zebra_netns_notify.h"
 #include "zebra_evpn.h"
 #include "zebra_evpn_mac.h"
 #include "zebra_evpn_mh.h"
 #include "zebra_evpn_arp_nd.h"
 
 struct zebra_evpn_arp_nd_info zevpn_arp_nd_info;
-extern struct zebra_privs_t zserv_privs;
 
 #ifdef GNU_LINUX
 /*****************************************************************************
@@ -84,8 +84,7 @@ static void zebra_evpn_arp_nd_pkt_dump(struct zebra_if *zif, uint16_t vlan,
 	struct ethhdr *ethh = (struct ethhdr *)data;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT) {
-		zlog_debug("evpn arp_nd pkt on %s vlan %d "
-			   "[dm=%02x:%02x:%02x:%02x:%02x:%02x sm=%02x:%02x:%02x:%02x:%02x:%02x et=0x%x]",
+		zlog_debug("evpn arp_nd pkt on %s vlan %d [dm=%02x:%02x:%02x:%02x:%02x:%02x sm=%02x:%02x:%02x:%02x:%02x:%02x et=0x%x]",
 			   zif->ifp->name, vlan, (uint8_t)ethh->h_dest[0],
 			   (uint8_t)ethh->h_dest[1], (uint8_t)ethh->h_dest[2],
 			   (uint8_t)ethh->h_dest[3], (uint8_t)ethh->h_dest[4],
@@ -173,7 +172,6 @@ static void zebra_evpn_arp_nd_udp_send(const struct ipaddr *vtep_ip, uint8_t *da
 	struct sockaddr_in6 *sin6;
 	socklen_t addrlen = 0;
 	ssize_t sent_len;
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	memset(&ss, 0, sizeof(ss));
 	if (IS_IPADDR_V4(vtep_ip)) {
@@ -196,9 +194,8 @@ static void zebra_evpn_arp_nd_udp_send(const struct ipaddr *vtep_ip, uint8_t *da
 			  addrlen);
 	if (sent_len < 0) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-			zlog_debug("evpn arp_nd UDP sendto %s failed: %s",
-				   ipaddr2str(vtep_ip, ipbuf, sizeof(ipbuf)),
-				   safe_strerror(errno));
+			zlog_debug("evpn arp_nd UDP sendto %pIA failed: %s",
+				   vtep_ip, safe_strerror(errno));
 	}
 }
 #endif
@@ -230,7 +227,6 @@ static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn,
 	struct vxlanhdr *vxh;
 	uint8_t vxlan_data[ZEBRA_EVPN_ARP_ND_MAX_PKT_LEN +
 			   sizeof(struct vxlanhdr *)];
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	++zevpn_arp_nd_info.stat.redirect;
 	/* pre-pend a vxlan header */
@@ -240,10 +236,9 @@ static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn,
 	memcpy(vxlan_data + sizeof(struct vxlanhdr), data, len);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-		zlog_debug("evpn arp_nd of len %lu redirect to vni %d %s with vxh(0x%x 0x%x)",
+		zlog_debug("evpn arp_nd of len %lu redirect to vni %d %pIA with vxh(0x%x 0x%x)",
 			   (unsigned long)(len + sizeof(struct vxlanhdr)), zevpn->vni,
-			   ipaddr2str(vtep_ip, ipbuf, sizeof(ipbuf)),
-			   vxh->vx_flags, vxh->vx_vni);
+			   vtep_ip, vxh->vx_flags, vxh->vx_vni);
 
 	zebra_evpn_arp_nd_udp_send(vtep_ip, vxlan_data,
 				   len + sizeof(struct vxlanhdr));
@@ -316,8 +311,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	if (!if_is_operative(zif->ifp) || !zif->brslave_info.br_if) {
 		++zevpn_arp_nd_info.stat.if_down_or_no_bridge;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-			zlog_debug("evpn arp_nd zif brslave_info bridge intf is"
-				   "NULL or interface is down for %s",
+			zlog_debug("evpn arp_nd zif brslave_info bridge intf is NULL or interface is down for %s",
 				   zif->ifp->name);
 		return 0;
 	}
@@ -772,18 +766,22 @@ static void zebra_evpn_arp_nd_if_update_all(bool enable)
 void zebra_evpn_arp_nd_failover_enable(void)
 {
 	if (!CHECK_FLAG(zmh_info->flags, ZEBRA_EVPN_MH_ENABLE))
-	    return;
+		return;
 
 	/* If fast failover is not enabled there is nothing to do */
 	if (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF)
 		return;
 
-	/* If socket is already open, nothing to do.
+	/*
+	 * If socket is already open, nothing to do.
 	 * TODO: rebuild sock if it's open and is bound to an
-	 * address that doesn't match the current originator_ip */
+	 * address that doesn't match the current originator_ip
+	 */
 	if (zevpn_arp_nd_info.flags & ZEBRA_EVPN_ARP_ND_FAILOVER) {
-		/*disable will close socket and unset all interface
-                 * for arp_nd_redirect*/
+		/*
+		 * Disable will close socket and unset all interface state for
+		 * arp_nd_redirect.
+		 */
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
 			zlog_debug("Disable arp_nd failover as socket needs to be binded");
 		zebra_evpn_arp_nd_failover_disable();

@@ -11,6 +11,7 @@ SR add a stack of MPLS labels to ingress packets so these
 packets are egress through the desired path.
 
 .. image:: images/pathd_general.png
+   :alt: PATH daemon general architecture overview
 
 The SR policies and Segment Lists can be configured either locally by means
 of vtysh or centralized based on a SDN controller (ODL, Cisco, ...)
@@ -126,6 +127,7 @@ PCE.
 	case.
 
 .. image:: images/pathd_config.png
+   :alt: PATH daemon configuration flow with local and PCE options
 
 Pce Initiated
 -------------
@@ -173,6 +175,7 @@ controller and obtain those by means of the PCEP protocol.
 
 
 .. image:: images/pathd_initiated_multi.png
+   :alt: PCE-initiated PATH policies with multiple PCE peers
 
 Starting
 ========
