@@ -11118,6 +11118,12 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
+	/* Reject configuration if route-map does not exist (interactive mode only;
+	 * allow forward references during config file loading)
+	 */
+	if (!route_map_lookup_warn_noexist(vty, rmap_str) && vty->type != VTY_FILE)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
 	if (bgp->vpn_policy[afi].rmap_name[dir])
@@ -11125,13 +11131,10 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		      bgp->vpn_policy[afi].rmap_name[dir]);
 	bgp->vpn_policy[afi].rmap_name[dir] =
 		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
-	bgp->vpn_policy[afi].rmap[dir] =
-		route_map_lookup_warn_noexist(vty, rmap_str);
+	bgp->vpn_policy[afi].rmap[dir] = route_map_lookup_by_name(rmap_str);
 
 	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		 BGP_CONFIG_VRF_TO_VRF_IMPORT);
-	if (!bgp->vpn_policy[afi].rmap[dir])
-		return CMD_SUCCESS;
 
 	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 
