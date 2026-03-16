@@ -14602,21 +14602,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 	if (type == bgp_show_adj_route_advertised && subgrp
 	    && CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
-		if (use_json) {
-			json_object_int_add(json, "bgpTableVersion",
-					    table->version);
-			json_object_string_addf(json, "bgpLocalRouterId",
-						"%pI4", &bgp->router_id);
-			json_object_int_add(json, "defaultLocPrf",
-						bgp->default_local_pref);
-			json_object_int_add(json, "localAS",
-					    peer->change_local_as
-						    ? peer->change_local_as
-						    : peer->local_as);
-			json_object_string_add(
-				json, "bgpOriginatingDefaultNetwork",
-				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
-		} else {
+		if (!use_json) {
 			vty_out(vty,
 				"BGP table version is %" PRIu64
 				", local router ID is %pI4, vrf id ",
@@ -14703,12 +14689,17 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						json_net =
 							json_object_new_object();
 
+<<<<<<< HEAD
 					struct bgp_path_info bpi;
+=======
+					struct bgp_path_info pathi = {};
+>>>>>>> 2be7d8643 (bgpd: remove dead code and cleanup in show_adj_route and peer_adj_routes)
 					struct bgp_dest buildit = *dest;
 					struct bgp_dest *pass_in;
 
 					if (route_filtered ||
 					    ret == RMAP_DENY) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 						bpi.attr = &attr;
 						bpi.peer = peer;
@@ -14717,6 +14708,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						memset(&pathi, 0,
 						       sizeof(struct
 							      bgp_path_info));
+=======
+>>>>>>> 2be7d8643 (bgpd: remove dead code and cleanup in show_adj_route and peer_adj_routes)
 						pathi.attr = &attr;
 						pathi.peer = peer;
 						buildit.info = &pathi;
@@ -14980,6 +14973,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 					       json_ar);
 		else
 			json_object_object_add(json, "receivedRoutes", json_ar);
+<<<<<<< HEAD
 		json_object_int_add(json, "totalPrefixCounter", output_count);
 		json_object_int_add(json, "filteredPrefixCounter",
 				    filtered_count);
@@ -14990,6 +14984,14 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
                  */
                 vty_json_no_pretty(vty, json);
         } else if (output_count > 0) {
+=======
+			json_object_int_add(json, "totalPrefixCounter", output_count);
+			json_object_int_add(json, "filteredPrefixCounter", filtered_count);
+			json_object_int_add(json, "totalPathsCount", paths_count);
+			vty_json_no_pretty(vty, json);
+		}
+	} else if (output_count > 0) {
+>>>>>>> 2be7d8643 (bgpd: remove dead code and cleanup in show_adj_route and peer_adj_routes)
 		if (!match && filtered_count > 0)
 			vty_out(vty,
 				"\nTotal number of prefixes %ld (%ld filtered)\n",
