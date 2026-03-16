@@ -172,9 +172,9 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
 
 	if (bgp->srv6_unicast[afi].rmap_name) {
-		XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
 		route_map_counter_decrement(
 			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+		XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
 	}
 
 	srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
