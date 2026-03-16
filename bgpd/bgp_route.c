@@ -14709,9 +14709,18 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 					if (route_filtered ||
 					    ret == RMAP_DENY) {
+<<<<<<< HEAD
 						bpi.attr = &attr;
 						bpi.peer = peer;
 						buildit.info = &bpi;
+=======
+						memset(&pathi, 0,
+						       sizeof(struct
+							      bgp_path_info));
+						pathi.attr = &attr;
+						pathi.peer = peer;
+						buildit.info = &pathi;
+>>>>>>> 6caec4f11 (bgpd: fix crash in bgp received-routes detail json)
 
 						pass_in = &buildit;
 					} else
