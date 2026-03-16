@@ -25,6 +25,7 @@
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_l2.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
@@ -395,6 +396,19 @@ struct dplane_srv6_encap_ctx {
 };
 
 /*
+ * EVPN FDB read info for the dataplane
+ */
+struct dplane_macfdb_read_info {
+	ifindex_t ifindex;
+	ifindex_t br_ifindex;
+	vlanid_t vid;
+	vni_t vni;
+	struct ethaddr mac;
+	bool vlan_aware;
+	bool is_vxlan;
+};
+
+/*
  * VLAN info for the dataplane
  */
 struct dplane_vlan_info {
@@ -466,6 +480,7 @@ struct zebra_dplane_ctx {
 		struct dplane_netconf_info netconf;
 		enum zebra_dplane_startup_notifications spot;
 		struct dplane_srv6_encap_ctx srv6_encap;
+		struct dplane_macfdb_read_info macfdb_read;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -932,6 +947,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			XFREE(MTYPE_VLAN_CHANGE_ARR,
 			      ctx->u.vlan_info.vlan_array);
 		break;
+	case DPLANE_OP_FDB_READ:
+		break;
 	}
 }
 
@@ -1232,6 +1249,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_VLAN_INSTALL:
 		return "NEW_VLAN";
+
+	case DPLANE_OP_FDB_READ:
+		return "FDB_READ";
 	}
 
 	return "UNKNOWN";
@@ -3708,6 +3728,57 @@ dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.vlan_info.vlan_array;
+}
+
+ifindex_t dplane_ctx_get_macfdb_read_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.ifindex;
+}
+
+ifindex_t
+dplane_ctx_get_macfdb_read_br_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.br_ifindex;
+}
+
+vlanid_t dplane_ctx_get_macfdb_read_vid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.vid;
+}
+
+vni_t dplane_ctx_get_macfdb_read_vni(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.vni;
+}
+
+const struct ethaddr *
+dplane_ctx_get_macfdb_read_mac(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.macfdb_read.mac;
+}
+
+bool dplane_ctx_get_macfdb_read_vlan_aware(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.vlan_aware;
+}
+
+bool dplane_ctx_get_macfdb_read_is_vxlan(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macfdb_read.is_vxlan;
 }
 
 /*
@@ -6296,6 +6367,82 @@ dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id)
 	return result;
 }
 
+static enum zebra_dplane_result
+dplane_fdb_read_enqueue(struct zebra_ns *zns, ifindex_t ifindex,
+			ifindex_t br_ifindex, vlanid_t vid, vni_t vni,
+			const struct ethaddr *mac, bool vlan_aware,
+			bool is_vxlan)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_FDB_READ;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ctx->u.macfdb_read.ifindex = ifindex;
+	ctx->u.macfdb_read.br_ifindex = br_ifindex;
+	ctx->u.macfdb_read.vid = vid;
+	ctx->u.macfdb_read.vni = vni;
+	ctx->u.macfdb_read.vlan_aware = vlan_aware;
+	ctx->u.macfdb_read.is_vxlan = is_vxlan;
+	if (mac)
+		ctx->u.macfdb_read.mac = *mac;
+
+	ret = dplane_update_enqueue(ctx);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else
+		dplane_ctx_free(&ctx);
+
+	return result;
+}
+
+enum zebra_dplane_result dplane_fdb_read(struct zebra_ns *zns)
+{
+	return dplane_fdb_read_enqueue(zns, 0, 0, 0, 0, NULL, false, false);
+}
+
+enum zebra_dplane_result
+dplane_fdb_read_for_bridge(struct zebra_ns *zns, const struct interface *ifp,
+			   const struct interface *br_ifp, vlanid_t vid)
+{
+	struct zebra_if *br_zif = (struct zebra_if *)br_ifp->info;
+
+	return dplane_fdb_read_enqueue(zns, ifp->ifindex, br_ifp->ifindex,
+				       vid, 0, NULL,
+				       IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif),
+				       false);
+}
+
+enum zebra_dplane_result
+dplane_fdb_read_mcast_for_vni(struct zebra_ns *zns,
+			      const struct interface *ifp, vni_t vni)
+{
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	if (IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	return dplane_fdb_read_enqueue(zns, ifp->ifindex, 0, 0, vni, NULL,
+				       false, true);
+}
+
+enum zebra_dplane_result
+dplane_fdb_read_specific_mac(struct zebra_ns *zns,
+			     const struct interface *br_ifp,
+			     const struct ethaddr *mac, vlanid_t vid)
+{
+	struct zebra_if *br_zif = (struct zebra_if *)br_ifp->info;
+
+	return dplane_fdb_read_enqueue(zns, 0, br_ifp->ifindex, vid, 0, mac,
+				       IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif),
+				       false);
+}
+
 /*
  * Handler for 'show dplane'
  */
@@ -7040,6 +7187,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
 			   dplane_ctx_get_vlan_ifindex(ctx));
 		break;
+
+	case DPLANE_OP_FDB_READ:
+		zlog_debug("Dplane %s, ns %u, ifindex %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ns(ctx)->ns_id,
+			   dplane_ctx_get_macfdb_read_ifindex(ctx));
+		break;
 	}
 }
 
@@ -7224,6 +7378,9 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			atomic_fetch_add_explicit(&zdplane_info.dg_other_errors,
 						  1, memory_order_relaxed);
 		break;
+
+	case DPLANE_OP_FDB_READ:
+		break;
 	}
 }
 
@@ -7246,6 +7403,14 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 				  struct zebra_dplane_ctx *ctx)
 {
 	zebra_pbr_process_ipset_entry(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
+}
+
+static void
+kernel_dplane_process_fdb_read(struct zebra_dplane_provider *prov,
+			       struct zebra_dplane_ctx *ctx)
+{
+	kernel_read_macfdb(ctx);
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
@@ -7307,6 +7472,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			  || dplane_ctx_get_op(ctx)
 				     == DPLANE_OP_IPSET_ENTRY_DELETE))
 			kernel_dplane_process_ipset_entry(prov, ctx);
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_FDB_READ)
+			kernel_dplane_process_fdb_read(prov, ctx);
 		else
 			dplane_ctx_list_add_tail(&work_list, ctx);
 	}

@@ -40,6 +40,7 @@
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
 
@@ -5953,7 +5954,7 @@ static int macfdb_read_ns(struct ns *ns,
 {
 	struct zebra_ns *zns = ns->info;
 
-	macfdb_read(zns);
+	dplane_fdb_read(zns);
 	return NS_WALK_CONTINUE;
 }
 

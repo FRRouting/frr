@@ -84,20 +84,9 @@ extern ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 				       size_t buflen);
 
 extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
-extern int netlink_macfdb_read(struct zebra_ns *zns);
-extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
-					  struct interface *ifp,
-					  struct interface *br_if,
-					  vlanid_t vid);
-extern int netlink_macfdb_read_mcast_for_vni(struct zebra_ns *zns,
-					     struct interface *ifp, vni_t vni);
 extern int netlink_neigh_read(struct zebra_ns *zns);
 extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
-extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
-					    struct interface *br_if,
-					    const struct ethaddr *mac,
-					    uint16_t vid);
 extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
 

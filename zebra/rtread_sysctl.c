@@ -67,23 +67,7 @@ void route_read(struct zebra_ns *zns)
 	return;
 }
 
-/* Only implemented for the netlink method. */
-void macfdb_read(struct zebra_ns *zns)
-{
-}
-
-void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-			    struct interface *br_if, vlanid_t vid)
-{
-}
-
-void macfdb_read_mcast_entry_for_vni(struct zebra_ns *zns,
-				     struct interface *ifp, vni_t vni)
-{
-}
-
-void macfdb_read_specific_mac(struct zebra_ns *zns, struct interface *br_if,
-			      const struct ethaddr *mac, vlanid_t vid)
+void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 }
 
