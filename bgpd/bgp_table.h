@@ -85,6 +85,7 @@ struct bgp_dest {
 
 	STAILQ_ENTRY(bgp_dest) pq;
 
+	struct bgp_bp_install_node *za_inode;
 	struct bgp_path_info *za_bgp_pi;
 	struct bgpevpn *za_vpn;
 	bool za_is_sync;

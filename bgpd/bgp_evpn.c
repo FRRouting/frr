@@ -5373,6 +5373,7 @@ void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn)
 		if (dest->za_vpn == vpn) {
 			zebra_announce_del(&bm->zebra_announce_head, inode);
 			bgp_path_info_unlock(dest->za_bgp_pi);
+			dest->za_inode = NULL;
 			bgp_dest_unlock_node(dest);
 			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
 		}
