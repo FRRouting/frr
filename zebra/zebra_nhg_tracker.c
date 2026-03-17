@@ -230,6 +230,7 @@ static void zebra_nhg_tracker_decount_stale_re(struct tracker_prefix_map_head *p
 
 	old_entry->tracker = tracker;
 
+	zrouter.tracker_counters.trackers_collapsed_re_match++;
 	zebra_nhg_tracker_collapse(prefix_map, old_tracker, tracker);
 }
 
@@ -397,7 +398,20 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 		  __func__, tracker->nhg_tracker_id, nhe->id, tracker->matched_table.re_count,
 		  tracker->unmatched_table.re_count, tracker->orig_re_count);
 
+	/* Update the tracker counters */
 	zrouter.tracker_counters.tracker_full++;
+	if (tracker->matched_table.re_count == tracker->orig_re_count)
+		zrouter.tracker_counters.tracker_full_matched++;
+	else if (tracker->unmatched_table.re_count == tracker->orig_re_count)
+		zrouter.tracker_counters.tracker_full_unmatched++;
+	else {
+		zrouter.tracker_counters.tracker_full_combined++;
+		if (tracker->matched_table.re_count > tracker->unmatched_table.re_count)
+			zrouter.tracker_counters.tracker_full_combined_matched_gt++;
+		else if (tracker->unmatched_table.re_count > tracker->matched_table.re_count)
+			zrouter.tracker_counters.tracker_full_combined_unmatched_gt++;
+	}
+
 	{
 		struct tracker_flush_event *evt =
 			&zrouter.tracker_counters.log[
@@ -446,6 +460,8 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 static void nhg_tracker_timer_expiry(struct event *event)
 {
 	struct nhg_event_tracker *tracker = EVENT_ARG(event);
+
+	zrouter.tracker_counters.tracker_timer_expired++;
 
 	zlog_info("%s: tracker %u (parent NHG %u ifindex %u event %s): timer expired", __func__,
 		  tracker->nhg_tracker_id, tracker->parent_nhe ? tracker->parent_nhe->id : 0,
@@ -513,6 +529,8 @@ static void zebra_nhg_tracker_loop_detection(struct nhg_hash_entry *nhe,
 	struct nhg_event_tracker *t, *next;
 	struct tracker_prefix_map_head *prefix_map = &nhe->tracker_prefix_map;
 
+	zrouter.tracker_counters.tracker_loop_detected++;
+
 	for (t = nhg_event_tracker_list_first(&nhe->tracker_list); t; t = next) {
 		next = nhg_event_tracker_list_next(&nhe->tracker_list, t);
 
@@ -573,6 +591,8 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	event_add_timer(zrouter.master, nhg_tracker_timer_expiry, tracker,
 			zrouter.nhg_tracker_timeout, &tracker->timer);
 
+	zrouter.tracker_counters.trackers_allocated++;
+
 	zlog_info("%s: NHG %u created tracker %u (event=%s ifindex=%u) total trackers=%zu",
 		  __func__, nhe->id, tracker->nhg_tracker_id,
 		  event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN", ifindex,
@@ -622,6 +642,8 @@ struct nhg_event_tracker *zebra_nhg_tracker_create_or_update(struct nhg_hash_ent
 void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker)
 {
 	struct tracker_prefix_map_entry *entry;
+
+	zrouter.tracker_counters.trackers_freed++;
 
 	nhg_event_tracker_hash_del(&nhe->tracker_hash, tracker);
 	nhg_event_tracker_list_del(&nhe->tracker_list, tracker);
