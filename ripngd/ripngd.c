@@ -1138,11 +1138,18 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 				   struct sockaddr_in6 *from,
 				   struct interface *ifp, int hoplimit)
 {
-	struct ripng_interface *ri = ifp->info;
-	struct ripng *ripng = ri->ripng;
+	struct ripng_interface *ri;
+	struct ripng *ripng;
 	caddr_t lim;
 	struct rte *rte;
 	struct ripng_nexthop nexthop;
+
+	/* Check RIPng process is enabled on this interface. */
+	ri = ifp->info;
+	if (ri == NULL || !ri->running)
+		return;
+
+	ripng = ri->ripng;
 
 	/* RFC2080 2.4.2  Response Messages:
 	 The Response must be ignored if it is not from the RIPng port.  */
@@ -1323,18 +1330,23 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 		p.family = AF_INET6;
 
 		for (; ((caddr_t)rte) < lim; rte++) {
+			rinfo = NULL;
+
 			p.prefix = rte->addr;
 			p.prefixlen = rte->prefixlen;
 			apply_mask_ipv6(&p);
 
-			rp = agg_node_lookup(ripng->table, (struct prefix *)&p);
+			rte->metric = RIPNG_METRIC_INFINITY;
 
+			rp = agg_node_lookup(ripng->table, (struct prefix *)&p);
 			if (rp) {
-				rinfo = ripng_info_list_first(rp->info);
-				rte->metric = rinfo->metric;
+				if (rp->info)
+					rinfo = ripng_info_list_first(rp->info);
+				if (rinfo)
+					rte->metric = rinfo->metric;
+
 				agg_unlock_node(rp);
-			} else
-				rte->metric = RIPNG_METRIC_INFINITY;
+			}
 		}
 		packet->command = RIPNG_RESPONSE;
 
@@ -1372,6 +1384,12 @@ static void ripng_read(struct event *event)
 	if (len < 0) {
 		zlog_warn("RIPng recvfrom failed (VRF %s): %s.",
 			  ripng->vrf_name, safe_strerror(errno));
+		return;
+	}
+
+	if (len < RIPNG_MIN_PACKET_SIZE || len > RIPNG_MAX_PACKET_SIZE) {
+		zlog_warn("RIPng invalid packet size %d from %pI6 (VRF %s)",
+			  len, &from.sin6_addr, ripng->vrf_name);
 		return;
 	}
 
