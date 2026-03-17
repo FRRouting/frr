@@ -604,6 +604,8 @@ void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64
 	msg->replace = selectors == NULL;
 	msg->get_only = session_id != MGMTD_SESSION_ID_NONE;
 	msg->subscribing = subscribing;
+	msg->mode = NOTIFY_MODE_ON_CHANGE;
+	msg->mode_data = 0;
 
 	if (selectors == NULL) {
 		/* Get selectors for all sessions */

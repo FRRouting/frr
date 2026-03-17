@@ -38,8 +38,11 @@ struct mgmt_fe_session_ctx {
 	uint64_t txn_id;
 	uint64_t cfg_txn_id;
 	uint8_t notify_format;
+	uint8_t notify_mode;
+	uint32_t notify_mode_data;
 	uint8_t ds_locked[MGMTD_DS_MAX_ID];
 	const char **notify_xpaths;
+	struct event *sample_timer;
 	struct event *proc_cfg_txn_clnp;
 	struct event *proc_show_txn_clnp;
 
@@ -77,6 +80,7 @@ DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
 
 static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from);
 static void fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats);
+static void fe_session_schedule_sample_timer(struct mgmt_fe_session_ctx *session);
 
 /* ---------------- */
 /* Global variables */
@@ -242,6 +246,49 @@ void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors)
 	uint64_t session_id = MGMT_BE_CLIENT_TO_SESSION_ID(client_id);
 
 	ns_string_add_session(0, selectors, session_id, false, 0);
+}
+
+static uint64_t fe_session_notify_clients(struct mgmt_fe_session_ctx *session)
+{
+	const char **sp;
+	uint64_t clients = 0;
+
+	darr_foreach_p (session->notify_xpaths, sp)
+		clients |= mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
+						      "sample-timer");
+
+	return clients;
+}
+
+static void fe_session_sample_timer(struct event *event)
+{
+	struct mgmt_fe_session_ctx *session = EVENT_ARG(event);
+	uint64_t clients;
+
+	session->sample_timer = NULL;
+
+	if (session->notify_mode != NOTIFY_MODE_PERIODIC || !session->notify_mode_data ||
+	    !darr_len(session->notify_xpaths))
+		return;
+
+	clients = fe_session_notify_clients(session);
+	if (clients)
+		mgmt_txn_send_notify_selectors(0, session->session_id, clients, false,
+					       session->notify_xpaths);
+
+	fe_session_schedule_sample_timer(session);
+}
+
+static void fe_session_schedule_sample_timer(struct mgmt_fe_session_ctx *session)
+{
+	event_cancel(&session->sample_timer);
+
+	if (session->notify_mode != NOTIFY_MODE_PERIODIC || !session->notify_mode_data ||
+	    !darr_len(session->notify_xpaths))
+		return;
+
+	event_add_timer_msec(mgmt_loop, fe_session_sample_timer, session,
+			     session->notify_mode_data, &session->sample_timer);
 }
 
 uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *notif)
@@ -502,6 +549,7 @@ static void fe_session_cleanup(struct mgmt_fe_session_ctx **sessionp)
 	rm_clients = ns_string_remove_session(session->session_id);
 	if (rm_clients && !mm->terminating)
 		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
+	event_cancel(&session->sample_timer);
 	darr_free_free(session->notify_xpaths);
 	hash_release(mgmt_fe_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
@@ -523,6 +571,8 @@ static struct mgmt_fe_session_ctx *fe_session_create(struct mgmt_fe_client_adapt
 	session->client_id = client_id;
 	session->adapter = adapter;
 	session->notify_format = notify_format;
+	session->notify_mode = NOTIFY_MODE_ON_CHANGE;
+	session->notify_mode_data = 0;
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
 	LIST_INSERT_HEAD(&adapter->sessions, session, link);
@@ -1339,6 +1389,28 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 		}
 	}
 
+	if (msg->mode != NOTIFY_MODE_ON_CHANGE && msg->mode != NOTIFY_MODE_PERIODIC) {
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "Invalid mode: %u", msg->mode);
+		darr_free_free(selectors);
+		return;
+	}
+	if (msg->mode == NOTIFY_MODE_ON_CHANGE && msg->mode_data) {
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "mode_data must be 0 for on-change mode");
+		darr_free_free(selectors);
+		return;
+	}
+	if (msg->mode == NOTIFY_MODE_PERIODIC && !msg->mode_data) {
+		fe_session_send_error(session, req_id, false, -EINVAL,
+				      "mode_data must be non-zero for periodic mode");
+		darr_free_free(selectors);
+		return;
+	}
+
+	session->notify_mode = msg->mode;
+	session->notify_mode_data = msg->mode_data;
+
 	/* Validate all selectors, they need to resolve to actual northbound_nodes */
 	darr_foreach_p (selectors, sp) {
 		nb_nodes = nb_nodes_find(*sp);
@@ -1369,11 +1441,13 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	}
 
 	if (session->notify_xpaths && DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
-		_dbg("Update NOTIFY selectors '%pSAd' (replace: %d) for session-id: %Lu",
-		     session->notify_xpaths, msg->replace, session->session_id);
+		_dbg("Update NOTIFY selectors '%pSAd' (replace: %d mode: %u mode-data: %u) for session-id: %Lu",
+		     session->notify_xpaths, msg->replace, session->notify_mode,
+		     session->notify_mode_data, session->session_id);
 	}
 
 	ns_string_add_session(req_id, selectors, session->session_id, msg->replace, rm_clients);
+	fe_session_schedule_sample_timer(session);
 done:
 	if (session->notify_xpaths != selectors)
 		darr_free(selectors);
