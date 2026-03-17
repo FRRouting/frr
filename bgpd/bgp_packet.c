@@ -2804,6 +2804,13 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		return BGP_PACKET_NOOP;
 	}
 
+	/* If the peer is not active for the given AFI/SAFI, ignore the message. */
+	if (!peer->afc_nego[afi][safi]) {
+		zlog_info("%s REFRESH_REQ for afi/safi: %s/%s - ignored (not active)", peer->host,
+			  iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+		return BGP_PACKET_NOOP;
+	}
+
 	if (size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
 		uint8_t *end;
 		uint8_t when_to_refresh;
@@ -3074,11 +3081,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		 * Family Identifier, <AFI, SAFI> [RFC2918], from
 		 * that peer as stale.
 		 */
-		if (peer_active_nego(peer)) {
-			SET_FLAG(peer->af_sflags[afi][safi],
-				 PEER_STATUS_ENHANCED_REFRESH);
-			bgp_set_stale_route(peer, afi, safi);
-		}
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
+		bgp_set_stale_route(peer, afi, safi);
 
 		if (peer_established(peer->connection))
 			event_add_timer(bm->master,
