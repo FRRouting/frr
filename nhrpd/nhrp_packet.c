@@ -78,22 +78,29 @@ struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
 					    union sockunion *dst_proto)
 {
 	struct nhrp_packet_header *hdr;
+	void *nbma_addr, *src_addr, *dst_addr;
+	size_t nbma_len, src_len, dst_len;
 
 	hdr = zbuf_pull(zb, struct nhrp_packet_header);
 	if (!hdr)
 		return NULL;
 
+	nbma_len = hdr->src_nbma_address_len + hdr->src_nbma_subaddress_len;
+	src_len = hdr->src_protocol_address_len;
+	dst_len = hdr->dst_protocol_address_len;
+
+	nbma_addr = zbuf_pulln(zb, nbma_len);
+	src_addr = zbuf_pulln(zb, src_len);
+	dst_addr = zbuf_pulln(zb, dst_len);
+	if (!nbma_addr || !src_addr || !dst_addr)
+		return NULL;
+
 	sockunion_set(src_nbma, afi2family(htons(hdr->afnum)),
-		      zbuf_pulln(zb,
-				 hdr->src_nbma_address_len
-					 + hdr->src_nbma_subaddress_len),
-		      hdr->src_nbma_address_len + hdr->src_nbma_subaddress_len);
+		      nbma_addr, nbma_len);
 	sockunion_set(src_proto, proto2family(htons(hdr->protocol_type)),
-		      zbuf_pulln(zb, hdr->src_protocol_address_len),
-		      hdr->src_protocol_address_len);
+		      src_addr, src_len);
 	sockunion_set(dst_proto, proto2family(htons(hdr->protocol_type)),
-		      zbuf_pulln(zb, hdr->dst_protocol_address_len),
-		      hdr->dst_protocol_address_len);
+		      dst_addr, dst_len);
 
 	return hdr;
 }
@@ -269,14 +276,20 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		   struct zbuf *extpayload)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_afi_data *ad = &nifp->afi[htons(hdr->afnum)];
+	struct nhrp_afi_data *ad;
 	struct nhrp_extension_header *dst;
 	struct nhrp_cie_header *cie;
 	uint16_t type;
+	uint16_t afnum;
 
 	type = htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY;
 	if (type == NHRP_EXTENSION_END)
 		return 0;
+
+	afnum = htons(hdr->afnum);
+	if (!IS_VALID_AFI(afnum))
+		goto err;
+	ad = &nifp->afi[afnum];
 
 	dst = nhrp_ext_push(zb, hdr, htons(ext->type));
 	if (!dst)
