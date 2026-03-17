@@ -722,6 +722,7 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 	const char *command_str;
 	uint8_t netmask = 0;
 	uint8_t *p;
+	char cbuf[RIP_RTE_SIZE];
 
 	/* Set command string. */
 	if (packet->command > 0 && packet->command < RIP_COMMAND_MAX)
@@ -745,10 +746,13 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 				    == htons(RIP_AUTH_SIMPLE_PASSWORD)) {
 					p = (uint8_t *)&rte->prefix;
 
-					zlog_debug(
-						"  family 0x%X type %d auth string: %s",
-						ntohs(rte->family),
-						ntohs(rte->tag), p);
+					/* Copy from packet to buffer */
+					memset(cbuf, 0, sizeof(cbuf));
+					memcpy(cbuf, p, RIP_RTE_SIZE - 4);
+
+					zlog_debug("  family 0x%X type %d auth string: %s",
+						   ntohs(rte->family),
+						   ntohs(rte->tag), cbuf);
 				} else if (rte->tag == htons(RIP_AUTH_MD5)) {
 					struct rip_md5_info *md5;
 
