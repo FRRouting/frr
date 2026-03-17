@@ -307,47 +307,66 @@ static void zebra_nhg_tracker_add_route(struct tracker_prefix_map_head *prefix_m
 
 /*
  * Park an RE in the appropriate tracker instead of queuing it
- * for best-path selection.  Called from rib_link when the old RE's
- * NHG has active trackers.
- * orig_nhe: the originating NHE (carries the trackers and prefix_map)
- * re:       the incoming RE (new NHG from the protocol, post-convergence)
+ * for best-path selection.
+ * orig_nhe	: the originating NHE, carries the trackers and prefix_map
+ * re		: the incoming RE
  */
 struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struct route_entry *re,
 						    struct nhg_hash_entry *orig_nhe)
 {
-	struct nhg_event_tracker *tracker;
+	struct nhg_event_tracker *tracker, *keeper, *t, *next_t;
+	struct route_node *unmatched_trn;
 	struct tracker_prefix_map_head *prefix_map = &orig_nhe->tracker_prefix_map;
 	bool matched = false;
 
+	/*
+	 * In general, a prefix is parked in at most one tracker at any point in time.
+	 * Walk trackers (newest to older) to find one whose snapshot matches
+	 * the incoming RE's NHG.
+	 * Match: collapse all strictly older trackers into that keeper; their
+	 * routes land in keeper's unmatched.  In general a prefix is parked in
+	 * at most one tracker at a time.
+	 * No match for this RE's NHG: if the prefix_map still shows it parked
+	 * in an older tracker (stale), zebra_nhg_tracker_add_route (below)
+	 * evicts that tracker and moves the route to the newest tracker's
+	 * unmatched, collapsing the stale tracker.
+	 */
 	frr_rev_each (nhg_event_tracker_list, &orig_nhe->tracker_list, tracker) {
 		if (zebra_nhg_nexthop_compare(re->nhe->nhg.nexthop,
 					      tracker->nhg_tracker_snapshot->nhg.nexthop, rn,
 					      true)) {
+			keeper = tracker;
 
-			/* If this prefix was previously parked in this
-			 * tracker's unmatched table, remove it before
-			 * adding to matched, to avoid double-counting in
-			 * both matched and unmatched tables of the same tracker.
+			/* Match found. collapse older trackers into current matching tracker */
+			for (t = nhg_event_tracker_list_next(&orig_nhe->tracker_list, keeper); t;
+			     t = next_t) {
+				next_t = nhg_event_tracker_list_next(&orig_nhe->tracker_list, t);
+				zebra_nhg_tracker_collapse(prefix_map, t, keeper);
+			}
+
+			/*
+			 * If the incoming prefix is now in this tracker's unmatched table (moved
+			 * there by the collapse above, or from a previous collapse), remove it to
+			 * avoid having the same prefix in both matched and unmatched.
 			 */
-			 struct route_node *unmatched_trn;
+			unmatched_trn = route_node_lookup(tracker->unmatched_table.unmatched_table,
+							  &rn->p);
+			if (unmatched_trn) {
+				if (unmatched_trn->info) {
+					route_unlock_node(unmatched_trn->info);
+					unmatched_trn->info = NULL;
+					route_unlock_node(unmatched_trn);
+					if (tracker->unmatched_table.re_count > 0)
+						tracker->unmatched_table.re_count--;
+				}
+				route_unlock_node(unmatched_trn);
+			}
 
-			 unmatched_trn = route_node_lookup(
-				 tracker->unmatched_table.unmatched_table, &rn->p);
-			 if (unmatched_trn) {
-				 if (unmatched_trn->info) {
-					 route_unlock_node(unmatched_trn->info);
-					 unmatched_trn->info = NULL;
-					 route_unlock_node(unmatched_trn);
-					 if (tracker->unmatched_table.re_count > 0)
-						 tracker->unmatched_table.re_count--;
-				 }
-				 route_unlock_node(unmatched_trn);
-			 }
- 
-			 zebra_nhg_tracker_add_route(prefix_map, tracker,
-							 tracker->matched_table.matched_table,
-							 &tracker->matched_table.re_count, rn, re);
- 
+			/* Finally, insert the route into the matched table. */
+			zebra_nhg_tracker_add_route(prefix_map, tracker,
+						    tracker->matched_table.matched_table,
+						    &tracker->matched_table.re_count, rn, re);
+
 			matched = true;
 			zlog_info("%s: %pRN (type %s) matched tracker %u from originating NHG %u (matched=%u unmatched=%u orig_re=%u)",
 				__func__, rn, zebra_route_string(re->type),
