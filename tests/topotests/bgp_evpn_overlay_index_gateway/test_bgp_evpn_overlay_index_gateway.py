@@ -211,6 +211,28 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
+def check_bgp_vrf_ipv6_unicast_json_brief():
+    """
+    Check 'show bgp vrf vrf-blue ipv6 unicast json brief' on PE1 and PE2.
+    Validates valid JSON, "routes" key present, and brief format (prefix -> object, not array).
+    """
+    tgen = get_topogen()
+    cmd = "show bgp vrf vrf-blue ipv6 unicast json brief"
+    for name in PES:
+        pe = tgen.gears[name]
+        output = pe.vtysh_cmd(cmd)
+        out = json.loads(output)
+        assert "routes" in out, f"{name}: missing 'routes' in {cmd} output"
+        assert isinstance(out["routes"], dict), f"{name}: 'routes' should be a dict"
+        for prefix, val in out["routes"].items():
+            assert isinstance(val, dict), (
+                f"{name}: brief format expects prefix value to be dict, "
+                f"got {type(val).__name__} for {prefix}"
+            )
+        assert "totalRoutes" in out, f"{name}: missing 'totalRoutes'"
+        assert "totalPaths" in out, f"{name}: missing 'totalPaths'"
+
+
 def evpn_gateway_ip_show_op_check(trigger=" "):
     """
     This function checks CLI O/P for commands mentioned in show_commands for a given trigger
@@ -337,6 +359,9 @@ def test_evpn_gateway_ip_flap_rt5(request):
 
     assert result is None, assertmsg
 
+    step("Check IPv6 unicast json brief output on PE1 and PE2")
+    check_bgp_vrf_ipv6_unicast_json_brief()
+
     write_test_footer(tc_name)
 
 
@@ -372,6 +397,9 @@ def test_evpn_gateway_ip_flap_rt2(request):
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
     assert result is None, assertmsg
+
+    step("Check IPv6 unicast json brief output on PE1 and PE2")
+    check_bgp_vrf_ipv6_unicast_json_brief()
 
     write_test_footer(tc_name)
 

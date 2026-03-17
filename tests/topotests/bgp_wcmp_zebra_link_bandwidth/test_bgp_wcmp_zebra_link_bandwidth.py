@@ -107,6 +107,21 @@ def test_bgp_wcmp_zebra_link_bandwidth():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't find expected weights for 10.10.10.10/32 next-hops"
 
+    # Check IPv4 unicast json brief output
+    cmd = "show bgp vrf blue ipv4 unicast json brief"
+    output = json.loads(r1.vtysh_cmd(cmd))
+    assert "routes" in output, f"missing 'routes' in {cmd} output"
+    assert isinstance(output["routes"], dict), "'routes' should be a dict"
+    for prefix, val in output["routes"].items():
+        assert isinstance(
+            val, dict
+        ), f"brief format expects prefix value to be dict, got {type(val).__name__} for {prefix}"
+    assert "totalRoutes" in output, "missing 'totalRoutes'"
+    assert "totalPaths" in output, "missing 'totalPaths'"
+    assert (
+        "10.10.10.10/32" in output["routes"]
+    ), "expected prefix 10.10.10.10/32 in routes"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
