@@ -650,6 +650,9 @@ int isis_mpls_te_update(struct interface *ifp)
 	/* Update TE TLVs ... */
 	isis_link_params_update(circuit, ifp);
 
+	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
+		isis_mpls_te_circuit_ip_update(circuit);
+
 	/* ... and LSP */
 	if (circuit->area && (IS_MPLS_TE(circuit->area->mta)
 #ifndef FABRICD
