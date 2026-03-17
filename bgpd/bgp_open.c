@@ -1152,8 +1152,14 @@ static int bgp_capability_parse(struct peer *peer, struct peer_connection *conne
 				/* Unsupported Capability. */
 				if (ret < 0) {
 					/* Store return data. */
-					memcpy(*error, sp, caphdr.length + 2);
-					*error += caphdr.length + 2;
+					flog_warn(EC_BGP_CAPABILITY_UNKNOWN,
+						  "%s unrecognized capability code: %d - ignored",
+						  peer->host, caphdr.code);
+					if (*error + caphdr.length + 2 <=
+					    BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE) {
+						memcpy(*error, sp, caphdr.length + 2);
+						*error += caphdr.length + 2;
+					}
 				}
 				ret = 0; /* Don't return error for this */
 			}
@@ -1226,8 +1232,11 @@ static int bgp_capability_parse(struct peer *peer, struct peer_connection *conne
 					EC_BGP_CAPABILITY_UNKNOWN,
 					"%s unrecognized capability code: %d - ignored",
 					peer->host, caphdr.code);
-				memcpy(*error, sp, caphdr.length + 2);
-				*error += caphdr.length + 2;
+				if (*error + caphdr.length + 2 <=
+				    BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE) {
+					memcpy(*error, sp, caphdr.length + 2);
+					*error += caphdr.length + 2;
+				}
 			}
 		}
 
