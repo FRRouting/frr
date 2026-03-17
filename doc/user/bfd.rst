@@ -324,16 +324,20 @@ OSPF BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. clicmd:: ip ospf bfd
+.. clicmd:: ip ospf bfd [multiplier min-rx-int min-tx-int] [quick]
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
+   If the quick option is enabled, the BFD session is kept active even after the
+   OSPF neighbor is removed. When BFD detects the peer again, OSPF can re-add the
+   neighbor immediately (before learning the router ID) and drive a faster
+   adjacency bring-up.
 
 .. clicmd:: ip ospf bfd profile BFDPROF
 
-   Same as command ``ip ospf bfd``, but applies the BFD profile to the sessions
-   it creates or that already exist.
+   Applies the BFD profile to the sessions it creates or that already exist.
+   Only takes effect if ``ip ospf bfd`` command is also present.
 
 
 .. _bfd-ospf6-peer-config:
