@@ -78,8 +78,7 @@ pcep_lib_parse_endpoints_ipv6(struct path *path,
 static void pcep_lib_parse_vendor_info(struct path *path,
 				       struct pcep_object_vendor_info *obj);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
-static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
-					      struct pcep_ro_subobj_sr *sr);
+static struct path_hop *pcep_lib_parse_ero_sr(struct pcep_ro_subobj_sr *sr);
 static struct counters_group *copy_counter_group(struct counters_group *from);
 static struct counters_subgroup *
 copy_counter_subgroup(struct counters_subgroup *from);
@@ -438,31 +437,36 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
 		case CLASS_TYPE(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
-			assert(rp == NULL);
-			rp = (struct pcep_object_rp *)obj;
-			pcep_lib_parse_rp(path, rp);
+			if (rp == NULL) {
+				rp = (struct pcep_object_rp *)obj;
+				pcep_lib_parse_rp(path, rp);
+			}
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
-			assert(srp == NULL);
-			srp = (struct pcep_object_srp *)obj;
-			pcep_lib_parse_srp(path, srp);
+			if (srp == NULL) {
+				srp = (struct pcep_object_srp *)obj;
+				pcep_lib_parse_srp(path, srp);
+			}
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
 			/* Only support single LSP per message */
-			assert(lsp == NULL);
-			lsp = (struct pcep_object_lsp *)obj;
-			pcep_lib_parse_lsp(path, lsp);
+			if (lsp == NULL) {
+				lsp = (struct pcep_object_lsp *)obj;
+				pcep_lib_parse_lsp(path, lsp);
+			}
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_LSPA, PCEP_OBJ_TYPE_LSPA):
-			assert(lspa == NULL);
-			lspa = (struct pcep_object_lspa *)obj;
-			pcep_lib_parse_lspa(path, lspa);
+			if (lspa == NULL) {
+				lspa = (struct pcep_object_lspa *)obj;
+				pcep_lib_parse_lspa(path, lspa);
+			}
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
 			/* Only support single ERO per message */
-			assert(ero == NULL);
-			ero = (struct pcep_object_ro *)obj;
-			pcep_lib_parse_ero(path, ero);
+			if (ero == NULL) {
+				ero = (struct pcep_object_ro *)obj;
+				pcep_lib_parse_ero(path, ero);
+			}
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_METRIC, PCEP_OBJ_TYPE_METRIC):
 			metric = (struct pcep_object_metric *)obj;
@@ -527,9 +531,10 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
 		case CLASS_TYPE(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
-			assert(open == NULL);
-			open = (struct pcep_object_open *)obj;
-			pcep_lib_parse_open(caps, open);
+			if (open == NULL) {
+				open = (struct pcep_object_open *)obj;
+				pcep_lib_parse_open(caps, open);
+			}
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
@@ -1066,10 +1071,11 @@ void pcep_lib_parse_lsp_symbolic_name(
 	struct path *path, struct pcep_object_tlv_symbolic_path_name *tlv)
 {
 	uint16_t size = tlv->symbolic_path_name_length;
-	assert(path->name == NULL);
-	size = size > MAX_PATH_NAME_SIZE ? MAX_PATH_NAME_SIZE : size;
-	path->name = XCALLOC(MTYPE_PCEP, size + 1);
-	strlcpy((char *)path->name, tlv->symbolic_path_name, size + 1);
+	if (path->name == NULL) {
+		size = size > MAX_PATH_NAME_SIZE ? MAX_PATH_NAME_SIZE : size;
+		path->name = XCALLOC(MTYPE_PCEP, size + 1);
+		strlcpy((char *)path->name, tlv->symbolic_path_name, size + 1);
+	}
 }
 
 void pcep_lib_parse_lspa(struct path *path, struct pcep_object_lspa *lspa)
@@ -1138,11 +1144,18 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 		return;
 	}
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
+		hop = NULL;
+
 		obj = (struct pcep_object_ro_subobj *)node->data;
 		switch (obj->ro_subobj_type) {
 		case RO_SUBOBJ_TYPE_SR:
-			hop = pcep_lib_parse_ero_sr(
-				hop, (struct pcep_ro_subobj_sr *)obj);
+			hop = pcep_lib_parse_ero_sr((struct pcep_ro_subobj_sr *)obj);
+			/* Warn if invalid */
+			if (hop == NULL)
+				flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_ERO_SUBOBJ,
+					  "Invalid ERO sub-object %s (%u)",
+					  pcep_ro_type_name(obj->ro_subobj_type),
+					  obj->ro_subobj_type);
 			break;
 		case RO_SUBOBJ_TYPE_IPV4:
 		case RO_SUBOBJ_TYPE_IPV6:
@@ -1156,19 +1169,27 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 				  obj->ro_subobj_type);
 			break;
 		}
-	}
 
-	path->first_hop = hop;
+		if (hop) {
+			/* Enqueue to path */
+			hop->next = path->first_hop;
+			path->first_hop = hop;
+		}
+	}
 }
 
-struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
-				       struct pcep_ro_subobj_sr *sr)
+/* Return a path_hop, or NULL if there's an error */
+struct path_hop *pcep_lib_parse_ero_sr(struct pcep_ro_subobj_sr *sr)
 {
 	struct path_hop *hop = NULL;
 	union sid sid;
+	bool err_p = false;
 
 	/* Only support IPv4 node with SID */
-	assert(!sr->flag_s);
+	if (sr->flag_s) {
+		err_p = true;
+		goto done;
+	}
 
 	if (sr->flag_m) {
 		sid.mpls = (struct sid_mpls){
@@ -1181,7 +1202,7 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	}
 
 	hop = pcep_new_hop();
-	*hop = (struct path_hop){.next = next,
+	*hop = (struct path_hop){.next = NULL,
 				 .is_loose =
 					 sr->ro_subobj.flag_subobj_loose_hop,
 				 .has_sid = !sr->flag_s,
@@ -1192,10 +1213,14 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 				 .nai = {.type = sr->nai_type}};
 
 	if (!sr->flag_f) {
-		assert(sr->nai_list != NULL);
+		if (sr->nai_list == NULL || sr->nai_list->head == NULL ||
+		    sr->nai_list->head->data == NULL) {
+			err_p = true;
+			goto done;
+		}
+
 		double_linked_list_node *n = sr->nai_list->head;
-		assert(n != NULL);
-		assert(n->data != NULL);
+
 		switch (sr->nai_type) {
 		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 			hop->nai.local_addr.ipa_type = IPADDR_V4;
@@ -1212,8 +1237,12 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(n != NULL);
-			assert(n->data != NULL);
+
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
 			hop->nai.remote_addr.ipa_type = IPADDR_V4;
 			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
@@ -1223,8 +1252,12 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v6, n->data,
 			       sizeof(struct in6_addr));
 			n = n->next_node;
-			assert(n != NULL);
-			assert(n->data != NULL);
+
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
 			hop->nai.remote_addr.ipa_type = IPADDR_V6;
 			memcpy(&hop->nai.remote_addr.ipaddr_v6, n->data,
 			       sizeof(struct in6_addr));
@@ -1234,18 +1267,27 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(n != NULL);
-			assert(n->data != NULL);
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
 			hop->nai.local_iface = *(uint32_t *)n->data;
 			n = n->next_node;
-			assert(n != NULL);
-			assert(n->data != NULL);
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
 			hop->nai.remote_addr.ipa_type = IPADDR_V4;
 			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(n != NULL);
-			assert(n->data != NULL);
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
 			hop->nai.remote_iface = *(uint32_t *)n->data;
 			break;
 		case PCEP_SR_SUBOBJ_NAI_ABSENT:
@@ -1258,6 +1300,12 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 				  sr->nai_type);
 			break;
 		}
+	}
+
+done:
+	if (err_p && (hop != NULL)) {
+		/* Free allocated object (and set to NULL) */
+		XFREE(MTYPE_PCEP, hop);
 	}
 
 	return hop;
