@@ -309,6 +309,35 @@ def test_step10():
         compare_ted_json_output(tgen, rname, "ted_step10.json")
 
 
+def test_step11():
+    "Step11: Remove and re-add link-params on r1-eth0, verify TED on all routers"
+
+    tgen = setup_testcase(
+        "Step11: Remove and re-add link-params on r1-eth0, verify TED on all routers"
+    )
+
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth0" -c "no link-params"')
+
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "metric 20"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "delay 10000"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "max-bw 10e+10"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "ava-bw 1.25e+08"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "enable"'
+    )
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        compare_ted_json_output(tgen, rname, "ted_step11.json")
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
 
