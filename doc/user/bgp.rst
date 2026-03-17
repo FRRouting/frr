@@ -1287,6 +1287,40 @@ IPv6 Support
    Using the ``bgp default ipv6-unicast`` configuration, IPv6 unicast
    address family is enabled by default for all new neighbors.
 
+.. clicmd:: nexthop prefer-global
+
+   This command is used within an IPv6 address family configuration (IPv6
+   unicast, IPv6 multicast, or IPv6 labeled-unicast) to control which nexthop
+   is installed to Zebra and the kernel routing table.
+
+   When a BGP UPDATE is received with both a global IPv6 address and a
+   link-local IPv6 address as nexthops, the BGP RIB stores both nexthops.
+   However, only one nexthop can be installed to Zebra for packet forwarding.
+   This command causes BGP to install the global IPv6 address to Zebra instead
+   of the link-local address. By default, FRR installs link-local addresses
+   when both are available.
+
+   **Important:** This command does not change the BGP RIB contents - the RIB
+   always contains both global and link-local nexthops when both are received.
+   It only affects which nexthop is selected for installation to Zebra and
+   subsequently to the kernel routing table.
+
+   This is similar to using ``set ipv6 next-hop prefer-global`` in a route-map,
+   but applies globally to all routes received for the configured address family,
+   rather than being applied on a per-route basis. When both configurations are
+   present, they work cooperatively (both set the same flag).
+
+   The ``no`` form of this command restores the default behavior of installing
+   link-local addresses to Zebra.
+
+   .. code-block:: frr
+
+      router bgp 65000
+       address-family ipv6 unicast
+        nexthop prefer-global
+       exit-address-family
+
+   Default: disabled (link-local addresses are installed to Zebra).
 
 .. clicmd:: bgp ipv6-auto-ra
 

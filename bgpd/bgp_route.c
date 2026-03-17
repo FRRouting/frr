@@ -5950,6 +5950,14 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	/*
+	 * Apply "nexthop prefer-global" configuration for IPv6 address families.
+	 * This is similar to "set ipv6 next-hop prefer-global" in a route-map,
+	 * but is applied globally for the configured AFI/SAFI.
+	 */
+	if (peer->bgp->nexthop_prefer_global[afi][safi])
+		SET_FLAG(new_attr.nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+
 	if (pi && pi->attr->rmap_table_id != new_attr.rmap_table_id) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			/* remove from RIB previous entry */
