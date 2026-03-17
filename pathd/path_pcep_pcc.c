@@ -329,8 +329,12 @@ void pcep_pcc_reconnect(struct ctrl_state *ctrl_state,
 
 int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	assert(pcc_state->status == PCEP_PCC_DISCONNECTED);
-	assert(pcc_state->sess == NULL);
+	if ((pcc_state->status != PCEP_PCC_DISCONNECTED) || (pcc_state->sess != NULL)) {
+		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
+			  "skipping connection to PCE %pIA:%d due to invalid state",
+			  &pcc_state->pce_opts->addr, pcc_state->pce_opts->port);
+		return 0;
+	}
 
 	if (pcc_state->t_reconnect != NULL) {
 		event_cancel(&pcc_state->t_reconnect);
