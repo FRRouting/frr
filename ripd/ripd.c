@@ -1254,7 +1254,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			if (!if_lookup_address((void *)&rte->nexthop, AF_INET,
 					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
-				struct rip_info *rinfo;
+				struct rip_info *rinfo = NULL;
 				struct prefix p = { 0 };
 
 				p.family = AF_INET;
@@ -1264,11 +1264,11 @@ static void rip_response_process(struct rip_packet *packet, int size,
 				rn = route_node_match(rip->table, &p);
 
 				if (rn) {
-					rinfo = rn->info;
+					if (rn->info)
+						rinfo = rip_info_list_first(rn->info);
 
-					if (rinfo->type == ZEBRA_ROUTE_RIP
-					    && rinfo->sub_type
-						       == RIP_ROUTE_RTE) {
+					if (rinfo && rinfo->type == ZEBRA_ROUTE_RIP &&
+					    rinfo->sub_type == RIP_ROUTE_RTE) {
 						if (IS_RIP_DEBUG_EVENT)
 							zlog_debug(
 								"Next hop %pI4 is on RIP network.  Set nexthop to the packet's originator",
