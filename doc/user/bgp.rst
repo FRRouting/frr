@@ -1573,6 +1573,104 @@ Redistribute routes from a routing table number into BGP.
 
    Default max-delay is 0, i.e. the feature is off by default.
 
+
+.. clicmd:: bgp advertisement-delay (1-3600)
+
+   With ``update-delay``, both FIB programming and advertisements are deferred,
+   meaning the restarting router cannot forward local traffic until the delay
+   completes.  ``advertisement-delay`` takes a different approach: it allows
+   best-path selection and FIB programming to proceed normally so local
+   forwarding works immediately, while holding only the advertisements to
+   prevent the router from attracting remote traffic before it has a complete
+   routing state.
+
+   After a non-graceful restart, peers detect the session loss and withdraw
+   routes to this router, so the receiver has no routes to this router at all.
+   ``advertisement-delay`` controls when this router re-announces itself,
+   ensuring it only attracts traffic once it has fully converged.  When
+   graceful-restart is active, ``advertisement-delay`` is not started -- the
+   GR restarter path handles route retention separately.
+
+   This feature holds route advertisements to peers for a configured number of
+   seconds after the first peer reaches Established status.  The delay applies
+   to all address families (AFI/SAFI).  Note that this command is configured at
+   the global level and applies to all bgp instances/vrfs.  It cannot be used
+   at the same time as the per-vrf ``advertisement-delay`` command described
+   below.  The global and per-vrf approaches are mutually exclusive.
+
+   When the first peer reaches Established, a timer for the configured delay is
+   started.  During this period, best-path selection and FIB programming proceed
+   normally, but route advertisements to peers are held.  When the timer
+   expires, advertisements are released to all established peers.
+
+   When both ``update-delay`` and ``advertisement-delay`` are configured, both
+   timers start when the first peer reaches Established.  Route advertisements
+   are released at ``max(update-delay, advertisement-delay)``; whichever
+   finishes last triggers the release.
+
+   This feature runs after startup and also re-triggers on
+   ``clear bgp *``, similar to ``update-delay``.
+   It does not re-trigger if peers flap after the delay has completed.
+
+   Changing or removing this configuration while the timer is running takes
+   effect from the next startup or next ``clear bgp *``.
+
+   This parameter is unrelated to the per-neighbor or per-peer-group
+   ``advertisement-interval``, which controls the minimum time between
+   individual route advertisements to a specific peer.
+
+   Default max-delay is 0, i.e. the feature is off by default.
+
+
+.. clicmd:: advertisement-delay (1-3600)
+
+   With ``update-delay``, both FIB programming and advertisements are deferred,
+   meaning the restarting router cannot forward local traffic until the delay
+   completes.  ``advertisement-delay`` takes a different approach: it allows
+   best-path selection and FIB programming to proceed normally so local
+   forwarding works immediately, while holding only the advertisements to
+   prevent the router from attracting remote traffic before it has a complete
+   routing state.
+
+   After a non-graceful restart, peers detect the session loss and withdraw
+   routes to this router, so the receiver has no routes to this router at all.
+   ``advertisement-delay`` controls when this router re-announces itself,
+   ensuring it only attracts traffic once it has fully converged.  When
+   graceful-restart is active, ``advertisement-delay`` is not started -- the
+   GR restarter path handles route retention separately.
+
+   This feature holds route advertisements to peers for a configured number of
+   seconds after the first peer reaches Established status.  Note that this
+   command is configured under the specific bgp instance/vrf that the feature
+   is enabled for.  It cannot be used at the same time as the global
+   ``bgp advertisement-delay`` described above.  The global and per-vrf
+   approaches are mutually exclusive.
+
+   When the first peer reaches Established, a timer for the configured delay is
+   started.  During this period, best-path selection and FIB programming proceed
+   normally, but route advertisements to peers are held.  When the timer
+   expires, advertisements are released to all established peers.
+
+   When both ``update-delay`` and ``advertisement-delay`` are configured, both
+   timers start when the first peer reaches Established.  Route advertisements
+   are released at ``max(update-delay, advertisement-delay)``; whichever
+   finishes last triggers the release.
+
+   The delay applies to all address families (AFI/SAFI).
+
+   This feature runs after startup and also re-triggers on
+   ``clear bgp *``, similar to ``update-delay``.
+   It does not re-trigger if peers flap after the delay has completed.
+
+   Changing or removing this configuration while the timer is running takes
+   effect from the next startup or next ``clear bgp *``.
+
+   This parameter is unrelated to the per-neighbor or per-peer-group
+   ``advertisement-interval``, which controls the minimum time between
+   individual route advertisements to a specific peer.
+
+   Default max-delay is 0, i.e. the feature is off by default.
+
 .. clicmd:: table-map ROUTE-MAP-NAME
 
    This feature is used to apply a route-map on route updates from BGP to
