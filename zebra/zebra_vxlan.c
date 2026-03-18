@@ -5963,7 +5963,7 @@ static int neigh_read_ns(struct ns *ns,
 {
 	struct zebra_ns *zns = ns->info;
 
-	neigh_read(zns);
+	dplane_neigh_read(zns);
 	return NS_WALK_CONTINUE;
 }
 

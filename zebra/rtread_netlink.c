@@ -22,21 +22,6 @@ void route_read(struct zebra_ns *zns)
 	netlink_route_read(zns);
 }
 
-void neigh_read(struct zebra_ns *zns)
-{
-	netlink_neigh_read(zns);
-}
-
-void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
-{
-	netlink_neigh_read_for_vlan(zns, vlan_if);
-}
-
-void neigh_read_specific_ip(const struct ipaddr *ip, struct interface *vlan_if)
-{
-	netlink_neigh_read_specific_ip(ip, vlan_if);
-}
-
 void kernel_read_pbr_rules(struct zebra_ns *zns)
 {
 	netlink_rules_read(zns);

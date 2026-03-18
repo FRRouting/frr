@@ -4679,56 +4679,11 @@ static int netlink_request_neigh(struct nlsock *netlink_cmd, int family,
 }
 
 /*
- * IP Neighbor table read using netlink interface. This is invoked
- * at startup.
- */
-int netlink_neigh_read(struct zebra_ns *zns)
-{
-	int ret;
-	struct zebra_dplane_info dp_info;
-
-	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
-
-	/* Get IP neighbor table. */
-	ret = netlink_request_neigh(&zns->netlink_cmd, AF_UNSPEC, RTM_GETNEIGH,
-				    0);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 0, true);
-
-	return ret;
-}
-
-/*
- * IP Neighbor table read using netlink interface. This is for a specific
- * VLAN device.
- */
-int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
-{
-	int ret = 0;
-	struct zebra_dplane_info dp_info;
-
-	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
-
-	ret = netlink_request_neigh(&zns->netlink_cmd, AF_UNSPEC, RTM_GETNEIGH,
-				    vlan_if->ifindex);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 0, false);
-
-	return ret;
-}
-
-/*
  * Request for a specific IP in VLAN (SVI) device from IP Neighbor table,
  * read using netlink interface.
  */
-static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
-						  int type,
-						  const struct ipaddr *ip,
-						  ifindex_t ifindex)
+static int netlink_request_specific_neigh_in_vlan(struct nlsock *nl, int type,
+						  const struct ipaddr *ip, ifindex_t ifindex)
 {
 	struct {
 		struct nlmsghdr n;
@@ -4764,35 +4719,41 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 			   nl_family_to_str(req.ndm.ndm_family), ifindex, ip,
 			   req.n.nlmsg_flags);
 
-	return netlink_request(&zns->netlink_cmd, &req);
+	return netlink_request(nl, &req);
 }
 
-int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
-				   struct interface *vlan_if)
+void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
-	int ret = 0;
-	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf = vlan_if->vrf->info;
-	struct zebra_dplane_info dp_info;
+	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
+	const struct ipaddr *ip;
+	struct nlsock *nl;
+	ifindex_t ifindex;
+	int ret;
 
-	zns = zvrf->zns;
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	if (!nl) {
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		return;
+	}
 
-	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+	ifindex = dplane_ctx_get_neigh_read_ifindex(ctx);
+	ip = dplane_ctx_get_neigh_read_ip(ctx);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: neigh request IF %s(%u) IP %pIA vrf %s(%u)",
-			   __func__, vlan_if->name, vlan_if->ifindex, ip,
-			   vlan_if->vrf->name, vlan_if->vrf->vrf_id);
+	if (ip->ipa_type != IPADDR_NONE) {
+		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false);
+	} else if (ifindex) {
+		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false);
+	} else {
+		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, 0);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true);
+	}
 
-	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
-					    vlan_if->ifindex);
-	if (ret < 0)
-		return ret;
-
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 1, false);
-
-	return ret;
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 
 int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
