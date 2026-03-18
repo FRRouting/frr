@@ -482,6 +482,12 @@ struct bfd_vrf_global {
 	struct vrf *vrf;
 
 	struct event *bg_ev[7];
+
+	/** Number of active BFD sessions using this VRF's sockets. */
+	int bg_session_count;
+
+	/** Number of SBFD reflectors using this VRF's sockets. */
+	int bg_reflector_count;
 };
 
 /* Forward declaration of data plane context struct. */
@@ -702,6 +708,8 @@ void bfd_initialize(void);
 void bfd_shutdown(void);
 void bfd_vrf_init(const char *context);
 void bfd_vrf_terminate(void);
+int bfd_vrf_start_sockets(struct bfd_vrf_global *bvrf);
+void bfd_vrf_stop_sockets(struct bfd_vrf_global *bvrf);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
 struct bfd_session *bfd_key_lookup(struct bfd_key *key);
