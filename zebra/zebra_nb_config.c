@@ -141,33 +141,63 @@ int zebra_zapi_packets_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-zebra:zebra/import-kernel-table/table-id
- */
-int zebra_import_kernel_table_table_id_modify(struct nb_cb_modify_args *args)
+static int zebra_import_kernel_table_apply(const struct lyd_node *dnode, bool add)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	uint32_t table_id = yang_dnode_get_uint32(dnode, "table-id");
+	uint32_t distance = 0;
+	const char *rmap = NULL;
+	afi_t afi;
+	safi_t safi;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (add) {
+		distance = yang_dnode_get_uint32(dnode, "distance");
+		if (yang_dnode_exists(dnode, "route-map"))
+			rmap = yang_dnode_get_string(dnode, "route-map");
 	}
+
+	return zebra_import_table(afi, safi, VRF_DEFAULT, table_id, distance,
+				  rmap, add);
+}
+
+/*
+ * XPath: /frr-zebra:zebra/import-kernel-table
+ */
+int zebra_import_kernel_table_create(struct nb_cb_create_args *args)
+{
+	uint32_t table_id = yang_dnode_get_uint32(args->dnode, "table-id");
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!is_zebra_valid_kernel_table(table_id)
+		    || is_zebra_main_routing_table(table_id)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid routing table ID %" PRIu32
+				   ": must be a non-default table in the range 1-252",
+				   table_id);
+			return NB_ERR_VALIDATION;
+		}
+
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (zebra_import_kernel_table_apply(args->dnode, true) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
 
-int zebra_import_kernel_table_table_id_destroy(struct nb_cb_destroy_args *args)
+int zebra_import_kernel_table_destroy(struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (zebra_import_kernel_table_apply(args->dnode, false) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
@@ -177,14 +207,14 @@ int zebra_import_kernel_table_table_id_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_import_kernel_table_distance_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	const struct lyd_node *dnode =
+		(const struct lyd_node *)args->dnode->parent;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (zebra_import_kernel_table_apply(dnode, true) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
@@ -194,28 +224,28 @@ int zebra_import_kernel_table_distance_modify(struct nb_cb_modify_args *args)
  */
 int zebra_import_kernel_table_route_map_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	const struct lyd_node *dnode =
+		(const struct lyd_node *)args->dnode->parent;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (zebra_import_kernel_table_apply(dnode, true) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
 
 int zebra_import_kernel_table_route_map_destroy(struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	const struct lyd_node *dnode =
+		(const struct lyd_node *)args->dnode->parent;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (zebra_import_kernel_table_apply(dnode, true) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
