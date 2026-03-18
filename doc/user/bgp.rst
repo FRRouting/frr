@@ -5086,6 +5086,23 @@ incoming/outgoing directions.
    ``... advertised-routes json brief``); it selects compact per-prefix JSON
    without per-path detail, like other ``show bgp`` ``json brief`` forms.
 
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [unicast|...]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json [brief]]
+
+   Display routes learned from a BGP neighbor, flap statistics for that
+   neighbor, or dampened routes received from that neighbor, for the given
+   address family.
+
+   The ``routes`` keyword shows routes in the BGP table that were received
+   from this peer and accepted by inbound policy. The ``flap-statistics``
+   keyword shows flap statistics for routes learned from this neighbor. The
+   ``dampened-routes`` keyword shows dampened paths received from this
+   neighbor.
+
+   If ``json`` is specified, output is in JSON format. The ``brief``
+   keyword may only be used with ``json``; it produces a brief JSON view
+   (prefix-level path and multipath counts and flags, without per-path
+   details) for unicast neighbor routes.
+
 .. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes [internal]
 
    Display the detailed version of all routes. The same format as using
