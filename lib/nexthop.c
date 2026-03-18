@@ -145,6 +145,12 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
 }
 
+static int _nexthop_rmap_source_cmp(const struct nexthop *nh1,
+			       const struct nexthop *nh2)
+{
+	return nexthop_g_addr_cmp(nh1->type, &nh1->rmap_src, &nh2->rmap_src);
+}
+
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 				  const struct nexthop *next2, bool use_weight, bool use_ifindex)
 {
@@ -205,6 +211,10 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		return -1;
 	if (next1->srte_color > next2->srte_color)
 		return 1;
+
+	ret = _nexthop_rmap_source_cmp(next1, next2);
+	if (ret != 0)
+		goto done;
 
 	ret = _nexthop_source_cmp(next1, next2);
 	if (ret != 0)
@@ -334,6 +344,11 @@ int nexthop_cmp_basic(const struct nexthop *nh1,
 			return 1;
 		break;
 	}
+
+	/* Compare rmap source addr */
+	ret = nexthop_g_addr_cmp(nh1->type, &nh1->rmap_src, &nh2->rmap_src);
+	if (ret != 0)
+		goto done;
 
 	/* Compare source addr */
 	ret = nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
