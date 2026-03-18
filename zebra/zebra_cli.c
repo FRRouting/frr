@@ -127,6 +127,14 @@ static void zebra_allow_external_route_update_cli_write(struct vty *vty,
 	vty_out(vty, "allow-external-route-update\n");
 }
 
+static void zebra_dplane_queue_limit_cli_write(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	uint32_t limit = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "zebra dplane limit %u\n", limit);
+}
+
 DEFPY_YANG (allow_external_route_update,
 	    allow_external_route_update_cmd,
 	    "[no] allow-external-route-update",
@@ -135,6 +143,25 @@ DEFPY_YANG (allow_external_route_update,
 {
 	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update",
 			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (zebra_dplane_queue_limit,
+	    zebra_dplane_queue_limit_cmd,
+	    "[no] zebra dplane limit ![(0-10000)$limit]",
+	    NO_STR
+	    ZEBRA_STR
+	    "Zebra dataplane\n"
+	    "Limit incoming queued updates\n"
+	    "Number of queued updates\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/dplane-queue-limit", NB_OP_MODIFY,
+				      limit_str);
+	else
+		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/dplane-queue-limit", NB_OP_DESTROY,
+				      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2815,6 +2842,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = zebra_allow_external_route_update_cli_write,
 		},
 		{
+			.xpath = "/frr-zebra:zebra/dplane-queue-limit",
+			.cbs.cli_show = zebra_dplane_queue_limit_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
 			.cbs.cli_show = lib_interface_zebra_ipv4_addrs_cli_write,
 		},
@@ -3148,6 +3179,7 @@ void zebra_cli_init(void)
 	install_element(VRF_NODE, &ipv6_protocol_nht_rmap_cmd);
 	install_element(CONFIG_NODE, &zebra_route_map_timer_cmd);
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
+	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);

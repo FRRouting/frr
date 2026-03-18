@@ -261,14 +261,12 @@ int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	uint32_t limit = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	dplane_set_in_queue_limit(limit, true);
 
 	return NB_OK;
 }
