@@ -71,15 +71,7 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 }
 
-void neigh_read(struct zebra_ns *zns)
-{
-}
-
-void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
-{
-}
-
-void neigh_read_specific_ip(const struct ipaddr *ip, struct interface *vlan_if)
+void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 }
 

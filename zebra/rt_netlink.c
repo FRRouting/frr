@@ -4737,7 +4737,7 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
  * Request for a specific IP in VLAN (SVI) device from IP Neighbor table,
  * read using netlink interface.
  */
-static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
+static int netlink_request_specific_neigh_in_vlan(struct nlsock *nl,
 						  int type,
 						  const struct ipaddr *ip,
 						  ifindex_t ifindex)
@@ -4776,7 +4776,7 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 			   nl_family_to_str(req.ndm.ndm_family), ifindex, ip,
 			   req.n.nlmsg_flags);
 
-	return netlink_request(&zns->netlink_cmd, &req);
+	return netlink_request(nl, &req);
 }
 
 int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
@@ -4796,8 +4796,9 @@ int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 			   __func__, vlan_if->name, vlan_if->ifindex, ip,
 			   vlan_if->vrf->name, vlan_if->vrf->vrf_id);
 
-	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
-					    vlan_if->ifindex);
+	ret = netlink_request_specific_neigh_in_vlan(&zns->netlink_cmd,
+						    RTM_GETNEIGH, ip,
+						    vlan_if->ifindex);
 	if (ret < 0)
 		return ret;
 
@@ -4805,6 +4806,45 @@ int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 				 &dp_info, 1, false);
 
 	return ret;
+}
+
+void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
+{
+	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
+	const struct ipaddr *ip;
+	struct nlsock *nl;
+	ifindex_t ifindex;
+	int ret;
+
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	if (!nl) {
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		return;
+	}
+
+	ifindex = dplane_ctx_get_neigh_read_ifindex(ctx);
+	ip = dplane_ctx_get_neigh_read_ip(ctx);
+
+	if (ip->ipa_type != IPADDR_NONE) {
+		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH,
+							     ip, ifindex);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl,
+					   dp_info, 1, false);
+	} else if (ifindex) {
+		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH,
+					    ifindex);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl,
+					   dp_info, 0, false);
+	} else {
+		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, 0);
+		if (ret >= 0)
+			netlink_parse_info(netlink_neigh_table, nl,
+					   dp_info, 0, true);
+	}
+
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 
 int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)

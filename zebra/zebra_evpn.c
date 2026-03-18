@@ -970,7 +970,7 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 				zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
 		}
 
-		neigh_read_for_vlan(zns, vlan_if);
+		dplane_neigh_read_for_vlan(zns, vlan_if);
 	}
 }
 

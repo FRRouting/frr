@@ -409,6 +409,14 @@ struct dplane_macfdb_read_info {
 };
 
 /*
+ * EVPN neighbor read info for the dataplane
+ */
+struct dplane_neigh_read_info {
+	ifindex_t ifindex;
+	struct ipaddr ip;
+};
+
+/*
  * VLAN info for the dataplane
  */
 struct dplane_vlan_info {
@@ -481,6 +489,7 @@ struct zebra_dplane_ctx {
 		enum zebra_dplane_startup_notifications spot;
 		struct dplane_srv6_encap_ctx srv6_encap;
 		struct dplane_macfdb_read_info macfdb_read;
+		struct dplane_neigh_read_info neigh_read;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -948,6 +957,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			      ctx->u.vlan_info.vlan_array);
 		break;
 	case DPLANE_OP_FDB_READ:
+	case DPLANE_OP_NEIGH_READ:
 		break;
 	}
 }
@@ -1252,6 +1262,8 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_FDB_READ:
 		return "FDB_READ";
+	case DPLANE_OP_NEIGH_READ:
+		return "NEIGH_READ";
 	}
 
 	return "UNKNOWN";
@@ -3779,6 +3791,21 @@ bool dplane_ctx_get_macfdb_read_is_vxlan(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.macfdb_read.is_vxlan;
+}
+
+ifindex_t dplane_ctx_get_neigh_read_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh_read.ifindex;
+}
+
+const struct ipaddr *
+dplane_ctx_get_neigh_read_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.neigh_read.ip;
 }
 
 /*
@@ -6401,9 +6428,41 @@ dplane_fdb_read_enqueue(struct zebra_ns *zns, ifindex_t ifindex,
 	return result;
 }
 
+static enum zebra_dplane_result
+dplane_neigh_read_enqueue(struct zebra_ns *zns, ifindex_t ifindex,
+			  const struct ipaddr *ip)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_NEIGH_READ;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ctx->u.neigh_read.ifindex = ifindex;
+	if (ip)
+		ctx->u.neigh_read.ip = *ip;
+
+	ret = dplane_update_enqueue(ctx);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else
+		dplane_ctx_free(&ctx);
+
+	return result;
+}
+
 enum zebra_dplane_result dplane_fdb_read(struct zebra_ns *zns)
 {
 	return dplane_fdb_read_enqueue(zns, 0, 0, 0, 0, NULL, false, false);
+}
+
+enum zebra_dplane_result dplane_neigh_read(struct zebra_ns *zns)
+{
+	return dplane_neigh_read_enqueue(zns, 0, NULL);
 }
 
 enum zebra_dplane_result
@@ -6441,6 +6500,21 @@ dplane_fdb_read_specific_mac(struct zebra_ns *zns,
 	return dplane_fdb_read_enqueue(zns, 0, br_ifp->ifindex, vid, 0, mac,
 				       IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif),
 				       false);
+}
+
+enum zebra_dplane_result
+dplane_neigh_read_for_vlan(struct zebra_ns *zns,
+			   const struct interface *vlan_ifp)
+{
+	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, NULL);
+}
+
+enum zebra_dplane_result
+dplane_neigh_read_specific_ip(struct zebra_ns *zns,
+			      const struct ipaddr *ip,
+			      const struct interface *vlan_ifp)
+{
+	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, ip);
 }
 
 /*
@@ -7194,6 +7268,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ns(ctx)->ns_id,
 			   dplane_ctx_get_macfdb_read_ifindex(ctx));
 		break;
+	case DPLANE_OP_NEIGH_READ:
+		zlog_debug("Dplane %s, ns %u, ifindex %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ns(ctx)->ns_id,
+			   dplane_ctx_get_neigh_read_ifindex(ctx));
+		break;
 	}
 }
 
@@ -7380,6 +7460,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	case DPLANE_OP_FDB_READ:
+	case DPLANE_OP_NEIGH_READ:
 		break;
 	}
 }
@@ -7411,6 +7492,14 @@ kernel_dplane_process_fdb_read(struct zebra_dplane_provider *prov,
 			       struct zebra_dplane_ctx *ctx)
 {
 	kernel_read_macfdb(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
+}
+
+static void
+kernel_dplane_process_neigh_read(struct zebra_dplane_provider *prov,
+				 struct zebra_dplane_ctx *ctx)
+{
+	kernel_read_neigh(ctx);
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
@@ -7474,6 +7563,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			kernel_dplane_process_ipset_entry(prov, ctx);
 		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_FDB_READ)
 			kernel_dplane_process_fdb_read(prov, ctx);
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_NEIGH_READ)
+			kernel_dplane_process_neigh_read(prov, ctx);
 		else
 			dplane_ctx_list_add_tail(&work_list, ctx);
 	}

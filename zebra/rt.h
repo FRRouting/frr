@@ -90,10 +90,7 @@ extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void kernel_read_macfdb(struct zebra_dplane_ctx *ctx);
-extern void neigh_read(struct zebra_ns *zns);
-extern void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *ifp);
-extern void neigh_read_specific_ip(const struct ipaddr *ip,
-				   struct interface *vlan_if);
+extern void kernel_read_neigh(struct zebra_dplane_ctx *ctx);
 extern void route_read(struct zebra_ns *zns);
 extern int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip);
 extern int kernel_del_mac_nh(uint32_t nh_id);

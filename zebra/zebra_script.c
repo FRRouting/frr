@@ -429,6 +429,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_VLAN_INSTALL:
 	case DPLANE_OP_FDB_READ:
+	case DPLANE_OP_NEIGH_READ:
 		break;
 	} /* Dispatch by op code */
 }
