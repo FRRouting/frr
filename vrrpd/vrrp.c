@@ -1181,7 +1181,15 @@ static int vrrp_socket(struct vrrp_router *r)
 			if (c->address->family == AF_INET)
 				break;
 
-		assert(c);
+		if (c == NULL) {
+			zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				 "Failed to find valid INET address for interface %s",
+				 r->vr->vrid, family2str(r->family),
+				 r->vr->ifp->name);
+			failed = true;
+			goto done;
+		}
+
 		v4 = c->address->u.prefix4;
 
 		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,

@@ -149,9 +149,14 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 
 void vrrp_garp_send_all(struct vrrp_router *r)
 {
-	assert(r->family == AF_INET);
-
 	struct interface *ifp = r->mvl_ifp;
+
+	if (r->family != AF_INET) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			  "Unable to send gratuitous ARP on %s; not INET",
+			  r->vr->vrid, family2str(r->family), ifp->name);
+		return;
+	}
 
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
