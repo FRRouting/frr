@@ -240,6 +240,119 @@ STATIC also supports steering of IPv4 traffic over an SRv6 SID list, as shown in
   S>* 10.0.0.1/32 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps, weight 1, 00:00:06
   S>* 10.0.0.2/32 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps.Red, weight 1, 00:00:06
 
+Showing Static Route Status
+===========================
+
+.. clicmd:: show static routes [vrf NAME] [json]
+
+   Display information about all configured static routes, including the
+   internal state of each nexthop.  This is a diagnostic tool for understanding
+   **why a static route is or is not installed** in the RIB.
+
+   Unlike ``show ip route`` (which displays what zebra has in its RIB), this
+   command shows staticd's own view: what it has been configured with, what
+   it has sent to zebra, and the per-nexthop status that determines whether a
+   nexthop is actually inserted.
+
+   For every nexthop the output includes:
+
+   ``active / inactive``
+      Whether the nexthop would currently be included when the route is sent
+      to zebra.  A nexthop can be *inactive* while the overall route shows as
+      *installed* (zebra accepted the route because at least one **other**
+      nexthop was active).
+
+   ``nh-registered``
+      Whether staticd has registered this nexthop for tracking with zebra.
+
+   ``nh-valid``
+      Whether zebra's nexthop tracking has confirmed that a route to this
+      gateway exists.
+
+   ``ifindex``
+      For interface nexthops, the kernel interface index (0 means the
+      interface is not yet resolved).
+
+   ``inactive reason``
+      When a nexthop is inactive, a human-readable reason is shown, for
+      example:
+
+      - *nexthop vrf is not active/known*
+      - *nexthop is not reachable (no route to nexthop)*
+      - *interface does not exist in specified vrf*
+      - *interface is not active*
+      - *BFD session is down*
+      - *rejected by zebra (e.g. another route with lower distance exists)*
+
+   The optional ``json`` keyword produces machine-readable JSON output.
+
+   Example (plain text)::
+
+      node1# show static routes
+      VRF default:
+        IPv4 Unicast:
+          10.0.0.0/8
+            distance 1, tag 0
+              nexthop dev test1
+                active, ifindex: 9
+              nexthop via 172.16.0.2
+                inactive, nh-registered: yes, nh-valid: no
+                inactive reason: nexthop is not reachable (no route to nexthop)
+
+   Example (JSON)::
+
+      node1# show static routes json
+      {
+        "default": {
+          "routes": [
+            {
+              "prefix": "10.0.0.0\/8",
+              "vrf": "default",
+              "afi": "ipv4",
+              "safi": "unicast",
+              "paths": [
+                {
+                  "distance": 1,
+                  "tag": 0,
+                  "tableId": 0,
+                  "nexthops": [
+                    {
+                      "type": "interface",
+                      "active": true,
+                      "routeState": "installed",
+                      "nexthopVrf": "test1",
+                      "interface": "test1",
+                      "interfaceIndex": 9
+                    },
+                    {
+                      "type": "ipv4-gateway",
+                      "active": false,
+                      "routeState": "installed",
+                      "nexthopVrf": "default",
+                      "gateway": "172.16.0.2",
+                      "nhRegistered": true,
+                      "nhValid": false,
+                      "reasonInactive": "nexthop is not reachable (no route to nexthop)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+
+   .. note::
+
+      The ``routeState`` field reflects the route-level state reported by
+      zebra (installed / not-installed).  Because zebra reports a single
+      state for the whole route, it is possible for an individual nexthop to
+      show ``routeState: installed`` while being ``active: false``.  This
+      means zebra accepted the route using other active nexthop(s), but
+      this particular nexthop was **not** included.  The ``active`` field
+      and ``reasonInactive`` / ``inactive reason`` provide the per-nexthop
+      truth.
+
 SRv6 Static SIDs Commands
 =========================
 

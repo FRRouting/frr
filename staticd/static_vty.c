@@ -2125,6 +2125,495 @@ DEFUN_NOSH (show_debugging_static,
 	return CMD_SUCCESS;
 }
 
+static const char *static_nh_state_str(enum static_install_states state)
+{
+	switch (state) {
+	case STATIC_START:
+		return "pending";
+	case STATIC_SENT_TO_ZEBRA:
+		return "sent-to-zebra";
+	case STATIC_INSTALLED:
+		return "installed";
+	case STATIC_NOT_INSTALLED:
+		return "not-installed";
+	}
+	return "unknown";
+}
+
+static const char *static_nh_type_str(enum static_nh_type type)
+{
+	switch (type) {
+	case STATIC_IFNAME:
+		return "interface";
+	case STATIC_IPV4_GATEWAY:
+		return "ipv4-gateway";
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		return "ipv4-gateway-ifname";
+	case STATIC_IPV6_GATEWAY:
+		return "ipv6-gateway";
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		return "ipv6-gateway-ifname";
+	case STATIC_BLACKHOLE:
+		return "blackhole";
+	}
+	return "unknown";
+}
+
+static const char *static_bh_type_str(enum static_blackhole_type bh_type)
+{
+	switch (bh_type) {
+	case STATIC_BLACKHOLE_DROP:
+		return "drop";
+	case STATIC_BLACKHOLE_NULL:
+		return "null0";
+	case STATIC_BLACKHOLE_REJECT:
+		return "reject";
+	}
+	return "unknown";
+}
+
+/*
+ * Determine whether a specific nexthop is "active", i.e. whether it
+ * would actually be included when sending the route to zebra.
+ * This mirrors the skip-logic in static_zebra_route_add().
+ *
+ * Note: route_notify_owner sets nh->state on ALL nexthops in a path
+ * (via static_nht_mark_state), so an inactive/skipped nexthop can
+ * still show STATIC_INSTALLED if other nexthops in the same path
+ * were successfully installed.
+ */
+static bool static_nexthop_is_active(const struct static_nexthop *nh)
+{
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return false;
+
+	if (nh->path_down)
+		return false;
+
+	switch (nh->type) {
+	case STATIC_IFNAME:
+		if (nh->ifindex == IFINDEX_INTERNAL)
+			return false;
+		break;
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		if (!nh->nh_valid)
+			return false;
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		if (nh->ifindex == IFINDEX_INTERNAL)
+			return false;
+		break;
+	case STATIC_BLACKHOLE:
+		break;
+	}
+
+	return true;
+}
+
+/*
+ * Determine the reason why a nexthop is not active / not installed.
+ * Returns a human-readable string describing why the nexthop
+ * cannot be used.
+ */
+static const char *static_nh_reason_inactive(const struct static_nexthop *nh)
+{
+	struct interface *ifp;
+
+	if (static_nexthop_is_active(nh))
+		return NULL;
+
+	/* Check for unknown VRF */
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return "nexthop vrf is not active/known";
+
+	/* BFD path down */
+	if (nh->path_down)
+		return "BFD session is down";
+
+	/* Check nexthop validity for gateway types */
+	switch (nh->type) {
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		if (!nh->nh_registered)
+			return "nexthop not yet registered with zebra";
+		if (!nh->nh_valid)
+			return "nexthop is not reachable (no route to nexthop)";
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		if (nh->ifindex == IFINDEX_INTERNAL) {
+			ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
+			if (!ifp)
+				return "interface does not exist in specified vrf";
+			return "interface is not active";
+		}
+		break;
+	case STATIC_IFNAME:
+		if (nh->ifindex == IFINDEX_INTERNAL) {
+			ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
+			if (!ifp)
+				return "interface does not exist in specified vrf";
+			return "interface is not active";
+		}
+		break;
+	case STATIC_BLACKHOLE:
+		break;
+	}
+
+	/*
+	 * If the route-level state is NOT_INSTALLED, zebra rejected the
+	 * whole route (e.g. a lower-distance route from another protocol).
+	 */
+	if (nh->state == STATIC_NOT_INSTALLED)
+		return "rejected by zebra (e.g. another route with lower distance exists)";
+
+	if (nh->state == STATIC_START)
+		return "waiting for initial processing";
+
+	if (nh->state == STATIC_SENT_TO_ZEBRA)
+		return "awaiting response from zebra";
+
+	return "unknown";
+}
+
+static void static_show_nh(struct vty *vty, const struct static_nexthop *nh, const char *vrf_name,
+			   struct json_object *jo_nh)
+{
+	const char *reason;
+	bool active = static_nexthop_is_active(nh);
+
+	if (jo_nh) {
+		json_object_string_add(jo_nh, "type", static_nh_type_str(nh->type));
+		json_object_boolean_add(jo_nh, "active", active);
+		json_object_string_add(jo_nh, "routeState", static_nh_state_str(nh->state));
+		json_object_string_add(jo_nh, "nexthopVrf", nh->nh_vrfname);
+		json_object_int_add(jo_nh, "nexthopVrfId", nh->nh_vrf_id);
+	} else {
+		vty_out(vty, "        nexthop");
+	}
+
+	switch (nh->type) {
+	case STATIC_IPV4_GATEWAY:
+		if (jo_nh) {
+			json_object_string_addf(jo_nh, "gateway", "%pI4", &nh->addr.ipv4);
+			json_object_boolean_add(jo_nh, "nhRegistered", nh->nh_registered);
+			json_object_boolean_add(jo_nh, "nhValid", nh->nh_valid);
+		} else {
+			vty_out(vty, " via %pI4", &nh->addr.ipv4);
+		}
+		break;
+	case STATIC_IPV6_GATEWAY:
+		if (jo_nh) {
+			json_object_string_addf(jo_nh, "gateway", "%pI6", &nh->addr.ipv6);
+			json_object_boolean_add(jo_nh, "nhRegistered", nh->nh_registered);
+			json_object_boolean_add(jo_nh, "nhValid", nh->nh_valid);
+		} else {
+			vty_out(vty, " via %pI6", &nh->addr.ipv6);
+		}
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		if (jo_nh) {
+			json_object_string_addf(jo_nh, "gateway", "%pI4", &nh->addr.ipv4);
+			json_object_string_add(jo_nh, "interface", nh->ifname);
+			json_object_int_add(jo_nh, "interfaceIndex", nh->ifindex);
+			json_object_boolean_add(jo_nh, "nhRegistered", nh->nh_registered);
+			json_object_boolean_add(jo_nh, "nhValid", nh->nh_valid);
+			json_object_boolean_add(jo_nh, "onlink", nh->onlink);
+		} else {
+			vty_out(vty, " via %pI4 dev %s", &nh->addr.ipv4, nh->ifname);
+		}
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		if (jo_nh) {
+			json_object_string_addf(jo_nh, "gateway", "%pI6", &nh->addr.ipv6);
+			json_object_string_add(jo_nh, "interface", nh->ifname);
+			json_object_int_add(jo_nh, "interfaceIndex", nh->ifindex);
+			json_object_boolean_add(jo_nh, "nhRegistered", nh->nh_registered);
+			json_object_boolean_add(jo_nh, "nhValid", nh->nh_valid);
+			json_object_boolean_add(jo_nh, "onlink", nh->onlink);
+		} else {
+			vty_out(vty, " via %pI6 dev %s", &nh->addr.ipv6, nh->ifname);
+		}
+		break;
+	case STATIC_IFNAME:
+		if (jo_nh) {
+			json_object_string_add(jo_nh, "interface", nh->ifname);
+			json_object_int_add(jo_nh, "interfaceIndex", nh->ifindex);
+		} else {
+			vty_out(vty, " dev %s", nh->ifname);
+		}
+		break;
+	case STATIC_BLACKHOLE:
+		if (jo_nh)
+			json_object_string_add(jo_nh, "blackholeType",
+					       static_bh_type_str(nh->bh_type));
+		else
+			vty_out(vty, " %s", static_bh_type_str(nh->bh_type));
+		break;
+	}
+
+	if (jo_nh) {
+		if (nh->color)
+			json_object_int_add(jo_nh, "color", nh->color);
+		if (nh->weight)
+			json_object_int_add(jo_nh, "weight", nh->weight);
+		if (nh->snh_label.num_labels) {
+			struct json_object *jo_labels = json_object_new_array();
+
+			for (uint8_t i = 0; i < nh->snh_label.num_labels; i++)
+				json_object_array_add(jo_labels,
+						      json_object_new_int(nh->snh_label.label[i]));
+			json_object_object_add(jo_nh, "labels", jo_labels);
+		}
+
+		json_object_boolean_add(jo_nh, "bfdMonitored", nh->bsp != NULL);
+		if (nh->bsp)
+			json_object_boolean_add(jo_nh, "bfdPathDown", nh->path_down);
+	} else {
+		if (strcmp(nh->nh_vrfname, vrf_name))
+			vty_out(vty, " nexthop-vrf %s", nh->nh_vrfname);
+
+		if (nh->onlink)
+			vty_out(vty, " onlink");
+
+		if (nh->color)
+			vty_out(vty, " color %" PRIu32, nh->color);
+
+		if (nh->weight)
+			vty_out(vty, " weight %u", nh->weight);
+
+		if (nh->snh_label.num_labels) {
+			vty_out(vty, " label");
+			for (uint8_t i = 0; i < nh->snh_label.num_labels; i++)
+				vty_out(vty, "%s%u", i ? "/" : " ", nh->snh_label.label[i]);
+		}
+
+		if (nh->bsp)
+			vty_out(vty, " (bfd %s)", nh->path_down ? "down" : "up");
+
+		vty_out(vty, "\n");
+
+		/* Show active/inactive and detailed status */
+		vty_out(vty, "          %s", active ? "active" : "inactive");
+
+		switch (nh->type) {
+		case STATIC_IPV4_GATEWAY:
+		case STATIC_IPV6_GATEWAY:
+		case STATIC_IPV4_GATEWAY_IFNAME:
+		case STATIC_IPV6_GATEWAY_IFNAME:
+			vty_out(vty, ", nh-registered: %s, nh-valid: %s",
+				nh->nh_registered ? "yes" : "no", nh->nh_valid ? "yes" : "no");
+			break;
+		case STATIC_IFNAME:
+			vty_out(vty, ", ifindex: %u", nh->ifindex);
+			break;
+		case STATIC_BLACKHOLE:
+			break;
+		}
+
+		if (nh->nh_vrf_id == VRF_UNKNOWN)
+			vty_out(vty, ", nh-vrf: UNKNOWN");
+
+		vty_out(vty, "\n");
+	}
+
+	/* Show reason if nexthop is not active */
+	if (!active) {
+		reason = static_nh_reason_inactive(nh);
+		if (reason) {
+			if (jo_nh)
+				json_object_string_add(jo_nh, "reasonInactive", reason);
+			else
+				vty_out(vty, "          inactive reason: %s\n", reason);
+		}
+	}
+}
+
+static void static_show_route_table(struct vty *vty, struct route_table *stable,
+				    const char *vrf_name, const char *afi_str,
+				    const char *safi_str, struct json_object *jo_routes)
+{
+	struct route_node *rn;
+	struct static_route_info *si;
+	struct static_path *pn;
+	struct static_nexthop *nh;
+	const struct prefix *dst_p, *src_p;
+	bool header_shown = false;
+
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+		si = static_route_info_from_rnode(rn);
+		if (!si)
+			continue;
+
+		srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+
+		if (jo_routes) {
+			struct json_object *jo_route = json_object_new_object();
+
+			json_object_string_addf(jo_route, "prefix", "%pFX", dst_p);
+			if (src_p && src_p->prefixlen)
+				json_object_string_addf(jo_route, "sourcePrefix", "%pFX", src_p);
+			json_object_string_add(jo_route, "vrf", vrf_name);
+			json_object_string_add(jo_route, "afi", afi_str);
+			json_object_string_add(jo_route, "safi", safi_str);
+
+			struct json_object *jo_paths = json_object_new_array();
+
+			frr_each (static_path_list, &si->path_list, pn) {
+				struct json_object *jo_path = json_object_new_object();
+
+				json_object_int_add(jo_path, "distance", pn->distance);
+				json_object_int_add(jo_path, "tag", pn->tag);
+				json_object_int_add(jo_path, "tableId", pn->table_id);
+
+				struct json_object *jo_nhs = json_object_new_array();
+
+				frr_each (static_nexthop_list, &pn->nexthop_list, nh) {
+					struct json_object *jo_nh = json_object_new_object();
+
+					static_show_nh(vty, nh, vrf_name, jo_nh);
+					json_object_array_add(jo_nhs, jo_nh);
+				}
+				json_object_object_add(jo_path, "nexthops", jo_nhs);
+				json_object_array_add(jo_paths, jo_path);
+			}
+			json_object_object_add(jo_route, "paths", jo_paths);
+			json_object_array_add(jo_routes, jo_route);
+		} else {
+			if (!header_shown) {
+				vty_out(vty, "  %s:\n", afi_str);
+				header_shown = true;
+			}
+
+			if (src_p && src_p->prefixlen)
+				vty_out(vty, "    %pFX (from %pFX)\n", dst_p, src_p);
+			else
+				vty_out(vty, "    %pFX\n", dst_p);
+
+			frr_each (static_path_list, &si->path_list, pn) {
+				vty_out(vty, "      distance %u, tag %" PRIu32, pn->distance,
+					pn->tag);
+				if (pn->table_id)
+					vty_out(vty, ", table %" PRIu32, pn->table_id);
+				vty_out(vty, "\n");
+
+				frr_each (static_nexthop_list, &pn->nexthop_list, nh)
+					static_show_nh(vty, nh, vrf_name, NULL);
+			}
+		}
+	}
+}
+
+static void static_show_routes_vrf(struct vty *vty, struct static_vrf *svrf, bool json,
+				   struct json_object *jo)
+{
+	struct route_table *stable;
+	const char *vrf_name;
+
+	vrf_name = svrf->vrf ? svrf->vrf->name : "unknown";
+
+	if (json) {
+		struct json_object *jo_vrf = json_object_new_object();
+		struct json_object *jo_routes = json_object_new_array();
+
+		stable = static_vrf_static_table(AFI_IP, SAFI_UNICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "ipv4", "unicast",
+						jo_routes);
+
+		stable = static_vrf_static_table(AFI_IP, SAFI_MULTICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "ipv4", "multicast",
+						jo_routes);
+
+		stable = static_vrf_static_table(AFI_IP6, SAFI_UNICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "ipv6", "unicast",
+						jo_routes);
+
+		stable = static_vrf_static_table(AFI_IP6, SAFI_MULTICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "ipv6", "multicast",
+						jo_routes);
+
+		json_object_object_add(jo_vrf, "routes", jo_routes);
+		json_object_object_add(jo, vrf_name, jo_vrf);
+	} else {
+		vty_out(vty, "VRF %s:\n", vrf_name);
+
+		stable = static_vrf_static_table(AFI_IP, SAFI_UNICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "IPv4 Unicast", NULL, NULL);
+
+		stable = static_vrf_static_table(AFI_IP, SAFI_MULTICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "IPv4 Multicast", NULL,
+						NULL);
+
+		stable = static_vrf_static_table(AFI_IP6, SAFI_UNICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "IPv6 Unicast", NULL, NULL);
+
+		stable = static_vrf_static_table(AFI_IP6, SAFI_MULTICAST, svrf);
+		if (stable)
+			static_show_route_table(vty, stable, vrf_name, "IPv6 Multicast", NULL,
+						NULL);
+
+		vty_out(vty, "\n");
+	}
+}
+
+DEFPY(show_static_routes, show_static_routes_cmd,
+      "show static routes [vrf NAME$vrf_name] [json]$isjson",
+      SHOW_STR
+      STATICD_STR
+      "Configured static routes\n"
+      VRF_CMD_HELP_STR
+      JSON_STR)
+{
+	struct static_vrf *svrf;
+	bool json = !!isjson;
+	struct json_object *jo = NULL;
+
+	if (json)
+		jo = json_object_new_object();
+
+	if (vrf_name) {
+		bool found = false;
+
+		RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+			if (svrf->vrf && strmatch(svrf->vrf->name, vrf_name)) {
+				static_show_routes_vrf(vty, svrf, json, jo);
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			if (json) {
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(jo,
+								       JSON_C_TO_STRING_PRETTY));
+				json_object_free(jo);
+			} else {
+				vty_out(vty, "%% VRF %s not found\n", vrf_name);
+			}
+			return CMD_WARNING;
+		}
+	} else {
+		RB_FOREACH (svrf, svrf_name_head, &svrfs)
+			static_show_routes_vrf(vty, svrf, json, jo);
+	}
+
+	if (json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY));
+		json_object_free(jo);
+	}
+
+	return CMD_SUCCESS;
+}
+
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 void static_vty_init(void)
@@ -2134,6 +2623,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
+	install_element(VIEW_NODE, &show_static_routes_cmd);
 #else /* else INCLUDE_MGMTD_CMDDEFS_ONLY */
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
