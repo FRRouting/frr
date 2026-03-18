@@ -122,6 +122,9 @@ def check_route(router, cmd, expect_route, expect_sid, expect_installed=True):
         return "route is installed on %s" % router.name
 
     route = route[0]
+    if expect_sid == "" and route["nexthops"][0].get("seg6", {}).get("segs", "") != "":
+        return "%s: expecting no sid on route %s" % (router.name, expect_route)
+
     if expect_sid and route["nexthops"][0].get("seg6", {}).get("segs", "") != expect_sid:
         error =  "%s: expecting" % router.name
         if expect_sid:
