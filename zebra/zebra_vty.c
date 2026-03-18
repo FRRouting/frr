@@ -3842,32 +3842,6 @@ DEFPY (ipv6_zebra_import_table_distance,
 	return zebra_import_table(AFI_IP6, safi, VRF_DEFAULT, table_id, distance, rmap, true);
 }
 
-DEFUN_HIDDEN (zebra_workqueue_timer,
-	      zebra_workqueue_timer_cmd,
-	      "zebra work-queue (0-10000)",
-	      ZEBRA_STR
-	      "Work Queue\n"
-	      "Time in milliseconds\n")
-{
-	uint32_t timer = strtoul(argv[2]->arg, NULL, 10);
-	zrouter.ribq->spec.hold = timer;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_zebra_workqueue_timer,
-	      no_zebra_workqueue_timer_cmd,
-	      "no zebra work-queue [(0-10000)]",
-	      NO_STR
-	      ZEBRA_STR
-	      "Work Queue\n"
-	      "Time in milliseconds\n")
-{
-	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
@@ -4405,8 +4379,6 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &ipv6_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
-	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
-	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);

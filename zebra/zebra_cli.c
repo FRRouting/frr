@@ -143,6 +143,14 @@ static void zebra_zapi_packets_cli_write(struct vty *vty, const struct lyd_node 
 	vty_out(vty, "zebra zapi-packets %u\n", packets);
 }
 
+static void zebra_workqueue_hold_timer_cli_write(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	uint32_t timer = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, "zebra work-queue %u\n", timer);
+}
+
 DEFPY_YANG (allow_external_route_update,
 	    allow_external_route_update_cmd,
 	    "[no] allow-external-route-update",
@@ -187,6 +195,24 @@ DEFPY_YANG_HIDDEN (zebra_zapi_packets,
 				      packets_str);
 	else
 		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/zapi-packets", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG_HIDDEN (zebra_workqueue_timer,
+		   zebra_workqueue_timer_cmd,
+		   "[no] zebra work-queue ![(0-10000)$timer]",
+		   NO_STR
+		   ZEBRA_STR
+		   "Work Queue\n"
+		   "Time in milliseconds\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/workqueue-hold-timer", NB_OP_MODIFY,
+				      timer_str);
+	else
+		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/workqueue-hold-timer", NB_OP_DESTROY,
+				      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2875,6 +2901,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = zebra_zapi_packets_cli_write,
 		},
 		{
+			.xpath = "/frr-zebra:zebra/workqueue-hold-timer",
+			.cbs.cli_show = zebra_workqueue_hold_timer_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
 			.cbs.cli_show = lib_interface_zebra_ipv4_addrs_cli_write,
 		},
@@ -3210,6 +3240,7 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &zebra_zapi_packets_cmd);
+	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);

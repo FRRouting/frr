@@ -115,14 +115,12 @@ int zebra_ipv6_forwarding_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	uint32_t timer = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zrouter.ribq->spec.hold = timer;
 
 	return NB_OK;
 }
