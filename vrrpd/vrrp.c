@@ -916,6 +916,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
 					htons(pkt->hdr.v3.adver_int);
+				/* Limit to 12 bits */
+				r->master_adver_interval &= 0x0FFF;
 			}
 			vrrp_recalculate_timers(r);
 			event_cancel(&r->t_master_down_timer);
@@ -944,6 +946,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
 					ntohs(pkt->hdr.v3.adver_int);
+				/* Limit to 12 bits */
+				r->master_adver_interval &= 0x0FFF;
 			}
 			vrrp_recalculate_timers(r);
 			event_cancel(&r->t_master_down_timer);
