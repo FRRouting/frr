@@ -2714,29 +2714,6 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	}
 }
 
-DEFPY_YANG (allow_external_route_update,
-	    allow_external_route_update_cmd,
-	    "allow-external-route-update",
-	    "Allow FRR routes to be overwritten by external processes\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_CREATE,
-			      NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY_YANG (no_allow_external_route_update,
-	    no_allow_external_route_update_cmd,
-	    "no allow-external-route-update",
-	    NO_STR
-	    "Allow FRR routes to be overwritten by external processes\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/allow-external-route-update", NB_OP_DESTROY,
-			      NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 /* show vrf */
 DEFUN (show_vrf,
        show_vrf_cmd,
@@ -4486,9 +4463,6 @@ void zebra_vty_init(void)
 
 	install_node(&ip_node);
 	install_node(&protocol_node);
-
-	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
-	install_element(CONFIG_NODE, &no_allow_external_route_update_cmd);
 
 	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
