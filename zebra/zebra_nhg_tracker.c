@@ -108,10 +108,9 @@ int nhg_event_tracker_hash_cmp(const struct nhg_event_tracker *a, const struct n
  * Move all RN entries from src_table to dst_table.
  * For each prefix in src: if dst doesn't have it, set dst trn->info = src trn->info.
  * If dst already has it, skip (both point to the same RIB RN).
- * Clears src entries and updates both counters.
+ * Clears src entries. Counts are managed by the caller.
  */
-void zebra_nhg_tracker_move_routes(struct route_table *src_table, uint32_t *src_count,
-				   struct route_table *dst_table, uint32_t *dst_count)
+void zebra_nhg_tracker_move_routes(struct route_table *src_table, struct route_table *dst_table)
 {
 	struct route_node *old_trn;
 	struct route_node *trn;
@@ -123,22 +122,14 @@ void zebra_nhg_tracker_move_routes(struct route_table *src_table, uint32_t *src_
 		trn = route_node_get(dst_table, &old_trn->p);
 		if (!trn->info) {
 			trn->info = old_trn->info;
-			(*dst_count)++;
 		} else {
-			/* release the lock held during node find */
 			route_unlock_node(trn);
-			/*
-			 * we end up here if there is a duplicate RN in 2 trackers
-			 * So there are now two tracker-side locks on the same RIB rn
-			 * and we need to unlock the old tracker's reference
-			 */
 			zlog_info("%s warning: duplicate RIB RN %pRN already in dst table, releasing src reference",
 				  __func__, (struct route_node *)old_trn->info);
 			route_unlock_node((struct route_node *)old_trn->info);
 		}
 
 		old_trn->info = NULL;
-		(*src_count)--;
 		route_unlock_node(old_trn);
 	}
 }
@@ -154,14 +145,13 @@ static void zebra_nhg_tracker_collapse(struct tracker_prefix_map_head *prefix_ma
 				       struct nhg_event_tracker *new_tracker)
 {
 	zebra_nhg_tracker_move_routes(old_tracker->matched_table.matched_table,
-				      &old_tracker->matched_table.re_count,
-				      new_tracker->unmatched_table.unmatched_table,
-				      &new_tracker->unmatched_table.re_count);
+				      new_tracker->unmatched_table.unmatched_table);
 
 	zebra_nhg_tracker_move_routes(old_tracker->unmatched_table.unmatched_table,
-				      &old_tracker->unmatched_table.re_count,
-				      new_tracker->unmatched_table.unmatched_table,
-				      &new_tracker->unmatched_table.re_count);
+				      new_tracker->unmatched_table.unmatched_table);
+
+	new_tracker->unmatched_table.re_count += old_tracker->matched_table.re_count +
+						 old_tracker->unmatched_table.re_count;
 
 	struct tracker_prefix_map_entry *entry;
 
@@ -399,6 +389,26 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 }
 
 /*
+ * Return true if the RE's (prefix, type, instance) is owned by this
+ * tracker according to the prefix_map on the NHG.
+ */
+static bool zebra_nhg_tracker_owns_re(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker,
+				      struct route_node *rn, struct route_entry *re)
+{
+	struct tracker_prefix_map_entry lk;
+	struct tracker_prefix_map_entry *pm;
+
+	memset(&lk, 0, sizeof(lk));
+	prefix_copy(&lk.p, &rn->p);
+	lk.type = re->type;
+	lk.instance = re->instance;
+
+	pm = tracker_prefix_map_find(&nhe->tracker_prefix_map, &lk);
+
+	return pm && pm->tracker == tracker;
+}
+
+/*
  * If all REs that reference this NHG have been parked in the tracker,
  * queue every parked RN for best-path selection and free the tracker.
  */
@@ -448,8 +458,10 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 			struct route_node *rn = trn->info;
 			struct route_entry *re;
 
-			RNODE_FOREACH_RE (rn, re)
-				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			RNODE_FOREACH_RE (rn, re) {
+				if (zebra_nhg_tracker_owns_re(nhe, tracker, rn, re))
+					UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			}
 			rib_queue_add(rn);
 		}
 	}
@@ -466,8 +478,10 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 			struct route_node *rn = trn->info;
 			struct route_entry *re;
 
-			RNODE_FOREACH_RE (rn, re)
-				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			RNODE_FOREACH_RE (rn, re) {
+				if (zebra_nhg_tracker_owns_re(nhe, tracker, rn, re))
+					UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			}
 			rib_queue_add(rn);
 		}
 	}

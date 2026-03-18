@@ -118,8 +118,8 @@ extern struct nhg_event_tracker *zebra_nhg_tracker_lookup(struct nhg_hash_entry 
 							  struct nhg_hash_entry *snapshot);
 
 /* Move all RN entries from src tracker table to dst tracker table */
-extern void zebra_nhg_tracker_move_routes(struct route_table *src_table, uint32_t *src_count,
-					  struct route_table *dst_table, uint32_t *dst_count);
+extern void zebra_nhg_tracker_move_routes(struct route_table *src_table,
+					  struct route_table *dst_table);
 
 /* Add a RIB route_node to a tracker table and update prefix_map */
 extern void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_count,
