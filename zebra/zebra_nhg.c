@@ -1240,7 +1240,6 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	struct nhg_hash_entry *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_hash_entry *old = NULL;
-	struct nhg_connected *rb_node_dep = NULL;
 
 	uint32_t id = nhg_ctx_get_id(ctx);
 	uint16_t count = nhg_ctx_get_count(ctx);
@@ -1318,11 +1317,6 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		if (ret)
 			old = NULL;
 		else {
-			if (!zebra_nhg_depends_is_empty(old)) {
-				frr_each (nhg_connected_tree, &old->nhg_depends, rb_node_dep)
-					zebra_nhg_decrement_ref(rb_node_dep->nhe);
-			}
-
 			old->refcnt = 0;
 			event_cancel(&old->timer);
 			zebra_nhg_free(old);
@@ -1864,7 +1858,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt--;
 
-	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
+	if (!zebra_router_in_shutdown() && ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0 &&
 	    (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
@@ -1877,6 +1871,16 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+
+	if (nhe->type == ZEBRA_ROUTE_KERNEL && nhe->refcnt == 0 &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: uninstalling unreferenced deleted kernel NHG %pNG",
+				   __func__, nhe);
+		zebra_nhg_handle_uninstall(nhe);
+		return;
+	}
 
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
