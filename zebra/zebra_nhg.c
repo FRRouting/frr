@@ -1323,7 +1323,6 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	struct nhg_hash_entry *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_hash_entry *old = NULL;
-	struct nhg_connected *rb_node_dep = NULL;
 
 	uint32_t id = nhg_ctx_get_id(ctx);
 	uint16_t count = nhg_ctx_get_count(ctx);
@@ -1398,28 +1397,35 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		restore_old_id = false;
 		zebra_nhg_release_all_deps(old);
 
-		ret = rib_handle_nhg_replace(old, nhe);
-		if (ret)
-			old = NULL;
-		else {
-			if (!zebra_nhg_depends_is_empty(old)) {
-				frr_each (nhg_connected_tree, &old->nhg_depends, rb_node_dep)
-					zebra_nhg_decrement_ref(rb_node_dep->nhe);
-			}
+		/*
+		 * Pin `old` for the duration of the rib walk.  Routes handing
+		 * back their last reference would otherwise try to clean it
+		 * up, and rib_handle_nhg_replace() only tells us that a free
+		 * was *expected*: it returns non-zero when a route dropped
+		 * the final reference, which frees the NHE for zebra and
+		 * proto owned groups but not for a kernel owned one.  With
+		 * the extra reference nothing can free `old` underneath us
+		 * and we can unconditionally clean it up ourselves.
+		 */
+		old->refcnt++;
+		rib_handle_nhg_replace(old, nhe);
 
-			old->refcnt = 0;
-			event_cancel(&old->timer);
-			zebra_nhg_free(old);
-			old = NULL;
-		}
+		/*
+		 * Only the id table was released above.  `old` may also live
+		 * in the by-nexthop hash: zebra hands out ids from the same
+		 * low range the kernel uses, so an NHE built here for a
+		 * route can own an id that the dplane later delivers a
+		 * kernel object for.  Freeing without this release leaves a
+		 * dangling entry that the next content lookup would return.
+		 */
+		if (old->id < ZEBRA_NHG_PROTO_LOWER)
+			hash_release(zrouter.nhgs, old);
+
+		old->refcnt = 0;
+		event_cancel(&old->timer);
+		zebra_nhg_free(old);
+		old = NULL;
 	}
-
-	/*
-	 * If daemon nhg from the kernel, add a refcnt here to indicate the
-	 * daemon owns it.
-	 */
-	if (PROTO_OWNED(nhe))
-		zebra_nhg_increment_ref(nhe);
 
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
@@ -1970,7 +1976,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt--;
 
-	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
+	if (!zebra_router_in_shutdown() && ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0 &&
 	    (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
@@ -1983,6 +1989,16 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+
+	if (nhe->type == ZEBRA_ROUTE_KERNEL && nhe->refcnt == 0 &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: uninstalling unreferenced deleted kernel NHG %pNG",
+				   __func__, nhe);
+		zebra_nhg_handle_uninstall(nhe);
+		return;
+	}
 
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
