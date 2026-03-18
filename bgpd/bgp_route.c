@@ -4732,9 +4732,12 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 	 */
 	if (!bgp->gr_info[afi][safi].gr_deferred) {
 		/* t_select_deferral will be NULL when either gr_route_fib_install_pending_cnt is 0
-		 * or deferral timer for fib install expires
+		 * or deferral timer for fib install expires.
+		 * Also proceed if pending count is already zero (e.g. EVPN
+		 * MACIP routes skip FIB tracking), no FIB acks to wait for.
 		 */
-		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].t_select_deferral)
+		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].t_select_deferral ||
+		    !bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt)
 			bgp_process_gr_deferral_complete(bgp, afi, safi);
 	} else {
 		/*
