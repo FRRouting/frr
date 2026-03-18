@@ -4199,39 +4199,6 @@ DEFUN (show_dataplane_providers,
 	return dplane_show_provs_helper(vty, detailed);
 }
 
-/* Configure dataplane incoming queue limit */
-DEFUN (zebra_dplane_queue_limit,
-       zebra_dplane_queue_limit_cmd,
-       "zebra dplane limit (0-10000)",
-       ZEBRA_STR
-       "Zebra dataplane\n"
-       "Limit incoming queued updates\n"
-       "Number of queued updates\n")
-{
-	uint32_t limit = 0;
-
-	limit = strtoul(argv[3]->arg, NULL, 10);
-
-	dplane_set_in_queue_limit(limit, true);
-
-	return CMD_SUCCESS;
-}
-
-/* Reset dataplane queue limit to default value */
-DEFUN (no_zebra_dplane_queue_limit,
-       no_zebra_dplane_queue_limit_cmd,
-       "no zebra dplane limit [(0-10000)]",
-       NO_STR
-       ZEBRA_STR
-       "Zebra dataplane\n"
-       "Limit incoming queued updates\n"
-       "Number of queued updates\n")
-{
-	dplane_set_in_queue_limit(0, false);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (zebra_show_routing_tables_summary,
        zebra_show_routing_tables_summary_cmd,
        "show zebra router table summary",
@@ -4543,8 +4510,6 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
-	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
-	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 
