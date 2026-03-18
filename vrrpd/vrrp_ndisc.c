@@ -135,11 +135,16 @@ static int vrrp_ndisc_una_build(struct interface *ifp, struct ipaddr *ip,
 
 int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 {
-	assert(r->family == AF_INET6);
-
 	int ret = 0;
 	struct interface *ifp = r->mvl_ifp;
 	uint8_t buf[VRRP_NDISC_SIZE];
+
+	if (r->family != AF_INET6) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			  "Unable to send unsolicited Neighbor Advertisement on %s: not INET6",
+			  r->vr->vrid, family2str(r->family), ifp->name);
+		return -1;
+	}
 
 	ret = vrrp_ndisc_una_build(ifp, ip, buf, sizeof(buf));
 
@@ -187,8 +192,6 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 
 int vrrp_ndisc_una_send_all(struct vrrp_router *r)
 {
-	assert(r->family == AF_INET6);
-
 	struct listnode *ln;
 	struct ipaddr *ip;
 
