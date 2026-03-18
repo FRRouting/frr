@@ -3842,36 +3842,6 @@ DEFPY (ipv6_zebra_import_table_distance,
 	return zebra_import_table(AFI_IP6, safi, VRF_DEFAULT, table_id, distance, rmap, true);
 }
 
-DEFUN_HIDDEN (zebra_packet_process,
-	      zebra_packet_process_cmd,
-	      "zebra zapi-packets (1-10000)",
-	      ZEBRA_STR
-	      "Zapi Protocol\n"
-	      "Number of packets to process before relinquishing thread\n")
-{
-	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
-
-	atomic_store_explicit(&zrouter.packets_to_process, packets,
-			      memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_zebra_packet_process,
-	      no_zebra_packet_process_cmd,
-	      "no zebra zapi-packets [(1-10000)]",
-	      NO_STR
-	      ZEBRA_STR
-	      "Zapi Protocol\n"
-	      "Number of packets to process before relinquishing thread\n")
-{
-	atomic_store_explicit(&zrouter.packets_to_process,
-			      ZEBRA_ZAPI_PACKETS_TO_PROCESS,
-			      memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN_HIDDEN (zebra_workqueue_timer,
 	      zebra_workqueue_timer_cmd,
 	      "zebra work-queue (0-10000)",
@@ -4437,8 +4407,6 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
-	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
-	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);

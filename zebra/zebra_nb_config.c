@@ -132,14 +132,12 @@ int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args)
  */
 int zebra_zapi_packets_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	uint32_t packets = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	atomic_store_explicit(&zrouter.packets_to_process, packets, memory_order_relaxed);
 
 	return NB_OK;
 }
