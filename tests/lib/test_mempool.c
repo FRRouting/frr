@@ -1,8 +1,7 @@
-#include <stdio.h>
-#include <assert.h>
+#include <zebra.h>
 #include "mempool.h"
 
-void test_allocation_liberation() {
+static void test_allocation_liberation(void) {
     printf("Test: Allocation et Libération\n");
 
     struct memptype  *pool =  mphead_create(1024*1024*8); // Création d'un pool de 8Mo
@@ -17,7 +16,7 @@ void test_allocation_liberation() {
     printf(" -> OK\n");
 }
 
-void test_multiple_allocation_liberation() {
+static void test_multiple_allocation_liberation(void) {
 
     uint32_t i;
     printf("Test: loop Allocation et Libération\n");
@@ -37,7 +36,7 @@ void test_multiple_allocation_liberation() {
 }
 
 
-void test_500_allocations() {
+static void test_500_allocations(void) {
     printf("Test: Allocation Maximale\n");
 
     struct memptype *pool = mphead_create(10000); // Création d'un pool de 8Mo
@@ -57,7 +56,7 @@ void test_500_allocations() {
 }
 
 
-void test_500_allocations_liberations() {
+static void test_500_allocations_liberations(void) {
     printf("Test: 500 Allocations liberations\n");
 
     struct memptype *pool = mphead_create(10000); // Création d'un pool de 8Mo
@@ -88,7 +87,7 @@ void test_500_allocations_liberations() {
 }
 
 
-void test_500_allocations_liberations_reverse() {
+static void test_500_allocations_liberations_reverse(void) {
     printf("Test: 500 Allocations reverse liberations\n");
 
     struct memptype *pool = mphead_create(10000); // Création d'un pool de 8Mo
@@ -118,7 +117,8 @@ void test_500_allocations_liberations_reverse() {
     printf(" -> OK\n");
 }
 
-void test_liberation_double() {
+#if 0
+static void test_liberation_double(void) {
     printf("Test: Libération Double\n");
 
     struct memptype  *pool =  mphead_create(1024*1024*8); // Création d'un pool de 8Mo
@@ -133,8 +133,9 @@ void test_liberation_double() {
     mphead_delete(&pool);
     printf(" -> OK\n");
 }
+#endif
 
-void test_fragmentation() {
+static void test_fragmentation(void) {
     printf("Test: Fragmentation\n");
 
     struct memptype  *pool =  mphead_create(1284); // Création d'un pool de 8Mo
@@ -154,7 +155,7 @@ void test_fragmentation() {
     printf(" -> OK\n");
 }
 
-void test_fragmentation2() {
+static void test_fragmentation2(void) {
     printf("Test: Fragmentation 2\n");
 
     struct memptype  *pool =  mphead_create(1284); // Création d'un pool de 8Mo
@@ -188,7 +189,7 @@ void test_fragmentation2() {
 }
 
 
-void test_liberation1() {
+static void test_liberation1(void) {
     printf("Test: Liberation 1\n");
 
     struct memptype  *pool =  mphead_create(1028*1028*10); // Création d'un pool de 8Mo
@@ -220,7 +221,7 @@ void test_liberation1() {
     printf(" -> OK\n");
 }
 
-void test_liberation2() {
+static void test_liberation2(void) {
     printf("Test: Liberation 2\n");
 
     struct memptype  *pool =  mphead_create(1028*1028*10); // Création d'un pool de 8Mo
@@ -253,7 +254,7 @@ void test_liberation2() {
     printf(" -> OK\n");
 }
 
-void test_liberation3() {
+static void test_liberation3(void) {
     printf("Test: Liberation 3\n");
 
     struct memptype  *pool =  mphead_create(1028*1028*10); // Création d'un pool de 8Mo
@@ -291,7 +292,7 @@ void test_liberation3() {
 }
 
 
-int main() {
+int main(void) {
     test_allocation_liberation();
     test_500_allocations();
     test_500_allocations_liberations();
