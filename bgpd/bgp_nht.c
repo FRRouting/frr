@@ -339,8 +339,16 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * NH could be set to different v6 LL address (compared to
 		 * peer's LL) using route-map. In such a scenario, do not set
 		 * the ifindex.
+		 *
+		 * Only do this for dynamic LL peers (conf_if set) where
+		 * scope_id is populated early from ifp->ifindex.  For
+		 * explicit LL peers (conf_if NULL, e.g. "neighbor fe80::X
+		 * interface swpN") the scope_id arrives only after the TCP
+		 * handshake; using it here would create a BNC keyed with the
+		 * real ifindex while peer-tracking already created one with
+		 * ifindex 0, causing a stale NHT entry after session flaps.
 		 */
-		if (afi == AFI_IP6 &&
+		if (afi == AFI_IP6 && pi->peer->conf_if &&
 		    IN6_IS_ADDR_LINKLOCAL(
 			    &pi->peer->connection->su.sin6.sin6_addr) &&
 		    IPV6_ADDR_SAME(&pi->peer->connection->su.sin6.sin6_addr,
