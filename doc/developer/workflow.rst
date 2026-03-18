@@ -1661,7 +1661,7 @@ added to or created to support the JSON format.
   the hyphen (or symbol) and capitalizing the following letter, for
   example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
-  display
+  display or if an error ocurrs with the input.
 * In general JSON commands include a ``json`` keyword typically at the end of
   the CLI command (e.g., ``show ip ospf json``)
 
