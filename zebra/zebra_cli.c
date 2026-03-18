@@ -6,6 +6,7 @@
 
 #include "command.h"
 #include "defaults.h"
+#include "frrdistance.h"
 #include "northbound_cli.h"
 #include "vrf.h"
 
@@ -151,6 +152,48 @@ static void zebra_workqueue_hold_timer_cli_write(struct vty *vty, const struct l
 	vty_out(vty, "zebra work-queue %u\n", timer);
 }
 
+static void zebra_import_kernel_table_xpath(char *xpath, size_t xpath_len, afi_t afi, safi_t safi,
+					    const char *table_id)
+{
+	snprintfrr(xpath, xpath_len,
+		   "/frr-zebra:zebra/import-kernel-table[afi-safi='%s'][table-id='%s']",
+		   yang_afi_safi_value2identity(afi, safi), table_id);
+}
+
+static void zebra_import_kernel_table_cli_write(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	uint32_t table_id = yang_dnode_get_uint32(dnode, "table-id");
+	uint32_t distance = yang_dnode_get_uint32(dnode, "distance");
+	const char *rmap = NULL;
+	afi_t afi;
+	safi_t safi;
+
+	if (yang_dnode_exists(dnode, "route-map"))
+		rmap = yang_dnode_get_string(dnode, "route-map");
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (afi == AFI_IP)
+		vty_out(vty, "ip import-table %u", table_id);
+	else if (afi == AFI_IP6)
+		vty_out(vty, "ipv6 import-table %u", table_id);
+	else
+		return;
+
+	if (safi == SAFI_MULTICAST)
+		vty_out(vty, " mrib");
+
+	if (distance != ZEBRA_TABLE_DISTANCE_DEFAULT)
+		vty_out(vty, " distance %u", distance);
+
+	if (rmap)
+		vty_out(vty, " route-map %s", rmap);
+
+	vty_out(vty, "\n");
+}
+
 DEFPY_YANG (allow_external_route_update,
 	    allow_external_route_update_cmd,
 	    "[no] allow-external-route-update",
@@ -213,6 +256,88 @@ DEFPY_YANG_HIDDEN (zebra_workqueue_timer,
 	else
 		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/workqueue-hold-timer", NB_OP_DESTROY,
 				      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (ip_zebra_import_table_distance,
+	    ip_zebra_import_table_distance_cmd,
+	    "ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+	    IP_STR
+	    "import routes from non-main kernel table\n"
+	    "kernel routing table id\n"
+	    "Import into the MRIB instead of the URIB\n"
+	    "Distance for imported routes\n"
+	    "Default distance value\n"
+	    "route-map for filtering\n"
+	    "route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char xpath_child[XPATH_MAXLEN];
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+
+	zebra_import_kernel_table_xpath(xpath, sizeof(xpath), AFI_IP, safi, table_id_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(xpath_child, sizeof(xpath_child), "%s/distance", xpath);
+	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str ? distance_str : "15");
+
+	snprintfrr(xpath_child, sizeof(xpath_child), "%s/route-map", xpath);
+	nb_cli_enqueue_change(vty, xpath_child, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_ip_zebra_import_table,
+	    no_ip_zebra_import_table_cmd,
+	    "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
+	    NO_STR
+	    IP_STR
+	    "import routes from non-main kernel table\n"
+	    "kernel routing table id\n"
+	    "Import into the MRIB instead of the URIB\n"
+	    "Distance for imported routes\n"
+	    "Default distance value\n"
+	    "route-map for filtering\n"
+	    "route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+
+	zebra_import_kernel_table_xpath(xpath, sizeof(xpath), AFI_IP, safi, table_id_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (ipv6_zebra_import_table_distance,
+	    ipv6_zebra_import_table_distance_cmd,
+	    "[no] ipv6 import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+	    NO_STR
+	    IPV6_STR
+	    "import routes from non-main kernel table\n"
+	    "kernel routing table id\n"
+	    "Import into the MRIB instead of the URIB\n"
+	    "Distance for imported routes\n"
+	    "Default distance value\n"
+	    "route-map for filtering\n"
+	    "route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char xpath_child[XPATH_MAXLEN];
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+
+	zebra_import_kernel_table_xpath(xpath, sizeof(xpath), AFI_IP6, safi, table_id_str);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	if (no)
+		return nb_cli_apply_changes(vty, NULL);
+
+	snprintfrr(xpath_child, sizeof(xpath_child), "%s/distance", xpath);
+	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str ? distance_str : "15");
+
+	snprintfrr(xpath_child, sizeof(xpath_child), "%s/route-map", xpath);
+	nb_cli_enqueue_change(vty, xpath_child, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2905,6 +3030,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = zebra_workqueue_hold_timer_cli_write,
 		},
 		{
+			.xpath = "/frr-zebra:zebra/import-kernel-table",
+			.cbs.cli_show = zebra_import_kernel_table_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs",
 			.cbs.cli_show = lib_interface_zebra_ipv4_addrs_cli_write,
 		},
@@ -3241,6 +3370,9 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &zebra_zapi_packets_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
+	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
+	install_element(CONFIG_NODE, &ipv6_zebra_import_table_distance_cmd);
+	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);

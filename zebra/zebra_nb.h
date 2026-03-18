@@ -39,8 +39,9 @@ int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args);
 struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *zebra_state_mpls_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 int zebra_zapi_packets_modify(struct nb_cb_modify_args *args);
-int zebra_import_kernel_table_table_id_modify(struct nb_cb_modify_args *args);
-int zebra_import_kernel_table_table_id_destroy(struct nb_cb_destroy_args *args);
+int zebra_import_kernel_table_create(struct nb_cb_create_args *args);
+int zebra_import_kernel_table_destroy(struct nb_cb_destroy_args *args);
+void zebra_import_kernel_table_apply_finish(struct nb_cb_apply_finish_args *args);
 int zebra_import_kernel_table_distance_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_route_map_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_route_map_destroy(

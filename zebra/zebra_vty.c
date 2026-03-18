@@ -3771,108 +3771,7 @@ DEFPY_HIDDEN (no_evpn_accept_bgp_seq,
 /* Static ip route configuration write function. */
 static int zebra_ip_config(struct vty *vty)
 {
-	int write = 0;
-
-	write += zebra_import_table_config(vty, VRF_DEFAULT);
-
-	return write;
-}
-
-DEFPY (ip_zebra_import_table_distance,
-       ip_zebra_import_table_distance_cmd,
-       "ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (distance_str == NULL)
-		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be in range 1-252\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	return zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, distance, rmap, true);
-}
-
-DEFPY (ipv6_zebra_import_table_distance,
-       ipv6_zebra_import_table_distance_cmd,
-       "ipv6 import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
-       IPV6_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (distance_str == NULL)
-		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be in range 1-252\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	return zebra_import_table(AFI_IP6, safi, VRF_DEFAULT, table_id, distance, rmap, true);
-}
-
-DEFPY (no_ip_zebra_import_table,
-       no_ip_zebra_import_table_cmd,
-       "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
-       NO_STR
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty,
-			"Invalid routing table ID. Must be in range 1-252\n");
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (!is_zebra_import_table_enabled(AFI_IP, safi, VRF_DEFAULT, table_id))
-		return CMD_SUCCESS;
-
-	return (zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, 0, NULL, false));
+	return 0;
 }
 
 DEFPY (zebra_nexthop_group_keep,
@@ -4376,9 +4275,6 @@ void zebra_vty_init(void)
 	install_node(&protocol_node);
 
 	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
-	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
-	install_element(CONFIG_NODE, &ipv6_zebra_import_table_distance_cmd);
-	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);

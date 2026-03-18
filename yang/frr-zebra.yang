@@ -3126,14 +3126,23 @@ module frr-zebra {
         "Number of ZAPI packets to process before relinquishing
          the main thread.";
     }
-    container import-kernel-table {
+    list import-kernel-table {
+      key "afi-safi table-id";
       description
-        "Parameters to use when importing IPv4 routes from a non-main kernel
+        "Parameters to use when importing routes from a non-main kernel
          routing table.";
-      leaf table-id {
-        type uint32 {
-          range "1..252";
+      leaf afi-safi {
+        type identityref {
+          base frr-rt:afi-safi-type;
         }
+        must ". = 'frr-routing:ipv4-unicast' or . = 'frr-routing:ipv4-multicast' or . = 'frr-routing:ipv6-unicast' or . = 'frr-routing:ipv6-multicast'" {
+          error-message "Only IPv4 and IPv6 unicast and multicast import-table entries are supported.";
+        }
+        description
+          "The AFI/SAFI to import into.";
+      }
+      leaf table-id {
+        type uint32;
         description
           "The kernel table id.";
       }
