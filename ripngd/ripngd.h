@@ -17,6 +17,7 @@
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
 #define RIPNG_PORT_DEFAULT             521
+#define RIPNG_MIN_PACKET_SIZE            4
 #define RIPNG_MAX_PACKET_SIZE         1500
 #define RIPNG_PRIORITY_DEFAULT           0
 
