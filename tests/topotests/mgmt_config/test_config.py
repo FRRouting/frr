@@ -97,6 +97,12 @@ def check_show_running(r1, present=None, absent=None):
     return None
 
 
+def expect_show_running(r1, present=None, absent=None):
+    test_func = lambda: check_show_running(r1, present=present, absent=absent)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+
 @pytest.fixture(scope="module")
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
@@ -170,9 +176,28 @@ def cleanup_config(r1, tempdir, logpath):
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no allow-external-route-update'")
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no router-id 1.2.3.4'")
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip table range 2 3'")
-    test_func = lambda: check_show_running(r1, absent=["ip table range 2 3"])
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assert result is None, result
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip import-table 10'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ipv6 import-table 10 mrib'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip import-table 11 route-map IMPORT-FILTER'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ipv6 import-table 11 mrib route-map IMPORT-FILTER'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no route-map IMPORT-FILTER'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no zebra work-queue'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no zebra zapi-packets'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no zebra dplane limit'")
+    expect_show_running(
+        r1,
+        absent=[
+            "ip table range 2 3",
+            "ip import-table 10",
+            "ipv6 import-table 10 mrib",
+            "ip import-table 11 route-map IMPORT-FILTER",
+            "ipv6 import-table 11 mrib route-map IMPORT-FILTER",
+            "route-map IMPORT-FILTER permit 10",
+            "zebra work-queue",
+            "zebra zapi-packets",
+            "zebra dplane limit",
+        ],
+    )
 
     logbuf = save_log_snippet(logpath, logbuf, "/dev/null")
 
@@ -399,10 +424,75 @@ def test_zebra_early_end_redir(r1, confdir, tempdir, logpath):
     logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
     print(output)
 
-    test_func = lambda: check_show_running(
+    expect_show_running(
         r1,
         present=["allow-external-route-update"],
         absent=["router-id 1.2.3.4", "ip table range 2 3"],
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assert result is None, result
+
+
+def test_zebra_import_table_file(r1, confdir, tempdir, logpath):
+    global logbuf
+
+    conf = "import-table-zebra.conf"
+    step(f"load {conf} file with vtysh -f ")
+    output = r1.cmd_nostatus(f"vtysh -f {confdir / conf}")
+    logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
+    print(output)
+
+    expect_show_running(
+        r1,
+        present=["ip import-table 10", "ipv6 import-table 10 mrib"],
+        absent=["route-map IMPORT-FILTER"],
+    )
+
+
+def test_zebra_import_table_route_map_file(r1, confdir, tempdir, logpath):
+    global logbuf
+
+    conf = "import-table-route-map-zebra.conf"
+    step(f"load {conf} file with vtysh -f ")
+    output = r1.cmd_nostatus(f"vtysh -f {confdir / conf}")
+    logbuf = save_log_snippet(logpath, logbuf, tempdir / mapname(conf))
+    print(output)
+
+    expect_show_running(
+        r1,
+        present=[
+            "route-map IMPORT-FILTER permit 10",
+            "ip import-table 11 route-map IMPORT-FILTER",
+            "ipv6 import-table 11 mrib route-map IMPORT-FILTER",
+        ],
+    )
+
+
+def test_zebra_mgmt_frontend_smoke(r1):
+    step("Configure mgmt-fronted zebra smoke commands")
+    r1.cmd_nostatus(
+        "vtysh -c 'conf t' -c 'zebra work-queue 123' "
+        "-c 'zebra zapi-packets 456' -c 'zebra dplane limit 789'"
+    )
+
+    expect_show_running(
+        r1,
+        present=[
+            "zebra work-queue 123",
+            "zebra zapi-packets 456",
+            "zebra dplane limit 789",
+        ],
+    )
+
+    step("Remove mgmt-fronted zebra smoke commands")
+    r1.cmd_nostatus(
+        "vtysh -c 'conf t' -c 'no zebra work-queue' "
+        "-c 'no zebra zapi-packets' -c 'no zebra dplane limit'"
+    )
+
+    expect_show_running(
+        r1,
+        absent=[
+            "zebra work-queue",
+            "zebra zapi-packets",
+            "zebra dplane limit",
+        ],
+    )
