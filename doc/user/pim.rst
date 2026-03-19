@@ -431,9 +431,26 @@ keyword at the end.
 
    Enable PIM on this interface. PIM will use this interface to form PIM
    neighborships and start exchaning PIM protocol messages with those
-   neighbors. The optional argument determines what mode PIM will use this
-   interface for. ``sm`` enables sparse mode, ``dm`` enables dense mode,
-   while ``sm-dm`` enables sparse-dense mode.
+   neighbors.
+   The available modes of operation are:
+      ``sm``
+      Sparse mode. All groups are forwarded following PIM-SM protocol.
+      This is the default mode if not specified.
+
+       ``dm``
+       Dense mode. All groups are forwarded following PIM-DM protocol only.
+       If a dm prefix-list is configured, then groups not matching the prefix
+       list will not be forwarded.
+
+       ``sm-dm``
+       Sparse-dense mode. If a group has a RP discovered/configured, then
+       it is forwarded using PIM-SM (even if the RP is currently unreachable),
+       otherwise it is forwarded using PIM-DM. If a dm prefix-list is configured,
+       then groups not matching the list will still be forwarded using PIM-SM
+       even if no RP is available.
+
+   Regardless of the PIM mode, any group matching the SSM range (default 232.0.0.0/8)
+   will be forwarded following the PIM-SSM protocol.
 
    Please note that this command does not enable the reception of IGMP
    reports on the interface. Refer to the ``ip igmp`` command for IGMP
@@ -442,11 +459,15 @@ keyword at the end.
 .. clicmd:: ip pim ssm prefix-list PREFIX_LIST
 
    Configure the Source-Specific-Multicast group range. Defaults to 232.0.0.0/8.
+   Any group within this range will always be treated as SSM.
 
 .. clicmd:: ip pim dm prefix-list PREFIX_LIST
 
    Limit dense mode multicast to the range configured with prefix-list. By default
-   there is no limit.
+   there is no limit. This is primarily used for interfaces in sparse-dense mode to
+   limit which groups are forwarded in dense mode when no RP is available for the group.
+   If this list is configured and an interface is in dense mode only, it will not forward
+   groups that do not match the prefix list.
 
 .. clicmd:: ip pim allowed-neighbors prefix-list PREFIX_LIST
 
