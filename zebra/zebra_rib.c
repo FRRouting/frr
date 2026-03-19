@@ -3950,7 +3950,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 	re->rn = rn;
 
 	/* Check if the existing RE (same protocol) for this prefix has
-	 * an NHG with active trackers. Criteria for using an old_re for tracker parking:
+	 * an NHG with active trackers. Criteria for parking the incoming RE in a tracker:
 	 * - Same protocol (type/instance) as incoming re (rib_compare_routes).
 	 * - old_re is FIB-installed (ROUTE_ENTRY_INSTALLED). During event churn
 	 *   the RN can have more than one RE from same-protocol. For example: one
