@@ -414,13 +414,7 @@ def test_bgp_explicit_ll_nht_after_clear():
 
     def _bgp_reconverge():
         output = json.loads(r1.vtysh_cmd("show bgp summary json"))
-        expected = {
-            "ipv6Unicast": {
-                "peers": {
-                    "fe80:1::2": {"state": "Established"}
-                }
-            }
-        }
+        expected = {"ipv6Unicast": {"peers": {"fe80:1::2": {"state": "Established"}}}}
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_reconverge)
@@ -436,9 +430,9 @@ def test_bgp_explicit_ll_nht_after_clear():
     test_func = functools.partial(_check_nht_valid, r1)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
-    assert result is None, (
-        "NHT entry invalid after session clear (explicit LL NHT bug): {}".format(result)
-    )
+    assert (
+        result is None
+    ), "NHT entry invalid after session clear (explicit LL NHT bug): {}".format(result)
 
 
 def test_bgp_explicit_ll_nht_after_remote_restart():
@@ -478,13 +472,7 @@ def test_bgp_explicit_ll_nht_after_remote_restart():
 
     def _bgp_reconverge():
         output = json.loads(r1.vtysh_cmd("show bgp summary json"))
-        expected = {
-            "ipv6Unicast": {
-                "peers": {
-                    "fe80:1::2": {"state": "Established"}
-                }
-            }
-        }
+        expected = {"ipv6Unicast": {"peers": {"fe80:1::2": {"state": "Established"}}}}
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_reconverge)
@@ -507,8 +495,80 @@ def test_bgp_explicit_ll_nht_after_remote_restart():
     test_func = functools.partial(_check_nht_valid, r1)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
-    assert result is None, (
-        "NHT invalid after remote restart (explicit LL NHT bug): {}".format(result)
+    assert (
+        result is None
+    ), "NHT invalid after remote restart (explicit LL NHT bug): {}".format(result)
+
+
+def _check_nht_gone(r1, nh_addr="fe80:1::2"):
+    """Check that no BNC entry exists for nh_addr."""
+    output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+    ipv6 = output.get("ipv6", {})
+    for addr, _ in ipv6.items():
+        if nh_addr in addr:
+            return "Orphan BNC still present for {}".format(nh_addr)
+    return None
+
+
+def test_bgp_explicit_ll_nht_no_orphan_on_peer_delete():
+    """
+    Delete an explicit LL neighbor and verify no orphan BNC remains.
+
+    Without the conf_if guard in bgp_unlink_nexthop_by_peer() and
+    bgp_delete_connected_nexthop(), the cleanup looks up the BNC
+    using scope_id (non-zero after TCP) while the BNC was created
+    with ifindex 0, causing the lookup to miss and leaving an
+    orphan BNC behind.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Verify BGP session is established before deletion")
+
+    def _bgp_established():
+        output = json.loads(r1.vtysh_cmd("show bgp summary json"))
+        expected = {"ipv6Unicast": {"peers": {"fe80:1::2": {"state": "Established"}}}}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_established)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "BGP session not established before peer delete test"
+
+    step("Delete the explicit LL neighbor on r1")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          no neighbor fe80:1::2
+        end
+    """
+    )
+
+    step("Verify no orphan BNC remains for fe80:1::2")
+    test_func = functools.partial(_check_nht_gone, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+
+    assert (
+        result is None
+    ), "Orphan BNC after peer delete (cleanup missed BNC): {}".format(result)
+
+    step("Re-add the neighbor so subsequent tests are not affected")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          neighbor fe80:1::2 remote-as external
+          neighbor fe80:1::2 timers 3 10
+          neighbor fe80:1::2 interface r1-eth0
+          address-family ipv6 unicast
+           neighbor fe80:1::2 activate
+          exit-address-family
+        end
+    """
     )
 
 
