@@ -2778,6 +2778,13 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		return BGP_PACKET_NOOP;
 	}
 
+	/* If the peer is not active for the given AFI/SAFI, ignore the message. */
+	if (!peer->afc_nego[afi][safi]) {
+		zlog_info("%s REFRESH_REQ for afi/safi: %s/%s - ignored (not active)", peer->host,
+			  iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+		return BGP_PACKET_NOOP;
+	}
+
 	if (size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
 		uint8_t *end;
 		uint8_t when_to_refresh;
@@ -2785,6 +2792,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		uint16_t orf_len;
 
 		if (subtype) {
+			/* When the BGP speaker receives a ROUTE-REFRESH message
+			 * with a "Message Subtype" field other than 0, 1, or 2,
+			 * it MUST ignore the received ROUTE-REFRESH message.
+			 */
+			if (subtype > 2) {
+				zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored",
+					  peer->host, subtype);
+				return BGP_PACKET_NOOP;
+			}
+
 			/* If the length, excluding the fixed-size message
 			 * header, of the received ROUTE-REFRESH message with
 			 * Message Subtype 1 and 2 is not 4, then the BGP
@@ -2799,16 +2816,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 				bgp_notify_send(connection,
 						BGP_NOTIFY_ROUTE_REFRESH_ERR,
 						BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN);
+				return BGP_Stop;
 			}
-
-			/* When the BGP speaker receives a ROUTE-REFRESH message
-			 * with a "Message Subtype" field other than 0, 1, or 2,
-			 * it MUST ignore the received ROUTE-REFRESH message.
-			 */
-			if (subtype > 2)
-				zlog_err(
-					"%s Enhanced Route Refresh invalid subtype",
-					peer->host);
 		}
 
 		if (msg_length < 5) {
@@ -3049,11 +3058,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		 * Family Identifier, <AFI, SAFI> [RFC2918], from
 		 * that peer as stale.
 		 */
-		if (peer_active_nego(peer)) {
-			SET_FLAG(peer->af_sflags[afi][safi],
-				 PEER_STATUS_ENHANCED_REFRESH);
-			bgp_set_stale_route(peer, afi, safi);
-		}
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
+		bgp_set_stale_route(peer, afi, safi);
 
 		if (peer_established(peer->connection))
 			event_add_timer(bm->master,
@@ -3437,13 +3443,19 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 
 	if (action == CAPABILITY_ACTION_SET) {
 		/* hostname */
-		if (data + 1 >= end) {
-			zlog_err("%pBP: Received invalid FQDN capability (host name length)",
-				 peer);
+		if (data + 1 > end) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP: Received invalid FQDN capability (host name length)", peer);
 			return;
 		}
 
 		len = *data;
+		if (!len) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP: Received invalid FQDN capability (host name length is zero)",
+				 peer);
+			return;
+		}
 		if (data + len + 1 > end) {
 			zlog_err("%pBP: Received invalid FQDN capability length (host name) %d",
 				 peer, hdr->length);
@@ -3454,21 +3466,20 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		if (len > BGP_MAX_HOSTNAME) {
 			memcpy(&str, data, BGP_MAX_HOSTNAME);
 			str[BGP_MAX_HOSTNAME] = '\0';
-		} else if (len) {
+		} else {
 			memcpy(&str, data, len);
 			str[len] = '\0';
 		}
 		data += len;
 
-		if (len) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 
-			peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
-		}
+		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
-		if (data + 1 >= end) {
-			zlog_err("%pBP: Received invalid FQDN capability (domain name length)",
+		if (data + 1 > end) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP: Received invalid FQDN capability (domain name length)",
 				 peer);
 			return;
 		}
@@ -3598,7 +3609,7 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 #define GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE 4
 	uint16_t gr_restart_flag_time;
 	uint8_t *data = pnt + 3;
-	uint8_t *end = pnt + hdr->length;
+	uint8_t *end = data + hdr->length;
 	size_t len = end - data;
 	afi_t afi;
 	safi_t safi;

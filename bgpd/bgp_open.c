@@ -882,7 +882,20 @@ static int bgp_capability_hostname(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
+	if (stream_get_getp(s) + 1 > end) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "%s: Received invalid hostname len (hostname capability) from peer %s",
+			  __func__, peer->host);
+		return -1;
+	}
+
 	len = stream_getc(s);
+	if (!len) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "%s: Received empty hostname from peer %s", __func__, peer->host);
+		return -1;
+	}
+
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
@@ -895,23 +908,23 @@ static int bgp_capability_hostname(struct peer *peer,
 		stream_get(str, s, BGP_MAX_HOSTNAME);
 		stream_forward_getp(s, len - BGP_MAX_HOSTNAME);
 		len = BGP_MAX_HOSTNAME; /* to set the '\0' below */
-	} else if (len)
+	} else {
 		stream_get(str, s, len);
-
-	if (len) {
-		str[len] = '\0';
-
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-
-		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 	}
+
+	str[len] = '\0';
+
+	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+	peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
 	if (stream_get_getp(s) + 1 > end) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received invalid domain name len (hostname capability) from peer %s",
 			__func__, peer->host);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 		return -1;
 	}
 
@@ -921,6 +934,7 @@ static int bgp_capability_hostname(struct peer *peer,
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received runt domain name (hostname capability) from peer %s",
 			__func__, peer->host);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 		return -1;
 	}
 
@@ -1028,8 +1042,8 @@ static int bgp_capability_software_version(struct peer *peer,
  * @param[out] mp_capability Set to 1 on return iff one or more Multiprotocol
  *                           capabilities were encountered.
  */
-static int bgp_capability_parse(struct peer *peer, size_t length,
-				int *mp_capability, uint8_t **error)
+static int bgp_capability_parse(struct peer *peer, size_t length, int *mp_capability,
+				uint8_t **error, uint8_t *error_end)
 {
 	int ret;
 	struct stream *s = BGP_INPUT(peer);
@@ -1135,8 +1149,10 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 				/* Unsupported Capability. */
 				if (ret < 0) {
 					/* Store return data. */
-					memcpy(*error, sp, caphdr.length + 2);
-					*error += caphdr.length + 2;
+					if (*error + caphdr.length + 2 <= error_end) {
+						memcpy(*error, sp, caphdr.length + 2);
+						*error += caphdr.length + 2;
+					}
 				}
 				ret = 0; /* Don't return error for this */
 			}
@@ -1209,8 +1225,10 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 					EC_BGP_CAPABILITY_UNKNOWN,
 					"%s unrecognized capability code: %d - ignored",
 					peer->host, caphdr.code);
-				memcpy(*error, sp, caphdr.length + 2);
-				*error += caphdr.length + 2;
+				if (*error + caphdr.length + 2 <= error_end) {
+					memcpy(*error, sp, caphdr.length + 2);
+					*error += caphdr.length + 2;
+				}
 			}
 		}
 
@@ -1450,8 +1468,9 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 
 		switch (opt_type) {
 		case BGP_OPEN_OPT_CAP:
-			ret = bgp_capability_parse(peer, opt_length,
-						   mp_capability, &error);
+			ret = bgp_capability_parse(peer, opt_length, mp_capability, &error,
+						   error_data +
+							   BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 			break;
 		default:
 			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
