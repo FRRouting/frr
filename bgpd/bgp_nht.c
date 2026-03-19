@@ -278,7 +278,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6 &&
+		if (afi == AFI_IP6 && peer->conf_if &&
 		    IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
 			ifindex = peer->connection->su.sin6.sin6_scope_id;
 		bnc = bnc_find(&peer->bgp->nexthop_cache_table[afi], &p, 0,
@@ -557,7 +557,8 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
+		if (afi == AFI_IP6 && peer->conf_if &&
+		    IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
 			ifindex = peer->connection->su.sin6.sin6_scope_id;
 		bnc = bnc_find(&peer->bgp->nexthop_cache_table[family2afi(p.family)], &p, 0,
 			       ifindex);
