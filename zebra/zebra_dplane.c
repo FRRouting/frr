@@ -3928,11 +3928,18 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		 * matters for INSTALL/UPDATE.
 		 */
 		if (zebra_nhg_kernel_nexthops_enabled() &&
-		    (((op == DPLANE_OP_ROUTE_INSTALL) ||
-		      (op == DPLANE_OP_ROUTE_UPDATE)) &&
+		    (((op == DPLANE_OP_ROUTE_INSTALL) || (op == DPLANE_OP_ROUTE_UPDATE)) &&
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
-		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)))
+		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))) {
+			frrtrace(4, frr_zebra, dplane_ctx_route_kernel_nhg_not_ready, op, nhe->id,
+				 nhe->flags, re->vrf_id);
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("%s route %pRN op %s nhg id %u flags 0x%x nh %pNHs not installed nor queued",
+					   __func__, rn, dplane_op2str(op), nhe->id, nhe->flags,
+					   nhe->nhg.nexthop);
+
 			return ENOENT;
+		}
 	}
 #endif /* HAVE_NETLINK */
 
