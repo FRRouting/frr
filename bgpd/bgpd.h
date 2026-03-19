@@ -21,6 +21,16 @@
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
 
+enum bgp_bp_install_type {
+	BGP_BP_INSTALL_ROUTE,
+};
+
+struct bgp_bp_install_node {
+	struct zebra_announce_item zai;
+	enum bgp_bp_install_type type;
+	void *ptr;
+};
+
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
@@ -1098,6 +1108,9 @@ struct bgp {
 	 * addresses when both are available as nexthops.
 	 */
 	bool nexthop_prefer_global[AFI_MAX][SAFI_MAX];
+
+	/* Number of dests queued in the global zebra_announce_head for this instance */
+	uint32_t zebra_announce_queue_cnt;
 
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];

@@ -4277,7 +4277,8 @@ int bgp_delete(struct bgp *bgp)
 	uint32_t vni_count;
 	struct bgpevpn *vpn = NULL;
 	struct bgp_dest *dest = NULL;
-	struct bgp_dest *dest_next = NULL;
+	struct bgp_bp_install_node *inode = NULL;
+	struct bgp_bp_install_node *inode_next = NULL;
 	struct bgp_table *dest_table = NULL;
 	struct graceful_restart_info *gr_info;
 	struct bgp *bgp_default = bgp_get_default();
@@ -4293,14 +4294,19 @@ int bgp_delete(struct bgp *bgp)
 	 * the bgp under delete.
 	 */
 	b_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
-	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
-	     dest = dest_next) {
-		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
+	for (inode = zebra_announce_first(&bm->zebra_announce_head); inode; inode = inode_next) {
+		inode_next = zebra_announce_next(&bm->zebra_announce_head, inode);
+		if (inode->type != BGP_BP_INSTALL_ROUTE)
+			continue;
+		dest = inode->ptr;
 		dest_table = bgp_dest_table(dest);
 		if (dest_table->bgp == bgp) {
-			zebra_announce_del(&bm->zebra_announce_head, dest);
+			zebra_announce_del(&bm->zebra_announce_head, inode);
+			bgp->zebra_announce_queue_cnt--;
 			bgp_path_info_unlock(dest->za_bgp_pi);
+			dest->za_inode = NULL;
 			bgp_dest_unlock_node(dest);
+			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
 		}
 	}
 

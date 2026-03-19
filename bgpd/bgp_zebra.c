@@ -1855,6 +1855,7 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 {
 	bool is_evpn = false;
 	uint32_t count = 0;
+	struct bgp_bp_install_node *inode = NULL;
 	struct bgp_dest *dest = NULL;
 	struct bgp_table *table = NULL;
 	enum zclient_send_status status = ZCLIENT_SEND_SUCCESS;
@@ -1864,12 +1865,21 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 	while (count < ZEBRA_ANNOUNCEMENTS_LIMIT) {
 		is_evpn = false;
 
-		dest = zebra_announce_pop(&bm->zebra_announce_head);
+		inode = zebra_announce_pop(&bm->zebra_announce_head);
 
-		if (!dest)
+		if (!inode)
 			break;
 
+		if (inode->type != BGP_BP_INSTALL_ROUTE) {
+			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
+			count++;
+			continue;
+		}
+		dest = inode->ptr;
+
 		table = bgp_dest_table(dest);
+		assert(table->bgp->zebra_announce_queue_cnt > 0);
+		table->bgp->zebra_announce_queue_cnt--;
 		install = CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
 		if (table->afi == AFI_L2VPN && table->safi == SAFI_EVPN) {
 			is_evpn = true;
@@ -1927,7 +1937,9 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		dest->za_bgp_pi = NULL;
 		dest->za_vpn = NULL;
+		dest->za_inode = NULL;
 		bgp_dest_unlock_node(dest);
+		XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
 
 		if (status == ZCLIENT_SEND_BUFFERED)
 			break;
@@ -2000,6 +2012,7 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 			     bool is_sync)
 {
 	bool is_evpn = false;
+	struct bgp_bp_install_node *inode = NULL;
 	struct bgp_table *table = NULL;
 
 	table = bgp_dest_table(dest);
@@ -2041,20 +2054,28 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 
 	if (!CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL) &&
 	    !CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
-		zebra_announce_add_tail(&bm->zebra_announce_head, dest);
+		assert(!dest->za_inode);
+		inode = XCALLOC(MTYPE_BGP_BP_INSTALL_NODE, sizeof(*inode));
+		inode->type = BGP_BP_INSTALL_ROUTE;
+		inode->ptr = dest;
+		zebra_announce_add_tail(&bm->zebra_announce_head, inode);
+		bgp->zebra_announce_queue_cnt++;
 		/*
 		 * If neither flag is set and za_bgp_pi is not set then it is a bug
 		 */
 		assert(!dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		bgp_dest_lock_node(dest);
+		dest->za_inode = inode;
 		dest->za_bgp_pi = info;
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL)) {
+		assert(dest->za_inode);
 		assert(dest->za_bgp_pi);
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		dest->za_bgp_pi = info;
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
+		assert(dest->za_inode);
 		assert(dest->za_bgp_pi);
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
