@@ -253,6 +253,7 @@ static uint64_t fe_session_notify_clients(struct mgmt_fe_session_ctx *session)
 	const char **sp;
 	uint64_t clients = 0;
 
+	/* Resolve BE adapters that can serve the session's selector set. */
 	darr_foreach_p (session->notify_xpaths, sp)
 		clients |= mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
 						      "sample-timer");
@@ -267,12 +268,17 @@ static void fe_session_sample_timer(struct event *event)
 
 	session->sample_timer = NULL;
 
+	/* Timer is only active for periodic mode with a non-empty selector set. */
 	if (session->notify_mode != NOTIFY_MODE_PERIODIC || !session->notify_mode_data ||
 	    !darr_len(session->notify_xpaths))
 		return;
 
 	clients = fe_session_notify_clients(session);
 	if (clients)
+		/*
+		 * Use get_only flow (session-id refer_id) to request current state
+		 * and forward it as NOTIFY data to this FE session.
+		 */
 		mgmt_txn_send_notify_selectors(0, session->session_id, clients, false,
 					       session->notify_xpaths);
 
@@ -283,6 +289,7 @@ static void fe_session_schedule_sample_timer(struct mgmt_fe_session_ctx *session
 {
 	event_cancel(&session->sample_timer);
 
+	/* Don't arm a timer unless the subscription is periodic and valid. */
 	if (session->notify_mode != NOTIFY_MODE_PERIODIC || !session->notify_mode_data ||
 	    !darr_len(session->notify_xpaths))
 		return;
@@ -1395,12 +1402,14 @@ static void fe_session_handle_notify_select(struct mgmt_fe_session_ctx *session,
 		darr_free_free(selectors);
 		return;
 	}
+	/* ON_CHANGE must not carry interval data. */
 	if (msg->mode == NOTIFY_MODE_ON_CHANGE && msg->mode_data) {
 		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "mode_data must be 0 for on-change mode");
 		darr_free_free(selectors);
 		return;
 	}
+	/* PERIODIC requires a non-zero interval in msec. */
 	if (msg->mode == NOTIFY_MODE_PERIODIC && !msg->mode_data) {
 		fe_session_send_error(session, req_id, false, -EINVAL,
 				      "mode_data must be non-zero for periodic mode");

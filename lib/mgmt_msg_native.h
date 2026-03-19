@@ -506,7 +506,9 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
  * @replace: if true replace existing selectors with `selectors`.
  * @get_only: [backend-only]: if true do get op, don't change selectors.
  * @mode: on-change or periodic mode.
- * @mode_data: mode-specific data. For periodic mode, interval in msec.
+ * @mode_data: mode-specific data.
+ *            - NOTIFY_MODE_ON_CHANGE: must be 0.
+ *            - NOTIFY_MODE_PERIODIC: interval in msec, must be non-zero.
  */
 struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;

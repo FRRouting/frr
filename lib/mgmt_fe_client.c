@@ -315,6 +315,7 @@ int mgmt_fe_send_notify_select_req(struct mgmt_fe_client *client, uint64_t sessi
 	msg->replace = replace;
 	msg->get_only = 0;
 	msg->subscribing = 0;
+	/* FE clients control delivery semantics via mode/mode_data. */
 	msg->mode = mode;
 	msg->mode_data = mode_data;
 

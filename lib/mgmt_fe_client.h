@@ -256,7 +256,9 @@ extern int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t sessi
  *    Notification mode (e.g. NOTIFY_MODE_ON_CHANGE, NOTIFY_MODE_PERIODIC).
  *
  * mode_data
- *    Mode-specific data. For periodic mode, interval in msec.
+ *    Mode-specific data:
+ *      - ON_CHANGE: must be 0.
+ *      - PERIODIC: interval in msec, must be non-zero.
  *
  * selectors
  *    Array of xpath selectors.
