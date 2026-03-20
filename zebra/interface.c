@@ -1131,6 +1131,16 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 	zebra_ns_ifp_walk(zns, zif_link_fixup_cb, NULL);
 }
 
+void zebra_if_set_neigh_grat_flood(struct interface *ifp, bool on)
+{
+#ifdef HAVE_NETLINK
+	if (netlink_grat_flood_set(ifp, on) < 0)
+		zlog_warn("neigh grat flood %s failed", on ? "on" : "off");
+#else
+	zlog_warn("neigh grat flood knob is not supported on this platform");
+#endif
+}
+
 static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 				    uint32_t new_protodown_rc)
 {
