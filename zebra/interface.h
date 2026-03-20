@@ -84,7 +84,10 @@ enum zebra_if_flags {
 	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6),
 
 	/* On local ESs ARP/ND snooping is enabled for fast-failover. */
-	ZIF_FLAG_ARP_ND_SNOOP = (1 << 7)
+	ZIF_FLAG_ARP_ND_SNOOP = (1 << 7),
+
+	/* GARP flooding turned on */
+	ZIF_FLAG_EVPN_MH_GARP_FLOOD_CFG_ON = (1 << 8)
 };
 
 /* We snoop on ARP replies and NAs rxed on bridge ports if MH is
@@ -339,6 +342,7 @@ extern void if_ipv6_address_install(struct interface *ifp,
 				    struct prefix *prefix);
 extern void if_ipv6_address_uninstall(struct interface *ifp,
 				      struct prefix *prefix);
+extern void zebra_if_set_neigh_grat_flood(struct interface *ifp, bool on);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
 extern void if_arp(struct interface *ifp, bool enable);

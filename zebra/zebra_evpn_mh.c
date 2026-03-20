@@ -76,7 +76,8 @@ esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 #define TC_SUDO_STR ""
 #define TC_BIN_STR  "/usr/sbin/tc"
 
-static int zebra_program_using_fork_exec(char *cmd, int debug)
+static int __attribute__((unused))
+zebra_program_using_fork_exec(char *cmd, int debug)
 {
 #define PCONDCHECK(x)                                                                             \
 	do {                                                                                      \
@@ -123,7 +124,7 @@ static int zebra_program_using_fork_exec(char *cmd, int debug)
 	return 0;
 }
 
-static void zebra_evpn_mh_tc_program(char *cmd)
+static void __attribute__((unused)) zebra_evpn_mh_tc_program(char *cmd)
 {
 	int rc = 0;
 
@@ -1284,6 +1285,7 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 {
 	vlanid_t vid;
 	struct zebra_evpn_es *es;
+
 	if (bf_is_inited(zif->vlan_bitmap)) {
 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 		{
