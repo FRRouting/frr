@@ -89,7 +89,8 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 2)) {
 		chksum = in_cksum(pkt, pktsize);
 	} else {
-		assert(!"Invalid VRRP protocol version");
+		/* Not valid - return a value that won't match */
+		chksum = chksum_pre + 1;
 	}
 
 	pkt->hdr.chksum = chksum_pre;
@@ -258,7 +259,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, bool ipv4_ph,
 		memcpy(&src->ipaddr_v6, &sa->sin6_addr,
 		       sizeof(struct in6_addr));
 	} else {
-		assert(!"Unknown address family");
+		VRRP_PKT_VCHECK(false, "Unknown address family");
 	}
 
 	/* Size check */
