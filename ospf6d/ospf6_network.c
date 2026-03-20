@@ -59,6 +59,7 @@ void ospf6_serv_close(int *ospf6_sock)
 int ospf6_serv_sock(struct ospf6 *ospf6)
 {
 	int ospf6_sock;
+	int error;
 
 	if (ospf6->fd != -1)
 		return -1;
@@ -66,14 +67,17 @@ int ospf6_serv_sock(struct ospf6 *ospf6)
 	if (ospf6->vrf_id == VRF_UNKNOWN)
 		return -1;
 
-	frr_with_privs(&ospf6d_privs) {
-
+	frr_with_privs (&ospf6d_privs) {
 		ospf6_sock = vrf_socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP,
 					ospf6->vrf_id, ospf6->name);
-		if (ospf6_sock < 0) {
-			zlog_warn("Network: can't create OSPF6 socket.");
-			return -1;
-		}
+		/* Preserve errno in case it's changed by privs apis */
+		error = errno;
+	}
+
+	if (ospf6_sock < 0) {
+		zlog_warn("Network: can't create OSPF6 socket: %s(%u)",
+			  safe_strerror(error), error);
+		return -1;
 	}
 
 /* set socket options */
@@ -82,6 +86,7 @@ int ospf6_serv_sock(struct ospf6 *ospf6)
 #else
 	ospf6_set_reuseaddr();
 #endif /*1*/
+
 	ospf6_reset_mcastloop(ospf6_sock);
 	ospf6_set_pktinfo(ospf6_sock);
 	ospf6_set_transport_class(ospf6_sock);
