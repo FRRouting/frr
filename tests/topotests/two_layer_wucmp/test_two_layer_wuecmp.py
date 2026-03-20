@@ -374,13 +374,32 @@ def test_topology_setup():
     step("STEP 2: Installing sharp routes and waiting for convergence")
 
     # Extract IPv4 from leaf2 loopback
-    lo_output = net["leaf2"].cmd("vtysh -c 'show interface lo'")
-    ipv4_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/\d+", lo_output)
+    expected_loopback_ipv4 = "10.0.0.2"
+    ipv4_state = {"nexthop": None}
 
-    if not ipv4_match:
-        assert False, "Could not find IPv4 address on loopback interface"
+    def check_leaf2_loopback_ipv4():
+        lo_output = net["leaf2"].cmd("vtysh -c 'show interface lo'")
+        ipv4_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/\d+", lo_output)
 
-    ipv4_nexthop = ipv4_match.group(1)
+        if not ipv4_match:
+            logger.info("Still waiting for IPv4 address on leaf2 loopback interface")
+            return False
+
+        ipv4_state["nexthop"] = ipv4_match.group(1)
+        return True
+
+    success, result = topotest.run_and_expect(
+        check_leaf2_loopback_ipv4,
+        True,
+        count=20,
+        wait=1,
+    )
+
+    assert (
+        success
+    ), f"Could not find IPv4 address on loopback interface for node leaf2; expected {expected_loopback_ipv4}"
+
+    ipv4_nexthop = ipv4_state["nexthop"]
     logger.info(f"Using nexthop for sharp routes: IPv4={ipv4_nexthop}")
 
     # Install IPv4 routes
