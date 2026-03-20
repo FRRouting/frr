@@ -2623,6 +2623,14 @@ void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type,
 			zlog_debug(
 				"LSA: There is no such AS-external-LSA %pFX in LSDB",
 				p);
+		/*
+		 * No Type-5 LSA found. This happens when the router is a pure
+		 * NSSA ASBR: ospf_external_lsa_originate() discards the Type-5
+		 * template and only installs Type-7 LSAs. Still flush any
+		 * Type-7 NSSA LSAs for this prefix.
+		 */
+		if (ospf->anyNSSA)
+			ospf_nssa_lsa_flush(ospf, p);
 		return;
 	}
 
