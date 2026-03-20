@@ -59,8 +59,8 @@ static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf,
 }
 
 /* Build a gratuitous ARP message over a specific interface */
-static ssize_t vrrp_build_garp(uint8_t *buf, struct interface *ifp,
-			       struct in_addr *v4)
+static ssize_t vrrp_build_garp(uint8_t *buf, const struct interface *ifp,
+			       const struct in_addr *v4)
 {
 	uint8_t *arp_ptr;
 
@@ -79,19 +79,19 @@ static ssize_t vrrp_build_garp(uint8_t *buf, struct interface *ifp,
 
 	arph->ar_hrd = htons(HWTYPE_ETHER);
 	arph->ar_pro = htons(ETHERTYPE_IP);
-	arph->ar_hln = ifp->hw_addr_len;
+	arph->ar_hln = ETH_ALEN;
 	arph->ar_pln = sizeof(struct in_addr);
 	arph->ar_op = htons(ARPOP_REQUEST);
 	arp_ptr = (uint8_t *)(arph + 1);
 	/* Source MAC: us */
-	memcpy(arp_ptr, ifp->hw_addr, ifp->hw_addr_len);
-	arp_ptr += ifp->hw_addr_len;
+	memcpy(arp_ptr, ifp->hw_addr, ETH_ALEN);
+	arp_ptr += ETH_ALEN;
 	/* Source IP: us */
 	memcpy(arp_ptr, v4, sizeof(struct in_addr));
 	arp_ptr += sizeof(struct in_addr);
 	/* Dest MAC: broadcast */
 	memset(arp_ptr, 0xFF, ETH_ALEN);
-	arp_ptr += ifp->hw_addr_len;
+	arp_ptr += ETH_ALEN;
 	/* Dest IP: us */
 	memcpy(arp_ptr, v4, sizeof(struct in_addr));
 	arp_ptr += sizeof(struct in_addr);
@@ -149,9 +149,14 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 
 void vrrp_garp_send_all(struct vrrp_router *r)
 {
-	assert(r->family == AF_INET);
-
 	struct interface *ifp = r->mvl_ifp;
+
+	if (r->family != AF_INET) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			  "Unable to send gratuitous ARP on %s; not INET",
+			  r->vr->vrid, family2str(r->family), ifp->name);
+		return;
+	}
 
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
