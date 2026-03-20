@@ -131,8 +131,6 @@ void ospf6_hello_print(struct ospf6_header *oh, int action)
 		     p + sizeof(uint32_t) <= OSPF6_MESSAGE_END(oh);
 		     p += sizeof(uint32_t))
 			zlog_debug("    Neighbor: %pI4", (in_addr_t *)p);
-
-		assert(p == OSPF6_MESSAGE_END(oh));
 	}
 }
 
@@ -168,10 +166,7 @@ void ospf6_dbdesc_print(struct ospf6_header *oh, int action)
 		     p + sizeof(struct ospf6_lsa_header)
 		     <= OSPF6_MESSAGE_END(oh);
 		     p += sizeof(struct ospf6_lsa_header))
-			ospf6_lsa_header_print_raw(
-				(struct ospf6_lsa_header *)p);
-
-		assert(p == OSPF6_MESSAGE_END(oh));
+			ospf6_lsa_header_print_raw((struct ospf6_lsa_header *)p);
 	}
 }
 
@@ -198,8 +193,6 @@ void ospf6_lsreq_print(struct ospf6_header *oh, int action)
 				   ospf6_lstype_name(e->type), &e->id,
 				   &e->adv_router);
 		}
-
-		assert(p == OSPF6_MESSAGE_END(oh));
 	}
 }
 
@@ -231,8 +224,6 @@ void ospf6_lsupdate_print(struct ospf6_header *oh, int action)
 			ospf6_lsa_header_print_raw(
 				(struct ospf6_lsa_header *)p);
 		}
-
-		assert(p == OSPF6_MESSAGE_END(oh));
 	}
 }
 
@@ -252,10 +243,7 @@ void ospf6_lsack_print(struct ospf6_header *oh, int action)
 		     p + sizeof(struct ospf6_lsa_header)
 		     <= OSPF6_MESSAGE_END(oh);
 		     p += sizeof(struct ospf6_lsa_header))
-			ospf6_lsa_header_print_raw(
-				(struct ospf6_lsa_header *)p);
-
-		assert(p == OSPF6_MESSAGE_END(oh));
+			ospf6_lsa_header_print_raw((struct ospf6_lsa_header *)p);
 	}
 }
 
@@ -529,7 +517,11 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			twoway++;
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_warn("VRF %s: IF %s length too long in hello packet",
+				  oi->interface->vrf->name, oi->interface->name);
+	}
 
 	/* RouterPriority check */
 	if (on->priority != hello->priority) {
@@ -750,8 +742,10 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		return;
 
 	default:
-		assert(0);
-		break;
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_debug("DbDesc recv: Invalid/unknown state %s Nbr %s",
+				   ospf6_neighbor_state_str[on->state], on->name);
+		return;
 	}
 
 	/* Process LSA headers */
@@ -812,7 +806,10 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		ospf6_lsa_delete(his);
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_debug("Message length mismatch");
+	}
 
 	/* Increment sequence number */
 	on->dbdesc_seqnum++;
@@ -973,8 +970,10 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		return;
 
 	default:
-		assert(0);
-		break;
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_debug("DbDesc slave recv: Invalid state %s Nbr %s",
+				   ospf6_neighbor_state_str[on->state], on->name);
+		return;
 	}
 
 	/* Process LSA headers */
@@ -1024,7 +1023,10 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		ospf6_lsa_delete(his);
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
+			zlog_debug("Message too long");
+	}
 
 	/* Set sequence number to Master's */
 	on->dbdesc_seqnum = ntohl(dbdesc->seqnum);
@@ -1165,7 +1167,10 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 		ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->lsupdate_list);
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_debug("Message too long");
+	}
 
 	/* schedule send lsupdate */
 	event_cancel(&on->thread_send_lsupdate);
@@ -1649,7 +1654,10 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p);
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+			zlog_debug("Message too long");
+	}
 }
 
 static void ospf6_lsack_recv(struct in6_addr *src, struct in6_addr *dst,
@@ -1749,7 +1757,10 @@ static void ospf6_lsack_recv(struct in6_addr *src, struct in6_addr *dst,
 		ospf6_lsa_delete(his);
 	}
 
-	assert(p == OSPF6_MESSAGE_END(oh));
+	if (p != OSPF6_MESSAGE_END(oh)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
+			zlog_debug("Message too long");
+	}
 }
 
 static uint8_t *recvbuf = NULL;
@@ -1899,7 +1910,8 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 			ospf6_lsack_print(oh, OSPF6_ACTION_RECV);
 			break;
 		default:
-			assert(0);
+			/* Should not reach - packet_examine should check this */
+			return OSPF6_READ_CONTINUE;
 		}
 
 		if ((at_len != 0) && IS_OSPF6_DEBUG_AUTH_RX)
@@ -1929,7 +1941,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		break;
 
 	default:
-		assert(0);
+		break;
 	}
 
 	return OSPF6_READ_CONTINUE;
@@ -2192,7 +2204,6 @@ static void ospf6_write(struct event *event)
 				break;
 			default:
 				zlog_debug("Unknown message");
-				assert(0);
 				break;
 			}
 		}
@@ -2226,7 +2237,6 @@ static void ospf6_write(struct event *event)
 			break;
 		default:
 			zlog_debug("Unknown message");
-			assert(0);
 			break;
 		}
 
