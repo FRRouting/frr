@@ -9,6 +9,7 @@
 # noqa: E501
 #
 """A MGMTD front-end client."""
+
 import argparse
 import logging
 import os
@@ -148,6 +149,30 @@ msg_native_formats = {
 MSG_FORMAT_XML = 1
 MSG_FORMAT_JSON = 2
 MSG_FORMAT_LYB = 3
+
+
+def resstr(result_type):
+    if result_type == MSG_FORMAT_XML:
+        return "XML"
+    if result_type == MSG_FORMAT_JSON:
+        return "JSON"
+    if result_type == MSG_FORMAT_LYB:
+        return "LYB"
+    return f"unknown({result_type})"
+
+
+def opstr(op):
+    if op == NOTIFY_OP_NOTIFICATION:
+        return "YANG-NOTIFICAITON"
+    if op == NOTIFY_OP_PATCH:
+        return "PATCH"
+    if op == NOTIFY_OP_REPLACE:
+        return "REPLACE"
+    if op == NOTIFY_OP_DELETE:
+        return "DELETE"
+    if op == NOTIFY_OP_GET_SYNC:
+        return "SYNC"
+    return f"unknown({op})"
 
 
 def cstr(mdata):
@@ -443,6 +468,10 @@ def __parse_args():
         "--datastore", action="store_true", help="listen for datastore notifications"
     )
     parser.add_argument(
+        "--log",
+        help="file to log to instead of stderr",
+    )
+    parser.add_argument(
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
     )
     parser.add_argument("-s", "--server", default=MPATH, help="path to server socket")
@@ -450,7 +479,12 @@ def __parse_args():
     args = parser.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
-    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s: %(message)s")
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        filename=args.log,
+        filemode="w" if args.log is not None else None,
+    )
 
     return args
 
@@ -497,6 +531,13 @@ def __main():
             sess.add_notify_select(True, args.listen)
         while i > 0 or args.notify_count == 0:
             result_type, op, xpath, notif = sess.recv_notify()
+            logging.debug(
+                "Notified: op: %s xpath: %s data(%s): %s",
+                opstr(op),
+                xpath,
+                resstr(result_type),
+                notif,
+            )
             if op == NOTIFY_OP_NOTIFICATION:
                 if args.datastore:
                     logging.warning("ignoring non-datastore notification: %s", notif)
@@ -524,6 +565,7 @@ def __main():
             else:
                 logging.error("Unknown notification OP: %s", op)
                 sys.exit(1)
+            sys.stdout.flush()
             i -= 1
 
 
