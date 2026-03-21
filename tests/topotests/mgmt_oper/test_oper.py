@@ -2,7 +2,7 @@
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2021, LabN Consulting, L.L.C.
+# Copyright (c) 2021,2026, LabN Consulting, L.L.C.
 # Copyright (c) 2019-2020 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
 #
@@ -109,19 +109,20 @@ def test_oper(tgen):
 
 
 to_gen_new_results = """
-scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
+scriptdir=$CONFIGDIR
 resdir=${scriptdir}/oper-results
-vtysh -c 'show mgmt get-data /frr-vrf:lib'      > ${resdir}/result-lib.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf'  > ${resdir}/result-lib-vrf-nokey.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf/state'  > ${resdir}/result-lib-vrf-state.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]'  > ${resdir}/result-lib-vrf-default.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]'      > ${resdir}/result-lib-vrf-red.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]/state'      > ${resdir}/result-lib-vrf-red-state.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra'          > ${resdir}/result-lib-vrf-zebra.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs'     > ${resdir}/result-lib-vrf-zebra-ribs.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib' > ${resdir}/result-ribs-rib-nokeys.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]' > ${resdir}/result-ribs-rib-ipv4-unicast.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route' > ${resdir}/result-ribs-rib-route-nokey.json
+filter() { jq "$@"; }
+vtysh -c 'show mgmt get-data /frr-vrf:lib'      | filter > ${resdir}/result-lib.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf'  | filter > ${resdir}/result-lib-vrf-nokey.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf/state'  | filter > ${resdir}/result-lib-vrf-state.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]'  | filter > ${resdir}/result-lib-vrf-default.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]'      | filter > ${resdir}/result-lib-vrf-red.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]/state'      | filter > ${resdir}/result-lib-vrf-red-state.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra'          | filter > ${resdir}/result-lib-vrf-zebra.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs'     | filter > ${resdir}/result-lib-vrf-zebra-ribs.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib' | filter > ${resdir}/result-ribs-rib-nokeys.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]' | filter > ${resdir}/result-ribs-rib-ipv4-unicast.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route' | filter > ${resdir}/result-ribs-rib-route-nokey.json
 
 for f in ${resdir}/result-*; do
    sed -i -e 's/"uptime": ".*"/"uptime": "rubout"/;s/"id": [0-9][0-9]*/"id": "rubout"/' $f

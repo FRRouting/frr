@@ -4,6 +4,8 @@
       {
         "name": "default",
         "frr-zebra:zebra": {
+          "router-id": "2.2.2.1",
+          "ipv6-router-id": "2002:2222::1",
           "ribs": {
             "rib": [
               {

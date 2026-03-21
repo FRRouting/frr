@@ -11,6 +11,7 @@
 """
 Test various query types
 """
+
 import json
 import logging
 
@@ -108,6 +109,6 @@ def test_oper_simple(tgen):
 
         try:
             ojson = json.loads(output)
-            logging.info("'%s': generates:\n%s", qr, ojson)
+            logging.debug("'%s': generates:\n%s", qr, ojson)
         except json.decoder.JSONDecodeError as error:
             logging.error("Error decoding json: %s\noutput:\n%s", error, output)

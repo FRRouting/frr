@@ -64,6 +64,12 @@ def disable_debug(router):
 
 
 def clean_json(j):
+    if (
+        j is None
+        or not isinstance(j.get("frr-interface:lib"), dict)
+        or j["frr-interface:lib"].get("interface") is None
+    ):
+        return j
     rm_if_re = r"span|gre|sit|tnl|tun|vti"
     j = copy.deepcopy(j)
     try:
