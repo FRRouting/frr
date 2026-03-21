@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import re
-import time
 
 import pytest
 from lib.common_config import step
@@ -29,6 +28,14 @@ pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 CWD = os.path.dirname(os.path.realpath(__file__))
 FE_CLIENT = CWD + "/../lib/fe_client.py"
 BE_CLIENT = "/usr/lib/frr/mgmtd_testc"
+
+
+def have_beclient(r1):
+    if hasattr(have_beclient, "has"):
+        return have_beclient.has
+    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
+    have_beclient.has = True if not rc else False
+    return have_beclient.has
 
 
 @pytest.fixture(scope="module")
@@ -103,6 +110,14 @@ def wait_op_json(f, op, path, json_match=None, exact=False, timeout=30):
         logging.debug("no json match: %s: continue", jo)
 
 
+@retry(retry_timeout=30, initial_wait=0.5)
+def check_backend_xpath_registry(r1, repath):
+    output = r1.cmd_raises('vtysh -c "show mgmt backend-yang-xpath-registry notify"')
+    if re.match("notify: ?" + repath, output):
+        return "missing notify registration for " + repath
+    return None
+
+
 def test_frontend_datastore_notification(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -115,32 +130,25 @@ def test_frontend_datastore_notification(tgen):
     p = r1.popen(
         [
             FE_CLIENT,
+            "--verbose",
+            "--log=fe_client.log",
             "--datastore",
-            "--notify-count=2",
+            "--notify-count=0",
             "--listen=/frr-interface:lib/interface/state",
         ]
     )
-    assert waitline(p.stderr, "Connected", timeout=30)
-
-    r1.cmd_raises("ip link set r1-eth0 mtu 1200")
-
-    # {"frr-interface:lib":{"interface":[{"name":"r1-eth0","state":{"if-index":2,"mtu":1200,"mtu6":1200,"speed":10000,"metric":0,"phy-address":"ba:fd:de:b5:8b:90"}}]}}
 
     try:
-        # Wait for FE client to exit
-        output, error = p.communicate(timeout=30)
-        notifs = get_op_and_json(output)
-        op, path, data = notifs[1]
+        wait_op_json(p.stdout, "SYNC", "/frr-interface:lib/interface/state", None)
 
-        assert op == "REPLACE"
-        assert path.startswith("/frr-interface:lib/interface[name='r1-eth0']/state")
-
-        jsout = json.loads(data)
-        expected = json.loads(
-            '{"frr-interface:lib":{"interface":[{"name":"r1-eth0","state":{"mtu":1200}}]}}'
+        r1.cmd_raises("ip link set r1-eth0 mtu 1200")
+        wait_op_json(
+            p.stdout,
+            "REPLACE",
+            "/frr-interface:lib/interface[name='r1-eth0']/state/mtu",
+            '{"frr-interface:lib":{"interface":[{"name":"r1-eth0","state":{"mtu":1200}}]}}',
         )
-        result = json_cmp(jsout, expected)
-        assert result is None
+
     finally:
         p.kill()
         r1.cmd_raises("ip link set r1-eth0 mtu 1500")
@@ -154,12 +162,8 @@ def test_backend_datastore_update(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
-    if rc:
+    if not have_beclient(r1):
         pytest.skip("No mgmtd_testc")
-
-    # Watch the mgmtd log for the BE subscribing
-    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
 
     # Start our BE client in the background
     p = r1.popen(
@@ -172,8 +176,6 @@ def test_backend_datastore_update(tgen):
             "/frr-interface:lib/interface",
         ]
     )
-    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
-    mlogp.kill()
 
     try:
         wait_op_json(p.stdout, "SYNC", "/frr-interface:lib/interface", None)
@@ -198,12 +200,8 @@ def test_backend_datastore_add_delete(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
-    if rc:
+    if not have_beclient(r1):
         pytest.skip("No mgmtd_testc")
-
-    # Watch the mgmtd log for the BE subscribing
-    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
 
     # Start our BE client in the background
     p = r1.popen(
@@ -217,24 +215,22 @@ def test_backend_datastore_add_delete(tgen):
             "/frr-vrf:lib/vrf",
         ]
     )
-    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
-    mlogp.kill()
-
-    def _check_backend_xpath_registry():
-        output = r1.cmd_raises(
-            'vtysh -c "show mgmt backend-yang-xpath-registry notify"'
-        )
-        if re.match("notify: /frr-vrf:lib/vrf:.*mgmtd-testc.*", output):
-            return "missing mgmtd-testc notify registration for /frr-vrf:lib/vrf"
-        return None
-
-    _, result = topotest.run_and_expect(
-        _check_backend_xpath_registry, None, count=20, wait=1
-    )
-    assert result is None, result
+    check_backend_xpath_registry(r1, r"/frr-vrf:lib/vrf:.*mgmtd-testc.*")
 
     r1.cmd_raises('vtysh -c "conf t" -c "int foobar"')
     try:
+        #
+        # If have a failure here b/c we are now notifying at the list element
+        # level (instead of `.../state`) we have either 1) solved the multiple
+        # owner of sub-tree data problem, or 2) someone has made this change not
+        # understanding the problem (i.e., zebra deletes the list element but
+        # some other backend daemon owns state under the interface and hasn't
+        # deleted it yet).
+        #
+        # When we do have a comprehensive solution (1) for the multiple owner
+        # issue we should update this test to be more stringent and look for the
+        # list element to be deleted.
+        #
         assert waitline(
             p.stdout,
             re.escape('#OP=REPLACE: /frr-interface:lib/interface[name="foobar"]/state'),
@@ -272,12 +268,8 @@ def test_backend_datastore_router_id(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
-    if rc:
+    if not have_beclient(r1):
         pytest.skip("No mgmtd_testc")
-
-    # Watch the mgmtd log for the BE subscribing
-    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
 
     # Start our BE client in the background
     p = r1.popen(
@@ -292,8 +284,6 @@ def test_backend_datastore_router_id(tgen):
             "/frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id",
         ]
     )
-    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
-    mlogp.kill()
 
     js4_init = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.1.1.1"}}]}}'
     js4_chg = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.2.3.4"}}]}}'
@@ -376,8 +366,7 @@ def test_datastore_backend_filters(tgen):
 
     r1 = tgen.gears["r1"].net
 
-    rc, _, _ = r1.cmd_status(BE_CLIENT + " --help")
-    if rc:
+    if not have_beclient(r1):
         pytest.skip("No mgmtd_testc")
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
@@ -400,7 +389,6 @@ def test_datastore_backend_filters(tgen):
         check_filters(r1, ["/frr-interface:lib/interface/state"])
 
         step("Start BE client and verify both notify selectors present in zebra")
-        mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
         p2 = r1.popen(
             [
                 BE_CLIENT,
@@ -411,7 +399,6 @@ def test_datastore_backend_filters(tgen):
                 "/frr-interface:lib/interface",
             ]
         )
-        assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=30)
         selectors = [
             "/frr-interface:lib/interface",
             "/frr-interface:lib/interface/state",
