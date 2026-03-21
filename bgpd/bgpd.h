@@ -1849,6 +1849,9 @@ struct peer {
 #define PEER_FLAG_RPKI_STRICT	     (1ULL << 46) /* RPKI strict mode */
 #define PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW (1ULL << 47)
 #define PEER_FLAG_REMOTE_AS		      (1ULL << 48) /* remote-as override */
+/* BGP-LS per-peer link identifiers configured */
+#define PEER_FLAG_LS_LOCAL_LINK_ID  (1ULL << 49)
+#define PEER_FLAG_LS_REMOTE_LINK_ID (1ULL << 50)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2258,6 +2261,10 @@ struct peer {
 	struct llgr_info llgr[AFI_MAX][SAFI_MAX];
 
 	bool shut_during_cfg;
+
+	/* BGP-LS per-peer link identifiers (draft-ietf-idr-bgp-ls-bgp-only-fabric) */
+	uint32_t ls_local_link_id;
+	uint32_t ls_remote_link_id;
 
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */

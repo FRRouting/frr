@@ -28,6 +28,11 @@ struct bgp_ls {
 
 	/* Link-state database registration status */
 	bool registered_ls_db;
+
+	bool enable_distribution;
+
+	/* BGP-fabric link-state instance ID */
+	uint64_t instance_id;
 };
 
 /* Function prototypes */
@@ -82,5 +87,38 @@ extern void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_l
 /* Module initialization and cleanup */
 extern void bgp_ls_init(struct bgp *bgp);
 extern void bgp_ls_cleanup(struct bgp *bgp);
+
+/*
+ * ===========================================================================
+ * BGP Topology Export (BGP-only fabrics)
+ * ===========================================================================
+ */
+
+/*
+ * Export BGP topology as BGP-LS NLRIs
+ *
+ * Iterates through all BGP peers and generates Node and Link NLRIs
+ * representing the BGP topology. Used for BGP-only fabrics per
+ * draft-ietf-idr-bgp-ls-bgp-only-fabric.
+ *
+ * @param bgp - BGP instance
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_export_bgp_topology(struct bgp *bgp);
+void bgp_ls_withdraw_all(struct bgp *bgp);
+int bgp_ls_withdraw_bgp_link(struct bgp *bgp, struct peer *peer);
+int bgp_ls_withdraw_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest,
+			       struct bgp_path_info *path);
+
+/*
+ * ===========================================================================
+ * Link State Message Processing
+ * ===========================================================================
+ */
+
+extern int bgp_ls_originate_bgp_node(struct bgp *bgp);
+extern int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer);
+extern int bgp_ls_originate_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi,
+				       struct bgp_dest *dest, struct bgp_path_info *path);
 
 #endif /* _FRR_BGP_LS_H */
