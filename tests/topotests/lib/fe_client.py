@@ -63,12 +63,15 @@ TREE_DATA_FIELD_PARTIAL_ERROR = 0
 TREE_DATA_FIELD_RESULT_TYPE = 1
 TREE_DATA_FIELD_MORE = 2
 
-MSG_FMT_GET_DATA = "=BB6x"
+MSG_FMT_GET_DATA = "=BBBB4x"
 GET_DATA_FIELD_RESULT_TYPE = 0
 GET_DATA_FIELD_FLAGS = 1
+GET_DATA_FIELD_DEFAULTS = 2
+GET_DATA_FIELD_DATASTORE = 3
 GET_DATA_FLAG_STATE = 0x1
 GET_DATA_FLAG_CONFIG = 0x2
 GET_DATA_FLAG_EXACT = 0x4
+GET_DATA_DEFAULTS_EXPLICIT = 0
 
 MSG_FMT_NOTIFY = "=BB6x"
 NOTIFY_FIELD_RESULT_TYPE = 0
@@ -341,7 +344,7 @@ class Session:
             "locked" if lock else "unlocked",
         )
 
-    def get_data(self, query, data=True, config=False):
+    def get_data(self, query, data=True, config=False, datastore=OPERATIONAL_DS):
         """Retrieve data from the mgmtd server based on an XPath query.
 
         Args:
@@ -359,7 +362,13 @@ class Session:
         mdata, _ = self.get_native_msg_header(MSG_CODE_GET_DATA)
         flags = GET_DATA_FLAG_STATE if data else 0
         flags |= GET_DATA_FLAG_CONFIG if config else 0
-        mdata += struct.pack(MSG_FMT_GET_DATA, MSG_FORMAT_JSON, flags)
+        mdata += struct.pack(
+            MSG_FMT_GET_DATA,
+            MSG_FORMAT_JSON,
+            flags,
+            GET_DATA_DEFAULTS_EXPLICIT,
+            datastore,
+        )
         mdata += query.encode("utf-8") + b"\x00"
 
         self.send_native_msg(mdata)
@@ -473,6 +482,12 @@ def __parse_args():
     parser.add_argument(
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
     )
+    parser.add_argument(
+        "--query-datastore",
+        choices=["operational", "running", "candidate"],
+        default="operational",
+        help="Datastore used by --query (default: operational)",
+    )
     parser.add_argument("-s", "--server", default=MPATH, help="path to server socket")
     parser.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
     args = parser.parse_args()
@@ -518,10 +533,18 @@ def __main():
     if args.query:
         # Performa an xpath query
         # query = "/frr-interface:lib/interface/state/mtu"
+        query_ds = {
+            "operational": OPERATIONAL_DS,
+            "running": RUNNING_DS,
+            "candidate": CANDIDATE_DS,
+        }[args.query_datastore]
         for query in args.query:
             logging.info("Sending query: %s", query)
             result = sess.get_data(
-                query, data=not args.config_only, config=(args.both or args.config_only)
+                query,
+                data=not args.config_only,
+                config=(args.both or args.config_only),
+                datastore=query_ds,
             )
             print(result)
 

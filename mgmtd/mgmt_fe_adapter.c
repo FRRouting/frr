@@ -256,7 +256,9 @@ static uint64_t fe_session_notify_clients(struct mgmt_fe_session_ctx *session)
 	/* Resolve BE adapters that can serve the session's selector set. */
 	darr_foreach_p (session->notify_xpaths, sp)
 		clients |= mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-						      "sample-timer");
+						      "sample-timer-oper")
+			   | mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF,
+							"sample-timer-notif");
 
 	return clients;
 }
@@ -1126,7 +1128,10 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 
 	if (in_oper)
 		clients = mgmt_be_interested_clients(msg->xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-						     "GET-DATA");
+						     "GET-DATA-oper")
+			  | mgmt_be_interested_clients(msg->xpath,
+						       MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF,
+						       "GET-DATA-notif");
 
 	if (!clients && !ylib && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		_dbg("No backends provide xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
