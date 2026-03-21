@@ -1745,8 +1745,7 @@ static enum nb_error lib_interface_vrf_get(const struct nb_node *nb_node, const 
 	const struct lysc_node *snode = nb_node->snode;
 	const struct interface *ifp = list_entry;
 
-	if (lyd_new_term(parent, snode->module, snode->name, ifp->vrf->name, LYD_NEW_PATH_UPDATE,
-			 NULL))
+	if (lyd_new_term(parent, snode->module, snode->name, ifp->vrf->name, false, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }

@@ -254,7 +254,7 @@ static enum nb_error _router_id_get(const struct nb_node *nb_node, const struct 
 		goto done;
 
 	inet_ntop(afi == AFI_IP ? AF_INET : AF_INET6, &p.u.prefix, buf, sizeof(buf));
-	err = lyd_new_term(parent, snode->module, snode->name, buf, LYD_NEW_VAL_CANON, NULL);
+	err = lyd_new_term(parent, snode->module, snode->name, buf, false, NULL);
 	if (err != LY_SUCCESS)
 		return NB_ERR;
 done:
