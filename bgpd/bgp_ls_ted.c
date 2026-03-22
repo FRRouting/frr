@@ -957,6 +957,7 @@ int bgp_ls_process_vertex(struct bgp *bgp, struct ls_vertex *vertex, uint8_t eve
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_node(bgp, protocol_id, router_id, router_id_len, area_id,
@@ -1030,6 +1031,7 @@ int bgp_ls_process_edge(struct bgp *bgp, struct ls_edge *edge, uint8_t event)
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_link(bgp, protocol_id, local_router_id,
@@ -1092,6 +1094,7 @@ int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t eve
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
@@ -1168,7 +1171,8 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
 			zlog_debug("%s: Link edge", __func__);
 
-		if (msg->event == LS_MSG_EVENT_ADD || msg->event == LS_MSG_EVENT_UPDATE) {
+		if (msg->event == LS_MSG_EVENT_SYNC || msg->event == LS_MSG_EVENT_ADD ||
+		    msg->event == LS_MSG_EVENT_UPDATE) {
 			/* Search for the reverse edge and link both directions. */
 			reverse_edge = ls_find_edge_by_destination(bgp->ls_info->ted,
 								   edge->attributes);
@@ -1212,7 +1216,8 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 			 * destination.
 			 */
 			if (reverse_edge &&
-			    (msg->event == LS_MSG_EVENT_ADD || reverse_edge_dst_updated)) {
+			    (msg->event == LS_MSG_EVENT_SYNC || msg->event == LS_MSG_EVENT_ADD ||
+			     reverse_edge_dst_updated)) {
 				uint8_t reverse_event = msg->event;
 
 				if (msg->event == LS_MSG_EVENT_UPDATE && reverse_edge_dst_updated)
