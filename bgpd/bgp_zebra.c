@@ -21,6 +21,7 @@
 #include "lib/bfd.h"
 #include "lib/route_opaque.h"
 #include "filter.h"
+#include "jhash.h"
 #include "mpls.h"
 #include "vxlan.h"
 #include "pbr.h"
@@ -1280,6 +1281,119 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
+PREDECL_HASH(bgp_nh_dedup);
+
+struct bgp_nh_dedup_entry {
+	struct bgp_nh_dedup_item itm;
+	struct zapi_nexthop *nh;
+};
+
+static uint32_t bgp_nh_dedup_hash_key(const struct bgp_nh_dedup_entry *item)
+{
+	const struct zapi_nexthop *nh = item->nh;
+	uint32_t key;
+
+	key = jhash_2words(nh->type, nh->vrf_id, 0x55aa5a5a);
+
+	switch (nh->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		key = jhash_1word(nh->gate.ipv4.s_addr, key);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		key = jhash2((const uint32_t *)&nh->gate.ipv6,
+			     sizeof(nh->gate.ipv6) / sizeof(uint32_t), key);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	key = jhash_1word(nh->ifindex, key);
+
+	if (nh->label_num)
+		key = jhash(nh->labels, nh->label_num * sizeof(mpls_label_t),
+			    key);
+
+	if (nh->seg_num)
+		key = jhash(nh->seg6_segs,
+			    nh->seg_num * sizeof(struct in6_addr), key);
+
+	key = jhash_1word(nh->srte_color, key);
+
+	return key;
+}
+
+/*
+ * Compare forwarding-relevant fields of two zapi nexthops.
+ * Weight is intentionally excluded -- it is a scheduling
+ * parameter, not forwarding identity.
+ */
+static int bgp_nh_dedup_hash_cmp(const struct bgp_nh_dedup_entry *a,
+				 const struct bgp_nh_dedup_entry *b)
+{
+	const struct zapi_nexthop *n1 = a->nh;
+	const struct zapi_nexthop *n2 = b->nh;
+	int ret;
+
+	if (n1->type != n2->type)
+		return numcmp(n1->type, n2->type);
+	if (n1->vrf_id != n2->vrf_id)
+		return numcmp(n1->vrf_id, n2->vrf_id);
+
+	switch (n1->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		ret = nexthop_g_addr_cmp(n1->type, &n1->gate, &n2->gate);
+		if (ret)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = nexthop_g_addr_cmp(n1->type, &n1->gate, &n2->gate);
+		if (ret)
+			return ret;
+		if (n1->ifindex != n2->ifindex)
+			return numcmp(n1->ifindex, n2->ifindex);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		if (n1->ifindex != n2->ifindex)
+			return numcmp(n1->ifindex, n2->ifindex);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (n1->bh_type != n2->bh_type)
+			return numcmp(n1->bh_type, n2->bh_type);
+		break;
+	}
+
+	if (n1->label_num != n2->label_num)
+		return numcmp(n1->label_num, n2->label_num);
+	if (n1->label_num > 0) {
+		ret = memcmp(n1->labels, n2->labels,
+			     n1->label_num * sizeof(mpls_label_t));
+		if (ret)
+			return ret;
+	}
+
+	if (n1->seg_num != n2->seg_num)
+		return numcmp(n1->seg_num, n2->seg_num);
+	if (n1->seg_num > 0) {
+		ret = memcmp(n1->seg6_segs, n2->seg6_segs,
+			     n1->seg_num * sizeof(struct in6_addr));
+		if (ret)
+			return ret;
+	}
+
+	if (n1->srte_color != n2->srte_color)
+		return numcmp(n1->srte_color, n2->srte_color);
+
+	return 0;
+}
+
+DECLARE_HASH(bgp_nh_dedup, struct bgp_nh_dedup_entry, itm,
+	     bgp_nh_dedup_hash_cmp, bgp_nh_dedup_hash_key);
+
 static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const struct prefix *p,
 					     struct bgp *bgp, struct zapi_route *api,
 					     unsigned int *valid_nh_count, afi_t afi, safi_t safi,
@@ -1304,12 +1418,17 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 	uint32_t exp = 0;
 
 	struct bgp_route_evpn *bre = NULL;
+	struct bgp_nh_dedup_head nh_hash;
+	struct bgp_nh_dedup_entry dedup_items[MULTIPATH_NUM];
+	unsigned int dedup_idx = 0;
 
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
 	if (info->extra && info->extra->vrfleak && info->extra->vrfleak->bgp_orig)
 		nh_othervrf = 1;
+
+	bgp_nh_dedup_init(&nh_hash);
 
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
 	if (nhg_id && bgp_evpn_path_es_use_nhg(bgp, info, nhg_id)) {
@@ -1519,8 +1638,26 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
+		if (!is_evpn) {
+			struct bgp_nh_dedup_entry lookup = { .nh = api_nh };
+
+			if (bgp_nh_dedup_find(&nh_hash, &lookup)) {
+				if (bgp_debug_zebra(&api->prefix))
+					zlog_debug("%s: p=%pFX, skipping duplicate nexthop",
+						   __func__, p);
+				continue;
+			}
+
+			dedup_items[dedup_idx].nh = api_nh;
+			bgp_nh_dedup_add(&nh_hash, &dedup_items[dedup_idx]);
+			dedup_idx++;
+		}
 		(*valid_nh_count)++;
 	}
+
+	while (bgp_nh_dedup_pop(&nh_hash))
+		;
+	bgp_nh_dedup_fini(&nh_hash);
 }
 
 static void bgp_debug_zebra_nh(struct zapi_route *api)
