@@ -370,6 +370,14 @@ int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr 
 		}
 	}
 
+	/* SRv6 Locator (TLV 1162, RFC 9514 Section 5.1) — for SRv6 Locator prefixes */
+	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_SRV6)) {
+		attr->srv6_locator_flags = 0;
+		attr->srv6_locator_algo = 0;
+		attr->srv6_locator_metric = ls_prefix->metric;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT);
+	}
+
 	return 0;
 }
 

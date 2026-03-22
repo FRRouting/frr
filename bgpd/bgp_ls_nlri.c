@@ -503,6 +503,15 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 		}
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		if (attr1->srv6_locator_flags != attr2->srv6_locator_flags)
+			return numcmp(attr1->srv6_locator_flags, attr2->srv6_locator_flags);
+		if (attr1->srv6_locator_algo != attr2->srv6_locator_algo)
+			return numcmp(attr1->srv6_locator_algo, attr2->srv6_locator_algo);
+		if (attr1->srv6_locator_metric != attr2->srv6_locator_metric)
+			return numcmp(attr1->srv6_locator_metric, attr2->srv6_locator_metric);
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
 		ret = memcmp(&attr1->srv6_sid_structure, &attr2->srv6_sid_structure,
 			     sizeof(attr1->srv6_sid_structure));
@@ -2642,6 +2651,19 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 				stream_putc(s, lan_endx->structure.arg_len);
 			}
 		}
+	}
+
+	/* SRv6 Locator (TLV 1162) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_LOCATOR_MIN_SIZE)
+			return -1;
+
+		stream_putw(s, BGP_LS_ATTR_SRV6_LOCATOR);
+		stream_putw(s, BGP_LS_SRV6_LOCATOR_MIN_SIZE);
+		stream_putc(s, attr->srv6_locator_flags);
+		stream_putc(s, attr->srv6_locator_algo);
+		stream_putw(s, 0); /* Reserved */
+		stream_putl(s, attr->srv6_locator_metric);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) - top-level in SRv6 SID NLRI attributes */
@@ -4904,6 +4926,37 @@ static int parse_ospf_srv6_lan_endx_sid(struct stream *s, uint16_t length, struc
 	return 0;
 }
 
+/*
+ * Parse SRv6 Locator TLV (Type 1162, RFC 9514 Section 5.1)
+ * Format: Flags (1) + Algorithm (1) + Reserved (2) + Metric (4) + Sub-TLVs (variable)
+ */
+static int parse_srv6_locator(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate SRv6 Locator TLV");
+		return -1;
+	}
+
+	if (length < BGP_LS_SRV6_LOCATOR_MIN_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 Locator TLV too short (%u bytes, need %u)", length,
+			  BGP_LS_SRV6_LOCATOR_MIN_SIZE);
+		return -1;
+	}
+
+	attr->srv6_locator_flags = stream_getc(s);
+	attr->srv6_locator_algo = stream_getc(s);
+	stream_getw(s); /* Reserved */
+	attr->srv6_locator_metric = stream_getl(s);
+
+	/* Sub-TLVs (none currently defined; skip them) */
+	if (length > BGP_LS_SRV6_LOCATOR_MIN_SIZE)
+		stream_forward_getp(s, length - BGP_LS_SRV6_LOCATOR_MIN_SIZE);
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -5108,6 +5161,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_SRV6_LAN_ENDX_SID_OSPF:
 			if (parse_ospf_srv6_lan_endx_sid(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_LOCATOR:
+			if (parse_srv6_locator(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -5393,6 +5451,16 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 			json_object_array_add(jlan_arr, jlan);
 		}
 		json_object_object_add(json_ls_attr, "srv6LanEndxSids", jlan_arr);
+	}
+
+	/* SRv6 Locator (TLV 1162) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		json_object *jloc = json_object_new_object();
+
+		json_object_string_addf(jloc, "flags", "0x%x", ls_attr->srv6_locator_flags);
+		json_object_int_add(jloc, "algo", ls_attr->srv6_locator_algo);
+		json_object_int_add(jloc, "metric", ls_attr->srv6_locator_metric);
+		json_object_object_add(json_ls_attr, "srv6Locator", jloc);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */
@@ -5690,6 +5758,14 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 					       e->structure.fun_len, e->structure.arg_len);
 			}
 		}
+	}
+
+	/* SRv6 Locator (TLV 1162) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "SRv6 Locator Metric: %u Flags: 0x%x Algo: %u",
+			       ls_attr->srv6_locator_metric, ls_attr->srv6_locator_flags,
+			       ls_attr->srv6_locator_algo);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */

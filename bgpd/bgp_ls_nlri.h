@@ -239,7 +239,7 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_RANGE = 1159,	       /* Range */
 	BGP_LS_ATTR_SID_LABEL = 1161,	       /* SID/Label */
 	BGP_LS_ATTR_PREFIX_ATTR_FLAGS = 1170,  /* Prefix Attribute Flags */
-	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator */
+	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator - RFC 9514, Section 5.1 */
 
 	/* SRv6 SID Attribute TLVs (RFC 9514 Section 7.1) */
 	BGP_LS_ATTR_SRV6_SID_STRUCTURE = 1252,	     /* SRv6 SID Structure */
@@ -333,6 +333,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_SRV6_ENDX_SID_MIN_SIZE		  22 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) */
 #define BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE	  28 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Sys-ID (6) */
 #define BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE	  26 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Router-ID (4) */
+#define BGP_LS_SRV6_LOCATOR_MIN_SIZE		8  /* Flags (1) + Algo (1) + Reserved (2) + Metric (4) */
 
 /*
  * Maximum values for arrays
@@ -738,6 +739,11 @@ struct bgp_ls_attr {
 	/* SRv6 LAN End.X SID (TLV 1107/1108, RFC 9514 Section 4.2) */
 	uint16_t srv6_lan_endx_sid_count;
 	struct bgp_ls_srv6_lan_endx_sid *srv6_lan_endx_sid;
+
+	/* SRv6 Locator attributes (TLV 1162, RFC 9514 Section 5.1) */
+	uint8_t srv6_locator_flags;
+	uint8_t srv6_locator_algo;
+	uint32_t srv6_locator_metric;
 
 	unsigned long refcnt; /* Reference count */
 
