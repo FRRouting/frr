@@ -729,6 +729,11 @@ bool bgp_ls_register(struct bgp *bgp)
 		return false;
 	}
 
+	if (ls_request_sync(bgp_zclient) == -1)
+		zlog_warn("BGP-LS: Failed to request initial Link State database sync");
+	else
+		zlog_info("BGP-LS: Requested initial Link State database sync");
+
 	bgp->ls_info->registered_ls_db = true;
 
 	zlog_info("BGP-LS: Registered with Link State database for BGP instance %s",
