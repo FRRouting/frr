@@ -304,21 +304,6 @@ def check_ipv4_prefix_recursive_with_multiple_nexthops(
         for nh in r6_nh:
             expected[prefix][0]["nexthops"].append(get_nh_formatted(nh))
 
-        for nh in recursive_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
-        for nh in r5_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
-        for nh in r6_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
     test_func = functools.partial(
         ip_check_path_selection, tgen.gears["r1"], prefix, expected, check_fib=True
     )
