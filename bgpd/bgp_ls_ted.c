@@ -85,6 +85,12 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT);
 	}
 
+	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_SRV6)) {
+		attr->srv6_cap_flags = ls_node->srv6_cap_flags;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT);
+	}
+
 	return 0;
 }
 

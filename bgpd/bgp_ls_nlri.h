@@ -132,6 +132,9 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_SR_LOCAL_BLOCK = 1036,  /* SR Local Block */
 	BGP_LS_ATTR_SRMS_PREFERENCE = 1037, /* SRMS Preference */
 
+	/* Node Attribute TLVs (RFC 9514 Section 3.1) */
+	BGP_LS_ATTR_SRV6_CAPABILITIES = 1038, /* SRv6 Capabilities */
+
 	/* Node Attribute TLVs (RFC 8814) */
 	BGP_LS_ATTR_NODE_MSD = 266,         /* Node MSD */
 
@@ -261,6 +264,11 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_IGP_MSD_TYPE_BASE_MPLS 1
 
 /*
+ * SRv6 TLV fixed payload sizes (RFC 9514)
+ */
+#define BGP_LS_SRV6_CAPABILITIES_SIZE 4 /* Flags (2) + Reserved (2) */
+
+/*
  * Maximum values for arrays
  */
 #define BGP_LS_MAX_SRLG	      64 /* Maximum SRLGs per link */
@@ -313,6 +321,8 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_RANGE_BIT                  (1ULL << 37)
 #define BGP_LS_ATTR_SID_LABEL_BIT              (1ULL << 38)
 #define BGP_LS_ATTR_SRV6_LOCATOR_BIT           (1ULL << 39)
+/* SRv6 attribute bits (RFC 9514) */
+#define BGP_LS_ATTR_SRV6_CAPABILITIES_BIT      (1ULL << 40)
 
 /*
  * Node Flag Bits (TLV 1024)
@@ -644,6 +654,9 @@ struct bgp_ls_attr {
 	/* Opaque Node Attribute (TLV 1025/1097/1157) */
 	uint16_t opaque_len;
 	uint8_t *opaque_data;
+
+	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
+	uint16_t srv6_cap_flags; /* SRv6 capability flags */
 
 	unsigned long refcnt; /* Reference count */
 

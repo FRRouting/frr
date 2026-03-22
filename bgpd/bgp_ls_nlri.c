@@ -474,6 +474,12 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
 	}
 
+	/* SRv6 comparisons (RFC 9514) */
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
+		if (attr1->srv6_cap_flags != attr2->srv6_cap_flags)
+			return numcmp(attr1->srv6_cap_flags, attr2->srv6_cap_flags);
+	}
+
 	return 0;
 }
 
@@ -2504,6 +2510,20 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		}
 	}
 
+	/*
+	 * RFC 9514 SRv6 Attribute TLVs
+	 */
+
+	/* SRv6 Capabilities (TLV 1038) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_CAPABILITIES_SIZE)
+			return -1;
+		stream_putw(s, BGP_LS_ATTR_SRV6_CAPABILITIES);
+		stream_putw(s, BGP_LS_SRV6_CAPABILITIES_SIZE);
+		stream_putw(s, attr->srv6_cap_flags);
+		stream_putw(s, 0); /* Reserved */
+	}
+
 	return stream_get_endp(s) - start_pos;
 }
 
@@ -4490,7 +4510,34 @@ static int parse_prefix_sid(struct stream *s, uint16_t length, struct bgp_ls_att
 /*
  * Parse BGP-LS Attribute TLVs
  * RFC 9552 Section 5.3.1
+ * RFC 9514 SRv6 extensions
  */
+
+/*
+ * Parse SRv6 Capabilities TLV (Type 1038, RFC 9514 Section 3.1)
+ * Format: Flags (2) + Reserved (2)
+ */
+static int parse_srv6_capabilities(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	if (length != BGP_LS_SRV6_CAPABILITIES_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 Capabilities TLV wrong length (%u bytes, expected %u)",
+			  length, BGP_LS_SRV6_CAPABILITIES_SIZE);
+		return -1;
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate SRv6 Capabilities TLV");
+		return -1;
+	}
+
+	attr->srv6_cap_flags = stream_getw(s);
+	stream_getw(s); /* Reserved */
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -4669,6 +4716,12 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_PREFIX_SID:
 			if (parse_prefix_sid(s, length, attr) < 0)
+				return -1;
+			break;
+
+		/* SRv6 TLVs (RFC 9514) */
+		case BGP_LS_ATTR_SRV6_CAPABILITIES:
+			if (parse_srv6_capabilities(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -4882,6 +4935,14 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object_int_add(jpref, "sid", ls_attr->prefix_sid.sid);
 		json_object_string_addf(jpref, "flags", "0x%x", ls_attr->prefix_sid.sid_flag);
 		json_object_int_add(jpref, "algo", ls_attr->prefix_sid.algo);
+	}
+
+	/* SRv6 Capabilities (TLV 1038) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
+		json_object *jcap = json_object_new_object();
+
+		json_object_string_addf(jcap, "flags", "0x%x", ls_attr->srv6_cap_flags);
+		json_object_object_add(json_ls_attr, "srv6Capabilities", jcap);
 	}
 
 	return json_ls_attr;
@@ -5113,7 +5174,14 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 			       ls_attr->prefix_sid.sid_flag, ls_attr->prefix_sid.algo);
 	}
 
+	/* SRv6 Capabilities (TLV 1038) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "SRv6 Capabilities: 0x%x", ls_attr->srv6_cap_flags);
+	}
+
 	(void)col; /* Don't complain about last 'col +=' */
+
 #undef CHECK_WRAP
 #undef COL_WIDTH
 #undef INIT_INDENT
