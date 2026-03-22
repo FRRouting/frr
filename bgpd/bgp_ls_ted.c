@@ -20,6 +20,7 @@
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_nlri.h"
 #include "bgpd/bgp_ls_ted.h"
+#include "bgpd/bgp_route.h"
 
 /*
  * ===========================================================================
@@ -1267,6 +1268,49 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 	}
 
 	return 0;
+}
+
+/*
+ * Remove all entries from the TED.
+ */
+static void bgp_ls_ted_clear(struct ls_ted *ted)
+{
+	struct ls_vertex *vertex;
+	struct ls_edge *edge;
+	struct ls_subnet *subnet;
+
+	frr_each_safe (vertices, &ted->vertices, vertex)
+		ls_vertex_del_all(ted, vertex);
+	frr_each_safe (edges, &ted->edges, edge)
+		ls_edge_del_all(ted, edge);
+	frr_each_safe (subnets, &ted->subnets, subnet)
+		ls_subnet_del_all(ted, subnet);
+}
+
+/*
+ * Withdraw all locally originated BGP-LS routes and reset the TED.
+ *
+ * Called when the last BGP-LS peer is deactivated: performs a single bulk
+ * walk of the BGP-LS RIB via bgp_clear_route() to remove all self-originated
+ * paths at once, then clears all TED entries.
+ *
+ * @param bgp - BGP instance
+ */
+void bgp_ls_withdraw_ted(struct bgp *bgp)
+{
+	if (!bgp || !bgp->ls_info || !bgp->ls_info->ted)
+		return;
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Withdrawing all locally originated routes and resetting TED");
+
+	/* Remove all self-originated BGP-LS paths from the RIB */
+	bgp_clear_route(bgp->peer_self, AFI_BGP_LS, SAFI_BGP_LS);
+
+	/* Clear all TED entries */
+	bgp_ls_ted_clear(bgp->ls_info->ted);
+
+	zlog_info("BGP-LS: All locally originated BGP-LS routes withdrawn and TED reset");
 }
 
 /*
