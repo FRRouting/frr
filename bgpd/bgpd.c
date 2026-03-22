@@ -81,6 +81,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_ls_ted.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -2850,6 +2851,8 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		}
 
 		if (last_peer) {
+			bgp_ls_withdraw_ted(bgp);
+
 			if (!bgp_ls_unregister(bgp)) {
 				zlog_err("BGP-LS: Failed to unregister from link-state database for instance %s",
 					 bgp->name_pretty);

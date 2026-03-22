@@ -208,4 +208,15 @@ extern int bgp_ls_process_linkstate_message(struct stream *s, uint8_t msg_type);
  */
 extern int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg);
 
+/*
+ * Withdraw all locally originated BGP-LS routes and reset the TED.
+ *
+ * Called when the last BGP-LS peer is deactivated. Withdraws every node,
+ * link, and prefix NLRI that was originated from the TED, then discards
+ * the stale TED.
+ *
+ * @param bgp - BGP instance
+ */
+extern void bgp_ls_withdraw_ted(struct bgp *bgp);
+
 #endif /* _FRR_BGP_LS_TED_H */
