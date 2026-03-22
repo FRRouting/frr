@@ -115,6 +115,25 @@ enum bgp_ls_bgp_route_type {
 	BGP_LS_BGP_RT_REDISTRIBUTED = 5, /* Prefix redistributed into BGP */
 };
 
+
+/*
+ * ===========================================================================
+ * SRv6 Structures (RFC 9514)
+ * ===========================================================================
+ */
+
+
+/*
+ * SRv6 SID Structure TLV (RFC 9514, Section 8, Type 1252)
+ * Also used as sub-TLV of SRv6 End.X SID and LAN End.X SID TLVs
+ */
+struct bgp_ls_srv6_sid_structure {
+	uint8_t lb_len;  /* Locator Block length in bits */
+	uint8_t ln_len;  /* Locator Node length in bits */
+	uint8_t fun_len; /* Function length in bits */
+	uint8_t arg_len; /* Argument length in bits */
+};
+
 /*
  * BGP-LS Attribute TLV Types
  * IANA: https://www.iana.org/assignments/bgp-ls-parameters/bgp-ls-parameters.xhtml#node-descriptor-link-descriptor-prefix-descriptor-attribute-tlv
@@ -181,6 +200,9 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_SID_LABEL = 1161,	       /* SID/Label */
 	BGP_LS_ATTR_PREFIX_ATTR_FLAGS = 1170,  /* Prefix Attribute Flags */
 	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator */
+
+	/* SRv6 SID Attribute TLVs (RFC 9514 Section 7.1) */
+	BGP_LS_ATTR_SRV6_SID_STRUCTURE = 1252,	     /* SRv6 SID Structure */
 };
 
 /*
@@ -267,6 +289,7 @@ enum bgp_ls_attr_tlv {
  * SRv6 TLV fixed payload sizes (RFC 9514)
  */
 #define BGP_LS_SRV6_CAPABILITIES_SIZE 4 /* Flags (2) + Reserved (2) */
+#define BGP_LS_SRV6_SID_STRUCTURE_SIZE		4  /* LB Length (1) + LN Length (1) + Fun Length (1) + Arg Length (1) */
 
 /*
  * Maximum values for arrays
@@ -323,6 +346,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_SRV6_LOCATOR_BIT           (1ULL << 39)
 /* SRv6 attribute bits (RFC 9514) */
 #define BGP_LS_ATTR_SRV6_CAPABILITIES_BIT      (1ULL << 40)
+#define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
 
 /*
  * Node Flag Bits (TLV 1024)
@@ -657,6 +681,9 @@ struct bgp_ls_attr {
 
 	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
 	uint16_t srv6_cap_flags; /* SRv6 capability flags */
+
+	/* SRv6 SID Structure (TLV 1252, RFC 9514 Section 8) */
+	struct bgp_ls_srv6_sid_structure srv6_sid_structure;
 
 	unsigned long refcnt; /* Reference count */
 

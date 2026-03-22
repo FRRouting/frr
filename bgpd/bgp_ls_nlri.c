@@ -480,6 +480,13 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->srv6_cap_flags, attr2->srv6_cap_flags);
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
+		ret = memcmp(&attr1->srv6_sid_structure, &attr2->srv6_sid_structure,
+			     sizeof(attr1->srv6_sid_structure));
+		if (ret != 0)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -2524,6 +2531,18 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		stream_putw(s, 0); /* Reserved */
 	}
 
+	/* SRv6 SID Structure (TLV 1252) - top-level in SRv6 SID NLRI attributes */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_SID_STRUCTURE_SIZE)
+			return -1;
+		stream_putw(s, BGP_LS_ATTR_SRV6_SID_STRUCTURE);
+		stream_putw(s, BGP_LS_SRV6_SID_STRUCTURE_SIZE);
+		stream_putc(s, attr->srv6_sid_structure.lb_len);
+		stream_putc(s, attr->srv6_sid_structure.ln_len);
+		stream_putc(s, attr->srv6_sid_structure.fun_len);
+		stream_putc(s, attr->srv6_sid_structure.arg_len);
+	}
+
 	return stream_get_endp(s) - start_pos;
 }
 
@@ -4538,6 +4557,56 @@ static int parse_srv6_capabilities(struct stream *s, uint16_t length, struct bgp
 	return 0;
 }
 
+/*
+ * Parse SRv6 SID Structure sub-TLV (Type 1252, RFC 9514 Section 8)
+ * Format: LB Length (1) + LN Length (1) + Function Length (1) + Argument Length (1)
+ * The sum of all four length fields MUST be <= 128 (RFC 9514 Section 8).
+ * On success, populates *ss and returns 0; returns -1 on error.
+ */
+static int parse_srv6_sid_structure_subtlv(struct stream *s, uint16_t length,
+					   struct bgp_ls_srv6_sid_structure *ss)
+{
+	if (length != BGP_LS_SRV6_SID_STRUCTURE_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 SID Structure sub-TLV bad length (%u bytes, expected %u)",
+			  length, BGP_LS_SRV6_SID_STRUCTURE_SIZE);
+		return -1;
+	}
+
+	ss->lb_len = stream_getc(s);
+	ss->ln_len = stream_getc(s);
+	ss->fun_len = stream_getc(s);
+	ss->arg_len = stream_getc(s);
+
+	if ((uint32_t)ss->lb_len + ss->ln_len + ss->fun_len + ss->arg_len > 128) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 SID Structure sub-TLV length sum exceeds 128 (%u+%u+%u+%u)",
+			  ss->lb_len, ss->ln_len, ss->fun_len, ss->arg_len);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Parse SRv6 SID Structure TLV (Type 1252, RFC 9514 Section 8)
+ * Used as a top-level TLV in the BGP-LS Attribute of an SRv6 SID NLRI.
+ * Format: LB Length (1) + LN Length (1) + Function Length (1) + Argument Length (1)
+ */
+static int parse_srv6_sid_structure(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate SRv6 SID Structure TLV");
+		return -1;
+	}
+
+	if (parse_srv6_sid_structure_subtlv(s, length, &attr->srv6_sid_structure) < 0)
+		return -1;
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -4722,6 +4791,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 		/* SRv6 TLVs (RFC 9514) */
 		case BGP_LS_ATTR_SRV6_CAPABILITIES:
 			if (parse_srv6_capabilities(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_SID_STRUCTURE:
+			if (parse_srv6_sid_structure(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -4943,6 +5017,17 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 
 		json_object_string_addf(jcap, "flags", "0x%x", ls_attr->srv6_cap_flags);
 		json_object_object_add(json_ls_attr, "srv6Capabilities", jcap);
+	}
+
+	/* SRv6 SID Structure (TLV 1252) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
+		json_object *jss = json_object_new_object();
+
+		json_object_int_add(jss, "lbLen", ls_attr->srv6_sid_structure.lb_len);
+		json_object_int_add(jss, "lnLen", ls_attr->srv6_sid_structure.ln_len);
+		json_object_int_add(jss, "funLen", ls_attr->srv6_sid_structure.fun_len);
+		json_object_int_add(jss, "argLen", ls_attr->srv6_sid_structure.arg_len);
+		json_object_object_add(json_ls_attr, "srv6SidStructure", jss);
 	}
 
 	return json_ls_attr;
@@ -5178,6 +5263,16 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
 		CHECK_WRAP();
 		col += vty_out(vty, "SRv6 Capabilities: 0x%x", ls_attr->srv6_cap_flags);
+	}
+
+	/* SRv6 SID Structure (TLV 1252) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "SRv6 SID Structure: LBL: %u LNL: %u FL: %u AL: %u",
+			       ls_attr->srv6_sid_structure.lb_len,
+			       ls_attr->srv6_sid_structure.ln_len,
+			       ls_attr->srv6_sid_structure.fun_len,
+			       ls_attr->srv6_sid_structure.arg_len);
 	}
 
 	(void)col; /* Don't complain about last 'col +=' */
