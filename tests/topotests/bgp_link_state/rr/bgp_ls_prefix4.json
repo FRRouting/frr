@@ -1,0 +1,13 @@
+{
+	"paths": [
+		{
+			"linkStateAttrs": {
+				"prefixSid": {
+					"sid": 4,
+					"flags": "0x40",
+					"algo": 0
+				}
+			}
+		}
+	]
+}

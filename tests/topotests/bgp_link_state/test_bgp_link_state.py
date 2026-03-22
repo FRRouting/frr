@@ -419,6 +419,30 @@ def test_bgp_ls_routes_consumer():
     assertmsg = '"rr" BGP-LS routes not received correctly'
     assert result is None, assertmsg
 
+def test_bgp_ls_attributes_consumer():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking BGP-LS prefix attributes on consumer")
+
+    router = tgen.gears["rr"]
+
+    # Check BGP-LS attributes are received
+    reffile = os.path.join(CWD, "rr/bgp_ls_prefix4.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp link-state link-state [T][L2][I0x0][N[s0000.0000.0004]][P[p4.4.4.4/32]] json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = '"rr" BGP-LS prefix attributes not received correctly'
+    assert result is None, assertmsg
+
 
 def test_bgp_ls_static_route_add():
     """Test adding a static route and verifying BGP-LS update"""
