@@ -122,6 +122,9 @@ def check_route(router, cmd, expect_route, expect_sid, expect_installed=True):
         return "route is installed on %s" % router.name
 
     route = route[0]
+    if expect_sid == "" and route["nexthops"][0].get("seg6", {}).get("segs", "") != "":
+        return "%s: expecting no sid on route %s" % (router.name, expect_route)
+
     if expect_sid and route["nexthops"][0].get("seg6", {}).get("segs", "") != expect_sid:
         error =  "%s: expecting" % router.name
         if expect_sid:
@@ -264,12 +267,20 @@ def test_bgp_srv6_sid_unexport():
         no sid export auto
         """
     )
-    prefixes = ["10.0.0.1/32", "10.0.0.3/32"]
+    logger.info("Check 10.0.0.1/32 is installed without SRv6 SID on R2")
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ""
+    )
+    assert res is True, res
 
-    logger.info("Check 10.0.0.1/32 and 10.0.0.3/32 are installed on R2")
-    for prefix in prefixes:
-        res = check_route(tgen.gears["r2"], "show ip route %s json" % prefix, prefix, "")
-        assert res is True, res
+    logger.info("Check 10.0.0.3/32 keeps SRv6 SID from R3 on R2")
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+    )
+    assert res is True, res
 
     prefixes = ["10.0.0.1/32", "10.0.0.2/32", "10.0.0.3/32"]
     logger.info("Check 10.0.0.1-3/32 are not installed on R3")
