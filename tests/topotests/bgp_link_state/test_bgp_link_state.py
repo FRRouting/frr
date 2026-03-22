@@ -213,6 +213,22 @@ def get_bgp_ls_count(router):
     return len(data)
 
 
+def check_bgp_ls_empty(router):
+    """
+    Check that the BGP-LS routing table is empty.
+
+    Args:
+        router: Router instance
+
+    Returns:
+        None if table is empty, error message otherwise
+    """
+    count = get_bgp_ls_count(router)
+    if count > 0:
+        return f"BGP-LS table not empty: {count} route(s) still present"
+    return None
+
+
 def build_topo(tgen):
     """Build the test topology"""
 
@@ -851,6 +867,97 @@ def test_bgp_ls_r4_link_no_shutdown():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS r4 link up update'
+
+
+def test_bgp_ls_peer_deactivate():
+    """
+    Test that deactivating the last BGP-LS peer:
+    - Withdraws all locally originated BGP-LS routes on the producer (r2)
+    - Clears all received BGP-LS routes on the consumer (rr)
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Deactivating BGP-LS peer on r2 and verifying route withdrawal on r2 and rr"
+    )
+
+    r2 = tgen.gears["r2"]
+
+    # Deactivate the only BGP-LS peer on r2 (neighbor 10.0.3.4 = rr).
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65000\n"
+        "address-family link-state\n"
+        "no neighbor 10.0.3.4 activate"
+    )
+
+    # r2 must have withdrawn all its locally originated BGP-LS routes
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, '"r2" BGP-LS routes not withdrawn after peer deactivation'
+
+    # rr (consumer) must have no BGP-LS routes once r2's session goes down
+    consumer = tgen.gears["rr"]
+    test_func = functools.partial(check_bgp_ls_empty, consumer)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, '"rr" BGP-LS routes not cleared after r2 peer deactivation'
+
+
+def test_bgp_ls_peer_reactivate():
+    """
+    Test that reactivating a BGP-LS peer after deactivation:
+    - Triggers a fresh TED sync from the IGP
+    - Re-originates all IGP topology as BGP-LS NLRIs
+    - Re-advertises all routes to the consumer (rr)
+
+    The previous test (test_bgp_ls_peer_deactivate) must run first.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Reactivating BGP-LS peer on r2 and verifying route re-advertisement on r2 and rr"
+    )
+
+    r2 = tgen.gears["r2"]
+
+    # Reactivate the BGP-LS peer.
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65000\n"
+        "address-family link-state\n"
+        "neighbor 10.0.3.4 activate"
+    )
+
+    # r2 must re-originate all BGP-LS NLRIs for the full ISIS topology
+    reffile = os.path.join(CWD, "r2/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, '"r2" did not re-originate BGP-LS routes after peer reactivation'
+
+    # rr (consumer) must receive all BGP-LS routes again
+    consumer = tgen.gears["rr"]
+    reffile = os.path.join(CWD, "rr/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        consumer,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, '"rr" did not receive BGP-LS routes after r2 peer reactivation'
 
 
 def test_memory_leak():
