@@ -10259,6 +10259,16 @@ DEFPY(sid_export,
 				  !strcmp(rmap_str, bgp->srv6_unicast[afi].rmap_name)))
 			return CMD_SUCCESS;
 
+		if (bgp->srv6_unicast[afi].rmap_name) {
+			route_map_counter_decrement(
+				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+		}
+
+		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		route_map_counter_increment(
+			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+
 		/* apply route-map change */
 		bgp_srv6_unicast_announce(bgp, afi);
 

@@ -250,6 +250,72 @@ def test_bgp_srv6_sid_rmap():
     assert res is True, res
 
 
+def test_bgp_srv6_sid_rmap_update():
+    """
+    Update sid export route-map on an already configured sid export and verify
+    policy really changes.
+    """
+    tgen = get_topogen()
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        ip prefix-list BLOCK2 seq 1 deny 10.0.0.1/32
+        ip prefix-list BLOCK2 seq 255 permit any
+        route-map filter2 permit 20
+         match ip address prefix-list BLOCK2
+        router bgp 65001
+        address-family ipv4 unicast
+        sid export auto route-map filter2
+        """
+    )
+
+    logger.info("Check prefix 10.0.0.1/32 no SRv6 encap on R2 after route-map update")
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ""
+    )
+    assert res is True, res
+
+    logger.info(
+        "Check prefix 10.0.0.1/32 is not installed on R3 after route-map update"
+    )
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        "",
+        expect_installed=False,
+    )
+    assert res is True, res
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        sid export auto route-map filter
+        """
+    )
+
+    logger.info("Check prefix 10.0.0.1/32 SRv6 encap restored on R2")
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
+    assert res is True, res
+
+    logger.info("Check prefix 10.0.0.1/32 SRv6 encap restored on R3")
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
+    assert res is True, res
+
+
 def test_bgp_srv6_sid_unexport():
     """
     Unconfigure sid export on R1, then check prefixes 10.0.0.1-3/32
