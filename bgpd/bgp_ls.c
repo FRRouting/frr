@@ -152,6 +152,11 @@ json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri)
 		protocol_id = nlri->nlri_data.prefix.protocol_id;
 		identifier = nlri->nlri_data.prefix.identifier;
 		break;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		nlri_type_str = "srv6Sid";
+		protocol_id = nlri->nlri_data.srv6_sid.protocol_id;
+		identifier = nlri->nlri_data.srv6_sid.identifier;
+		break;
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		nlri_type_str = "unknown";
 		break;
@@ -184,6 +189,24 @@ json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri)
 							       nlri->nlri_type);
 		json_object_object_add(json_nlri, "localNodeDescriptors", json_local);
 		json_object_object_add(json_nlri, "prefixDescriptors", json_prefix);
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_SRV6_SID) {
+		struct bgp_ls_srv6_sid_nlri *srv6 = &nlri->nlri_data.srv6_sid;
+		json_object *json_local = node_desc_to_json(&srv6->local_node);
+		json_object *json_sid = json_object_new_object();
+
+		if (srv6->sid_desc.mt_id_count > 0) {
+			json_object *json_mt = json_object_new_array();
+
+			for (uint8_t i = 0; i < srv6->sid_desc.mt_id_count; i++)
+				json_object_array_add(json_mt,
+						      json_object_new_int(srv6->sid_desc.mt_id[i]));
+			json_object_object_add(json_sid, "multiTopologyId", json_mt);
+		}
+
+		json_object_string_addf(json_sid, "srv6SidValue", "%pI6", &srv6->sid_desc.sid);
+
+		json_object_object_add(json_nlri, "localNodeDescriptors", json_local);
+		json_object_object_add(json_nlri, "srv6SidDescriptors", json_sid);
 	}
 
 	return json_nlri;
@@ -243,6 +266,17 @@ static void format_node_desc(char **p, size_t *remain, struct bgp_ls_node_descri
 	}
 
 	len = snprintfrr(*p, *remain, "]");
+	*p += len;
+	*remain -= len;
+}
+
+/* Format SRv6 SID descriptor to string */
+static void format_srv6_sid_desc(char **p, size_t *remain,
+				 struct bgp_ls_srv6_sid_descriptor *sid_desc)
+{
+	int len;
+
+	len = snprintfrr(*p, *remain, "[S[sd%pI6]]", &sid_desc->sid);
 	*p += len;
 	*remain -= len;
 }
@@ -322,6 +356,9 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		len = snprintfrr(p, remain, "[T]");
 		break;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		len = snprintfrr(p, remain, "[S]");
+		break;
 	default:
 		len = snprintfrr(p, remain, "[U]");
 		break;
@@ -344,6 +381,9 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
 		protocol_id = nlri->nlri_data.prefix.protocol_id;
 		instance_id = nlri->nlri_data.prefix.identifier;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_SRV6_SID) {
+		protocol_id = nlri->nlri_data.srv6_sid.protocol_id;
+		instance_id = nlri->nlri_data.srv6_sid.identifier;
 	}
 
 	switch (protocol_id) {
@@ -416,6 +456,10 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 			p += len;
 			remain -= len;
 		}
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_SRV6_SID) {
+		/* Format local node descriptor */
+		format_node_desc(&p, &remain, &nlri->nlri_data.srv6_sid.local_node, "N");
+		format_srv6_sid_desc(&p, &remain, &nlri->nlri_data.srv6_sid.sid_desc);
 	}
 }
 

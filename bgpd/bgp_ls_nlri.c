@@ -272,6 +272,23 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 		return bgp_ls_prefix_descriptor_cmp(&p1->prefix_desc, &p2->prefix_desc);
 	}
 
+	case BGP_LS_NLRI_TYPE_SRV6_SID: {
+		const struct bgp_ls_srv6_sid_nlri *s1 = &nlri1->nlri_data.srv6_sid;
+		const struct bgp_ls_srv6_sid_nlri *s2 = &nlri2->nlri_data.srv6_sid;
+
+		if (s1->protocol_id != s2->protocol_id)
+			return numcmp(s1->protocol_id, s2->protocol_id);
+		if (s1->identifier != s2->identifier)
+			return numcmp(s1->identifier, s2->identifier);
+
+		ret = bgp_ls_node_descriptor_cmp(&s1->local_node, &s2->local_node);
+		if (ret != 0)
+			return ret;
+
+		/* Compare SRv6 SID (the 128-bit SID identifies the NLRI) */
+		return memcmp(&s1->sid_desc.sid, &s2->sid_desc.sid, sizeof(s1->sid_desc.sid));
+	}
+
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		/* Reserved type should never be compared */
 		return 0;
@@ -565,6 +582,10 @@ void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri)
 		XFREE(MTYPE_BGP_LS_NLRI, nlri->nlri_data.prefix.prefix_desc.mt_id);
 		break;
 
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		XFREE(MTYPE_BGP_LS_NLRI, nlri->nlri_data.srv6_sid.sid_desc.mt_id);
+		break;
+
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		break;
 	}
@@ -642,6 +663,18 @@ struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri)
 										mt_size);
 			memcpy(nlri_copy->nlri_data.prefix.prefix_desc.mt_id,
 			       nlri->nlri_data.prefix.prefix_desc.mt_id, mt_size);
+		}
+		break;
+
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		/* Copy SRv6 SID descriptor mt_id */
+		if (nlri->nlri_data.srv6_sid.sid_desc.mt_id) {
+			size_t mt_size = nlri->nlri_data.srv6_sid.sid_desc.mt_id_count *
+					 sizeof(uint16_t);
+			nlri_copy->nlri_data.srv6_sid.sid_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
+									       mt_size);
+			memcpy(nlri_copy->nlri_data.srv6_sid.sid_desc.mt_id,
+			       nlri->nlri_data.srv6_sid.sid_desc.mt_id, mt_size);
 		}
 		break;
 
@@ -781,6 +814,25 @@ static bool bgp_ls_igp_router_id_len_valid(enum bgp_ls_protocol_id proto_id, uin
 	return false;
 }
 
+/*
+ * Validate an SRv6 SID NLRI: must have a valid protocol-ID and a non-zero SID
+ * (RFC 9514, Section 6)
+ */
+static bool bgp_ls_nlri_validate_srv6_sid(const struct bgp_ls_nlri *nlri)
+{
+	const struct bgp_ls_srv6_sid_nlri *s = &nlri->nlri_data.srv6_sid;
+	const struct in6_addr zero = {};
+
+	if (s->protocol_id == BGP_LS_PROTO_RESERVED)
+		return false;
+
+	/* The SID MUST be non-zero */
+	if (memcmp(&s->sid_desc.sid, &zero, sizeof(zero)) == 0)
+		return false;
+
+	return true;
+}
+
 bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 {
 	if (!nlri)
@@ -878,6 +930,9 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 
 		return true;
 	}
+
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return bgp_ls_nlri_validate_srv6_sid(nlri);
 
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		/* Reserved type is invalid */
@@ -994,6 +1049,22 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 		break;
 	}
 
+	case BGP_LS_NLRI_TYPE_SRV6_SID: {
+		const struct bgp_ls_srv6_sid_nlri *s = &nlri->nlri_data.srv6_sid;
+
+		/* Local Node Descriptor */
+		size += bgp_ls_node_descriptor_size(&s->local_node);
+
+		/* SRv6 SID Information TLV (mandatory) */
+		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_SID_INFO_SIZE;
+
+		/* Optional MT-ID TLV in SID descriptor */
+		if (s->sid_desc.mt_id_count > 0)
+			size += BGP_LS_TLV_HDR_SIZE + (s->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+
+		break;
+	}
+
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		return 0;
 	}
@@ -1044,6 +1115,8 @@ const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type)
 		return "IPv4 Prefix";
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		return "IPv6 Prefix";
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return "SRv6 SID";
 	}
 
 	return "Unknown";
@@ -1307,6 +1380,9 @@ unsigned int bgp_ls_nlri_hash_key(const struct bgp_ls_nlri *nlri)
 	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		return key ^ bgp_ls_prefix_hash_key_internal(nlri);
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return key ^ jhash(&nlri->nlri_data.srv6_sid.sid_desc.sid,
+				   sizeof(nlri->nlri_data.srv6_sid.sid_desc.sid), 0);
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		return key;
 	}
@@ -2060,6 +2136,61 @@ int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri 
 }
 
 /*
+ * Encode SRv6 SID NLRI to wire format (RFC 9514, Section 6)
+ *
+ *  Protocol-ID (1) + Identifier (8) + Local Node Descriptors + SID Descriptors
+ *
+ * SID Descriptors field:
+ *   - SRv6 SID Information TLV (518): 16-byte SID [mandatory]
+ *   - Multi-Topology Identifier TLV (263): optional
+ *
+ * Returns number of bytes written, or -1 on error
+ */
+int bgp_ls_encode_srv6_sid_nlri(struct stream *s, const struct bgp_ls_srv6_sid_nlri *nlri)
+{
+	size_t start;
+
+	if (!s || !nlri)
+		return -1;
+
+	start = stream_get_endp(s);
+
+	/* Protocol-ID (1 byte) */
+	if (STREAM_WRITEABLE(s) < BGP_LS_PROTOCOL_ID_SIZE)
+		return -1;
+	stream_putc(s, nlri->protocol_id);
+
+	/* Identifier (8 bytes) */
+	if (STREAM_WRITEABLE(s) < BGP_LS_IDENTIFIER_SIZE)
+		return -1;
+	stream_putq(s, nlri->identifier);
+
+	/* Local Node Descriptors */
+	if (bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC) < 0)
+		return -1;
+
+	/* SRv6 SID Descriptors - SRv6 SID Information TLV (518) is mandatory */
+	if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_SID_INFO_SIZE)
+		return -1;
+	stream_putw(s, BGP_LS_TLV_SRV6_SID_INFO);
+	stream_putw(s, BGP_LS_SRV6_SID_INFO_SIZE);
+	stream_put(s, &nlri->sid_desc.sid, BGP_LS_SRV6_SID_INFO_SIZE);
+
+	/* Optional MT-ID TLV in SID descriptor */
+	if (nlri->sid_desc.mt_id_count > 0) {
+		if (STREAM_WRITEABLE(s) <
+		    BGP_LS_TLV_HDR_SIZE + (size_t)nlri->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE)
+			return -1;
+		stream_putw(s, BGP_LS_TLV_MT_ID);
+		stream_putw(s, nlri->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+		for (uint8_t i = 0; i < nlri->sid_desc.mt_id_count; i++)
+			stream_putw(s, nlri->sid_desc.mt_id[i]);
+	}
+
+	return stream_get_endp(s) - start;
+}
+
+/*
  * Encode complete NLRI with Type-Length-Value header
  *
  * Wire format (RFC 9552 Section 5.2):
@@ -2074,7 +2205,7 @@ int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri 
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Where:
- *   Type   = NLRI Type (1=Node, 2=Link, 3=IPv4 Prefix, 4=IPv6 Prefix)
+ *   Type   = NLRI Type (1=Node, 2=Link, 3=IPv4 Prefix, 4=IPv6 Prefix, 6=SRv6 SID)
  *   Length = Length of NLRI Value in octets
  *   Value  = Type-specific NLRI data (Protocol-ID + Identifier + Descriptors)
  *
@@ -2122,6 +2253,10 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
 	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		ret = bgp_ls_encode_prefix_nlri(s, &nlri->nlri_data.prefix, nlri->nlri_type);
+		break;
+
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		ret = bgp_ls_encode_srv6_sid_nlri(s, &nlri->nlri_data.srv6_sid);
 		break;
 
 	case BGP_LS_NLRI_TYPE_RESERVED:
@@ -3603,6 +3738,156 @@ int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16
 }
 
 /*
+ * Decode SRv6 SID NLRI from wire format (RFC 9514, Section 6)
+ *
+ * SRv6 SID NLRI format:
+ *   Protocol-ID (1) + Identifier (8) + Local Node Descriptors + SID Descriptors
+ *
+ * SID Descriptors field:
+ *   - SRv6 SID Information TLV (518): 16-byte SID [mandatory]
+ *   - Multi-Topology Identifier TLV (263): optional
+ *
+ * Returns 0 on success, -1 on error
+ */
+int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_length)
+{
+	struct bgp_ls_srv6_sid_nlri *srv6;
+	uint16_t type, length;
+	size_t start_pos, consumed, sid_desc_len;
+	bool got_sid = false;
+
+	if (!s || !nlri)
+		return -1;
+
+	/* Save start position for length validation */
+	start_pos = stream_get_getp(s);
+
+	/* Check minimum length */
+	if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: SRv6 SID NLRI length %u too short (minimum %u)", nlri_length,
+			  BGP_LS_NLRI_MIN_LENGTH);
+		return -1;
+	}
+
+	nlri->nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	srv6 = &nlri->nlri_data.srv6_sid;
+
+	/* Protocol-ID (1 byte) */
+	srv6->protocol_id = stream_getc(s);
+
+	/* Validate Protocol-ID */
+	if (srv6->protocol_id == BGP_LS_PROTO_RESERVED || srv6->protocol_id > BGP_LS_PROTO_BGP) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid Protocol-ID %u", srv6->protocol_id);
+		return -1;
+	}
+
+	/* Identifier (8 bytes) */
+	srv6->identifier = stream_getq(s);
+
+	/* Local Node Descriptor TLV */
+	if (stream_get_tlv_hdr(s, &type, &length) < 0)
+		return -1;
+
+	if (type != BGP_LS_TLV_LOCAL_NODE_DESC) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Expected Local Node Descriptor TLV %u, got %u",
+			  BGP_LS_TLV_LOCAL_NODE_DESC, type);
+		return -1;
+	}
+
+	consumed = stream_get_getp(s) - start_pos;
+	if (consumed > nlri_length || length > nlri_length - consumed) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Local Node Descriptor TLV length %u exceeds NLRI boundary",
+			  length);
+		return -1;
+	}
+
+	if (bgp_ls_decode_node_descriptor(s, &srv6->local_node, length) < 0)
+		return -1;
+
+	/* SRv6 SID Descriptors - remaining bytes after node descriptor */
+	consumed = stream_get_getp(s) - start_pos;
+	sid_desc_len = nlri_length - consumed;
+
+	while (sid_desc_len >= BGP_LS_TLV_HDR_SIZE) {
+		if (stream_get_tlv_hdr(s, &type, &length) < 0)
+			return -1;
+		sid_desc_len -= BGP_LS_TLV_HDR_SIZE;
+
+		if (length > sid_desc_len) {
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: SRv6 SID descriptor TLV %u length %u exceeds remaining %zu",
+				  type, length, sid_desc_len);
+			return -1;
+		}
+
+		switch (type) {
+		case BGP_LS_TLV_SRV6_SID_INFO:
+			/* SRv6 SID Information TLV: 16-byte IPv6 SID */
+			if (got_sid) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate SRv6 SID Information TLV in SRv6 SID descriptor");
+				return -1;
+			}
+			if (length < BGP_LS_SRV6_SID_INFO_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: SRv6 SID Info TLV too short (%u bytes)", length);
+				return -1;
+			}
+			stream_get(&srv6->sid_desc.sid, s, IPV6_MAX_BYTELEN);
+			if (length > BGP_LS_SRV6_SID_INFO_SIZE)
+				stream_forward_getp(s, length - BGP_LS_SRV6_SID_INFO_SIZE);
+			got_sid = true;
+			break;
+
+		case BGP_LS_TLV_MT_ID:
+			if (srv6->sid_desc.mt_id_count != 0) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate MT-ID TLV in SRv6 SID descriptor");
+				return -1;
+			}
+			/* Variable length: 2*n bytes where n is number of MT-IDs */
+			if (length == 0 || length % 2 != 0 || length > BGP_LS_MAX_MT_ID * 2) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid MT-ID TLV length %u in SRv6 SID descriptor",
+					  length);
+				return -1;
+			}
+			srv6->sid_desc.mt_id_count = length / 2;
+			srv6->sid_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, length);
+			for (uint16_t i = 0; i < srv6->sid_desc.mt_id_count; i++)
+				srv6->sid_desc.mt_id[i] = stream_getw(s);
+			break;
+
+		default:
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("BGP-LS: SRv6 SID NLRI: unknown descriptor TLV %u",
+					   type);
+			stream_forward_getp(s, length);
+			break;
+		}
+		sid_desc_len -= length;
+	}
+
+	if (!got_sid) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: SRv6 SID NLRI missing mandatory SID Information TLV");
+		return -1;
+	}
+
+	/* Verify we consumed exactly nlri_length bytes */
+	if (stream_get_getp(s) - start_pos != nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: SRv6 SID NLRI length mismatch (consumed %zu, expected %u)",
+			  stream_get_getp(s) - start_pos, nlri_length);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
  * Decode complete BGP-LS NLRI from UPDATE message (RFC 9552 Section 5.2)
  *
  * This is the main entry point for decoding NLRIs from MP_REACH_NLRI
@@ -3643,6 +3928,9 @@ int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri)
 	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		return bgp_ls_decode_prefix_nlri(s, nlri, nlri_type, nlri_length);
+
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return bgp_ls_decode_srv6_sid_nlri(s, nlri, nlri_length);
 
 	default:
 		/* Unknown NLRI type - preserve and propagate (RFC 9552 Section 5.2) */
@@ -5817,6 +6105,10 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		protocol_id = nlri->nlri_data.prefix.protocol_id;
 		identifier = nlri->nlri_data.prefix.identifier;
 		break;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		protocol_id = nlri->nlri_data.srv6_sid.protocol_id;
+		identifier = nlri->nlri_data.srv6_sid.identifier;
+		break;
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		break;
 	}
@@ -5834,6 +6126,9 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		break;
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		nlri_type_str = "Prefix";
+		break;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		nlri_type_str = "SRv6 SID";
 		break;
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		nlri_type_str = "Unknown";
@@ -5883,6 +6178,8 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV4_PREFIX ||
 		   nlri->nlri_type == BGP_LS_NLRI_TYPE_IPV6_PREFIX) {
 		local_node = &nlri->nlri_data.prefix.local_node;
+	} else if (nlri->nlri_type == BGP_LS_NLRI_TYPE_SRV6_SID) {
+		local_node = &nlri->nlri_data.srv6_sid.local_node;
 	}
 
 	if (local_node) {
@@ -6030,5 +6327,15 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 			for (uint8_t i = 0; i < prefix_desc->mt_id_count; i++)
 				vty_out(vty, "\tMT-ID: %u\n", prefix_desc->mt_id[i]);
 		}
+	}
+
+	/* Display SRv6 SID Descriptor for SRv6 SID NLRI (RFC 9514) */
+	if (nlri->nlri_type == BGP_LS_NLRI_TYPE_SRV6_SID) {
+		const struct bgp_ls_srv6_sid_nlri *s = &nlri->nlri_data.srv6_sid;
+
+		vty_out(vty, "SRv6 SID Descriptor:\n");
+		for (uint8_t i = 0; i < s->sid_desc.mt_id_count; i++)
+			vty_out(vty, "\tMulti-Topology: 0x%04x\n", s->sid_desc.mt_id[i]);
+		vty_out(vty, "\tSID: %pI6\n", &s->sid_desc.sid);
 	}
 }

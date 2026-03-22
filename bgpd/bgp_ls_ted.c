@@ -980,6 +980,115 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	return 0;
 }
 
+
+/*
+ * Originate SRv6 SID NLRI (Type 6, RFC 9514 Section 6) from IGP SRv6 SID data
+ *
+ * Called when an IGP prefix carrying an SRv6 SID is learned from the TED.
+ * Builds the SRv6 SID NLRI (local node + SID descriptor) and installs it
+ * in the RIB for advertisement to BGP-LS peers.
+ */
+int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+			      uint16_t router_id_len, uint32_t area_id, struct ls_subnet *subnet)
+{
+	struct bgp_ls_nlri nlri;
+	struct bgp_ls_attr *ls_attr = NULL;
+	int ret;
+
+	if (!bgp || !router_id || !subnet || !subnet->ls_pref)
+		return -1;
+
+	if (!CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+		return 0;
+
+	/* Clear NLRI structure */
+	memset(&nlri, 0, sizeof(nlri));
+
+	/* Build SRv6 SID NLRI (Type 6) */
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = protocol_id;
+	nlri.nlri_data.srv6_sid.identifier = 0;
+
+	/* Local Node Descriptor */
+	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id, router_id, router_id_len);
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
+
+	/* Set AS Number if available */
+	if (subnet->vertex && subnet->vertex->node &&
+	    CHECK_FLAG(subnet->vertex->node->flags, LS_NODE_AS_NUMBER)) {
+		nlri.nlri_data.srv6_sid.local_node.asn = subnet->vertex->node->as_number;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_AS_BIT);
+	}
+
+	/* Set OSPF Area ID if OSPF (mirrors bgp_ls_originate_prefix). */
+	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
+	}
+
+	/* SRv6 SID Descriptor: SID Information (TLV 518) */
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+
+	/* Install in RIB */
+	ret = bgp_ls_update(bgp, &nlri, ls_attr);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to originate SRv6 SID NLRI");
+		bgp_ls_attr_free(ls_attr);
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Originated SRv6 SID NLRI %pI6 behavior 0x%04x",
+			   &subnet->ls_pref->srv6.sid, subnet->ls_pref->srv6.behavior);
+
+	return 0;
+}
+
+
+int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+			     uint16_t router_id_len, uint32_t area_id, struct ls_subnet *subnet)
+{
+	struct bgp_ls_nlri nlri;
+	int ret;
+
+	if (!bgp || !router_id || !subnet || !subnet->ls_pref)
+		return -1;
+
+	if (!CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+		return 0;
+
+	memset(&nlri, 0, sizeof(nlri));
+
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = protocol_id;
+	nlri.nlri_data.srv6_sid.identifier = 0;
+
+	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id, router_id, router_id_len);
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
+
+	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
+	}
+
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+
+	ret = bgp_ls_withdraw(bgp, &nlri);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to withdraw SRv6 SID NLRI");
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Withdrawn SRv6 SID NLRI %pI6", &subnet->ls_pref->srv6.sid);
+
+	return 0;
+}
+
 /*
  * ===========================================================================
  * Link State Message Processing
@@ -1141,6 +1250,7 @@ int bgp_ls_process_edge(struct bgp *bgp, struct ls_edge *edge, uint8_t event)
 
 /*
  * Process Link State subnet and originate/withdraw BGP-LS Prefix NLRI
+ * and, when the prefix carries an SRv6 SID, also the SRv6 SID NLRI (Type 6).
  */
 int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t event)
 {
@@ -1187,14 +1297,29 @@ int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t eve
 	switch (event) {
 	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
-	case LS_MSG_EVENT_UPDATE:
-		return bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
-					       &subnet->key, area_id, subnet);
-
-	case LS_MSG_EVENT_DELETE:
-		return bgp_ls_withdraw_prefix(bgp, protocol_id, router_id, router_id_len,
-					      &subnet->key, area_id, subnet);
-
+	case LS_MSG_EVENT_UPDATE: {
+		int ret = bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
+						  &subnet->key, area_id, subnet);
+		if (ret < 0)
+			return ret;
+		/* Also originate SRv6 SID NLRI for prefixes carrying an SRv6 SID */
+		if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+			ret = bgp_ls_originate_srv6_sid(bgp, protocol_id, router_id, router_id_len,
+							area_id, subnet);
+		return ret;
+	}
+	case LS_MSG_EVENT_DELETE: {
+		int ret = bgp_ls_withdraw_prefix(bgp, protocol_id, router_id, router_id_len,
+						 &subnet->key, area_id, subnet);
+		/* Also withdraw SRv6 SID NLRI when present */
+		if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6)) {
+			int srv6_ret = bgp_ls_withdraw_srv6_sid(bgp, protocol_id, router_id,
+								router_id_len, area_id, subnet);
+			if (!ret)
+				ret = srv6_ret;
+		}
+		return ret;
+	}
 	default:
 		zlog_warn("BGP-LS: Unknown event type %u for subnet", event);
 		return -1;

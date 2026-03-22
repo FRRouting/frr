@@ -47,6 +47,7 @@ enum bgp_ls_nlri_type {
 	BGP_LS_NLRI_TYPE_LINK = 2,	  /* Link NLRI - RFC 9552 */
 	BGP_LS_NLRI_TYPE_IPV4_PREFIX = 3, /* IPv4 Topology Prefix NLRI - RFC 9552 */
 	BGP_LS_NLRI_TYPE_IPV6_PREFIX = 4, /* IPv6 Topology Prefix NLRI - RFC 9552 */
+	BGP_LS_NLRI_TYPE_SRV6_SID = 6,	  /* SRv6 SID NLRI - RFC 9514 */
 };
 
 /*
@@ -81,6 +82,14 @@ enum bgp_ls_link_descriptor_tlv {
 	BGP_LS_TLV_IPV6_NEIGH_ADDR = 262, /* IPv6 neighbor address - RFC 9552, Section 5.2.2 */
 	BGP_LS_TLV_MT_ID = 263, /* Multi-Topology Identifier - RFC 9552, Section 5.2.2.1 */
 	BGP_LS_TLV_REMOTE_AS_NUMBER = 270, /* Remote AS Number - draft-ietf-idr-bgpls-inter-as-topology-ext */
+};
+
+/*
+ * SRv6 SID Descriptor TLV Types (RFC 9514, Section 6)
+ * Used in the SRv6 SID NLRI SID Descriptors field
+ */
+enum bgp_ls_srv6_sid_descriptor_tlv {
+	BGP_LS_TLV_SRV6_SID_INFO = 518, /* SRv6 SID Information - RFC 9514, Section 6.1 */
 };
 
 /*
@@ -334,6 +343,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE	  28 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Sys-ID (6) */
 #define BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE	  26 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Router-ID (4) */
 #define BGP_LS_SRV6_LOCATOR_MIN_SIZE		8  /* Flags (1) + Algo (1) + Reserved (2) + Metric (4) */
+#define BGP_LS_SRV6_SID_INFO_SIZE		16 /* 128-bit SRv6 SID */
 
 /*
  * Maximum values for arrays
@@ -477,6 +487,17 @@ struct bgp_ls_prefix_descriptor {
 };
 
 /*
+ * SRv6 SID Descriptor (RFC 9514, Section 6)
+ * Identifies a specific SRv6 SID within an SRv6 SID NLRI.
+ * MUST contain exactly one SRv6 SID Information TLV (518).
+ */
+struct bgp_ls_srv6_sid_descriptor {
+	struct in6_addr sid;		      /* 128-bit SRv6 SID (from TLV 518) */
+	uint8_t mt_id_count;		      /* Number of Multi-Topology IDs */
+	uint16_t *mt_id;			      /* Multi-Topology IDs (from TLV 263) */
+};
+
+/*
  * ===========================================================================
  * BGP-LS NLRI Structures (RFC 9552 Section 5.2)
  * ===========================================================================
@@ -563,6 +584,29 @@ struct bgp_ls_prefix_nlri {
 	struct bgp_ls_prefix_descriptor prefix_desc; /* Prefix identity */
 };
 
+/*
+ * SRv6 SID NLRI (Type 6) - RFC 9514, Section 6
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+
+ * |  Protocol-ID  |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                         Identifier                            |
+ * |                          (8 octets)                           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Local Node Descriptors (variable)              //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              SRv6 SID Descriptors (variable)                //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+struct bgp_ls_srv6_sid_nlri {
+	enum bgp_ls_protocol_id protocol_id;	    /* IGP/BGP protocol */
+	uint64_t identifier;					    /* Instance identifier */
+	struct bgp_ls_node_descriptor local_node;   /* Local node descriptors */
+	struct bgp_ls_srv6_sid_descriptor sid_desc; /* SRv6 SID descriptors */
+};
+
 /* Forward declare the hash table */
 PREDECL_HASH(bgp_ls_nlri_hash);
 
@@ -594,6 +638,7 @@ struct bgp_ls_nlri {
 		struct bgp_ls_node_nlri node;	  /* Node NLRI (Type 1) */
 		struct bgp_ls_link_nlri link;	  /* Link NLRI (Type 2) */
 		struct bgp_ls_prefix_nlri prefix; /* Prefix NLRI (Type 3/4) */
+		struct bgp_ls_srv6_sid_nlri srv6_sid; /* SRv6 SID NLRI (Type 6, RFC 9514) */
 	} nlri_data;
 
 	unsigned long refcnt; /* Reference count */
@@ -915,6 +960,13 @@ extern int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
 /* Decode Prefix NLRI from wire format */
 extern int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
 				     uint16_t nlri_type, uint16_t nlri_length);
+
+/* Encode SRv6 SID NLRI to wire format (RFC 9514) */
+extern int bgp_ls_encode_srv6_sid_nlri(struct stream *s, const struct bgp_ls_srv6_sid_nlri *nlri);
+
+/* Decode SRv6 SID NLRI from wire format (RFC 9514) */
+extern int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
+				       uint16_t nlri_length);
 
 /* Decode complete NLRI */
 extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
