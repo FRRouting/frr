@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #ifndef _FRR_BGP_PEER_NB_H_
 #define _FRR_BGP_PEER_NB_H_
 
