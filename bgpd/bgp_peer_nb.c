@@ -84,6 +84,8 @@ static const void *lib_vrf_peer_get_next(struct nb_cb_get_next_args *args)
 	struct bgp *bgp;
 	struct peer *peer = (struct peer *)args->list_entry;
 	struct listnode *node;
+	struct peer *it;
+	bool return_next = false;
 	struct vrf *vrfp = (struct vrf *)args->parent_list_entry;
 
 	if (!vrfp)
@@ -93,14 +95,18 @@ static const void *lib_vrf_peer_get_next(struct nb_cb_get_next_args *args)
 	if (!bgp || !bgp->peer)
 		return NULL;
 
-	if (!peer) {
-		node = listnode_head(bgp->peer);
-		return node ? listgetdata(node) : NULL;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, it)) {
+		if (!peer)
+			return it;
+
+		if (return_next)
+			return it;
+
+		if (it == peer)
+			return_next = true;
 	}
 
-	node = listnode_lookup(bgp->peer, peer);
-	node = node ? listnextnode(node) : NULL;
-	return node ? listgetdata(node) : NULL;
+	return NULL;
 }
 
 static int lib_vrf_peer_get_keys(struct nb_cb_get_keys_args *args)
