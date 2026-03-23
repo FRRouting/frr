@@ -686,12 +686,14 @@ static struct yang_data *key_chains_key_chain_key_accept_lifetime_active_get_ele
 	return yang_data_new_bool(args->xpath, active);
 }
 
+/* clang-format off */
+
 static const char * const keychain_features[] = {
 	"independent-send-accept-lifetime",
+	"cleartext",
 	NULL,
 };
 
-/* clang-format off */
 const struct frr_yang_module_info ietf_key_chain_info = {
 	.name = "ietf-key-chain",
 	.features = (const char **)keychain_features,

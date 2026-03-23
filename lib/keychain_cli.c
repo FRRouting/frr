@@ -118,8 +118,9 @@ DEFPY_YANG(
       cryptographic_algorithm,
       cryptographic_algorithm_cmd,
       "cryptographic-algorithm "
-      "<null|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo",
+      "<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo",
       "Cryptographic-algorithm\n"
+      "null\n"
       "Use cleartext password\n"
       "Use MD5 algorithm\n"
       "Use HMAC-SHA-1 algorithm\n"
@@ -135,9 +136,10 @@ DEFPY_YANG(
       no_cryptographic_algorithm,
       no_cryptographic_algorithm_cmd,
       "no cryptographic-algorithm "
-      "[<null|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo]",
+      "[<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo]",
       NO_STR
       "Cryptographic-algorithm\n"
+      "null\n"
       "Use cleartext password\n"
       "Use MD5 algorithm\n"
       "Use HMAC-SHA-1 algorithm\n"
@@ -852,12 +854,14 @@ void key_chains_key_chain_key_key_string_keystring_cli_write(
 	vty_out(vty, "  key-string %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/* clang-format off */
+
 static const char * const keychain_features[] = {
 	"independent-send-accept-lifetime",
+	"cleartext",
 	NULL,
 };
 
-/* clang-format off */
 const struct frr_yang_module_info ietf_key_chain_cli_info = {
 	.name = "ietf-key-chain",
 	.features = (const char **)keychain_features,

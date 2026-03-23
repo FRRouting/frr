@@ -570,6 +570,7 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 	case KEYCHAIN_ALGO_HMAC_SHA1:
 		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
 	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
 		return BFD_AUTH_TYPE_SIMPLE_PASSWORD;
 	case KEYCHAIN_ALGO_MD5:
 	case KEYCHAIN_ALGO_HMAC_SHA256:
