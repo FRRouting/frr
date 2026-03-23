@@ -1646,6 +1646,9 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	    re1->distance != re2->distance)
 		return false;
 
+	if (re1->type == ZEBRA_ROUTE_KERNEL && re1->metric != re2->metric)
+		return false;
+
 	/* We support multiple connected routes: this supports multiple
 	 * v6 link-locals, and we also support multiple addresses in the same
 	 * subnet on a single interface.
