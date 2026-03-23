@@ -590,6 +590,12 @@ struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src)
 	dst = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(*dst));
 	memcpy(dst, src, sizeof(*dst));
 
+	/* Must deep-copy some struct members */
+
+	/* Reset and properly copy admin_group */
+	memset(&dst->ext_admin_group, 0, sizeof(dst->ext_admin_group));
+	admin_group_copy(&dst->ext_admin_group, &src->ext_admin_group);
+
 	if (src->node_name)
 		dst->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, src->node_name);
 
