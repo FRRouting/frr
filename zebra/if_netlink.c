@@ -422,6 +422,10 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 			   gre_info->okey))
 		return 0;
 
+	if (gre_info->encap_flags &&
+	    !nl_attr_put16(&req->n, buflen, IFLA_GRE_ENCAP_FLAGS, gre_info->encap_flags))
+		return 0;
+
 	nl_attr_nest_end(&req->n, rta_data);
 	nl_attr_nest_end(&req->n, rta_info);
 
@@ -518,6 +522,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2inf
 		gre_info->ikey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_IKEY]);
 	if (attr[IFLA_GRE_OKEY])
 		gre_info->okey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_OKEY]);
+	if (attr[IFLA_GRE_ENCAP_FLAGS])
+		gre_info->encap_flags = *(uint16_t *)RTA_DATA(attr[IFLA_GRE_ENCAP_FLAGS]);
 	return 0;
 }
 

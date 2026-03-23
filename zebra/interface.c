@@ -35,6 +35,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_l2.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -2907,6 +2908,15 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				vty_out(vty, " , remote %pI6", &gre_info->vtep_ip_remote.ipaddr_v6);
 			vty_out(vty, "\n");
 		}
+
+		if (gre_info->encap_flags) {
+			vty_out(vty, "  GRE encap flags ");
+			vty_out(vty, "checksum %s, ",
+				gre_info->encap_flags & ZEBRA_GRE_ENCAP_FLAGS_CSUM ? "on" : "off");
+			vty_out(vty, "checksum ipv6 %s\n",
+				gre_info->encap_flags & ZEBRA_GRE_ENCAP_FLAGS_CSUM6 ? "on" : "off");
+		}
+
 		if (gre_info->ifindex_link &&
 		    (gre_info->link_nsid != NS_UNKNOWN)) {
 			struct interface *nifp;
@@ -3322,6 +3332,12 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 				json_object_string_addf(json_if, "vtepRemoteIp", "%pI6",
 							&gre_info->vtep_ip_remote.ipaddr_v6);
 		}
+		json_object_boolean_add(json_if, "greEncapChecksum",
+					gre_info->encap_flags & ZEBRA_GRE_ENCAP_FLAGS_CSUM);
+		json_object_boolean_add(json_if, "greEncapIpv6Checksum",
+					gre_info->encap_flags & ZEBRA_GRE_ENCAP_FLAGS_CSUM6);
+
+
 		if (gre_info->ifindex_link
 		    && (gre_info->link_nsid != NS_UNKNOWN)) {
 			struct interface *nifp;
