@@ -237,8 +237,11 @@ void key_delete(struct keychain *keychain, struct key *key)
 	key_free(key);
 }
 
+/* clang-format off */
+
 const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_NULL, "null", 0, 0, "NULL"},
+	{KEYCHAIN_ALGO_CLEARTEXT, "cleartext", 0, 0, "CLEARTEXT"},
 	{KEYCHAIN_ALGO_MD5, "md5", KEYCHAIN_MD5_HASH_SIZE,
 	 KEYCHAIN_ALGO_MD5_INTERNAL_BLK_SIZE, "MD5"},
 	{KEYCHAIN_ALGO_HMAC_SHA1, "hmac-sha-1", KEYCHAIN_HMAC_SHA1_HASH_SIZE,
@@ -255,6 +258,8 @@ const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_MAX, "max", KEYCHAIN_MAX_HASH_SIZE,
 	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
 };
+
+/* clang-format on */
 
 uint16_t keychain_get_block_size(enum keychain_hash_algo key)
 {
@@ -284,11 +289,15 @@ enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
 		return KEYCHAIN_ALGO_HMAC_SHA256;
 	else if (!strncmp(name, "md5", 3))
 		return KEYCHAIN_ALGO_MD5;
+	else if (!strncmp(name, "cleartext", 9))
+		return KEYCHAIN_ALGO_CLEARTEXT;
 	else
 		return KEYCHAIN_ALGO_NULL;
 #else
 	if (!strncmp(name, "md5", 1))
 		return KEYCHAIN_ALGO_MD5;
+	else if (!strncmp(name, "cleartext", 9))
+		return KEYCHAIN_ALGO_CLEARTEXT;
 	else if (!strncmp(name, "hmac-sha-1", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA1;
 	else if (!strncmp(name, "hmac-sha-2", 10))
