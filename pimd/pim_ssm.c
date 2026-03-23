@@ -37,6 +37,7 @@ static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 	 * will
 	 * disappear in time for SSM groups.
 	 */
+	pim_upstream_dense_reevaluate(pim);
 	pim_upstream_register_reevaluate(pim);
 	igmp_source_forward_reevaluate_all(pim);
 #endif

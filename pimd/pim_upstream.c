@@ -772,17 +772,107 @@ int pim_upstream_could_register(struct pim_upstream *up)
 	return 0;
 }
 
-/* Source registration is suppressed for SSM groups. When the SSM range changes
- * we re-revaluate register setup for existing upstream entries */
+static void pim_upstream_transition_dm_to_sm(struct pim_instance *pim, struct pim_upstream *up)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+
+	if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) || !RP(pim, up->sg.grp))
+		return;
+
+	if (PIM_DEBUG_PIM_EVENTS)
+		zlog_debug("Setting DM mroute %s to sparse", up->sg_str);
+	/* Cancel stale DM timers before transitioning. */
+	if (up->t_prune_timer)
+		event_cancel(&up->t_prune_timer);
+	if (up->t_graft_timer)
+		event_cancel(&up->t_graft_timer);
+	PIM_UPSTREAM_DM_UNSET_PRUNE(up->flags);
+	/* Upstream is both sparse and dense, unset dense flag */
+	PIM_UPSTREAM_DM_UNSET_INTERFACE(up->flags);
+	/* For non-FHR upstreams, default to using the RP tree after
+	 * transitioning from dense to sparse. FHR (S,G) entries manage
+	 * RPT/SPT state via the SPT switch logic and should not have
+	 * USE_RPT forced here.
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+		PIM_UPSTREAM_FLAG_SET_USE_RPT(up->flags);
+	/* Clear all OIFs without per-OIF kernel flushes; one final MFC
+	 * update is done after the loop. */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+			continue;
+
+		if (up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &
+		    PIM_OIF_FLAG_PROTO_ANY) {
+			bool had_oif =
+				oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index);
+			bool had_mute =
+				!!(up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &
+				   PIM_OIF_FLAG_MUTE);
+
+			up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &=
+				~PIM_OIF_FLAG_PROTO_ANY;
+			if (had_oif) {
+				/* MUTE + active TTL is an inconsistent transient state.
+				 * Log it for diagnostics, then clear OIF state.
+				 */
+				if (had_mute && PIM_DEBUG_PIM_EVENTS)
+					zlog_debug(
+						"%s: MUTE set but OIF active for %s vif %d",
+						__func__, up->sg_str,
+						pim_ifp->mroute_vif_index);
+				oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+				up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &=
+					~PIM_OIF_FLAG_MUTE;
+				if (up->channel_oil->oil_size > 0)
+					--up->channel_oil->oil_size;
+				else if (PIM_DEBUG_PIM_EVENTS)
+					zlog_debug("%s: oil_size underflow for %s vif %d",
+						   __func__, up->sg_str,
+						   pim_ifp->mroute_vif_index);
+			} else if (had_mute) {
+				/* Muted protocol-owned OIF: clear stale forwarding and
+				 * mute state, but do not adjust oil_size.
+				 */
+				oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+				up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &=
+					~PIM_OIF_FLAG_MUTE;
+			}
+		}
+
+		/* DM-native OIFs are installed via oil_if_set() directly. */
+		if (oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
+			oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+			up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] = 0;
+		}
+	}
+	pim_upstream_mroute_update(up->channel_oil, __func__);
+	/* Trigger sparse-mode join state machine. */
+	pim_upstream_update_join_desired(pim, up);
+}
+
+void pim_upstream_dense_reevaluate(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+
+	frr_each_safe (rb_pim_upstream, &pim->upstream_head, up)
+		pim_upstream_transition_dm_to_sm(pim, up);
+}
+
+/* Re-evaluate source-registration setup for SSM/ASM changes. */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
 
-	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+	frr_each_safe (rb_pim_upstream, &pim->upstream_head, up) {
 		/* If FHR is set CouldRegister is True. Also check if the flow
 		 * is actually active; if it is not kat setup will trigger
 		 * source
-		 * registration whenever the flow becomes active. */
+		 * registration whenever the flow becomes active.
+		 */
+
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
 			!pim_upstream_is_kat_running(up))
 			continue;
