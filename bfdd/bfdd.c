@@ -43,6 +43,7 @@ static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW
 
 /* BFD daemon information. */
 static struct frr_daemon_info bfdd_di;
+static int bfd_process_keychain_remove(const char *keychain_name);
 
 void socket_close(int *s)
 {
@@ -315,6 +316,54 @@ distributed_bfd_init(const char *arg)
 	bfd_dplane_init((struct sockaddr *)&sa, salen, is_client);
 }
 
+static void __bfd_process_keychain_removed(const char *keychain_name, bool is_mhop)
+{
+	struct bfd_session *bs;
+	const struct bfd_session *iter = NULL;
+
+	while ((iter = bfd_session_next(iter, is_mhop, BFD_MODE_TYPE_BFD)) != NULL) {
+		bs = (struct bfd_session *)iter;
+
+		if (!bfd_session_auth_config_takes_precedence_over_profile(bs))
+			/* Peer-specific config takes precedence */
+			continue;
+
+		if (strcmp(keychain_name, bs->peer_profile.auth_config.key_chain_name) != 0)
+			/* peer profile keychain name does not match */
+			continue;
+
+		bs->kc = NULL;
+
+		zlog_info("BFD: session [%s], keychain %s removed", bs_to_string(bs),
+			  keychain_name);
+
+		bfd_session_apply(bs);
+	}
+}
+
+static int bfd_process_keychain_remove(const char *keychain_name)
+{
+	struct bfd_profile *bp;
+
+	if (!keychain_name)
+		return 0;
+
+	TAILQ_FOREACH (bp, &bplist, entry) {
+		if (bp->auth_config.key_chain_name[0] == '\0' ||
+		    strcmp(keychain_name, bp->auth_config.key_chain_name) != 0)
+			/* profile keychain name does not match */
+			continue;
+
+		zlog_info("BFD: profile %s, keychain %s removed", bp->name, keychain_name);
+
+		bfd_profile_update(bp);
+	}
+
+	__bfd_process_keychain_removed(keychain_name, false);
+	__bfd_process_keychain_removed(keychain_name, true);
+	return 0;
+}
+
 static void bg_init(void)
 {
 	struct zebra_privs_t bfdd_privs = {
@@ -389,6 +438,8 @@ int main(int argc, char *argv[])
 
 	/* Install commands. */
 	bfdd_vty_init();
+
+	hook_register(keychain_removed, bfd_process_keychain_remove);
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();

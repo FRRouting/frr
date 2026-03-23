@@ -161,6 +161,17 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 	bfd_session_apply(bs);
 }
 
+bool bfd_session_auth_config_takes_precedence_over_profile(struct bfd_session *bs)
+{
+	struct keychain *kc = NULL; /* Currently active keychain for this session */
+
+	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
+		kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
+	if (kc)
+		return true;
+	return false;
+}
+
 void bfd_session_apply(struct bfd_session *bs)
 {
 	struct bfd_profile *bp;
@@ -237,11 +248,11 @@ void bfd_session_apply(struct bfd_session *bs)
 
 	/* Determine effective authentication settings */
 	bs->kc = NULL;
-	/* Peer-specific config takes precedence */
-	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
-		bs->kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
 
-	if (bs->kc == NULL && bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
+	/* Peer-specific config takes precedence */
+	if (bfd_session_auth_config_takes_precedence_over_profile(bs))
+		bs->kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
+	else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
 		bs->kc = keychain_lookup(bs->profile->auth_config.key_chain_name);
 
 	/* If session interval changed negotiate new timers. */

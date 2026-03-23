@@ -744,6 +744,7 @@ void bfd_set_log_session_changes(struct bfd_session *bs, bool log_session);
  * \param bs the BFD session.
  */
 void bfd_session_apply(struct bfd_session *bs);
+bool bfd_session_auth_config_takes_precedence_over_profile(struct bfd_session *bs);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);
