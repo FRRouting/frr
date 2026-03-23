@@ -504,6 +504,7 @@ struct bgp_ls_attr *bgp_ls_attr_alloc(void)
 	struct bgp_ls_attr *attr;
 
 	attr = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(struct bgp_ls_attr));
+	admin_group_init(&attr->ext_admin_group);
 	return attr;
 }
 
@@ -511,6 +512,8 @@ void bgp_ls_attr_free(struct bgp_ls_attr *attr)
 {
 	if (!attr)
 		return;
+
+	admin_group_term(&attr->ext_admin_group);
 
 	XFREE(MTYPE_BGP_LS_ATTR, attr->node_name);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->isis_area_id);
