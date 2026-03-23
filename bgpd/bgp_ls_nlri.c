@@ -31,30 +31,30 @@ int bgp_ls_node_descriptor_cmp(const struct bgp_ls_node_descriptor *d1,
 
 	/* Must have same TLVs present */
 	if (d1->present_tlvs != d2->present_tlvs)
-		return d1->present_tlvs - d2->present_tlvs;
+		return numcmp(d1->present_tlvs, d2->present_tlvs);
 
 	/* Compare AS Number if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_NODE_DESC_AS_BIT)) {
 		if (d1->asn != d2->asn)
-			return d1->asn - d2->asn;
+			return numcmp(d1->asn, d2->asn);
 	}
 
 	/* Compare BGP-LS ID if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT)) {
 		if (d1->bgp_ls_id != d2->bgp_ls_id)
-			return d1->bgp_ls_id - d2->bgp_ls_id;
+			return numcmp(d1->bgp_ls_id, d2->bgp_ls_id);
 	}
 
 	/* Compare OSPF Area ID if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT)) {
 		if (d1->ospf_area_id != d2->ospf_area_id)
-			return d1->ospf_area_id - d2->ospf_area_id;
+			return numcmp(d1->ospf_area_id, d2->ospf_area_id);
 	}
 
 	/* Compare IGP Router ID if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
 		if (d1->igp_router_id_len != d2->igp_router_id_len)
-			return d1->igp_router_id_len - d2->igp_router_id_len;
+			return numcmp(d1->igp_router_id_len, d2->igp_router_id_len);
 		ret = memcmp(d1->igp_router_id, d2->igp_router_id, d1->igp_router_id_len);
 		if (ret != 0)
 			return ret;
@@ -80,14 +80,14 @@ int bgp_ls_link_descriptor_cmp(const struct bgp_ls_link_descriptor *d1,
 
 	/* Must have same TLVs present */
 	if (d1->present_tlvs != d2->present_tlvs)
-		return d1->present_tlvs - d2->present_tlvs;
+		return numcmp(d1->present_tlvs, d2->present_tlvs);
 
 	/* Compare Link IDs if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
 		if (d1->link_local_id != d2->link_local_id)
-			return d1->link_local_id - d2->link_local_id;
+			return numcmp(d1->link_local_id, d2->link_local_id);
 		if (d1->link_remote_id != d2->link_remote_id)
-			return d1->link_remote_id - d2->link_remote_id;
+			return numcmp(d1->link_remote_id, d2->link_remote_id);
 	}
 
 	/* Compare IPv4 Interface Address if present */
@@ -121,10 +121,10 @@ int bgp_ls_link_descriptor_cmp(const struct bgp_ls_link_descriptor *d1,
 	/* Compare Multi-Topology IDs if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
 		if (d1->mt_id_count != d2->mt_id_count)
-			return d1->mt_id_count - d2->mt_id_count;
+			return numcmp(d1->mt_id_count, d2->mt_id_count);
 		for (int i = 0; i < d1->mt_id_count; i++) {
 			if (d1->mt_id[i] != d2->mt_id[i])
-				return d1->mt_id[i] - d2->mt_id[i];
+				return numcmp(d1->mt_id[i], d2->mt_id[i]);
 		}
 	}
 
@@ -148,7 +148,7 @@ int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
 
 	/* Must have same TLVs present */
 	if (d1->present_tlvs != d2->present_tlvs)
-		return d1->present_tlvs - d2->present_tlvs;
+		return numcmp(d1->present_tlvs, d2->present_tlvs);
 
 	/* Compare prefix */
 	ret = prefix_cmp(&d1->prefix, &d2->prefix);
@@ -158,16 +158,16 @@ int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
 	/* Compare OSPF Route Type if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT)) {
 		if (d1->ospf_route_type != d2->ospf_route_type)
-			return d1->ospf_route_type - d2->ospf_route_type;
+			return numcmp(d1->ospf_route_type, d2->ospf_route_type);
 	}
 
 	/* Compare Multi-Topology IDs if present */
 	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
 		if (d1->mt_id_count != d2->mt_id_count)
-			return d1->mt_id_count - d2->mt_id_count;
+			return numcmp(d1->mt_id_count, d2->mt_id_count);
 		for (int i = 0; i < d1->mt_id_count; i++) {
 			if (d1->mt_id[i] != d2->mt_id[i])
-				return d1->mt_id[i] - d2->mt_id[i];
+				return numcmp(d1->mt_id[i], d2->mt_id[i]);
 		}
 	}
 
@@ -190,7 +190,7 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 
 	/* Different types are never equal */
 	if (nlri1->nlri_type != nlri2->nlri_type)
-		return nlri1->nlri_type - nlri2->nlri_type;
+		return numcmp(nlri1->nlri_type, nlri2->nlri_type);
 
 	/* Type-specific comparison */
 	switch (nlri1->nlri_type) {
@@ -200,11 +200,11 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 
 		/* Compare protocol ID */
 		if (n1->protocol_id != n2->protocol_id)
-			return n1->protocol_id - n2->protocol_id;
+			return numcmp(n1->protocol_id, n2->protocol_id);
 
 		/* Compare identifier */
 		if (n1->identifier != n2->identifier)
-			return n1->identifier - n2->identifier;
+			return numcmp(n1->identifier, n2->identifier);
 
 		/* Compare local node descriptor */
 		return bgp_ls_node_descriptor_cmp(&n1->local_node, &n2->local_node);
@@ -216,11 +216,11 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 
 		/* Compare protocol ID */
 		if (l1->protocol_id != l2->protocol_id)
-			return l1->protocol_id - l2->protocol_id;
+			return numcmp(l1->protocol_id, l2->protocol_id);
 
 		/* Compare identifier */
 		if (l1->identifier != l2->identifier)
-			return l1->identifier - l2->identifier;
+			return numcmp(l1->identifier, l2->identifier);
 
 		/* Compare local node descriptor */
 		ret = bgp_ls_node_descriptor_cmp(&l1->local_node, &l2->local_node);
@@ -243,11 +243,11 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 
 		/* Compare protocol ID */
 		if (p1->protocol_id != p2->protocol_id)
-			return p1->protocol_id - p2->protocol_id;
+			return numcmp(p1->protocol_id, p2->protocol_id);
 
 		/* Compare identifier */
 		if (p1->identifier != p2->identifier)
-			return p1->identifier - p2->identifier;
+			return numcmp(p1->identifier, p2->identifier);
 
 		/* Compare local node descriptor */
 		ret = bgp_ls_node_descriptor_cmp(&p1->local_node, &p2->local_node);
@@ -275,11 +275,11 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 	int ret;
 
 	if (attr1->present_tlvs != attr2->present_tlvs)
-		return attr1->present_tlvs - attr2->present_tlvs;
+		return numcmp(attr1->present_tlvs, attr2->present_tlvs);
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_NODE_FLAGS_BIT)) {
 		if (attr1->node_flags != attr2->node_flags)
-			return attr1->node_flags - attr2->node_flags;
+			return numcmp(attr1->node_flags, attr2->node_flags);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT)) {
@@ -290,7 +290,7 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT)) {
 		if (attr1->isis_area_id_len != attr2->isis_area_id_len)
-			return attr1->isis_area_id_len - attr2->isis_area_id_len;
+			return numcmp(attr1->isis_area_id_len, attr2->isis_area_id_len);
 		ret = memcmp(attr1->isis_area_id, attr2->isis_area_id, attr1->isis_area_id_len);
 		if (ret != 0)
 			return ret;
@@ -322,7 +322,7 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_ADMIN_GROUP_BIT)) {
 		if (attr1->admin_group != attr2->admin_group)
-			return attr1->admin_group - attr2->admin_group;
+			return numcmp(attr1->admin_group, attr2->admin_group);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_MAX_LINK_BW_BIT)) {
@@ -350,32 +350,32 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_TE_METRIC_BIT)) {
 		if (attr1->te_metric != attr2->te_metric)
-			return attr1->te_metric - attr2->te_metric;
+			return numcmp(attr1->te_metric, attr2->te_metric);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_LINK_PROTECTION_BIT)) {
 		if (attr1->link_protection != attr2->link_protection)
-			return attr1->link_protection - attr2->link_protection;
+			return numcmp(attr1->link_protection, attr2->link_protection);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_MPLS_PROTOCOL_BIT)) {
 		if (attr1->mpls_protocol_mask != attr2->mpls_protocol_mask)
-			return attr1->mpls_protocol_mask - attr2->mpls_protocol_mask;
+			return numcmp(attr1->mpls_protocol_mask, attr2->mpls_protocol_mask);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT)) {
 		if (attr1->igp_metric_len != attr2->igp_metric_len)
-			return attr1->igp_metric_len - attr2->igp_metric_len;
+			return numcmp(attr1->igp_metric_len, attr2->igp_metric_len);
 		if (attr1->igp_metric != attr2->igp_metric)
-			return attr1->igp_metric - attr2->igp_metric;
+			return numcmp(attr1->igp_metric, attr2->igp_metric);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_SRLG_BIT)) {
 		if (attr1->srlg_count != attr2->srlg_count)
-			return attr1->srlg_count - attr2->srlg_count;
+			return numcmp(attr1->srlg_count, attr2->srlg_count);
 		for (int i = 0; i < attr1->srlg_count; i++) {
 			if (attr1->srlg_values[i] != attr2->srlg_values[i])
-				return attr1->srlg_values[i] - attr2->srlg_values[i];
+				return numcmp(attr1->srlg_values[i], attr2->srlg_values[i]);
 		}
 	}
 
@@ -387,30 +387,30 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
 		if (attr1->igp_flags != attr2->igp_flags)
-			return attr1->igp_flags - attr2->igp_flags;
+			return numcmp(attr1->igp_flags, attr2->igp_flags);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_ROUTE_TAG_BIT)) {
 		if (attr1->route_tag_count != attr2->route_tag_count)
-			return attr1->route_tag_count - attr2->route_tag_count;
+			return numcmp(attr1->route_tag_count, attr2->route_tag_count);
 		for (int i = 0; i < attr1->route_tag_count; i++) {
 			if (attr1->route_tags[i] != attr2->route_tags[i])
-				return attr1->route_tags[i] - attr2->route_tags[i];
+				return numcmp(attr1->route_tags[i], attr2->route_tags[i]);
 		}
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_EXTENDED_TAG_BIT)) {
 		if (attr1->extended_tag_count != attr2->extended_tag_count)
-			return attr1->extended_tag_count - attr2->extended_tag_count;
+			return numcmp(attr1->extended_tag_count, attr2->extended_tag_count);
 		for (int i = 0; i < attr1->extended_tag_count; i++) {
 			if (attr1->extended_tags[i] != attr2->extended_tags[i])
-				return attr1->extended_tags[i] - attr2->extended_tags[i];
+				return numcmp(attr1->extended_tags[i], attr2->extended_tags[i]);
 		}
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_PREFIX_METRIC_BIT)) {
 		if (attr1->prefix_metric != attr2->prefix_metric)
-			return attr1->prefix_metric - attr2->prefix_metric;
+			return numcmp(attr1->prefix_metric, attr2->prefix_metric);
 	}
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
@@ -424,15 +424,15 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 
 	if (BGP_LS_TLV_CHECK(attr1->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
 		if (attr1->prefix_sid.sid != attr2->prefix_sid.sid)
-			return attr1->prefix_sid.sid - attr2->prefix_sid.sid;
+			return numcmp(attr1->prefix_sid.sid, attr2->prefix_sid.sid);
 		if (attr1->prefix_sid.sid_flag != attr2->prefix_sid.sid_flag)
-			return attr1->prefix_sid.sid_flag - attr2->prefix_sid.sid_flag;
+			return numcmp(attr1->prefix_sid.sid_flag, attr2->prefix_sid.sid_flag);
 		if (attr1->prefix_sid.algo != attr2->prefix_sid.algo)
-			return attr1->prefix_sid.algo - attr2->prefix_sid.algo;
+			return numcmp(attr1->prefix_sid.algo, attr2->prefix_sid.algo);
 	}
 
 	if (attr1->opaque_len != attr2->opaque_len)
-		return attr1->opaque_len - attr2->opaque_len;
+		return numcmp(attr1->opaque_len, attr2->opaque_len);
 	if (attr1->opaque_len > 0) {
 		ret = memcmp(attr1->opaque_data, attr2->opaque_data, attr1->opaque_len);
 		if (ret != 0)
@@ -440,10 +440,10 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 	}
 
 	if (attr1->mt_id_count != attr2->mt_id_count)
-		return attr1->mt_id_count - attr2->mt_id_count;
+		return numcmp(attr1->mt_id_count, attr2->mt_id_count);
 	for (int i = 0; i < attr1->mt_id_count; i++) {
 		if (attr1->mt_id[i] != attr2->mt_id[i])
-			return attr1->mt_id[i] - attr2->mt_id[i];
+			return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
 	}
 
 	return 0;
