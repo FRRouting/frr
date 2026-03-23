@@ -63,6 +63,12 @@ module frr-staticd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-03-21 {
+    description
+      "Add 'metric' as a path-list key alongside table-id and distance.";
+    reference "FRRouting";
+  }
+
   revision 2026-01-23 {
     description
       "Augments the nexthop container with a 'weight' leaf.";
@@ -85,7 +91,7 @@ module frr-staticd {
     description
       "Grouping for staticd prefix attributes.";
     list path-list {
-      key "table-id distance";
+      key "table-id distance metric";
       description
         "List of paths associated with a staticd prefix.";
       leaf table-id {
@@ -98,6 +104,12 @@ module frr-staticd {
         type frr-rt:administrative-distance;
         description
           "Admin distance associated with this route.";
+      }
+
+      leaf metric {
+        type uint32;
+        description
+          "Route metric.";
       }
 
       leaf tag {

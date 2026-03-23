@@ -77,6 +77,48 @@ enum static_install_states {
 PREDECL_DLIST(static_path_list);
 PREDECL_DLIST(static_nexthop_list);
 
+/*
+ * Data model: prefix -> path-list -> nexthop-list
+ *
+ * Each prefix (route_node) has one static_route_info attached as rn->info.
+ * Under it is a list of static_path objects, each uniquely identified by
+ * (table-id, distance, metric).  Under each path is a list of static_nexthop
+ * objects that share those attributes.  Tag is a per-path attribute (not a key).
+ *
+ *   prefix (route_node / static_route_info)
+ *     |
+ *     +-- static_path  [table-id=0, distance=10, metric=0]  tag=100
+ *     |     +-- static_nexthop  NH1   \
+ *     |     +-- static_nexthop  NH2   /  ECMP group (same distance, metric)
+ *     |
+ *     +-- static_path  [table-id=0, distance=10, metric=20]  tag=200
+ *     |     +-- static_nexthop  NH3       metric-based floating static
+ *     |
+ *     +-- static_path  [table-id=0, distance=20, metric=0]  tag=300
+ *           +-- static_nexthop  NH4       AD-based floating static (standby)
+ *
+ * Route preference: AD and metric together determine which path is active in
+ * the RIB.  AD is the primary preference key; for the same AD, metric is
+ * the secondary key.  All paths are sent to zebra; zebra stores each
+ * (AD, metric) combination as a separate route_entry and rib_choose_best()
+ * selects the one with the lowest AD (and lowest metric for the same AD)
+ * for the RIB.  A path with a higher AD or metric is promoted only when all
+ * better paths become unreachable (floating static / backup route).
+ * Default: AD=1, metric=0.
+ *
+ * Tag: a 32-bit marker attached to a path and carried into the RIB.  Tag is
+ * shared by all nexthops in a path and is not part of the path identity.
+ * Nexthops at the same (distance, metric) always share one static_path
+ * regardless of their configured tag values; the last-configured tag applies
+ * to the whole group.  To assign independent tags, use different distances
+ * or metrics.
+ *
+ * ECMP: multiple static_nexthop entries under the same static_path are
+ * installed together as an equal-cost multipath group.  The weight field
+ * on each nexthop lets operators bias the traffic distribution within the
+ * group.
+ */
+
 /* Static route information */
 struct static_route_info {
 	struct static_vrf *svrf;
@@ -93,6 +135,8 @@ struct static_path {
 	struct static_path_list_item list;
 	/* Administrative distance. */
 	uint8_t distance;
+	/* Metric */
+	uint32_t metric;
 	/* Tag */
 	route_tag_t tag;
 	/* Table-id */
@@ -225,8 +269,8 @@ extern struct route_node *static_add_route(afi_t afi, safi_t safi,
 					   struct static_vrf *svrf);
 extern void static_del_route(struct route_node *rn);
 
-extern struct static_path *static_add_path(struct route_node *rn,
-					   uint32_t table_id, uint8_t distance);
+extern struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
+					   uint8_t distance, uint32_t metric);
 extern void static_del_path(struct static_path *pn);
 
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
