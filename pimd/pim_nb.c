@@ -435,6 +435,19 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/allow-rp",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_allow_rp_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/allow-rp-rp-list",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_allow_rp_rp_list_modify,
+				.destroy = lib_interface_pim_address_family_allow_rp_rp_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/use-source",
 			.cbs = {
 				.modify = lib_interface_pim_address_family_use_source_modify,
