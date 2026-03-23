@@ -2121,6 +2121,7 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	void *value;
 	uint32_t len, sum;
 	uint8_t lsa_id;
+	bool error_p = false;
 
 	/* Initialize Attribute */
 	attr.adv.origin = OSPFv2;
@@ -2128,8 +2129,12 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (lsa->data->type != OSPF_OPAQUE_AS_LSA)
 		attr.adv.id.ip.area_id = lsa->area->area_id;
 
+	if (lsa->size <= OSPF_LSA_HEADER_SIZE)
+		return -1;
+
 	/* Initialize TLV browsing */
 	tlvh = TLV_HDR_TOP(lsa->data);
+
 	len = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	/* Check if TE Router-ID TLV is present */
@@ -2139,7 +2144,13 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 			return 0;
 
 		/* ... otherwise, skip it */
+		if (len < (TE_LINK_SUBTLV_DEF_SIZE + TLV_HDR_SIZE) ||
+		    TLV_BODY_SIZE(tlvh) != TE_LINK_SUBTLV_DEF_SIZE ||
+		    TLV_SIZE(tlvh) > len)
+			return -1;
+
 		len -= TE_LINK_SUBTLV_DEF_SIZE + TLV_HDR_SIZE;
+
 		tlvh = TLV_HDR_NEXT(tlvh);
 	}
 
@@ -2159,48 +2170,97 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 		if (tlv_size > len - sum) {
 			zlog_warn("Malformed TE sub-TLV size %u (remaining %u)", tlv_size,
 				  len - sum);
+			error_p = true;
 			break;
 		}
 
 		value = TLV_DATA(tlvh);
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LCLIF_IPADDR:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&addr, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.local = addr;
 			SET_FLAG(attr.flags, LS_ATTR_LOCAL_ADDR);
 			break;
 		case TE_LINK_SUBTLV_RMTIF_IPADDR:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&addr, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.remote = addr;
 			SET_FLAG(attr.flags, LS_ATTR_NEIGH_ADDR);
 			break;
 		case TE_LINK_SUBTLV_TE_METRIC:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.te_metric = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_TE_METRIC);
 			break;
 		case TE_LINK_SUBTLV_MAX_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&valf, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.max_bw = ntohf(valf);
 			SET_FLAG(attr.flags, LS_ATTR_MAX_BW);
 			break;
 		case TE_LINK_SUBTLV_MAX_RSV_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&valf, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.max_rsv_bw = ntohf(valf);
 			SET_FLAG(attr.flags, LS_ATTR_MAX_RSV_BW);
 			break;
 		case TE_LINK_SUBTLV_UNRSV_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_UNRSV_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(tabf, value, TE_LINK_SUBTLV_UNRSV_SIZE);
 			for (int i = 0; i < MAX_CLASS_TYPE; i++)
 				attr.standard.unrsv_bw[i] = ntohf(tabf[i]);
 			SET_FLAG(attr.flags, LS_ATTR_UNRSV_BW);
 			break;
 		case TE_LINK_SUBTLV_RSC_CLSCLR:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.admin_group = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_ADM_GRP);
 			break;
 		case TE_LINK_SUBTLV_LLRI:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_LLRI_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(tab32, value, TE_LINK_SUBTLV_LLRI_SIZE);
 			attr.standard.local_id = ntohl(tab32[0]);
 			attr.standard.remote_id = ntohl(tab32[1]);
@@ -2208,47 +2268,102 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 			SET_FLAG(attr.flags, LS_ATTR_NEIGH_ID);
 			break;
 		case TE_LINK_SUBTLV_RIP:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&addr, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.remote_addr = addr;
 			SET_FLAG(attr.flags, LS_ATTR_REMOTE_ADDR);
 			break;
 		case TE_LINK_SUBTLV_RAS:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.standard.remote_as = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_REMOTE_AS);
 			break;
 		case TE_LINK_SUBTLV_AV_DELAY:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.delay = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_DELAY);
 			break;
 		case TE_LINK_SUBTLV_MM_DELAY:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_MM_DELAY_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(tab32, value, TE_LINK_SUBTLV_MM_DELAY_SIZE);
 			attr.extended.min_delay = ntohl(tab32[0]);
 			attr.extended.max_delay = ntohl(tab32[1]);
 			SET_FLAG(attr.flags, LS_ATTR_MIN_MAX_DELAY);
 			break;
+
 		case TE_LINK_SUBTLV_DELAY_VAR:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.jitter = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_JITTER);
 			break;
 		case TE_LINK_SUBTLV_PKT_LOSS:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&val32, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.pkt_loss = ntohl(val32);
 			SET_FLAG(attr.flags, LS_ATTR_PACKET_LOSS);
 			break;
 		case TE_LINK_SUBTLV_RES_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&valf, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.rsv_bw = ntohf(valf);
 			SET_FLAG(attr.flags, LS_ATTR_RSV_BW);
 			break;
 		case TE_LINK_SUBTLV_AVA_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&valf, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.ava_bw = ntohf(valf);
 			SET_FLAG(attr.flags, LS_ATTR_AVA_BW);
 			break;
 		case TE_LINK_SUBTLV_USE_BW:
+			/* Validate sub-TLV length */
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				error_p = true;
+				break;
+			}
+
 			memcpy(&valf, value, TE_LINK_SUBTLV_DEF_SIZE);
 			attr.extended.used_bw = ntohf(valf);
 			SET_FLAG(attr.flags, LS_ATTR_USE_BW);
@@ -2256,9 +2371,21 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 		default:
 			break;
 		}
+
+		if (error_p)
+			break;
+
 		sum += tlv_size;
-		if (sum < len)
-			tlvh = TLV_HDR_NEXT(tlvh);
+		if (sum >= len || ((len - sum) < TLV_HDR_SIZE))
+			break;
+
+		tlvh = TLV_HDR_NEXT(tlvh);
+	}
+
+	/* Error detected during parsing */
+	if (error_p) {
+		zlog_warn("Malformed or invalid TE sub-TLV");
+		return -1;
 	}
 
 	/* Get corresponding Edge from Link State Data Base */
@@ -2381,6 +2508,11 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 		}
 
 		if (ntohs(tlvh->type) == TE_LINK_SUBTLV_LCLIF_IPADDR) {
+			if (TLV_BODY_SIZE(tlvh) < TE_LINK_SUBTLV_DEF_SIZE) {
+				zlog_warn("Invalid TE LCLIF sub-TLV");
+				return 0;
+			}
+
 			memcpy(&addr, TLV_DATA(tlvh), TE_LINK_SUBTLV_DEF_SIZE);
 			key.family = AF_INET;
 			IPV4_ADDR_COPY(&key.k.addr, &addr);
@@ -2464,16 +2596,27 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint32_t len = 0, sum = 0;
+	int i;
 
 	/* Get vertex / Node from LSA Advertised Router ID */
 	vertex = get_vertex(ted, lsa);
 	node = vertex->node;
+
+	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
+		zlog_warn("Malformed RI TLV size %zu", lsa->size);
+		return -1;
+	}
 
 	ote_debug("  |- Process Router Information LSA %pI4 for Vertex %pI4",
 		  &lsa->data->id, &node->router_id);
 
 	/* Initialize TLV browsing */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE;
+	if (len <= TLV_HDR_SIZE) {
+		zlog_warn("Malformed RI TLV");
+		return -1;
+	}
+
 	for (tlvh = TLV_HDR_TOP(lsah); sum < len && tlvh;) {
 		uint32_t tlv_size = TLV_SIZE(tlvh);
 		struct ri_sr_tlv_sr_algorithm *algo;
@@ -2488,12 +2631,20 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
-			if (TLV_BODY_SIZE(tlvh) < 1 ||
-			    TLV_BODY_SIZE(tlvh) > ALGORITHM_COUNT)
+			/* This is variable-length, in octets */
+			i = ntohs(tlvh->length);
+			if (i < 1 || i > ALGORITHM_COUNT)
 				break;
+
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
 
-			for (int i = 0; i < ntohs(algo->header.length); i++) {
+			/* Note that we're copying algo octets into a struct that has
+			 * its own array size limit - have to respect that limit.
+			 */
+			for (i = 0; i < ntohs(algo->header.length); i++) {
+				if (i >= LIB_LS_SR_ALGO_COUNT)
+					break;
+
 				if (CHECK_FLAG(node->flags, LS_NODE_SR)
 				    && (node->algo[i] == algo->value[i]))
 					continue;
@@ -2505,7 +2656,7 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			}
 
 			/* Reset other Algorithms */
-			for (int i = ntohs(algo->header.length); i < 2; i++) {
+			for (i = ntohs(algo->header.length); i < LIB_LS_SR_ALGO_COUNT; i++) {
 				if (vertex->status != NEW
 				    && node->algo[i] != SR_ALGORITHM_UNSET)
 					vertex->status = UPDATE;
@@ -2570,17 +2721,23 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 		default:
 			break;
 		}
+
 		sum += tlv_size;
-		if (sum < len)
-			tlvh = TLV_HDR_NEXT(tlvh);
+		if (sum >= len || ((len - sum) < TLV_HDR_SIZE))
+			break;
+
+		tlvh = TLV_HDR_NEXT(tlvh);
 	}
 
 	/* Vertex has been created or updated: export it */
 	if (vertex->status == NEW || vertex->status == UPDATE) {
-		ote_debug("  |- %s SR info - SRGB[%d/%d] for Vertex %pI4",
+		ote_debug("  |- %s SRTE info - SRGB[%d/%d] SRLB[%u/%u] MSD[%u] for Vertex %pI4",
 			  vertex->status == NEW ? "Add" : "Update",
 			  vertex->node->srgb.lower_bound,
 			  vertex->node->srgb.range_size,
+			  vertex->node->srlb.lower_bound,
+			  vertex->node->srlb.range_size,
+			  vertex->node->msd,
 			  &vertex->node->router_id);
 
 		ospf_te_export(LS_MSG_TYPE_NODE, vertex);
@@ -2651,16 +2808,36 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_subnet *subnet;
 	struct ls_prefix *ls_pref;
 	struct prefix pref;
-	struct ext_tlv_prefix *ext;
+	const struct ext_tlv_prefix *ext;
 	struct ext_subtlv_prefix_sid *pref_sid;
 	uint32_t label;
 	uint16_t len, size;
+	struct tlv_header *tlvh;
 
-	/* Get corresponding Subnet from Link State Data Base */
-	ext = (struct ext_tlv_prefix *)TLV_HDR_TOP(lsa->data);
+	/* Initialize TLV browsing */
+	if (lsa->size < OSPF_LSA_HEADER_SIZE) {
+		zlog_warn("Invalid EXT Prefix LSA");
+		return -1;
+	}
+
+	len = lsa->size - OSPF_LSA_HEADER_SIZE;
+	if (len <= TLV_HDR_SIZE) {
+		zlog_warn("Malformed EXT Prefix LSA");
+		return -1;
+	}
+
+	tlvh = TLV_HDR_TOP(lsa->data);
+	if (TLV_BODY_SIZE(tlvh) < EXT_TLV_PREFIX_SIZE) {
+		zlog_warn("Malformed EXT Prefix TLV");
+		return -1;
+	}
+
+	ext = (const struct ext_tlv_prefix *)tlvh;
 	pref.family = AF_INET;
 	pref.prefixlen = ext->pref_length;
 	pref.u.prefix4 = ext->address;
+
+	/* Get corresponding Subnet from Link State Data Base */
 	subnet = ls_find_subnet(ted, &pref);
 
 	/* Create new Link State Prefix if not found */
@@ -2739,13 +2916,32 @@ static int ospf_te_delete_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_subnet *subnet;
 	struct ls_prefix *ls_pref;
 	struct prefix pref;
-	struct ext_tlv_prefix *ext;
+	const struct ext_tlv_prefix *ext;
+	const struct tlv_header *tlvh;
 
-	/* Get corresponding Subnet from Link State Data Base */
-	ext = (struct ext_tlv_prefix *)TLV_HDR_TOP(lsa->data);
+	/* Validate TLV buffer */
+	if (lsa->size < OSPF_LSA_HEADER_SIZE) {
+		zlog_warn("Invalid EXT Prefix LSA");
+		return -1;
+	}
+
+	if ((lsa->size - OSPF_LSA_HEADER_SIZE) <= TLV_HDR_SIZE) {
+		zlog_warn("Malformed EXT Prefix LSA");
+		return -1;
+	}
+
+	tlvh = TLV_HDR_TOP(lsa->data);
+	if (TLV_BODY_SIZE(tlvh) < EXT_TLV_PREFIX_SIZE) {
+		zlog_warn("Malformed EXT Prefix TLV");
+		return -1;
+	}
+
+	ext = (const struct ext_tlv_prefix *)tlvh;
 	pref.family = AF_INET;
 	pref.prefixlen = ext->pref_length;
 	pref.u.prefix4 = ext->address;
+
+	/* Get corresponding Subnet from Link State Data Base */
 	subnet = ls_find_subnet(ted, &pref);
 
 	/* Check if there is a corresponding subnet */
@@ -2780,19 +2976,32 @@ static int ospf_te_delete_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 {
 	struct ls_node_id lnid;
-	struct tlv_header *tlvh;
-	struct ext_tlv_link *ext;
+	const struct tlv_header *tlvh;
+	const struct ext_tlv_link *ext;
 	struct ls_edge *edge;
 	struct ls_attributes *atr;
 	uint32_t len = 0, sum = 0;
 	uint16_t i;
 	uint32_t label;
 
+	/* Validate LSA/TLV */
+	if (lsa->size < OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE + EXT_TLV_LINK_SIZE) {
+		zlog_warn("Malformed EXT Link LSA");
+		return -1;
+	}
+
+	tlvh = TLV_HDR_TOP(lsa->data);
+	if (TLV_BODY_SIZE(tlvh) < EXT_TLV_LINK_SIZE) {
+		zlog_warn("Malformed EXT Link TLV");
+		return -1;
+	}
+
+	ext = (struct ext_tlv_link *)tlvh;
+
 	/* Get corresponding Edge from Link State Data Base */
 	lnid.origin = OSPFv2;
 	lnid.id.ip.addr = lsa->data->adv_router;
 	lnid.id.ip.area_id = lsa->area->area_id;
-	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
 	edge = get_edge(ted, lnid, ext->link_data);
 	if (!edge) {
 		ote_debug("  |- Found no edge from Extended Link Data. Abort!");
@@ -2943,11 +3152,24 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 {
 	struct ls_edge *edge;
 	struct ls_attributes *atr;
-	struct ext_tlv_link *ext;
+	const struct ext_tlv_link *ext;
 	struct ls_edge_key key;
+	const struct tlv_header *tlvh;
+
+	/* Validate LSA/TLV */
+	if (lsa->size < OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE + EXT_TLV_LINK_SIZE) {
+		zlog_warn("Malformed EXT Link LSA");
+		return -1;
+	}
+
+	tlvh = TLV_HDR_TOP(lsa->data);
+	if (TLV_BODY_SIZE(tlvh) < EXT_TLV_LINK_SIZE) {
+		zlog_warn("Malformed EXT Link TLV");
+		return -1;
+	}
 
 	/* Search for corresponding Edge from Link State Data Base */
-	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
+	ext = (const struct ext_tlv_link *)tlvh;
 	key.family = AF_INET;
 	IPV4_ADDR_COPY(&key.k.addr, &ext->link_data);
 	edge = ls_find_edge_by_key(ted, key);
