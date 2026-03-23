@@ -409,7 +409,7 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 			   gre_info->ikey))
 		return 0;
 	if (gre_info->okey &&
-	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY,
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_OKEY,
 			   gre_info->okey))
 		return 0;
 
