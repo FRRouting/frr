@@ -504,6 +504,7 @@ struct bgp_ls_attr *bgp_ls_attr_alloc(void)
 	struct bgp_ls_attr *attr;
 
 	attr = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(struct bgp_ls_attr));
+	admin_group_init(&attr->ext_admin_group);
 	return attr;
 }
 
@@ -511,6 +512,8 @@ void bgp_ls_attr_free(struct bgp_ls_attr *attr)
 {
 	if (!attr)
 		return;
+
+	admin_group_term(&attr->ext_admin_group);
 
 	XFREE(MTYPE_BGP_LS_ATTR, attr->node_name);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->isis_area_id);
@@ -586,6 +589,12 @@ struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src)
 
 	dst = XCALLOC(MTYPE_BGP_LS_ATTR, sizeof(*dst));
 	memcpy(dst, src, sizeof(*dst));
+
+	/* Must deep-copy some struct members */
+
+	/* Reset and properly copy admin_group */
+	memset(&dst->ext_admin_group, 0, sizeof(dst->ext_admin_group));
+	admin_group_copy(&dst->ext_admin_group, &src->ext_admin_group);
 
 	if (src->node_name)
 		dst->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, src->node_name);
