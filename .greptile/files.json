@@ -1,0 +1,45 @@
+{
+  "files": [
+    {
+      "path": "doc/developer/workflow.rst",
+      "description": "FRR core coding standards, PR requirements, commit message format, review process, release cycle, defensive coding, formatting rules, and architectural guidelines."
+    },
+    {
+      "path": "doc/developer/cli.rst",
+      "description": "CLI/DEFPY command definition standards, VTY node architecture, help string conventions, and YANG CLI integration requirements."
+    },
+    {
+      "path": "doc/developer/memtypes.rst",
+      "description": "MTYPE memory tracking system — XMALLOC/XCALLOC/XFREE usage, DECLARE_MTYPE/DEFINE_MTYPE patterns."
+    },
+    {
+      "path": "doc/developer/lists.rst",
+      "description": "Typesafe container API (DECLARE_LIST, DECLARE_HASH, etc.) — the required replacement for legacy BSD queue macros and lib/linklist.h."
+    },
+    {
+      "path": "doc/developer/logging.rst",
+      "description": "zlog API usage, printfrr format extensions (%pFX, %pI4, %pSU, etc.), and debug flag conventions."
+    },
+    {
+      "path": "doc/developer/process-architecture.rst",
+      "description": "FRR daemon architecture — event loop (threadmaster), threading model, and inter-daemon communication patterns."
+    },
+    {
+      "path": "doc/developer/locking.rst",
+      "description": "Locking primitives — frr_with_mutex, frr_mutex_lock_autounlock, and concurrency guidelines."
+    },
+    {
+      "path": "doc/developer/checkpatch.rst",
+      "description": "checkpatch.sh style checker — ERROR vs WARNING classification and known exceptions."
+    },
+    {
+      "path": "doc/developer/vtysh.rst",
+      "description": "VTYSH architecture — how CLI commands are extracted, distributed, and executed across daemons.",
+      "scope": ["vtysh/**", "**/*_vty.c", "**/*_vty.h"]
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "description": "Top-level contribution guidelines and PR process overview."
+    }
+  ]
+}
