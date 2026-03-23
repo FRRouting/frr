@@ -40,6 +40,7 @@ dev_RSTFILES = \
 	doc/developer/hooks.rst \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
+	doc/developer/l2vpn.rst \
 	doc/developer/library.rst \
 	doc/developer/link-state.rst \
 	doc/developer/lists.rst \
