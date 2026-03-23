@@ -5923,36 +5923,8 @@ DEFPY (interface_ip_pim_allowrp,
        "Ignore mismatched RP addresses when processing (*,G) Joins\n"
        "Specify a prefix-list which the RP address must match in order to be accepted\n"
        "The prefix-list to check the RP address against\n")
-
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
-
-	if (!no && !pim_cmd_interface_add(ifp)) {
-		vty_out(vty, "Could not enable PIM SM allow-rp on interface %s\n", ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	pim_ifp = ifp->info;
-
-	if (no && !pim_ifp) {
-		vty_out(vty, "PIM is not enabled on the interface %s\n", ifp->name);
-		return CMD_SUCCESS;
-	}
-
-	pim_ifp->allow_rp = !no;
-
-	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->allow_rp_plist);
-
-	if (plist) {
-		pim_ifp->allow_rp_plist = XSTRDUP(MTYPE_PIM_INTERFACE, plist);
-		if (!prefix_list_lookup(PIM_AFI, plist))
-			vty_out(vty,
-				"%% Prefix-list '%s' isn't configured yet; if it isn't configured, all RP addresses will be rejected\n",
-				plist);
-	}
-
-	return CMD_SUCCESS;
+	return pim_process_ip_pim_allowrp_cmd(vty, no, plist);
 }
 
 DEFPY (interface_ip_pim_activeactive,

@@ -691,6 +691,19 @@ module frr-pim {
         "Mark interface as Active-Active for MLAG operations.";
     }
 
+    leaf allow-rp {
+      type boolean;
+      default "false";
+      description
+        "Ignore mismatched RP addresses when processing (*,G) Joins.";
+    }
+
+    leaf allow-rp-rp-list {
+      type plist-ref;
+      description
+        "Prefix-list which the RP address must match to be accepted.";
+    }
+
     leaf dr-priority {
       type uint32;
       default 1;
