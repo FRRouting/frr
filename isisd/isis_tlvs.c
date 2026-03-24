@@ -5127,6 +5127,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 			break;
 #ifndef FABRICD
 		case ISIS_SUBTLV_FAD:
+			/* Check that FlexAlgo is correctly formatted */
+			if (length < ISIS_SUBTLV_FAD_MIN_SIZE) {
+				stream_forward_getp(s, length);
+				break;
+			}
+
 			fad = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap_fad));
 			fad->fad.algorithm = stream_getc(s);
 			fad->fad.metric_type = stream_getc(s);
@@ -5158,8 +5164,25 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 				subsubtlv_type = stream_getc(s);
 				subsubtlv_len = stream_getc(s);
 
+				/* Validate subsub-TLV length */
+				if (subsubtlv_len > subsubtlvs_len - 2) {
+					sbuf_push(log, indent,
+						  "Received an invalid Flex-Algo sub-TLV type %u\n",
+						  subsubtlv_type);
+					stream_forward_getp(s, subsubtlvs_len - 2);
+					break;
+				}
+
 				switch (subsubtlv_type) {
 				case ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG:
+					if (subsubtlv_len < 4 ||
+					    (subsubtlv_len % 4 != 0)) {
+						sbuf_push(log, indent,
+							  "Received an invalid Flex-Algo EXCAG sub-TLV\n");
+						stream_forward_getp(s, subsubtlv_len);
+						break;
+					}
+
 					ag = &fad->fad.admin_group_exclude_any;
 					n_ag = subsubtlv_len / sizeof(uint32_t);
 					for (i = 0; i < n_ag; i++) {
@@ -5168,6 +5191,14 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 					}
 					break;
 				case ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG:
+					if (subsubtlv_len < 4 ||
+					    (subsubtlv_len % 4 != 0)) {
+						sbuf_push(log, indent,
+							  "Received an invalid Flex-Algo INCANYAG sub-TLV\n");
+						stream_forward_getp(s, subsubtlv_len);
+						break;
+					}
+
 					ag = &fad->fad.admin_group_include_any;
 					n_ag = subsubtlv_len / sizeof(uint32_t);
 					for (i = 0; i < n_ag; i++) {
@@ -5176,6 +5207,14 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 					}
 					break;
 				case ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG:
+					if (subsubtlv_len < 4 ||
+					    (subsubtlv_len % 4 != 0)) {
+						sbuf_push(log, indent,
+							  "Received an invalid Flex-Algo INCALLAG sub-TLV\n");
+						stream_forward_getp(s, subsubtlv_len);
+						break;
+					}
+
 					ag = &fad->fad.admin_group_include_all;
 					n_ag = subsubtlv_len / sizeof(uint32_t);
 					for (i = 0; i < n_ag; i++) {
