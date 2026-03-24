@@ -452,8 +452,8 @@ void mgmt_msg_init(struct mgmt_msg_state *ms, size_t max_read_buf,
 	ms->ins = stream_new(max_msg_sz);
 	stream_fifo_init(&ms->inq);
 	stream_fifo_init(&ms->outq);
-	ms->max_read_buf = max_write_buf;
-	ms->max_write_buf = max_read_buf;
+	ms->max_read_buf = max_read_buf;
+	ms->max_write_buf = max_write_buf;
 	ms->max_msg_sz = max_msg_sz;
 	ms->idtag = strdup(idtag);
 }
@@ -473,8 +473,8 @@ void mgmt_msg_destroy(struct mgmt_msg_state *ms)
  */
 
 #define MSG_CONN_DEFAULT_CONN_RETRY_MSEC 250
-#define MSG_CONN_SEND_BUF_SIZE (1u << 16)
-#define MSG_CONN_RECV_BUF_SIZE (1u << 16)
+#define MSG_CONN_SEND_BUF_SIZE		 (1u << 17)
+#define MSG_CONN_RECV_BUF_SIZE		 (1u << 17)
 
 static void msg_client_sched_connect(struct msg_client *client,
 				     unsigned long msec);
@@ -706,8 +706,8 @@ static int msg_client_connect_short_circuit(struct msg_client *client)
 	/* client side */
 	client->conn.fd = sockets[0];
 	set_nonblocking(sockets[0]);
-	setsockopt_so_sendbuf(sockets[0], client->conn.mstate.max_write_buf);
-	setsockopt_so_recvbuf(sockets[0], client->conn.mstate.max_read_buf);
+	setsockopt_so_sendbuf(sockets[0], MSG_CONN_SEND_BUF_SIZE);
+	setsockopt_so_recvbuf(sockets[0], MSG_CONN_RECV_BUF_SIZE);
 
 	/* server side */
 	memset(&su, 0, sizeof(union sockunion));
