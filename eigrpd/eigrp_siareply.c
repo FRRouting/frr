@@ -44,8 +44,8 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
-
 	uint16_t type;
+	size_t length;
 
 	/* increment statistics. */
 	ei->siaReply_in++;
@@ -103,6 +103,16 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 				eigrp_fsm_event(&msg);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
+		} else {
+			/* Try to skip other TLVs */
+			length = stream_getw(s);
+			if (length < 4 || STREAM_READABLE(s) < (length - 4)) {
+				/* Invalid length; skip remaining data */
+				stream_forward_getp(s, STREAM_READABLE(s));
+			} else {
+				stream_forward_getp(s, length - 4);
+			}
+			continue;
 		}
 	}
 	eigrp_hello_send_ack(nbr);
