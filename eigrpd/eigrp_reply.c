@@ -131,6 +131,13 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	nbr->recv_sequence_number = ntohl(eigrph->sequence);
 
 	while (s->endp > s->getp) {
+		/* Ensure we have at least 4 bytes for TLV header */
+		if (STREAM_READABLE(s) < 4) {
+			zlog_warn("Malformed packet: Unexpected early end of packet reached, stopping TLV processing");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			break;
+		}
+
 		type = stream_getw(s);
 
 		if (type != EIGRP_TLV_IPv4_INT)
@@ -141,6 +148,11 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 		tlv = eigrp_read_ipv4_tlv(s);
+		if (tlv == NULL) {
+			/* Invalid TLV - how to handle? */
+			stream_forward_getp(s, STREAM_READABLE(s));
+			break;
+		}
 
 		dest_addr.family = AF_INET;
 		dest_addr.u.prefix4 = tlv->destination;
