@@ -338,7 +338,11 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
 	}
 
-	if (install_local) {
+	/*
+	 * Skip local route if it would be identical to the connected route
+	 * (e.g., /32 or /128 addresses).
+	 */
+	if (install_local && !prefix_same(&p, &plocal)) {
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags, &plocal,
 			NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags,
@@ -539,7 +543,11 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 			   zvrf->table_id, 0, 0, false);
 	}
 
-	if (remove_local) {
+	/*
+	 * Skip local route removal if it would be identical to the connected
+	 * route (e.g., /32 or /128 addresses).
+	 */
+	if (remove_local && !prefix_same(&p, &plocal)) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
 			   zvrf->table_id, 0, 0, false);
