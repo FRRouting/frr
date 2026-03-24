@@ -76,9 +76,8 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 	struct prefix dest_addr;
-
 	uint16_t type;
-	uint16_t length;
+	size_t length;
 
 	/* increment statistics. */
 	ei->query_in++;
@@ -143,10 +142,15 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 		 */
 		default:
 			length = stream_getw(s);
-			// -2 for type, -2 for len
-			for (length -= 4; length; length--) {
-				(void)stream_getc(s);
+			if (length < 4 || STREAM_READABLE(s) < (length - 4)) {
+				/* Invalid */
+				stream_forward_getp(s, STREAM_READABLE(s));
+			} else {
+				for (length -= 4; length; length--) {
+					(void)stream_getc(s);
+				}
 			}
+			break;
 		}
 	}
 	eigrp_hello_send_ack(nbr);
