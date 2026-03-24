@@ -27,7 +27,7 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len,
 	int type;
 	int ret = 0, error = 0;
 
-	while (offset < len-1) {
+	while (offset + 1 < len) {
 		type = nlri_content[offset];
 		offset++;
 		switch (type) {
