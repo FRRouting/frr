@@ -2868,6 +2868,78 @@ int lib_interface_pim_address_family_active_active_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/allow-rp
+ */
+int lib_interface_pim_address_family_allow_rp_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->allow_rp = yang_dnode_get_bool(args->dnode, NULL);
+		if (!pim_ifp->allow_rp)
+			XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->allow_rp_plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/allow-rp-rp-list
+ */
+int lib_interface_pim_address_family_allow_rp_rp_list_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const char *plist;
+
+	plist = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->allow_rp_plist);
+		pim_ifp->allow_rp_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_address_family_allow_rp_rp_list_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->allow_rp_plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/dr-priority
  */
 int lib_interface_pim_address_family_dr_priority_modify(

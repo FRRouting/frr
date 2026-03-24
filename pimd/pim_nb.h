@@ -326,6 +326,9 @@ int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_gm_alist_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_alist_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_pim_address_family_allow_rp_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_allow_rp_rp_list_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_allow_rp_rp_list_destroy(struct nb_cb_destroy_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only

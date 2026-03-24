@@ -960,6 +960,19 @@ DEFPY (interface_ipv6_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
+DEFPY (interface_ipv6_pim_allowrp,
+       interface_ipv6_pim_allowrp_cmd,
+       "[no] ipv6 pim allow-rp [rp-list PLIST]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Ignore mismatched RP addresses when processing (*,G) Joins\n"
+       "Specify a prefix-list which the RP address must match in order to be accepted\n"
+       "The prefix-list to check the RP address against\n")
+{
+	return pim_process_ip_pim_allowrp_cmd(vty, no, plist);
+}
+
 /* boundaries */
 DEFPY (interface_ipv6_pim_boundary_oil,
       interface_ipv6_pim_boundary_oil_cmd,
@@ -3166,6 +3179,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &if_ipv6_pim_joinprune_time_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_allowrp_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
