@@ -154,7 +154,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 
 					       void *object);
 static void *route_match_compile(const char *arg);
-static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
+static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
 static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
 
 static bool rpki_debug_conf, rpki_debug_term;
@@ -609,7 +609,7 @@ static void rpki_revalidate_prefix(struct event *thread)
 
 	while (node) {
 		if (bgp_dest_has_bgp_path_info_data(node)) {
-			revalidate_bgp_node(node, rrp->afi, rrp->safi);
+			revalidate_bgp_node(rrp->bgp, node, rrp->afi, rrp->safi);
 		}
 
 		node = bgp_route_next_until(node, match);
@@ -704,9 +704,10 @@ static void bgpd_sync_callback(struct event *thread)
 	revalidate_single_prefix(vrf, prefix, afi);
 }
 
-static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi, safi_t safi)
+static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_t afi, safi_t safi)
 {
 	struct bgp_adj_in *ain;
+	struct bgp_path_info *bpi;
 	mpls_label_t *label;
 	uint8_t num_labels;
 
@@ -719,6 +720,26 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi, safi_t saf
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
 				 label, num_labels, 1, NULL);
+	}
+
+	/* Locally originated routes (e.g., 'network' statement) have no adj_in
+	 * entry, so bgp_update() above won't cover them.  Force re-advertisement
+	 * so the outbound route-map re-evaluates the updated RPKI state.
+	 * If we have something like:
+	 * route-map out deny 10
+	 *   match rpki invalid
+	 * route-map out permit 20
+	 * Then a locally originated route that becomes RPKI invalid needs to be
+	 * re-evaluated against the route-map, and if we don't force
+	 * re-advertisement, it won't be.
+	 */
+	for (bpi = bgp_dest_get_bgp_path_info(bgp_dest); bpi; bpi = bpi->next) {
+		if (bpi->peer == bgp->peer_self && bpi->type == ZEBRA_ROUTE_BGP &&
+		    (bpi->sub_type == BGP_ROUTE_STATIC || bpi->sub_type == BGP_ROUTE_AGGREGATE)) {
+			bgp_path_info_set_flag(bgp_dest, bpi, BGP_PATH_ATTR_CHANGED);
+			bgp_process(bgp, bgp_dest, bpi, afi, safi);
+			break;
+		}
 	}
 }
 
