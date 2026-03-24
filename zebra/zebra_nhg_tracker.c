@@ -232,56 +232,36 @@ static void zebra_nhg_tracker_add_route(struct tracker_prefix_map_head *prefix_m
 }
 
 /*
- * If the prefix is in this tracker's unmatched table, evict the parked RE
- * that matches the incoming RE (same protocol/instance).
- *
- * - Clear TRACKER on that RE; delete its prefix_map row (so a later
- *   matched-table add can insert a fresh entry); decrement unmatched
- *   re_count when the map row is removed.
- * - Drop trn->info (unlock RIB RN + tracker trn) only when no other RE
- *   on that RN is still tracked for this originating NHG (see body).
+ * Evict a parked RE (same protocol/instance as the incoming RE) from a
+ * tracker table (matched or unmatched).
+ * We must not unlock/deref the RN while another RE on the same RN is still
+ * parked for this originating NHG (orig_nhe) on this tracker—each protocol
+ * RE is one prefix_map row.  Example: RN1 has RE1 (proto1, NHG1) and RE2
+ * (proto2, NHG1); evicting RE1 still leaves RE2 referencing the same RN.
  */
-static void zebra_nhg_tracker_evict_unmatched(struct nhg_event_tracker *tracker,
-					      struct nhg_hash_entry *orig_nhe,
-					      struct tracker_prefix_map_head *prefix_map,
-					      struct route_node *rn, struct route_entry *re)
+static void zebra_nhg_tracker_evict_re(struct nhg_event_tracker *tracker,
+				       struct nhg_hash_entry *orig_nhe,
+				       struct tracker_prefix_map_head *prefix_map,
+				       struct route_table *table, uint32_t *re_count,
+				       struct route_node *rn, struct route_entry *re)
 {
-	struct route_node *unmatched_trn;
+	struct route_node *trn;
 
-	unmatched_trn = route_node_lookup(tracker->unmatched_table.unmatched_table, &rn->p);
-	if (!unmatched_trn)
+	trn = route_node_lookup(table, &rn->p);
+	if (!trn)
 		return;
 
-	if (unmatched_trn->info) {
-		struct route_node *parked_rn = unmatched_trn->info;
+	if (trn->info) {
+		struct route_node *parked_rn = trn->info;
 		struct route_entry *parked_re;
 		bool found_match = false;
 		bool others_remain = false;
 
 		/*
-		 * Goal: decrement unmatched re_count and optionally clear
-		 * unmatched_trn->info (drop tracker-side ref to the RIB RN).
-		 * We must not unlock/deref the RN while another RE on the same
-		 * RN is still parked for this originating NHG (orig_nhe) on this
-		 * tracker—each protocol RE is one prefix_map row.
+		 * Find the RE matching the incoming proto/instance
+		 * (rib_compare_routes).  Clear TRACKER, remove prefix_map
+		 * entry, decrement re_count, set found_match.
 		 *
-		 * Example—do NOT clear trn->info yet: both use NHG1 / this tracker
-		 * RN1 has RE1 (proto1, NHG1) and RE2 (proto2, NHG1)
-		 * Evicting RE1 still leaves RE2 referencing the same RN in the
-		 * tracker tables.
-		 *
-		 * Example—OK to clear trn->info: RE1 uses NHG1, RE2 uses NHG2;
-		 * only one RE per RN is tied to this orig_nhe/tracker at a time.
-		 *
-		 * Loop 1: rib_compare_routes() finds the RE matching the
-		 * incoming RE (same proto/instance).  UNSET TRACKER, remove
-		 * prefix_map entry, decrement re_count, set found_match.
-		 *
-		 * Loop 2: The evicted RE no longer has TRACKER / prefix map entry.
-		 * zebra_nhg_tracker_owns_re() walks the RN again and returns
-		 * true if any *other* RE is still tracked by this tracker for
-		 * orig_nhe (prefix_map + TRACKER).  If so, others_remain and we
-		 * keep unmatched_trn->info; otherwise we unlock and NULL it.
 		 */
 		RNODE_FOREACH_RE (parked_rn, parked_re) {
 			if (rib_compare_routes(re, parked_re, true)) {
@@ -299,14 +279,20 @@ static void zebra_nhg_tracker_evict_unmatched(struct nhg_event_tracker *tracker,
 				if (pm_entry) {
 					tracker_prefix_map_del(prefix_map, pm_entry);
 					XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, pm_entry);
-					if (tracker->unmatched_table.re_count > 0)
-						tracker->unmatched_table.re_count--;
+					if (*re_count > 0)
+						(*re_count)--;
 				}
 				found_match = true;
 				break;
 			}
 		}
 
+		/*
+		 * Now, the evicted RE no longer has TRACKER / map entry.
+		 * zebra_nhg_tracker_owns_re() checks whether any *other* RE on this
+		 * RN is still tracked by this tracker for orig_nhe. If so,
+		 * keep trn->info — we must not unlock the RIB RN
+		 */
 		if (found_match) {
 			RNODE_FOREACH_RE (parked_rn, parked_re) {
 				if (zebra_nhg_tracker_owns_re(orig_nhe, tracker, parked_rn,
@@ -318,13 +304,33 @@ static void zebra_nhg_tracker_evict_unmatched(struct nhg_event_tracker *tracker,
 		}
 
 		if (found_match && !others_remain) {
-			route_unlock_node(unmatched_trn->info);
-			unmatched_trn->info = NULL;
-			route_unlock_node(unmatched_trn);
+			route_unlock_node(trn->info);
+			trn->info = NULL;
+			route_unlock_node(trn);
 		}
 	}
 
-	route_unlock_node(unmatched_trn);
+	route_unlock_node(trn);
+}
+
+static void zebra_nhg_tracker_evict_from_unmatched(struct nhg_event_tracker *tracker,
+						   struct nhg_hash_entry *orig_nhe,
+						   struct tracker_prefix_map_head *prefix_map,
+						   struct route_node *rn, struct route_entry *re)
+{
+	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map,
+				   tracker->unmatched_table.unmatched_table,
+				   &tracker->unmatched_table.re_count, rn, re);
+}
+
+static void zebra_nhg_tracker_evict_from_matched(struct nhg_event_tracker *tracker,
+						 struct nhg_hash_entry *orig_nhe,
+						 struct tracker_prefix_map_head *prefix_map,
+						 struct route_node *rn, struct route_entry *re)
+{
+	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map,
+				   tracker->matched_table.matched_table,
+				   &tracker->matched_table.re_count, rn, re);
 }
 
 /*
@@ -372,6 +378,28 @@ zebra_nhg_tracker_collapse_older_trackers_in_set(struct nhg_hash_entry *orig_nhe
 
 /*
  * Insert the route into the tracker's matched table and log the event.
+ * Tracker Truth Table for RE movement:
+ * +---------------------+--------------------+--------------------+--------------------+----------------------+
+ * | Transition          | matched->matched   | matched->unmatched | unmatched->matched | unmatched->unmatched |
+ * +---------------------+--------------------+--------------------+--------------------+----------------------+
+ * | within same tracker |        NA          | evict from same    | evict from same    |          NA          |
+ * |                     |                    | tracker's matched, | tracker's          |                      |
+ * |                     |                    | store in same      | unmatched, store   |                      |
+ * |                     |                    | tracker's unmatched| in same tracker's  |                      |
+ * |                     |                    |                    | matched            |                      |
+ * +---------------------+--------------------+--------------------+--------------------+----------------------+
+ * | old to new tracker  | collapse old       | evict from old     | collapse old       | evict from old       |
+ * |                     | trackers into new, | matched, store in  | trackers into new, | unmatched, store in  |
+ * |                     | evict from old     | new unmatched      | evict from old     | new unmatched        |
+ * |                     | matched, store in  |                    | unmatched, store   |                      |
+ * |                     | new matched        |                    | in new matched     |                      |
+ * +---------------------+--------------------+--------------------+--------------------+----------------------+
+ * | new to old tracker  | evict from new     |        NA          | evict from new     |          NA          |
+ * |                     | matched, store in  |                    | unmatched, store   |                      |
+ * |                     | old matched (new   |                    | in old matched     |                      |
+ * |                     | tracker still      |                    | (new tracker still |                      |
+ * |                     | alive)             |                    | alive)             |                      |
+ * +---------------------+--------------------+--------------------+--------------------+----------------------+
  */
 static void zebra_nhg_tracker_park_matched(struct nhg_hash_entry *orig_nhe,
 					   struct tracker_prefix_map_head *prefix_map,
@@ -397,8 +425,18 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 						    struct nhg_hash_entry *orig_nhe)
 {
 	struct nhg_event_tracker *tracker, *keeper;
+	struct nhg_event_tracker *evict_from;
 	struct tracker_prefix_map_head *prefix_map = &orig_nhe->tracker_prefix_map;
+	struct tracker_prefix_map_entry pm_key;
+	struct tracker_prefix_map_entry *pm_re;
+	struct nhg_event_tracker *newest_tracker;
 	bool matched = false;
+
+	memset(&pm_key, 0, sizeof(pm_key));
+	prefix_copy(&pm_key.p, &rn->p);
+	pm_key.type = re->type;
+	pm_key.instance = re->instance;
+	pm_re = tracker_prefix_map_find(prefix_map, &pm_key);
 
 	/*
 	 * In general, a prefix is parked in at most one trackers matched table at any
@@ -421,11 +459,27 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 									 keeper);
 
 			/*
-			 * If the incoming prefix is now in this tracker's unmatched table (moved
-			 * there by the collapse above, or from a previous collapse), remove it to
-			 * avoid having the same prefix in both matched and unmatched.
+			 * Collapse has already repointed prefix_map entries from absorbed
+			 * trackers to the keeper.  Get the latest owner from prefix_map
+			 * and evict the RE from that tracker's unmatched/matched
+			 * table (default to the keeper when no map row exists yet).
+			 * This covers:
+			 * - RE moved into this tracker's unmatched via collapse.
+			 * - RE in a newer tracker's unmatched/matched while this older
+			 *   tracker's NHG matches—evict there before parking here.
+			 * - RE already in the same tracker's matched from a prior
+			 *   iteration—evict so park_matched creates a fresh entry.
 			 */
-			zebra_nhg_tracker_evict_unmatched(tracker, orig_nhe, prefix_map, rn, re);
+			evict_from = tracker;
+			/* prefix_map may have changed during collapse; re-resolve owner. */
+			pm_re = tracker_prefix_map_find(prefix_map, &pm_key);
+			if (pm_re)
+				evict_from = pm_re->tracker;
+
+			zebra_nhg_tracker_evict_from_unmatched(evict_from, orig_nhe, prefix_map,
+							       rn, re);
+			zebra_nhg_tracker_evict_from_matched(evict_from, orig_nhe, prefix_map, rn,
+							     re);
 
 			zebra_nhg_tracker_park_matched(orig_nhe, prefix_map, tracker, rn, re);
 			matched = true;
@@ -433,8 +487,25 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 		}
 	}
 
-	if (!matched)
+	if (!matched) {
+		/*
+		 * Unmatched REs are always parked in the newest tracker.  Evict the RE
+		 * from the tracker that currently owns it (as per prefix_map) when that
+		 * tracker's ID <= newest(covers matched->unmatched transitions from old->new
+		 * and within-same-tracker).  The RE may sit in its unmatched or
+		 * matched table.
+		 */
+		newest_tracker = nhg_event_tracker_list_first(&orig_nhe->tracker_list);
+		if (pm_re && newest_tracker &&
+		    pm_re->tracker->nhg_tracker_id <= newest_tracker->nhg_tracker_id) {
+			zebra_nhg_tracker_evict_from_unmatched(pm_re->tracker, orig_nhe,
+							       prefix_map, rn, re);
+			zebra_nhg_tracker_evict_from_matched(pm_re->tracker, orig_nhe, prefix_map,
+							     rn, re);
+		}
+
 		tracker = zebra_nhg_tracker_park_unmatched(orig_nhe, prefix_map, rn, re);
+	}
 
 	SET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
 
@@ -499,8 +570,8 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 
 	{
 		struct tracker_flush_event *evt =
-			&zrouter.tracker_counters.log[
-				zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE];
+			&zrouter.tracker_counters
+				 .log[zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE];
 		evt->nhg_id = nhe->id;
 		evt->tracker_id = tracker->nhg_tracker_id;
 		evt->matched = tracker->matched_table.re_count;
@@ -586,8 +657,7 @@ void zebra_nhg_tracker_fini(struct nhg_hash_entry *nhe)
 	{
 		struct tracker_prefix_map_entry *entry;
 
-		while ((entry = tracker_prefix_map_pop(
-				&nhe->tracker_prefix_map)) != NULL)
+		while ((entry = tracker_prefix_map_pop(&nhe->tracker_prefix_map)) != NULL)
 			XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
 	}
 	tracker_prefix_map_fini(&nhe->tracker_prefix_map);
@@ -789,4 +859,23 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 	tracker->parent_nhe = NULL;
 
 	XFREE(MTYPE_NHG_TRACKER, tracker);
+}
+
+static void zebra_nhg_tracker_sweep_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 0)
+		zebra_nhg_tracker_fini(nhe);
+}
+
+/*
+ * Release all tracker-held locks on RIB route_nodes before table teardown.
+ * Called during shutdown, before any route_table_free runs, so that trackers
+ * do not hold dangling references to RIB nodes whose lock has been zeroed
+ * by route_table_free.
+ */
+void zebra_nhg_tracker_sweep_all(void)
+{
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_tracker_sweep_entry, NULL);
 }

@@ -150,6 +150,9 @@ zebra_nhg_tracker_create_or_update(struct nhg_hash_entry *nhe, ifindex_t ifindex
 
 extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker);
 
+/* Release all tracker-held RIB route_node locks before table teardown. */
+extern void zebra_nhg_tracker_sweep_all(void);
+
 #ifdef __cplusplus
 }
 #endif
