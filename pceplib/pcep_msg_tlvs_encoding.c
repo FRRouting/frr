@@ -1268,18 +1268,36 @@ struct pcep_object_tlv_header *
 pcep_decode_tlv_of_list(struct pcep_object_tlv_header *tlv_hdr,
 			const uint8_t *tlv_body_buf)
 {
-	struct pcep_object_tlv_of_list *of_tlv =
-		(struct pcep_object_tlv_of_list *)common_tlv_create(
-			tlv_hdr, sizeof(struct pcep_object_tlv_of_list));
+	int i, j;
+	const uint8_t *bufp;
+	uint16_t ival;
+	struct pcep_object_tlv_of_list *of_tlv;
 
+	if (tlv_hdr->encoded_tlv_length < 2) {
+		pcep_log(LOG_WARNING, "TLV OF List invalid length: %d",
+			 tlv_hdr->encoded_tlv_length);
+		return NULL;
+	}
+
+	of_tlv = (struct pcep_object_tlv_of_list *)common_tlv_create(
+		tlv_hdr, sizeof(struct pcep_object_tlv_of_list));
 	of_tlv->of_list = dll_initialize();
-	uint16_t *uint16_ptr = (uint16_t *)tlv_body_buf;
-	int i = 0;
-	for (; i < tlv_hdr->encoded_tlv_length && i < MAX_ITERATIONS; i++) {
+
+	/* We're advancing through 16-bit values, and keeping track of the
+	 * 'iterations' count.
+	 */
+	bufp = tlv_body_buf;
+	for (i = 0, j = 0; ((i + 1) < tlv_hdr->encoded_tlv_length) && j < MAX_ITERATIONS;
+	     j++) {
 		uint16_t *of_code_ptr =
 			pceplib_malloc(PCEPLIB_MESSAGES, sizeof(uint16_t));
-		*of_code_ptr = ntohs(uint16_ptr[i]);
+		memcpy(&ival, bufp, sizeof(ival));
+		*of_code_ptr = ntohs(ival);
 		dll_append(of_tlv->of_list, of_code_ptr);
+
+		/* Advancing 2 octets */
+		bufp += 2;
+		i += 2;
 	}
 
 	return (struct pcep_object_tlv_header *)of_tlv;
