@@ -109,7 +109,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 	/* if needed. type_util can be set to other values */
 	type_util = BGP_FLOWSPEC_RETURN_STRING;
 	error = 0;
-	while (offset < len-1 && error >= 0) {
+	while (offset + 1 < len && error >= 0) {
 		type = nlri_content[offset];
 		offset++;
 		switch (type) {
