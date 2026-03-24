@@ -2025,12 +2025,17 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	 * let's set the fact that we expect this route to be installed
 	 */
 	if (install) {
-		if (BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+		if (BGP_SUPPRESS_FIB_ENABLED(bgp) && !is_evpn) {
 			/*
 			 * If the dest has already been installed at some point
 			 * in time, we know that it is safe to immediately send
 			 * the route to peers since they have a path toward us
 			 * As such let's just let normal mechanisms fly
+			 *
+			 * Skip for EVPN: MACIP routes are installed via
+			 * ZEBRA_REMOTE_MACIP_ADD which does not send a FIB
+			 * install ack back to BGP, so the pending count
+			 * would never decrement to zero.
 			 */
 			if (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)) {
 				bgp_dest_increment_gr_fib_install_pending_count(dest);
