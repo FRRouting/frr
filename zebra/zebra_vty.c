@@ -645,6 +645,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 						    re->nhe_received->id);
 
 			json_object_string_add(json_route, "uptime", up_str);
+			json_object_int_add(json_route, "rnRefCnt",
+					    route_node_get_lock_count(rn));
 
 			json_nexthops = json_object_new_array();
 			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
@@ -1659,6 +1661,8 @@ static void show_nexthop_group_tracker_re_out(struct vty *vty,
 		json_object_int_add(jre, "instance", re->instance);
 		json_object_int_add(jre, "flags", re->flags);
 		json_object_int_add(jre, "status", re->status);
+		json_object_int_add(jre, "rnRefCnt",
+				    route_node_get_lock_count(re->rn));
 		if (info) {
 			json_object_string_add(jre, "afi", afi2str(info->afi));
 			json_object_string_add(jre, "safi", safi2str(info->safi));
@@ -1672,10 +1676,11 @@ static void show_nexthop_group_tracker_re_out(struct vty *vty,
 
 		snprintf(status_buf, sizeof(status_buf), "0x%x", re->status);
 		snprintf(flags_buf, sizeof(flags_buf), "0x%x", re->flags);
-		vty_out(vty, "  %-30s  %-10s  %-12s  %8u  %-10s  %-7s  %-7s\n", buf,
+		vty_out(vty, "  %-30s  %-10s  %-12s  %8u  %-10s  %-7s  %-7s  %u\n", buf,
 			status_buf, proto_name, re->instance, flags_buf,
 			info ? afi2str(info->afi) : "unknown",
-			info ? safi2str(info->safi) : "unknown");
+			info ? safi2str(info->safi) : "unknown",
+			route_node_get_lock_count(re->rn));
 	}
 }
 
@@ -1738,14 +1743,14 @@ static void show_nexthop_group_tracker_routes_out(struct vty *vty,
 				tracker->matched_table.re_count);
 			if (tracker->matched_table.re_count > 0) {
 				vty_out(vty,
-					"  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s\n",
+					"  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s  %s\n",
 					"Route Entry", "Status", "Protocol", "Instance",
-					"Flags", "AFI", "SAFI");
+					"Flags", "AFI", "SAFI", "RnRef");
 				vty_out(vty,
-					"  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s\n",
+					"  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s  %s\n",
 					"------------------------------", "----------",
 					"----------", "--------", "----------", "-------",
-					"-------");
+					"-------", "-----");
 			}
 		}
 
@@ -1768,14 +1773,14 @@ static void show_nexthop_group_tracker_routes_out(struct vty *vty,
 				tracker->unmatched_table.re_count);
 			if (tracker->unmatched_table.re_count > 0) {
 				vty_out(vty,
-					"  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s\n",
+					"  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s  %s\n",
 					"Route Entry", "Status", "Protocol", "Instance",
-					"Flags", "AFI", "SAFI");
+					"Flags", "AFI", "SAFI", "RnRef");
 				vty_out(vty,
-					"  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s\n",
+					"  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s  %s\n",
 					"------------------------------", "----------",
 					"----------", "--------", "----------", "-------",
-					"-------");
+					"-------", "-----");
 			}
 		}
 
