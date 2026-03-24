@@ -10190,7 +10190,7 @@ DEFPY(neighbor_encap_srv6,
 
 DEFPY(sid_export,
       sid_export_cmd,
-      "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [route-map RMAP$rmap_str]",
+      "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [behavior dt46$behavior_dt46] [route-map RMAP$rmap_str]",
       NO_STR
       "Sid value for VRF\n"
       "Encapsulation SRv6 over default vrf\n"
@@ -10198,6 +10198,8 @@ DEFPY(sid_export,
       "Automatically assign a label\n"
       "Explicitly assign a sid value\n"
       "Sid value\n"
+      "Specify SRv6 SID behavior\n"
+      "Allocate a DT46 SID\n"
       "Specify route-map name\n"
       "Name of route-map\n")
 {
@@ -10246,6 +10248,7 @@ DEFPY(sid_export,
 		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
 
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);
+		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
 
 		return CMD_SUCCESS;
 	}
@@ -10254,6 +10257,13 @@ DEFPY(sid_export,
 	if ((sid_auto && CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
 	    (sid_idx != 0 && bgp->srv6_unicast[afi].sid_index != 0) ||
 	    (sid_explicit && bgp->srv6_unicast[afi].sid_explicit)) {
+		if (!!behavior_dt46 !=
+		    !!CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46)) {
+			vty_out(vty,
+				"%% SID export is already configured. Unconfigure it first to reconfigure with a different behavior.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
 		/* no rmap change */
 		if (!rmap_str || (bgp->srv6_unicast[afi].rmap_name &&
 				  !strcmp(rmap_str, bgp->srv6_unicast[afi].rmap_name)))
@@ -10293,6 +10303,40 @@ DEFPY(sid_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (behavior_dt46) {
+		afi_t other_afi = (afi == AFI_IP) ? AFI_IP6 : AFI_IP;
+
+		if (is_srv6_unicast_dt46_enabled(bgp, other_afi)) {
+			bool other_auto = CHECK_FLAG(bgp->af_flags[other_afi][safi],
+						     BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+			uint32_t other_index = bgp->srv6_unicast[other_afi].sid_index;
+			bool other_explicit = !!bgp->srv6_unicast[other_afi].sid_explicit;
+
+			if (!!sid_auto != other_auto || (sid_idx != 0) != (other_index != 0) ||
+			    !!sid_explicit != other_explicit) {
+				vty_out(vty,
+					"%% DT46 sid export mode mismatch with %s unicast. Both address families must use the same mode (auto/index/explicit).\n",
+					afi2str(other_afi));
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
+			if (sid_idx != 0 && sid_idx != other_index) {
+				vty_out(vty,
+					"%% DT46 sid index mismatch with %s unicast (configured as %u). Both address families must use the same index.\n",
+					afi2str(other_afi), other_index);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
+			if (sid_explicit && bgp->srv6_unicast[other_afi].sid_explicit &&
+			    !IPV6_ADDR_SAME(&sid_value, bgp->srv6_unicast[other_afi].sid_explicit)) {
+				vty_out(vty,
+					"%% DT46 explicit SID value mismatch with %s unicast. Both address families must use the same SID value.\n",
+					afi2str(other_afi));
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+	}
+
 	if (rmap_str) {
 		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 		route_map_counter_increment(
@@ -10308,6 +10352,11 @@ DEFPY(sid_export,
 		IPV6_ADDR_COPY(unicast_sid_explicit, &sid_value);
 		bgp->srv6_unicast[afi].sid_explicit = unicast_sid_explicit;
 	}
+
+	if (behavior_dt46)
+		SET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+	else
+		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
 
 	/* request srv6 sid */
 	bgp_srv6_unicast_ensure_afi_sid(bgp, afi);
@@ -20790,6 +20839,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 					bgp->srv6_unicast[afi].sid_explicit);
 			else if (bgp->srv6_unicast[afi].sid_index)
 				vty_out(vty, "  sid export %u", bgp->srv6_unicast[afi].sid_index);
+			if (is_srv6_unicast_dt46_enabled(bgp, afi))
+				vty_out(vty, " behavior dt46");
 			if (bgp->srv6_unicast[afi].rmap_name)
 				vty_out(vty, " route-map %s", bgp->srv6_unicast[afi].rmap_name);
 			vty_out(vty, "\n");

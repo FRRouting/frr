@@ -278,6 +278,8 @@ struct srv6_policy {
 	struct srv6_locator *sid_locator;
 	struct in6_addr *zebra_sid_last_sent;
 	char *rmap_name;
+	uint32_t flags;
+#define SRV6_POLICY_FLAG_BEHAVIOR_DT46 (1 << 0)
 };
 
 struct vpn_policy {
