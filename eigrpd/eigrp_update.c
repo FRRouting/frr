@@ -292,6 +292,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
+			if (tlv == NULL) {
+				/* Invalid TLV - how to handle? */
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
+			}
 
 			/*searching if destination exists */
 			dest_addr.family = AF_INET;
@@ -406,12 +411,14 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			if (length > STREAM_READABLE(s) + 4) {
 				zlog_warn("Malformed packet: TLV length (%u) exceeds remaining data (%zu) + 4, skipping to end",
 						length, STREAM_READABLE(s));
+				stream_forward_getp(s, STREAM_READABLE(s));
 				break;
-		}
-		/* Skip current TLV data safely to move on to next TLV */
-		if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-			zlog_debug("Skipping unknown TLV: type=0x%04x, length=%u", type, length);
-		stream_forward_getp(s, length - 4);
+			}
+
+			/* Skip current TLV data safely to move on to next TLV */
+			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
+				zlog_debug("Skipping unknown TLV: type=0x%04x, length=%u", type, length);
+			stream_forward_getp(s, length - 4);
 
 
 		}
