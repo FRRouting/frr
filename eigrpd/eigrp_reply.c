@@ -117,8 +117,8 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
-
 	uint16_t type;
+	size_t length;
 
 	/* increment statistics. */
 	ei->reply_in++;
@@ -141,8 +141,17 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 
 		type = stream_getw(s);
 
-		if (type != EIGRP_TLV_IPv4_INT)
+		if (type != EIGRP_TLV_IPv4_INT) {
+			/* Skip over the unknown TLV if possible */
+			length = stream_getw(s);
+			if (length < 4 || STREAM_READABLE(s) < (length - 4)) {
+				/* Invalid length; skip remaining data */
+				stream_forward_getp(s, STREAM_READABLE(s));
+			} else {
+				stream_forward_getp(s, length - 4);
+			}
 			continue;
+		}
 
 		struct prefix dest_addr;
 
