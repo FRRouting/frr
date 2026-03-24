@@ -58,22 +58,24 @@ static const struct message bgp_flowspec_display_min[] = {
 	{0}
 };
 
-#define	FS_STRING_UPDATE(count, ptr, format, remaining_len) do {	\
-		int _len_written;					\
-									\
-		if (((format) == NLRI_STRING_FORMAT_DEBUG) && (count)) {\
-			_len_written = snprintf((ptr), (remaining_len),	\
-						", ");			\
-			(remaining_len) -= _len_written;		\
-			(ptr) += _len_written;				\
-		} else if (((format) == NLRI_STRING_FORMAT_MIN) 	\
-			   && (count)) {				\
-			_len_written = snprintf((ptr), (remaining_len),	\
-						" ");			\
-			(remaining_len) -= _len_written;		\
-			(ptr) += _len_written;				\
-		}							\
-		count++;						\
+#define FS_STRING_UPDATE(count, ptr, format, remaining_len)                                       \
+	do {                                                                                      \
+		int _len_written;                                                                 \
+                                                                                                  \
+		if (((format) == NLRI_STRING_FORMAT_DEBUG) && (count)) {                          \
+			_len_written = snprintf((ptr), (remaining_len), ", ");                    \
+			if (_len_written > 0 && _len_written < (remaining_len)) {                 \
+				(remaining_len) -= _len_written;                                  \
+				(ptr) += _len_written;                                            \
+			}                                                                         \
+		} else if (((format) == NLRI_STRING_FORMAT_MIN) && (count)) {                     \
+			_len_written = snprintf((ptr), (remaining_len), " ");                     \
+			if (_len_written > 0 && _len_written < (remaining_len)) {                 \
+				(remaining_len) -= _len_written;                                  \
+				(ptr) += _len_written;                                            \
+			}                                                                         \
+		}                                                                                 \
+		count++;                                                                          \
 	} while (0)
 
 /* Parse FLOWSPEC NLRI
@@ -107,7 +109,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 	/* if needed. type_util can be set to other values */
 	type_util = BGP_FLOWSPEC_RETURN_STRING;
 	error = 0;
-	while (offset < len-1 && error >= 0) {
+	while (offset + 1 < len && error >= 0) {
 		type = nlri_content[offset];
 		offset++;
 		switch (type) {
@@ -133,8 +135,10 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 					lookup_msg(bgp_flowspec_display,
 						   type, ""),
 					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case FLOWSPEC_FLOW_LABEL:
 		case FLOWSPEC_IP_PROTOCOL:
@@ -161,8 +165,10 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 					lookup_msg(bgp_flowspec_display,
 					type, ""),
 				     local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case FLOWSPEC_TCP_FLAGS:
 			ret = bgp_flowspec_bitmask_decode(
@@ -185,8 +191,10 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 					lookup_msg(bgp_flowspec_display,
 						   type, ""),
 					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case FLOWSPEC_PKT_LEN:
 		case FLOWSPEC_DSCP:
@@ -209,8 +217,10 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 					lookup_msg(bgp_flowspec_display,
 					type, ""),
 				     local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case FLOWSPEC_FRAGMENT:
 			ret = bgp_flowspec_bitmask_decode(
@@ -233,8 +243,10 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 					lookup_msg(bgp_flowspec_display,
 					type, ""),
 					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		default:
 			error = -1;
