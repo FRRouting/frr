@@ -78,7 +78,7 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 	struct prefix compare;
 
 	error = 0;
-	while (offset < len-1 && error >= 0) {
+	while (offset + 1 < len && error >= 0) {
 		type = nlri_content[offset];
 		offset++;
 		switch (type) {
