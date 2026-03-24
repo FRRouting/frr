@@ -3771,164 +3771,7 @@ DEFPY_HIDDEN (no_evpn_accept_bgp_seq,
 /* Static ip route configuration write function. */
 static int zebra_ip_config(struct vty *vty)
 {
-	int write = 0;
-
-	write += zebra_import_table_config(vty, VRF_DEFAULT);
-
-	return write;
-}
-
-DEFPY (ip_zebra_import_table_distance,
-       ip_zebra_import_table_distance_cmd,
-       "ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (distance_str == NULL)
-		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be in range 1-252\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	return zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, distance, rmap, true);
-}
-
-DEFPY (ipv6_zebra_import_table_distance,
-       ipv6_zebra_import_table_distance_cmd,
-       "ipv6 import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
-       IPV6_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (distance_str == NULL)
-		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be in range 1-252\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	return zebra_import_table(AFI_IP6, safi, VRF_DEFAULT, table_id, distance, rmap, true);
-}
-
-DEFUN_HIDDEN (zebra_packet_process,
-	      zebra_packet_process_cmd,
-	      "zebra zapi-packets (1-10000)",
-	      ZEBRA_STR
-	      "Zapi Protocol\n"
-	      "Number of packets to process before relinquishing thread\n")
-{
-	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
-
-	atomic_store_explicit(&zrouter.packets_to_process, packets,
-			      memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_zebra_packet_process,
-	      no_zebra_packet_process_cmd,
-	      "no zebra zapi-packets [(1-10000)]",
-	      NO_STR
-	      ZEBRA_STR
-	      "Zapi Protocol\n"
-	      "Number of packets to process before relinquishing thread\n")
-{
-	atomic_store_explicit(&zrouter.packets_to_process,
-			      ZEBRA_ZAPI_PACKETS_TO_PROCESS,
-			      memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (zebra_workqueue_timer,
-	      zebra_workqueue_timer_cmd,
-	      "zebra work-queue (0-10000)",
-	      ZEBRA_STR
-	      "Work Queue\n"
-	      "Time in milliseconds\n")
-{
-	uint32_t timer = strtoul(argv[2]->arg, NULL, 10);
-	zrouter.ribq->spec.hold = timer;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_zebra_workqueue_timer,
-	      no_zebra_workqueue_timer_cmd,
-	      "no zebra work-queue [(0-10000)]",
-	      NO_STR
-	      ZEBRA_STR
-	      "Work Queue\n"
-	      "Time in milliseconds\n")
-{
-	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_ip_zebra_import_table,
-       no_ip_zebra_import_table_cmd,
-       "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
-       NO_STR
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-	   "Import into the MRIB instead of the URIB\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
-{
-	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-
-	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty,
-			"Invalid routing table ID. Must be in range 1-252\n");
-		return CMD_WARNING;
-	}
-
-	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %" PRId64 ". Must be non-default table\n",
-			table_id);
-		return CMD_WARNING;
-	}
-
-	if (!is_zebra_import_table_enabled(AFI_IP, safi, VRF_DEFAULT, table_id))
-		return CMD_SUCCESS;
-
-	return (zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, 0, NULL, false));
+	return 0;
 }
 
 DEFPY (zebra_nexthop_group_keep,
@@ -4199,39 +4042,6 @@ DEFUN (show_dataplane_providers,
 	return dplane_show_provs_helper(vty, detailed);
 }
 
-/* Configure dataplane incoming queue limit */
-DEFUN (zebra_dplane_queue_limit,
-       zebra_dplane_queue_limit_cmd,
-       "zebra dplane limit (0-10000)",
-       ZEBRA_STR
-       "Zebra dataplane\n"
-       "Limit incoming queued updates\n"
-       "Number of queued updates\n")
-{
-	uint32_t limit = 0;
-
-	limit = strtoul(argv[3]->arg, NULL, 10);
-
-	dplane_set_in_queue_limit(limit, true);
-
-	return CMD_SUCCESS;
-}
-
-/* Reset dataplane queue limit to default value */
-DEFUN (no_zebra_dplane_queue_limit,
-       no_zebra_dplane_queue_limit_cmd,
-       "no zebra dplane limit [(0-10000)]",
-       NO_STR
-       ZEBRA_STR
-       "Zebra dataplane\n"
-       "Limit incoming queued updates\n"
-       "Number of queued updates\n")
-{
-	dplane_set_in_queue_limit(0, false);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (zebra_show_routing_tables_summary,
        zebra_show_routing_tables_summary_cmd,
        "show zebra router table summary",
@@ -4465,13 +4275,6 @@ void zebra_vty_init(void)
 	install_node(&protocol_node);
 
 	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
-	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
-	install_element(CONFIG_NODE, &ipv6_zebra_import_table_distance_cmd);
-	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
-	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
-	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
-	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
-	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);
@@ -4543,8 +4346,6 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
-	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
-	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 

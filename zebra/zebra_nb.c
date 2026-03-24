@@ -74,10 +74,10 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-zebra:zebra/import-kernel-table/table-id",
+			.xpath = "/frr-zebra:zebra/import-kernel-table",
 			.cbs = {
-				.modify = zebra_import_kernel_table_table_id_modify,
-				.destroy = zebra_import_kernel_table_table_id_destroy,
+				.create = zebra_import_kernel_table_create,
+				.destroy = zebra_import_kernel_table_destroy,
 			}
 		},
 		{
