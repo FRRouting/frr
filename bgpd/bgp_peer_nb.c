@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+#include <zebra.h>
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_updgrp.h"
@@ -261,7 +263,7 @@ static struct yang_data *lib_vrf_peer_last_established_get_elem(struct nb_cb_get
 	uptime = monotime(NULL);
 	uptime -= peer->uptime;
 	epoch_tbuf = time(NULL) - uptime;
-	return yang_data_new_uint64(args->xpath, epoch_tbuf);
+	return yang_data_new_uint64(args->xpath, (uint64_t)epoch_tbuf);
 }
 
 /* XPath: /frr-bgp-peer:lib/vrf/peer/peer-group */
