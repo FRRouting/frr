@@ -26,7 +26,7 @@ struct bgp_ls_nlri;
  * @param attr BGP-LS node attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr);
+extern bool bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr);
 
 /*
  * Populate BGP-LS Attributes from Link State Attributes
@@ -35,7 +35,7 @@ extern int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr
  * @param attr BGP-LS link attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr);
+extern bool bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr);
 
 /*
  * Populate BGP-LS Attributes from Link State Prefix
@@ -44,7 +44,7 @@ extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_l
  * @param attr BGP-LS prefix attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr);
+extern bool bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr);
 
 /*
  * ===========================================================================
