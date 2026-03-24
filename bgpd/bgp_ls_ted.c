@@ -20,6 +20,7 @@
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_nlri.h"
 #include "bgpd/bgp_ls_ted.h"
+#include "bgpd/bgp_route.h"
 
 /*
  * ===========================================================================
@@ -957,6 +958,7 @@ int bgp_ls_process_vertex(struct bgp *bgp, struct ls_vertex *vertex, uint8_t eve
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_node(bgp, protocol_id, router_id, router_id_len, area_id,
@@ -1030,6 +1032,7 @@ int bgp_ls_process_edge(struct bgp *bgp, struct ls_edge *edge, uint8_t event)
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_link(bgp, protocol_id, local_router_id,
@@ -1092,6 +1095,7 @@ int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t eve
 	}
 
 	switch (event) {
+	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
 	case LS_MSG_EVENT_UPDATE:
 		return bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
@@ -1168,7 +1172,8 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
 			zlog_debug("%s: Link edge", __func__);
 
-		if (msg->event == LS_MSG_EVENT_ADD || msg->event == LS_MSG_EVENT_UPDATE) {
+		if (msg->event == LS_MSG_EVENT_SYNC || msg->event == LS_MSG_EVENT_ADD ||
+		    msg->event == LS_MSG_EVENT_UPDATE) {
 			/* Search for the reverse edge and link both directions. */
 			reverse_edge = ls_find_edge_by_destination(bgp->ls_info->ted,
 								   edge->attributes);
@@ -1212,7 +1217,8 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 			 * destination.
 			 */
 			if (reverse_edge &&
-			    (msg->event == LS_MSG_EVENT_ADD || reverse_edge_dst_updated)) {
+			    (msg->event == LS_MSG_EVENT_SYNC || msg->event == LS_MSG_EVENT_ADD ||
+			     reverse_edge_dst_updated)) {
 				uint8_t reverse_event = msg->event;
 
 				if (msg->event == LS_MSG_EVENT_UPDATE && reverse_edge_dst_updated)
@@ -1262,6 +1268,49 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 	}
 
 	return 0;
+}
+
+/*
+ * Remove all entries from the TED.
+ */
+static void bgp_ls_ted_clear(struct ls_ted *ted)
+{
+	struct ls_vertex *vertex;
+	struct ls_edge *edge;
+	struct ls_subnet *subnet;
+
+	frr_each_safe (vertices, &ted->vertices, vertex)
+		ls_vertex_del_all(ted, vertex);
+	frr_each_safe (edges, &ted->edges, edge)
+		ls_edge_del_all(ted, edge);
+	frr_each_safe (subnets, &ted->subnets, subnet)
+		ls_subnet_del_all(ted, subnet);
+}
+
+/*
+ * Withdraw all locally originated BGP-LS routes and reset the TED.
+ *
+ * Called when the last BGP-LS peer is deactivated: performs a single bulk
+ * walk of the BGP-LS RIB via bgp_clear_route() to remove all self-originated
+ * paths at once, then clears all TED entries.
+ *
+ * @param bgp - BGP instance
+ */
+void bgp_ls_withdraw_ted(struct bgp *bgp)
+{
+	if (!bgp || !bgp->ls_info || !bgp->ls_info->ted)
+		return;
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Withdrawing all locally originated routes and resetting TED");
+
+	/* Remove all self-originated BGP-LS paths from the RIB */
+	bgp_clear_route(bgp->peer_self, AFI_BGP_LS, SAFI_BGP_LS);
+
+	/* Clear all TED entries */
+	bgp_ls_ted_clear(bgp->ls_info->ted);
+
+	zlog_info("BGP-LS: All locally originated BGP-LS routes withdrawn and TED reset");
 }
 
 /*
