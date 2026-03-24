@@ -306,31 +306,41 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			if (loop) {
 				len_written = snprintf(ptr, len_string,
 						      ", ");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			if (op[5] == 1) {
 				len_written = snprintf(ptr, len_string,
 						       "<");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			if (op[6] == 1) {
 				len_written = snprintf(ptr, len_string,
 						      ">");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			if (op[7] == 1) {
 				len_written = snprintf(ptr, len_string,
 						       "=");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			len_written = snprintf(ptr, len_string,
 					       " %d ", value);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
 			/* limitation: stop converting */
@@ -423,35 +433,47 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			if (op[1] == 1 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
 						       ",&");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			} else if (op[1] == 0 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
 						      ",|");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			if (op[7] == 1) {
 				len_written = snprintf(ptr, len_string,
 					       "= ");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			} else {
 				len_written = snprintf(ptr, len_string,
 						       "∋ ");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			if (op[6] == 1) {
 				len_written = snprintf(ptr, len_string,
 					       "! ");
-				len_string -= len_written;
-				ptr += len_written;
+				if (len_written > 0 && len_written < len_string) {
+					len_string -= len_written;
+					ptr += len_written;
+				}
 			}
 			len_written = snprintf(ptr, len_string,
 				       "%d", value);
-			len_string -= len_written;
-			ptr += len_written;
+			if (len_written > 0 && len_written < len_string) {
+				len_string -= len_written;
+				ptr += len_written;
+			}
 			break;
 		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
 			/* limitation: stop converting */
