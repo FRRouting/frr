@@ -12891,11 +12891,24 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			}
 		}
 	} else if (path->sub_type == BGP_ROUTE_AGGREGATE) {
+		struct bgp_dest *aggr_dest;
+		struct bgp_aggregate *aggregate;
+		unsigned long aggr_count = 0;
+
+		aggr_dest = bgp_node_lookup(bgp->aggregate[afi][safi], p);
+		if (aggr_dest) {
+			aggregate = bgp_dest_get_bgp_aggregate_info(aggr_dest);
+			if (aggregate)
+				aggr_count = aggregate->count;
+			bgp_dest_unlock_node(aggr_dest);
+		}
+
 		if (json_paths) {
 			json_object_boolean_true_add(json_path, "aggregated");
 			json_object_boolean_true_add(json_path, "local");
+			json_object_int_add(json_path, "aggregateCount", aggr_count);
 		} else {
-			vty_out(vty, ", aggregated, local");
+			vty_out(vty, ", aggregated (%lu), local", aggr_count);
 		}
 	} else if (path->type != ZEBRA_ROUTE_BGP) {
 		if (json_paths)
