@@ -1,19 +1,6 @@
 {
   "2001:db8:4::/64": [
     {
-      "distance": 110,
-      "protocol": "ospf6",
-      "metric": 10,
-      "prefix": "2001:db8:4::/64",
-      "nexthops": [
-        {
-          "active": true,
-          "directlyConnected": true,
-          "interfaceName": "r2-eth2"
-        }
-      ]
-    },
-    {
       "distance": 0,
       "protocol": "connected",
       "metric": 0,
