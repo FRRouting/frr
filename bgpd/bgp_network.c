@@ -32,6 +32,11 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nht.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_vty.h"
+>>>>>>> ac1d13ee6 (bgpd: Move rpki strict check to bgp_accept())
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -486,7 +491,30 @@ static void bgp_accept(struct event *thread)
 	bgp_update_setsockopt_tcp_keepalive(bgp, bgp_sock);
 
 	/* Check remote IP address */
+<<<<<<< HEAD
 	peer1 = peer_lookup(bgp, &su);
+=======
+	peer = peer_lookup(bgp, &su);
+
+	if (!peer) {
+		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
+
+		if (dynamic_peer) {
+			if (peergroup_flag_check(dynamic_peer, PEER_FLAG_RPKI_STRICT) &&
+			    !bgp_rpki_cache_connected(dynamic_peer->bgp)) {
+				if (bgp_debug_neighbor_events(dynamic_peer))
+					zlog_debug("[Event] Incoming BGP connection rejected from %s due to RPKI cache not connected (strict mode)",
+						   dynamic_peer->host);
+				peer_delete(dynamic_peer);
+				close(bgp_sock);
+				return;
+			}
+
+			incoming = dynamic_peer->connection;
+
+			atomic_store_explicit(&incoming->last_sendq_ok, monotime(NULL),
+					      memory_order_relaxed);
+>>>>>>> ac1d13ee6 (bgpd: Move rpki strict check to bgp_accept())
 
 	if (!peer1) {
 		peer1 = peer_lookup_dynamic_neighbor(bgp, &su);
@@ -607,7 +635,21 @@ static void bgp_accept(struct event *thread)
 		return;
 	}
 
+<<<<<<< HEAD
 	if (bgp_debug_neighbor_events(peer1))
+=======
+	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
+	    !bgp_rpki_cache_connected(peer->bgp)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] Incoming BGP connection rejected from %s due to RPKI cache not connected (strict mode)",
+				   peer->host);
+		peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
+		close(bgp_sock);
+		return;
+	}
+
+	if (bgp_debug_neighbor_events(peer))
+>>>>>>> ac1d13ee6 (bgpd: Move rpki strict check to bgp_accept())
 		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
 			   inet_sutop(&su, buf), bgp_sock, connection1->status,
 			   connection1->fd);
