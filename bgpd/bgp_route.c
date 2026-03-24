@@ -13572,8 +13572,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 		best_path_selected = false;
 		if (use_json && !brief)
 			json_paths = json_object_new_array();
-		else
-			json_paths = NULL;
 
 		for (; pi; pi = pi->next) {
 			struct community *picomm = NULL;
@@ -13581,7 +13579,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			picomm = bgp_attr_get_community(pi->attr);
 
 			total_count++;
-
 			if (type == bgp_show_type_prefix_version) {
 				uint32_t version =
 					strtoul(output_arg, NULL, 10);
@@ -13805,7 +13802,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					continue;
 			}
 
-			if (!use_json && header) {
+			if (!brief && !use_json && header) {
 				vty_out(vty,
 					"BGP table version is %" PRIu64
 					", local router ID is %pI4, vrf id ",
@@ -13818,8 +13815,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				vty_out(vty, "Default local pref %u, ",
 					bgp->default_local_pref);
 				vty_out(vty, "local AS ");
-				vty_out(vty, ASN_FORMAT(bgp->asnotation),
-					&bgp->as);
+				vty_out(vty, ASN_FORMAT(bgp->asnotation), &bgp->as);
 				vty_out(vty, "\n");
 				if (!detail_routes) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
@@ -13829,36 +13825,32 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					if (safi == SAFI_BGP_LS)
 						vty_out(vty, BGP_SHOW_BGP_LS_PREFIX_CODES_HEADER);
 				}
-				if (type == bgp_show_type_dampend_paths
-				    || type == bgp_show_type_damp_neighbor)
+				if (type == bgp_show_type_dampend_paths ||
+				    type == bgp_show_type_damp_neighbor)
 					vty_out(vty, BGP_SHOW_DAMP_HEADER);
-				else if (type == bgp_show_type_flap_statistics
-					 || type == bgp_show_type_flap_neighbor)
+				else if (type == bgp_show_type_flap_statistics ||
+					 type == bgp_show_type_flap_neighbor)
 					vty_out(vty, BGP_SHOW_FLAP_HEADER);
 				else if (!detail_routes)
 					vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE
 							   : BGP_SHOW_HEADER));
 				header = false;
+			}
+			if (!brief) {
+				if (rd != NULL && !display && !output_count) {
+					if (!use_json)
+						vty_out(vty, "Route Distinguisher: %s\n", rd);
+				}
 
-			}
-			if (rd != NULL && !display && !output_count) {
-				if (!use_json)
-					vty_out(vty,
-						"Route Distinguisher: %s\n",
-						rd);
-			}
-			if (type == bgp_show_type_dampend_paths
-			    || type == bgp_show_type_damp_neighbor)
-				damp_route_vty_out(vty, dest_p, pi, display,
-						   afi, safi, use_json,
-						   json_paths);
-			else if (type == bgp_show_type_flap_statistics
-				 || type == bgp_show_type_flap_neighbor)
-				flap_route_vty_out(vty, dest_p, pi, display,
-						   afi, safi, use_json,
-						   json_paths);
-			else {
-				if (!brief && (detail_routes || detail_json)) {
+				if (type == bgp_show_type_dampend_paths ||
+				    type == bgp_show_type_damp_neighbor)
+					damp_route_vty_out(vty, dest_p, pi, display, afi, safi,
+							   use_json, json_paths);
+				else if (type == bgp_show_type_flap_statistics ||
+					 type == bgp_show_type_flap_neighbor)
+					flap_route_vty_out(vty, dest_p, pi, display, afi, safi,
+							   use_json, json_paths);
+				else if (detail_routes || detail_json) {
 					const struct prefix_rd *prd = NULL;
 
 					if (dest->pdest)
@@ -13875,7 +13867,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 							     family2afi(dest_p->family), safi,
 							     rpki_curr_state, json_paths, NULL,
 							     show_flags);
-				} else if (!brief) {
+				} else {
 					route_vty_out(vty, dest_p, pi, display, NULL, safi,
 						      json_paths, wide, NULL);
 				}
