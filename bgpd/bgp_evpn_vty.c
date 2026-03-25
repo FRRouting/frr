@@ -3279,8 +3279,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 
 			if (json) {
 				json_prefix = json_object_new_object();
-				json_paths = json_object_new_array();
 				if (!brief) {
+					json_paths = json_object_new_array();
 					json_object_string_addf(json_prefix, "prefix", "%pFX", p);
 					json_object_int_add(json_prefix, "prefixLen", p->prefixlen);
 				}
@@ -3308,22 +3308,23 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 				add_prefix_to_json = 1;
 				add_rd_to_json = 1;
 
-				if (json && !brief)
-					json_path = json_object_new_array();
+				if (!brief) {
+					if (json)
+						json_path = json_object_new_array();
 
-				if (detail && !brief) {
-					route_vty_out_detail(vty, bgp, dest,
-							     bgp_dest_get_prefix(dest), pi,
-							     AFI_L2VPN, SAFI_EVPN,
-							     RPKI_NOT_BEING_USED, json_path, NULL,
-							     0);
-				} else if (!brief)
-					route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN, json_path,
-						      false, rd_str);
+					if (detail) {
+						route_vty_out_detail(vty, bgp, dest,
+								     bgp_dest_get_prefix(dest), pi,
+								     AFI_L2VPN, SAFI_EVPN,
+								     RPKI_NOT_BEING_USED,
+								     json_path, NULL, 0);
+					} else
+						route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN,
+							      json_path, false, rd_str);
 
-				if (json && !brief)
-					json_object_array_add(json_paths,
-							      json_path);
+					if (json)
+						json_object_array_add(json_paths, json_path);
+				}
 			}
 
 			if (json) {
@@ -3331,16 +3332,17 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 					if (!brief)
 						json_object_object_add(json_prefix, "paths",
 								       json_paths);
-					else
-						json_object_free(json_paths);
 					json_object_object_addf(json_rd,
 								json_prefix,
 								"%pFX", p);
 				} else {
 					json_object_free(json_prefix);
-					json_object_free(json_paths);
+					if (!brief) {
+						json_object_free(json_paths);
+						json_paths = NULL;
+					}
+
 					json_prefix = NULL;
-					json_paths = NULL;
 				}
 			}
 		}
