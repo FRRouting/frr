@@ -3780,7 +3780,7 @@ peer_init:
 		memset(&bgp->gr_info[afi][safi], 0, sizeof(struct graceful_restart_info));
 	}
 
-	bgp->v_update_delay = bm->v_update_delay;
+	bgp->v_convergence_wait = bm->v_convergence_wait;
 	bgp->v_establish_wait = bm->v_establish_wait;
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 	bgp->default_subgroup_pkt_queue_max =
@@ -4387,7 +4387,7 @@ int bgp_delete(struct bgp *bgp)
 	event_cancel(&bgp->t_condition_check);
 	event_cancel(&bgp->t_startup);
 	event_cancel(&bgp->t_maxmed_onstartup);
-	event_cancel(&bgp->t_update_delay);
+	event_cancel(&bgp->t_convergence_wait);
 	event_cancel(&bgp->t_establish_wait);
 
 	/* If the clearing event is scheduled, there's an extra ref to
@@ -9052,7 +9052,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->start_time = monotime(NULL);
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
-	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
+	bm->v_convergence_wait = BGP_UPDATE_DELAY_DEFAULT;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;

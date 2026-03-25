@@ -184,8 +184,8 @@ struct bgp_master {
 	/* EVPN multihoming */
 	struct bgp_evpn_mh_info *mh_info;
 
-	/* global update-delay timer values */
-	uint16_t v_update_delay;
+	/* global convergence-wait timer values */
+	uint16_t v_convergence_wait;
 	uint16_t v_establish_wait;
 
 	uint32_t flags;
@@ -669,20 +669,20 @@ struct bgp {
 	uint8_t maxmed_active; /* 1/0 if max-med is active or not */
 	uint32_t maxmed_value; /* Max-med value when its active */
 
-	/* BGP update delay on startup */
-	struct event *t_update_delay;
+	/* BGP convergence wait on startup */
+	struct event *t_convergence_wait;
 	struct event *t_establish_wait;
 	struct event *t_revalidate[AFI_MAX][SAFI_MAX];
 
-	uint8_t update_delay_over;
+	uint8_t convergence_wait_over;
 	uint8_t main_zebra_update_hold;
 	uint8_t main_peers_update_hold;
-	uint16_t v_update_delay;
+	uint16_t v_convergence_wait;
 	uint16_t v_establish_wait;
-	char update_delay_begin_time[64];
-	char update_delay_end_time[64];
-	char update_delay_zebra_resume_time[64];
-	char update_delay_peers_resume_time[64];
+	char convergence_wait_begin_time[64];
+	char convergence_wait_end_time[64];
+	char convergence_wait_zebra_resume_time[64];
+	char convergence_wait_peers_resume_time[64];
 	uint32_t established;
 	uint32_t restarted_peers;
 	uint32_t received_eors;
@@ -2045,7 +2045,7 @@ struct peer {
 	uint32_t dropped;     /* Dropped */
 
 	/* Update delay related fields */
-	uint8_t update_delay_over; /* When this is set, BGP is no more waiting
+	uint8_t convergence_wait_over; /* When this is set, BGP is no more waiting
 				     for EOR */
 
 	time_t synctime;
@@ -2744,8 +2744,8 @@ extern void bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp);
 extern void bgp_listen_limit_set(struct bgp *bgp, int listen_limit);
 extern void bgp_listen_limit_unset(struct bgp *bgp);
 
-extern bool bgp_update_delay_active(struct bgp *bgp);
-extern bool bgp_update_delay_configured(struct bgp *bgp);
+extern bool bgp_convergence_wait_active(struct bgp *bgp);
+extern bool bgp_convergence_wait_configured(struct bgp *bgp);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *peer, as_t as,
 			   enum peer_asn_type as_type, const char *as_str);

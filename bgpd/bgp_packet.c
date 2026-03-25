@@ -205,14 +205,14 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 }
 
 /* Called when there is a change in the EOR(implicit or explicit) status of a
- * peer. Ends the update-delay if all expected peers are done with EORs. */
-void bgp_check_update_delay(struct bgp *bgp)
+ * peer. Ends the convergence-wait if all expected peers are done with EORs. */
+void bgp_check_convergence_wait(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("Checking update delay, T: %d R: %d E: %d", bgp->established,
+		zlog_debug("Checking convergence wait, T: %d R: %d E: %d", bgp->established,
 			   bgp->restarted_peers, bgp->received_eors);
 
 	if (bgp->established <= bgp->restarted_peers + bgp->received_eors) {
@@ -220,18 +220,14 @@ void bgp_check_update_delay(struct bgp *bgp)
 		 * This is an extra sanity check to make sure we wait for all
 		 * the eligible configured peers. This check is performed if
 		 * establish wait timer is on, or establish wait option is not
-		 * given with the update-delay command
+		 * given with the convergence-wait command
 		 */
-		if (bgp->t_establish_wait
-		    || (bgp->v_establish_wait == bgp->v_update_delay))
+		if (bgp->t_establish_wait || (bgp->v_establish_wait == bgp->v_convergence_wait))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if (CHECK_FLAG(peer->flags,
-					       PEER_FLAG_CONFIG_NODE)
-				    && !CHECK_FLAG(peer->flags,
-						   PEER_FLAG_SHUTDOWN)
-				    && !CHECK_FLAG(peer->bgp->flags,
-						   BGP_FLAG_SHUTDOWN)
-				    && !peer->update_delay_over) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
+				    !CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) &&
+				    !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN) &&
+				    !peer->convergence_wait_over) {
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							" Peer %s pending, continuing read-only mode",
@@ -242,7 +238,7 @@ void bgp_check_update_delay(struct bgp *bgp)
 
 		zlog_info("Update delay ended, restarted: %d, EORs: %d", bgp->restarted_peers,
 			  bgp->received_eors);
-		bgp_update_delay_end(bgp);
+		bgp_convergence_wait_end(bgp);
 	}
 }
 
@@ -252,18 +248,18 @@ void bgp_check_update_delay(struct bgp *bgp)
  */
 void bgp_update_restarted_peers(struct peer *peer)
 {
-	if (!bgp_update_delay_active(peer->bgp))
-		return; /* BGP update delay has ended */
-	if (peer->update_delay_over)
+	if (!bgp_convergence_wait_active(peer->bgp))
+		return; /* BGP convergence wait has ended */
+	if (peer->convergence_wait_over)
 		return; /* This peer has already been considered */
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("Peer %s: Checking restarted", peer->host);
 
 	if (peer_established(peer->connection)) {
-		peer->update_delay_over = 1;
+		peer->convergence_wait_over = 1;
 		peer->bgp->restarted_peers++;
-		bgp_check_update_delay(peer->bgp);
+		bgp_check_convergence_wait(peer->bgp);
 	}
 }
 
@@ -276,9 +272,9 @@ static void bgp_update_explicit_eors(struct peer *peer)
 	afi_t afi;
 	safi_t safi;
 
-	if (!bgp_update_delay_active(peer->bgp))
-		return; /* BGP update delay has ended */
-	if (peer->update_delay_over)
+	if (!bgp_convergence_wait_active(peer->bgp))
+		return; /* BGP convergence wait has ended */
+	if (peer->convergence_wait_over)
 		return; /* This peer has already been considered */
 
 	if (bgp_debug_neighbor_events(peer))
@@ -296,9 +292,9 @@ static void bgp_update_explicit_eors(struct peer *peer)
 		}
 	}
 
-	peer->update_delay_over = 1;
+	peer->convergence_wait_over = 1;
 	peer->bgp->received_eors++;
-	bgp_check_update_delay(peer->bgp);
+	bgp_check_convergence_wait(peer->bgp);
 }
 
 /**
@@ -440,13 +436,12 @@ void bgp_generate_updgrp_packets(struct event *event)
 	/*
 	 * The code beyond this part deals with update packets, proceed only
 	 * if peer is Established and updates are not on hold (as part of
-	 * update-delay processing).
+	 * convergence-wait processing).
 	 */
 	if (!peer_established(peer->connection))
 		return;
 
-	if ((peer->bgp->main_peers_update_hold)
-	    || bgp_update_delay_active(peer->bgp))
+	if ((peer->bgp->main_peers_update_hold) || bgp_convergence_wait_active(peer->bgp))
 		return;
 
 	/* If the MRAI timer is running and we have conditional advertisement
@@ -2281,7 +2276,7 @@ static void bgp_update_receive_eor(struct bgp *bgp, struct peer *peer, afi_t afi
 	if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED);
 
-		/* update-delay related processing */
+		/* convergence-wait related processing */
 		bgp_update_explicit_eors(peer);
 
 		/* graceful-restart related processing */

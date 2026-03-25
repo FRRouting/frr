@@ -129,13 +129,13 @@ def test_bgp_update_delay():
 
     def _bgp_check_update_delay(router):
         output = json.loads(router.vtysh_cmd("show ip bgp sum json"))
-        expected = {"ipv4Unicast": {"updateDelayLimit": 20}}
+        expected = {"ipv4Unicast": {"convergenceDelayLimit": 20}}
 
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_update_delay_in_progress(router):
         output = json.loads(router.vtysh_cmd("show ip bgp sum json"))
-        expected = {"ipv4Unicast": {"updateDelayInProgress": True}}
+        expected = {"ipv4Unicast": {"convergenceDelayInProgress": True}}
 
         return topotest.json_cmp(output, expected)
 
@@ -148,21 +148,21 @@ def test_bgp_update_delay():
     def _bgp_check_update_delay_and_wait(router):
         output = json.loads(router.vtysh_cmd("show ip bgp sum json"))
         expected = {
-            "ipv4Unicast": {"updateDelayLimit": 20, "updateDelayEstablishWait": 10}
+            "ipv4Unicast": {"convergenceDelayLimit": 20, "convergenceWaitEstablishWait": 10}
         }
 
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_update_delay(router):
         output = json.loads(router.vtysh_cmd("show ip bgp sum json"))
-        expected = {"ipv4Unicast": {"updateDelayLimit": 20}}
+        expected = {"ipv4Unicast": {"convergenceDelayLimit": 20}}
 
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_vrf_update_delay_and_wait(router):
         output = json.loads(router.vtysh_cmd("show ip bgp vrf vrf1 sum json"))
         expected = {
-            "ipv4Unicast": {"updateDelayLimit": 20, "updateDelayEstablishWait": 10}
+            "ipv4Unicast": {"convergenceDelayLimit": 20, "convergenceWaitEstablishWait": 10}
         }
 
         return topotest.json_cmp(output, expected)
