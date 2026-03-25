@@ -2803,12 +2803,24 @@ static bool srv6_manager_release_sid_internal_locator(struct srv6_locator *locat
 	struct zebra_srv6_sid_block *block = NULL;
 	struct zebra_srv6_sid_entry *entry = NULL;
 	struct zebra_srv6_sid_ctx *zctx;
+	int rc;
 
 	block = locator->sid_block;
 
 	/* Lookup Zebra SID context and release it */
-	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
-		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx) {
+		if (ctx->alloc_mode != SRV6_SID_ALLOC_MODE_UNSPEC)
+			rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
+		else {
+			ctx->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+			rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
+			if (rc) {
+				ctx->alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+				rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
+			}
+		}
+
+		if (rc == 0) {
 			if (zctx->sid) {
 				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
 								    is_localonly);
@@ -2818,6 +2830,7 @@ static bool srv6_manager_release_sid_internal_locator(struct srv6_locator *locat
 			*ret = release_srv6_sid(client, zctx, locator, is_localonly);
 			return true;
 		}
+	}
 
 	return false;
 }
