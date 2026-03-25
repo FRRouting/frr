@@ -47,6 +47,13 @@ DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
 DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
+bool bgp_rpki_cache_connected(struct bgp *bgp)
+{
+	struct vrf *vrf = vrf_lookup_by_id(bgp->vrf_id);
+
+	return hook_call(bgp_rpki_connection_status, vrf ? vrf->name : VRF_DEFAULT_NAME);
+}
+
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
@@ -2096,8 +2103,6 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 	enum connect_result status;
-	bool rpki_cache_connected;
-	struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
 
 	bgp_peer_conf_if_to_su_update(connection);
 
@@ -2131,17 +2136,14 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	/* Clear peer capability flag. */
 	peer->cap = 0;
 
-	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT)) {
-		rpki_cache_connected = hook_call(bgp_rpki_connection_status,
-						 vrf ? vrf->name : VRF_DEFAULT_NAME);
-		if (!rpki_cache_connected) {
-			if (bgp_debug_neighbor_events(peer))
-				flog_err(EC_BGP_FSM,
-					 "%s [FSM] RPKI strict mode enabled, but RPKI cache is not connected",
-					 peer->host);
-			peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
-			return BGP_FSM_FAILURE;
-		}
+	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
+	    !bgp_rpki_cache_connected(peer->bgp)) {
+		if (bgp_debug_neighbor_events(peer))
+			flog_err(EC_BGP_FSM,
+				 "%s [FSM] RPKI strict mode enabled, but RPKI cache is not connected",
+				 peer->host);
+		peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
+		return BGP_FSM_FAILURE;
 	}
 
 	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
@@ -2384,7 +2386,6 @@ bgp_establish(struct peer_connection *connection)
 	struct peer *other;
 	struct peer *peer = connection->peer;
 	struct bgp *bgp = peer->bgp;
-	bool rpki_cache_connected;
 	struct vrf *vrf = NULL;
 
 	other = peer->doppelganger;
@@ -2406,19 +2407,6 @@ bgp_establish(struct peer_connection *connection)
 		if (other && other->connection)
 			(void)hash_get(bgp->connectionhash, other->connection, hash_alloc_intern);
 		return BGP_FSM_FAILURE;
-	}
-
-	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT)) {
-		rpki_cache_connected = hook_call(bgp_rpki_connection_status,
-						 vrf ? vrf->name : VRF_DEFAULT_NAME);
-		if (!rpki_cache_connected) {
-			if (bgp_debug_neighbor_events(peer))
-				flog_err(EC_BGP_FSM,
-					 "%s [FSM] RPKI strict mode enabled, but RPKI cache is not connected",
-					 peer->host);
-			peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
-			return BGP_FSM_FAILURE;
-		}
 	}
 
 	/*
