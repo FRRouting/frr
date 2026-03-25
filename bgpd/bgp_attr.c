@@ -3276,6 +3276,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+<<<<<<< HEAD
 		if (STREAM_READABLE(peer->curr) <
 		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			flog_err(
@@ -3286,6 +3287,14 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				args->total);
+=======
+		if (length < BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Malformed SRv6 Service Sub-TLV attribute - declared length %u is less than minimum %d",
+				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+>>>>>>> f7d5840af (bgpd: Check if sub TLV's length is sufficient for BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO)
 		}
 		stream_getc(peer->curr);
 		stream_get(&ipv6_sid, peer->curr, sizeof(ipv6_sid));
