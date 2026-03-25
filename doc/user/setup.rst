@@ -133,7 +133,19 @@ user instead of root.
 The next set of lines controls what options are passed to daemons when started
 from the service script. Usually daemons will have ``--daemon`` and ``-A
 <address>`` specified in order to daemonize and listen for VTY commands on a
-particular address.
+particular address. For the full list of options available to all daemons, see
+:ref:`common-invocation-options`.
+
+To pass the same option to every daemon at once, use the
+``frr_global_options`` variable. For example, to enable VRF-backed network
+namespaces on all daemons:
+
+::
+
+   frr_global_options="-w"
+
+Options set in ``frr_global_options`` are prepended to each daemon's individual
+options.
 
 The remaining file content regarding `watchfrr_options` and `*_wrap` settings
 should not normally be needed;  refer to the comments in case they are.

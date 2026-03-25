@@ -17,8 +17,8 @@ Starting SHARP
 
 .. program:: sharpd
 
-:abbr:`SHARP` supports all the common FRR daemon start options which are
-documented elsewhere.
+:abbr:`SHARP` supports all the common FRR daemon start options
+(:ref:`common-invocation-options`).
 
 .. _using-sharp:
 

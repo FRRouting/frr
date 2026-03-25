@@ -14,8 +14,8 @@ Starting STATIC
 
 .. program:: staticd
 
-:abbr:`STATIC` supports all the common FRR daemon start options which are
-documented elsewhere.
+:abbr:`STATIC` supports all the common FRR daemon start options
+(:ref:`common-invocation-options`).
 
 .. include:: config-include.rst
 
