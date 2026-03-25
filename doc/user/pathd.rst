@@ -185,8 +185,8 @@ present and the :file:`frr.conf` is read instead.
 
 .. program:: pathd
 
-:abbr:`PATH` supports all the common FRR daemon start options which are
-documented elsewhere.
+:abbr:`PATH` supports all the common FRR daemon start options
+(:ref:`common-invocation-options`).
 
 PCEP Support
 ============
