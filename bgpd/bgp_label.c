@@ -465,11 +465,12 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mp
 			  peer, label_depth, num_labels);
 	}
 
-	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt)))
-		flog_warn(
-			EC_BGP_INVALID_LABEL_STACK,
-			"%pBP rcvd UPDATE with invalid label stack - no bottom of stack",
-			peer);
+	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt))) {
+		flog_err(EC_BGP_INVALID_LABEL_STACK,
+			 "%pBP rcvd UPDATE with invalid label stack - no bottom of stack", peer);
+		*num_labels_pnt = 0;
+		return 0;
+	}
 
 	return llen;
 }
