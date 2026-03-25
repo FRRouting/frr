@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import time
 import pytest
 import functools
 
@@ -173,7 +174,7 @@ def test_show_bgp_rpki_prefixes():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see RPKI prefixes on {}".format(rname)
 
-    for rpki_state in ["valid", "notfound", None]:
+    for rpki_state in ["valid", "invalid", "notfound", None]:
         if rpki_state:
             step("Check RPKI state of prefixes in BGP table: {}".format(rpki_state))
         else:
@@ -261,7 +262,7 @@ exit
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see RPKI prefixes on {}".format(rname)
 
-    for rpki_state in ["valid", "notfound", None]:
+    for rpki_state in ["valid", "invalid", "notfound", None]:
         if rpki_state:
             step("Check RPKI state of prefixes in BGP table: {}".format(rpki_state))
         else:
@@ -275,6 +276,9 @@ exit
             )
         ).read()
         expected_json = json.loads(expected)
+        test_func = functools.partial(
+            show_bgp_ipv4_table_rpki, rname, rpki_state, expected_json
+        )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
         assert result is None, "Unexpected prefixes RPKI state on {}".format(rname)
 
@@ -305,7 +309,7 @@ router bgp 65002
 """
     )
 
-    for rpki_state in ["valid", "notfound", None]:
+    for rpki_state in ["valid", "invalid", "notfound", None]:
         if rpki_state:
             step("Check RPKI state of prefixes in BGP table: {}".format(rpki_state))
         else:
@@ -362,7 +366,7 @@ exit
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see RPKI prefixes on {}".format(rname)
 
-    for rpki_state in ["valid", "notfound", None]:
+    for rpki_state in ["valid", "invalid", "notfound", None]:
         if rpki_state:
             step(
                 "Check RPKI state of prefixes in vrf10 BGP table: {}".format(rpki_state)
@@ -408,7 +412,7 @@ router bgp 65002 vrf vrf10
 """
     )
 
-    for rpki_state in ["valid", "notfound", None]:
+    for rpki_state in ["valid", "invalid", "notfound", None]:
         if rpki_state:
             step(
                 "Check RPKI state of prefixes in vrf10 BGP table: {}".format(rpki_state)
@@ -529,14 +533,19 @@ def test_show_bgp_rpki_as_number_65530():
                 "prefixLenMax": 24,
                 "asn": 65530,
             },
+            {
+                "prefix": "2001:db8:1::",
+                "prefixLenMin": 48,
+                "prefixLenMax": 48,
+                "asn": 65530,
+            },
         ],
         "ipv4PrefixCount": 2,
-        "ipv6PrefixCount": 0,
+        "ipv6PrefixCount": 1,
     }
 
-    assert (
-        output == expected
-    ), "RPKI prefixes for ASN 65530 do not match expected output"
+    result = topotest.json_cmp(output, expected)
+    assert result is None, "RPKI prefixes for ASN 65530 do not match expected output"
 
 
 def test_rpki_stop_and_check_connection():
@@ -590,6 +599,385 @@ def test_rpki_start_and_check_connection():
         _check_rpki_connection, True, count=60, wait=0.5
     )
     assert result, "RPKI cache connection did not establish after start"
+
+
+def test_rpki_invalid_state():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    step("Remove any existing route-map from r1 neighbor to see all routes")
+    rname = "r2"
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+router bgp 65002
+ address-family ipv4 unicast
+  no neighbor 192.0.2.1 route-map RPKI in
+"""
+    )
+
+    step("Verify RPKI invalid route is present")
+
+    def _check_invalid_routes():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv4 unicast rpki invalid json")
+        )
+        routes = output.get("routes", {})
+        if "10.0.0.0/24" not in routes:
+            return {"error": "10.0.0.0/24 not found in invalid routes"}
+        return None
+
+    _, result = topotest.run_and_expect(_check_invalid_routes, None, count=60, wait=0.5)
+    assert result is None, "Failed to see RPKI invalid route on {}".format(rname)
+
+    step("Verify valid routes are still present")
+
+    def _check_valid_routes():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv4 unicast rpki valid json")
+        )
+        routes = output.get("routes", {})
+        if len(routes) != 2:
+            return {"error": "expected 2 valid routes, got {}".format(len(routes))}
+        return None
+
+    _, result = topotest.run_and_expect(_check_valid_routes, None, count=60, wait=0.5)
+    assert result is None, "Unexpected valid route count on {}".format(rname)
+
+    step("Verify no notfound routes remain")
+
+    def _check_no_notfound():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv4 unicast rpki notfound json")
+        )
+        routes = output.get("routes", {})
+        if len(routes) != 0:
+            return {"error": "expected 0 notfound routes, got {}".format(len(routes))}
+        return None
+
+    _, result = topotest.run_and_expect(_check_no_notfound, None, count=60, wait=0.5)
+    assert result is None, "Unexpected notfound routes on {}".format(rname)
+
+
+def test_rpki_route_map_deny_invalid():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    step("Apply route-map denying RPKI invalid routes on neighbor")
+    rname = "r2"
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+route-map DENY-INVALID deny 10
+ match rpki invalid
+!
+route-map DENY-INVALID permit 20
+!
+router bgp 65002
+ address-family ipv4 unicast
+  neighbor 192.0.2.1 route-map DENY-INVALID in
+"""
+    )
+
+    step("Verify invalid route 10.0.0.0/24 is rejected")
+
+    def _check_no_invalid():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv4 unicast rpki invalid json")
+        )
+        routes = output.get("routes", {})
+        return len(routes) == 0
+
+    _, result = topotest.run_and_expect(_check_no_invalid, True, count=60, wait=0.5)
+    assert result, "Invalid routes still present after deny route-map on {}".format(
+        rname
+    )
+
+    step("Verify valid routes are still accepted")
+
+    def _check_valid_present():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv4 unicast rpki valid json")
+        )
+        routes = output.get("routes", {})
+        return len(routes) == 2
+
+    _, result = topotest.run_and_expect(_check_valid_present, True, count=60, wait=0.5)
+    assert result, "Valid routes missing after deny-invalid route-map on {}".format(
+        rname
+    )
+
+    step("Remove deny-invalid route-map from neighbor")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+router bgp 65002
+ address-family ipv4 unicast
+  no neighbor 192.0.2.1 route-map DENY-INVALID in
+"""
+    )
+
+
+def test_rpki_strict_mode():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    rname = "r2"
+
+    step("Verify r4 peer is Established")
+
+    def _check_r4_established():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp neighbor 192.168.4.4 json")
+        )
+        peer = output.get("192.168.4.4", {})
+        return peer.get("bgpState") == "Established"
+
+    _, result = topotest.run_and_expect(_check_r4_established, True, count=60, wait=0.5)
+    assert result, "r4 peer not Established before strict test"
+
+    step("Configure rpki strict on r4 neighbor and stop RPKI")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+router bgp 65002
+ neighbor 192.168.4.4 rpki strict
+"""
+    )
+    tgen.gears[rname].vtysh_cmd("rpki stop")
+
+    step("Clear r4 peer to trigger FSM re-evaluation")
+    tgen.gears[rname].vtysh_cmd("clear ip bgp 192.168.4.4")
+
+    step("Verify r4 peer cannot reach Established (RPKI not connected)")
+    established_seen = False
+    for _ in range(15):
+        time.sleep(1)
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp neighbor 192.168.4.4 json")
+        )
+        peer = output.get("192.168.4.4", {})
+        if peer.get("bgpState") == "Established":
+            established_seen = True
+            break
+
+    assert (
+        not established_seen
+    ), "r4 reached Established despite rpki strict and no RPKI connection"
+
+    step("Start RPKI and wait for cache connection")
+    tgen.gears[rname].vtysh_cmd("rpki start")
+
+    step("Verify r4 peer reaches Established after RPKI connects")
+    _, result = topotest.run_and_expect(_check_r4_established, True, count=60, wait=0.5)
+    assert (
+        result
+    ), "r4 peer did not reach Established after RPKI started with strict mode"
+
+    step("Remove rpki strict from r4 neighbor")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+router bgp 65002
+ no neighbor 192.168.4.4 rpki strict
+"""
+    )
+
+
+def test_rpki_extcommunity_match():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r4 = tgen.gears["r4"]
+
+    step("Re-enable send-community extended rpki on r2 toward r4")
+    r2.vtysh_cmd(
+        """
+configure
+router bgp 65002
+ address-family ipv4 unicast
+  neighbor 192.168.4.4 send-community extended rpki
+"""
+    )
+    r2.vtysh_cmd("clear ip bgp 192.168.4.4 soft out")
+
+    step("Verify r4 receives OVS:valid extended community")
+
+    def _check_ovs_valid():
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast 198.51.100.0/24 json"))
+        expected = {"paths": [{"extendedCommunity": {"string": "OVS:valid"}}]}
+        return topotest.json_cmp(output, expected)
+
+    _, result = topotest.run_and_expect(_check_ovs_valid, None, count=30, wait=1)
+    assert result is None, "r4 did not receive OVS:valid extended community"
+
+    step("Verify r4 receives OVS:invalid for 10.0.0.0/24")
+
+    def _check_ovs_invalid():
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast 10.0.0.0/24 json"))
+        expected = {"paths": [{"extendedCommunity": {"string": "OVS:invalid"}}]}
+        return topotest.json_cmp(output, expected)
+
+    _, result = topotest.run_and_expect(_check_ovs_invalid, None, count=30, wait=1)
+    assert result is None, "r4 did not receive OVS:invalid extended community"
+
+    step("Apply route-map on r4 matching rpki-extcommunity valid")
+    r4.vtysh_cmd(
+        """
+configure
+route-map MATCH-OVS permit 10
+ match rpki-extcommunity valid
+!
+router bgp 65002
+ address-family ipv4 unicast
+  neighbor 192.168.4.2 route-map MATCH-OVS in
+"""
+    )
+
+    step("Verify r4 only accepts routes with OVS:valid")
+
+    def _check_r4_filtered():
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast json"))
+        routes = output.get("routes", {})
+        if "198.51.100.0/24" not in routes:
+            return {"error": "198.51.100.0/24 missing (should have OVS:valid)"}
+        if "203.0.113.0/24" not in routes:
+            return {"error": "203.0.113.0/24 missing (should have OVS:valid)"}
+        if "10.0.0.0/24" in routes:
+            return {"error": "10.0.0.0/24 should be filtered (OVS:invalid)"}
+        return None
+
+    _, result = topotest.run_and_expect(_check_r4_filtered, None, count=60, wait=0.5)
+    assert result is None, "rpki-extcommunity route-map filtering failed on r4"
+
+    step("Clean up route-map on r4")
+    r4.vtysh_cmd(
+        """
+configure
+router bgp 65002
+ address-family ipv4 unicast
+  no neighbor 192.168.4.2 route-map MATCH-OVS in
+"""
+    )
+
+
+def test_rpki_ipv6_validation():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    step("Add IPv6 addresses and BGP peering between r1 and r2")
+    r1.vtysh_cmd(
+        """
+configure
+interface r1-eth0
+ ipv6 address 2001:db8:100::1/64
+!
+router bgp 65530
+ neighbor 2001:db8:100::2 remote-as 65002
+ neighbor 2001:db8:100::2 timers 1 3
+ neighbor 2001:db8:100::2 timers connect 1
+ address-family ipv6 unicast
+  network 2001:db8:1::/48
+  network 2001:db8:2::/48
+  neighbor 2001:db8:100::2 activate
+ exit-address-family
+"""
+    )
+
+    r2.vtysh_cmd(
+        """
+configure
+interface r2-eth0
+ ipv6 address 2001:db8:100::2/64
+!
+router bgp 65002
+ neighbor 2001:db8:100::1 remote-as 65530
+ neighbor 2001:db8:100::1 timers 1 3
+ neighbor 2001:db8:100::1 timers connect 1
+ address-family ipv6 unicast
+  neighbor 2001:db8:100::1 activate
+ exit-address-family
+"""
+    )
+
+    rname = "r2"
+
+    step("Verify IPv6 RPKI valid route (2001:db8:1::/48)")
+
+    def _check_ipv6_valid():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv6 unicast 2001:db8:1::/48 json")
+        )
+        paths = output.get("paths", [])
+        if not paths:
+            return {"error": "no paths for 2001:db8:1::/48"}
+        state = paths[0].get("rpkiValidationState")
+        if state != "valid":
+            return {"error": "expected valid, got {}".format(state)}
+        return None
+
+    _, result = topotest.run_and_expect(_check_ipv6_valid, None, count=60, wait=0.5)
+    assert result is None, "IPv6 prefix 2001:db8:1::/48 not RPKI valid on {}".format(
+        rname
+    )
+
+    step("Verify IPv6 RPKI notfound route (2001:db8:2::/48)")
+
+    def _check_ipv6_notfound():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp ipv6 unicast 2001:db8:2::/48 json")
+        )
+        paths = output.get("paths", [])
+        if not paths:
+            return {"error": "no paths for 2001:db8:2::/48"}
+        state = paths[0].get("rpkiValidationState")
+        if state != "not found":
+            return {"error": "expected not found, got {}".format(state)}
+        return None
+
+    _, result = topotest.run_and_expect(_check_ipv6_notfound, None, count=60, wait=0.5)
+    assert result is None, "IPv6 prefix 2001:db8:2::/48 not RPKI notfound on {}".format(
+        rname
+    )
 
 
 if __name__ == "__main__":

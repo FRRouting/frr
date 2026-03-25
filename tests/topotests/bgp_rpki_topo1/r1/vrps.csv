@@ -1,3 +1,5 @@
 ASN,IP Prefix,Max Length,Trust Anchor
 AS65530,198.51.100.0/24,24,private
 AS65530,203.0.113.0/24,24,private
+AS65099,10.0.0.0/24,24,private
+AS65530,2001:db8:1::/48,48,private
