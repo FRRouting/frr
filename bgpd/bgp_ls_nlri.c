@@ -2454,11 +2454,13 @@ int bgp_ls_attr_prefix_sid_len(uint8_t flags)
 	 * are invalid and any SID Advertisement received with an invalid setting
 	 * for V- and L-Flags MUST be ignored.
 	 */
-	if (CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_VALUE) !=
-	    CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_LOCAL))
+	uint8_t vl_mask = BGP_LS_PREFIX_SID_FLAG_VALUE | BGP_LS_PREFIX_SID_FLAG_LOCAL;
+	uint8_t vl_val = CHECK_FLAG(flags, vl_mask);
+
+	if (vl_val != 0 && vl_val != vl_mask)
 		return -1;
 
-	return CHECK_FLAG(flags, BGP_LS_PREFIX_SID_FLAG_VALUE) ? 3 : 4;
+	return vl_val ? 3 : 4;
 }
 
 /*
