@@ -4370,6 +4370,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 		}
 	}
 
+	if (stream_get_getp(s) != end_pos) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Attribute length mismatch");
+		return -1;
+	}
+
 	return 0;
 }
 
