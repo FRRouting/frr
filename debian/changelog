@@ -1,8 +1,17 @@
-frr (10.6.0-dev) UNRELEASED; urgency=medium
+frr (10.6.0-0) unstable; urgency=medium
 
-  * FRR Development 10.6.0
+  * New upstream release FRR 10.6.0
+  * Major highlights:
+    - EVPN Graceful Restart support and EVPNv6/IPv6 VTEP improvements
+    - BGP labeled-unicast multiple MPLS labels support
+    - BGP software-version capability latest-encoding option
+    - BGP underlay-weight and nexthop-characteristic based ECMP weighting
+    - OSPFv2 forwarding-address-self command
+    - PIM/PIMv6 IGMP/MLD join filtering support
+    - 16-bit nexthop weight support and BFD LTTng tracing
+    - Packaging/build defaults moved to libyang3
 
- -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 17 Nov 2025 02:00:00 -0600
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
 frr (10.5.0-0) unstable; urgency=medium
 
