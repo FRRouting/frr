@@ -2,7 +2,7 @@ name: Warn before merging if a "freeze" or "do not merge" label exists
 
 on:
   pull_request_target:
-    types: [synchronize, opened, reopened, labeled, unlabeled]
+    types: [synchronize, opened, reopened]
 
 jobs:
   freeze_warning:
