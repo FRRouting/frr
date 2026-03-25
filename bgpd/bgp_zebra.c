@@ -1851,6 +1851,32 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
  * continue processing items on list.
  */
 #define ZEBRA_ANNOUNCEMENTS_LIMIT 1000
+
+/* Prefer underlay / early-processed routes: drain early FIFO before default. */
+static struct bgp_bp_install_node *bgp_zebra_announce_pop_priority(void)
+{
+	struct bgp_bp_install_node *inode;
+
+	inode = zebra_announce_pop(&bm->zebra_announce_early_head);
+	if (!inode)
+		inode = zebra_announce_pop(&bm->zebra_announce_head);
+	return inode;
+}
+
+static void bgp_zebra_announce_inode_requeue(struct bgp_bp_install_node *inode, bool want_early)
+{
+	if (inode->early_queue == want_early)
+		return;
+	if (inode->early_queue) {
+		zebra_announce_del(&bm->zebra_announce_early_head, inode);
+		zebra_announce_add_tail(&bm->zebra_announce_head, inode);
+	} else {
+		zebra_announce_del(&bm->zebra_announce_head, inode);
+		zebra_announce_add_tail(&bm->zebra_announce_early_head, inode);
+	}
+	inode->early_queue = want_early;
+}
+
 static void bgp_handle_route_announcements_to_zebra(struct event *e)
 {
 	bool is_evpn = false;
@@ -1865,7 +1891,7 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 	while (count < ZEBRA_ANNOUNCEMENTS_LIMIT) {
 		is_evpn = false;
 
-		inode = zebra_announce_pop(&bm->zebra_announce_head);
+		inode = bgp_zebra_announce_pop_priority();
 
 		if (!inode)
 			break;
@@ -1948,7 +1974,8 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 	}
 
 	if (status != ZCLIENT_SEND_BUFFERED &&
-	    zebra_announce_count(&bm->zebra_announce_head))
+	    (zebra_announce_count(&bm->zebra_announce_early_head) ||
+	     zebra_announce_count(&bm->zebra_announce_head)))
 		event_add_event(bm->master,
 				bgp_handle_route_announcements_to_zebra, NULL,
 				0, &bm->t_bgp_zebra_route);
@@ -2059,11 +2086,17 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 
 	if (!CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL) &&
 	    !CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
+		bool want_early = CHECK_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
+
 		assert(!dest->za_inode);
 		inode = XCALLOC(MTYPE_BGP_BP_INSTALL_NODE, sizeof(*inode));
 		inode->type = BGP_BP_INSTALL_ROUTE;
 		inode->ptr = dest;
-		zebra_announce_add_tail(&bm->zebra_announce_head, inode);
+		inode->early_queue = want_early;
+		if (want_early)
+			zebra_announce_add_tail(&bm->zebra_announce_early_head, inode);
+		else
+			zebra_announce_add_tail(&bm->zebra_announce_head, inode);
 		bgp->zebra_announce_queue_cnt++;
 		/*
 		 * If neither flag is set and za_bgp_pi is not set then it is a bug
@@ -2076,12 +2109,18 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL)) {
 		assert(dest->za_inode);
 		assert(dest->za_bgp_pi);
+		bgp_zebra_announce_inode_requeue(dest->za_inode,
+						 CHECK_FLAG(dest->flags,
+							    BGP_NODE_ZEBRA_ANNOUNCE_EARLY));
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		dest->za_bgp_pi = info;
 	} else if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE)) {
 		assert(dest->za_inode);
 		assert(dest->za_bgp_pi);
+		bgp_zebra_announce_inode_requeue(dest->za_inode,
+						 CHECK_FLAG(dest->flags,
+							    BGP_NODE_ZEBRA_ANNOUNCE_EARLY));
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		bgp_path_info_lock(info);
 		dest->za_bgp_pi = info;

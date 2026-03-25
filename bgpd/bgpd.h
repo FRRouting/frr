@@ -29,6 +29,7 @@ struct bgp_bp_install_node {
 	struct zebra_announce_item zai;
 	enum bgp_bp_install_type type;
 	void *ptr;
+	bool early_queue;
 };
 
 /* For union sockunion.  */
@@ -229,6 +230,7 @@ struct bgp_master {
 
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;
+	struct zebra_announce_head zebra_announce_early_head;
 
 	struct event *t_bgp_zebra_l2_vni;
 	/* To preserve ordering of processing of L2 VNIs in BGP */

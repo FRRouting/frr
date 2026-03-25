@@ -4296,7 +4296,24 @@ int bgp_delete(struct bgp *bgp)
 	 * Iterate the pending dest list and remove all the dest pertaining to
 	 * the bgp under delete.
 	 */
-	b_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
+	b_ann_cnt = zebra_announce_count(&bm->zebra_announce_head) +
+		    zebra_announce_count(&bm->zebra_announce_early_head);
+	for (inode = zebra_announce_first(&bm->zebra_announce_early_head); inode;
+	     inode = inode_next) {
+		inode_next = zebra_announce_next(&bm->zebra_announce_early_head, inode);
+		if (inode->type != BGP_BP_INSTALL_ROUTE)
+			continue;
+		dest = inode->ptr;
+		dest_table = bgp_dest_table(dest);
+		if (dest_table->bgp == bgp) {
+			zebra_announce_del(&bm->zebra_announce_early_head, inode);
+			bgp->zebra_announce_queue_cnt--;
+			bgp_path_info_unlock(dest->za_bgp_pi);
+			dest->za_inode = NULL;
+			bgp_dest_unlock_node(dest);
+			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
+		}
+	}
 	for (inode = zebra_announce_first(&bm->zebra_announce_head); inode; inode = inode_next) {
 		inode_next = zebra_announce_next(&bm->zebra_announce_head, inode);
 		if (inode->type != BGP_BP_INSTALL_ROUTE)
@@ -4328,7 +4345,8 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
-		a_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
+		a_ann_cnt = zebra_announce_count(&bm->zebra_announce_head) +
+			    zebra_announce_count(&bm->zebra_announce_early_head);
 		a_l2_cnt = zebra_l2_vni_count(&bm->zebra_l2_vni_head);
 		zlog_debug("FIFO Cleanup Count during BGP %s deletion :: Zebra Announce - before %u after %u :: BGP L2_VNI - before %u after %u",
 			   bgp->name_pretty, b_ann_cnt, a_ann_cnt, b_l2_cnt, a_l2_cnt);
@@ -9043,6 +9061,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	pthread_mutex_init(&bm->peer_connection_mtx, NULL);
 
 	zebra_announce_init(&bm->zebra_announce_head);
+	zebra_announce_init(&bm->zebra_announce_early_head);
 	zebra_l2_vni_init(&bm->zebra_l2_vni_head);
 	bm->bgp = list_new();
 	bm->listen_sockets = list_new();
