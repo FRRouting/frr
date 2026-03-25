@@ -3426,15 +3426,12 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
-		if (STREAM_READABLE(connection->curr) <
-		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+		if (length < BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Malformed SRv6 Service Sub-TLV attribute - insufficient data (need %d for attribute data, have %zu remaining in UPDATE)",
-				 BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH,
-				 STREAM_READABLE(connection->curr));
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-				args->total);
+				 "Malformed SRv6 Service Sub-TLV attribute - declared length %u is less than minimum %d",
+				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
 		}
 		stream_getc(connection->curr);
 		stream_get(&ipv6_sid, connection->curr, sizeof(ipv6_sid));
