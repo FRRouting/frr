@@ -4214,6 +4214,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
+		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 		return;
 	}
@@ -4323,6 +4324,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	/* Clear any route change flags. */
 	bgp_zebra_clear_route_change_flags(dest);
 
+	UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 
 	/* Reap old select bgp_path_info, if it has been removed */
@@ -5135,10 +5137,13 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
-	if (early_process)
+	if (early_process) {
+		SET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		early_route_process(bgp, dest);
-	else
+	} else {
+		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		other_route_process(bgp, dest);
+	}
 
 	return;
 }
@@ -13446,6 +13451,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_path, "fibPending");
 		if (CHECK_FLAG(bn->flags, BGP_NODE_NHT_RESOLVED_NODE))
 			json_object_boolean_true_add(json_path, "earlyProcessing");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY))
+			json_object_boolean_true_add(json_path, "zebraAnnouncePriority");
 
 		if (json_nexthop_global || json_nexthop_ll) {
 			json_nexthops = json_object_new_array();

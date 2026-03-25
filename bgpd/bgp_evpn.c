@@ -5389,6 +5389,21 @@ void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn)
 	struct bgp_bp_install_node *inode = NULL;
 	struct bgp_bp_install_node *inode_next = NULL;
 
+	for (inode = zebra_announce_first(&bm->zebra_announce_early_head); inode;
+	     inode = inode_next) {
+		inode_next = zebra_announce_next(&bm->zebra_announce_early_head, inode);
+		if (inode->type != BGP_BP_INSTALL_ROUTE)
+			continue;
+		dest = inode->ptr;
+		if (dest->za_vpn == vpn) {
+			zebra_announce_del(&bm->zebra_announce_early_head, inode);
+			bgp_dest_table(dest)->bgp->zebra_announce_queue_cnt--;
+			bgp_path_info_unlock(dest->za_bgp_pi);
+			dest->za_inode = NULL;
+			bgp_dest_unlock_node(dest);
+			XFREE(MTYPE_BGP_BP_INSTALL_NODE, inode);
+		}
+	}
 	for (inode = zebra_announce_first(&bm->zebra_announce_head); inode; inode = inode_next) {
 		inode_next = zebra_announce_next(&bm->zebra_announce_head, inode);
 		if (inode->type != BGP_BP_INSTALL_ROUTE)
