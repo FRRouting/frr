@@ -204,13 +204,21 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		api_nh->ifindex = nexthop->ifindex;
 
 		/*
-		 * Force ONLINK when the egress interface is unnumbered
-		 * (has no IP addresses), so the kernel skips the nexthop
-		 * reachability check. Also keep the existing fabricd
-		 * behavior.
+		 * Force ONLINK when the gateway is not covered by any prefix
+		 * configured on the egress interface, so that the kernel skips
+		 * the nexthop reachability check.  For IPv4 this is the case on
+		 * unnumbered interfaces, which have no addresses at all; for
+		 * IPv6 it is the case whenever the neighbor could only offer a
+		 * global address, borrowed from its loopback.  Link-local IPv6
+		 * gateways are on-link by definition and need no flag.  Also
+		 * keep the existing fabricd behavior.
 		 */
 		if (fabricd) {
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		} else if (nexthop->family == AF_INET6) {
+			if (api_nh->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+			    !IN6_IS_ADDR_LINKLOCAL(&nexthop->ip.ipv6))
+				SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		} else {
 			struct interface *ifp;
 
