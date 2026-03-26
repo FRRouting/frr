@@ -53,9 +53,8 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 
 	if (input_iface_vif_index < 1) {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug(
-				"%s %s: could not find input interface for %pSG",
-				__FILE__, __func__, &sg);
+			zlog_debug("%s %s: could not find vif index of interface with NH to RP for %pSG",
+				   __FILE__, __func__, &sg);
 
 		return pim_channel_oil_add(pim, &sg, __func__);
 	}

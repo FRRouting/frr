@@ -1403,10 +1403,9 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	}
 
 	if (PIM_DEBUG_GM_EVENTS) {
-		zlog_debug(
-			"%s: issued static " GM
-			" join for channel (S,G)=(%pPA,%pPA) on interface %s",
-			__func__, &source_addr, &group_addr, ifp->name);
+		zlog_debug("%s: issued join-group " GM
+			   " join for channel (S,G)=(%pPA,%pPA) on interface %s(%s)",
+			   __func__, &source_addr, &group_addr, ifp->name, ifp->vrf->name);
 	}
 
 	return ferr_ok();
@@ -1628,11 +1627,8 @@ void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
 	struct listnode *next_join_node;
 	struct gm_join *join;
 
-	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s", __func__,
-			  ifp->name);
+	if (!pim_ifp)
 		return;
-	}
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, join_node, next_join_node,
 			       join)) {
