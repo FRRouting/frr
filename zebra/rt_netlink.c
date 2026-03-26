@@ -486,7 +486,8 @@ parse_encap_seg6local(struct rtattr *tb,
 }
 
 static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
-			    enum srv6_headend_behavior *encap_behavior)
+			    enum srv6_headend_behavior *encap_behavior,
+			    struct in6_addr *encap_source)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
@@ -515,6 +516,15 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
 			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
 			break;
 		}
+
+		if (tb_encap[SEG6_IPTUNNEL_SRC]) {
+			memcpy(encap_source,
+			       RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRC]),
+			       sizeof(struct in6_addr));
+		} else {
+			memset(encap_source, 0, sizeof(struct in6_addr));
+		}
+
 		ind_seg6 = ipt->srh[0].first_segment;
 		if (ind_seg6 >= SRV6_MAX_SIDS) {
 			ind_seg6 = SRV6_MAX_SIDS - 1;
@@ -549,6 +559,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	struct in6_addr srv6_encap_source = {};
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -596,7 +607,8 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior,
+					    &srv6_encap_source);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -646,6 +658,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
+	struct in6_addr srv6_encap_source = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -699,7 +712,8 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
 				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP], segs,
-							    &srv6_encap_behavior);
+							    &srv6_encap_behavior,
+							    &srv6_encap_source);
 			}
 		}
 
@@ -1589,7 +1603,7 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	 * Headend Behaviors defined in RFC 8986, FRR daemons support
 	 * only a subset of them.
 	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
-	 * BGP supports only H.Encaps.
+	 * BGP also supports H.Encaps and H.Encaps.Red.
 	 * Daemons need to be extended to support other behaviors.
 	 */
 	switch (segs->encap_behavior) {
@@ -1835,6 +1849,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
 					 tun_buf, tun_len))
+				return false;
+			if (!sid_zero_ipv6(&nexthop->nh_srv6->seg6_segs->encap_source) &&
+			    !nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRC,
+					 &nexthop->nh_srv6->seg6_segs->encap_source,
+					 sizeof(struct in6_addr)))
 				return false;
 			nl_attr_nest_end(nlmsg, nest);
 		}
@@ -3184,6 +3203,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					if (!nl_attr_put(&req->n, buflen,
 							 SEG6_IPTUNNEL_SRH,
 							 tun_buf, tun_len))
+						return 0;
+					if (!sid_zero_ipv6(&nh->nh_srv6->seg6_segs->encap_source) &&
+					    !nl_attr_put(&req->n, buflen, SEG6_IPTUNNEL_SRC,
+							 &nh->nh_srv6->seg6_segs->encap_source,
+							 sizeof(struct in6_addr)))
 						return 0;
 					nl_attr_nest_end(&req->n, nest);
 				}
