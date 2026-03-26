@@ -5,9 +5,7 @@
     "dev": "r3-eth1",
     "protocol": "isis",
     "metric": 20,
-    "flags": [
-      "onlink"
-    ]
+    "flags": []
   },
   {
     "dst": "10:254::1",
@@ -15,8 +13,6 @@
     "dev": "r3-eth0",
     "protocol": "isis",
     "metric": 20,
-    "flags": [
-      "onlink"
-    ]
+    "flags": []
   }
 ]
