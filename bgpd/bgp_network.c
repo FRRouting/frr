@@ -32,6 +32,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_vty.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -512,6 +513,16 @@ static void bgp_accept(struct event *thread)
 		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
 
 		if (dynamic_peer) {
+			if (peergroup_flag_check(dynamic_peer, PEER_FLAG_RPKI_STRICT) &&
+			    !bgp_rpki_cache_connected(dynamic_peer->bgp)) {
+				if (bgp_debug_neighbor_events(dynamic_peer))
+					zlog_debug("[Event] Incoming BGP connection rejected from %s due to RPKI cache not connected (strict mode)",
+						   dynamic_peer->host);
+				peer_delete(dynamic_peer);
+				close(bgp_sock);
+				return;
+			}
+
 			incoming = dynamic_peer->connection;
 			/* Dynamic neighbor has been created, let it proceed */
 			incoming->fd = bgp_sock;
@@ -631,6 +642,16 @@ static void bgp_accept(struct event *thread)
 		zlog_warn("[Event] Incoming BGP connection rejected from %s due missing BGP identifier, set it with `bgp router-id`",
 			  peer->host);
 		peer_set_last_reset(peer, PEER_DOWN_ROUTER_ID_ZERO);
+		close(bgp_sock);
+		return;
+	}
+
+	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
+	    !bgp_rpki_cache_connected(peer->bgp)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] Incoming BGP connection rejected from %s due to RPKI cache not connected (strict mode)",
+				   peer->host);
+		peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
 		close(bgp_sock);
 		return;
 	}
