@@ -28,6 +28,7 @@
 #include "pcep.h"
 #include "pcep_msg_encoding.h"
 #include "pcep_msg_tlvs.h"
+#include "pcep_msg_tools.h"
 #include "pcep_utils_logging.h"
 #include "pcep_utils_memory.h"
 
@@ -1112,16 +1113,47 @@ struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 				tlv_hdr,
 				sizeof(struct
 				       pcep_object_tlv_path_setup_type_capability));
+	bool error_p = false;
+	uint16_t len = tlv->header.encoded_tlv_length;
+	int i;
+	uint8_t num_psts;
+	uint16_t buf_index;
+	uint8_t num_iterations;
 
-	uint8_t num_psts = tlv_body_buf[3];
-	if (num_psts > MAX_ITERATIONS) {
-		pcep_log(
-			LOG_INFO,
-			"%s: Decode Path Setup Type Capability num PSTs [%d] exceeds MAX [%d] continuing anyways",
-			__func__, num_psts, MAX_ITERATIONS);
+	/* RFC 8408 Section 3, RFC 8664 Section 4.1.1, 4.1.2 */
+
+	if (len < LENGTH_1WORD) {
+		pcep_log(LOG_INFO, "%s: Path Setup Type Capability: len [%d] too short",
+			 __func__, len);
+
+		error_p = true;
+		goto done;
 	}
 
-	int i;
+	/* Validate count octet */
+	num_psts = tlv_body_buf[3];
+	if (len < LENGTH_1WORD + num_psts) {
+		pcep_log(LOG_INFO,
+			 "%s: Path Setup Type Capability num PSTs [%d] exceeds len [%d]",
+			 __func__, num_psts, len);
+		error_p = true;
+		goto done;
+	}
+
+	if (num_psts == 0) {
+		pcep_log(LOG_INFO, "%s: Path Setup Type Capability num PSTs [%d] invalid",
+			 __func__, num_psts);
+		error_p = true;
+		goto done;
+	}
+
+	/* This is sort of arbitrary check, not part of the RFCs */
+	if (num_psts > MAX_ITERATIONS) {
+		pcep_log(LOG_INFO,
+			 "%s: Decode Path Setup Type Capability num PSTs [%d] exceeds MAX [%d] continuing anyways",
+			 __func__, num_psts, MAX_ITERATIONS);
+	}
+
 	tlv->pst_list = dll_initialize();
 	for (i = 0; i < num_psts; i++) {
 		uint8_t *pst =
@@ -1130,30 +1162,49 @@ struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 		dll_append(tlv->pst_list, pst);
 	}
 
-	if (tlv->header.encoded_tlv_length
-	    == (TLV_HEADER_LENGTH + LENGTH_1WORD + num_psts)) {
-		return (struct pcep_object_tlv_header *)tlv;
+	/* If no sub-tlvs, all done */
+	if (tlv->header.encoded_tlv_length == (LENGTH_1WORD + num_psts))
+		goto done;
+
+	/* Compute padded length for start of subtlvs */
+	buf_index = normalize_pcep_tlv_length(LENGTH_1WORD + num_psts);
+	num_iterations = 0;
+
+	/* If we have sub-TLVs, they must be included in the overall length */
+	if (buf_index > tlv->header.encoded_tlv_length) {
+		pcep_log(LOG_INFO, "%s: Path Setup Type Capability length invalid", __func__);
+		error_p = true;
+		goto done;
 	}
 
-	uint8_t num_iterations = 0;
+	/* Must have one sub-TLV per PST value, no more */
 	tlv->sub_tlv_list = dll_initialize();
-	uint16_t buf_index = normalize_pcep_tlv_length(
-		TLV_HEADER_LENGTH + LENGTH_1WORD + num_psts);
-	while ((tlv->header.encoded_tlv_length - buf_index) > TLV_HEADER_LENGTH
-	       && num_iterations++ < MAX_ITERATIONS) {
+	while ((tlv->header.encoded_tlv_length - buf_index) > TLV_HEADER_LENGTH &&
+	       num_iterations < num_psts &&
+	       num_iterations++ < MAX_ITERATIONS) {
 		struct pcep_object_tlv_header *sub_tlv =
 			pcep_decode_tlv(tlv_body_buf + buf_index);
 		if (sub_tlv == NULL) {
-			pcep_log(
-				LOG_INFO,
-				"%s: Decode PathSetupType Capability sub-TLV decode returned NULL",
-				__func__);
-			return (struct pcep_object_tlv_header *)tlv;
+			pcep_log(LOG_INFO,
+				 "%s: Decode PathSetupType Capability sub-TLV decode returned NULL",
+				 __func__);
+			goto done;
 		}
 
-		buf_index +=
-			normalize_pcep_tlv_length(sub_tlv->encoded_tlv_length);
 		dll_append(tlv->sub_tlv_list, sub_tlv);
+
+		/* Horribly, the padded length is included in the overall TLV's length
+		 * _except_ for the last sub-TLV; the padding bytes are not included
+		 * for the last sub-TLV. What were they thinking?
+		 */
+		buf_index += normalize_pcep_tlv_length(sub_tlv->encoded_tlv_length);
+	}
+
+done:
+	if (error_p) {
+		/* Clean up on error */
+		pcep_obj_free_tlv((struct pcep_object_tlv_header *)tlv);
+		tlv = NULL;
 	}
 
 	return (struct pcep_object_tlv_header *)tlv;
