@@ -721,7 +721,8 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 }
 
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs, int num_segs,
-			   enum srv6_headend_behavior encap_behavior)
+			   enum srv6_headend_behavior encap_behavior,
+			   struct in6_addr encap_source)
 {
 	int i;
 
@@ -750,6 +751,7 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 		       sizeof(struct in6_addr));
 
 	nexthop->nh_srv6->seg6_segs->encap_behavior = encap_behavior;
+	nexthop->nh_srv6->seg6_segs->encap_source = encap_source;
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -956,7 +958,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		    !sid_zero(nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
-					      nexthop->nh_srv6->seg6_segs->encap_behavior);
+					      nexthop->nh_srv6->seg6_segs->encap_behavior,
+					      nexthop->nh_srv6->seg6_segs->encap_source);
 	}
 }
 
