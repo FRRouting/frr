@@ -203,23 +203,27 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		api_nh->ifindex = nexthop->ifindex;
 
 		/*
-		 * Force ONLINK when the egress interface is unnumbered
-		 * (has no IP addresses), so the kernel skips the nexthop
-		 * reachability check. Also keep the existing fabricd
-		 * behavior.
+		 * Force ONLINK for IPv4 when the egress interface is
+		 * unnumbered (has no IP addresses), so the kernel skips
+		 * the nexthop reachability check.  IPv6 never needs this:
+		 * link-local gateways are on-link by definition and
+		 * interface-only nexthops have no gateway to validate.
+		 * Also keep the existing fabricd behavior.
 		 */
-		if (fabricd) {
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
-		} else {
-			struct interface *ifp;
+		if (nexthop->family == AF_INET) {
+			if (fabricd) {
+				SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+			} else {
+				struct interface *ifp;
 
-			ifp = if_lookup_by_index(nexthop->ifindex, isis->vrf_id);
-			if (ifp) {
-				struct isis_circuit *circuit;
+				ifp = if_lookup_by_index(nexthop->ifindex, isis->vrf_id);
+				if (ifp) {
+					struct isis_circuit *circuit;
 
-				circuit = circuit_scan_by_ifp(ifp);
-				if (circuit && listcount(circuit->ip_addrs) == 0)
-					SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+					circuit = circuit_scan_by_ifp(ifp);
+					if (circuit && listcount(circuit->ip_addrs) == 0)
+						SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+				}
 			}
 		}
 
