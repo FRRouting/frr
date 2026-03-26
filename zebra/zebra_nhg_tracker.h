@@ -26,7 +26,7 @@ struct route_table;
 struct route_entry;
 struct route_node;
 
-#define NHG_TRACKER_DEFAULT_TIMEOUT_SEC 60
+#define NHG_TRACKER_DEFAULT_TIMEOUT_SEC 20
 
 enum nhg_tracker_event_intf {
 	NHG_TRACKER_EVENT_INTF_DOWN = 0,
@@ -41,18 +41,21 @@ struct tracker_prefix_map_entry {
 	struct prefix p;
 	int type;
 	uint16_t instance;
+	vrf_id_t vrf_id;
 	struct nhg_event_tracker *tracker;
 	struct tracker_prefix_map_item item;
 };
 
-/* Matched/unmatched route table wrappers */
-struct nhg_tracker_matched_table {
-	struct route_table *matched_table;
-	uint32_t re_count;
+/* Per-VRF route table entry for tracker matched/unmatched storage */
+struct tracker_vrf_table {
+	vrf_id_t vrf_id;
+	struct route_table *table;
+	struct tracker_vrf_table *next;
 };
 
-struct nhg_tracker_unmatched_table {
-	struct route_table *unmatched_table;
+/* Matched/unmatched route table wrappers — one route_table per VRF */
+struct nhg_tracker_table {
+	struct tracker_vrf_table *vrf_tables;
 	uint32_t re_count;
 };
 
@@ -63,10 +66,10 @@ struct nhg_event_tracker {
 	struct nhg_event_tracker_hash_item tracker_hash_link;
 
 	/* Prefixes whose nexthops match nhg_tracker_snapshot */
-	struct nhg_tracker_matched_table matched_table;
+	struct nhg_tracker_table matched_table;
 
 	/* Prefixes whose nexthops do NOT match nhg_tracker_snapshot */
-	struct nhg_tracker_unmatched_table unmatched_table;
+	struct nhg_tracker_table unmatched_table;
 
 	/* Started on tracker creation and fires after NHG_TRACKER_DEFAULT_TIMEOUT_SEC */
 	struct event *timer;
@@ -98,7 +101,7 @@ DECLARE_HASH(nhg_event_tracker_hash, struct nhg_event_tracker, tracker_hash_link
 	     nhg_event_tracker_hash_cmp, nhg_event_tracker_hash_key);
 
 /*
- * Typesafe hash for tracker_prefix_map: (prefix, type, instance) -> tracker
+ * Typesafe hash for tracker_prefix_map: (prefix, type, instance, vrf_id) -> tracker
  */
 extern uint32_t
 tracker_prefix_map_hash_key(const struct tracker_prefix_map_entry *e);
@@ -117,12 +120,8 @@ extern void zebra_nhg_tracker_fini(struct nhg_hash_entry *nhe);
 extern struct nhg_event_tracker *zebra_nhg_tracker_lookup(struct nhg_hash_entry *nhe,
 							  struct nhg_hash_entry *snapshot);
 
-/* Move all RN entries from src tracker table to dst tracker table */
-extern void zebra_nhg_tracker_move_routes(struct route_table *src_table,
-					  struct route_table *dst_table);
-
 /* Add a RIB route_node to a tracker table and update prefix_map */
-extern void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_count,
+extern void zebra_nhg_tracker_rn_add(struct nhg_tracker_table *tt, uint32_t *re_count,
 				     struct tracker_prefix_map_head *prefix_map,
 				     struct nhg_event_tracker *tracker, struct route_node *rn,
 				     struct route_entry *re);

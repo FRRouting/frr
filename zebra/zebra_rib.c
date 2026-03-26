@@ -2797,6 +2797,9 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			if (dest && re == dest->selected_fib)
 				continue;
 
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+				continue;
+
 			if (IS_ZEBRA_DEBUG_RIB)
 				rnode_debug(rn, re->vrf_id,
 					    "rn %p, removing unneeded re %p",
@@ -3964,6 +3967,8 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 			continue;
 		if (!CHECK_FLAG(old_re->status, ROUTE_ENTRY_INSTALLED))
 			continue;
+		if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
+			continue;
 		if (old_re->nhe && nhg_event_tracker_list_count(&old_re->nhe->tracker_list) > 0) {
 			zlog_info("%s: re %p NHG %u old_re %p NHG %u prefix %pRN",
 				  __func__, re, re->nhe ? re->nhe->id : 0,
@@ -4083,25 +4088,21 @@ void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag)
 	}
 	struct nhg_event_tracker *tracker = NULL;
 	struct nhg_hash_entry *orig_nhe = NULL;
-	struct route_entry *check_re;
 
 	if (flag) {
-		RNODE_FOREACH_RE (rn, check_re) {
-			if (!rib_compare_routes(re, check_re, true))
-				continue;
-			if (check_re->nhe &&
-			    nhg_event_tracker_list_count(&check_re->nhe->tracker_list) > 0) {
-				orig_nhe = check_re->nhe;
-				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
-				zlog_info("%s: re %p NHG %u check_re %p NHG %u prefix %pRN orig_re=%u",
-					  __func__, re, re->nhe ? re->nhe->id : 0,
-					  check_re, check_re->nhe->id, rn,
-					  tracker ? tracker->orig_re_count : 0);
-				SET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-				if (tracker)
-					zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
-				break;
-			}
+		if (re->nhe && nhg_event_tracker_list_count(&re->nhe->tracker_list) > 0) {
+			orig_nhe = re->nhe;
+			tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+			zlog_info("eyaln:parking node to delete %pRN type %s vrf %s(%u) NHG %u tracker %u (matched=%u unmatched=%u orig_re=%u)",
+				  rn, zebra_route_string(re->type), vrf_id_to_name(re->vrf_id),
+				  re->vrf_id, re->nhe ? re->nhe->id : 0,
+				  tracker ? tracker->nhg_tracker_id : 0,
+				  tracker ? tracker->matched_table.re_count : 0,
+				  tracker ? tracker->unmatched_table.re_count : 0,
+				  tracker ? tracker->orig_re_count : 0);
+			SET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			if (tracker)
+				zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
 		}
 	}
 

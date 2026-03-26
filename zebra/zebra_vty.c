@@ -1761,16 +1761,22 @@ static void show_nexthop_group_tracker_routes_out(struct vty *vty,
 			}
 		}
 
-		for (trn = route_top(tracker->matched_table.matched_table); trn;
-		     trn = route_next(trn)) {
-			rn = trn->info;
-			if (!rn)
-				continue;
-			RNODE_FOREACH_RE (rn, re)
-				if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
-				    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-					show_nexthop_group_tracker_re_out(vty, re,
-								  json_matched, uj);
+		{
+			struct tracker_vrf_table *vt;
+
+			for (vt = tracker->matched_table.vrf_tables; vt; vt = vt->next) {
+				for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+					rn = trn->info;
+					if (!rn)
+						continue;
+					RNODE_FOREACH_RE (rn, re)
+						if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
+						    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+							show_nexthop_group_tracker_re_out(vty, re,
+											  json_matched,
+											  uj);
+				}
+			}
 		}
 
 		if (uj) {
@@ -1791,16 +1797,22 @@ static void show_nexthop_group_tracker_routes_out(struct vty *vty,
 			}
 		}
 
-		for (trn = route_top(tracker->unmatched_table.unmatched_table); trn;
-		     trn = route_next(trn)) {
-			rn = trn->info;
-			if (!rn)
-				continue;
-			RNODE_FOREACH_RE (rn, re)
-				if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
-				    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-					show_nexthop_group_tracker_re_out(vty, re,
-								  json_unmatched, uj);
+		{
+			struct tracker_vrf_table *vt;
+
+			for (vt = tracker->unmatched_table.vrf_tables; vt; vt = vt->next) {
+				for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+					rn = trn->info;
+					if (!rn)
+						continue;
+					RNODE_FOREACH_RE (rn, re)
+						if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
+						    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+							show_nexthop_group_tracker_re_out(vty, re,
+											  json_unmatched,
+											  uj);
+				}
+			}
 		}
 
 		if (uj) {

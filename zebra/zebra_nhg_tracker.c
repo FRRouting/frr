@@ -21,13 +21,52 @@
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER, "NHG Event Tracker");
 DEFINE_MTYPE(ZEBRA, NHG_TRACKER_PREFIX_MAP, "NHG Tracker Prefix Map Entry");
 
-static bool zebra_nhg_tracker_owns_re(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker,
-				      struct route_node *rn, struct route_entry *re);
+/* Get or create the route_table for a given VRF within a tracker table. */
+static struct route_table *tracker_vrf_table_get(struct nhg_tracker_table *tt, vrf_id_t vrf_id)
+{
+	struct tracker_vrf_table *vt;
+
+	for (vt = tt->vrf_tables; vt; vt = vt->next) {
+		if (vt->vrf_id == vrf_id)
+			return vt->table;
+	}
+
+	vt = XCALLOC(MTYPE_NHG_TRACKER, sizeof(*vt));
+	vt->vrf_id = vrf_id;
+	vt->table = route_table_init();
+	vt->next = tt->vrf_tables;
+	tt->vrf_tables = vt;
+	return vt->table;
+}
+
+/* Free all per-VRF tables in a tracker table, unlocking any stored RIB RNs. */
+static void tracker_vrf_tables_free(struct nhg_tracker_table *tt)
+{
+	struct tracker_vrf_table *vt, *next;
+
+	for (vt = tt->vrf_tables; vt; vt = next) {
+		next = vt->next;
+		if (vt->table) {
+			struct route_node *trn;
+
+			for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+				if (trn->info) {
+					route_unlock_node(trn->info);
+					trn->info = NULL;
+					route_unlock_node(trn);
+				}
+			}
+			route_table_finish(vt->table);
+		}
+		XFREE(MTYPE_NHG_TRACKER, vt);
+	}
+	tt->vrf_tables = NULL;
+}
 
 /*
  * tracker_prefix_map hash.
- * Key:   (prefix, protocol type, protocol instance).
- * Value: pointer to the tracker that owns this (prefix, type, instance).
+ * Key:   (prefix, protocol type, protocol instance, vrf_id).
+ * Value: pointer to the tracker that owns this (prefix, type, instance, vrf).
  */
 uint32_t tracker_prefix_map_hash_key(const struct tracker_prefix_map_entry *e)
 {
@@ -35,6 +74,7 @@ uint32_t tracker_prefix_map_hash_key(const struct tracker_prefix_map_entry *e)
 
 	key = prefix_hash_key(&e->p);
 	key = jhash_2words((uint32_t)e->type, (uint32_t)e->instance, key);
+	key = jhash_1word((uint32_t)e->vrf_id, key);
 	return key;
 }
 
@@ -44,6 +84,8 @@ int tracker_prefix_map_hash_cmp(const struct tracker_prefix_map_entry *a,
 	if (a->type != b->type)
 		return 1;
 	if (a->instance != b->instance)
+		return 1;
+	if (a->vrf_id != b->vrf_id)
 		return 1;
 	return prefix_cmp(&a->p, &b->p) != 0;
 }
@@ -108,60 +150,72 @@ int nhg_event_tracker_hash_cmp(const struct nhg_event_tracker *a, const struct n
 }
 
 /*
- * Move all RN entries from src_table to dst_table.
- * For each prefix in src: if dst doesn't have it, set dst trn->info = src trn->info.
- * If dst already has it, skip (both point to the same RIB RN).
- * Clears src entries. Counts are managed by the caller.
+ * Move all per-VRF table entries from src into dst.
+ * For each VRF table in src, get-or-create the matching VRF table in dst.
+ * For each prefix: if dst doesn't have it, move the RN pointer.
+ * If dst already has it, release the src reference.
  */
-void zebra_nhg_tracker_move_routes(struct route_table *src_table, struct route_table *dst_table)
+static void tracker_vrf_tables_move(struct nhg_tracker_table *src, struct nhg_tracker_table *dst)
 {
-	struct route_node *old_trn;
-	struct route_node *trn;
+	struct tracker_vrf_table *vt, *next;
 
-	for (old_trn = route_top(src_table); old_trn; old_trn = route_next(old_trn)) {
-		if (!old_trn->info)
+	for (vt = src->vrf_tables; vt; vt = next) {
+		next = vt->next;
+		if (!vt->table) {
+			XFREE(MTYPE_NHG_TRACKER, vt);
 			continue;
-
-		trn = route_node_get(dst_table, &old_trn->p);
-		if (!trn->info) {
-			trn->info = old_trn->info;
-		} else {
-			route_unlock_node(trn);
-			zlog_info("%s warning: duplicate RIB RN %pRN already in dst table, releasing src reference",
-				  __func__, (struct route_node *)old_trn->info);
-			route_unlock_node((struct route_node *)old_trn->info);
 		}
 
-		old_trn->info = NULL;
-		route_unlock_node(old_trn);
+		struct route_table *dst_vrf_table = tracker_vrf_table_get(dst, vt->vrf_id);
+		struct route_node *old_trn;
+
+		for (old_trn = route_top(vt->table); old_trn; old_trn = route_next(old_trn)) {
+			if (!old_trn->info)
+				continue;
+
+			struct route_node *trn = route_node_get(dst_vrf_table, &old_trn->p);
+
+			if (!trn->info) {
+				trn->info = old_trn->info;
+			} else {
+				route_unlock_node(trn);
+				route_unlock_node(old_trn->info);
+			}
+
+			old_trn->info = NULL;
+			route_unlock_node(old_trn);
+		}
+
+		route_table_finish(vt->table);
+		XFREE(MTYPE_NHG_TRACKER, vt);
 	}
+	src->vrf_tables = NULL;
 }
 
 /*
  * Collapse a stale tracker into a target tracker.
- * Moves all prefixes from old_tracker's matched and unmatched tables
- * into new_tracker's unmatched table, updates the prefix_map, then
- * destroys the old tracker.
+ * Moves per-VRF table entries and re-points prefix_map entries from
+ * old_tracker to new_tracker (all become unmatched), transfers counts,
+ * then destroys old tracker.
  */
 static void zebra_nhg_tracker_collapse(struct tracker_prefix_map_head *prefix_map,
 				       struct nhg_event_tracker *old_tracker,
 				       struct nhg_event_tracker *new_tracker)
 {
-	zebra_nhg_tracker_move_routes(old_tracker->matched_table.matched_table,
-				      new_tracker->unmatched_table.unmatched_table);
-
-	zebra_nhg_tracker_move_routes(old_tracker->unmatched_table.unmatched_table,
-				      new_tracker->unmatched_table.unmatched_table);
-
-	new_tracker->unmatched_table.re_count += old_tracker->matched_table.re_count +
-						 old_tracker->unmatched_table.re_count;
-
 	struct tracker_prefix_map_entry *entry;
+
+	tracker_vrf_tables_move(&old_tracker->matched_table, &new_tracker->unmatched_table);
+	tracker_vrf_tables_move(&old_tracker->unmatched_table, &new_tracker->unmatched_table);
 
 	frr_each_safe (tracker_prefix_map, prefix_map, entry) {
 		if (entry->tracker == old_tracker)
 			entry->tracker = new_tracker;
 	}
+
+	new_tracker->unmatched_table.re_count += old_tracker->matched_table.re_count +
+						 old_tracker->unmatched_table.re_count;
+	old_tracker->matched_table.re_count = 0;
+	old_tracker->unmatched_table.re_count = 0;
 
 	zlog_info("%s: collapsed tracker %u into tracker %u for NHG %u (new unmatched=%u)",
 		  __func__, old_tracker->nhg_tracker_id, new_tracker->nhg_tracker_id,
@@ -178,19 +232,19 @@ static void zebra_nhg_tracker_collapse(struct tracker_prefix_map_head *prefix_ma
  * If the prefix already exists, releases the get-lock (no re_count change).
  * Uses prefix_map to ensure each prefix is owned by exactly one tracker.
  */
-void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_count,
+void zebra_nhg_tracker_rn_add(struct nhg_tracker_table *tt, uint32_t *re_count,
 			      struct tracker_prefix_map_head *prefix_map,
 			      struct nhg_event_tracker *tracker, struct route_node *rn,
 			      struct route_entry *re)
 {
+	struct route_table *vrf_table;
 	struct route_node *trn;
 
-	trn = route_node_get(tracker_table, &rn->p);
+	vrf_table = tracker_vrf_table_get(tt, re->vrf_id);
+	trn = route_node_get(vrf_table, &rn->p);
 	if (!trn->info) {
 		trn->info = rn;
 		route_lock_node(rn);
-		zlog_info("%s: added %pRN (type %s) to tracker %u, re_count=%u", __func__, rn,
-			  zebra_route_string(re->type), tracker->nhg_tracker_id, *re_count);
 	} else {
 		route_unlock_node(trn);
 	}
@@ -203,6 +257,7 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 		prefix_copy(&lookup_key.p, &rn->p);
 		lookup_key.type = re->type;
 		lookup_key.instance = re->instance;
+		lookup_key.vrf_id = re->vrf_id;
 
 		entry = tracker_prefix_map_find(prefix_map, &lookup_key);
 		if (!entry) {
@@ -210,10 +265,14 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
 			prefix_copy(&entry->p, &rn->p);
 			entry->type = re->type;
 			entry->instance = re->instance;
+			entry->vrf_id = re->vrf_id;
 			entry->tracker = tracker;
 			tracker_prefix_map_add(prefix_map, entry);
-			/* New prefix_map row (unique per prefix/type/instance RE); bump table count. */
 			(*re_count)++;
+			zlog_info("%s: added %pRN (type %s vrf %s(%u)) to tracker %u, re_count=%u",
+				  __func__, rn, zebra_route_string(re->type),
+				  vrf_id_to_name(re->vrf_id), re->vrf_id, tracker->nhg_tracker_id,
+				  *re_count);
 		}
 	}
 }
@@ -225,10 +284,10 @@ void zebra_nhg_tracker_rn_add(struct route_table *tracker_table, uint32_t *re_co
  */
 static void zebra_nhg_tracker_add_route(struct tracker_prefix_map_head *prefix_map,
 					struct nhg_event_tracker *tracker,
-					struct route_table *tracker_table, uint32_t *re_count,
-					struct route_node *rn, struct route_entry *re)
+					struct nhg_tracker_table *tt, struct route_node *rn,
+					struct route_entry *re)
 {
-	zebra_nhg_tracker_rn_add(tracker_table, re_count, prefix_map, tracker, rn, re);
+	zebra_nhg_tracker_rn_add(tt, &tt->re_count, prefix_map, tracker, rn, re);
 }
 
 /*
@@ -242,75 +301,43 @@ static void zebra_nhg_tracker_add_route(struct tracker_prefix_map_head *prefix_m
 static void zebra_nhg_tracker_evict_re(struct nhg_event_tracker *tracker,
 				       struct nhg_hash_entry *orig_nhe,
 				       struct tracker_prefix_map_head *prefix_map,
-				       struct route_table *table, uint32_t *re_count,
-				       struct route_node *rn, struct route_entry *re)
+				       struct nhg_tracker_table *tt, struct route_node *rn,
+				       struct route_entry *re)
 {
+	struct tracker_prefix_map_entry lk;
+	struct tracker_prefix_map_entry *pm_entry;
+	struct route_table *vrf_table;
 	struct route_node *trn;
 
-	trn = route_node_lookup(table, &rn->p);
-	if (!trn)
+	memset(&lk, 0, sizeof(lk));
+	prefix_copy(&lk.p, &rn->p);
+	lk.type = re->type;
+	lk.instance = re->instance;
+	lk.vrf_id = re->vrf_id;
+
+	pm_entry = tracker_prefix_map_find(prefix_map, &lk);
+	if (!pm_entry)
 		return;
 
-	if (trn->info) {
-		struct route_node *parked_rn = trn->info;
-		struct route_entry *parked_re;
-		bool found_match = false;
-		bool others_remain = false;
+	if (pm_entry->tracker != tracker)
+		return;
 
-		/*
-		 * Find the RE matching the incoming proto/instance
-		 * (rib_compare_routes).  Clear TRACKER, remove prefix_map
-		 * entry, decrement re_count, set found_match.
-		 *
-		 */
-		RNODE_FOREACH_RE (parked_rn, parked_re) {
-			if (rib_compare_routes(re, parked_re, true)) {
-				struct tracker_prefix_map_entry lk;
-				struct tracker_prefix_map_entry *pm_entry;
+	UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
 
-				UNSET_FLAG(parked_re->status, ROUTE_ENTRY_TRACKER);
-
-				memset(&lk, 0, sizeof(lk));
-				prefix_copy(&lk.p, &rn->p);
-				lk.type = parked_re->type;
-				lk.instance = parked_re->instance;
-
-				pm_entry = tracker_prefix_map_find(prefix_map, &lk);
-				if (pm_entry) {
-					tracker_prefix_map_del(prefix_map, pm_entry);
-					XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, pm_entry);
-					if (*re_count > 0)
-						(*re_count)--;
-				}
-				found_match = true;
-				break;
-			}
-		}
-
-		/*
-		 * Now, the evicted RE no longer has TRACKER / map entry.
-		 * zebra_nhg_tracker_owns_re() checks whether any *other* RE on this
-		 * RN is still tracked by this tracker for orig_nhe. If so,
-		 * keep trn->info — we must not unlock the RIB RN
-		 */
-		if (found_match) {
-			RNODE_FOREACH_RE (parked_rn, parked_re) {
-				if (zebra_nhg_tracker_owns_re(orig_nhe, tracker, parked_rn,
-							      parked_re)) {
-					others_remain = true;
-					break;
-				}
-			}
-		}
-
-		if (found_match && !others_remain) {
-			route_unlock_node(trn->info);
-			trn->info = NULL;
-			route_unlock_node(trn);
-		}
+	vrf_table = tracker_vrf_table_get(tt, re->vrf_id);
+	trn = route_node_lookup(vrf_table, &rn->p);
+	if (trn && trn->info) {
+		route_unlock_node(trn->info);
+		trn->info = NULL;
+		route_unlock_node(trn);
 	}
+	if (trn)
+		route_unlock_node(trn);
 
-	route_unlock_node(trn);
+	tracker_prefix_map_del(prefix_map, pm_entry);
+	XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, pm_entry);
+	if (tt->re_count > 0)
+		tt->re_count--;
 }
 
 static void zebra_nhg_tracker_evict_from_unmatched(struct nhg_event_tracker *tracker,
@@ -318,9 +345,8 @@ static void zebra_nhg_tracker_evict_from_unmatched(struct nhg_event_tracker *tra
 						   struct tracker_prefix_map_head *prefix_map,
 						   struct route_node *rn, struct route_entry *re)
 {
-	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map,
-				   tracker->unmatched_table.unmatched_table,
-				   &tracker->unmatched_table.re_count, rn, re);
+	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map, &tracker->unmatched_table, rn,
+				   re);
 }
 
 static void zebra_nhg_tracker_evict_from_matched(struct nhg_event_tracker *tracker,
@@ -328,9 +354,7 @@ static void zebra_nhg_tracker_evict_from_matched(struct nhg_event_tracker *track
 						 struct tracker_prefix_map_head *prefix_map,
 						 struct route_node *rn, struct route_entry *re)
 {
-	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map,
-				   tracker->matched_table.matched_table,
-				   &tracker->matched_table.re_count, rn, re);
+	zebra_nhg_tracker_evict_re(tracker, orig_nhe, prefix_map, &tracker->matched_table, rn, re);
 }
 
 /*
@@ -348,8 +372,7 @@ zebra_nhg_tracker_park_unmatched(struct nhg_hash_entry *orig_nhe,
 	if (!tracker)
 		return NULL;
 
-	zebra_nhg_tracker_add_route(prefix_map, tracker, tracker->unmatched_table.unmatched_table,
-				    &tracker->unmatched_table.re_count, rn, re);
+	zebra_nhg_tracker_add_route(prefix_map, tracker, &tracker->unmatched_table, rn, re);
 
 	zlog_info("%s: %pRN (type %s) unmatched, parking in tracker %u for originating NHG %u (matched=%u unmatched=%u orig_re=%u)",
 		  __func__, rn, zebra_route_string(re->type), tracker->nhg_tracker_id,
@@ -406,8 +429,7 @@ static void zebra_nhg_tracker_park_matched(struct nhg_hash_entry *orig_nhe,
 					   struct nhg_event_tracker *tracker,
 					   struct route_node *rn, struct route_entry *re)
 {
-	zebra_nhg_tracker_add_route(prefix_map, tracker, tracker->matched_table.matched_table,
-				    &tracker->matched_table.re_count, rn, re);
+	zebra_nhg_tracker_add_route(prefix_map, tracker, &tracker->matched_table, rn, re);
 
 	zlog_info("%s: %pRN (type %s) matched tracker %u from originating NHG %u (matched=%u unmatched=%u orig_re=%u)",
 		  __func__, rn, zebra_route_string(re->type), tracker->nhg_tracker_id,
@@ -436,6 +458,7 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 	prefix_copy(&pm_key.p, &rn->p);
 	pm_key.type = re->type;
 	pm_key.instance = re->instance;
+	pm_key.vrf_id = re->vrf_id;
 	pm_re = tracker_prefix_map_find(prefix_map, &pm_key);
 
 	/*
@@ -513,47 +536,58 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 }
 
 /*
- * Return true if the RE's (prefix, type, instance) is owned by this
- * tracker according to the prefix_map on the NHG.
+ * Walk all per-VRF tables in a tracker table, clear TRACKER flags,
+ * optionally update NHE for non-removed REs, and queue each RN for
+ * rib_process.
+ *
+ * update_nhe: when true (matched table), restore each RE's NHE to the
+ *   tracker's parent NHE so the kernel sees the same NHG ID.
+ *   When false (unmatched table), leave the RE's NHE intact so
+ *   rib_process resolves the RE with its original intended NHG
+ *   (e.g. a new ECMP group).
  */
-static bool zebra_nhg_tracker_owns_re(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker,
-				      struct route_node *rn, struct route_entry *re)
+static void zebra_nhg_tracker_flush_table(struct nhg_tracker_table *tt, struct nhg_hash_entry *nhe,
+					  bool update_nhe, const char *label)
 {
-	struct tracker_prefix_map_entry lk;
-	struct tracker_prefix_map_entry *pm;
+	struct tracker_vrf_table *vt;
 
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
-		return false;
+	for (vt = tt->vrf_tables; vt; vt = vt->next) {
+		struct route_node *trn;
 
-	memset(&lk, 0, sizeof(lk));
-	prefix_copy(&lk.p, &rn->p);
-	lk.type = re->type;
-	lk.instance = re->instance;
+		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+			if (!trn->info)
+				continue;
 
-	pm = tracker_prefix_map_find(&nhe->tracker_prefix_map, &lk);
+			struct route_node *rn = trn->info;
+			struct route_entry *re;
 
-	return pm && pm->tracker == tracker;
+			zlog_info("%s flushing %pRN vrf %s(%u)", label, rn,
+				  vrf_id_to_name(vt->vrf_id), vt->vrf_id);
+
+			RNODE_FOREACH_RE (rn, re) {
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+					continue;
+
+				zlog_info("%s   re type %s vrf %s(%u)%s%s", label,
+					  zebra_route_string(re->type), vrf_id_to_name(re->vrf_id),
+					  re->vrf_id,
+					  CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? " REMOVED"
+										      : "",
+					  CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) ? " TRACKER"
+										      : "");
+
+				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+				if (update_nhe && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+					route_entry_update_nhe(re, nhe);
+			}
+			rib_queue_add(rn);
+		}
+	}
 }
 
-/*
- * If all REs that reference this NHG have been parked in the tracker,
- * queue every parked RN for best-path selection and free the tracker.
- */
-void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct nhg_hash_entry *nhe)
+static void zebra_nhg_tracker_flush_full(struct nhg_event_tracker *tracker,
+					 struct nhg_hash_entry *nhe)
 {
-	struct route_node *trn;
-
-	if (!tracker)
-		return;
-
-	if ((tracker->matched_table.re_count + tracker->unmatched_table.re_count) !=
-	    tracker->orig_re_count)
-		return;
-
-	zlog_info("%s: tracker %u for NHG %u is full (matched=%u unmatched=%u orig_re=%u), flushing",
-		  __func__, tracker->nhg_tracker_id, nhe->id, tracker->matched_table.re_count,
-		  tracker->unmatched_table.re_count, tracker->orig_re_count);
-
 	/* Update the tracker counters */
 	zrouter.tracker_counters.tracker_full++;
 	if (tracker->matched_table.re_count == tracker->orig_re_count)
@@ -580,40 +614,30 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 		zrouter.tracker_counters.log_idx++;
 	}
 
-	for (trn = route_top(tracker->matched_table.matched_table); trn; trn = route_next(trn)) {
-		if (trn->info) {
-			struct route_node *rn = trn->info;
-			struct route_entry *re;
-
-			RNODE_FOREACH_RE (rn, re) {
-				if (zebra_nhg_tracker_owns_re(nhe, tracker, rn, re))
-					UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-			}
-			rib_queue_add(rn);
-		}
-	}
-
-	/*
-	 * unmatched routes should probably belong to different NHGs -
-	 * not sure how to implement that
-	 * decide which NHGs to create and create them
-	 * rewire re->nhe to point at them
-	 */
-	for (trn = route_top(tracker->unmatched_table.unmatched_table); trn;
-	     trn = route_next(trn)) {
-		if (trn->info) {
-			struct route_node *rn = trn->info;
-			struct route_entry *re;
-
-			RNODE_FOREACH_RE (rn, re) {
-				if (zebra_nhg_tracker_owns_re(nhe, tracker, rn, re))
-					UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-			}
-			rib_queue_add(rn);
-		}
-	}
+	zebra_nhg_tracker_flush_table(&tracker->matched_table, nhe, true, "flush_full matched");
+	zebra_nhg_tracker_flush_table(&tracker->unmatched_table, nhe, false,
+				      "flush_full unmatched");
 
 	zebra_nhg_tracker_free(nhe, tracker);
+}
+
+/*
+ * Check if all expected REs have been parked; if so, flush.
+ */
+void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct nhg_hash_entry *nhe)
+{
+	if (!tracker)
+		return;
+
+	if ((tracker->matched_table.re_count + tracker->unmatched_table.re_count) !=
+	    tracker->orig_re_count)
+		return;
+
+	zlog_info("flush_if_full tracker %u NHG %u (matched=%u unmatched=%u orig_re=%u)",
+		  tracker->nhg_tracker_id, nhe->id, tracker->matched_table.re_count,
+		  tracker->unmatched_table.re_count, tracker->orig_re_count);
+
+	zebra_nhg_tracker_flush_full(tracker, nhe);
 }
 
 /* Timer callback - handle REs from matched/unmatched tables */
@@ -623,13 +647,25 @@ static void nhg_tracker_timer_expiry(struct event *event)
 
 	zrouter.tracker_counters.tracker_timer_expired++;
 
-	zlog_info("%s: tracker %u (parent NHG %u ifindex %u event %s): timer expired", __func__,
-		  tracker->nhg_tracker_id, tracker->parent_nhe ? tracker->parent_nhe->id : 0,
-		  tracker->ifindex, tracker->event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN");
+	struct nhg_hash_entry *nhe = tracker->parent_nhe;
 
-	/* TODO: add completion logic before freeing */
+	if (!nhe) {
+		zlog_err("%s: tracker %u has NULL parent_nhe, freeing without flush", __func__,
+			 tracker->nhg_tracker_id);
+		return;
+	}
 
-	zebra_nhg_tracker_free(tracker->parent_nhe, tracker);
+	zlog_info("timer_expiry tracker %u NHG %u ifindex %u event %s (matched=%u unmatched=%u orig_re=%u)",
+		  tracker->nhg_tracker_id, nhe->id, tracker->ifindex,
+		  tracker->event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN",
+		  tracker->matched_table.re_count, tracker->unmatched_table.re_count,
+		  tracker->orig_re_count);
+
+	zebra_nhg_tracker_flush_table(&tracker->matched_table, nhe, true, "timer_expiry matched");
+	zebra_nhg_tracker_flush_table(&tracker->unmatched_table, nhe, false,
+				      "timer_expiry unmatched");
+
+	zebra_nhg_tracker_free(nhe, tracker);
 }
 
 /*
@@ -706,6 +742,52 @@ static void zebra_nhg_tracker_loop_detection(struct nhg_hash_entry *nhe,
 }
 
 /*
+ * Count unique (prefix, type, instance, vrf_id) tuples in the NHE's
+ * re-tree.  This must match the prefix_map deduplication criteria so
+ * that orig_re_count agrees with re_count accumulated during parking.
+ *
+ * Without this, NHGs shared across unicast and multicast tables
+ * inflate orig_re_count (e.g. 4) while re_count only reaches the
+ * unique prefix count (e.g. 2), preventing flush_if_full from firing.
+ */
+static uint32_t tracker_count_unique_res(struct nhe_re_tree_head *head)
+{
+	struct route_entry *re;
+	struct tracker_prefix_map_head tmp = {};
+	uint32_t count = 0;
+
+	tracker_prefix_map_init(&tmp);
+
+	frr_each (nhe_re_tree, head, re) {
+		struct tracker_prefix_map_entry key;
+
+		memset(&key, 0, sizeof(key));
+		prefix_copy(&key.p, &re->rn->p);
+		key.type = re->type;
+		key.instance = re->instance;
+		key.vrf_id = re->vrf_id;
+
+		if (!tracker_prefix_map_find(&tmp, &key)) {
+			struct tracker_prefix_map_entry *entry;
+
+			entry = XCALLOC(MTYPE_NHG_TRACKER_PREFIX_MAP, sizeof(*entry));
+			*entry = key;
+			tracker_prefix_map_add(&tmp, entry);
+			count++;
+		}
+	}
+
+	while (tracker_prefix_map_count(&tmp)) {
+		struct tracker_prefix_map_entry *e = tracker_prefix_map_pop(&tmp);
+
+		XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, e);
+	}
+	tracker_prefix_map_fini(&tmp);
+
+	return count;
+}
+
+/*
  * Create a new tracker upon interface event.
  */
 struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, ifindex_t ifindex,
@@ -736,12 +818,12 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	tracker->nhg_tracker_snapshot = snapshot;
 	tracker->ifindex = ifindex;
 	tracker->event = event;
-	tracker->orig_re_count = nhe_re_tree_count(&nhe->re_head);
+	tracker->orig_re_count = tracker_count_unique_res(&nhe->re_head);
 
-	tracker->matched_table.matched_table = route_table_init();
+	tracker->matched_table.vrf_tables = NULL;
 	tracker->matched_table.re_count = 0;
 
-	tracker->unmatched_table.unmatched_table = route_table_init();
+	tracker->unmatched_table.vrf_tables = NULL;
 	tracker->unmatched_table.re_count = 0;
 
 	nhg_event_tracker_list_add_head(&nhe->tracker_list, tracker);
@@ -821,35 +903,9 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 		}
 	}
 
-	if (tracker->matched_table.matched_table) {
-		struct route_node *trn;
-
-		for (trn = route_top(tracker->matched_table.matched_table); trn;
-		     trn = route_next(trn)) {
-			if (trn->info) {
-				route_unlock_node(trn->info);
-				trn->info = NULL;
-				route_unlock_node(trn);
-			}
-		}
-		route_table_finish(tracker->matched_table.matched_table);
-		tracker->matched_table.matched_table = NULL;
-	}
-
-	if (tracker->unmatched_table.unmatched_table) {
-		struct route_node *trn;
-
-		for (trn = route_top(tracker->unmatched_table.unmatched_table); trn;
-		     trn = route_next(trn)) {
-			if (trn->info) {
-				route_unlock_node(trn->info);
-				trn->info = NULL;
-				route_unlock_node(trn);
-			}
-		}
-		route_table_finish(tracker->unmatched_table.unmatched_table);
-		tracker->unmatched_table.unmatched_table = NULL;
-	}
+	/* Free per-VRF tables (unlocks RIB RNs stored in trn->info) */
+	tracker_vrf_tables_free(&tracker->matched_table);
+	tracker_vrf_tables_free(&tracker->unmatched_table);
 
 	if (tracker->nhg_tracker_snapshot) {
 		zebra_nhg_free(tracker->nhg_tracker_snapshot);
