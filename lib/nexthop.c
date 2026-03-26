@@ -89,6 +89,18 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (nh1->nh_srv6->seg6_segs && !nh2->nh_srv6->seg6_segs)
 		return 1;
 
+	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
+		return -1;
+
+	ret = memcmp(&nh1->nh_srv6->seg6_segs->encap_source,
+		     &nh2->nh_srv6->seg6_segs->encap_source,
+		     sizeof(struct in6_addr));
+	if (ret != 0)
+		return ret;
+
 	if (nh1->nh_srv6->seg6_segs->num_segs !=
 	    nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
@@ -100,12 +112,6 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 		if (ret != 0)
 			break;
 	}
-
-	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
-		return 1;
-
-	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
-		return -1;
 
 	return ret;
 }
@@ -904,6 +910,8 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 					i += 1;
 				}
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
+				key = jhash(&nexthop->nh_srv6->seg6_segs->encap_source,
+					    sizeof(struct in6_addr), key);
 			}
 		}
 	}
