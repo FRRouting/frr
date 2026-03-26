@@ -447,21 +447,22 @@ keyword at the end.
    neighborships and start exchaning PIM protocol messages with those
    neighbors.
    The available modes of operation are:
-      ``sm``
-      Sparse mode. All groups are forwarded following PIM-SM protocol.
-      This is the default mode if not specified.
 
-       ``dm``
-       Dense mode. All groups are forwarded following PIM-DM protocol only.
-       If a dm prefix-list is configured, then groups not matching the prefix
-       list will not be forwarded.
+   ``sm``
+   Sparse mode. All groups are forwarded following PIM-SM protocol.
+   This is the default mode if not specified.
 
-       ``sm-dm``
-       Sparse-dense mode. If a group has a RP discovered/configured, then
-       it is forwarded using PIM-SM (even if the RP is currently unreachable),
-       otherwise it is forwarded using PIM-DM. If a dm prefix-list is configured,
-       then groups not matching the list will still be forwarded using PIM-SM
-       even if no RP is available.
+   ``dm``
+   Dense mode. All groups are forwarded following PIM-DM protocol only.
+   If a dm prefix-list is configured, then groups not matching the prefix
+   list will not be forwarded.
+
+   ``sm-dm``
+   Sparse-dense mode. If a group has a RP discovered/configured, then
+   it is forwarded using PIM-SM (even if the RP is currently unreachable),
+   otherwise it is forwarded using PIM-DM. If a dm prefix-list is configured,
+   then groups not matching the list will still be forwarded using PIM-SM
+   even if no RP is available.
 
    Regardless of the PIM mode, any group matching the SSM range (default 232.0.0.0/8)
    will be forwarded following the PIM-SSM protocol.
