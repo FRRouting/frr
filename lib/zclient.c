@@ -1004,6 +1004,10 @@ static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
 	if (next1->srv6_encap_behavior < next2->srv6_encap_behavior)
 		return -1;
 
+	ret = IPV6_ADDR_CMP(&next1->srv6_encap_source, &next2->srv6_encap_source);
+	if (ret != 0)
+		return ret;
+
 	if (next1->seg6local_action > next2->seg6local_action)
 		return 1;
 
@@ -1226,6 +1230,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
 		stream_putl(s, api_nh->srv6_encap_behavior);
+		stream_put(s, &api_nh->srv6_encap_source, sizeof(struct in6_addr));
 	}
 done:
 	return ret;
@@ -1668,6 +1673,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   api_nh->seg_num * sizeof(struct in6_addr));
 
 		STREAM_GETL(s, api_nh->srv6_encap_behavior);
+
+		STREAM_GET(&api_nh->srv6_encap_source, s, sizeof(struct in6_addr));
 	}
 
 	/* Success */
@@ -2516,6 +2523,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				       &nh->nh_srv6->seg6_segs->seg[i],
 				       sizeof(struct in6_addr));
 			znh->srv6_encap_behavior = nh->nh_srv6->seg6_segs->encap_behavior;
+			znh->srv6_encap_source = nh->nh_srv6->seg6_segs->encap_source;
 		}
 	}
 
