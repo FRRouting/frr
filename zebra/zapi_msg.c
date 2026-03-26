@@ -2006,7 +2006,8 @@ static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 				zlog_debug("%s: adding seg6", __func__);
 
 			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0], api_nh->seg_num,
-					      api_nh->srv6_encap_behavior);
+					      api_nh->srv6_encap_behavior,
+					      api_nh->srv6_encap_source);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {

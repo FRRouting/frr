@@ -1880,7 +1880,8 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		if (!sid_zero_ipv6(&policy->segment_list.srv6_segs.segs[0])) {
 			nexthop_add_srv6_seg6(resolved_hop, &policy->segment_list.srv6_segs.segs[0],
 					      policy->segment_list.srv6_segs.num_segs,
-					      policy->segment_list.srv6_segs.encap_behavior);
+					      policy->segment_list.srv6_segs.encap_behavior,
+					      in6addr_any);
 		}
 	} else if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
@@ -1894,7 +1895,8 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		if (nexthop->nh_srv6->seg6_segs)
 			nexthop_add_srv6_seg6(resolved_hop, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
-					      nexthop->nh_srv6->seg6_segs->encap_behavior);
+					      nexthop->nh_srv6->seg6_segs->encap_behavior,
+					      nexthop->nh_srv6->seg6_segs->encap_source);
 	}
 
 	resolved_hop->rparent = nexthop;
