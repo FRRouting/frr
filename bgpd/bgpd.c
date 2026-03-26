@@ -2971,7 +2971,9 @@ int peer_delete(struct peer *peer)
 	int accept_peer;
 	bool clear_queue_lock_held = false;
 
-	assert(peer->connection->status != Deleted);
+	/* Prevent double-deletion if already deleted */
+	if (peer->connection->status == Deleted)
+		return 0;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s: peer %pBP", __func__, peer);
