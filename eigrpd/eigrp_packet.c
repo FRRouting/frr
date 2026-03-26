@@ -1092,10 +1092,18 @@ static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new(void)
 	return new;
 }
 
+/*
+ *  Returns NULL if data is not valid
+ */
 struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 {
 	struct TLV_IPv4_Internal_type *tlv;
 	uint32_t destination_tmp;
+	size_t bytes;
+
+	/* Validate required length */
+	if (STREAM_READABLE(s) < 25)
+		return NULL;
 
 	tlv = eigrp_IPv4_InternalTLV_new();
 
@@ -1114,6 +1122,20 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 	tlv->metric.flags = stream_getc(s);
 
 	tlv->prefix_length = stream_getc(s);
+
+	/* Validate additional length needed based on prefix length */
+	bytes = 1;
+	if (tlv->prefix_length > 24)
+		bytes = 4;
+	else if (tlv->prefix_length > 16)
+		bytes = 3;
+	else if (tlv->prefix_length > 8)
+		bytes = 2;
+
+	if (STREAM_READABLE(s) < bytes) {
+		eigrp_IPv4_InternalTLV_free(tlv);
+		return NULL;
+	}
 
 	destination_tmp = (uint32_t)stream_getc(s) << 24;
 	if (tlv->prefix_length > 8)

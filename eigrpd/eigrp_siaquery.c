@@ -45,8 +45,8 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
-
 	uint16_t type;
+	size_t length;
 
 	/* increment statistics. */
 	ei->siaQuery_in++;
@@ -60,6 +60,13 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 	nbr->recv_sequence_number = ntohl(eigrph->sequence);
 
 	while (s->endp > s->getp) {
+		/* Ensure we have at least 4 bytes for TLV header */
+		if (STREAM_READABLE(s) < 4) {
+			zlog_warn("Malformed packet: Unexpected early end of packet reached, stopping TLV processing");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			break;
+		}
+
 		type = stream_getw(s);
 		if (type == EIGRP_TLV_IPv4_INT) {
 			struct prefix dest_addr;
@@ -67,6 +74,11 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
+			if (tlv == NULL) {
+				/* Invalid TLV - how to handle? */
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
+			}
 
 			dest_addr.family = AFI_IP;
 			dest_addr.u.prefix4 = tlv->destination;
@@ -92,6 +104,16 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 				eigrp_fsm_event(&msg);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
+		} else {
+			/* Try to skip other TLVs */
+			length = stream_getw(s);
+			if (length < 4 || STREAM_READABLE(s) < (length - 4)) {
+				/* Invalid length; skip remaining data */
+				stream_forward_getp(s, STREAM_READABLE(s));
+			} else {
+				stream_forward_getp(s, length - 4);
+			}
+			continue;
 		}
 	}
 	eigrp_hello_send_ack(nbr);
