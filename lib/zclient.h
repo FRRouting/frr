@@ -471,6 +471,7 @@ struct zapi_nexthop {
 	int seg_num;
 	struct in6_addr seg6_segs[SRV6_MAX_SEGS];
 	enum srv6_headend_behavior srv6_encap_behavior;
+	struct in6_addr srv6_encap_source;
 };
 
 /*
