@@ -19,8 +19,8 @@ Starting PBR
 
 .. program:: pbrd
 
-:abbr:`PBR` supports all the common FRR daemon start options, which are
-documented elsewhere.
+:abbr:`PBR` supports all the common FRR daemon start options
+(:ref:`common-invocation-options`).
 
 .. _pbr-nexthop-groups:
 

@@ -28,8 +28,8 @@ Starting VRRP
 
 .. program:: vrrpd
 
-:abbr:`VRRP` supports all the common FRR daemon start options which are
-documented elsewhere.
+:abbr:`VRRP` supports all the common FRR daemon start options
+(:ref:`common-invocation-options`).
 
 .. _vrrp-protocol-overview:
 
