@@ -2993,7 +2993,7 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		}
 	}
 
-	while (STREAM_READABLE(BGP_INPUT(peer)) >= 4) {
+	while (length > 0 && STREAM_READABLE(BGP_INPUT(peer)) >= 4) {
 		uint16_t subtype = 0;
 		uint16_t sublength = 0;
 		struct bgp_attr_encap_subtlv *tlv;
@@ -3741,6 +3741,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%pBP sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer);
+				bgp_nhc_free(nhc);
 				return BGP_ATTR_PARSE_PROCEED;
 			}
 		}
@@ -4413,6 +4414,14 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 	ret = BGP_ATTR_PARSE_PROCEED;
 done:
+	/* On WITHDRAW/WITHDRAW_IGNORE the parser stopped early without
+	 * consuming all attribute bytes.  RFC 7606 s.5.1 requires using
+	 * Total Attribute Length to locate the NLRI field, so reset the
+	 * stream to the known-good post-attribute position here rather
+	 * than relying on the caller to do it.
+	 */
+	if (ret == BGP_ATTR_PARSE_WITHDRAW || ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE)
+		stream_forward_getp(BGP_INPUT(peer), endp - BGP_INPUT_PNT(peer));
 
 	/*
 	 * At this stage, we have done all fiddling with as4, and the
