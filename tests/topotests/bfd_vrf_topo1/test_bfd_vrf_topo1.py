@@ -261,6 +261,33 @@ def test_memory_leak():
     tgen.report_memory_leaks()
 
 
+def test_unusefull_message_show_bgp_neighbors_routes():
+    "Assert the message displayed after show bgp vrf vrfname afi safi neighbors X.X.X.X routes when afi is missing or wrong is usefull"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check that the displayed message is the good one.
+    for router in tgen.routers().values():
+        ref_file = "{}/{}/bgp_routes.json".format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
+
+        network = {"r1": 0, "r2": 0, "r3": 1, "r4": 2}
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show bgp vrf {}-bfd-cust1 neighbors 192.168.{}.2 routes json".format(
+                router.name, network[router.name]
+            ),
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=16, wait=1)
+        assertmsg = "{}: wrong return message for show bgp vrf vrfname neighbors X.X.X.X routes".format(
+            router.name
+        )
+        assert res is None, assertmsg
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
