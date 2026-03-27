@@ -4972,6 +4972,83 @@ static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
 	}
 }
 
+static void zebra_nhg_process_kernel_notif(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	uint32_t id = dplane_ctx_get_nhe_id(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_nhe_vrf_id(ctx);
+	afi_t afi = dplane_ctx_get_nhe_afi(ctx);
+	int type = dplane_ctx_get_nhe_type(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	uint16_t grp_count = dplane_ctx_get_nhe_nh_grp_count(ctx);
+	const struct nhg_resilience *nhgr = dplane_ctx_get_nhe_resilience(ctx);
+
+	if (zebra_evpn_mh_is_fdb_nh(id)) {
+		/* If this is a L2 NH just ignore it */
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+			zlog_debug("Ignore kernel update (%u) for fdb-nh 0x%x", op, id);
+
+		frrtrace(2, frr_zebra, netlink_nexthop_change_err, op, id);
+		return;
+	}
+
+	if (op == DPLANE_OP_NH_DELETE) {
+		zebra_nhg_kernel_del(id, vrf_id);
+		return;
+	}
+
+	if (grp_count) {
+		const struct nh_grp *grp = dplane_ctx_get_nhe_nh_grp(ctx);
+
+		if (zebra_nhg_kernel_find(id, NULL, (struct nh_grp *)grp, grp_count, vrf_id, afi,
+					  type, startup, (struct nhg_resilience *)nhgr))
+			return;
+	} else {
+		const struct nexthop *ctx_nh = dplane_ctx_get_nhe_nh(ctx);
+		struct nexthop nh;
+		const mpls_label_t *labels;
+		uint16_t label_count;
+		struct interface *ifp = NULL;
+		struct zebra_ns *zns;
+
+		if (!ctx_nh) {
+			flog_warn(EC_ZEBRA_BAD_NHG_MESSAGE,
+				  "Invalid Nexthop message received from the kernel with ID (%u)",
+				  id);
+			return;
+		}
+
+		nh = *ctx_nh;
+
+		labels = dplane_ctx_get_nhe_labels(ctx);
+		label_count = dplane_ctx_get_nhe_label_count(ctx);
+		if (label_count)
+			nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, label_count, labels);
+
+		if (nh.type != NEXTHOP_TYPE_BLACKHOLE) {
+			zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+			if (zns)
+				ifp = if_lookup_by_index_per_ns(zns, nh.ifindex);
+
+			if (ifp)
+				nh.vrf_id = ifp->vrf->vrf_id;
+			else {
+				flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
+					  "%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
+					  __func__, nh.ifindex);
+				nh.vrf_id = VRF_DEFAULT;
+			}
+		} else {
+			nh.vrf_id = VRF_DEFAULT;
+		}
+
+		vrf_id = nh.vrf_id;
+
+		zebra_nhg_kernel_find(id, &nh, NULL, 0, vrf_id, afi, type, startup,
+				      (struct nhg_resilience *)nhgr);
+	}
+}
+
 /*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
@@ -5064,7 +5141,10 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_NH_INSTALL:
 			case DPLANE_OP_NH_UPDATE:
 			case DPLANE_OP_NH_DELETE:
-				zebra_nhg_dplane_result(ctx);
+				if (dplane_ctx_get_nhe_notif(ctx))
+					zebra_nhg_process_kernel_notif(ctx);
+				else
+					zebra_nhg_dplane_result(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:
