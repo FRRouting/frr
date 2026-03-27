@@ -1319,6 +1319,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			lsp_debug("ISIS (%s): Circuit is not passive, don't add prefixes.",
 				  area->area_tag);
 		} else {
+			struct list *ipv6_non_link = isis_circuit_ipv6_non_link_addrs(circuit);
+
 			if (circuit->ip_router && circuit->ip_addrs->count > 0) {
 				lsp_debug("ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
 					  area->area_tag);
@@ -1328,11 +1330,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					lsp_build_internal_reach_ipv4(lsp, area, ipv4, metric);
 			}
 
-			if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
+			if (circuit->ipv6_router && ipv6_non_link && listcount(ipv6_non_link) > 0) {
 				struct listnode *ipnode;
 				struct prefix_ipv6 *ipv6;
 
-				for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, ipnode, ipv6))
+				for (ALL_LIST_ELEMENTS_RO(ipv6_non_link, ipnode, ipv6))
 					lsp_build_internal_reach_ipv6(lsp, area, ipv6, metric);
 			}
 		}

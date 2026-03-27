@@ -806,11 +806,11 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	iih.v4_usable = (fabricd_ip_addrs(circuit)
-			 && iih.tlvs->ipv4_address.count);
+	iih.v4_usable = (isis_circuit_ip_addrs(circuit) && iih.tlvs->ipv4_address.count);
 
 	iih.v6_usable =
-		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count);
+		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count) ||
+		(isis_circuit_ipv6_non_link_addrs(circuit) && iih.tlvs->global_ipv6_address.count);
 
 	if (!iih.v4_usable && !iih.v6_usable) {
 		if (IS_DEBUG_ADJ_PACKETS) {
@@ -2014,19 +2014,22 @@ int send_hello(struct isis_circuit *circuit, int level)
 	}
 
 	if (circuit->ip_router) {
-		struct list *circuit_ip_addrs = fabricd_ip_addrs(circuit);
+		struct list *circuit_ip_addrs = isis_circuit_ip_addrs(circuit);
 
 		if (circuit_ip_addrs)
 			isis_tlvs_add_ipv4_addresses(tlvs, circuit_ip_addrs);
 	}
 
-	if (circuit->ipv6_router)
+	if (circuit->ipv6_router && listcount(circuit->ipv6_link) > 0)
 		isis_tlvs_add_ipv6_addresses(tlvs, circuit->ipv6_link);
 
 	/* RFC6119 section 4 define TLV 233 to provide Global IPv6 address */
-	if (circuit->ipv6_router)
-		isis_tlvs_add_global_ipv6_addresses(tlvs,
-						    circuit->ipv6_non_link);
+	if (circuit->ipv6_router) {
+		struct list *circuit_ipv6_addrs = isis_circuit_ipv6_non_link_addrs(circuit);
+
+		if (circuit_ipv6_addrs)
+			isis_tlvs_add_global_ipv6_addresses(tlvs, circuit_ipv6_addrs);
+	}
 
 	bool should_pad_hello =
 		circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
