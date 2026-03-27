@@ -22,6 +22,10 @@ extern "C" {
 #define ZEBRA_BRIDGE_MASTER_MAC_CHANGE (1 << 1)
 #define ZEBRA_BRIDGE_MASTER_UP (1 << 2)
 
+/* Those values are mapped from linux TUNNEL_ENCAP_FLAG_xxx values */
+#define ZEBRA_GRE_ENCAP_FLAGS_CSUM  (1 << 1)
+#define ZEBRA_GRE_ENCAP_FLAGS_CSUM6 (1 << 2)
+
 /* zebra L2 interface information - bridge slave (linkage to bridge) */
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
@@ -66,10 +70,11 @@ struct zebra_l2info_vlan {
 
 /* zebra L2 interface information - GRE interface */
 struct zebra_l2info_gre {
-	struct in_addr vtep_ip; /* IFLA_GRE_LOCAL */
-	struct in_addr vtep_ip_remote; /* IFLA_GRE_REMOTE */
+	struct ipaddr vtep_ip;	      /* IFLA_GRE_LOCAL */
+	struct ipaddr vtep_ip_remote; /* IFLA_GRE_REMOTE */
 	uint32_t ikey;
 	uint32_t okey;
+	uint16_t encap_flags;	/* IFLA_GRE_ENCAP_FLAGS */
 	ifindex_t ifindex_link; /* Interface index of interface
 				 * linked with GRE
 				 */

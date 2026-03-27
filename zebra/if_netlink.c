@@ -394,14 +394,23 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	if (!nl_attr_put32(&req->n, buflen, IFLA_GRE_LINK, link_idx))
 		return 0;
 
-	if (gre_info->vtep_ip.s_addr &&
-	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_LOCAL,
-			   gre_info->vtep_ip.s_addr))
+	if (IS_IPADDR_V4(&gre_info->vtep_ip) &&
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_LOCAL, gre_info->vtep_ip.ipaddr_v4.s_addr))
 		return 0;
 
-	if (gre_info->vtep_ip_remote.s_addr &&
+	if (IS_IPADDR_V6(&gre_info->vtep_ip) &&
+	    !nl_attr_put(&req->n, buflen, IFLA_GRE_LOCAL, &gre_info->vtep_ip.ipaddr_v6,
+			 sizeof(struct in6_addr)))
+		return 0;
+
+	if (IS_IPADDR_V4(&gre_info->vtep_ip_remote) &&
 	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_REMOTE,
-			   gre_info->vtep_ip_remote.s_addr))
+			   gre_info->vtep_ip_remote.ipaddr_v4.s_addr))
+		return 0;
+
+	if (IS_IPADDR_V6(&gre_info->vtep_ip_remote) &&
+	    !nl_attr_put(&req->n, buflen, IFLA_GRE_REMOTE, &gre_info->vtep_ip_remote.ipaddr_v6,
+			 sizeof(struct in6_addr)))
 		return 0;
 
 	if (gre_info->ikey &&
@@ -409,8 +418,12 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 			   gre_info->ikey))
 		return 0;
 	if (gre_info->okey &&
-	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY,
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_OKEY,
 			   gre_info->okey))
+		return 0;
+
+	if (gre_info->encap_flags &&
+	    !nl_attr_put16(&req->n, buflen, IFLA_GRE_ENCAP_FLAGS, gre_info->encap_flags))
 		return 0;
 
 	nl_attr_nest_end(&req->n, rta_data);
@@ -454,8 +467,8 @@ static int netlink_extract_vlan_info(struct rtattr *link_data,
 	return 0;
 }
 
-static int netlink_extract_gre_info(struct rtattr *link_data,
-				    struct zebra_l2info_gre *gre_info)
+static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2info_gre *gre_info,
+				    bool ipv6)
 {
 	struct rtattr *attr[IFLA_GRE_MAX + 1];
 
@@ -469,18 +482,29 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 				"IFLA_GRE_LOCAL missing from GRE IF message");
 
 		frrtrace(1, frr_zebra, if_netlink_parse_error, 2);
-	} else
-		gre_info->vtep_ip =
-			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
+	} else if (ipv6) {
+		SET_IPADDR_V6(&gre_info->vtep_ip);
+		IPV6_ADDR_COPY(&gre_info->vtep_ip.ipaddr_v6,
+			       (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
+	} else {
+		SET_IPADDR_V4(&gre_info->vtep_ip);
+		gre_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
+	}
 	if (!attr[IFLA_GRE_REMOTE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_GRE_REMOTE missing from GRE IF message");
 
 		frrtrace(1, frr_zebra, if_netlink_parse_error, 3);
-	} else
-		gre_info->vtep_ip_remote =
+	} else if (ipv6) {
+		SET_IPADDR_V6(&gre_info->vtep_ip_remote);
+		IPV6_ADDR_COPY(&gre_info->vtep_ip_remote.ipaddr_v6,
+			       (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]));
+	} else {
+		SET_IPADDR_V4(&gre_info->vtep_ip_remote);
+		gre_info->vtep_ip_remote.ipaddr_v4 =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]);
+	}
 
 	if (!attr[IFLA_GRE_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -498,6 +522,8 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 		gre_info->ikey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_IKEY]);
 	if (attr[IFLA_GRE_OKEY])
 		gre_info->okey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_OKEY]);
+	if (attr[IFLA_GRE_ENCAP_FLAGS])
+		gre_info->encap_flags = *(uint16_t *)RTA_DATA(attr[IFLA_GRE_ENCAP_FLAGS]);
 	return 0;
 }
 
@@ -616,10 +642,14 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_set_ifp_vxlan_info(ctx, &vxlan_info);
 		break;
 	case ZEBRA_IF_GRE:
-	case ZEBRA_IF_IP6GRE:
 	case ZEBRA_IF_GRETAP:
+		netlink_extract_gre_info(link_data, &gre_info, false);
+		gre_info.link_nsid = link_nsid;
+		dplane_ctx_set_ifp_gre_info(ctx, &gre_info);
+		break;
+	case ZEBRA_IF_IP6GRE:
 	case ZEBRA_IF_IP6GRETAP:
-		netlink_extract_gre_info(link_data, &gre_info);
+		netlink_extract_gre_info(link_data, &gre_info, true);
 		gre_info.link_nsid = link_nsid;
 		dplane_ctx_set_ifp_gre_info(ctx, &gre_info);
 		break;

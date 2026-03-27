@@ -300,7 +300,7 @@ void zebra_l2_greif_add_update(struct interface *ifp,
 			       const struct zebra_l2info_gre *gre_info, int add)
 {
 	struct zebra_if *zif;
-	struct in_addr old_vtep_ip;
+	struct ipaddr old_vtep_ip;
 
 	zif = ifp->info;
 	assert(zif);
@@ -311,7 +311,7 @@ void zebra_l2_greif_add_update(struct interface *ifp,
 	}
 
 	old_vtep_ip = zif->l2info.gre.vtep_ip;
-	if (IPV4_ADDR_SAME(&old_vtep_ip, &gre_info->vtep_ip))
+	if (ipaddr_is_same(&old_vtep_ip, &gre_info->vtep_ip))
 		return;
 
 	zif->l2info.gre.vtep_ip = gre_info->vtep_ip;
