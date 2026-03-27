@@ -853,7 +853,7 @@ def test_ospfv2_interfaces():
 
             # Drop time in next due
             actual = re.sub(
-                r"Hello due in [-0-9\.]+s", "Hello due in XX.XXXs", actual
+                r"Hello due in [-0-9\.]+( usec)?s", "Hello due in XX.XXXs", actual
             )
             # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
             actual = re.sub(
