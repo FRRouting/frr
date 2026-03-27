@@ -4569,7 +4569,6 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 {
 	json_object *json_ls_attr = json_object_new_object();
-	char buf[INET6_BUFSIZ];
 
 	/* Node Name */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT))
@@ -4585,16 +4584,14 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 	}
 
 	/* Local TE Router-ID (IPv4) */
-	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
-		snprintfrr(buf, INET6_BUFSIZ, "%pI4", &ls_attr->ipv4_router_id_local);
-		json_object_string_add(json_ls_attr, "routerIdLocal", buf);
-	}
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT))
+		json_object_string_addf(json_ls_attr, "routerIdLocal", "%pI4",
+					&ls_attr->ipv4_router_id_local);
 
 	/* Local TE Router-ID (IPv6) */
-	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT)) {
-		snprintfrr(buf, INET6_BUFSIZ, "%pI6", &ls_attr->ipv6_router_id_local);
-		json_object_string_add(json_ls_attr, "routerIdLocalV6", buf);
-	}
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT))
+		json_object_string_addf(json_ls_attr, "routerIdLocalV6", "%pI6",
+					&ls_attr->ipv6_router_id_local);
 
 	/* Link bandwidth */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_MAX_LINK_BW_BIT))
@@ -4609,9 +4606,10 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 
 		json_object_object_add(json_ls_attr, "unreservedBandwidth", jbw);
 		for (int i = 0; i < MAX_CLASS_TYPE; i++) {
+			char buf[INET6_BUFSIZ];
 			json_object *jobj = json_object_new_object();
 
-			snprintfrr(buf, 13, "classType%u", (unsigned int)i);
+			snprintfrr(buf, sizeof(buf), "classType%d", i);
 			json_object_double_add(jobj, buf, ls_attr->unreserved_bw[i]);
 			json_object_array_add(jbw, jobj);
 		}
@@ -4629,8 +4627,7 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object *jsrcap = json_object_new_object();
 
 		json_object_object_add(json_ls_attr, "srCapabilities", jsrcap);
-		snprintfrr(buf, INET6_BUFSIZ, "0x%x", ls_attr->srgb.flag);
-		json_object_string_add(jsrcap, "flags", buf);
+		json_object_string_addf(jsrcap, "flags", "0x%x", ls_attr->srgb.flag);
 		json_object_int_add(jsrcap, "lowerBound", ls_attr->srgb.lower_bound);
 		json_object_int_add(jsrcap, "rangeSize", ls_attr->srgb.range_size);
 	}
@@ -4700,10 +4697,8 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object_double_add(json_ls_attr, "utilizedBandwidth", ls_attr->utilized_bw);
 
 	/* IGP Flags (for prefixes) */
-	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
-		snprintfrr(buf, INET6_BUFSIZ, "0x%x", ls_attr->igp_flags);
-		json_object_string_add(json_ls_attr, "flags", buf);
-	}
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT))
+		json_object_string_addf(json_ls_attr, "flags", "0x%x", ls_attr->igp_flags);
 
 	/* Route Tags */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ROUTE_TAG_BIT)) {
@@ -4737,13 +4732,12 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 
 	/* OSPF Forwarding Address (IPv4) */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_OSPF_FWD_ADDR_BIT)) {
-		if (ls_attr->ospf_fwd_addr.s_addr != INADDR_ANY) {
-			snprintfrr(buf, INET6_BUFSIZ, "%pI4", &ls_attr->ospf_fwd_addr);
-			json_object_string_add(json_ls_attr, "forwardingAddr", buf);
-		} else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6)) {
-			snprintfrr(buf, INET6_BUFSIZ, "%pI6", &ls_attr->ospf_fwd_addr6);
-			json_object_string_add(json_ls_attr, "forwardingAddrV6", buf);
-		}
+		if (ls_attr->ospf_fwd_addr.s_addr != INADDR_ANY)
+			json_object_string_addf(json_ls_attr, "forwardingAddr", "%pI4",
+						&ls_attr->ospf_fwd_addr);
+		else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6))
+			json_object_string_addf(json_ls_attr, "forwardingAddrV6", "%pI6",
+					       &ls_attr->ospf_fwd_addr6);
 	}
 
 	/* Prefix SID */
@@ -4752,8 +4746,7 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 
 		json_object_object_add(json_ls_attr, "prefixSid", jpref);
 		json_object_int_add(jpref, "sid", ls_attr->prefix_sid.sid);
-		snprintfrr(buf, INET6_BUFSIZ, "0x%x", ls_attr->prefix_sid.sid_flag);
-		json_object_string_add(jpref, "flags", buf);
+		json_object_string_addf(jpref, "flags", "0x%x", ls_attr->prefix_sid.sid_flag);
 		json_object_int_add(jpref, "algo", ls_attr->prefix_sid.algo);
 	}
 
