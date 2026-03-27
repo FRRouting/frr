@@ -500,14 +500,6 @@ PREDECL_DLIST(bgp_clearing_info);
 /* Hash of peers in clearing info object */
 PREDECL_HASH(bgp_clearing_hash);
 
-/* List of dests that need to be processed in a clearing batch */
-PREDECL_LIST(bgp_clearing_destlist);
-
-struct bgp_clearing_dest {
-	struct bgp_dest *dest;
-	struct bgp_clearing_destlist_item link;
-};
-
 /* Info about a batch of peers that need to be cleared from the RIB.
  * If many peers need to be cleared, we process them in batches, taking
  * one walk through the RIB for each batch. This is only used for "all"
@@ -525,9 +517,6 @@ struct bgp_clearing_info {
 
 	/* Flags */
 	uint32_t flags;
-
-	/* List of dests - wrapped by a small wrapper struct */
-	struct bgp_clearing_destlist_head destlist;
 
 	/* Event to schedule/reschedule processing */
 	struct event *t_sched;
@@ -3330,16 +3319,9 @@ extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
  * else return 'false'.
  */
 bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer);
-/* Add a prefix/dest to a clearing batch */
-void bgp_clearing_batch_add_dest(struct bgp_clearing_info *cinfo,
-				 struct bgp_dest *dest);
 /* Check whether a dest's peer is relevant to a clearing batch */
 bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
 				   const struct peer *peer);
-/* Check whether a clearing batch has any dests to process */
-bool bgp_clearing_batch_dests_present(struct bgp_clearing_info *cinfo);
-/* Returns the next dest for batch clear processing */
-struct bgp_dest *bgp_clearing_batch_next_dest(struct bgp_clearing_info *cinfo);
 /* Done with a peer clearing batch; deal with refcounts, free memory */
 void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo);
 /* Start a new batch of peers to clear */
