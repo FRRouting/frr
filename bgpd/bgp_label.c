@@ -465,11 +465,12 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen, mp
 			  peer, label_depth, num_labels);
 	}
 
-	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt)))
-		flog_warn(
-			EC_BGP_INVALID_LABEL_STACK,
-			"%pBP rcvd UPDATE with invalid label stack - no bottom of stack",
-			peer);
+	if (!(bgp_is_withdraw_label(label_pnt) || label_bos(label_pnt))) {
+		flog_err(EC_BGP_INVALID_LABEL_STACK,
+			 "%pBP rcvd UPDATE with invalid label stack - no bottom of stack", peer);
+		*num_labels_pnt = 0;
+		return 0;
+	}
 
 	return llen;
 }
@@ -539,7 +540,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				peer->host);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
-		p.prefixlen = prefixlen - BSIZE(llen);
 
 		/* There needs to be at least one label */
 		if (prefixlen < 24) {
@@ -548,6 +548,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				 peer->host, prefixlen);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
+
+		p.prefixlen = prefixlen - BSIZE(llen);
 
 		if ((afi == AFI_IP && p.prefixlen > IPV4_MAX_BITLEN)
 		    || (afi == AFI_IP6 && p.prefixlen > IPV6_MAX_BITLEN))
