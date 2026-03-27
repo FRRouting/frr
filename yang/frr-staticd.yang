@@ -85,7 +85,7 @@ module frr-staticd {
     description
       "Grouping for staticd prefix attributes.";
     list path-list {
-      key "table-id distance";
+      key "table-id distance metric";
       description
         "List of paths associated with a staticd prefix.";
       leaf table-id {
@@ -98,6 +98,12 @@ module frr-staticd {
         type frr-rt:administrative-distance;
         description
           "Admin distance associated with this route.";
+      }
+
+      leaf metric {
+        type uint32;
+        description
+          "Metric associated with this route.";
       }
 
       leaf tag {
