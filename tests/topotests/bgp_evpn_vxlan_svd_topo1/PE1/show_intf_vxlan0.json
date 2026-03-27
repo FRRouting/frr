@@ -1,0 +1,21 @@
+{
+  "vxlan0": {
+    "interfaceType": "Vxlan",
+    "vtepIp": "10.10.10.10",
+    "masterInterface": "bridge",
+    "vxlanId": {
+      "101": {
+        "accessVlanId": 1,
+        "mcastGroup": "0.0.0.0"
+      },
+      "100": {
+        "accessVlanId": 100,
+        "mcastGroup": "0.0.0.0"
+      },
+      "4000": {
+        "accessVlanId": 400,
+        "mcastGroup": "0.0.0.0"
+      }
+    }
+  }
+}
