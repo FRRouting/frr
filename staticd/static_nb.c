@@ -98,6 +98,13 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/srv6-segs-stack/encap-source",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_source_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_source_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/mpls-label-stack/entry",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_create,
