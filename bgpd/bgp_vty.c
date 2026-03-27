@@ -222,7 +222,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 	return BGP_IPV4_NODE;
 }
 
-static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
+const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 {
 	if (afi == AFI_IP) {
 		if (safi == SAFI_UNICAST)
@@ -15056,6 +15056,10 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		if (paf && PAF_SUBGRP(paf))
 			json_object_int_add(json_addr, "sentPrefixCounter",
 						(PAF_SUBGRP(paf))->scount);
+		json_object_int_add(json_addr, "withdrawnPrefixCounter",
+				    p->pwithdraw_cnt[afi][safi]);
+		json_object_int_add(json_addr, "suppressedPrefixCounter",
+				    p->psuppressed_cnt[afi][safi]);
 
 		json_object_int_add(json_addr, "receivedPrefixDup",
 				    p->pcount_dup[afi][pfx_rcd_safi]);
@@ -15363,6 +15367,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		else
 			vty_out(vty, "  %u accepted prefixes, %u received duplicates\n",
 				p->pcount[afi][pfx_rcd_safi], p->pcount_dup[afi][pfx_rcd_safi]);
+		if (p->pwithdraw_cnt[afi][pfx_rcd_safi])
+			vty_out(vty, "  %u withdrawn prefixes\n",
+				p->pwithdraw_cnt[afi][pfx_rcd_safi]);
+		if (p->psuppressed_cnt[afi][pfx_rcd_safi])
+			vty_out(vty, "  %u suppressed prefixes\n",
+				p->psuppressed_cnt[afi][pfx_rcd_safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],

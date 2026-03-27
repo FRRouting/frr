@@ -744,6 +744,11 @@ static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /* called before bgp_process() */
+DECLARE_HOOK(bgp_pfx_threshold_exceeded, (struct peer * peer, afi_t afi, safi_t safi),
+	     (peer, afi, safi));
+DECLARE_HOOK(bgp_pfx_threshold_clear, (struct peer * peer, afi_t afi, safi_t safi),
+	     (peer, afi, safi));
+
 DECLARE_HOOK(bgp_process,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct peer *peer, bool withdraw),

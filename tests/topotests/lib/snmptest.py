@@ -20,6 +20,9 @@ Basic usage instructions:
 from lib.topolog import logger
 import re
 
+EoMIB = "No more variables left in this MIB View"
+OID_NOT_FOUND = "No Such Instance currently exists at this OID"
+
 
 class SnmpTester(object):
     "A helper class for testing SNMP"
@@ -79,6 +82,8 @@ class SnmpTester(object):
         out_dict = {}
         out_list = []
         for response in results:
+            if EoMIB in response:
+                break
             out_dict[self._get_snmp_oid(response)] = self._get_snmp_value(response)
             out_list.append(self._get_snmp_value(response))
 
@@ -89,7 +94,7 @@ class SnmpTester(object):
             self._snmp_config(), oid
         )
         result = self.router.cmd(cmd)
-        if "not found" in result:
+        if "not found" in result or OID_NOT_FOUND in result:
             return None
         return self._get_snmp_value(result)
 
