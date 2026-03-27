@@ -445,7 +445,7 @@ def test_bgp_ls_attributes_consumer():
 
     router = tgen.gears["rr"]
 
-    # Check BGP-LS attributes are received
+    # Check BGP-LS attributes are received for prefix
     reffile = os.path.join(CWD, "rr/bgp_ls_prefix4.json")
     expected = json.loads(open(reffile).read())
 
@@ -457,6 +457,20 @@ def test_bgp_ls_attributes_consumer():
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assertmsg = '"rr" BGP-LS prefix attributes not received correctly'
+    assert result is None, assertmsg
+
+    # Check BGP-LS attributes are received for node
+    reffile = os.path.join(CWD, "rr/bgp_ls_attrs_node4.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp link-state link-state [V][L2][I0x0][N[s0000.0000.0004]] json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = '"rr" BGP-LS node attributes not received correctly'
     assert result is None, assertmsg
 
 

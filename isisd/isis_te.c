@@ -741,6 +741,17 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 		 vertex->status == NEW ? "Create" : "Found", vertex->key,
 		 print_sys_hostname(old->adv.id.iso.sys_id));
 
+	if (iso_address_list_count(&lsp->area->area_addrs)) {
+		struct iso_address *addr = iso_address_list_first(&lsp->area->area_addrs);
+
+		lnode.isis_area_id_len = addr->addr_len;
+		memcpy(lnode.isis_area_id, addr->area_addr, addr->addr_len);
+		SET_FLAG(lnode.flags, LS_NODE_ISIS_AREA_ID);
+		if (iso_address_list_count(&lsp->area->area_addrs) > 1)
+			zlog_warn("%s: Only one IS-IS Area ID is supported, ignoring others",
+				  __func__);
+	}
+
 	/* Fulfill Link State Node information */
 	tlvs = lsp->tlvs;
 	if (tlvs) {

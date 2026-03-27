@@ -1,0 +1,15 @@
+{
+	"paths": [
+		{
+			"linkStateAttrs": {
+				"srCapabilities": {
+					"lowerBound": 400000,
+					"rangeSize": 4000,
+					"flags": "0xc0"
+				},
+				"msd": 7,
+				"isisAreaId": "49.0000"
+			}
+		}
+	]
+}

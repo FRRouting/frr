@@ -146,6 +146,12 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 		if (memcmp(&n1->srv6_msd, &n2->srv6_msd, sizeof(n1->srv6_msd)))
 			return 0;
 	}
+	if (CHECK_FLAG(n1->flags, LS_NODE_ISIS_AREA_ID)) {
+		if (n1->isis_area_id_len != n2->isis_area_id_len)
+			return 0;
+		if (memcmp(n1->isis_area_id, n2->isis_area_id, n1->isis_area_id_len))
+			return 0;
+	}
 
 	/* OK, n1 & n2 are equal */
 	return 1;
@@ -1218,6 +1224,10 @@ static struct ls_node *ls_parse_node(struct stream *s)
 	}
 	if (CHECK_FLAG(node->flags, LS_NODE_MSD))
 		STREAM_GETC(s, node->msd);
+	if (CHECK_FLAG(node->flags, LS_NODE_ISIS_AREA_ID)) {
+		STREAM_GETC(s, node->isis_area_id_len);
+		STREAM_GET(node->isis_area_id, s, node->isis_area_id_len);
+	}
 
 	return node;
 
@@ -1485,6 +1495,10 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 	}
 	if (CHECK_FLAG(node->flags, LS_NODE_MSD))
 		stream_putc(s, node->msd);
+	if (CHECK_FLAG(node->flags, LS_NODE_ISIS_AREA_ID)) {
+		stream_putc(s, node->isis_area_id_len);
+		stream_put(s, node->isis_area_id, node->isis_area_id_len);
+	}
 
 	return 0;
 }
@@ -2114,6 +2128,14 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 		sbuf_push(&sbuf, 4, "Type: %s\n", type2txt[lsn->type]);
 	if (CHECK_FLAG(lsn->flags, LS_NODE_AS_NUMBER))
 		sbuf_push(&sbuf, 4, "AS number: %u\n", lsn->as_number);
+	if (CHECK_FLAG(lsn->flags, LS_NODE_ISIS_AREA_ID)) {
+		struct iso_address area_addr;
+
+		area_addr.addr_len = lsn->isis_area_id_len;
+		memcpy(area_addr.area_addr, lsn->isis_area_id, lsn->isis_area_id_len);
+
+		sbuf_push(&sbuf, 4, "IS-IS Area ID: %pIS\n", &area_addr);
+	}
 	if (CHECK_FLAG(lsn->flags, LS_NODE_SR)) {
 		sbuf_push(&sbuf, 4, "Segment Routing Capabilities:\n");
 		upper = lsn->srgb.lower_bound + lsn->srgb.range_size - 1;
@@ -2245,6 +2267,13 @@ static void ls_show_vertex_json(struct ls_vertex *vertex,
 		}
 		if (CHECK_FLAG(lsn->flags, LS_NODE_MSD))
 			json_object_int_add(jsr, "msd", lsn->msd);
+	}
+	if (CHECK_FLAG(lsn->flags, LS_NODE_ISIS_AREA_ID)) {
+		struct iso_address area_addr;
+
+		area_addr.addr_len = lsn->isis_area_id_len;
+		memcpy(area_addr.area_addr, lsn->isis_area_id, lsn->isis_area_id_len);
+		json_object_string_addf(json, "isis-area-id", "%pIS", &area_addr);
 	}
 }
 
