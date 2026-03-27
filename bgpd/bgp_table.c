@@ -35,7 +35,7 @@ void bgp_table_unlock(struct bgp_table *rt)
 	}
 
 	/* Cleanup pi_hash in bgp_table */
-	bgp_pi_hash_fini(&rt->pi_hash);
+	bgp_pi_hash_table_fini(&rt->pi_hash);
 
 	route_table_finish(rt->route_table);
 	rt->route_table = NULL;
@@ -181,7 +181,7 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 	bgp_table_lock(rt);
 	rt->afi = afi;
 	rt->safi = safi;
-	bgp_pi_hash_init(&rt->pi_hash);
+	bgp_pi_hash_table_init(&rt->pi_hash);
 
 	return rt;
 }
