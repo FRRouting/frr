@@ -97,9 +97,6 @@ DECLARE_DLIST(bgp_peer_conn_errlist, struct peer_connection, conn_err_link);
 /* List of info about peers that are being cleared from BGP RIBs in a batch */
 DECLARE_DLIST(bgp_clearing_info, struct bgp_clearing_info, link);
 
-/* List of dests that need to be processed in a clearing batch */
-DECLARE_LIST(bgp_clearing_destlist, struct bgp_clearing_dest, link);
-
 /* Hash of peers in clearing info object */
 static int peer_clearing_hash_cmp(const struct peer *p1, const struct peer *p2);
 static uint32_t peer_clearing_hashfn(const struct peer *p1);
@@ -9518,19 +9515,16 @@ static uint32_t peer_clearing_hashfn(const struct peer *p1)
 
 /*
  * Free a clearing batch: this really just does the memory cleanup; the
- * clearing code is expected to manage the peer, dest, table, etc refcounts
+ * clearing code is expected to manage the peer, etc refcounts within
+ * the batch.
  */
 static void bgp_clearing_batch_free(struct bgp *bgp,
 				    struct bgp_clearing_info **pinfo)
 {
 	struct bgp_clearing_info *cinfo = *pinfo;
-	struct bgp_clearing_dest *destinfo;
 
 	if (bgp_clearing_info_anywhere(cinfo))
 		bgp_clearing_info_del(&bgp->clearing_list, cinfo);
-
-	while ((destinfo = bgp_clearing_destlist_pop(&cinfo->destlist)) != NULL)
-		XFREE(MTYPE_CLEARING_BATCH, destinfo);
 
 	bgp_clearing_hash_fini(&cinfo->peers);
 
@@ -9565,9 +9559,8 @@ void bgp_clearing_batch_begin(struct bgp *bgp)
 	cinfo->bgp = bgp;
 	cinfo->id = bm->peer_clearing_batch_id++;
 
-	/* Init hash of peers and list of dests */
+	/* Init hash of peers */
 	bgp_clearing_hash_init(&cinfo->peers);
-	bgp_clearing_destlist_init(&cinfo->destlist);
 
 	/* Batch is open for more peers */
 	SET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN);
@@ -9638,22 +9631,11 @@ bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
 }
 
 /*
- * Check whether a clearing batch has any dests to process
- */
-bool bgp_clearing_batch_dests_present(struct bgp_clearing_info *cinfo)
-{
-	return (bgp_clearing_destlist_count(&cinfo->destlist) > 0);
-}
-
-/*
  * Done with a peer clearing batch; deal with refcounts, free memory
  */
 void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 {
 	struct peer *peer;
-	struct bgp_dest *dest;
-	struct bgp_clearing_dest *destinfo;
-	struct bgp_table *table;
 	uint32_t idx = 0;
 
 	if (bgp_debug_neighbor_events(NULL))
@@ -9667,54 +9649,8 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)
 		bgp_clearing_peer_done(peer);
 
-	/* Remove any dests/prefixes and unlock */
-	destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
-	while (destinfo) {
-		dest = destinfo->dest;
-		XFREE(MTYPE_CLEARING_BATCH, destinfo);
-
-		table = bgp_dest_table(dest);
-		bgp_dest_unlock_node(dest);
-		bgp_table_unlock(table);
-
-		destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
-	}
-
 	/* Free memory */
 	bgp_clearing_batch_free(cinfo->bgp, &cinfo);
-}
-
-/*
- * Add a prefix/dest to a clearing batch
- */
-void bgp_clearing_batch_add_dest(struct bgp_clearing_info *cinfo,
-				 struct bgp_dest *dest)
-{
-	struct bgp_clearing_dest *destinfo;
-
-	destinfo = XCALLOC(MTYPE_CLEARING_BATCH,
-			   sizeof(struct bgp_clearing_dest));
-
-	destinfo->dest = dest;
-	/* coverity[leaked_storage] - destinfo is stored in destlist and freed by bgp_clearing_batch_completed() */
-	bgp_clearing_destlist_add_tail(&cinfo->destlist, destinfo);
-}
-
-/*
- * Return the next dest for batch clear processing
- */
-struct bgp_dest *bgp_clearing_batch_next_dest(struct bgp_clearing_info *cinfo)
-{
-	struct bgp_clearing_dest *destinfo;
-	struct bgp_dest *dest = NULL;
-
-	destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
-	if (destinfo) {
-		dest = destinfo->dest;
-		XFREE(MTYPE_CLEARING_BATCH, destinfo);
-	}
-
-	return dest;
 }
 
 /* If a clearing batch is available for 'peer', add it and return 'true',
