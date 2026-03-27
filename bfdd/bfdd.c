@@ -115,7 +115,7 @@ static struct frr_signal_t bfd_signals[] = {
 };
 
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
-	&frr_filter_info,
+	&frr_filter_cli_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
 	&frr_vrf_info,
@@ -372,6 +372,17 @@ int main(int argc, char *argv[])
 
 	bfd_vrf_init(perm_vrfs);
 
+	/*
+	 * Initialize access-list/prefix-list CLI commands.
+	 * Note: We use frr_filter_cli_info instead of frr_filter_info in
+	 * bfdd_yang_modules[] so that the Northbound config callbacks are
+	 * ignored. Additionally, we set filter_cli_skip_processing to skip
+	 * CLI processing entirely for prefix-lists.
+	 * This prevents bfdd from allocating memory for prefix-list
+	 * entries that it doesn't use, while still allowing the CLI commands
+	 * to be parsed without "Unknown command" errors.
+	 */
+	filter_cli_skip_processing = true;
 	access_list_init();
 	prefix_list_init();
 
