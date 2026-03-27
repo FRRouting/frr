@@ -55,6 +55,7 @@ struct static_route_args {
 	const char *flag;
 	const char *tag;
 	const char *distance;
+	const char *metric;
 	const char *label;
 	const char *table;
 	const char *color;
@@ -115,6 +116,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	const char *buf_gate_str;
 	struct ipaddr gate_ip;
 	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
+	uint32_t metric = 0;
 	route_tag_t tag = 0;
 	uint32_t table_id = 0;
 	const struct lyd_node *dnode;
@@ -216,6 +218,10 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	if (args->distance)
 		distance = strtol(args->distance, NULL, 10);
 
+	/* Metric */
+	if (args->metric)
+		metric = strtoul(args->metric, NULL, 10);
+
 	/* tag */
 	if (args->tag)
 		tag = strtoul(args->tag, NULL, 10);
@@ -233,7 +239,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 
 		/*
 		 * If there's already the same nexthop but with a different
-		 * distance, then remove it for the replacement.
+		 * distance or metric, then remove it for the replacement.
 		 */
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (dnode) {
@@ -248,7 +254,8 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		/* route + path processing */
 		snprintf(xpath_prefix, sizeof(xpath_prefix), FRR_STATIC_ROUTE_INFO_KEY_XPATH,
 			 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix, buf_src_prefix,
-			 yang_afi_safi_value2identity(args->afi, args->safi), table_id, distance);
+			 yang_afi_safi_value2identity(args->afi, args->safi), table_id, distance,
+			 metric);
 
 		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
@@ -457,11 +464,12 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		if (orig_seg)
 			XFREE(MTYPE_TMP, orig_seg);
 	} else {
-		if (args->distance)
+		if (args->distance || args->metric)
 			snprintf(ab_xpath, sizeof(ab_xpath), FRR_DEL_S_ROUTE_NH_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix,
-				 buf_src_prefix, yang_afi_safi_value2identity(args->afi, args->safi),
-				 table_id, distance, buf_nh_type, args->nexthop_vrf, buf_gate_str,
+				 buf_src_prefix,
+				 yang_afi_safi_value2identity(args->afi, args->safi), table_id,
+				 distance, metric, buf_nh_type, args->nexthop_vrf, buf_gate_str,
 				 args->interface_name);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
@@ -519,6 +527,7 @@ DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
        "(1-255)$distance"
+       "|metric (0-4294967295)"
        "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
        "}]",
        NO_STR
@@ -528,6 +537,8 @@ DEFPY_YANG (ip_mroute_dist,
        "Nexthop address\n"
        "Nexthop interface name\n"
        "Distance\n"
+       "Set metric for this route\n"
+       "Metric value\n"
        BFD_INTEGRATION_STR
        BFD_INTEGRATION_MULTI_HOP_STR
        BFD_INTEGRATION_SOURCE_STR
@@ -543,6 +554,7 @@ DEFPY_YANG (ip_mroute_dist,
 		.gateway = gate_str,
 		.interface_name = ifname,
 		.distance = distance_str,
+		.metric = metric_str,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
@@ -561,6 +573,7 @@ DEFPY_YANG(ip_route_blackhole,
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
+	  |metric (0-4294967295)                                              \
 	  |vrf NAME                                                           \
 	  |label WORD                                                         \
           |table (1-4294967295)                                               \
@@ -575,6 +588,8 @@ DEFPY_YANG(ip_route_blackhole,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
@@ -589,6 +604,7 @@ DEFPY_YANG(ip_route_blackhole,
 		.flag = flag,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.vrf = vrf,
@@ -605,6 +621,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
+	  |metric (0-4294967295)                                              \
 	  |label WORD                                                         \
 	  |table (1-4294967295)                                               \
           }]",
@@ -618,6 +635,8 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n")
@@ -631,6 +650,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 		.flag = flag,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.xpath_vrf = true,
@@ -655,6 +675,7 @@ DEFPY_YANG(ip_route_address_interface,
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
+	  |metric (0-4294967295)                       \
 	  |vrf NAME                                    \
 	  |label WORD                                  \
 	  |table (1-4294967295)                        \
@@ -677,6 +698,8 @@ DEFPY_YANG(ip_route_address_interface,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
@@ -709,6 +732,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -736,6 +760,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
+	  |metric (0-4294967295)                       \
 	  |label WORD                                  \
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
@@ -757,6 +782,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
@@ -788,6 +815,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -814,6 +842,7 @@ DEFPY_YANG(ip_route,
 	[{                                             	   \
 	  tag (1-4294967295)                               \
 	  |(1-255)$distance                                \
+	  |metric (0-4294967295)                           \
 	  |vrf NAME                                        \
 	  |label WORD                                      \
 	  |table (1-4294967295)                            \
@@ -835,6 +864,8 @@ DEFPY_YANG(ip_route,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
@@ -866,6 +897,7 @@ DEFPY_YANG(ip_route,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -891,6 +923,7 @@ DEFPY_YANG(ip_route_vrf,
 	[{                                                 \
 	  tag (1-4294967295)                               \
 	  |(1-255)$distance                                \
+	  |metric (0-4294967295)                           \
 	  |label WORD                                      \
 	  |table (1-4294967295)                            \
 	  |nexthop-vrf NAME                                \
@@ -911,6 +944,8 @@ DEFPY_YANG(ip_route_vrf,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
@@ -941,6 +976,7 @@ DEFPY_YANG(ip_route_vrf,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -965,6 +1001,7 @@ DEFPY_YANG(ipv6_route_blackhole,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |vrf NAME                                      \
             |label WORD                                    \
             |table (1-4294967295)                          \
@@ -980,6 +1017,8 @@ DEFPY_YANG(ipv6_route_blackhole,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
@@ -994,6 +1033,7 @@ DEFPY_YANG(ipv6_route_blackhole,
 		.flag = flag,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.vrf = vrf,
@@ -1009,6 +1049,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |label WORD                                    \
             |table (1-4294967295)                          \
           }]",
@@ -1023,6 +1064,8 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
+      "Set metric for this route\n"
+      "Metric value\n"
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n")
@@ -1036,6 +1079,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 		.flag = flag,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.xpath_vrf = true,
@@ -1058,6 +1102,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |vrf NAME                                      \
             |label WORD                                    \
 	    |table (1-4294967295)                          \
@@ -1078,7 +1123,10 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "Null interface\n"
 	   "Set tag for this route\n"
 	   "Tag value\n"
-	   "Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   "Distance value for this prefix\n"
+	   "Set metric for this route\n"
+	   "Metric value\n"
+	   VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
 	   "The table number to configure\n" VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
@@ -1104,6 +1152,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -1130,6 +1179,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |label WORD                                    \
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
@@ -1149,7 +1199,10 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "Null interface\n"
 	   "Set tag for this route\n"
 	   "Tag value\n"
-	   "Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	   "Distance value for this prefix\n"
+	   "Set metric for this route\n"
+	   "Metric value\n"
+	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
 	   "The table number to configure\n" VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
@@ -1175,6 +1228,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -1199,6 +1253,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |vrf NAME                                      \
             |label WORD                                    \
 	    |table (1-4294967295)                          \
@@ -1218,7 +1273,10 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "Null interface\n"
 	   "Set tag for this route\n"
 	   "Tag value\n"
-	   "Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   "Distance value for this prefix\n"
+	   "Set metric for this route\n"
+	   "Metric value\n"
+	   VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
 	   "The table number to configure\n" VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
@@ -1243,6 +1301,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -1267,6 +1326,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
+            |metric (0-4294967295)                         \
             |label WORD                                    \
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
@@ -1285,7 +1345,10 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "Null interface\n"
 	   "Set tag for this route\n"
 	   "Tag value\n"
-	   "Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	   "Distance value for this prefix\n"
+	   "Set metric for this route\n"
+	   "Metric value\n"
+	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
 	   "The table number to configure\n" VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
@@ -1310,6 +1373,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.interface_name = ifname,
 		.tag = tag_str,
 		.distance = distance_str,
+		.metric = metric_str,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
@@ -1617,6 +1681,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	enum static_blackhole_type bh_type;
 	uint32_t tag;
 	uint8_t distance;
+	uint32_t metric;
 	struct mpls_label_iter iter;
 	struct srv6_seg_iter seg_iter;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
@@ -1692,6 +1757,10 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	distance = yang_dnode_get_uint8(path, "distance");
 	if (distance != ZEBRA_STATIC_DISTANCE_DEFAULT || show_defaults)
 		vty_out(vty, " %" PRIu8, distance);
+
+	metric = yang_dnode_get_uint32(path, "metric");
+	if (metric != 0 || show_defaults)
+		vty_out(vty, " metric %" PRIu32, metric);
 
 	iter.vty = vty;
 	iter.first = true;
@@ -1863,6 +1932,7 @@ static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 {
 	uint32_t table_id1, table_id2;
 	uint8_t distance1, distance2;
+	uint32_t metric1, metric2;
 
 	table_id1 = yang_dnode_get_uint32(dnode1, "table-id");
 	table_id2 = yang_dnode_get_uint32(dnode2, "table-id");
@@ -1873,7 +1943,13 @@ static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 	distance1 = yang_dnode_get_uint8(dnode1, "distance");
 	distance2 = yang_dnode_get_uint8(dnode2, "distance");
 
-	return (int)distance1 - (int)distance2;
+	if (distance1 != distance2)
+		return (int)distance1 - (int)distance2;
+
+	metric1 = yang_dnode_get_uint32(dnode1, "metric");
+	metric2 = yang_dnode_get_uint32(dnode2, "metric");
+
+	return numcmp(metric1, metric2);
 }
 
 static void static_segment_routing_cli_show(struct vty *vty, const struct lyd_node *dnode,

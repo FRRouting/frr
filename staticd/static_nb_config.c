@@ -32,6 +32,7 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	const char *vrf;
 	uint8_t distance;
 	uint32_t table_id;
+	uint32_t metric;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -61,7 +62,8 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		distance = yang_dnode_get_uint8(args->dnode, "distance");
 		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
-		pn = static_add_path(rn, table_id, distance);
+		metric = yang_dnode_get_uint32(args->dnode, "metric");
+		pn = static_add_path(rn, table_id, distance, metric);
 		nb_running_set_entry(args->dnode, pn);
 	}
 

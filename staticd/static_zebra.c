@@ -441,6 +441,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 		api.distance = pn->distance;
 	}
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = pn->metric;
 	if (pn->tag) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = pn->tag;

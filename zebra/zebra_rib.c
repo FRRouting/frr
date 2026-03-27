@@ -1553,7 +1553,8 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
-			    re->distance != dplane_ctx_get_old_distance(ctx)) {
+			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
+			     re->metric != dplane_ctx_get_old_metric(ctx))) {
 				result = false;
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_old_metric(ctx)) {
@@ -1579,7 +1580,8 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
-			    re->distance != dplane_ctx_get_distance(ctx)) {
+			    (re->distance != dplane_ctx_get_distance(ctx) ||
+			     re->metric != dplane_ctx_get_metric(ctx))) {
 				result = false;
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_metric(ctx)) {
@@ -1632,13 +1634,12 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	if (re1->instance != re2->instance)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL) {
-		if (re1->metric != re2->metric)
-			return false;
+	if ((re1->type == ZEBRA_ROUTE_KERNEL || re1->type == ZEBRA_ROUTE_STATIC) &&
+	    re1->metric != re2->metric)
+		return false;
 
-		if (!replace)
-			return false;
-	}
+	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace)
+		return false;
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
 	    re1->distance != re2->distance)
@@ -2892,7 +2893,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		    ere->re->distance != re->distance)
 			continue;
 
-		if (re->type == ZEBRA_ROUTE_KERNEL &&
+		if ((re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_STATIC) &&
 		    re->metric != ere->re->metric)
 			continue;
 		if ((re->type == ZEBRA_ROUTE_CONNECT ||
