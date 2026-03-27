@@ -304,21 +304,6 @@ def check_ipv4_prefix_recursive_with_multiple_nexthops(
         for nh in r6_nh:
             expected[prefix][0]["nexthops"].append(get_nh_formatted(nh))
 
-        for nh in recursive_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
-        for nh in r5_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
-        for nh in r6_nh:
-            expected[prefix][0]["nexthops"].append(
-                get_nh_formatted(nh, fib=False, duplicate=True)
-            )
-
     test_func = functools.partial(
         ip_check_path_selection, tgen.gears["r1"], prefix, expected, check_fib=True
     )
@@ -326,6 +311,88 @@ def check_ipv4_prefix_recursive_with_multiple_nexthops(
     assert (
         result is None
     ), f"Failed to check that {prefix} is correctly recursive via {recursive_nexthop}"
+
+
+def check_no_duplicate_nexthops(prefix):
+    """Verify that no nexthop for the prefix is marked as duplicate by zebra."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _check():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd(f"show ip route {prefix} json"))
+        if prefix not in output:
+            return f"{prefix} not found in route table"
+        for nh in output[prefix][0]["nexthops"]:
+            if nh.get("duplicate"):
+                return f"Nexthop {nh} is marked duplicate for {prefix}"
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=60, wait=0.5)
+    assert result is None, result
+
+
+def check_same_ip_different_labels_preserved(prefix):
+    """Verify that nexthops sharing an IP but with different labels are NOT deduplicated."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _check():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd(f"show ip route {prefix} json"))
+        if prefix not in output:
+            return f"{prefix} not found in route table"
+        nhs = output[prefix][0]["nexthops"]
+        resolved_nhs = [
+            (nh["ip"], tuple(nh.get("labels", [])))
+            for nh in nhs
+            if not nh.get("recursive")
+        ]
+        for ip in ("172.31.0.3", "172.31.2.4"):
+            labels_for_ip = sorted(
+                [labels for nhip, labels in resolved_nhs if nhip == ip]
+            )
+            if len(labels_for_ip) != 2:
+                return (
+                    f"Expected 2 nexthops for {ip} (different labels), "
+                    f"got {len(labels_for_ip)}: {labels_for_ip}"
+                )
+            if (16006,) not in labels_for_ip or (16055,) not in labels_for_ip:
+                return (
+                    f"Expected labels [16006] and [16055] for {ip}, "
+                    f"got {labels_for_ip}"
+                )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=60, wait=0.5)
+    assert result is None, result
+
+
+def check_nhg_size(prefix, expected_fib_count):
+    """Verify the NHG entry count matches the expected FIB nexthop count."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _check():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd(f"show ip route {prefix} json"))
+        if prefix not in output:
+            return f"{prefix} not found in route table"
+
+        route = output[prefix][0]
+        nh_num = route.get("internalNextHopNum")
+        fib_num = route.get("internalNextHopFibInstalledNum")
+        active_num = route.get("internalNextHopActiveNum")
+
+        if fib_num != expected_fib_count:
+            return (
+                f"Expected internalNextHopFibInstalledNum={expected_fib_count}, "
+                f"got {fib_num} (total={nh_num}, active={active_num})"
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=60, wait=0.5)
+    assert result is None, result
 
 
 def check_ipv4_prefix_with_multiple_nexthops_linux(prefix):
@@ -404,10 +471,15 @@ def test_bgp_ipv4_convergence():
 
     check_ipv4_prefix_with_multiple_nexthops_linux("192.0.2.9")
 
+    step("Verify no nexthop is marked as duplicate for 192.0.2.9/32")
+    check_no_duplicate_nexthops("192.0.2.9/32")
+
 
 def test_bgp_ipv4_recursive_routes():
     """
-    Check that R1 has received the recursive routes, and duplicate nexthops are in zebra, but are not installed
+    Check that R1 has received the recursive routes, that deduplication
+    removed the duplicate nexthops, and that same-IP-different-label
+    nexthops are preserved.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -417,17 +489,14 @@ def test_bgp_ipv4_recursive_routes():
 
     check_ipv4_prefix_with_multiple_nexthops_linux("192.0.2.8")
 
-    # Calculate expected installed count: Count nexthops that are actually installed
-    output = json.loads(tgen.gears["r1"].vtysh_cmd("show ip route 192.0.2.8/32 json"))
-    expected_installed = 0
-    for nh in output["192.0.2.8/32"][0]["nexthops"]:
-        if nh.get("fib") == True:
-            expected_installed += 1
+    step("Verify no nexthop is marked as duplicate after dedup")
+    check_no_duplicate_nexthops("192.0.2.8/32")
 
-    installed_num = output["192.0.2.8/32"][0]["internalNextHopFibInstalledNum"]
-    assert (
-        installed_num == expected_installed
-    ), f"Expected internalNextHopFibInstalledNum={expected_installed}, got {installed_num}"
+    step("Verify same-IP-different-label nexthops are preserved (not deduplicated)")
+    check_same_ip_different_labels_preserved("192.0.2.8/32")
+
+    step("Verify NHG has exactly 4 FIB-installed nexthops (not 8)")
+    check_nhg_size("192.0.2.8/32", expected_fib_count=4)
 
 
 def test_bgp_ipv4_recursive_routes_when_no_mpath():
@@ -454,6 +523,43 @@ def test_bgp_ipv4_recursive_routes_when_no_mpath():
     check_ipv4_prefix_recursive_with_multiple_nexthops(
         "192.0.2.8/32", "192.0.2.9", multipath=False
     )
+
+
+def test_bgp_ipv4_recursive_routes_when_mpath_reenabled():
+    """
+    Re-enable multipath ibgp after the previous test disabled it.
+    Verify deduplication still works correctly across reconfiguration.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp
+        address family ipv4 unicast
+        maximum-paths ibgp 128
+        """,
+        isjson=False,
+    )
+    tgen.gears["r1"].vtysh_cmd("clear bgp ipv4 *")
+
+    step("Verify multipath routes re-converge with dedup after re-enable")
+    check_ipv4_prefix_with_multiple_nexthops("192.0.2.9/32")
+
+    check_ipv4_prefix_recursive_with_multiple_nexthops("192.0.2.8/32", "192.0.2.9")
+
+    step("Verify no duplicate nexthops after multipath re-enable")
+    check_no_duplicate_nexthops("192.0.2.8/32")
+
+    step("Verify same-IP-different-label nexthops preserved after re-enable")
+    check_same_ip_different_labels_preserved("192.0.2.8/32")
+
+    step("Verify NHG size correct after multipath re-enable")
+    check_nhg_size("192.0.2.8/32", expected_fib_count=4)
+
+    check_ipv4_prefix_with_multiple_nexthops_linux("192.0.2.8")
 
 
 def test_memory_leak():
