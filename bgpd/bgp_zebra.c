@@ -3827,7 +3827,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 
-		if (!strmatch(locator_bgp->name, loc_name)) {
+		if (!strmatch(locator_bgp->name, loc_name) ||
+		    (bgp_vrf->srv6_locator_name[0] != '\0' &&
+		     !strmatch(bgp_vrf->srv6_locator_name, loc_name))) {
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug("%s(%d): %s, SRv6 Locator name unmatch %s:%s, releasing SID.",
 					   bgp->name_pretty, bgp->vrf_id, __func__,
