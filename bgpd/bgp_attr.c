@@ -3908,6 +3908,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%pBP sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer);
+				bgp_nhc_free(nhc);
 				return BGP_ATTR_PARSE_PROCEED;
 			}
 		}
