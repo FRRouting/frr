@@ -71,6 +71,7 @@ struct static_route_args {
 #endif /* !HAVE_STATICD_NB */
 
 	const char *srv6_encap_behavior;
+	const char *srv6_encap_source;
 };
 
 #ifndef HAVE_STATICD_NB
