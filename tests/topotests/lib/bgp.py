@@ -5707,7 +5707,13 @@ def bgp_vpn_router_json_cmp_exact_filter(router, cmd, expected):
         json_output.pop("totalRoutes")
     if "totalPaths" in json_output:
         json_output.pop("totalPaths")
+    if "numRoutes" in json_output:
+        json_output.pop("numRoutes")
+    if "routes" in json_output:
+        json_output["routes"].pop("numRoutes", None)
     for rd, data in json_output["routes"]["routeDistinguishers"].items():
+        if isinstance(data, dict) and "numRoutes" in data:
+            data.pop("numRoutes")
         for _, attrs in data.items():
             for attr in attrs:
                 if "nhVrfId" in attr:
