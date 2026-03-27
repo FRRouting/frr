@@ -77,7 +77,7 @@ extern int mpls_kernel_init(void);
 void kernel_router_init(void);
 void kernel_router_terminate(void);
 
-extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
+extern uint32_t kernel_get_speed(vrf_id_t vrf_id, const char *ifname, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
 
 /*
