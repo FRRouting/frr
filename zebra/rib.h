@@ -319,6 +319,7 @@ struct rib_table_info {
 	afi_t afi;
 	safi_t safi;
 	uint32_t table_id;
+	uint64_t route_count[ZEBRA_ROUTE_MAX]; /* Route count per route_type */
 };
 
 enum rib_tables_iter_state {

@@ -501,6 +501,43 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_fib_get_elem(
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 	struct nb_cb_get_elem_args *args);
+const void *lib_vrf_get_next(struct nb_cb_get_next_args *args);
+int lib_vrf_get_keys(struct nb_cb_get_keys_args *args);
+const void *lib_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args);
+struct yang_data *lib_vrf_id_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_total_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_connected_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_bgp_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_kernel_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_static_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_ospf_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_table_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv4_route_count_pbr_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_total_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_connected_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_bgp_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_kernel_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_static_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_ospf_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_table_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_ipv6_route_count_pbr_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_nhg_count_get_elem(struct nb_cb_get_elem_args *args);
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_prefix_only_modify(struct nb_cb_modify_args *args);

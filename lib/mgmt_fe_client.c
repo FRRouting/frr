@@ -299,6 +299,39 @@ int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id, 
 	return ret;
 }
 
+int mgmt_fe_send_notify_select_req(struct mgmt_fe_client *client, uint64_t session_id,
+				   uint64_t req_id, bool replace, uint8_t mode,
+				   uint32_t mode_data, const char **selectors)
+{
+	struct mgmt_msg_notify_select *msg;
+	uint i;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_select, 0,
+					MTYPE_MSG_NATIVE_NOTIFY_SELECT);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_NOTIFY_SELECT;
+	msg->replace = replace;
+	msg->get_only = 0;
+	msg->subscribing = 0;
+	/* FE clients control delivery semantics via mode/mode_data. */
+	msg->mode = mode;
+	msg->mode_data = mode_data;
+
+	darr_foreach_i (selectors, i)
+		mgmt_msg_native_add_str(msg, selectors[i]);
+
+	debug_fe_client("Sending NOTIFY_SELECT session-id %" PRIu64 " req-id %" PRIu64
+			" mode=%u mode-data=%u selectors=%u",
+			session_id, req_id, msg->mode, msg->mode_data,
+			darr_len(selectors));
+
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	ret = fe_client_push_sent_msg(client, (struct mgmt_msg_header *)msg, ret);
+	return ret;
+}
+
 /*
  * Send get-data request.
  */

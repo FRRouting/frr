@@ -1196,6 +1196,122 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:lib/vrf",
+			.cbs = {
+				.get_next = lib_vrf_get_next,
+				.get_keys = lib_vrf_get_keys,
+				.lookup_entry = lib_vrf_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/id",
+			.cbs = {
+				.get_elem = lib_vrf_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/total",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_total_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/connected",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_connected_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/bgp",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_bgp_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/kernel",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_kernel_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/static",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_static_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/ospf",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_ospf_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/table",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_table_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv4-route-count/pbr",
+			.cbs = {
+				.get_elem = lib_vrf_ipv4_route_count_pbr_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/total",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_total_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/connected",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_connected_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/bgp",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_bgp_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/kernel",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_kernel_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/static",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_static_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/ospf",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_ospf_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/table",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_table_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/ipv6-route-count/pbr",
+			.cbs = {
+				.get_elem = lib_vrf_ipv6_route_count_pbr_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:lib/vrf/nhg-count",
+			.cbs = {
+				.get_elem = lib_vrf_nhg_count_get_elem,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}
