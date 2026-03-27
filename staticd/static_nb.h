@@ -59,6 +59,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_behavior_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_source_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_source_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
@@ -141,6 +145,8 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_STATIC_ROUTE_NH_SRV6_KEY_SEG_XPATH "/entry[id='%u']/seg"
 
 #define FRR_STATIC_ROUTE_NH_SRV6_ENCAP_BEHAVIOR_XPATH "/encap-behavior"
+
+#define FRR_STATIC_ROUTE_NH_SRV6_ENCAP_SOURCE_XPATH "/encap-source"
 
 /* route-list/frr-nexthops */
 #define FRR_DEL_S_ROUTE_NH_KEY_XPATH                                           \

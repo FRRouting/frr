@@ -33,6 +33,7 @@ struct static_nh_seg {
 	int num_segs;
 	struct in6_addr seg[SRV6_MAX_SIDS];
 	enum srv6_headend_behavior encap_behavior;
+	struct in6_addr encap_source;
 };
 
 enum static_blackhole_type {
