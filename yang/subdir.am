@@ -95,6 +95,7 @@ dist_yangmodels_DATA += yang/frr-bgp-common.yang
 dist_yangmodels_DATA += yang/frr-bgp-common-multiprotocol.yang
 dist_yangmodels_DATA += yang/frr-bgp-neighbor.yang
 dist_yangmodels_DATA += yang/frr-bgp-peer-group.yang
+dist_yangmodels_DATA += yang/frr-bgp-peer.yang
 dist_yangmodels_DATA += yang/frr-deviations-bgp-datacenter.yang
 dist_yangmodels_DATA += yang/frr-bgp-rpki.yang
 dist_yangmodels_DATA += yang/frr-bgp-bmp.yang

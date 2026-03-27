@@ -108,3 +108,9 @@ nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
 	# end
 endif
 
+if BGPD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-bgp-peer.yang.c \
+	# end
+endif
+
