@@ -143,11 +143,13 @@ extern void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr,
 extern void ospf_ls_ack_send_delayed(struct ospf_interface *oi);
 extern void ospf_ls_retransmit(struct ospf_interface *oi, struct ospf_lsa *lsa);
 extern void ospf_ls_req_event(struct ospf_neighbor *nbr);
-extern bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *);
-extern void ospf_ls_upd_enqueue_to_dst(struct ospf_interface *oi, struct list *update,
-				       struct in_addr dst);
 extern uint64_t ospf_now_ms(void);
 extern void ospf_ls_rxmt_timer(struct event *event);
+
+/* RFC4222/R4: per-neighbor paced send queue management */
+extern void ospf_r4_nbr_init(struct ospf_neighbor *nbr);
+extern void ospf_r4_nbr_cancel(struct ospf_neighbor *nbr);
+extern void ospf_r4_nbr_enqueue(struct ospf_neighbor *nbr, struct ospf_lsa *lsa);
 extern void ospf_ls_ack_delayed_timer(struct event *event);
 extern void ospf_poll_timer(struct event *event);
 extern void ospf_hello_reply_timer(struct event *event);

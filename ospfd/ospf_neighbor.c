@@ -51,7 +51,7 @@ static void ospf_nbr_key(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	return;
 }
 
-static void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
+void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi;
 
@@ -123,6 +123,8 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 
 	nbr->ls_rxmt_unacked = 0;
 
+	ospf_r4_nbr_init(nbr);
+
 	return nbr;
 }
 
@@ -160,6 +162,10 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	event_cancel(&nbr->t_db_desc);
 	event_cancel(&nbr->t_ls_req);
 	event_cancel(&nbr->t_ls_rxmt);
+
+	/* RFC4222/R4: cancel pacing timer and drain queue before teardown. */
+	ospf_r4_nbr_cancel(nbr);
+	list_delete(&nbr->r4_send_queue);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);

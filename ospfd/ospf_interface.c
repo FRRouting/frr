@@ -798,9 +798,17 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 			oi->params = ospf_lookup_if_params(
 				ifp, oi->address->u.prefix4);
 			/* refresh effective Rec4 config cache */
-            ospf_rec4_recompute_effective(oi);
+			ospf_rec4_recompute_effective(oi);
+			/* propagate new params to already-up neighbors */
+			struct route_node *nrn;
+			for (nrn = route_top(oi->nbrs); nrn;
+			     nrn = route_next(nrn)) {
+				struct ospf_neighbor *nbr = nrn->info;
+				if (nbr && nbr != oi->nbr_self)
+					ospf_nbr_apply_rec4_params(nbr);
 			}
 		}
+	}
 }
 /*RFC4222/R4 Changes*/
 void ospf_if_update_params_all(struct interface *ifp)
@@ -814,6 +822,13 @@ void ospf_if_update_params_all(struct interface *ifp)
 
         oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
         ospf_rec4_recompute_effective(oi);
+        /* propagate new params to already-up neighbors */
+        struct route_node *nrn;
+        for (nrn = route_top(oi->nbrs); nrn; nrn = route_next(nrn)) {
+            struct ospf_neighbor *nbr = nrn->info;
+            if (nbr && nbr != oi->nbr_self)
+                ospf_nbr_apply_rec4_params(nbr);
+        }
     }
 }
 

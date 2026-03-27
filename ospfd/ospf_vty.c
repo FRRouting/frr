@@ -3600,7 +3600,7 @@ DEFPY(ospf_gap_pacing_enable,
 
 DEFPY(ospf_gap_initial,
       ospf_gap_initial_cmd,
-      "[no$no] ip ospf lsa-pacing initial-gap (1-60000)$gap",
+      "[no$no] ip ospf lsa-pacing initial-gap [(1-60000)$gap]",
       NO_STR
       IP_STR
       OSPF_STR
@@ -3620,16 +3620,22 @@ DEFPY(ospf_gap_initial,
 		return CMD_SUCCESS;
 	}
 
-	/* Clamp to current effective min/max (defaults if not configured) */
-	uint32_t min_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms) ? params->gap_min_ms
-								       : OSPF_GAP_MIN_MS_DEFAULT;
-	uint32_t max_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_max_ms) ? params->gap_max_ms
-								       : OSPF_GAP_MAX_MS_DEFAULT;
-
-	if (gap < min_ms)
-		gap = min_ms;
-	else if (gap > max_ms)
-		gap = max_ms;
+	/* Only validate against min/max when they are explicitly configured.
+	 * If min-gap/max-gap have not been set yet, accept any value in the
+	 * command range [1-60000]; ospf_nbr_apply_rec4_params() will clamp the
+	 * runtime gap to the effective bounds when pacing is applied.  This
+	 * makes command ordering irrelevant — initial-gap may be issued before
+	 * or after min-gap/max-gap without silent truncation. */
+	if (OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms) && gap < params->gap_min_ms) {
+		vty_out(vty, "%% initial-gap %lld is below configured min-gap %u\n",
+			(long long)gap, params->gap_min_ms);
+		return CMD_WARNING;
+	}
+	if (OSPF_IF_PARAM_CONFIGURED(params, gap_max_ms) && gap > params->gap_max_ms) {
+		vty_out(vty, "%% initial-gap %lld exceeds configured max-gap %u\n",
+			(long long)gap, params->gap_max_ms);
+		return CMD_WARNING;
+	}
 
 	SET_IF_PARAM(params, gap_initial_ms);
 	params->gap_initial_ms = gap;
@@ -3688,7 +3694,7 @@ DEFPY(ospf_gap_min_max,
 
 DEFPY(ospf_gap_factor,
       ospf_gap_factor_cmd,
-      "[no$no] ip ospf lsa-pacing factor (1-64)$factor",
+      "[no$no] ip ospf lsa-pacing factor [(1-64)$factor]",
       NO_STR
       IP_STR
       OSPF_STR
@@ -3718,7 +3724,7 @@ DEFPY(ospf_gap_factor,
 
 DEFPY(ospf_gap_max_lsas,
       ospf_gap_max_lsas_cmd,
-      "[no$no] ip ospf lsa-pacing max-lsas-per-update (1-200)$max_lsas",
+      "[no$no] ip ospf lsa-pacing max-lsas-per-update [(1-200)$max_lsas]",
       NO_STR
       IP_STR
       OSPF_STR
@@ -3747,7 +3753,7 @@ DEFPY(ospf_gap_max_lsas,
 
 DEFPY(ospf_gap_adjust_interval,
       ospf_gap_adjust_interval_cmd,
-      "[no$no] ip ospf lsa-pacing adjust-interval (1-60000)$adjust_interval",
+      "[no$no] ip ospf lsa-pacing adjust-interval [(1-60000)$adjust_interval]",
       NO_STR
       IP_STR
       OSPF_STR
