@@ -85,6 +85,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
 static int nhrp_if_delete_hook(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
 
 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
 
@@ -101,6 +103,30 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->source);
 	if (nifp->auth_token)
 		zbuf_free(nifp->auth_token);
+
+	/*
+	 * If this interface is a GRE tunnel subscribed to an NBMA source,
+	 * detach its notifier from the source's list.
+	 */
+	if (nifp->nbmaifp) {
+		struct nhrp_interface *src_nifp = nifp->nbmaifp->info;
+
+		notifier_del(&nifp->nbmanifp_notifier, &src_nifp->notifier_list);
+		nifp->nbmaifp = NULL;
+	}
+
+	/*
+	 * If this interface is an NBMA source, detach any GRE tunnels
+	 * subscribed to its notifier list.
+	 */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->nbmaifp == ifp) {
+			notifier_del(&gnifp->nbmanifp_notifier, &nifp->notifier_list);
+			gnifp->nbmaifp = NULL;
+		}
+	}
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;
@@ -187,7 +213,7 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
-		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
+		nbmaifp = if_lookup_by_name(nifp->source, VRF_DEFAULT);
 
 	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
 		debugf(NHRP_DEBUG_IF, "%s: Ignoring non GRE interface type %u",
@@ -199,9 +225,19 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 		}
 		nifp->i_grekey = gre_info->ikey;
 		nifp->o_grekey = gre_info->okey;
-		nifp->link_idx = gre_info->ifindex_link;
-		nifp->link_vrf_id = gre_info->vrfid_link;
 		saddr.s_addr = gre_info->vtep_ip.s_addr;
+
+		/*
+		 * Only overwrite link_idx when GRE cache matches the resolved
+		 * source interface, to avoid reverting a corrected ifindex.
+		 */
+		if (!nbmaifp ||
+		    (ifindex_t)gre_info->ifindex_link ==
+			    nbmaifp->ifindex) {
+			nifp->link_idx = gre_info->ifindex_link;
+			if (gre_info->vrfid_link != VRF_UNKNOWN)
+				nifp->link_vrf_id = gre_info->vrfid_link;
+		}
 
 		debugf(NHRP_DEBUG_IF, "%s: GRE: %x %x %x", ifp->name,
 		       nifp->i_grekey, nifp->link_idx, saddr.s_addr);
@@ -368,11 +404,22 @@ void nhrp_interface_update(struct interface *ifp)
 
 int nhrp_ifp_create(struct interface *ifp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
+
 	debugf(NHRP_DEBUG_IF, "if-add: %s, ifindex: %u, hw_type: %d %s",
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
 
 	nhrp_interface_update_nbma(ifp, NULL);
+
+	/* Re-trigger NBMA for GRE tunnels sourced on this interface. */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->source && strcmp(gnifp->source, ifp->name) == 0)
+			nhrp_interface_update_nbma(gre_ifp, NULL);
+	}
 
 	return 0;
 }
@@ -468,6 +515,8 @@ int nhrp_ifp_down(struct interface *ifp)
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *gre_ifp;
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
@@ -479,6 +528,16 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
 	nhrp_interface_update_cache_config(ifc->ifp, true, PREFIX_FAMILY(ifc->address));
+
+	/* Re-trigger NBMA - address may arrive after nhrp_ifp_create. */
+	FOR_ALL_INTERFACES (vrf, gre_ifp) {
+		struct nhrp_interface *gnifp = gre_ifp->info;
+
+		if (gnifp && gnifp->source &&
+		    strcmp(gnifp->source, ifc->ifp->name) == 0)
+			nhrp_interface_update_nbma(gre_ifp, NULL);
+	}
+
 	return 0;
 }
 
