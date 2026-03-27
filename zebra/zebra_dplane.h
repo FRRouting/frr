@@ -216,6 +216,10 @@ enum dplane_op_e {
 
 	/* Source address for SRv6 encapsulation */
 	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
+
+	/* EVPN FDB/neighbor reads */
+	DPLANE_OP_FDB_READ,
+	DPLANE_OP_NEIGH_READ,
 };
 
 /* Operational status of Bridge Ports */
@@ -869,6 +873,26 @@ dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
 const struct zebra_l2info_gre *
 dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
+/*
+ * Accessors for EVPN FDB read context.
+ */
+ifindex_t dplane_ctx_get_macfdb_read_ifindex(const struct zebra_dplane_ctx *ctx);
+ifindex_t
+dplane_ctx_get_macfdb_read_br_ifindex(const struct zebra_dplane_ctx *ctx);
+vlanid_t dplane_ctx_get_macfdb_read_vid(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_get_macfdb_read_vni(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *
+dplane_ctx_get_macfdb_read_mac(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_macfdb_read_vlan_aware(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_macfdb_read_is_vxlan(const struct zebra_dplane_ctx *ctx);
+
+/*
+ * Accessors for EVPN neighbor read context.
+ */
+ifindex_t dplane_ctx_get_neigh_read_ifindex(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *
+dplane_ctx_get_neigh_read_ip(const struct zebra_dplane_ctx *ctx);
+
 /* Interface netconf info */
 enum dplane_netconf_status_e
 dplane_ctx_get_netconf_mpls(const struct zebra_dplane_ctx *ctx);
@@ -1084,6 +1108,32 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 enum zebra_dplane_result
 dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id);
 
+/*
+ * Enqueue EVPN FDB read requests for the dataplane.
+ */
+enum zebra_dplane_result dplane_fdb_read(struct zebra_ns *zns);
+enum zebra_dplane_result dplane_neigh_read(struct zebra_ns *zns);
+enum zebra_dplane_result
+dplane_fdb_read_for_bridge(struct zebra_ns *zns, const struct interface *ifp,
+			   const struct interface *br_ifp, vlanid_t vid);
+enum zebra_dplane_result
+dplane_fdb_read_mcast_for_vni(struct zebra_ns *zns,
+			      const struct interface *ifp, vni_t vni);
+enum zebra_dplane_result
+dplane_fdb_read_specific_mac(struct zebra_ns *zns,
+			     const struct interface *br_ifp,
+			     const struct ethaddr *mac, vlanid_t vid);
+
+/*
+ * Enqueue EVPN neighbor read requests for the dataplane.
+ */
+enum zebra_dplane_result
+dplane_neigh_read_for_vlan(struct zebra_ns *zns,
+			   const struct interface *vlan_ifp);
+enum zebra_dplane_result
+dplane_neigh_read_specific_ip(struct zebra_ns *zns,
+			      const struct ipaddr *ip,
+			      const struct interface *vlan_ifp);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;

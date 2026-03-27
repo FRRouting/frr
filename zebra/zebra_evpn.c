@@ -38,6 +38,7 @@
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
 
@@ -946,12 +947,12 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 			ifp->name, ifp->ifindex, zevpn->vni,
 			zif->brslave_info.bridge_ifindex);
 
-	macfdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if,
-			       vni->access_vlan);
+	dplane_fdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if,
+				   vni->access_vlan);
 	/* We need to specifically read and retrieve the entry for BUM handling
 	 * via multicast, if any.
 	 */
-	macfdb_read_mcast_entry_for_vni(zns, ifp, zevpn->vni);
+	dplane_fdb_read_mcast_for_vni(zns, ifp, zevpn->vni);
 	vlan_if = zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
 	if (vlan_if) {
 		/* Add SVI MAC */
@@ -969,7 +970,7 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 				zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
 		}
 
-		neigh_read_for_vlan(zns, vlan_if);
+		dplane_neigh_read_for_vlan(zns, vlan_if);
 	}
 }
 
@@ -1614,8 +1615,8 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 				zlog_debug(
 					"%s: MAC %pEA (flags 0x%x) is remote and duplicate, read kernel for local entry",
 					__func__, macaddr, mac->flags);
-			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
-						 macaddr, vnip->access_vlan);
+			dplane_fdb_read_specific_mac(zns, zif->brslave_info.br_if,
+						    macaddr, vnip->access_vlan);
 		}
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {

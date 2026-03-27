@@ -26,6 +26,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_neigh.h"
@@ -2322,7 +2323,7 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 				__func__, ipaddr, n->flags,
 				vlan_if ? vlan_if->name : "Unknown");
 		if (vlan_if)
-			neigh_read_specific_ip(ipaddr, vlan_if);
+			dplane_neigh_read_specific_ip(zvrf->zns, ipaddr, vlan_if);
 	}
 
 	/* When the MAC changes for an IP, it is possible the

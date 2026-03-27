@@ -5155,6 +5155,10 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_NEIGH_DISCOVER:
 				zebra_neigh_dplane_update(ctx);
 				break;
+
+			case DPLANE_OP_FDB_READ:
+			case DPLANE_OP_NEIGH_READ:
+				break;
 			} /* Dispatch by op code */
 
 			dplane_ctx_fini(&ctx);
