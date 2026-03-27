@@ -148,6 +148,10 @@ extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 #define VTY_BGP_PEER_SHOW_GR_INFO (1 << 0)
 /* Value of 2 means - show brief info for neighbors */
 #define VTY_BGP_PEER_SHOW_BRIEF_INFO (1 << 1)
+/* Value of 4 means - list brief info for established neighbors */
+#define VTY_BGP_PEER_SHOW_STATE_ESTABLISHED_INFO (1 << 2)
+/* Value of 8 means - list brief info for not-established neighbors */
+#define VTY_BGP_PEER_SHOW_STATE_FAILED_INFO (1 << 3)
 
 #define BGP_ALLOWAS_IN_DEFAULT 3
 

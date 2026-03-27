@@ -1166,14 +1166,16 @@ BGP GR Show Commands
 BGP Show Neighbors Brief Command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [brief] [json]
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [established|failed|brief] [json]
 
-   Display BGP neighbor information. When the ``brief`` option is included, output
-   is shortened to one line per neighbor (text) or a reduced JSON structure
-   (hostname, remoteAs, localAs, lastResetDueTo, status, lastResetTimerMsecs,
-   messageStats with totalSent/totalRecv, and addressFamilyInfo with
-   acceptedPrefixCounter/sentPrefixCounter per AFI/SAFI). Optional ``json``
-   formats the output as JSON.
+   Display BGP neighbor information. Use ``established`` to list only neighbors
+   in Established state; use ``failed`` to list only neighbors not in Established
+   state (e.g. Idle, Active, Connect). When ``brief``, ``established``, or
+   ``failed`` is used, output is shortened to one line per neighbor (text) or a
+   reduced JSON structure (hostname, remoteAs, localAs, lastResetDueTo, status,
+   lastResetTimerMsecs, messageStats with totalSent/totalRecv, and
+   addressFamilyInfo with acceptedPrefixCounter/sentPrefixCounter per AFI/SAFI).
+   Optional ``json`` formats the output as JSON.
 
 Long-lived Graceful Restart
 ---------------------------
