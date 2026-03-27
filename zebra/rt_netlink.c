@@ -5037,6 +5037,10 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		nexthop = nhlfe->nexthop;
 		if (!nexthop)
 			continue;
+
+		if (nexthop_num >= zrouter.zav.multipath_num)
+			break;
+		
 		if (cmd == RTM_NEWROUTE) {
 			/* Count all selected NHLFEs */
 			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
