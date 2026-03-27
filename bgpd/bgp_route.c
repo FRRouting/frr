@@ -10279,6 +10279,14 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
+
+	/*
+	 * Ensure count is 0 to force bgp_aggregate_install() to uninstall.
+	 * bgp_aggregate_delete() should have already decremented the count,
+	 * but we set it explicitly to be certain.
+	 */
+	aggregate->count = 0;
+
 	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
 			      NULL, NULL,  0, aggregate);
 
