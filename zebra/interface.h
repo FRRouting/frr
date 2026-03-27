@@ -81,7 +81,33 @@ enum zebra_if_flags {
 	/* Kernel protodown state from RTM_NEWLINK - used to detect kernel
 	 * protodown transitions independently from ZIF_FLAG_PROTODOWN
 	 */
-	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6)
+	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6),
+
+	/* On local ESs ARP/ND snooping is enabled for fast-failover. */
+	ZIF_FLAG_ARP_ND_SNOOP = (1 << 7),
+
+	/* TC has been initialized */
+	ZIF_FLAG_EVPN_MH_TC_INIT = (1 << 8),
+
+	/* GARP flooding turned on */
+	ZIF_FLAG_EVPN_MH_GARP_FLOOD_CFG_ON = (1 << 9),
+
+	/* Interface has been configured to enable or disable the neighbor
+	 * throttling feature.
+	 */
+	ZIF_FLAG_NEIGH_THROTTLE = (1 << 10),
+	ZIF_FLAG_NEIGH_THROTTLE_DISABLE = (1 << 11),
+};
+
+/* We snoop on ARP replies and NAs rxed on bridge ports if MH is
+ * enabled. This is needed to allow fastfailover of ESs in the
+ * bridge
+ */
+struct zebra_arp_nd_if_info {
+	int pkt_fd;
+	struct event *t_pkt_read; /* thread for reading ARP/NA packets */
+	uint32_t arp_pkts;
+	uint32_t na_pkts;
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
@@ -174,6 +200,12 @@ struct zebra_if {
 
 	/* ethernet segment */
 	struct zebra_es_if_info es_info;
+
+	/*
+	 * ARP snooping is enabled on bridge ports to
+	 * handle fast failover of ESs
+	 */
+	struct zebra_arp_nd_if_info arp_nd_info;
 
 	/* bitmap of vlans associated with this interface */
 	bitfield_t vlan_bitmap;
@@ -319,6 +351,7 @@ extern void if_ipv6_address_install(struct interface *ifp,
 				    struct prefix *prefix);
 extern void if_ipv6_address_uninstall(struct interface *ifp,
 				      struct prefix *prefix);
+extern void zebra_if_set_neigh_grat_flood(struct interface *ifp, bool on);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
 extern void if_arp(struct interface *ifp, bool enable);

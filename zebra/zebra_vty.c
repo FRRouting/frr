@@ -44,6 +44,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
@@ -2790,6 +2791,17 @@ DEFPY (evpn_mh_startup_delay,
 	return zebra_evpn_mh_startup_delay_update(vty, duration,
 			no ? true : false);
 }
+DEFPY(evpn_mh_garp_flood_off, evpn_mh_garp_flood_off_cmd, "[no$no] evpn mh garp-flood-off",
+      NO_STR "EVPN\n"
+	     "Multihoming\n"
+	     "GARP flood off\n")
+{
+	bool flood_off;
+
+	flood_off = no ? false : true;
+
+	return zebra_evpn_mh_garp_flood_off(vty, flood_off);
+}
 
 DEFPY(evpn_mh_redirect_off, evpn_mh_redirect_off_cmd,
       "[no$no] evpn mh redirect-off",
@@ -2933,6 +2945,20 @@ DEFPY(show_neigh,
 {
 	zebra_neigh_show(vty, AF_UNSPEC, !!json);
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_evpn_arp_redirect,
+       show_evpn_arp_nd_redirect_cmd,
+       "show evpn arp-nd-redirect[json]",
+       SHOW_STR
+       "EVPN\n"
+       "ARP/NA packet redirect\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+
+	zebra_evpn_arp_nd_print_summary(vty, uj);
 	return CMD_SUCCESS;
 }
 
@@ -4490,6 +4516,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_frr_cmd);
 	install_element(VIEW_NODE, &show_evpn_global_cmd);
+	install_element(VIEW_NODE, &show_evpn_arp_nd_redirect_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
@@ -4540,6 +4567,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_garp_flood_off_cmd);
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);

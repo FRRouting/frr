@@ -64,6 +64,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
 #include "lib/netlink_parser.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1557,6 +1558,52 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
+int netlink_grat_flood_set(struct interface *ifp, uint8_t on)
+{
+	struct rtattr *linkinfo;
+	struct rtattr *data;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifa;
+		char buf[NL_PKT_BUF_SIZE];
+	} req;
+
+	memset(&req, 0, sizeof(req));
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_NEWLINK;
+	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	req.ifa.ifi_index = ifp->ifindex;
+	req.ifa.ifi_family = AF_UNSPEC;
+
+	linkinfo = nl_attr_nest(&req.n, sizeof(req), IFLA_LINKINFO);
+	if (!linkinfo)
+		return -1;
+
+	nl_attr_put(&req.n, sizeof(req), IFLA_INFO_KIND, "bridge", strlen("bridge"));
+
+	data = nl_attr_nest(&req.n, sizeof(req), IFLA_INFO_DATA);
+	if (!data)
+		return -1;
+
+	nl_attr_put(&req.n, sizeof(req), IFLA_BR_NEIGH_GRAT_FLOOD, &on, sizeof(on));
+
+	nl_attr_nest_end(&req.n, data);
+
+	nl_attr_nest_end(&req.n, linkinfo);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Set ifp %s IFLA_BR_NEIGH_GRAT_FLOOD (%u) %u", ifp->name,
+			   IFLA_BR_NEIGH_GRAT_FLOOD, on);
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
+}
+
+
 /**
  * Interface encoding helper function.
  *
@@ -1565,7 +1612,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
  * \param[out] buf buffer to hold the packet.
  * \param[in] buflen amount of buffer bytes.
  */
-
 ssize_t netlink_intf_msg_encode(uint16_t cmd,
 				const struct zebra_dplane_ctx *ctx, void *buf,
 				size_t buflen)
