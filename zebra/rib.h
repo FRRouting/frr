@@ -27,8 +27,6 @@
 extern "C" {
 #endif
 
-DECLARE_MGROUP(ZEBRA);
-
 DECLARE_MTYPE(RE);
 
 PREDECL_LIST(rnh_list);

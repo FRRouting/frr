@@ -34,6 +34,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_memory.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
 
