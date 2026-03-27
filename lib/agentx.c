@@ -101,7 +101,7 @@ static void agentx_events_update(void)
 	struct event **thr;
 	int fd, thr_fd;
 
-	event_cancel(&timeout_thr);
+	event_cancel_async(agentx_tm, &timeout_thr, NULL);
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	snmp_select_info2(&maxfd, &lfds, &timeout, &block);
@@ -123,7 +123,7 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!netsnmp_large_fd_is_set(fd, &lfds)) {
-				event_cancel(thr);
+				event_cancel_async(agentx_tm, thr, NULL);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
@@ -146,7 +146,7 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
-		event_cancel(thr);
+		event_cancel_async(agentx_tm, thr, NULL);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
