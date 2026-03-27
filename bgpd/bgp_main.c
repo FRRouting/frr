@@ -194,6 +194,7 @@ static FRR_NORETURN void bgp_exit(int status)
 	bgp_nhg_finish();
 
 	zebra_announce_fini(&bm->zebra_announce_head);
+	zebra_announce_fini(&bm->zebra_announce_early_head);
 	zebra_l2_vni_fini(&bm->zebra_l2_vni_head);
 
 	/* reverse bgp_dump_init */
