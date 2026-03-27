@@ -712,6 +712,8 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 		default:
 			flog_err(EC_LIB_DEVELOPMENT, "%s: unknown type %d",
 				 __func__, type);
+			error = -1;
+			break;
 		}
 	}
 	if (bpem->match_packet_length_num || bpem->match_fragment_num
