@@ -20,7 +20,7 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/init.c \
 	ldpd/interface.c \
 	ldpd/keepalive.c \
-	ldpd/l2vpn.c \
+	ldpd/ldp_l2vpn.c \
 	ldpd/labelmapping.c \
 	ldpd/lde.c \
 	ldpd/lde_lib.c \
