@@ -1510,6 +1510,11 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 		 */
 		blnc->label = MPLS_INVALID_LABEL;
 
+	if (!blnc->allocation_in_progress) {
+		bgp_label_per_nexthop_free(blnc);
+		return 0;
+	}
+
 	if (old_label == blnc->label)
 		return 0; /* no change */
 
@@ -1583,6 +1588,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 		/* request a label to zebra for this nexthop
 		 * the response from zebra will trigger the callback
 		 */
+		blnc->allocation_in_progress = true;
 		bgp_lp_get(LP_TYPE_NEXTHOP, blnc, from_bgp->vrf_id,
 			   bgp_mplsvpn_get_label_per_nexthop_cb);
 	}
