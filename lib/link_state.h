@@ -48,6 +48,7 @@ struct zclient;
 /* Link State Common definitions */
 #define MAX_NAME_LENGTH		256
 #define ISO_SYS_ID_LEN		6
+#define ISO_ADDR_SIZE		20
 
 /* Type of Node */
 enum ls_node_type {
@@ -107,12 +108,15 @@ extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
 #define LS_NODE_SRLB		0x0080
 #define LS_NODE_MSD		0x0100
 #define LS_NODE_SRV6		0x0200
+#define LS_NODE_ISIS_AREA_ID	0x0400
 
 /* Link State Node structure */
 struct ls_node {
 	uint16_t flags;			/* Flag for parameters validity */
 	struct ls_node_id adv;		/* Adv. Router of this Link State */
 	char name[MAX_NAME_LENGTH];	/* Name of the Node (IS-IS only) */
+	uint8_t isis_area_id_len;	/* Length of isis_area_id data */
+	uint8_t isis_area_id[ISO_ADDR_SIZE]; /* IS-IS Area ID */
 	struct in_addr router_id;	/* IPv4 Router ID */
 	struct in6_addr router_id6;	/* IPv6 Router ID */
 	uint8_t node_flag;		/* IS-IS or OSPF Node flag */
