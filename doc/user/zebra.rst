@@ -1605,7 +1605,7 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
-.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed] [json]
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed] [brief] [json]
 
    Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
 
@@ -1622,6 +1622,7 @@ zebra Terminal Mode Commands
      - ``lt``: Show routes with ECMP count less than N
      - ``eq``: Show routes with ECMP count equal to N
    - ``failed``: Show only routes that failed to install in the FIB (kernel). This is useful for troubleshooting route installation issues.
+   - ``brief``: When combined with ``json``, output a minimal set of fields per route (see **Brief JSON view** below). Omitted when not using ``json``.
    - ``json``: Display output in JSON format
 
    The detailed output includes:
@@ -1654,6 +1655,14 @@ zebra Terminal Mode Commands
             Backup nexthop: 10.0.0.2 via eth1
 
    When using the JSON output format, the information is structured in a hierarchical JSON object containing all the route details in a machine-readable format.
+
+   **Brief JSON view**
+
+   With ``show [ip|ipv6] route ... brief json`` (and the same with ``vrf NAME``, ``vrf default``, or ``vrf all``), zebra outputs a minimal JSON structure per route instead of the full route object. Each route object in the brief view includes at least:
+
+   - ``protocol``, ``selected``, ``destSelected``, ``distance``, ``metric``, ``installed``, ``nexthopGroupId``, ``uptime``, ``offloaded``
+
+   With ``vrf all brief json``, the top-level structure is an object whose keys are VRF names (e.g. ``"default"``), each containing the same array of brief route objects.
 
    **Nexthop Group Summary View**
 
