@@ -1068,17 +1068,11 @@ static void group_retransmit_group(struct gm_group *group)
 	long lmqi_msec; /* Last Member Query Interval */
 	long lmqt_msec; /* Last Member Query Time */
 	int s_flag;
-	int query_buf_size;
 
 	pim_ifp = group->interface->info;
 
-	if (pim_ifp->igmp_version == 3) {
-		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
-	} else {
-		query_buf_size = IGMP_V12_MSG_SIZE;
-	}
-
-	char query_buf[query_buf_size];
+	size_t query_buf_size = igmp_get_max_payload(group->interface);
+	char *query_buf = XMALLOC(MTYPE_PIM_IGMP_PACKET, query_buf_size);
 
 	lmqc = if_gm_last_member_query_count(pim_ifp);
 	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
@@ -1111,7 +1105,9 @@ static void group_retransmit_group(struct gm_group *group)
 	  interest.
 	*/
 
-	igmp_send_query_group(group, query_buf, sizeof(query_buf), 0, s_flag);
+	igmp_send_query_group(group, query_buf, query_buf_size, 0, s_flag);
+
+	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
 }
 
 /*
@@ -1126,6 +1122,15 @@ static void group_retransmit_group(struct gm_group *group)
   or equal to LMQT.  If either of the two calculated messages does not
   contain any sources, then its transmission is suppressed.
  */
+struct igmp_v3_query_ctx {
+	char *buf;
+	char *end;
+	size_t buf_size;
+	char *s_addr;
+	int s_num;
+	int s_flag;
+};
+
 static int group_retransmit_sources(struct gm_group *group,
 				    int send_with_sflag_set)
 {
@@ -1133,139 +1138,104 @@ static int group_retransmit_sources(struct gm_group *group,
 	long lmqc;      /* Last Member Query Count */
 	long lmqi_msec; /* Last Member Query Interval */
 	long lmqt_msec; /* Last Member Query Time */
-	char query_buf1[PIM_IGMP_BUFSIZE_WRITE]; /* 1 = with s_flag set */
-	char query_buf2[PIM_IGMP_BUFSIZE_WRITE]; /* 2 = with s_flag clear */
-	int query_buf1_max_sources;
-	int query_buf2_max_sources;
-	struct in_addr *source_addr1;
-	struct in_addr *source_addr2;
-	int num_sources_tosend1;
-	int num_sources_tosend2;
+	struct igmp_v3_query_ctx query_ctx[2]; /* 0 = s_flag clear, 1 = s_flag set */
+	int s_num_total[2] = { 0 };	       /* 0 = s_flag clear, 1 = s_flag set */
+	int s_idx;
 	struct listnode *src_node;
 	struct gm_source *src;
 	int num_retransmit_sources_left = 0;
 
-	source_addr1 = (struct in_addr *)(query_buf1 + IGMP_V3_SOURCES_OFFSET);
-	source_addr2 = (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
-
 	pim_ifp = group->interface->info;
-
 	lmqc = if_gm_last_member_query_count(pim_ifp);
 	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
+	const size_t buf_size = igmp_get_max_payload(group->interface);
+
+	for (s_idx = 0; s_idx < 2; ++s_idx) {
+		struct igmp_v3_query_ctx *ctx = &query_ctx[s_idx];
+
+		if (s_idx == 1 && !send_with_sflag_set) {
+			*ctx = (struct igmp_v3_query_ctx){ .buf = NULL, .s_num = 0 };
+			continue;
+		}
+
+		ctx->buf_size = buf_size;
+		ctx->buf = XMALLOC(MTYPE_PIM_IGMP_PACKET, buf_size);
+		ctx->end = ctx->buf + buf_size;
+		ctx->s_addr = (ctx->buf + IGMP_V3_SOURCES_OFFSET);
+		ctx->s_num = 0;
+		ctx->s_flag = s_idx;
+	}
+
+	/*
+	 * RFC3376: 4.1.12. IP Destination Addresses for
+	 * Queries
+	 *
+	 * Group-Specific and Group-and-Source-Specific
+	 * Queries are sent with
+	 * an IP destination address equal to the
+	 * multicast address of
+	 * interest.
+	 */
+
 	/* Scan all group sources */
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
-
 		/* Source has retransmission state? */
 		if (src->source_query_retransmit_count < 1)
 			continue;
 
-		if (--src->source_query_retransmit_count > 0) {
-			++num_retransmit_sources_left;
+		s_idx = (igmp_source_timer_remain_msec(src) > lmqt_msec);
+
+		if (s_idx == 1 && !send_with_sflag_set)
+			continue;
+
+		struct igmp_v3_query_ctx *ctx = &query_ctx[s_idx];
+
+		if (ctx->s_addr + sizeof(src->source_addr) > ctx->end) {
+			if (ctx->s_num) {
+				igmp_send_query_group(group, ctx->buf, ctx->buf_size, ctx->s_num,
+						      ctx->s_flag);
+			} else {
+				zlog_err("%s: query buffer too small for even one source address (buf_size %zu)",
+					 __func__, ctx->buf_size);
+				continue;
+			}
+
+			s_num_total[s_idx] += ctx->s_num;
+
+			ctx->s_addr = (ctx->buf + IGMP_V3_SOURCES_OFFSET);
+			ctx->s_num = 0;
 		}
 
-		/* Copy source address into appropriate query buffer */
-		if (igmp_source_timer_remain_msec(src) > lmqt_msec) {
-			*source_addr1 = src->source_addr;
-			++source_addr1;
-		} else {
-			*source_addr2 = src->source_addr;
-			++source_addr2;
-		}
+		memcpy(ctx->s_addr, &src->source_addr, sizeof(src->source_addr));
+		ctx->s_addr += sizeof(src->source_addr);
+		++ctx->s_num;
+
+		if (--src->source_query_retransmit_count > 0)
+			++num_retransmit_sources_left;
 	}
 
-	num_sources_tosend1 =
-		source_addr1
-		- (struct in_addr *)(query_buf1 + IGMP_V3_SOURCES_OFFSET);
-	num_sources_tosend2 =
-		source_addr2
-		- (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
+	for (s_idx = 0; s_idx < 2; ++s_idx) {
+		struct igmp_v3_query_ctx *ctx = &query_ctx[s_idx];
+
+		if (ctx->s_num) {
+			igmp_send_query_group(group, ctx->buf, ctx->buf_size, ctx->s_num,
+					      ctx->s_flag);
+		}
+
+		s_num_total[s_idx] += ctx->s_num;
+
+		XFREE(MTYPE_PIM_IGMP_PACKET, ctx->buf);
+	}
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
-		zlog_debug(
-			"retransmit_grp&src_specific_query: group %s on %s: srcs_with_sflag=%d srcs_wo_sflag=%d will_send_sflag=%d retransmit_src_left=%d",
-			group_str, group->interface->name, num_sources_tosend1,
-			num_sources_tosend2, send_with_sflag_set,
-			num_retransmit_sources_left);
-	}
 
-	if (num_sources_tosend1 > 0) {
-		/*
-		  Send group-and-source-specific query with s_flag set and all
-		  sources with timers greater than LMQT.
-		*/
-
-		if (send_with_sflag_set) {
-
-			query_buf1_max_sources =
-				(sizeof(query_buf1) - IGMP_V3_SOURCES_OFFSET)
-				>> 2;
-			if (num_sources_tosend1 > query_buf1_max_sources) {
-				char group_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<group?>", group->group_addr,
-					       group_str, sizeof(group_str));
-				zlog_warn(
-					"%s: group %s on %s: s_flag=1 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-					__func__, group_str,
-					group->interface->name,
-					num_sources_tosend1, sizeof(query_buf1),
-					query_buf1_max_sources);
-			} else {
-				/*
-				  RFC3376: 4.1.12. IP Destination Addresses for
-				  Queries
-
-				  Group-Specific and Group-and-Source-Specific
-				  Queries are sent with
-				  an IP destination address equal to the
-				  multicast address of
-				  interest.
-				*/
-
-				igmp_send_query_group(
-					group, query_buf1, sizeof(query_buf1),
-					num_sources_tosend1, 1 /* s_flag */);
-			}
-
-		} /* send_with_sflag_set */
-	}
-
-	if (num_sources_tosend2 > 0) {
-		/*
-		  Send group-and-source-specific query with s_flag clear and all
-		  sources with timers lower or equal to LMQT.
-		*/
-
-		query_buf2_max_sources =
-			(sizeof(query_buf2) - IGMP_V3_SOURCES_OFFSET) >> 2;
-		if (num_sources_tosend2 > query_buf2_max_sources) {
-			char group_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>", group->group_addr, group_str,
-				       sizeof(group_str));
-			zlog_warn(
-				"%s: group %s on %s: s_flag=0 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-				__func__, group_str, group->interface->name,
-				num_sources_tosend2, sizeof(query_buf2),
-				query_buf2_max_sources);
-		} else {
-			/*
-			  RFC3376: 4.1.12. IP Destination Addresses for Queries
-
-			  Group-Specific and Group-and-Source-Specific Queries
-			  are sent with
-			  an IP destination address equal to the multicast
-			  address of
-			  interest.
-			*/
-
-			igmp_send_query_group(
-				group, query_buf2, sizeof(query_buf2),
-				num_sources_tosend2, 0 /* s_flag */);
-		}
+		pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
+		zlog_debug("retransmit_grp&src_specific_query: group %s on %s: srcs_with_sflag=%d srcs_wo_sflag=%d will_send_sflag=%d retransmit_src_left=%d",
+			   group_str, group->interface->name, s_num_total[1], s_num_total[0],
+			   send_with_sflag_set, num_retransmit_sources_left);
 	}
 
 	return num_retransmit_sources_left;
@@ -1625,12 +1595,10 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	igmp_source_timer_on(group, source, lmqt_msec);
 }
 
-void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
-			char *query_buf, int query_buf_size, int num_sources,
-			struct in_addr dst_addr, struct in_addr group_addr,
-			int query_max_response_time_dsec, uint8_t s_flag,
-			uint8_t querier_robustness_variable,
-			uint16_t querier_query_interval)
+void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
+			size_t query_buf_size, int num_sources, struct in_addr dst_addr,
+			struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
+			uint8_t querier_robustness_variable, uint16_t querier_query_interval)
 {
 	ssize_t msg_size;
 	uint8_t max_resp_code;
@@ -1643,11 +1611,10 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	assert(num_sources >= 0);
 
 	msg_size = IGMP_V3_SOURCES_OFFSET + (num_sources << 2);
-	if (msg_size > query_buf_size) {
-		flog_err(
-			EC_LIB_DEVELOPMENT,
-			"%s %s: unable to send: msg_size=%zd larger than query_buf_size=%d",
-			__FILE__, __func__, msg_size, query_buf_size);
+	if ((size_t)msg_size > query_buf_size) {
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s %s: unable to send: msg_size=%zd larger than query_buf_size=%zu",
+			 __FILE__, __func__, msg_size, query_buf_size);
 		return;
 	}
 

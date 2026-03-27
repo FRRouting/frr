@@ -33,6 +33,22 @@
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
 
+size_t igmp_get_max_payload(struct interface *ifp)
+{
+	/* IP Header (20) + Router Alert Option (4) = 24 bytes */
+	const size_t overhead = sizeof(struct ip) + 4;
+	const size_t fallback_mtu = 576;
+	const size_t igmp_msg = IGMP_V3_SOURCES_OFFSET + sizeof(struct in_addr);
+
+	if (ifp->mtu <= 0 || (size_t)ifp->mtu < (overhead + igmp_msg)) {
+		zlog_warn("%s: interface %s MTU %d is invalid, using fallback %zu", __func__,
+			  ifp->name, ifp->mtu, fallback_mtu);
+		return fallback_mtu - overhead;
+	}
+
+	return (size_t)ifp->mtu - overhead;
+}
+
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct gm_group *group)
 {
@@ -948,7 +964,6 @@ static void pim_igmp_general_query(struct event *t)
 	struct in_addr dst_addr;
 	struct in_addr group_addr;
 	struct pim_interface *pim_ifp;
-	int query_buf_size;
 
 	igmp = EVENT_ARG(t);
 
@@ -957,13 +972,8 @@ static void pim_igmp_general_query(struct event *t)
 
 	pim_ifp = igmp->interface->info;
 
-	if (pim_ifp->igmp_version == 3) {
-		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
-	} else {
-		query_buf_size = IGMP_V12_MSG_SIZE;
-	}
-
-	char query_buf[query_buf_size];
+	size_t query_buf_size = igmp_get_max_payload(igmp->interface);
+	char *query_buf = XMALLOC(MTYPE_PIM_IGMP_PACKET, query_buf_size);
 
 	/*
 	  RFC3376: 4.1.12. IP Destination Addresses for Queries
@@ -987,10 +997,12 @@ static void pim_igmp_general_query(struct event *t)
 			   querier_str, dst_str, igmp->interface->name);
 	}
 
-	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, query_buf,
-			sizeof(query_buf), 0 /* num_sources */, dst_addr,
-			group_addr, pim_ifp->gm_query_max_response_time_dsec,
+	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, query_buf, query_buf_size,
+			0 /* num_sources */, dst_addr, group_addr,
+			pim_ifp->gm_query_max_response_time_dsec,
 			1 /* s_flag: always set for general queries */, igmp);
+
+	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
 
 	pim_igmp_general_query_on(igmp);
 }
@@ -1557,9 +1569,8 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 }
 
 void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
-		     int query_buf_size, int num_sources,
-		     struct in_addr dst_addr, struct in_addr group_addr,
-		     int query_max_response_time_dsec, uint8_t s_flag,
+		     size_t query_buf_size, int num_sources, struct in_addr dst_addr,
+		     struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
 		     struct gm_sock *igmp)
 {
 	if (pim_addr_is_any(group_addr) &&
@@ -1589,15 +1600,12 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 	struct gm_sock *igmp = NULL;
 	struct in_addr dst_addr;
 	struct in_addr group_addr;
-	int query_buf_size;
 
 	if (!igmp_ver)
 		igmp_ver = 2;
 
-	if (igmp_ver == 3)
-		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
-	else
-		query_buf_size = IGMP_V12_MSG_SIZE;
+	size_t query_buf_size = igmp_get_max_payload(ifp);
+	char *query_buf = XMALLOC(MTYPE_PIM_IGMP_PACKET, query_buf_size);
 
 	dst_addr.s_addr = htonl(INADDR_ALLHOSTS_GROUP);
 	group_addr.s_addr = PIM_NET_INADDR_ANY;
@@ -1606,13 +1614,11 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 		zlog_debug("Issuing general query on request on %s", ifp->name);
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
-
-		char query_buf[query_buf_size];
-
-		igmp_send_query(
-			igmp_ver, 0 /* igmp_group */, query_buf,
-			sizeof(query_buf), 0 /* num_sources */, dst_addr,
-			group_addr, pim_ifp->gm_query_max_response_time_dsec,
-			1 /* s_flag: always set for general queries */, igmp);
+		igmp_send_query(igmp_ver, 0 /* igmp_group */, query_buf, query_buf_size,
+				0 /* num_sources */, dst_addr, group_addr,
+				pim_ifp->gm_query_max_response_time_dsec,
+				1 /* s_flag: always set for general queries */, igmp);
 	}
+
+	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
 }
