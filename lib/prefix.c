@@ -1476,6 +1476,17 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 	return ptr;
 }
 
+bool esi_is_reserved(const esi_t *esi)
+{
+	static const esi_t zero_esi = {0};
+	static const esi_t max_esi = {.val = MAX_ESI};
+
+	assert(esi);
+
+	return (!memcmp(esi, &zero_esi, sizeof(esi_t)) ||
+		!memcmp(esi, &max_esi, sizeof(esi_t)));
+}
+
 char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 {
 	switch (df_alg) {

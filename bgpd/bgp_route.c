@@ -1048,7 +1048,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 		new_esi = bgp_evpn_attr_get_esi(newattr);
 		exist_esi = bgp_evpn_attr_get_esi(existattr);
-		if (bgp_evpn_is_esi_valid(new_esi) &&
+		if (!esi_is_reserved(new_esi) &&
 				!memcmp(new_esi, exist_esi, sizeof(esi_t))) {
 			same_esi = true;
 		} else {
@@ -11540,7 +11540,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
-		if (bgp_evpn_is_esi_valid(&attr->esi)) {
+		if (!esi_is_reserved(&attr->esi)) {
 			json_object_string_add(json_path, "esi",
 					esi_to_str(&attr->esi,
 					esi_buf, sizeof(esi_buf)));
@@ -11590,7 +11590,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "\n");
 
 		if (safi == SAFI_EVPN) {
-			if (bgp_evpn_is_esi_valid(&attr->esi)) {
+			if (!esi_is_reserved(&attr->esi)) {
 				/* XXX - add these params to the json out */
 				vty_out(vty, "%*s", 20, " ");
 				vty_out(vty, "ESI:%s",
@@ -12781,7 +12781,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (safi == SAFI_EVPN &&
-			bgp_evpn_is_esi_valid(&attr->esi)) {
+			!esi_is_reserved(&attr->esi)) {
 		route_vty_out_detail_es_info(vty, path, attr, json_path);
 	}
 
