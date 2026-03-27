@@ -1,0 +1,44 @@
+{
+	"prefix": "[5]:[0]:[32]:[20.1.1.1]",
+	"prefixLen": 352,
+	"rd": "10.0.0.37:2",
+	"routeType": 5,
+	"ethTag": 0,
+	"ipLen": 32,
+	"ip": "20.1.1.1",
+	"pathCount": 1,
+	"paths": [
+		{
+			"vni": "75200",
+			"aspath": {
+				"string": "2",
+				"segments": [
+					{
+						"type": "as-sequence",
+						"list": [
+							2
+						]
+					}
+				],
+				"length": 1
+			},
+			"origin": "incomplete",
+			"metric": 0,
+			"valid": true,
+			"sourced": true,
+			"local": true,
+			"bestpath": {
+				"overall": true
+			},
+			"nexthops": [
+				{
+					"ip": "120.0.0.1",
+					"afi": "ipv4",
+					"metric": 0,
+					"accessible": true,
+					"used": true
+				}
+			]
+		}
+	]
+}
