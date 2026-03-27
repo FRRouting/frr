@@ -33,13 +33,13 @@ static void hex2bin(uint8_t *hex, int *bin)
 		bin[7-i] = 0;
 }
 
-static int hexstr2num(uint8_t *hexstr, int len)
+static uint64_t hexstr2num(uint8_t *hexstr, int len)
 {
 	int i = 0;
-	int num = 0;
+	uint64_t num = 0;
 
 	for (i = 0; i < len; i++)
-		num = hexstr[i] + 16*16*num;
+		num = hexstr[i] + 256 * num;
 	return num;
 }
 
@@ -257,7 +257,8 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			   void *result, int *error)
 {
 	int op[8];
-	int len, value, value_size;
+	int len, value_size;
+	uint64_t value;
 	int loop = 0;
 	char *ptr = (char *)result; /* for return_string */
 	uint32_t offset = 0;
@@ -335,8 +336,8 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 					ptr += len_written;
 				}
 			}
-			len_written = snprintf(ptr, len_string,
-					       " %d ", value);
+			len_written = snprintf(ptr, len_string, " %" PRIu64 " ",
+					       (unsigned long long)value);
 			if (len_written > 0 && len_written < len_string) {
 				len_string -= len_written;
 				ptr += len_written;
@@ -346,6 +347,10 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			/* limitation: stop converting */
 			if (*error == -2)
 				break;
+			if (value > UINT16_MAX) {
+				*error = -1;
+				break;
+			}
 			mval->value = value;
 			if (op[5] == 1)
 				SET_FLAG(mval->compare_operator,
@@ -393,12 +398,13 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 				 void *result, int *error)
 {
 	int op[8];
-	int len, value_size, loop = 0, value;
+	int len, value_size, loop = 0;
 	char *ptr = (char *)result; /* for return_string */
 	struct bgp_pbr_match_val *mval = (struct bgp_pbr_match_val *)result;
 	uint32_t offset = 0;
 	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
 	int len_written;
+	uint64_t value;
 
 	*error = 0;
 
@@ -468,8 +474,8 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 					ptr += len_written;
 				}
 			}
-			len_written = snprintf(ptr, len_string,
-				       "%d", value);
+			len_written = snprintf(ptr, len_string, "%" PRIu64,
+					       (unsigned long long)value);
 			if (len_written > 0 && len_written < len_string) {
 				len_string -= len_written;
 				ptr += len_written;
@@ -479,6 +485,10 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			/* limitation: stop converting */
 			if (*error == -2)
 				break;
+			if (value > UINT16_MAX) {
+				*error = -1;
+				break;
+			}
 			mval->value = value;
 			if (op[6] == 1) {
 				/* different from */
