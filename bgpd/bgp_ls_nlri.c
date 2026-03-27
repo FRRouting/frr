@@ -10,6 +10,7 @@
 #include "bgpd/bgp_ls_nlri.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_debug.h"
+#include "lib/iso.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS_NLRI, "BGP-LS NLRI");
 DEFINE_MTYPE(BGPD, BGP_LS_ATTR, "BGP-LS Attribute");
@@ -4575,6 +4576,14 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object_string_add(json_ls_attr, "nodeName",
 				       ls_attr->node_name ? ls_attr->node_name : "(null)");
 
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT)) {
+		struct iso_address addr;
+
+		addr.addr_len = ls_attr->isis_area_id_len;
+		memcpy(addr.area_addr, ls_attr->isis_area_id, ls_attr->isis_area_id_len);
+		json_object_string_addf(json_ls_attr, "isisAreaId", "%pIS", &addr);
+	}
+
 	/* Local TE Router-ID (IPv4) */
 	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
 		snprintfrr(buf, INET6_BUFSIZ, "%pI4", &ls_attr->ipv4_router_id_local);
@@ -4783,6 +4792,16 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 		CHECK_WRAP();
 		col += vty_out(vty, "Node Name: %s",
 			       ls_attr->node_name ? ls_attr->node_name : "(null)");
+	}
+
+	/* IS-IS Area Identifier */
+	if (BGP_LS_TLV_CHECK(ls_attr->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT)) {
+		struct iso_address addr;
+
+		CHECK_WRAP();
+		addr.addr_len = ls_attr->isis_area_id_len;
+		memcpy(addr.area_addr, ls_attr->isis_area_id, ls_attr->isis_area_id_len);
+		col += vty_out(vty, "IS-IS Area ID: %pIS", &addr);
 	}
 
 	/* Local TE Router-ID (IPv4) */

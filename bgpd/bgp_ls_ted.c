@@ -51,6 +51,14 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
 		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_NODE_NAME_BIT);
 	}
 
+	/* IS-IS Area Identifier (TLV 1027) */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_ISIS_AREA_ID)) {
+		attr->isis_area_id_len = ls_node->isis_area_id_len;
+		attr->isis_area_id = XCALLOC(MTYPE_BGP_LS_ATTR, attr->isis_area_id_len);
+		memcpy(attr->isis_area_id, ls_node->isis_area_id, attr->isis_area_id_len);
+		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_ISIS_AREA_BIT);
+	}
+
 	/* SR Capabilities (TLV 1034) */
 	if (CHECK_FLAG(ls_node->flags, LS_NODE_SR)) {
 		attr->srgb.flag = ls_node->srgb.flag;
