@@ -1990,6 +1990,12 @@ struct peer {
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
+	/* Per-peer path list for fast teardown (avoids full table walk) */
+	LIST_HEAD(peer_path_list, bgp_path_info) paths;
+
+	/* Per-peer adj-in list for fast teardown */
+	struct bgp_adj_in *adj_in_head;
+
 #define PEER_TOTAL_RX(peer)                                                    \
 	atomic_load_explicit(&peer->open_in, memory_order_relaxed)             \
 		+ atomic_load_explicit(&peer->update_in, memory_order_relaxed) \
