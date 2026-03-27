@@ -5230,6 +5230,13 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * a simple check on the total size.
 	 */
 	if (psize == 34) {
+		if (ippfx_len > IPV4_MAX_BITLEN) {
+			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+				 "%u:%s - Rx EVPN Type-5 NLRI with IPv4 psize but IP Prefix length %d (max %d)",
+				 peer->bgp->vrf_id, peer->host, ippfx_len, IPV4_MAX_BITLEN);
+			evpn_overlay_free(evpn);
+			return -1;
+		}
 		SET_IPADDR_V4(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
