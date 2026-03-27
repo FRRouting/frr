@@ -238,6 +238,40 @@ extern int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t sessi
 				   bool unlock);
 
 /*
+ * Send NOTIFY-SELECT to MGMTD daemon.
+ *
+ * client
+ *    Client object.
+ *
+ * session_id
+ *    Client session ID.
+ *
+ * req_id
+ *    Client request ID.
+ *
+ * replace
+ *    TRUE to replace existing selectors, FALSE to append selectors.
+ *
+ * mode
+ *    Notification mode (e.g. NOTIFY_MODE_ON_CHANGE, NOTIFY_MODE_PERIODIC).
+ *
+ * mode_data
+ *    Mode-specific data:
+ *      - ON_CHANGE: must be 0.
+ *      - PERIODIC: interval in msec, must be non-zero.
+ *
+ * selectors
+ *    Array of xpath selectors.
+ *
+ * Returns:
+ *    0 on success, otherwise msg_conn_send_msg() return values.
+ */
+extern int mgmt_fe_send_notify_select_req(struct mgmt_fe_client *client,
+					  uint64_t session_id, uint64_t req_id, bool replace,
+					  uint8_t mode, uint32_t mode_data,
+					  const char **selectors);
+
+/*
  * Send GET-DATA to MGMTD daemon.
  *
  * client

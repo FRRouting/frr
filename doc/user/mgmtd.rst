@@ -166,6 +166,39 @@ API:
  - NOTIFY_SELECT (send) - specify the sub-set of notifications the front-end
    wishes to receive, rather than the default of receiving all.
 
+Native NOTIFY_SELECT Mode Semantics
+-----------------------------------
+
+Native ``NOTIFY_SELECT`` supports mode-based delivery control through
+``struct mgmt_msg_notify_select`` (``lib/mgmt_msg_native.h``):
+
+ - ``mode``: notification mode.
+ - ``mode_data``: mode-specific data.
+
+The following modes are defined:
+
+ - ``NOTIFY_MODE_ON_CHANGE``: on-change notifications. ``mode_data`` must be
+   ``0``.
+ - ``NOTIFY_MODE_PERIODIC``: periodic notifications. ``mode_data`` is the
+   sample interval in milliseconds and must be non-zero.
+
+Invalid ``mode``/``mode_data`` combinations are rejected with native ``ERROR``
+(for example, ``-EINVAL``).
+
+In periodic mode, mgmtd maintains a per-session timer. On each timer expiry,
+mgmtd requests refreshed operational data for that session's selectors and
+forwards notifications to the front-end client.
+
+Front-end C clients can use:
+
+.. code-block:: c
+
+   int mgmt_fe_send_notify_select_req(struct mgmt_fe_client *client,
+                                      uint64_t session_id, uint64_t req_id,
+                                      bool replace, uint8_t mode,
+                                      uint32_t mode_data,
+                                      const char **selectors);
+
 
 Please refer to the MGMT Frontend Client Developers Reference and Guide
 (coming soon) for more details.
