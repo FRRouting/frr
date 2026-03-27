@@ -471,8 +471,6 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			api_nh->srte_color = nh->color;
 		}
 
-		nh->state = STATIC_SENT_TO_ZEBRA;
-
 		switch (nh->type) {
 		case STATIC_IFNAME:
 			if (nh->ifindex == IFINDEX_INTERNAL)
@@ -518,6 +516,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			}
 			break;
 		}
+
+		nh->state = STATIC_SENT_TO_ZEBRA;
 
 		if (nh->snh_label.num_labels) {
 			int i;
