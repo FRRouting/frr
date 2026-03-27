@@ -1,0 +1,10 @@
+[MESSAGES CONTROL]
+
+disable=
+    too-few-public-methods,
+    invalid-name,
+    missing-class-docstring,
+    missing-function-docstring,
+    line-too-long,
+    consider-using-f-string,
+    useless-option-value,

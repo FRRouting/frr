@@ -1,0 +1,8 @@
+{%- macro main(item) %}
+  <div class="func">
+    <h2 class="nodeid">{{ item.nodeid_rel }}</h2>
+    {{ item | docrender }}
+  </div>
+{%- endmacro %}
+{%- macro header(item) %}
+{%- endmacro %}
