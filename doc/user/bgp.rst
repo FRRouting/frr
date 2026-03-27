@@ -5351,6 +5351,22 @@ Displaying Routes by Route Distinguisher
    can be supplied to the command to only display matching prefixes in the
    specified RD.
 
+BGP EVPN Route RD Brief Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> [brief] [json]
+
+   Display EVPN routes for the given Route Distinguisher. When the ``brief``
+   option is used with ``json``, output is a reduced JSON structure with
+   ``numPrefixes`` per RD and, per prefix, ``pathCount``, ``multiPathCount``,
+   and ``flags`` (including ``bestPathExists``). The ``brief`` option must be
+   used with ``json``.
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> type <ead|1|macip|2|multicast|3|es|4|prefix|5> [brief] [json]
+
+   Same as above, restricted to the given EVPN route type. When ``brief`` and
+   ``json`` are used, the same reduced JSON format is displayed.
+
 Displaying Update Group Information
 -----------------------------------
 

@@ -2919,9 +2919,8 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
  * Display BGP EVPN routing table -- for specific RD (vty handler)
  * If 'type' is non-zero, only routes matching that type are shown.
  */
-static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
-			       struct prefix_rd *prd, int type,
-			       json_object *json)
+static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp, struct prefix_rd *prd, int type,
+			       json_object *json, bool brief)
 {
 	struct bgp_dest *rd_dest;
 	struct bgp_table *table;
@@ -2930,13 +2929,14 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 	int rd_header = 1;
 	afi_t afi;
 	safi_t safi;
-	uint32_t prefix_cnt, path_cnt;
+	uint32_t prefix_cnt, path_cnt, rd_prefix_cnt;
 	json_object *json_rd = NULL;
 	int add_rd_to_json = 0;
+	int prefix_path_count, best_path_selected, multi_path_count;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
-	prefix_cnt = path_cnt = 0;
+	prefix_cnt = path_cnt = rd_prefix_cnt = 0;
 
 	rd_dest = bgp_node_lookup(bgp->rib[afi][safi], (struct prefix *)prd);
 	if (!rd_dest)
@@ -2950,8 +2950,9 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 
 	if (json) {
 		json_rd = json_object_new_object();
-		json_object_string_addf(json_rd, "rd",
-					BGP_RD_AS_FORMAT(bgp->asnotation), prd);
+		if (!brief)
+			json_object_string_addf(json_rd, "rd", BGP_RD_AS_FORMAT(bgp->asnotation),
+						prd);
 	}
 
 	bgp_dest_unlock_node(rd_dest);
@@ -2962,6 +2963,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
 		json_object *json_prefix = NULL;
 		json_object *json_paths = NULL;
+		json_object *json_flags = NULL; /* contains flags under a prefix */
 		int add_prefix_to_json = 0;
 
 		if (type && evp->prefix.route_type != type)
@@ -2987,63 +2989,102 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 				rd_header = 0;
 			}
 
-			/* Prefix and num paths displayed once per prefix. */
-			route_vty_out_detail_header(vty, bgp, dest,
-						    bgp_dest_get_prefix(dest),
-						    prd, afi, safi, json_prefix,
-						    false, false);
+			if (!brief)
+				/* Prefix and num paths displayed once per prefix. */
+				route_vty_out_detail_header(vty, bgp, dest,
+							    bgp_dest_get_prefix(dest), prd, afi,
+							    safi, json_prefix, false, false);
 
 			prefix_cnt++;
+			rd_prefix_cnt++;
 		}
 
-		if (json)
+		prefix_path_count = 0;
+		best_path_selected = 0;
+		multi_path_count = 0;
+		if (json && !brief)
 			json_paths = json_object_new_array();
 
 		/* Display each path for this prefix. */
 		for (; pi; pi = pi->next) {
 			json_object *json_path = NULL;
 
-			if (json)
-				json_path = json_object_new_array();
+			if (!brief) {
+				if (json)
+					json_path = json_object_new_array();
 
-			route_vty_out_detail(vty, bgp, dest, bgp_dest_get_prefix(dest), pi, afi,
-					     safi, RPKI_NOT_BEING_USED, json_path, NULL, 0);
+				route_vty_out_detail(vty, bgp, dest, bgp_dest_get_prefix(dest), pi,
+						     afi, safi, RPKI_NOT_BEING_USED, json_path,
+						     NULL, 0);
 
-			if (json)
-				json_object_array_add(json_paths, json_path);
+				if (json)
+					json_object_array_add(json_paths, json_path);
+			}
 
 			path_cnt++;
 			add_prefix_to_json = 1;
 			add_rd_to_json = 1;
+
+			prefix_path_count++;
+			if (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+				multi_path_count++;
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+				best_path_selected = 1;
 		}
 
 		if (json) {
+			json_object_int_add(json_prefix, "pathCount", prefix_path_count);
+			/* add +1 to the multipath count because it does
+			 * not include the best path itself
+			 */
+			if (best_path_selected)
+				json_object_int_add(json_prefix, "multiPathCount",
+						    multi_path_count + 1);
+			else
+				json_object_int_add(json_prefix, "multiPathCount",
+						    multi_path_count);
+
 			if (add_prefix_to_json) {
-				json_object_object_add(json_prefix, "paths",
-						       json_paths);
+				if (!brief)
+					json_object_object_add(json_prefix, "paths", json_paths);
+
+				json_flags = json_object_new_object();
+				if (best_path_selected)
+					json_object_boolean_true_add(json_flags, "bestPathExists");
+				else
+					json_object_boolean_false_add(json_flags, "bestPathExists");
+				json_object_object_add(json_prefix, "flags", json_flags);
+				json_object_int_add(json_rd, "numPrefixes", rd_prefix_cnt);
+
 				json_object_object_addf(json_rd, json_prefix,
 							"%pFX", evp);
 			} else {
-				json_object_free(json_paths);
+				if (!brief) {
+					json_object_free(json_paths);
+					json_paths = NULL;
+				}
 				json_object_free(json_prefix);
-				json_paths = NULL;
+				json_object_free(json_flags);
 				json_prefix = NULL;
+				json_flags = NULL;
 			}
 		}
 	}
 
 	if (json) {
-		if (add_rd_to_json)
+		if (add_rd_to_json) {
 			json_object_object_addf(
 				json, json_rd,
 				BGP_RD_AS_FORMAT(bgp->asnotation), prd);
-		else {
+		} else {
 			json_object_free(json_rd);
 			json_rd = NULL;
 		}
 
-		json_object_int_add(json, "numPrefix", prefix_cnt);
-		json_object_int_add(json, "numPaths", path_cnt);
+		if (!brief) {
+			json_object_int_add(json, "numPrefix", prefix_cnt);
+			json_object_int_add(json, "numPaths", path_cnt);
+		}
 	} else {
 		if (prefix_cnt == 0)
 			vty_out(vty, "No prefixes exist with this RD%s\n",
@@ -5002,9 +5043,9 @@ DEFPY(show_bgp_l2vpn_evpn_route,
 /*
  * Display global EVPN routing table for specific RD.
  */
-DEFUN(show_bgp_l2vpn_evpn_route_rd,
+DEFPY(show_bgp_l2vpn_evpn_route_rd,
       show_bgp_l2vpn_evpn_route_rd_cmd,
-      "show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> [type "EVPN_TYPE_ALL_LIST"] [json]",
+      "show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> [type "EVPN_TYPE_ALL_LIST"] [<brief$brief>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -5015,6 +5056,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
       "All VPN Route Distinguishers\n"
       EVPN_TYPE_HELP_STR
       EVPN_TYPE_ALL_LIST_HELP_STR
+      "Brief\n"
       JSON_STR)
 {
 	struct bgp *bgp;
@@ -5049,6 +5091,12 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
 		return CMD_WARNING;
 
+	/* Brief output is only implemented for JSON */
+	if (brief && !uj) {
+		vty_out(vty, "Brief option must be used with json\n");
+		return CMD_WARNING;
+	}
+
 	if (uj)
 		json = json_object_new_object();
 
@@ -5064,7 +5112,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 			return CMD_SUCCESS;
 		}
 	} else {
-		evpn_show_route_rd(vty, bgp, &prd, type, json);
+		evpn_show_route_rd(vty, bgp, &prd, type, json, brief);
 	}
 
 	if (uj)

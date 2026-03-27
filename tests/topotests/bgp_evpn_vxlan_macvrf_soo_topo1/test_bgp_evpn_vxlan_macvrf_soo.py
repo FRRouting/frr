@@ -344,6 +344,49 @@ def test_ip_pe2_learn():
     # tgen.mininet_cli()
 
 
+def test_evpn_route_rd_brief_json():
+    """
+    Test show bgp l2vpn evpn route rd <rd> brief json output format.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe2 = tgen.gears["PE2"]
+    rd, _oip, _soo = get_bgp_l2vni_fields(pe2, 101)
+
+    step("Verify 'show bgp l2vpn evpn route rd {} brief json' structure")
+    out = pe2.vtysh_cmd(
+        "show bgp l2vpn evpn route rd {} brief json".format(rd), isjson=True
+    )
+    assert rd in out, "brief json missing RD key '{}'".format(rd)
+    rd_obj = out[rd]
+    assert "numPrefixes" in rd_obj
+    assert isinstance(rd_obj["numPrefixes"], int)
+    for key, val in rd_obj.items():
+        if key == "numPrefixes":
+            continue
+        assert isinstance(val, dict), "prefix '{}' should be object".format(key)
+        assert "pathCount" in val, "prefix '{}' missing pathCount".format(key)
+        assert "multiPathCount" in val, "prefix '{}' missing multiPathCount".format(key)
+        assert "flags" in val and isinstance(val["flags"], dict)
+        assert "bestPathExists" in val["flags"]
+
+    step("Verify 'show bgp l2vpn evpn route rd {} type 3 brief json'")
+    out_type3 = pe2.vtysh_cmd(
+        "show bgp l2vpn evpn route rd {} type 3 brief json".format(rd),
+        isjson=True,
+    )
+    assert rd in out_type3
+    rd_obj3 = out_type3[rd]
+    assert "numPrefixes" in rd_obj3
+    for key, val in rd_obj3.items():
+        if key == "numPrefixes":
+            continue
+        assert "pathCount" in val and "multiPathCount" in val and "flags" in val
+        assert "bestPathExists" in val["flags"]
+
+
 def is_installed(json_paths, soo):
     """
     check if any path has been selected as best.
