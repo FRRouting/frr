@@ -242,6 +242,22 @@ static FRR_NORETURN void bgp_exit(int status)
 	bgp_zebra_destroy();
 
 	bf_free(bm->rd_idspace);
+	{
+		struct vrf_rd_state_entry *ve;
+
+		while ((ve = vrf_rd_state_hash_pop(&bm->vrf_rd_state))) {
+			XFREE(MTYPE_BGP_NAME, ve->name);
+			XFREE(MTYPE_BGP_RD_STATE, ve);
+		}
+		vrf_rd_state_hash_fini(&bm->vrf_rd_state);
+	}
+	{
+		struct vni_rd_state_entry *ne;
+
+		while ((ne = vni_rd_state_hash_pop(&bm->vni_rd_state)))
+			XFREE(MTYPE_BGP_RD_STATE, ne);
+		vni_rd_state_hash_fini(&bm->vni_rd_state);
+	}
 	list_delete(&bm->bgp);
 	list_delete(&bm->addresses);
 

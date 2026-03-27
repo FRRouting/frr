@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "routemap.h"
 #include "log.h"
+#include "libfrr.h"
 #include "plist.h"
 #include "linklist.h"
 #include "workqueue.h"
@@ -31,6 +32,7 @@
 #include "lib/sockopt.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
+#include <sys/stat.h>
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -82,6 +84,177 @@
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
+
+/* Forward declaration (used before full definition) */
+static void bgp_write_vrf_rd_to_statefile(const char *vrf_name, uint16_t vrf_rd_id);
+
+/* Assign or restore a unique rd id for auto derivation of vrf's RD */
+static void bgp_assign_or_restore_vrf_rd_id(struct bgp *bgp, const char *vrf_name)
+{
+	struct vrf_rd_state_entry key = { .name = (char *)vrf_name };
+	struct vrf_rd_state_entry *found;
+	struct vrf_rd_state_entry *entry;
+
+	found = vrf_rd_state_hash_find(&bm->vrf_rd_state, &key);
+	if (found) {
+		bgp->vrf_rd_id = found->rd_id;
+		found->used = true;
+		if (!bf_test_index(bm->rd_idspace, bgp->vrf_rd_id))
+			bf_set_bit(bm->rd_idspace, bgp->vrf_rd_id);
+		return;
+	}
+
+	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+	bgp_write_vrf_rd_to_statefile(vrf_name, bgp->vrf_rd_id);
+
+	entry = XCALLOC(MTYPE_BGP_RD_STATE, sizeof(struct vrf_rd_state_entry));
+	entry->name = XSTRDUP(MTYPE_BGP_NAME, vrf_name);
+	entry->rd_id = bgp->vrf_rd_id;
+	entry->used = true;
+	vrf_rd_state_hash_add(&bm->vrf_rd_state, entry);
+}
+
+static void bgp_load_vrf_rd_statefile(void)
+{
+	char path[512];
+	char line[512];
+	FILE *fp;
+
+	if (!bm)
+		return;
+
+	vrf_rd_state_hash_init(&bm->vrf_rd_state);
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+	fp = fopen(path, "r");
+	if (!fp)
+		return;
+
+	while (fgets(line, sizeof(line), fp)) {
+		char namebuf[256] = { 0 };
+		unsigned int rd = 0;
+		struct vrf_rd_state_entry *entry, *old;
+
+		if (sscanf(line, "%255s %u", namebuf, &rd) != 2) {
+			zlog_warn("BGP: malformed line in %s: %s",
+				  BGP_VRF_RD_STATEFILE, line);
+			continue;
+		}
+		if (rd > UINT16_MAX) {
+			zlog_warn("BGP: ignoring invalid rd_id %u for VRF %s in %s",
+				  rd, namebuf, BGP_VRF_RD_STATEFILE);
+			continue;
+		}
+
+		entry = XCALLOC(MTYPE_BGP_RD_STATE, sizeof(*entry));
+		entry->name = XSTRDUP(MTYPE_BGP_NAME, namebuf);
+		entry->rd_id = (uint16_t)rd;
+		old = vrf_rd_state_hash_find(&bm->vrf_rd_state, entry);
+		if (old) {
+			XFREE(MTYPE_BGP_NAME, entry->name);
+			XFREE(MTYPE_BGP_RD_STATE, entry);
+		} else {
+			vrf_rd_state_hash_add(&bm->vrf_rd_state, entry);
+			bf_set_bit(bm->rd_idspace, entry->rd_id);
+		}
+	}
+	fclose(fp);
+}
+
+static void bgp_load_vni_rd_statefile(void)
+{
+	char path[512];
+	char line[256];
+	FILE *fp;
+
+	if (!bm)
+		return;
+
+	vni_rd_state_hash_init(&bm->vni_rd_state);
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_EVPN_VNI_RD_STATEFILE);
+	fp = fopen(path, "r");
+	if (!fp)
+		return;
+
+	while (fgets(line, sizeof(line), fp)) {
+		unsigned int vni = 0;
+		unsigned int rd = 0;
+		struct vni_rd_state_entry *entry, *old;
+
+		if (sscanf(line, "%u %u", &vni, &rd) != 2) {
+			zlog_warn("BGP: malformed line in %s: %s",
+				  BGP_EVPN_VNI_RD_STATEFILE, line);
+			continue;
+		}
+		if (rd > UINT16_MAX) {
+			zlog_warn("BGP: ignoring invalid rd_id %u for VNI %u in %s",
+				  rd, vni, BGP_EVPN_VNI_RD_STATEFILE);
+			continue;
+		}
+
+		entry = XCALLOC(MTYPE_BGP_RD_STATE, sizeof(*entry));
+		entry->vni = vni;
+		entry->rd_id = (uint16_t)rd;
+		old = vni_rd_state_hash_find(&bm->vni_rd_state, entry);
+		if (old) {
+			XFREE(MTYPE_BGP_RD_STATE, entry);
+		} else {
+			vni_rd_state_hash_add(&bm->vni_rd_state, entry);
+			bf_set_bit(bm->rd_idspace, entry->rd_id);
+		}
+	}
+	fclose(fp);
+}
+
+static void bgp_write_vrf_rd_to_statefile(const char *vrf_name, uint16_t vrf_rd_id)
+{
+	char path[512];
+	FILE *fp;
+
+	/* Ensure state dir exists (best-effort) */
+	(void)mkdir(frr_libstatedir, 0755);
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+
+	fp = fopen(path, "a");
+	if (!fp) {
+		/* Non-fatal: skip persisting if path is unavailable */
+		return;
+	}
+
+	fprintf(fp, "%s %hu\n", vrf_name, vrf_rd_id);
+	fclose(fp);
+}
+
+static void bgp_rewrite_vrf_rd_statefile(void)
+{
+	char path[512];
+	char tmp[512];
+	FILE *fp;
+	struct vrf_rd_state_entry *entry;
+
+	snprintf(path, sizeof(path), "%s/%s", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+	snprintf(tmp, sizeof(tmp), "%s/%s.tmp", frr_libstatedir, BGP_VRF_RD_STATEFILE);
+
+	fp = fopen(tmp, "w");
+	if (!fp)
+		return;
+
+	frr_each (vrf_rd_state_hash, &bm->vrf_rd_state, entry)
+		fprintf(fp, "%s %hu\n", entry->name, entry->rd_id);
+
+	if (fclose(fp) != 0) {
+		remove(tmp);
+		return;
+	}
+
+	if (rename(tmp, path) != 0) {
+		zlog_err("BGP: failed to replace %s: %s", path, safe_strerror(errno));
+		remove(tmp);
+	}
+}
+
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -3882,8 +4055,11 @@ peer_init:
 	update_bgp_group_init(bgp);
 
 	if (!hidden) {
-		/* assign a unique rd id for auto derivation of vrf's RD */
-		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+		/* assign or restore a unique rd id for auto derivation of vrf's RD */
+		const char *vrf_name = (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+					       ? "default"
+					       : (name ? name : "?");
+		bgp_assign_or_restore_vrf_rd_id(bgp, vrf_name);
 
 		bgp_evpn_init(bgp);
 		bgp_evpn_vrf_es_init(bgp);
@@ -4639,6 +4815,24 @@ void bgp_free(struct bgp *bgp)
 	struct bgp_table *table;
 	struct bgp_dest *dest;
 	struct bgp_rmap *rmap;
+	const char *vrf_name;
+	struct vrf_rd_state_entry *found;
+	struct vrf_rd_state_entry key;
+
+	vrf_name = (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			   ? "default"
+			   : (bgp->name ? bgp->name : "?");
+
+	memset(&key, 0, sizeof(key));
+	key.name = (char *)vrf_name;
+	found = vrf_rd_state_hash_find(&bm->vrf_rd_state, &key);
+	if (found) {
+		vrf_rd_state_hash_del(&bm->vrf_rd_state, found);
+		XFREE(MTYPE_BGP_NAME, found->name);
+		XFREE(MTYPE_BGP_RD_STATE, found);
+	}
+	if (!bm->terminating)
+		bgp_rewrite_vrf_rd_statefile();
 
 	QOBJ_UNREG(bgp);
 
@@ -4679,7 +4873,6 @@ void bgp_free(struct bgp *bgp)
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
 	bgp_tip_hash_destroy(bgp);
-
 	/* release the auto RD id */
 	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 
@@ -9088,6 +9281,11 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bgp_nhg_init();
 	bgp_evpn_mh_init();
 	QOBJ_REG(bm, bgp_master);
+
+	/* Load existing VRF->RD-ID state from file before reading configs */
+	bgp_load_vrf_rd_statefile();
+	/* Load existing L2 VNI->RD-ID state from file before reading configs */
+	bgp_load_vni_rd_statefile();
 }
 
 /*
@@ -9287,9 +9485,53 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	return 0;
 }
 
+/*
+ * After config is loaded, clean up orphan entries from VRF/VNI RD state hashes.
+ * Entries not marked 'used' were in the state file but no longer in config.
+ */
+static int bgp_rd_state_cleanup_after_config(struct bgp *bgp)
+{
+	static bool cleanup_done;
+	bool vrf_changed = false, vni_changed = false;
+	struct vrf_rd_state_entry *ve;
+	struct vni_rd_state_entry *ne;
+
+	if (cleanup_done)
+		return 0;
+	cleanup_done = true;
+
+	/* Clean orphan VRF entries */
+	frr_each_safe (vrf_rd_state_hash, &bm->vrf_rd_state, ve) {
+		if (!ve->used) {
+			bf_release_index(bm->rd_idspace, ve->rd_id);
+			vrf_rd_state_hash_del(&bm->vrf_rd_state, ve);
+			XFREE(MTYPE_BGP_NAME, ve->name);
+			XFREE(MTYPE_BGP_RD_STATE, ve);
+			vrf_changed = true;
+		}
+	}
+	if (vrf_changed)
+		bgp_rewrite_vrf_rd_statefile();
+
+	/* Clean orphan VNI entries */
+	frr_each_safe (vni_rd_state_hash, &bm->vni_rd_state, ne) {
+		if (!ne->used) {
+			bf_release_index(bm->rd_idspace, ne->rd_id);
+			vni_rd_state_hash_del(&bm->vni_rd_state, ne);
+			XFREE(MTYPE_BGP_RD_STATE, ne);
+			vni_changed = true;
+		}
+	}
+	if (vni_changed)
+		bgp_evpn_rewrite_vni_rd_statefile();
+
+	return 0;
+}
+
 void bgp_init(unsigned short instance)
 {
 	hook_register(bgp_config_end, peer_unshut_after_cfg);
+	hook_register(bgp_config_end, bgp_rd_state_cleanup_after_config);
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */

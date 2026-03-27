@@ -17,9 +17,13 @@
 #include "srv6.h"
 #include "iana_afi.h"
 #include "asn.h"
+#include "typesafe.h"
+#include "jhash.h"
 
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
+PREDECL_HASH(vrf_rd_state_hash);
+PREDECL_HASH(vni_rd_state_hash);
 
 enum bgp_bp_install_type {
 	BGP_BP_INSTALL_ROUTE,
@@ -145,6 +149,12 @@ struct bgp_master {
 	/* The Mac table */
 	struct hash *self_mac_hash;
 
+	/* Cached VRF_NAME->RD-ID state loaded at startup from libstatedir */
+	struct vrf_rd_state_hash_head vrf_rd_state;
+
+	/* Cached VNI->RD-ID state loaded at startup from libstatedir */
+	struct vni_rd_state_hash_head vni_rd_state;
+
 	/* BGP start time.  */
 	time_t start_time;
 
@@ -247,6 +257,52 @@ struct bgp_master {
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
+
+/* State file names (under frr_libstatedir) */
+#define BGP_VRF_RD_STATEFILE	  ".bgp_vrf_rd.txt"
+#define BGP_EVPN_VNI_RD_STATEFILE ".bgp_vni_rd.txt"
+
+struct vrf_rd_state_entry {
+	char *name;
+	uint16_t rd_id;
+	bool used;
+	struct vrf_rd_state_hash_item item;
+};
+
+struct vni_rd_state_entry {
+	uint32_t vni;
+	uint16_t rd_id;
+	bool used;
+	struct vni_rd_state_hash_item item;
+};
+
+static inline uint32_t vrf_rd_state_hash_key(const struct vrf_rd_state_entry *e)
+{
+	return jhash(e->name, strlen(e->name), 0x5abc1234);
+}
+
+static inline int vrf_rd_state_hash_cmp(const struct vrf_rd_state_entry *e1,
+					const struct vrf_rd_state_entry *e2)
+{
+	return strcmp(e1->name, e2->name);
+}
+
+DECLARE_HASH(vrf_rd_state_hash, struct vrf_rd_state_entry, item,
+	     vrf_rd_state_hash_cmp, vrf_rd_state_hash_key);
+
+static inline uint32_t vni_rd_state_hash_key(const struct vni_rd_state_entry *e)
+{
+	return jhash_1word(e->vni, 0);
+}
+
+static inline int vni_rd_state_hash_cmp(const struct vni_rd_state_entry *e1,
+					const struct vni_rd_state_entry *e2)
+{
+	return (int)(e1->vni - e2->vni);
+}
+
+DECLARE_HASH(vni_rd_state_hash, struct vni_rd_state_entry, item,
+	     vni_rd_state_hash_cmp, vni_rd_state_hash_key);
 
 /* BGP route-map structure.  */
 struct bgp_rmap {
