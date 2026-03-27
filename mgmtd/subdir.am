@@ -44,6 +44,7 @@ noinst_HEADERS += \
 	mgmtd/mgmt_be_adapter.h \
 	mgmtd/mgmt_ds.h \
 	mgmtd/mgmt_fe_adapter.h \
+	mgmtd/mgmt_grpc_internal.h \
 	mgmtd/mgmt_history.h \
 	mgmtd/mgmt_memory.h \
 	mgmtd/mgmt_txn.h \
@@ -61,6 +62,7 @@ endif
 
 mgmtd_mgmtd_SOURCES = \
 	mgmtd/mgmt_main.c \
+	mgmtd/mgmt_grpc_internal.c \
 	# end
 nodist_mgmtd_mgmtd_SOURCES = \
 	yang/frr-zebra.yang.c \
@@ -69,6 +71,7 @@ nodist_mgmtd_mgmtd_SOURCES = \
 	yang/ietf/ietf-netconf-with-defaults.yang.c \
 	# nothing
 mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
+mgmtd_mgmtd_LDFLAGS = -rdynamic
 mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
 mgmtd_mgmtd_LDADD += mgmtd/libmgmt_be_nb.la
 
