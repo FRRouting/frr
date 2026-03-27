@@ -676,6 +676,12 @@ static void ospf6_zebra_connected(struct zclient *zclient)
 			continue;
 		(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
 	}
+
+	/* Zebra reconnect can happen after OSPFv3 already computed best-paths.
+	 * Re-send existing routes so kernel FIB and OSPF RIB stay consistent.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6))
+		ospf6_reinstall_routes(ospf6);
 }
 
 static zclient_handler *const ospf6_handlers[] = {

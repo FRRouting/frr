@@ -249,6 +249,7 @@ void ospf6_vrf_link(struct ospf6 *ospf6, struct vrf *vrf);
 void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
 struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
+void ospf6_reinstall_routes(struct ospf6 *ospf6);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
 void ospf6_vrf_init(void);
 bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p);
