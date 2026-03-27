@@ -37,10 +37,14 @@ struct prefix_pair {
 	struct prefix_ipv6 src;
 };
 
+/* Forward declaration for SRv6 TI-LFA segment stack */
+struct isis_srv6_seg_stack;
+
 struct isis_vertex_adj {
 	struct isis_spf_adj *sadj;
 	struct isis_sr_psid_info sr;
 	struct mpls_label_stack *label_stack;
+	struct isis_srv6_seg_stack *srv6_seg_stack; /* SRv6 TI-LFA backup */
 	uint32_t lfa_metric;
 };
 

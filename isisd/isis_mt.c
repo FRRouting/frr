@@ -518,6 +518,31 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 		return;
 	}
 
+	/*
+	 * If the neighbor's MT set is empty but MT is enabled for the area,
+	 * fall back to using the area's MT settings. This can happen when
+	 * adjacency MT information has not been populated from hellos yet.
+	 */
+	if (mt_count == 0) {
+		unsigned int area_mt_count;
+		struct isis_area_mt_setting **area_mt_set;
+
+		area_mt_set = area_mt_settings(area, &area_mt_count);
+		for (unsigned int i = 0; i < area_mt_count; i++) {
+			uint16_t mtid = area_mt_set[i]->mtid;
+
+			if (mtid == ISIS_MT_IPV4_UNICAST) {
+				lsp_debug("ISIS (%s): Adding %pPN as te-style neighbor (fallback)",
+					  area->area_tag, id);
+			} else {
+				lsp_debug("ISIS (%s): Adding %pPN as mt-style neighbor for %s (fallback)",
+					  area->area_tag, id, isis_mtid2str(mtid));
+			}
+			isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, ext);
+		}
+		return;
+	}
+
 	/* Process Multi-Topology */
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];

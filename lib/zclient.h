@@ -1430,6 +1430,8 @@ extern int zapi_client_close_notify_decode(struct stream *s,
 
 extern int zclient_send_zebra_gre_request(struct zclient *client,
 					  struct interface *ifp);
+extern struct interface *select_oif_for_localsid(ifindex_t candidate_oif);
+
 #ifdef __cplusplus
 }
 #endif

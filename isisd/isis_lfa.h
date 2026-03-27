@@ -10,8 +10,10 @@
 #include "lib/typesafe.h"
 #include "lib/zclient.h"
 #include "lib/memory.h"
+#include "lib/srv6.h"
 
 DECLARE_MTYPE(ISIS_NEXTHOP_LABELS);
+DECLARE_MTYPE(ISIS_SRV6_SEG_STACK);
 
 PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree);
 PREDECL_RBTREE_UNIQ(rlfa_tree);
@@ -57,6 +59,29 @@ struct isis_tilfa_sid {
 	} value;
 };
 
+/*
+ * SRv6 TI-LFA support - uses SRv6 SIDs instead of MPLS labels
+ */
+
+/* SRv6 TI-LFA SID types */
+enum isis_tilfa_srv6_sid_type {
+	TILFA_SRV6_SID_END = 1, /* End SID (node SID) - replaces Prefix-SID */
+	TILFA_SRV6_SID_END_X,	/* End.X SID (adjacency) - replaces Adj-SID */
+};
+
+/* SRv6 TI-LFA SID entry */
+struct isis_tilfa_srv6_sid {
+	enum isis_tilfa_srv6_sid_type type;
+	struct in6_addr sid;		       /* Actual IPv6 SID value */
+	uint8_t remote_sysid[ISIS_SYS_ID_LEN]; /* Source node for this SID */
+};
+
+/* SRv6 segment stack for backup paths */
+struct isis_srv6_seg_stack {
+	uint8_t num_segs;
+	struct in6_addr segs[SRV6_MAX_SEGS]; /* Max 8 segments */
+};
+
 enum spf_prefix_priority {
 	SPF_PREFIX_PRIO_CRITICAL = 0,
 	SPF_PREFIX_PRIO_HIGH,
@@ -100,7 +125,11 @@ struct isis_spf_node {
 enum lfa_protection_type {
 	LFA_LINK_PROTECTION = 1,
 	LFA_NODE_PROTECTION,
+	LFA_SRLG_PROTECTION,
 };
+
+/* Maximum number of SRLGs that can be protected simultaneously */
+#define LFA_MAX_SRLG 16
 
 struct lfa_protected_resource {
 	/* The protection type. */
@@ -111,6 +140,10 @@ struct lfa_protected_resource {
 
 	/* List of nodes reachable over the protected interface. */
 	struct isis_spf_nodes nodes;
+
+	/* SRLG protection: list of protected SRLG values. */
+	uint32_t srlgs[LFA_MAX_SRLG];
+	uint8_t srlg_count;
 };
 
 /* Forward declaration(s). */

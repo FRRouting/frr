@@ -20,6 +20,9 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_srv6.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_spf.h"
+#include "isisd/isis_spf_private.h"
 
 /* Local variables and functions */
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
@@ -274,6 +277,26 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
 
 /* --- SRv6 End.X SID management functions ------------------- */
 
+static void srv6_endx_sid_add_backup_nexthops(struct srv6_adjacency *sra, struct list *nexthops)
+{
+	struct isis_vertex_adj *vadj;
+	struct listnode *node;
+
+	if (!nexthops)
+		return;
+
+	sra->backup_nexthops = list_new();
+
+	for (ALL_LIST_ELEMENTS_RO(nexthops, node, vadj)) {
+		struct isis_adjacency *tadj = vadj->sadj->adj;
+		struct isis_srv6_seg_stack *srv6_seg_stack;
+
+		srv6_seg_stack = vadj->srv6_seg_stack;
+		adjinfo2nexthop(AF_INET6, sra->backup_nexthops, tadj, NULL, NULL,
+				srv6_seg_stack);
+	}
+}
+
 /**
  * Add new local End.X SID.
  *
@@ -282,18 +305,19 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
  * @param nexthops List of backup nexthops (for backup End.X SIDs only)
  * @param sid_value SID value associated to be associated with the adjacency
  */
-void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct list *nexthops,
+void srv6_endx_sid_add_single(const struct isis_adjacency *adj, bool backup, struct list *nexthops,
 			      struct in6_addr *sid_value)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
-	struct srv6_adjacency *sra;
+	struct srv6_adjacency *sra = NULL;
 	struct isis_srv6_endx_sid_subtlv *adj_sid;
 	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
 	struct in6_addr nexthop;
 	uint8_t flags = 0;
 	struct srv6_locator *locator;
 	uint32_t behavior;
+	struct listnode *node, *nnode;
 
 	if (!area || !area->srv6db.srv6_locator)
 		return;
@@ -304,6 +328,24 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 		return;
 
+	if (backup && nexthops == NULL && sid_value)
+		return;
+
+	/* Do not continue if existing sra */
+	if (sid_value == NULL) {
+		for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra)) {
+			if (!backup && sra->type == ISIS_SRV6_ADJ_BACKUP)
+				continue;
+			if (backup && sra->type != ISIS_SRV6_ADJ_BACKUP)
+				continue;
+			if (sra->type == ISIS_SRV6_ADJ_BACKUP && IN6_IS_ADDR_UNSPECIFIED(&sra->sid))
+				/* Do not delete sra SID for the adjacency */
+				continue;
+			/* matching sra */
+			zlog_debug("%s() XXXXX matching sra.. do nothing", __func__);
+			return;
+		}
+	}
 	locator = area->srv6db.srv6_locator;
 
 	nexthop = adj->ll_ipv6_addrs[0];
@@ -328,8 +370,15 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	sra->structure.func_len = locator->function_bits_length;
 	sra->structure.arg_len = locator->argument_bits_length;
 	sra->nexthop = nexthop;
+	if (sid_value)
+		sra->sid = *sid_value;
+	else {
+		sra->allocation_in_progress = true;
+		isis_zebra_request_srv6_sid_endx(adj, backup);
+	}
 
-	sra->sid = *sid_value;
+	if (backup && nexthops)
+		srv6_endx_sid_add_backup_nexthops(sra, nexthops);
 
 	switch (circuit->circ_type) {
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
@@ -381,21 +430,12 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	}
 
 	/* Add Adjacency-SID in SRDB */
-	sra->adj = adj;
+	sra->adj = (struct isis_adjacency *)adj;
 	listnode_add(area->srv6db.srv6_endx_sids, sra);
 	listnode_add(adj->srv6_endx_sids, sra);
 
-	isis_zebra_srv6_adj_sid_install(sra);
-}
-
-/**
- * Add Primary and Backup local SRv6 End.X SID.
- *
- * @param adj	  IS-IS Adjacency
- */
-void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value)
-{
-	srv6_endx_sid_add_single(adj, false, NULL, sid_value);
+	if (sid_value)
+		isis_zebra_srv6_adj_sid_install(sra);
 }
 
 /**
@@ -494,7 +534,7 @@ static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family, bool glob
 	if (!adj->circuit->area->srv6db.config.enabled || global || family != AF_INET6)
 		return 0;
 
-	isis_zebra_request_srv6_sid_endx(adj);
+	isis_zebra_request_srv6_sid_endx(adj, false);
 
 	return 0;
 }
@@ -732,6 +772,231 @@ void isis_srv6_area_term(struct isis_area *area)
 	/* Free SRv6 SIDs list */
 	list_delete(&srv6db->srv6_sids);
 	list_delete(&srv6db->srv6_endx_sids);
+}
+
+/*
+ * TI-LFA SRv6 remote SID lookup functions
+ *
+ * Per RFC 8986 Section 4.16.3 (USD: Ultimate Segment Decapsulation):
+ * "One of the applications of the USD flavor is the case of a Topology
+ * Independent Loop-Free Alternate (TI-LFA) in P routers with encapsulation.
+ * The USD flavor allows the last SR Segment Endpoint Node in the repair path
+ * list to decapsulate the IPv6 header added at the TI-LFA Point of Local
+ * Repair and forward the inner packet."
+ *
+ * Therefore, End SIDs with PSP/USD flavors are preferred for TI-LFA repair
+ * paths as they enable proper decapsulation at the final segment endpoint.
+ */
+
+/**
+ * Check if End SID behavior is suitable for TI-LFA (node SID).
+ *
+ * Accept End, End with PSP/USD, or uN (End with NEXT-CSID) behaviors.
+ * USD flavor is particularly important for TI-LFA per RFC 8986 Section 4.16.3.
+ */
+static bool tilfa_srv6_end_sid_behavior_valid(enum srv6_endpoint_behavior_codepoint behavior)
+{
+	switch (behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+		return true;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+		/* End.X, End.DT*, End.B6 behaviors not suitable for node SID */
+		return false;
+	}
+
+	return false;
+}
+
+/**
+ * Find End SID for a remote node from its LSP TLV 27 (SRv6 Locator).
+ * Equivalent to looking up Prefix-SID in SR-MPLS TI-LFA.
+ *
+ * Per RFC 9352, SRv6 SIDs are associated with a specific algorithm via
+ * the locator. This function filters locators to match the SPF algorithm.
+ */
+bool isis_srv6_tilfa_find_pnode_end_sid(struct isis_spftree *spftree, const uint8_t *sysid,
+					struct in6_addr *sid)
+{
+	struct isis_lsp *lsp;
+	struct isis_item_list *srv6_locators;
+	struct isis_srv6_locator_tlv *loc;
+	struct isis_srv6_end_sid_subtlv *end_sid;
+
+	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
+	if (!lsp || !lsp->tlvs)
+		return false;
+
+	/* Get SRv6 locators for the requested MT-ID */
+	srv6_locators = isis_lookup_mt_items(&lsp->tlvs->srv6_locator, spftree->mtid);
+	if (!srv6_locators)
+		return false;
+
+	/*
+	 * Iterate through all locators and find one matching the algorithm.
+	 * Per RFC 9352 section 6, each locator is associated with an algorithm.
+	 */
+	for (loc = (struct isis_srv6_locator_tlv *)srv6_locators->head; loc; loc = loc->next) {
+		/* Filter by algorithm - critical for Flex-Algo support */
+		if (loc->algorithm != spftree->algorithm)
+			continue;
+
+		if (!loc->subtlvs || loc->subtlvs->srv6_end_sids.count == 0)
+			continue;
+
+		/* Find a suitable End SID in this locator */
+		for (end_sid = (struct isis_srv6_end_sid_subtlv *)loc->subtlvs->srv6_end_sids.head;
+		     end_sid; end_sid = end_sid->next) {
+			if (tilfa_srv6_end_sid_behavior_valid(end_sid->behavior)) {
+				*sid = end_sid->sid;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/* Arguments structure for End.X SID lookup callback */
+struct tilfa_srv6_find_endx_sid_args {
+	const uint8_t *neighbor_sysid;
+	struct in6_addr sid;
+	bool found;
+	uint8_t algorithm;
+	uint8_t best_weight; /* Track highest weight for load balancing */
+};
+
+/**
+ * Callback to find End.X SID in Extended IS Reachability TLV (TLV 22).
+ * Per RFC 9352 section 8, End.X SID sub-TLVs have algorithm and weight fields.
+ *
+ * When multiple matching SIDs exist, select the one with highest weight
+ * per RFC 8402 load balancing semantics.
+ */
+static int tilfa_srv6_find_endx_sid_cb(const uint8_t *id, uint32_t metric, bool oldmetric,
+				       struct isis_ext_subtlvs *subtlvs, void *arg)
+{
+	struct tilfa_srv6_find_endx_sid_args *args = arg;
+	struct isis_srv6_endx_sid_subtlv *endx_sid;
+	struct isis_srv6_lan_endx_sid_subtlv *lan_endx_sid;
+
+	/* Check if this is the neighbor we're looking for */
+	if (memcmp(id, args->neighbor_sysid, ISIS_SYS_ID_LEN))
+		return LSP_ITER_CONTINUE;
+
+	if (!subtlvs)
+		return LSP_ITER_CONTINUE;
+
+	/* Check P2P End.X SIDs (Sub-TLV 43) */
+	if (subtlvs->srv6_endx_sid.count > 0) {
+		for (endx_sid = (struct isis_srv6_endx_sid_subtlv *)subtlvs->srv6_endx_sid.head;
+		     endx_sid; endx_sid = endx_sid->next) {
+			/*
+			 * Per RFC 9352 section 8.1, filter by algorithm.
+			 * Skip backup SIDs (B-flag), use primary.
+			 */
+			if (endx_sid->algorithm != args->algorithm)
+				continue;
+			if (CHECK_FLAG(endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG))
+				continue;
+
+			/*
+			 * Per RFC 8402, prefer SID with highest weight
+			 * for load balancing. Keep searching for better.
+			 */
+			if (!args->found || endx_sid->weight > args->best_weight) {
+				args->sid = endx_sid->sid;
+				args->best_weight = endx_sid->weight;
+				args->found = true;
+			}
+		}
+	}
+
+	/* Check LAN End.X SIDs (Sub-TLV 44) */
+	if (subtlvs->srv6_lan_endx_sid.count > 0) {
+		for (lan_endx_sid =
+			     (struct isis_srv6_lan_endx_sid_subtlv *)subtlvs->srv6_lan_endx_sid.head;
+		     lan_endx_sid; lan_endx_sid = lan_endx_sid->next) {
+			/*
+			 * Per RFC 9352 section 8.2, filter by algorithm.
+			 * For LAN End.X, the neighbor_id in the sub-TLV
+			 * identifies the specific neighbor.
+			 * Skip backup SIDs (B-flag).
+			 */
+			if (lan_endx_sid->algorithm != args->algorithm)
+				continue;
+			if (memcmp(lan_endx_sid->neighbor_id, args->neighbor_sysid,
+				   ISIS_SYS_ID_LEN) != 0)
+				continue;
+			if (CHECK_FLAG(lan_endx_sid->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG))
+				continue;
+
+			/*
+			 * Per RFC 8402, prefer SID with highest weight.
+			 */
+			if (!args->found || lan_endx_sid->weight > args->best_weight) {
+				args->sid = lan_endx_sid->sid;
+				args->best_weight = lan_endx_sid->weight;
+				args->found = true;
+			}
+		}
+	}
+
+	/* Continue iterating to find all SIDs and select best weight */
+	return LSP_ITER_CONTINUE;
+}
+
+/**
+ * Find End.X SID from source to neighbor from Extended IS Reach TLV 22.
+ * Looks for Sub-TLV 43 (P2P End.X) or Sub-TLV 44 (LAN End.X).
+ * Equivalent to looking up Adj-SID in SR-MPLS TI-LFA.
+ *
+ * Per RFC 9352 sections 8.1 and 8.2, End.X SIDs have an algorithm field
+ * that must match the SPF algorithm for proper Flex-Algo support.
+ */
+bool isis_srv6_tilfa_find_qnode_endx_sid(struct isis_spftree *spftree, const uint8_t *source_sysid,
+					 const uint8_t *neighbor_sysid, struct in6_addr *sid)
+{
+	struct isis_lsp *lsp;
+	struct tilfa_srv6_find_endx_sid_args args = {};
+
+	lsp = isis_root_system_lsp(spftree->lspdb, source_sysid);
+	if (!lsp)
+		return false;
+
+	args.neighbor_sysid = neighbor_sysid;
+	args.algorithm = spftree->algorithm;
+	args.found = false;
+
+	isis_lsp_iterate_is_reach(lsp, spftree->mtid, tilfa_srv6_find_endx_sid_cb, &args);
+
+	if (args.found) {
+		*sid = args.sid;
+		return true;
+	}
+
+	return false;
 }
 
 /**

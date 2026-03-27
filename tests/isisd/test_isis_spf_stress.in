@@ -1,0 +1,9 @@
+test isis grid rows 10 cols 20 root rt1 spf ipv6-only srv6
+test isis grid rows 10 cols 20 root rt100 spf ipv6-only srv6
+test isis grid rows 10 cols 20 root rt200 spf ipv6-only srv6
+test isis grid rows 10 cols 20 root rt1 ti-lfa system-id rt2 ipv6-only srv6
+test isis grid rows 10 cols 20 root rt100 ti-lfa system-id rt99 ipv6-only srv6
+test isis grid rows 16 cols 16 root rt1 spf ipv6-only srv6
+test isis grid rows 16 cols 16 root rt128 spf ipv6-only srv6
+test isis grid rows 5 cols 5 root rt1 spf
+test isis grid rows 5 cols 5 root rt13 ti-lfa system-id rt12 ipv6-only srv6
