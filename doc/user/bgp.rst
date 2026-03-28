@@ -1748,20 +1748,24 @@ Configuring Peers
 
    Set description of the peer.
 
-.. clicmd:: neighbor PEER interface [peer-group NAME]
+.. clicmd:: neighbor PEER interface [v6only] [peer-group NAME]
 
-   Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
-   session will be established via IPv6 link locals. To specify IPv4 session
-   addresses, see the ``neighbor PEER update-source`` command below.
+   Configure an interface-based (unnumbered) BGP peer; ``PEER`` is the interface
+   name. By default, *bgpd* tries to derive the neighbor IPv4 address from a /30
+   or /31 on the interface and establish the session over IPv4; if that is not
+   possible, it uses the peer's IPv6 link-local address. If ``v6only`` is
+   specified, *bgpd* skips trying IPv4 and establishes the session directly via
+   IPv6 link-local. For the local TCP source address, see
+   ``neighbor PEER update-source`` below.
 
-.. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
+.. clicmd:: neighbor PEER interface [v6only] remote-as <internal|external|auto|ASN>
 
-   Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
-   session will be established via IPv6 link locals. Use ``internal`` for iBGP
-   and ``external`` for eBGP sessions, or specify an ASN if you wish.  Finally
-   this connection type is meant for point to point connections.  If you are
-   on an ethernet segment and attempt to use this with more than one bgp
-   neighbor, only one neighbor will come up, due to how this feature works.
+   Configure an interface-based BGP peer and set ``remote-as`` in one command.
+   Session address selection follows ``neighbor PEER interface`` above. Use
+   ``internal`` for iBGP and ``external`` for eBGP sessions, or specify an ASN
+   if you wish. This connection type is meant for point to point connections.
+   If you are on an ethernet segment and attempt to use this with more than one
+   bgp neighbor, only one neighbor will come up, due to how this feature works.
 
 .. clicmd:: neighbor PEER next-hop-self [force]
 
