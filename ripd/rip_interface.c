@@ -469,7 +469,7 @@ int rip_if_down(struct interface *ifp)
  * - `network A.B.C.D/M`
  * - `ip rip`
  */
-static bool rip_interface_is_enabled(struct connected *ifc)
+bool rip_interface_is_enabled(struct connected *ifc)
 {
 	struct rip_interface *ri = ifc->ifp->info;
 
