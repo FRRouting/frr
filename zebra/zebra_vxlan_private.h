@@ -58,7 +58,7 @@ struct zebra_l3vni {
 	struct hash *rmac_table;
 
 	/* list of remote vtep-ip neigh */
-	struct hash *nh_table;
+	struct zebra_neigh_db_head nh_table[1];
 };
 
 #define IS_ZL3VNI_SVD_BACKED(zl3vni)                                           \

@@ -10,12 +10,14 @@
 
 #include <stdint.h>
 
-#include "lib/openbsd-tree.h"
+#include "lib/typesafe.h"
 
 #include "lib/zebra.h" /* vrf_id_t */
 #include "lib/vlan.h"  /* vlanid_t */
 #include "lib/vxlan.h" /* vni_t */
 #include "lib/ipaddr.h"
+
+PREDECL_HASH(zebra_neigh_db);
 
 RB_HEAD(zebra_es_evi_rb_head, zebra_evpn_es_evi);
 RB_PROTOTYPE(zebra_es_evi_rb_head, zebra_evpn_es_evi, rb_node, zebra_es_evi_rb_cmp);
@@ -72,7 +74,7 @@ struct zebra_evpn {
 	struct hash *mac_table;
 
 	/* List of local or remote neighbors (MAC+IP) */
-	struct hash *neigh_table;
+	struct zebra_neigh_db_head neigh_table[1];
 
 	/* RB tree of ES-EVIs */
 	struct zebra_es_evi_rb_head es_evi_rb_tree;

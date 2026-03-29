@@ -123,7 +123,7 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 		return;
 	}
 	num_macs = num_valid_macs(zevpn);
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 	if (json == NULL) {
 		vty_out(vty, " VxLAN interface: %s\n", zevpn->vxlan_if->name);
 		vty_out(vty, " VxLAN ifIndex: %u\n", zevpn->vxlan_if->ifindex);
@@ -222,7 +222,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 	}
 
 	num_macs = num_valid_macs(zevpn);
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 	if (json == NULL)
 		vty_out(vty, "%-10u %-4s %-21s %-8u %-8u %-15u %-15s %-10u %-37s\n", zevpn->vni,
 			"L2", zevpn->vxlan_if ? zevpn->vxlan_if->name : "unknown", num_macs,
@@ -1057,7 +1057,7 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 
 	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u", vni);
 	/* Create hash table for neighbors */
-	zevpn->neigh_table = zebra_neigh_db_create(buffer);
+	zebra_neigh_db_init(zevpn->neigh_table);
 
 	return zevpn;
 }
@@ -1075,8 +1075,7 @@ int zebra_evpn_del(struct zebra_evpn *zevpn)
 	zevpn->svi_if = NULL;
 
 	/* Free the neighbor hash table. */
-	hash_free(zevpn->neigh_table);
-	zevpn->neigh_table = NULL;
+	zebra_neigh_db_fini(zevpn->neigh_table);
 
 	/* Free the MAC hash table. */
 	hash_free(zevpn->mac_table);

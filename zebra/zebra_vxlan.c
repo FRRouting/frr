@@ -59,7 +59,7 @@ DEFINE_HOOK(zebra_rmac_update,
 static bool accept_bgp_seq = true;
 
 /* Single VXlan Device Global Neigh Table */
-struct hash *svd_nh_table;
+struct zebra_neigh_db_head svd_nh_table[1];
 
 /* static function declarations */
 static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
@@ -71,9 +71,7 @@ static void zl3vni_print_rmac(struct zebra_mac *zrmac, struct vty *vty,
 static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt);
 
 /* l3-vni next-hop neigh related APIs */
-static struct zebra_neigh *zl3vni_nh_lookup(struct zebra_l3vni *zl3vni,
-					    const struct ipaddr *ip);
-static void *zl3vni_nh_alloc(void *p);
+static struct zebra_neigh *zl3vni_nh_lookup(struct zebra_l3vni *zl3vni, const struct ipaddr *ip);
 static struct zebra_neigh *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
 					 const struct ipaddr *vtep_ip,
 					 const struct ethaddr *rmac);
@@ -234,6 +232,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	char vni_str[VNI_STR_LEN];
 	uint32_t print_dup;
 
@@ -243,7 +242,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 
 	zevpn = (struct zebra_evpn *)bucket->data;
 
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 
 	if (print_dup)
 		num_neigh = num_dup_detected_neighs(zevpn);
@@ -271,21 +270,22 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
-	wctx.addr_width = 15;
-	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
-	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
-		     &wctx);
+
+	int addr_width = 15;
+	int r_vtep_width = INET6_GUA_ADDRSTRLEN;
+
+	zebra_evpn_find_neigh_addr_width(zevpn->neigh_table, &addr_width, &r_vtep_width);
 
 	if (json == NULL)
-		zebra_evpn_print_neigh_hdr(vty, &wctx);
+		zebra_evpn_print_neigh_hdr(vty, addr_width, r_vtep_width);
 
 	if (print_dup)
-		hash_iterate(zevpn->neigh_table,
-			     zebra_evpn_print_dad_neigh_hash, &wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_print_dad_neigh_hash(&wctx, n, addr_width, r_vtep_width);
 	else
-		hash_iterate(zevpn->neigh_table, zebra_evpn_print_neigh_hash,
-			     &wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_print_neigh_hash(&wctx, n, addr_width, r_vtep_width);
 
 	if (json)
 		json_object_object_add(json, vni_str, json_evpn);
@@ -301,6 +301,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	json_object *json = NULL, *json_evpn = NULL;
 	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
+	struct zebra_neigh *n;
 	struct neigh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
 	uint32_t print_dup;
@@ -315,7 +316,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 			vty_json_empty(vty, json);
 		return;
 	}
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 
 	if (print_dup && num_dup_detected_neighs(zevpn) == 0)
 		return;
@@ -338,16 +339,14 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
-	wctx.addr_width = 15;
-	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
 
 	if (print_dup)
-		hash_iterate(zevpn->neigh_table,
-			     zebra_evpn_print_dad_neigh_hash_detail, &wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_print_dad_neigh_hash_detail(&wctx, n);
 	else
-		hash_iterate(zevpn->neigh_table,
-			     zebra_evpn_print_neigh_hash_detail, &wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_print_neigh_hash_detail(&wctx, n);
 
 	if (json)
 		json_object_object_add(json, vni_str, json_evpn);
@@ -592,22 +591,18 @@ static void zevpn_print_mac_hash_all_evpn_detail(struct hash_bucket *bucket,
 	}
 }
 
-static void zl3vni_print_nh_hash(struct hash_bucket *bucket, void *ctx)
+static void zl3vni_print_nh_hash(struct nh_walk_ctx *wctx, struct zebra_neigh *n)
 {
-	struct nh_walk_ctx *wctx = NULL;
 	struct vty *vty = NULL;
 	struct json_object *json_evpn = NULL;
 	struct json_object *json_nh = NULL;
-	struct zebra_neigh *n = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 
-	wctx = (struct nh_walk_ctx *)ctx;
 	vty = wctx->vty;
 	json_evpn = wctx->json;
 	if (json_evpn)
 		json_nh = json_object_new_object();
-	n = (struct zebra_neigh *)bucket->data;
 
 	if (!json_evpn) {
 		vty_out(vty, "%-39s %-17s\n", ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
@@ -624,11 +619,12 @@ static void zl3vni_print_nh_hash(struct hash_bucket *bucket, void *ctx)
 	}
 }
 
-static void zl3vni_print_nh_all_table(struct hash *nh_table, vni_t vni,
+static void zl3vni_print_nh_all_table(struct zebra_neigh_db_head *nh_table, vni_t vni,
 				      struct vty *vty, json_object *json)
 {
 	uint32_t num_nh = 0;
 	struct nh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	char vni_str[VNI_STR_LEN];
 	json_object *json_evpn = NULL;
 	bool is_svd = false;
@@ -637,7 +633,7 @@ static void zl3vni_print_nh_all_table(struct hash *nh_table, vni_t vni,
 	if (vni == 0)
 		is_svd = true;
 
-	num_nh = hashcount(nh_table);
+	num_nh = zebra_neigh_db_count(nh_table);
 
 	if (!num_nh)
 		return;
@@ -661,7 +657,10 @@ static void zl3vni_print_nh_all_table(struct hash *nh_table, vni_t vni,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json_evpn;
-	hash_iterate(nh_table, zl3vni_print_nh_hash, &wctx);
+
+	frr_each (zebra_neigh_db, nh_table, n)
+		zl3vni_print_nh_hash(&wctx, n);
+
 	if (json)
 		json_object_object_add(json, vni_str, json_evpn);
 }
@@ -849,14 +848,16 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	if (!json) {
+		/* clang-format off */
 		vty_out(vty,
-			"%-10u %-4s %-21s %-8lu %-8lu %-15s %-15s %-10u %-37s\n",
+			"%-10u %-4s %-21s %-8lu %-8zu %-15s %-15s %-10u %-37s\n",
 			zl3vni->vni, "L3",
 			zl3vni_vxlan_if_name(zl3vni),
 			hashcount(zl3vni->rmac_table),
-			hashcount(zl3vni->nh_table), "n/a",
+			zebra_neigh_db_count(zl3vni->nh_table), "n/a",
 			zl3vni_vrf_name(zl3vni), zl3vni->vid,
 			zl3vni->bridge_if ? zl3vni->bridge_if->name : "-");
+		/* clang-format on */
 	} else {
 		char vni_str[VNI_STR_LEN];
 
@@ -870,8 +871,7 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 				       (zl3vni->bridge_if ? zl3vni->bridge_if->name : "-"));
 		json_object_int_add(json_evpn, "numMacs",
 				    hashcount(zl3vni->rmac_table));
-		json_object_int_add(json_evpn, "numArpNd",
-				    hashcount(zl3vni->nh_table));
+		json_object_int_add(json_evpn, "numArpNd", zebra_neigh_db_count(zl3vni->nh_table));
 		json_object_string_add(json_evpn, "numRemoteVteps", "n/a");
 		json_object_string_add(json_evpn, "type", "L3");
 		json_object_string_add(json_evpn, "tenantVrf",
@@ -1599,9 +1599,9 @@ static struct zebra_neigh *_nh_lookup(struct zebra_l3vni *zl3vni,
 	memcpy(&tmp.ip, ip, sizeof(struct ipaddr));
 
 	if (zl3vni)
-		n = hash_lookup(zl3vni->nh_table, &tmp);
+		n = zebra_neigh_db_find(zl3vni->nh_table, &tmp);
 	else
-		n = hash_lookup(svd_nh_table, &tmp);
+		n = zebra_neigh_db_find(svd_nh_table, &tmp);
 
 	return n;
 }
@@ -1624,36 +1624,24 @@ static struct zebra_neigh *svd_nh_lookup(const struct ipaddr *ip)
 }
 
 /*
- * Callback to allocate NH hash entry on L3-VNI.
- */
-static void *zl3vni_nh_alloc(void *p)
-{
-	const struct zebra_neigh *tmp_n = p;
-	struct zebra_neigh *n;
-
-	n = XCALLOC(MTYPE_L3NEIGH, sizeof(struct zebra_neigh));
-	*n = *tmp_n;
-
-	return ((void *)n);
-}
-
-/*
  * Common code for neigh add.
  */
 static struct zebra_neigh *_nh_add(struct zebra_l3vni *zl3vni,
 				   const struct ipaddr *ip,
 				   const struct ethaddr *mac)
 {
-	struct zebra_neigh tmp_n;
 	struct zebra_neigh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(tmp_n));
-	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
+	n = _nh_lookup(zl3vni, ip);
+	if (!n) {
+		n = XCALLOC(MTYPE_L3NEIGH, sizeof(struct zebra_neigh));
+		n->ip = *ip;
 
-	if (zl3vni)
-		n = hash_get(zl3vni->nh_table, &tmp_n, zl3vni_nh_alloc);
-	else
-		n = hash_get(svd_nh_table, &tmp_n, zl3vni_nh_alloc);
+		if (zl3vni)
+			zebra_neigh_db_add(zl3vni->nh_table, n);
+		else
+			zebra_neigh_db_add(svd_nh_table, n);
+	}
 
 	assert(n);
 
@@ -1683,7 +1671,6 @@ static struct zebra_neigh *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
  */
 static int zl3vni_nh_del(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 {
-	struct zebra_neigh *tmp_n;
 	struct host_rb_entry *hle;
 
 	while (!RB_EMPTY(host_rb_tree_entry, &n->host_rb)) {
@@ -1693,8 +1680,8 @@ static int zl3vni_nh_del(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 		XFREE(MTYPE_HOST_PREFIX, hle);
 	}
 
-	tmp_n = hash_release(zl3vni->nh_table, n);
-	XFREE(MTYPE_L3NEIGH, tmp_n);
+	zebra_neigh_db_del(zl3vni->nh_table, n);
+	XFREE(MTYPE_L3NEIGH, n);
 
 	return 0;
 }
@@ -1716,14 +1703,12 @@ static void svd_nh_del(struct zebra_neigh *n)
 	if (n->refcnt > 0)
 		return;
 
-	hash_release(svd_nh_table, n);
+	zebra_neigh_db_del(svd_nh_table, n);
 	XFREE(MTYPE_L3NEIGH, n);
 }
 
-static void svd_nh_del_terminate(void *ptr)
+static void svd_nh_del_terminate(struct zebra_neigh *n)
 {
-	struct zebra_neigh *n = ptr;
-
 	n->refcnt = 0;
 	XFREE(MTYPE_L3NEIGH, n);
 }
@@ -2120,7 +2105,7 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	zl3vni->rmac_table = zebra_mac_db_create("Zebra L3-VNI RMAC-Table");
 
 	/* Create hash table for neighbors */
-	zl3vni->nh_table = zebra_neigh_db_create("Zebra L3-VNI next-hop table");
+	zebra_neigh_db_init(zl3vni->nh_table);
 
 	return zl3vni;
 }
@@ -2141,8 +2126,7 @@ static int zl3vni_del(struct zebra_l3vni *zl3vni)
 	zl3vni->rmac_table = NULL;
 
 	/* Free the nh table */
-	hash_free(zl3vni->nh_table);
-	zl3vni->nh_table = NULL;
+	zebra_neigh_db_fini(zl3vni->nh_table);
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_zl3vni = hash_release(zrouter.l3vni_table, zl3vni);
@@ -2693,13 +2677,11 @@ static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 }
 
 /* delete and uninstall nh hash entry */
-static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
+static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_neigh *n)
 {
-	struct zebra_neigh *n = NULL, *svd_nh = NULL;
+	struct zebra_neigh *svd_nh = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct l3vni_walk_ctx *wctx = ctx;
 
-	n = (struct zebra_neigh *)bucket->data;
 	zl3vni = (struct zebra_l3vni *)wctx->zl3vni;
 
 	/* remove SVD based remote nexthop neigh entry */
@@ -2978,17 +2960,18 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 		vty_json(vty, json);
 }
 
-static void l3vni_print_nh_table(struct hash *nh_table, struct vty *vty,
+static void l3vni_print_nh_table(struct zebra_neigh_db_head *nh_table, struct vty *vty,
 				 bool use_json)
 {
 	uint32_t num_nh;
 	struct nh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	json_object *json = NULL;
 
 	if (use_json)
 		json = json_object_new_object();
 
-	num_nh = hashcount(nh_table);
+	num_nh = zebra_neigh_db_count(nh_table);
 	if (!num_nh) {
 		if (use_json)
 			vty_json_empty(vty, json);
@@ -3004,7 +2987,8 @@ static void l3vni_print_nh_table(struct hash *nh_table, struct vty *vty,
 	} else
 		json_object_int_add(json, "numNextHops", num_nh);
 
-	hash_iterate(nh_table, zl3vni_print_nh_hash, &wctx);
+	frr_each (zebra_neigh_db, nh_table, n)
+		zl3vni_print_nh_hash(&wctx, n);
 
 	if (use_json)
 		vty_json(vty, json);
@@ -3147,6 +3131,7 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	json_object *json = NULL;
 
 	if (use_json)
@@ -3166,7 +3151,7 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 	if (!num_neigh)
 		return;
 
@@ -3177,21 +3162,23 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
-	wctx.addr_width = 15;
-	wctx.r_vtep_width = 39;
 	wctx.json = json;
-	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
-		     &wctx);
+
+	int addr_width = 0;
+	int r_vtep_width = 0;
+
+	zebra_evpn_find_neigh_addr_width(zevpn->neigh_table, &addr_width, &r_vtep_width);
 
 	if (!use_json) {
 		vty_out(vty,
 			"Number of ARPs (local and remote) known for this VNI: %u\n",
 			num_neigh);
-		zebra_evpn_print_neigh_hdr(vty, &wctx);
+		zebra_evpn_print_neigh_hdr(vty, addr_width, r_vtep_width);
 	} else
 		json_object_int_add(json, "numArpNd", num_neigh);
 
-	hash_iterate(zevpn->neigh_table, zebra_evpn_print_neigh_hash, &wctx);
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		zebra_evpn_print_neigh_hash(&wctx, n, addr_width, r_vtep_width);
 	if (use_json)
 		vty_json(vty, json);
 }
@@ -3310,6 +3297,7 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, v
 	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	json_object *json = NULL;
 
 	if (use_json)
@@ -3329,22 +3317,25 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, v
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 	if (!num_neigh)
 		return;
 
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
-	wctx.addr_width = 15;
-	/* r_vtep_width starts at 39 to print IPv6 vtep from remote MH neighbors */
-	wctx.r_vtep_width = 39;
 	wctx.flags = SHOW_REMOTE_NEIGH_FROM_VTEP;
 	wctx.r_vtep_ip = *vtep_ip;
 	wctx.json = json;
-	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
-		     &wctx);
-	hash_iterate(zevpn->neigh_table, zebra_evpn_print_neigh_hash, &wctx);
+
+	int addr_width = 15;
+	/* r_vtep_width starts at 39 to print IPv6 vtep from remote MH neighbors */
+	int r_vtep_width = 39;
+
+	zebra_evpn_find_neigh_addr_width(zevpn->neigh_table, &addr_width, &r_vtep_width);
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		zebra_evpn_print_neigh_hash(&wctx, n, addr_width, r_vtep_width);
 
 	if (use_json)
 		vty_json(vty, json);
@@ -3362,6 +3353,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
+	struct zebra_neigh *n;
 	json_object *json = NULL;
 
 	if (use_json)
@@ -3382,7 +3374,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 		return;
 	}
 
-	num_neigh = hashcount(zevpn->neigh_table);
+	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
 	if (!num_neigh)
 		return;
 
@@ -3397,23 +3389,24 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
-	wctx.addr_width = 15;
-	wctx.r_vtep_width = 39;
 	wctx.json = json;
-	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
-		     &wctx);
+
+	int addr_width = 15;
+	int r_vtep_width = 39;
+
+	zebra_evpn_find_neigh_addr_width(zevpn->neigh_table, &addr_width, &r_vtep_width);
 
 	if (!use_json) {
 		vty_out(vty,
 			"Number of ARPs (local and remote) known for this VNI: %u\n",
 			num_neigh);
-		vty_out(vty, "%*s %-6s %-8s %-17s %*s\n", -wctx.addr_width, "IP", "Type", "State",
-			"MAC", -wctx.r_vtep_width, "Remote ES/VTEP");
+		vty_out(vty, "%*s %-6s %-8s %-17s %*s\n", -addr_width, "IP", "Type", "State",
+			"MAC", -r_vtep_width, "Remote ES/VTEP");
 	} else
 		json_object_int_add(json, "numArpNd", num_neigh);
 
-	hash_iterate(zevpn->neigh_table, zebra_evpn_print_dad_neigh_hash,
-		     &wctx);
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		zebra_evpn_print_dad_neigh_hash(&wctx, n, addr_width, r_vtep_width);
 
 	if (use_json)
 		vty_json(vty, json);
@@ -3932,12 +3925,14 @@ static void zevpn_clear_dup_detect_hash_vni_all(struct hash_bucket *bucket,
 
 	zvrf = (struct zebra_vrf *)args[0];
 
-	if (hashcount(zevpn->neigh_table)) {
+	if (zebra_neigh_db_count(zevpn->neigh_table)) {
+		struct zebra_neigh *n;
+
 		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
 		n_wctx.zvrf = zvrf;
-		hash_iterate(zevpn->neigh_table,
-			     zebra_evpn_clear_dup_neigh_hash, &n_wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_clear_dup_neigh_hash(&n_wctx, n);
 	}
 
 	if (num_valid_macs(zevpn)) {
@@ -3980,12 +3975,14 @@ int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni)
 		return CMD_WARNING;
 	}
 
-	if (hashcount(zevpn->neigh_table)) {
+	if (zebra_neigh_db_count(zevpn->neigh_table)) {
+		struct zebra_neigh *n;
+
 		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
 		n_wctx.zvrf = zvrf;
-		hash_iterate(zevpn->neigh_table,
-			     zebra_evpn_clear_dup_neigh_hash, &n_wctx);
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_clear_dup_neigh_hash(&n_wctx, n);
 	}
 
 	if (num_valid_macs(zevpn)) {
@@ -5318,6 +5315,7 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 
 		/* process SVI up for l2-vni */
 		struct neigh_walk_ctx n_wctx;
+		struct zebra_neigh *n;
 
 		zevpn = zebra_evpn_from_svi(ifp, link_if);
 		if (!zevpn)
@@ -5350,8 +5348,9 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 		/* Install any remote neighbors for this VNI. */
 		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
-		hash_iterate(zevpn->neigh_table, zebra_evpn_install_neigh_hash,
-			     &n_wctx);
+
+		frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+			zebra_evpn_install_neigh_hash(&n_wctx, n);
 
 		/* Link the SVI from the access VLAN */
 		zebra_evpn_acc_bd_svi_set(ifp->info, link_if->info, true);
@@ -5544,6 +5543,7 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
 		struct l3vni_walk_ctx wctx;
+		struct zebra_neigh *n;
 
 		wctx.zl3vni = zl3vni;
 		wctx.gr_stale_cleanup = false;
@@ -5553,7 +5553,8 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &wctx);
 
 		/* delete and uninstall all next-hops */
-		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &wctx);
+		frr_each_safe (zebra_neigh_db, zl3vni->nh_table, n)
+			zl3vni_del_nh_hash_entry(&wctx, n);
 
 		zvrf->l3vni = 0;
 		zl3vni_del(zl3vni);
@@ -5582,6 +5583,7 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 {
 	struct zebra_l3vni *zl3vni = NULL;
 	struct l3vni_walk_ctx wctx;
+	struct zebra_neigh *n;
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
@@ -5597,7 +5599,8 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 	/* delete and uninstall all rmacs */
 	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &wctx);
 	/* delete and uninstall all next-hops */
-	hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &wctx);
+	frr_each_safe (zebra_neigh_db, zl3vni->nh_table, n)
+		zl3vni_del_nh_hash_entry(&wctx, n);
 
 	zl3vni->vrf_id = VRF_UNKNOWN;
 
@@ -6107,7 +6110,7 @@ void zebra_vxlan_init(void)
 	zrouter.l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
 					  "Zebra VRF L3 VNI table");
 
-	svd_nh_table = zebra_neigh_db_create("Zebra SVD next-hop table");
+	zebra_neigh_db_init(svd_nh_table);
 
 	zrouter.evpn_vrf = NULL;
 	zebra_evpn_mh_init();
@@ -6115,7 +6118,12 @@ void zebra_vxlan_init(void)
 
 void zebra_vxlan_terminate(void)
 {
-	hash_clean_and_free(&svd_nh_table, svd_nh_del_terminate);
+	struct zebra_neigh *n;
+
+	while ((n = zebra_neigh_db_pop(svd_nh_table)))
+		svd_nh_del_terminate(n);
+
+	zebra_neigh_db_fini(svd_nh_table);
 }
 
 /* free l3vni table */
@@ -6491,6 +6499,7 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (zl3vni) {
 		struct l3vni_walk_ctx l3wctx;
+		struct zebra_neigh *n;
 
 		l3wctx.zl3vni = zl3vni;
 		l3wctx.gr_stale_cleanup = stale_cleanup;
@@ -6499,7 +6508,8 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 		/* delete and uninstall all rmacs */
 		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &l3wctx);
 		/* delete and uninstall all next-hops */
-		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, &l3wctx);
+		frr_each_safe (zebra_neigh_db, zl3vni->nh_table, n)
+			zl3vni_del_nh_hash_entry(&l3wctx, n);
 	}
 }
 
