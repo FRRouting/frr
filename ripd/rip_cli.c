@@ -668,6 +668,38 @@ void cli_show_ripd_instance_default_bfd_profile(struct vty *vty,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/enable
+ */
+DEFPY_YANG(ip_rip_interface_enable, ip_rip_interface_enable_cmd,
+	   "[no] ip rip",
+	   NO_STR
+	   IP_STR
+	   RIP_STR)
+{
+	const struct lyd_node *interface_dnode = yang_dnode_get(vty->candidate_config->dnode,
+								VTY_CURR_XPATH);
+
+	if (interface_dnode == NULL) {
+		vty_out(vty, "%% Failed to find interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-ripd:rip/enable", NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void cli_show_lib_interface_rip_enable(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		vty_out(vty, " ip rip\n");
+	} else {
+		if (show_defaults)
+			vty_out(vty, " no ip rip\n");
+	}
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/split-horizon
  */
 DEFPY_YANG (ip_rip_split_horizon,
@@ -1299,6 +1331,7 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_bfd_default_profile_cmd);
 	install_default(RIP_NODE);
 
+	install_element(INTERFACE_NODE, &ip_rip_interface_enable_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_receive_version_cmd);
@@ -1417,6 +1450,10 @@ const struct frr_yang_module_info frr_ripd_cli_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-bfd-profile",
 			.cbs.cli_show = cli_show_ripd_instance_default_bfd_profile,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/enable",
+			.cbs.cli_show = cli_show_lib_interface_rip_enable,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",

@@ -169,6 +169,16 @@ RIP Configuration
    Set the default BFD profile to use for all RIP peers. This profile will be
    used when no specific profile is configured on an interface.
 
+
+In order to enable RIP functionality in the interfaces the following interface
+configuration is available:
+
+.. clicmd:: ip rip
+
+   Enables the RIP reception and sending of packets with other RIP router
+   neighbors.
+
+
 .. _rip-version-control:
 
 RIP Version Control
