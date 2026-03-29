@@ -26,6 +26,7 @@ extern int rip_interface_address_delete(int cmd, struct zclient *zclient, zebra_
 extern int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS);
 extern void rip_interface_sync(struct interface *ifp);
 extern int rip_enable_network_lookup2(struct connected *connected);
+extern bool rip_interface_is_enabled(struct connected *ifc);
 extern void rip_enable_apply(struct interface *ifp);
 extern void rip_enable_apply_all(struct rip *rip);
 
