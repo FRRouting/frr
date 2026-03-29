@@ -224,6 +224,130 @@ def test_fpm_connected_and_local_routes():
     assert success, f"Failed to find {result} local routes"
 
 
+def _get_nhg_for_prefix(router, prefix):
+    """
+    Helper: return (nhg_id, nhg_data) for a given route prefix string,
+    or (None, None) if not found.
+    """
+    route_info = router.vtysh_cmd("show ip route {} json".format(prefix))
+    try:
+        route_json = json.loads(route_info)
+    except json.JSONDecodeError:
+        return None, None
+
+    for pfx, routes in route_json.items():
+        if pfx == prefix:
+            nhg_id = routes[0].get("nexthopGroupId")
+            if nhg_id is None:
+                return None, None
+            nhg_info = router.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
+            try:
+                nhg_json = json.loads(nhg_info)
+                return nhg_id, nhg_json.get(str(nhg_id))
+            except json.JSONDecodeError:
+                return None, None
+    return None, None
+
+
+def _check_nhg_fpm_and_not_kernel(router, prefix, route_type):
+    """
+    Helper: assert that the NHG for prefix has been sent to FPM
+    while skipping kernel programming.
+    """
+
+    def check_nhg_sent_to_fpm():
+        nhg_id, nhg_data = _get_nhg_for_prefix(router, prefix)
+        if nhg_id is None or nhg_data is None:
+            return False
+        return nhg_data.get("fpm", False) is True
+
+    success, result = topotest.run_and_expect(
+        check_nhg_sent_to_fpm, True, count=60, wait=1
+    )
+    assert success, (
+        "{} route NHG ({}) was not sent to FPM "
+        "(NEXTHOP_GROUP_FPM flag not set). NHG data: {}".format(
+            route_type, prefix, result
+        )
+    )
+
+    def check_nhg_not_in_kernel():
+        nhg_id, _ = _get_nhg_for_prefix(router, prefix)
+        if nhg_id is None:
+            return False
+        output = router.run("ip nexthop show")
+        return "id {} ".format(nhg_id) not in output
+
+    success, _ = topotest.run_and_expect(
+        check_nhg_not_in_kernel, True, count=30, wait=1
+    )
+    assert (
+        success
+    ), "{} route NHG ({}) was unexpectedly installed in the Linux kernel.".format(
+        route_type, prefix
+    )
+
+
+def test_fpm_system_route_nhg_sent_to_fpm_not_kernel():
+    """
+    Test that NHGs for system routes (connected, local, kernel) are forwarded
+    to FPM but NOT installed in the kernel.
+      - FPM provider receives and sends the NHG  (NEXTHOP_GROUP_FPM flag set)
+      - Kernel provider skips netlink programming (NHG absent from kernel)
+
+    Three sub-cases are verified:
+      1. Connected route  (ZEBRA_ROUTE_CONNECT) - 172.16.1.0/24
+      2. Local route      (ZEBRA_ROUTE_LOCAL)   - 172.16.1.1/32
+      3. Kernel route     (ZEBRA_ROUTE_KERNEL)  - 172.16.2.0/24
+    """
+
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+
+    # Sub-case 1 & 2: connected + local routes
+    router.vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth0
+        ip address 172.16.1.1/24
+        """
+    )
+
+    _check_nhg_fpm_and_not_kernel(router, "172.16.1.0/24", "connected")
+    _check_nhg_fpm_and_not_kernel(router, "172.16.1.1/32", "local")
+
+    # Cleanup sub-case 1 & 2
+    router.vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth0
+        no ip address 172.16.1.1/24
+        """
+    )
+
+    # Sub-case 3: kernel route
+    router.run("ip route add 172.16.2.0/24 dev r1-eth0")
+
+    def kernel_route_visible():
+        route_info = router.vtysh_cmd("show ip route 172.16.2.0/24 json")
+        try:
+            rj = json.loads(route_info)
+            for pfx, routes in rj.items():
+                if pfx == "172.16.2.0/24":
+                    return routes[0].get("protocol") == "kernel"
+        except (json.JSONDecodeError, KeyError, IndexError):
+            pass
+        return False
+
+    success, _ = topotest.run_and_expect(kernel_route_visible, True, count=30, wait=1)
+    assert success, "Kernel route 172.16.2.0/24 did not appear in zebra RIB"
+
+    _check_nhg_fpm_and_not_kernel(router, "172.16.2.0/24", "kernel")
+
+    # Cleanup sub-case 3
+    router.run("ip route del 172.16.2.0/24 dev r1-eth0")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
