@@ -1745,7 +1745,7 @@ zebra_evpn_send_neigh_hash_entry_to_client(struct hash_bucket *bucket,
 /* Iterator of a specific EVPN */
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn)
 {
-	struct neigh_walk_ctx wctx;
+	struct mac_walk_ctx wctx;
 
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
