@@ -824,19 +824,12 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_c
 			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
 	struct zebra_neigh *n;
-	/* FIXME: this was previously passed in through neigh_walk_ctx, but not set anywhere! */
-	struct ipaddr r_vtep_ip = { IPADDR_NONE };
 
 	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
 		bool hit_local = (flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL);
 		bool hit_remote = (flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE);
 
-		/* FIXME: this condition is BROKEN, r_vtep_ip is never set! */
-		bool hit_vtep = (flags & DEL_REMOTE_NEIGH_FROM_VTEP) &&
-				(n->flags & ZEBRA_NEIGH_REMOTE) &&
-				ipaddr_is_same(&n->r_vtep_ip, &r_vtep_ip);
-
-		if (!hit_local && !hit_remote && !hit_vtep)
+		if (!hit_local && !hit_remote)
 			continue;
 
 		/*

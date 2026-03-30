@@ -144,8 +144,7 @@ struct neigh_walk_ctx {
 	uint32_t flags;
 #define DEL_LOCAL_NEIGH 0x1
 #define DEL_REMOTE_NEIGH 0x2
-#define DEL_ALL_NEIGH (DEL_LOCAL_NEIGH | DEL_REMOTE_NEIGH)
-#define DEL_REMOTE_NEIGH_FROM_VTEP 0x4
+#define DEL_ALL_NEIGH		    (DEL_LOCAL_NEIGH | DEL_REMOTE_NEIGH)
 #define SHOW_REMOTE_NEIGH_FROM_VTEP 0x8
 
 	struct ipaddr r_vtep_ip; /* To walk neighbors from specific VTEP */

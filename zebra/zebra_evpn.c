@@ -1640,7 +1640,7 @@ void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 		zevpn->advertise_subnet = 0;
 	}
 
-	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_REMOTE_NEIGH | DEL_REMOTE_NEIGH_FROM_VTEP, wctx);
+	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_REMOTE_NEIGH, wctx);
 	zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_REMOTE_MAC | DEL_REMOTE_MAC_FROM_VTEP, wctx);
 	zebra_evpn_vtep_del_all(zevpn, 1, wctx);
 }
