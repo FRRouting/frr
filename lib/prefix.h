@@ -375,11 +375,6 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 /* Prefix's family member. */
 #define PREFIX_FAMILY(p)  ((p)->family)
 
-/* glibc defines s6_addr32 to __in6_u.__u6_addr32 if __USE_{MISC || GNU} */
-#ifndef s6_addr32
-#define s6_addr32 __u6_addr.__u6_addr32
-#endif /*s6_addr32*/
-
 /* Prototypes. */
 extern int str2family(const char *string);
 extern int afi2family(afi_t afi);
