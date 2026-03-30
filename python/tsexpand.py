@@ -30,7 +30,7 @@ import subprocess
 import shlex
 
 decl_re = re.compile(
-    r"""(?<=\n)[ \t]*DECLARE_(LIST|ATOMLIST|DLIST|HEAP|HASH|(SORTLIST|SKIPLIST|RBTREE|ATOMSORT)_(NON)?UNIQ)\(\s*(?P<name>[^, \t\n]+)\s*,[^)]+\)\s*;[ \t]*\n"""
+    r"""(?<=\n)[ \t]*(PREDECL|DECLARE)_(LIST|ATOMLIST|DLIST|HEAP|HASH|(SORTLIST|SKIPLIST|RBTREE|ATOMSORT)_(NON)?UNIQ)\(\s*(?P<name>[^, \t\n]+)\s*(,[^)]+)?\)\s*;[ \t]*\n"""
 )
 kill_re = re.compile(r"""(?<=\n)[^\n]*/\* \$ts_expand: remove\$ \*/\n""")
 
@@ -78,6 +78,7 @@ def process_file(filename):
                 + [
                     "-P",
                     "-D_TYPESAFE_EXPAND_MACROS",
+                    "-DMACRO_REQUIRE_SEMICOLON()=",
                     "-imacros",
                     "lib/atomlist.h",
                     "-",
