@@ -1914,27 +1914,28 @@ static void interface_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 	uint16_t vid_range_start = 0;
 	int32_t i;
 
+	/* Could we have multiple bridge vlan infos? */
+	bvarray = dplane_ctx_get_ifp_bridge_vlan_info_array(ctx);
+	if (!bvarray)
+		return;
+
 	/* cache the old bitmap addrs */
 	old_vlan_bitmap = zif->vlan_bitmap;
 	/* create a new bitmap space for re-eval */
 	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
 
-	/* Could we have multiple bridge vlan infos? */
-	bvarray = dplane_ctx_get_ifp_bridge_vlan_info_array(ctx);
-	if (bvarray) {
-		for (i = 0; i < bvarray->count; i++) {
-			bvinfo = bvarray->array[i];
+	for (i = 0; i < bvarray->count; i++) {
+		bvinfo = bvarray->array[i];
 
-			if (bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-				vid_range_start = bvinfo.vid;
-				continue;
-			}
-
-			if (!(bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_RANGE_END))
-				vid_range_start = bvinfo.vid;
-
-			zebra_vlan_bitmap_compute(ifp, vid_range_start, bvinfo.vid);
+		if (bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+			vid_range_start = bvinfo.vid;
+			continue;
 		}
+
+		if (!(bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_RANGE_END))
+			vid_range_start = bvinfo.vid;
+
+		zebra_vlan_bitmap_compute(ifp, vid_range_start, bvinfo.vid);
 	}
 
 	zebra_vlan_mbr_re_eval(ifp, old_vlan_bitmap);
