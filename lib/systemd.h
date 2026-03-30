@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+struct event_loop;
+
 /* fd 1/2 connected to journald? */
 extern bool sd_stdout_is_journal;
 extern bool sd_stderr_is_journal;

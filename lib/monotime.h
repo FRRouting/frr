@@ -6,7 +6,10 @@
 #ifndef _FRR_MONOTIME_H
 #define _FRR_MONOTIME_H
 
+#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
 

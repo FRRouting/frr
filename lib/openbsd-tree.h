@@ -7,6 +7,8 @@
 #ifndef _SYS_TREE_H_
 #define	_SYS_TREE_H_
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

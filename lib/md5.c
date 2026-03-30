@@ -13,6 +13,7 @@
  */
 
 #include <zebra.h>
+#include <string.h>
 #include "md5.h"
 
 #define SHIFT(X, s) (((X) << (s)) | ((X) >> (32 - (s))))

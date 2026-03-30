@@ -20,6 +20,8 @@
 #ifndef _QUAGGA_JHASH_H
 #define _QUAGGA_JHASH_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

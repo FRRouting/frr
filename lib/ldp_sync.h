@@ -7,6 +7,10 @@
 #ifndef _LIBLDPSYNC_H
 #define _LIBLDPSYNC_H
 
+#include <stdint.h>
+
+#include "lib/if.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -8,6 +8,8 @@
 
 #include "zebra.h"
 
+#include <string.h>
+
 #include "frrstr.h"
 #include "memory.h"
 #include "vector.h"

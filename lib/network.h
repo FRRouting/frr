@@ -7,6 +7,9 @@
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
 
+#include <stdint.h>
+#include <stdlib.h>
+
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif

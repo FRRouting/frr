@@ -7,9 +7,16 @@
 #ifndef _FRR_YANG_TRANSLATOR_H_
 #define _FRR_YANG_TRANSLATOR_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "lib/openbsd-tree.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct lyd_node;
 
 #define YANG_TRANSLATE_TO_NATIVE 0
 #define YANG_TRANSLATE_FROM_NATIVE 1

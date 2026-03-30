@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <string.h>
 
 #include "defaults.h"
 #include "lib/version.h"

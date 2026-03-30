@@ -10,6 +10,8 @@
 
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/types.h>
+
 #include "lib/queue.h"
 
 #ifdef __cplusplus

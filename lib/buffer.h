@@ -7,6 +7,9 @@
 #ifndef _ZEBRA_BUFFER_H
 #define _ZEBRA_BUFFER_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

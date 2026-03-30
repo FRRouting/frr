@@ -3,9 +3,14 @@
 #ifndef _FRR_ROUTING_NB_H_
 #define _FRR_ROUTING_NB_H_
 
+#include "lib/hook.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct nb_cb_create_args;
+struct nb_cb_destroy_args;
 
 extern const struct frr_yang_module_info frr_routing_info;
 extern const struct frr_yang_module_info frr_routing_cli_info;

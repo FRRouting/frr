@@ -6,6 +6,9 @@
 #ifndef _FRR_PW_H
 #define _FRR_PW_H
 
+#include <stdint.h>
+#include <netinet/in.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

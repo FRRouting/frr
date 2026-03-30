@@ -7,6 +7,7 @@
 #define _FRR_ZLOG_5424_H
 
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 #include "lib/typesafe.h"
 #include "zlog.h"

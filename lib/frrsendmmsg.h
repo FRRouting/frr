@@ -7,6 +7,8 @@
 #ifndef __FRRSENDMMSG_H__
 #define __FRRSENDMMSG_H__
 
+#include <sys/socket.h>
+
 #if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
 /* avoid conflicts in case we have partial support */
 #define mmsghdr	 frr_mmsghdr

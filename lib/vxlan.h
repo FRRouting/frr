@@ -6,6 +6,8 @@
 #ifndef __VXLAN_H__
 #define __VXLAN_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -12,12 +12,15 @@
 #ifndef _FRR_LINK_STATE_H_
 #define _FRR_LINK_STATE_H_
 
-#include "admin_group.h"
-#include "typesafe.h"
+#include "lib/typesafe.h"
+#include "lib/prefix.h"
+#include "lib/admin_group.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct stream;
 
 /**
  * This file defines the model used to implement a Link State Database

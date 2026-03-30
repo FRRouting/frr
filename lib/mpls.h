@@ -8,6 +8,8 @@
 #define _QUAGGA_MPLS_H
 
 #include <zebra.h>
+#include <string.h>
+
 #include <vxlan.h>
 #include <arpa/inet.h>
 

@@ -8,6 +8,8 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
+#include <sys/types.h>
+
 #ifdef GIT_VERSION
 #include "lib/gitversion.h"
 #endif

@@ -7,6 +7,8 @@
 #ifndef __WHEEL_H__
 #define __WHEEL_H__
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

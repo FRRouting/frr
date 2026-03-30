@@ -8,6 +8,10 @@
 #ifndef _FRR_SRTE_H
 #define _FRR_SRTE_H
 
+#include <stdint.h>
+
+#include "lib/ipaddr.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

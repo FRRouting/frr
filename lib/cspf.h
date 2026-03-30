@@ -12,11 +12,15 @@
 #ifndef _FRR_CSPF_H_
 #define _FRR_CSPF_H_
 
+#include <netinet/in.h>
+
 #include "typesafe.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct ls_ted;
 
 /**
  * This file defines the different structure used for Path Computation with
