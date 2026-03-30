@@ -818,27 +818,39 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 }
 
 /*
- * Free neighbor hash entry (callback)
+ * Delete all neighbor entries for this EVPN.
  */
-static void zebra_evpn_neigh_del_hash_entry(struct neigh_walk_ctx *wctx, struct zebra_neigh *n,
-					    bool uninstall, bool upd_client)
+void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
 {
-	if (((wctx->flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL)) ||
-	    ((wctx->flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE)) ||
-	    ((wctx->flags & DEL_REMOTE_NEIGH_FROM_VTEP) && (n->flags & ZEBRA_NEIGH_REMOTE) &&
-	     ipaddr_is_same(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
+	struct zebra_neigh *n;
+	/* FIXME: this was previously passed in through neigh_walk_ctx, but not set anywhere! */
+	struct ipaddr r_vtep_ip = { IPADDR_NONE };
+
+	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
+		bool hit_local = (flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL);
+		bool hit_remote = (flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE);
+
+		/* FIXME: this condition is BROKEN, r_vtep_ip is never set! */
+		bool hit_vtep = (flags & DEL_REMOTE_NEIGH_FROM_VTEP) &&
+				(n->flags & ZEBRA_NEIGH_REMOTE) &&
+				ipaddr_is_same(&n->r_vtep_ip, &r_vtep_ip);
+
+		if (!hit_local && !hit_remote && !hit_vtep)
+			continue;
+
 		/*
 		 * If we are doing stale cleanup of remote neighs
 		 * and if this neigh is not marked stale, then don't delete it.
 		 */
-		if (wctx->gr_stale_cleanup && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
-		    (n->gr_refresh_time > wctx->gr_cleanup_time))
-			return;
+		if (l2_wctx && l2_wctx->gr_stale_cleanup &&
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+		    (n->gr_refresh_time > l2_wctx->gr_cleanup_time))
+			continue;
 
 		if (upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
-			zebra_evpn_neigh_send_del_to_client(
-				wctx->zevpn->vni, &n->ip, &n->emac, n->flags,
-				n->state, false /*force*/);
+			zebra_evpn_neigh_send_del_to_client(zevpn->vni, &n->ip, &n->emac, n->flags,
+							    n->state, false /*force*/);
 
 		if (uninstall) {
 			if (zebra_evpn_neigh_is_static(n))
@@ -847,34 +859,11 @@ static void zebra_evpn_neigh_del_hash_entry(struct neigh_walk_ctx *wctx, struct 
 					true /* force_clear_static */,
 					__func__);
 			if ((n->flags & ZEBRA_NEIGH_REMOTE))
-				zebra_evpn_neigh_uninstall(wctx->zevpn, n);
+				zebra_evpn_neigh_uninstall(zevpn, n);
 		}
 
-		zebra_evpn_neigh_del(wctx->zevpn, n);
+		zebra_evpn_neigh_del(zevpn, n);
 	}
-
-	return;
-}
-
-/*
- * Delete all neighbor entries for this EVPN.
- */
-void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
-			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx)
-{
-	struct neigh_walk_ctx wctx;
-	struct zebra_neigh *n;
-
-	memset(&wctx, 0, sizeof(wctx));
-	wctx.zevpn = zevpn;
-	wctx.flags = flags;
-	if (l2_wctx) {
-		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
-		wctx.gr_cleanup_time = l2_wctx->gr_cleanup_time;
-	}
-
-	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n)
-		zebra_evpn_neigh_del_hash_entry(&wctx, n, uninstall, upd_client);
 }
 
 /*
