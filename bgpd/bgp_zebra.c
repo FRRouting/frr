@@ -4044,7 +4044,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	char buf[256];
 	uint32_t sid_func, sid_wide_func = 0;
 	char *loc_name;
-	int ret_bgp = 0, ret_rmap = 0;
+	int ret_bgp = 1, ret_rmap = 1;
 	char errmsg[BUFSIZ] = { 0 };
 	bool func_wide = false;
 	struct bgp_srv6_per_locator_cache *bslc = NULL;
@@ -4180,10 +4180,15 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 end_sid_notify:
+	if (note == ZAPI_SRV6_SID_RELEASED)
+		/* no specific log messages are displayed in this case */
+		return;
+
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%s", errmsg);
 
-	if (note == ZAPI_SRV6_SID_FAIL_ALLOC)
+	/* the only case that reaches this code is SID_ALLOC, and there is an error */
+	if (note == ZAPI_SRV6_SID_ALLOCATED)
 		bgp_zebra_release_srv6_sid(&ctx, loc_name);
 
 	return 0;
