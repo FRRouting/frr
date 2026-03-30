@@ -820,7 +820,8 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 /*
  * Free neighbor hash entry (callback)
  */
-static void zebra_evpn_neigh_del_hash_entry(struct neigh_walk_ctx *wctx, struct zebra_neigh *n)
+static void zebra_evpn_neigh_del_hash_entry(struct neigh_walk_ctx *wctx, struct zebra_neigh *n,
+					    bool uninstall, bool upd_client)
 {
 	if (((wctx->flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL)) ||
 	    ((wctx->flags & DEL_REMOTE_NEIGH) && (n->flags & ZEBRA_NEIGH_REMOTE)) ||
@@ -834,12 +835,12 @@ static void zebra_evpn_neigh_del_hash_entry(struct neigh_walk_ctx *wctx, struct 
 		    (n->gr_refresh_time > wctx->gr_cleanup_time))
 			return;
 
-		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
+		if (upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
 			zebra_evpn_neigh_send_del_to_client(
 				wctx->zevpn->vni, &n->ip, &n->emac, n->flags,
 				n->state, false /*force*/);
 
-		if (wctx->uninstall) {
+		if (uninstall) {
 			if (zebra_evpn_neigh_is_static(n))
 				zebra_evpn_sync_neigh_dp_install(
 					n, false /* set_inactive */,
@@ -866,8 +867,6 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_c
 
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
-	wctx.uninstall = uninstall;
-	wctx.upd_client = upd_client;
 	wctx.flags = flags;
 	if (l2_wctx) {
 		wctx.gr_stale_cleanup = l2_wctx->gr_stale_cleanup;
@@ -875,7 +874,7 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_c
 	}
 
 	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n)
-		zebra_evpn_neigh_del_hash_entry(&wctx, n);
+		zebra_evpn_neigh_del_hash_entry(&wctx, n, uninstall, upd_client);
 }
 
 /*

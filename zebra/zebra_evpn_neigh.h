@@ -140,8 +140,6 @@ DECLARE_HASH(zebra_neigh_db, struct zebra_neigh, znd_item, zebra_neigh_cmp, zebr
  */
 struct neigh_walk_ctx {
 	struct zebra_evpn *zevpn; /* VNI hash */
-	int uninstall;		/* uninstall from kernel? */
-	int upd_client;		/* uninstall from client? */
 
 	uint32_t flags;
 #define DEL_LOCAL_NEIGH 0x1
