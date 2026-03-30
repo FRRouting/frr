@@ -30,7 +30,7 @@ GRPC_TESTS_LDADD = mgmtd/libmgmt_be_nb.la staticd/libstatic.a grpc/libfrrgrpc_pb
 if GRPC
 check_PROGRAMS += tests/lib/test_grpc
 endif
-tests_lib_test_grpc_CXXFLAGS = $(WERROR) $(TESTS_CXXFLAGS)
+tests_lib_test_grpc_CXXFLAGS = $(WERROR) $(TESTS_CXXFLAGS) $(GRPC_CXXFLAGS)
 tests_lib_test_grpc_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_grpc_LDADD = $(GRPC_TESTS_LDADD)
 tests_lib_test_grpc_SOURCES = tests/lib/test_grpc.cpp
