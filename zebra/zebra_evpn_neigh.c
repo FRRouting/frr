@@ -119,11 +119,10 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 /*
  * Install neighbor hash entry - called upon access VLAN change.
  */
-void zebra_evpn_install_neigh_hash(struct neigh_walk_ctx *wctx, struct zebra_neigh *n)
+void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 {
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-		zebra_evpn_rem_neigh_install(wctx->zevpn, n,
-					     false /*was_static*/);
+		zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
 }
 
 /*
@@ -1690,15 +1689,12 @@ void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn)
 		zebra_evpn_send_neigh_hash_entry_to_client(&wctx, n);
 }
 
-void zebra_evpn_clear_dup_neigh_hash(struct neigh_walk_ctx *wctx, struct zebra_neigh *nbr)
+void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *nbr)
 {
-	struct zebra_evpn *zevpn;
 	char buf[INET6_ADDRSTRLEN];
 
 	if (!nbr)
 		return;
-
-	zevpn = wctx->zevpn;
 
 	if (!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE))
 		return;

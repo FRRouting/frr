@@ -140,7 +140,6 @@ DECLARE_HASH(zebra_neigh_db, struct zebra_neigh, znd_item, zebra_neigh_cmp, zebr
  */
 struct neigh_walk_ctx {
 	struct zebra_evpn *zevpn; /* VNI hash */
-	struct zebra_vrf *zvrf; /* VRF - for client notification. */
 	int uninstall;		/* uninstall from kernel? */
 	int upd_client;		/* uninstall from client? */
 
@@ -234,7 +233,7 @@ void zebra_evpn_find_neigh_addr_width(const struct zebra_neigh_db_head *table,
 int remote_neigh_count(struct zebra_mac *zmac);
 int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static);
-void zebra_evpn_install_neigh_hash(struct neigh_walk_ctx *ctx, struct zebra_neigh *n);
+void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
 int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 					const struct ethaddr *macaddr,
 					struct zebra_mac *zmac,
@@ -278,7 +277,7 @@ int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *i
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
-void zebra_evpn_clear_dup_neigh_hash(struct neigh_walk_ctx *ctx, struct zebra_neigh *n);
+void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
 void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object *json);
 void zebra_evpn_print_neigh_hash(struct neigh_walk_ctx *ctx, const struct zebra_neigh *n,
 				 int addr_width, int r_vtep_width);

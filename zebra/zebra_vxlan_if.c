@@ -387,18 +387,14 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE))
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		else if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
-			struct neigh_walk_ctx n_wctx;
 			struct zebra_neigh *n;
 
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 
 			zebra_evpn_rem_mac_install_all(zevpn);
 
-			memset(&n_wctx, 0, sizeof(n_wctx));
-			n_wctx.zevpn = zevpn;
-
 			frr_each (zebra_neigh_db, zevpn->neigh_table, n)
-				zebra_evpn_install_neigh_hash(&n_wctx, n);
+				zebra_evpn_install_neigh_hash(zevpn, n);
 		}
 	}
 
