@@ -33,8 +33,7 @@ enum bgp_fsm_state_progress {
 		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                            \
 		    PEER_ROUTE_ADV_DELAY(peer))                                       \
 			event_add_timer_msec(bm->master, (F), connection,             \
-					     (BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * \
-					      1000),                                  \
+					     BGP_SUPPRESS_FIB_ADV_DELAY_MSEC,         \
 					     (T));                                    \
 		else                                                                  \
 			event_add_timer_msec(bm->master, (F), connection, 0,          \

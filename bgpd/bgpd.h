@@ -2486,7 +2486,8 @@ struct bgp_nlri {
 #define BGP_DEFAULT_STALEPATH_TIME             360
 #define BGP_DEFAULT_SELECT_DEFERRAL_TIME       120
 #define BGP_DEFAULT_RIB_STALE_TIME             500
-#define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
+/* Post-FIB-confirmation batching delay for suppress-fib advertisement (ms) */
+#define BGP_SUPPRESS_FIB_ADV_DELAY_MSEC       50
 
 /* BGP Long-lived Graceful Restart */
 #define BGP_DEFAULT_LLGR_STALE_TIME 0
