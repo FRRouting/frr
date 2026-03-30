@@ -26,6 +26,8 @@
 extern "C" {
 #endif
 
+struct zebra_vxlan_if_update_ctx;
+
 extern void *zebra_vxlan_vni_alloc(void *p);
 extern void zebra_vxlan_vni_free(void *arg);
 extern struct hash *zebra_vxlan_vni_table_create(void);

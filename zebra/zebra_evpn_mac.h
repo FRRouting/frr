@@ -9,12 +9,23 @@
 #ifndef _ZEBRA_EVPN_MAC_H
 #define _ZEBRA_EVPN_MAC_H
 
-#include "zebra/zebra_evpn.h"
+#include <stdint.h>
+
+#include "lib/typesafe.h"
+#include "lib/linklist.h"
+#include "lib/hash.h"
+#include "lib/vlan.h"	/* vlanid_t */
+#include "lib/vxlan.h"	/* vni_t */
+#include "lib/prefix.h" /* esi_t, ethaddr */
+#include "lib/if.h"
+#include "lib/ns.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef struct json_object json_object;
+struct l2vni_walk_ctx;
 
 struct host_rb_entry {
 	RB_ENTRY(host_rb_entry) hl_entry;
@@ -23,9 +34,6 @@ struct host_rb_entry {
 	uint32_t pathcnt;
 };
 
-RB_HEAD(host_rb_tree_entry, host_rb_entry);
-RB_PROTOTYPE(host_rb_tree_entry, host_rb_entry, hl_entry,
-	     host_rb_entry_compare);
 /*
  * MAC hash table.
  *

@@ -16,6 +16,7 @@
 #include "zebra_vxlan_if.h"
 #include "zebra_evpn.h"
 #include "zebra_evpn_mac.h"
+#include "zebra_evpn_neigh.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -18,6 +18,7 @@
 #include "debug.h"
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
+#include "zebra/interface.h"
 #include "zebra_pbr.h"
 #include "zebra_tc.h"
 #include "rib.h"

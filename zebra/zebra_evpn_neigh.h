@@ -9,9 +9,20 @@
 #ifndef _ZEBRA_EVPN_NEIGH_H
 #define _ZEBRA_EVPN_NEIGH_H
 
+#include "lib/typesafe.h"
+#include "lib/zclient.h"
+
+#include "zebra/debug.h"
+
+#include "zebra/zebra_evpn_base.h"
+#include "zebra/zebra_evpn_mac.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct json_object json_object;
+struct l2vni_walk_ctx;
 
 #define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 

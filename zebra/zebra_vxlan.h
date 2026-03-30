@@ -8,23 +8,24 @@
 #ifndef _ZEBRA_VXLAN_H
 #define _ZEBRA_VXLAN_H
 
-#include <zebra.h>
-#include <zebra/zebra_router.h>
+#include <stdint.h>
 
-#include "linklist.h"
-#include "if.h"
-#include "vlan.h"
-#include "vxlan.h"
+#include "lib/vlan.h"
+#include "lib/vxlan.h"
+#include "lib/ipaddr.h"
+#include "lib/if.h"
 
-#include "lib/json.h"
+#include "zebra/zserv.h" /* ZAPI_HANDLER_ARGS */
 #include "zebra/zebra_vrf.h"
-#include "zebra/zserv.h"
-#include "zebra/zebra_dplane.h"
-#include "zebra/interface.h"
+#include "zebra/zebra_router.h" /* zebra_vrf_get_evpn */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct json_object json_object;
+struct zebra_dplane_ctx;
+struct zebra_vxlan_if_update_ctx;
 
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni

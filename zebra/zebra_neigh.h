@@ -9,9 +9,14 @@
 #ifndef _ZEBRA_NEIGH_H
 #define _ZEBRA_NEIGH_H
 
-#include <zebra.h>
+#include "lib/typesafe.h"
+#include "lib/ipaddr.h"
+#include "lib/prefix.h"
+#include "lib/ns.h"
+#include "lib/if.h"
 
-#include "if.h"
+struct zebra_pbr_rule;
+struct zebra_dplane_ctx;
 
 #define zneigh_info zrouter.neigh_info
 
