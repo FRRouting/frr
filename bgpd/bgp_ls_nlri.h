@@ -63,6 +63,7 @@ enum bgp_ls_node_descriptor_tlv {
 	BGP_LS_TLV_BGP_LS_ID = 513, /* BGP-LS Identifier (deprecated) - RFC 9552, Section 5.2.1.4 */
 	BGP_LS_TLV_OSPF_AREA_ID = 514,	/* OSPF Area-ID - RFC 9552, Section 5.2.1.4 */
 	BGP_LS_TLV_IGP_ROUTER_ID = 515, /* IGP Router-ID - RFC 9552, Section 5.2.1.4 */
+	BGP_LS_TLV_BGP_ROUTER_ID = 516, /* BGP Router-ID - RFC 9086 */
 };
 
 /*
@@ -186,6 +187,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_NODE_DESC_BGP_LS_ID_BIT	1
 #define BGP_LS_NODE_DESC_OSPF_AREA_BIT	2
 #define BGP_LS_NODE_DESC_IGP_ROUTER_BIT 3
+#define BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT 4
 
 /* Bit positions for Link Descriptor TLVs */
 #define BGP_LS_LINK_DESC_LINK_ID_BIT	0
@@ -239,6 +241,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_OSPF_ROUTE_TYPE_SIZE 1		     /* OSPF Route Type value */
 #define BGP_LS_MT_ID_SIZE	    2		     /* Multi-Topology ID (per entry) */
 #define BGP_LS_PREFIX_LEN_SIZE	    1		     /* IP prefix length field */
+#define BGP_LS_BGP_ROUTER_ID_SIZE   4		     /* BGP Router-ID value */
 
 /*
  * IGP Metric can be 1, 2, or 3 bytes
@@ -347,6 +350,7 @@ struct bgp_ls_node_descriptor {
 	uint32_t ospf_area_id;	   /* OSPF Area ID */
 	uint8_t igp_router_id_len; /* Length of IGP Router ID (4-16 bytes) */
 	uint8_t igp_router_id[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* IGP Router ID (ISIS, OSPF, Direct, or Static configuration) */
+	struct in_addr bgp_router_id;			      /* BGP Router-ID (TLV 516) */
 };
 
 /*

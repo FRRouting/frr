@@ -59,6 +59,9 @@ static json_object *node_desc_to_json(struct bgp_ls_node_descriptor *node)
 		json_object_string_add(json_node, "igpRouterId", igp_router_id);
 	}
 
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
+		json_object_string_addf(json_node, "bgpRouterId", "%pI4", &node->bgp_router_id);
+
 	return json_node;
 }
 
@@ -223,6 +226,13 @@ static void format_node_desc(char **p, size_t *remain, struct bgp_ls_node_descri
 			}
 		}
 		len = snprintfrr(*p, *remain, "]");
+		*p += len;
+		*remain -= len;
+	}
+
+	/* BGP Router ID (TLV 516) */
+	if (BGP_LS_TLV_CHECK(node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[q%pI4]", &node->bgp_router_id);
 		*p += len;
 		*remain -= len;
 	}

@@ -60,6 +60,13 @@ int bgp_ls_node_descriptor_cmp(const struct bgp_ls_node_descriptor *d1,
 			return ret;
 	}
 
+	/* Compare BGP Router ID if present */
+	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT)) {
+		ret = IPV4_ADDR_CMP(&d1->bgp_router_id, &d2->bgp_router_id);
+		if (ret != 0)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -705,10 +712,13 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 			return false;
 
 		/* IGP Router ID is mandatory (RFC 9552 Section 5.2.1.4) */
-		if (!BGP_LS_TLV_CHECK(n->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		if (!BGP_LS_TLV_CHECK(n->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !BGP_LS_TLV_CHECK(n->local_node.present_tlvs,
+				      BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			return false;
 
-		if (!bgp_ls_igp_router_id_len_valid(n->protocol_id,
+		if (BGP_LS_TLV_CHECK(n->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !bgp_ls_igp_router_id_len_valid(n->protocol_id,
 						    n->local_node.igp_router_id_len))
 			return false;
 
@@ -722,17 +732,24 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 			return false;
 
 		/* Local node IGP Router ID is mandatory */
-		if (!BGP_LS_TLV_CHECK(l->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		if (!BGP_LS_TLV_CHECK(l->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !BGP_LS_TLV_CHECK(l->local_node.present_tlvs,
+				      BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			return false;
 
 		/* Remote node IGP Router ID is mandatory */
-		if (!BGP_LS_TLV_CHECK(l->remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		if (!BGP_LS_TLV_CHECK(l->remote_node.present_tlvs,
+				      BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !BGP_LS_TLV_CHECK(l->remote_node.present_tlvs,
+				      BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			return false;
 
-		if (!bgp_ls_igp_router_id_len_valid(l->protocol_id,
-						    l->local_node.igp_router_id_len) ||
-		    !bgp_ls_igp_router_id_len_valid(l->protocol_id,
-						    l->remote_node.igp_router_id_len))
+		if ((BGP_LS_TLV_CHECK(l->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		     !bgp_ls_igp_router_id_len_valid(l->protocol_id,
+						     l->local_node.igp_router_id_len)) ||
+		    (BGP_LS_TLV_CHECK(l->remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		     !bgp_ls_igp_router_id_len_valid(l->protocol_id,
+						     l->remote_node.igp_router_id_len)))
 			return false;
 
 		return true;
@@ -745,10 +762,13 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 			return false;
 
 		/* Local node IGP Router ID is mandatory */
-		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !BGP_LS_TLV_CHECK(p->local_node.present_tlvs,
+				      BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			return false;
 
-		if (!bgp_ls_igp_router_id_len_valid(p->protocol_id,
+		if (BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !bgp_ls_igp_router_id_len_valid(p->protocol_id,
 						    p->local_node.igp_router_id_len))
 			return false;
 
@@ -766,10 +786,13 @@ bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri)
 			return false;
 
 		/* Local node IGP Router ID is mandatory */
-		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
+		if (!BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !BGP_LS_TLV_CHECK(p->local_node.present_tlvs,
+				      BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			return false;
 
-		if (!bgp_ls_igp_router_id_len_valid(p->protocol_id,
+		if (BGP_LS_TLV_CHECK(p->local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT) &&
+		    !bgp_ls_igp_router_id_len_valid(p->protocol_id,
 						    p->local_node.igp_router_id_len))
 			return false;
 
@@ -811,6 +834,9 @@ static size_t bgp_ls_node_descriptor_size(const struct bgp_ls_node_descriptor *d
 	/* IGP Router ID TLV */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
 		size += BGP_LS_TLV_HDR_SIZE + desc->igp_router_id_len;
+	/* BGP Router ID TLV */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
+		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_BGP_ROUTER_ID_SIZE;
 
 	return size;
 }
@@ -959,6 +985,8 @@ const char *bgp_ls_node_descriptor_tlv_str(enum bgp_ls_node_descriptor_tlv tlv_t
 		return "OSPF Area-ID";
 	case BGP_LS_TLV_IGP_ROUTER_ID:
 		return "IGP Router-ID";
+	case BGP_LS_TLV_BGP_ROUTER_ID:
+		return "BGP Router-ID";
 	}
 
 	return "Unknown";
@@ -1059,6 +1087,9 @@ static unsigned int bgp_ls_node_descriptor_hash(const struct bgp_ls_node_descrip
 
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
 		key = jhash(desc->igp_router_id, desc->igp_router_id_len, key);
+
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
+		key = jhash_1word(desc->bgp_router_id.s_addr, key);
 
 	return key;
 }
@@ -1542,6 +1573,15 @@ int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_des
 		stream_putw(s, BGP_LS_TLV_IGP_ROUTER_ID);
 		stream_putw(s, desc->igp_router_id_len);
 		stream_put(s, desc->igp_router_id, desc->igp_router_id_len);
+	}
+
+	/* BGP Router ID (TLV 516) */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_BGP_ROUTER_ID_SIZE)
+			return -1;
+		stream_putw(s, BGP_LS_TLV_BGP_ROUTER_ID);
+		stream_putw(s, BGP_LS_BGP_ROUTER_ID_SIZE);
+		stream_put_ipv4(s, desc->bgp_router_id.s_addr);
 	}
 
 	/* Update length field */
@@ -2460,6 +2500,7 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 	size_t end_pos;
 	uint16_t sub_type, sub_len;
 	bool has_igp_router_id = false;
+	bool has_bgp_router_id = false;
 
 	if (!s || !desc)
 		return -1;
@@ -2543,6 +2584,23 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			has_igp_router_id = true;
 			break;
 
+		case BGP_LS_TLV_BGP_ROUTER_ID:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs,
+					     BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate BGP Router-ID TLV in node descriptor");
+				return -1;
+			}
+			if (sub_len != BGP_LS_BGP_ROUTER_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid BGP Router-ID TLV length %u", sub_len);
+				return -1;
+			}
+			desc->bgp_router_id.s_addr = stream_get_ipv4(s);
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT);
+			has_bgp_router_id = true;
+			break;
+
 		default:
 			/* Unknown TLV - skip but preserve (RFC 9552 Section 5.1) */
 			flog_warn(EC_BGP_LS_PACKET,
@@ -2554,9 +2612,9 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 	}
 
 	/* Verify mandatory TLV present */
-	if (!has_igp_router_id) {
+	if (!has_igp_router_id && !has_bgp_router_id) {
 		flog_warn(EC_BGP_LS_PACKET,
-			  "BGP-LS: Mandatory IGP Router-ID TLV missing from Node Descriptor");
+			  "BGP-LS: Mandatory IGP Router-ID TLV or BGP Router-ID TLV missing from Node Descriptor");
 		return -1;
 	}
 
@@ -4847,6 +4905,8 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
 					(struct in6_addr *)local_node->igp_router_id);
 		}
+		if (BGP_LS_TLV_CHECK(local_node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
+			vty_out(vty, "\tBGP Router Identifier: %pI4\n", &local_node->bgp_router_id);
 	}
 
 	/* Display Remote Node Descriptor for Link NLRI */
@@ -4879,6 +4939,9 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
 					(struct in6_addr *)remote_node->igp_router_id);
 		}
+		if (BGP_LS_TLV_CHECK(remote_node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
+			vty_out(vty, "\tBGP Router Identifier: %pI4\n",
+				&remote_node->bgp_router_id);
 
 		/* Display Link Descriptor */
 		struct bgp_ls_link_descriptor *link_desc = &nlri->nlri_data.link.link_desc;
