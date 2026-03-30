@@ -4103,6 +4103,17 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_get_default());
 
+	/* additional check for locator configured in bgp_vrf but no yet synchronized from zebra */
+	if (locator_bgp && bgp_vrf->srv6_locator == NULL && bgp_vrf->srv6_locator_name[0] != '\0' &&
+	    !strmatch(bgp_vrf->srv6_locator_name, loc_name)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			snprintf(errmsg, sizeof(errmsg),
+				 "%s(%d): %s, SRv6 Locator name unmatch %s, releasing SID.",
+				 bgp_vrf->name_pretty, bgp_vrf->vrf_id, __func__,
+				 bgp_vrf->srv6_locator_name);
+		ret_bgp = -1;
+		locator_bgp = NULL;
+	}
 	/* parse route-map list
         * behavior will determine if AFI or AFI_IP6 are of importance
         * to be modified when DT46 and other behaviors are supported
