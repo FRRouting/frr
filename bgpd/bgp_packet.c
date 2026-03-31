@@ -3257,14 +3257,14 @@ static void bgp_dynamic_capability_enhe(uint8_t *pnt, int action, struct capabil
 	uint8_t *end = data + hdr->length;
 	size_t len = end - data;
 
-	if (data + CAPABILITY_CODE_ENHE_LEN > end) {
-		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
-			  "Extended NH: Received invalid length %zu, less than %d", len,
-			  CAPABILITY_CODE_ENHE_LEN);
-		return;
-	}
-
 	if (action == CAPABILITY_ACTION_SET) {
+		if (data + CAPABILITY_CODE_ENHE_LEN > end) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				  "Extended NH: Received invalid length %zu, less than %d", len,
+				  CAPABILITY_CODE_ENHE_LEN);
+			return;
+		}
+
 		if (hdr->length % CAPABILITY_CODE_ENHE_LEN) {
 			flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				  "Extended NH: Received invalid length %d, non-multiple of %d",
