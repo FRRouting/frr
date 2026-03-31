@@ -456,6 +456,13 @@ module frr-bfdd {
         uses session-common;
         uses session-echo;
         uses session-multi-hop;
+
+        container profile-authentication {
+          leaf authentication-key-chain {
+            type string;
+            description "Reference to the key chain for authentication";
+          }
+        }
       }
 
       container sessions {

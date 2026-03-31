@@ -996,6 +996,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_profile_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_profile_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_profile_authentication_key_chain,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

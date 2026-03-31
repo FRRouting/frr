@@ -43,6 +43,7 @@
 
 #define MAXKEYCHAINNAMELEN 32
 
+#define BFD_AUTH_SIMPLE_PASSWD_MIN_LEN 1
 #define BFD_AUTH_SIMPLE_PASSWD_MAX_LEN 16
 
 DECLARE_MGROUP(BFDD);
@@ -331,6 +332,7 @@ struct bfd_profile {
 	/** Minimum required echo receive interval (in microseconds). */
 	uint32_t min_echo_rx;
 
+	struct keychain *kc; /* Currently active keychain for this session */
 	struct {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
@@ -688,6 +690,7 @@ extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_
 extern const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type);
 void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
+int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
 extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
 

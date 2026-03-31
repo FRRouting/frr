@@ -712,6 +712,54 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-key-chain
+ */
+int bfdd_bfd_profile_authentication_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bp)
+		return NB_ERR_NOT_FOUND;
+
+	strlcpy(key_chain_name, yang_dnode_get_string(args->dnode, NULL), sizeof(key_chain_name));
+
+	if (strlen(key_chain_name) == 0)
+		/* ignoring request. should not happen */
+		return NB_OK;
+
+	strlcpy(bp->auth_config.key_chain_name, key_chain_name,
+		sizeof(bp->auth_config.key_chain_name));
+	bp->kc = keychain_lookup(bp->auth_config.key_chain_name);
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_authentication_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bp)
+		return NB_ERR_NOT_FOUND;
+
+	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
+	bp->kc = NULL;
+
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
  */
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)

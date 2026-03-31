@@ -1003,6 +1003,30 @@ void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
 		vty_out(vty, "  echo receive-interval disabled\n");
 }
 
+DEFPY_YANG(bfd_peer_auth, bfd_peer_auth_cmd,
+	   "[no] authentication key-chain NAME$keychain_name",
+	   NO_STR
+	   "Configure BFD peer authentication\n"
+	   "Authentication key chain\n"
+	   "Authentication key chain name\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_MODIFY, keychain_name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_auth(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *key_chain = yang_dnode_get_string(dnode, NULL);
+
+	if (key_chain)
+		vty_out(vty, "  authentication key-chain %s\n", key_chain);
+}
 /*
  * Profile commands.
  */
@@ -1048,6 +1072,31 @@ void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "name"));
+}
+
+DEFPY_YANG(bfd_profile_set_authentication_key_chain, bfd_profile_set_authentication_key_chain_cmd,
+	   "[no] authentication key-chain NAME$keychain_name",
+	   NO_STR
+	   "Configure BFD profile authentication\n"
+	   "Authentication key chain\n"
+	   "Authentication key chain name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./profile-authentication/authentication-key-chain",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./profile-authentication/authentication-key-chain",
+				      NB_OP_MODIFY, keychain_name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_profile_authentication_key_chain(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	const char *key_chain = yang_dnode_get_string(dnode, NULL);
+
+	if (key_chain && key_chain[0])
+		vty_out(vty, "  authentication key-chain %s\n", key_chain);
 }
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
@@ -1389,6 +1438,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_log_session_changes_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_minimum_ttl_cmd);
 	install_element(BFD_PEER_NODE, &no_bfd_peer_minimum_ttl_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_auth_cmd);
 
 	/* Profile commands. */
 	cmd_variable_handler_register(bfd_vars);
@@ -1411,4 +1461,5 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_log_session_changes_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_set_authentication_key_chain_cmd);
 }

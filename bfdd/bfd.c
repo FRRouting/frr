@@ -32,9 +32,7 @@ DEFINE_MTYPE_STATIC(BFDD, BFD_PERM_VRF, "BFD perm vrf data");
  */
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
-static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
-					 uint32_t ldisc);
-static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
+static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa, uint32_t ldisc);
 static const char *get_diag_str(int diag);
 
 static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
@@ -1103,7 +1101,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bfd_profile_apply(bpc->bpc_profile, bs);
 }
 
-static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
+int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 {
 	/* User didn't want to update, return failure. */
 	if (bpc->bpc_createonly)
