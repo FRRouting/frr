@@ -1498,16 +1498,16 @@ Redistribute routes from a routing table number into BGP.
    instance. Shows which protocols are being redistributed into BGP along with
    their associated metrics, instances, and route-maps if configured.
 
-.. clicmd:: bgp update-delay MAX-DELAY
+.. clicmd:: bgp convergence-wait MAX-DELAY
 
-.. clicmd:: bgp update-delay MAX-DELAY ESTABLISH-WAIT
+.. clicmd:: bgp convergence-wait MAX-DELAY ESTABLISH-WAIT
 
    This feature is used to enable read-only mode on BGP process restart or when
    a BGP process is cleared using 'clear ip bgp \*'. Note that this command is
    configured at the global level and applies to all bgp instances/vrfs.  It
-   cannot be used at the same time as the "update-delay" command described below,
+   cannot be used at the same time as the "convergence-wait" command described below,
    which is entered in each bgp instance/vrf desired to delay update installation
-   and advertisements. The global and per-vrf approaches to defining update-delay
+   and advertisements. The global and per-vrf approaches to defining convergence-wait
    are mutually exclusive.
 
    When applicable, read-only mode would begin as soon as the first peer reaches
@@ -1519,7 +1519,7 @@ Redistribute routes from a routing table number into BGP.
       (End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached
       Established is considered an implicit-EOR.
       If the establish-wait optional value is given, then BGP will wait for
-      peers to reach established from the beginning of the update-delay till the
+      peers to reach established from the beginning of the convergence-wait till the
       establish-wait period is over, i.e. the minimum set of established peers for
       which EOR is expected would be peers established during the establish-wait
       window, not necessarily all the configured neighbors.
@@ -1530,17 +1530,21 @@ Redistribute routes from a routing table number into BGP.
 
    Default max-delay is 0, i.e. the feature is off by default.
 
+   This command is replacing the `update-delay` version of this command as that
+   update-delay does not fully describe what is happening and it was felt that
+   convergence-delay better described the process of what was actually happening.
 
-.. clicmd:: update-delay MAX-DELAY
 
-.. clicmd:: update-delay MAX-DELAY ESTABLISH-WAIT
+.. clicmd:: convergence-wait MAX-DELAY
+
+.. clicmd:: convergence-wait MAX-DELAY ESTABLISH-WAIT
 
    This feature is used to enable read-only mode on BGP process restart or when
    a BGP process is cleared using 'clear ip bgp \*'.  Note that this command is
    configured under the specific bgp instance/vrf that the feature is enabled for.
-   It cannot be used at the same time as the global "bgp update-delay" described
+   It cannot be used at the same time as the global "bgp convergence-wait" described
    above, which is entered at the global level and applies to all bgp instances.
-   The global and per-vrf approaches to defining update-delay are mutually
+   The global and per-vrf approaches to defining convergence-wait are mutually
    exclusive.
 
    When applicable, read-only mode would begin as soon as the first peer reaches
@@ -1552,7 +1556,7 @@ Redistribute routes from a routing table number into BGP.
       (End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached
       Established is considered an implicit-EOR.
       If the establish-wait optional value is given, then BGP will wait for
-      peers to reach established from the beginning of the update-delay till the
+      peers to reach established from the beginning of the convergence-wait till the
       establish-wait period is over, i.e. the minimum set of established peers for
       which EOR is expected would be peers established during the establish-wait
       window, not necessarily all the configured neighbors.
@@ -1562,6 +1566,10 @@ Redistribute routes from a routing table number into BGP.
    and generates updates to its peers.
 
    Default max-delay is 0, i.e. the feature is off by default.
+
+   This command is replacing the `update-delay` version of this command as that
+   update-delay does not fully describe what is happening and it was felt that
+   convergence-delay better described the process of what was actually happening.
 
 .. clicmd:: table-map ROUTE-MAP-NAME
 

@@ -118,7 +118,7 @@ extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer_connection *connection,
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
-extern void bgp_update_delay_end(struct bgp *bgp);
+extern void bgp_convergence_wait_end(struct bgp *bgp);
 extern void bgp_maxmed_update(struct bgp *bgp);
 extern bool bgp_maxmed_onstartup_configured(struct bgp *bgp);
 extern bool bgp_maxmed_onstartup_active(struct bgp *bgp);

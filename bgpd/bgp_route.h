@@ -613,7 +613,7 @@ struct meta_queue {
 };
 
 /*
- * When the update-delay expires, BGP inserts an EOIU (End-Of-Initial-Update) marker
+ * When the convergence-wait expires, BGP inserts an EOIU (End-Of-Initial-Update) marker
  * into the BGP_PROCESS_QUEUE_EOIU_MARKER meta queue. This meta queue holds only
  * bgp_dest structures. To process the EOIU marker, we need to call bgp_process_main_one()
  * on the corresponding BGP instance. Since the marker itself isn't a real route

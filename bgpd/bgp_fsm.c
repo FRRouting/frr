@@ -948,53 +948,52 @@ static void bgp_graceful_deferral_timer_expire(struct event *event)
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
-static bool bgp_update_delay_applicable(struct bgp *bgp)
+static bool bgp_convergence_wait_applicable(struct bgp *bgp)
 {
-	/* update_delay_over flag should be reset (set to 0) for any new
-	   applicability of the update-delay during BGP process lifetime.
-	   And it should be set after an occurrence of the update-delay is
+	/* convergence_wait_over flag should be reset (set to 0) for any new
+	   applicability of the convergence-wait during BGP process lifetime.
+	   And it should be set after an occurrence of the convergence-wait is
 	   over)*/
-	if (!bgp->update_delay_over)
+	if (!bgp->convergence_wait_over)
 		return true;
 	return false;
 }
 
-bool bgp_update_delay_active(struct bgp *bgp)
+bool bgp_convergence_wait_active(struct bgp *bgp)
 {
-	if (bgp->t_update_delay)
+	if (bgp->t_convergence_wait)
 		return true;
 	return false;
 }
 
-bool bgp_update_delay_configured(struct bgp *bgp)
+bool bgp_convergence_wait_configured(struct bgp *bgp)
 {
-	if (bgp->v_update_delay)
+	if (bgp->v_convergence_wait)
 		return true;
 	return false;
 }
 
 /* Do the post-processing needed when bgp comes out of the read-only mode
-   on ending the update delay. */
-void bgp_update_delay_end(struct bgp *bgp)
+   on ending the convergence wait. */
+void bgp_convergence_wait_end(struct bgp *bgp)
 {
-	event_cancel(&bgp->t_update_delay);
+	event_cancel(&bgp->t_convergence_wait);
 	event_cancel(&bgp->t_establish_wait);
 
-	/* Reset update-delay related state */
-	bgp->update_delay_over = 1;
+	/* Reset convergence-wait related state */
+	bgp->convergence_wait_over = 1;
 	bgp->established = 0;
 	bgp->restarted_peers = 0;
 	bgp->received_eors = 0;
 
-	frr_timestamp(3, bgp->update_delay_end_time,
-		      sizeof(bgp->update_delay_end_time));
+	frr_timestamp(3, bgp->convergence_wait_end_time, sizeof(bgp->convergence_wait_end_time));
 
 	/*
 	 * Add an end-of-initial-update marker to the main process queues so
 	 * that
 	 * the route advertisement timer for the peers can be started. Also set
 	 * the zebra and peer update hold flags. These flags are used to achieve
-	 * three stages in the update-delay post processing:
+	 * three stages in the convergence-wait post processing:
 	 *  1. Finish best-path selection for all the prefixes held on the
 	 * queues.
 	 *     (routes in BGP are updated, and peers sync queues are populated
@@ -1019,9 +1018,9 @@ void bgp_update_delay_end(struct bgp *bgp)
 	 */
 	work_queue_unplug(bgp->process_queue);
 
-	/* Re-announce the routes once the update-delay timer expires.
+	/* Re-announce the routes once the convergence-wait timer expires.
 	 * This is needed to ensure that the routes are re-advertised to the
-	 * peers after the update-delay is over. E.g. default-originate.
+	 * peers after the convergence-wait is over. E.g. default-originate.
 	 */
 	update_group_announce(bgp);
 }
@@ -1040,8 +1039,8 @@ void bgp_start_routeadv(struct bgp *bgp)
 	if (bgp->main_peers_update_hold)
 		return;
 
-	frr_timestamp(3, bgp->update_delay_peers_resume_time,
-		      sizeof(bgp->update_delay_peers_resume_time));
+	frr_timestamp(3, bgp->convergence_wait_peers_resume_time,
+		      sizeof(bgp->convergence_wait_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		struct peer_connection *connection = peer->connection;
@@ -1243,16 +1242,16 @@ static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 	}
 }
 
-/* The update delay timer expiry callback. */
-static void bgp_update_delay_timer(struct event *event)
+/* The convergence wait timer expiry callback. */
+static void bgp_convergence_wait_timer(struct event *event)
 {
 	struct bgp *bgp;
 
 	zlog_info("Update delay ended - timer expired.");
 
 	bgp = EVENT_ARG(event);
-	event_cancel(&bgp->t_update_delay);
-	bgp_update_delay_end(bgp);
+	event_cancel(&bgp->t_convergence_wait);
+	bgp_convergence_wait_end(bgp);
 }
 
 /* The establish wait timer expiry callback. */
@@ -1264,14 +1263,14 @@ static void bgp_establish_wait_timer(struct event *event)
 
 	bgp = EVENT_ARG(event);
 	event_cancel(&bgp->t_establish_wait);
-	bgp_check_update_delay(bgp);
+	bgp_check_convergence_wait(bgp);
 }
 
-/* Steps to begin the update delay:
+/* Steps to begin the convergence wait:
      - initialize queues if needed
      - stop the queue processing
      - start the timer */
-static void bgp_update_delay_begin(struct bgp *bgp)
+static void bgp_convergence_wait_begin(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -1280,43 +1279,43 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 	work_queue_plug(bgp->process_queue);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		peer->update_delay_over = 0;
+		peer->convergence_wait_over = 0;
 
-	/* Start the update-delay timer */
-	event_add_timer(bm->master, bgp_update_delay_timer, bgp,
-			bgp->v_update_delay, &bgp->t_update_delay);
+	/* Start the convergence-wait timer */
+	event_add_timer(bm->master, bgp_convergence_wait_timer, bgp, bgp->v_convergence_wait,
+			&bgp->t_convergence_wait);
 
-	if (bgp->v_establish_wait != bgp->v_update_delay)
+	if (bgp->v_establish_wait != bgp->v_convergence_wait)
 		event_add_timer(bm->master, bgp_establish_wait_timer, bgp,
 				bgp->v_establish_wait, &bgp->t_establish_wait);
 
-	frr_timestamp(3, bgp->update_delay_begin_time,
-		      sizeof(bgp->update_delay_begin_time));
+	frr_timestamp(3, bgp->convergence_wait_begin_time,
+		      sizeof(bgp->convergence_wait_begin_time));
 }
 
-static void bgp_update_delay_process_status_change(struct peer *peer)
+static void bgp_convergence_wait_process_status_change(struct peer *peer)
 {
 	struct bgp *bgp = peer->bgp;
 
 	if (peer_established(peer->connection)) {
 		if (!bgp->established++) {
-			bgp_update_delay_begin(bgp);
-			zlog_info("Begin read-only mode - update-delay timer %d seconds",
-				  bgp->v_update_delay);
+			bgp_convergence_wait_begin(bgp);
+			zlog_info("Begin read-only mode - convergence-wait timer %d seconds",
+				  bgp->v_convergence_wait);
 		}
 		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 			bgp_update_restarted_peers(peer);
 	}
-	if (peer->connection->ostatus == Established && bgp_update_delay_active(bgp)) {
-		/* Adjust the update-delay state to account for this flap.
+	if (peer->connection->ostatus == Established && bgp_convergence_wait_active(bgp)) {
+		/* Adjust the convergence-wait state to account for this flap.
 		   NOTE: Intentionally skipping adjusting implicit_eors or
 		   explicit_eors
-		   counters. Extra sanity check in bgp_check_update_delay()
+		   counters. Extra sanity check in bgp_check_convergence_wait()
 		   should
 		   be enough to take care of any additive discrepancy in bgp eor
 		   counters */
 		bgp->established--;
-		peer->update_delay_over = 0;
+		peer->convergence_wait_over = 0;
 	}
 }
 
@@ -1932,11 +1931,11 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			bgp->maxmed_onstartup_over = 1;
 	}
 
-	/* Check for GR restarter or update-delay processing. */
+	/* Check for GR restarter or convergence-wait processing. */
 	if (gr_path_select_deferral_applicable(bgp))
 		bgp_gr_process_peer_status_change(peer);
-	else if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
-		bgp_update_delay_process_status_change(peer);
+	else if (bgp_convergence_wait_configured(bgp) && bgp_convergence_wait_applicable(bgp))
+		bgp_convergence_wait_process_status_change(peer);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,
@@ -2840,7 +2839,7 @@ bgp_establish(struct peer_connection *connection)
 	 * end
 	 * of read-only mode.
 	 */
-	if (!bgp_update_delay_active(bgp)) {
+	if (!bgp_convergence_wait_active(bgp)) {
 		event_cancel(&peer->connection->t_routeadv);
 		BGP_TIMER_ON(peer->connection->t_routeadv, bgp_routeadv_timer,
 			     0);

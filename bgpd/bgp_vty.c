@@ -1293,7 +1293,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		/* This is to apply read-only mode on this clear. */
 		if (stype == BGP_CLEAR_SOFT_NONE)
-			bgp->update_delay_over = 0;
+			bgp->convergence_wait_over = 0;
 
 		if (afi_safi_unspec)
 			bgp_clearing_batch_end_event_start(bgp);
@@ -2435,24 +2435,22 @@ DEFUN (no_bgp_maxmed_onstartup,
 	return CMD_SUCCESS;
 }
 
-static int bgp_global_update_delay_config_vty(struct vty *vty,
-					      uint16_t update_delay,
-					      uint16_t establish_wait)
+static int bgp_global_convergence_wait_config_vty(struct vty *vty, uint16_t convergence_wait,
+						  uint16_t establish_wait)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 	bool vrf_cfg = false;
 
 	/*
-	 * See if update-delay is set per-vrf and warn user to delete it
+	 * See if convergence-wait is set per-vrf and warn user to delete it
 	 * Note that we only need to check this if this is the first time
 	 * setting the global config.
 	 */
-	if (bm->v_update_delay == BGP_UPDATE_DELAY_DEFAULT) {
+	if (bm->v_convergence_wait == BGP_UPDATE_DELAY_DEFAULT) {
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEFAULT) {
-				vty_out(vty,
-					"%% update-delay configuration found in vrf %s\n",
+			if (bgp->v_convergence_wait != BGP_UPDATE_DELAY_DEFAULT) {
+				vty_out(vty, "%% convergence-wait configuration found in vrf %s\n",
 					bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 						? VRF_DEFAULT_NAME
 						: bgp->name);
@@ -2462,112 +2460,124 @@ static int bgp_global_update_delay_config_vty(struct vty *vty,
 	}
 
 	if (vrf_cfg) {
-		vty_out(vty,
-			"%%Failed: global update-delay config not permitted\n");
+		vty_out(vty, "%%Failed: global convergence-wait config not permitted\n");
 		return CMD_WARNING;
 	}
 
-	if (!establish_wait) { /* update-delay <delay> */
-		bm->v_update_delay = update_delay;
-		bm->v_establish_wait = bm->v_update_delay;
+	if (!establish_wait) { /* convergence-wait <delay> */
+		bm->v_convergence_wait = convergence_wait;
+		bm->v_establish_wait = bm->v_convergence_wait;
 	} else {
-		/* update-delay <delay> <establish-wait> */
-		if (update_delay < establish_wait) {
-			vty_out(vty,
-				"%%Failed: update-delay less than the establish-wait!\n");
+		/* convergence-wait <delay> <establish-wait> */
+		if (convergence_wait < establish_wait) {
+			vty_out(vty, "%%Failed: convergence-wait less than the establish-wait!\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		bm->v_update_delay = update_delay;
+		bm->v_convergence_wait = convergence_wait;
 		bm->v_establish_wait = establish_wait;
 	}
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_update_delay = bm->v_update_delay;
+		bgp->v_convergence_wait = bm->v_convergence_wait;
 		bgp->v_establish_wait = bm->v_establish_wait;
 	}
 
 	return CMD_SUCCESS;
 }
 
-static int bgp_global_update_delay_deconfig_vty(struct vty *vty)
+static int bgp_global_convergence_wait_deconfig_vty(struct vty *vty)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 
-	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
-	bm->v_establish_wait = bm->v_update_delay;
+	bm->v_convergence_wait = BGP_UPDATE_DELAY_DEFAULT;
+	bm->v_establish_wait = bm->v_convergence_wait;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_update_delay = bm->v_update_delay;
+		bgp->v_convergence_wait = bm->v_convergence_wait;
 		bgp->v_establish_wait = bm->v_establish_wait;
 	}
 
 	return CMD_SUCCESS;
 }
 
-static int bgp_update_delay_config_vty(struct vty *vty, uint16_t update_delay,
-				       uint16_t establish_wait)
+static int bgp_convergence_wait_config_vty(struct vty *vty, uint16_t convergence_wait,
+					   uint16_t establish_wait)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	/* if configured globally, per-instance config is not allowed */
-	if (bm->v_update_delay) {
+	if (bm->v_convergence_wait) {
 		vty_out(vty,
-			"%%Failed: per-vrf update-delay config not permitted with global update-delay\n");
+			"%%Failed: per-vrf convergence-wait config not permitted with global convergence-wait\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 
-	if (!establish_wait) /* update-delay <delay> */
+	if (!establish_wait) /* convergence-wait <delay> */
 	{
-		bgp->v_update_delay = update_delay;
-		bgp->v_establish_wait = bgp->v_update_delay;
+		bgp->v_convergence_wait = convergence_wait;
+		bgp->v_establish_wait = bgp->v_convergence_wait;
 		return CMD_SUCCESS;
 	}
 
-	/* update-delay <delay> <establish-wait> */
-	if (update_delay < establish_wait) {
-		vty_out(vty,
-			"%%Failed: update-delay less than the establish-wait!\n");
+	/* convergence-wait <delay> <establish-wait> */
+	if (convergence_wait < establish_wait) {
+		vty_out(vty, "%%Failed: convergence-wait less than the establish-wait!\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp->v_update_delay = update_delay;
+	bgp->v_convergence_wait = convergence_wait;
 	bgp->v_establish_wait = establish_wait;
 
 	return CMD_SUCCESS;
 }
 
-static int bgp_update_delay_deconfig_vty(struct vty *vty)
+static int bgp_convergence_wait_deconfig_vty(struct vty *vty)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	/* If configured globally, cannot remove from one bgp instance */
-	if (bm->v_update_delay) {
+	if (bm->v_convergence_wait) {
 		vty_out(vty,
-			"%%Failed: bgp update-delay configured globally. Delete per-vrf not permitted\n");
+			"%%Failed: bgp convergence-wait configured globally. Delete per-vrf not permitted\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	bgp->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
-	bgp->v_establish_wait = bgp->v_update_delay;
+	bgp->v_convergence_wait = BGP_UPDATE_DELAY_DEFAULT;
+	bgp->v_establish_wait = bgp->v_convergence_wait;
 
 	return CMD_SUCCESS;
 }
 
-void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
+void bgp_config_write_convergence_wait(struct vty *vty, struct bgp *bgp)
 {
 	/* If configured globally, no need to display per-instance value */
-	if (bgp->v_update_delay != bm->v_update_delay) {
-		vty_out(vty, " update-delay %d", bgp->v_update_delay);
-		if (bgp->v_update_delay != bgp->v_establish_wait)
+	if (bgp->v_convergence_wait != bm->v_convergence_wait) {
+		vty_out(vty, " convergence-wait %d", bgp->v_convergence_wait);
+		if (bgp->v_convergence_wait != bgp->v_establish_wait)
 			vty_out(vty, " %d", bgp->v_establish_wait);
 		vty_out(vty, "\n");
 	}
 }
 
-/* Global update-delay configuration */
-DEFPY (bgp_global_update_delay,
+#if CONFDATE > 20290325
+CPP_NOTICE("Remove the hidden update-delay code and remove json that depends on it")
+#endif
+
+/* Global convergence-wait configuration */
+DEFPY (bgp_global_convergence_wait,
+       bgp_global_convergence_wait_cmd,
+       "bgp convergence-wait (0-3600)$delay [(1-3600)$wait]",
+       BGP_STR
+       "Force initial delay for best-path and updates for all bgp instances\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
+{
+	return bgp_global_convergence_wait_config_vty(vty, delay, wait);
+}
+
+DEFPY_HIDDEN (bgp_global_update_delay,
        bgp_global_update_delay_cmd,
        "bgp update-delay (0-3600)$delay [(1-3600)$wait]",
        BGP_STR
@@ -2575,10 +2585,22 @@ DEFPY (bgp_global_update_delay,
        "Max delay in seconds\n"
        "Establish wait in seconds\n")
 {
-	return bgp_global_update_delay_config_vty(vty, delay, wait);
+	return bgp_global_convergence_wait_config_vty(vty, delay, wait);
 }
 
-/* Global update-delay deconfiguration */
+/* Global convergence-wait deconfiguration */
+DEFPY (no_bgp_global_convergence_wait,
+       no_bgp_global_convergence_wait_cmd,
+       "no bgp convergence-wait [(0-3600) [(1-3600)]]",
+       NO_STR
+       BGP_STR
+       "Force initial delay for best-path and updates\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
+{
+	return bgp_global_convergence_wait_deconfig_vty(vty);
+}
+
 DEFPY (no_bgp_global_update_delay,
        no_bgp_global_update_delay_cmd,
        "no bgp update-delay [(0-3600) [(1-3600)]]",
@@ -2588,31 +2610,52 @@ DEFPY (no_bgp_global_update_delay,
        "Max delay in seconds\n"
        "Establish wait in seconds\n")
 {
-	return bgp_global_update_delay_deconfig_vty(vty);
+	return bgp_global_convergence_wait_deconfig_vty(vty);
 }
 
 /* Update-delay configuration */
 
-DEFPY (bgp_update_delay,
+DEFPY (bgp_convergence_wait,
+       bgp_convergence_wait_cmd,
+       "convergence-wait (0-3600)$delay [(1-3600)$wait]",
+       "Force initial delay for best-path and updates\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
+{
+	return bgp_convergence_wait_config_vty(vty, delay, wait);
+}
+
+DEFPY_HIDDEN (bgp_update_delay,
        bgp_update_delay_cmd,
        "update-delay (0-3600)$delay [(1-3600)$wait]",
        "Force initial delay for best-path and updates\n"
        "Max delay in seconds\n"
        "Establish wait in seconds\n")
 {
-	return bgp_update_delay_config_vty(vty, delay, wait);
+	return bgp_convergence_wait_config_vty(vty, delay, wait);
 }
 
 /* Update-delay deconfiguration */
-DEFPY (no_bgp_update_delay,
-       no_bgp_update_delay_cmd,
-       "no update-delay [(0-3600) [(1-3600)]]",
+DEFPY (no_bgp_convergence_wait,
+       no_bgp_convergence_wait_cmd,
+       "no convergence-wait [(0-3600) [(1-3600)]]",
        NO_STR
        "Force initial delay for best-path and updates\n"
        "Max delay in seconds\n"
        "Establish wait in seconds\n")
 {
-	return bgp_update_delay_deconfig_vty(vty);
+	return bgp_convergence_wait_deconfig_vty(vty);
+}
+
+DEFPY_HIDDEN (no_bgp_update_delay,
+       no_bgp_update_delay_cmd,
+       "no convergence-wait [(0-3600) [(1-3600)]]",
+       NO_STR
+       "Force initial delay for best-path and updates\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
+{
+	return bgp_convergence_wait_deconfig_vty(vty);
 }
 
 
@@ -12537,7 +12580,9 @@ DEFPY(show_bgp_router,
 		json_object_int_add(json, "bgpOutputQueueLimit", bm->outq_limit);
 		json_object_int_add(json, "zebraAnnounceCount",
 				    zebra_announce_count(&bm->zebra_announce_head));
-		json_object_int_add(json, "bgpUpdateDelayTime", bm->v_update_delay);
+		json_object_int_add(json, "bgpConvergenceWaitTime", bm->v_convergence_wait);
+		json_object_int_add(json, "bgpUpdateDelayTime", bm->v_convergence_wait);
+		json_object_int_add(json, "bgpconvergenceWaitTime", bm->v_convergence_wait);
 		json_object_int_add(json, "bgpEstablishWaitTime", bm->v_establish_wait);
 		json_object_int_add(json, "bgpRmapDelayTimer", bm->rmap_update_timer);
 		json_object_int_add(json, "bgpRmapDelayTimerRemaining",
@@ -12550,7 +12595,7 @@ DEFPY(show_bgp_router,
 			zebra_announce_count(&bm->zebra_announce_head));
 
 		vty_out(vty, "BGP Global Update Delay Timers:\n");
-		vty_out(vty, "  Update Delay Time: %ds\n", bm->v_update_delay);
+		vty_out(vty, "  Update Delay Time: %ds\n", bm->v_convergence_wait);
 		vty_out(vty, "  Establish Wait Time: %ds\n", bm->v_establish_wait);
 
 		vty_out(vty, "BGP route-map Delay Timer: %ds (remaining: %lds)\n",
@@ -13498,77 +13543,96 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "\n");
 			}
 
-			if (bgp_update_delay_configured(bgp)) {
+			if (bgp_convergence_wait_configured(bgp)) {
 				if (use_json) {
-					json_object_int_add(
-						json, "updateDelayLimit",
-						bgp->v_update_delay);
+					json_object_int_add(json, "convergenceWaitLimit",
+							    bgp->v_convergence_wait);
+					json_object_int_add(json, "updateDelayLimit",
+							    bgp->v_convergence_wait);
 
-					if (bgp->v_update_delay
-					    != bgp->v_establish_wait)
+					if (bgp->v_convergence_wait != bgp->v_establish_wait) {
+						json_object_int_add(json,
+								    "convergenceDelayEstablishWait",
+								    bgp->v_establish_wait);
 						json_object_int_add(
 							json,
 							"updateDelayEstablishWait",
 							bgp->v_establish_wait);
+					}
 
-					if (bgp_update_delay_active(bgp)) {
-						json_object_string_add(
-							json,
-							"updateDelayFirstNeighbor",
-							bgp->update_delay_begin_time);
+					if (bgp_convergence_wait_active(bgp)) {
+						json_object_string_add(json,
+								       "convergenceDelayFirstNeighbor",
+								       bgp->convergence_wait_begin_time);
+						json_object_boolean_true_add(json,
+									     "convergenceDelayInProgress");
+						json_object_string_add(json,
+								       "updateDelayFirstNeighbor",
+								       bgp->convergence_wait_begin_time);
 						json_object_boolean_true_add(
 							json,
 							"updateDelayInProgress");
 					} else {
-						if (bgp->update_delay_over) {
+						if (bgp->convergence_wait_over) {
 							json_object_string_add(
 								json,
-								"updateDelayFirstNeighbor",
-								bgp->update_delay_begin_time);
+								"convergenceWaitFirstNeighbor",
+								bgp->convergence_wait_begin_time);
 							json_object_string_add(
 								json,
-								"updateDelayBestpathResumed",
-								bgp->update_delay_end_time);
+								"convergenceWaitBestpathResumed",
+								bgp->convergence_wait_end_time);
+							json_object_string_add(
+								json,
+								"convergenceWaitZebraUpdateResume",
+								bgp->convergence_wait_zebra_resume_time);
+							json_object_string_add(
+								json,
+								"convergenceWaitPeerUpdateResume",
+								bgp->convergence_wait_peers_resume_time);
+							json_object_string_add(
+								json, "updateDelayFirstNeighbor",
+								bgp->convergence_wait_begin_time);
+							json_object_string_add(
+								json, "updateDelayBestpathResumed",
+								bgp->convergence_wait_end_time);
 							json_object_string_add(
 								json,
 								"updateDelayZebraUpdateResume",
-								bgp->update_delay_zebra_resume_time);
+								bgp->convergence_wait_zebra_resume_time);
 							json_object_string_add(
-								json,
-								"updateDelayPeerUpdateResume",
-								bgp->update_delay_peers_resume_time);
+								json, "updateDelayPeerUpdateResume",
+								bgp->convergence_wait_peers_resume_time);
 						}
 					}
 				} else {
 					vty_out(vty,
-						"Read-only mode update-delay limit: %d seconds\n",
-						bgp->v_update_delay);
-					if (bgp->v_update_delay
-					    != bgp->v_establish_wait)
+						"Read-only mode convergence-wait limit: %d seconds\n",
+						bgp->v_convergence_wait);
+					if (bgp->v_convergence_wait != bgp->v_establish_wait)
 						vty_out(vty,
 							"                   Establish wait: %d seconds\n",
 							bgp->v_establish_wait);
 
-					if (bgp_update_delay_active(bgp)) {
-						vty_out(vty,
-							"  First neighbor established: %s\n",
-							bgp->update_delay_begin_time);
+					if (bgp_convergence_wait_active(bgp)) {
+						vty_out(vty, "  First neighbor established: %s\n",
+							bgp->convergence_wait_begin_time);
 						vty_out(vty,
 							"  Delay in progress\n");
 					} else {
-						if (bgp->update_delay_over) {
+						if (bgp->convergence_wait_over) {
 							vty_out(vty,
 								"  First neighbor established: %s\n",
-								bgp->update_delay_begin_time);
+								bgp->convergence_wait_begin_time);
 							vty_out(vty,
 								"          Best-paths resumed: %s\n",
-								bgp->update_delay_end_time);
+								bgp->convergence_wait_end_time);
 							vty_out(vty,
 								"        zebra update resumed: %s\n",
-								bgp->update_delay_zebra_resume_time);
+								bgp->convergence_wait_zebra_resume_time);
 							vty_out(vty,
 								"        peers update resumed: %s\n",
-								bgp->update_delay_peers_resume_time);
+								bgp->convergence_wait_peers_resume_time);
 						}
 					}
 				}
@@ -17171,20 +17235,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 							p->update_source);
 		}
 
-		/* update-delay timer */
+		/* convergence-wait timer */
 		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecs",
-				    bgp->v_update_delay * 1000);
+				    bgp->v_convergence_wait * 1000);
+		json_object_int_add(json_neigh, "bgpConvergenceWaitTimerMsecs",
+				    bgp->v_convergence_wait * 1000);
 		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecsRemaining",
-				    event_timer_remain_second(bgp->t_update_delay) * 1000);
+				    event_timer_remain_second(bgp->t_convergence_wait) * 1000);
+		json_object_int_add(json_neigh, "bgpConvergenceWaitTimerMsecsRemaining",
+				    event_timer_remain_second(bgp->t_convergence_wait) * 1000);
 	} else {
 		/* advertisement-interval */
 		vty_out(vty,
 			"  Minimum time between advertisement runs is %d seconds\n",
 			p->v_routeadv);
 
-		/* update delay timer */
+		/* convergence wait timer */
 		vty_out(vty, "  Update delay timer is %u seconds (remaining: %lu)\n",
-			bgp->v_update_delay, event_timer_remain_second(bgp->t_update_delay));
+			bgp->v_convergence_wait,
+			event_timer_remain_second(bgp->t_convergence_wait));
 
 		/* Update-source. */
 		if (p->update_if || p->update_source) {
@@ -20868,9 +20937,9 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
 			bm->rmap_update_timer);
 
-	if (bm->v_update_delay != BGP_UPDATE_DELAY_DEFAULT) {
-		vty_out(vty, "bgp update-delay %d", bm->v_update_delay);
-		if (bm->v_update_delay != bm->v_establish_wait)
+	if (bm->v_convergence_wait != BGP_UPDATE_DELAY_DEFAULT) {
+		vty_out(vty, "bgp convergence-wait %d", bm->v_convergence_wait);
+		if (bm->v_convergence_wait != bm->v_establish_wait)
 			vty_out(vty, " %d", bm->v_establish_wait);
 		vty_out(vty, "\n");
 	}
@@ -21141,8 +21210,8 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		/* BGP update-delay. */
-		bgp_config_write_update_delay(vty, bgp);
+		/* BGP convergence-wait. */
+		bgp_config_write_convergence_wait(vty, bgp);
 
 		if (bgp->v_maxmed_onstartup
 		    != BGP_MAXMED_ONSTARTUP_UNCONFIGURED) {
@@ -21934,7 +22003,9 @@ void bgp_vty_init(void)
 	/* bgp ipv6-auto-ra command */
 	install_element(BGP_NODE, &bgp_ipv6_auto_ra_cmd);
 
-	/* global bgp update-delay command */
+	/* global bgp convergence-wait command */
+	install_element(CONFIG_NODE, &bgp_global_convergence_wait_cmd);
+	install_element(CONFIG_NODE, &no_bgp_global_convergence_wait_cmd);
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
 	install_element(CONFIG_NODE, &no_bgp_global_update_delay_cmd);
 
@@ -22022,7 +22093,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_disable_connected_route_check_cmd);
 	install_element(BGP_NODE, &no_bgp_disable_connected_route_check_cmd);
 
-	/* bgp update-delay command */
+	/* bgp convergence-wait command */
 	install_element(BGP_NODE, &bgp_update_delay_cmd);
 	install_element(BGP_NODE, &no_bgp_update_delay_cmd);
 
