@@ -2861,9 +2861,13 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 			orf_type = stream_getc(s);
 			orf_len = stream_getw(s);
 
-			/* orf_len in bounds? */
-			if ((stream_pnt(s) + orf_len) > end)
-				break; /* XXX: Notify instead?? */
+			if ((stream_pnt(s) + orf_len) > end) {
+				flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
+					 "%s ORF length is too long for the message", peer->host);
+				bgp_notify_send(connection, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				return BGP_Stop;
+			}
 			if (orf_type == ORF_TYPE_PREFIX) {
 				uint8_t *p_pnt = stream_pnt(s);
 				uint8_t *p_end = stream_pnt(s) + orf_len;
