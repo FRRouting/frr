@@ -741,12 +741,8 @@ static void zebra_nhg_tracker_loop_detection(struct nhg_hash_entry *nhe,
 
 /*
  * Count unique (prefix, type, instance, vrf_id) tuples in the NHE's
- * re-tree.  This must match the prefix_map deduplication criteria so
- * that orig_re_count agrees with re_count accumulated during parking.
- *
- * Without this, NHGs shared across unicast and multicast tables
- * inflate orig_re_count (e.g. 4) while re_count only reaches the
- * unique prefix count (e.g. 2), preventing flush_if_full from firing.
+ * re-tree.  Only installed unicast REs are counted, so that orig_re_count
+ * matches what the tracker will actually receive during parking.
  */
 static uint32_t tracker_count_unique_res(struct nhe_re_tree_head *head)
 {
@@ -758,6 +754,27 @@ static uint32_t tracker_count_unique_res(struct nhe_re_tree_head *head)
 
 	frr_each (nhe_re_tree, head, re) {
 		struct tracker_prefix_map_entry key;
+
+		/*
+		 * Multicast REs are excluded because only unicast routes are
+		 * parked (the tracker's prefix-based dedup cannot handle
+		 * cross-SAFI route_nodes; e.g. connected routes on eth1 exist
+		 * in both unicast and multicast tables with different RNs but
+		 * the same prefix).
+		 */
+		if (!re->rn || rib_table_info(re->rn->table)->safi != SAFI_UNICAST)
+			continue;
+
+		/*
+		 * Non-installed REs are excluded because rib_link only parks
+		 * an incoming RE when old_re is INSTALLED, and non-installed
+		 * REs (e.g. an ospf route losing to a connected route for
+		 * the same prefix) will never arrive through the tracker
+		 * path.  Counting them would inflate orig_re_count,
+		 * preventing flush_if_full.
+		 */
+		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+			continue;
 
 		memset(&key, 0, sizeof(key));
 		prefix_copy(&key.p, &re->rn->p);

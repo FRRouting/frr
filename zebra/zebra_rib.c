@@ -3952,34 +3952,35 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 
 	re->rn = rn;
 
-	/* Check if the existing RE (same protocol) for this prefix has
-	 * an NHG with active trackers. Criteria for parking the incoming RE in a tracker:
-	 * - Same protocol (type/instance) as incoming re (rib_compare_routes).
-	 * - old_re is FIB-installed (ROUTE_ENTRY_INSTALLED). During event churn
-	 *   the RN can have more than one RE from same-protocol. For example: one
-	 *   RE is parked in tracker, not yet processed and the other is an
-	 *   installed RE. In that case, only the installed RE's NHG should derive
-	 *   the tracker check so that we park against the correct tracker chain.
-	 * - old_re->nhe has at least one active tracker.
+	/*
+	 * Check if the existing RE (same protocol) for this prefix has an NHG
+	 * with active trackers, and if so park the incoming RE.
+	 *
+	 * Only unicast table routes are tracked.  Multicast routes on the same
+	 * NHG live in a separate RIB table with different route_nodes; the
+	 * tracker's prefix-based dedup stores one RN per prefix and cannot
+	 * flush REs on a different table's RN.  Example: connected 192.0.2.1/32
+	 * exists in both unicast and multicast tables — parking both would store
+	 * the unicast RN but the multicast RE's TRACKER flag is never cleared.
 	 */
-	RNODE_FOREACH_RE (rn, old_re) {
-		if (!rib_compare_routes(re, old_re, true))
-			continue;
-		if (!CHECK_FLAG(old_re->status, ROUTE_ENTRY_INSTALLED))
-			continue;
-		if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
-			continue;
-		if (old_re->nhe && nhg_event_tracker_list_count(&old_re->nhe->tracker_list) > 0) {
-			zlog_info("%s: re %p NHG %u old_re %p NHG %u prefix %pRN",
-				  __func__, re, re->nhe ? re->nhe->id : 0,
-				  old_re, old_re->nhe ? old_re->nhe->id : 0, rn);
-			orig_nhe = old_re->nhe;
-			tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
-			/* Mark old RE as tracked so rib_process keeps it
-			 * in the FIB until the tracker completes.
-			 */
-			SET_FLAG(old_re->status, ROUTE_ENTRY_TRACKER);
-			break;
+	if (rib_table_info(rn->table)->safi == SAFI_UNICAST) {
+		RNODE_FOREACH_RE (rn, old_re) {
+			if (!rib_compare_routes(re, old_re, true))
+				continue;
+			if (!CHECK_FLAG(old_re->status, ROUTE_ENTRY_INSTALLED))
+				continue;
+			if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
+				continue;
+			if (old_re->nhe &&
+			    nhg_event_tracker_list_count(&old_re->nhe->tracker_list) > 0) {
+				zlog_info("%s: re %p NHG %u old_re %p NHG %u prefix %pRN",
+					  __func__, re, re->nhe ? re->nhe->id : 0, old_re,
+					  old_re->nhe ? old_re->nhe->id : 0, rn);
+				orig_nhe = old_re->nhe;
+				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+				SET_FLAG(old_re->status, ROUTE_ENTRY_TRACKER);
+				break;
+			}
 		}
 	}
 
@@ -4089,7 +4090,16 @@ void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag)
 	struct nhg_event_tracker *tracker = NULL;
 	struct nhg_hash_entry *orig_nhe = NULL;
 
-	if (flag) {
+	/*
+	 * Only park unicast route deletions in trackers.  Multicast REs on the
+	 * same NHG use a different RIB table; parking them would store the wrong
+	 * RN in the tracker and leave TRACKER stuck on the multicast RE (the
+	 * flush walks the stored RN which belongs to the unicast table).
+	 * Example: rib_delete(SAFI_MULTICAST, LOCAL, eth1) parks a multicast RE
+	 * but the tracker only stores the unicast RN — the flush never sees the
+	 * multicast RE to clear its TRACKER flag.
+	 */
+	if (flag && rib_table_info(rn->table)->safi == SAFI_UNICAST) {
 		if (re->nhe && nhg_event_tracker_list_count(&re->nhe->tracker_list) > 0) {
 			orig_nhe = re->nhe;
 			tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
