@@ -25,6 +25,12 @@ struct nh_grp {
 	uint16_t weight;
 };
 
+struct nh_grp_full {
+	uint32_t id;
+	uint16_t weight;
+	uint32_t num_direct;
+};
+
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
 /*
@@ -178,6 +184,32 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+
+/*
+ * NHG received from a routing protocol (e.g. BGP) representing the
+ * original unresolved nexthop group (nhe_received).
+ * In --nhg-fib mode, these NHGs enter dplane so FPM can receive them,
+ * but skip kernel installation (dplane_ctx_set_skip_kernel).
+ *
+ * This is distinct from NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL which marks
+ * kernel-owned NHGs received via netlink. Those are already installed
+ * in kernel and never enter dplane again.
+ * RECEIVED: protocol tells zebra the original NHG, zebra forwards to FPM.
+ * RECEIVED_FROM_EXTERNAL: kernel tells zebra about an existing NHG.
+ */
+#define NEXTHOP_GROUP_RECEIVED (1 << 12)
+
+/*
+ * Reinstall NHG to FPM Only
+ */
+#define NEXTHOP_GROUP_REINSTALL_FPM_ONLY (1 << 13)
+
+/*
+ * NHG delivered to FPM only, not actually installed in kernel.
+ * Used in RIBFIB (--nhg-fib) mode for RECEIVED or RECURSIVE NHEs
+ * that go through skip_kernel path. Community INSTALLED semantics unaffected.
+ */
+#define NEXTHOP_GROUP_INSTALLED_FPM_ONLY (1 << 14)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -391,10 +423,20 @@ extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
 /* Convert nhe depends to a grp context that can be passed around safely */
 extern uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int size);
 
+/* Global flag set by zebra --nhg-fib command-line option. */
+extern bool zebra_nhg_fib_enabled;
+
+/* Convert nhe full depends to a grp context that can be passed around safely */
+extern uint32_t zebra_nhg_nhe2grp_full(struct nh_grp_full *grp_full, struct nhg_hash_entry *nhe,
+				       uint32_t max_num);
+
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
 extern void zebra_interface_nhg_reinstall(struct interface *ifp);
+
+/* Mark the received flag for a nexthop group */
+void zebra_nhg_mark_received_flag(struct nhg_hash_entry *nhe);
 
 /* Forward ref of dplane update context type */
 struct zebra_dplane_ctx;
