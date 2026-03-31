@@ -641,7 +641,8 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain)
 	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT)
+		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
+		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
 			continue;
 		if (!key->string)
 			continue;
@@ -1082,6 +1083,9 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 	bs->ses_state = PTM_BFD_DOWN;
 
 	/* Initiate connection with slow timers. */
+	/* RFC 5880, Section 6.7.3: unpredictable initial sequence number */
+	bs->auth_seq_num = frr_weak_random();
+	bs->auth_last_rx_seq_num = 0;
 	bs_set_slow_timers(bs);
 
 	/* Initiate remote settings as well. */
