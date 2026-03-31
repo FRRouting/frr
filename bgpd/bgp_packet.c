@@ -2013,6 +2013,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 			SET_FLAG(peer->as_type, AS_EXTERNAL);
 			UNSET_FLAG(peer->as_type, AS_INTERNAL);
 		}
+		(void)peer_sort(peer);
 	} else if (peer->as_type == AS_INTERNAL) {
 		if (remote_as != peer->bgp->as) {
 			if (bgp_debug_neighbor_events(peer))
