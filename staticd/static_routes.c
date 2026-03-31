@@ -580,7 +580,7 @@ static void static_disable_vrf(struct route_table *stable,
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn)
-			static_uninstall_path(pn);
+			static_zebra_route_add(pn, false);
 	}
 }
 
