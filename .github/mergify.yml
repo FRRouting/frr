@@ -1,6 +1,1 @@
-pull_request_rules:
-  - name: Delete merged branch
-    conditions:
-      - merged
-    actions:
-      delete_head_branch:
+{}
