@@ -213,7 +213,7 @@ struct attr {
 	/* MP Nexthop length */
 	uint8_t mp_nexthop_len;
 
-	uint8_t encap_tunneltype;
+	uint16_t encap_tunneltype;
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
