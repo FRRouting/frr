@@ -1212,8 +1212,16 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 			assert(peer->group);
 			peer1 = listnode_head(peer->group->peer);
 
-			if (peer1)
+			if (peer1) {
+				/* AS_AUTO without INTERNAL/EXTERNAL bits means
+				 * the type is not yet resolved (no session up).
+				 * Treat as unestablished so it doesn't block
+				 * other members from being configured.
+				 */
+				if (peer1->as_type == AS_AUTO)
+					return BGP_PEER_INTERNAL;
 				return peer1->sort;
+			}
 		}
 		return BGP_PEER_INTERNAL;
 	}
