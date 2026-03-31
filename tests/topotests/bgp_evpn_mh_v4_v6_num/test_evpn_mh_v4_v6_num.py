@@ -28,6 +28,7 @@ import pytest
 import json
 import platform
 import time
+import re
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pim6d, pytest.mark.evpn]
 
@@ -189,24 +190,42 @@ def build_topo(tgen):
 ##
 #####################################################
 
-# IPv6 VTEP addresses
-tor_ips = {
-    "torm11": "2001:db8:100::15",
-    "torm12": "2001:db8:100::16",
-    "torm21": "2001:db8:100::17",
-    "torm22": "2001:db8:100::18",
+TOR_IPS = {
+    "ipv4": {
+        "torm11": "192.168.100.15",
+        "torm12": "192.168.100.16",
+        "torm21": "192.168.100.17",
+        "torm22": "192.168.100.18",
+    },
+    "ipv6": {
+        "torm11": "2001:db8:100::15",
+        "torm12": "2001:db8:100::16",
+        "torm21": "2001:db8:100::17",
+        "torm22": "2001:db8:100::18",
+    },
 }
 
-svi_ips = {
-    "torm11": "2001:db8:45::2",
-    "torm12": "2001:db8:45::3",
-    "torm21": "2001:db8:45::4",
-    "torm22": "2001:db8:45::5",
+SVI_IPS = {
+    "ipv4": {
+        "torm11": "45.0.0.2",
+        "torm12": "45.0.0.3",
+        "torm21": "45.0.0.4",
+        "torm22": "45.0.0.5",
+    },
+    "ipv6": {
+        "torm11": "2001:db8:45::2",
+        "torm12": "2001:db8:45::3",
+        "torm21": "2001:db8:45::4",
+        "torm22": "2001:db8:45::5",
+    },
 }
 
-tor_ips_rack_1 = {"torm11": "2001:db8:100::15", "torm12": "2001:db8:100::16"}
-
-tor_ips_rack_2 = {"torm21": "2001:db8:100::17", "torm22": "2001:db8:100::18"}
+# Runtime-selected active maps (set from fixture based on ip_version).
+active_ip_version = "ipv6"
+tor_ips = TOR_IPS[active_ip_version]
+svi_ips = SVI_IPS[active_ip_version]
+tor_ips_rack_1 = {"torm11": tor_ips["torm11"], "torm12": tor_ips["torm12"]}
+tor_ips_rack_2 = {"torm21": tor_ips["torm21"], "torm22": tor_ips["torm22"]}
 
 host_es_map = {
     "hostd11": "03:44:38:39:ff:ff:01:00:00:01",
@@ -235,6 +254,25 @@ tor_uplink_ipv6 = {
     "torm22": {
         "torm22-eth0": "2001:db8:4::0/127",
         "torm22-eth1": "2001:db8:8::0/127",
+    },
+}
+
+tor_uplink_ipv4 = {
+    "torm11": {
+        "torm11-eth0": "192.168.1.2/24",
+        "torm11-eth1": "192.168.5.2/24",
+    },
+    "torm12": {
+        "torm12-eth0": "192.168.2.2/24",
+        "torm12-eth1": "192.168.6.2/24",
+    },
+    "torm21": {
+        "torm21-eth0": "192.168.3.2/24",
+        "torm21-eth1": "192.168.7.2/24",
+    },
+    "torm22": {
+        "torm22-eth0": "192.168.4.2/24",
+        "torm22-eth1": "192.168.8.2/24",
     },
 }
 
@@ -312,6 +350,40 @@ def check_underlay_and_bgp_ipv6(dut, lo_prefix, uplink_prefixes, neighbors):
 
     # Prefer modern layout, fall back if needed
     peers = js.get("ipv6Unicast", {}).get("peers")
+    if not isinstance(peers, dict):
+        peers = js.get("peers", {}) if isinstance(js.get("peers"), dict) else {}
+
+    for neigh in neighbors:
+        state = peers.get(neigh, {}).get("state", "")
+        if state != "Established":
+            return f"{dut.name}: neighbor {neigh} not Established (state={state})"
+
+    return None
+
+
+def check_underlay_and_bgp_ipv4(dut, lo_prefix, uplink_prefixes, neighbors):
+    """
+    Generic helper to verify:
+    - Kernel IPv4 address on loopback matches `lo_prefix`
+    - Kernel IPv4 addresses on all uplink interfaces match `uplink_prefixes`
+    - All BGP IPv4 unicast neighbors in `neighbors` are Established
+    """
+    lo_out = dut.run("ip -4 addr show dev lo")
+    if lo_prefix not in lo_out:
+        return f"{dut.name}: loopback IPv4 missing in kernel: {lo_out}"
+
+    for ifname, prefix in uplink_prefixes.items():
+        out = dut.run(f"ip -4 addr show dev {ifname}")
+        if prefix not in out:
+            return f"{dut.name}: {ifname} IPv4 missing in kernel: {out}"
+
+    summary = dut.vtysh_cmd("show bgp ipv4 unicast summary json")
+    try:
+        js = json.loads(summary)
+    except Exception as exc:  # pragma: no cover - defensive
+        return f"{dut.name}: failed to parse BGP IPv4 summary json: {summary} ({exc})"
+
+    peers = js.get("ipv4Unicast", {}).get("peers")
     if not isinstance(peers, dict):
         peers = js.get("peers", {}) if isinstance(js.get("peers"), dict) else {}
 
@@ -455,8 +527,17 @@ def config_svi(node, svi_pip):
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.accept_dad=0")
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
 
-    # Assign IPv6 anycast GW only to VLAN 1000 in vrf1
-    node.run("ip -6 addr add %s/64 dev vlan1000" % svi_pip)
+    if active_ip_version == "ipv6":
+        # Assign IPv6 anycast GW only to VLAN 1000 in vrf1
+        node.run("ip -6 addr add %s/64 dev vlan1000" % svi_pip)
+    else:
+        # Preserve legacy IPv4 anycast gateway behavior used by MAC learning tests.
+        node.run("ip addr add %s/24 dev vlan1000" % svi_pip)
+        node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
+        node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
+        node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
+        node.run("ip link set dev vlan1000-v0 up")
+        node.run("ip addr add 45.0.0.1/24 dev vlan1000-v0")
 
 
 def config_vrf_l3vni(node):
@@ -484,7 +565,7 @@ def config_vrf_l3vni(node):
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
 
 
-def config_tor(tor_name, tor, tor_ip, svi_pip):
+def config_tor(tor_name, tor, tor_ip, svi_pip, ip_version):
     """
     Create the bond/vxlan-bridge on the TOR which acts as VTEP and EPN-PE
     """
@@ -502,16 +583,24 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     elif tor_id == "22":
         ipv4_lo = "10.0.0.18"
 
-    tor.run("ip addr add %s/32 dev lo" % ipv4_lo)
-    tor.run("ip -6 addr add %s/128 dev lo" % tor_ip)
+    if ip_version == "ipv4":
+        tor.run("ip addr add %s/32 dev lo" % tor_ip)
+    else:
+        tor.run("ip addr add %s/32 dev lo" % ipv4_lo)
+        tor.run("ip -6 addr add %s/128 dev lo" % tor_ip)
 
     # Add IPv6 underlay addresses on uplink interfaces using iproute2 as well.
     # This avoids timing/race issues where, when using frr-reload.py, BGP may
     # come up before interface addresses have been fully programmed by zebra
     # from the FRR config, leading to incorrect (e.g. IPv4-mapped IPv6) nexthops.
-    uplinks = tor_uplink_ipv6.get(tor_name, {})
+    uplinks = tor_uplink_ipv4.get(tor_name, {})
+    if ip_version == "ipv6":
+        uplinks = tor_uplink_ipv6.get(tor_name, {})
     for ifname, prefix in uplinks.items():
-        tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
+        if ip_version == "ipv6":
+            tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
+        else:
+            tor.run("ip addr add %s dev %s" % (prefix, ifname))
 
     # create VRFs and L3VNI VLANs based on L3VNI_VRF
     config_bridge(tor)
@@ -549,7 +638,7 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     config_svi(tor, svi_pip)
 
 
-def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip):
+def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip, ip_version):
     """
     Configure SVD VXLAN (`vxlan48`) and bridge (`br_default`) on a TOR VTEP
     in a manner similar to `setup_vtep` from bgp_evpn_three_tier_clos_topo1:
@@ -591,22 +680,26 @@ def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip):
         tor.run(cmd)
 
     # Now configure SVD data plane and host bonds using existing helper
-    config_tor(tor_name, tor, tor_ip, svi_pip)
+    config_tor(tor_name, tor, tor_ip, svi_pip, ip_version)
 
 
-def config_tors(tgen, tors):
+def config_tors(tgen, tors, ip_version):
     for tor_name in tors:
         setup_vtep_mh(
             tgen,
             tor_name,
             tor_ips.get(tor_name),
             svi_ips.get(tor_name),
+            ip_version,
         )
 
 
 def compute_host_ip_mac(host_name):
     host_id = host_name.split("hostd")[1]
-    host_ip = "2001:db8:45::" + host_id + "/64"
+    if active_ip_version == "ipv6":
+        host_ip = "2001:db8:45::" + host_id + "/64"
+    else:
+        host_ip = "45.0.0." + host_id + "/24"
     host_mac = "00:00:00:00:00:" + host_id
 
     return host_ip, host_mac
@@ -686,14 +779,16 @@ def tgen_and_ip_version(request):
     """
     Parametrized fixture to run the multihoming topology with IPv4 or IPv6 underlay.
 
-    For now only the IPv6 underlay is implemented; the IPv4 variant is skipped
-    until dedicated configs and host plumbing are added.
+    Supports both IPv4 and IPv6 underlay variants using per-version configs.
     """
 
     ip_version = request.param
-
-    if ip_version == "ipv4":
-        pytest.skip("IPv4 underlay is not yet implemented for this topology")
+    global active_ip_version, tor_ips, svi_ips, tor_ips_rack_1, tor_ips_rack_2
+    active_ip_version = ip_version
+    tor_ips = TOR_IPS[ip_version]
+    svi_ips = SVI_IPS[ip_version]
+    tor_ips_rack_1 = {"torm11": tor_ips["torm11"], "torm12": tor_ips["torm12"]}
+    tor_ips_rack_2 = {"torm21": tor_ips["torm21"], "torm22": tor_ips["torm22"]}
 
     # Build topology
     tgen = Topogen(build_topo, request.module.__name__)
@@ -705,9 +800,9 @@ def tgen_and_ip_version(request):
         tgen.errors = "kernel 4.19 needed for multihoming tests"
         pytest.skip(tgen.errors)
 
-    # Configure TORs and hosts (IPv6-only for now)
+    # Configure TORs and hosts for selected IP version
     tors = ["torm11", "torm12", "torm21", "torm22"]
-    config_tors(tgen, tors)
+    config_tors(tgen, tors, ip_version)
 
     # CRITICAL: Enable IPv6 and disable DAD BEFORE starting daemons
     # This must be done before zebra tries to configure IPv6 addresses
@@ -724,14 +819,22 @@ def tgen_and_ip_version(request):
 
     # Load unified FRR configurations using integrated-vtysh-config
     config_dir = os.path.join(CWD, ip_version)
+    common_config_dir = os.path.join(CWD, "common")
     for rname, router in router_list.items():
+        config_path = os.path.join(config_dir, "{}/frr.conf".format(rname))
+        if not os.path.exists(config_path):
+            config_path = os.path.join(common_config_dir, "{}/frr.conf".format(rname))
+
         logger.info(
-            "Loading unified %s config for %s from %s", ip_version, rname, config_dir
+            "Loading unified %s config for %s from %s",
+            ip_version,
+            rname,
+            config_path,
         )
         # Enable mgmtd first (required for modern FRR)
         router.load_config(TopoRouter.RD_MGMTD, "")
         # Load unified frr.conf from the IP-version specific config directory
-        router.load_frr_config(os.path.join(config_dir, "{}/frr.conf".format(rname)))
+        router.load_frr_config(config_path)
 
         # Explicitly ensure pim6d and its configuration are applied for this
         # topology when using IPv6 underlay. Guard this with a runtime check
@@ -862,18 +965,24 @@ def tgen_and_ip_version(request):
     # Disable DAD on all interfaces (additional per-interface configuration)
     disable_dad_on_all_interfaces(tgen)
 
-    # Final underlay/BGP sanity check on torm11: verify that loopback/uplink
-    # IPv6 addresses are present in the kernel and that IPv6 BGP neighbors
-    # towards leaf1/leaf2 establish. This uses the generic helper so it can be
-    # reused for other routers/AFs if needed.
+    # Final underlay/BGP sanity check on torm11 for the selected AF.
     if torm11 is not None:
-        check_fn = partial(
-            check_underlay_and_bgp_ipv6,
-            torm11,
-            lo_prefix="2001:db8:100::15/128",
-            uplink_prefixes=tor_uplink_ipv6["torm11"],
-            neighbors=["2001:db8:1::1", "2001:db8:5::1"],
-        )
+        if ip_version == "ipv6":
+            check_fn = partial(
+                check_underlay_and_bgp_ipv6,
+                torm11,
+                lo_prefix="2001:db8:100::15/128",
+                uplink_prefixes=tor_uplink_ipv6["torm11"],
+                neighbors=["2001:db8:1::1", "2001:db8:5::1"],
+            )
+        else:
+            check_fn = partial(
+                check_underlay_and_bgp_ipv4,
+                torm11,
+                lo_prefix="192.168.100.15/32",
+                uplink_prefixes=tor_uplink_ipv4["torm11"],
+                neighbors=["192.168.1.1", "192.168.5.1"],
+            )
         _, result = topotest.run_and_expect(check_fn, None, count=20, wait=3)
         assert result is None, "torm11 underlay/BGP sanity failed: %s" % (result,)
 
@@ -1069,10 +1178,13 @@ def ping_anycast_gw(tgen):
     # the mac address on the PEs
     intf = "torbond"
     ipaddr = "2001:db8:45::1"
+    cmd_tmpl = "ping6 -I {} -c 1 {}"
+    if active_ip_version == "ipv4":
+        ipaddr = "45.0.0.1"
+        cmd_tmpl = "ping -I {} -c 1 {}"
     for name in ("hostd11", "hostd21", "hostd12", "hostd22"):
         host = tgen.net.hosts[name]
-        # Use ping6 to trigger neighbor discovery
-        ping_cmd = "ping6 -I {} -c 1 {}".format(intf, ipaddr)
+        ping_cmd = cmd_tmpl.format(intf, ipaddr)
         _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
         stdout = stdout.strip()
         if stdout:
