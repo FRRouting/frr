@@ -1148,11 +1148,11 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(peer->max_packet_size);
-
 	/* Make BGP update packet. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
 		return;
+
+	s = stream_new(peer->max_packet_size);
 
 	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
 
