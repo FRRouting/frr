@@ -51,6 +51,133 @@ If an L2VNI does not have an SVI or its SVI is not enslaved to a VRF, the L2VNI
 will be associated with the "default" VRF. If an L2VNI has an SVI whose master
 device is a VRF, then that L2VNI will be associated with its master VRF.
 
+.. _evpn-linux-vxlan-dataplane:
+
+The Linux (VXLAN) Dataplane
+============================
+
+The Linux kernel network stack or dataplane was not built with EVPN in mind,
+and does not line up well with the EVPN forwarding model. Therefore, configuration
+may seem counterintuitive or overcomplicated.
+
+.. topic:: TL;DR
+
+   - Traditional VXLAN Device: A VXLAN device that can only receive traffic for a single VNI
+   - Single VXLAN Device (SVD): A VXLAN device that can receive traffic for multiple VNIs
+   - ``external`` flag (``VXLAN_F_COLLECT_METADATA``): Flag that allows a VXLAN device to receive traffic for *all* VNIs for a specific UDP ports, makes the device a "Single VXLAN Device", without ``vnifilter`` flag only one ``external`` VXLAN Device can exist per port
+   - ``vnifilter`` flag (``VXLAN_F_VNIFILTER``): Only used together with ``external``, allows multiple ``external`` VXLAN devices to co-exist on the same port by limiting which VNIs are received on each device
+   - **Single VXLAN Devices are the recommended approach for all EVPN deployments**
+   - When using Single VXLAN Devices, it is good practice to always use ``vnifilter`` flag
+
+Single VXLAN Devices (SVD)
+-----------------------------
+An :abbr:`SVD (Single VXLAN Device)` is a particular way of configuring a VXLAN
+device or interface on Linux. This naming is particularly unfortunate, as it does
+cause more confusion than it resolves until you understand what is actually going
+on behind the scenes.
+A better name would perhaps be :abbr:`MVVI (Multi-VNI VXLAN Interface)`,
+which stands for "Multi-VNI VXLAN Interface".
+
+In order to understand why SVDs are called SVDs, we have to look into the history
+of VXLAN support in the Linux kernel.
+
+When VXLAN support was first added to the Linux kernel, you had to create one VXLAN
+device per VNI. This is what we now call the "Traditional VXLAN Device" model.
+Creating one VXLAN device per VNI quickly leads to scaling issues, particularly in
+datacenter deployments with thousands of VNIs.
+
+``VXLAN_F_COLLECT_METADATA`` and the ``external`` flag
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Due to these scaling issues, support for receiving multiple VNIs on a single VXLAN
+device was added in `kernel commit ee122c79d4227f6ec642157834b6a90fcffa4382
+("vxlan: Flow based tunneling") <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ee122c79d4227f6ec642157834b6a90fcffa4382>`__.
+In the kernel, the flag controlling this behaviour is called ``VXLAN_F_COLLECT_METADATA``.
+In ``ip link`` this is the ``external`` flag.
+While, technically, the naming is correct, as it indicates "whether an external
+control plane (e.g. ip route encap) or the internal FDB should be used", it is also
+not very intuitive.
+In order to create a VXLAN device with this flag set, use
+
+.. code-block:: shell
+
+   ip link add dev <vxlanif> type vxlan external ...
+
+**This flag is what essentially makes a VXLAN device a "Single VXLAN Device"!**
+
+A VXLAN device with the ``external`` flag set **will receive traffic for all VNIs**
+for a specific UDP Port on the entire system, and there **can be only ONE of
+them per UDP Port (unless you add the** ``vnifilter`` **flag!)**
+
+When you attempt to add a second VXLAN device with the ``external`` flag, without
+using the ``vnifilter`` flag, you will get the following error:
+
+.. code-block:: shell
+
+   ip link add dev vxlan0 type vxlan external
+   ip link add dev vxlan1 type vxlan external
+
+   Error: A VXLAN device with the specified VNI already exists.
+
+
+This is also where the name comes from: You only have **one** (a single)
+VXLAN device on your system which handles all VNIs.
+Nowadays (with the ``vnifilter`` flag), this means that for normal use cases,
+you only have **one** (a single) VXLAN interface per bridge, handling all
+VNIs of this bridge.
+
+When this flag is active, you must use
+
+.. code-block:: shell
+
+   bridge vlan add dev <vxlanif> vid <vlan>
+   bridge vlan add dev <vxlanif> vid <vlan> tunnel_info id <vni>
+
+to map the VNI to a VLAN on a specific VXLAN device. The VXLAN interface must be
+enslaved to a bridge for this to work. Note that depending on the Linux version,
+you may be able to omit the first command.
+
+
+``VXLAN_F_VNIFILTER`` and the ``vnifilter`` flag
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+At some point it was recognized that there are valid use cases for having
+multiple "Single VXLAN Devices" on the same port on the same system
+(and even on the same bridge). Therefore, in
+`kernel commit f9c4bb0b245cee35ef66f75bf409c9573d934cf9
+("vxlan: vni filtering support on collect metadata device") <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f9c4bb0b245cee35ef66f75bf409c9573d934cf9>`__,
+the possibility to have multiple SVDs was added, using the ``vnifilter`` flag
+(called ``VXLAN_F_VNIFILTER`` in the kernel).
+
+This flag limits which VNIs are received on a specific "Single VXLAN Device",
+ultimately allowing you to have multiple "Single VXLAN Devices" on the same
+UDP Port on the same system... and even on the same bridge!
+
+In order to create a VXLAN device with this flag set, use
+
+.. code-block:: shell
+
+   ip link add dev <vxlanif> type vxlan external vnifilter ...
+
+**The vnifilter flag only works when the** ``external`` **flag is also set**
+
+With this flag active, you must use
+
+.. code-block:: shell
+
+   bridge vlan vni add dev <vxlanif> vni <vni>
+
+on the VXLAN device in order to allow this device to receive traffic for
+the specified VNI. It works even when the VXLAN device is not enslaved to a bridge.
+This command must be used **in addition to** the
+``bridge vlan add dev <vxlanif> vid <vlan> tunnel_info id <vni>`` command!
+
+Traditional VXLAN Devices
+-----------------------------
+A "Traditional VXLAN Device" is a VXLAN device without the ``external`` flag set.
+A Traditional VXLAN Device will only receive traffic for a single VNI. This means
+that in a multi-VNI environment, you need to create one Traditional
+VXLAN Device per VNI.
+
 .. _evpn-frr-configuration:
 
 FRR Configuration
@@ -515,16 +642,16 @@ VLAN Filtering Bridge and Single VXLAN Device
 ---------------------------------------------
 
 In contrast to traditional bridges, each with its own VXLAN device, an EVPN
-deployment with a single VXLAN device (SVD) uses a single bridge and a single 
-VXLAN interface with that bridge as its master. We'll use ``100.64.0.1`` as our 
+deployment with a single VXLAN device (SVD) uses a single bridge and a single
+VXLAN interface with that bridge as its master. We'll use ``100.64.0.1`` as our
 local VTEP endpoint, so add that address to the ``lo`` device.
 
 .. code-block:: shell
 
    ip addr replace 100.64.0.1 dev lo
 
-Then create our root bridge and VXLAN device. These devices will service all 
-VNIs, both L2VNIs and L3VNIs included. The bridge must be VLAN aware, i.e., 
+Then create our root bridge and VXLAN device. These devices will service all
+VNIs, both L2VNIs and L3VNIs included. The bridge must be VLAN aware, i.e.,
 ``vlan_filtering 1``. It's best to set no default pvid to prevent accidentally
 bridging two unrelated networks.
 
@@ -532,14 +659,15 @@ bridging two unrelated networks.
 
    ip link add br0 type bridge vlan_filtering 1 vlan_default_pvid 0
    # the key setting for SVD configuration is "external"
-   # "vnifilter" isn't strictly necessary but is correct
+   # "vnifilter" isn't strictly necessary but is good practice
+   # see above for an explanation of "external" and "vnifilter"
    ip link add vxlan0 type vxlan dstport 4789 local 100.64.0.1 nolearning external vnifilter
    ip link set br0 addrgenmode none
    ip link set vxlan0 addrgenmode none master br0
 
 We will also choose a unique MAC address per VTEP which will be advertised along
-with each Type-2 route advertising an IP address, and each Type-5 route. This 
-is called the `routermac` and supports symmetric routing.
+with each Type-2 route advertising an IP address, and each Type-5 route. This
+is called the ``routermac`` and supports symmetric routing.
 
 .. code-block:: shell
 
@@ -579,8 +707,8 @@ And also create our vrfs.
    ip link add vrf3 type vrf table 1300
    ip link set vrf3 up
 
-Now we perform the VLAN filtering, the VLAN-VNI binding, and L2VNI to L3VNI 
-bindings. 
+Now we perform the VLAN filtering, the VLAN-VNI binding, and L2VNI to L3VNI
+bindings.
 
 .. code-block:: shell
 
