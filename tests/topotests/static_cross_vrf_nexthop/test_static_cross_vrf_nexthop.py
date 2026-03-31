@@ -253,6 +253,181 @@ def test_cross_vrf_with_different_prefix():
     assert result is None, result
 
 
+def test_vrf_teardown_cleanup():
+    """
+    Test that ECMP routes retain valid nexthops when a nexthop VRF goes down.
+
+    Bug (pre-fix): static_cleanup_vrf() called static_uninstall_nexthop() per
+    nexthop, which sent a ZAPI ADD including the cross-VRF nexthop (with its
+    nh_vrf_id still valid) before marking it VRF_UNKNOWN.  Zebra stored the
+    stale nexthop, which then appeared as an inactive entry in the RIB even
+    after the VRF was gone.
+
+    Fix: mark all affected nexthops VRF_UNKNOWN first (deregistering NHT),
+    then do a single uninstall_path + install_path so the ZAPI ADD sent to
+    zebra contains only the surviving nexthops.
+
+    Design:
+      The cross-VRF nexthop (9.9.9.9 in vrf_a) is resolved via a blackhole
+      static route so that NHT reports it valid without needing any physical
+      interface enslaved to vrf_a.  This is crucial: when vrf_a is torn down,
+      the kernel sends RTM_DELLINK (no RTM_DELADDR, since no enslaved
+      interfaces carry addresses that belong to vrf_a's routing table).
+      Consequently no NEXTHOP_UPDATE is triggered for 9.9.9.9 before zebra
+      sends ZEBRA_VRF_DELETE to staticd, keeping nh_valid=true at the moment
+      static_cleanup_vrf_ids() fires.
+
+      - Without fix: static_uninstall_nexthop() is called while nh_vrf_id is
+        still valid and nh_valid=true, so the ZAPI ADD includes 9.9.9.9.
+        Zebra stores it as an inactive nexthop; 9.9.9.9 appears in the RIB.
+      - With fix: nh_vrf_id is set to VRF_UNKNOWN first; static_zebra_route_add()
+        skips it, so the ZAPI ADD contains only 10.2.0.2. Zebra installs a
+        new nhg without 9.9.9.9; the route shows only 10.2.0.2.
+
+    Setup:
+      - Add a blackhole route 9.9.9.9/32 in vrf_a so NHT resolves it as valid.
+      - Add a dummy interface to vrf_b (10.2.0.1/24) for a resolvable local NH.
+      - In vrf_b, install 10.3.0.0/24 with two nexthops at the same distance:
+          9.9.9.9 nexthop-vrf vrf_a  (cross-VRF, resolved via blackhole)
+          10.2.0.2                    (local to vrf_b, resolved via dummy_b)
+      - Verify both nexthops are initially active.
+      - Delete kernel vrf_a device then "no vrf vrf_a" to fire
+        static_cleanup_vrf_ids() (two-step required: kernel deletion disables
+        the VRF; FRR config deletion fires the full vrf_disable hook chain).
+      - Verify 10.3.0.0/24 still has 10.2.0.2 active and 9.9.9.9 is
+        completely absent (not even inactive).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("Testing VRF teardown does not leave stale cross-VRF nexthop in RIB")
+
+    # Install a blackhole route for 9.9.9.9/32 in vrf_a so that staticd's NHT
+    # registration reports 9.9.9.9 as valid (blackhole nexthops are always
+    # ACTIVE in zebra).  No physical interface needs to be enslaved to vrf_a
+    # for this to work, which is the key to the test design (see docstring).
+    r1.vtysh_cmd(
+        """
+configure terminal
+ip route 9.9.9.9/32 blackhole vrf vrf_a
+"""
+    )
+
+    # Add a dummy interface to vrf_b so 10.2.0.0/24 is connected there,
+    # making 10.2.0.2 resolvable as a local nexthop in vrf_b.
+    r1.run("ip link add dummy_b type dummy")
+    r1.run("ip link set dummy_b master vrf_b")
+    r1.run("ip link set dummy_b up")
+    r1.run("ip addr add 10.2.0.1/24 dev dummy_b")
+
+    # Configure ECMP route 10.3.0.0/24 in vrf_b with two nexthops:
+    #   - 9.9.9.9 resolved in vrf_a (cross-VRF, via blackhole → always active)
+    #   - 10.2.0.2 resolved locally in vrf_b (via connected 10.2.0.0/24 on dummy_b)
+    r1.vtysh_cmd(
+        """
+configure terminal
+ip route 10.3.0.0/24 9.9.9.9 nexthop-vrf vrf_a vrf vrf_b
+ip route 10.3.0.0/24 10.2.0.2 vrf vrf_b
+"""
+    )
+
+    def _check_both_nexthops_active():
+        output = r1.vtysh_cmd("show ip route vrf vrf_b 10.3.0.0/24 json")
+        logger.info("show ip route vrf vrf_b 10.3.0.0/24: {}".format(output))
+        route_data = json.loads(output)
+        if "10.3.0.0/24" not in route_data:
+            return "Route 10.3.0.0/24 not found in vrf_b"
+        active_nhs = []
+        for nh_entry in route_data["10.3.0.0/24"]:
+            for nh in nh_entry.get("nexthops", []):
+                if nh.get("active", False):
+                    active_nhs.append(nh.get("ip"))
+        if len(active_nhs) < 2:
+            return "Expected 2 active nexthops, found: {}".format(active_nhs)
+        return None
+
+    success, result = topotest.run_and_expect(
+        _check_both_nexthops_active, None, count=30, wait=1
+    )
+    assert result is None, "Initial state check failed: {}".format(result)
+
+    # Two-step VRF teardown to fire static_cleanup_vrf_ids():
+    #
+    # 1. Delete the kernel VRF device.  Because no physical interface is
+    #    enslaved to vrf_a, the kernel sends only RTM_DELLINK (no
+    #    RTM_DELADDR).  This avoids triggering a NEXTHOP_UPDATE for 9.9.9.9
+    #    before static_cleanup_vrf_ids() fires, keeping nh_valid=true.
+    #    zebra calls vrf_disable() here, which sends ZEBRA_VRF_DELETE to
+    #    staticd and fires static_cleanup_vrf_ids().
+    #
+    # 2. "no vrf vrf_a" via vtysh — FRR only permits this after the kernel
+    #    device is gone (VRF inactive).  This completes the FRR config removal.
+    logger.info("Deleting kernel vrf_a device (no enslaved interfaces → no RTM_DELADDR)")
+    r1.run("ip link delete vrf_a")
+
+    logger.info("Removing FRR vrf_a config to complete teardown")
+    r1.vtysh_cmd("configure terminal\nno vrf vrf_a\n")
+
+    def _check_route_survives_with_local_nexthop():
+        output = r1.vtysh_cmd("show ip route vrf vrf_b 10.3.0.0/24 json")
+        logger.info(
+            "show ip route vrf vrf_b 10.3.0.0/24 (after vrf_a deleted): {}".format(
+                output
+            )
+        )
+        route_data = json.loads(output)
+        if "10.3.0.0/24" not in route_data:
+            return "Route 10.3.0.0/24 removed from vrf_b (bug: valid nexthop lost)"
+        active_nhs = []
+        all_nhs = []
+        for nh_entry in route_data["10.3.0.0/24"]:
+            for nh in nh_entry.get("nexthops", []):
+                all_nhs.append(nh.get("ip"))
+                if nh.get("active", False):
+                    active_nhs.append(nh.get("ip"))
+        if "10.2.0.2" not in active_nhs:
+            return "Nexthop 10.2.0.2 (vrf_b) not active after vrf_a teardown: {}".format(
+                active_nhs
+            )
+        # With the fix, static_zebra_route_add() skips VRF_UNKNOWN nexthops,
+        # so the ZAPI ADD after cleanup contains only 10.2.0.2; zebra installs
+        # a new nhg without 9.9.9.9 and the stale nexthop is gone entirely.
+        # Without the fix, the ADD is sent before nh_vrf_id is set to
+        # VRF_UNKNOWN, so 9.9.9.9 is included with a stale VRF ID and
+        # permanently appears in zebra as an inactive nexthop.
+        if "9.9.9.9" in all_nhs:
+            return (
+                "Stale cross-VRF nexthop 9.9.9.9 still present (even inactive) "
+                "after vrf_a teardown: {}".format(all_nhs)
+            )
+        return None
+
+    success, result = topotest.run_and_expect(
+        _check_route_survives_with_local_nexthop, None, count=30, wait=1
+    )
+
+    # Cleanup: remove test routes and dummy interface, then restore vrf_a
+    # (kernel device + FRR config + interface binding) for subsequent tests.
+    r1.vtysh_cmd(
+        """
+configure terminal
+no ip route 10.3.0.0/24 9.9.9.9 nexthop-vrf vrf_a vrf vrf_b
+no ip route 10.3.0.0/24 10.2.0.2 vrf vrf_b
+"""
+    )
+    r1.run("ip link delete dummy_b")
+    r1.run("ip link add vrf_a type vrf table 100")
+    r1.run("ip link set vrf_a up")
+    r1.vtysh_cmd("configure terminal\nvrf vrf_a\nexit-vrf\n")
+    r1.run("ip link set r1-eth0 master vrf_a")
+    r1.run("ip link set r1-eth0 up")
+
+    assert result is None, result
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
