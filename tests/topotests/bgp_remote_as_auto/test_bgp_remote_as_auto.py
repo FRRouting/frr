@@ -23,7 +23,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2", "r3"), "s2": ("r1", "r4")}
+    topodef = {"s1": ("r1", "r2", "r3", "r5"), "s2": ("r1", "r4")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -50,6 +50,7 @@ def test_bgp_remote_as_auto():
     r2 = tgen.gears["r2"]
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
+    r5 = tgen.gears["r5"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast summary json"))
@@ -154,6 +155,40 @@ def test_bgp_remote_as_auto():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see automatic unnumbered eBGP peering"
+
+    def _bgp_converge_peer_group():
+        output = json.loads(r5.vtysh_cmd("show bgp ipv4 unicast summary json"))
+        expected = {
+            "peers": {
+                "192.168.1.1": {
+                    "hostname": "r1",
+                    "remoteAs": 65001,
+                    "localAs": 65001,
+                    "state": "Established",
+                },
+                "192.168.1.2": {
+                    "hostname": "r2",
+                    "remoteAs": 65001,
+                    "localAs": 65001,
+                    "state": "Established",
+                },
+                "192.168.1.3": {
+                    "hostname": "r3",
+                    "remoteAs": 65003,
+                    "localAs": 65001,
+                    "state": "Established",
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_converge_peer_group,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Peer-group with mixed remote-as auto/internal members failed to establish"
 
 
 if __name__ == "__main__":
