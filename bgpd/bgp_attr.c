@@ -3016,6 +3016,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	bool proxy = false;
 	struct ecommunity *ecomm;
+	bgp_encap_types tun_type = BGP_ENCAP_TYPE_VXLAN;/*Default tunnel type*/
 
 	if (length == 0) {
 		bgp_attr_set_ecommunity(attr, NULL);
@@ -3069,8 +3070,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	}
 
 	/* Get the tunnel type from encap extended community */
-	bgp_attr_extcom_tunnel_type(attr,
-		(bgp_encap_types *)&attr->encap_tunneltype);
+	bgp_attr_extcom_tunnel_type(attr, &tun_type);
+	attr->encap_tunneltype = tun_type;
 
 	/* Extract link bandwidth, if any. */
 	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
