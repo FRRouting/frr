@@ -386,10 +386,9 @@ zebra_nhg_tracker_park_unmatched(struct nhg_hash_entry *orig_nhe,
  * Collapse all trackers strictly older than keeper into keeper.
  * Their routes land in keeper's unmatched table.
  */
-static void
-zebra_nhg_tracker_collapse_older_trackers_in_set(struct nhg_hash_entry *orig_nhe,
-						 struct tracker_prefix_map_head *prefix_map,
-						 struct nhg_event_tracker *keeper)
+static void zebra_nhg_tracker_absorb_older(struct nhg_hash_entry *orig_nhe,
+					   struct tracker_prefix_map_head *prefix_map,
+					   struct nhg_event_tracker *keeper)
 {
 	struct nhg_event_tracker *t, *next_t;
 
@@ -478,8 +477,7 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 					      true)) {
 			keeper = tracker;
 
-			zebra_nhg_tracker_collapse_older_trackers_in_set(orig_nhe, prefix_map,
-									 keeper);
+			zebra_nhg_tracker_absorb_older(orig_nhe, prefix_map, keeper);
 
 			/*
 			 * Collapse has already repointed prefix_map entries from absorbed
@@ -796,7 +794,9 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	struct nhg_event_tracker *existing;
 	struct nhg_event_tracker *tracker;
 	struct nhg_event_tracker *head;
+	struct nhg_event_tracker *oldest;
 	struct nhg_hash_entry *snapshot;
+	unsigned long inherit_secs;
 
 	snapshot = zebra_nhe_copy(nhe, nhe->id);
 
@@ -826,17 +826,40 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	tracker->unmatched_table.vrf_tables = NULL;
 	tracker->unmatched_table.re_count = 0;
 
+	/*
+	 * Inherit the oldest existing tracker's remaining timer so that
+	 * back-to-back interface events don't keep pushing the expiry out
+	 * indefinitely.  Capture it before collapsing older trackers.
+	 */
+	inherit_secs = zrouter.nhg_tracker_timeout;
+	oldest = nhg_event_tracker_list_last(&nhe->tracker_list);
+	if (oldest && event_is_scheduled(oldest->timer)) {
+		unsigned long remain = event_timer_remain_second(oldest->timer);
+
+		if (remain > 0)
+			inherit_secs = remain;
+	}
+
 	nhg_event_tracker_list_add_head(&nhe->tracker_list, tracker);
 	nhg_event_tracker_hash_add(&nhe->tracker_hash, tracker);
 
-	event_add_timer(zrouter.master, nhg_tracker_timer_expiry, tracker,
-			zrouter.nhg_tracker_timeout, &tracker->timer);
+	/*
+	 * Collapse all older trackers into this one: their matched and
+	 * unmatched routes move into new tracker's unmatched table, and
+	 * prefix_map entries are repointed.
+	 */
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 1) {
+		zebra_nhg_tracker_absorb_older(nhe, &nhe->tracker_prefix_map, tracker);
+	}
+
+	event_add_timer(zrouter.master, nhg_tracker_timer_expiry, tracker, inherit_secs,
+			&tracker->timer);
 
 	zrouter.tracker_counters.trackers_allocated++;
 
-	zlog_info("%s: NHG %u created tracker %u (event=%s ifindex=%u) total trackers=%zu",
+	zlog_info("%s: NHG %u created tracker %u (event=%s ifindex=%u timer=%lus) total trackers=%zu",
 		  __func__, nhe->id, tracker->nhg_tracker_id,
-		  event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN", ifindex,
+		  event == NHG_TRACKER_EVENT_INTF_UP ? "UP" : "DOWN", ifindex, inherit_secs,
 		  nhg_event_tracker_list_count(&nhe->tracker_list));
 
 	return tracker;
