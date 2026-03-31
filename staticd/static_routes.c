@@ -547,15 +547,23 @@ static void static_cleanup_vrf(struct vrf *vrf, struct route_table *stable,
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
+			bool changed = false;
+
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
 				if (strcmp(vrf->name, nh->nh_vrfname) != 0)
 					continue;
-
-				static_uninstall_nexthop(nh);
-
+				/*
+				 * Mark the nexthop invalid before reinstalling
+				 * the path so that the re-ADD does not include
+				 * nexthops belonging to the now-gone VRF.
+				 */
+				static_zebra_nht_register(nh, false);
 				nh->nh_vrf_id = VRF_UNKNOWN;
 				nh->ifindex = IFINDEX_INTERNAL;
+				changed = true;
 			}
+			if (changed)
+				static_install_path(pn);
 		}
 	}
 }
