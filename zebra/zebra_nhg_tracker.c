@@ -814,6 +814,16 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	struct nhg_event_tracker *oldest;
 	struct nhg_hash_entry *snapshot;
 	unsigned long inherit_secs;
+	uint32_t unique_re_count;
+
+	/*
+	 * Only count installed unicast REs — these are the ones that will
+	 * actually arrive through the tracker path.  Skip tracker creation
+	 * when the count is zero.
+	 */
+	unique_re_count = tracker_count_unique_res(&nhe->re_head);
+	if (unique_re_count == 0)
+		return NULL;
 
 	snapshot = zebra_nhe_copy(nhe, nhe->id);
 
@@ -835,7 +845,7 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	tracker->nhg_tracker_snapshot = snapshot;
 	tracker->ifindex = ifindex;
 	tracker->event = event;
-	tracker->orig_re_count = tracker_count_unique_res(&nhe->re_head);
+	tracker->orig_re_count = unique_re_count;
 
 	tracker->matched_table.vrf_tables = NULL;
 	tracker->matched_table.re_count = 0;
