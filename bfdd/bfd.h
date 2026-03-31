@@ -441,6 +441,8 @@ struct bfd_session {
 	struct in6_addr out_sip6;
 	struct in6_addr seg_list[SRV6_MAX_SEGS];
 	struct keychain *kc; /* Currently active keychain for this session */
+	uint32_t auth_seq_num;
+	uint32_t auth_last_rx_seq_num;
 };
 
 struct bfd_diag_str_list {
