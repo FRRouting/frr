@@ -182,6 +182,9 @@ struct bgp_master {
 	/* Should we do wait for fib install globally? */
 	bool wait_for_fib;
 
+	/* Advertisement delay (ms) for suppress-fib-pending (global) */
+	uint16_t suppress_fib_adv_delay;
+
 	/* EVPN multihoming */
 	struct bgp_evpn_mh_info *mh_info;
 
@@ -1049,6 +1052,9 @@ struct bgp {
 	uint32_t condition_check_period;
 	uint32_t condition_filter_count;
 	struct event *t_condition_check;
+
+	/* Advertisement delay (ms) for suppress-fib-pending */
+	uint16_t suppress_fib_adv_delay;
 
 
 	/* BGP L3 service VPN SRv6 backend */
@@ -2479,6 +2485,7 @@ struct bgp_nlri {
 #define BGP_DEFAULT_SELECT_DEFERRAL_TIME       120
 #define BGP_DEFAULT_RIB_STALE_TIME             500
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
+#define BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY     1000 /* ms */
 
 /* BGP Long-lived Graceful Restart */
 #define BGP_DEFAULT_LLGR_STALE_TIME 0
@@ -2705,8 +2712,10 @@ extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
 extern void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *prefix);
 extern void bgp_router_id_static_set(struct bgp *bgp, struct in_addr router_id);
 
-extern void bm_wait_for_fib_set(bool set);
-extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
+extern void bm_wait_for_fib_set(bool set, uint16_t adv_delay);
+extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set,
+					  uint16_t adv_delay);
+extern uint16_t bgp_suppress_fib_get_adv_delay(struct bgp *bgp);
 extern void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id);
 extern void bgp_cluster_id_unset(struct bgp *bgp);
 

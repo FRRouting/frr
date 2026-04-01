@@ -447,17 +447,23 @@ void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 			  true /* is config */);
 }
 
-void bm_wait_for_fib_set(bool set)
+void bm_wait_for_fib_set(bool set, uint16_t adv_delay)
 {
 	bool send_msg = false;
 	struct bgp *bgp;
 	struct peer *peer;
 	struct listnode *next, *node;
 
-	if (bm->wait_for_fib == set)
+	/* If only the delay changed, update it without resetting peers */
+	if (bm->wait_for_fib == set) {
+		if (set && bm->suppress_fib_adv_delay != adv_delay)
+			bm->suppress_fib_adv_delay = adv_delay;
 		return;
+	}
 
 	bm->wait_for_fib = set;
+	bm->suppress_fib_adv_delay = adv_delay;
+
 	if (set) {
 		if (bgp_suppress_fib_count == 0)
 			send_msg = true;
@@ -498,7 +504,7 @@ void bm_wait_for_fib_set(bool set)
 }
 
 /* Set the suppress fib pending for the bgp configuration */
-void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
+void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set, uint16_t adv_delay)
 {
 	bool send_msg = false;
 	bool is_retry = false;
@@ -514,9 +520,16 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING_OP_DEFERRED);
 	}
 
-	/* Do nothing if already in a desired state, unless this is a retry */
-	if (!is_retry && set == !!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+	/* If only the delay changed, update it without resetting peers */
+	if (!is_retry && set == !!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)) {
+		if (set && bgp->suppress_fib_adv_delay != adv_delay) {
+			bgp->suppress_fib_adv_delay = adv_delay;
+			return;
+		}
 		return;
+	}
+
+	bgp->suppress_fib_adv_delay = adv_delay;
 
 	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		/* Socket not ready - mark operation as failed */
@@ -604,8 +617,22 @@ void bgp_zebra_suppress_fib_pending_config_retry(void)
 				   __func__, desired_enable ? "enable" : "disable",
 				   bgp->name_pretty, bgp_suppress_fib_count);
 
-		bgp_suppress_fib_pending_set(bgp, desired_enable);
+		bgp_suppress_fib_pending_set(bgp, desired_enable,
+					     bgp->suppress_fib_adv_delay);
 	}
+}
+
+/*
+ * Return the effective suppress-fib advertisement delay for a BGP instance.
+ * Per-instance value takes precedence; falls back to the global bm value.
+ */
+uint16_t bgp_suppress_fib_get_adv_delay(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+		return bgp->suppress_fib_adv_delay;
+	if (bm->wait_for_fib)
+		return bm->suppress_fib_adv_delay;
+	return BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
 }
 
 /* BGP's cluster-id control. */
@@ -3795,6 +3822,7 @@ peer_init:
 	bgp->lb_handling = BGP_LINK_BW_ECMP;
 	bgp->reject_as_sets = true;
 	bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
+	bgp->suppress_fib_adv_delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
@@ -9065,6 +9093,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
+	bm->suppress_fib_adv_delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
 	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
