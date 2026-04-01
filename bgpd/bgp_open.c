@@ -219,6 +219,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 							       "capabilityErrorMultiProtocolSafi",
 							       "BGP-LS");
 					break;
+				case SAFI_UNREACH:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolSafi",
+							       "unreachability");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -273,6 +278,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case SAFI_BGP_LS:
 					vty_out(vty, "SAFI BGP-LS");
+					break;
+				case SAFI_UNREACH:
+					vty_out(vty, "SAFI Unreachability");
 					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
@@ -343,9 +351,9 @@ static int bgp_capability_mp(struct peer_connection *connection, struct capabili
 	bgp_capability_mp_data(s, &mpc);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s",
+		zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s (AFI=%u, SAFI=%u)",
 			   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
-			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi));
+			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi), mpc.afi, mpc.safi);
 
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(mpc.afi, mpc.safi, &afi, &safi))
@@ -1859,6 +1867,11 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 			stream_putw(s, pkt_afi);
 			stream_putc(s, 0);
 			stream_putc(s, pkt_safi);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s sending OPEN MP capability for afi/safi: %s/%s (AFI=%u, SAFI=%u)",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi), pkt_afi, pkt_safi);
 
 			/* Extended nexthop capability - currently
 			 * supporting RFC-5549 for
