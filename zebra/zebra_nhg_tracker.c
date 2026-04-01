@@ -322,22 +322,49 @@ static void zebra_nhg_tracker_evict_re(struct nhg_event_tracker *tracker,
 	if (pm_entry->tracker != tracker)
 		return;
 
-	UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-
 	vrf_table = tracker_vrf_table_get(tt, re->vrf_id);
 	trn = route_node_lookup(vrf_table, &rn->p);
-	if (trn && trn->info) {
-		route_unlock_node(trn->info);
-		trn->info = NULL;
-		route_unlock_node(trn);
-	}
-	if (trn)
-		route_unlock_node(trn);
+	/* Parking for this prefix is in only one of matched vs unmatched for this
+	 * tracker VRF; skip so the sibling evict_from_* removes the map row and
+	 * decrements the correct re_count.  route_node_lookup yields NULL unless
+	 * this node has info (locked reference).
+	 */
+	if (!trn)
+		return;
+
+	UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
 
 	tracker_prefix_map_del(prefix_map, pm_entry);
 	XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, pm_entry);
 	if (tt->re_count > 0)
 		tt->re_count--;
+
+	{
+		bool others_remain = false;
+		struct route_node *parked_rn = trn->info;
+		struct route_entry *check_re;
+
+		RNODE_FOREACH_RE (parked_rn, check_re) {
+			struct tracker_prefix_map_entry chk;
+
+			memset(&chk, 0, sizeof(chk));
+			prefix_copy(&chk.p, &rn->p);
+			chk.type = check_re->type;
+			chk.instance = check_re->instance;
+			chk.vrf_id = check_re->vrf_id;
+
+			if (tracker_prefix_map_find(prefix_map, &chk)) {
+				others_remain = true;
+				break;
+			}
+		}
+
+		if (!others_remain) {
+			route_unlock_node(trn->info);
+			trn->info = NULL;
+		}
+		route_unlock_node(trn);
+	}
 }
 
 static void zebra_nhg_tracker_evict_from_unmatched(struct nhg_event_tracker *tracker,
