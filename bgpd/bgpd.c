@@ -3840,10 +3840,14 @@ peer_init:
 		}
 
 		/* Enable maximum-paths */
-		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
-				      multipath_num, 0);
-		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
-				      multipath_num, 0);
+		/* For SAFI_UNREACH, hardcode max-paths to 1 (only one best path) */
+		if (safi == SAFI_UNREACH) {
+			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP, 1, 0);
+			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP, 1, 0);
+		} else {
+			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP, multipath_num, 0);
+			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP, multipath_num, 0);
+		}
 		/* Initialize graceful restart info */
 		memset(&bgp->gr_info[afi][safi], 0, sizeof(struct graceful_restart_info));
 	}
