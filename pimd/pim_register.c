@@ -36,7 +36,7 @@ struct event *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	if (pim_is_grp_ssm(pim, up->sg.grp)) {
 		if (PIM_DEBUG_PIM_EVENTS)

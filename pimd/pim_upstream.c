@@ -1629,7 +1629,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 {
 	struct pim_instance *pim;
 
-	pim = up->channel_oil->pim;
+	pim = up->pim;
 
 	if (PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(up->flags)) {
 		/* if the router is a PIM vxlan encapsulator we prevent expiry
@@ -1808,7 +1808,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 	}
 
 	// AND JoinDesired(S,G) == true
-	if (!pim_upstream_evaluate_join_desired(up->channel_oil->pim, up)) {
+	if (!pim_upstream_evaluate_join_desired(up->pim, up)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: %s Join is not Desired", __func__,
 				   up->sg_str);
@@ -1902,7 +1902,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 	struct pim_instance *pim;
 	struct pim_upstream *up;
 	up = EVENT_ARG(t);
-	pim = up->channel_oil->pim;
+	pim = up->pim;
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char state_str[PIM_REG_STATE_STR_LEN];
@@ -2377,7 +2377,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 static void pim_upstream_sg_running(void *arg)
 {
 	struct pim_upstream *up = (struct pim_upstream *)arg;
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	// No packet can have arrived here if this is the case
 	if (!up->channel_oil->installed) {
