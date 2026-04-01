@@ -186,7 +186,7 @@ TRACEPOINT_EVENT(
 		int, type,
 		uint32_t, filter_mask),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, netlink_cmd, netlink_cmd)
+		ctf_integer_hex(intptr_t, netlink_cmd, (intptr_t)netlink_cmd)
 		ctf_integer(int, family, family)
 		ctf_integer(int, type, type)
 		ctf_integer(uint32_t, filter_mask, filter_mask)
@@ -201,7 +201,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -215,7 +215,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -229,7 +229,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -243,7 +243,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -257,7 +257,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -271,7 +271,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)
@@ -286,7 +286,7 @@ TRACEPOINT_EVENT(
 		ns_id_t, ns_id,
 		int, startup),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer_hex(intptr_t, header, (intptr_t)header)
 		ctf_integer(uint32_t, ns_id, ns_id)
 		ctf_integer(uint32_t, startup, startup)
 		)

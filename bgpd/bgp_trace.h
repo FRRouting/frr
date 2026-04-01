@@ -75,7 +75,7 @@ TRACEPOINT_EVENT(
 		ctf_integer(uint32_t, addpath_id, addpath_id)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
-		ctf_integer_hex(intptr_t, attribute_ptr, attr)
+		ctf_integer_hex(intptr_t, attribute_ptr, (intptr_t)attr)
 	)
 )
 

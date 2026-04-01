@@ -36,7 +36,7 @@ TRACEPOINT_EVENT(
 		ctf_string(name, hash->name ? hash->name : "(unnamed)")
 		ctf_integer(unsigned int, index_size, hash->size)
 		ctf_integer(unsigned long, item_count, hash->count)
-		ctf_integer_hex(intptr_t, data_ptr, data)
+		ctf_integer_hex(intptr_t, data_ptr, (intptr_t)data)
 	)
 )
 
@@ -51,7 +51,7 @@ TRACEPOINT_EVENT(
 		ctf_integer(unsigned int, key, hash->size)
 		ctf_integer(unsigned int, index_size, hash->size)
 		ctf_integer(unsigned long, item_count, hash->count)
-		ctf_integer_hex(intptr_t, data_ptr, data)
+		ctf_integer_hex(intptr_t, data_ptr, (intptr_t)data)
 	)
 )
 
@@ -65,8 +65,8 @@ TRACEPOINT_EVENT(
 		ctf_string(name, hash->name ? hash->name : "(unnamed)")
 		ctf_integer(unsigned int, index_size, hash->size)
 		ctf_integer(unsigned long, item_count, hash->count)
-		ctf_integer_hex(intptr_t, data_ptr, data)
-		ctf_integer_hex(intptr_t, released_item, data)
+		ctf_integer_hex(intptr_t, data_ptr, (intptr_t)data)
+		ctf_integer_hex(intptr_t, released_item, (intptr_t)data)
 	)
 )
 
@@ -86,10 +86,10 @@ TRACEPOINT_EVENT_CLASS(
 		ctf_string(function_name, funcname ? funcname : "(unknown function)")
 		ctf_string(scheduled_from, schedfrom ? schedfrom : "(unknown file)")
 		ctf_integer(int, scheduled_on_line, fromln)
-		ctf_integer_hex(intptr_t, thread_addr, thread_ptr ? *thread_ptr : NULL)
+		ctf_integer_hex(intptr_t, thread_addr, thread_ptr ? (intptr_t)(void *)(*thread_ptr) : (intptr_t)NULL)
 		ctf_integer(int, file_descriptor, fd)
 		ctf_integer(int, event_value, val)
-		ctf_integer_hex(intptr_t, argument_ptr, arg)
+		ctf_integer_hex(intptr_t, argument_ptr, (intptr_t)arg)
 		ctf_integer(long, timer, time)
 	)
 )
@@ -138,7 +138,7 @@ TRACEPOINT_EVENT(
 	TP_FIELDS(
 		ctf_string(memtype, mt->name)
 		ctf_integer(size_t, size, size)
-		ctf_integer_hex(intptr_t, ptr, ptr)
+		ctf_integer_hex(intptr_t, ptr, (intptr_t)ptr)
 	)
 )
 
@@ -150,7 +150,7 @@ TRACEPOINT_EVENT(
 	),
 	TP_FIELDS(
 		ctf_string(memtype, mt->name)
-		ctf_integer_hex(intptr_t, ptr, ptr)
+		ctf_integer_hex(intptr_t, ptr, (intptr_t)ptr)
 	)
 )
 
@@ -161,9 +161,9 @@ TRACEPOINT_EVENT(
 		struct list *, list, const void *, ptr
 	),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer_hex(intptr_t, list, (intptr_t)list)
 		ctf_integer(unsigned int, count, list->count)
-		ctf_integer_hex(intptr_t, ptr, ptr)
+		ctf_integer_hex(intptr_t, ptr, (intptr_t)ptr)
 	)
 )
 
@@ -174,9 +174,9 @@ TRACEPOINT_EVENT(
 		struct list *, list, const void *, ptr
 	),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer_hex(intptr_t, list, (intptr_t)list)
 		ctf_integer(unsigned int, count, list->count)
-		ctf_integer_hex(intptr_t, ptr, ptr)
+		ctf_integer_hex(intptr_t, ptr, (intptr_t)ptr)
 	)
 )
 
@@ -187,9 +187,9 @@ TRACEPOINT_EVENT(
 		struct list *, list, const void *, node
 	),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer_hex(intptr_t, list, (intptr_t)list)
 		ctf_integer(unsigned int, count, list->count)
-		ctf_integer_hex(intptr_t, node, node)
+		ctf_integer_hex(intptr_t, node, (intptr_t)node)
 	)
 )
 
@@ -200,7 +200,7 @@ TRACEPOINT_EVENT(
 		struct list *, list
 	),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer_hex(intptr_t, list, (intptr_t)list)
 		ctf_integer(unsigned int, count, list->count)
 	)
 )
@@ -212,7 +212,7 @@ TRACEPOINT_EVENT(
 		struct route_table *, table, char *, prefix
 	),
 	TP_FIELDS(
-		ctf_integer_hex(intptr_t, table, table)
+		ctf_integer_hex(intptr_t, table, (intptr_t)table)
 		ctf_string(prefix, prefix)
 	)
 )
