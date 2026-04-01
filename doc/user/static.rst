@@ -213,21 +213,28 @@ STATIC also supports steering of IPv4 traffic over an SRv6 SID list, as shown in
 SRv6 Static SIDs Commands
 =========================
 
-  Optionally, the user can specify the SRv6 Headend Behavior to be used for encapsulation. Currently, STATIC supports the following behaviors:
+Optionally, the user can specify the SRv6 Headend Behavior to be used for encapsulation. Currently, STATIC supports the following behaviors:
 
-  * H.Encaps
-  * H.Encaps.Red
+ * H.Encaps
+ * H.Encaps.Red
 
-  When the behavior is not specified, STATIC defaults to using H.Encaps.
+When the behavior is not specified, STATIC defaults to using H.Encaps.
 
-.. clicmd:: ipv6 route X:X::X:X <X:X::X:X|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z [encap-behavior BEHAVIOR]
+Also, the user can specify an optional SRv6 source address to be used for
+encapsulation. The Linux kernel supports it since version 7.1. The encap-source
+configuration has priority over the source-address configured globally in the
+segment-routing context. IMPORTANT: Older kernels (< 7.1) silently ignore
+encap-source without failure, which leads Zebra to mistakenly believe that there
+is support and therefore a valid encap-source configured in the kernel.
+
+.. clicmd:: ipv6 route X:X::X:X <X:X::X:X|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z [encap-behavior BEHAVIOR] [encap-source S:S::S:S]
 
 ::
 
-  router(config)# ipv6 route 2001:db8:1:1::1/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps
-  router(config)# ipv6 route 2001:db8:1:1::2/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps.Red
+  router(config)# ipv6 route 2001:db8:1:1::1/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps encap-source 2001:db8:ffff:6::1
+  router(config)# ipv6 route 2001:db8:1:1::2/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps.Red encap-source 2001:db8:ffff:6::2
 
   router# show ipv6 route
   [..]
-  S>* 2001:db8:1:1::1/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps, weight 1, 00:00:06
-  S>* 2001:db8:1:1::2/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps.Red, weight 1, 00:00:06
+  S>* 2001:db8:1:1::1/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps, encap source 2001:db8:ffff:6::1, weight 1, 00:00:06
+  S>* 2001:db8:1:1::2/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps.Red, encap source 2001:db8:ffff:6::2, weight 1, 00:00:06
