@@ -485,21 +485,16 @@ extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 
 extern uint32_t bgp_attr_get_color(struct attr *attr);
 
-static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
-					 uint32_t in_rmap_flags)
+static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags)
 {
 	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED) ||
-		 CHECK_FLAG(out_rmap_flags,
-			    BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED) ||
-		 CHECK_FLAG(out_rmap_flags,
-			    BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
-		 CHECK_FLAG(out_rmap_flags,
-			    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
-		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
-		 CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
 			? true
 			: false);
 }

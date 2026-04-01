@@ -3001,11 +3001,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * example,
 	 * it is configured as 'peer-address'.
 	 */
-	if (!bgp_rmap_nhop_changed(attr->rmap_change_flags,
-				   piattr->rmap_change_flags)
-	    && !transparent
-	    && !CHECK_FLAG(peer->af_flags[afi][safi],
-			   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+	if (!bgp_rmap_nhop_changed(attr->rmap_change_flags) && !transparent &&
+	    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)) {
 		/* We can reset the nexthop, if setting (or forcing) it to
 		 * 'self' */
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
