@@ -566,18 +566,32 @@ static void zebra_nhg_tracker_flush_table(struct nhg_tracker_table *tt, struct n
 				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
 					continue;
 
-				zlog_info("%s   re type %s vrf %s(%u)%s%s", label,
-					  zebra_route_string(re->type), vrf_id_to_name(re->vrf_id),
-					  re->vrf_id,
-					  CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? " REMOVED"
-										      : "",
-					  CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) ? " TRACKER"
-										      : "");
+				zlog_info("%s   re type %s NHG %u vrf %s(%u) status 0x%x, orig_nhe %u (before route_entry_update_nhe)",
+					  label, zebra_route_string(re->type),
+					  re->nhe ? re->nhe->id : 0, vrf_id_to_name(re->vrf_id),
+					  re->vrf_id, re->status, nhe->id);
 
 				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-				if (update_nhe && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+				if (update_nhe && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 					route_entry_update_nhe(re, nhe);
+					zlog_info("%s   re type %s NHG %u vrf %s(%u) status 0x%x, orig_nhe %u (after route_entry_update_nhe)",
+						  label, zebra_route_string(re->type),
+						  re->nhe ? re->nhe->id : 0,
+						  vrf_id_to_name(re->vrf_id), re->vrf_id,
+						  re->status, nhe->id);
+				}
 			}
+
+			/*
+			 * For matched-table flush, set REINSTALL on the NHG so
+			 * zebra_nhg_install_kernel re-queues it to the dplane
+			 * even if INSTALLED is already set.  This ensures the
+			 * reworked NHG state reaches the kernel after the
+			 * tracker deferred the immediate if_up installation.
+			 */
+			//if (update_nhe)
+			//	SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
 			rib_queue_add(rn);
 		}
 	}

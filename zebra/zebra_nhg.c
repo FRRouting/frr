@@ -1245,8 +1245,12 @@ static void nhg_handle_install_one(struct nhg_connected *node)
 				   rb_node_indirect_dep->nhe,
 				   rb_node_indirect_dep->nhe->flags);
 
-		zebra_nhg_install_kernel(rb_node_indirect_dep->nhe,
-					 ZEBRA_ROUTE_MAX);
+		/*
+		 * Defer kernel install if this dependent has an active
+		 * tracker; the tracker flush will drive installation.
+		 */
+		if (nhg_event_tracker_list_count(&rb_node_indirect_dep->nhe->tracker_list) == 0)
+			zebra_nhg_install_kernel(rb_node_indirect_dep->nhe, ZEBRA_ROUTE_MAX);
 	}
 
 }
@@ -1270,8 +1274,17 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
 					__func__, nhe->id, nhe->flags,
 					rb_node_dep->nhe);
-			zebra_nhg_install_kernel(rb_node_dep->nhe,
-						 ZEBRA_ROUTE_MAX);
+
+			/*
+			 * Defer kernel install if this dependent has an
+			 * active tracker; the tracker flush will drive
+			 * installation with the reworked NHG state.
+			 */
+			if (nhg_event_tracker_list_count(&rb_node_dep->nhe->tracker_list) > 0) {
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			} else {
+				zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
+			}
 		}
 	}
 }
@@ -4259,8 +4272,18 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					"%s install nhe %pNG nh type %u flags 0x%x",
 					__func__, rb_node_dep->nhe, nh->type,
 					rb_node_dep->nhe->flags);
-			zebra_nhg_install_kernel(rb_node_dep->nhe,
-						 ZEBRA_ROUTE_MAX);
+
+			/*
+			 * If this singleton has an active tracker, defer
+			 * kernel install to the tracker's flush path.
+			 * Set REINSTALL so install_kernel will re-queue it
+			 * when the tracker completes.
+			 */
+			if (nhg_event_tracker_list_count(&rb_node_dep->nhe->tracker_list) > 0) {
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			} else {
+				zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
+			}
 
 			/* Don't need to modify dependents if installed */
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,
