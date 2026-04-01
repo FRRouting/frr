@@ -227,6 +227,33 @@ def test_rip_bfd_convergence(tgen):
     )
 
 
+def test_rip_log_neighbor_changes(tgen):
+    "Test that RIP is properly logging neighbor events."
+
+    def poll_r1_mgmtd_log(expression):
+        "Helper function to poll the log file"
+
+        r1_mgmtd_log = tgen.gears["r1"].net.getLog("log", "mgmtd")
+        if re.search(expression, r1_mgmtd_log) is None:
+            return False
+        else:
+            return True
+
+    # Test for peer discovery
+    poll_peer_discovery = partial(
+        poll_r1_mgmtd_log, r"RIP Peer up: 192.168.1.2 on r1-eth1"
+    )
+    _, val = topotest.run_and_expect(poll_peer_discovery, True, count=30, wait=1)
+    assert val, "RIP discovery message was not found"
+
+    # Test for peer disappearance
+    poll_peer_discovery = partial(
+        poll_r1_mgmtd_log, r"RIP Peer down: 192.168.1.2 on r1-eth1"
+    )
+    _, val = topotest.run_and_expect(poll_peer_discovery, True, count=30, wait=1)
+    assert val, "RIP disappearence message was not found"
+
+
 def test_memory_leak(tgen):
     "Run the memory leak test and report results."
 
