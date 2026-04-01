@@ -446,7 +446,7 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
  */
 static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 {
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	if (!(pim->msdp.flags & PIM_MSDPF_ENABLE)) {
 		return false;
@@ -554,7 +554,7 @@ static void pim_msdp_sa_local_del_on_up_del(struct pim_instance *pim,
  */
 void pim_msdp_sa_local_update(struct pim_upstream *up)
 {
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	if (pim_msdp_sa_local_add_ok(up)) {
 		pim_msdp_sa_local_add(pim, &up->sg);
@@ -1652,7 +1652,7 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 static void pim_upstream_msdp_reg_timer(struct event *t)
 {
 	struct pim_upstream *up = EVENT_ARG(t);
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
