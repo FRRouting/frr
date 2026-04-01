@@ -148,24 +148,33 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 	return NULL;
 }
 
-static void upstream_channel_oil_detach(struct pim_upstream *up)
+static void upstream_channel_oil_detach(struct pim_instance *pim, struct pim_upstream *up)
 {
 	struct channel_oil *channel_oil = up->channel_oil;
 
-	if (channel_oil) {
-		/* Detaching from channel_oil, channel_oil may exist post del,
-		   but upstream would not keep reference of it
-		 */
-		channel_oil->up = NULL;
-		up->channel_oil = NULL;
+	if (!channel_oil)
+		return;
 
-		/* attempt to delete channel_oil; if channel_oil is being held
-		 * because of other references cleanup info such as "Mute"
-		 * inferred from the parent upstream
-		 */
-		pim_channel_oil_upstream_deref(channel_oil);
-	}
+	/*
+	 * Detach upstream ownership first. If the OIL got deleted as a side
+	 * effect of prior prune paths, skip deref on the stale pointer.
+	 *
+	 * We intentionally compare pointer identity here: pimd runs on a
+	 * single-threaded event loop, so no concurrent ABA re-create of the
+	 * same (S,G) OIL can happen between clearing up->channel_oil and this
+	 * lookup.
+	 */
+	up->channel_oil = NULL;
+	if (pim_find_channel_oil(pim, &up->sg) != channel_oil)
+		return;
 
+	channel_oil->up = NULL;
+
+	/* attempt to delete channel_oil; if channel_oil is being held
+	 * because of other references cleanup info such as "Mute"
+	 * inferred from the parent upstream
+	 */
+	pim_channel_oil_upstream_deref(channel_oil);
 }
 
 static void pim_upstream_timers_stop(struct pim_upstream *up)
@@ -239,7 +248,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	}
 
 	pim_mroute_del(up->channel_oil, __func__);
-	upstream_channel_oil_detach(up);
+	upstream_channel_oil_detach(pim, up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
 		pim_ifchannel_delete(ch);
