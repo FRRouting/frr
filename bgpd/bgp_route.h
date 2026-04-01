@@ -176,6 +176,18 @@ struct bgp_path_info_extra_fs {
 	struct list *bgp_fs_iprule;
 };
 
+/* Per-path Reporter TLV storage for SAFI_UNREACH (draft-tantsura-idr-unreachability-safi). */
+struct bgp_path_info_extra_unreach {
+	struct in_addr reporter; /* BGP Router ID */
+	uint32_t reporter_as;	 /* Reporter AS Number (4-octet) */
+	uint16_t reason_code;	 /* Sub-TLV Type 1 value */
+	uint64_t timestamp;	 /* Sub-TLV Type 2 value */
+	bool has_reporter;
+	bool has_reporter_as;
+	bool has_reason_code;
+	bool has_timestamp;
+};
+
 /* new structure for vrfleak*/
 struct bgp_path_info_extra_vrfleak {
 	void *parent; /* parent from global table */
@@ -261,6 +273,9 @@ struct bgp_path_info_extra {
 
 	/* For flowspec*/
 	struct bgp_path_info_extra_fs *flowspec;
+
+	/* SAFI_UNREACH per-path Reporter TLV storage. */
+	struct bgp_path_info_extra_unreach *unreach;
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
