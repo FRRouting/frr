@@ -4039,7 +4039,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				if (sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid,
 					     bgp_vrf->srv6_unicast[AFI_IP].sid) &&
 				    sid_same(bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_last_sent,
-					     bgp_vrf->srv6_unicast[AFI_IP6].sid)) {
+					     bgp_vrf->srv6_unicast[AFI_IP].sid)) {
 					XFREE(MTYPE_BGP_SRV6_SID,
 					      bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent);
 					bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent =
