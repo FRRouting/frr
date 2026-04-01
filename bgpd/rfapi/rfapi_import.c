@@ -234,6 +234,7 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 			break;
 
 		case SAFI_BGP_LS:
+		case SAFI_UNREACH:
 		case SAFI_UNSPEC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
@@ -3827,6 +3828,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 		return rfapiBgpInfoFilteredImportEncap;
 
 	case SAFI_BGP_LS:
+	case SAFI_UNREACH:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
@@ -4073,6 +4075,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		timer_service_func = rfapiWithdrawTimerEncap;
 		break;
 	case SAFI_BGP_LS:
+	case SAFI_UNREACH:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
