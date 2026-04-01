@@ -46,6 +46,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_flowspec_util.c \
 	bgpd/bgp_flowspec_vty.c \
 	bgpd/bgp_fsm.c \
+	bgpd/bgp_unreach.c \
 	bgpd/bgp_io.c \
 	bgpd/bgp_keepalives.c \
 	bgpd/bgp_label.c \
@@ -134,6 +135,7 @@ noinst_HEADERS += \
 	bgpd/bgp_flowspec_private.h \
 	bgpd/bgp_flowspec_util.h \
 	bgpd/bgp_fsm.h \
+	bgpd/bgp_unreach.h \
 	bgpd/bgp_io.h \
 	bgpd/bgp_keepalives.h \
 	bgpd/bgp_label.h \

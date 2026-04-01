@@ -107,6 +107,7 @@ enum bgp_log_refs {
 	EC_BGP_LABEL_POOL_INSERT_FAIL,
 	EC_BGP_TTL_SECURITY_FAIL,
 	EC_BGP_LS_PACKET,
+	EC_BGP_UNREACH_PARSE_FAILURE,
 };
 
 extern void bgp_error_init(void);
