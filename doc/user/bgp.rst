@@ -5056,7 +5056,7 @@ incoming/outgoing directions.
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
-.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json|wide]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json [brief] | wide]
 
    Display the routes advertised to a BGP neighbor or received routes
    from neighbor or filtered routes received from neighbor based on the
@@ -5082,6 +5082,9 @@ incoming/outgoing directions.
    prefixes.
 
    If ``json`` option is specified, output is displayed in JSON format.
+   ``brief`` is only valid immediately after ``json`` (e.g.
+   ``... advertised-routes json brief``); it selects compact per-prefix JSON
+   without per-path detail, like other ``show bgp`` ``json brief`` forms.
 
 .. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes [internal]
 
