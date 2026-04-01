@@ -192,11 +192,11 @@ multiple segments instructions.
 
 ::
 
-  router(config)# ipv6 route 2005::1/64 ens3 segments 2001:db8:aaaa::7/2002::4/2002::3/2002::2
+  router(config)# ipv6 route 2005::1/64 sr0 segments 2001:db8:aaaa::7/2002::4/2002::3/2002::2
 
   router# show ipv6 route
   [..]
-  S>* 2005::/64 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
+  S>* 2005::/64 [1/0] is directly connected, sr0, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
 
 STATIC also supports steering of IPv4 traffic over an SRv6 SID list, as shown in the example below.
 
@@ -229,8 +229,8 @@ When the behavior is not specified, STATIC defaults to using H.Encaps.
 
   router# show ipv6 route
   [..]
-  S>* 2001:db8:1:1::1/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00::, weight 1, 00:00:06
-  S>* 2001:db8:1:1::2/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00::, encap behavior H.Encaps.Red, weight 1, 00:00:06
+  S>* 2001:db8:1:1::1/128 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00::, weight 1, 00:00:06
+  S>* 2001:db8:1:1::2/128 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00::, encap behavior H.Encaps.Red, weight 1, 00:00:06
 
   router(config)# ip route 10.0.0.1/32 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H_Encaps
   router(config)# ip route 10.0.0.2/32 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H_Encaps_Red
