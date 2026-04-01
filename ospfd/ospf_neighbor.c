@@ -51,6 +51,31 @@ static void ospf_nbr_key(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	return;
 }
 
+void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
+{
+	struct ospf_interface *oi;
+
+	if (!nbr || !(oi = nbr->oi))
+		return;
+
+	if (!oi->rec4_gap_pacing)
+		return;
+
+	/* If first time enabling, initialize runtime gap sanely */
+	nbr->lsu_gap_ms = oi->rec4_gap_initial_ms;
+
+	/* Clamp runtime gap into configured bounds */
+	if (nbr->lsu_gap_ms < oi->rec4_gap_min_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_min_ms;
+	if (nbr->lsu_gap_ms > oi->rec4_gap_max_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_max_ms;
+
+	/* Optional: ensure next_send isn't in the past if you just increased gap */
+	if (nbr->next_send_ms < ospf_now_ms())
+		nbr->next_send_ms = ospf_now_ms();
+}
+
+/*RFC 4222 Recommendation 4  */
 struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
@@ -94,6 +119,12 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
 	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
 
+	ospf_nbr_apply_rec4_params(nbr);
+
+	nbr->ls_rxmt_unacked = 0;
+
+	ospf_r4_nbr_init(nbr);
+
 	return nbr;
 }
 
@@ -131,6 +162,10 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	event_cancel(&nbr->t_db_desc);
 	event_cancel(&nbr->t_ls_req);
 	event_cancel(&nbr->t_ls_rxmt);
+
+	/* RFC4222/R4: cancel pacing timer and drain queue before teardown. */
+	ospf_r4_nbr_cancel(nbr);
+	list_delete(&nbr->r4_send_queue);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);

@@ -55,6 +55,9 @@ struct ospf_lsdb_linked_node {
 	 * retransmission list.
 	 */
 	struct ospf_lsa_list_entry *lsa_list_entry;
+
+	/* Track if this LSA was sent and counted in ls_rxmt_unacked */
+	bool counted_sent;
 };
 
 /* OSPF LSDB related functions. */

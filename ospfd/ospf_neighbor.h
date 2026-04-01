@@ -70,8 +70,8 @@ struct ospf_neighbor {
 
 	/* Statistics */
 	struct timeval ts_last_progress; /* last advance of NSM            */
-	struct timeval ts_last_regress;  /* last regressive NSM change     */
-	const char *last_regress_str;    /* Event which last regressed NSM */
+	struct timeval ts_last_regress;	 /* last regressive NSM change     */
+	const char *last_regress_str;	 /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 
@@ -80,6 +80,19 @@ struct ospf_neighbor {
 
 	/* ospf graceful restart HELPER info */
 	struct ospf_helper_info gr_helper_info;
+
+	/* rfc4222 recommendation 4 */
+	uint32_t lsu_gap_ms;	     /* current gap (ms) */
+	uint64_t next_send_ms;	     /* next allowed send time */
+	uint64_t gap_last_change_ms; /* last time we adjusted G */
+	uint32_t ls_rxmt_unacked;    /* count of sent but unacked retransmit LSAs */
+
+	/* RFC4222/R4: per-neighbor paced send queue and timer.
+	 * LSAs are staged here when R4 gap pacing is enabled and drained by
+	 * t_r4_send at a rate controlled by lsu_gap_ms.  Completely separate
+	 * from oi->ls_upd_queue which serves the non-paced (legacy) path. */
+	struct list *r4_send_queue; /* LSAs awaiting paced unicast delivery */
+	struct event *t_r4_send;    /* per-neighbor send timer; fires at next_send_ms */
 };
 
 /* Macros. */
@@ -103,5 +116,6 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
 						     struct in_addr *addr);
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
 							 struct in_addr *id);
+extern void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */

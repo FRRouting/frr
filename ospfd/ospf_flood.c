@@ -789,6 +789,36 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	    IP addresses for these packets are the neighbors' IP
 	    addresses. This behavior is extended to P2MP networks which
 	    don't support broadcast. */
+	/* RFC 4222 R4: when gap pacing is active, bypass the legacy send
+	 * path entirely.  Enqueue the LSA directly into each eligible
+	 * neighbor's per-neighbor paced queue; the retransmit-add above
+	 * already ensures reliable delivery via the retransmit timer. */
+	if (oi->rec4_gap_pacing) {
+		struct ospf_neighbor *nbr;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			if (nbr->state < NSM_Exchange)
+				continue;
+			/* skip the neighbor we received this LSA from */
+			if (inbr &&
+			    IPV4_ADDR_SAME(&inbr->router_id, &nbr->router_id))
+				continue;
+			/* skip the originator on self-originated floods */
+			if (!inbr && IPV4_ADDR_SAME(&lsa->data->adv_router,
+						     &nbr->router_id))
+				continue;
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+				zlog_debug("R4: flood enqueue LSA [Type%d:%pI4] nbr=%pI4 intf=%s",
+					   lsa->data->type, &lsa->data->id,
+					   &nbr->router_id, IF_NAME(oi));
+			ospf_r4_nbr_enqueue(nbr, lsa);
+		}
+		return 0;
+	}
+
 	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_neighbor *nbr;
 
@@ -1179,6 +1209,11 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 		else
 			rxmt_timer_reset = false;
 
+		/* Decrement unacked count if this LSA was counted */
+		if (ls_rxmt_node->counted_sent) {
+			nbr->ls_rxmt_unacked--;
+		}
+
 		lsa->retransmit_counter--;
 
 		/* Keep SA happy */
@@ -1297,8 +1332,7 @@ static void ospf_ls_retransmit_delete_nbr_if(struct ospf_interface *oi,
 			lsr = ospf_ls_retransmit_lookup(nbr, lsa);
 
 			/* If LSA find in ls-retransmit list, remove it. */
-			if (lsr != NULL &&
-			    lsr->data->ls_seqnum == lsa->data->ls_seqnum)
+			if (lsr != NULL && lsr->data->ls_seqnum == lsa->data->ls_seqnum)
 				ospf_ls_retransmit_delete(nbr, lsr);
 		}
 }
