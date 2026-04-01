@@ -79,6 +79,12 @@ static void print_rnh(struct route_node *rn, struct vty *vty,
 		      json_object *json);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+static void zebra_rnh_evaluate_overlay_prefixes(struct zebra_vrf *zvrf, afi_t afi,
+                                                int force, const struct prefix *skip_p,
+                                                safi_t safi);
+#endif
+
 void zebra_rnh_init(void)
 {
 	hook_register(zserv_client_close, zebra_client_cleanup_rnh);
@@ -907,6 +913,36 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
 		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
 }
 
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+static void zebra_rnh_evaluate_overlay_prefixes(struct zebra_vrf *zvrf, afi_t afi,
+						int force, const struct prefix *skip_p,
+						safi_t safi)
+{
+	struct route_table *rnh_table;
+	struct route_node *nrn;
+
+	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi, safi);
+	if (!rnh_table)
+		return;
+	/* Overlay config is IPv4 in this customization; guard by family match.*/
+	for (nrn = route_top(rnh_table); nrn; nrn = route_next(nrn)) {
+		if (!nrn->info)
+			continue;
+		if (skip_p && prefix_same(&nrn->p, skip_p))
+			continue;
+		if (nrn->p.family != g_infovlay_prefix.family)
+			continue;
+		if (!prefix_match(&g_infovlay_prefix, &nrn->p))
+			continue;
+		if (IS_ZEBRA_DEBUG_NHT){
+			zlog_debug("%s(%u):%pRN: forced overlay reevaluation",
+				VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn);
+		}
+		zebra_rnh_evaluate_entry(zvrf, afi, force, nrn);
+	}
+}
+#endif
+
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)
  * of a particular VRF and address-family or a specific prefix.
  */
@@ -920,6 +956,13 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 	if (!rnh_table) // unexpected
 		return;
 
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+	/* Before normal evaluation paths, force reevaluation of all tracked
+	 * overlay nexthops for this VRF/AFI/SAFI to flush stale state quickly.
+	 * Skip 'p' when provided to avoid duplicate work in the specific path.
+	 */
+	zebra_rnh_evaluate_overlay_prefixes(zvrf, afi, force, p, safi);
+#endif
 	if (p) {
 		/* Evaluating a specific entry, make sure it exists. */
 		nrn = route_node_lookup(rnh_table, p);
