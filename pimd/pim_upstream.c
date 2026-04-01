@@ -194,16 +194,15 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 {
 	struct listnode *node, *nnode;
 	struct pim_ifchannel *ch;
+	int c_oil_ref_count = up->channel_oil ? up->channel_oil->oil_ref_count : -1;
 #if PIM_IPV == 4
 	bool notify_msdp = false;
 #endif /* PIM_IPV == 4 */
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug(
-			"%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
-			__func__, name, up->sg_str, pim->vrf->name,
-			up->ref_count, up->flags,
-			up->channel_oil->oil_ref_count);
+		zlog_debug("%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
+			   __func__, name, up->sg_str, pim->vrf->name, up->ref_count, up->flags,
+			   c_oil_ref_count);
 
 	 assert(up->ref_count > 0);
 
