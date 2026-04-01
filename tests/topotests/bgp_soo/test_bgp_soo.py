@@ -89,6 +89,9 @@ def setup_module(mod):
 
     tgen.start_router()
 
+    for _, (_, router) in enumerate(router_list.items(), 1):
+        router.run("sysctl -w net.ipv6.conf.all.forwarding=1")
+
 
 def teardown_module(mod):
     tgen = get_topogen()
@@ -166,6 +169,95 @@ def test_bgp_soo():
     test_func = functools.partial(_bgp_soo_unconfigured)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "SoO filtering does not work from pe2"
+
+
+def test_bgp_soo_ipv4_advertised_routes_brief_json():
+    """
+    CPE1 (vrf default): neighbor advertised-routes json brief lists redistributed
+    and learned prefixes with flags and path counts.
+    """
+    tgen = get_topogen()
+
+    cpe1 = tgen.gears["cpe1"]
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _ipv4_adv_brief():
+        output = json.loads(
+            cpe1.vtysh_cmd(
+                "show bgp vrf default ipv4 unicast neighbors 192.168.1.2 "
+                "advertised-routes json brief"
+            )
+        )
+        expected = {
+            "advertisedRoutes": {
+                "10.0.0.0/24": {
+                    "flags": {"bestPathExists": True},
+                    "pathCount": 2,
+                    "multiPathCount": 1,
+                },
+                "172.16.255.1/32": {
+                    "flags": {"bestPathExists": True},
+                    "pathCount": 1,
+                    "multiPathCount": 1,
+                },
+                "192.168.1.0/24": {
+                    "flags": {"bestPathExists": True},
+                    "pathCount": 1,
+                    "multiPathCount": 1,
+                },
+                "192.168.2.0/24": {
+                    "flags": {"bestPathExists": True},
+                    "pathCount": 1,
+                    "multiPathCount": 1,
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_ipv4_adv_brief)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert (
+        result is None
+    ), "IPv4 advertised-routes json brief on cpe1 does not match expected prefixes/shape"
+
+
+def test_bgp_soo_ipv6_advertised_routes_brief_json():
+    """
+    CPE2 runs BGP in vrf default; IPv6 eBGP to PE2 (2001:db8:2::2). Redistributed
+    connected 2001:db8:2::/64 appears in neighbor advertised-routes json brief.
+    """
+    tgen = get_topogen()
+
+    cpe2 = tgen.gears["cpe2"]
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _ipv6_adv_brief():
+        output = json.loads(
+            cpe2.vtysh_cmd(
+                "show bgp vrf default ipv6 unicast neighbors 2001:db8:2::2 "
+                "advertised-routes json brief"
+            )
+        )
+        expected = {
+            "advertisedRoutes": {
+                "2001:db8:2::/64": {
+                    "flags": {"bestPathExists": "*"},
+                    "pathCount": "*",
+                    "multiPathCount": "*",
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_ipv6_adv_brief)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert (
+        result is None
+    ), "IPv6 advertised-routes json brief missing 2001:db8:2::/64 or expected shape on cpe2"
 
 
 if __name__ == "__main__":
