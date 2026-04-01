@@ -169,6 +169,10 @@ RIP Configuration
    Set the default BFD profile to use for all RIP peers. This profile will be
    used when no specific profile is configured on an interface.
 
+.. clicmd:: log-neighbor-changes
+
+   Controls the toggle of the RIP peer discovery / disappearance messages.
+
 .. _rip-version-control:
 
 RIP Version Control
