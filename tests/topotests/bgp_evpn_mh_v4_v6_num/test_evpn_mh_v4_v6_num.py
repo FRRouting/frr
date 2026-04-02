@@ -1377,45 +1377,83 @@ def _fallback_host_ipv4(host_name):
     return "45.0.0.{}".format(host_id)
 
 
-def _send_unicast_na(host, intf, src_ip, dst_ip, dst_mac):
+def _send_unicast_na(host, intf, src_ip, dst_ip, dst_mac, vlan=None):
     """
     Send unicast NA frames (ICMPv6 type 136) to match zebra's unicast ND snoop path.
+    When vlan is set, send an 802.1Q-tagged frame.
     """
-    cmd = (
-        'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
-        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
-        "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{dst_ip}')/"
-        "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
-        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
-    ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{dst_ip}')/"
+            "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "IPv6(src='{src_ip}',dst='{dst_ip}')/"
+            "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac, vlan=vlan)
     host.run(cmd)
 
 
-def _send_unicast_ns(host, intf, src_ip, target_ip, dst_mac):
+def _send_unicast_ns(host, intf, src_ip, target_ip, dst_mac, vlan=None):
     """
     Send unicast NS frames (ICMPv6 type 135) to match zebra's unicast ND snoop path.
+    When vlan is set, send an 802.1Q-tagged frame.
     """
-    cmd = (
-        'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
-        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
-        "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{target_ip}')/"
-        "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
-        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
-    ).format(intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac)
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{target_ip}')/"
+            "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "IPv6(src='{src_ip}',dst='{target_ip}')/"
+            "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(
+            intf=intf,
+            src_ip=src_ip,
+            target_ip=target_ip,
+            dst_mac=dst_mac,
+            vlan=vlan,
+        )
     host.run(cmd)
 
 
-def _send_unicast_arp_reply(host, intf, src_ip, dst_ip, dst_mac):
+def _send_unicast_arp_reply(host, intf, src_ip, dst_ip, dst_mac, vlan=None):
     """
     Send unicast ARP reply frames to exercise ARP redirect path.
+    When vlan is set, send an 802.1Q-tagged frame.
     """
-    cmd = (
-        'python3 -c "from scapy.all import Ether,ARP,sendp;'
-        "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
-        "pkt=Ether(src=srcmac,dst='{dst_mac}')/"
-        "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
-        "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
-    ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,ARP,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/"
+            "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,ARP,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac, vlan=vlan)
     host.run(cmd)
 
 

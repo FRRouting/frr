@@ -201,7 +201,10 @@ def test_evpn_arp_nd_redirected_counter_ipv6(tgen_and_ip_version):
         peer_rx_before,
     )
     peer_rx_result = None
+    redirect_tagged_result = None
+    peer_rx_tagged_result = None
     peer_rx_after = peer_rx_before
+    peer_rx_tagged_after = peer_rx_before
     try:
         src_if = evpn_mh_base._detect_host_bond_if(src_host)
         src_ip6 = evpn_mh_base._get_global_ipv6_on_intf(src_host, src_if)
@@ -263,6 +266,46 @@ def test_evpn_arp_nd_redirected_counter_ipv6(tgen_and_ip_version):
             peer_rx_check, None, count=20, wait=1
         )
         peer_rx_after = evpn_mh_base.get_link_rx_packets(torm12, "vxlan48")
+
+        # Explicitly validate 802.1Q-tagged redirect path (VLAN1000).
+        redirect_before_tagged = []
+        for dut in duts:
+            redirect_before_tagged.append((dut, evpn_mh_base.get_arp_nd_redirect_stats(dut)))
+        peer_rx_before_tagged = evpn_mh_base.get_link_rx_packets(torm12, "vxlan48")
+        for _ in range(8):
+            src_host.run("ip -6 neigh flush dev {} 2>/dev/null || true".format(src_if))
+            src_host.run("ip neigh flush dev {} 2>/dev/null || true".format(src_if))
+            src_host.run(
+                "ping -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip4)
+            )
+            evpn_mh_base._send_unicast_arp_reply(
+                src_host, src_if, src_ip4, dst_ip4, dst_mac, vlan=1000
+            )
+            src_host.run(
+                "ping6 -I {} -c 1 {} >/dev/null 2>&1 || true".format(src_if, dst_ip6)
+            )
+            if src_ip6:
+                evpn_mh_base._send_unicast_ns(
+                    src_host, src_if, src_ip6, dst_ip6, dst_mac, vlan=1000
+                )
+                evpn_mh_base._send_unicast_na(
+                    src_host, src_if, src_ip6, dst_ip6, dst_mac, vlan=1000
+                )
+            time.sleep(1)
+
+        redirect_fn_tagged = partial(
+            evpn_mh_base.check_arp_redirect_progress_any, redirect_before_tagged
+        )
+        _, redirect_tagged_result = evpn_mh_base.topotest.run_and_expect(
+            redirect_fn_tagged, None, count=40, wait=1
+        )
+        peer_rx_check_tagged = partial(
+            evpn_mh_base.check_link_rx_progress, torm12, "vxlan48", peer_rx_before_tagged
+        )
+        _, peer_rx_tagged_result = evpn_mh_base.topotest.run_and_expect(
+            peer_rx_check_tagged, None, count=20, wait=1
+        )
+        peer_rx_tagged_after = evpn_mh_base.get_link_rx_packets(torm12, "vxlan48")
     finally:
         # Restore hostbond2 VLAN mapping back to VLAN1001.
         torm11.run("bridge vlan del vid 1000 dev hostbond2 2>/dev/null || true")
@@ -287,6 +330,15 @@ def test_evpn_arp_nd_redirected_counter_ipv6(tgen_and_ip_version):
         peer_rx_after,
         peer_rx_after - peer_rx_before,
     )
+    evpn_mh_base.logger.info(
+        "%s strict-check peer-rx-after tagged (v6) %s: %d (delta=%d)",
+        torm12.name,
+        "vxlan48",
+        peer_rx_tagged_after,
+        peer_rx_tagged_after - peer_rx_after,
+    )
 
     assert redirect_result is None, redirect_result
     assert peer_rx_result is None, peer_rx_result
+    assert redirect_tagged_result is None, redirect_tagged_result
+    assert peer_rx_tagged_result is None, peer_rx_tagged_result

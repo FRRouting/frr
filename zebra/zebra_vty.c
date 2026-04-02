@@ -2952,13 +2952,13 @@ DEFPY(show_neigh,
 
 DEFPY (show_evpn_arp_redirect,
        show_evpn_arp_nd_redirect_cmd,
-       "show evpn arp-nd-redirect[json]",
+       "show evpn arp-nd-redirect [json$json]",
        SHOW_STR
        "EVPN\n"
        "ARP/NA packet redirect\n"
        JSON_STR)
 {
-	bool uj = use_json(argc, argv);
+	bool uj = !!json;
 
 	zebra_evpn_arp_nd_print_summary(vty, uj);
 	return CMD_SUCCESS;

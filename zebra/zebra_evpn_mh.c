@@ -85,7 +85,7 @@ zebra_program_using_fork_exec(char *cmd, int debug)
 			perror(#x " failed");                                                     \
 	} while (0)
 	pid_t pid;
-	int exitstat, rc;
+	int exitstat;
 	sigset_t sigs, prevsigs;
 
 	sigemptyset(&sigs);
@@ -100,14 +100,11 @@ zebra_program_using_fork_exec(char *cmd, int debug)
 		zlog_warn("%s Can't fork: %s", __func__, safe_strerror(errno));
 		return -1;
 	} else if (pid == 0) {
-		if (setpgid(0, 0) < 0)
-			zlog_warn("%s FAILED setpgid for child: %s cmd %s", __func__,
-				  safe_strerror(errno), cmd);
-		rc = execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
-		if (debug)
-			zlog_debug("%s tc rule rc %u errno %s for cmd %s", __func__, rc,
-				   safe_strerror(errno), cmd);
-		exit(0);
+		/* Best-effort in child; ignore failure before exec. */
+		(void)setpgid(0, 0);
+		execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+		/* execl() only returns on failure. */
+		_exit(1);
 	}
 
 	if (setpgid(pid, pid) < 0 && errno != EACCES)

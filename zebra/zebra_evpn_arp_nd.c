@@ -226,7 +226,7 @@ static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn,
 {
 	struct vxlanhdr *vxh;
 	uint8_t vxlan_data[ZEBRA_EVPN_ARP_ND_MAX_PKT_LEN +
-			   sizeof(struct vxlanhdr *)];
+			   sizeof(struct vxlanhdr)];
 
 	++zevpn_arp_nd_info.stat.redirect;
 	/* pre-pend a vxlan header */
@@ -635,6 +635,10 @@ void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable)
 		zif->flags |= ZIF_FLAG_ARP_ND_SNOOP;
 		/* create a snooper socket for the bridge-port */
 		zif->arp_nd_info.pkt_fd = zebra_evpn_arp_nd_sock_create(zif);
+		if (zif->arp_nd_info.pkt_fd < 0) {
+			zif->flags &= ~ZIF_FLAG_ARP_ND_SNOOP;
+			return;
+		}
 		/* create a thread to read and process the packets */
 		zebra_evpn_arp_nd_pkt_read_enable(zif);
 	} else {
@@ -821,8 +825,10 @@ void zebra_evpn_arp_nd_failover_disable(void)
 	zebra_evpn_arp_nd_if_update_all(false);
 
 	/* close the UDP tx socket */
-	close(zevpn_arp_nd_info.udp_fd);
-	zevpn_arp_nd_info.udp_fd = -1;
+	if (zevpn_arp_nd_info.udp_fd > 0) {
+		close(zevpn_arp_nd_info.udp_fd);
+		zevpn_arp_nd_info.udp_fd = -1;
+	}
 
 	zevpn_arp_nd_info.flags &= ~ZEBRA_EVPN_ARP_ND_FAILOVER;
 }
