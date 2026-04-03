@@ -1096,12 +1096,6 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 	case BGP_ERR_GR_OPERATION_FAILED:
 		str = "The Graceful Restart Operation failed due to an err.";
 		break;
-	case BGP_ERR_PEER_GROUP_MEMBER:
-		str = "Peer-group member cannot override remote-as of peer-group.";
-		break;
-	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
-		str = "Peer-group members must be all internal or all external.";
-		break;
 	case BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND:
 		str = "Range specified cannot be deleted because it is not part of current config.";
 		break;
@@ -20041,7 +20035,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peer_group_active(peer)) {
 		g_peer = peer->group->conf;
 
-		if (g_peer->as_type == AS_UNSPECIFIED && !if_ras_printed) {
+		if ((g_peer->as_type != peer->as_type ||
+		     (peer->as_type == AS_SPECIFIED && g_peer->as != peer->as)) &&
+		    !if_ras_printed) {
 			if (peer->as_type == AS_SPECIFIED) {
 				vty_out(vty, " neighbor %s remote-as %s\n",
 					addr, peer->as_pretty);

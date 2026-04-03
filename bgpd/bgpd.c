@@ -2337,43 +2337,17 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 			return BGP_ERR_INVALID_FOR_DYNAMIC_PEER;
 		}
 
-		/* When this peer is a member of peer-group.  */
-		if (peer->group) {
-			/* peer-group already has AS number/internal/external */
-			if (peer->group->conf->as || peer->group->conf->as_type != AS_UNSPECIFIED) {
-				/* Return peer group's AS number.  */
-				*as = peer->group->conf->as;
-				return BGP_ERR_PEER_GROUP_MEMBER;
-			}
-
-			enum bgp_peer_sort peer_sort_type =
-				peer_sort(peer->group->conf);
-
-			/* Explicit AS numbers used, compare AS numbers */
-			if (as_type == AS_SPECIFIED) {
-				if (((peer_sort_type == BGP_PEER_IBGP)
-				    && (bgp->as != *as))
-				    || ((peer_sort_type == BGP_PEER_EBGP)
-				    && (bgp->as == *as))) {
-					*as = peer->as;
-					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
-				}
-			} else {
-				/* internal/external used, compare as-types */
-				if (((peer_sort_type == BGP_PEER_IBGP) &&
-				     !CHECK_FLAG(as_type, AS_INTERNAL)) ||
-				    ((peer_sort_type == BGP_PEER_EBGP) &&
-				     !CHECK_FLAG(as_type, AS_EXTERNAL))) {
-					*as = peer->as;
-					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
-				}
-			}
-		}
-
 		/* Existing peer's AS number change. */
-		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
-		    || (peer->as_type != as_type))
+		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as) ||
+		    (peer->as_type != as_type))
 			peer_as_change(peer, *as, as_type, as_str);
+
+		/*
+		 * Mark that this peer has an explicit remote-as configured, so
+		 * peer_group2peer_config_copy() skips overwriting it if the peer
+		 * is (or later becomes) a group member.
+		 */
+		SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
 	} else {
 		if (conf_if)
 			return BGP_ERR_NO_INTERFACE_CONFIG;
@@ -3141,7 +3115,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	conf = group->conf;
 
 	/* remote-as */
-	if (conf->as)
+	if (conf->as && !CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
 		peer->as = conf->as;
 
 	/* local-as */
@@ -3283,6 +3257,9 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	peer_as_change(group->conf, *as, as_type, as_str);
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		/* Skip peers with an explicit per-peer remote-as override */
+		if (CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
+			continue;
 		/*
 		 * Re-initiate RA for BGP unnumbered peers when peer group gets
 		 * remote-as configured. This ensures RA is restored after
@@ -3418,6 +3395,10 @@ int peer_group_remote_as_delete(struct peer_group *group)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		/* Preserve per-peer remote-as overrides */
+		if (CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
+			continue;
+
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 			bgp_zebra_terminate_radv(peer->bgp, peer);
 
@@ -3548,7 +3529,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			if ((gtype != BGP_PEER_INTERNAL) && (gtype != ptype)) {
 				if (as)
 					*as = peer->as;
-				return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 			}
 
 			if (gtype == BGP_PEER_INTERNAL)
