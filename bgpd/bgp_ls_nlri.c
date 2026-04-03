@@ -4811,7 +4811,6 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
  */
 void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 {
-	char ipaddr_str[INET6_ADDRSTRLEN];
 	const char *nlri_type_str = NULL;
 	const char *protocol_str = NULL;
 
@@ -4900,11 +4899,9 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 					local_node->igp_router_id[2], local_node->igp_router_id[3],
 					local_node->igp_router_id[4], local_node->igp_router_id[5],
 					local_node->igp_router_id[6] >> 1);
-			} else if (local_node->igp_router_id_len == 16) {
-				inet_ntop(AF_INET6, local_node->igp_router_id, ipaddr_str,
-					  sizeof(ipaddr_str));
-				vty_out(vty, "\tRouter ID IPv6: %s\n", ipaddr_str);
-			}
+			} else if (local_node->igp_router_id_len == 16)
+				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
+					(struct in6_addr *)local_node->igp_router_id);
 		}
 	}
 
@@ -4934,11 +4931,9 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 					remote_node->igp_router_id[4],
 					remote_node->igp_router_id[5],
 					remote_node->igp_router_id[6] >> 1);
-			} else if (remote_node->igp_router_id_len == 16) {
-				inet_ntop(AF_INET6, remote_node->igp_router_id, ipaddr_str,
-					  sizeof(ipaddr_str));
-				vty_out(vty, "\tRouter ID IPv6: %s\n", ipaddr_str);
-			}
+			} else if (remote_node->igp_router_id_len == 16)
+				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
+					(struct in6_addr *)remote_node->igp_router_id);
 		}
 
 		/* Display Link Descriptor */
@@ -4951,26 +4946,18 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 				link_desc->link_remote_id);
 		}
 
-		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
-			inet_ntop(AF_INET, &link_desc->ipv4_intf_addr, ipaddr_str,
-				  sizeof(ipaddr_str));
-			vty_out(vty, "\tLocal Interface Address IPv4: %s\n", ipaddr_str);
-		}
-		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
-			inet_ntop(AF_INET, &link_desc->ipv4_neigh_addr, ipaddr_str,
-				  sizeof(ipaddr_str));
-			vty_out(vty, "\tNeighbor Interface Address IPv4: %s\n", ipaddr_str);
-		}
-		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
-			inet_ntop(AF_INET6, &link_desc->ipv6_intf_addr, ipaddr_str,
-				  sizeof(ipaddr_str));
-			vty_out(vty, "\tLocal Interface Address IPv6: %s\n", ipaddr_str);
-		}
-		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
-			inet_ntop(AF_INET6, &link_desc->ipv6_neigh_addr, ipaddr_str,
-				  sizeof(ipaddr_str));
-			vty_out(vty, "\tNeighbor Interface Address IPv6: %s\n", ipaddr_str);
-		}
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT))
+			vty_out(vty, "\tLocal Interface Address IPv4: %pI4\n",
+				&link_desc->ipv4_intf_addr);
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT))
+			vty_out(vty, "\tNeighbor Interface Address IPv4: %pI4\n",
+				&link_desc->ipv4_neigh_addr);
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT))
+			vty_out(vty, "\tLocal Interface Address IPv6: %pI6\n",
+				&link_desc->ipv6_intf_addr);
+		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT))
+			vty_out(vty, "\tNeighbor Interface Address IPv6: %pI6\n",
+				&link_desc->ipv6_neigh_addr);
 
 		/* Display Link Descriptor Multi-Topology info */
 		if (BGP_LS_TLV_CHECK(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
