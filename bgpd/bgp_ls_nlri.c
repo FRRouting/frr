@@ -3410,6 +3410,14 @@ static int parse_node_name(struct stream *s, uint16_t length, struct bgp_ls_attr
 	if (length == 0)
 		return 0;
 
+	if (length > BGP_LS_MAX_NODE_NAME_LEN) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Node Name TLV length %u exceeds maximum %u, skipping TLV",
+			  length, BGP_LS_MAX_NODE_NAME_LEN);
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT)) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Node Name TLV");
 		return -1;
@@ -3653,6 +3661,14 @@ static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_attr
 {
 	if (length == 0)
 		return 0;
+
+	if (length > BGP_LS_MAX_LINK_NAME_LEN) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Link Name TLV length %u exceeds maximum %u, skipping TLV",
+			  length, BGP_LS_MAX_LINK_NAME_LEN);
+		stream_forward_getp(s, length);
+		return 0;
+	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT)) {
 		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate Link Name TLV");
