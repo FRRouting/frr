@@ -276,6 +276,10 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
+#define IS_MATCH_IPv4_NEXTHOP_SEG6_PREFIX_LIST(C)                              \
+	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list"))
+#define IS_MATCH_IPv6_NEXTHOP_SEG6_PREFIX_LIST(C)                              \
+	(strmatch(C, "frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list"))
 /* BGP route-map match conditions */
 #define IS_MATCH_VPN_DATAPLANE(C) (strmatch(C, "frr-bgp-route-map:match-vpn-dataplane"))
 #define IS_MATCH_LOCAL_PREF(C)                                                 \

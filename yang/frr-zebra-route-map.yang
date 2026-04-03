@@ -7,6 +7,10 @@ module frr-zebra-route-map {
     prefix inet;
   }
 
+  import frr-filter {
+    prefix frr-filter;
+  }
+
   import frr-route-map {
     prefix frr-route-map;
   }
@@ -22,6 +26,14 @@ module frr-zebra-route-map {
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
     "This module defines zebra route map settings";
+
+  revision 2026-04-07 {
+    description
+      "Match on next-hop's first seg6 segment (if any)";
+
+    reference
+      "FRRouting";
+  }
 
   revision 2020-01-02 {
     description
@@ -44,6 +56,18 @@ module frr-zebra-route-map {
     base frr-route-map:rmap-match-type;
     description
       "Match IPv6 address prefix length";
+  }
+
+  identity ipv4-next-hop-seg6-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match IPv4 next-hop's first seg6 segment";
+  }
+
+  identity ipv6-next-hop-seg6-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match IPv6 next-hop's first seg6 segment";
   }
 
   identity source-instance {
@@ -102,6 +126,20 @@ module frr-zebra-route-map {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:source-protocol')";
       leaf source-protocol {
         type frr-route-types:frr-route-types;
+      }
+    }
+
+    case ipv4-next-hop-seg6-prefix-list {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list')";
+      leaf ipv4-next-hop-seg6-prefix-list {
+        type frr-filter:access-list-name;
+      }
+    }
+
+    case ipv6-next-hop-seg6-prefix-list {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list')";
+      leaf ipv6-next-hop-seg6-prefix-list {
+        type frr-filter:access-list-name;
       }
     }
   }

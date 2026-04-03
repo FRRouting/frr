@@ -125,6 +125,116 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv6_prefix_length_dest
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list
+ */
+int
+lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *plist_name;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		plist_name = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = generic_match_delete;
+		rhc->rhc_rule = "ip next-hop seg6 prefix-list";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		rv = generic_match_add(rhc->rhc_rmi, rhc->rhc_rule,
+				       plist_name, RMAP_EVENT_MATCH_ADDED,
+				       args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int
+lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list
+ */
+int
+lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *plist_name;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		plist_name = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = generic_match_delete;
+		rhc->rhc_rule = "ipv6 next-hop seg6 prefix-list";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		rv = generic_match_add(rhc->rhc_rmi, rhc->rhc_rule,
+				       plist_name, RMAP_EVENT_MATCH_ADDED,
+				       args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int
+lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:source-instance
  */
 int

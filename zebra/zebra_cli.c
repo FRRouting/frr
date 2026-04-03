@@ -2878,6 +2878,96 @@ DEFPY_YANG(
 }
 
 DEFPY_YANG(
+	match_ip_nexthop_seg6_prefix_list,
+	match_ip_nexthop_seg6_prefix_list_cmd,
+	"match ip next-hop seg6 prefix-list PREFIXLIST6_NAME$name",
+	MATCH_STR
+	IP_STR
+	"Match nexthop\n"
+	"Match nexthop's first seg6 segment\n"
+	"Match entries of prefix-list\n"
+	"IPv6 prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ip_nexthop_seg6_prefix_list,
+	no_match_ip_nexthop_seg6_prefix_list_cmd,
+	"no match ip next-hop seg6 prefix-list [PREFIXLIST6_NAME]",
+	NO_STR
+	MATCH_STR
+	IP_STR
+	"Match nexthop\n"
+	"Match nexthop's first seg6 segment\n"
+	"Match entries of prefix-list\n"
+	"IPv6 prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	match_ipv6_nexthop_seg6_prefix_list,
+	match_ipv6_nexthop_seg6_prefix_list_cmd,
+	"match ipv6 next-hop seg6 prefix-list PREFIXLIST6_NAME$name",
+	MATCH_STR
+	IPV6_STR
+	"Match nexthop\n"
+	"Match nexthop's first seg6 segment\n"
+	"Match entries of prefix-list\n"
+	"IPv6 prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ipv6_nexthop_seg6_prefix_list,
+	no_match_ipv6_nexthop_seg6_prefix_list_cmd,
+	"no match ipv6 next-hop seg6 prefix-list [PREFIXLIST6_NAME]",
+	NO_STR
+	MATCH_STR
+	IPV6_STR
+	"Match nexthop\n"
+	"Match nexthop's first seg6 segment\n"
+	"Match entries of prefix-list\n"
+	"IPv6 prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
 	match_source_protocol, match_source_protocol_cmd,
 	"match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
 	MATCH_STR
@@ -3415,6 +3505,10 @@ void zebra_cli_init(void)
 	install_element(RMAP_NODE, &match_ipv6_address_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_address_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &match_ip_nexthop_seg6_prefix_list_cmd);
+	install_element(RMAP_NODE, &match_ipv6_nexthop_seg6_prefix_list_cmd);
+	install_element(RMAP_NODE, &no_match_ip_nexthop_seg6_prefix_list_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_nexthop_seg6_prefix_list_cmd);
 	install_element(RMAP_NODE, &match_source_protocol_cmd);
 	install_element(RMAP_NODE, &no_match_source_protocol_cmd);
 	install_element(RMAP_NODE, &match_source_instance_cmd);
