@@ -310,6 +310,12 @@ struct bfd_session_stats {
 	uint64_t session_down;
 	uint64_t znotification;
 	uint64_t tx_fail_pkt;
+	uint64_t rx_pkt_authentication_failure;
+	uint64_t rx_pkt_authentication_type_mismatch;
+	uint64_t rx_pkt_authentication_simple_password_mismatch;
+	uint64_t rx_pkt_authentication_keyed_sha1_mismatch;
+	uint64_t rx_pkt_authentication_keyed_sha1_sequence_error;
+	uint64_t rx_pkt_authentication_keyed_sha1_sequence_meticulous_error;
 };
 
 /**

@@ -896,8 +896,7 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-static bool bfd_check_auth(const struct bfd_session *bfd,
-			   const struct bfd_pkt *cp)
+static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 {
 	struct sockaddr_any peer_sa, local_sa;
 	const uint8_t *auth_section;
@@ -994,6 +993,7 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
 			 "Auth: type mismatch (remote %s)",
 			 bfd_auth_type_get_description(received_auth_type));
+		bfd->stats.rx_pkt_authentication_type_mismatch++;
 		return false;
 	}
 
@@ -1028,6 +1028,7 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
 				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
 				 "Auth: simple password mismatch");
+			bfd->stats.rx_pkt_authentication_simple_password_mismatch++;
 			return false;
 		}
 		break;
@@ -1075,6 +1076,7 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
 						 bfd->vrf ? bfd->vrf->vrf_id : 0,
 						 "Auth: meticulous sequence number error");
+					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error++;
 					return false;
 				}
 			} else {
@@ -1084,6 +1086,7 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
 						 bfd->vrf ? bfd->vrf->vrf_id : 0,
 						 "Auth: sequence number error (replay)");
+					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_error++;
 					return false;
 				}
 			}
@@ -1108,6 +1111,7 @@ static bool bfd_check_auth(const struct bfd_session *bfd,
 			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
 				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
 				 "BFD: Auth digest mismatch for key ID %u", received_key_id);
+			bfd->stats.rx_pkt_authentication_keyed_sha1_mismatch++;
 			return false;
 		}
 
@@ -1356,6 +1360,7 @@ void bfd_recv_cb(struct event *t)
 			 ifindex, vrfid);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "Authentication failed");
+		bfd->stats.rx_pkt_authentication_failure++;
 		return;
 	}
 
