@@ -693,6 +693,16 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:source-instance"));
+	} else if (IS_MATCH_IPv4_NEXTHOP_SEG6_PREFIX_LIST(condition)) {
+		vty_out(vty, " match ip next-hop seg6 prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list"));
+	} else if (IS_MATCH_IPv6_NEXTHOP_SEG6_PREFIX_LIST(condition)) {
+		vty_out(vty, " match ipv6 next-hop seg6 prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list"));
 	} else if (IS_MATCH_VPN_DATAPLANE(condition)) {
 		vty_out(vty, " match vpn dataplane %s\n",
 			yang_dnode_get_string(dnode,

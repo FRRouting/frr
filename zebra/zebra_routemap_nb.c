@@ -29,6 +29,20 @@ const struct frr_yang_module_info frr_zebra_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:source-instance",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_source_instance_modify,
