@@ -2797,7 +2797,14 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			if (dest && re == dest->selected_fib)
 				continue;
 
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+			/*
+			 * Transient parked REs (TRACKER + CHANGED) that have
+			 * been superseded by a successor RE can be cleaned up.
+			 * At the same time, the old installed RE should be kept alive
+			 * until the tracker completes.
+			 */
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
 				continue;
 
 			if (IS_ZEBRA_DEBUG_RIB)
@@ -3967,9 +3974,14 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 		RNODE_FOREACH_RE (rn, old_re) {
 			if (!rib_compare_routes(re, old_re, true))
 				continue;
+			/*
+			 * The tracker is matched against old_re's NHG, so
+			 * old_re must stay on the RN until the tracker
+			 * finishes.  Do not skip old_re even if it is marked
+			 * REMOVED — it may still carry the INSTALLED flag
+			 * and an active tracker on its NHG.
+			 */
 			if (!CHECK_FLAG(old_re->status, ROUTE_ENTRY_INSTALLED))
-				continue;
-			if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			if (old_re->nhe &&
 			    nhg_event_tracker_list_count(&old_re->nhe->tracker_list) > 0) {
