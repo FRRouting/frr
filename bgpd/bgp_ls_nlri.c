@@ -4813,9 +4813,30 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 {
 	const char *nlri_type_str = NULL;
 	const char *protocol_str = NULL;
+	enum bgp_ls_protocol_id protocol_id = BGP_LS_PROTO_RESERVED;
+	uint64_t identifier = 0;
 
 	if (!nlri)
 		return;
+
+	/* Extract common fields from the active union member */
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		protocol_id = nlri->nlri_data.node.protocol_id;
+		identifier = nlri->nlri_data.node.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_LINK:
+		protocol_id = nlri->nlri_data.link.protocol_id;
+		identifier = nlri->nlri_data.link.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		protocol_id = nlri->nlri_data.prefix.protocol_id;
+		identifier = nlri->nlri_data.prefix.identifier;
+		break;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		break;
+	}
 
 	/* Determine NLRI type string */
 	switch (nlri->nlri_type) {
@@ -4837,7 +4858,7 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 	}
 
 	/* Determine protocol string */
-	switch (nlri->nlri_data.node.protocol_id) {
+	switch (protocol_id) {
 	case BGP_LS_PROTO_ISIS_L1:
 		protocol_str = "ISIS L1";
 		break;
@@ -4866,7 +4887,7 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 
 	vty_out(vty, "NLRI Type: %s\n", nlri_type_str);
 	vty_out(vty, "Protocol: %s\n", protocol_str);
-	vty_out(vty, "Identifier: 0x%" PRIx64 "\n", nlri->nlri_data.node.identifier);
+	vty_out(vty, "Identifier: 0x%" PRIx64 "\n", identifier);
 
 	/* Display Local Node Descriptor */
 	vty_out(vty, "Local Node Descriptor:\n");
