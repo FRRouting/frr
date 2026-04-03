@@ -618,6 +618,26 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
 		vty_out(vty, "\t\tTx fail packet: %" PRIu64 "\n", bs->stats.tx_fail_pkt);
 	vty_out(vty, "\t\tRX fail packet: %" PRIu64 "\n", bs->stats.rx_bad_ctrl_pkt);
+	if (bs->stats.rx_pkt_authentication_failure)
+		vty_out(vty, "\t\tRx Authentication failure: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_failure);
+	if (bs->stats.rx_pkt_authentication_type_mismatch)
+		vty_out(vty, "\t\tRx Authentication type mismatch: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_type_mismatch);
+	if (bs->stats.rx_pkt_authentication_simple_password_mismatch)
+		vty_out(vty, "\t\tRx Authentication type simple password mismatch: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_simple_password_mismatch);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_mismatch)
+		vty_out(vty, "\t\tRx Authentication type keyed sha-1 mismatch: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_keyed_sha1_mismatch);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_sequence_error)
+		vty_out(vty, "\t\tRx Authentication type keyed sha-1 sequence error: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_keyed_sha1_sequence_error);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error)
+		vty_out(vty,
+			"\t\tRx Authentication type keyed sha-1 meticulous sequence error: %" PRIu64
+			"\n",
+			bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error);
 	vty_out(vty, "\n");
 }
 
@@ -641,6 +661,25 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 	json_object_int_add(jo, "session-up", bs->stats.session_up);
 	json_object_int_add(jo, "session-down", bs->stats.session_down);
 	json_object_int_add(jo, "zebra-notifications", bs->stats.znotification);
+	if (bs->stats.rx_pkt_authentication_failure)
+		json_object_int_add(jo, "rx-pkt-authentication-failure",
+				    bs->stats.rx_pkt_authentication_failure);
+	if (bs->stats.rx_pkt_authentication_type_mismatch)
+		json_object_int_add(jo, "rx-pkt-authentication-type-mismatch",
+				    bs->stats.rx_pkt_authentication_type_mismatch);
+	if (bs->stats.rx_pkt_authentication_simple_password_mismatch)
+		json_object_int_add(jo, "rx-pkt-authentication-simple-password-mismatch",
+				    bs->stats.rx_pkt_authentication_simple_password_mismatch);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_mismatch)
+		json_object_int_add(jo, "rx-pkt-authentication-keyed-sha1-mismatch",
+				    bs->stats.rx_pkt_authentication_keyed_sha1_mismatch);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_sequence_error)
+		json_object_int_add(jo, "rx-pkt-authentication-keyed-sha1-sequence-error",
+				    bs->stats.rx_pkt_authentication_keyed_sha1_sequence_error);
+	if (bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error)
+		json_object_int_add(jo,
+				    "rx-pkt-authentication-keyed-sha1-sequence-meticulous-error",
+				    bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error);
 
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
 		json_object_int_add(jo, "tx-fail-packet", bs->stats.tx_fail_pkt);
