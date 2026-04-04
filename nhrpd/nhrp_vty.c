@@ -25,23 +25,6 @@ static struct cmd_node zebra_node = {
 	.config_write = nhrp_config_write,
 };
 
-#define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
-
-#define NHRP_DEBUG_FLAGS_STR                                                   \
-	"All messages\n"                                                       \
-	"Common messages (default)\n"                                          \
-	"Event manager messages\n"                                             \
-	"Interface messages\n"                                                 \
-	"Kernel messages\n"                                                    \
-	"Route messages\n"                                                     \
-	"VICI messages\n"
-
-static const struct message debug_flags_desc[] = {
-	{NHRP_DEBUG_ALL, "all"},      {NHRP_DEBUG_COMMON, "common"},
-	{NHRP_DEBUG_IF, "interface"}, {NHRP_DEBUG_KERNEL, "kernel"},
-	{NHRP_DEBUG_ROUTE, "route"},  {NHRP_DEBUG_VICI, "vici"},
-	{NHRP_DEBUG_EVENT, "event"},  {0}};
-
 static const struct message interface_flags_desc[] = {
 	{NHRP_IFF_SHORTCUT, "shortcut"},
 	{NHRP_IFF_REDIRECT, "redirect"},
@@ -103,7 +86,7 @@ static int toggle_flag(struct vty *vty, const struct message *flag_desc,
 	;
 }
 
-#ifndef NO_DEBUG
+#if 0
 
 DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
 	   "show debugging [nhrp]",
@@ -129,50 +112,27 @@ DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
 
 	return CMD_SUCCESS;
 }
+#endif
 
-DEFUN(debug_nhrp, debug_nhrp_cmd,
-	"debug nhrp " NHRP_DEBUG_FLAGS_CMD,
+DEFUN(debug_nhrp_all, debug_nhrp_all_cmd,
+	"[no] debug nhrp all",
+	NO_STR
 	"Enable debug messages for specific or all parts.\n"
 	"NHRP information\n"
-	NHRP_DEBUG_FLAGS_STR)
+	"All messages\n")
 {
-	return toggle_flag(vty, debug_flags_desc, argv[2]->text, 1,
-			   &debug_flags);
-}
+	zlog_debugflag_cli(_dbg_NHRP_COMMON, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_NHRP_KERNEL, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_NHRP_IF, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_NHRP_ROUTE, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_NHRP_EVENT, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_NHRP_VICI, vty, argc, argv);
 
-DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
-	"no debug nhrp " NHRP_DEBUG_FLAGS_CMD,
-	NO_STR
-	"Disable debug messages for specific or all parts.\n"
-	"NHRP information\n"
-	NHRP_DEBUG_FLAGS_STR)
-{
-	return toggle_flag(vty, debug_flags_desc, argv[3]->text, 0,
-			   &debug_flags);
+	return CMD_SUCCESS;
 }
-
-#endif /* NO_DEBUG */
 
 static int nhrp_config_write(struct vty *vty)
 {
-#ifndef NO_DEBUG
-	if (debug_flags == NHRP_DEBUG_ALL) {
-		vty_out(vty, "debug nhrp all\n");
-	} else {
-		int i;
-
-		for (i = 0; debug_flags_desc[i].str != NULL; i++) {
-			if (debug_flags_desc[i].key == NHRP_DEBUG_ALL)
-				continue;
-			if (!(debug_flags & debug_flags_desc[i].key))
-				continue;
-			vty_out(vty, "debug nhrp %s\n",
-				debug_flags_desc[i].str);
-		}
-	}
-	vty_out(vty, "!\n");
-#endif /* NO_DEBUG */
-
 	if (nhrp_event_socket_path) {
 		vty_out(vty, "nhrp event socket %s\n", nhrp_event_socket_path);
 	}
@@ -1298,13 +1258,8 @@ void nhrp_config_init(void)
 	install_element(VIEW_NODE, &show_dmvpn_cmd);
 	install_element(ENABLE_NODE, &clear_nhrp_cmd);
 
-	install_element(ENABLE_NODE, &show_debugging_nhrp_cmd);
-
-	install_element(ENABLE_NODE, &debug_nhrp_cmd);
-	install_element(ENABLE_NODE, &no_debug_nhrp_cmd);
-
-	install_element(CONFIG_NODE, &debug_nhrp_cmd);
-	install_element(CONFIG_NODE, &no_debug_nhrp_cmd);
+	install_element(ENABLE_NODE, &debug_nhrp_all_cmd);
+	install_element(CONFIG_NODE, &debug_nhrp_all_cmd);
 
 	install_element(CONFIG_NODE, &nhrp_event_socket_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_event_socket_cmd);

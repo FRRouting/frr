@@ -26,6 +26,13 @@
 
 DEFINE_MGROUP(NHRPD, "NHRP");
 
+DEFINE_DEBUGFLAG(NHRP_COMMON, "nhrp common", NHRP_DEBUG_DOC "Common messages (default)\n");
+DEFINE_DEBUGFLAG(NHRP_KERNEL, "nhrp kernel", NHRP_DEBUG_DOC "Kernel messages\n");
+DEFINE_DEBUGFLAG(NHRP_IF, "nhrp interface", NHRP_DEBUG_DOC "Interface messages\n");
+DEFINE_DEBUGFLAG(NHRP_ROUTE, "nhrp route", NHRP_DEBUG_DOC "Route messages\n");
+DEFINE_DEBUGFLAG(NHRP_EVENT, "nhrp event", NHRP_DEBUG_DOC "Event manager messages\n");
+DEFINE_DEBUGFLAG(NHRP_VICI, "nhrp vici", NHRP_DEBUG_DOC "VICI messages\n");
+
 unsigned int debug_flags = 0;
 
 struct event_loop *master;
