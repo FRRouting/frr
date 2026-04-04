@@ -764,11 +764,11 @@ struct babel_route *update_route(const unsigned char *router_id, const unsigned 
            in a timely manner.  If the source remains the same, we ignore
            the update. */
 		if (!feasible && route->installed) {
-			debugf(BABEL_DEBUG_COMMON,
-			       "Unfeasible update for installed route to %s (%s %d %d -> %s %d %d).",
-			       format_prefix(src->prefix, src->plen), format_eui64(route->src->id),
-			       route->seqno, route->refmetric, format_eui64(src->id), seqno,
-			       refmetric);
+			dbg(BABEL_COMMON,
+			    "Unfeasible update for installed route to %s (%s %d %d -> %s %d %d).",
+			    format_prefix(src->prefix, src->plen), format_eui64(route->src->id),
+			    route->seqno, route->refmetric, format_eui64(src->id), seqno,
+			    refmetric);
 			if (src != route->src) {
 				uninstall_route(route);
 				lost = 1;
@@ -1038,7 +1038,7 @@ void expire_routes(void)
 	struct babel_route *r;
 	int i;
 
-	debugf(BABEL_DEBUG_COMMON, "Expiring old routes.");
+	dbg(BABEL_COMMON, "Expiring old routes.");
 
 	i = 0;
 	while (i < route_slots) {

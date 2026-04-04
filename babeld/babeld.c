@@ -207,7 +207,7 @@ static void babel_init_routing_process(struct event *event)
 	myseqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
 	babel_get_myid();
 	babel_load_state_file();
-	debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
+	dbg(BABEL_COMMON, "My ID is : %s.", format_eui64(myid));
 	babel_initial_noise();
 	babel_main_loop(event); /* this function self-add to the t_update event */
 }
@@ -338,8 +338,8 @@ static void babel_main_loop(struct event *event)
 		/* if there is no timeout, we must wait. */
 		if (timeval_compare(&tv, &babel_now) > 0) {
 			timeval_minus(&tv, &tv, &babel_now);
-			debugf(BABEL_DEBUG_TIMEOUT, "babel main loop : timeout: %lld msecs",
-			       (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000);
+			dbg(BABEL_TIMEOUT, "babel main loop : timeout: %lld msecs",
+			    (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000);
 			/* it happens often to have less than 1 ms, it's bad. */
 			timeval_add_msec(&tv, &tv, 300);
 			babel_set_timer(&tv);
@@ -438,7 +438,7 @@ static void printIfMin(struct timeval *tv, int cmd, const char *tag, const char 
 		}
 		break;
 	case 2: /* print message */
-		debugf(BABEL_DEBUG_TIMEOUT, "next timeout due to: %s", curr_tag);
+		dbg(BABEL_TIMEOUT, "next timeout due to: %s", curr_tag);
 		break;
 	default:
 		break;

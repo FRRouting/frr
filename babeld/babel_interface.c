@@ -49,7 +49,7 @@ static vector babel_enable_if; /* enable interfaces (by cmd). */
 
 int babel_ifp_up(struct interface *ifp)
 {
-	debugf(BABEL_DEBUG_IF, "receive an 'interface up'");
+	dbg(BABEL_IF, "receive an 'interface up'");
 
 	interface_recalculate(ifp);
 	return 0;
@@ -57,7 +57,7 @@ int babel_ifp_up(struct interface *ifp)
 
 int babel_ifp_down(struct interface *ifp)
 {
-	debugf(BABEL_DEBUG_IF, "receive an 'interface down'");
+	dbg(BABEL_IF, "receive an 'interface down'");
 
 	if (ifp == NULL) {
 		return 0;
@@ -69,7 +69,7 @@ int babel_ifp_down(struct interface *ifp)
 
 int babel_ifp_create(struct interface *ifp)
 {
-	debugf(BABEL_DEBUG_IF, "receive an 'interface add'");
+	dbg(BABEL_IF, "receive an 'interface add'");
 
 	interface_recalculate(ifp);
 
@@ -78,7 +78,7 @@ int babel_ifp_create(struct interface *ifp)
 
 int babel_ifp_destroy(struct interface *ifp)
 {
-	debugf(BABEL_DEBUG_IF, "receive an 'interface delete'");
+	dbg(BABEL_IF, "receive an 'interface delete'");
 
 	if (IS_ENABLE(ifp))
 		interface_reset(ifp);
@@ -92,7 +92,7 @@ int babel_interface_address_add(ZAPI_CALLBACK_ARGS)
 	struct connected *ifc;
 	struct prefix *prefix;
 
-	debugf(BABEL_DEBUG_IF, "receive an 'interface address add'");
+	dbg(BABEL_IF, "receive an 'interface address add'");
 
 	ifc = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD, zclient->ibuf, vrf_id);
 
@@ -127,7 +127,7 @@ int babel_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	struct connected *ifc;
 	struct prefix *prefix;
 
-	debugf(BABEL_DEBUG_IF, "receive an 'interface address delete'");
+	dbg(BABEL_IF, "receive an 'interface address delete'");
 
 	ifc = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE, zclient->ibuf, vrf_id);
 
@@ -587,8 +587,8 @@ static int interface_recalculate(struct interface *ifp)
 	/* In IPv6, the minimum MTU is 1280, and every host must be able
      to reassemble up to 1500 bytes, but I'd rather not rely on this. */
 	if (mtu < 128) {
-		debugf(BABEL_DEBUG_IF, "Suspiciously low MTU %d on interface %s (%d).", mtu,
-		       ifp->name, ifp->ifindex);
+		dbg(BABEL_IF, "Suspiciously low MTU %d on interface %s (%d).", mtu, ifp->name,
+		    ifp->ifindex);
 		mtu = 128;
 	}
 
@@ -632,9 +632,9 @@ static int interface_recalculate(struct interface *ifp)
 
 	update_interface_metric(ifp);
 
-	debugf(BABEL_DEBUG_COMMON, "Upped interface %s (%s, cost=%d, channel=%d%s).", ifp->name,
-	       CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless",
-	       babel_ifp->cost, babel_ifp->channel, babel_ifp->ipv4 ? ", IPv4" : "");
+	dbg(BABEL_COMMON, "Upped interface %s (%s, cost=%d, channel=%d%s).", ifp->name,
+	    CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless", babel_ifp->cost,
+	    babel_ifp->channel, babel_ifp->ipv4 ? ", IPv4" : "");
 
 	if (rc > 0)
 		send_update(ifp, 0, NULL, 0);
@@ -654,7 +654,7 @@ static int interface_reset(struct interface *ifp)
 	if (!CHECK_FLAG(babel_ifp->flags, BABEL_IF_IS_UP))
 		return 0;
 
-	debugf(BABEL_DEBUG_IF, "interface reset: %s", ifp->name);
+	dbg(BABEL_IF, "interface reset: %s", ifp->name);
 
 	UNSET_FLAG(babel_ifp->flags, BABEL_IF_IS_UP);
 
@@ -683,9 +683,9 @@ static int interface_reset(struct interface *ifp)
 
 	update_interface_metric(ifp);
 
-	debugf(BABEL_DEBUG_COMMON, "Upped network %s (%s, cost=%d%s).", ifp->name,
-	       CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless",
-	       babel_ifp->cost, babel_ifp->ipv4 ? ", IPv4" : "");
+	dbg(BABEL_COMMON, "Upped network %s (%s, cost=%d%s).", ifp->name,
+	    CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless", babel_ifp->cost,
+	    babel_ifp->ipv4 ? ", IPv4" : "");
 
 	if (babel_ifp->ipv4 != NULL) {
 		free(babel_ifp->ipv4);

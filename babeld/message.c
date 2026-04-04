@@ -163,13 +163,12 @@ static bool parse_update_subtlv(const unsigned char *a, int alen, unsigned char 
 			 * parser state by a Router-Id, Next Hop, or Update TLV,
 			 * as described in the next section).
 			 */
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
+			dbg(BABEL_COMMON,
+			    "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
 			return true;
 		} else if (type == SUBTLV_PADN) {
 			if (!is_all_zero(a + i + 2, len)) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received pad%d with non zero MBZ field.", len);
+				dbg(BABEL_COMMON, "Received pad%d with non zero MBZ field.", len);
 			}
 		} else if (type == SUBTLV_DIVERSITY) {
 			if (len > DIVERSITY_HOPS) {
@@ -186,7 +185,7 @@ static bool parse_update_subtlv(const unsigned char *a, int alen, unsigned char 
 			memset(channels, 0, DIVERSITY_HOPS);
 			memcpy(channels, a + i + 2, len);
 		} else {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown route attribute %d.", type);
+			dbg(BABEL_COMMON, "Received unknown route attribute %d.", type);
 		}
 
 		i += len + 2;
@@ -223,13 +222,12 @@ static int parse_hello_subtlv(const unsigned char *a, int alen, unsigned int *he
 			 * parser state by a Router-Id, Next Hop, or Update TLV, as
 			 * described in the next section).
 			 */
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			dbg(BABEL_COMMON,
+			    "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 			return -2;
 		} else if (type == SUBTLV_PADN) {
 			if (!is_all_zero(a + i + 2, len)) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received pad%d with non zero MBZ field.", len);
+				dbg(BABEL_COMMON, "Received pad%d with non zero MBZ field.", len);
 			}
 		} else if (type == SUBTLV_TIMESTAMP) {
 			if (len >= 4) {
@@ -240,7 +238,7 @@ static int parse_hello_subtlv(const unsigned char *a, int alen, unsigned int *he
 					 "Received incorrect RTT sub-TLV on Hello message.");
 			}
 		} else {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown Hello sub-TLV type %d.", type);
+			dbg(BABEL_COMMON, "Received unknown Hello sub-TLV type %d.", type);
 		}
 
 		i += len + 2;
@@ -278,15 +276,14 @@ static int parse_ihu_subtlv(const unsigned char *a, int alen, unsigned int *hell
 			 * parser state by a Router-Id, Next Hop, or Update TLV, as
 			 * described in the next section).
 			 */
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			dbg(BABEL_COMMON,
+			    "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 			return -2;
 		}
 
 		if (type == SUBTLV_PADN) {
 			if (!is_all_zero(a + i + 2, len)) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received pad%d with non zero MBZ field.", len);
+				dbg(BABEL_COMMON, "Received pad%d with non zero MBZ field.", len);
 			}
 		} else if (type == SUBTLV_TIMESTAMP) {
 			if (len >= 8) {
@@ -298,7 +295,7 @@ static int parse_ihu_subtlv(const unsigned char *a, int alen, unsigned int *hell
 					 "Received incorrect RTT sub-TLV on IHU message.");
 			}
 		} else {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown IHU sub-TLV type %d.", type);
+			dbg(BABEL_COMMON, "Received unknown IHU sub-TLV type %d.", type);
 		}
 
 		i += len + 2;
@@ -333,8 +330,8 @@ static int parse_request_subtlv(int ae, const unsigned char *a, int alen,
 			 * parser state by a Router-Id, Next Hop, or Update TLV,
 			 * as described in the next section).
 			 */
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			dbg(BABEL_COMMON,
+			    "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 			return -2;
 		}
 
@@ -357,8 +354,8 @@ static int parse_request_subtlv(int ae, const unsigned char *a, int alen,
 				*src_plen = a[i + 2];
 			have_src_prefix = 1;
 		} else {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown%s Route Request sub-TLV %d.",
-			       (CHECK_FLAG(type, 0x80) != 0) ? " mandatory" : "", type);
+			dbg(BABEL_COMMON, "Received unknown%s Route Request sub-TLV %d.",
+			    (CHECK_FLAG(type, 0x80) != 0) ? " mandatory" : "", type);
 			if (CHECK_FLAG(type, 0x80) != 0)
 				return -1;
 		}
@@ -401,8 +398,8 @@ static int parse_subtlv_no_special_action(const unsigned char *a, int alen)
 			 * parser state by a Router-Id, Next Hop, or Update TLV, as
 			 * described in the next section).
 			 */
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+			dbg(BABEL_COMMON,
+			    "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 			return -2;
 		}
 
@@ -413,8 +410,7 @@ static int parse_subtlv_no_special_action(const unsigned char *a, int alen)
 		case SUBTLV_SOURCE_PREFIX:
 			break;
 		default: {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown Request sub-TLV type %d.",
-			       type);
+			dbg(BABEL_COMMON, "Received unknown Request sub-TLV type %d.", type);
 			return -1;
 		}
 		}
@@ -448,8 +444,7 @@ static int babel_packet_examin(const unsigned char *packet, int packetlen, int *
 		return 1;
 	DO_NTOHS(bodylen, packet + 2);
 	if (bodylen + 4 > packetlen) {
-		debugf(BABEL_DEBUG_COMMON, "Received truncated packet (%d + 4 > %d).", bodylen,
-		       packetlen);
+		dbg(BABEL_COMMON, "Received truncated packet (%d + 4 > %d).", bodylen, packetlen);
 		return 1;
 	}
 	while (i < bodylen) {
@@ -460,17 +455,17 @@ static int babel_packet_examin(const unsigned char *packet, int packetlen, int *
 			continue;
 		}
 		if (i + 2 > bodylen) {
-			debugf(BABEL_DEBUG_COMMON, "Received truncated message.");
+			dbg(BABEL_COMMON, "Received truncated message.");
 			return 1;
 		}
 		len = message[1];
 		if (i + len + 2 > bodylen) {
-			debugf(BABEL_DEBUG_COMMON, "Received truncated message.");
+			dbg(BABEL_COMMON, "Received truncated message.");
 			return 1;
 		}
 		/* not Pad1 */
 		if (type <= MESSAGE_MAX && tlv_min_length[type] && len < tlv_min_length[type]) {
-			debugf(BABEL_DEBUG_COMMON, "Undersized %u TLV", type);
+			dbg(BABEL_COMMON, "Undersized %u TLV", type);
 			return 1;
 		}
 		i += len + 2;
@@ -532,8 +527,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 		message = packet + 4 + i;
 		type = message[0];
 		if (type == MESSAGE_PAD1) {
-			debugf(BABEL_DEBUG_COMMON, "Received pad1 from %s on %s.",
-			       format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received pad1 from %s on %s.", format_address(from),
+			    ifp->name);
 			i++;
 			continue;
 		}
@@ -541,21 +536,20 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 
 		if (type == MESSAGE_PADN) {
 			if (!is_all_zero(message + 2, len)) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received pad%d with non zero MBZ field.", len);
+				dbg(BABEL_COMMON, "Received pad%d with non zero MBZ field.", len);
 			}
-			debugf(BABEL_DEBUG_COMMON, "Received pad%d from %s on %s.", len,
-			       format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received pad%d from %s on %s.", len,
+			    format_address(from), ifp->name);
 		} else if (type == MESSAGE_ACK_REQ) {
 			unsigned short nonce, interval;
 			DO_NTOHS(nonce, message + 4);
 			DO_NTOHS(interval, message + 6);
-			debugf(BABEL_DEBUG_COMMON, "Received ack-req (%04X %d) from %s on %s.",
-			       nonce, interval, format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received ack-req (%04X %d) from %s on %s.", nonce,
+			    interval, format_address(from), ifp->name);
 			if (interval == 0) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received ack-req from %s on %s with zero interval, ignoring.",
-				       format_address(from), ifp->name);
+				dbg(BABEL_COMMON,
+				    "Received ack-req from %s on %s with zero interval, ignoring.",
+				    format_address(from), ifp->name);
 				goto done;
 			}
 			/* handling of ack-req sub-TLVs could go here */
@@ -564,15 +558,15 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received Ack-Req with subtlv Mandatory bit set, ignoring entire Ack-Req TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received Ack-Req with subtlv Mandatory bit set, ignoring entire Ack-Req TLV as per RFC 8966");
 					goto done;
 				}
 			}
 			send_ack(neigh, nonce, interval);
 		} else if (type == MESSAGE_ACK) {
-			debugf(BABEL_DEBUG_COMMON, "Received ack from %s on %s.",
-			       format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received ack from %s on %s.", format_address(from),
+			    ifp->name);
 			/* Nothing right now */
 			/* Handling of ack sub-TLVs could go here */
 			if (len > 2) {
@@ -580,8 +574,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received Ack with subtlv Mandatory bit set, ignoring entire Ack TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received Ack with subtlv Mandatory bit set, ignoring entire Ack TLV as per RFC 8966");
 					goto done;
 				}
 			}
@@ -599,16 +593,16 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			 * BABEL is brought up to date
 			 */
 			if (CHECK_FLAG(flags, BABEL_UNICAST_HELLO)) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
-				       format_address(from), ifp->name);
+				dbg(BABEL_COMMON,
+				    "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
+				    format_address(from), ifp->name);
 				goto done;
 			}
 
 			DO_NTOHS(seqno, message + 4);
 			DO_NTOHS(interval, message + 6);
-			debugf(BABEL_DEBUG_COMMON, "Received hello %d (%d) from %s on %s.", seqno,
-			       interval, format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received hello %d (%d) from %s on %s.", seqno, interval,
+			    format_address(from), ifp->name);
 
 			/*
 			 * RFC 8966 Appendix F
@@ -616,9 +610,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			 * field set to 0
 			 */
 			if (interval == 0) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
-				       format_address(from), ifp->name);
+				dbg(BABEL_COMMON,
+				    "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
+				    format_address(from), ifp->name);
 				goto done;
 			}
 
@@ -630,8 +624,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				int ret = parse_hello_subtlv(message + 8, len - 6, &timestamp);
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received Hello with subtlv Mandatory bit set, ignoring entire Hello TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received Hello with subtlv Mandatory bit set, ignoring entire Hello TLV as per RFC 8966");
 					goto done;
 				}
 				if (ret > 0) {
@@ -653,9 +647,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			rc = network_address(message[2], message + 8, len - 6, address);
 			if (rc < 0)
 				goto fail;
-			debugf(BABEL_DEBUG_COMMON, "Received ihu %d (%d) from %s on %s for %s.",
-			       txcost, interval, format_address(from), ifp->name,
-			       format_address(address));
+			dbg(BABEL_COMMON, "Received ihu %d (%d) from %s on %s for %s.", txcost,
+			    interval, format_address(from), ifp->name, format_address(address));
 			if (message[2] == 0 || is_interface_ll_address(ifp, address)) {
 				int ret = -3;
 
@@ -665,8 +658,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 							       &hello_rtt_receive_time);
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received IHU with subtlv Mandatory bit set, ignoring entire IHU TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received IHU with subtlv Mandatory bit set, ignoring entire IHU TLV as per RFC 8966");
 					goto done;
 				}
 				int changed = txcost != neigh->txcost;
@@ -692,15 +685,15 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				goto fail;
 			}
 			have_router_id = 1;
-			debugf(BABEL_DEBUG_COMMON, "Received router-id %s from %s on %s.",
-			       format_eui64(router_id), format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received router-id %s from %s on %s.",
+			    format_eui64(router_id), format_address(from), ifp->name);
 			/* handle sub-TLVs */
 			if (len > 10) {
 				int ret = parse_subtlv_no_special_action(message + 12, len - 10);
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received Router-ID with subtlv Mandatory bit set, ignoring entire Router-ID TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received Router-ID with subtlv Mandatory bit set, ignoring entire Router-ID TLV as per RFC 8966");
 					goto done;
 				}
 			}
@@ -709,8 +702,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			int rc;
 
 			if (message[2] != 1 && message[2] != 3) {
-				debugf(BABEL_DEBUG_COMMON, "Received NH with incorrect AE %d.",
-				       message[2]);
+				dbg(BABEL_COMMON, "Received NH with incorrect AE %d.", message[2]);
 				have_v4_nh = 0;
 				have_v6_nh = 0;
 				goto fail;
@@ -721,8 +713,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				have_v6_nh = 0;
 				goto fail;
 			}
-			debugf(BABEL_DEBUG_COMMON, "Received nh %s (%d) from %s on %s.",
-			       format_address(nh), message[2], format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received nh %s (%d) from %s on %s.", format_address(nh),
+			    message[2], format_address(from), ifp->name);
 
 			/* handling sub-tlvs */
 			if (len > 2 + rc) {
@@ -730,8 +722,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 									 len - 2 - rc);
 				if (ret == -2) {
 					/* Mandatory bit set, the whole enclosing TLV must be silently ignored */
-					debugf(BABEL_DEBUG_COMMON,
-					       "Received NH with subtlv Mandatory bit set, ignoring entire NH TLV as per RFC 8966");
+					dbg(BABEL_COMMON,
+					    "Received NH with subtlv Mandatory bit set, ignoring entire NH TLV as per RFC 8966");
 					goto done;
 				}
 			}
@@ -760,8 +752,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			}
 
 			if (!known_ae(message[2])) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received update with unknown AE %d. Ignoring.", message[2]);
+				dbg(BABEL_COMMON, "Received update with unknown AE %d. Ignoring.",
+				    message[2]);
 				goto done;
 			}
 
@@ -819,10 +811,10 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				flog_err(EC_BABEL_PACKET, "Received prefix with no router id.");
 				goto fail;
 			}
-			debugf(BABEL_DEBUG_COMMON, "Received update%s%s for %s from %s on %s.",
-			       ((CHECK_FLAG(message[3], 0x80)) ? "/prefix" : ""),
-			       ((CHECK_FLAG(message[3], 0x40)) ? "/id" : ""),
-			       format_prefix(prefix, plen), format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received update%s%s for %s from %s on %s.",
+			    ((CHECK_FLAG(message[3], 0x80)) ? "/prefix" : ""),
+			    ((CHECK_FLAG(message[3], 0x40)) ? "/id" : ""),
+			    format_prefix(prefix, plen), format_address(from), ifp->name);
 
 			if (message[2] == 0) {
 				if (metric < INFINITY) {
@@ -887,9 +879,8 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			if (len < 2)
 				goto fail;
 			if (!known_ae(message[2])) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received request with unknown AE %d. Ignoring.",
-				       message[2]);
+				dbg(BABEL_COMMON, "Received request with unknown AE %d. Ignoring.",
+				    message[2]);
 				goto done;
 			}
 			rc = network_prefix(message[2], message[3], 0, message + 4, NULL, len - 2,
@@ -897,9 +888,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			if (rc < 0)
 				goto fail;
 			plen = message[3] + (message[2] == 1 ? 96 : 0);
-			debugf(BABEL_DEBUG_COMMON, "Received request for %s from %s on %s.",
-			       message[2] == 0 ? "any" : format_prefix(prefix, plen),
-			       format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received request for %s from %s on %s.",
+			    message[2] == 0 ? "any" : format_prefix(prefix, plen),
+			    format_address(from), ifp->name);
 			if (message[2] == 1) {
 				v4tov6(src_prefix, zeroes);
 				src_plen = 96;
@@ -949,19 +940,17 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			if (rc <= 0)
 				goto fail;
 			plen = message[3] + (message[2] == 1 ? 96 : 0);
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received request (%d) for %s from %s on %s (%s, %d).", message[6],
-			       format_prefix(prefix, plen), format_address(from), ifp->name,
-			       format_eui64(message + 8), seqno);
+			dbg(BABEL_COMMON, "Received request (%d) for %s from %s on %s (%s, %d).",
+			    message[6], format_prefix(prefix, plen), format_address(from),
+			    ifp->name, format_eui64(message + 8), seqno);
 			if (message[6] == 0) {
-				debugf(BABEL_DEBUG_COMMON,
-				       "Received request with invalid hop count 0");
+				dbg(BABEL_COMMON, "Received request with invalid hop count 0");
 				goto done;
 			}
 			handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
 		} else {
-			debugf(BABEL_DEBUG_COMMON, "Received unknown packet type %d from %s on %s.",
-			       type, format_address(from), ifp->name);
+			dbg(BABEL_COMMON, "Received unknown packet type %d from %s on %s.", type,
+			    format_address(from), ifp->name);
 		}
 done:
 		i += len + 2;
@@ -988,8 +977,8 @@ fail:
 			return;
 
 		rtt = MAX(0, local_waiting_us - remote_waiting_us);
-		debugf(BABEL_DEBUG_COMMON, "RTT to %s on %s sample result: %d us.",
-		       format_address(from), ifp->name, rtt);
+		dbg(BABEL_COMMON, "RTT to %s on %s sample result: %d us.", format_address(from),
+		    ifp->name, rtt);
 
 		old_rttcost = neighbour_rttcost(neigh);
 		if (valid_rtt(neigh)) {
@@ -1071,8 +1060,8 @@ void flushbuf(struct interface *ifp)
 	flushupdates(ifp);
 
 	if (babel_ifp->buffered > 0) {
-		debugf(BABEL_DEBUG_COMMON, "  (flushing %d buffered bytes on %s)",
-		       babel_ifp->buffered, ifp->name);
+		dbg(BABEL_COMMON, "  (flushing %d buffered bytes on %s)", babel_ifp->buffered,
+		    ifp->name);
 		if (check_bucket(ifp)) {
 			memset(&sin6, 0, sizeof(sin6));
 			sin6.sin6_family = AF_INET6;
@@ -1243,8 +1232,8 @@ void send_ack(struct neighbour *neigh, unsigned short nonce, unsigned short inte
 {
 	int rc;
 
-	debugf(BABEL_DEBUG_COMMON, "Sending ack (%04x) to %s on %s.", nonce,
-	       format_address(neigh->address), neigh->ifp->name);
+	dbg(BABEL_COMMON, "Sending ack (%04x) to %s on %s.", nonce, format_address(neigh->address),
+	    neigh->ifp->name);
 	rc = start_unicast_message(neigh, MESSAGE_ACK, 2);
 	if (rc < 0)
 		return;
@@ -1268,8 +1257,8 @@ void send_hello_noupdate(struct interface *ifp, unsigned interval)
 	if (!if_up(ifp))
 		return;
 
-	debugf(BABEL_DEBUG_COMMON, "Sending hello %d (%d) to %s.", babel_ifp->hello_seqno,
-	       interval, ifp->name);
+	dbg(BABEL_COMMON, "Sending hello %d (%d) to %s.", babel_ifp->hello_seqno, interval,
+	    ifp->name);
 
 	start_message(ifp, MESSAGE_HELLO,
 		      (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) ? 12 : 6));
@@ -1498,8 +1487,8 @@ void flushupdates(struct interface *ifp)
 		if (!if_up(ifp))
 			goto done;
 
-		debugf(BABEL_DEBUG_COMMON, "  (flushing %d buffered updates on %s (%d))", n,
-		       ifp->name, ifp->ifindex);
+		dbg(BABEL_COMMON, "  (flushing %d buffered updates on %s (%d))", n, ifp->name,
+		    ifp->ifindex);
 
 		/* In order to send fewer update messages, we want to send updates
            with the same router-id together, with IPv6 going out before IPv4. */
@@ -1663,13 +1652,13 @@ void send_update(struct interface *ifp, int urgent, const unsigned char *prefix,
 
 	babel_ifp = babel_get_if_nfo(ifp);
 	if (prefix) {
-		debugf(BABEL_DEBUG_COMMON, "Sending update to %s for %s.", ifp->name,
-		       format_prefix(prefix, plen));
+		dbg(BABEL_COMMON, "Sending update to %s for %s.", ifp->name,
+		    format_prefix(prefix, plen));
 		buffer_update(ifp, prefix, plen);
 	} else {
 		struct route_stream *routes = NULL;
 		send_self_update(ifp);
-		debugf(BABEL_DEBUG_COMMON, "Sending update to %s for any.", ifp->name);
+		dbg(BABEL_COMMON, "Sending update to %s for any.", ifp->name);
 		routes = route_stream(1);
 		if (routes) {
 			while (1) {
@@ -1744,7 +1733,7 @@ void send_self_update(struct interface *ifp)
 		return;
 	}
 
-	debugf(BABEL_DEBUG_COMMON, "Sending self update to %s.", ifp->name);
+	dbg(BABEL_COMMON, "Sending self update to %s.", ifp->name);
 	xroutes = xroute_stream();
 	if (xroutes) {
 		while (1) {
@@ -1804,9 +1793,9 @@ void send_ihu(struct neighbour *neigh, struct interface *ifp)
        multicast, since this allows aggregation into a single packet and
        avoids an ARP exchange.  If we already have a unicast message queued
        for this neighbour, however, we might as well piggyback the IHU. */
-	debugf(BABEL_DEBUG_COMMON, "Sending %sihu %d on %s to %s.",
-	       unicast_neighbour == neigh ? "unicast " : "", rxcost, neigh->ifp->name,
-	       format_address(neigh->address));
+	dbg(BABEL_COMMON, "Sending %sihu %d on %s to %s.",
+	    unicast_neighbour == neigh ? "unicast " : "", rxcost, neigh->ifp->name,
+	    format_address(neigh->address));
 
 	ll = linklocal(neigh->address);
 
@@ -1898,8 +1887,8 @@ void send_request(struct interface *ifp, const unsigned char *prefix, unsigned c
 	if (!if_up(ifp))
 		return;
 
-	debugf(BABEL_DEBUG_COMMON, "sending request to %s for %s.", ifp->name,
-	       prefix ? format_prefix(prefix, plen) : "any");
+	dbg(BABEL_COMMON, "sending request to %s for %s.", ifp->name,
+	    prefix ? format_prefix(prefix, plen) : "any");
 	v4 = plen >= 96 && v4mapped(prefix);
 	pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
 	len = !prefix ? 2 : 2 + pb;
@@ -1923,8 +1912,8 @@ void send_unicast_request(struct neighbour *neigh, const unsigned char *prefix, 
 	/* make sure any buffered updates go out before this request. */
 	flushupdates(neigh->ifp);
 
-	debugf(BABEL_DEBUG_COMMON, "sending unicast request to %s for %s.",
-	       format_address(neigh->address), prefix ? format_prefix(prefix, plen) : "any");
+	dbg(BABEL_COMMON, "sending unicast request to %s for %s.", format_address(neigh->address),
+	    prefix ? format_prefix(prefix, plen) : "any");
 	v4 = plen >= 96 && v4mapped(prefix);
 	pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
 	len = !prefix ? 2 : 2 + pb;
@@ -1965,8 +1954,8 @@ void send_multihop_request(struct interface *ifp, const unsigned char *prefix, u
 	if (!if_up(ifp))
 		return;
 
-	debugf(BABEL_DEBUG_COMMON, "Sending request (%d) on %s for %s.", hop_count, ifp->name,
-	       format_prefix(prefix, plen));
+	dbg(BABEL_COMMON, "Sending request (%d) on %s for %s.", hop_count, ifp->name,
+	    format_prefix(prefix, plen));
 	v4 = plen >= 96 && v4mapped(prefix);
 	pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
 	len = 6 + 8 + pb;
@@ -1996,8 +1985,8 @@ void send_unicast_multihop_request(struct neighbour *neigh, const unsigned char 
 	/* Make sure any buffered updates go out before this request. */
 	flushupdates(neigh->ifp);
 
-	debugf(BABEL_DEBUG_COMMON, "Sending multi-hop request to %s for %s (%d hops).",
-	       format_address(neigh->address), format_prefix(prefix, plen), hop_count);
+	dbg(BABEL_COMMON, "Sending multi-hop request to %s for %s (%d hops).",
+	    format_address(neigh->address), format_prefix(prefix, plen), hop_count);
 	v4 = plen >= 96 && v4mapped(prefix);
 	pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
 	len = 6 + 8 + pb;

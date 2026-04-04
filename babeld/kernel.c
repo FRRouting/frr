@@ -165,8 +165,8 @@ static int zebra_route(int add, int family, const unsigned char *pref, unsigned 
 		api.metric = metric;
 	}
 
-	debugf(BABEL_DEBUG_ROUTE, "%s route (%s) to zebra", add ? "adding" : "removing",
-	       (family == AF_INET) ? "ipv4" : "ipv6");
+	dbg(BABEL_ROUTE, "%s route (%s) to zebra", add ? "adding" : "removing",
+	    (family == AF_INET) ? "ipv4" : "ipv6");
 	return zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, babel_zclient, &api);
 }
 

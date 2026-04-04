@@ -252,9 +252,8 @@ void babel_load_state_file(void)
 					flog_err(EC_BABEL_CONFIG, "Couldn't parse babel-state.");
 				} else {
 					struct timeval realnow;
-					debugf(BABEL_DEBUG_COMMON,
-					       "Got %s %d %ld from babel-state.",
-					       format_eui64(sid), s, t);
+					dbg(BABEL_COMMON, "Got %s %d %ld from babel-state.",
+					    format_eui64(sid), s, t);
 					gettimeofday(&realnow, NULL);
 					if (memcmp(sid, myid, 8) == 0)
 						myseqno = seqno_plus(s, 1);
@@ -276,18 +275,18 @@ fini:
 
 static FRR_NORETURN void babel_exit_properly(void)
 {
-	debugf(BABEL_DEBUG_COMMON, "Exiting...");
+	dbg(BABEL_COMMON, "Exiting...");
 	usleep(roughly(10000));
 	gettime(&babel_now);
 
 	/* Uninstall and flush all routes. */
-	debugf(BABEL_DEBUG_COMMON, "Uninstall routes.");
+	dbg(BABEL_COMMON, "Uninstall routes.");
 	babel_clean_routing_process();
 	babel_zebra_close_connexion();
 	babel_if_terminate();
 	babel_save_state_file();
-	debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
-	debugf(BABEL_DEBUG_COMMON, "Done.");
+	dbg(BABEL_COMMON, "Remove pid file.");
+	dbg(BABEL_COMMON, "Done.");
 
 	vrf_terminate();
 	prefix_list_reset();
@@ -301,7 +300,7 @@ static void babel_save_state_file(void)
 	int fd;
 	int rc;
 
-	debugf(BABEL_DEBUG_COMMON, "Save state file.");
+	dbg(BABEL_COMMON, "Save state file.");
 	fd = open(state_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 	if (fd < 0) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL, "creat(babel-state): %s", safe_strerror(errno));
