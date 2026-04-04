@@ -42,6 +42,84 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF");
 DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
 
+/*
+ * Hash key function for VRF Table ID.
+ *
+ * p: Pointer to zebra_vrf.
+ * Returns: The table_id of the VRF.
+ */
+unsigned int zebra_vrf_table_hash_key(const void *p)
+{
+	const struct zebra_vrf *zvrf = p;
+	return zvrf->table_id;
+}
+
+/*
+ * Hash equality function for VRF Table ID.
+ *
+ * p1: Pointer to first zebra_vrf.
+ * p2: Pointer to second zebra_vrf.
+ * Returns: true if both VRFs have the same table_id.
+ */
+bool zebra_vrf_table_hash_equal(const void *p1, const void *p2)
+{
+	const struct zebra_vrf *z1 = p1;
+	const struct zebra_vrf *z2 = p2;
+	return z1->table_id == z2->table_id;
+}
+
+/*
+ * Inserts a zebra_vrf into the VRF table_id hash.
+ *
+ * zvrf: Pointer to zebra_vrf to insert.
+ */
+static inline void zebra_vrf_hash_insert(struct zebra_vrf *zvrf)
+{
+	struct zebra_vrf *lookup;
+
+	if (!zrouter.vrf_table_hash)
+		return;
+
+	lookup = hash_lookup(zrouter.vrf_table_hash, zvrf);
+	if (lookup == NULL)
+		hash_get(zrouter.vrf_table_hash, zvrf, hash_alloc_intern);
+}
+
+/*
+ * Removes a zebra_vrf from the VRF table_id hash.
+ *
+ * zvrf: Pointer to zebra_vrf to remove.
+ */
+static inline void zebra_vrf_hash_remove(struct zebra_vrf *zvrf)
+{
+	struct zebra_vrf *lookup;
+
+	if (!zrouter.vrf_table_hash)
+		return;
+
+	lookup = hash_lookup(zrouter.vrf_table_hash, zvrf);
+	if (lookup == zvrf)
+		hash_release(zrouter.vrf_table_hash, zvrf);
+}
+
+/*
+ * Updates the table_id of a zebra_vrf and adjusts the hash accordingly.
+ *
+ * zvrf: Pointer to zebra_vrf to update.
+ * table_id: New table_id.
+ */
+void zebra_vrf_set_table_id(struct zebra_vrf *zvrf, uint32_t table_id)
+{
+	if (zvrf->table_id == table_id) {
+		zebra_vrf_hash_insert(zvrf);
+		return;
+	}
+
+	zebra_vrf_hash_remove(zvrf);
+	zvrf->table_id = table_id;
+	zebra_vrf_hash_insert(zvrf);
+}
+
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
 {
@@ -336,6 +414,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	list_delete_all_node(zvrf->rid6_all_sorted_list);
 	list_delete_all_node(zvrf->rid6_lo_sorted_list);
 
+	zebra_vrf_hash_remove(zvrf);
+
 	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 
@@ -486,6 +566,7 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	zebra_pw_init_vrf(zvrf);
 	zvrf->table_id = rt_table_main_id;
 	/* by default table ID is default one */
+	zebra_vrf_hash_insert(zvrf);
 
 	if (DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT) {
 		zvrf->zebra_rnh_ip_default_route = true;
@@ -500,26 +581,22 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
  */
 vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 {
-	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	struct zebra_vrf lookup;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-
-		if (zvrf == NULL)
-			continue;
-		/* case vrf with netns : match the netnsid */
-		if (vrf_is_backend_netns()) {
-			if (ns_id == zvrf_id(zvrf))
-				return zvrf_id(zvrf);
-		} else {
-			/* VRF is VRF_BACKEND_VRF_LITE */
-			if (zvrf->table_id != table_id)
-				continue;
-
+	/* case vrf with netns : match the netnsid */
+	if (vrf_is_backend_netns()) {
+		zvrf = zebra_vrf_lookup_by_id((vrf_id_t)ns_id);
+		if (zvrf)
 			return zvrf_id(zvrf);
-		}
+		return VRF_DEFAULT;
 	}
+
+	/* VRF is VRF_BACKEND_VRF_LITE */
+	lookup.table_id = table_id;
+	zvrf = hash_lookup(zrouter.vrf_table_hash, &lookup);
+	if (zvrf)
+		return zvrf_id(zvrf);
 
 	return VRF_DEFAULT;
 }

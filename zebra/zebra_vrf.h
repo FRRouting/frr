@@ -253,6 +253,10 @@ extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id);
 int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id);
 
+extern unsigned int zebra_vrf_table_hash_key(const void *p);
+extern bool zebra_vrf_table_hash_equal(const void *p1, const void *p2);
+extern void zebra_vrf_set_table_id(struct zebra_vrf *zvrf, uint32_t table_id);
+
 /*
  * API to associate a VRF with a NETNS.
  * Called either from vty or through discovery.

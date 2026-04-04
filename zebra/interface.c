@@ -1574,7 +1574,7 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 		 * during the vrf_enable callbacks.
 		 */
 		zvrf = (struct zebra_vrf *)vrf->info;
-		zvrf->table_id = tableid;
+		zebra_vrf_set_table_id(zvrf, tableid);
 
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
