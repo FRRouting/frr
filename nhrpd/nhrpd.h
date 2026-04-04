@@ -8,7 +8,6 @@
 
 #include "zbuf.h"
 #include "zclient.h"
-#include "debug.h"
 #include "memory.h"
 #include "resolver.h"
 
