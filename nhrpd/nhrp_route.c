@@ -188,7 +188,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		api.mtu = mtu;
 	}
 
-	if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
+	if (unlikely(dbg_check(NHRP_ROUTE))) {
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(

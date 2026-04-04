@@ -1080,7 +1080,7 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 	const char *name = "Unknown";
 	int reply;
 
-	if (likely(!(debug_flags & NHRP_DEBUG_COMMON)))
+	if (likely(!dbg_check(NHRP_COMMON)))
 		return;
 
 	zbuf_init(&zhdr, zb->buf, zb->tail - zb->buf, zb->tail - zb->buf);
@@ -1181,7 +1181,7 @@ static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 			else
 				cmp = 1;
 
-			if (unlikely(debug_flags & NHRP_DEBUG_COMMON)) {
+			if (unlikely(dbg_check(NHRP_COMMON))) {
 				/* 4 bytes in nhrp_cisco_authentication_extension are allocated
 				 * toward the authentication type. The remaining bytes are used for the
 				 * password - so the password length is just the length of the extension - 4
