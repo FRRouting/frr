@@ -33,9 +33,4 @@
 #define PIM_SG_LEN 96
 #endif
 
-#define pim_inet4_dump prefix_mcast_inet4_dump
-
-void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
-		    int buf_size);
-
 #endif

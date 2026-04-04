@@ -421,8 +421,6 @@ extern int str2prefix(const char *string, struct prefix *prefix);
 
 extern void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
 				 char *buf, int buf_size);
-extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
-				char *buf, int buf_size);
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr upfx, char *buffer,
 			      int size);

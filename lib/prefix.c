@@ -1208,23 +1208,6 @@ static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 	}
 }
 
-void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
-		char *buf, int buf_size)
-{
-	int save_errno = errno;
-
-	if (addr.s_addr == INADDR_ANY)
-		strlcpy(buf, "*", buf_size);
-	else {
-		if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
-			if (onfail)
-				snprintf(buf, buf_size, "%s", onfail);
-		}
-	}
-
-	errno = save_errno;
-}
-
 const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 {
 	char src_str[INET6_ADDRSTRLEN];
