@@ -302,25 +302,15 @@ static int mtrace_send_packet(struct interface *ifp,
 		      (struct sockaddr *)&to, tolen);
 
 	if (sent != (ssize_t)mtrace_buf_len) {
-		char dst_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
-		pim_inet4_dump("<group?>", group_addr, group_str,
-			       sizeof(group_str));
 		if (sent < 0) {
 			if (PIM_DEBUG_MTRACE)
-				zlog_debug(
-					"Send mtrace request failed for %s on%s: group=%s msg_size=%zd: errno=%d:  %s",
-					dst_str, ifp->name, group_str,
-					mtrace_buf_len, errno,
-					safe_strerror(errno));
+				zlog_debug("Send mtrace request failed for %pI4s on%s: group=%pI4s msg_size=%zd: errno=%d:  %s",
+					   &dst_addr, ifp->name, &group_addr, mtrace_buf_len,
+					   errno, safe_strerror(errno));
 		} else {
 			if (PIM_DEBUG_MTRACE)
-				zlog_debug(
-					"Send mtrace request failed for %s on %s: group=%s msg_size=%zd: sent=%zd",
-					dst_str, ifp->name, group_str,
-					mtrace_buf_len, sent);
+				zlog_debug("Send mtrace request failed for %pI4s on %s: group=%pI4s msg_size=%zd: sent=%zd",
+					   &dst_addr, ifp->name, &group_addr, mtrace_buf_len, sent);
 		}
 		ret = -1;
 		goto close_fd;
@@ -555,8 +545,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 				  mtracep->rsp_addr, mtracep->grp_addr);
 }
 
-int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
-			     struct in_addr from, const char *from_str,
+int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			     char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id, qry_src;
@@ -593,10 +582,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug(
-				"Recv mtrace packet from %s on %s: too short, len=%d, min=%zu",
-				from_str, ifp->name, igmp_msg_len,
-				sizeof(struct igmp_mtrace));
+			zlog_debug("Recv mtrace packet from %pI4s on %s: too short, len=%d, min=%zu",
+				   &from, ifp->name, igmp_msg_len, sizeof(struct igmp_mtrace));
 		return -1;
 	}
 
@@ -610,9 +597,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	if (recv_checksum != checksum) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug(
-				"Recv mtrace packet from %s on %s: checksum mismatch: received=%x computed=%x",
-				from_str, ifp->name, recv_checksum, checksum);
+			zlog_debug("Recv mtrace packet from %pI4s on %s: checksum mismatch: received=%x computed=%x",
+				   &from, ifp->name, recv_checksum, checksum);
 		return -1;
 	}
 
@@ -665,9 +651,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 		}
 	} else {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug(
-				"Recv mtrace packet from %s on %s: invalid length %d",
-				from_str, ifp->name, igmp_msg_len);
+			zlog_debug("Recv mtrace packet from %pI4s on %s: invalid length %d", &from,
+				   ifp->name, igmp_msg_len);
 		return -1;
 	}
 
@@ -675,8 +660,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 	dstaddr = ip_hdr->ip_dst;
 	if (IPV4_CLASS_DE(ntohl(dstaddr.s_addr)) && !IPV4_MC_LINKLOCAL(ntohl(dstaddr.s_addr))) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug("Recv mtrace packet from %s on %s: not link-local multicast %pI4",
-				   from_str, ifp->name, &dstaddr);
+			zlog_debug("Recv mtrace packet from %pI4s on %s: not link-local multicast %pI4",
+				   &from, ifp->name, &dstaddr);
 		return -1;
 	}
 
@@ -790,8 +775,7 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 }
 
 /* 6.3. Traceroute responses */
-int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
-			      struct in_addr from, const char *from_str,
+int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			      char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id, rsp_dst;
@@ -808,10 +792,8 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug(
-				"Recv mtrace packet from %s on %s: too short, len=%d, min=%zu",
-				from_str, ifp->name, igmp_msg_len,
-				sizeof(struct igmp_mtrace));
+			zlog_debug("Recv mtrace packet from %pI4s on %s: too short, len=%d, min=%zu",
+				   &from, ifp->name, igmp_msg_len, sizeof(struct igmp_mtrace));
 		return -1;
 	}
 
@@ -825,9 +807,8 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	if (recv_checksum != checksum) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug(
-				"Recv mtrace response from %s on %s: checksum mismatch: received=%x computed=%x",
-				from_str, ifp->name, recv_checksum, checksum);
+			zlog_debug("Recv mtrace response from %pI4s on %s: checksum mismatch: received=%x computed=%x",
+				   &from, ifp->name, recv_checksum, checksum);
 		return -1;
 	}
 

@@ -70,7 +70,6 @@ static void pim_show_assert_helper(struct vty *vty,
 				   struct pim_interface *pim_ifp,
 				   struct pim_ifchannel *ch, time_t now)
 {
-	char winner_str[INET_ADDRSTRLEN];
 	struct in_addr ifaddr;
 	char uptime[10];
 	char timer[10];
@@ -78,17 +77,13 @@ static void pim_show_assert_helper(struct vty *vty,
 
 	ifaddr = pim_ifp->primary_address;
 
-	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner, winner_str,
-		       sizeof(winner_str));
-
 	pim_time_uptime(uptime, sizeof(uptime), now - ch->ifassert_creation);
 	pim_time_timer_to_mmss(timer, sizeof(timer), ch->t_ifassert_timer);
 
-	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-6s %-15s %-8s %-5s\n",
-		ch->interface->name,
-		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src,
-		&ch->sg.grp, pim_ifchannel_ifassert_name(ch->ifassert_state),
-		winner_str, uptime, timer);
+	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-6s %-15pI4s %-8s %-5s\n",
+		ch->interface->name, inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src,
+		&ch->sg.grp, pim_ifchannel_ifassert_name(ch->ifassert_state), &ch->ifassert_winner,
+		uptime, timer);
 }
 
 static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
@@ -166,7 +161,6 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 					  struct pim_interface *pim_ifp,
 					  struct pim_ifchannel *ch)
 {
-	char addr_str[INET_ADDRSTRLEN];
 	struct pim_assert_metric am;
 	struct in_addr ifaddr;
 	char buf[PREFIX_STRLEN];
@@ -176,13 +170,10 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 	am = pim_macro_spt_assert_metric(&ch->upstream->rpf,
 					 pim_ifp->primary_address);
 
-	pim_inet4_dump("<addr?>", am.ip_address, addr_str, sizeof(addr_str));
-
-	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-3s %4u %6u %-15s\n",
-		ch->interface->name,
-		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src,
-		&ch->sg.grp, am.rpt_bit_flag ? "yes" : "no",
-		am.metric_preference, am.route_metric, addr_str);
+	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-3s %4u %6u %-15pI4s\n", ch->interface->name,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src, &ch->sg.grp,
+		am.rpt_bit_flag ? "yes" : "no", am.metric_preference, am.route_metric,
+		&am.ip_address);
 }
 
 static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
@@ -209,7 +200,6 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 						 struct pim_interface *pim_ifp,
 						 struct pim_ifchannel *ch)
 {
-	char addr_str[INET_ADDRSTRLEN];
 	struct pim_assert_metric *am;
 	struct in_addr ifaddr;
 	char pref_str[16];
@@ -219,8 +209,6 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 	ifaddr = pim_ifp->primary_address;
 
 	am = &ch->ifassert_winner_metric;
-
-	pim_inet4_dump("<addr?>", am->ip_address, addr_str, sizeof(addr_str));
 
 	if (am->metric_preference == PIM_ASSERT_METRIC_PREFERENCE_MAX)
 		snprintf(pref_str, sizeof(pref_str), "INFI");
@@ -233,11 +221,9 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 	else
 		snprintf(metr_str, sizeof(metr_str), "%6u", am->route_metric);
 
-	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-3s %-4s %-6s %-15s\n",
-		ch->interface->name,
-		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src,
-		&ch->sg.grp, am->rpt_bit_flag ? "yes" : "no", pref_str,
-		metr_str, addr_str);
+	vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-3s %-4s %-6s %-15pI4s\n",
+		ch->interface->name, inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), &ch->sg.src,
+		&ch->sg.grp, am->rpt_bit_flag ? "yes" : "no", pref_str, metr_str, &am->ip_address);
 }
 
 static void pim_show_assert_winner_metric(struct pim_instance *pim,
@@ -591,7 +577,6 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 		struct listnode *join_node;
 		struct gm_join *ij;
 		struct in_addr pri_addr;
-		char pri_addr_str[INET_ADDRSTRLEN];
 
 		pim_ifp = ifp->info;
 
@@ -602,25 +587,15 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		pri_addr = pim_find_primary_addr(ifp);
-		pim_inet4_dump("<pri?>", pri_addr, pri_addr_str,
-			       sizeof(pri_addr_str));
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, join_node,
-					  ij)) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, join_node, ij)) {
 			char uptime[10];
 
 			if (ij->join_type != join_type &&
 			    ij->join_type != GM_JOIN_BOTH)
 				continue;
 
-			pim_time_uptime(uptime, sizeof(uptime),
-					now - ij->sock_creation);
-			pim_inet4_dump("<grp?>", ij->group_addr, group_str,
-				       sizeof(group_str));
-			pim_inet4_dump("<src?>", ij->source_addr, source_str,
-				       sizeof(source_str));
+			pim_time_uptime(uptime, sizeof(uptime), now - ij->sock_creation);
 
 			if (uj) {
 				json_object_object_get_ex(json, ifp->name,
@@ -639,22 +614,21 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 				}
 
 				json_grp = json_object_new_object();
-				json_object_string_add(json_grp, "source",
-						       source_str);
-				json_object_string_add(json_grp, "group",
-						       group_str);
-				json_object_string_add(json_grp, "primaryAddr",
-						       pri_addr_str);
+				json_object_string_addf(json_grp, "source", "%pI4s",
+							&ij->source_addr);
+				json_object_string_addf(json_grp, "group", "%pI4s",
+							&ij->group_addr);
+				json_object_string_addf(json_grp, "primaryAddr", "%pI4s",
+							&pri_addr);
 				json_object_int_add(json_grp, "sockFd",
 						    ij->sock_fd);
 				json_object_string_add(json_grp, "upTime",
 						       uptime);
 				json_object_array_add(json_grp_arr, json_grp);
 			} else {
-				vty_out(vty,
-					"%-16s %-15s %-15s %-15s %6d %8s\n",
-					ifp->name, pri_addr_str, source_str,
-					group_str, ij->sock_fd, uptime);
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s\n",
+					ifp->name, &pri_addr, &ij->source_addr, &ij->group_addr,
+					ij->sock_fd, uptime);
 			}
 		} /* for (pim_ifp->gm_join_list) */
 
@@ -687,7 +661,6 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 		struct listnode *node;
 		struct static_group *stgrp;
 		struct in_addr pri_addr;
-		char pri_addr_str[INET_ADDRSTRLEN];
 
 		pim_ifp = ifp->info;
 
@@ -698,19 +671,8 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 			continue;
 
 		pri_addr = pim_find_primary_addr(ifp);
-		pim_inet4_dump("<pri?>", pri_addr, pri_addr_str,
-			       sizeof(pri_addr_str));
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
-					  stgrp)) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<grp?>", stgrp->group_addr, group_str,
-				       sizeof(group_str));
-			pim_inet4_dump("<src?>", stgrp->source_addr, source_str,
-				       sizeof(source_str));
-
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
 			if (uj) {
 				json_object_object_get_ex(json, ifp->name,
 							  &json_iface);
@@ -729,17 +691,16 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 				}
 
 				json_grp = json_object_new_object();
-				json_object_string_add(json_grp, "source",
-						       source_str);
-				json_object_string_add(json_grp, "group",
-						       group_str);
-				json_object_string_add(json_grp, "primaryAddr",
-						       pri_addr_str);
+				json_object_string_addf(json_grp, "source", "%pI4s",
+							&stgrp->source_addr);
+				json_object_string_addf(json_grp, "group", "%pI4s",
+							&stgrp->group_addr);
+				json_object_string_addf(json_grp, "primaryAddr", "%pI4s",
+							&pri_addr);
 				json_object_array_add(json_grp_arr, json_grp);
 			} else {
-				vty_out(vty, "%-16s %-15s %-15s %-15s\n",
-					ifp->name, pri_addr_str, source_str,
-					group_str);
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s\n", ifp->name,
+					&pri_addr, &stgrp->source_addr, &stgrp->group_addr);
 			}
 		} /* for (pim_ifp->static_group_list) */
 
@@ -893,9 +854,8 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-static void igmp_source_json_helper(struct gm_source *src,
-				    json_object *json_sources, char *source_str,
-				    char *mmss, char *uptime)
+static void igmp_source_json_helper(struct gm_source *src, json_object *json_sources, char *mmss,
+				    char *uptime)
 {
 	json_object *json_source = NULL;
 
@@ -903,7 +863,7 @@ static void igmp_source_json_helper(struct gm_source *src,
 	if (!json_source)
 		return;
 
-	json_object_string_add(json_source, "source", source_str);
+	json_object_string_addf(json_source, "source", "%pI4s", &src->source_addr);
 	json_object_string_add(json_source, "timer", mmss);
 	json_object_boolean_add(json_source, "forwarded",
 				IGMP_SOURCE_TEST_FORWARDING(src->source_flags));
@@ -918,12 +878,9 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 	json_object *json_iface = NULL;
 	json_object *json_group = NULL;
 	json_object *json_groups = NULL;
-	char group_str[INET_ADDRSTRLEN];
 	char hhmmss[PIM_TIME_STRLEN];
 	char uptime[PIM_TIME_STRLEN];
 
-	pim_inet4_dump("<group?>", grp->group_addr, group_str,
-		       sizeof(group_str));
 	pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss), grp->t_group_timer);
 	pim_time_uptime(uptime, sizeof(uptime), now - grp->group_creation);
 
@@ -948,7 +905,7 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 			if (!json_group)
 				return;
 
-			json_object_string_add(json_group, "group", group_str);
+			json_object_string_addf(json_group, "group", "%pI4s", &grp->group_addr);
 			if (grp->igmp_version == IGMP_DEFAULT_VERSION)
 				json_object_string_add(
 					json_group, "mode",
@@ -979,16 +936,10 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 				json_object_object_add(json_group, "sources",
 						       json_sources);
 
-				for (ALL_LIST_ELEMENTS_RO(
-					     grp->group_source_list, srcnode,
-					     src)) {
-					char source_str[INET_ADDRSTRLEN];
+				for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
 					char mmss[PIM_TIME_STRLEN];
 					char src_uptime[PIM_TIME_STRLEN];
 
-					pim_inet4_dump(
-						"<source?>", src->source_addr,
-						source_str, sizeof(source_str));
 					pim_time_timer_to_mmss(
 						mmss, sizeof(mmss),
 						src->t_source_timer);
@@ -996,9 +947,8 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 						src_uptime, sizeof(src_uptime),
 						now - src->source_creation);
 
-					igmp_source_json_helper(
-						src, json_sources, source_str,
-						mmss, src_uptime);
+					igmp_source_json_helper(src, json_sources, mmss,
+								src_uptime);
 				}
 			}
 		}
@@ -1007,37 +957,21 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 			struct listnode *srcnode;
 			struct gm_source *src;
 
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
-				char source_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<source?>", src->source_addr,
-					       source_str, sizeof(source_str));
-
-				vty_out(vty,
-					"%-16s %-15s %4s %8s %-15s %d %8s\n",
-					ifp->name, group_str,
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
+				vty_out(vty, "%-16s %-15pI4s %4s %8s %-15pI4s %d %8s\n", ifp->name,
+					&grp->group_addr,
 					grp->igmp_version == 3
-						? (grp->group_filtermode_isexcl
-							   ? "EXCL"
-							   : "INCL")
+						? (grp->group_filtermode_isexcl ? "EXCL" : "INCL")
 						: "----",
-					hhmmss, source_str, grp->igmp_version,
-					uptime);
+					hhmmss, &src->source_addr, grp->igmp_version, uptime);
 			}
 			return;
 		}
 
-		vty_out(vty, "%-16s %-15s %4s %8s %4d %d %8s\n", ifp->name,
-			group_str,
-			grp->igmp_version == 3
-				? (grp->group_filtermode_isexcl ? "EXCL"
-								: "INCL")
-				: "----",
-			hhmmss,
-			grp->group_source_list
-				? listcount(grp->group_source_list)
-				: 0,
+		vty_out(vty, "%-16s %-15pI4s %4s %8s %4d %d %8s\n", ifp->name, &grp->group_addr,
+			grp->igmp_version == 3 ? (grp->group_filtermode_isexcl ? "EXCL" : "INCL")
+					       : "----",
+			hhmmss, grp->group_source_list ? listcount(grp->group_source_list) : 0,
 			grp->igmp_version, uptime);
 	}
 }
@@ -1211,16 +1145,12 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
-					  grp)) {
-			char group_str[INET_ADDRSTRLEN];
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode, grp)) {
 			char grp_retr_mmss[10];
 			struct listnode *src_node;
 			struct gm_source *src;
 			int grp_retr_sources = 0;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
 			pim_time_timer_to_mmss(
 				grp_retr_mmss, sizeof(grp_retr_mmss),
 				grp->t_group_query_retransmit_timer);
@@ -1235,9 +1165,8 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 				}
 			}
 
-			vty_out(vty, "%-16s %-15s %-8s %7d %7d\n", ifp->name,
-				group_str, grp_retr_mmss,
-				grp->group_specific_query_retransmit_count,
+			vty_out(vty, "%-16s %-15pI4s %-8s %7d %7d\n", ifp->name, &grp->group_addr,
+				grp_retr_mmss, grp->group_specific_query_retransmit_count,
 				grp_retr_sources);
 
 		} /* scan igmp groups */
@@ -1251,12 +1180,9 @@ static void igmp_sources_print(struct interface *ifp, char *group_str,
 	json_object *json_iface = NULL;
 	json_object *json_group = NULL;
 	json_object *json_sources = NULL;
-	char source_str[INET_ADDRSTRLEN];
 	char mmss[PIM_TIME_STRLEN];
 	char uptime[PIM_TIME_STRLEN];
 
-	pim_inet4_dump("<source?>", src->source_addr, source_str,
-		       sizeof(source_str));
 	pim_time_timer_to_mmss(mmss, sizeof(mmss), src->t_source_timer);
 	pim_time_uptime(uptime, sizeof(uptime), now - src->source_creation);
 
@@ -1287,14 +1213,11 @@ static void igmp_sources_print(struct interface *ifp, char *group_str,
 
 		json_object_object_get_ex(json_group, "sources", &json_sources);
 		if (json_sources)
-			igmp_source_json_helper(src, json_sources, source_str,
-						mmss, uptime);
+			igmp_source_json_helper(src, json_sources, mmss, uptime);
 	} else {
-		vty_out(vty, "%-16s %-15s %-15s %5s %3s %8s\n", ifp->name,
-			group_str, source_str, mmss,
-			IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y"
-								       : "N",
-			uptime);
+		vty_out(vty, "%-16s %-15s %-15pI4s %5s %3s %8s\n", ifp->name, group_str,
+			&src->source_addr, mmss,
+			IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y" : "N", uptime);
 	}
 }
 
@@ -1363,8 +1286,7 @@ static void igmp_show_sources_interface_single(struct pim_instance *pim,
 				vty_json(vty, json);
 			return;
 		}
-		pim_inet4_dump("<group?>", grp->group_addr, group_str,
-			       sizeof(group_str));
+		snprintfrr(group_str, sizeof(group_str), "%pI4s", &grp->group_addr);
 
 		/* scan group sources */
 		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src))
@@ -1380,8 +1302,7 @@ static void igmp_show_sources_interface_single(struct pim_instance *pim,
 			struct listnode *srcnode;
 			struct gm_source *src;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			snprintfrr(group_str, sizeof(group_str), "%pI4s", &grp->group_addr);
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
@@ -1430,8 +1351,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 			struct listnode *srcnode;
 			struct gm_source *src;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			snprintfrr(group_str, sizeof(group_str), "%pI4s", &grp->group_addr);
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
@@ -1463,29 +1383,19 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
-					  grp)) {
-			char group_str[INET_ADDRSTRLEN];
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode, grp)) {
 			struct listnode *srcnode;
 			struct gm_source *src;
-
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
 						  srcnode, src)) {
-				char source_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<source?>", src->source_addr,
-					       source_str, sizeof(source_str));
-
-				vty_out(vty, "%-16s %-15s %-15s %7d\n",
-					ifp->name, group_str, source_str,
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %7d\n", ifp->name,
+					&grp->group_addr, &src->source_addr,
 					src->source_query_retransmit_count);
 
 			} /* scan group sources */
-		}	 /* scan igmp groups */
+		}	  /* scan igmp groups */
 	}		  /* scan interfaces */
 }
 
@@ -3328,30 +3238,23 @@ static void show_ssmpingd(struct pim_instance *pim, struct vty *vty)
 	now = pim_time_monotonic_sec();
 
 	for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
-		char source_str[INET_ADDRSTRLEN];
 		char ss_uptime[10];
 		struct sockaddr_in bind_addr;
 		socklen_t len = sizeof(bind_addr);
-		char bind_addr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<src?>", ss->source_addr, source_str,
-			       sizeof(source_str));
 
 		if (pim_socket_getsockname(
 			    ss->sock_fd, (struct sockaddr *)&bind_addr, &len)) {
 			vty_out(vty,
-				"%% Failure reading socket name for ssmpingd source %s on fd=%d\n",
-				source_str, ss->sock_fd);
+				"%% Failure reading socket name for ssmpingd source %pI4s on fd=%d\n",
+				&ss->source_addr, ss->sock_fd);
 		}
 
-		pim_inet4_dump("<addr?>", bind_addr.sin_addr, bind_addr_str,
-			       sizeof(bind_addr_str));
 		pim_time_uptime(ss_uptime, sizeof(ss_uptime),
 				now - ss->creation);
 
-		vty_out(vty, "%-15s %6d %-15s %5d %8s %8lld\n", source_str,
-			ss->sock_fd, bind_addr_str, ntohs(bind_addr.sin_port),
-			ss_uptime, (long long)ss->requests);
+		vty_out(vty, "%-15pI4s %6d %-15pI4s %5d %8s %8lld\n", &ss->source_addr,
+			ss->sock_fd, &bind_addr.sin_addr, ntohs(bind_addr.sin_port), ss_uptime,
+			(long long)ss->requests);
 	}
 }
 
@@ -7892,15 +7795,12 @@ static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	char mbr_str[INET_ADDRSTRLEN];
-	char src_str[INET_ADDRSTRLEN];
 	char state_str[PIM_MSDP_STATE_STRLEN];
 	enum pim_msdp_peer_state state;
 	json_object *json_mg_row = NULL;
 	json_object *json_members = NULL;
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<source?>", mg->src_ip, src_str, sizeof(src_str));
 	if (json) {
 		/* currently there is only one mesh group but we should still
 		 * make
@@ -7909,15 +7809,14 @@ static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 		json_mg_row = json_object_new_object();
 		json_object_string_add(json_mg_row, "name",
 				       mg->mesh_group_name);
-		json_object_string_add(json_mg_row, "source", src_str);
+		json_object_string_addf(json_mg_row, "source", "%pI4s", &mg->src_ip);
 	} else {
 		vty_out(vty, "Mesh group : %s\n", mg->mesh_group_name);
-		vty_out(vty, "  Source : %s\n", src_str);
+		vty_out(vty, "  Source : %pI4s\n", &mg->src_ip);
 		vty_out(vty, "  Member                 State\n");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
-		pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str, sizeof(mbr_str));
 		if (mbr->mp) {
 			state = mbr->mp->state;
 		} else {
@@ -7926,16 +7825,16 @@ static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 		pim_msdp_state_dump(state, state_str, sizeof(state_str));
 		if (json) {
 			json_row = json_object_new_object();
-			json_object_string_add(json_row, "member", mbr_str);
+			json_object_string_addf(json_row, "member", "%pI4s", &mbr->mbr_ip);
 			json_object_string_add(json_row, "state", state_str);
 			if (!json_members) {
 				json_members = json_object_new_object();
 				json_object_object_add(json_mg_row, "members",
 						       json_members);
 			}
-			json_object_object_add(json_members, mbr_str, json_row);
+			json_object_object_addf(json_members, json_row, "%pI4s", &mbr->mbr_ip);
 		} else {
-			vty_out(vty, "  %-15s  %11s\n", mbr_str, state_str);
+			vty_out(vty, "  %-15pI4s  %11s\n", &mbr->mbr_ip, state_str);
 		}
 	}
 
@@ -8027,8 +7926,6 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 {
 	struct listnode *mpnode;
 	struct pim_msdp_peer *mp;
-	char peer_str[INET_ADDRSTRLEN];
-	char local_str[INET_ADDRSTRLEN];
 	char state_str[PIM_MSDP_STATE_STRLEN];
 	char timebuf[PIM_MSDP_UPTIME_STRLEN];
 	int64_t now;
@@ -8051,24 +7948,21 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 		} else {
 			strlcpy(timebuf, "-", sizeof(timebuf));
 		}
-		pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
-		pim_inet4_dump("<local?>", mp->local, local_str,
-			       sizeof(local_str));
 		pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
 		if (uj) {
 			json_row = json_object_new_object();
-			json_object_string_add(json_row, "peer", peer_str);
-			json_object_string_add(json_row, "local", local_str);
+			json_object_string_addf(json_row, "peer", "%pI4s", &mp->peer);
+			json_object_string_addf(json_row, "local", "%pI4s", &mp->local);
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "upTime", timebuf);
 			json_object_int_add(json_row, "saCount", mp->sa_cnt);
 			if (mp->asn)
 				json_object_int_add(json_row, "asn", mp->asn);
 
-			json_object_object_add(json, peer_str, json_row);
+			json_object_object_addf(json, json_row, "%pI4s", &mp->peer);
 		} else {
-			vty_out(vty, "%-15s  %15s  %11s  %8s  %6d", peer_str, local_str, state_str,
-				timebuf, mp->sa_cnt);
+			vty_out(vty, "%-15pI4s  %15pI4s  %11s  %8s  %6d", &mp->peer, &mp->local,
+				state_str, timebuf, mp->sa_cnt);
 			if (mp->asn)
 				vty_out(vty, " %5d\n", mp->asn);
 			else
@@ -8171,7 +8065,6 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 	struct listnode *mpnode;
 	struct pim_msdp_peer *mp;
 	char peer_str[INET_ADDRSTRLEN];
-	char local_str[INET_ADDRSTRLEN];
 	char state_str[PIM_MSDP_STATE_STRLEN];
 	char timebuf[PIM_MSDP_UPTIME_STRLEN];
 	char katimer[PIM_MSDP_TIMER_STRLEN];
@@ -8186,7 +8079,7 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, mpnode, mp)) {
-		pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
+		snprintfrr(peer_str, sizeof(peer_str), "%pI4s", &mp->peer);
 		if (strcmp(peer, "detail") && strcmp(peer, peer_str))
 			continue;
 
@@ -8204,8 +8097,6 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 		} else {
 			strlcpy(timebuf, "-", sizeof(timebuf));
 		}
-		pim_inet4_dump("<local?>", mp->local, local_str,
-			       sizeof(local_str));
 		pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
 		pim_time_timer_to_hhmmss(katimer, sizeof(katimer),
 					 mp->ka_timer);
@@ -8215,7 +8106,7 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 					 mp->hold_timer);
 
 		vty_out(vty, "Peer : %s\n", peer_str);
-		vty_out(vty, "  Local               : %s\n", local_str);
+		vty_out(vty, "  Local               : %pI4s\n", &mp->local);
 		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
 			vty_out(vty, "  Mesh Group          : %s\n", mp->mesh_group_name);
 		if (mp->asn != 0)
@@ -8420,7 +8311,7 @@ static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty, bool uj)
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
 		if (sa->flags & PIM_MSDP_SAF_PEER) {
-			pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
+			snprintfrr(rp_str, sizeof(rp_str), "%pI4s", &sa->rp);
 			if (sa->up) {
 				strlcpy(spt_str, "yes", sizeof(spt_str));
 			} else {
@@ -8490,8 +8381,8 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 	now = pim_time_monotonic_sec();
 	pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
 	if (sa->flags & PIM_MSDP_SAF_PEER) {
-		pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
-		pim_inet4_dump("<peer?>", sa->peer, peer_str, sizeof(peer_str));
+		snprintfrr(rp_str, sizeof(rp_str), "%pI4s", &sa->rp);
+		snprintfrr(peer_str, sizeof(peer_str), "%pI4s", &sa->peer);
 		if (sa->up) {
 			strlcpy(spt_str, "yes", sizeof(spt_str));
 		} else {

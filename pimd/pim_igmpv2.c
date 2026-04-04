@@ -21,11 +21,8 @@
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr from)
 {
-	if (PIM_DEBUG_GM_TRACE) {
-		char from_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<from?>", from, from_str, sizeof(from_str));
-		zlog_debug("%s: from %s on %s", label, from_str, ifp->name);
-	}
+	if (PIM_DEBUG_GM_TRACE)
+		zlog_debug("%s: from %pI4s on %s", label, &from, ifp->name);
 }
 
 void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
@@ -56,13 +53,8 @@ void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 	*(uint16_t *)(query_buf + IGMP_CHECKSUM_OFFSET) = checksum;
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		char dst_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
-		pim_inet4_dump("<group?>", group_addr, group_str,
-			       sizeof(group_str));
-		zlog_debug("Send IGMPv2 QUERY to %s on %s for group %s",
-			   dst_str, ifname, group_str);
+		zlog_debug("Send IGMPv2 QUERY to %pI4s on %s for group %pI4s", &dst_addr, ifname,
+			   &group_addr);
 	}
 
 	memset(&to, 0, sizeof(to));
@@ -73,32 +65,24 @@ void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 	sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
 		      (struct sockaddr *)&to, tolen);
 	if (sent != (ssize_t)msg_size) {
-		char dst_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
-		pim_inet4_dump("<group?>", group_addr, group_str,
-			       sizeof(group_str));
 		if (sent < 0) {
-			zlog_warn(
-				"Send IGMPv2 QUERY failed due to %s on %s: group=%s msg_size=%zd: errno=%d: %s",
-				dst_str, ifname, group_str, msg_size, errno,
-				safe_strerror(errno));
+			zlog_warn("Send IGMPv2 QUERY failed due to %pI4s on %s: group=%pI4s msg_size=%zd: errno=%d: %s",
+				  &dst_addr, ifname, &group_addr, msg_size, errno,
+				  safe_strerror(errno));
 		} else {
-			zlog_warn(
-				"Send IGMPv2 QUERY failed due to %s on %s: group=%s msg_size=%zd: sent=%zd",
-				dst_str, ifname, group_str, msg_size, sent);
+			zlog_warn("Send IGMPv2 QUERY failed due to %pI4s on %s: group=%pI4s msg_size=%zd: sent=%zd",
+				  &dst_addr, ifname, &group_addr, msg_size, sent);
 		}
 		return;
 	}
 }
 
 int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_addr to,
-			const char *from_str, char *igmp_msg, int igmp_msg_len)
+			char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
 	struct pim_interface *pim_ifp;
-	char group_str[INET_ADDRSTRLEN];
 
 	on_trace(__func__, igmp->interface, from);
 
@@ -109,16 +93,13 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
 		if (PIM_DEBUG_GM_PACKETS)
-			zlog_debug(
-				"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
-				from_str, ifp->name, igmp_msg_len,
-				IGMP_V12_MSG_SIZE);
+			zlog_debug("Recv IGMPv2 REPORT from %pI4s on %s: size=%d other than correct=%d",
+				   &from, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
 	}
 
 	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
-		zlog_warn(
-			"Recv IGMPv2 REPORT from %s on %s: size=%d with invalid checksum",
-			from_str, ifp->name, igmp_msg_len);
+		zlog_warn("Recv IGMPv2 REPORT from %pI4s on %s: size=%d with invalid checksum",
+			  &from, ifp->name, igmp_msg_len);
 		return -1;
 	}
 
@@ -126,19 +107,18 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 	igmp->igmp_stats.report_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
-	pim_inet4_dump("<dst?>", group_addr, group_str, sizeof(group_str));
 
 	if (to.s_addr != group_addr.s_addr) {
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug("IGMPv2 report message from %s on %s is ignored since received on address other than Group-address(%s)",
-				   from_str, ifp->name, group_str);
+			zlog_debug("IGMPv2 report message from %pI4s on %s is ignored since received on address other than Group-address(%pI4s)",
+				   &from, ifp->name, &group_addr);
 		}
 		return -1;
 	}
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		zlog_debug("Recv IGMPv2 REPORT from %s on %s for %s", from_str,
-			   ifp->name, group_str);
+		zlog_debug("Recv IGMPv2 REPORT from %pI4s on %s for %pI4s", &from, ifp->name,
+			   &group_addr);
 	}
 
 	if (pim_is_group_filtered(pim_ifp, &group_addr, NULL))
@@ -153,9 +133,8 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 	 */
 	if (pim_is_grp_ssm(pim_ifp->pim, group_addr)) {
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug(
-				"Ignoring IGMPv2 group record %pI4 from %s on %s exclude mode in SSM range",
-				&group_addr.s_addr, from_str, ifp->name);
+			zlog_debug("Ignoring IGMPv2 group record %pI4 from %pI4s on %s exclude mode in SSM range",
+				   &group_addr.s_addr, &from, ifp->name);
 		}
 		return -1;
 	}
@@ -179,12 +158,10 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 	return 0;
 }
 
-int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
-		       const char *from_str, char *igmp_msg, int igmp_msg_len)
+int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr, char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
-	char group_str[INET_ADDRSTRLEN];
 	struct in_addr from = ip_hdr->ip_src;
 
 	on_trace(__func__, igmp->interface, from);
@@ -194,16 +171,13 @@ int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
 		if (PIM_DEBUG_GM_PACKETS)
-			zlog_debug(
-				"Recv IGMPv2 LEAVE from %s on %s: size=%d other than correct=%d",
-				from_str, ifp->name, igmp_msg_len,
-				IGMP_V12_MSG_SIZE);
+			zlog_debug("Recv IGMPv2 LEAVE from %pI4s on %s: size=%d other than correct=%d",
+				   &from, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
 	}
 
 	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
-		zlog_warn(
-			"Recv IGMPv2 LEAVE from %s on %s with invalid checksum",
-			from_str, ifp->name);
+		zlog_warn("Recv IGMPv2 LEAVE from %pI4s on %s with invalid checksum", &from,
+			  ifp->name);
 		return -1;
 	}
 
@@ -211,10 +185,8 @@ int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		pim_inet4_dump("<dst?>", group_addr, group_str,
-			       sizeof(group_str));
-		zlog_debug("Recv IGMPv2 LEAVE from %s on %s for %s", from_str,
-			   ifp->name, group_str);
+		zlog_debug("Recv IGMPv2 LEAVE from %pI4s on %s for %pI4s", &from, ifp->name,
+			   &group_addr);
 	}
 	/*
 	 * As per RFC 2236, section 9:

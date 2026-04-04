@@ -579,15 +579,9 @@ void pim_if_addr_add(struct connected *ifc)
 							       ij->group_addr, ij->source_addr,
 							       pim_ifp);
 					if (join_fd < 0) {
-						char group_str[INET_ADDRSTRLEN];
-						char source_str[INET_ADDRSTRLEN];
-						pim_inet4_dump("<grp?>", ij->group_addr, group_str,
-							       sizeof(group_str));
-						pim_inet4_dump("<src?>", ij->source_addr,
-							       source_str, sizeof(source_str));
-						zlog_warn("%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
-							  __func__, group_str, source_str,
-							  ifp->name);
+						zlog_warn("%s: gm_join_sock() failure for IGMP group %pI4s source %pI4s on interface %s",
+							  __func__, &ij->group_addr,
+							  &ij->source_addr, ifp->name);
 						/* warning only */
 					} else
 						ij->sock_fd = join_fd;
