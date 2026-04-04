@@ -465,7 +465,7 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 
 			zvrf = vrf_info_lookup(sid_ctx->ctx.vrf_id);
 			if (zvrf)
-				json_object_int_add(json_sid_ctx, "table", zvrf->table_id);
+				json_object_int_add(json_sid_ctx, "table", zvrf_table_id(zvrf));
 		}
 		if (sid_ctx->ctx.ifindex) {
 			json_object_int_add(json_sid_ctx, "interfaceIndex", sid_ctx->ctx.ifindex);

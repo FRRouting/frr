@@ -259,6 +259,7 @@ void zebra_router_terminate(void)
 	hash_iterate(zrouter.nhgs_id, zebra_nhg_hash_free_zero_id, NULL);
 	hash_clean_and_free(&zrouter.nhgs_id, zebra_nhg_hash_free);
 	hash_clean_and_free(&zrouter.nhgs, NULL);
+	zvrf_table_id_hash_fini(&zrouter.vrf_table_hash);
 
 	hash_clean_and_free(&zrouter.rules_hash, zebra_pbr_rules_free);
 
@@ -319,6 +320,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.ipset_hash =
 		hash_create_size(8, zebra_pbr_ipset_hash_key,
 				 zebra_pbr_ipset_hash_equal, "IPset Hash");
+
+	zvrf_table_id_hash_init(&zrouter.vrf_table_hash);
 
 	zrouter.ipset_entry_hash = hash_create_size(
 		8, zebra_pbr_ipset_entry_hash_key,
