@@ -121,6 +121,15 @@ static inline bool is_default(const unsigned char *prefix, int plen)
 	return plen == 0 || (plen == 96 && v4mapped(prefix));
 }
 
+#define BABEL_DEBUG_DOC "Babel information\n"
+
+DECLARE_DEBUGFLAG(BABEL_COMMON);
+DECLARE_DEBUGFLAG(BABEL_KERNEL);
+DECLARE_DEBUGFLAG(BABEL_FILTER);
+DECLARE_DEBUGFLAG(BABEL_TIMEOUT);
+DECLARE_DEBUGFLAG(BABEL_IF);
+DECLARE_DEBUGFLAG(BABEL_ROUTE);
+
 /* If debugging is disabled, we want to avoid calling format_address
    for every omitted debugging message.  So debug is a macro.  But
    vararg macros are not portable. */

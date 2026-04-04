@@ -36,6 +36,12 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
+DEFINE_DEBUGFLAG(BABEL_COMMON, "babel common", BABEL_DEBUG_DOC "Common messages (default)\n");
+DEFINE_DEBUGFLAG(BABEL_KERNEL, "babel kernel", BABEL_DEBUG_DOC "Kernel messages\n");
+DEFINE_DEBUGFLAG(BABEL_FILTER, "babel filter", BABEL_DEBUG_DOC "Filter messages\n");
+DEFINE_DEBUGFLAG(BABEL_TIMEOUT, "babel timeout", BABEL_DEBUG_DOC "Timeout messages\n");
+DEFINE_DEBUGFLAG(BABEL_IF, "babel interface", BABEL_DEBUG_DOC "Interface messages\n");
+DEFINE_DEBUGFLAG(BABEL_ROUTE, "babel route", BABEL_DEBUG_DOC "Route messages\n");
 
 static void babel_init_routing_process(struct event *event);
 static void babel_get_myid(void);
