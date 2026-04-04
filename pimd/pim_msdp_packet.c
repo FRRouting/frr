@@ -90,9 +90,7 @@ static void pim_msdp_pkt_sa_dump(struct stream *s)
 	rp.s_addr = stream_get_ipv4(s);
 
 	if (PIM_DEBUG_MSDP_PACKETS) {
-		char rp_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<rp?>", rp, rp_str, sizeof(rp_str));
-		zlog_debug("  entry_cnt %d rp %s", entry_cnt, rp_str);
+		zlog_debug("  entry_cnt %d rp %pI4s", entry_cnt, &rp);
 	}
 
 	payload_length = (size_t)entry_cnt * PIM_MSDP_SA_ONE_ENTRY_SIZE;
@@ -659,9 +657,7 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 	rp.s_addr = stream_get_ipv4(mp->ibuf);
 
 	if (PIM_DEBUG_MSDP_PACKETS) {
-		char rp_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<rp?>", rp, rp_str, sizeof(rp_str));
-		zlog_debug("  entry_cnt %d rp %s", entry_cnt, rp_str);
+		zlog_debug("  entry_cnt %d rp %pI4s", entry_cnt, &rp);
 	}
 
 	pim_msdp_peer_pkt_rxed(mp);

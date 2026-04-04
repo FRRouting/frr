@@ -1180,7 +1180,7 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 
 	mp->pim = pim;
 	mp->peer = *peer;
-	pim_inet4_dump("<peer?>", mp->peer, mp->key_str, sizeof(mp->key_str));
+	snprintfrr(mp->key_str, sizeof(mp->key_str), "%pI4s", &mp->peer);
 	mp->local = *local;
 	if (mesh_group_name) {
 		mp->mesh_group_name =
@@ -1437,7 +1437,6 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty)
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
 	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME ||
@@ -1461,10 +1460,8 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty)
 
 	SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry) {
 		if (mg->src_ip.s_addr != INADDR_ANY) {
-			pim_inet4_dump("<src?>", mg->src_ip, src_str,
-				       sizeof(src_str));
-			vty_out(vty, " msdp mesh-group %s source %s\n",
-				mg->mesh_group_name, src_str);
+			vty_out(vty, " msdp mesh-group %s source %pI4s\n", mg->mesh_group_name,
+				&mg->src_ip);
 			++count;
 		}
 

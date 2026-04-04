@@ -694,17 +694,12 @@ int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
 		if (PIM_DEBUG_PIM_TRACE) {
 			switch (tmp.family) {
 			case AF_INET: {
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", tmp.u.prefix4,
-					       addr_str, sizeof(addr_str));
-				zlog_debug(
-					"%s: PIM hello TLV option: list_old_size=%d IPv4 address %s from %pPAs on %s",
-					__func__,
-					*hello_option_addr_list
-						? ((int)listcount(
-							  *hello_option_addr_list))
-						: -1,
-					addr_str, &src_addr, ifname);
+				zlog_debug("%s: PIM hello TLV option: list_old_size=%d IPv4 address %pI4s from %pPAs on %s",
+					   __func__,
+					   *hello_option_addr_list
+						   ? ((int)listcount(*hello_option_addr_list))
+						   : -1,
+					   &tmp.u.prefix4, &src_addr, ifname);
 			} break;
 			case AF_INET6:
 				break;
