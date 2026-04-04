@@ -192,11 +192,14 @@ class XrefLogmsg(ELFDissectXref, XrelfoJson):
         (
             re.compile(r"^(\s*__(?:func|FUNCTION|PRETTY_FUNCTION)__\s*)"),
             "error: debug message starts with __func__",
-            lambda s: (s.priority & 7 == 7),
+            lambda s: getattr(s, "debugflag", None) is not None,
+            # lambda s: (s.priority & 7 == 7),
         ),
     ]
 
-    def check(self, wopt):
+    def check(self, wopt, actual=None):
+        actual = actual or self
+
         def fmt_msg(rex, itext):
             if sys.stderr.isatty():
                 items = rex.split(itext)
@@ -222,7 +225,7 @@ class XrefLogmsg(ELFDissectXref, XrelfoJson):
 
         if wopt.Wlog_args:
             for rex, msg, cond in self.arg_regexes:
-                if not cond(self):
+                if not cond(actual):
                     continue
                 if not rex.search(self.args):
                     continue
@@ -267,6 +270,17 @@ class XrefLogmsg(ELFDissectXref, XrelfoJson):
 Xref.containers[XREFT_LOGMSG] = XrefLogmsg
 
 
+class AttrOverlay:
+    def __init__(self, target, overlay):
+        self._target = target
+        self._overlay = overlay
+
+    def __getattr__(self, name):
+        if name in self._overlay:
+            return self._overlay[name]
+        return self._target
+
+
 class XrefLogDebug(ELFDissectXref, XrelfoJson):
     struct = "xref_logdebug"
 
@@ -275,7 +289,9 @@ class XrefLogDebug(ELFDissectXref, XrelfoJson):
         return xref.container_of(XrefLogmsg, "xref").container_of(cls, "logmsg")
 
     def check(self, wopt):
-        yield from self.logmsg.check(wopt)
+        yield from self.logmsg.check(wopt, AttrOverlay(self.logmsg, {
+            "debugflag": self.debugflag.code_name,
+        }))
 
     def dump(self):
         self.logmsg.dump()
