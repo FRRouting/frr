@@ -87,7 +87,7 @@ static void nhrp_sigusr1(void)
 
 static FRR_NORETURN void nhrp_request_stop(void)
 {
-	debugf(NHRP_DEBUG_COMMON, "Exiting...");
+	dbg(NHRP_COMMON, "Exiting...");
 	frr_early_fini();
 
 	nhrp_shortcut_terminate();
@@ -98,7 +98,7 @@ static FRR_NORETURN void nhrp_request_stop(void)
 	vrf_terminate();
 	nhrp_vc_terminate();
 
-	debugf(NHRP_DEBUG_COMMON, "Done.");
+	dbg(NHRP_COMMON, "Done.");
 
 	resolver_terminate();
 	frr_fini();

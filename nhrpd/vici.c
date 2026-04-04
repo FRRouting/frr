@@ -97,13 +97,12 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 		case VICI_SECTION_START:
 			key.len = zbuf_get8(msg);
 			key.ptr = zbuf_pulln(msg, key.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: Section start '%.*s'",
-			       key.len, key.ptr);
+			dbg(NHRP_VICI, "VICI: Section start '%.*s'", key.len, key.ptr);
 			parser(ctx, *type, &key, NULL);
 			ctx->nsections++;
 			break;
 		case VICI_SECTION_END:
-			debugf(NHRP_DEBUG_VICI, "VICI: Section end");
+			dbg(NHRP_VICI, "VICI: Section end");
 			parser(ctx, *type, NULL, NULL);
 			ctx->nsections--;
 			break;
@@ -112,25 +111,23 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 			key.ptr = zbuf_pulln(msg, key.len);
 			val.len = zbuf_get_be16(msg);
 			val.ptr = zbuf_pulln(msg, val.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: Key '%.*s'='%.*s'",
-			       key.len, key.ptr, val.len, val.ptr);
+			dbg(NHRP_VICI, "VICI: Key '%.*s'='%.*s'", key.len, key.ptr, val.len,
+			    val.ptr);
 			parser(ctx, *type, &key, &val);
 			break;
 		case VICI_LIST_START:
 			key.len = zbuf_get8(msg);
 			key.ptr = zbuf_pulln(msg, key.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: List start '%.*s'",
-			       key.len, key.ptr);
+			dbg(NHRP_VICI, "VICI: List start '%.*s'", key.len, key.ptr);
 			break;
 		case VICI_LIST_ITEM:
 			val.len = zbuf_get_be16(msg);
 			val.ptr = zbuf_pulln(msg, val.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: List item: '%.*s'",
-			       val.len, val.ptr);
+			dbg(NHRP_VICI, "VICI: List item: '%.*s'", val.len, val.ptr);
 			parser(ctx, *type, &key, &val);
 			break;
 		case VICI_LIST_END:
-			debugf(NHRP_DEBUG_VICI, "VICI: List end");
+			dbg(NHRP_VICI, "VICI: List end");
 			break;
 		}
 	}
@@ -305,8 +302,7 @@ static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 	vici_parse_message(vici, msg, parse_sa_message, &ctx.msgctx);
 
 	if (ctx.kill_ikesa && ctx.ike_uniqueid) {
-		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u",
-		       ctx.ike_uniqueid);
+		dbg(NHRP_COMMON, "VICI: Deleting IKE_SA %u", ctx.ike_uniqueid);
 		snprintf(buf, sizeof(buf), "%u", ctx.ike_uniqueid);
 		vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
 				    strlen(buf), buf, VICI_END);
@@ -322,15 +318,14 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 
 	msglen = zbuf_get_be32(msg);
 	msgtype = zbuf_get8(msg);
-	debugf(NHRP_DEBUG_VICI, "VICI: Message %d, %d bytes", msgtype, msglen);
+	dbg(NHRP_VICI, "VICI: Message %d, %d bytes", msgtype, msglen);
 
 	switch (msgtype) {
 	case VICI_EVENT:
 		name.len = zbuf_get8(msg);
 		name.ptr = zbuf_pulln(msg, name.len);
 
-		debugf(NHRP_DEBUG_VICI, "VICI: Event '%.*s'", name.len,
-		       name.ptr);
+		dbg(NHRP_VICI, "VICI: Event '%.*s'", name.len, name.ptr);
 		if (blob_equal(&name, "list-sa")
 		    || blob_equal(&name, "child-updown")
 		    || blob_equal(&name, "child-rekey"))
@@ -517,14 +512,13 @@ static void vici_reconnect(struct event *t)
 			fd = sock_open_unix(file_path);
 	}
 	if (fd < 0) {
-		debugf(NHRP_DEBUG_VICI, "failure connecting VICI socket: %s",
-		       strerror(errno));
+		dbg(NHRP_VICI, "failure connecting VICI socket: %s", strerror(errno));
 		event_add_timer(master, vici_reconnect, vici, 2,
 				&vici->t_reconnect);
 		return;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
+	dbg(NHRP_COMMON, "VICI: Connected");
 	vici->fd = fd;
 	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
@@ -559,7 +553,7 @@ void vici_terminate_vc_by_profile_name(char *profile_name)
 {
 	struct vici_conn *vici = &vici_connection;
 
-	debugf(NHRP_DEBUG_VICI, "Terminate profile = %s", profile_name);
+	dbg(NHRP_VICI, "Terminate profile = %s", profile_name);
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike",
 		    strlen(profile_name), profile_name, VICI_END);
 }
@@ -570,7 +564,7 @@ void vici_terminate_vc_by_ike_id(unsigned int ike_id)
 	char ike_id_str[10];
 
 	snprintf(ike_id_str, sizeof(ike_id_str), "%d", ike_id);
-	debugf(NHRP_DEBUG_VICI, "Terminate ike_id_str = %s", ike_id_str);
+	dbg(NHRP_VICI, "Terminate ike_id_str = %s", ike_id_str);
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
 		    strlen(ike_id_str), ike_id_str, VICI_END);
 }

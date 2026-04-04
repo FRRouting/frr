@@ -111,9 +111,8 @@ static void netlink_log_recv(struct event *t)
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
 		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink-log: Received msg_type %u, msg_flags %u",
-			       n->nlmsg_type, n->nlmsg_flags);
+			dbg(NHRP_KERNEL, "Netlink-log: Received msg_type %u, msg_flags %u",
+			    n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
 			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
 				netlink_log_indication(n, &payload);
@@ -178,19 +177,18 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	c = nhrp_cache_get(ifp, &addr, 0);
 	if (!c)
 		return 0;
-	debugf(NHRP_DEBUG_KERNEL,
-	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
-	       (cmd == ZEBRA_NEIGH_GET)	    ? "who-has"
-	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
-					    : "del-neigh",
-	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
+	dbg(NHRP_KERNEL, "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
+	    (cmd == ZEBRA_NEIGH_GET)	 ? "who-has"
+	    : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
+					 : "del-neigh",
+	    &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
 	if (cmd == ZEBRA_NEIGH_GET && ndm_state != ZEBRA_NEIGH_STATE_INCOMPLETE) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
-			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
-			       &c->cur.peer->vc->remote.nbma, &lladdr);
+			dbg(NHRP_KERNEL,
+			    "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
+			    &addr, ifp->name, &c->cur.remote_nbma_natoa,
+			    &c->cur.peer->vc->remote.nbma, &lladdr);
 
 			if (lladdr.sa.sa_family == AF_UNSPEC)
 				/* nothing from zebra, so use nhrp peer */
