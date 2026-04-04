@@ -130,32 +130,4 @@ DECLARE_DEBUGFLAG(BABEL_TIMEOUT);
 DECLARE_DEBUGFLAG(BABEL_IF);
 DECLARE_DEBUGFLAG(BABEL_ROUTE);
 
-/* If debugging is disabled, we want to avoid calling format_address
-   for every omitted debugging message.  So debug is a macro.  But
-   vararg macros are not portable. */
-#if defined NO_DEBUG
-
-#define debugf(...)                                                                               \
-	do {                                                                                      \
-	} while (0)
-
-#else /* NO_DEBUG */
-
-/* some levels */
-#define BABEL_DEBUG_COMMON  (1 << 0)
-#define BABEL_DEBUG_KERNEL  (1 << 1)
-#define BABEL_DEBUG_FILTER  (1 << 2)
-#define BABEL_DEBUG_TIMEOUT (1 << 3)
-#define BABEL_DEBUG_IF	    (1 << 4)
-#define BABEL_DEBUG_ROUTE   (1 << 5)
-#define BABEL_DEBUG_ALL	    (0xFFFF)
-
-#define debugf(level, ...)                                                                        \
-	do {                                                                                      \
-		if (unlikely(CHECK_FLAG(debug, level)))                                           \
-			zlog_debug(__VA_ARGS__);                                                  \
-	} while (0)
-
-#endif /* NO_DEBUG */
-
 #endif /* BABEL_UTIL_H */

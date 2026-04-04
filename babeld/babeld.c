@@ -79,9 +79,6 @@ static int babel_config_write(struct vty *vty)
 	int afi;
 	int i;
 
-	/* list enabled debug modes */
-	lines += debug_babel_config_write(vty);
-
 	if (!babel_routing_process)
 		return lines;
 	vty_out(vty, "router babel\n");
@@ -451,7 +448,7 @@ static void babel_fill_with_next_timeout(struct timeval *tv)
 #define printIfMin(a, b, c, d)
 #else
 #define printIfMin(a, b, c, d)                                                                    \
-	if (unlikely(CHECK_FLAG(debug, BABEL_DEBUG_TIMEOUT))) {                                   \
+	if (unlikely(dbg_check(BABEL_TIMEOUT))) {                                                 \
 		printIfMin(a, b, c, d);                                                           \
 	}
 

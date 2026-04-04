@@ -21,16 +21,6 @@ void babelz_zebra_init(void);
 /* we must use a pointer because of zclient.c's functions (new, free). */
 struct zclient *babel_zclient;
 
-/* Debug types */
-static const struct {
-	int type;
-	int str_min_len;
-	const char *str;
-} debug_type[] = { { BABEL_DEBUG_COMMON, 1, "common" }, { BABEL_DEBUG_KERNEL, 1, "kernel" },
-		   { BABEL_DEBUG_FILTER, 1, "filter" }, { BABEL_DEBUG_TIMEOUT, 1, "timeout" },
-		   { BABEL_DEBUG_IF, 1, "interface" },	{ BABEL_DEBUG_ROUTE, 1, "route" },
-		   { BABEL_DEBUG_ALL, 1, "all" },	{ 0, 0, NULL } };
-
 /* Zebra route add and delete treatment. */
 static int babel_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
@@ -97,106 +87,20 @@ DEFUN (babel_redistribute_type,
 	return CMD_SUCCESS;
 }
 
-#ifndef NO_DEBUG
-/* [Babel Command] */
-DEFUN (debug_babel,
-       debug_babel_cmd,
-       "debug babel <common|kernel|filter|timeout|interface|route|all>",
-       "Enable debug messages for specific or all part.\n"
-       "Babel information\n"
-       "Common messages (default)\n"
-       "Kernel messages\n"
-       "Filter messages\n"
-       "Timeout messages\n"
-       "Interface messages\n"
-       "Route messages\n"
-       "All messages\n")
-{
-	int i;
-
-	for (i = 0; debug_type[i].str != NULL; i++) {
-		if (strncmp(debug_type[i].str, argv[2]->arg, debug_type[i].str_min_len) == 0) {
-			SET_FLAG(debug, debug_type[i].type);
-			return CMD_SUCCESS;
-		}
-	}
-
-	vty_out(vty, "Invalid type %s\n", argv[2]->arg);
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-/* [Babel Command] */
-DEFUN (no_debug_babel,
-       no_debug_babel_cmd,
-       "no debug babel <common|kernel|filter|timeout|interface|route|all>",
+DEFUN (debug_babel_all,
+       debug_babel_all_cmd,
+       "[no] debug babel all",
        NO_STR
-       "Disable debug messages for specific or all part.\n"
-       "Babel information\n"
-       "Common messages (default)\n"
-       "Kernel messages\n"
-       "Filter messages\n"
-       "Timeout messages\n"
-       "Interface messages\n"
-       "Route messages\n"
+       DEBUG_STR
+       BABEL_DEBUG_DOC
        "All messages\n")
 {
-	int i;
-
-	for (i = 0; debug_type[i].str; i++) {
-		if (strncmp(debug_type[i].str, argv[3]->arg, debug_type[i].str_min_len) == 0) {
-			UNSET_FLAG(debug, debug_type[i].type);
-			return CMD_SUCCESS;
-		}
-	}
-
-	vty_out(vty, "Invalid type %s\n", argv[3]->arg);
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-#endif /* NO_DEBUG */
-
-/* Output "debug" statement lines, if necessary. */
-int debug_babel_config_write(struct vty *vty)
-{
-#ifdef NO_DEBUG
-	return 0;
-#else
-	int i, lines = 0;
-
-	if (debug == BABEL_DEBUG_ALL) {
-		vty_out(vty, "debug babel all\n");
-		lines++;
-	} else {
-		for (i = 0; debug_type[i].str != NULL; i++) {
-			if (debug_type[i].type != BABEL_DEBUG_ALL &&
-			    CHECK_FLAG(debug, debug_type[i].type)) {
-				vty_out(vty, "debug babel %s\n", debug_type[i].str);
-				lines++;
-			}
-		}
-	}
-
-	if (lines) {
-		vty_out(vty, "!\n");
-		lines++;
-	}
-	return lines;
-#endif /* NO_DEBUG */
-}
-
-DEFUN_NOSH (show_debugging_babel,
-	    show_debugging_babel_cmd,
-	    "show debugging [babel]",
-	    SHOW_STR
-	    DEBUG_STR
-	    "Babel")
-{
-	vty_out(vty, "BABEL debugging status\n");
-
-	debug_babel_config_write(vty);
-
-	cmd_show_lib_debugs(vty);
+	zlog_debugflag_cli(_dbg_BABEL_COMMON, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_BABEL_KERNEL, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_BABEL_FILTER, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_BABEL_TIMEOUT, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_BABEL_IF, vty, argc, argv);
+	zlog_debugflag_cli(_dbg_BABEL_ROUTE, vty, argc, argv);
 
 	return CMD_SUCCESS;
 }
@@ -222,12 +126,8 @@ void babelz_zebra_init(void)
 	babel_zclient->zebra_connected = babel_zebra_connected;
 
 	install_element(BABEL_NODE, &babel_redistribute_type_cmd);
-	install_element(ENABLE_NODE, &debug_babel_cmd);
-	install_element(ENABLE_NODE, &no_debug_babel_cmd);
-	install_element(CONFIG_NODE, &debug_babel_cmd);
-	install_element(CONFIG_NODE, &no_debug_babel_cmd);
-
-	install_element(ENABLE_NODE, &show_debugging_babel_cmd);
+	install_element(ENABLE_NODE, &debug_babel_all_cmd);
+	install_element(CONFIG_NODE, &debug_babel_all_cmd);
 }
 
 void babel_zebra_close_connexion(void)
