@@ -53,18 +53,28 @@ void zlog_debugflag_combo_register(struct zlog_debugflag_combo *zdf)
  * CLI integration
  */
 
+static void zlog_debugflag_inner(struct zlog_debugflag_plain *zdf, uint32_t bit, bool no);
+
 int zlog_debugflag_cli(struct zlog_debugflag_plain *zdf, struct vty *vty,
 			int argc, struct cmd_token *argv[])
 {
 	bool no;
-	uint32_t bit, prev;
-	int change;
+	uint32_t bit;
 
 	assert(argc > 0);
 
 	no = !strcmp(argv[0]->text, "no");
 	bit = (vty->node == ENABLE_NODE) ? LOGMSG_FLAG_EPHEMERAL
 					 : LOGMSG_FLAG_PERSISTENT;
+
+	zlog_debugflag_inner(zdf, bit, no);
+	return CMD_SUCCESS;
+}
+
+static void zlog_debugflag_inner(struct zlog_debugflag_plain *zdf, uint32_t bit, bool no)
+{
+	uint32_t prev;
+	int change;
 
 	if (no) {
 		prev = atomic_fetch_and_explicit(&zdf->common.fl_enable, ~bit,
@@ -77,7 +87,7 @@ int zlog_debugflag_cli(struct zlog_debugflag_plain *zdf, struct vty *vty,
 	}
 
 	if (!change)
-		return CMD_SUCCESS;
+		return;
 
 	if (zdf->enable)
 		zdf->enable(change > 0);
@@ -107,8 +117,6 @@ int zlog_debugflag_cli(struct zlog_debugflag_plain *zdf, struct vty *vty,
 						 memory_order_relaxed);
 		}
 	}
-
-	return CMD_SUCCESS;
 }
 
 static int zlog_debug_write_config(struct vty *vty)
@@ -127,6 +135,20 @@ static int zlog_debug_write_config(struct vty *vty)
 	}
 
 	return write;
+}
+
+bool zlog_debugflag_cmdline(const char *flagname)
+{
+	struct zlog_debugflag_plain *zdf, ref = {
+		.cli_name = flagname,
+	};
+
+	zdf = zlog_debugflags_find(zlog_debugflags, &ref);
+	if (!zdf)
+		return false;
+
+	zlog_debugflag_inner(zdf, LOGMSG_FLAG_EPHEMERAL, false);
+	return true;
 }
 
 /* XXX: rename to "show debugging" in CLI after that is no longer blocked

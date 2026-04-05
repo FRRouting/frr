@@ -222,6 +222,8 @@ extern int zlog_debugflag_cli(struct zlog_debugflag_plain *zdf, struct vty *vty,
 
 extern void zlog_debug_init_cmd(void);
 
+extern bool zlog_debugflag_cmdline(const char *flagname);
+
 #ifdef __cplusplus
 }
 #endif

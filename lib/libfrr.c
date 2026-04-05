@@ -104,6 +104,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_LOGGING   1007
 #define OPTION_LIMIT_FDS 1008
 #define OPTION_SCRIPTDIR 1009
+#define OPTION_DEBUGFLAG 1010
 
 static const struct option lo_always[] = {
 	{ "help", no_argument, NULL, 'h' },
@@ -122,6 +123,7 @@ static const struct option lo_always[] = {
 	{ "scriptdir", required_argument, NULL, OPTION_SCRIPTDIR },
 	{ "log", required_argument, NULL, OPTION_LOG },
 	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
+	{ "debugflag", required_argument, NULL, OPTION_DEBUGFLAG },
 	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
 	{ "limit-fds", required_argument, NULL, OPTION_LIMIT_FDS },
 	{ NULL }
@@ -147,6 +149,7 @@ static const struct optspec os_always = {
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
+	"      --debugflag    Enable given debug flag immediately\n"
 	"      --command-log-always Always log every command, cannot be turned off\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always
@@ -647,6 +650,12 @@ static int frr_opt(int opt)
 		break;
 	case OPTION_LOGLEVEL:
 		di->early_loglevel = optarg;
+		break;
+	case OPTION_DEBUGFLAG:
+		if (!zlog_debugflag_cmdline(optarg)) {
+			fprintf(stderr, "error: debugflag \"%s\" does not exist\n", optarg);
+			errors++;
+		}
 		break;
 	case OPTION_LOGGING:
 		di->log_always = true;
