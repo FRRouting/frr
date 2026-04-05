@@ -167,6 +167,8 @@ class FieldApplicator(object):
         "uint8_t": "B",
         "uint16_t": "H",
         "uint32_t": "I",
+        "unsigned": "I",
+        "size_t": "N",
         "char": "s",
     }
 
