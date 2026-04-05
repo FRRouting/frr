@@ -77,10 +77,14 @@ extern void zlog_debugflag_plain_register(struct zlog_debugflag_plain *zdf);
 	static const bool _dbg_filter_##name __attribute__((unused)) = true;   \
 	MACRO_REQUIRE_SEMICOLON()
 
+#ifndef DBG_CMDNAME
+#define DBG_CMDNAME(name) _dbg_cmd_##name
+#endif
+
 /* DEFPY cannot be used inside macros; clippy does not expand them */
 #define _DEFINE_DEBUGFLAG(qual, name, cli_name_, cli_help, ...)                \
-	DEFUN(_dbg_cmdfn_##name,                                               \
-	      _dbg_cmd_##name,                                                 \
+	DEFUN(DBG_CMDNAME(name##_fn),                              \
+	      DBG_CMDNAME(name),                                \
 	      "[no] debug " cli_name_,                                         \
 	      NO_STR                                                           \
 	      DEBUG_STR                                                        \
@@ -91,11 +95,11 @@ extern void zlog_debugflag_plain_register(struct zlog_debugflag_plain *zdf);
 	qual struct zlog_debugflag_plain _dbg_##name[1] = {                    \
 		{                                                              \
 			.common = {                                            \
-				.code_name = #name,                            \
+				.code_name = #name,           \
 				.kind = ZDF_PLAIN,                             \
 			},                                                     \
 			.cli_name = cli_name_,                                 \
-			.cmd = &_dbg_cmd_##name,                               \
+			.cmd = &DBG_CMDNAME(name),              \
 			__VA_ARGS__                                            \
 		},                                                             \
 	};                                                                     \
@@ -104,8 +108,8 @@ extern void zlog_debugflag_plain_register(struct zlog_debugflag_plain *zdf);
 	{                                                                      \
 		zlog_debugflag_plain_register(_dbg_##name);                    \
 		if (0) { /* trick vtysh/extract.pl */                          \
-			install_element(ENABLE_NODE, &_dbg_cmd_##name);        \
-			install_element(CONFIG_NODE, &_dbg_cmd_##name);        \
+			install_element(ENABLE_NODE, &DBG_CMDNAME(name));\
+			install_element(CONFIG_NODE, &DBG_CMDNAME(name));        \
 		}                                                              \
 	};                                                                     \
 	MACRO_REQUIRE_SEMICOLON()
