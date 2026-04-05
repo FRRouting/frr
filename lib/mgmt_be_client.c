@@ -851,7 +851,7 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		 * It is especially needed for actions, because their parents
 		 * may hold necessary information.
 		 */
-		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &input);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &input);
 	}
 	if (err) {
 		be_client_send_error(client, txn_id, rpc_msg->req_id, false, -EINVAL,
@@ -859,7 +859,7 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		return;
 	}
 
-	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &output);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &output);
 	if (err) {
 		lyd_free_all(input);
 		be_client_send_error(client, txn_id, rpc_msg->req_id, false,

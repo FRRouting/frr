@@ -707,7 +707,7 @@ struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const c
 	struct lyd_node *dnode, *parent;
 	LY_ERR err;
 
-	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
+	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, LYD_NEW_PATH_UPDATE, &parent,
 			     &dnode);
 	assert(err == LY_SUCCESS);
 
@@ -916,7 +916,7 @@ LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bo
 		 * a common YANG JSON technique (vs XML which starts all
 		 * data trees from the root).
 		 */
-		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, &parent, &subtree);
 		if (err != LY_SUCCESS)
 			goto done;
 		err = lyd_find_path(parent, xpath, false, &subtree);
@@ -1016,7 +1016,7 @@ LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char 
 		return LY_ENOTFOUND;
 	}
 	/* Get the tree for the RPC/Action */
-	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &dnode);
 	if (err) {
 		zlog_err("Failed to create parent node for action: %s", ly_last_errmsg());
 		goto done;
@@ -1070,8 +1070,7 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bo
 			return LY_EINVAL;
 		}
 
-		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, NULL,
-				     &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, NULL, &parent);
 		XFREE(MTYPE_TMP, parent_xpath);
 		if (err) {
 			zlog_err("Failed to create parent node for action: %s",
@@ -1733,10 +1732,10 @@ LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *modul
 }
 
 LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
-		      const void *value, uint32_t size, LYD_ANYDATA_VALUETYPE value_type,
-		      uint32_t options, struct lyd_node **new_parent, struct lyd_node **new_node)
+		      const void *value, uint32_t value_size_bytes, uint32_t options,
+		      struct lyd_node **new_parent, struct lyd_node **new_node)
 {
-	return lyd_new_path2(parent, ctx, path, value, LY_SZ(size), value_type, options,
+	return lyd_new_path2(parent, ctx, path, value, LY_SZ(value_size_bytes), 0, options,
 			     new_parent, new_node);
 }
 

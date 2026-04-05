@@ -441,7 +441,7 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 
 	ly_temp_log_options(&llopts);
 	for (;;) {
-		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, LYD_NEW_PATH_UPDATE,
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, LYD_NEW_PATH_UPDATE,
 				     NULL, trunk);
 		if (err == LY_SUCCESS)
 			break;
