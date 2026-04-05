@@ -13,7 +13,7 @@ import json
 structs = [
     "xref",
     "xref_logmsg",
-    "xref_threadsched",
+    "xref_eventsched",
     "xref_install_element",
     "xrefdata",
     "xrefdata_logmsg",

@@ -119,7 +119,7 @@ class XrefPtr(ELFDissectStruct):
 
 
 class XrefThreadSched(ELFDissectXref, XrelfoJson):
-    struct = "xref_threadsched"
+    struct = "xref_eventsched"
 
 
 Xref.containers[XREFT_EVENTSCHED] = XrefThreadSched

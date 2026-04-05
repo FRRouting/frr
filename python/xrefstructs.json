@@ -55,6 +55,26 @@
       }
     ]
   },
+  "xref_eventsched": {
+    "fields": [
+      {
+        "name": "xref",
+        "type": "struct xref"
+      },
+      {
+        "name": "funcname",
+        "type": "const char  *"
+      },
+      {
+        "name": "dest",
+        "type": "const char  *"
+      },
+      {
+        "name": "event_type",
+        "type": "uint32_t"
+      }
+    ]
+  },
   "xref_install_element": {
     "fields": [
       {
@@ -104,26 +124,6 @@
       {
         "name": "args",
         "type": "const char  *"
-      }
-    ]
-  },
-  "xref_threadsched": {
-    "fields": [
-      {
-        "name": "xref",
-        "type": "struct xref"
-      },
-      {
-        "name": "funcname",
-        "type": "const char  *"
-      },
-      {
-        "name": "dest",
-        "type": "const char  *"
-      },
-      {
-        "name": "thread_type",
-        "type": "uint32_t"
       }
     ]
   },
