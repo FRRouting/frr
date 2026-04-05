@@ -1555,10 +1555,9 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 					ys->non_specific_predicate[at_clevel] = true;
 				else {
 					flog_err(EC_LIB_NB_OPERATIONAL_DATA,
-						  "%s: unable to create node for specific query string: %s: %s",
-						  __func__,
-						  ys->query_tokens[at_clevel],
-						  yang_ly_strerrcode(err));
+						 "%s: unable to create node for specific query string: %s: %s",
+						 __func__, ys->query_tokens[at_clevel],
+						 ly_strerrcode(err));
 					ret = NB_ERR;
 					goto done;
 				}
@@ -2226,7 +2225,7 @@ static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum 
 				if (err) {
 					flog_err(EC_LIB_NB_OPERATIONAL_DATA,
 						 "%s: unable to merge data tree: %s", __func__,
-						 yang_ly_strerrcode(err));
+						 ly_strerrcode(err));
 					ret = NB_ERR_RESOURCE;
 					break;
 				}

@@ -1604,9 +1604,8 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 #ifdef HAVE_LYD_TRIM_XPATH
 	err = lyd_trim_xpath(root, xpath, NULL);
 	if (err) {
-		flog_err_sys(EC_LIB_LIBYANG,
-			     "cannot obtain specific result for xpath \"%s\": %s",
-			     xpath, yang_ly_strerrcode(err));
+		flog_err_sys(EC_LIB_LIBYANG, "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, ly_strerrcode(err));
 		return err;
 	}
 	return LY_SUCCESS;
@@ -1621,9 +1620,8 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 	err = yang_lyd_find_xpath3(NULL, *root, xpath, LY_VALUE_JSON, NULL,
 				   NULL, &set);
 	if (err) {
-		flog_err_sys(EC_LIB_LIBYANG,
-			     "cannot obtain specific result for xpath \"%s\": %s",
-			     xpath, yang_ly_strerrcode(err));
+		flog_err_sys(EC_LIB_LIBYANG, "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, ly_strerrcode(err));
 		return err;
 	}
 	/*
@@ -1757,82 +1755,3 @@ LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name, 
 }
 #endif
 #undef LY_SZ
-
-/*
- * Safe to remove after libyang v2.1.128 is required
- */
-const char *yang_ly_strerrcode(LY_ERR err)
-{
-#ifdef HAVE_LY_STRERRCODE
-	return ly_strerrcode(err);
-#else
-	switch (err) {
-	case LY_SUCCESS:
-		return "ok";
-	case LY_EMEM:
-		return "out of memory";
-	case LY_ESYS:
-		return "system error";
-	case LY_EINVAL:
-		return "invalid value given";
-	case LY_EEXIST:
-		return "item exists";
-	case LY_ENOTFOUND:
-		return "item not found";
-	case LY_EINT:
-		return "operation interrupted";
-	case LY_EVALID:
-		return "validation failed";
-	case LY_EDENIED:
-		return "access denied";
-	case LY_EINCOMPLETE:
-		return "incomplete";
-	case LY_ERECOMPILE:
-		return "compile error";
-	case LY_ENOT:
-		return "not";
-	case LY_EPLUGIN:
-	case LY_EOTHER:
-		return "other";
-	default:
-		return "unknown";
-	}
-#endif
-}
-
-/*
- * Safe to remove after libyang v2.1.128 is required
- */
-const char *yang_ly_strvecode(LY_VECODE vecode)
-{
-#ifdef HAVE_LY_STRVECODE
-	return ly_strvecode(vecode);
-#else
-	switch (vecode) {
-	case LYVE_SUCCESS:
-		return "";
-	case LYVE_SYNTAX:
-		return "syntax";
-	case LYVE_SYNTAX_YANG:
-		return "yang-syntax";
-	case LYVE_SYNTAX_YIN:
-		return "yin-syntax";
-	case LYVE_REFERENCE:
-		return "reference";
-	case LYVE_XPATH:
-		return "xpath";
-	case LYVE_SEMANTICS:
-		return "semantics";
-	case LYVE_SYNTAX_XML:
-		return "xml-syntax";
-	case LYVE_SYNTAX_JSON:
-		return "json-syntax";
-	case LYVE_DATA:
-		return "data";
-	case LYVE_OTHER:
-		return "other";
-	default:
-		return "unknown";
-	}
-#endif
-}
