@@ -957,23 +957,11 @@ extern LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module
 #define lyd_new_term_bin(...)                                                                     \
 	_Pragma("GCC error \"Use yang_new_term_bin() instead of lyd_new_term_bin()\"")
 
-LY_ERR yang_change_term_bin(struct lyd_node *term, const void *value, uint32_t value_size_bits);
-#define lyd_change_term_bin(...)                                                                  \
-	_Pragma("GCC error \"Use yang_change_term_bin() instead of lyd_new_change_term_bin()\"")
-
 extern LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
 			     const void *value, uint32_t value_size_bits,
 			     LYD_ANYDATA_VALUETYPE value_type, uint32_t options,
 			     struct lyd_node **new_parent, struct lyd_node **new_node);
 #define lyd_new_path2(...) _Pragma("GCC error \"Use yang_new_path2() instead of lyd_new_path2()\"")
-
-#if (LY_VERSION_MAJOR >= 3) && (LY_VERSION_MAJOR < 5)
-extern LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name,
-				const void *value, uint32_t value_size_bits, uint32_t options,
-				struct lyd_node **node);
-#define lyd_new_ext_term(...)                                                                     \
-	_Pragma("GCC error \"Use yang_new_ext_term() instead of lyd_new_ext_term()\"")
-#endif
 
 #ifdef __cplusplus
 }
