@@ -73,14 +73,8 @@ enum restart_phase {
 static const char *const phase_str[] = {
 	"Idle",
 	"Startup",
-	"Stop jobs running",
-	"Waiting for other daemons to come down",
-	"Zebra restart job running",
-	"Waiting for zebra to come up",
-	"Start jobs running",
 };
 
-#define PHASE_TIMEOUT (3*gs.restart_timeout)
 #define STARTUP_TIMEOUT	55 * 1000
 
 struct restart_info {
@@ -95,7 +89,6 @@ struct restart_info {
 
 static struct global_state {
 	enum restart_phase phase;
-	struct event *t_phase_hanging;
 	struct event *t_startup_timeout;
 	struct event *t_operational;
 	const char *vtydir;
