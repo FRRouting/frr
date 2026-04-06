@@ -68,7 +68,6 @@ const char *pathspace;
 enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
-	PHASE_STOPS_PENDING,
 	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
 	PHASE_WAITING_ZEBRA_UP
@@ -922,14 +921,6 @@ static void phase_check(void)
 				try_restart(dmn);
 			}
 		break;
-	case PHASE_STOPS_PENDING:
-		if (gs.numpids)
-			break;
-		zlog_info(
-			"Phased restart: all routing daemon stop jobs have completed.");
-		set_phase(PHASE_WAITING_DOWN);
-
-		fallthrough;
 	case PHASE_WAITING_DOWN:
 		if (gs.numdown + IS_UP(gs.special) < gs.numdaemons)
 			break;
