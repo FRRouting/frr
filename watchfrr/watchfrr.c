@@ -68,7 +68,6 @@ const char *pathspace;
 enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
-	PHASE_WAITING_ZEBRA_UP
 };
 
 static const char *const phase_str[] = {
@@ -900,19 +899,6 @@ static void phase_check(void)
 				SET_WAKEUP_DOWN(dmn);
 				try_restart(dmn);
 			}
-		break;
-	case PHASE_WAITING_ZEBRA_UP:
-		if (!IS_UP(gs.special))
-			break;
-		zlog_info("Phased restart: %s is now up.", gs.special->name);
-		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-			if (dmn != gs.special)
-				run_job(&dmn->restart, "start",
-					gs.start_command, 1, 0);
-		}
-		gs.phase = PHASE_NONE;
-		event_cancel(&gs.t_phase_hanging);
-		zlog_notice("Phased global restart has completed.");
 		break;
 	}
 }
