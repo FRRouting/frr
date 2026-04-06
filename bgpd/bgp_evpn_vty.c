@@ -3350,8 +3350,6 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 					if (!brief)
 						json_object_object_add(json_prefix, "paths",
 								       json_paths);
-					else if (json_paths)
-						json_object_free(json_paths);
 
 					json_flags = json_object_new_object();
 					json_object_boolean_add(json_flags, "bestPathExists",
