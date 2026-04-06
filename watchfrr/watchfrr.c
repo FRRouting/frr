@@ -68,7 +68,6 @@ const char *pathspace;
 enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
-	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
 	PHASE_WAITING_ZEBRA_UP
 };
@@ -921,16 +920,6 @@ static void phase_check(void)
 				try_restart(dmn);
 			}
 		break;
-	case PHASE_WAITING_DOWN:
-		if (gs.numdown + IS_UP(gs.special) < gs.numdaemons)
-			break;
-		systemd_send_status("Phased Restart");
-		zlog_info("Phased restart: all routing daemons now down.");
-		run_job(&gs.special->restart, "restart", gs.restart_command, 1,
-			1);
-		set_phase(PHASE_ZEBRA_RESTART_PENDING);
-
-		fallthrough;
 	case PHASE_ZEBRA_RESTART_PENDING:
 		if (gs.special->restart.pid)
 			break;
