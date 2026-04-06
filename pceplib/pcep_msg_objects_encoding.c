@@ -1877,7 +1877,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			break;
 	}
 
-	if (err_p && obj) {
+	if (err_p) {
 		pcep_obj_free_object((struct pcep_object_header *)obj);
 		obj = NULL;
 	}
