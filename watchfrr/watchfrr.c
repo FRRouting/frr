@@ -68,7 +68,6 @@ const char *pathspace;
 enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
-	PHASE_ZEBRA_RESTART_PENDING,
 	PHASE_WAITING_ZEBRA_UP
 };
 
@@ -881,24 +880,6 @@ static int try_connect(struct daemon *dmn)
 	return 1;
 }
 
-static void phase_hanging(struct event *t_hanging)
-{
-	gs.t_phase_hanging = NULL;
-	flog_err(EC_WATCHFRR_CONNECTION,
-		 "Phase [%s] hanging for %ld seconds, aborting phased restart",
-		 phase_str[gs.phase], PHASE_TIMEOUT);
-	gs.phase = PHASE_NONE;
-}
-
-static void set_phase(enum restart_phase new_phase)
-{
-	gs.phase = new_phase;
-	event_cancel(&gs.t_phase_hanging);
-
-	event_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
-			&gs.t_phase_hanging);
-}
-
 static void phase_check(void)
 {
 	struct daemon *dmn;
@@ -920,15 +901,6 @@ static void phase_check(void)
 				try_restart(dmn);
 			}
 		break;
-	case PHASE_ZEBRA_RESTART_PENDING:
-		if (gs.special->restart.pid)
-			break;
-		systemd_send_status("Zebra Restarting");
-		zlog_info("Phased restart: %s restart job completed.",
-			  gs.special->name);
-		set_phase(PHASE_WAITING_ZEBRA_UP);
-
-		fallthrough;
 	case PHASE_WAITING_ZEBRA_UP:
 		if (!IS_UP(gs.special))
 			break;
