@@ -4085,8 +4085,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		afi = AFI_IP;
 	else if (ctx.behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6, releasing it.",
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr);
+			zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6%s.",
+				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
+				   note == ZAPI_SRV6_SID_ALLOCATED ? ", releasing it" : "");
 		goto end_sid_notify;
 	}
 
