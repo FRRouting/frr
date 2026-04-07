@@ -1655,10 +1655,8 @@ int bp_echo_socket(const struct vrf *vrf)
 			       vrf->name);
 	}
 
-	if (s == -1) {
+	if (s == -1)
 		zlog_err("echo-socket: socket: %s", strerror(errno));
-		return -1;
-	}
 
 	struct sock_fprog pf;
 	struct sockaddr_ll sll = {0};
@@ -1695,10 +1693,8 @@ int bp_echo_socket(const struct vrf *vrf)
 	frr_with_privs(&bglobal.bfdd_privs) {
 		s = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
-	if (s == -1) {
+	if (s == -1)
 		zlog_err("echo-socket: socket: %s", strerror(errno));
-		return -1;
-	}
 
 	bp_set_ipopts(s);
 	bp_bind_ip(s, BFD_DEF_ECHO_PORT);
