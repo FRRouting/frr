@@ -535,8 +535,6 @@ static time_t key_str2time(const char *time_str, const char *day_str,
 	tm.tm_mon = month;
 	tm.tm_mday = day;
 	tm.tm_year = year - 1900;
-	/* Make mktime check if daylight saving time applies at this date */
-	tm.tm_isdst = -1;
 
 	time = mktime(&tm);
 
