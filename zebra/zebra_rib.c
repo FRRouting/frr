@@ -4078,6 +4078,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		rnode_debug(rn, re->vrf_id, "%s: rn %p, re %p nhe %p", __func__, (void *)rn,
 			    (void *)re, re->nhe);
 
+	/* Tracker flush batch: route removed without going to dplane */
+	tracker_flush_batch_route_dplane_ack(re);
+
 	dest = rib_dest_from_rnode(rn);
 
 	re_list_del(&dest->routes, re);

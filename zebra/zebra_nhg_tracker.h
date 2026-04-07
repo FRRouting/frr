@@ -155,6 +155,32 @@ tracker_prefix_map_hash_cmp(const struct tracker_prefix_map_entry *a,
 DECLARE_HASH(tracker_prefix_map, struct tracker_prefix_map_entry, item,
 	     tracker_prefix_map_hash_cmp, tracker_prefix_map_hash_key);
 
+/*
+ * Tracker two-phase batch install.
+ *
+ * Phase 1: send all non-reuse groups at once (parallel).
+ * Phase 2: send the reuse group (biggest group, preserves NHG ID).
+ *
+ * All batch state lives on the flushing tracker itself.
+ * tracker->flushing == true indicates a batch is active.
+ * tracker->timer is repurposed as the batch safety timer.
+ */
+
+/*
+ * Global batch NHG map: maps child NHG IDs involved in active batches
+ * to their parent NHG ID.  Used by rib_process_result to find the
+ * batch counter without storing a per-RE field.  Typically 1-5 entries.
+ */
+extern void tracker_batch_nhg_map_add(uint32_t child_nhg_id, uint32_t parent_nhg_id);
+extern void tracker_batch_nhg_map_clear(uint32_t parent_nhg_id);
+extern uint32_t tracker_batch_nhg_map_lookup(uint32_t child_nhg_id);
+
+/* Called from rib_process_result and rib_unlink when a batch route completes */
+extern void tracker_batch_route_done(uint32_t parent_nhg_id);
+
+/* Called from process_subq_route for batch routes not sent to dplane */
+extern void tracker_batch_check_unsent(struct route_node *rn);
+
 /* Init/fini tracker list and hash inside nhg_hash_entry */
 extern void zebra_nhg_tracker_init(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_tracker_fini(struct nhg_hash_entry *nhe);

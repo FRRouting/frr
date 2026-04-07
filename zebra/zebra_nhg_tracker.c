@@ -22,6 +22,66 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER, "NHG Event Tracker");
 DEFINE_MTYPE(ZEBRA, NHG_TRACKER_PREFIX_MAP, "NHG Tracker Prefix Map Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER_FLUSH_GROUP, "NHG Tracker Flush Group");
 
+/*
+ * Global batch NHG map: child_nhg_id → parent_nhg_id.
+ * Simple linked list — typically 1-5 entries.
+ */
+struct batch_nhg_map_entry {
+	uint32_t child_nhg_id;
+	uint32_t parent_nhg_id;
+	struct batch_nhg_map_entry *next;
+};
+
+static struct batch_nhg_map_entry *batch_nhg_map_head;
+
+void tracker_batch_nhg_map_add(uint32_t child_nhg_id, uint32_t parent_nhg_id)
+{
+	struct batch_nhg_map_entry *e;
+
+	for (e = batch_nhg_map_head; e; e = e->next) {
+		if (e->child_nhg_id == child_nhg_id) {
+			e->parent_nhg_id = parent_nhg_id;
+			return;
+		}
+	}
+
+	e = XCALLOC(MTYPE_NHG_TRACKER, sizeof(*e));
+	e->child_nhg_id = child_nhg_id;
+	e->parent_nhg_id = parent_nhg_id;
+	e->next = batch_nhg_map_head;
+	batch_nhg_map_head = e;
+}
+
+void tracker_batch_nhg_map_clear(uint32_t parent_nhg_id)
+{
+	struct batch_nhg_map_entry *e, *prev = NULL, *next;
+
+	for (e = batch_nhg_map_head; e; e = next) {
+		next = e->next;
+		if (e->parent_nhg_id == parent_nhg_id) {
+			if (prev)
+				prev->next = next;
+			else
+				batch_nhg_map_head = next;
+			XFREE(MTYPE_NHG_TRACKER, e);
+		} else {
+			prev = e;
+		}
+	}
+}
+
+uint32_t tracker_batch_nhg_map_lookup(uint32_t child_nhg_id)
+{
+	struct batch_nhg_map_entry *e;
+
+	for (e = batch_nhg_map_head; e; e = e->next) {
+		if (e->child_nhg_id == child_nhg_id)
+			return e->parent_nhg_id;
+	}
+
+	return 0;
+}
+
 /* Get or create the route_table for a given VRF within a tracker table. */
 static struct route_table *tracker_vrf_table_get(struct nhg_tracker_table *tt, vrf_id_t vrf_id)
 {
@@ -1088,7 +1148,7 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 	zebra_nhg_tracker_flush(tracker, nhe);
 }
 
-/* Timer callback - handle REs from matched/unmatched tables */
+/* Timer callback - flush via the batch mechanism */
 static void nhg_tracker_timer_expiry(struct event *event)
 {
 	struct nhg_event_tracker *tracker = EVENT_ARG(event);
