@@ -5,8 +5,13 @@
 #
 # Copyright (c) 2023, LabN Consulting, L.L.C.
 #
-"""
-Test mgmtd parsing of configs.
+"""Test mgmtd parsing of configs.
+
+This is a specific test suite to test the various behaviors of parsing
+config files either redirected or with -f, and in particular the behavior of
+errant exit and end in those files. The test files are crafted to have a specific
+number of exits and ends, and the test verifies that the expected config is
+applied after the file is processed.
 
 So:
 
