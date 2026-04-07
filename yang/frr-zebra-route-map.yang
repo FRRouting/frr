@@ -29,7 +29,8 @@ module frr-zebra-route-map {
 
   revision 2026-04-07 {
     description
-      "Match on next-hop's first seg6 segment (if any)";
+      "Match on next-hop's first seg6 segment (if any)
+       and set the SRv6 encapsulation source address";
 
     reference
       "FRRouting";
@@ -86,6 +87,12 @@ module frr-zebra-route-map {
     base frr-route-map:rmap-set-type;
     description
       "Set IPv4/IPv6 source address for route";
+  }
+
+  identity srv6-encap-source {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set the SRv6 encapsulation source address";
   }
 
   augment "/frr-route-map:lib"
@@ -168,6 +175,14 @@ module frr-zebra-route-map {
             mandatory true;
           }
         }
+      }
+    }
+
+    case srv6-encap-source {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-zebra-route-map:srv6-encap-source')";
+      leaf srv6-encap-source {
+        type inet:ipv6-address-no-zone;
+        mandatory true;
       }
     }
   }

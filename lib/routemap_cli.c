@@ -1294,6 +1294,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				yang_dnode_get_string(
 					dnode,
 					"./rmap-set-action/frr-zebra-route-map:ipv6-src-address"));
+	} else if (IS_SET_SRv6_ENCAP_SOURCE(action)) {
+		vty_out(vty, " set segment-routing ipv6 encap-source %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-zebra-route-map:srv6-encap-source"));
 	} else if (IS_SET_METRIC_TYPE(action)) {
 		vty_out(vty, " set metric-type %s\n",
 			yang_dnode_get_string(

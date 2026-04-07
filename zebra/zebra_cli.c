@@ -3089,6 +3089,47 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(
+	set_srv6_encap_source, set_srv6_encap_source_cmd,
+	"set segment-routing ipv6 encap-source X:X::X:X$encap_source",
+	SET_STR
+	"Segment Routing\n"
+	"Segment Routing for IPv6 (SRv6)\n"
+	"SRv6 encapsulation source address\n"
+	"IPv6 address\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:srv6-encap-source']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-set-action/frr-zebra-route-map:srv6-encap-source",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, encap_source_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_set_srv6_encap_source, no_set_srv6_encap_source_cmd,
+	"no set segment-routing ipv6 encap-source [X:X::X:X]",
+	NO_STR
+	SET_STR
+	"Segment Routing\n"
+	"Segment Routing for IPv6 (SRv6)\n"
+	"SRv6 encapsulation source address\n"
+	"IPv6 address\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:srv6-encap-source']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 const char *features[] = {
 #if HAVE_BFDD == 0
 	"ptm-bfd",
@@ -3516,4 +3557,6 @@ void zebra_cli_init(void)
 
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
+	install_element(RMAP_NODE, &set_srv6_encap_source_cmd);
+	install_element(RMAP_NODE, &no_set_srv6_encap_source_cmd);
 }

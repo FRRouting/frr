@@ -360,6 +360,8 @@ DECLARE_QOBJ_TYPE(route_map);
 /* Zebra route-map set actions */
 #define IS_SET_SRC(A)                                                          \
 	(strmatch(A, "frr-zebra-route-map:src-address"))
+#define IS_SET_SRv6_ENCAP_SOURCE(A)                                            \
+	(strmatch(A, "frr-zebra-route-map:srv6-encap-source"))
 /* OSPF route-map set actions */
 #define IS_SET_METRIC_TYPE(A)                                                  \
 	(strmatch(A, "frr-ospf-route-map:metric-type"))

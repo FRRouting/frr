@@ -28,6 +28,8 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv4_src_address_modify(struc
 int lib_route_map_entry_set_action_rmap_set_action_ipv4_src_address_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_srv6_encap_source_modify(struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_srv6_encap_source_destroy(struct nb_cb_destroy_args *args);
 
 #ifdef __cplusplus
 }
