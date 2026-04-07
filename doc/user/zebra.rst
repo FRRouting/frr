@@ -2043,6 +2043,10 @@ Debugging
 
    Traffic Control debugging.
 
+.. clicmd:: debug zebra sysmgr
+
+   Zebra system manager debugging.
+
 Scripting
 =========
 

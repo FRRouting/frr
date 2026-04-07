@@ -23,6 +23,7 @@
 #include "ns.h"
 #include "command.h"
 #include "memory.h"
+#include "zebra/zebra_memory.h"
 #include "lib_errors.h"
 
 #include "zebra_router.h"

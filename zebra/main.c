@@ -47,6 +47,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/zebra_sysmgr.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
@@ -159,6 +160,8 @@ static void sigint(void)
 
 	/* Stop the opaque module pthread */
 	zebra_opaque_stop();
+	/* Stop the system manager pthread */
+	zebra_sysmgr_stop();
 
 	zebra_dplane_pre_finish();
 
@@ -173,6 +176,8 @@ static void sigint(void)
 
 	/* Once all the zclients are cleaned up, clean up the opaque module */
 	zebra_opaque_finish();
+	/* Clean up system manager module */
+	zebra_sysmgr_finish();
 
 	zebra_ptm_finish();
 
@@ -504,6 +509,7 @@ int main(int argc, char **argv)
 	/* Zebra related initialize. */
 	libagentx_init();
 	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop, nexthop_weight_16_bit);
+	zebra_sysmgr_init();
 	zserv_init();
 	zebra_rib_init();
 	zebra_if_init();
@@ -564,6 +570,7 @@ int main(int argc, char **argv)
 
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
+	zebra_sysmgr_start();
 
 	/* Init label manager */
 	label_manager_init();

@@ -30,6 +30,7 @@ unsigned long zebra_debug_pbr;
 unsigned long zebra_debug_neigh;
 unsigned long zebra_debug_tc;
 unsigned long zebra_debug_srv6;
+unsigned long zebra_debug_sysmgr;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -130,6 +131,9 @@ DEFUN_NOSH (show_debugging_zebra,
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		vty_out(vty, "  Zebra SRv6 debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_SYSMGR)
+		vty_out(vty, "  Zebra sysmgr debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 
@@ -423,6 +427,25 @@ DEFUN (debug_zebra_tc,
 {
 	SET_FLAG(zebra_debug_tc, ZEBRA_DEBUG_TC);
 	vty_out(vty, "Zebra TC debugging is on\n");
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_zebra_sysmgr,
+       debug_zebra_sysmgr_cmd,
+       "[no$no] debug zebra sysmgr",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra sysmgr events\n")
+{
+	if (no) {
+		UNSET_FLAG(zebra_debug_sysmgr, ZEBRA_DEBUG_SYSMGR);
+		vty_out(vty, "Zebra sysmgr debugging is off\n");
+	} else {
+		SET_FLAG(zebra_debug_sysmgr, ZEBRA_DEBUG_SYSMGR);
+		vty_out(vty, "Zebra sysmgr debugging is on\n");
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -863,6 +886,10 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug zebra srv6\n");
 		write++;
 	}
+	if (IS_ZEBRA_DEBUG_SYSMGR) {
+		vty_out(vty, "debug zebra sysmgr\n");
+		write++;
+	}
 
 	return write;
 }
@@ -885,6 +912,7 @@ void zebra_debug_init(void)
 	zebra_debug_nexthop = 0;
 	zebra_debug_pbr = 0;
 	zebra_debug_neigh = 0;
+	zebra_debug_sysmgr = 0;
 
 	install_node(&debug_node);
 
@@ -909,6 +937,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_neigh_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_tc_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_sysmgr_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_dpdk_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
@@ -942,6 +971,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_nexthop_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_neigh_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_sysmgr_cmd);
 
 	install_element(CONFIG_NODE, &no_debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_nht_cmd);
