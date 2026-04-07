@@ -36,6 +36,7 @@ sys.path.append(os.path.join(CWD, "../"))
 pytestmark = [pytest.mark.staticd]
 krel = platform.release()
 
+
 def build_topo(tgen):
     "Build function"
 
@@ -44,6 +45,7 @@ def build_topo(tgen):
     sw2 = tgen.add_switch("sw2")
     sw1.add_link(tgen.gears["r1"], "r1-eth0")
     sw2.add_link(tgen.gears["r1"], "r1-eth1")
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -69,6 +71,20 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def check_show_running(r1, present=None, absent=None):
+    showrun = r1.vtysh_cmd("show running")
+
+    for entry in present or []:
+        if entry not in showrun:
+            return f"Missing '{entry}' in show running:\n{showrun}"
+
+    for entry in absent or []:
+        if entry in showrun:
+            return f"Unexpected '{entry}' in show running:\n{showrun}"
+
+    return None
+
+
 def test_zebra_urib_import(request):
     "Verify router starts with the initial URIB"
     tgen = get_topogen()
@@ -83,9 +99,7 @@ def test_zebra_urib_import(request):
     step("Verify initial main routing table")
     initial_json_file = "{}/r1/import_init_table.json".format(CWD)
     expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -93,15 +107,18 @@ def test_zebra_urib_import(request):
         """
         conf term
          ipv6 import-table 10
-        """)
+        """
+    )
 
     import_json_file = "{}/r1/import_table_2.json".format(CWD)
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, present=["ipv6 import-table 10"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Add a new static route and verify it gets added")
     r1.vtysh_cmd(
@@ -113,9 +130,7 @@ def test_zebra_urib_import(request):
 
     sync_json_file = "{}/r1/import_table_3.json".format(CWD)
     expected = json.loads(open(sync_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -128,9 +143,7 @@ def test_zebra_urib_import(request):
     )
 
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -143,26 +156,79 @@ def test_zebra_urib_import(request):
     )
 
     expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, absent=["ipv6 import-table 10"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Re-import with distance and verify correct distance")
     r1.vtysh_cmd(
         """
         conf term
          ipv6 import-table 10 distance 123
-        """)
+        """
+    )
 
     import_json_file = "{}/r1/import_table_4.json".format(CWD)
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 route json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(
+        check_show_running, r1, present=["ipv6 import-table 10 distance 123"]
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
+    step("Re-import with route-map and verify show running")
+    r1.vtysh_cmd(
+        """
+        conf term
+         no ipv6 import-table 10 distance 123
+         route-map IMPORT6-FILTER permit 10
+         ipv6 import-table 10 distance 123 route-map IMPORT6-FILTER
+        """
+    )
+
+    expected = json.loads(open(import_json_file).read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 route json", expected)
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(
+        check_show_running,
+        r1,
+        present=[
+            "route-map IMPORT6-FILTER permit 10",
+            "ipv6 import-table 10 distance 123 route-map IMPORT6-FILTER",
+        ],
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
+    r1.vtysh_cmd(
+        """
+        conf term
+         no ipv6 import-table 10 route-map IMPORT6-FILTER
+         no route-map IMPORT6-FILTER
+        """
+    )
+
+    test_func = partial(
+        check_show_running,
+        r1,
+        absent=[
+            "ipv6 import-table 10 distance 123 route-map IMPORT6-FILTER",
+            "route-map IMPORT6-FILTER permit 10",
+        ],
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
 
 def test_zebra_mrib_import(request):
     "Verify router starts with the initial MRIB"
@@ -178,9 +244,7 @@ def test_zebra_mrib_import(request):
     step("Verify initial main MRIB routing table")
     initial_json_file = "{}/r1/import_init_mrib_table.json".format(CWD)
     expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -188,15 +252,18 @@ def test_zebra_mrib_import(request):
         """
         conf term
          ipv6 import-table 10 mrib
-        """)
+        """
+    )
 
     import_json_file = "{}/r1/import_mrib_table_2.json".format(CWD)
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, present=["ipv6 import-table 10 mrib"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Add a new static route and verify it gets added")
     r1.vtysh_cmd(
@@ -208,9 +275,7 @@ def test_zebra_mrib_import(request):
 
     sync_json_file = "{}/r1/import_mrib_table_3.json".format(CWD)
     expected = json.loads(open(sync_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -223,9 +288,7 @@ def test_zebra_mrib_import(request):
     )
 
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
@@ -238,26 +301,33 @@ def test_zebra_mrib_import(request):
     )
 
     expected = json.loads(open(initial_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, absent=["ipv6 import-table 10 mrib"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Re-import with distance and verify correct distance")
     r1.vtysh_cmd(
         """
         conf term
          ipv6 import-table 10 mrib distance 123
-        """)
-    
+        """
+    )
+
     import_json_file = "{}/r1/import_mrib_table_4.json".format(CWD)
     expected = json.loads(open(import_json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ipv6 rpf json", expected
-    )
+    test_func = partial(topotest.router_json_cmp, r1, "show ipv6 rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(
+        check_show_running, r1, present=["ipv6 import-table 10 mrib distance 123"]
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
 
 def test_memory_leak():

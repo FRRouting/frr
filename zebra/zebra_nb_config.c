@@ -175,8 +175,7 @@ int zebra_import_kernel_table_create(struct nb_cb_create_args *args)
 
 	if (!is_zebra_valid_kernel_table(table_id) || is_zebra_main_routing_table(table_id)) {
 		snprintfrr(args->errmsg, args->errmsg_len,
-			   "invalid routing table ID %u: must be a non-default table in the range 1-252",
-			   table_id);
+			   "invalid routing table ID %u: must be a valid non-main table", table_id);
 		return NB_ERR_VALIDATION;
 	}
 

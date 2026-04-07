@@ -183,6 +183,20 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def check_show_running(r1, present=None, absent=None):
+    showrun = r1.vtysh_cmd("show running")
+
+    for entry in present or []:
+        if entry not in showrun:
+            return f"Missing '{entry}' in show running:\n{showrun}"
+
+    for entry in absent or []:
+        if entry in showrun:
+            return f"Unexpected '{entry}' in show running:\n{showrun}"
+
+    return None
+
+
 def test_zebra_urib_import(request):
     "Verify router starts with the initial URIB"
     tgen = get_topogen()
@@ -213,6 +227,10 @@ def test_zebra_urib_import(request):
     test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, present=["ip import-table 10"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Add a new static route and verify it gets added")
     r1.vtysh_cmd(
@@ -253,6 +271,10 @@ def test_zebra_urib_import(request):
     test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(check_show_running, r1, absent=["ip import-table 10"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
     step("Re-import with distance and verify correct distance")
     r1.vtysh_cmd(
@@ -300,6 +322,57 @@ def test_zebra_urib_import(request):
     assert result is None, result
 
     r1.run(f"ip route del table 10 {replace_prefix} via 10.0.0.2 dev r1-eth0")
+
+    test_func = partial(
+        check_show_running, r1, present=["ip import-table 10 distance 123"]
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
+    step("Re-import with route-map and verify show running")
+    r1.vtysh_cmd(
+        """
+        conf term
+         no ip import-table 10 distance 123
+         route-map IMPORT-FILTER permit 10
+         ip import-table 10 distance 123 route-map IMPORT-FILTER
+        """
+    )
+
+    expected = json.loads(open(import_json_file).read())
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected)
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(
+        check_show_running,
+        r1,
+        present=[
+            "route-map IMPORT-FILTER permit 10",
+            "ip import-table 10 distance 123 route-map IMPORT-FILTER",
+        ],
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
+    r1.vtysh_cmd(
+        """
+        conf term
+         no ip import-table 10 route-map IMPORT-FILTER
+         no route-map IMPORT-FILTER
+        """
+    )
+
+    test_func = partial(
+        check_show_running,
+        r1,
+        absent=[
+            "ip import-table 10 distance 123 route-map IMPORT-FILTER",
+            "route-map IMPORT-FILTER permit 10",
+        ],
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
 
 
 def test_zebra_static_route_preferred_over_sharp_import(request):
@@ -399,6 +472,10 @@ def test_zebra_mrib_import(request):
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
+    test_func = partial(check_show_running, r1, present=["ip import-table 10 mrib"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
     step("Add a new static route and verify it gets added")
     r1.vtysh_cmd(
         """
@@ -439,6 +516,10 @@ def test_zebra_mrib_import(request):
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
 
+    test_func = partial(check_show_running, r1, absent=["ip import-table 10 mrib"])
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
     step("Re-import with distance and verify correct distance")
     r1.vtysh_cmd(
         """
@@ -452,6 +533,45 @@ def test_zebra_mrib_import(request):
     test_func = partial(topotest.router_json_cmp, r1, "show ip rpf json", expected)
     _, result = topotest.run_and_expect(test_func, None)
     assert result is None, '"r1" JSON output mismatches'
+
+    test_func = partial(
+        check_show_running, r1, present=["ip import-table 10 mrib distance 123"]
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, result
+
+
+def test_zebra_import_bad_values(request):
+    "Verify router starts with the initial MRIB"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    _cleanup_added_import_test_routes(r1)
+
+    invids = [0, 252, 254, 255]
+    step("Verify invalid table IDs are rejected")
+    for tid in invids:
+        json = f"""{{"import-kernel-table":[{{"afi-safi":"frr-routing:ipv4-unicast","table-id":{tid}}}]}}"""
+        rc, stdout, _ = r1.net.cmd_status(
+            f"vtysh -c 'conf term' -c 'mgmt edit create /frr-zebra:zebra lock commit {json}'",
+            warn=False,
+        )
+        assert rc, f"Pass with invalid table ID {tid}: {stdout}"
+
+    valids = [1, 253, 1000]
+    step("Verify valid table IDs are accepted")
+    for tid in valids:
+        json = f"""{{"import-kernel-table":[{{"afi-safi":"frr-routing:ipv4-unicast","table-id":{tid}}}]}}"""
+        rc, stdout, _ = r1.net.cmd_status(
+            f"vtysh -c 'conf term' -c 'mgmt edit create /frr-zebra:zebra lock commit {json}'",
+            warn=False,
+        )
+        assert rc == 0, f"Failure with valid table ID {tid}: {stdout}"
 
 
 def test_memory_leak():
