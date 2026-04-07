@@ -1064,6 +1064,47 @@ static const struct route_map_rule_cmd route_set_src_cmd = {
 	route_set_src_free,
 };
 
+/* `set segment-routing ipv6 encap-source X:X::X:X' */
+
+static enum route_map_cmd_result_t
+route_set_srv6_encap_source(void *rule, const struct prefix *prefix, void *object)
+{
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data || !rm_data->nexthop || !rm_data->nexthop->nh_srv6 ||
+	    !rm_data->nexthop->nh_srv6->seg6_segs ||
+	    rm_data->nexthop->nh_srv6->seg6_segs->num_segs == 0)
+		return RMAP_OKAY;
+
+	rm_data->nexthop->nh_srv6->seg6_segs->encap_source = *(struct in6_addr *)rule;
+	return RMAP_OKAY;
+}
+
+static void *route_set_srv6_encap_source_compile(const char *arg)
+{
+	struct in6_addr v6addr = {}, *encap_source;
+
+	if (inet_pton(AF_INET6, arg, &v6addr) == 1) {
+		encap_source = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct in6_addr));
+		*encap_source = v6addr;
+		return encap_source;
+	}
+	return NULL;
+}
+
+static void route_set_srv6_encap_source_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_set_srv6_encap_source_cmd = {
+	"segment-routing ipv6 encap-source",
+	route_set_srv6_encap_source,
+	route_set_srv6_encap_source_compile,
+	route_set_srv6_encap_source_free,
+};
+
 /* The function checks if the changed routemap specified by parameter rmap
  * matches the configured protocol routemaps in proto_rm table. If there is
  * a match then rib_update_table() to process the routes.
@@ -1508,4 +1549,5 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+	route_map_install_set(&route_set_srv6_encap_source_cmd);
 }
