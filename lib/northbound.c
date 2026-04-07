@@ -2212,7 +2212,11 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 			 * The dnode from 'delete' callbacks point to elements
 			 * from the running configuration. Use yang_dnode_get()
 			 * to get the corresponding dnode from the candidate
-			 * configuration that is being committed.
+			 * configuration that is being committed. If it doesn't
+			 * exist we fall through the below loop; however, there
+			 * will then exist a destroy change for the deleted
+			 * parent, and so we will repeat the process looking for
+			 * the parent's parent here, and so on.
 			 */
 			yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 			dnode = yang_dnode_get(candidate_config->dnode, xpath);
