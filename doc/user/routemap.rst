@@ -163,6 +163,11 @@ Route Map Match Command
 
    Match the next-hop according to the given prefix-list.
 
+.. clicmd:: match ip next-hop seg6 prefix-list PREFIX_LIST
+
+   This is a ZEBRA specific match command.  It matches the next-hop's seg6
+   first segment of an IPv4 route prefix, according to the given prefix-list.
+
 .. clicmd:: match ipv6 next-hop ACCESS_LIST
 
    Match the next-hop according to the given access-list.
@@ -174,6 +179,11 @@ Route Map Match Command
 .. clicmd:: match ipv6 next-hop prefix-list PREFIX_LIST
 
    Match the next-hop according to the given prefix-list.
+
+.. clicmd:: match ipv6 next-hop seg6 prefix-list PREFIX_LIST
+
+   This is a ZEBRA specific match command.  It matches the next-hop's seg6
+   first segment of an IPv6 route prefix, according to the given prefix-list.
 
 .. clicmd:: match as-path AS_PATH
 
@@ -383,6 +393,10 @@ Route Map Set Command
 .. clicmd:: set l3vpn next-hop encapsulation gre
 
    Accept L3VPN traffic over GRE encapsulation.
+
+.. clicmd:: set segment-routing ipv6 encap-source IPV6_ADDRESS
+
+   Set next-hop's seg6 encapsulation source address
 
 .. _route-map-call-command:
 
