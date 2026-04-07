@@ -165,6 +165,8 @@ struct bgp_evpn_es_vtep {
 	 * a nexthop
 	 */
 #define BGP_EVPNES_VTEP_ACTIVE (1 << 1)
+	/* Rxed an EAD-per-ES route from the PE */
+#define BGP_EVPNES_VTEP_EAD_PER_ES (1 << 2)
 
 	uint32_t evi_cnt; /* es_evis referencing this vtep as an active path */
 
@@ -256,14 +258,8 @@ struct bgp_evpn_es_evi_vtep {
 	struct in_addr vtep_ip;
 
 	uint32_t flags;
-	/* Rxed an EAD-per-ES route from the PE */
-#define BGP_EVPN_EVI_VTEP_EAD_PER_ES  (1 << 0) /* rxed EAD-per-ES */
-	/* Rxed an EAD-per-EVI route from the PE */
-#define BGP_EVPN_EVI_VTEP_EAD_PER_EVI (1 << 1) /* rxed EAD-per-EVI */
 	/* VTEP is active i.e. will result in the creation of an es-vtep */
-#define BGP_EVPN_EVI_VTEP_ACTIVE      (1 << 2)
-#define BGP_EVPN_EVI_VTEP_EAD         (BGP_EVPN_EVI_VTEP_EAD_PER_ES |\
-		BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
+#define BGP_EVPN_EVI_VTEP_ACTIVE (1 << 0)
 
 	/* memory used for adding the entry to es_evi->es_evi_vtep_list */
 	struct listnode es_evi_listnode;
@@ -427,6 +423,10 @@ bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 			   const struct prefix_evpn *p);
+extern enum zclient_send_status bgp_evpn_remote_es_add(struct bgp *bgp, struct bgpevpn *vpn,
+						       const struct prefix_evpn *p);
+extern enum zclient_send_status bgp_evpn_remote_es_del(struct bgp *bgp, struct bgpevpn *vpn,
+						       const struct prefix_evpn *p);
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);

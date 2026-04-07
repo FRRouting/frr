@@ -1337,7 +1337,10 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 			pi->attr->nexthop, 1, flags, seq,
 			bgp_evpn_attr_get_esi(pi->attr));
 	} else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE) {
-		ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p);
+		if (p->prefix.ead_addr.eth_tag == BGP_EVPN_AD_ES_ETH_TAG)
+			ret = bgp_evpn_remote_es_add(bgp, vpn, p);
+		else
+			ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p);
 	} else {
 		switch (bgp_attr_get_pmsi_tnl_type(pi->attr)) {
 		case PMSI_TNLTYPE_INGR_REPL:
@@ -1382,9 +1385,12 @@ enum zclient_send_status evpn_zebra_uninstall(struct bgp *bgp,
 					   pi) /* MAC-IP update */),
 			(is_sync ? zero_vtep_ip : pi->attr->nexthop), 0, 0, 0,
 			NULL);
-	else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE)
-		ret = bgp_evpn_remote_es_evi_del(bgp, vpn, p);
-	else
+	else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE) {
+		if (p->prefix.ead_addr.eth_tag == BGP_EVPN_AD_ES_ETH_TAG)
+			ret = bgp_evpn_remote_es_del(bgp, vpn, p);
+		else
+			ret = bgp_evpn_remote_es_evi_del(bgp, vpn, p);
+	} else
 		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p,
 						 VXLAN_FLOOD_DISABLED, 0);
 
