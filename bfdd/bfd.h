@@ -538,6 +538,17 @@ void pl_free(struct peer_label *pl);
 
 
 /*
+ * logging - alias to zebra log
+ */
+#define zlog_fatal(msg, ...)                                                   \
+	do {                                                                   \
+		zlog_err(msg, ##__VA_ARGS__);                                  \
+		assert(!msg);                                                  \
+		abort();                                                       \
+	} while (0)
+
+
+/*
  * bfd_packet.c
  *
  * Contains the code related with receiving/seding, packing/unpacking BFD data.
