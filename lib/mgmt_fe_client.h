@@ -80,10 +80,9 @@ struct mgmt_fe_client_cbs {
 			       void *result, size_t len, int partial_error);
 
 	/* Called when edit result is returned */
-	int (*edit_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
-			   uint64_t client_id, uint64_t session_id,
-			   uintptr_t session_ctx, uint64_t req_id,
-			   const char *xpath);
+	int (*edit_notify)(struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
+			   uint64_t session_id, uintptr_t session_ctx, uint64_t req_id,
+			   const char *xpath, int error, const char *errstr);
 
 	/* Called when RPC result is returned */
 	int (*rpc_notify)(struct mgmt_fe_client *client, uintptr_t user_data,

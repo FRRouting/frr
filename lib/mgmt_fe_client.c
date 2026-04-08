@@ -529,9 +529,20 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 								  commit_msg->unlock,
 								  err_msg->errstr);
 			break;
+		case MGMT_MSG_CODE_EDIT:
+			if (!session->client->cbs.edit_notify)
+				goto generic_error_handler;
+			edit_msg = (typeof(edit_msg))orig_msg;
+			xpath = mgmt_msg_native_xpath_decode(edit_msg,
+							     mgmt_msg_native_get_msg_len(edit_msg));
+			session->client->cbs.edit_notify(client, client->user_data,
+							 session->client_id, msg->refer_id,
+							 session->user_ctx, msg->req_id, xpath,
+							 err_msg->error ?: -EINVAL,
+							 err_msg->errstr);
+			break;
 		case MGMT_MSG_CODE_GET_DATA:
 		case MGMT_MSG_CODE_ERROR:
-		case MGMT_MSG_CODE_EDIT:
 		case MGMT_MSG_CODE_NOTIFY:
 		case MGMT_MSG_CODE_RPC:
 generic_error_handler:
@@ -610,11 +621,9 @@ generic_error_handler:
 			break;
 		}
 
-		session->client->cbs.edit_notify(client, client->user_data,
-						 session->client_id,
-						 msg->refer_id,
-						 session->user_ctx, msg->req_id,
-						 xpath);
+		session->client->cbs.edit_notify(client, client->user_data, session->client_id,
+						 msg->refer_id, session->user_ctx, msg->req_id,
+						 xpath, 0, NULL);
 		break;
 	case MGMT_MSG_CODE_RPC_REPLY:
 		if (!session->client->cbs.rpc_notify)

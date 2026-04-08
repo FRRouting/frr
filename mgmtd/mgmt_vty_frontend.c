@@ -598,15 +598,22 @@ int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore, LYD_FORMAT reques
 
 static int vty_mgmt_handle_edit_reply(struct mgmt_fe_client *client, uintptr_t user_data,
 				      uint64_t client_id, uint64_t session_id,
-				      uintptr_t session_ctx, uint64_t req_id, const char *xpath)
+				      uintptr_t session_ctx, uint64_t req_id, const char *xpath,
+				      int error, const char *errstr)
 {
 	struct vty *vty = (struct vty *)session_ctx;
 
-	debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
-			" was successful, xpath: %s",
-			client_id, req_id, xpath);
+	if (!error)
+		debug_fe_client("EDIT request for client 0x%Lx req-id %Lu was successful, xpath: %s",
+				client_id, req_id, xpath);
+	else {
+		debug_fe_client("EDIT request for client 0x%Lx req-id %Lu failed xpath: %s: %d: %s",
+				client_id, req_id, xpath, error, errstr);
+		vty_out(vty, "%% %s\n", errstr);
+		vty_out(vty, "%% Failed to edit configuration.\n");
+	}
 
-	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+	vty_mgmt_resume_response(vty, error ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS);
 
 	return 0;
 }
