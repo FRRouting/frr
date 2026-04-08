@@ -41,6 +41,7 @@
 #include "pim_state_refresh.h"
 #include "pim_util.h"
 #include "pim_nht.h"
+#include "pim_upstream.h"
 
 static void mroute_read_on(struct pim_instance *pim);
 
@@ -261,12 +262,30 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 		if (pim_if_connected_to_source(ifp, msg->msg_im_src))
 			flags |= PIM_UPSTREAM_FLAG_MASK_FHR;
-		up = pim_upstream_find_or_add(&sg, ifp, flags, __func__);
+		{
+			struct pim_upstream *pre_up;
+			bool mfc_was_installed;
 
-		if (up->channel_oil->installed) {
-			zlog_warn("%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
-				  ifp->name, &sg);
-			desync = true;
+			pre_up = pim_upstream_find(pim_ifp->pim, &sg);
+			mfc_was_installed = pre_up && pre_up->channel_oil->installed;
+			if (pre_up)
+				pim_upstream_ref(pre_up, flags, __func__);
+			else
+				pre_up = pim_upstream_add(pim_ifp->pim, &sg, ifp, flags, __func__,
+							  NULL);
+			up = pre_up;
+
+			/*
+			 * Avoid false "resync" on first NOCACHE: find_or_add may
+			 * install MFC in the same call, so installed is expected.
+			 * Only resync when MFC was already present before this upcall
+			 * (duplicate NOCACHE or kernel/user mismatch).
+			 */
+			if (up->channel_oil->installed && mfc_was_installed) {
+				zlog_warn("%s: NOCACHE [%s] %s: %pSG MFC already installed before this upcall; resyncing (duplicate kernel upcall or transient MFC drop)",
+					  __func__, pim_ifp->pim->vrf->name, ifp->name, &sg);
+				desync = true;
+			}
 		}
 
 		pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
@@ -372,13 +391,24 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	}
 
 	/* We may have already found the upstream as part of dense mode processing */
-	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+	{
+		struct pim_upstream *pre_up;
+		bool mfc_was_installed;
 
-	if (up->channel_oil->installed) {
-		zlog_warn(
-			"%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
-			ifp->name, &sg);
-		desync = true;
+		pre_up = pim_upstream_find(pim_ifp->pim, &sg);
+		mfc_was_installed = pre_up && pre_up->channel_oil->installed;
+		if (pre_up)
+			pim_upstream_ref(pre_up, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+		else
+			pre_up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+						  PIM_UPSTREAM_FLAG_MASK_FHR, __func__, NULL);
+		up = pre_up;
+
+		if (up->channel_oil->installed && mfc_was_installed) {
+			zlog_warn("%s: NOCACHE [%s] %s: %pSG MFC already installed before this upcall; resyncing (duplicate kernel upcall or transient MFC drop)",
+				  __func__, pim_ifp->pim->vrf->name, ifp->name, &sg);
+			desync = true;
+		}
 	}
 
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
@@ -924,21 +954,17 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 			return 0;
 		if (PIM_DEBUG_MROUTE) {
 #if PIM_IPV == 4
-			zlog_debug(
-				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI4,%pI4) on %s vifi=%d  size=%ld",
-				__func__, gmmsgtype2str[msg->msg_im_msgtype],
-				msg->msg_im_msgtype, ip_hdr->ip_p,
-				pim->mroute_socket, &msg->msg_im_src,
-				&msg->msg_im_dst, ifp->name, msg->msg_im_vif,
-				(long int)buf_size);
+			zlog_debug("%s: [%s] pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI4,%pI4) on %s vifi=%d size=%ld",
+				   __func__, pim->vrf->name, gmmsgtype2str[msg->msg_im_msgtype],
+				   msg->msg_im_msgtype, ip_hdr->ip_p, pim->mroute_socket,
+				   &msg->msg_im_src, &msg->msg_im_dst, ifp->name, msg->msg_im_vif,
+				   (long int)buf_size);
 #else
-			zlog_debug(
-				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI6,%pI6) on %s vifi=%d  size=%ld",
-				__func__, gmmsgtype2str[msg->msg_im_msgtype],
-				msg->msg_im_msgtype, ip_hdr->ip6_nxt,
-				pim->mroute_socket, &msg->msg_im_src,
-				&msg->msg_im_dst, ifp->name, msg->msg_im_vif,
-				(long int)buf_size);
+			zlog_debug("%s: [%s] pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI6,%pI6) on %s vifi=%d size=%ld",
+				   __func__, pim->vrf->name, gmmsgtype2str[msg->msg_im_msgtype],
+				   msg->msg_im_msgtype, ip_hdr->ip6_nxt, pim->mroute_socket,
+				   &msg->msg_im_src, &msg->msg_im_dst, ifp->name, msg->msg_im_vif,
+				   (long int)buf_size);
 #endif
 		}
 
