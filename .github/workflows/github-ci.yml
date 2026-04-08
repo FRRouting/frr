@@ -23,8 +23,35 @@ defaults:
     shell: bash
 
 jobs:
-  Prepare-MIB-Cache:
+  # Classify changes: doc/ vs everything else (skip Docker build/tests when only doc/ changed).
+  doc-path-filter:
     if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
+    runs-on: ubuntu-latest
+    name: Documentation path filter
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      doc: ${{ steps.filter.outputs.doc }}
+      non_doc: ${{ steps.filter.outputs.non_doc }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            doc:
+              - 'doc/**'
+            non_doc:
+              - '**'
+              - '!doc/**'
+
+  Prepare-MIB-Cache:
+    needs: doc-path-filter
+    if: ${{ needs.doc-path-filter.outputs.non_doc == 'true' }}
     runs-on: ubuntu-latest
     name: Prepare shared MIB cache
     timeout-minutes: 20
@@ -75,8 +102,44 @@ jobs:
           fetch_to_cache https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib IEEE8021-CFM-MIB
           fetch_to_cache https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib LLDP-MIB
 
+  Documentation-HTML:
+    needs: doc-path-filter
+    if: ${{ needs.doc-path-filter.outputs.doc == 'true' }}
+    runs-on: ubuntu-latest
+    name: HTML documentation (user + developer)
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - name: Install Sphinx dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y python3-sphinx python3-sphinx-rtd-theme graphviz
+      - name: Build HTML documentation
+        run: |
+          set -euo pipefail
+          python3 -m sphinx -b html -d doc/user/_build/.doctrees \
+            doc/user doc/user/_build/html
+          python3 -m sphinx -b html -d doc/developer/_build/.doctrees \
+            doc/developer doc/developer/_build/html
+      - name: Stage HTML for artifact
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp -a doc/user/_build/html artifact/user
+          cp -a doc/developer/_build/html artifact/developer
+      - name: Upload HTML documentation
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-html
+          path: artifact/
+          retention-days: 14
+          if-no-files-found: error
+
   Build:
-    if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
     runs-on: ${{ matrix.cfg.os }}
     needs: Prepare-MIB-Cache
     name: ${{ matrix.cfg.name }}
@@ -155,7 +218,6 @@ jobs:
         run: rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
 
   Test:
-    if: ${{ github.event_name != 'pull_request' || github.actor != 'mergify[bot]' }}
     runs-on: ${{ matrix.cfg.os }}
     needs: Build
     name: ${{ matrix.cfg.name }}
