@@ -20,6 +20,7 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER, "NHG Event Tracker");
 DEFINE_MTYPE(ZEBRA, NHG_TRACKER_PREFIX_MAP, "NHG Tracker Prefix Map Entry");
+DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER_FLUSH_GROUP, "NHG Tracker Flush Group");
 
 /* Get or create the route_table for a given VRF within a tracker table. */
 static struct route_table *tracker_vrf_table_get(struct nhg_tracker_table *tt, vrf_id_t vrf_id)
@@ -396,6 +397,8 @@ zebra_nhg_tracker_park_unmatched(struct nhg_hash_entry *orig_nhe,
 	struct nhg_event_tracker *tracker;
 
 	tracker = nhg_event_tracker_list_first(&orig_nhe->tracker_list);
+	while (tracker && tracker->flushing)
+		tracker = nhg_event_tracker_list_next(&orig_nhe->tracker_list, tracker);
 	if (!tracker)
 		return NULL;
 
@@ -421,6 +424,8 @@ static void zebra_nhg_tracker_absorb_older(struct nhg_hash_entry *orig_nhe,
 
 	for (t = nhg_event_tracker_list_next(&orig_nhe->tracker_list, keeper); t; t = next_t) {
 		next_t = nhg_event_tracker_list_next(&orig_nhe->tracker_list, t);
+		if (t->flushing)
+			continue;
 		zebra_nhg_tracker_collapse(prefix_map, t, keeper);
 	}
 }
@@ -499,6 +504,8 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 	 * unmatched, collapsing the stale tracker.
 	 */
 	frr_rev_each (nhg_event_tracker_list, &orig_nhe->tracker_list, tracker) {
+		if (tracker->flushing)
+			continue;
 		if (zebra_nhg_nexthop_compare(re->nhe->nhg.nexthop,
 					      tracker->nhg_tracker_snapshot->nhg.nexthop, rn,
 					      true)) {
@@ -544,6 +551,9 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 		 * matched table.
 		 */
 		newest_tracker = nhg_event_tracker_list_first(&orig_nhe->tracker_list);
+		while (newest_tracker && newest_tracker->flushing)
+			newest_tracker = nhg_event_tracker_list_next(&orig_nhe->tracker_list,
+								     newest_tracker);
 		if (pm_re && newest_tracker &&
 		    pm_re->tracker->nhg_tracker_id <= newest_tracker->nhg_tracker_id) {
 			zebra_nhg_tracker_evict_from_unmatched(pm_re->tracker, orig_nhe,
@@ -560,74 +570,17 @@ struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn, struc
 	return tracker;
 }
 
-/*
- * Walk all per-VRF tables in a tracker table, clear TRACKER flags,
- * optionally update NHE for non-removed REs, and queue each RN for
- * rib_process.
- *
- * update_nhe: when true (matched table), restore each RE's NHE to the
- *   tracker's parent NHE so the kernel sees the same NHG ID.
- *   When false (unmatched table), leave the RE's NHE intact so
- *   rib_process resolves the RE with its original intended NHG
- *   (e.g. a new ECMP group).
- */
-static void zebra_nhg_tracker_flush_table(struct nhg_tracker_table *tt, struct nhg_hash_entry *nhe,
-					  bool update_nhe, const char *label)
+/* Forward declarations for mutually-recursive flush batch functions */
+static void tracker_flush_batch_expiry_timer(struct event *event);
+static void tracker_flush_batch_start_phase2(struct nhg_hash_entry *nhe,
+					     struct nhg_event_tracker *tracker);
+
+/* Update global tracker statistics and log the flush event. */
+static void tracker_flush_update_counters(struct nhg_event_tracker *tracker,
+					  struct nhg_hash_entry *nhe)
 {
-	struct tracker_vrf_table *vt;
+	struct tracker_flush_event *evt;
 
-	for (vt = tt->vrf_tables; vt; vt = vt->next) {
-		struct route_node *trn;
-
-		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
-			if (!trn->info)
-				continue;
-
-			struct route_node *rn = trn->info;
-			struct route_entry *re;
-
-			zlog_info("%s flushing %pRN vrf %s(%u)", label, rn,
-				  vrf_id_to_name(vt->vrf_id), vt->vrf_id);
-
-			RNODE_FOREACH_RE (rn, re) {
-				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
-					continue;
-
-				zlog_info("%s   re type %s NHG %u vrf %s(%u) status 0x%x, orig_nhe %u (before route_entry_update_nhe)",
-					  label, zebra_route_string(re->type),
-					  re->nhe ? re->nhe->id : 0, vrf_id_to_name(re->vrf_id),
-					  re->vrf_id, re->status, nhe->id);
-
-				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
-				if (update_nhe && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
-					route_entry_update_nhe(re, nhe);
-					zlog_info("%s   re type %s NHG %u vrf %s(%u) status 0x%x, orig_nhe %u (after route_entry_update_nhe)",
-						  label, zebra_route_string(re->type),
-						  re->nhe ? re->nhe->id : 0,
-						  vrf_id_to_name(re->vrf_id), re->vrf_id,
-						  re->status, nhe->id);
-				}
-			}
-
-			/*
-			 * For matched-table flush, set REINSTALL on the NHG so
-			 * zebra_nhg_install_kernel re-queues it to the dplane
-			 * even if INSTALLED is already set.  This ensures the
-			 * reworked NHG state reaches the kernel after the
-			 * tracker deferred the immediate if_up installation.
-			 */
-			//if (update_nhe)
-			//	SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
-
-			rib_queue_add(rn);
-		}
-	}
-}
-
-static void zebra_nhg_tracker_flush_full(struct nhg_event_tracker *tracker,
-					 struct nhg_hash_entry *nhe)
-{
-	/* Update the tracker counters */
 	zrouter.tracker_counters.tracker_full++;
 	if (tracker->matched_table.re_count == tracker->orig_re_count)
 		zrouter.tracker_counters.tracker_full_matched++;
@@ -641,23 +594,404 @@ static void zebra_nhg_tracker_flush_full(struct nhg_event_tracker *tracker,
 			zrouter.tracker_counters.tracker_full_combined_unmatched_gt++;
 	}
 
-	{
-		struct tracker_flush_event *evt =
-			&zrouter.tracker_counters
-				 .log[zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE];
-		evt->nhg_id = nhe->id;
-		evt->tracker_id = tracker->nhg_tracker_id;
-		evt->matched = tracker->matched_table.re_count;
-		evt->unmatched = tracker->unmatched_table.re_count;
-		evt->orig_re_count = tracker->orig_re_count;
-		zrouter.tracker_counters.log_idx++;
+	evt = &zrouter.tracker_counters
+		       .log[zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE];
+	evt->nhg_id = nhe->id;
+	evt->tracker_id = tracker->nhg_tracker_id;
+	evt->matched = tracker->matched_table.re_count;
+	evt->unmatched = tracker->unmatched_table.re_count;
+	evt->orig_re_count = tracker->orig_re_count;
+	zrouter.tracker_counters.log_idx++;
+}
+
+/*
+ * Build the NHG group list: walk matched + unmatched tables, count REs
+ * per incoming NHG, and pick the winner (highest count; matched wins tie).
+ * Result stored in tracker->flush_nhg_groups and tracker->winner_*.
+ */
+static void tracker_flush_build_groups(struct nhg_event_tracker *tracker,
+				       struct nhg_hash_entry *parent_nhe)
+{
+	struct list *groups = tracker->flush_nhg_groups;
+	struct tracker_flush_nhg_group *g, *winner = NULL;
+	struct listnode *node;
+	uint32_t matched_count = tracker->matched_table.re_count;
+	uint32_t max_count = matched_count;
+	struct tracker_vrf_table *vt;
+
+	/* Count unmatched groups by incoming NHG ID (new converged REs only) */
+	for (vt = tracker->unmatched_table.vrf_tables; vt; vt = vt->next) {
+		struct route_node *trn;
+
+		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+			struct route_node *rn;
+			struct route_entry *re;
+
+			if (!trn->info)
+				continue;
+			rn = trn->info;
+
+			RNODE_FOREACH_RE (rn, re) {
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+					continue;
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
+					continue;
+				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+					continue;
+				if (!re->nhe)
+					continue;
+
+				g = NULL;
+				for (ALL_LIST_ELEMENTS_RO(groups, node, g)) {
+					if (g->incoming_nhg_id == re->nhe->id)
+						break;
+					g = NULL;
+				}
+				if (!g) {
+					g = XCALLOC(MTYPE_NHG_TRACKER_FLUSH_GROUP, sizeof(*g));
+					g->incoming_nhg_id = re->nhe->id;
+					g->incoming_nhe = re->nhe;
+					listnode_add(groups, g);
+				}
+				g->re_count++;
+			}
+		}
 	}
 
-	zebra_nhg_tracker_flush_table(&tracker->matched_table, nhe, true, "flush_full matched");
-	zebra_nhg_tracker_flush_table(&tracker->unmatched_table, nhe, false,
-				      "flush_full unmatched");
+	/* Find max across unmatched groups */
+	for (ALL_LIST_ELEMENTS_RO(groups, node, g)) {
+		if (g->re_count > max_count) {
+			max_count = g->re_count;
+			winner = g;
+		}
+	}
 
+	/* Pick winner: matched wins on tie */
+	if (matched_count >= max_count && matched_count > 0) {
+		tracker->winner_nhg_id = parent_nhe->id;
+		tracker->winner_nhe = parent_nhe;
+		tracker->winner_is_matched = true;
+	} else if (winner) {
+		tracker->winner_nhg_id = winner->incoming_nhg_id;
+		tracker->winner_nhe = winner->incoming_nhe;
+		tracker->winner_is_matched = false;
+		winner->is_winner = true;
+	}
+
+	zlog_info("%s: NHG %u winner: NHG %u (%s, %u routes), matched=%u unmatched=%u", __func__,
+		  parent_nhe->id, tracker->winner_nhg_id,
+		  tracker->winner_is_matched ? "matched" : "unmatched", max_count,
+		  tracker->matched_table.re_count, tracker->unmatched_table.re_count);
+}
+
+static void tracker_flush_nhg_group_free(void *data)
+{
+	XFREE(MTYPE_NHG_TRACKER_FLUSH_GROUP, data);
+}
+
+static void tracker_flush_free_groups(struct nhg_event_tracker *tracker)
+{
+	if (tracker->flush_nhg_groups)
+		list_delete_all_node(tracker->flush_nhg_groups);
+}
+
+
+/*
+ * Find the flushing tracker on an NHE, or NULL if none.
+ */
+static struct nhg_event_tracker *tracker_find_flushing(struct nhg_hash_entry *nhe)
+{
+	struct nhg_event_tracker *t;
+
+	frr_each (nhg_event_tracker_list, &nhe->tracker_list, t) {
+		if (t->flushing)
+			return t;
+	}
+	return NULL;
+}
+
+/*
+ * Walk a tracker table, clear TRACKER on matching REs, optionally repoint
+ * them to the parent NHG, and queue route_nodes for rib_process.
+ *
+ * filter_nhg_id:  non-zero → only process REs whose incoming NHG matches.
+ * exclude_nhg_id: non-zero → skip REs whose incoming NHG matches.
+ * update_nhe:     true → repoint RE to parent NHG (winners reuse old ID).
+ * track_pending:  true → mark RE with NHG_TRACKER_FLUSH_BATCH and increment
+ *                 routes_pending for phase 1 dplane ack tracking.
+ *                 false → just queue (phase 2 finishes synchronously).
+ */
+static void tracker_flush_batch_process_table(struct nhg_hash_entry *parent_nhe,
+					      struct nhg_event_tracker *tracker,
+					      struct nhg_tracker_table *table,
+					      uint32_t filter_nhg_id, uint32_t exclude_nhg_id,
+					      bool update_nhe, bool track_pending)
+{
+	struct tracker_vrf_table *vt;
+
+	if (!table)
+		return;
+
+	for (vt = table->vrf_tables; vt; vt = vt->next) {
+		struct route_node *trn;
+
+		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+			struct route_node *rn;
+			struct route_entry *re;
+
+			if (!trn->info)
+				continue;
+			rn = trn->info;
+
+			RNODE_FOREACH_RE (rn, re) {
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+					continue;
+				if (filter_nhg_id && re->nhe && re->nhe->id != filter_nhg_id)
+					continue;
+				if (exclude_nhg_id && re->nhe && re->nhe->id == exclude_nhg_id)
+					continue;
+
+				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+
+				if (update_nhe && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+					route_entry_update_nhe(re, parent_nhe);
+
+				if (track_pending) {
+					SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+					tracker->routes_pending++;
+				}
+			}
+
+			rib_queue_add(rn);
+		}
+	}
+}
+
+/*
+ * Complete the flush batch: free groups, free the flushing tracker.
+ */
+static void tracker_flush_batch_finish(struct nhg_hash_entry *nhe,
+				       struct nhg_event_tracker *tracker)
+{
+	event_cancel(&tracker->timer);
+	tracker_flush_free_groups(tracker);
 	zebra_nhg_tracker_free(nhe, tracker);
+}
+
+/*
+ * Phase 2: update the parent NHG and process winner REs.
+ *
+ * 1. Transfer winner NHG's NH active states to the parent NHG.
+ * 2. Set REINSTALL and install the parent NHG to kernel.
+ * 3. Send winner REs through rib_process.
+ */
+static void tracker_flush_batch_start_phase2(struct nhg_hash_entry *nhe,
+					     struct nhg_event_tracker *tracker)
+{
+	if (!tracker->winner_nhg_id) {
+		zlog_info("%s: no winner, finishing for NHG %u", __func__, nhe->id);
+		tracker_flush_batch_finish(nhe, tracker);
+		return;
+	}
+
+	tracker->flush_state = TRACKER_FLUSH_PHASE2;
+
+	/* No safety timer for phase 2 — it finishes synchronously */
+	event_cancel(&tracker->timer);
+
+	zlog_info("%s: NHG %u phase 2: winner NHG %u (%s)", __func__, nhe->id,
+		  tracker->winner_nhg_id, tracker->winner_is_matched ? "matched" : "unmatched");
+
+	/*
+	 * If winner is unmatched, update the parent NHG's NH active states
+	 * to reflect the winner, then reinstall to kernel.
+	 */
+	if (!tracker->winner_is_matched && tracker->winner_nhe && tracker->winner_nhe != nhe) {
+		struct nexthop *orig_nh, *win_nh;
+
+		zlog_info("%s: transferring NH state from winner NHG %u to parent NHG %u",
+			  __func__, tracker->winner_nhg_id, nhe->id);
+
+		for (orig_nh = nhe->nhg.nexthop, win_nh = tracker->winner_nhe->nhg.nexthop;
+		     orig_nh && win_nh; orig_nh = orig_nh->next, win_nh = win_nh->next) {
+			if (CHECK_FLAG(win_nh->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(orig_nh->flags, NEXTHOP_FLAG_ACTIVE);
+			else
+				UNSET_FLAG(orig_nh->flags, NEXTHOP_FLAG_ACTIVE);
+		}
+	}
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+	zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
+
+	/*
+	 * Send winner REs through rib_process (no ack tracking needed).
+	 * The parent NHG is already updated and installed — winner routes
+	 * will use the same NHG ID so dplane skips the route install.
+	 * Matched winner: walk matched table, update NHE to parent.
+	 * Unmatched winner: walk unmatched table filtered to winner NHG.
+	 */
+	if (tracker->winner_is_matched) {
+		tracker_flush_batch_process_table(nhe, tracker, &tracker->matched_table, 0, 0,
+						  true, false);
+	} else {
+		tracker_flush_batch_process_table(nhe, tracker, &tracker->unmatched_table,
+						  tracker->winner_nhg_id, 0, true, false);
+	}
+
+	/* Phase 2 is done — no need to wait for dplane acks since the
+	 * winner routes reuse the same NHG ID and the kernel NHG was
+	 * already updated above.
+	 */
+	zlog_info("%s: phase 2 done for NHG %u, finishing tracker", __func__, nhe->id);
+	tracker_flush_batch_finish(nhe, tracker);
+}
+
+/*
+ * Called when a phase 1 (loser) RE completes — via dplane ack,
+ * rib_unlink, or rib_process without dplane send.
+ *
+ * Decrements routes_pending regardless of which incoming NHG the RE
+ * belongs to — the counter tracks total outstanding loser REs across
+ * all non-winner groups.  When pending reaches 0, phase 1 is complete
+ * and phase 2 (winner processing) begins.
+ */
+void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
+{
+	struct nhg_hash_entry *nhe;
+	struct nhg_event_tracker *tracker;
+
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+		return;
+
+	UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+
+	if (!re->nhe)
+		return;
+
+	/*
+	 * The RE may have been switched to a new NHG by rib_process.
+	 * Find the flushing tracker on the RE's current NHG.
+	 */
+	nhe = re->nhe;
+	tracker = tracker_find_flushing(nhe);
+	if (!tracker)
+		return;
+
+	if (tracker->routes_pending == 0)
+		return;
+
+	tracker->routes_pending--;
+
+	if (tracker->routes_pending > 0)
+		return;
+
+	/* All phase 1 loser REs processed — start phase 2 */
+	nhe = tracker->parent_nhe;
+	if (!nhe) {
+		tracker_flush_free_groups(tracker);
+		return;
+	}
+
+	zlog_info("%s: phase 1 complete for NHG %u, starting phase 2", __func__, nhe->id);
+	tracker_flush_batch_start_phase2(nhe, tracker);
+}
+
+static void tracker_flush_batch_expiry_timer(struct event *event)
+{
+	struct nhg_event_tracker *tracker = EVENT_ARG(event);
+	struct nhg_hash_entry *nhe = tracker->parent_nhe;
+
+	zlog_warn("%s: safety timer expired for NHG %u phase %u (pending=%u)", __func__,
+		  nhe ? nhe->id : 0, tracker->flush_state, tracker->routes_pending);
+
+	/* Safety timer only runs during phase 1 — force transition to phase 2 */
+	tracker->routes_pending = 0;
+	tracker_flush_batch_start_phase2(nhe, tracker);
+}
+
+/*
+ * Start the two-phase flush batch.
+ * Phase 1: send all losers (non-winner NHG groups) through rib_process.
+ * Phase 2: after phase 1 acks, update parent NHG and send winners.
+ */
+static void tracker_flush_batch_start_phase1(struct nhg_hash_entry *nhe,
+					     struct nhg_event_tracker *tracker)
+{
+	bool has_phase1 = false;
+	struct tracker_flush_nhg_group *g;
+	struct listnode *node;
+
+	/* Check if there are any phase 1 groups */
+	if (!tracker->winner_is_matched && tracker->matched_table.re_count > 0)
+		has_phase1 = true;
+	for (ALL_LIST_ELEMENTS_RO(tracker->flush_nhg_groups, node, g)) {
+		if (g->incoming_nhg_id != tracker->winner_nhg_id) {
+			has_phase1 = true;
+			break;
+		}
+	}
+
+	tracker->routes_pending = 0;
+
+	/* Repurpose timer as safety timer */
+	event_cancel(&tracker->timer);
+	event_add_timer(zrouter.master, tracker_flush_batch_expiry_timer, tracker,
+			NHG_TRACKER_DEFAULT_TIMEOUT_SEC, &tracker->timer);
+
+	zlog_info("%s: NHG %u winner NHG %u, has_phase1=%d", __func__, nhe->id,
+		  tracker->winner_nhg_id, has_phase1);
+
+	if (has_phase1) {
+		tracker->flush_state = TRACKER_FLUSH_PHASE1;
+
+		/* Send unmatched losers (exclude winner NHG ID, track acks) */
+		tracker_flush_batch_process_table(nhe, tracker, &tracker->unmatched_table, 0,
+						  tracker->winner_nhg_id, false, true);
+
+		/* Send matched losers (if matched is not the winner, track acks) */
+		if (!tracker->winner_is_matched)
+			tracker_flush_batch_process_table(nhe, tracker, &tracker->matched_table, 0,
+							  0, false, true);
+
+		if (tracker->routes_pending == 0)
+			tracker_flush_batch_start_phase2(nhe, tracker);
+	} else {
+		tracker_flush_batch_start_phase2(nhe, tracker);
+	}
+}
+
+static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nhg_hash_entry *nhe)
+{
+	tracker_flush_update_counters(tracker, nhe);
+	tracker_flush_build_groups(tracker, nhe);
+
+	if (!tracker->winner_nhg_id && listcount(tracker->flush_nhg_groups) == 0) {
+		/* Nothing to flush */
+		zebra_nhg_tracker_free(nhe, tracker);
+		return;
+	}
+
+	/*
+	 * Mark as flushing.  The tracker stays in tracker_list so new
+	 * trackers can see it (and skip it), but:
+	 * - It must not be collapsed into another tracker.
+	 * - No additional routes may be parked in it.
+	 * Remove its prefix_map entries so new routes for the same
+	 * prefixes can park in fresh trackers.
+	 */
+	tracker->flushing = true;
+
+	struct tracker_prefix_map_entry *entry;
+
+	frr_each_safe (tracker_prefix_map, &nhe->tracker_prefix_map, entry) {
+		if (entry->tracker == tracker) {
+			tracker_prefix_map_del(&nhe->tracker_prefix_map, entry);
+			XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
+		}
+	}
+
+	tracker_flush_batch_start_phase1(nhe, tracker);
 }
 
 /*
@@ -676,7 +1010,7 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 		  tracker->nhg_tracker_id, nhe->id, tracker->matched_table.re_count,
 		  tracker->unmatched_table.re_count, tracker->orig_re_count);
 
-	zebra_nhg_tracker_flush_full(tracker, nhe);
+	zebra_nhg_tracker_flush(tracker, nhe);
 }
 
 /* Timer callback - handle REs from matched/unmatched tables */
@@ -700,11 +1034,7 @@ static void nhg_tracker_timer_expiry(struct event *event)
 		  tracker->matched_table.re_count, tracker->unmatched_table.re_count,
 		  tracker->orig_re_count);
 
-	zebra_nhg_tracker_flush_table(&tracker->matched_table, nhe, true, "timer_expiry matched");
-	zebra_nhg_tracker_flush_table(&tracker->unmatched_table, nhe, false,
-				      "timer_expiry unmatched");
-
-	zebra_nhg_tracker_free(nhe, tracker);
+	zebra_nhg_tracker_flush(tracker, nhe);
 }
 
 /*
@@ -745,11 +1075,18 @@ struct nhg_event_tracker *zebra_nhg_tracker_lookup(struct nhg_hash_entry *nhe,
 						   struct nhg_hash_entry *snapshot)
 {
 	struct nhg_event_tracker key;
+	struct nhg_event_tracker *found;
 
 	memset(&key, 0, sizeof(key));
 	key.nhg_tracker_snapshot = snapshot;
 
-	return nhg_event_tracker_hash_find(&nhe->tracker_hash, &key);
+	found = nhg_event_tracker_hash_find(&nhe->tracker_hash, &key);
+
+	/* Skip flushing trackers — they must not be reused */
+	if (found && found->flushing)
+		return NULL;
+
+	return found;
 }
 
 /*
@@ -768,7 +1105,7 @@ static void zebra_nhg_tracker_loop_detection(struct nhg_hash_entry *nhe,
 	for (t = nhg_event_tracker_list_first(&nhe->tracker_list); t; t = next) {
 		next = nhg_event_tracker_list_next(&nhe->tracker_list, t);
 
-		if (t == keeper)
+		if (t == keeper || t->flushing)
 			continue;
 
 		zlog_info("%s: NHG %u loop: collapsing old tracker %u (matched=%u unmatched=%u) into keeper %u (matched=%u unmatched=%u)",
@@ -894,6 +1231,9 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *nhe, i
 	tracker->unmatched_table.vrf_tables = NULL;
 	tracker->unmatched_table.re_count = 0;
 
+	tracker->flush_nhg_groups = list_new();
+	tracker->flush_nhg_groups->del = tracker_flush_nhg_group_free;
+
 	/*
 	 * Inherit the oldest existing tracker's remaining timer so that
 	 * back-to-back interface events don't keep pushing the expiry out
@@ -992,6 +1332,12 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 			tracker_prefix_map_del(&nhe->tracker_prefix_map, entry);
 			XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
 		}
+	}
+
+	/* Free flush NHG group list */
+	if (tracker->flush_nhg_groups) {
+		list_delete(&tracker->flush_nhg_groups);
+		tracker->flush_nhg_groups = NULL;
 	}
 
 	/* Free per-VRF tables (unlocks RIB RNs stored in trn->info) */

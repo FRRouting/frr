@@ -157,6 +157,8 @@ struct route_entry {
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
+/* RE is part of a tracker flush batch phase 1 (awaiting dplane ack) */
+#define ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH 0x100
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
