@@ -797,6 +797,18 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 					(void *)table, (void *)route,
 					route->path.cost, (void *)next,
 					next->path.cost);
+
+			/*
+			 * When a connected route from zebra is seen, it `wins`
+			 * and we need to remove the ospf6 route that was
+			 * already installed that would shadow this connected
+			 * route in the zebra rib.  So let's just send an
+			 * explicit delete to cover this special case.
+			 */
+			if (route->connected && !next->connected &&
+			    table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+				ospf6_zebra_route_delete_prefix(route,
+								(struct ospf6 *)table->scope);
 		}
 
 		route->installed = now;
