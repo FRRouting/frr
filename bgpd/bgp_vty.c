@@ -15854,7 +15854,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 				vty_out(vty, "internal link\n");
 		}
 	/* peer type external or confed-external */
-	} else if (p->as || (p->as_type == AS_EXTERNAL)) {
+	} else if (p->as || CHECK_FLAG(p->as_type, AS_EXTERNAL)) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
