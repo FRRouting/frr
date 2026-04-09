@@ -5655,7 +5655,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL)) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
-		if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+		if (attr->nexthop.s_addr == INADDR_ANY &&
+		    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+		     attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)) {
 			stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V6_LENGTH);
 			stream_putc(s, 0);
 			stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
