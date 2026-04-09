@@ -328,6 +328,10 @@ void pcep_obj_free_tlv(struct pcep_object_tlv_header *tlv)
 
 void pcep_obj_free_object(struct pcep_object_header *obj)
 {
+	/* Ignore NULL object */
+	if (obj == NULL)
+		return;
+
 	/* Iterate the TLVs and free each one */
 	if (obj->tlv_list != NULL) {
 		struct pcep_object_tlv_header *tlv;
