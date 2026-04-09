@@ -3773,7 +3773,8 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
-		if (length != 9) {
+		if (length != BGP_ATTR_PMSI_TUNNEL_V4_LENGTH &&
+		    length != BGP_ATTR_PMSI_TUNNEL_V6_LENGTH) {
 			flog_err(EC_BGP_ATTR_PMSI_LEN,
 				 "Bad PMSI tunnel attribute length %d for IR",
 				 length);
@@ -5654,13 +5655,20 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL)) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
-		stream_putc(s, 9); // Length
-		stream_putc(s, 0); // Flags
-		stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
-		stream_put(s, &(attr->label),
-			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
-		stream_put_ipv4(s, attr->nexthop.s_addr);
-		// Unicast tunnel endpoint IP address
+		if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+			stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V6_LENGTH);
+			stream_putc(s, 0);
+			stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
+			stream_put(s, &attr->label, BGP_LABEL_BYTES);
+			stream_put(s, &attr->mp_nexthop_global, 16);
+		} else {
+			stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V4_LENGTH); // Length
+			stream_putc(s, 0);				// Flags
+			stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
+			stream_put(s, &(attr->label),
+				   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
+			stream_put_ipv4(s, attr->nexthop.s_addr);
+		}
 	}
 
 	/* OTC */
