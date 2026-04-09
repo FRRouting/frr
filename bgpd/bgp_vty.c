@@ -349,14 +349,6 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct srv6_sid_ctx ctx = {};
-	struct bgp *bgp_def = bgp_get_default();
-
-	if (bgp_def && bgp_def != bgp && strlen(bgp_def->srv6_locator_name) &&
-	    strlen(bgp->srv6_locator_name) &&
-	    !strcmp(bgp->srv6_locator_name, bgp_def->srv6_locator_name)) {
-		/* do not flush SIDs, because fallback locator is same */
-		return;
-	}
 
 	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
