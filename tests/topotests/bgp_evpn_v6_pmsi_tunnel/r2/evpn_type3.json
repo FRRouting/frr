@@ -1,0 +1,9 @@
+{
+    "101": {
+        "type": "L2",
+        "numRemoteVteps": 1,
+        "remoteVteps": [
+            "fd00:100::1"
+        ]
+    }
+}
