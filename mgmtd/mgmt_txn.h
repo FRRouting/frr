@@ -116,8 +116,8 @@ extern void mgmt_destroy_txn(uint64_t *txn_id);
  */
 extern void
 mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
-				struct mgmt_ds_ctx *dst_ds_ctx, enum mgmt_ds_id dst_ds_id,
-				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
+				struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
+				struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
 
 /**
