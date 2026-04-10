@@ -1441,11 +1441,11 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	if (nexthop_orig)
 		new->extra->vrfleak->nexthop_orig = *nexthop_orig;
 
-
 	if (leak_update_nexthop_valid(to_bgp, bn, static_attr, afi, safi, source_bpi, new,
 				      bgp_orig, p, debug)) {
 		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
-	else
+		SET_FLAG(new->attr->nh_flags, BGP_ATTR_NH_VALID);
+	} else
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
 	new->attr = bgp_attr_intern(static_attr);
 
