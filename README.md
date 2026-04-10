@@ -1,13 +1,17 @@
 <p align="center">
-<img src="http://docs.frrouting.org/en/latest/_static/frr-icon.svg" alt="Icon" width="20%"/>
+<img src="https://docs.frrouting.org/en/latest/_static/frr-icon.svg" alt="Icon" width="20%"/>
 </p>
 
 FRRouting
 =========
 
+[![github-ci](https://github.com/FRRouting/frr/actions/workflows/github-ci.yml/badge.svg?branch=master)](https://github.com/FRRouting/frr/actions/workflows/github-ci.yml)
+[![Documentation Status](https://readthedocs.org/projects/frrouting/badge/?version=latest)](https://docs.frrouting.org/en/latest/)
+
 FRR is free software that implements and manages various IPv4 and IPv6 routing
 protocols. It runs on nearly all distributions of Linux and BSD and
-supports all modern CPU architectures.
+supports all modern CPU architectures. The project website is
+[frrouting.org](https://frrouting.org/).
 
 FRR currently supports the following protocols:
 
@@ -18,7 +22,7 @@ FRR currently supports the following protocols:
 * RIPv2
 * RIPng
 * IS-IS
-* PIM-SM/MSDP
+* PIM (SM, DM, SSM, MSDP)
 * LDP
 * BFD
 * Babel
@@ -28,28 +32,39 @@ FRR currently supports the following protocols:
 * EIGRP (alpha)
 * NHRP (alpha)
 
+Not every protocol or feature is available on every platform; see the
+[feature matrix](https://docs.frrouting.org/en/latest/about.html#feature-matrix)
+in the user guide.
+
+**Centralized FRR configuration (work in progress):** the **mgmtd** daemon
+applies **YANG** configuration to the routing protocol daemons through the
+**northbound** API (instead of each daemon only having its own legacy
+configuration path). **Not all daemons are migrated yet**; expect ongoing
+changes. See [mgmtd](https://docs.frrouting.org/en/latest/mgmtd.html) in the
+user guide.
+
 Installation & Use
 ------------------
 
 For source tarballs, see the
 [releases page](https://github.com/FRRouting/frr/releases).
 
-For Debian and its derivatives, use the APT repository at
-[https://deb.frrouting.org/](https://deb.frrouting.org/).
+Pre-built packages: APT for Debian and derivatives
+([deb.frrouting.org](https://deb.frrouting.org/)), and RPM for RHEL, Fedora,
+and related distributions ([rpm.frrouting.org](https://rpm.frrouting.org/)).
 
 Instructions on building and installing from source for supported platforms may
 be found in the
-[developer docs](http://docs.frrouting.org/projects/dev-guide/en/latest/building.html).
+[developer docs](https://docs.frrouting.org/projects/dev-guide/en/latest/building.html).
 
-Once installed, please refer to the [user guide](http://docs.frrouting.org/)
+Once installed, please refer to the [user guide](https://docs.frrouting.org/)
 for instructions on use.
 
 Community
 ---------
 
-The FRRouting email list server is located
-[here](https://lists.frrouting.org/listinfo) and offers the following public
-lists:
+See [lists.frrouting.org](https://lists.frrouting.org/) for the list index,
+subscription, and archives. The public lists include:
 
 | Topic             | List                         |
 |-------------------|------------------------------|
@@ -57,20 +72,32 @@ lists:
 | Users & Operators | frog@lists.frrouting.org     |
 | Announcements     | announce@lists.frrouting.org |
 
-For chat, we currently use [Slack](https://frrouting.slack.com). You can join
-by clicking the "Slack" link under the
-[Participate](https://frrouting.org/community) section of our website.
+For chat, we use [Slack](https://frrouting.slack.com). New members can join
+via the invite link on the [community](https://frrouting.org/community/) page.
 
 
 Contributing
 ------------
 
-FRR maintains [developer's documentation](http://docs.frrouting.org/projects/dev-guide/en/latest/index.html)
-which contains the [project workflow](http://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html)
-and expectations for contributors. Some technical documentation on project
-internals is also available.
+See [submitting patches and enhancements](https://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html#submitting-patches-and-enhancements)
+and the [commit guidelines](https://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html#commit-guidelines)
+when contributing. FRR maintains
+[developer's documentation](https://docs.frrouting.org/projects/dev-guide/en/latest/index.html)
+with the full [project workflow](https://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html)
+and contributor expectations; technical documentation on internals is also
+available.
 
 We welcome and appreciate all contributions, no matter how small!
+
+
+License
+-------
+
+Per-file licenses use SPDX identifiers; see `COPYING` and `doc/licenses/`.
+The combined work is generally understood to be distributable under **GNU
+General Public License version 2 or later** (GPLv2+); see `COPYING` for
+details. FRR's documentation uses a separate custom permissive license (see
+`COPYING` for background).
 
 
 Security
