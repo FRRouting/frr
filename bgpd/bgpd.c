@@ -710,6 +710,22 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 	if (as == 0)
 		return;
 
+	/* Check if confederation ID is unchanged */
+	if (bgp->confed_id == as) {
+		/* Check if pretty string is also unchanged */
+		if (bgp->confed_id_pretty && as_str && strmatch(bgp->confed_id_pretty, as_str)) {
+			/* Nothing changed, just return */
+			return;
+		}
+
+		/* confed_id same, but pretty string changed - update only the string */
+		if (bgp->confed_id_pretty)
+			XFREE(MTYPE_BGP_NAME, bgp->confed_id_pretty);
+		bgp->confed_id_pretty = XSTRDUP(MTYPE_BGP_NAME, as_str);
+		/* No peer reset needed */
+		return;
+	}
+
 	/* Remember - were we doing confederation before? */
 	already_confed = bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION);
 	bgp->confed_id = as;
@@ -756,6 +772,9 @@ void bgp_confederation_id_unset(struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
+
+	if (!bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION))
+		return;
 
 	bgp->confed_id = 0;
 	XFREE(MTYPE_BGP_NAME, bgp->confed_id_pretty);
