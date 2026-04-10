@@ -234,7 +234,7 @@ void if_update_state_mtu6(struct interface *ifp, uint mtu)
 		return;
 	ifp->mtu6 = mtu;
 	if (ifp->state && if_notify_oper_changes)
-		nb_op_updatef(ifp->state, "mtu6", "%u", ifp->mtu);
+		nb_op_updatef(ifp->state, "mtu6", "%u", ifp->mtu6);
 }
 
 void if_update_state_hw_addr(struct interface *ifp, const uint8_t *hw_addr, uint len)
