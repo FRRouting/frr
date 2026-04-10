@@ -1206,6 +1206,87 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 	}
 }
 
+/*
+ * Rebuild nhg_depends from the NHE's current nexthop list.
+ * Called after replacing an NHE's nexthop group content in-place
+ * (e.g. during tracker NHG rework).  Releases old dependency edges
+ * and rebuilds them from the new nexthop list.
+ */
+void zebra_nhg_rebuild_depends(struct nhg_hash_entry *nhe)
+{
+	struct nexthop *nh;
+	struct nhg_connected *rb_node_dep;
+
+	/*
+	 * Release old dependency edges: remove this NHE from each
+	 * dependency's nhg_dependents tree, then free the depends tree.
+	 */
+	zebra_nhg_depends_release(nhe);
+	nhg_connected_tree_free(&nhe->nhg_depends);
+
+	/* Re-init the depends tree (nhg_dependents is NOT touched —
+	 * other NHGs that depend on us must keep their backpointers).
+	 */
+	zebra_nhg_depends_init(nhe);
+
+	nh = nhe->nhg.nexthop;
+	if (!nh)
+		return;
+
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+
+	if (nh->next == NULL && nhe->id < ZEBRA_NHG_PROTO_LOWER) {
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			handle_recursive_depend(&nhe->nhg_depends, nh->resolved, nhe->afi,
+						nhe->type);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+		}
+	} else {
+		for (ALL_NEXTHOPS(nhe->nhg, nh)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: nhe %p (%pNG) depend NH %pNHv", __func__, nhe, nhe,
+					   nh);
+
+			depends_find_add(&nhe->nhg_depends, nh, nhe->afi, nhe->type, false);
+		}
+	}
+
+	/*
+	 * Wire backpointers from new dependencies to this NHE.
+	 */
+	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: nhe %p (%pNG), adding backpointer to dep %p (%pNG)",
+				   __func__, nhe, nhe, rb_node_dep->nhe, rb_node_dep->nhe);
+
+		zebra_nhg_dependents_add(rb_node_dep->nhe, nhe);
+	}
+}
+
+/*
+ * Rework an NHG in-place: replace its nexthop list with source_nhe's,
+ * rebuild depends, and rehash in the content hash.  The NHG stays at
+ * the same memory address with the same ID — all re->nhe pointers and
+ * the ID hash remain valid.
+ */
+void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe, struct nhg_hash_entry *source_nhe)
+{
+	zlog_info("%s: reworking NHG %u with source NHG %u content", __func__, nhe->id,
+		  source_nhe->id);
+
+	/* Remove from content hash (ID hash untouched) */
+	hash_release(zrouter.nhgs, nhe);
+	nexthops_free(nhe->nhg.nexthop);
+	nhe->nhg.nexthop = NULL;
+
+	/* Rebuild nhg_depends from the new nexthop list */
+	nexthop_group_copy(&nhe->nhg, &source_nhe->nhg);
+	zebra_nhg_rebuild_depends(nhe);
+
+	/* Re-insert into content hash */
+	hash_get(zrouter.nhgs, nhe, hash_alloc_intern);
+}
+
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -3292,6 +3373,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 {
 	struct nhg_hash_entry *curr_nhe, *remove;
 	uint32_t curr_active = 0, backup_active = 0;
+	bool tracker_reworked;
 
 	if (PROTO_OWNED(re->nhe) ||
 	    CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL))
@@ -3313,8 +3395,18 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	/* Clear the existing id, if any: this will avoid any confusion
 	 * if the id exists, and will also force the creation
 	 * of a new nhe reflecting the changes we may make in this local copy.
+	 *
+	 * Exception: when TRACKER_REWORKED is set on the NHG, keep the ID
+	 * so zebra_nhg_rib_find_nhe returns the same NHG via ID lookup.
+	 * This flag is set only at the start of phase 2 (winner processing),
+	 * so phase 1 losers never see it.  The first winner RE consumes it.
 	 */
-	curr_nhe->id = 0;
+	tracker_reworked = CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_TRACKER_REWORKED);
+
+	if (tracker_reworked)
+		UNSET_FLAG(re->nhe->flags, NEXTHOP_GROUP_TRACKER_REWORKED);
+	else
+		curr_nhe->id = 0;
 
 	/* Process nexthops */
 	curr_active = nexthop_list_active_update(rn, re, curr_nhe, false);
@@ -3337,6 +3429,34 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 backups_done:
 
 	/*
+	 * Second NHG rework: for the first winner RE after tracker flush,
+	 * copy the resolved curr_nhe content back into re->nhe (NHG-10).
+	 * This updates NHG-10's nexthop list with resolved gateways,
+	 * ifindexes, and ACTIVE flags so the content hash is correct
+	 * and subsequent winner REs find NHG-10 via content lookup.
+	 *
+	 * Condition: the number of active NHs after resolution must equal
+	 * the number of NHs in the reworked NHG (re->nhe).  If they differ,
+	 * a route-map changed the NH set — skip the rework and let this
+	 * RE get a new NHG normally.
+	 */
+	if (tracker_reworked) {
+		uint16_t resolved_active = nexthop_group_active_nexthop_num(&curr_nhe->nhg);
+		uint16_t incoming_count = nexthop_group_nexthop_num(&re->nhe->nhg);
+
+		if (resolved_active == incoming_count) {
+			zlog_info("%s: second rework: copying resolved state to NHG %u (active=%u incoming=%u)",
+				  __func__, re->nhe->id, resolved_active, incoming_count);
+			zebra_nhg_rework_in_place(re->nhe, curr_nhe);
+		} else {
+			zlog_info("%s: second rework skipped for NHG %u (active=%u != incoming=%u), route-map mismatch",
+				  __func__, re->nhe->id, resolved_active, incoming_count);
+			tracker_reworked = false;
+			curr_nhe->id = 0;
+		}
+	}
+
+	/*
 	 * Ref or create an nhe that matches the current state of the
 	 * nexthop(s).
 	 */
@@ -3347,8 +3467,14 @@ backups_done:
 
 		remove = new_nhe;
 
-		if (old_re && old_re->type == re->type && old_re->instance == re->instance &&
-		    new_nhe != old_re->nhe)
+		/*
+		 * Skip the old-NHG compare when the NHG was tracker-reworked:
+		 * zebra_nhg_rib_find_nhe already returned NHG-10 by ID lookup,
+		 * and we must keep using it — comparing with old_re->nhe could
+		 * switch to a different NHG and break the ID reuse.
+		 */
+		if (!tracker_reworked && old_re && old_re->type == re->type &&
+		    old_re->instance == re->instance && new_nhe != old_re->nhe)
 			new_nhe = zebra_nhg_rib_compare_old_nhe(rn, re, new_nhe,
 								old_re->nhe);
 
@@ -3365,6 +3491,16 @@ backups_done:
 		 */
 		if (remove && remove != new_nhe && remove != re->nhe && remove->refcnt == 0)
 			zebra_nhg_handle_uninstall(remove);
+
+		/*
+		 * If this RE is part of a flush batch(phase1) and the NHG is changing,
+		 * carry the parent NHG ID to the new NHE so the dplane ack
+		 * can still find the flushing tracker for phase2 processing.
+		 */
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH) && re->nhe &&
+		    new_nhe != re->nhe && re->nhe->tracker_flush_batch_parent_nhg_id)
+			new_nhe->tracker_flush_batch_parent_nhg_id =
+				re->nhe->tracker_flush_batch_parent_nhg_id;
 
 		route_entry_update_nhe(re, new_nhe);
 	}
@@ -4397,5 +4533,12 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		if (!first)
 			strlcat(buf, ", ", len);
 		strlcat(buf, "Initial Delay", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_TRACKER_REWORKED)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Tracker Reworked", len);
+		first = false;
 	}
 }

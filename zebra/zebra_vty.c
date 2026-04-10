@@ -712,7 +712,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		vty_out(vty, " ECMP/FIB count: %u/%u", nh_ecmp_count, fib_nh_count);
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ||
 		    CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH)) {
 			bool first = true;
 
 			vty_out(vty, " Status: ");
@@ -726,8 +728,18 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				first = false;
 			}
 
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
 				vty_out(vty, "%sFailed", first ? "" : ",");
+				first = false;
+			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER)) {
+				vty_out(vty, "%sTracker", first ? "" : ",");
+				first = false;
+			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+				vty_out(vty, "%sFlush Batch", first ? "" : ",");
 		}
 
 		if (re->nhe && re->nhe->flags) {

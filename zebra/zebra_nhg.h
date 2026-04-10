@@ -191,6 +191,25 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 
 #define NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL (1 << 10)
+
+/*
+ * Set by the tracker flush rework when the NHG's nexthop list has been
+ * replaced in-place.  Signals nexthop_active_update to keep the copy's
+ * ID (instead of zeroing it) so the ID lookup returns this same NHG
+ * after resolution — preserving the NHG ID for route reuse.
+ * Cleared after the first nexthop_active_update pass for this NHG.
+ */
+#define NEXTHOP_GROUP_TRACKER_REWORKED (1 << 11)
+
+	/*
+	 * Transient: set during tracker flush batch to the parent NHG ID
+	 * that owns the flushing tracker.  Used by the dplane ack path
+	 * to find the flushing tracker when re->nhe changes during
+	 * rib_process (e.g. loser RE resolves to a new NHG).
+	 * Cleared when the tracker flush completes.
+	 */
+	uint32_t tracker_flush_batch_parent_nhg_id;
+
 	/* Head of rb_tree of route_entries(re's)*/
 	struct nhe_re_tree_head re_head;
 };
@@ -416,6 +435,13 @@ extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 
 /* Sweep the nhg hash tables for old entries on restart */
 extern void zebra_nhg_sweep_table(struct hash *hash, bool stale_sweep);
+
+/* Rebuild nhg_depends from the NHE's current nexthop list (after in-place rework) */
+extern void zebra_nhg_rebuild_depends(struct nhg_hash_entry *nhe);
+
+/* Rework an NHG in-place: replace nexthop list, rebuild depends, rehash */
+extern void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe,
+				      struct nhg_hash_entry *source_nhe);
 
 /*
  * We are shutting down but the nexthops should be kept

@@ -738,14 +738,24 @@ static void tracker_flush_batch_process_table(struct nhg_hash_entry *parent_nhe,
 		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
 			struct route_node *rn;
 			struct route_entry *re;
+			bool processed_new_re = false;
 
 			if (!trn->info)
 				continue;
 			rn = trn->info;
 
+			/*
+			 * First pass: release incoming (CHANGED) REs that
+			 * pass the filter/exclude criteria.  Old installed
+			 * REs (!CHANGED) are skipped here — they are handled
+			 * in the second pass below.
+			 */
 			RNODE_FOREACH_RE (rn, re) {
 				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
 					continue;
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
+					continue;
+
 				if (filter_nhg_id && re->nhe && re->nhe->id != filter_nhg_id)
 					continue;
 				if (exclude_nhg_id && re->nhe && re->nhe->id == exclude_nhg_id)
@@ -757,12 +767,44 @@ static void tracker_flush_batch_process_table(struct nhg_hash_entry *parent_nhe,
 					route_entry_update_nhe(re, parent_nhe);
 
 				if (track_pending) {
+					/*
+					 * Record the parent NHG ID on the RE's
+					 * NHE so the dplane ack can find the
+					 * flushing tracker even if re->nhe
+					 * changes during rib_process resolution.
+					 */
 					SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+					if (re->nhe)
+						re->nhe->tracker_flush_batch_parent_nhg_id =
+							parent_nhe->id;
 					tracker->routes_pending++;
 				}
+				processed_new_re = true;
 			}
 
-			rib_queue_add(rn);
+			/*
+			 * Second pass: clear TRACKER on old installed REs
+			 * only when at least one new RE was released above.
+			 *
+			 * Old REs (REMOVED + TRACKER + !CHANGED) are kept
+			 * alive by rib_process while TRACKER is set.
+			 * Clearing it lets rib_process remove the old RE
+			 * alongside installing the new one.
+			 *
+			 * When no new RE passed the filters (all excluded),
+			 * old REs must keep TRACKER — otherwise rib_process
+			 * finds no installable candidate, uninstalls the
+			 * prefix from FIB, and frees the parent NHG's
+			 * refcount prematurely.
+			 */
+			if (processed_new_re) {
+				RNODE_FOREACH_RE (rn, re) {
+					if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
+					    !CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
+						UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+				}
+				rib_queue_add(rn);
+			}
 		}
 	}
 }
@@ -779,10 +821,27 @@ static void tracker_flush_batch_finish(struct nhg_hash_entry *nhe,
 }
 
 /*
- * Phase 2: update the parent NHG and process winner REs.
+ * Rework the parent NHG in-place with the winner NHG's nexthop list.
  *
- * 1. Transfer winner NHG's NH active states to the parent NHG.
- * 2. Set REINSTALL and install the parent NHG to kernel.
+ * 1. Remove parent NHG from the content hash (zrouter.nhgs).
+ * 2. Release old nhg_depends edges and free old nexthop list.
+ * 3. Copy the winner NHG's full nexthop list (all NHs the protocol sent).
+ * 4. Rebuild nhg_depends from the new nexthop list.
+ * 5. Re-insert into the content hash (collision deferred).
+ *
+ * The NHG stays at the same memory address and keeps the same ID,
+ * so all re->nhe pointers and the ID hash remain valid.
+ */
+static void tracker_flush_rework_nhg(struct nhg_hash_entry *nhe, struct nhg_hash_entry *winner_nhe)
+{
+	zebra_nhg_rework_in_place(nhe, winner_nhe);
+}
+
+/*
+ * Phase 2: rework the parent NHG and process winner REs.
+ *
+ * 1. Structurally rework the parent NHG with the winner's nexthop list.
+ * 2. Set REINSTALL and install the updated NHG to kernel.
  * 3. Send winner REs through rib_process.
  */
 static void tracker_flush_batch_start_phase2(struct nhg_hash_entry *nhe,
@@ -803,34 +862,18 @@ static void tracker_flush_batch_start_phase2(struct nhg_hash_entry *nhe,
 		  tracker->winner_nhg_id, tracker->winner_is_matched ? "matched" : "unmatched");
 
 	/*
-	 * If winner is unmatched, update the parent NHG's NH active states
-	 * to reflect the winner, then reinstall to kernel.
+	 * Set TRACKER_REWORKED now — right before sending winner REs.
+	 * This flag is NOT set during phase 1, so phase 1 loser REs
+	 * go through normal nexthop_active_update without triggering
+	 * the second rework.  The first winner RE consumes and clears it.
+	 *
+	 * The first rework was already done before phase 1.  REINSTALL
+	 * is already set.  The first winner RE triggers the second rework
+	 * in nexthop_active_update (copies resolved state back to NHG-10).
+	 * Subsequent winner REs find NHG-10 via content lookup.
 	 */
-	if (!tracker->winner_is_matched && tracker->winner_nhe && tracker->winner_nhe != nhe) {
-		struct nexthop *orig_nh, *win_nh;
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_TRACKER_REWORKED);
 
-		zlog_info("%s: transferring NH state from winner NHG %u to parent NHG %u",
-			  __func__, tracker->winner_nhg_id, nhe->id);
-
-		for (orig_nh = nhe->nhg.nexthop, win_nh = tracker->winner_nhe->nhg.nexthop;
-		     orig_nh && win_nh; orig_nh = orig_nh->next, win_nh = win_nh->next) {
-			if (CHECK_FLAG(win_nh->flags, NEXTHOP_FLAG_ACTIVE))
-				SET_FLAG(orig_nh->flags, NEXTHOP_FLAG_ACTIVE);
-			else
-				UNSET_FLAG(orig_nh->flags, NEXTHOP_FLAG_ACTIVE);
-		}
-	}
-
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
-	zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
-
-	/*
-	 * Send winner REs through rib_process (no ack tracking needed).
-	 * The parent NHG is already updated and installed — winner routes
-	 * will use the same NHG ID so dplane skips the route install.
-	 * Matched winner: walk matched table, update NHE to parent.
-	 * Unmatched winner: walk unmatched table filtered to winner NHG.
-	 */
 	if (tracker->winner_is_matched) {
 		tracker_flush_batch_process_table(nhe, tracker, &tracker->matched_table, 0, 0,
 						  true, false);
@@ -870,11 +913,24 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 		return;
 
 	/*
-	 * The RE may have been switched to a new NHG by rib_process.
-	 * Find the flushing tracker on the RE's current NHG.
+	 * The RE may have been switched to a new NHG by rib_process
+	 * (e.g. loser NHG-31 resolved to NHG-37).  Try the current
+	 * NHG first; if no flushing tracker there, use the parent NHG
+	 * ID that was carried forward from the original NHG.
 	 */
 	nhe = re->nhe;
 	tracker = tracker_find_flushing(nhe);
+	if (!tracker && nhe->tracker_flush_batch_parent_nhg_id) {
+		struct nhg_hash_entry *parent;
+
+		parent = zebra_nhg_lookup_id(nhe->tracker_flush_batch_parent_nhg_id);
+		if (parent)
+			tracker = tracker_find_flushing(parent);
+
+		/* Clear the transient parent ID now that we've used it */
+		nhe->tracker_flush_batch_parent_nhg_id = 0;
+	}
+
 	if (!tracker)
 		return;
 
@@ -921,6 +977,25 @@ static void tracker_flush_batch_start_phase1(struct nhg_hash_entry *nhe,
 	bool has_phase1 = false;
 	struct tracker_flush_nhg_group *g;
 	struct listnode *node;
+
+	/*
+	 * Rework NHG-10 BEFORE sending any routes.  This prevents phase 1
+	 * loser REs from claiming the old NHG-10 content via
+	 * zebra_nhg_rib_compare_old_nhe during their rib_process.  After
+	 * rework, NHG-10 has the winner's NH content so losers (different
+	 * NH set) won't match it.
+	 *
+	 * TRACKER_REWORKED signals nexthop_active_update to keep the
+	 * NHG ID on the copy and do the second rework (resolved state
+	 * copy-back) for the first winner RE.
+	 */
+	if (!tracker->winner_is_matched && tracker->winner_nhe && tracker->winner_nhe != nhe) {
+		zlog_info("%s: first rework NHG %u (id stays %u) with winner NHG %u content before phase 1",
+			  __func__, nhe->id, nhe->id, tracker->winner_nhe->id);
+		tracker_flush_rework_nhg(nhe, tracker->winner_nhe);
+	}
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
 
 	/* Check if there are any phase 1 groups */
 	if (!tracker->winner_is_matched && tracker->matched_table.re_count > 0)
