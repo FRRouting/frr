@@ -461,7 +461,7 @@ bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh
 	if (nh1 == nh2)
 		return true;
 
-	return nexthop_cmp_internal(nh1, nh2, true, false);
+	return (nexthop_cmp_internal(nh1, nh2, true, false) == 0);
 }
 
 bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
