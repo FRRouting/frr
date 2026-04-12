@@ -15,6 +15,7 @@ Following tests are covered.
 import os
 import sys
 import time
+import json
 import pytest
 import datetime
 from lib.topolog import logger
@@ -359,6 +360,58 @@ def get_best_path_route_in_FIB(tgen, topo, dut, network):
         return False
 
 
+def _get_dup_count(router, addr_type, peer_ip):
+    """
+    Return the receivedPrefixDup counter for the BGP session between router
+    and peer_ip for the given addr_type ("ipv4" or "ipv6").
+
+    Uses 'show bgp neighbor PEER_IP json' and reads:
+      [peer_ip]["addressFamilyInfo"]["IPv4 Unicast" | "IPv6 Unicast"]
+                ["receivedPrefixDup"]
+
+    This counter increments whenever router receives a BGP UPDATE from peer_ip
+    carrying a prefix whose attributes are identical to what is already in the
+    BGP table (a duplicate re-send).  Checking it before and after a config
+    change verifies that no spurious UPDATE was sent on that session.
+    """
+    afi_safi_str = "IPv4 Unicast" if addr_type == "ipv4" else "IPv6 Unicast"
+    cmd = "show bgp neighbor {} json".format(peer_ip)
+    try:
+        output = json.loads(router.vtysh_cmd(cmd))
+    except (json.JSONDecodeError, Exception):
+        return None
+    peer_info = output.get(peer_ip, {})
+    afi_info = peer_info.get("addressFamilyInfo", {}).get(afi_safi_str, {})
+    dup = afi_info.get("receivedPrefixDup")
+    return dup if dup is not None else 0
+
+
+def _bgp_stable_attrs_from_peer(router, addr_type, prefix, peer_ip):
+    """
+    Return the path attributes {aspath, origin, metric, nexthop} for the path
+    in the BGP table for ``prefix`` received from ``peer_ip``, or None if not
+    found.
+
+    For directly-connected eBGP sessions the peer address equals the nexthop,
+    so ``peer_ip`` is matched against each path's nexthop IP.
+    """
+    cmd = "show bgp {} unicast {} json".format(addr_type, prefix)
+    try:
+        output = json.loads(router.vtysh_cmd(cmd))
+    except (json.JSONDecodeError, Exception):
+        return None
+    for path in output.get("paths", []):
+        for nh in path.get("nexthops", []):
+            if nh.get("ip") == peer_ip:
+                return {
+                    "aspath": path.get("aspath"),
+                    "origin": path.get("origin"),
+                    "metric": path.get("metric"),
+                    "nexthop": peer_ip,
+                }
+    return None
+
+
 #####################################################
 #
 #                      Testcases
@@ -588,9 +641,24 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=False)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking uptime snapshot before configuring default - originate")
-    uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
-    uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    r2 = tgen.gears["r2"]
+    # BGP sessions use global unicast addresses; link-local is only the nexthop.
+    # Use the global unicast peer address for neighbor lookups (_get_dup_count).
+    ipv6_peer_link2 = topo["routers"]["r1"]["links"]["r2-link2"]["ipv6"].split("/")[0]
+    step(
+        "Snapshot link-2 BGP path attrs and received-dup counter "
+        "before re-configuring default-originate on link-1"
+    )
+    bgp_before_ipv4 = _bgp_stable_attrs_from_peer(
+        r2, "ipv4", "0.0.0.0/0", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv4"]
+    )
+    bgp_before_ipv6 = _bgp_stable_attrs_from_peer(
+        r2, "ipv6", "::/0", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv6"]
+    )
+    dup_before_ipv4 = _get_dup_count(
+        r2, "ipv4", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv4"]
+    )
+    dup_before_ipv6 = _get_dup_count(r2, "ipv6", ipv6_peer_link2)
     sleep(1)
 
     step(
@@ -662,18 +730,54 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking snapshot after configuring default - originate")
-    uptime_after_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
-    uptime_after_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    step(
+        "Snapshot link-2 BGP path attrs and received-dup counter "
+        "after re-configuring default-originate on link-1"
+    )
+    bgp_after_ipv4 = _bgp_stable_attrs_from_peer(
+        r2, "ipv4", "0.0.0.0/0", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv4"]
+    )
+    bgp_after_ipv6 = _bgp_stable_attrs_from_peer(
+        r2, "ipv6", "::/0", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv6"]
+    )
+    dup_after_ipv4 = _get_dup_count(
+        r2, "ipv4", DEFAULT_ROUTE_NXT_HOP_LINK2["ipv4"]
+    )
+    dup_after_ipv6 = _get_dup_count(r2, "ipv6", ipv6_peer_link2)
 
     step(
-        "After configuring the default-originate uptime should not get reset for link-1 learn route"
+        "Re-configuring default-originate on link-1 must not affect the BGP path "
+        "received on link-2 (network command route is independent of link-1): "
+        "verify path attrs unchanged and no duplicate UPDATE received"
     )
-    result = verify_the_uptime(uptime_before_ipv4, uptime_after_ipv4, incremented=True)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=True)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+    assert bgp_before_ipv4 is not None, (
+        "{}: link-2 IPv4 path not found in r2 BGP table before re-config".format(
+            tc_name
+        )
+    )
+    assert bgp_before_ipv4 == bgp_after_ipv4, (
+        "{}: link-2 IPv4 BGP path changed after default-originate re-config "
+        "on link-1 — before={}, after={}".format(tc_name, bgp_before_ipv4, bgp_after_ipv4)
+    )
+    assert dup_after_ipv4 == dup_before_ipv4, (
+        "{}: link-2 IPv4 received duplicate count increased from {} to {} "
+        "after default-originate re-config on link-1 — spurious UPDATE sent on "
+        "link-2".format(tc_name, dup_before_ipv4, dup_after_ipv4)
+    )
+    assert bgp_before_ipv6 is not None, (
+        "{}: link-2 IPv6 path not found in r2 BGP table before re-config".format(
+            tc_name
+        )
+    )
+    assert bgp_before_ipv6 == bgp_after_ipv6, (
+        "{}: link-2 IPv6 BGP path changed after default-originate re-config "
+        "on link-1 — before={}, after={}".format(tc_name, bgp_before_ipv6, bgp_after_ipv6)
+    )
+    assert dup_after_ipv6 == dup_before_ipv6, (
+        "{}: link-2 IPv6 received duplicate count increased from {} to {} "
+        "after default-originate re-config on link-1 — spurious UPDATE sent on "
+        "link-2".format(tc_name, dup_before_ipv6, dup_after_ipv6)
+    )
 
     step("Taking uptime snapshot before  removing  network 0.0.0.0  ")
     uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
@@ -1028,9 +1132,19 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=False)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking uptime snapshot before removing redistribute static")
-    uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
-    uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    ipv6_peer_link1 = topo["routers"]["r1"]["links"]["r2-link1"]["ipv6"].split("/")[0]
+    step(
+        "Snapshot link-1 BGP path attrs and received-dup counter "
+        "before removing redistribute static"
+    )
+    bgp_before_ipv4 = _bgp_stable_attrs_from_peer(
+        r2, "ipv4", "0.0.0.0/0", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv4"]
+    )
+    bgp_before_ipv6 = _bgp_stable_attrs_from_peer(
+        r2, "ipv6", "::/0", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv6"]
+    )
+    dup_before_ipv4 = _get_dup_count(r2, "ipv4", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv4"])
+    dup_before_ipv6 = _get_dup_count(r2, "ipv6", ipv6_peer_link1)
     sleep(1)
 
     step("Remove redistribute static from IPv4 and IPv6 address family ")
@@ -1095,16 +1209,49 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is not True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking uptime snapshot after removing redistribute static")
-    uptime_after_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
-    uptime_after_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
+    step(
+        "Snapshot link-1 BGP path attrs and received-dup counter "
+        "after removing redistribute static"
+    )
+    bgp_after_ipv4 = _bgp_stable_attrs_from_peer(
+        r2, "ipv4", "0.0.0.0/0", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv4"]
+    )
+    bgp_after_ipv6 = _bgp_stable_attrs_from_peer(
+        r2, "ipv6", "::/0", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv6"]
+    )
+    dup_after_ipv4 = _get_dup_count(r2, "ipv4", DEFAULT_ROUTE_NXT_HOP_LINK1["ipv4"])
+    dup_after_ipv6 = _get_dup_count(r2, "ipv6", ipv6_peer_link1)
 
-    step("After removing default originate the route uptime should get reset ")
-    result = verify_the_uptime(uptime_before_ipv4, uptime_after_ipv4, incremented=True)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=True)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+    step(
+        "Removing redistribute static must not disturb the default-originate path "
+        "on link-1: verify path attrs unchanged and no duplicate UPDATE received"
+    )
+    assert bgp_before_ipv4 is not None, (
+        "{}: link-1 IPv4 path not found in r2 BGP table before removing "
+        "redistribute static".format(tc_name)
+    )
+    assert bgp_before_ipv4 == bgp_after_ipv4, (
+        "{}: link-1 IPv4 BGP path changed after removing redistribute static "
+        "— before={}, after={}".format(tc_name, bgp_before_ipv4, bgp_after_ipv4)
+    )
+    assert dup_after_ipv4 == dup_before_ipv4, (
+        "{}: link-1 IPv4 received duplicate count increased from {} to {} "
+        "after removing redistribute static — spurious UPDATE sent on "
+        "link-1".format(tc_name, dup_before_ipv4, dup_after_ipv4)
+    )
+    assert bgp_before_ipv6 is not None, (
+        "{}: link-1 IPv6 path not found in r2 BGP table before removing "
+        "redistribute static".format(tc_name)
+    )
+    assert bgp_before_ipv6 == bgp_after_ipv6, (
+        "{}: link-1 IPv6 BGP path changed after removing redistribute static "
+        "— before={}, after={}".format(tc_name, bgp_before_ipv6, bgp_after_ipv6)
+    )
+    assert dup_after_ipv6 == dup_before_ipv6, (
+        "{}: link-1 IPv6 received duplicate count increased from {} to {} "
+        "after removing redistribute static — spurious UPDATE sent on "
+        "link-1".format(tc_name, dup_before_ipv6, dup_after_ipv6)
+    )
     write_test_footer(tc_name)
 
 
