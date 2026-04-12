@@ -144,6 +144,7 @@ struct tracker_flush_event {
 	uint32_t tracker_id;
 	uint32_t matched;
 	uint32_t unmatched;
+	uint32_t deleted;
 	uint32_t orig_re_count;
 };
 

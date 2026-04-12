@@ -4737,6 +4737,7 @@ DEFUN (show_zebra_tracker,
 			json_object_int_add(jev, "trackerId", evt->tracker_id);
 			json_object_int_add(jev, "matched", evt->matched);
 			json_object_int_add(jev, "unmatched", evt->unmatched);
+			json_object_int_add(jev, "deleted", evt->deleted);
 			json_object_int_add(jev, "origReCount",
 					    evt->orig_re_count);
 			json_object_array_add(arr, jev);
@@ -4774,11 +4775,10 @@ DEFUN (show_zebra_tracker,
 				&zrouter.tracker_counters.log[idx];
 
 			vty_out(vty,
-				"  Event %u: NHG %" PRIu32 " tracker %" PRIu32
-				" matched=%" PRIu32 " unmatched=%" PRIu32
-				" orig_re=%" PRIu32 "\n",
-				i, evt->nhg_id, evt->tracker_id, evt->matched,
-				evt->unmatched, evt->orig_re_count);
+				"  Event %u: NHG %" PRIu32 " tracker %" PRIu32 " matched=%" PRIu32
+				" unmatched=%" PRIu32 " deleted=%" PRIu32 " orig_re=%" PRIu32 "\n",
+				i, evt->nhg_id, evt->tracker_id, evt->matched, evt->unmatched,
+				evt->deleted, evt->orig_re_count);
 		}
 	}
 

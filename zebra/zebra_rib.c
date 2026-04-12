@@ -4008,7 +4008,19 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 					  old_re->nhe ? old_re->nhe->id : 0, rn);
 				orig_nhe = old_re->nhe;
 				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
-				SET_FLAG(old_re->status, ROUTE_ENTRY_TRACKER);
+				if (tracker && !CHECK_FLAG(old_re->status, ROUTE_ENTRY_TRACKER)) {
+					/*
+					 * Register this rn in the tracker's
+					 * delete_table (without a prefix_map entry).
+					 * The old RE will soon be marked REMOVED by
+					 * rib_delnode; putting the rn in delete_table
+					 * guarantees the tracker flush visits it and
+					 * clears TRACKER, even if the new RE is later
+					 * evicted from matched/unmatched during rapid
+					 * NHG churn.
+					 */
+					SET_FLAG(old_re->status, ROUTE_ENTRY_TRACKER);
+				}
 				break;
 			}
 		}

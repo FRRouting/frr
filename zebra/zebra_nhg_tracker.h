@@ -93,6 +93,9 @@ struct nhg_event_tracker {
 	/* Prefixes whose nexthops do NOT match nhg_tracker_snapshot */
 	struct nhg_tracker_table unmatched_table;
 
+	/* Route deletions (ZEBRA_ROUTE_DELETE) parked while tracker is active */
+	struct nhg_tracker_table delete_table;
+
 	/* Started on tracker creation; repurposed as safety timer during flush */
 	struct event *timer;
 
