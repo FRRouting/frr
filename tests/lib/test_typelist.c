@@ -187,7 +187,6 @@ static void test_rb_pop(void)
 {
 	int i;
 	struct rtree_head head;
-	struct item *ptr;
 
 	rtree_init(&head);
 
