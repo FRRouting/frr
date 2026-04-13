@@ -118,20 +118,18 @@ extern struct debug mgmt_dbg_fe_client;
 	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
 
 /*
- * Initialize library and try connecting with MGMTD FrontEnd interface.
+ * mgmt_fe_client_create() - Create a mgmt front-end client connection
+ * @client_name: Name of the client (used for logging and debugging).
+ * @cbs: Callbacks for the client to receive notifications for various events.
+ * @user_data: Opaque data passed to client callbacks.
+ * @is_mgmtd: True if the client being created is for mgmtd itself, false otherwise.
+ * @event_loop: Event loop to use for processing events for this client.
  *
- * params
- *    Frontend client parameters.
- *
- * master_thread
- *    Thread master.
- *
- * Returns:
- *    Frontend client lib handler (nothing but address of mgmt_fe_client)
  */
-extern struct mgmt_fe_client *
-mgmt_fe_client_create(const char *client_name, struct mgmt_fe_client_cbs *cbs,
-		      uintptr_t user_data, struct event_loop *event_loop);
+extern struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
+						    struct mgmt_fe_client_cbs *cbs,
+						    uintptr_t user_data, bool is_mgmtd,
+						    struct event_loop *event_loop);
 
 /*
  * Initialize library vty (adds debug support).

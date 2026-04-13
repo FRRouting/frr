@@ -891,7 +891,7 @@ void vty_mgmt_init(void)
 	assert(mm->master);
 	assert(!mgmt_fe_client);
 	snprintf(name, sizeof(name), "vty-%s-%ld", frr_get_progname(), (long)getpid());
-	mgmt_fe_client = mgmt_fe_client_create(name, &mgmt_cbs, 0, mm->master);
+	mgmt_fe_client = mgmt_fe_client_create(name, &mgmt_cbs, 0, true, mm->master);
 	vty_new_mgmt_cb = vty_new_mgmt;
 	vty_close_mgmt_cb = vty_close_mgmt;
 	assert(mgmt_fe_client);

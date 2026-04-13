@@ -787,9 +787,8 @@ DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
  * Initialize library and try connecting with MGMTD.
  */
 struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
-					     struct mgmt_fe_client_cbs *cbs,
-					     uintptr_t user_data,
-					     struct event_loop *event_loop)
+					     struct mgmt_fe_client_cbs *cbs, uintptr_t user_data,
+					     bool is_mgmtd, struct event_loop *event_loop)
 {
 	struct mgmt_fe_client *client;
 	char server_path[MAXPATHLEN];
@@ -809,12 +808,10 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 
 	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
 
-	msg_client_init(&client->client, event_loop, server_path,
-			mgmt_fe_client_notify_connect,
-			mgmt_fe_client_notify_disconnect,
-			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MAX_MSG_LEN, true,
-			"FE-client", debug_check_fe_client());
+	msg_client_init(&client->client, event_loop, server_path, mgmt_fe_client_notify_connect,
+			mgmt_fe_client_notify_disconnect, mgmt_fe_client_process_msg,
+			MGMTD_FE_MAX_NUM_MSG_PROC, MGMTD_FE_MAX_NUM_MSG_WRITE,
+			MGMTD_FE_MAX_MSG_LEN, is_mgmtd, "FE-client", debug_check_fe_client());
 
 	debug_fe_client("Initialized client '%s'", client_name);
 
