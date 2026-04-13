@@ -599,6 +599,42 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 	}
 }
 
+/**
+ * Find an active key
+ *
+ * @param keychain The keychain to search within.
+ * @return The active key, or NULL if no active key is found.
+ */
+struct key *bfd_keychain_key_find_active(const struct keychain *keychain)
+{
+	struct listnode *node;
+	struct key *key;
+	struct timespec now_ts;
+	time_t now_sec;
+
+	if (!keychain)
+		return NULL;
+
+	clock_gettime(CLOCK_REALTIME, &now_ts);
+	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT)
+			continue;
+		if (!key->string)
+			continue;
+		if (strlen(key->string) < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN)
+			continue;
+		if (strlen(key->string) > BFD_AUTH_SIMPLE_PASSWD_MAX_LEN)
+			continue;
+		if (key->send.start == 0 || /* Always valid if start is 0 */
+		    (key->send.start <= now_sec &&
+		     (key->send.end >= now_sec || key->send.end == (time_t)-1))) /* -1 for infinite */
+			return key;
+	}
+	return NULL;
+}
+
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 {
 	/* Send the scheduled control packet */

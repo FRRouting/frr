@@ -688,6 +688,7 @@ void bfd_profiles_remove(void);
 extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
 							     bool meticulous);
 extern const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type);
+extern struct key *bfd_keychain_key_find_active(const struct keychain *keychain);
 void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
 int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
