@@ -1028,10 +1028,17 @@ int ospf_distribute_check_connected(struct ospf *ospf, struct external_info *ei)
 	struct listnode *node;
 	struct ospf_interface *oi;
 
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		struct prefix address;
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (prefix_match(oi->address, (struct prefix *)&ei->p))
+		/* Clean up the address by removing the mask part */
+		prefix_copy(&address, oi->address);
+		apply_mask(&address);
+
+		if (prefix_same(&address, (struct prefix *)&ei->p))
 			return 0;
+	}
+
 	return 1;
 }
 
