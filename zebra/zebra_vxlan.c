@@ -790,8 +790,8 @@ static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 			"  Number of MACs (local and remote) known for this VNI: %lu\n",
 			hashcount(zl3vni->rmac_table));
 		vty_out(vty,
-			"  Number of ARPs (IPv4 and IPv6, local and remote) known for this VNI: %lu\n",
-			hashcount(zl3vni->nh_table));
+			"  Number of ARPs (IPv4 and IPv6, local and remote) known for this VNI: %zu\n",
+			zebra_neigh_db_count(zl3vni->nh_table));
 		vty_out(vty, "  L2 VNIs: ");
 		for (ALL_LIST_ELEMENTS(zl3vni->l2vnis, node, nnode, zevpn))
 			vty_out(vty, "%u ", zevpn->vni);
@@ -828,8 +828,7 @@ static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 		}
 		json_object_int_add(json, "numMacs",
 				    hashcount(zl3vni->rmac_table));
-		json_object_int_add(json, "numArpNd",
-				    hashcount(zl3vni->nh_table));
+		json_object_int_add(json, "numArpNd", zebra_neigh_db_count(zl3vni->nh_table));
 		json_object_object_add(json, "l2Vnis", json_evpn_list);
 	}
 }
