@@ -476,9 +476,10 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 
 	/* Authentication Handling */
 	if (bfd->kc) {
-		key = bfd_keychain_key_find_active(bfd->kc);
+		key = bfd_keychain_key_find_active(bfd->kc, bfd->auth_meticulous);
 		if (key)
-			pkt_auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, false);
+			pkt_auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo,
+									   bfd->auth_meticulous);
 	}
 	if (pkt_auth_type == BFD_AUTH_TYPE_SIMPLE_PASSWORD) {
 		auth_section_len = 3 + strlen(key->string);
@@ -497,7 +498,8 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		memcpy(auth_payload_ptr, key->string, strlen(key->string));
 
 #ifdef CRYPTO_OPENSSL
-	} else if (pkt_auth_type == BFD_AUTH_TYPE_KEYED_SHA1) {
+	} else if ((pkt_auth_type == BFD_AUTH_TYPE_KEYED_SHA1) ||
+		   (pkt_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1)) {
 		const EVP_MD *md_alg = EVP_sha1();
 		unsigned int digest_len = 0;
 		unsigned char digest[20]; // SHA1 is always 20 bytes
@@ -942,10 +944,10 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 
 	/* Check current expected auth type to prevent stale cache drops */
 	if (bfd->kc)
-		active_key = bfd_keychain_key_find_active(bfd->kc);
+		active_key = bfd_keychain_key_find_active(bfd->kc, bfd->auth_meticulous);
 	if (bfd->kc && active_key)
 		expected_auth_type = map_keychain_algo_to_bfd_auth_type(active_key->hash_algo,
-									false);
+									bfd->auth_meticulous);
 	if (!CHECK_FLAG(cp->flags, BFD_ABIT)) {
 		if (expected_auth_type != BFD_AUTH_TYPE_RESERVED) {
 			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
@@ -1090,6 +1092,8 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 					return false;
 				}
 			}
+			if ((received_seq_num % bfd->auth_seq_num_update_modulo) == 0)
+				bfd->auth_last_rx_seq_num = received_seq_num;
 		}
 
 		/* Validate Digest */

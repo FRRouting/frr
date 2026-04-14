@@ -1,0 +1,15 @@
+[
+  {
+    "multihop": false,
+    "peer": "10.0.1.2",
+    "vrf": "default",
+    "interface": "eth-rt2",
+    "authentication": {
+      "enabled": true,
+      "key-chain-name": "kc1",
+      "key-algorithm-meticulous": true,
+      "cryptoName": "meticulous keyed-sha1"
+    },
+    "status": "up"
+  }
+]
