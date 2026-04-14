@@ -640,6 +640,37 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_with_same_key_id_up():
     )
 
 
+def test_bfd_authentication_sha1_auth_keychain1_meticulous_up():
+    "Test BFD direct sha1 authentication with meticulous mode up"
+    logger.info("Test: BFD-AUTHEN direct sha1 authentication with meticulous mode up")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        bfd
+        profile 0
+        authentication algorithm meticulous
+        """)
+    tgen.gears["rt2"].vtysh_cmd("""
+        configure terminal
+        bfd
+        peer 10.0.1.1 interface eth-rt1
+        authentication algorithm meticulous
+        """)
+
+    # Verify BFD session is up with authentication
+    router_compare_json_output(
+        "rt1",
+        "show bfd peers json",
+        "step4/show_bfd_peers_2_sha1_newkey_meticulous.ref",
+        20,
+        1,
+    )
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

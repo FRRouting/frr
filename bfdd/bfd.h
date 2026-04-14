@@ -105,6 +105,7 @@ struct bfd_peer_cfg {
 	struct {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+		bool meticulous;
 	} auth_config;
 };
 
@@ -351,6 +352,7 @@ struct bfd_profile {
 	struct {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+		bool meticulous;
 	} auth_config;
 
 	/** Profile list entry. */
@@ -449,6 +451,14 @@ struct bfd_session {
 	struct keychain *kc; /* Currently active keychain for this session */
 	uint32_t auth_seq_num;
 	uint32_t auth_last_rx_seq_num;
+/* the last sequence number will be updated:
+ * - on non meticulous mode: every 5 packets
+ * - on meticulous mode: every packet
+ */
+#define AUTH_SEQ_NUM_MODULO	       5
+#define AUTH_SEQ_NUM_MODULO_METICULOUS 1
+	uint32_t auth_seq_num_update_modulo;
+	bool auth_meticulous;
 };
 
 struct bfd_diag_str_list {
@@ -705,7 +715,7 @@ void bfd_profiles_remove(void);
 extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
 							     bool meticulous);
 extern const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type);
-extern struct key *bfd_keychain_key_find_active(const struct keychain *keychain);
+extern struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool meticulous);
 void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
 int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);

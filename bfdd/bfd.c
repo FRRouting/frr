@@ -100,6 +100,7 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->min_tx = BFD_DEFDESIREDMINTX;
 	/* Keychain authentication parameters */
 	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
+	bp->auth_config.meticulous = false;
 }
 
 struct bfd_profile *bfd_profile_new(const char *name)
@@ -254,6 +255,15 @@ void bfd_session_apply(struct bfd_session *bs)
 		bs->kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
 	else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
 		bs->kc = keychain_lookup(bs->profile->auth_config.key_chain_name);
+
+	if (bs->peer_profile.auth_config.meticulous ||
+	    (bs->profile && bs->profile->auth_config.meticulous)) {
+		bs->auth_meticulous = true;
+		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO_METICULOUS;
+	} else {
+		bs->auth_meticulous = false;
+		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
+	}
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
@@ -625,9 +635,10 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
  * Find an active key
  *
  * @param keychain The keychain to search within.
+ * @param meticulous. Boolean that tells if meticulous mode can be used with HMAC-SHA1
  * @return The active key, or NULL if no active key is found.
  */
-struct key *bfd_keychain_key_find_active(const struct keychain *keychain)
+struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool meticulous)
 {
 	struct listnode *node;
 	struct key *key;
@@ -641,6 +652,8 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain)
 	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+			continue;
 		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
 		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
 			continue;
@@ -1086,6 +1099,7 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 	/* RFC 5880, Section 6.7.3: unpredictable initial sequence number */
 	bs->auth_seq_num = frr_weak_random();
 	bs->auth_last_rx_seq_num = 0;
+	bs->auth_meticulous = false;
 	bs_set_slow_timers(bs);
 
 	/* Initiate remote settings as well. */

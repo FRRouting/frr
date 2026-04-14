@@ -162,13 +162,14 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	_display_peer_header(vty, bs);
 
 	if (bs->kc)
-		key = bfd_keychain_key_find_active(bs->kc);
+		key = bfd_keychain_key_find_active(bs->kc, bs->auth_meticulous);
 	if (key) {
-		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, false);
+		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, bs->auth_meticulous);
 
 		vty_out(vty, "\t\tAuthentication is enabled");
-		vty_out(vty, " (key-chain-name %s, crypto-used %s)\n", bs->kc->name,
-			bfd_auth_type_get_description(auth_type));
+		vty_out(vty, " (key-chain-name %s, crypto-used %s%s)\n", bs->kc->name,
+			bfd_auth_type_get_description(auth_type),
+			bs->auth_meticulous ? ", algo meticulous" : "");
 	} else if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
 		vty_out(vty, "\t\tAuthentication is configured (key-chain-name %s)\n",
 			bs->peer_profile.auth_config.key_chain_name);
@@ -322,13 +323,14 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 		json_object_string_add(jo, "interface", bs->key.ifname);
 
 	if (bs->kc)
-		key = bfd_keychain_key_find_active(bs->kc);
+		key = bfd_keychain_key_find_active(bs->kc, bs->auth_meticulous);
 
 	if (key) {
-		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, false);
+		auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, bs->auth_meticulous);
 		json_object_boolean_add(auth_jo, "enabled", true);
 		json_object_boolean_add(auth_jo, "configured", true);
 		json_object_string_add(auth_jo, "key-chain-name", bs->kc->name);
+		json_object_boolean_add(auth_jo, "key-algorithm-meticulous", bs->auth_meticulous);
 		json_object_string_add(auth_jo, "cryptoName",
 				       bfd_auth_type_get_description(auth_type));
 	} else {

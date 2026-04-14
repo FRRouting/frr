@@ -236,6 +236,11 @@ BFD peers and profiles share the same BFD session configuration commands.
    a key-string. Those values are used in BFD packets. Clear text and
    hmac-sha1 algorithm is currently supported.
 
+.. clicmd:: authentication algorithm meticulous
+
+   Configure peer or profile to use meticulous mode when the key-chain
+   is configured with a hmac-sha1 crypto algorithm.
+
 BFD Peer Specific Commands
 --------------------------
 

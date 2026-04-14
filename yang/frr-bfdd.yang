@@ -171,6 +171,11 @@ module frr-bfdd {
       type kc:key-chain-ref;
       description "Reference to the key chain for authentication";
     }
+
+    leaf authentication-algorithm-meticulous {
+      type boolean;
+      description "Use meticulous algorithm with SHA-1";
+    }
   }
 
   /*
@@ -471,6 +476,11 @@ module frr-bfdd {
           leaf authentication-key-chain {
             type string;
             description "Reference to the key chain for authentication";
+          }
+
+          leaf authentication-algorithm-meticulous {
+            type boolean;
+            description "Use meticulous algorithm with SHA-1";
           }
         }
       }
