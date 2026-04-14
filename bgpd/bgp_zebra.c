@@ -4193,7 +4193,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 end_sid_notify:
 	if (note == ZAPI_SRV6_SID_RELEASED)
 		/* no specific log messages are displayed in this case */
-		return;
+		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%s", errmsg);
