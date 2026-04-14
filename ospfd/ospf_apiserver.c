@@ -1547,6 +1547,14 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	if (!ospf)
 		return NULL;
 
+	if (!VALID_OPAQUE_INFO_LEN(protolsa)) {
+		if (IS_DEBUG_OSPF_CLIENT_API) {
+			zlog_debug("%s: invalid LSA input length %d, type %d", __func__,
+				   ntohs(protolsa->length), protolsa->type);
+		}
+		return NULL;
+	}
+
 	/* Create a stream for internal opaque LSA */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
 		zlog_warn("%s: stream_new failed", __func__);
@@ -1636,9 +1644,32 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	if (!ospf)
 		goto out;
 
+	/* Validate size */
+	if (STREAM_READABLE(msg->s) < sizeof(struct msg_originate_request)) {
+		rc = OSPF_API_ERROR;
+		goto out;
+	}
+
 	/* Extract opaque LSA data from message */
 	omsg = (struct msg_originate_request *)STREAM_DATA(msg->s);
 	data = &omsg->data;
+
+	if (!VALID_OPAQUE_INFO_LEN(data)) {
+		zlog_warn("%s: invalid opaque LSA len %d", __func__, ntohs(data->length));
+		rc = OSPF_API_ERROR;
+		goto out;
+	}
+
+	/* Verify stream contains the full LSA body, not just the header */
+	if (STREAM_READABLE(msg->s) <
+	    offsetof(struct msg_originate_request, data) + ntohs(data->length)) {
+		zlog_warn("%s: message truncated, stream %zu < needed %zu", __func__,
+			  STREAM_READABLE(msg->s),
+			  (size_t)(offsetof(struct msg_originate_request, data) +
+				   (size_t)ntohs(data->length)));
+		rc = OSPF_API_ERROR;
+		goto out;
+	}
 
 	/* Determine interface for type9 or area for type10 LSAs. */
 	switch (data->type) {
