@@ -74,6 +74,12 @@ def test_bgp_remote_as_auto():
                     "localAs": 65001,
                     "state": "Established",
                 },
+                "192.168.1.5": {
+                    "hostname": "r5",
+                    "remoteAs": 65005,
+                    "localAs": 65005,
+                    "state": "Established",
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -83,6 +89,30 @@ def test_bgp_remote_as_auto():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see automatic iBGP/eBGP peerings"
+
+    def _bgp_neighbors():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbors json"))
+        expected = {
+            "r1-eth1": {
+                "nbrExternalLink": True,
+            },
+            "192.168.1.2": {
+                "nbrExternalLink": None,
+            },
+            "192.168.1.3": {
+                "nbrExternalLink": True,
+            },
+            "192.168.1.5": {
+                "nbrExternalLink": None,
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_neighbors,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Neighbors link types are not matching"
 
     def _bgp_converge_internal():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 10.0.0.1/32 json"))
@@ -162,8 +192,8 @@ def test_bgp_remote_as_auto():
             "peers": {
                 "192.168.1.1": {
                     "hostname": "r1",
-                    "remoteAs": 65001,
-                    "localAs": 65001,
+                    "remoteAs": 65005,
+                    "localAs": 65005,
                     "state": "Established",
                 },
                 "192.168.1.2": {
