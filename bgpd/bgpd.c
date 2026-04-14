@@ -1244,6 +1244,11 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 				else
 					return BGP_PEER_EBGP;
 			} else {
+				/* If the peer's AS is the same as the confederation ID,
+				 * then treat if as an iBGP peer.
+				 */
+				if (peer->as == bgp->confed_id)
+					return BGP_PEER_IBGP;
 				if (local_as == bgp->confed_id)
 					return BGP_PEER_EBGP;
 				else
