@@ -499,6 +499,15 @@ def test_mgmt_edit_config(request):
     )
     assert "List keys in xpath and data tree are different" in ret
 
+    # check error on replace when xpath names a schema node that does not exist
+    data = {"frr-interface:interface": [{"name": "eth0", "description": "d"}]}
+    payload = json.dumps(data, separators=(",", ":"))
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit replace /frr-interface:lib/interfac[name='eth0'] lock commit "
+        + payload
+    )
+    assert "Unknown schema node in xpath" in ret
+
     # check deleting an existing object using "delete"
     r1.vtysh_cmd(
         f"conf\nmgmt edit delete /frr-interface:lib/interface[name='eth0'] lock commit"

@@ -938,8 +938,27 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	/* verify that list keys are the same in the xpath and the data tree */
 	if (!root && (operation == NB_OP_REPLACE || operation == NB_OP_MODIFY)) {
 		if (lyd_find_path(tree, xpath, 0, NULL)) {
-			snprintf(errmsg, errmsg_len,
-				 "List keys in xpath and data tree are different");
+			/*
+			 * lyd_find_path fails for two distinct reasons: the
+			 * xpath names a schema node that does not exist (typo),
+			 * or the xpath resolves but its key predicates diverge
+			 * from the keys carried in the payload. Distinguish
+			 * them via a schema-only lookup so the operator sees
+			 * which case happened.
+			 *
+			 * lys_find_path (not yang_resolve_snode_xpath) is
+			 * intentional: edit-config xpaths are canonical
+			 * instance-identifiers (vtysh, NETCONF, RESTCONF,
+			 * gNMI), not arbitrary XPath expressions, so the
+			 * two-step fallback in yang_resolve_snode_xpath is
+			 * unnecessary here.
+			 */
+			if (!lys_find_path(ly_native_ctx, NULL, xpath, 0))
+				snprintf(errmsg, errmsg_len, "Unknown schema node in xpath: %s",
+					 xpath);
+			else
+				snprintf(errmsg, errmsg_len,
+					 "List keys in xpath and data tree are different");
 			ret = NB_ERR;
 			goto done;
 		}
