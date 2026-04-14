@@ -89,6 +89,7 @@ struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *
 
 void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc)
 {
+	struct zebra_if *zif;
 	struct zebra_evpn *zevpn;
 
 	if (IS_ZEBRA_DEBUG_PW)
@@ -113,7 +114,11 @@ void zebra_l2vpn_svc_del(struct zebra_vrf *zvrf, struct zebra_l2vpn_svc *svc)
 
 	if (svc->protocol == ZEBRA_ROUTE_BGP && svc->data.bgp.vni) {
 		zevpn = zebra_evpn_lookup(svc->data.bgp.vni);
-		if (zevpn && if_is_operative(zevpn->vxlan_if))  {
+		if (!zevpn)
+			return;
+
+		zif = zevpn->vxlan_if->info;
+		if (if_is_operative(zevpn->vxlan_if) && zif && zif->brslave_info.br_if) {
 			zebra_evpn_send_add_to_client(zevpn);
 			zebra_evpn_read_mac_neigh(zevpn, zevpn->vxlan_if);
 		}
