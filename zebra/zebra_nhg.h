@@ -201,6 +201,22 @@ struct nhg_hash_entry {
  */
 #define NEXTHOP_GROUP_TRACKER_REWORKED (1 << 11)
 
+/*
+ * After tracker NHG rework, the parent NHG may end up with content identical
+ * to a pre-existing NHG (different ID, same nexthops).  This flag marks
+ * the reworked NHG so the consolidation timer can find and merge them.
+ * Cleared when the timer fires or on NHG free.
+ */
+#define NEXTHOP_GROUP_DUPLICATE (1 << 12)
+
+	/*
+	 * Deferred consolidation timer: fires after the tracker flush is
+	 * fully complete and the system is stable.  Walks the NHG hash to
+	 * find all content-duplicates, picks the winner (most REs), and
+	 * migrates loser REs to the winner so duplicate NHGs can be freed.
+	 */
+	struct event *consolidation_timer;
+
 	/*
 	 * Transient: set during tracker flush batch to the parent NHG ID
 	 * that owns the flushing tracker.  Used by the dplane ack path
@@ -213,6 +229,8 @@ struct nhg_hash_entry {
 	/* Head of rb_tree of route_entries(re's)*/
 	struct nhe_re_tree_head re_head;
 };
+
+#define NHG_CONSOLIDATE_TIMEOUT_SEC 1
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
 #define NHG_ID_TYPE_POS 28
@@ -442,6 +460,17 @@ extern void zebra_nhg_rebuild_depends(struct nhg_hash_entry *nhe);
 /* Rework an NHG in-place: replace nexthop list, rebuild depends, rehash */
 extern void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe,
 				      struct nhg_hash_entry *source_nhe);
+
+/* NHG duplicate consolidation context — used by hash walk callback */
+struct nhg_dup_walk_ctx {
+	struct nhg_hash_entry *target;
+	struct nhg_hash_entry **dups;
+	uint32_t count;
+	uint32_t capacity;
+};
+
+/* Mark NHG as having a content-duplicate; schedule deferred consolidation */
+extern void zebra_nhg_mark_duplicate(struct nhg_hash_entry *nhe, uint32_t dup_id);
 
 /*
  * We are shutting down but the nexthops should be kept

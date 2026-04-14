@@ -1191,6 +1191,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				event_timer_to_hhmmss(time_left,
 						      sizeof(time_left),
 						      nhe->timer));
+		if (event_is_scheduled(nhe->consolidation_timer))
+			json_object_string_add(json, "timeToDupConsolidation",
+					       event_timer_to_hhmmss(time_left, sizeof(time_left),
+								     nhe->consolidation_timer));
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
@@ -1207,6 +1211,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				event_timer_to_hhmmss(time_left,
 						      sizeof(time_left),
 						      nhe->timer));
+		if (event_is_scheduled(nhe->consolidation_timer))
+			vty_out(vty, " Time to Duplicate Consolidation: %s",
+				event_timer_to_hhmmss(time_left, sizeof(time_left),
+						      nhe->consolidation_timer));
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);

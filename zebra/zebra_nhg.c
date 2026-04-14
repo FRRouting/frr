@@ -1873,6 +1873,7 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 	}
 
 	event_cancel(&nhe->timer);
+	event_cancel(&nhe->consolidation_timer);
 
 	if (nhe->id)
 		frrtrace(1, frr_zebra, zebra_nhg_free_nhe_refcount, nhe);
@@ -1953,6 +1954,182 @@ static void zebra_nhg_timer(struct event *event)
 
 	if (nhe->refcnt == 1)
 		zebra_nhg_decrement_ref(nhe);
+}
+
+/*
+ * NHG duplicate consolidation: after a tracker rework creates an NHG
+ * whose content matches a pre-existing NHG, a short timer fires to
+ * merge all content-duplicate NHGs into a single winner (most REs).
+ */
+
+/*
+ * Hash walk callback: find NHGs whose content matches ctx->target.
+ *
+ * zebra_nhg_hash_equal short-circuits when both IDs are non-zero
+ * (different IDs → "not equal").  The caller sets target->id = 0
+ * so the comparison falls through to actual content matching.
+ */
+static void nhg_dup_find_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+	struct nhg_dup_walk_ctx *ctx = arg;
+
+	if (nhe == ctx->target)
+		return;
+
+	if (!zebra_nhg_hash_equal(nhe, ctx->target))
+		return;
+
+	if (ctx->count >= ctx->capacity) {
+		ctx->capacity = ctx->capacity ? ctx->capacity * 2 : 8;
+		ctx->dups = XREALLOC(MTYPE_NHG, ctx->dups, ctx->capacity * sizeof(*ctx->dups));
+	}
+	ctx->dups[ctx->count++] = nhe;
+}
+
+/*
+ * Migrate all REs from a loser NHG to the winner.
+ * Iterates the loser's re_head directly.
+ * frr_each_safe pre-fetches the next element, so it is safe even though
+ * route_entry_update_nhe removes the RE from loser->re_head during the loop body.
+ *
+ * For each RE:
+ *  1. route_entry_update_nhe switches re->nhe to the winner (moves
+ *     the RE between re_head trees, updates refcounts).
+ *  2. rib_install_kernel with old=NULL sends RTM_NEWROUTE.
+ * After all REs are migrated, the loser's refcount drops and the
+ * existing keep-around timer cleans it up.
+ */
+static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
+					  struct nhg_hash_entry *winner)
+{
+	struct route_entry *re;
+	uint32_t migrated = 0;
+
+	frr_each_safe (nhe_re_tree, &loser->re_head, re) {
+		/*
+		 * Skip REs owned by an active tracker — the tracker's
+		 * phase 1/2 ack tracking uses re->nhe and the parent
+		 * NHG ID; switching the NHG now would break it.
+		 */
+		if (CHECK_FLAG(re->status,
+			       ROUTE_ENTRY_TRACKER | ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+			continue;
+
+		route_entry_update_nhe(re, winner);
+
+		if (re->rn && CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+			rib_install_kernel(re->rn, re, NULL);
+
+		migrated++;
+	}
+
+	zlog_info("%s: NHG %u -> %u: migrated %u routes", __func__, loser->id, winner->id,
+		  migrated);
+}
+
+static void zebra_nhg_consolidate_timer(struct event *event)
+{
+	struct nhg_hash_entry *nhe = EVENT_ARG(event);
+	struct nhg_dup_walk_ctx ctx = {};
+	struct nhg_hash_entry *winner;
+	uint32_t winner_re_count;
+	uint32_t saved_id;
+	uint32_t i;
+
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+
+	if (zebra_router_in_shutdown())
+		return;
+
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 0) {
+		zlog_info("%s: NHG %u still has active trackers, deferring consolidation",
+			  __func__, nhe->id);
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+		event_add_timer(zrouter.master, zebra_nhg_consolidate_timer, nhe,
+				NHG_CONSOLIDATE_TIMEOUT_SEC, &nhe->consolidation_timer);
+		return;
+	}
+
+	/*
+	 * Zero target's ID so zebra_nhg_hash_equal falls through to
+	 * content comparison instead of short-circuiting on ID mismatch.
+	 * Restore immediately after the walk.
+	 */
+	saved_id = nhe->id;
+	nhe->id = 0;
+	ctx.target = nhe;
+	hash_iterate(zrouter.nhgs, nhg_dup_find_cb, &ctx);
+	nhe->id = saved_id;
+
+	if (ctx.count == 0) {
+		zlog_info("%s: NHG %u no duplicates found, nothing to consolidate", __func__,
+			  nhe->id);
+		XFREE(MTYPE_NHG, ctx.dups);
+		return;
+	}
+
+	zlog_info("%s: NHG %u found %u content-duplicate NHG(s)", __func__, nhe->id, ctx.count);
+
+	winner = nhe;
+	winner_re_count = nhe_re_tree_count(&nhe->re_head);
+
+	for (i = 0; i < ctx.count; i++) {
+		uint32_t re_count = nhe_re_tree_count(&ctx.dups[i]->re_head);
+
+		if (re_count > winner_re_count ||
+		    (re_count == winner_re_count && ctx.dups[i]->id < winner->id)) {
+			winner = ctx.dups[i];
+			winner_re_count = re_count;
+		}
+	}
+
+	zlog_info("%s: winner NHG %u (re_count=%u), migrating losers", __func__, winner->id,
+		  winner_re_count);
+
+	/*
+	 * Migrate each loser NHG's routes to the winner:
+	 *
+	 *  For each installed RE on the loser, switch re->nhe to the
+	 *  winner and call rib_install_kernel(rn, re, NULL) to send
+	 *  RTM_NEWROUTE with the winner's NHG ID to the kernel.
+	 *
+	 *  Note: We cannot use rib_queue_add + rib_process because rib_process
+	 *  uses the same RE as both old_fib and new_fib, so the dplane
+	 *  would see old_nhe_id == new_nhe_id (both winner) and skip.
+	 *
+	 *  Two separate blocks handle 'nhe' (the timer-firing NHG, which
+	 *  may itself be a loser if a hash-walk duplicate has more REs)
+	 *  and then all remaining duplicates found during the walk.
+	 */
+	if (nhe != winner) {
+		zlog_info("%s: migrating NHG %u -> winner NHG %u", __func__, nhe->id, winner->id);
+		nhg_consolidate_migrate_loser(nhe, winner);
+	}
+
+	for (i = 0; i < ctx.count; i++) {
+		if (ctx.dups[i] == winner)
+			continue;
+		UNSET_FLAG(ctx.dups[i]->flags, NEXTHOP_GROUP_DUPLICATE);
+		zlog_info("%s: migrating NHG %u -> winner NHG %u", __func__, ctx.dups[i]->id,
+			  winner->id);
+		nhg_consolidate_migrate_loser(ctx.dups[i], winner);
+	}
+
+	XFREE(MTYPE_NHG, ctx.dups);
+}
+
+void zebra_nhg_mark_duplicate(struct nhg_hash_entry *nhe, uint32_t dup_id)
+{
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+		return;
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+	zlog_info("%s: NHG %u has content-duplicate NHG %u, scheduling consolidation in %ds",
+		  __func__, nhe->id, dup_id, NHG_CONSOLIDATE_TIMEOUT_SEC);
+
+	event_add_timer(zrouter.master, zebra_nhg_consolidate_timer, nhe,
+			NHG_CONSOLIDATE_TIMEOUT_SEC, &nhe->consolidation_timer);
 }
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
@@ -3445,9 +3622,30 @@ backups_done:
 		uint16_t incoming_count = nexthop_group_nexthop_num(&re->nhe->nhg);
 
 		if (resolved_active == incoming_count) {
+			/*
+			 * Detect content-duplicate NHG BEFORE the second
+			 * rework.  After rework, re->nhe has the resolved
+			 * content and a hash_lookup would return re->nhe
+			 * itself.  By checking now (while re->nhe still has
+			 * unresolved content), we correctly find any
+			 * pre-existing NHG with the same resolved state.
+			 *
+			 * Zero the copy's ID to force content-only comparison
+			 * (zebra_nhg_hash_equal short-circuits on ID match).
+			 */
+			struct nhg_hash_entry *dup_nhe = NULL;
+			uint32_t saved_id = curr_nhe->id;
+
+			curr_nhe->id = 0;
+			dup_nhe = hash_lookup(zrouter.nhgs, curr_nhe);
+			curr_nhe->id = saved_id;
+
 			zlog_info("%s: second rework: copying resolved state to NHG %u (active=%u incoming=%u)",
 				  __func__, re->nhe->id, resolved_active, incoming_count);
 			zebra_nhg_rework_in_place(re->nhe, curr_nhe);
+
+			if (dup_nhe && dup_nhe != re->nhe)
+				zebra_nhg_mark_duplicate(re->nhe, dup_nhe->id);
 		} else {
 			zlog_info("%s: second rework skipped for NHG %u (active=%u != incoming=%u), route-map mismatch",
 				  __func__, re->nhe->id, resolved_active, incoming_count);
@@ -4539,6 +4737,12 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		if (!first)
 			strlcat(buf, ", ", len);
 		strlcat(buf, "Tracker Reworked", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_DUPLICATE)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Duplicate", len);
 		first = false;
 	}
 }
