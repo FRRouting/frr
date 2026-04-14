@@ -873,7 +873,7 @@ int msg_server_init(struct msg_server *server, const char *sopath,
 	}
 	umask(old_mask);
 
-	ret = listen(sock, MGMTD_MAX_CONN);
+	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
 		zlog_err("Failed to listen on %s server socket: %s",
 			 server->idtag, safe_strerror(errno));

@@ -156,7 +156,6 @@ msg_client_init(struct msg_client *client, struct event_loop *tm,
 /*
  * Server-side Connections
  */
-#define MGMTD_MAX_CONN 32
 
 PREDECL_LIST(msg_server_list);
 
