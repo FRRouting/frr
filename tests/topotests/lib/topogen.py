@@ -1140,6 +1140,7 @@ class TopoSwitch(TopoGear):
 
 class TopoHost(TopoGear):
     "Host abstraction."
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
@@ -1178,6 +1179,7 @@ class TopoHost(TopoGear):
 
 class TopoExaBGP(TopoHost):
     "ExaBGP peer abstraction."
+
     # pylint: disable=too-few-public-methods
 
     PRIVATE_DIRS = [
