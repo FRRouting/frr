@@ -136,9 +136,14 @@ struct frr_daemon_info {
 	const char *config_file;
 	const char *backup_config_file;
 	const char *pid_file;
-#ifdef HAVE_SQLITE3
+	/*
+	 * db_file: always present in the struct for ABI stability across
+	 * configure flags. The runtime path that uses it remains gated by
+	 * HAVE_SQLITE3 in lib/libfrr.c. External clients built with
+	 * HAVE_SQLITE3 mismatching libfrr's build would otherwise see a
+	 * shifted struct layout, silently corrupting all subsequent fields.
+	 */
 	const char *db_file;
-#endif
 	const char *vty_path;
 	const char *module_path;
 	const char *script_path;
