@@ -2015,7 +2015,9 @@ static int bgp_open_receive(struct peer_connection *connection,
 		}
 		(void)peer_sort(peer);
 	} else if (peer->as_type == AS_INTERNAL) {
-		if (remote_as != peer->bgp->as) {
+		as_t local_as = peer->change_local_as ? peer->change_local_as : peer->bgp->as;
+
+		if (remote_as != local_as) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%s bad OPEN, remote AS is %u, internal specified",
@@ -2026,7 +2028,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 						  notify_data_remote_as, 2);
 			return BGP_Stop;
 		}
-		peer->as = peer->local_as;
+		peer->as = peer->change_local_as ? peer->change_local_as : peer->local_as;
 	} else if (peer->as_type == AS_EXTERNAL) {
 		if (remote_as == peer->bgp->as) {
 			if (bgp_debug_neighbor_events(peer))
