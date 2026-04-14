@@ -12,6 +12,7 @@
 #include "lib/log.h"
 #include "lib/northbound.h"
 #include "lib/routemap.h"
+#include "lib/yang.h"
 
 /*
  * Auxiliary functions to avoid code duplication:
@@ -547,6 +548,65 @@ static int lib_route_map_entry_match_condition_interface_destroy(
 }
 
 /*
+ * Observability hook: when a route-map match `list-name` references an
+ * access-list or prefix-list that does not exist in the candidate
+ * configuration -- or exists only under a different address family --
+ * emit a single informational log line so that declarative controllers
+ * (NETCONF / gNMI) driving FRR can surface the drift without having to
+ * tail runtime DENY traces.
+ *
+ * This is deliberately non-blocking: partial configuration (entering the
+ * match before creating the list, or vice versa) is a first-class FRR
+ * workflow. The existing runtime behaviour -- an unresolved match returns
+ * DENY -- is preserved verbatim. The hook only adds a diagnostic signal.
+ */
+static void routemap_match_list_name_log_unresolved(const struct lyd_node *dnode)
+{
+	const char *acl = yang_dnode_get_string(dnode, NULL);
+	const char *condition = yang_dnode_get_string(dnode, "../../condition");
+	const char *list_node = NULL;
+	const char *list_type = NULL;
+	char xpath[XPATH_MAXLEN];
+
+	if (IS_MATCH_IPv4_ADDRESS_LIST(condition) || IS_MATCH_IPv4_NEXTHOP_LIST(condition)) {
+		list_node = "access-list";
+		list_type = "ipv4";
+	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition) || IS_MATCH_IPv6_NEXTHOP_LIST(condition)) {
+		list_node = "access-list";
+		list_type = "ipv6";
+	} else if (IS_MATCH_IPv4_PREFIX_LIST(condition) ||
+		   IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(condition)) {
+		list_node = "prefix-list";
+		list_type = "ipv4";
+	} else if (IS_MATCH_IPv6_PREFIX_LIST(condition) ||
+		   IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(condition)) {
+		list_node = "prefix-list";
+		list_type = "ipv6";
+	} else {
+		/* Other condition types do not use list-name. */
+		return;
+	}
+
+	/*
+	 * `access-list-name` has no pattern restriction, so a name containing
+	 * a single quote would produce a malformed XPath predicate. Skip the
+	 * lookup in that case; the signal is advisory and we do not want an
+	 * exotic name to produce a misleading "unresolved" log line.
+	 */
+	if (strchr(acl, '\'') != NULL)
+		return;
+
+	snprintf(xpath, sizeof(xpath), "/frr-filter:lib/%s[type='%s'][name='%s']", list_node,
+		 list_type, acl);
+
+	if (yang_dnode_exists(dnode, xpath))
+		return;
+
+	zlog_info("route-map match %s references %s '%s' (type %s) that does not exist in candidate config; match will DENY at apply time until the list is defined",
+		  condition, list_node, acl, list_type);
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/list-name
  */
 static int lib_route_map_entry_match_condition_list_name_modify(
@@ -556,6 +616,11 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 	const char *acl;
 	const char *condition;
 	int rv;
+
+	if (args->event == NB_EV_VALIDATE) {
+		routemap_match_list_name_log_unresolved(args->dnode);
+		return NB_OK;
+	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
