@@ -12,10 +12,6 @@ module frr-l2vpn {
     prefix frr-interface;
   }
 
-  import frr-zebra {
-   prefix frr-zebra;
-  }
-
   organization
     "FRRouting";
   contact
