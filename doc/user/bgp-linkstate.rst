@@ -68,6 +68,73 @@ To receive and process BGP-LS information from peers without originating routes:
      neighbor 192.0.2.2 activate
     exit-address-family
 
+BGP-only Fabric Topology Distribution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In a BGP-only fabric, topology is derived from BGP sessions and BGP routing
+state rather than from IGP protocols.
+
+This behavior aligns with the IETF document
+`draft-ietf-idr-bgp-ls-bgp-only-fabric
+<https://datatracker.ietf.org/doc/draft-ietf-idr-bgp-ls-bgp-only-fabric/>`_.
+
+FRR uses BGP-LS to advertise Node, Link, and Prefix topology for the fabric.
+
+Use the following command under the link-state address family to enable
+export of BGP-only fabric topology:
+
+.. clicmd:: distribute bgp-fabric-link-state [instance-id WORD]
+
+   Enable BGP-LS export for BGP-only fabrics. When enabled, FRR originates
+   BGP-LS Node, Link, and Prefix NLRIs from BGP adjacency and BGP RIB data.
+
+   This command is configured under ``address-family link-state link-state``.
+
+   ``instance-id`` is optional and sets the BGP-LS identifier in originated
+   NLRIs. If omitted, FRR uses ``0``.
+
+Example for a BGP-only fabric speaker with default instance-id:
+
+.. code-block:: frr
+
+   router bgp 65001
+    neighbor 10.255.1.2 remote-as 65000
+    !
+    address-family link-state link-state
+     distribute bgp-fabric-link-state
+     neighbor 10.255.1.2 activate
+    exit-address-family
+
+Example for a BGP-only fabric speaker with explicit instance-id:
+
+.. code-block:: frr
+
+   router bgp 65001
+    neighbor 10.255.1.2 remote-as 65000
+    !
+    address-family link-state link-state
+     distribute bgp-fabric-link-state instance-id 100
+     neighbor 10.255.1.2 activate
+    exit-address-family
+
+Per-neighbor Link Identifier Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following commands let you override local and remote link identifiers
+carried in BGP-LS Link NLRIs for a specific BGP neighbor. These commands are
+configured under ``router bgp`` and accept 32-bit values.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> local-link-id (1-4294967295)
+
+   Set the local link identifier in the neighbor's Link NLRI.
+   If unset, FRR uses the interface kernel ifindex (a unique per-interface
+   identifier) as the fallback value.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> remote-link-id (1-4294967295)
+
+   Set the remote link identifier in the neighbor's Link NLRI.
+   If unset, FRR uses ``0`` as fallback.
+
 Displaying BGP-LS Information
 ------------------------------
 
