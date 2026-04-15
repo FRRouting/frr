@@ -256,6 +256,23 @@ _Static_assert(sizeof(struct mgmt_msg_header) ==
 			       sizeof(((struct mgmt_msg_header *)0)->req_id),
 	       "Size mismatch");
 
+/* Stable wire error values carried in struct mgmt_msg_error.error.
+ * Values are fixed by contract; external clients must match the
+ * on-wire numbers rather than their local errno numbering.
+ */
+#define MGMT_MSG_ERR_OK		  0       /* no error */
+#define MGMT_MSG_ERR_NOT_FOUND	  (-2)    /* xpath/RPC path or backend not found */
+#define MGMT_MSG_ERR_IO		  (-5)    /* transport failure */
+#define MGMT_MSG_ERR_TXN_LOCKED	  (-11)   /* concurrent txn blocking progress */
+#define MGMT_MSG_ERR_NO_MEMORY	  (-12)   /* allocation failure */
+#define MGMT_MSG_ERR_INTERNAL	  (-14)   /* backend inconsistency */
+#define MGMT_MSG_ERR_LOCKED	  (-16)   /* candidate datastore lock held */
+#define MGMT_MSG_ERR_EXISTS	  (-17)   /* create on existing node */
+#define MGMT_MSG_ERR_YANG_INVALID (-22)   /* libyang rejection */
+#define MGMT_MSG_ERR_BAD_MSG	  (-74)   /* invalid header */
+#define MGMT_MSG_ERR_NO_CHANGES	  (-114)  /* commit without diff */
+#define MGMT_MSG_ERR_IN_PROGRESS  (-115)  /* txn setup did not succeed */
+
 /**
  * struct mgmt_msg_error - Common error message.
  *
