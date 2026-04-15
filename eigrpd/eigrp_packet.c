@@ -1123,6 +1123,11 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->prefix_length = stream_getc(s);
 
+	if (tlv->prefix_length > 32) {
+		eigrp_IPv4_InternalTLV_free(tlv);
+		return NULL;
+	}
+
 	/* Validate additional length needed based on prefix length */
 	bytes = 1;
 	if (tlv->prefix_length > 24)
