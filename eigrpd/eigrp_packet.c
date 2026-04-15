@@ -1110,7 +1110,30 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->prefix_length = stream_getc(s);
 
+<<<<<<< HEAD
 	destination_tmp = stream_getc(s) << 24;
+=======
+	if (tlv->prefix_length > 32) {
+		eigrp_IPv4_InternalTLV_free(tlv);
+		return NULL;
+	}
+
+	/* Validate additional length needed based on prefix length */
+	bytes = 1;
+	if (tlv->prefix_length > 24)
+		bytes = 4;
+	else if (tlv->prefix_length > 16)
+		bytes = 3;
+	else if (tlv->prefix_length > 8)
+		bytes = 2;
+
+	if (STREAM_READABLE(s) < bytes) {
+		eigrp_IPv4_InternalTLV_free(tlv);
+		return NULL;
+	}
+
+	destination_tmp = (uint32_t)stream_getc(s) << 24;
+>>>>>>> c99ce592e (eigrpd: reject invalid prefix mask len)
 	if (tlv->prefix_length > 8)
 		destination_tmp |= stream_getc(s) << 16;
 	if (tlv->prefix_length > 16)
