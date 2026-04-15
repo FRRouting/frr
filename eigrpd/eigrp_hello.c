@@ -348,8 +348,8 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 		type = ntohs(tlv_header->type);
 		length = ntohs(tlv_header->length);
 
-		/* Validate tlv length */
-		if ((length > 0) && (length <= size)) {
+		/* Validate tlv length: must be at least header size (4 bytes) */
+		if ((length >= EIGRP_TLV_HDR_LENGTH) && (length <= size)) {
 			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
 				zlog_debug(
 					"  General TLV(%s)",
