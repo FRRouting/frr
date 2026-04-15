@@ -155,6 +155,8 @@ struct static_nexthop {
 
 	/** BFD integration data. */
 	struct bfd_session_params *bsp;
+	/** Hold-down timer for admin-down to down transition. */
+	struct event *t_bfd_admin_holddown;
 	/** Back pointer for route node. */
 	struct route_node *rn;
 	/** Path connection status. */

@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 
+#include "frrevent.h"
 #include "lib/bfd.h"
 #include "lib/printfrr.h"
 #include "lib/srcdest_table.h"
@@ -19,19 +20,127 @@
 
 #include "lib/openbsd-queue.h"
 
+enum static_bfd_holddown_cancel_reason {
+	STATIC_BFD_HLDN_CANCEL_ADMIN_DOWN = 0,
+	STATIC_BFD_HLDN_CANCEL_BFD_UP = 1,
+	STATIC_BFD_HLDN_CANCEL_REARM = 2,
+	STATIC_BFD_HLDN_CANCEL_MONITOR_OFF = 3,
+};
+
+static void static_bfd_holddown_timer_cancel(
+	struct static_nexthop *sn,
+	enum static_bfd_holddown_cancel_reason reason)
+{
+	if (!sn->t_bfd_admin_holddown)
+		return;
+
+	event_cancel(&sn->t_bfd_admin_holddown);
+
+	switch (reason) {
+	case STATIC_BFD_HLDN_CANCEL_BFD_UP:
+		DEBUGD(&static_dbg_bfd,
+		       "%s: BFD up, cancelling admin-down hold-down timer",
+		       __func__);
+		break;
+	case STATIC_BFD_HLDN_CANCEL_ADMIN_DOWN:
+		DEBUGD(&static_dbg_bfd,
+		       "%s: BFD admin-down, cancelling pending admin-down hold-down timer",
+		       __func__);
+		break;
+	case STATIC_BFD_HLDN_CANCEL_REARM:
+		/* Caller logs the replacement hold-down arm. */
+		break;
+	case STATIC_BFD_HLDN_CANCEL_MONITOR_OFF:
+		DEBUGD(&static_dbg_bfd,
+		       "%s: BFD monitor disabled, cancelling admin-down hold-down timer",
+		       __func__);
+		break;
+	}
+}
+
+/*
+ * Hold-down time (in seconds) after an Admin Down -> Down transition.
+ *
+ * When BFD exits admin-down, the session briefly enters the Down state
+ * before (potentially) reaching Up.  During this window we cannot tell
+ * whether the peer is genuinely unreachable or just hasn't responded yet.
+ *
+ * If the session does not reach Up within this interval, we assume the
+ * peer is unreachable and remove the route.
+ */
+#define BFD_ADMIN_HOLDDOWN_SEC 5
+
+/*
+ * Timer callback: the hold-down period after Admin Down -> Down has
+ * expired and BFD never reached Up.  The peer is genuinely unreachable,
+ * so remove the route now.
+ */
+static void static_bfd_admin_holddown_expire(struct event *event)
+{
+	struct static_nexthop *sn = EVENT_ARG(event);
+
+	if (sn->bsp && bfd_sess_status(sn->bsp) == BSS_ADMIN_DOWN) {
+		DEBUGD(&static_dbg_bfd,
+		       "%s: admin-down hold-down expired while BFD is admin-down; "
+		       "ignoring (route stays installed)",
+		       __func__);
+		return;
+	}
+
+	DEBUGD(&static_dbg_bfd,
+	       "%s: admin-down hold-down expired, peer unreachable, removing route",
+	       __func__);
+
+	sn->path_down = true;
+	static_zebra_route_add(sn->pn, true);
+}
+
 /*
  * Next hop BFD monitoring settings.
  */
 static void static_next_hop_bfd_change(struct static_nexthop *sn,
 				       const struct bfd_session_status *bss)
 {
+	DEBUGD(&static_dbg_bfd,
+	       "%s: BFD session status changed, state: %d, previous_state: %d, path_down: %d",
+	       __func__, bss->state, bss->previous_state, sn->path_down);
 	switch (bss->state) {
 	case BSS_UNKNOWN:
 		/* FALLTHROUGH: no known state yet. */
 	case BSS_ADMIN_DOWN:
-		/* NOTHING: we or the remote end administratively shutdown. */
+		/*
+		 * We or the remote end administratively shutdown.
+		 * Drop any pending post-admin-down hold-down: the transient
+		 * Down->Up window is no longer relevant once admin-down is
+		 * reasserted.
+		 */
+		static_bfd_holddown_timer_cancel(sn,
+						 STATIC_BFD_HLDN_CANCEL_ADMIN_DOWN);
 		break;
 	case BSS_DOWN:
+		/*
+		 * If transitioning from Admin Down to Down, the session is
+		 * likely on its way to Up (transient state).  Start a
+		 * hold-down timer instead of removing the route immediately.
+		 * If BFD reaches Up before the timer fires, the timer is
+		 * cancelled and no route churn occurs.  If the timer expires,
+		 * the peer is genuinely unreachable and the route is removed.
+		 */
+		if (bss->previous_state == BSS_ADMIN_DOWN && !sn->path_down) {
+			uint8_t rearm = sn->t_bfd_admin_holddown ? 1 : 0;
+
+			static_bfd_holddown_timer_cancel(sn,
+							 STATIC_BFD_HLDN_CANCEL_REARM);
+			DEBUGD(&static_dbg_bfd,
+			       "%s: BFD transitioning from Admin Down to Down, starting hold-down timer (%ds)%s",
+			       __func__, BFD_ADMIN_HOLDDOWN_SEC,
+			       rearm ? " (after replacing prior timer)" : "");
+			event_add_timer(master,
+					static_bfd_admin_holddown_expire, sn,
+					BFD_ADMIN_HOLDDOWN_SEC,
+					&sn->t_bfd_admin_holddown);
+			break;
+		}
 		/* Peer went down, remove this next hop. */
 		DEBUGD(&static_dbg_bfd,
 		       "%s: next hop is down, remove it from RIB", __func__);
@@ -39,6 +148,14 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 		static_zebra_route_add(sn->pn, true);
 		break;
 	case BSS_UP:
+		static_bfd_holddown_timer_cancel(sn, STATIC_BFD_HLDN_CANCEL_BFD_UP);
+		/* If route is already installed, no action needed. */
+		if (!sn->path_down) {
+			DEBUGD(&static_dbg_bfd,
+			       "%s: next hop is up, route already installed",
+			       __func__);
+			break;
+		}
 		/* Peer is back up, add this next hop. */
 		DEBUGD(&static_dbg_bfd, "%s: next hop is up, add it to RIB",
 		       __func__);
@@ -149,6 +266,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 
 void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn)
 {
+	static_bfd_holddown_timer_cancel(sn, STATIC_BFD_HLDN_CANCEL_MONITOR_OFF);
 	bfd_sess_free(&sn->bsp);
 
 	/* Reset path status. */
