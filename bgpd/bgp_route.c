@@ -2188,6 +2188,8 @@ static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 				       struct peer *peer, struct attr *attr)
 {
+	as_t asn = peer->change_local_as ? peer->change_local_as : peer->local_as;
+
 	if (peer->sort == BGP_PEER_EBGP
 	    && (peer_af_flag_check(peer, afi, safi,
 				   PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)
@@ -2205,8 +2207,8 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 			if (peer_af_flag_check(
 				    peer, afi, safi,
 				    PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
-				attr->aspath = aspath_replace_private_asns(
-					attr->aspath, bgp->as, peer->as);
+				attr->aspath = aspath_replace_private_asns(attr->aspath, asn,
+									   peer->as);
 
 			/*
 			 * Even if the aspath consists of just private ASNs we
@@ -2222,11 +2224,10 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 		// ASNs
 		// for us to do anything
 		else if (aspath_private_as_check(attr->aspath)) {
-			if (peer_af_flag_check(
-				    peer, afi, safi,
-				    PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
-				attr->aspath = aspath_replace_private_asns(
-					attr->aspath, bgp->as, peer->as);
+			if (peer_af_flag_check(peer, afi, safi,
+					       PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+				attr->aspath = aspath_replace_private_asns(attr->aspath, asn,
+									   peer->as);
 			else
 				/*
 				 * Walk the aspath to retain any instances of
