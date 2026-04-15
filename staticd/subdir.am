@@ -11,6 +11,7 @@ endif
 
 staticd_libstatic_a_SOURCES = \
 	staticd/static_bfd.c \
+	staticd/static_trace.c \
 	staticd/static_debug.c \
 	staticd/static_nht.c \
 	staticd/static_routes.c \
@@ -23,6 +24,7 @@ staticd_libstatic_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
+	staticd/static_trace.h \
 	staticd/static_debug.h \
 	staticd/static_nht.h \
 	staticd/static_zebra.h \
@@ -38,7 +40,7 @@ clippy_scan += \
 	# end
 
 staticd_staticd_SOURCES = staticd/static_main.c
-staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS)
+staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS) $(UST_LIBS)
 
 nodist_staticd_staticd_SOURCES = \
 	yang/frr-bfdd.yang.c \

@@ -2124,6 +2124,15 @@ class Router(Node):
                         daemon, self.logdir, self.name
                     )
 
+                # Optional LTTng: liblttng-ust-fork must be preloaded when starting FRR
+                # daemons (same idea as frrcommon.sh for bgpd/zebra/bfdd). Tests set
+                # TOPOTEST_FRR_LTTNG_FORK_PRELOAD to that .so path.
+                # Put LD_PRELOAD only on this daemon command line — do not export it for
+                # the whole pytest process, or munet/nsenter can fail (e.g. on WSL2).
+                lttng_fork_pre = os.environ.get("TOPOTEST_FRR_LTTNG_FORK_PRELOAD", "")
+                if lttng_fork_pre:
+                    cmdenv = "LD_PRELOAD={} {}".format(lttng_fork_pre, cmdenv)
+
                 cmdopt = "{} --command-log-always ".format(daemon_opts)
                 if instance != None:
                     cmdopt += " --instance " + instance

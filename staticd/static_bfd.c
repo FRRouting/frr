@@ -17,6 +17,7 @@
 #include "staticd/static_routes.h"
 #include "staticd/static_zebra.h"
 #include "staticd/static_debug.h"
+#include "staticd/static_trace.h"
 
 #include "lib/openbsd-queue.h"
 
@@ -56,6 +57,9 @@ static void static_bfd_holddown_timer_cancel(
 		       __func__);
 		break;
 	}
+
+	frrtrace(2, frr_static, static_bfd_holddown_cancel, (uintptr_t)sn,
+		 (uint8_t)reason);
 }
 
 /*
@@ -84,12 +88,17 @@ static void static_bfd_admin_holddown_expire(struct event *event)
 		       "%s: admin-down hold-down expired while BFD is admin-down; "
 		       "ignoring (route stays installed)",
 		       __func__);
+		frrtrace(2, frr_static, static_bfd_holddown_expire, (uintptr_t)sn,
+			 (uint8_t)1);
 		return;
 	}
 
 	DEBUGD(&static_dbg_bfd,
 	       "%s: admin-down hold-down expired, peer unreachable, removing route",
 	       __func__);
+
+	frrtrace(2, frr_static, static_bfd_holddown_expire, (uintptr_t)sn,
+		 (uint8_t)0);
 
 	sn->path_down = true;
 	static_zebra_route_add(sn->pn, true);
@@ -104,6 +113,9 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 	DEBUGD(&static_dbg_bfd,
 	       "%s: BFD session status changed, state: %d, previous_state: %d, path_down: %d",
 	       __func__, bss->state, bss->previous_state, sn->path_down);
+	frrtrace(4, frr_static, static_bfd_session_change, (uintptr_t)sn,
+		 (uint32_t)bss->state, (uint32_t)bss->previous_state,
+		 (uint8_t)(sn->path_down ? 1 : 0));
 	switch (bss->state) {
 	case BSS_UNKNOWN:
 		/* FALLTHROUGH: no known state yet. */
@@ -135,6 +147,8 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 			       "%s: BFD transitioning from Admin Down to Down, starting hold-down timer (%ds)%s",
 			       __func__, BFD_ADMIN_HOLDDOWN_SEC,
 			       rearm ? " (after replacing prior timer)" : "");
+			frrtrace(3, frr_static, static_bfd_holddown_arm, (uintptr_t)sn,
+				 (uint32_t)BFD_ADMIN_HOLDDOWN_SEC, rearm);
 			event_add_timer(master,
 					static_bfd_admin_holddown_expire, sn,
 					BFD_ADMIN_HOLDDOWN_SEC,
@@ -144,6 +158,7 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 		/* Peer went down, remove this next hop. */
 		DEBUGD(&static_dbg_bfd,
 		       "%s: next hop is down, remove it from RIB", __func__);
+		frrtrace(1, frr_static, static_bfd_down_remove_rib, (uintptr_t)sn);
 		sn->path_down = true;
 		static_zebra_route_add(sn->pn, true);
 		break;
@@ -154,11 +169,15 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 			DEBUGD(&static_dbg_bfd,
 			       "%s: next hop is up, route already installed",
 			       __func__);
+			frrtrace(2, frr_static, static_bfd_up_rib, (uintptr_t)sn,
+				 (uint8_t)0);
 			break;
 		}
 		/* Peer is back up, add this next hop. */
 		DEBUGD(&static_dbg_bfd, "%s: next hop is up, add it to RIB",
 		       __func__);
+		frrtrace(2, frr_static, static_bfd_up_rib, (uintptr_t)sn,
+			 (uint8_t)1);
 		sn->path_down = false;
 		static_zebra_route_add(sn->pn, true);
 		break;
