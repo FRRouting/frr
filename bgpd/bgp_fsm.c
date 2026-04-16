@@ -128,6 +128,9 @@ static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->dynamic_cap_out += peer_src->dynamic_cap_out;
 }
 
+static void bgp_graceful_stale_timer_expire(struct event *event);
+static void bgp_graceful_restart_timer_expire(struct event *event);
+
 static struct peer *peer_xfer_conn(struct peer *from_peer)
 {
 	struct peer *peer;
@@ -214,6 +217,34 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	keeper->peer = peer;
 	from_peer->connection = going_away;
 	going_away->peer = from_peer;
+
+	/*
+	 * Migrate GR timers from going_away to keeper.  These were
+	 * armed in bgp_stop() on the config peer's old connection.
+	 * Cancel and re-arm so EVENT_ARG points to keeper, not the
+	 * going_away connection that will be freed with the doppelganger.
+	 */
+	if (event_is_scheduled(going_away->t_gr_stale)) {
+		struct timeval remain = event_timer_remain(going_away->t_gr_stale);
+
+		event_cancel(&going_away->t_gr_stale);
+		event_add_timer_tv(bm->master, bgp_graceful_stale_timer_expire, keeper, &remain,
+				   &keeper->t_gr_stale);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP %s: migrated stalepath timer (%ld sec remain) to keeper",
+				   peer, __func__, (long)remain.tv_sec);
+	}
+
+	if (event_is_scheduled(going_away->t_gr_restart)) {
+		struct timeval remain = event_timer_remain(going_away->t_gr_restart);
+
+		event_cancel(&going_away->t_gr_restart);
+		event_add_timer_tv(bm->master, bgp_graceful_restart_timer_expire, keeper, &remain,
+				   &keeper->t_gr_restart);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP %s: migrated restart timer (%ld sec remain) to keeper",
+				   peer, __func__, (long)remain.tv_sec);
+	}
 
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
