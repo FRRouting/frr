@@ -1544,12 +1544,12 @@ static inline int stream_putf_tlv(struct stream *s, uint16_t type, const float v
 int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_descriptor *desc,
 				  uint16_t tlv_type)
 {
-	size_t len_pos, sub_tlv_start;
-	int written = 0;
-	int ret;
+	size_t start, len_pos, sub_tlv_start;
 
 	if (!s || !desc)
 		return -1;
+
+	start = stream_get_endp(s);
 
 	if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE)
 		return -1;
@@ -1558,68 +1558,53 @@ int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_des
 	stream_putw(s, tlv_type);
 	len_pos = stream_get_endp(s);
 	stream_putw(s, 0); /* Placeholder for length */
-	written += BGP_LS_TLV_HDR_SIZE;
 
 	sub_tlv_start = stream_get_endp(s);
 
 	/* AS Number (TLV 512) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_AS_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_AS_NUMBER, BGP_LS_AS_NUMBER_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_AS_NUMBER, BGP_LS_AS_NUMBER_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_AS_NUMBER_SIZE)
 			return -1;
 		stream_putl(s, desc->asn);
-		written += BGP_LS_AS_NUMBER_SIZE;
 	}
 
 	/* BGP-LS Identifier (TLV 513) - deprecated but may be present */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_BGP_LS_ID, BGP_LS_BGP_LS_ID_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_BGP_LS_ID, BGP_LS_BGP_LS_ID_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_BGP_LS_ID_SIZE)
 			return -1;
 		stream_putl(s, desc->bgp_ls_id);
-		written += BGP_LS_BGP_LS_ID_SIZE;
 	}
 
 	/* OSPF Area ID (TLV 514) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_OSPF_AREA_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_AREA_ID, BGP_LS_OSPF_AREA_ID_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_AREA_ID, BGP_LS_OSPF_AREA_ID_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_OSPF_AREA_ID_SIZE)
 			return -1;
 		stream_putl(s, desc->ospf_area_id);
-		written += BGP_LS_OSPF_AREA_ID_SIZE;
 	}
 
 	/* IGP Router ID (TLV 515) - MANDATORY */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IGP_ROUTER_ID, desc->igp_router_id_len);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IGP_ROUTER_ID, desc->igp_router_id_len) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < desc->igp_router_id_len)
 			return -1;
 		stream_put(s, desc->igp_router_id, desc->igp_router_id_len);
-		written += desc->igp_router_id_len;
 	}
 
 	/* Update length field */
-	uint16_t sub_tlv_len = stream_get_endp(s) - sub_tlv_start;
+	stream_putw_at(s, len_pos, stream_get_endp(s) - sub_tlv_start);
 
-	stream_putw_at(s, len_pos, sub_tlv_len);
-
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -1644,109 +1629,89 @@ int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_des
  */
 int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_descriptor *desc)
 {
-	int written = 0;
-	int ret;
+	size_t start;
 	uint16_t i;
 
 	if (!s || !desc)
 		return -1;
 
+	start = stream_get_endp(s);
+
 	/* Link Local/Remote Identifiers (TLV 258) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_LINK_ID, BGP_LS_LINK_ID_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_LINK_ID, BGP_LS_LINK_ID_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_LINK_ID_SIZE)
 			return -1;
 		stream_putl(s, desc->link_local_id);
 		stream_putl(s, desc->link_remote_id);
-		written += BGP_LS_LINK_ID_SIZE;
 	}
 
 	/* IPv4 Interface Address (TLV 259) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_INTF_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_INTF_ADDR, BGP_LS_IPV4_ADDR_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_INTF_ADDR, BGP_LS_IPV4_ADDR_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_IPV4_ADDR_SIZE)
 			return -1;
 		stream_put_ipv4(s, desc->ipv4_intf_addr.s_addr);
-		written += BGP_LS_IPV4_ADDR_SIZE;
 	}
 
 	/* IPv4 Neighbor Address (TLV 260) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV4_NEIGH_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_NEIGH_ADDR, BGP_LS_IPV4_ADDR_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IPV4_NEIGH_ADDR, BGP_LS_IPV4_ADDR_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_IPV4_ADDR_SIZE)
 			return -1;
 		stream_put_ipv4(s, desc->ipv4_neigh_addr.s_addr);
-		written += BGP_LS_IPV4_ADDR_SIZE;
 	}
 
 	/* IPv6 Interface Address (TLV 261) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_INTF_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_INTF_ADDR, BGP_LS_IPV6_ADDR_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_INTF_ADDR, BGP_LS_IPV6_ADDR_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_IPV6_ADDR_SIZE)
 			return -1;
 		stream_put(s, &desc->ipv6_intf_addr, BGP_LS_IPV6_ADDR_SIZE);
-		written += BGP_LS_IPV6_ADDR_SIZE;
 	}
 
 	/* IPv6 Neighbor Address (TLV 262) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_NEIGH_ADDR, BGP_LS_IPV6_ADDR_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IPV6_NEIGH_ADDR, BGP_LS_IPV6_ADDR_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_IPV6_ADDR_SIZE)
 			return -1;
 		stream_put(s, &desc->ipv6_neigh_addr, BGP_LS_IPV6_ADDR_SIZE);
-		written += BGP_LS_IPV6_ADDR_SIZE;
 	}
 
 	/* Multi-Topology ID (TLV 263) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) &&
 	    desc->mt_id_count > 0) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
-					 desc->mt_id_count * BGP_LS_MT_ID_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
+				       desc->mt_id_count * BGP_LS_MT_ID_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < (size_t)desc->mt_id_count * BGP_LS_MT_ID_SIZE)
 			return -1;
 		for (i = 0; i < desc->mt_id_count; i++)
 			stream_putw(s, desc->mt_id[i]);
-		written += desc->mt_id_count * BGP_LS_MT_ID_SIZE;
 	}
 
 	/* Remote AS Number (TLV 264) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_LINK_DESC_REMOTE_AS_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_REMOTE_AS_NUMBER, 4);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_REMOTE_AS_NUMBER, 4) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < 4)
 			return -1;
 		stream_putl(s, desc->remote_asn);
-		written += 4;
 	}
 
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -1768,74 +1733,63 @@ int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_des
  */
 int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix_descriptor *desc)
 {
-	int written = 0;
-	int ret;
+	size_t start;
 	uint16_t i;
 	uint8_t prefix_len_bytes;
 
 	if (!s || !desc)
 		return -1;
 
+	start = stream_get_endp(s);
+
 	/* Multi-Topology ID (TLV 263) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT) &&
 	    desc->mt_id_count > 0) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
-					 desc->mt_id_count * BGP_LS_MT_ID_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_MT_ID,
+				       desc->mt_id_count * BGP_LS_MT_ID_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < (size_t)desc->mt_id_count * BGP_LS_MT_ID_SIZE)
 			return -1;
 		for (i = 0; i < desc->mt_id_count; i++)
 			stream_putw(s, desc->mt_id[i]);
-		written += desc->mt_id_count * BGP_LS_MT_ID_SIZE;
 	}
 
 	/* OSPF Route Type (TLV 264) */
 	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT)) {
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_ROUTE_TYPE,
-					 BGP_LS_OSPF_ROUTE_TYPE_SIZE);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_OSPF_ROUTE_TYPE,
+				       BGP_LS_OSPF_ROUTE_TYPE_SIZE) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < BGP_LS_OSPF_ROUTE_TYPE_SIZE)
 			return -1;
 		stream_putc(s, desc->ospf_route_type);
-		written += BGP_LS_OSPF_ROUTE_TYPE_SIZE;
 	}
 
 	/* IP Reachability Information (TLV 265) - MANDATORY */
 	if (desc->prefix.family == AF_INET) {
 		prefix_len_bytes = (desc->prefix.prefixlen + 7) / 8;
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
-					 BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
+				       BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes)
 			return -1;
 		stream_putc(s, desc->prefix.prefixlen);
 		stream_put(s, &desc->prefix.u.prefix4, prefix_len_bytes);
-		written += BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes;
 	} else if (desc->prefix.family == AF_INET6) {
 		prefix_len_bytes = (desc->prefix.prefixlen + 7) / 8;
-		ret = stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
-					 BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes);
-		if (ret < 0)
+		if (stream_put_tlv_hdr(s, BGP_LS_TLV_IP_REACH_INFO,
+				       BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes) < 0)
 			return -1;
-		written += ret;
 
 		if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes)
 			return -1;
 		stream_putc(s, desc->prefix.prefixlen);
 		stream_put(s, &desc->prefix.u.prefix6, prefix_len_bytes);
-		written += BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes;
 	}
 
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -1857,31 +1811,28 @@ int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix
  */
 int bgp_ls_encode_node_nlri(struct stream *s, const struct bgp_ls_node_nlri *nlri)
 {
-	int written = 0;
-	int ret;
+	size_t start;
 
 	if (!s || !nlri)
 		return -1;
+
+	start = stream_get_endp(s);
 
 	/* Protocol-ID (1 byte) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_PROTOCOL_ID_SIZE)
 		return -1;
 	stream_putc(s, nlri->protocol_id);
-	written += BGP_LS_PROTOCOL_ID_SIZE;
 
 	/* Identifier (8 bytes) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_IDENTIFIER_SIZE)
 		return -1;
 	stream_putq(s, nlri->identifier);
-	written += BGP_LS_IDENTIFIER_SIZE;
 
 	/* Local Node Descriptors */
-	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
-	if (ret < 0)
+	if (bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC) < 0)
 		return -1;
-	written += ret;
 
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -1907,43 +1858,36 @@ int bgp_ls_encode_node_nlri(struct stream *s, const struct bgp_ls_node_nlri *nlr
  */
 int bgp_ls_encode_link_nlri(struct stream *s, const struct bgp_ls_link_nlri *nlri)
 {
-	int written = 0;
-	int ret;
+	size_t start;
 
 	if (!s || !nlri)
 		return -1;
+
+	start = stream_get_endp(s);
 
 	/* Protocol-ID (1 byte) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_PROTOCOL_ID_SIZE)
 		return -1;
 	stream_putc(s, nlri->protocol_id);
-	written += BGP_LS_PROTOCOL_ID_SIZE;
 
 	/* Identifier (8 bytes) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_IDENTIFIER_SIZE)
 		return -1;
 	stream_putq(s, nlri->identifier);
-	written += BGP_LS_IDENTIFIER_SIZE;
 
 	/* Local Node Descriptors */
-	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
-	if (ret < 0)
+	if (bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC) < 0)
 		return -1;
-	written += ret;
 
 	/* Remote Node Descriptors */
-	ret = bgp_ls_encode_node_descriptor(s, &nlri->remote_node, BGP_LS_TLV_REMOTE_NODE_DESC);
-	if (ret < 0)
+	if (bgp_ls_encode_node_descriptor(s, &nlri->remote_node, BGP_LS_TLV_REMOTE_NODE_DESC) < 0)
 		return -1;
-	written += ret;
 
 	/* Link Descriptors */
-	ret = bgp_ls_encode_link_descriptor(s, &nlri->link_desc);
-	if (ret < 0)
+	if (bgp_ls_encode_link_descriptor(s, &nlri->link_desc) < 0)
 		return -1;
-	written += ret;
 
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -1972,8 +1916,7 @@ int bgp_ls_encode_link_nlri(struct stream *s, const struct bgp_ls_link_nlri *nlr
 int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri *nlri,
 			      enum bgp_ls_nlri_type nlri_type)
 {
-	int written = 0;
-	int ret;
+	size_t start;
 
 	if (!s || !nlri)
 		return -1;
@@ -1985,31 +1928,27 @@ int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri 
 	     nlri->prefix_desc.prefix.family != AF_INET6))
 		return -1;
 
+	start = stream_get_endp(s);
+
 	/* Protocol-ID (1 byte) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_PROTOCOL_ID_SIZE)
 		return -1;
 	stream_putc(s, nlri->protocol_id);
-	written += BGP_LS_PROTOCOL_ID_SIZE;
 
 	/* Identifier (8 bytes) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_IDENTIFIER_SIZE)
 		return -1;
 	stream_putq(s, nlri->identifier);
-	written += BGP_LS_IDENTIFIER_SIZE;
 
 	/* Local Node Descriptors */
-	ret = bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC);
-	if (ret < 0)
+	if (bgp_ls_encode_node_descriptor(s, &nlri->local_node, BGP_LS_TLV_LOCAL_NODE_DESC) < 0)
 		return -1;
-	written += ret;
 
 	/* Prefix Descriptors */
-	ret = bgp_ls_encode_prefix_descriptor(s, &nlri->prefix_desc);
-	if (ret < 0)
+	if (bgp_ls_encode_prefix_descriptor(s, &nlri->prefix_desc) < 0)
 		return -1;
-	written += ret;
 
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
@@ -2037,8 +1976,7 @@ int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefix_nlri 
  */
 int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
 {
-	size_t len_pos, value_start;
-	int written = 0;
+	size_t start, len_pos, value_start;
 	int ret = 0;
 
 	if (!s || !nlri)
@@ -2048,18 +1986,18 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
 	if (!bgp_ls_nlri_validate(nlri))
 		return -1;
 
+	start = stream_get_endp(s);
+
 	/* NLRI Type (2 bytes) */
 	if (STREAM_WRITEABLE(s) < BGP_LS_NLRI_TYPE_SIZE)
 		return -1;
 	stream_putw(s, nlri->nlri_type);
-	written += BGP_LS_NLRI_TYPE_SIZE;
 
 	/* Reserve space for NLRI Length */
 	if (STREAM_WRITEABLE(s) < BGP_LS_NLRI_LENGTH_SIZE)
 		return -1;
 	len_pos = stream_get_endp(s);
 	stream_putw(s, 0); /* Placeholder */
-	written += BGP_LS_NLRI_LENGTH_SIZE;
 
 	value_start = stream_get_endp(s);
 
@@ -2085,14 +2023,10 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
 	if (ret < 0)
 		return -1;
 
-	written += ret;
-
 	/* Update NLRI Length field */
-	uint16_t nlri_len = stream_get_endp(s) - value_start;
+	stream_putw_at(s, len_pos, stream_get_endp(s) - value_start);
 
-	stream_putw_at(s, len_pos, nlri_len);
-
-	return written;
+	return stream_get_endp(s) - start;
 }
 
 /*
