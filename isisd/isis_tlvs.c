@@ -1395,6 +1395,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 	while (readable > 0) {
 		if (readable < ISIS_SUBSUBTLV_HDR_SIZE) {
 			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			stream_forward_getp(s, readable);
 			XFREE(MTYPE_ISIS_SUBTLV, asla);
 			return -1;
 		}
@@ -1403,6 +1404,12 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 		subsubtlv_len = stream_getc(s);
 		readable -= ISIS_SUBSUBTLV_HDR_SIZE;
 
+		if (subsubtlv_len > readable) {
+			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			stream_forward_getp(s, readable);
+			XFREE(MTYPE_ISIS_SUBTLV, asla);
+			return -1;
+		}
 
 		switch (subsubtlv_type) {
 		case ISIS_SUBTLV_ADMIN_GRP:
@@ -1534,12 +1541,6 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 			zlog_debug("unknown (t,l)=(%u,%u)", subsubtlv_type, subsubtlv_len);
 			stream_forward_getp(s, subsubtlv_len);
 			break;
-		}
-		/* before processing next subsubtlv, check subsubtlv_len to prevent underflow and subsequent infinite loop or assertion failure. Since default branch does not perform any check against subsubtlv_len. */
-		if (readable < subsubtlv_len) {
-			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
-			XFREE(MTYPE_ISIS_SUBTLV, asla);
-			return -1;
 		}
 		readable -= subsubtlv_len;
 	}
