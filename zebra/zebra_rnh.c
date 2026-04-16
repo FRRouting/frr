@@ -72,6 +72,7 @@ extern struct in_addr g_infovlay_ipv4;
 extern struct trkr_client *g_infovlay_trkr;
 int g_inf_nhcntr_read_success = 0;
 extern int g_inf_is_controller;
+extern struct list *g_inf_ctrl_overlay_ips;
 #endif
 
 static bool compare_state(struct route_entry *r1, struct route_entry *r2);
@@ -552,6 +553,25 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable, struct
 		zlog_debug("self ip so always reachable ip %s , pp %s",selfip, via);
 		*isreachable = 1;
 		return *isreachable;
+	}
+
+	/* Skip tracker check for nexthops that are controller overlay IPs */
+	if (g_inf_ctrl_overlay_ips) {
+		struct listnode *node;
+		struct in_addr *ctrl_ip;
+
+		for (ALL_LIST_ELEMENTS_RO(g_inf_ctrl_overlay_ips, node, ctrl_ip)) {
+			if (ctrl_ip->s_addr == pp->u.prefix4.s_addr) {
+				if (IS_ZEBRA_DEBUG_NHT) {
+					inet_ntop(pp->family, &pp->u.prefix, via,
+						  PREFIX2STR_BUFFER);
+					zlog_debug("Infiot controller overlay nexthop %s, skipping trkr check",
+						   via);
+				}
+				*isreachable = 1;
+				return *isreachable;
+			}
+		}
 	}
 
 	// It is possible that when zebra starts, click has not created the

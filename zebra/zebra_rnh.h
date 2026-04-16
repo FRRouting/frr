@@ -65,6 +65,7 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 			       const struct nexthop *nexthop);
 
 extern struct prefix g_infovlay_prefix;
+extern struct list *g_inf_ctrl_overlay_ips;
 #ifdef __cplusplus
 }
 #endif

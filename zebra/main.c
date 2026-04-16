@@ -264,6 +264,7 @@ struct frr_signal_t zebra_signals[] = {
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 #include "tracker_api.h"
 #include "lib/json.h"
+#include "lib/linklist.h"
 
 void infnh_init(void);
 struct prefix g_infovlay_prefix;
@@ -271,6 +272,7 @@ struct in_addr g_infovlay_ipv4;
 struct trkr_client *g_infovlay_trkr = NULL;
 uint8_t g_infovlay_cfgread = 0;
 int g_inf_is_controller = 0;
+struct list *g_inf_ctrl_overlay_ips = NULL;
 #define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/infgw/inf_config.json"
 
 static int infnh_readcfg(void)
@@ -282,6 +284,7 @@ static int infnh_readcfg(void)
 	struct json_object *jsondata = NULL, *dcfg_overlay = NULL, *dcfg_role = NULL;
 	struct json_object *json_ovlay_ipv4 = NULL, *json_ovlay_netmask = NULL;
 	struct json_object *device_config = NULL, *jsondatafull = NULL;
+	struct json_object *destinations = NULL, *ipsec_list = NULL;
 
 	fprintf(stdout, "reading infiot config\n");
 	fp = fopen(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH, "rb");
@@ -376,6 +379,46 @@ static int infnh_readcfg(void)
 
 	fprintf(stdout, "ovlay ipv4: %s netmask: %d\n", bufn, g_infovlay_prefix.prefixlen);
 	ok = 1;
+
+	/* Parse destinations.infiot_ipsec to collect controller overlay IPs */
+	if (g_inf_ctrl_overlay_ips == NULL)
+		g_inf_ctrl_overlay_ips = list_new();
+
+	json_object_object_get_ex(jsondata, "destinations", &destinations);
+	if (destinations) {
+		json_object_object_get_ex(destinations, "infiot_ipsec", &ipsec_list);
+	}
+	if (ipsec_list && json_object_get_type(ipsec_list) == json_type_array) {
+		int n = json_object_array_length(ipsec_list);
+		for (int i = 0; i < n; i++) {
+			struct json_object *entry = json_object_array_get_idx(ipsec_list, i);
+			struct json_object *ipsec_overlay = NULL, *role_obj = NULL, *ip_obj = NULL;
+
+			json_object_object_get_ex(entry, "ipsec_overlay", &ipsec_overlay);
+			if (!ipsec_overlay)
+				continue;
+			json_object_object_get_ex(ipsec_overlay, "role", &role_obj);
+			if (!role_obj)
+				continue;
+			if (strncmp(json_object_get_string(role_obj), "controller", 10) != 0)
+				continue;
+			json_object_object_get_ex(ipsec_overlay, "ovlay_ipv4", &ip_obj);
+			if (!ip_obj)
+				continue;
+
+			struct in_addr *ctrl_ip = XMALLOC(MTYPE_TMP, sizeof(struct in_addr));
+			if (inet_pton(AF_INET, json_object_get_string(ip_obj), ctrl_ip) != 1) {
+				XFREE(MTYPE_TMP, ctrl_ip);
+				continue;
+			}
+			listnode_add(g_inf_ctrl_overlay_ips, ctrl_ip);
+			fprintf(stdout, "INFIOT controller overlay IP: %s\n",
+				json_object_get_string(ip_obj));
+		}
+	} else {
+		fprintf(stdout, "INFIOT ipsec_list not array or NULL, type=%d\n",
+			ipsec_list ? json_object_get_type(ipsec_list) : -1);
+	}
 
 error:
 	if (jsondata) {
