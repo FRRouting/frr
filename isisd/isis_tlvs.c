@@ -1940,10 +1940,10 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				}
 
 				lan->subsubtlvs = isis_alloc_subsubtlvs(
-					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+					ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID);
 
 				bool unpacked_known_tlvs = false;
-				if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+				if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID,
 						subsubtlv_len, s, log, lan->subsubtlvs, indent + 4,
 						&unpacked_known_tlvs)) {
 					isis_free_subsubtlvs(lan->subsubtlvs);

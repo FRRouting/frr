@@ -341,7 +341,8 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 		ladj_sid->weight = 0;
 		ladj_sid->behavior = sra->behavior;
 		ladj_sid->sid = sra->sid;
-		ladj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+		ladj_sid->subsubtlvs =
+			isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID);
 		ladj_sid->subsubtlvs->srv6_sid_structure =
 			XCALLOC(MTYPE_ISIS_SUBSUBTLV,
 				sizeof(*ladj_sid->subsubtlvs->srv6_sid_structure));
