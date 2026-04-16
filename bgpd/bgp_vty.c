@@ -5536,6 +5536,55 @@ DEFUN (neighbor_remote_as,
 				  argv[idx_remote_as]->arg);
 }
 
+
+DEFPY (neighbor_cluster_id,
+	neighbor_cluster_id_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor cluster-id [<A.B.C.D|(1-4294967295)>$id]",
+	NO_STR
+	NEIGHBOR_STR
+	NEIGHBOR_ADDR_STR2
+	"Configure a cluster-id for the neighbor\n"
+	"Route-Reflector Cluster-id in IP address format\n"
+	"Route-Reflector Cluster-id as 32 bit quantity\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct in_addr cluster;
+	int ret;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (peer->sort != BGP_PEER_IBGP && peer->sort != BGP_PEER_UNSPECIFIED) {
+		vty_out(vty, "%% Invalid command. Not an internal neighbor\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!no) {
+		if (!id) {
+			vty_out(vty, "%% Specify a cluster-id\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		ret = inet_aton(id, &cluster);
+		if (!ret) {
+			vty_out(vty, "%% Malformed bgp cluster identifier\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp_neighbor_cluster_id_set(bgp, &cluster, peer, afi, safi);
+		return CMD_SUCCESS;
+	}
+	/* There is no check to verify whether the peer is a route-reflector-client,
+	 * this is intentional and will not affect routing for the peer until it is
+	 * set as route-reflector-client,
+	 * it will still affect inbound filtering based on cluster-list
+	 */
+	bgp_neighbor_cluster_id_unset(bgp, peer, afi, safi);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_allow_martian,
        bgp_allow_martian_cmd,
        "[no]$no bgp allow-martian-nexthop",
@@ -14039,6 +14088,12 @@ DEFUN (show_bgp_memory,
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n", count,
 			mtype_memstr(memstrbuf, sizeof(memstrbuf), count * sizeof(struct frregex)));
+
+	count = mtype_stats_alloc(MTYPE_PER_NEIGHBOR_CLUSTER);
+	if (count)
+		vty_out(vty, "%ld per-neighbor clusters, using %s of memory\n", count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf), count * sizeof(struct cluster)));
+
 	return CMD_SUCCESS;
 }
 
@@ -15745,6 +15800,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	struct peer_af *paf;
 	char orf_pfx_name[BUFSIZ];
 	int orf_pfx_count;
+	char cluster_id[INET_ADDRSTRLEN];
 	json_object *json_af = NULL;
 	json_object *json_prefA = NULL;
 	json_object *json_addr = NULL;
@@ -15832,6 +15888,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			       PEER_FLAG_REFLECTOR_CLIENT))
 			json_object_boolean_true_add(json_addr,
 						     "routeReflectorClient");
+
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+			json_object_string_add(json_addr, "clusterId",
+					       inet_ntop(AF_INET, &p->cluster[afi][safi],
+							 cluster_id, INET_ADDRSTRLEN));
+
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_RSERVER_CLIENT))
 			json_object_boolean_true_add(json_addr,
@@ -16161,6 +16223,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT))
 			vty_out(vty, "  Route-Reflector Client\n");
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+			vty_out(vty, "  Cluster-id: %pI4\n", &p->cluster[afi][safi]);
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_RSERVER_CLIENT))
 			vty_out(vty, "  Route-Server Client\n");
@@ -21712,6 +21776,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 {
 	struct peer *g_peer = NULL;
 	char *addr;
+	struct in_addr cluster_id;
 	bool flag_scomm, flag_secomm, flag_slcomm;
 
 	/* skip hidden default vrf bgp instance */
@@ -21813,6 +21878,12 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_REFLECTOR_CLIENT)) {
 		vty_out(vty, "  neighbor %s route-reflector-client\n", addr);
+	}
+
+	/* Per-neighbor cluster*/
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CLUSTER_ID)) {
+		cluster_id = peer->cluster[afi][safi];
+		vty_out(vty, "  neighbor %s cluster-id %pI4\n", addr, &cluster_id);
 	}
 
 	/* next-hop-self force */
@@ -22183,6 +22254,7 @@ int bgp_config_write(struct vty *vty)
 {
 	struct bgp *bgp;
 	struct peer_group *group;
+	struct cluster *cluster;
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
@@ -23359,6 +23431,7 @@ void bgp_vty_init(void)
 	/* "bgp cluster-id" commands. */
 	install_element(BGP_NODE, &bgp_cluster_id_cmd);
 	install_element(BGP_NODE, &no_bgp_cluster_id_cmd);
+	install_element(BGP_NODE, &bgp_cluster_id_client_to_client_cmd);
 
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
@@ -24041,6 +24114,19 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &neighbor_ecommunity_rpki_cmd);
 	install_element(BGP_VPNV4_NODE, &neighbor_ecommunity_rpki_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_ecommunity_rpki_cmd);
+
+	/* "neighbor cluster-id" commands.*/
+	install_element(BGP_IPV4_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_cluster_id_cmd);
 
 	/* "neighbor route-reflector" commands.*/
 	install_element(BGP_NODE, &neighbor_route_reflector_client_hidden_cmd);
