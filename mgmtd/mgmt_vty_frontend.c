@@ -312,7 +312,8 @@ static int vty_mgmt_handle_error_reply(struct mgmt_fe_client *client, uintptr_t 
 	const char *cname = mgmt_fe_client_name(client);
 
 	if (!vty->mgmt_req_pending_cmd) {
-		debug_fe_client("Error with no pending command: %d returned for client %s 0x%Lx session-id %Lu req-id %Lu error-str %s",
+		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
+				" session-id %" PRIu64 " req-id %" PRIu64 " error-str %s",
 				error, cname, client_id, session_id, req_id, errstr);
 		vty_out(vty, "%% Error %d from MGMTD for %s with no pending command: %s\n", error,
 			cname, errstr);
@@ -604,10 +605,12 @@ static int vty_mgmt_handle_edit_reply(struct mgmt_fe_client *client, uintptr_t u
 	struct vty *vty = (struct vty *)session_ctx;
 
 	if (!error)
-		debug_fe_client("EDIT request for client 0x%Lx req-id %Lu was successful, xpath: %s",
+		debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
+				" was successful, xpath: %s",
 				client_id, req_id, xpath);
 	else {
-		debug_fe_client("EDIT request for client 0x%Lx req-id %Lu failed xpath: %s: %d: %s",
+		debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
+				" failed xpath: %s: %d: %s",
 				client_id, req_id, xpath, error, errstr);
 		vty_out(vty, "%% %s\n", errstr);
 		vty_out(vty, "%% Failed to edit configuration.\n");
