@@ -5987,6 +5987,16 @@ setting.
 This command allows the BGP daemon to control, at a global level, the DSCP value
 used in outgoing packets for each BGP connection.
 
+.. clicmd:: neighbor PEER cluster-id A.B.C.D
+
+This command sets the peer PEER as part of a per-neighbor cluster.
+Per-neighbor clusters are additional clusters that allow a route-reflector
+to manage client in multiple different clusters. Each per-neighbor cluster
+is defined by its cluster-id. As long as a per-neighbor cluster has
+the same id as the unique cluster of the route-reflector that we call global,
+the settings of the global cluster will override the settings of that
+per-neighbor cluster.
+
 .. _bgp-suppress-fib:
 
 Suppressing routes not installed in FIB

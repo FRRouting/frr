@@ -5559,6 +5559,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
+	struct in_addr *cluster_id = NULL;
 	/*
 	 * For BMP Route Monitoring always encode ASNs as 32-bit. BMP is an
 	 * observability channel, not a BGP session; the peer's AS4 capability
@@ -5875,12 +5876,32 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_putc(s, cluster ? cluster->length + 4 : 4);
 		}
 
-		/* If this peer configuration's parent BGP has
-		 * cluster_id. */
-		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-			stream_put_in_addr(s, &bgp->cluster_id);
-		else
-			stream_put_in_addr(s, &bgp->router_id);
+		/* The route reflector has multiple clusters associated with it,
+		 * put the one that has been configured by the user for that peer
+		 * in the cluster-list.
+		 * filtering has been updated to take these new clusters into account
+		 * and prevent loops
+		 */
+
+		/* if the originator of the prefix has a per-neighbor cluster configured */
+		if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
+			if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+				cluster_id = &from->cluster[afi][safi];
+			/* if the destination of the id has a per-neighbor cluster configured
+		 	 * and the originator is a non-client
+		 	 */
+		} else if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+			cluster_id = &peer->cluster[afi][safi];
+		/* If eiher the originator is part of the global cluster or
+		 * the originator is non-client and the destinaton is part of the global cluster
+		 */
+		if (!cluster_id) {
+			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+				cluster_id = &bgp->cluster_id;
+			else
+				cluster_id = &bgp->router_id;
+		}
+		stream_put_in_addr(s, cluster_id);
 
 		if (cluster)
 			stream_put(s, cluster->list, cluster->length);

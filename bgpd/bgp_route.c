@@ -2100,7 +2100,12 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 {
 	struct in_addr cluster_id;
 	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+	struct cluster *per_neighbor_cluster;
 
+	/* when receiving a route with any of the per-neighbor cluster-ids configured
+	 * on the router, the route should be dropped to avoid loop regardless of the
+	 * cluster that originated it
+	 */
 	if (cluster) {
 		if (CHECK_FLAG(peer->bgp->config, BGP_CONFIG_CLUSTER_ID))
 			cluster_id = peer->bgp->cluster_id;
@@ -2109,6 +2114,12 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 		if (cluster_loop_check(cluster, cluster_id))
 			return true;
+
+		frr_each (per_neighbor_cluster_list, &peer->bgp->per_neighbor_clusters,
+			  per_neighbor_cluster) {
+			if (cluster_loop_check(cluster, per_neighbor_cluster->cluster_id))
+				return true;
+		}
 	}
 	return false;
 }
@@ -2739,12 +2750,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* IBGP reflection check. */
 	if (ibgp_to_ibgp && !samepeer_safe) {
 		/* A route from a Client peer. */
-		if (CHECK_FLAG(from->af_flags[afi][safi],
-			       PEER_FLAG_REFLECTOR_CLIENT)) {
+		if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
 			/* Reflect to all the Non-Client peers and also to the
-			   Client peers other than the originator.  Originator
-			   check
-			   is already done.  So there is noting to do. */
+			 * Client peers other than the originator. Originator
+			 * check
+			 * is already done. So there is nothing to do.
+			 */
 			/* no bgp client-to-client reflection check. */
 			if (CHECK_FLAG(bgp->flags,
 				       BGP_FLAG_NO_CLIENT_TO_CLIENT))
