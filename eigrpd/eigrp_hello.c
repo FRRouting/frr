@@ -107,7 +107,7 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	struct TLV_Parameter_Type *param = (struct TLV_Parameter_Type *)tlv;
 
 	/* First validate TLV length */
-	if (tlv->length < sizeof(struct TLV_Parameter_Type))
+	if (ntohs(tlv->length) < sizeof(struct TLV_Parameter_Type))
 		return NULL;
 
 	/* copy over the values passed in by the neighbor */
@@ -179,16 +179,16 @@ eigrp_hello_authentication_decode(struct stream *s,
 
 	md5 = (struct TLV_MD5_Authentication_Type *)tlv_header;
 
-	if (md5->auth_type == EIGRP_AUTH_TYPE_MD5) {
+	if (ntohs(md5->auth_type) == EIGRP_AUTH_TYPE_MD5) {
 		/* Validate tlv length */
-		if (md5->length < sizeof(struct TLV_MD5_Authentication_Type))
+		if (ntohs(md5->length) < sizeof(struct TLV_MD5_Authentication_Type))
 			return 0;
 
 		return eigrp_check_md5_digest(s, md5, nbr,
 					      EIGRP_AUTH_BASIC_HELLO_FLAG);
-	} else if (md5->auth_type == EIGRP_AUTH_TYPE_SHA256) {
+	} else if (ntohs(md5->auth_type) == EIGRP_AUTH_TYPE_SHA256) {
 		/* Validate tlv length */
-		if (md5->length < sizeof(struct TLV_SHA256_Authentication_Type))
+		if (ntohs(md5->length) < sizeof(struct TLV_SHA256_Authentication_Type))
 			return 0;
 
 		return eigrp_check_sha256_digest(
@@ -218,7 +218,7 @@ static void eigrp_sw_version_decode(struct eigrp_neighbor *nbr,
 	struct TLV_Software_Type *version = (struct TLV_Software_Type *)tlv;
 
 	/* Validate TLV length */
-	if (tlv->length < sizeof(struct TLV_Software_Type))
+	if (ntohs(tlv->length) < sizeof(struct TLV_Software_Type))
 		return;
 
 	nbr->os_rel_major = version->vender_major;
@@ -249,7 +249,7 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 		(struct TLV_Peer_Termination_type *)tlv;
 
 	/* Validate TLV length */
-	if (tlv->length < sizeof(struct TLV_Peer_Termination_type))
+	if (ntohs(tlv->length) < sizeof(struct TLV_Peer_Termination_type))
 		return;
 
 	uint32_t my_ip = nbr->ei->address.u.prefix4.s_addr;
