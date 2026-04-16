@@ -2466,6 +2466,7 @@ static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
 	struct isis_srv6_end_sid_subtlv *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
 
+	rv->flags = sid->flags;
 	rv->behavior = sid->behavior;
 	rv->sid = sid->sid;
 	rv->subsubtlvs = isis_copy_subsubtlvs(sid->subsubtlvs);
