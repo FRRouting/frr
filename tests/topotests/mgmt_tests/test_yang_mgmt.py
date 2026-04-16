@@ -642,6 +642,186 @@ def test_mgmt_edit_config(request):
     )
 
 
+def test_mgmt_edit_config_libyang_errors(request):
+    """
+    Verify mgmt edit config surfaces libyang validation errors with stable
+    diagnostic strings that external controllers (NETCONF/gNMI/RESTCONF)
+    depend on to classify failures. Six categories covered: malformed JSON,
+    pattern violation, invalid enumeration, missing mandatory leaf, delete
+    of a leaf inside a mandatory choice, and dangling formal leafref.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    reset_config_on_routers(tgen)
+
+    r1 = tgen.gears["r1"]
+
+    # Seed a valid prefix-list so mandatory-choice delete (R2a) has a target.
+    seed = {
+        "frr-filter:prefix-list": [
+            {
+                "type": "ipv4",
+                "name": "pl-seed",
+                "entry": [
+                    {
+                        "sequence": 10,
+                        "action": "permit",
+                        "ipv4-prefix": "192.0.2.0/24",
+                    }
+                ],
+            }
+        ]
+    }
+    r1.vtysh_cmd(
+        "conf\nmgmt edit create /frr-filter:lib lock commit "
+        + json.dumps(seed, separators=(",", ":"))
+    )
+    # Positive check: the seed must now be queryable. Catches creation
+    # failures up front so R2a's mandatory-choice assertion doesn't have
+    # to absorb a confusing "path not found" error from the delete path.
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-filter:lib/prefix-list[type='ipv4'][name='pl-seed']"
+            " only-config exact",
+            seed,
+            exact=True,
+        )
+        is None
+    ), "Seed prefix-list creation failed; R2a cannot validate mandatory-choice delete"
+
+    # R4a — malformed JSON (unterminated object): libyang parse error.
+    ret = r1.vtysh_cmd(
+        'conf\nmgmt edit create /frr-filter:lib lock commit {"frr-filter:prefix-list":[{"type":"ipv4","name":"x"'
+    )
+    assert "Unexpected end-of-input" in ret or "Invalid character" in ret
+
+    # R4b — pattern violation: /33 is not a valid IPv4 prefix length.
+    bad_pattern = {
+        "frr-filter:prefix-list": [
+            {
+                "type": "ipv4",
+                "name": "pl-pattern",
+                "entry": [
+                    {
+                        "sequence": 10,
+                        "action": "permit",
+                        "ipv4-prefix": "192.0.2.0/33",
+                    }
+                ],
+            }
+        ]
+    }
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit create /frr-filter:lib lock commit "
+        + json.dumps(bad_pattern, separators=(",", ":"))
+    )
+    assert "Unsatisfied pattern" in ret
+
+    # R4c — invalid enumeration value: action must be permit|deny.
+    bad_enum = {
+        "frr-filter:prefix-list": [
+            {
+                "type": "ipv4",
+                "name": "pl-enum",
+                "entry": [
+                    {
+                        "sequence": 10,
+                        "action": "allow",
+                        "ipv4-prefix": "192.0.2.0/24",
+                    }
+                ],
+            }
+        ]
+    }
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit create /frr-filter:lib lock commit "
+        + json.dumps(bad_enum, separators=(",", ":"))
+    )
+    assert "Invalid enumeration value" in ret
+
+    # R4d — mandatory leaf missing: entry requires "action".
+    missing_mandatory = {
+        "frr-filter:prefix-list": [
+            {
+                "type": "ipv4",
+                "name": "pl-mand",
+                "entry": [{"sequence": 10, "ipv4-prefix": "192.0.2.0/24"}],
+            }
+        ]
+    }
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit create /frr-filter:lib lock commit "
+        + json.dumps(missing_mandatory, separators=(",", ":"))
+    )
+    assert "Mandatory node" in ret and "does not exist" in ret
+
+    # R2a — delete a leaf that participates in a mandatory choice.
+    # /entry[sequence=N]/ipv4-prefix is in choice "value" (mandatory) and
+    # is itself declared mandatory true, so the delete leaves two
+    # simultaneous violations; libyang may report either the choice-level
+    # one ("Mandatory choice") or the leaf-level one ("Mandatory node")
+    # depending on validation order, both are valid diagnostics.
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit delete "
+        "/frr-filter:lib/prefix-list[type='ipv4'][name='pl-seed']"
+        "/entry[sequence='10']/ipv4-prefix lock commit"
+    )
+    assert "Mandatory choice" in ret or "Mandatory node" in ret
+
+    # R5a — dangling formal leafref (require-instance=true).
+    # frr-affinity-map:affinity-map-ref is the only leafref in tree with
+    # require-instance=true. Consumed by zebra under interface/link-params.
+    # affinity-mode=extended avoids the "standard mode" must-expression.
+    # Uses `create` at interface target (matches the pattern of the earlier
+    # successful create in this file; merge semantics at container targets
+    # can reject payloads libyang expects to root at a list item).
+    dangling = {
+        "frr-interface:interface": [
+            {
+                "name": "eth0",
+                "frr-zebra:zebra": {
+                    "link-params": {
+                        "affinity-mode": "extended",
+                        "affinities": {"affinity": ["does-not-exist-map"]},
+                    }
+                },
+            }
+        ]
+    }
+    ret = r1.vtysh_cmd(
+        "conf\nmgmt edit create /frr-interface:lib lock commit "
+        + json.dumps(dangling, separators=(",", ":"))
+    )
+    assert "Invalid leafref value" in ret
+
+    # Sanity: the seed prefix-list survived every failed edit above.
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data "
+            "/frr-filter:lib/prefix-list[type='ipv4'][name='pl-seed']"
+            " only-config exact",
+            seed,
+            exact=True,
+        )
+        == None
+    )
+
+    # Cleanup the seed (idempotent via remove) so later tests inherit a
+    # clean candidate datastore.
+    r1.vtysh_cmd(
+        "conf\nmgmt edit remove "
+        "/frr-filter:lib/prefix-list[type='ipv4'][name='pl-seed'] lock commit"
+    )
+
+    write_test_footer(tc_name)
+
+
 def test_mgmt_chaos_stop_start_frr(request):
     """
     Kill mgmtd - verify that watch frr restarts.
