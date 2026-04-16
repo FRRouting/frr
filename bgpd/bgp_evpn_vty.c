@@ -2396,6 +2396,8 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 	if (is_vni_live(vpn))
 		bgp_evpn_handle_rd_change(bgp, vpn, 1);
 
+	if (vpn->prd_pretty)
+		XFREE(MTYPE_BGP_NAME, vpn->prd_pretty);
 	/* update RD */
 	memcpy(&vpn->prd, rd, sizeof(struct prefix_rd));
 	vpn->prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_pretty);
