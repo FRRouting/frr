@@ -5269,6 +5269,14 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 				}
 				subsubtlvs_len -= 2 + subsubtlv_len;
 			}
+			/* consume any leftover bytes (e.g. subsubtlvs_len 1-2,
+			 * too small for another sub-sub-TLV header) so the
+			 * stream stays in sync with the declared subtlv length.
+			 * Only skip on normal loop exit (1-2 bytes remain);
+			 * the error-break path already consumed the bytes.
+			 */
+			if (subsubtlvs_len > 0 && subsubtlvs_len <= 2)
+				stream_forward_getp(s, subsubtlvs_len);
 			break;
 #endif /* ifndef FABRICD */
 		case ISIS_SUBTLV_SRV6_CAPABILITIES:
