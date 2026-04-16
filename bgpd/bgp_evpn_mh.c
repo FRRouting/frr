@@ -3959,11 +3959,11 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 	if (ret)
 		return ret;
 
-	evpn_vpws = bgp_l2vpn_vpws_evi_match(eth_tag);
+	evpn_vpws = bgp_l2vpn_vpws_vsi_match(eth_tag);
 	if (evpn_vpws) {
 		if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-			zlog_debug("Match EVPN VPWS local ac %u, remote ac %u for peer %pI4",
-				   evpn_vpws->local_ac_id, evpn_vpws->remote_ac_id,
+			zlog_debug("Match EVPN VPWS local-vsi %u, remote-vsi %u for peer %pI4",
+				   evpn_vpws->vsi, evpn_vpws->remote_vsi,
 				   &evpn_vpws->lsr_id);
 
 		eval_encap = ecommunity_lookup(bgp_attr_get_ecommunity(pi->attr),
@@ -3973,7 +3973,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 			memcpy(&encap, eval_encap->val + 6, 2);
 			encap = ntohs(encap);
 			if (encap != BGP_ENCAP_TYPE_VXLAN) {
-				zlog_info("EVPN VPWS: remote EVI %u route does not support VXLAN tunnel",
+				zlog_info("EVPN VPWS: remote-vsi %u route does not support VXLAN tunnel",
 					  eth_tag);
 
 				return ret;
@@ -3997,7 +3997,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 			memcpy(&evpn_vpws->remote_mtu, eval_l2->val + 4, 2);
 			evpn_vpws->remote_mtu = ntohs(evpn_vpws->remote_mtu);
 			if (evpn_vpws->remote_mtu && evpn_vpws->remote_mtu != evpn_vpws->mtu) {
-				zlog_info("EVPN VPWS: remote EVI %u, mtu mismatch remote %u local %u",
+				zlog_info("EVPN VPWS: remote-vsi %u, mtu mismatch remote %u local %u",
 					  eth_tag, evpn_vpws->remote_mtu, evpn_vpws->mtu);
 
 				evpn_vpws->remote_status = EVPN_NOT_FORWARDING;
@@ -4013,7 +4013,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 		IPV4_ADDR_COPY(&evpn_vpws->addr.ipv4, &evi_vtep->vtep_ip);
 		IPV4_ADDR_COPY(&evpn_vpws->lsr_id, &pi->peer->remote_id);
 
-		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+		if (CHECK_FLAG(evpn_vpws->flags, F_EVPN_SEND_REMOTE))
 			bgp_l2vpn_vpws_zebra_set(bgp, evpn_vpws, true);
 	}
 
@@ -4123,11 +4123,11 @@ enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp,
 		return ret;
 	}
 
-	evpn_vpws = bgp_l2vpn_vpws_evi_match(eth_tag);
+	evpn_vpws = bgp_l2vpn_vpws_vsi_match(eth_tag);
 	if (evpn_vpws) {
 		if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-			zlog_err("Unmatch EVPN VPWS local ac %u, remote ac %u for peer %pI4",
-				 evpn_vpws->local_ac_id, evpn_vpws->remote_ac_id,
+			zlog_err("Unmatch EVPN VPWS local-vsi %u, remote-vsi %u for peer %pI4",
+				 evpn_vpws->vsi, evpn_vpws->remote_vsi,
 				 &evpn_vpws->lsr_id);
 
 		bgp_l2vpn_vpws_zebra_set(bgp, evpn_vpws, false);

@@ -35,7 +35,7 @@ command:
    l2vpn test vpws
     member evpn vxlan1
      vni 1
-     neighbor evpn evi 1 local-ac-id 1 remote-ac-id 2
+     neighbor evpn local-vsi 1 remote-vsi 2
 
 These commands are dispatched by the ``VTYSH_L2VPN`` daemons, defined in
 `vtysh.h`, which includes both the LDP and BGP daemons. This configures a EVPN
@@ -154,7 +154,7 @@ step. Below is the configuration of BGP EVPN VPWS VXLAN:
    l2vpn test type vpws
     member evpn vxlan101
      vni 101
-     neighbor evpn evi 100 local-ac-id 111 remote-ac-id 222
+     neighbor evpn local-vsi 111 remote-vsi 222
 
 Let's now check the service status by `show l2vpn <l2vpn_name>`:
 
@@ -162,7 +162,7 @@ Let's now check the service status by `show l2vpn <l2vpn_name>`:
 
    PE1# show l2vpn test
    Virtual Private Wire Service
-   EVI                 Local/Remote AC     IFNAME              Status              PROTO
+   EVI                 Local/Remote VSI    IFNAME              Status              PROTO
    ------------------- ------------------- ------------------- ------------------- -------------------
 
 The service remains unregistered because VNI 101 and the associated SVI have not
@@ -185,14 +185,14 @@ Let's view more detailed information, use `show l2vpn <l2vpn_name> detail`:
 
    PE1# show l2vpn test detail
    Virtual Private Wire Service
-   EVI 100
+   EVI 111
      AC: , state is Down
-         AC-ID 111
+         VSI 111
          Status: evpn_local_tx_fault (4)
-     EVPN: neighbor 0.0.0.0, AC-ID 222, state is Down
+     EVPN: neighbor 0.0.0.0, VSI 222, state is Down
          Status: No Error
          MTU: 0
-         Encapsulation VXLAN
+         Encapsulation VXLAN, VNI 101
          Ignore MTU mismatch: true
          Nexthop: 0.0.0.0
 
@@ -212,14 +212,14 @@ Let's check again the service status:
 
    PE1# show l2vpn test detail
    Virtual Private Wire Service
-   EVI 100
+   EVI 111
      AC: PE1-eth0, state is Up
-         AC-ID 111
+         VSI 111
          Status: evpn_not_forwarding (1)
-     EVPN: neighbor 0.0.0.0, AC-ID 222, state is Down
+     EVPN: neighbor 0.0.0.0, VSI 222, state is Down
          Status: missing remote EAD-per-EVI
          MTU: 0
-         Encapsulation VXLAN
+         Encapsulation VXLAN, VNI 101
          Ignore MTU mismatch: true
          Nexthop: 0.0.0.0
 
@@ -269,13 +269,14 @@ for this instance. The service should now transition to forwarding status:
 
    PE1# show l2vpn test detail
    Virtual Private Wire Service
-   EVI 100
+   EVI 111
    AC: PE1-eth0, state is Up
-      Status: evpn_forwarding (0)
-   EVPN: neighbor 10.30.30.30, AC-ID 222, state is Up
+       VSI 111
+       Status: evpn_forwarding (0)
+   EVPN: neighbor 10.30.30.30, VSI 222, state is Up
        Status: No Error
        MTU: 0
-       Encapsulation VXLAN
+       Encapsulation VXLAN, VNI 101
        Ignore MTU mismatch: true
        Nexthop: 10.30.30.30
 

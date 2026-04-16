@@ -718,9 +718,8 @@ static int l2vpn_instance_member_evpn_neighbor_evpn_destroy(struct nb_cb_destroy
 
 		svc->enabled = true;
 		svc->flags &= ~F_EVPN_NBR_ADDR;
-		svc->local_ac_id = 0;
-		svc->remote_ac_id = 0;
-		svc->pwid = 0;
+		svc->vsi = 0;
+		svc->remote_vsi = 0;
 
 		break;
 	}
@@ -729,24 +728,24 @@ static int l2vpn_instance_member_evpn_neighbor_evpn_destroy(struct nb_cb_destroy
 }
 
 /*
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/evi
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local_vsi
  */
-static int l2vpn_instance_member_evpn_neighbor_evpn_evi_modify(struct nb_cb_modify_args *args)
+static int l2vpn_instance_member_evpn_neigh_evpn_vsi_modify(struct nb_cb_modify_args *args)
 {
-	uint32_t evi;
+	uint32_t vsi;
 	struct l2vpn *l2vpn;
 	struct l2vpn_svc *svc;
 
-	evi = yang_dnode_get_uint32(args->dnode, NULL);
+	vsi = yang_dnode_get_uint32(args->dnode, NULL);
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
 			if (l2vpn->type != L2VPN_TYPE_VPWS)
 				continue;
 			RB_FOREACH (svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-				if (svc->evi == evi) {
+				if (svc->vsi == vsi) {
 					snprintf(args->errmsg, args->errmsg_len,
-						 "%% evi %u already configured", evi);
+						 "%% vsi %u already configured", vsi);
 					return NB_ERR_VALIDATION;
 				}
 			}
@@ -758,14 +757,14 @@ static int l2vpn_instance_member_evpn_neighbor_evpn_evi_modify(struct nb_cb_modi
 		break;
 	case NB_EV_APPLY:
 		svc = nb_running_get_entry(args->dnode, NULL, true);
-		if (svc->enabled && svc->evi != evi) {
+		if (svc->enabled && svc->vsi != vsi) {
 			svc->enabled = false;
 			if (l2vpn_lib_master.event_hook)
 				(*l2vpn_lib_master.event_hook)(svc);
 			svc->enabled = true;
 		}
 
-		svc->evi = evi;
+		svc->vsi = vsi;
 		if (l2vpn_lib_master.event_hook)
 			(*l2vpn_lib_master.event_hook)(svc);
 		break;
@@ -774,7 +773,7 @@ static int l2vpn_instance_member_evpn_neighbor_evpn_evi_modify(struct nb_cb_modi
 	return NB_OK;
 }
 
-static int l2vpn_instance_member_evpn_neighbor_evpn_evi_destroy(struct nb_cb_destroy_args *args)
+static int l2vpn_instance_member_evpn_neigh_evpn_vsi_destroy(struct nb_cb_destroy_args *args)
 {
 	struct l2vpn_svc *svc;
 
@@ -800,10 +799,52 @@ static int l2vpn_instance_member_evpn_neighbor_evpn_evi_destroy(struct nb_cb_des
 }
 
 /*
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-ac-id
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-vsi
  */
-static int
-l2vpn_instance_member_evpn_neigh_evpn_lc_ac_id_modify(struct nb_cb_modify_args *args)
+static int l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_modify(struct nb_cb_modify_args *args)
+{
+	uint32_t vsi;
+	struct l2vpn *l2vpn;
+	struct l2vpn_svc *svc;
+
+	vsi = yang_dnode_get_uint32(args->dnode, NULL);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
+			if (l2vpn->type != L2VPN_TYPE_VPWS)
+				continue;
+			RB_FOREACH (svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+				if (svc->remote_vsi == vsi) {
+					snprintf(args->errmsg, args->errmsg_len,
+						 "%% remote vsi %u already configured", vsi);
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		svc = nb_running_get_entry(args->dnode, NULL, true);
+		if (svc->enabled && svc->remote_vsi != vsi) {
+			svc->enabled = false;
+			if (l2vpn_lib_master.event_hook)
+				(*l2vpn_lib_master.event_hook)(svc);
+			svc->enabled = true;
+		}
+
+		svc->remote_vsi = vsi;
+		if (l2vpn_lib_master.event_hook)
+			(*l2vpn_lib_master.event_hook)(svc);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_destroy(struct nb_cb_destroy_args *args)
 {
 	struct l2vpn_svc *svc;
 
@@ -815,87 +856,15 @@ l2vpn_instance_member_evpn_neigh_evpn_lc_ac_id_modify(struct nb_cb_modify_args *
 		break;
 	case NB_EV_APPLY:
 		svc = nb_running_get_entry(args->dnode, NULL, true);
-		svc->local_ac_id = yang_dnode_get_uint32(args->dnode, NULL);
+		svc->enabled = false;
 		if (l2vpn_lib_master.event_hook)
 			(*l2vpn_lib_master.event_hook)(svc);
+
+		svc->enabled = true;
+		svc->remote_vsi = 0;
 		break;
 	}
 
-	return NB_OK;
-}
-
-static int
-l2vpn_instance_member_evpn_neigh_evpn_lc_ac_id_destroy(struct nb_cb_destroy_args *args)
-{
-	struct l2vpn_svc *svc;
-
-	svc = nb_running_get_entry(args->dnode, NULL, true);
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (svc->local_ac_id != yang_dnode_get_uint32(args->dnode, NULL)) {
-			snprintf(args->errmsg, args->errmsg_len, "%% Wrong local-ac-id");
-			return NB_ERR_VALIDATION;
-		}
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		svc->local_ac_id = 0;
-		if (l2vpn_lib_master.event_hook)
-			(*l2vpn_lib_master.event_hook)(svc);
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-ac-id
- */
-static int
-l2vpn_instance_member_evpn_neigh_evpn_rmt_ac_id_modify(struct nb_cb_modify_args *args)
-{
-	struct l2vpn_svc *svc;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		svc = nb_running_get_entry(args->dnode, NULL, true);
-		svc->remote_ac_id = yang_dnode_get_uint32(args->dnode, NULL);
-		if (l2vpn_lib_master.event_hook)
-			(*l2vpn_lib_master.event_hook)(svc);
-		break;
-	}
-
-	return NB_OK;
-}
-
-static int
-l2vpn_instance_member_evpn_neigh_evpn_rmt_ac_id_destroy(struct nb_cb_destroy_args *args)
-{
-	struct l2vpn_svc *svc;
-
-	svc = nb_running_get_entry(args->dnode, NULL, true);
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (svc->remote_ac_id != yang_dnode_get_uint32(args->dnode, NULL)) {
-			snprintf(args->errmsg, args->errmsg_len, "%% Wrong remote-ac-id");
-			return NB_ERR_VALIDATION;
-		}
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		svc->remote_ac_id = 0;
-		if (l2vpn_lib_master.event_hook)
-			(*l2vpn_lib_master.event_hook)(svc);
-		break;
-	}
 	return NB_OK;
 }
 
@@ -1087,24 +1056,17 @@ const struct frr_yang_module_info frr_l2vpn = {
 			}
 		},
 		{
-			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/evi",
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-vsi",
 			.cbs = {
-				.modify = l2vpn_instance_member_evpn_neighbor_evpn_evi_modify,
-				.destroy = l2vpn_instance_member_evpn_neighbor_evpn_evi_destroy,
+				.modify = l2vpn_instance_member_evpn_neigh_evpn_vsi_modify,
+				.destroy = l2vpn_instance_member_evpn_neigh_evpn_vsi_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-ac-id",
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-vsi",
 			.cbs = {
-				.modify = l2vpn_instance_member_evpn_neigh_evpn_rmt_ac_id_modify,
-				.destroy = l2vpn_instance_member_evpn_neigh_evpn_rmt_ac_id_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-ac-id",
-			.cbs = {
-				.modify = l2vpn_instance_member_evpn_neigh_evpn_lc_ac_id_modify,
-				.destroy = l2vpn_instance_member_evpn_neigh_evpn_lc_ac_id_destroy,
+				.modify = l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_modify,
+				.destroy = l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_destroy,
 			}
 		},
 		{

@@ -44,12 +44,11 @@ struct l2vpn_svc {
 	union g_addr addr;
 	union {
 		uint32_t pwid;
-		uint32_t evi;
+		uint32_t vsi;
 	};
+	uint32_t remote_vsi;
 	esi_t esi;
 	char local_ac[IFNAMSIZ];
-	uint32_t local_ac_id;
-	uint32_t remote_ac_id;
 	vni_t vni;
 	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;

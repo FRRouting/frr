@@ -75,9 +75,8 @@ static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire/neighbor-address
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire/neighbor-lsr-id
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/evi
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-ac-id
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-ac-id
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-vsi
+ * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-vsi
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch
  */
@@ -101,9 +100,9 @@ static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 	if (!running_change) {
 		if (!is_l2vpn_vpws_ready(bgp, l2vpn, l2vpn_svc, errmsg, sizeof(errmsg))) {
 			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-				zlog_debug("%s: VPWS local-ac %u remote-ac %u no ready, reason: %s",
-					   __func__, l2vpn_svc->local_ac_id,
-					   l2vpn_svc->remote_ac_id, errmsg);
+				zlog_debug("%s: VPWS local-vsi %u remote-vsi %u no ready, reason: %s",
+					   __func__, l2vpn_svc->vsi,
+					   l2vpn_svc->remote_vsi, errmsg);
 			return;
 		}
 
@@ -216,13 +215,13 @@ static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2v
 		return false;
 	}
 
-	if (!l2vpn_svc->evi) {
-		snprintf(errmsg, len, "Missing EVPN instance identifier");
+	if (!l2vpn_svc->vsi) {
+		snprintf(errmsg, len, "Missing local VPWS service instance identifier");
 		return false;
 	}
 
-	if (!l2vpn_svc->local_ac_id || !l2vpn_svc->remote_ac_id) {
-		snprintf(errmsg, len, "Missing local/remote ac id");
+	if (!l2vpn_svc->remote_vsi) {
+		snprintf(errmsg, len, "Missing remote VPWS service instance identifier");
 		return false;
 	}
 
@@ -269,9 +268,9 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 	struct bgp_evpn_es_evi_vtep *es_evi_vtep;
 
 	if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-		zlog_debug("Running EVPN VPWS: local-ac %u (%s) remote-ac %u evi %u vni %u",
-			   l2vpn_svc->local_ac_id, l2vpn_svc->local_ac, l2vpn_svc->remote_ac_id,
-			   l2vpn_svc->evi, l2vpn_svc->vni);
+		zlog_debug("Running EVPN VPWS: local-vsi %u (%s) remote-vsi %u evi %u vni %u",
+			   l2vpn_svc->vsi, l2vpn_svc->local_ac, l2vpn_svc->remote_vsi,
+			   l2vpn_svc->vsi, l2vpn_svc->vni);
 
 	bgp = bgp_get_evpn();
 	vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
@@ -324,17 +323,18 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 	else
 		mtu = l2vpn_svc->mtu;
 	encode_l2attr_extcomm(&eval, mtu, flag);
-	bgp_evpn_local_es_evi_add(bgp, &l2vpn_svc->esi, vpn->vni, l2vpn_svc->evi, &eval);
+	bgp_evpn_local_es_evi_add(bgp, &l2vpn_svc->esi, vpn->vni, l2vpn_svc->vsi, &eval);
 	SET_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE);
 
-	/* Try to match remote evi */
-	evi_match = bgp_evpn_es_evi_find(es, vpn, l2vpn_svc->evi);
+	evi_match = bgp_evpn_es_evi_find(es, vpn, l2vpn_svc->vsi);
 	if (!evi_match || !CHECK_FLAG(evi_match->flags, BGP_EVPNES_EVI_LOCAL)) {
 		UNSET_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE);
 		return;
 	}
 
-	if (!CHECK_FLAG(evi_match->flags, BGP_EVPNES_EVI_REMOTE)) {
+	/* Try to match remote evi */
+	evi_match = bgp_evpn_es_evi_find(es, vpn, l2vpn_svc->remote_vsi);
+	if (!evi_match || !CHECK_FLAG(evi_match->flags, BGP_EVPNES_EVI_REMOTE)) {
 		l2vpn_svc->reason = F_L2VPN_NO_REMOTE_AD;
 		return;
 	}
@@ -348,8 +348,8 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 		memcpy(&l2vpn_svc->remote_mtu, es_evi_vtep->eval_l2attr.val + 4, 2);
 		l2vpn_svc->remote_mtu = ntohs(l2vpn_svc->remote_mtu);
 		if (l2vpn_svc->remote_mtu && l2vpn_svc->mtu != l2vpn_svc->remote_mtu) {
-			zlog_info("EVPN VPWS: remote EVI %u, mtu mismatch remote %u local %u",
-				  l2vpn_svc->evi, l2vpn_svc->remote_mtu, l2vpn_svc->mtu);
+			zlog_info("EVPN VPWS: remote-vsi %u, mtu mismatch remote %u local %u",
+				  l2vpn_svc->remote_vsi, l2vpn_svc->remote_mtu, l2vpn_svc->mtu);
 
 			l2vpn_svc->remote_status = EVPN_NOT_FORWARDING;
 			l2vpn_svc->reason = F_L2VPN_MTU_MISMATCH;
@@ -377,14 +377,14 @@ void bgp_l2vpn_vpws_local_withdraw(struct bgp *bgp, struct l2vpn_svc *l2vpn_svc,
 	es = bgp_evpn_es_find(&l2vpn_svc->esi);
 	if (!es)
 		return;
-	es_evi = bgp_evpn_es_evi_find(es, vpn, l2vpn_svc->evi);
+	es_evi = bgp_evpn_es_evi_find(es, vpn, l2vpn_svc->vsi);
 	if (!es_evi || !CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
 		return;
 
 	bgp_evpn_local_es_evi_do_del(es_evi);
 }
 
-struct l2vpn_svc *bgp_l2vpn_vpws_evi_match(uint32_t ethtag)
+struct l2vpn_svc *bgp_l2vpn_vpws_vsi_match(uint32_t ethtag)
 {
 	struct l2vpn *l2vpn;
 	struct l2vpn_svc *l2vpn_svc;
@@ -394,7 +394,7 @@ struct l2vpn_svc *bgp_l2vpn_vpws_evi_match(uint32_t ethtag)
 			continue;
 
 		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-			if (l2vpn_svc->evi == ethtag)
+			if (l2vpn_svc->remote_vsi == ethtag)
 				return l2vpn_svc;
 		}
 	}
@@ -462,9 +462,9 @@ bool bgp_evpn_vpws_vni_changed(struct bgp *bgp, struct bgpevpn *vpn)
 				continue;
 			if (!is_l2vpn_vpws_ready(bgp, l2vpn, l2vpn_svc, errmsg, sizeof(errmsg))) {
 				if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-					zlog_debug("%s: VPWS local-ac %u, remote-ac %u no ready, reason: %s",
-						   __func__, l2vpn_svc->local_ac_id,
-						   l2vpn_svc->remote_ac_id, errmsg);
+					zlog_debug("%s: VPWS local-vsi %u, remote-vsi %u no ready, reason: %s",
+						   __func__, l2vpn_svc->vsi,
+						   l2vpn_svc->remote_vsi, errmsg);
 				continue;
 			}
 
@@ -503,7 +503,7 @@ uint32_t bgp_evpn_vpws_vni_del(struct bgp *bgp, struct bgpevpn *vpn)
 			RB_REMOVE(l2vpn_svc_head, &l2vpn->svc_tree, l2vpn_svc);
 			RB_INSERT(l2vpn_svc_head, &l2vpn->svc_inactive_tree, l2vpn_svc);
 
-			return l2vpn_svc->evi;
+			return l2vpn_svc->vsi;
 		}
 	}
 
@@ -537,8 +537,8 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 
 		if (l2vpn_svc->local_status != zapi->status) {
 			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-				zlog_debug("VPWS local-ac %u remote-ac %u, switch status from %s to %s",
-					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+				zlog_debug("VPWS local-vsi %u remote-vsi %u, switch status from %s to %s",
+					   l2vpn_svc->vsi, l2vpn_svc->remote_vsi,
 					   evpn_status_to_str(l2vpn_svc->local_status),
 					   evpn_status_to_str(zapi->status));
 		}
@@ -546,8 +546,8 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 		/* handle AC interface switching */
 		if (memcmp(l2vpn_svc->local_ac, zapi->local_ac, IFNAMSIZ)) {
 			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-				zlog_debug("VPWS local-ac %u remote-ac %u, new interface AC %s",
-					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+				zlog_debug("VPWS local-vsi %u remote-vsi %u, new interface AC %s",
+					   l2vpn_svc->vsi, l2vpn_svc->remote_vsi,
 					   zapi->local_ac);
 			/* AC ready to AC no ready */
 			if (l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT &&
@@ -561,8 +561,8 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 					}
 				}
 				if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-					zlog_debug("VPWS local-ac %u remote-ac %u, fell back to %s",
-						   l2vpn_svc->remote_ac_id, l2vpn_svc->remote_ac_id,
+					zlog_debug("VPWS local-vsi %u remote-vsi %u, fell back to %s",
+						   l2vpn_svc->vsi, l2vpn_svc->remote_vsi,
 						   evpn_status_to_str(l2vpn_svc->local_status));
 				update_needed = true;
 			}
@@ -572,8 +572,8 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 		/* update MTU regardless current status */
 		if (l2vpn_svc->mtu != zapi->mtu) {
 			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
-				zlog_debug("VPWS local-ac %u remote-ac %u, MTU changed from %u to %u",
-					   l2vpn_svc->local_ac_id, l2vpn_svc->remote_ac_id,
+				zlog_debug("VPWS local-vsi %u remote-vsi %u, MTU changed from %u to %u",
+					   l2vpn_svc->vsi, l2vpn_svc->remote_vsi,
 					   l2vpn_svc->mtu, zapi->mtu);
 			if (zapi->status != EVPN_LOCAL_TX_FAULT)
 				update_needed = true;

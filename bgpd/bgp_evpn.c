@@ -7247,8 +7247,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	if (CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
 		evpn_vpws_changed = bgp_evpn_vpws_vni_del(bgp, vpn);
 		if (evpn_vpws_changed && BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: EVPN VPWS EVI %u instance removed", __func__,
-				   evpn_vpws_changed);
+			zlog_debug("%s: EVPN VPWS VNI %u local-vsi %u instance removed", __func__,
+				   vni, evpn_vpws_changed);
 	}
 
 	/* Remove all local EVPN routes and schedule for processing (to

@@ -353,16 +353,14 @@ DEFPY_YANG(
 DEFPY_YANG(
 	l2vpn_evpn_neighbor,
 	l2vpn_evpn_neighbor_cmd,
-	"[no] neighbor evpn evi (1-16777215)$evi [local-ac-id (1-16777215)$local_ac_id remote-ac-id (1-16777215)$remote_ac_id]",
+	"[no] neighbor evpn local-vsi (1-16777215)$vsi remote-vsi (1-16777215)$rvsi",
 	NO_STR
 	"Remote endpoint configuration\n"
 	"Specify that L2VPN uses information from BGP EVPN\n"
-	"Define EVPN instance identifier\n"
-	"EVPN instance identifier value\n"
-	"Define the local attachment circuit ID\n"
-	"Local attachment circuit ID value\n"
-	"Define the remote attachment circuit ID\n"
-	"Remote attachment circuit ID value\n")
+	"Define local VPWS instance identifier\n"
+	"Local VPWS instance identifier value\n"
+	"Define remote VPWS instance identifier\n"
+	"Remote VPWS instance identifier value\n")
 {
 	char xpath[XPATH_MAXLEN], xpath_val[XPATH_MAXLEN + 32];
 	enum nb_operation operation = NB_OP_MODIFY;
@@ -372,19 +370,11 @@ DEFPY_YANG(
 		operation = NB_OP_DESTROY;
 
 	nb_cli_enqueue_change(vty, xpath, operation, NULL);
-	snprintf(xpath_val, sizeof(xpath_val), "%s/evi", xpath);
-	nb_cli_enqueue_change(vty, xpath_val, operation, evi_str);
+	snprintf(xpath_val, sizeof(xpath_val), "%s/local-vsi", xpath);
+	nb_cli_enqueue_change(vty, xpath_val, operation, vsi_str);
 
-	if (!no && local_ac_id_str) {
-		snprintf(xpath_val, sizeof(xpath_val), "%s/local-ac-id", xpath);
-		nb_cli_enqueue_change(vty, xpath_val, operation,
-				      local_ac_id_str);
-	}
-	if (!no && remote_ac_id_str) {
-		snprintf(xpath_val, sizeof(xpath_val), "%s/remote-ac-id", xpath);
-		nb_cli_enqueue_change(vty, xpath_val, operation,
-				      remote_ac_id_str);
-	}
+	snprintf(xpath_val, sizeof(xpath_val), "%s/remote-vsi", xpath);
+	nb_cli_enqueue_change(vty, xpath_val, operation, rvsi_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -550,8 +540,7 @@ static void l2vpn_instance_member_interface_show(struct vty *vty, const struct l
 static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	uint32_t vni;
-	uint32_t local_ac_id, remote_ac_id, evi;
+	uint32_t vni, vsi;
 	const char *name = yang_dnode_get_string(dnode, "./interface");
 
 	vty_out(vty, " member evpn %s\n", name);
@@ -561,18 +550,16 @@ static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_no
 		vty_out(vty, "  vni %u\n", vni);
 	}
 
-	if (!yang_dnode_exists(dnode, "./neighbor-evpn/evi"))
+	if (!yang_dnode_exists(dnode, "./neighbor-evpn/local-vsi"))
 		return;
 
-	evi = yang_dnode_get_uint32(dnode, "./neighbor-evpn/evi");
-	if (!yang_dnode_exists(dnode, "./neighbor-evpn/local-ac-id") ||
-	    !yang_dnode_exists(dnode, "./neighbor-evpn/remote-ac-id"))
-		vty_out(vty, "  neighbor evpn evi %u\n", evi);
-	else {
-		local_ac_id = yang_dnode_get_uint32(dnode, "./neighbor-evpn/local-ac-id");
-		remote_ac_id = yang_dnode_get_uint32(dnode, "./neighbor-evpn/remote-ac-id");
-		vty_out(vty, "  neighbor evpn evi %u local-ac-id %u remote-ac-id %u\n",
-			evi, local_ac_id, remote_ac_id);
+	vsi = yang_dnode_get_uint32(dnode, "./neighbor-evpn/local-vsi");
+	vty_out(vty, "  neighbor evpn local-vsi %u ", vsi);
+	if (yang_dnode_exists(dnode, "./neighbor-evpn/remote-vsi")) {
+		vsi = yang_dnode_get_uint32(dnode, "./neighbor-evpn/remote-vsi");
+		vty_out(vty, "remote-vsi %u\n", vsi);
+	} else {
+		vty_out(vty, "\n");
 	}
 
 	if (!yang_dnode_get_bool(dnode, "./ignore-mtu-mismatch"))
@@ -604,14 +591,13 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
 
 	vty_out(vty, "Virtual Private Wire Service\n");
 	if (!detail) {
-		vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote AC",
+		vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote VSI",
 			"IFNAME ", "Status", "PROTO");
 		memset(buf, '-', 19);
 		vty_out(vty, "%s %s %s %s %s\n", buf, buf, buf, buf, buf);
 		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-			vty_out(vty, "%-19u ", l2vpn_svc->evi);
-			snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->local_ac_id,
-				 l2vpn_svc->remote_ac_id);
+			vty_out(vty, "%-19u ", l2vpn_svc->vsi);
+			snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->vsi, l2vpn_svc->remote_vsi);
 			vty_out(vty, "%-19s ", buf);
 			vty_out(vty, "%-19s ", l2vpn_svc->ifname);
 			state = l2vpn_svc->local_status  == EVPN_FORWARDING &&
@@ -625,21 +611,21 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
 	}
 
 	RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-		vty_out(vty,  "EVI %u\n", l2vpn_svc->evi);
+		vty_out(vty,  "EVI %u\n", l2vpn_svc->vsi);
 		state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
 		ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
 		vty_out(vty, "  AC: %s, state is %s\n", l2vpn_svc->local_ac,
 			ifp && if_is_operative(ifp) ? "Up" : "Down");
-		vty_out(vty, "      AC-ID %u\n", l2vpn_svc->local_ac_id);
+		vty_out(vty, "      VSI %u\n", l2vpn_svc->vsi);
 		vty_out(vty, "      Status: %s (%d)\n",
 			evpn_status_to_str(l2vpn_svc->local_status), l2vpn_svc->local_status);
 
 		state = l2vpn_svc->remote_status == EVPN_FORWARDING;
-		vty_out(vty, "  EVPN: neighbor %pI4, AC-ID %u, state is %s\n", &l2vpn_svc->lsr_id,
-			l2vpn_svc->remote_ac_id, state ? "Up" : "Down");
+		vty_out(vty, "  EVPN: neighbor %pI4, VSI %u, state is %s\n", &l2vpn_svc->lsr_id,
+			l2vpn_svc->remote_vsi, state ? "Up" : "Down");
 		vty_out(vty, "      Status: %s\n", l2vpn_svc_error_code(l2vpn_svc->reason));
 		vty_out(vty, "      MTU: %u\n", l2vpn_svc->remote_mtu);
-		vty_out(vty, "      Encapsulation VXLAN\n");
+		vty_out(vty, "      Encapsulation VXLAN, VNI %u\n", l2vpn_svc->vni);
 		vty_out(vty, "      Ignore MTU mismatch: %s\n",
 			l2vpn_svc->ignore_mtu_mismatch ? "true" : "false");
 		vty_out(vty, "      Nexthop: %pI4\n", &l2vpn_svc->addr.ipv4);
