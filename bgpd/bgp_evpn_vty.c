@@ -3364,11 +3364,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 					json_object_free(json_prefix);
 					if (json_paths)
 						json_object_free(json_paths);
-					if (json_flags)
-						json_object_free(json_flags);
 					json_prefix = NULL;
 					json_paths = NULL;
-					json_flags = NULL;
 				}
 			}
 		}
