@@ -444,6 +444,16 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	if (err < 0)
 		return err;
 
+	/*
+	 * Datagram was larger than the supplied buffer; ip_hdr->ip_len can
+	 * still describe the full wire size. Drop so callers never trust
+	 * length fields against a truncated buffer.
+	 */
+	if (msgh.msg_flags & MSG_TRUNC) {
+		errno = EMSGSIZE;
+		return -1;
+	}
+
 	if (fromlen)
 		*fromlen = msgh.msg_namelen;
 
