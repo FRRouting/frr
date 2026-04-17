@@ -562,9 +562,9 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 	uint16_t tlv_length;
 	uint8_t *end = data + length;
 
-	if (length < 3) {
-		flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP attribute length (MUST be minimum 3): %u",
-			 length);
+	if (length < BGP_AIGP_TLV_METRIC_LEN) {
+		flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP attribute length (MUST be minimum %u): %u",
+			 BGP_AIGP_TLV_METRIC_LEN, length);
 		return false;
 	}
 
@@ -586,9 +586,9 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 			return false;
 		}
 
-		if (tlv_length < 3) {
-			flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV length (MUST be minimum 3): %u",
-				 tlv_length);
+		if (tlv_length < BGP_AIGP_TLV_MIN_LEN) {
+			flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV length (MUST be minimum %u): %u",
+				 BGP_AIGP_TLV_MIN_LEN, tlv_length);
 			return false;
 		}
 

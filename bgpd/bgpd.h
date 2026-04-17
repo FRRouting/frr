@@ -2519,6 +2519,7 @@ struct bgp_nlri {
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX      65535
 
 /* BGP AIGP */
+#define BGP_AIGP_TLV_MIN_LEN	 3 /* minimum generic TLV header (type + length field) */
 #define BGP_AIGP_TLV_RESERVED 0 /* AIGP Reserved */
 #define BGP_AIGP_TLV_METRIC 1   /* AIGP Metric */
 #define BGP_AIGP_TLV_METRIC_LEN 11
