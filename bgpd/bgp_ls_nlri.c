@@ -3333,18 +3333,12 @@ int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri)
 	if (!s || !nlri)
 		return -1;
 
-	/* Read NLRI Type (2 bytes) */
-	if (STREAM_READABLE(s) < 2) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for NLRI type");
+	/* Read NLRI Type + Length (4 bytes total) */
+	if (STREAM_READABLE(s) < BGP_LS_NLRI_TYPE_SIZE + BGP_LS_NLRI_LENGTH_SIZE) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for NLRI type and length");
 		return -1;
 	}
 	nlri_type = stream_getw(s);
-
-	/* Read NLRI Length (2 bytes) */
-	if (STREAM_READABLE(s) < 2) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for NLRI length");
-		return -1;
-	}
 	nlri_length = stream_getw(s);
 
 	/* Check if stream has enough data for NLRI */
