@@ -2942,9 +2942,12 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 		break;
 	}
 
-	rv += bprintfrr(buf, " %-12s %s() %s from %s:%d}", info,
-			event->xref->funcname, event->xref->dest,
-			event->xref->xref.file, event->xref->xref.line);
+	if (event->xref)
+		rv += bprintfrr(buf, " %-12s %s() %s from %s:%d}", info, event->xref->funcname,
+				event->xref->dest, event->xref->xref.file, event->xref->xref.line);
+	else
+		rv += bprintfrr(buf, " %-12s xref=NULL}", info);
+
 	return rv;
 }
 
