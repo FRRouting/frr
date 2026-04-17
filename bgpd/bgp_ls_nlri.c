@@ -3189,6 +3189,9 @@ int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 		if (bgp_ls_decode_link_descriptor(s, &nlri->nlri_data.link.link_desc,
 						  link_desc_len) < 0)
 			return -1;
+	} else {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Link NLRI has no Link Descriptor TLVs");
+		return -1;
 	}
 
 	/* Verify we consumed exactly nlri_length bytes */
