@@ -111,6 +111,8 @@ static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 		bgp_l2vpn_vpws_zebra_add(l2vpn_svc, true);
 		l2vpn_svc->local_status = EVPN_LOCAL_TX_FAULT;
 		l2vpn_svc->remote_status = EVPN_NOT_FORWARDING;
+		l2vpn_svc->lsr_id.s_addr = INADDR_ANY;
+		l2vpn_svc->addr.ipv4.s_addr = INADDR_ANY;
 
 		return;
 	}
