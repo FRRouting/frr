@@ -1893,7 +1893,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 
 	/* Just in case we have a silly peer who sends AS4 capability set to 0
 	 */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && !as4) {
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && as4 == BGP_AS_ZERO) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s bad OPEN, got AS4 capability, but AS4 set to 0",
 			 peer->host);
@@ -1929,7 +1929,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 			return BGP_Stop;
 		}
 
-		if (!as4 && BGP_DEBUG(as4, AS4))
+		if (as4 == BGP_AS_ZERO && BGP_DEBUG(as4, AS4))
 			zlog_debug(
 				"%s [AS4] OPEN remote_as is AS_TRANS, but no AS4. Odd, but proceeding.",
 				peer->host);
@@ -1937,7 +1937,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 			zlog_debug(
 				"%s [AS4] OPEN remote_as is AS_TRANS, but AS4 (%u) fits in 2-bytes, very odd peer.",
 				peer->host, as4);
-		if (as4)
+		if (as4 != BGP_AS_ZERO)
 			remote_as = as4;
 	} else {
 		/* We may have a partner with AS4 who has an asno < BGP_AS_MAX
