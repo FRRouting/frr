@@ -50,7 +50,7 @@ static void sbfd_up_handler(struct bfd_session *bs, int nstate);
  * Remove BFD profile from all BFD sessions so we don't leave dangling
  * pointers.
  */
-static void bfd_profile_detach(struct bfd_profile *bp);
+static void bfd_profile_detach(struct bfd_profile *bp, bool suppress_profile);
 
 /* Zeroed array with the size of an IPv6 address. */
 struct in6_addr zero_addr;
@@ -121,11 +121,11 @@ struct bfd_profile *bfd_profile_new(const char *name)
 	return bp;
 }
 
-void bfd_profile_free(struct bfd_profile *bp)
+void bfd_profile_free(struct bfd_profile *bp, bool suppress_profile)
 {
 	/* Detach from any session. */
 	if (bglobal.bg_shutdown == false)
-		bfd_profile_detach(bp);
+		bfd_profile_detach(bp, suppress_profile);
 
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bplist, bp, entry);
@@ -251,13 +251,18 @@ void bfd_session_apply(struct bfd_session *bs)
 	bfd_dplane_update_session(bs);
 }
 
+static void bfd_profile_remove_reference(struct bfd_session *bs)
+{
+	bs->profile = NULL;
+
+	bfd_session_apply(bs);
+}
+
 void bfd_profile_remove(struct bfd_session *bs)
 {
 	/* Remove any previous set profile name. */
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
-	bs->profile = NULL;
-
-	bfd_session_apply(bs);
+	bfd_profile_remove_reference(bs);
 }
 
 void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
@@ -2277,7 +2282,7 @@ void bfd_shutdown(void)
 
 	/* Free all profile allocations. */
 	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
-		bfd_profile_free(bp);
+		bfd_profile_free(bp, true);
 }
 
 struct bfd_session_iterator {
@@ -2373,7 +2378,7 @@ void bfd_profiles_remove(void)
 	struct bfd_profile *bp;
 
 	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
-		bfd_profile_free(bp);
+		bfd_profile_free(bp, true);
 }
 
 struct __bfd_session_echo {
@@ -2459,21 +2464,36 @@ void bfd_profile_update(struct bfd_profile *bp)
 	hash_iterate(bfd_key_hash, _bfd_profile_update, bp);
 }
 
+struct bfd_profile_detach_info {
+	struct bfd_profile *bp;
+	bool suppress_config;
+};
+
 static void _bfd_profile_detach(struct hash_bucket *hb, void *arg)
 {
-	struct bfd_profile *bp = arg;
+	struct bfd_profile_detach_info *prof_info = arg;
+	struct bfd_profile *bp;
 	struct bfd_session *bs = hb->data;
+
+	bp = prof_info->bp;
 
 	/* This session is not using the profile. */
 	if (bs->profile_name == NULL || strcmp(bs->profile_name, bp->name) != 0)
 		return;
 
-	bfd_profile_remove(bs);
+	if (prof_info->suppress_config)
+		bfd_profile_remove(bs);
+	else
+		bfd_profile_remove_reference(bs);
 }
 
-static void bfd_profile_detach(struct bfd_profile *bp)
+static void bfd_profile_detach(struct bfd_profile *bp, bool suppress_profile)
 {
-	hash_iterate(bfd_key_hash, _bfd_profile_detach, bp);
+	struct bfd_profile_detach_info prof_info = {};
+
+	prof_info.bp = bp;
+	prof_info.suppress_config = suppress_profile;
+	hash_iterate(bfd_key_hash, _bfd_profile_detach, &prof_info);
 }
 
 /*

@@ -479,7 +479,7 @@ int bfdd_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	bp = nb_running_unset_entry(args->dnode);
-	bfd_profile_free(bp);
+	bfd_profile_free(bp, false);
 
 	return NB_OK;
 }
