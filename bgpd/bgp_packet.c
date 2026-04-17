@@ -3144,6 +3144,32 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void bgp_dynamic_capability_role(uint8_t *pnt, int action,
+					struct capability_header *hdr,
+					struct peer *peer)
+{
+	uint8_t role;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP: ROLE Capability length error: got %u, expected %zu",
+				 peer, hdr->length, sizeof(role));
+			return;
+		}
+		SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		memcpy(&role, pnt + 3, sizeof(role));
+
+		peer->remote_role = role;
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		peer->remote_role = ROLE_UNDEFINED;
+	}
+}
+
+>>>>>>> 8cc240eb8 (bgpd: Validate BGP role capability when handling it dynamically)
 static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 					struct capability_header *hdr,
 					struct peer *peer)
@@ -3594,6 +3620,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_EXT_MESSAGE:
 			break;
 		case CAPABILITY_CODE_ROLE:
+<<<<<<< HEAD
 			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 				zlog_err("%pBP: Capability (%s) length error",
 					 peer, capability);
@@ -3614,6 +3641,9 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 				peer->remote_role = ROLE_UNDEFINED;
 			}
+=======
+			bgp_dynamic_capability_role(pnt, action, hdr, peer);
+>>>>>>> 8cc240eb8 (bgpd: Validate BGP role capability when handling it dynamically)
 			break;
 		default:
 			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
