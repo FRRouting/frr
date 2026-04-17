@@ -6757,7 +6757,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 	DPLANE_UNLOCK();
 
 	vty_out(vty, "dataplane Incoming Queue from Zebra: %" PRIu64 ", q_max: %" PRIu64 "\n", in,
-		(uint64_t)in_max);
+		in_max);
 	vty_out(vty, "Zebra dataplane providers:\n");
 
 	/* Show counters, useful info from each registered provider */
@@ -6790,7 +6790,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 	out = zebra_rib_dplane_results_count();
 	out_max = zebra_rib_dplane_results_max();
 	vty_out(vty, "dataplane Outgoing Queue to Zebra: %" PRIu64 ", q_max: %" PRIu64 "\n", out,
-		(uint64_t)out_max);
+		out_max);
 
 	return CMD_SUCCESS;
 }
