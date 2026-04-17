@@ -764,7 +764,7 @@ struct bfd_profile *bfd_profile_lookup(const char *name);
  *
  * \param bp the BFD profile.
  */
-void bfd_profile_free(struct bfd_profile *bp);
+void bfd_profile_free(struct bfd_profile *bp, bool suppress_profile);
 
 /**
  * Apply a profile configuration to an existing BFD session. The non default
