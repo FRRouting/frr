@@ -3982,6 +3982,27 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 							  args->total);
 			}
+		} else if (tlv->code == BGP_ATTR_NHC_TLV_BGPID) {
+			struct in_addr bgpid = {};
+
+			if (tlv->length != IPV4_MAX_BYTELEN) {
+				zlog_err("%pBP rcvd BGP NHC (BGPID TLV) length %d, expected %d",
+					 peer, tlv->length, IPV4_MAX_BYTELEN);
+				bgp_nhc_tlv_free(tlv);
+				bgp_nhc_free(nhc);
+				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+							  args->total);
+			}
+
+			memcpy(&bgpid, tlv->value, IPV4_MAX_BYTELEN);
+			if (bgpid.s_addr == INADDR_ANY) {
+				zlog_err("%pBP rcvd BGP NHC (BGPID TLV) with zero BGP Identifier",
+					 peer);
+				bgp_nhc_tlv_free(tlv);
+				bgp_nhc_free(nhc);
+				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+							  args->total);
+			}
 		}
 
 		found = bgp_nhc_tlv_find(nhc, tlv_code);
