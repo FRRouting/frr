@@ -3742,33 +3742,22 @@ static void bgp_dynamic_capability_software_version(uint8_t *pnt, int action,
 	uint8_t *data = pnt + 3;
 	uint8_t *end = data + hdr->length;
 	uint8_t len = hdr->length;
-	uint8_t cap_value_len_field = *data + 1;
+	uint8_t cap_value_len_field;
 	char soft_version[BGP_MAX_SOFT_VERSION + 1] = {};
 
 	if (action == CAPABILITY_ACTION_SET) {
+		if (data >= end)
+			return;
+
 		/* For backward compatibility.
 		 * Older draft versions defined the length field inside
 		 * the capability's value. Newer versions use just the
 		 * capability's length which is hdr->length.
 		 */
+		cap_value_len_field = *data + 1;
 		if (cap_value_len_field == len) {
 			len = *data;
-
-			if (data + len + 1 > end) {
-				flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
-					 "%pBP: Received invalid Software Version capability length %d",
-					 peer, len);
-				return;
-			}
-
 			data++;
-		} else {
-			if (data + len > end) {
-				flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
-					 "%pBP: Received invalid Software Version capability length %d",
-					 peer, len);
-				return;
-			}
 		}
 
 		if (len > BGP_MAX_SOFT_VERSION)
