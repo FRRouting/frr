@@ -130,7 +130,7 @@ def test_show_running_remote_as_peer_group():
     output = (
         tgen.gears["r1"]
         .cmd(
-            'vtysh -c "show running bgpd" | grep "^ neighbor 192.168.252.2 remote-as 65004"'
+            'vtysh -c "show running" | grep "^ neighbor 192.168.252.2 remote-as 65004"'
         )
         .rstrip()
     )
