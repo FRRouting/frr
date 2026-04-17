@@ -363,7 +363,10 @@ void zebra_l2vpn_ac_updated(struct interface *ifp, ifindex_t old_bridge_ifindex)
 							   ifp->name, svc->data.bgp.vni);
 
 					memset(&svc->data.bgp.local_ac, 0, IFNAMSIZ);
-					zebra_l2vpn_svc_uninstall(svc);
+					if (svc->status == EVPN_FORWARDING)
+						zebra_l2vpn_svc_uninstall(svc);
+					else
+						zebra_evpn_bgp_vni_check(svc);
 				} else if (old_bridge_ifindex == br_if->ifindex)
 					zebra_evpn_bgp_vni_check(svc);
 			}
