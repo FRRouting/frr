@@ -1207,32 +1207,18 @@ static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 				cmp = 1;
 
 			if (unlikely(debug_flags & NHRP_DEBUG_COMMON)) {
-				/* 4 bytes in nhrp_cisco_authentication_extension are allocated
-				 * toward the authentication type. The remaining bytes are used for the
-				 * password - so the password length is just the length of the extension - 4
+				/* 4 bytes in nhrp_cisco_authentication_extension are
+				 * allocated toward the authentication type.
+				 * The remaining bytes are used for the password -
+				 * so the password length is just the length
+				 * of the extension - 4
 				 */
 				auth_pass_length = (auth_size - 4);
 				pl_pass_length = (pl_size - 4);
-				/* Because characters are to be printed in HEX, (2* the max pass length) + 1
-				 * is needed for the string representation
-				 */
-				char auth_pass[(2 * NHRP_CISCO_PASS_LEN) + 1] = { 0 },
-					       pl_pass[(2 * NHRP_CISCO_PASS_LEN) + 1] = { 0 };
-				/* Converting bytes in buffer to HEX and saving output as a string -
-				 * Passphrase is converted to HEX in order to avoid printing
-				 * non ACII-compliant characters
-				 */
-				for (int i = 0; i < (auth_pass_length); i++)
-					snprintf(auth_pass + (i * 2), 3, "%02X",
-						 auth_ext->secret[i]);
-				for (int i = 0; i < (pl_pass_length); i++)
-					snprintf(pl_pass + (i * 2), 3, "%02X",
-						 ((struct nhrp_cisco_authentication_extension *)pl.buf)
-							 ->secret[i]);
 
 				debugf(NHRP_DEBUG_COMMON,
-				       "Processing Authentication Extension for (%s:%s|%d)",
-				       auth_pass, pl_pass, cmp);
+				       "Processing Authentication Extension: auth len %d, pl_pass len %d => %d",
+				       auth_pass_length, pl_pass_length, cmp);
 			}
 			break;
 		default:
