@@ -3830,7 +3830,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				 "%pBP: Capability Action Value error %d", peer, action);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			goto done;
+			return BGP_Stop;
 		}
 
 		if (bgp_debug_neighbor_events(peer))
