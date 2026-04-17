@@ -2133,11 +2133,18 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_srv6_endx_sid_subtlv *adj;
+				size_t endx_start;
 
+<<<<<<< HEAD
 				adj = XCALLOC(
 					MTYPE_ISIS_SUBTLV,
 					sizeof(struct
 					       isis_srv6_endx_sid_subtlv));
+=======
+				adj = XCALLOC(MTYPE_ISIS_SUBTLV,
+					      sizeof(struct isis_srv6_endx_sid_subtlv));
+				endx_start = stream_get_getp(s);
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				adj->flags = stream_getc(s);
 				adj->algorithm = stream_getc(s);
 				adj->weight = stream_getc(s);
@@ -2145,6 +2152,18 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_get(&adj->sid, s, IPV6_MAX_BYTELEN);
 				subsubtlv_len = stream_getc(s);
 
+<<<<<<< HEAD
+=======
+				if (subsubtlv_len >
+				    subtlv_len - ISIS_SUBTLV_SRV6_ENDX_SID_SIZE) {
+					TLV_SIZE_MISMATCH(log, indent,
+							  "SRv6 End.X SID subsubtlvs");
+					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					stream_set_getp(s, endx_start + subtlv_len);
+					break;
+				}
+
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				adj->subsubtlvs = isis_alloc_subsubtlvs(
 					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
 
@@ -2155,6 +2174,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					    adj->subsubtlvs, indent + 4,
 					    &unpacked_known_tlvs)) {
 					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					stream_set_getp(s, endx_start + subtlv_len);
 					break;
 				}
 				if (!unpacked_known_tlvs) {
@@ -2162,8 +2182,13 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					adj->subsubtlvs = NULL;
 				}
 
+<<<<<<< HEAD
 				append_item(&exts->srv6_endx_sid,
 					    (struct isis_item *)adj);
+=======
+				stream_set_getp(s, endx_start + subtlv_len);
+				append_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
 			}
 			break;
@@ -2175,13 +2200,21 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_srv6_lan_endx_sid_subtlv *lan;
+				size_t lan_endx_start;
 
+<<<<<<< HEAD
 				lan = XCALLOC(
 					MTYPE_ISIS_SUBTLV,
 					sizeof(struct
 					       isis_srv6_lan_endx_sid_subtlv));
 				stream_get(&(lan->neighbor_id), s,
 					   ISIS_SYS_ID_LEN);
+=======
+				lan = XCALLOC(MTYPE_ISIS_SUBTLV,
+					      sizeof(struct isis_srv6_lan_endx_sid_subtlv));
+				lan_endx_start = stream_get_getp(s);
+				stream_get(&(lan->neighbor_id), s, ISIS_SYS_ID_LEN);
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				lan->flags = stream_getc(s);
 				lan->algorithm = stream_getc(s);
 				lan->weight = stream_getc(s);
@@ -2189,6 +2222,18 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_get(&lan->sid, s, IPV6_MAX_BYTELEN);
 				subsubtlv_len = stream_getc(s);
 
+<<<<<<< HEAD
+=======
+				if (subsubtlv_len >
+				    subtlv_len - ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE) {
+					TLV_SIZE_MISMATCH(log, indent,
+							  "SRv6 LAN End.X SID subsubtlvs");
+					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					stream_set_getp(s, lan_endx_start + subtlv_len);
+					break;
+				}
+
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				lan->subsubtlvs = isis_alloc_subsubtlvs(
 					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
 
@@ -2199,6 +2244,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					    lan->subsubtlvs, indent + 4,
 					    &unpacked_known_tlvs)) {
 					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					stream_set_getp(s, lan_endx_start + subtlv_len);
 					break;
 				}
 				if (!unpacked_known_tlvs) {
@@ -2206,8 +2252,13 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					lan->subsubtlvs = NULL;
 				}
 
+<<<<<<< HEAD
 				append_item(&exts->srv6_lan_endx_sid,
 					    (struct isis_item *)lan);
+=======
+				stream_set_getp(s, lan_endx_start + subtlv_len);
+				append_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
+>>>>>>> bc37a700b (isisd: anchor stream position in SRv6 End.X SID sub-TLV parsing)
 				SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
 			}
 			break;
