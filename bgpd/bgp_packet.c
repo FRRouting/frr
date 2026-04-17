@@ -3450,11 +3450,18 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 }
 
 static void bgp_dynamic_capability_role(uint8_t *pnt, int action,
+					struct capability_header *hdr,
 					struct peer *peer)
 {
 	uint8_t role;
 
 	if (action == CAPABILITY_ACTION_SET) {
+		if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
+			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				 "%pBP: ROLE Capability length error: got %u, expected %zu",
+				 peer, hdr->length, sizeof(role));
+			return;
+		}
 		SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 		memcpy(&role, pnt + 3, sizeof(role));
 
@@ -3973,7 +3980,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			bgp_dynamic_capability_enhe(pnt, action, hdr, peer);
 			break;
 		case CAPABILITY_CODE_ROLE:
-			bgp_dynamic_capability_role(pnt, action, peer);
+			bgp_dynamic_capability_role(pnt, action, hdr, peer);
 			break;
 		default:
 			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
