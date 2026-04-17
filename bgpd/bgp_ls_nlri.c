@@ -2774,7 +2774,7 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 				goto error;
 			}
 			/* Variable length: 2*n bytes where n is number of MT-IDs */
-			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
+			if (tlv_len == 0 || tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
 				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
 					  tlv_len);
 				goto error;
@@ -2873,7 +2873,7 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 				goto error;
 			}
 			/* Variable length: 2*n bytes where n is number of MT-IDs */
-			if (tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
+			if (tlv_len == 0 || tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
 				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
 					  tlv_len);
 				goto error;
