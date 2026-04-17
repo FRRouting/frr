@@ -614,7 +614,8 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
 		vty_out(vty,  "EVI %u\n", l2vpn_svc->vsi);
 		state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
 		ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
-		vty_out(vty, "  AC: %s, state is %s\n", l2vpn_svc->local_ac,
+		vty_out(vty, "  AC: %s, state is %s\n",
+			l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac : "<undefined>",
 			ifp && if_is_operative(ifp) ? "Up" : "Down");
 		vty_out(vty, "      VSI %u\n", l2vpn_svc->vsi);
 		vty_out(vty, "      Status: %s (%d)\n",

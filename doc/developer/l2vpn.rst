@@ -186,7 +186,7 @@ Let's view more detailed information, use `show l2vpn <l2vpn_name> detail`:
    PE1# show l2vpn test detail
    Virtual Private Wire Service
    EVI 111
-     AC: , state is Down
+     AC: <undefined>, state is Down
          VSI 111
          Status: evpn_local_tx_fault (4)
      EVPN: neighbor 0.0.0.0, VSI 222, state is Down
