@@ -569,7 +569,8 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 		bs->stats.session_down);
 	vty_out(vty, "\t\tZebra notifications: %" PRIu64 "\n",
 		bs->stats.znotification);
-	vty_out(vty, "\t\tTx fail packet: %" PRIu64 "\n", bs->stats.tx_fail_pkt);
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
+		vty_out(vty, "\t\tTx fail packet: %" PRIu64 "\n", bs->stats.tx_fail_pkt);
 	vty_out(vty, "\t\tRX fail packet: %" PRIu64 "\n", bs->stats.rx_bad_ctrl_pkt);
 	vty_out(vty, "\n");
 }
