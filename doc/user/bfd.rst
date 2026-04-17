@@ -636,6 +636,7 @@ You can also inspect peer session counters with the following commands:
                 Session up events: 1
                 Session down events: 0
                 Zebra notifications: 2
+                Rx fail packet: 0
 
         peer 192.168.0.1
                 Control packet input: 54 packets
@@ -645,6 +646,7 @@ You can also inspect peer session counters with the following commands:
                 Session up events: 1
                 Session down events: 0
                 Zebra notifications: 4
+                Rx fail packet: 0
 
    frr# show bfd peer 192.168.0.1 counters
         peer 192.168.0.1
@@ -655,6 +657,7 @@ You can also inspect peer session counters with the following commands:
                 Session up events: 1
                 Session down events: 0
                 Zebra notifications: 4
+                Rx fail packet: 0
 
    frr# show bfd peer 192.168.0.1 counters json
    {"multihop":false,"peer":"192.168.0.1","control-packet-input":348,"control-packet-output":685,"echo-packet-input":6815,"echo-packet-output":6816,"session-up":1,"session-down":0,"zebra-notifications":4}
@@ -675,6 +678,7 @@ You can also clear packet counters per session with the following commands, only
                 Session up events: 1
                 Session down events: 0
                 Zebra notifications: 2
+                Rx fail packet: 0
 
         peer 192.168.0.1
                 Control packet input: 0 packets
@@ -684,6 +688,7 @@ You can also clear packet counters per session with the following commands, only
                 Session up events: 1
                 Session down events: 0
                 Zebra notifications: 4
+                Rx fail packet: 0
 
 
 .. _bfd-distributed:
