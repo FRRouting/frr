@@ -3962,7 +3962,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
 		}
 
-		tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv) + tlv_length);
+		tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv));
 		tlv->code = tlv_code;
 		tlv->length = tlv_length;
 		tlv->value = XCALLOC(MTYPE_BGP_NHC_TLV_VAL, tlv_length);

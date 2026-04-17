@@ -27,7 +27,7 @@ struct bgp_nhc_tlv *bgp_nhc_tlv_new(uint16_t code, uint16_t length, const void *
 {
 	struct bgp_nhc_tlv *tlv;
 
-	tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv) + IPV4_MAX_BYTELEN);
+	tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv));
 	tlv->code = code;
 	tlv->length = length;
 	tlv->value = XCALLOC(MTYPE_BGP_NHC_TLV_VAL, length);
