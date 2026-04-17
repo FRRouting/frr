@@ -1962,6 +1962,24 @@ void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 			 * su if needed.
 			 */
 			connection->su = old_su;
+			/* Let's clean up the bnc attached to
+			 * this peer. Since the connection->su
+			 * has changed, a new bnc will be created
+			 * and attached to the peer, the bnc that
+			 * is attached to the peer will be stale.
+			 * In this case, when peer is deleted it
+			 * just gets the bnc with the connection->su
+			 * and deletes that bnc. The other bnc will
+			 * remain there. So unlink the bnc from the
+			 * peer here. In some cases when 2 bnc entries are
+			 * present for the same peer, and say peer is
+			 * deconfigured and then interface down event comes
+			 * only one bnc is detached from the peer.
+			 * Although the peer is deleted, the other stale
+			 * bnc still holds the previous peer pointer
+			 * and while accesing the peer it crashes.
+			 */
+			bgp_unlink_nexthop_by_peer(peer);
 			hash_release(peer->bgp->connectionhash, connection);
 			listnode_delete(peer->bgp->peer, peer);
 
