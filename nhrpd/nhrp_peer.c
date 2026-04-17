@@ -1112,11 +1112,105 @@ static int proto2afi(uint16_t proto)
 	return AF_UNSPEC;
 }
 
+<<<<<<< HEAD
 struct nhrp_route_info {
 	int local;
 	struct interface *ifp;
 	struct nhrp_vc *vc;
 };
+=======
+static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
+				  uint16_t indication_code, uint16_t offset)
+{
+	union sockunion src_proto, dst_proto;
+	struct nhrp_packet_header *hdr;
+	struct zbuf *zb;
+
+	src_proto = pp->src_proto;
+	dst_proto = pp->dst_proto;
+	if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
+		src_proto = pp->dst_proto;
+		dst_proto = pp->src_proto;
+	}
+	/* Create reply */
+	zb = zbuf_alloc(1500);
+	hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
+			       &src_proto, &dst_proto);
+
+	hdr->u.error.code = htons(indication_code);
+	hdr->u.error.offset = htons(offset);
+	hdr->flags = pp->hdr->flags;
+	hdr->hop_count = 0; /* XXX: cisco returns 255 */
+
+	/* Payload is the packet causing error */
+	/* Don`t add extension according to RFC */
+	zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
+	zbuf_put(zb, sockunion_get_addr(&pp->src_nbma),
+		 hdr->src_nbma_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->src_proto),
+		 hdr->src_protocol_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->dst_proto),
+		 hdr->dst_protocol_address_len);
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
+
+	nhrp_peer_send(pp->peer, zb);
+	zbuf_free(zb);
+	return 0;
+}
+
+static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
+{
+	struct nhrp_cisco_authentication_extension *auth_ext;
+	struct nhrp_interface *nifp = pp->ifp->info;
+	struct zbuf *auth = nifp->auth_token;
+	struct nhrp_extension_header *ext;
+	struct zbuf *extensions, pl;
+	int cmp = 1;
+	int pl_pass_length, auth_pass_length;
+	size_t auth_size, pl_size;
+
+	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+	zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
+	while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* Size of authentication extensions
+			 * (varies based on password length)
+			 */
+			auth_size = zbuf_size(auth);
+			pl_size = zbuf_size(&pl);
+			auth_ext = (struct nhrp_cisco_authentication_extension *)
+					   auth->buf;
+
+			if (auth_size == pl_size)
+				cmp = memcmp(auth_ext, pl.buf, auth_size);
+			else
+				cmp = 1;
+
+			if (unlikely(debug_flags & NHRP_DEBUG_COMMON)) {
+				/* 4 bytes in nhrp_cisco_authentication_extension are
+				 * allocated toward the authentication type.
+				 * The remaining bytes are used for the password -
+				 * so the password length is just the length
+				 * of the extension - 4
+				 */
+				auth_pass_length = (auth_size - 4);
+				pl_pass_length = (pl_size - 4);
+
+				debugf(NHRP_DEBUG_COMMON,
+				       "Processing Authentication Extension: auth len %d, pl_pass len %d => %d",
+				       auth_pass_length, pl_pass_length, cmp);
+			}
+			break;
+		default:
+			/* Ignoring all received extensions except Authentication*/
+			break;
+		}
+	}
+	zbuf_free(extensions);
+	return cmp == 0;
+}
+>>>>>>> 6b75806ca (nhrpd: stop debugging auth credentials)
 
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 {
