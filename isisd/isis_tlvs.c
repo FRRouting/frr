@@ -1867,9 +1867,11 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_srv6_endx_sid_subtlv *adj;
+				size_t endx_start;
 
 				adj = XCALLOC(MTYPE_ISIS_SUBTLV,
 					      sizeof(struct isis_srv6_endx_sid_subtlv));
+				endx_start = stream_get_getp(s);
 				adj->flags = stream_getc(s);
 				adj->algorithm = stream_getc(s);
 				adj->weight = stream_getc(s);
@@ -1882,9 +1884,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					TLV_SIZE_MISMATCH(log, indent,
 							  "SRv6 End.X SID subsubtlvs");
 					XFREE(MTYPE_ISIS_SUBTLV, adj);
-					stream_forward_getp(
-						s,
-						subtlv_len - ISIS_SUBTLV_SRV6_ENDX_SID_SIZE);
+					stream_set_getp(s, endx_start + subtlv_len);
 					break;
 				}
 
@@ -1897,6 +1897,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 						&unpacked_known_tlvs)) {
 					isis_free_subsubtlvs(adj->subsubtlvs);
 					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					stream_set_getp(s, endx_start + subtlv_len);
 					break;
 				}
 				if (!unpacked_known_tlvs) {
@@ -1904,6 +1905,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					adj->subsubtlvs = NULL;
 				}
 
+				stream_set_getp(s, endx_start + subtlv_len);
 				append_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
 				SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
 			}
@@ -1915,9 +1917,11 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_srv6_lan_endx_sid_subtlv *lan;
+				size_t lan_endx_start;
 
 				lan = XCALLOC(MTYPE_ISIS_SUBTLV,
 					      sizeof(struct isis_srv6_lan_endx_sid_subtlv));
+				lan_endx_start = stream_get_getp(s);
 				stream_get(&(lan->neighbor_id), s, ISIS_SYS_ID_LEN);
 				lan->flags = stream_getc(s);
 				lan->algorithm = stream_getc(s);
@@ -1931,9 +1935,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					TLV_SIZE_MISMATCH(log, indent,
 							  "SRv6 LAN End.X SID subsubtlvs");
 					XFREE(MTYPE_ISIS_SUBTLV, lan);
-					stream_forward_getp(
-						s,
-						subtlv_len - ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE);
+					stream_set_getp(s, lan_endx_start + subtlv_len);
 					break;
 				}
 
@@ -1946,6 +1948,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 						&unpacked_known_tlvs)) {
 					isis_free_subsubtlvs(lan->subsubtlvs);
 					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					stream_set_getp(s, lan_endx_start + subtlv_len);
 					break;
 				}
 				if (!unpacked_known_tlvs) {
@@ -1953,6 +1956,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 					lan->subsubtlvs = NULL;
 				}
 
+				stream_set_getp(s, lan_endx_start + subtlv_len);
 				append_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
 				SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
 			}
