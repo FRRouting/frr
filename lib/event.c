@@ -2496,6 +2496,9 @@ static struct event *event_fetch_inner_loop(struct event_loop *m, struct event *
 		return NULL;
 	}
 #else
+	while (m->handler.pfdcount && m->handler.pfds[m->handler.pfdcount - 1].fd == -1)
+		m->handler.pfdcount--;
+
 	if (!tw && m->handler.pfdcount == 0) { /* die */
 		pthread_mutex_unlock(&m->mtx);
 		*broken = true;
