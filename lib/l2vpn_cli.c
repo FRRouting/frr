@@ -15,8 +15,8 @@
 
 #include "lib/l2vpn_cli_clippy.c"
 
-static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail);
-static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail);
+static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool json);
+static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail, bool json);
 
 DEFPY_YANG_NOSH(l2vpn_command,
 	l2vpn_cmd,
@@ -270,23 +270,22 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(show_l2vpn,
-      show_l2vpn_cmd,
-      "show l2vpn NAME$name [vpws|vpls]$type [detail $detail]",
-      SHOW_STR
-      "L2VPN\n"
+DEFPY(show_l2vpn, show_l2vpn_cmd,
+      "show l2vpn NAME$name [vpws|vpls]$type [detail $detail] [json $json]",
+      SHOW_STR "L2VPN\n"
       "L2VPN name\n"
       "Type virtual private wired service\n"
       "Type virtual private LAN service\n"
-      "Detail\n")
+      "Detail\n"
+      "Json output\n")
 {
 	if (!type) {
-		show_l2vpn_vpls(vty, name, !!detail);
-		show_l2vpn_vpws(vty, name, !!detail);
+		show_l2vpn_vpls(vty, name, !!detail, !!json);
+		show_l2vpn_vpws(vty, name, !!detail, !!json);
 	} else if (!strcmp("vpws", type)) {
-		show_l2vpn_vpws(vty, name, !!detail);
+		show_l2vpn_vpws(vty, name, !!detail, !!json);
 	} else {
-		show_l2vpn_vpls(vty, name, !!detail);
+		show_l2vpn_vpls(vty, name, !!detail, !!json);
 	}
 
 	return CMD_SUCCESS;
@@ -566,7 +565,7 @@ static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_no
 		vty_out(vty, "  ignore-mtu-mismatch disable\n");
 }
 
-static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail)
+static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail, bool json)
 {
 	struct l2vpn *l2vpn;
 
@@ -577,7 +576,7 @@ static void show_l2vpn_vpls(struct vty *vty, const char *name, bool detail)
 	/* TODO */
 }
 
-static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
+static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool json)
 {
 	bool state;
 	char buf[81] = {0};
@@ -589,48 +588,118 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail)
 	if (!l2vpn)
 		return;
 
-	vty_out(vty, "Virtual Private Wire Service\n");
-	if (!detail) {
-		vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote VSI",
-			"IFNAME ", "Status", "PROTO");
-		memset(buf, '-', 19);
-		vty_out(vty, "%s %s %s %s %s\n", buf, buf, buf, buf, buf);
-		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-			vty_out(vty, "%-19u ", l2vpn_svc->vsi);
-			snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->vsi, l2vpn_svc->remote_vsi);
-			vty_out(vty, "%-19s ", buf);
-			vty_out(vty, "%-19s ", l2vpn_svc->ifname);
-			state = l2vpn_svc->local_status  == EVPN_FORWARDING &&
-				l2vpn_svc->remote_status == EVPN_FORWARDING;
-			vty_out(vty, "%-19s ", state ? "Up" : "Down");
-			vty_out(vty, "%-19s\n", "BGP");
-			vty_out(vty, "\n");
+	if (json) {
+		json_object *list = json_object_new_array();
+		json_object *json = json_object_new_object(), *json_elt, *json_elt2;
+
+		json_object_string_add(json, "name", name);
+		json_object_string_add(json, "type", "Virtual Private Wire Service");
+		if (!detail) {
+			RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+				json_elt = json_object_new_object();
+				json_object_int_add(json_elt, "evi", l2vpn_svc->vsi);
+				json_object_int_add(json_elt, "localVsi", l2vpn_svc->vsi);
+				json_object_int_add(json_elt, "remoteVsi", l2vpn_svc->remote_vsi);
+				json_object_string_add(json_elt, "memberInterface",
+						       l2vpn_svc->ifname);
+				state = l2vpn_svc->local_status == EVPN_FORWARDING &&
+					l2vpn_svc->remote_status == EVPN_FORWARDING;
+				json_object_string_add(json_elt, "status", state ? "Up" : "Down");
+				json_object_string_add(json_elt, "protocol", "BGP");
+				json_object_array_add(list, json_elt);
+			}
+
+			json_object_object_add(json, "instances", list);
+			vty_json(vty, json);
+
+			return;
 		}
 
-		return;
-	}
+		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+			json_elt = json_object_new_object();
+			json_elt2 = json_object_new_object();
 
-	RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-		vty_out(vty,  "EVI %u\n", l2vpn_svc->vsi);
-		state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
-		ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
-		vty_out(vty, "  AC: %s, state is %s\n",
-			l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac : "<undefined>",
-			ifp && if_is_operative(ifp) ? "Up" : "Down");
-		vty_out(vty, "      VSI %u\n", l2vpn_svc->vsi);
-		vty_out(vty, "      Status: %s (%d)\n",
-			evpn_status_to_str(l2vpn_svc->local_status), l2vpn_svc->local_status);
+			json_object_int_add(json_elt, "evi", l2vpn_svc->vsi);
+			json_object_int_add(json_elt, "vsi", l2vpn_svc->vsi);
+			json_object_string_add(json_elt, "memberInterface", l2vpn_svc->ifname);
+			json_object_string_add(json_elt, "interface",
+					       l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac
+								      : "<undefined>");
+			ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
+			json_object_string_add(json_elt, "state",
+					       ifp && if_is_operative(ifp) ? "Up" : "Down");
+			json_object_string_add(json_elt, "status",
+					       evpn_status_to_str(l2vpn_svc->local_status));
+			json_object_string_add(json_elt, "protocol", "BGP");
+			json_object_object_add(json_elt2, "local", json_elt);
 
-		state = l2vpn_svc->remote_status == EVPN_FORWARDING;
-		vty_out(vty, "  EVPN: neighbor %pI4, VSI %u, state is %s\n", &l2vpn_svc->lsr_id,
-			l2vpn_svc->remote_vsi, state ? "Up" : "Down");
-		vty_out(vty, "      Status: %s\n", l2vpn_svc_error_code(l2vpn_svc->reason));
-		vty_out(vty, "      MTU: %u\n", l2vpn_svc->remote_mtu);
-		vty_out(vty, "      Encapsulation VXLAN, VNI %u\n", l2vpn_svc->vni);
-		vty_out(vty, "      Ignore MTU mismatch: %s\n",
-			l2vpn_svc->ignore_mtu_mismatch ? "true" : "false");
-		vty_out(vty, "      Nexthop: %pI4\n", &l2vpn_svc->addr.ipv4);
-		vty_out(vty, "\n");
+			json_elt = json_object_new_object();
+			json_object_string_addf(json_elt, "addr", "%pI4", &l2vpn_svc->lsr_id);
+			state = l2vpn_svc->remote_status == EVPN_FORWARDING;
+			json_object_int_add(json_elt, "vsi", l2vpn_svc->remote_vsi);
+			json_object_string_add(json_elt, "state", state ? "Up" : "Down");
+			json_object_string_add(json_elt, "status",
+					       l2vpn_svc_error_code(l2vpn_svc->reason));
+			json_object_int_add(json_elt, "mtu", l2vpn_svc->remote_mtu);
+			json_object_string_add(json_elt, "encap", "VXLAN");
+			json_object_int_add(json_elt, "vni", l2vpn_svc->vni);
+			json_object_boolean_add(json_elt, "ignoreMtuMismatch",
+						l2vpn_svc->ignore_mtu_mismatch);
+			json_object_string_addf(json_elt, "nexthop", "%pI4", &l2vpn_svc->addr.ipv4);
+			json_object_object_add(json_elt2, "remote", json_elt);
+
+			json_object_array_add(list, json_elt2);
+		}
+
+		json_object_object_add(json, "instances", list);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "Virtual Private Wire Service\n");
+
+		if (!detail) {
+			vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote VSI",
+				"IFNAME ", "Status", "PROTO");
+			memset(buf, '-', 19);
+			vty_out(vty, "%s %s %s %s %s\n", buf, buf, buf, buf, buf);
+			RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+				vty_out(vty, "%-19u ", l2vpn_svc->vsi);
+				snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->vsi,
+					 l2vpn_svc->remote_vsi);
+				vty_out(vty, "%-19s ", buf);
+				vty_out(vty, "%-19s ", l2vpn_svc->ifname);
+				state = l2vpn_svc->local_status == EVPN_FORWARDING &&
+					l2vpn_svc->remote_status == EVPN_FORWARDING;
+				vty_out(vty, "%-19s ", state ? "Up" : "Down");
+				vty_out(vty, "%-19s\n", "BGP");
+				vty_out(vty, "\n");
+			}
+
+			return;
+		}
+
+		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
+			vty_out(vty, "EVI %u\n", l2vpn_svc->vsi);
+			state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
+			ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
+			vty_out(vty, "  AC: %s, state is %s\n",
+				l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac : "<undefined>",
+				ifp && if_is_operative(ifp) ? "Up" : "Down");
+			vty_out(vty, "      VSI %u\n", l2vpn_svc->vsi);
+			vty_out(vty, "      Status: %s (%d)\n",
+				evpn_status_to_str(l2vpn_svc->local_status),
+				l2vpn_svc->local_status);
+
+			state = l2vpn_svc->remote_status == EVPN_FORWARDING;
+			vty_out(vty, "  EVPN: neighbor %pI4, VSI %u, state is %s\n",
+				&l2vpn_svc->lsr_id, l2vpn_svc->remote_vsi, state ? "Up" : "Down");
+			vty_out(vty, "      Status: %s\n", l2vpn_svc_error_code(l2vpn_svc->reason));
+			vty_out(vty, "      MTU: %u\n", l2vpn_svc->remote_mtu);
+			vty_out(vty, "      Encapsulation VXLAN, VNI %u\n", l2vpn_svc->vni);
+			vty_out(vty, "      Ignore MTU mismatch: %s\n",
+				l2vpn_svc->ignore_mtu_mismatch ? "true" : "false");
+			vty_out(vty, "      Nexthop: %pI4\n", &l2vpn_svc->addr.ipv4);
+			vty_out(vty, "\n");
+		}
 	}
 }
 
