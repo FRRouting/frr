@@ -267,7 +267,7 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	struct static_nexthop *nh;
 	struct static_vrf *nh_svrf;
 	struct interface *ifp;
-	struct static_nexthop *cp;
+	struct static_nexthop *cp = NULL;
 
 	route_lock_node(rn);
 
@@ -376,6 +376,9 @@ void static_install_nexthop(struct static_nexthop *nh)
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		static_zebra_nht_register(nh, true);
+		ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			static_install_path(pn);
 		break;
 	case STATIC_BLACKHOLE:
 		static_install_path(pn);
