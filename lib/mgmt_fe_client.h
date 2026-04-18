@@ -29,7 +29,8 @@ extern "C" {
 
 #define MGMTD_FE_MAX_NUM_MSG_PROC  500
 #define MGMTD_FE_MAX_NUM_MSG_WRITE 100
-#define MGMTD_FE_MAX_MSG_LEN	   (64 * 1024)
+/* Messages can be any size, this is just the preallocated buffer size */
+#define MGMTD_FE_MAX_MSG_LEN (4 * 1024)
 
 /***************************************************************
  * Data-structures
