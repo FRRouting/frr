@@ -22,7 +22,8 @@ extern "C" {
 
 #define MGMTD_BE_MAX_NUM_MSG_PROC  500
 #define MGMTD_BE_MAX_NUM_MSG_WRITE 1000
-#define MGMTD_BE_MAX_MSG_LEN	   (64 * 1024)
+/* Messages can be any size, this is just the preallocated buffer size */
+#define MGMTD_BE_MAX_MSG_LEN (4 * 1024)
 
 #define MGMTD_MAX_CFG_CHANGES_IN_BATCH                                         \
 	((10 * MGMTD_BE_MAX_MSG_LEN) /                                         \
