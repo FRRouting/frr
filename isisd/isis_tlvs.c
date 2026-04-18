@@ -2584,6 +2584,12 @@ static int unpack_subsubtlv_srv6_sid_structure(
 		return 1;
 	}
 
+	if (subsubtlvs->srv6_sid_structure) {
+		sbuf_push(log, indent,
+			  "Duplicate SRv6 SID Structure Sub-Sub-TLV. Parent sub-TLV is invalid.\n");
+		return 1;
+	}
+
 	sid_struct.loc_block_len = stream_getc(s);
 	sid_struct.loc_node_len = stream_getc(s);
 	sid_struct.func_len = stream_getc(s);
