@@ -13,6 +13,7 @@
 #include "network.h"
 #include "sockopt.h"
 #include "stream.h"
+#include "zlog.h"
 #include "frrevent.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
@@ -31,8 +32,8 @@
 DEFINE_MTYPE(LIB, MSG_CONN, "msg connection state");
 
 /**
- * Read data from a socket into streams containing 1 or more full msgs headed by
- * mgmt_msg_hdr which contain API messages (currently protobuf).
+ * Read data from a socket into a stream containing 1 full msg headed by
+ * mgmt_msg_hdr.
  *
  * Args:
  *	ms: mgmt_msg_state for this process.
@@ -49,13 +50,13 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 				   bool debug)
 {
 	const char *dbgtag = debug ? ms->idtag : NULL;
-	size_t avail = STREAM_WRITEABLE(ms->ins);
 	struct mgmt_msg_hdr *mhdr = NULL;
-	size_t total = 0;
-	size_t mcount = 0;
-	ssize_t n, left;
+	struct stream *news;
+	size_t nread;
+	ssize_t n;
 
 	assert(ms && fd != -1);
+<<<<<<< HEAD
 
 	/*
 	 * Read as much as we can into the stream.
@@ -85,17 +86,37 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	/*
 	 * Check if we have read a complete messages or not.
 	 */
+=======
+	MGMT_MSG_TRACE(dbgtag, "enter to read from fd %d", fd);
+
+>>>>>>> ae7d79f8f (lib: fix mgmt_msg recv to deal with mis-alignment)
 	assert(stream_get_getp(ms->ins) == 0);
-	left = stream_get_endp(ms->ins);
-	while (left > (ssize_t)sizeof(struct mgmt_msg_hdr)) {
-		mhdr = (struct mgmt_msg_hdr *)(STREAM_DATA(ms->ins) + total);
+	nread = stream_get_endp(ms->ins);
+
+	/*
+	 * Get header, validate, and resize the stream, if needed, to fit incoming message.
+	 */
+	if (nread < sizeof(struct mgmt_msg_hdr)) {
+		while (nread < sizeof(struct mgmt_msg_hdr)) {
+			n = stream_read_try(ms->ins, fd, sizeof(struct mgmt_msg_hdr) - nread);
+			if (n <= 0)
+				goto not_done;
+			nread += n;
+			ms->nrxb += n;
+		}
+
+		/* Validate the header is sane */
+		mhdr = (struct mgmt_msg_hdr *)STREAM_DATA(ms->ins);
 		if (!MGMT_MSG_IS_MARKER(mhdr->marker)) {
 			MGMT_MSG_DBG(dbgtag, "recv corrupt buffer, disconnect");
 			return MSR_DISCONNECT;
+		} else if (mhdr->len <= sizeof(struct mgmt_msg_hdr)) {
+			MGMT_MSG_DBG(dbgtag, "recv invalid message length %u on fd %d, disconnect",
+				     mhdr->len, fd);
+			return MSR_DISCONNECT;
 		}
-		if ((ssize_t)mhdr->len > left)
-			break;
 
+<<<<<<< HEAD
 		MGMT_MSG_DBG(dbgtag, "read full message len %u", mhdr->len);
 		total += mhdr->len;
 		left -= mhdr->len;
@@ -118,32 +139,48 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					     mhdr->len);
 				return MSR_DISCONNECT;
 			}
+=======
+		/* See if message will fit in the stream, realloc if not */
+		if (mhdr->len > ms->ins->size) {
+			MGMT_MSG_DBG(dbgtag,
+				     "message length %u is greater than available %zu on fd %d",
+				     mhdr->len, ms->ins->size, fd);
+>>>>>>> ae7d79f8f (lib: fix mgmt_msg recv to deal with mis-alignment)
 			news = stream_new(mhdr->len);
-			stream_put(news, mhdr, left);
-			stream_set_endp(news, left);
+			stream_put(news, mhdr, sizeof(struct mgmt_msg_hdr));
 			stream_free(ms->ins);
 			ms->ins = news;
 		}
+	}
+
+	/* Read the rest of the message. */
+	mhdr = (struct mgmt_msg_hdr *)STREAM_DATA(ms->ins);
+	while (nread < mhdr->len) {
+		n = stream_read_try(ms->ins, fd, mhdr->len - nread);
+		if (n <= 0)
+			goto not_done;
+		nread += n;
+		ms->nrxb += n;
+		MGMT_MSG_TRACE(dbgtag, "read %zd from fd %d (%zu of %u)", n, fd, nread, mhdr->len);
+	}
+
+	/* We've got a full message, push it onto the FIFO and setup for the next message. */
+	MGMT_MSG_TRACE(dbgtag, "read full msg %zu/%u from fd %d", nread, mhdr->len, fd);
+	stream_fifo_push(&ms->inq, ms->ins);
+	ms->ins = stream_new(ms->max_msg_sz);
+	return MSR_SCHED_BOTH;
+
+not_done:
+	if (n == -2) {
+		MGMT_MSG_TRACE(dbgtag, "nothing more to read on fd %d", fd);
 		return MSR_SCHED_STREAM;
 	}
-
-	/*
-	 * We have read at least one message into the stream, queue it up.
-	 */
-	mhdr = (struct mgmt_msg_hdr *)(STREAM_DATA(ms->ins) + total);
-	stream_set_endp(ms->ins, total);
-	stream_fifo_push(&ms->inq, ms->ins);
-	if (left < (ssize_t)sizeof(struct mgmt_msg_hdr))
-		ms->ins = stream_new(ms->max_msg_sz);
+	if (n == 0)
+		MGMT_MSG_ERR(ms, "got EOF/disconnect on fd %d", fd);
 	else
-		/* handle case where message is greater than max */
-		ms->ins = stream_new(MAX(ms->max_msg_sz, mhdr->len));
-	if (left) {
-		stream_put(ms->ins, mhdr, left);
-		stream_set_endp(ms->ins, left);
-	}
-
-	return MSR_SCHED_BOTH;
+		MGMT_MSG_ERR(ms, "got error while reading on fd %d: '%s'", fd,
+			     safe_strerror(errno));
+	return MSR_DISCONNECT;
 }
 
 /**
@@ -168,7 +205,6 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 	const char *dbgtag = debug ? ms->idtag : NULL;
 	struct mgmt_msg_hdr *mhdr;
 	struct stream *work;
-	uint8_t *data;
 	size_t left, nproc;
 
 	MGMT_MSG_DBG(dbgtag, "Have %zu streams to process", ms->inq.count);
@@ -179,8 +215,8 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 		if (!work)
 			break;
 
-		data = STREAM_DATA(work);
 		left = stream_get_endp(work);
+<<<<<<< HEAD
 		MGMT_MSG_DBG(dbgtag, "Processing stream of len %zu", left);
 
 		for (; left > sizeof(struct mgmt_msg_hdr);
@@ -202,6 +238,18 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 			stream_free(work); /* Free it up */
 		else
 			stream_reset(work); /* Reset stream for next read */
+=======
+		MGMT_MSG_TRACE(dbgtag, "Processing stream of len %zu", left);
+		/*
+		 * Q: if the handler disconnects should we stop/flush?
+		 */
+		mhdr = (struct mgmt_msg_hdr *)STREAM_DATA(work);
+		handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker), (uint8_t *)(mhdr + 1),
+			   mhdr->len - sizeof(struct mgmt_msg_hdr), user);
+		ms->nrxm++;
+		nproc++;
+		stream_free(work); /* Free it up */
+>>>>>>> ae7d79f8f (lib: fix mgmt_msg recv to deal with mis-alignment)
 	}
 
 	/* return true if should reschedule b/c more to process. */
