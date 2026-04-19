@@ -87,6 +87,7 @@ enum bgp_ls_link_descriptor_tlv {
 enum bgp_ls_prefix_descriptor_tlv {
 	BGP_LS_TLV_OSPF_ROUTE_TYPE = 264, /* OSPF Route Type - RFC 9552, Section 5.2.3.1 */
 	BGP_LS_TLV_IP_REACH_INFO = 265, /* IP Reachability Information - RFC 9552, Section 5.2.3.2 */
+	BGP_LS_TLV_BGP_ROUTE_TYPE = 535, /* BGP Route Type - draft-ietf-idr-bgp-ls-bgp-only-fabric */
 };
 
 /*
@@ -100,6 +101,18 @@ enum bgp_ls_ospf_route_type {
 	BGP_LS_OSPF_RT_EXTERNAL_2 = 4, /* External Type 2 */
 	BGP_LS_OSPF_RT_NSSA_1 = 5,     /* NSSA Type 1 */
 	BGP_LS_OSPF_RT_NSSA_2 = 6,     /* NSSA Type 2 */
+};
+
+/*
+ * BGP Route Type Values
+ * draft-ietf-idr-bgp-ls-bgp-only-fabric-04, Section 4.3
+ */
+enum bgp_ls_bgp_route_type {
+	BGP_LS_BGP_RT_LOCAL = 1,	 /* Local interface prefix (e.g., Loopback) */
+	BGP_LS_BGP_RT_ATTACHED = 2,	 /* Directly attached node's prefix (e.g., host) */
+	BGP_LS_BGP_RT_EXTERNAL_BGP = 3,	 /* Prefix learned via EBGP */
+	BGP_LS_BGP_RT_INTERNAL_BGP = 4,	 /* Prefix learned via IBGP */
+	BGP_LS_BGP_RT_REDISTRIBUTED = 5, /* Prefix redistributed into BGP */
 };
 
 /*
@@ -202,6 +215,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_DESC_MT_ID_BIT	  0
 #define BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT 1
 #define BGP_LS_PREFIX_DESC_IP_REACH_BIT	  2
+#define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT 3
 
 /* Maximum number of MT-IDs per descriptor */
 #define BGP_LS_MAX_MT_ID 16
@@ -242,6 +256,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_MT_ID_SIZE	    2		     /* Multi-Topology ID (per entry) */
 #define BGP_LS_PREFIX_LEN_SIZE	    1		     /* IP prefix length field */
 #define BGP_LS_BGP_ROUTER_ID_SIZE   4		     /* BGP Router-ID value */
+#define BGP_LS_BGP_ROUTE_TYPE_SIZE  1		     /* BGP Route Type value */
 
 /*
  * IGP Metric can be 1, 2, or 3 bytes
@@ -379,6 +394,7 @@ struct bgp_ls_prefix_descriptor {
 	uint8_t mt_id_count;			     /* Number of Multi-Topology IDs */
 	uint16_t *mt_id;			     /* Multi-Topology IDs */
 	enum bgp_ls_ospf_route_type ospf_route_type; /* OSPF Route Type */
+	enum bgp_ls_bgp_route_type bgp_route_type;   /* BGP Route Type */
 	struct prefix prefix;			     /* IP prefix (IPv4 or IPv6) */
 };
 
@@ -664,9 +680,11 @@ extern const char *bgp_ls_node_descriptor_tlv_str(enum bgp_ls_node_descriptor_tl
 extern const char *bgp_ls_link_descriptor_tlv_str(enum bgp_ls_link_descriptor_tlv tlv_type);
 extern const char *bgp_ls_prefix_descriptor_tlv_str(enum bgp_ls_prefix_descriptor_tlv tlv_type);
 extern const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_type);
+extern const char *bgp_ls_bgp_route_type_str(enum bgp_ls_bgp_route_type route_type);
 
 /* Json conversion helpers */
 extern const char *bgp_ls_ospf_route_type_str_json(enum bgp_ls_ospf_route_type route_type);
+extern const char *bgp_ls_bgp_route_type_str_json(enum bgp_ls_bgp_route_type route_type);
 
 /*
  * ===========================================================================

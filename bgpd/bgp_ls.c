@@ -114,6 +114,11 @@ static json_object *prefix_desc_to_json(struct bgp_ls_prefix_descriptor *prefix_
 					bgp_ls_ospf_route_type_str_json(
 						prefix_desc->ospf_route_type));
 
+	/* BGP Route Type */
+	if (BGP_LS_TLV_CHECK(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT))
+		json_object_string_addf(json_prefix, "bgpRouteType", "%s",
+					bgp_ls_bgp_route_type_str_json(prefix_desc->bgp_route_type));
+
 	return json_prefix;
 }
 
@@ -402,6 +407,15 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 		len = snprintfrr(p, remain, "]]");
 		p += len;
 		remain -= len;
+
+		/* Format BGP Route Type if present */
+		if (BGP_LS_TLV_CHECK(nlri->nlri_data.prefix.prefix_desc.present_tlvs,
+				     BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
+			len = snprintfrr(p, remain, "[br0x%02x]",
+					 nlri->nlri_data.prefix.prefix_desc.bgp_route_type);
+			p += len;
+			remain -= len;
+		}
 	}
 }
 

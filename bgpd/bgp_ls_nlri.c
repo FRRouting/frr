@@ -178,6 +178,12 @@ int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
 		}
 	}
 
+	/* Compare BGP Route Type if present */
+	if (BGP_LS_TLV_CHECK(d1->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
+		if (d1->bgp_route_type != d2->bgp_route_type)
+			return numcmp(d1->bgp_route_type, d2->bgp_route_type);
+	}
+
 	return 0;
 }
 
@@ -912,6 +918,11 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_PREFIX_LEN_SIZE +
 				BGP_LS_IPV6_ADDR_SIZE;
 
+		/* BGP Route Type TLV */
+		if (BGP_LS_TLV_CHECK(p->prefix_desc.present_tlvs,
+				     BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_BGP_ROUTE_TYPE_SIZE;
+
 		break;
 	}
 
@@ -1021,6 +1032,8 @@ const char *bgp_ls_prefix_descriptor_tlv_str(enum bgp_ls_prefix_descriptor_tlv t
 		return "OSPF Route Type";
 	case BGP_LS_TLV_IP_REACH_INFO:
 		return "IP Reachability Information";
+	case BGP_LS_TLV_BGP_ROUTE_TYPE:
+		return "BGP Route Type";
 	}
 
 	return "Unknown";
@@ -1046,6 +1059,24 @@ const char *bgp_ls_ospf_route_type_str(enum bgp_ls_ospf_route_type route_type)
 	return "Unknown";
 }
 
+const char *bgp_ls_bgp_route_type_str(enum bgp_ls_bgp_route_type route_type)
+{
+	switch (route_type) {
+	case BGP_LS_BGP_RT_LOCAL:
+		return "Local";
+	case BGP_LS_BGP_RT_ATTACHED:
+		return "Attached";
+	case BGP_LS_BGP_RT_EXTERNAL_BGP:
+		return "External BGP";
+	case BGP_LS_BGP_RT_INTERNAL_BGP:
+		return "Internal BGP";
+	case BGP_LS_BGP_RT_REDISTRIBUTED:
+		return "Redistributed";
+	}
+
+	return "Unknown";
+}
+
 const char *bgp_ls_ospf_route_type_str_json(enum bgp_ls_ospf_route_type route_type)
 {
 	switch (route_type) {
@@ -1064,6 +1095,24 @@ const char *bgp_ls_ospf_route_type_str_json(enum bgp_ls_ospf_route_type route_ty
 	}
 
 	return "Unknown";
+}
+
+const char *bgp_ls_bgp_route_type_str_json(enum bgp_ls_bgp_route_type route_type)
+{
+	switch (route_type) {
+	case BGP_LS_BGP_RT_LOCAL:
+		return "local";
+	case BGP_LS_BGP_RT_ATTACHED:
+		return "attached";
+	case BGP_LS_BGP_RT_EXTERNAL_BGP:
+		return "externalBgp";
+	case BGP_LS_BGP_RT_INTERNAL_BGP:
+		return "internalBgp";
+	case BGP_LS_BGP_RT_REDISTRIBUTED:
+		return "redistributed";
+	}
+
+	return "unknown";
 }
 
 /*
@@ -1168,6 +1217,11 @@ static unsigned int bgp_ls_prefix_hash_key_internal(const struct bgp_ls_nlri *nl
 	/* Hash OSPF route type if present */
 	if (BGP_LS_TLV_CHECK(prefix->prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT))
 		key = jhash_1word(prefix->prefix_desc.ospf_route_type, key);
+
+	/* Hash BGP route type if present */
+	if (BGP_LS_TLV_CHECK(prefix->prefix_desc.present_tlvs,
+			     BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT))
+		key = jhash_1word(prefix->prefix_desc.bgp_route_type, key);
 
 	return key;
 }
@@ -1758,6 +1812,15 @@ int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix
 		stream_putw(s, BGP_LS_PREFIX_LEN_SIZE + prefix_len_bytes);
 		stream_putc(s, desc->prefix.prefixlen);
 		stream_put(s, &desc->prefix.u.prefix6, prefix_len_bytes);
+	}
+
+	/* BGP Route Type */
+	if (BGP_LS_TLV_CHECK(desc->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_BGP_ROUTE_TYPE_SIZE)
+			return -1;
+		stream_putw(s, BGP_LS_TLV_BGP_ROUTE_TYPE);
+		stream_putw(s, BGP_LS_BGP_ROUTE_TYPE_SIZE);
+		stream_putc(s, desc->bgp_route_type);
 	}
 
 	return stream_get_endp(s) - start;
@@ -2941,6 +3004,29 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 
 			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_PREFIX_DESC_IP_REACH_BIT);
 			has_ip_reach = true;
+			break;
+
+		case BGP_LS_TLV_BGP_ROUTE_TYPE:
+			if (BGP_LS_TLV_CHECK(desc->present_tlvs,
+					     BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate BGP Route Type TLV in prefix descriptor");
+				goto error;
+			}
+			if (tlv_len != BGP_LS_BGP_ROUTE_TYPE_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid BGP Route Type TLV length %u", tlv_len);
+				goto error;
+			}
+			desc->bgp_route_type = stream_getc(s);
+			if (desc->bgp_route_type < BGP_LS_BGP_RT_LOCAL ||
+			    desc->bgp_route_type > BGP_LS_BGP_RT_REDISTRIBUTED) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid BGP Route Type value %u",
+					  desc->bgp_route_type);
+				goto error;
+			}
+			BGP_LS_TLV_SET(desc->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT);
 			break;
 
 		default:
@@ -5014,6 +5100,13 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 				break;
 			}
 			vty_out(vty, "\tOSPF Route Type: %s\n", ospf_rt_str);
+		}
+
+		/* BGP Route Type */
+		if (BGP_LS_TLV_CHECK(prefix_desc->present_tlvs,
+				     BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
+			vty_out(vty, "\tBGP Route Type: %s\n",
+				bgp_ls_bgp_route_type_str(prefix_desc->bgp_route_type));
 		}
 
 		/* Multi-Topology */
