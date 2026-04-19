@@ -4888,8 +4888,11 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	 * want.
 	 */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (!group->conf->afc[afi][safi])
+		if (!group->conf->afc[afi][safi]) {
+			if (peer->afc[afi][safi])
+				peer_deactivate(peer, afi, safi);
 			continue;
+		}
 		peer->afc[afi][safi] = 1;
 
 		if (!peer_af_find(peer, afi, safi))
