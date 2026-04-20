@@ -1072,9 +1072,9 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	if (vtysh)
 		return saved_ret;
 
-	if (ret != CMD_SUCCESS && ret != CMD_WARNING
-	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
-	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED) {
+	if (ret != CMD_SUCCESS && ret != CMD_WARNING && ret != CMD_ERR_AMBIGUOUS &&
+	    ret != CMD_ERR_INCOMPLETE && ret != CMD_NOT_MY_INSTANCE &&
+	    ret != CMD_WARNING_CONFIG_FAILED && ret != CMD_YIELD) {
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
 		while (vty->node > CONFIG_NODE) {
