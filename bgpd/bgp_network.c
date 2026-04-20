@@ -544,6 +544,7 @@ static void bgp_accept(struct event *event)
 
 				incoming->fd = -1;
 				close(bgp_sock);
+				peer_delete(dynamic_peer);
 				return;
 			}
 
