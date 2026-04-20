@@ -738,6 +738,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_path_info *pi, *next;
 	struct bgp_table *table;
 	struct attr attr;
+	struct attr *old_attr;
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
 		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest; dest = bgp_route_next(dest)) {
@@ -767,13 +768,14 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						continue;
 
 					if (bgp_debug_neighbor_events(peer))
-						zlog_debug(
-							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-							peer, &dest->rn->p);
+						zlog_debug("%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+							   peer, bgp_dest_get_prefix(rm));
 
 					bgp_attr_dup_into(&attr, pi->attr);
 					bgp_attr_add_llgr_community(&attr);
+					old_attr = pi->attr;
 					pi->attr = bgp_attr_intern(&attr);
+					bgp_attr_unintern(&old_attr);
 					bgp_process(bgp, rm, pi, afi, safi);
 				}
 		}
@@ -796,13 +798,14 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					continue;
 
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-						peer, &dest->rn->p);
+					zlog_debug("%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+						   peer, bgp_dest_get_prefix(dest));
 
 				bgp_attr_dup_into(&attr, pi->attr);
 				bgp_attr_add_llgr_community(&attr);
+				old_attr = pi->attr;
 				pi->attr = bgp_attr_intern(&attr);
+				bgp_attr_unintern(&old_attr);
 				bgp_process(bgp, dest, pi, afi, safi);
 			}
 	}
