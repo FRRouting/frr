@@ -2308,6 +2308,38 @@ static void bgp_update_receive_eor(struct peer_connection *connection, afi_t afi
 	/* NSF delete stale route */
 	if (peer->nsf[afi][safi])
 		bgp_clear_stale_route(peer, afi, safi);
+
+	if (event_is_scheduled(peer->connection->t_gr_stale)) {
+		afi_t tafi;
+		safi_t tsafi;
+		bool pending = false;
+
+		FOREACH_AFI_SAFI_NSF (tafi, tsafi) {
+			if (peer->nsf[tafi][tsafi] &&
+			    !CHECK_FLAG(peer->af_sflags[tafi][tsafi], PEER_STATUS_EOR_RECEIVED)) {
+				pending = true;
+				break;
+			}
+		}
+
+		if (!pending) {
+			/*
+			 * All EORs received - run the stalepath walk that the
+			 * t_gr_stale timer would have run (mirrors
+			 * bgp_graceful_stale_timer_expire) for every
+			 * NSF-supporting AFI/SAFI so any stale routes that
+			 * were not refreshed during graceful restart are
+			 * cleaned up now, then cancel the timer.
+			 */
+			FOREACH_AFI_SAFI_NSF (tafi, tsafi)
+				if (peer->nsf[tafi][tsafi])
+					bgp_clear_stale_route(peer, tafi, tsafi);
+			event_cancel(&peer->connection->t_gr_stale);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP stalepath cleared and timer stopped - all EORs received",
+					   peer);
+		}
+	}
 }
 
 /**
