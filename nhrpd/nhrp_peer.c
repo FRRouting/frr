@@ -745,46 +745,53 @@ err:
 	zbuf_free(zb);
 }
 
-static int parse_ether_packet(struct zbuf *zb, uint16_t protocol_type,
-			      union sockunion *src, union sockunion *dst)
+static bool parse_ether_packet(struct zbuf *zb, uint16_t protocol_type,
+			       union sockunion *src, union sockunion *dst)
 {
+	const struct iphdr *iph4;
+	const struct ipv6hdr *iph6;
+	bool ret = false;
+
 	switch (protocol_type) {
-	case ETH_P_IP: {
-		struct iphdr *iph = zbuf_pull(zb, struct iphdr);
-		if (iph) {
-			if (src)
-				sockunion_set(src, AF_INET,
-					      (uint8_t *)&iph->saddr,
-					      sizeof(iph->saddr));
-			if (dst)
-				sockunion_set(dst, AF_INET,
-					      (uint8_t *)&iph->daddr,
-					      sizeof(iph->daddr));
-		}
-	} break;
-	case ETH_P_IPV6: {
-		struct ipv6hdr *iph = zbuf_pull(zb, struct ipv6hdr);
-		if (iph) {
-			if (src)
-				sockunion_set(src, AF_INET6,
-					      (uint8_t *)&iph->saddr,
-					      sizeof(iph->saddr));
-			if (dst)
-				sockunion_set(dst, AF_INET6,
-					      (uint8_t *)&iph->daddr,
-					      sizeof(iph->daddr));
-		}
-	} break;
+	case ETH_P_IP:
+		iph4 = zbuf_pull(zb, struct iphdr);
+		if (iph4 == NULL)
+			break;
+
+		if (src)
+			sockunion_set(src, AF_INET, (uint8_t *)&iph4->saddr,
+				      sizeof(iph4->saddr));
+		if (dst)
+			sockunion_set(dst, AF_INET, (uint8_t *)&iph4->daddr,
+				      sizeof(iph4->daddr));
+		ret = true;
+		break;
+
+	case ETH_P_IPV6:
+		iph6 = zbuf_pull(zb, struct ipv6hdr);
+		if (iph6 == NULL)
+			break;
+
+		if (src)
+			sockunion_set(src, AF_INET6, (uint8_t *)&iph6->saddr,
+				      sizeof(iph6->saddr));
+		if (dst)
+			sockunion_set(dst, AF_INET6, (uint8_t *)&iph6->daddr,
+				      sizeof(iph6->daddr));
+		ret = true;
+		break;
+
 	default:
-		return 0;
+		break;
 	}
-	return 1;
+
+	return ret;
 }
 
 void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 			       struct zbuf *pkt)
 {
-	union sockunion dst;
+	union sockunion dst = {};
 	struct zbuf *zb, payload;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_afi_data *if_ad;
@@ -851,7 +858,7 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 
 static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 {
-	union sockunion dst;
+	union sockunion dst = {};
 
 	if (!parse_ether_packet(&p->payload, htons(p->hdr->protocol_type), NULL,
 				&dst))
