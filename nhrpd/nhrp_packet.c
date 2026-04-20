@@ -89,6 +89,14 @@ struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
 	src_len = hdr->src_protocol_address_len;
 	dst_len = hdr->dst_protocol_address_len;
 
+	/* Validate lens */
+	if (family2addrsize(afi2family(htons(hdr->afnum))) != nbma_len)
+		return NULL;
+	if (family2addrsize(proto2family(htons(hdr->protocol_type))) != src_len)
+		return NULL;
+	if (family2addrsize(proto2family(htons(hdr->protocol_type))) != dst_len)
+		return NULL;
+
 	nbma_addr = zbuf_pulln(zb, nbma_len);
 	src_addr = zbuf_pulln(zb, src_len);
 	dst_addr = zbuf_pulln(zb, dst_len);
