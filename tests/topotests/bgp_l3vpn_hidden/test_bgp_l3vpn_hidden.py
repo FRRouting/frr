@@ -24,7 +24,13 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd, pytest.mark.isisd, pytest.mark.ldpd]
+pytestmark = [
+    pytest.mark.bfdd,
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.ldpd,
+    pytest.mark.mgmtd,
+]
 
 
 def build_topo(tgen):

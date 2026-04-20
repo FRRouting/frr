@@ -79,7 +79,7 @@ from lib.common_config import (
 )
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.isisd, pytest.mark.sharpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.sharpd]
 
 
 def build_topo(tgen):

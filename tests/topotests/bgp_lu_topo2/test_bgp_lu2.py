@@ -32,7 +32,7 @@ from lib.checkping import check_ping
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 #
 # Basic scenario for BGP-LU. Nodes are directly connected.

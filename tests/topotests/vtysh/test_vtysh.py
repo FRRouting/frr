@@ -23,6 +23,8 @@ from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
+pytestmark = [pytest.mark.mgmtd]
+
 
 def build_topo(tgen):
     "Build function"

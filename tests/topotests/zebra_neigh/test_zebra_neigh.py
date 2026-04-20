@@ -28,6 +28,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from time import sleep
 
+pytestmark = [pytest.mark.mgmtd]
+
 
 def build_topo(tgen):
     "Build function"

@@ -30,7 +30,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.pathd]
 
 
 def setup_module(mod):

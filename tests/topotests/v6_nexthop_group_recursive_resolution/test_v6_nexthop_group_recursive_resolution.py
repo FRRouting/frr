@@ -24,7 +24,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.mgmtd, pytest.mark.sharpd, pytest.mark.staticd]
 
 
 def build_topo(tgen):

@@ -30,7 +30,12 @@ import platform
 import time
 import re
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pim6d, pytest.mark.evpn]
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.evpn,
+    pytest.mark.mgmtd,
+    pytest.mark.pim6d,
+]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

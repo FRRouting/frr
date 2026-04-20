@@ -32,7 +32,7 @@ from lib.common_config import required_linux_kernel_version, retry
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.nhrpd]
+pytestmark = [pytest.mark.nhrpd, pytest.mark.sharpd]
 TOPOLOGY = """
                                               192.168.2.0/24
                                              -----+-----

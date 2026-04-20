@@ -27,7 +27,14 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.ospf6d,
+    pytest.mark.ospfd,
+    pytest.mark.ripd,
+    pytest.mark.snmp,
+]
 
 
 def setup_module(mod):

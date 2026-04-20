@@ -64,7 +64,7 @@ from lib.topolog import logger
 # and Finally pytest
 import pytest
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.isisd, pytest.mark.sharpd]
 
 
 def build_topo(tgen):

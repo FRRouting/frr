@@ -60,7 +60,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.pathd]
 
 
 def build_topo(tgen):

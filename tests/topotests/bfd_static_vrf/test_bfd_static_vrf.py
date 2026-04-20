@@ -19,7 +19,7 @@ import platform
 import functools
 import pytest
 
-pytestmark = [pytest.mark.staticd, pytest.mark.bfdd]
+pytestmark = [pytest.mark.bfdd, pytest.mark.mgmtd, pytest.mark.staticd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

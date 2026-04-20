@@ -89,7 +89,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd, pytest.mark.staticd]
 
 # Constants
 LINKS_PER_SPINE = 32  # 32 links between each leaf and each spine

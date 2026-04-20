@@ -23,7 +23,9 @@ from lib.topogen import Topogen, TopoRouter
 
 pytestmark = [
     pytest.mark.bfdd,
+    pytest.mark.mgmtd,
     pytest.mark.ripd,
+    pytest.mark.staticd,
 ]
 
 

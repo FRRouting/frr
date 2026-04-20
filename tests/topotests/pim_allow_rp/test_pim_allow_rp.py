@@ -30,7 +30,7 @@ import pytest
 import time
 from functools import partial
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

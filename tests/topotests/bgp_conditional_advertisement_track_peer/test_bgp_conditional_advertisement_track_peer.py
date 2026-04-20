@@ -29,7 +29,7 @@ from lib.common_config import (
     step,
 )
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
 def build_topo(tgen):

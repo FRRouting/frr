@@ -26,7 +26,14 @@ from lib.common_config import (
     start_router_daemons,
 )
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.ospf6d,
+    pytest.mark.ospfd,
+    pytest.mark.pimd,
+    pytest.mark.sharpd,
+    pytest.mark.staticd,
+]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
