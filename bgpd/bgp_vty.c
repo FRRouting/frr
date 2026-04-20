@@ -23597,6 +23597,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_map_cmd);
+	install_element(BGP_LS_NODE, &neighbor_route_map_cmd);
+	install_element(BGP_LS_NODE, &no_neighbor_route_map_cmd);
 
 	/* "neighbor unsuppress-map" commands. */
 	install_element(BGP_NODE, &neighbor_unsuppress_map_hidden_cmd);
