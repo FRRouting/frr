@@ -70,6 +70,7 @@
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
+#include "bgpd/bgp_ls.h"
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
@@ -19850,6 +19851,94 @@ DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_ls_distribute_bgp_fabric,
+      bgp_ls_distribute_bgp_fabric_cmd,
+      "distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
+      "Distribute BGP link-state topology information\n"
+      "Enable BGP fabric link-state topology distribution\n"
+      "BGP-LS instance identifier\n"
+      "Instance ID value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	uint64_t instance_id = 0;
+	char *endp = NULL;
+
+	if (!bgp->ls_info) {
+		vty_out(vty, "%% BGP-LS not initialized\n");
+		return CMD_WARNING;
+	}
+
+	if (instance_id_str) {
+		errno = 0;
+		instance_id = strtoull(instance_id_str, &endp, 10);
+		if (errno == ERANGE || endp == instance_id_str || *endp != '\0') {
+			vty_out(vty, "%% Invalid instance-id\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id == instance_id)
+		return CMD_SUCCESS;
+
+	/*
+	 * If already enabled with a different instance-id, withdraw all
+	 * existing NLRIs before re-exporting with the new instance-id.
+	 */
+	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id != instance_id)
+		bgp_ls_withdraw_all(bgp);
+
+	bgp->ls_info->instance_id = instance_id;
+	bgp->ls_info->enable_distribution = true;
+
+	if (bgp_ls_export_bgp_topology(bgp) != 0) {
+		vty_out(vty, "%% Failed to export BGP topology\n");
+		return CMD_WARNING;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty,
+			"BGP-LS: BGP fabric topology export enabled (instance-id %" PRIu64 ")\n",
+			instance_id);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bgp_ls_distribute_bgp_fabric,
+      no_bgp_ls_distribute_bgp_fabric_cmd,
+      "no distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
+      NO_STR
+      "Distribute BGP link-state topology information\n"
+      "Disable BGP fabric link-state topology distribution\n"
+      "BGP-LS instance identifier\n"
+      "Instance ID value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	char *endp = NULL;
+
+	if (instance_id_str) {
+		errno = 0;
+		strtoull(instance_id_str, &endp, 10);
+		if (errno == ERANGE || endp == instance_id_str || *endp != '\0') {
+			vty_out(vty, "%% Invalid instance-id\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (bgp->ls_info) {
+		if (!bgp->ls_info->enable_distribution)
+			return CMD_SUCCESS;
+
+		bgp->ls_info->enable_distribution = false;
+		bgp->ls_info->instance_id = 0;
+		bgp_ls_withdraw_all(bgp);
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		vty_out(vty, "BGP-LS: BGP fabric topology export disabled\n");
+
+	return CMD_SUCCESS;
+}
+
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 					  afi_t afi, safi_t safi)
 {
@@ -20959,6 +21048,16 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_frame(vty, "link-state link-state");
 	}
 	vty_frame(vty, "\n");
+
+	/* BGP-only fabric distribution */
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp->ls_info &&
+	    bgp->ls_info->enable_distribution) {
+		if (bgp->ls_info->instance_id != 0)
+			vty_out(vty, "  distribute bgp-fabric-link-state instance-id %" PRIu64 "\n",
+				bgp->ls_info->instance_id);
+		else
+			vty_out(vty, "  distribute bgp-fabric-link-state\n");
+	}
 
 	bgp_config_write_distance(vty, bgp, afi, safi);
 
@@ -23773,6 +23872,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
+
+	/* BGP-LS commands */
+	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_cmd);
+	install_element(BGP_LS_NODE, &no_bgp_ls_distribute_bgp_fabric_cmd);
 
 	bgp_vty_if_init();
 }
