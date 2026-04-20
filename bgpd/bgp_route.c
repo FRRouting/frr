@@ -8469,6 +8469,7 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 	if (bgp_static->prd_pretty)
 		XFREE(MTYPE_BGP_NAME, bgp_static->prd_pretty);
 	XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
+	XFREE(MTYPE_ATTR, bgp_static->router_mac);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
 }
 
