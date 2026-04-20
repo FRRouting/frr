@@ -867,7 +867,7 @@ void bfd_recv_cb(struct event *t)
 	vrf_id_t vrfid;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = EVENT_ARG(t);
 
@@ -1192,7 +1192,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 	struct sockaddr_any local, peer;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	vrf_id_t vrfid = VRF_DEFAULT;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 	size_t bfd_offset = 0;
 
 	if (sd == bvrf->bg_echo) {
@@ -2145,7 +2145,7 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 	struct sockaddr_any local, peer;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	//vrf_id_t vrfid = VRF_DEFAULT;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 
 	rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex, &local, &peer);
 	if (rlen < 0) {
