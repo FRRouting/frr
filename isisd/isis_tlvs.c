@@ -6658,7 +6658,7 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 
 	rv->prefix.family = AF_INET6;
 	rv->prefix.prefixlen = stream_getc(s);
-	if (rv->prefix.prefixlen > IPV6_MAX_BITLEN) {
+	if (rv->prefix.prefixlen == 0 || rv->prefix.prefixlen > IPV6_MAX_BITLEN) {
 		sbuf_push(log, indent, "Loc Size %u is implausible for SRv6\n",
 			  rv->prefix.prefixlen);
 		goto out;
