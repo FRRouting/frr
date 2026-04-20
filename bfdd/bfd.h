@@ -32,6 +32,8 @@
 #define MAXNAMELEN 32
 #endif
 
+#define BFD_PACKET_SIZE 1516
+
 #define BPC_DEF_DETECTMULTIPLIER     3
 #define BPC_DEF_RECEIVEINTERVAL	     300 /* milliseconds */
 #define BPC_DEF_TRANSMITINTERVAL     300 /* milliseconds */
