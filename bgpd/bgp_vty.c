@@ -19939,6 +19939,140 @@ DEFPY(no_bgp_ls_distribute_bgp_fabric,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_ls_local_link_id,
+      neighbor_ls_local_link_id_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str local-link-id (1-4294967295)$link_id",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure local link ID for BGP-LS topology\n"
+      "Link identifier value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* If link ID unchanged, nothing to do. */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID) &&
+	    peer->ls_local_link_id == link_id)
+		return CMD_SUCCESS;
+
+	/* Withdraw the existing link NLRI before changing the key. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_local_link_id = link_id;
+	SET_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID);
+
+	/* Re-originate with the new local link ID. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_ls_local_link_id,
+      no_neighbor_ls_local_link_id_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str local-link-id [(1-4294967295)$link_id]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure local link ID for BGP-LS topology\n"
+      "Link identifier value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID))
+		return CMD_SUCCESS;
+
+	/* Withdraw the existing link NLRI before clearing the key. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_local_link_id = 0;
+	UNSET_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID);
+
+	/* Re-originate using the fallback local link ID (ifindex). */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(neighbor_ls_remote_link_id,
+      neighbor_ls_remote_link_id_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str remote-link-id (1-4294967295)$link_id",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure remote link ID for BGP-LS topology\n"
+      "Link identifier value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* If link ID unchanged, nothing to do. */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID) &&
+	    peer->ls_remote_link_id == link_id)
+		return CMD_SUCCESS;
+
+	/* Withdraw the existing link NLRI before changing the key. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_remote_link_id = link_id;
+	SET_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID);
+
+	/* Re-originate with the new remote link ID. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_ls_remote_link_id,
+      no_neighbor_ls_remote_link_id_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str remote-link-id [(1-4294967295)$link_id]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure remote link ID for BGP-LS topology\n"
+      "Link identifier value\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID))
+		return CMD_SUCCESS;
+
+	/* Withdraw the existing link NLRI before clearing the key. */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_remote_link_id = 0;
+	UNSET_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID);
+
+	/* Re-originate using the fallback remote link ID (0). */
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return CMD_SUCCESS;
+}
+
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 					  afi_t afi, safi_t safi)
 {
@@ -20517,6 +20651,12 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	/* ip-transparent on/off */
 	if (peergroup_flag_check(peer, PEER_FLAG_IP_TRANSPARENT))
 		vty_out(vty, " neighbor %s ip-transparent\n", addr);
+
+	/* BGP-LS link identifiers */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID))
+		vty_out(vty, " neighbor %s local-link-id %u\n", addr, peer->ls_local_link_id);
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID))
+		vty_out(vty, " neighbor %s remote-link-id %u\n", addr, peer->ls_remote_link_id);
 
 	/* advertisement-interval */
 	if (peergroup_flag_check(peer, PEER_FLAG_ROUTEADV))
@@ -23876,6 +24016,10 @@ void bgp_vty_init(void)
 	/* BGP-LS commands */
 	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_cmd);
 	install_element(BGP_LS_NODE, &no_bgp_ls_distribute_bgp_fabric_cmd);
+	install_element(BGP_NODE, &neighbor_ls_local_link_id_cmd);
+	install_element(BGP_NODE, &no_neighbor_ls_local_link_id_cmd);
+	install_element(BGP_NODE, &neighbor_ls_remote_link_id_cmd);
+	install_element(BGP_NODE, &no_neighbor_ls_remote_link_id_cmd);
 
 	bgp_vty_if_init();
 }
