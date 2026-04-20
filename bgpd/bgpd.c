@@ -3131,6 +3131,7 @@ void peer_nsf_stop(struct peer *peer)
 		paf = peer_af_find(peer, afi, safi);
 		if (paf)
 			event_cancel(&paf->t_llgr_stale);
+		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_LLGR_WAIT);
 	}
 
 	if (event_is_scheduled(peer->connection->t_gr_restart)) {
