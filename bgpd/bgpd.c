@@ -339,6 +339,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, true, is_config);
 
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_all(bgp);
+
 	hook_call(bgp_routerid_update, bgp, true);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
@@ -357,6 +360,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 		bgp_evpn_handle_router_id_update(bgp, false);
 
 	vpn_handle_router_id_update(bgp, false, is_config);
+
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_export_bgp_topology(bgp);
 
 	hook_call(bgp_routerid_update, bgp, false);
 	return 0;
@@ -3935,6 +3941,9 @@ peer_init:
 	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
+
+	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_node(bgp);
 
 	return bgp;
 }
