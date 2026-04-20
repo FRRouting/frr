@@ -1257,10 +1257,20 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 		goto drop;
 	}
 
+	/* Init before we begin parsing */
+	memset(&pp, 0, sizeof(pp));
+
 	realsize = zbuf_used(zb);
 	hdr = nhrp_packet_pull(zb, &pp.src_nbma, &pp.src_proto, &pp.dst_proto);
 	if (!hdr) {
 		info = "corrupt header";
+		goto drop;
+	}
+
+	if (sockunion_family(&pp.src_nbma) == AF_UNSPEC ||
+	    sockunion_family(&pp.src_proto) == AF_UNSPEC ||
+	    sockunion_family(&pp.dst_proto) == AF_UNSPEC) {
+		info = "invalid address family";
 		goto drop;
 	}
 
