@@ -80,6 +80,7 @@ struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
 	struct nhrp_packet_header *hdr;
 	void *nbma_addr, *src_addr, *dst_addr;
 	size_t nbma_len, src_len, dst_len;
+	int nbma_family, proto_family;
 
 	hdr = zbuf_pull(zb, struct nhrp_packet_header);
 	if (!hdr)
@@ -89,12 +90,16 @@ struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
 	src_len = hdr->src_protocol_address_len;
 	dst_len = hdr->dst_protocol_address_len;
 
-	/* Validate lens */
-	if (family2addrsize(afi2family(htons(hdr->afnum))) != nbma_len)
+	/* Validate families and lens */
+	nbma_family = afi2family(htons(hdr->afnum));
+	proto_family = proto2family(htons(hdr->protocol_type));
+	if (nbma_family == AF_UNSPEC || proto_family == AF_UNSPEC)
 		return NULL;
-	if (family2addrsize(proto2family(htons(hdr->protocol_type))) != src_len)
+	if (family2addrsize(nbma_family) != nbma_len)
 		return NULL;
-	if (family2addrsize(proto2family(htons(hdr->protocol_type))) != dst_len)
+	if (family2addrsize(proto_family) != src_len)
+		return NULL;
+	if (family2addrsize(proto_family) != dst_len)
 		return NULL;
 
 	nbma_addr = zbuf_pulln(zb, nbma_len);
@@ -195,28 +200,36 @@ struct nhrp_cie_header *nhrp_cie_pull(struct zbuf *zb,
 				      union sockunion *proto)
 {
 	struct nhrp_cie_header *cie;
+	void *addr;
 
 	cie = zbuf_pull(zb, struct nhrp_cie_header);
 	if (!cie)
 		return NULL;
 
-	if (cie->nbma_address_len + cie->nbma_subaddress_len > 0 &&
-	    cie->nbma_address_len + cie->nbma_subaddress_len <= zbuf_used(zb)) {
-		sockunion_set(nbma, afi2family(htons(hdr->afnum)),
-			      zbuf_pulln(zb,
-					 cie->nbma_address_len
-						 + cie->nbma_subaddress_len),
-			      cie->nbma_address_len + cie->nbma_subaddress_len);
-	} else {
-		sockunion_family(nbma) = AF_UNSPEC;
+	/* If the header lengths are preset but not valid, return error (NULL) */
+
+	sockunion_family(nbma) = AF_UNSPEC;
+	if (cie->nbma_address_len + cie->nbma_subaddress_len > 0) {
+		if (cie->nbma_address_len + cie->nbma_subaddress_len > zbuf_used(zb))
+			return NULL; /* Length claimed is invalid */
+		addr = zbuf_pulln(zb, cie->nbma_address_len + cie->nbma_subaddress_len);
+		if (addr)
+			sockunion_set(nbma, afi2family(htons(hdr->afnum)), addr,
+				      cie->nbma_address_len + cie->nbma_subaddress_len);
+		if (sockunion_family(nbma) == AF_UNSPEC)
+			return NULL;
 	}
 
-	if (cie->protocol_address_len && cie->protocol_address_len <= zbuf_used(zb)) {
-		sockunion_set(proto, proto2family(htons(hdr->protocol_type)),
-			      zbuf_pulln(zb, cie->protocol_address_len),
-			      cie->protocol_address_len);
-	} else {
-		sockunion_family(proto) = AF_UNSPEC;
+	sockunion_family(proto) = AF_UNSPEC;
+	if (cie->protocol_address_len > 0) {
+		if (cie->protocol_address_len > zbuf_used(zb))
+			return NULL; /* Length claimed is invalid */
+		addr = zbuf_pulln(zb, cie->protocol_address_len);
+		if (addr)
+			sockunion_set(proto, proto2family(htons(hdr->protocol_type)), addr,
+				      cie->protocol_address_len);
+		if (sockunion_family(proto) == AF_UNSPEC)
+			return NULL;
 	}
 
 	return cie;
