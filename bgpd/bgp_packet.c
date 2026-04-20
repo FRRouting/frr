@@ -2379,6 +2379,33 @@ static void bgp_update_receive_eor(struct peer_connection *connection, afi_t afi
 	/* NSF delete stale route */
 	if (peer->nsf[afi][safi])
 		bgp_clear_stale_route(peer, afi, safi);
+
+	if (event_is_scheduled(peer->connection->t_gr_stale)) {
+		afi_t tafi;
+		safi_t tsafi;
+		bool pending = false;
+
+		FOREACH_AFI_SAFI_NSF (tafi, tsafi) {
+			if (peer->nsf[tafi][tsafi] &&
+			    !CHECK_FLAG(peer->af_sflags[tafi][tsafi], PEER_STATUS_EOR_RECEIVED)) {
+				pending = true;
+				break;
+			}
+		}
+
+		if (!pending) {
+			/*
+			 * Every NSF AFI/SAFI has sent EOR; each one was
+			 * already stale-cleared above when its EOR arrived.
+			 * Cancel t_gr_stale so we do not repeat those full
+			 * table walks when the timer fires.
+			 */
+			event_cancel(&peer->connection->t_gr_stale);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP stalepath timer stopped - all EORs received",
+					   peer);
+		}
+	}
 }
 
 /**
