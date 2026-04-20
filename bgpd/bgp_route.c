@@ -6677,6 +6677,7 @@ filtered:
 	if (new) {
 		bgp_unlink_nexthop(new);
 		bgp_path_info_mark_for_delete(dest, new);
+		bgp_attr_unintern(&new->attr);
 		bgp_path_info_extra_free(&new->extra);
 		XFREE(MTYPE_BGP_ROUTE, new);
 	}
