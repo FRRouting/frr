@@ -841,7 +841,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+* Tue Apr 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Tue Apr 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2.6
+- New upstream release FRR 10.2.6
 
 * Mon Jan 05 2026 Donatas Abraitis <donatas@opensourcerouting.org> - 10.2.5
 - bgpd
