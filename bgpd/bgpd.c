@@ -4348,6 +4348,20 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_cleanup_routes(bgp);
 
+<<<<<<< HEAD
+=======
+	if (bm->terminating && bm->bgp_evpn == bgp) {
+		/*
+		 * Clean ES route tables while bgp is still alive,
+		 * then release EVPN VNI bgp_lock references so the
+		 * subsequent bgp_unlock() can drive refcount to
+		 * zero and trigger bgp_free().
+		 */
+		bgp_evpn_es_cleanup_routes(bgp);
+		bgp_evpn_cleanup(bgp);
+	}
+
+>>>>>>> 457bd579d (bgpd: fix shutdown crash by restricting evpn cleanup to owner instance)
 	for (afi = 0; afi < AFI_MAX; ++afi) {
 		if (!bgp->vpn_policy[afi].import_redirect_rtlist)
 			continue;
