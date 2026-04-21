@@ -4348,13 +4348,16 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_cleanup_routes(bgp);
 
-	if (bm->terminating)
+	if (bm->terminating && bm->bgp_evpn == bgp) {
 		/*
-		 * Release EVPN VNI bgp_lock references so the
+		 * Clean ES route tables while bgp is still alive,
+		 * then release EVPN VNI bgp_lock references so the
 		 * subsequent bgp_unlock() can drive refcount to
 		 * zero and trigger bgp_free().
 		 */
+		bgp_evpn_es_cleanup_routes(bgp);
 		bgp_evpn_cleanup(bgp);
+	}
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
 		if (!bgp->vpn_policy[afi].import_redirect_rtlist)
