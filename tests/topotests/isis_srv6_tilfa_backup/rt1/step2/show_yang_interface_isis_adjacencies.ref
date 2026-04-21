@@ -1,0 +1,25 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "eth-rt3",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0003",
+                  "hold-timer": 10,
+                  "neighbor-priority": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

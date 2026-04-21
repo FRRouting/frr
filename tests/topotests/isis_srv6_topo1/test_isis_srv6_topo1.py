@@ -76,6 +76,8 @@ from lib.topolog import logger
 from lib.common_config import (
     required_linux_kernel_version,
     create_interface_in_kernel,
+    check_kernel_seg6_support,
+    enable_srv6_on_router,
 )
 from lib.checkping import check_ping
 
@@ -191,9 +193,24 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    # Check if kernel supports SRv6 (seg6)
+    seg6_supported, seg6_enabled = check_kernel_seg6_support()
+    if not seg6_supported:
+        pytest.skip(
+            "Kernel does not support SRv6: net.ipv6.conf.all.seg6_enabled sysctl not available. "
+            "Please enable CONFIG_IPV6_SEG6_LWTUNNEL in your kernel configuration."
+        )
+
     # Build the topology
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
+    # Enable SRv6 (seg6) on all routers if not already enabled
+    if not seg6_enabled:
+        logger.info("Enabling SRv6 (seg6) on all routers")
+    for rname, router in tgen.routers().items():
+        if not enable_srv6_on_router(router):
+            tgen.set_error("Failed to enable SRv6 on router {}".format(rname))
 
     # For all registered routers, load the zebra and isis configuration files
     for rname, router in tgen.routers().items():
@@ -316,7 +333,7 @@ def test_ping_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # Setup encap route on rt1, decap route on rt2
+    # Setup encap route on rt1, decap route on rt6
     tgen.gears["rt1"].vtysh_cmd(
         "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:f00d:: 1"
     )
