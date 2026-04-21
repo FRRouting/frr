@@ -650,6 +650,8 @@ void mpfree(struct memptype *mt, void *ptr)
 	struct mpblock *prev_block = NULL;
 	struct mpchunk *chunk;
 
+	if (!mt)
+		return;
 
 	/* search the block */
 	cur_block = mt->blocks_list;
