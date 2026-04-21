@@ -1201,12 +1201,12 @@ def verify_upstream_iif(
                 "[DUT %s]: Verifying iif "
                 "(Inbound Interface) for (%s, %s) "
                 "[FAILED]!! "
-                " Expected: %s, Found: %s"
+                " Expected (one of): %s, Found: %s"
                 % (
                     dut,
                     src_address,
                     grp_addr,
-                    in_interface,
+                    iif,
                     group_addr_json[src_address]["inboundInterface"],
                 )
             )
