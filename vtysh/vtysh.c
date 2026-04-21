@@ -532,7 +532,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	* The 'exit' command should not walk up. Otherwise, executing exit on a node
 	* without 'exit' will cause an endless recursion on vtysh_execute("exit")
 	*/
-	if(0 != strcmp(line, "exit", 4))
+	if(0 != strcmp(line, "exit"))
 	{
 		/*
 		* If command doesn't succeeded in current node, try to walk up in node
