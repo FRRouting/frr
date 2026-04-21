@@ -265,7 +265,7 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 	struct ecommunity_val eval;
 	struct bgp_interface *binfo;
 	struct listnode *node = NULL;
-	struct interface *ifp, *local_ifp;
+	struct interface *local_ifp;
 	struct bgp_evpn_es_evi *evi_match;
 	struct bgp_evpn_es_evi_vtep *es_evi_vtep;
 
@@ -276,7 +276,6 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 
 	bgp = bgp_get_evpn();
 	vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
-	ifp = if_lookup_by_name(l2vpn_svc->ifname, bgp->vrf_id);
 
 	if (!CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
 		delete_routes_for_vni(bgp, vpn);
@@ -311,11 +310,20 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 		flag = 0;
 	} else {
 		mh = true;
+		local_ifp = if_lookup_by_name(l2vpn_svc->local_ac, bgp->vrf_id);
+		if (!local_ifp) {
+			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
+				zlog_debug("VPWS: can not find multihoming interface %s",
+					   l2vpn_svc->local_ac);
+
+			return;
+		}
+
 		es = bgp_evpn_es_find(&l2vpn_svc->esi);
 		if (!es || bgp_evpn_local_es_is_active(es)) {
 			if (BGP_DEBUG(evpn_vpws, EVPN_VPWS))
 				zlog_debug("VPWS: multihoming interface %s is not active",
-					   ifp->name);
+					   local_ifp->name);
 		}
 		/* TODO  MH*/
 	}
