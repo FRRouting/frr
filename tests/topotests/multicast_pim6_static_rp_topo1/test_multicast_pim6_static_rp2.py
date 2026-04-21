@@ -622,6 +622,32 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
+    # In this topology r1 has direct PIM6 neighbours r2, r3 and r4, and r3
+    # has direct PIM6 neighbours r1, r2 and r4. With OSPF6 over equal-cost
+    # veth links, several RPF candidates can have equal cost; in addition,
+    # the (S,G) join from the LHR (r1) and the one from the RP (r2 or r4)
+    # can both legitimately install OIL entries on the FHR (r3). We therefore
+    # accept any of the equal-cost siblings rather than pinning to a single
+    # specific neighbour interface.
+    r1_to_rx_ifs = [
+        TOPO["routers"]["r1"]["links"]["r2"]["interface"],
+        TOPO["routers"]["r1"]["links"]["r3"]["interface"],
+        TOPO["routers"]["r1"]["links"]["r4"]["interface"],
+    ]
+    r2_to_lhr_ifs = [
+        TOPO["routers"]["r2"]["links"]["r1"]["interface"],
+        TOPO["routers"]["r2"]["links"]["r3"]["interface"],
+    ]
+    r4_to_lhr_ifs = [
+        TOPO["routers"]["r4"]["links"]["r1"]["interface"],
+        TOPO["routers"]["r4"]["links"]["r3"]["interface"],
+    ]
+    r3_to_lhr_ifs = [
+        TOPO["routers"]["r3"]["links"]["r1"]["interface"],
+        TOPO["routers"]["r3"]["links"]["r2"]["interface"],
+        TOPO["routers"]["r3"]["links"]["r4"]["interface"],
+    ]
+
     group_address_list = GROUP_ADDRESS_LIST_1 + GROUP_ADDRESS_LIST_2
     step("r0: Send MLD join for 10 groups")
     result = app_helper.run_join("r0", group_address_list, "r1")
@@ -640,38 +666,38 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) upstream IIF interface")
     dut = "r1"
-    iif1 = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
-    iif2 = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
 
-    for _iif, _group in zip([iif1, iif2], [GROUP_ADDRESS_LIST_1, GROUP_ADDRESS_LIST_2]):
-        result = verify_upstream_iif(tgen, dut, _iif, STAR, _group)
+    for _group in [GROUP_ADDRESS_LIST_1, GROUP_ADDRESS_LIST_2]:
+        result = verify_upstream_iif(tgen, dut, r1_to_rx_ifs, STAR, _group)
         assert result is True, ASSERT_MSG.format(tc_name, result)
 
         step("r1: Verify (*, G) upstream join state and join timer")
         result = verify_join_state_and_timer(
-            tgen, dut, _iif, STAR, _group, addr_type="ipv6"
+            tgen, dut, r1_to_rx_ifs, STAR, _group, addr_type="ipv6"
         )
         assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    iif = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
     oif = TOPO["routers"]["r1"]["links"]["r0"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, r1_to_rx_ifs, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
-    iif = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1)
+    result = verify_upstream_iif(
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, r1_to_rx_ifs, oif
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -687,8 +713,7 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
-    oif = TOPO["routers"]["r2"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, r2_to_lhr_ifs)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -744,40 +769,43 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     )
 
     step("r3: Verify (S, G) ip mroutes")
-    oif = TOPO["routers"]["r3"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, r3_to_lhr_ifs
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
     dut = "r1"
-    iif = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_2)
+    result = verify_upstream_iif(tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_2)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
     oif = TOPO["routers"]["r1"]["links"]["r0"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, r1_to_rx_ifs, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
-    iif = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2)
+    result = verify_upstream_iif(
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, r1_to_rx_ifs, oif
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (*, G) upstream IIF interface")
@@ -793,8 +821,7 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (*, G) ip mroutes")
-    oif = TOPO["routers"]["r4"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, r4_to_lhr_ifs)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (S, G) upstream IIF interface")
@@ -847,8 +874,9 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     )
 
     step("r3: Verify (S, G) ip mroutes")
-    oif = TOPO["routers"]["r3"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, r3_to_lhr_ifs
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("Delete RP configuration")
@@ -926,34 +954,36 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) upstream IIF interface")
     dut = "r1"
-    iif = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_1)
+    result = verify_upstream_iif(tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_1)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
     oif = TOPO["routers"]["r1"]["links"]["r0"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, r1_to_rx_ifs, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
-    iif = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1)
+    result = verify_upstream_iif(
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, r1_to_rx_ifs, oif
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -969,8 +999,7 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
-    oif = TOPO["routers"]["r2"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, r2_to_lhr_ifs)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -1026,40 +1055,43 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     )
 
     step("r3: Verify (S, G) ip mroutes")
-    oif = TOPO["routers"]["r3"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, r3_to_lhr_ifs
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
     dut = "r1"
-    iif = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_2)
+    result = verify_upstream_iif(tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_2)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, STAR, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
     oif = TOPO["routers"]["r1"]["links"]["r0"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, r1_to_rx_ifs, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
-    iif = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2)
+    result = verify_upstream_iif(
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
+        tgen, dut, r1_to_rx_ifs, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, addr_type="ipv6"
     )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, r1_to_rx_ifs, oif
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (*, G) upstream IIF interface")
@@ -1075,8 +1107,7 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (*, G) ip mroutes")
-    oif = TOPO["routers"]["r4"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, r4_to_lhr_ifs)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r4: Verify (S, G) upstream IIF interface")
@@ -1132,8 +1163,9 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
     )
 
     step("r3: Verify (S, G) ip mroutes")
-    oif = TOPO["routers"]["r3"]["links"]["r1"]["interface"]
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(
+        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, r3_to_lhr_ifs
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     write_test_footer(tc_name)

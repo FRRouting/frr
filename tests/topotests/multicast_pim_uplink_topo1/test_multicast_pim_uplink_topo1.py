@@ -547,7 +547,10 @@ def test_mroutes_updated_with_correct_oil_iif_when_receiver_is_in_and_outside_DU
     result = verify_upstream_iif(
         tgen,
         "r1",
-        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        [
+            topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
+            for i in (2, 4)
+        ]
         + r1_r3_links,
         "*",
         IGMP_JOIN_RANGE_1,
@@ -747,7 +750,10 @@ def test_mroutes_updated_with_correct_oil_iif_when_receiver_is_in_and_outside_DU
     result = verify_upstream_iif(
         tgen,
         "r1",
-        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        [
+            topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
+            for i in (2, 4)
+        ]
         + r1_r3_links,
         "*",
         IGMP_JOIN_RANGE_1,
@@ -962,7 +968,10 @@ def test_mroutes_updated_with_correct_oil_iif_when_source_is_in_and_outside_DUT_
     result = verify_upstream_iif(
         tgen,
         "r1",
-        [topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        [
+            topo["routers"]["r1"]["links"]["r2-link{}".format(i)]["interface"]
+            for i in (2, 4)
+        ]
         + r1_r3_links,
         "*",
         IGMP_JOIN_RANGE_1,
@@ -1021,7 +1030,10 @@ def test_mroutes_updated_with_correct_oil_iif_when_source_is_in_and_outside_DUT_
     result = verify_upstream_iif(
         tgen,
         "r4",
-        [topo["routers"]["r4"]["links"]["r2-link{}".format(i)]["interface"] for i in (2, 4)]
+        [
+            topo["routers"]["r4"]["links"]["r2-link{}".format(i)]["interface"]
+            for i in (2, 4)
+        ]
         + r4_r3_links,
         "*",
         IGMP_JOIN_RANGE_1,
@@ -1412,9 +1424,24 @@ def test_verify_mroutes_forwarding_p0(request):
     step("For different join (232.1.1.1-5) DUT created mroute OIL toward R3 only")
 
     source_i6 = topo["routers"]["i6"]["links"]["r4"]["ipv4"].split("/")[0]
+    # NOTE: r1 has equal-cost static routes to the source side (r4) via both r2
+    # and r3 (see configure_static_routes_for_rp_reachability). PIM is therefore
+    # free to pick its RPF nexthop on either side, so the (*, G) and (S, G)
+    # iif may land on any of the r1->r2 or r1->r3 links. The (S, G) join from
+    # r3 (the only receiver for this group range) drives the OIL toward r3.
     input_dict_sg = [
-        {"dut": "r1", "src_address": "*", "iif": r1_r2_links, "oil": r1_r3_links},
-        {"dut": "r1", "src_address": source_i6, "iif": r1_r2_links, "oil": r1_r3_links},
+        {
+            "dut": "r1",
+            "src_address": "*",
+            "iif": r1_r2_links + r1_r3_links,
+            "oil": r1_r3_links,
+        },
+        {
+            "dut": "r1",
+            "src_address": source_i6,
+            "iif": r1_r2_links + r1_r3_links,
+            "oil": r1_r3_links,
+        },
     ]
 
     for data in input_dict_sg:
