@@ -875,7 +875,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Feb 17 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Apr 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Mon Apr 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4.4
+- New upstream release FRR 10.4.4
 
 * Tue Feb 17 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4.3
 - New upstream release FRR 10.4.3
