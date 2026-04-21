@@ -532,13 +532,13 @@ static int vtysh_execute_func(const char *line, int pager)
 	* The 'exit' command should not walk up. Otherwise, executing exit on a node
 	* without 'exit' will cause an endless recursion on vtysh_execute("exit")
 	*/
-	if(0 != strncmp(line, "exit", 4))
+	if(0 != strcmp(line, "exit", 4))
 	{
 		/*
-		 * If command doesn't succeeded in current node, try to walk up in node
-		 * tree. Changing vty->node is enough to try it just out without actual
-		 * walkup in the vtysh.
-		 */
+		* If command doesn't succeeded in current node, try to walk up in node
+		* tree. Changing vty->node is enough to try it just out without actual
+		* walkup in the vtysh.
+		*/
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
 		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
