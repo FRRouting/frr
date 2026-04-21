@@ -5179,6 +5179,17 @@ void bgp_evpn_mh_init(void)
 	memset(&zero_esi_buf, 0, sizeof(esi_t));
 }
 
+void bgp_evpn_es_cleanup_routes(struct bgp *bgp)
+{
+	struct bgp_evpn_es *es;
+
+	if (!bgp_mh_info)
+		return;
+
+	RB_FOREACH (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree)
+		bgp_evpn_es_route_del_all(bgp, es);
+}
+
 void bgp_evpn_mh_finish(void)
 {
 	struct bgp_evpn_es *es;
