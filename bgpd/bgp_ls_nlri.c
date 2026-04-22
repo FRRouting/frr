@@ -480,6 +480,17 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->srv6_cap_flags, attr2->srv6_cap_flags);
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT)) {
+		if (attr1->srv6_endx_sid_count != attr2->srv6_endx_sid_count)
+			return numcmp(attr1->srv6_endx_sid_count, attr2->srv6_endx_sid_count);
+		for (uint16_t i = 0; i < attr1->srv6_endx_sid_count; i++) {
+			ret = memcmp(&attr1->srv6_endx_sid[i], &attr2->srv6_endx_sid[i],
+				     sizeof(attr1->srv6_endx_sid[i]));
+			if (ret != 0)
+				return ret;
+		}
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
 		ret = memcmp(&attr1->srv6_sid_structure, &attr2->srv6_sid_structure,
 			     sizeof(attr1->srv6_sid_structure));
@@ -564,6 +575,7 @@ void bgp_ls_attr_free(struct bgp_ls_attr *attr)
 	XFREE(MTYPE_BGP_LS_ATTR, attr->route_tags);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->extended_tags);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->opaque_data);
+	XFREE(MTYPE_BGP_LS_ATTR, attr->srv6_endx_sid);
 
 	XFREE(MTYPE_BGP_LS_ATTR, attr);
 }
@@ -675,6 +687,13 @@ struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src)
 	if (src->opaque_data) {
 		dst->opaque_data = XCALLOC(MTYPE_BGP_LS_ATTR, src->opaque_len);
 		memcpy(dst->opaque_data, src->opaque_data, src->opaque_len);
+	}
+
+	if (src->srv6_endx_sid) {
+		size_t endx_sid_size = src->srv6_endx_sid_count * sizeof(*src->srv6_endx_sid);
+
+		dst->srv6_endx_sid = XCALLOC(MTYPE_BGP_LS_ATTR, endx_sid_size);
+		memcpy(dst->srv6_endx_sid, src->srv6_endx_sid, endx_sid_size);
 	}
 
 	return dst;
@@ -2529,6 +2548,39 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		stream_putw(s, BGP_LS_SRV6_CAPABILITIES_SIZE);
 		stream_putw(s, attr->srv6_cap_flags);
 		stream_putw(s, 0); /* Reserved */
+	}
+
+	/* SRv6 End.X SID (TLV 1106) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT)) {
+		for (uint16_t i = 0; i < attr->srv6_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_endx_sid *endx = &attr->srv6_endx_sid[i];
+			uint16_t sub_len = endx->has_structure
+						   ? BGP_LS_TLV_HDR_SIZE +
+							     BGP_LS_SRV6_SID_STRUCTURE_SIZE
+						   : 0;
+			uint16_t tlv_len = BGP_LS_SRV6_ENDX_SID_MIN_SIZE + sub_len;
+
+			if (STREAM_WRITEABLE(s) < (size_t)(BGP_LS_TLV_HDR_SIZE + tlv_len))
+				return -1;
+
+			stream_putw(s, BGP_LS_ATTR_SRV6_ENDX_SID);
+			stream_putw(s, tlv_len);
+			stream_putw(s, endx->endpoint_behavior);
+			stream_putc(s, endx->flags);
+			stream_putc(s, endx->algo);
+			stream_putc(s, endx->weight);
+			stream_putc(s, 0); /* Reserved */
+			stream_put(s, &endx->sid, IPV6_MAX_BYTELEN);
+
+			if (endx->has_structure) {
+				stream_putw(s, BGP_LS_ATTR_SRV6_SID_STRUCTURE);
+				stream_putw(s, BGP_LS_SRV6_SID_STRUCTURE_SIZE);
+				stream_putc(s, endx->structure.lb_len);
+				stream_putc(s, endx->structure.ln_len);
+				stream_putc(s, endx->structure.fun_len);
+				stream_putc(s, endx->structure.arg_len);
+			}
+		}
 	}
 
 	/* SRv6 SID Structure (TLV 1252) - top-level in SRv6 SID NLRI attributes */
@@ -4607,6 +4659,94 @@ static int parse_srv6_sid_structure(struct stream *s, uint16_t length, struct bg
 	return 0;
 }
 
+/*
+ * Parse sub-TLVs inside an SRv6 End.X SID / LAN End.X SID TLV.
+ * Currently only SRv6 SID Structure sub-TLV (1252) is defined.
+ * Updates *has_structure and *ss on success.
+ */
+static int parse_endx_sub_tlvs(struct stream *s, uint16_t sub_total, bool *has_structure,
+			       struct bgp_ls_srv6_sid_structure *ss)
+{
+	uint16_t type, len;
+
+	while (sub_total >= BGP_LS_TLV_HDR_SIZE) {
+		if (stream_get_tlv_hdr(s, &type, &len) < 0)
+			return -1;
+		sub_total -= BGP_LS_TLV_HDR_SIZE;
+
+		if (len > sub_total) {
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: SRv6 End.X sub-TLV %u length %u exceeds remaining",
+				  type, len);
+			return -1;
+		}
+
+		if (type == BGP_LS_ATTR_SRV6_SID_STRUCTURE) {
+			if (*has_structure) {
+				flog_warn(EC_BGP_UPDATE_RCV,
+					  "BGP-LS: duplicate SRv6 SID Structure sub-TLV in End.X SID");
+				return -1;
+			}
+			if (parse_srv6_sid_structure_subtlv(s, len, ss) < 0)
+				return -1;
+			*has_structure = true;
+		} else {
+			/* Unknown sub-TLV — skip and continue (RFC 9514 Section 3) */
+			stream_forward_getp(s, len);
+		}
+		sub_total -= len;
+	}
+
+	return 0;
+}
+
+/*
+ * Parse SRv6 End.X SID TLV (Type 1106, RFC 9514 Section 4.1)
+ * Format: Endpoint Behavior (2) + Flags (1) + Algorithm (1) + Weight (1)
+ *         + Reserved (1) + SID (16) + Sub-TLVs (variable)
+ */
+static int parse_srv6_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	struct bgp_ls_srv6_endx_sid *entry;
+
+	if (length < BGP_LS_SRV6_ENDX_SID_MIN_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 End.X SID TLV too short (%u bytes, need %u)", length,
+			  BGP_LS_SRV6_ENDX_SID_MIN_SIZE);
+		return -1;
+	}
+	if (attr->srv6_endx_sid_count >= BGP_LS_MAX_SRV6_SIDS) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 End.X SID count exceeds max (%u), ignoring TLV",
+			  BGP_LS_MAX_SRV6_SIDS);
+		stream_forward_getp(s, length);
+		return 0;
+	}
+	attr->srv6_endx_sid =
+		XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_endx_sid,
+			 (attr->srv6_endx_sid_count + 1) * sizeof(*attr->srv6_endx_sid));
+	entry = &attr->srv6_endx_sid[attr->srv6_endx_sid_count];
+	memset(entry, 0, sizeof(*entry));
+	entry->endpoint_behavior = stream_getw(s);
+	entry->flags = stream_getc(s);
+	entry->algo = stream_getc(s);
+	entry->weight = stream_getc(s);
+	stream_getc(s); /* Reserved */
+	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
+
+	/* Sub-TLVs */
+	if (length > BGP_LS_SRV6_ENDX_SID_MIN_SIZE) {
+		uint16_t sub_total = length - BGP_LS_SRV6_ENDX_SID_MIN_SIZE;
+
+		if (parse_endx_sub_tlvs(s, sub_total, &entry->has_structure, &entry->structure) < 0)
+			return -1;
+	}
+
+	attr->srv6_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -4796,6 +4936,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_SRV6_SID_STRUCTURE:
 			if (parse_srv6_sid_structure(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_ENDX_SID:
+			if (parse_srv6_endx_sid(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -5017,6 +5162,33 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 
 		json_object_string_addf(jcap, "flags", "0x%x", ls_attr->srv6_cap_flags);
 		json_object_object_add(json_ls_attr, "srv6Capabilities", jcap);
+	}
+
+	/* SRv6 End.X SID (TLV 1106) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT)) {
+		json_object *jendx_arr = json_object_new_array();
+
+		for (uint16_t i = 0; i < ls_attr->srv6_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_endx_sid *endx = &ls_attr->srv6_endx_sid[i];
+			json_object *jendx = json_object_new_object();
+
+			json_object_string_addf(jendx, "sid", "%pI6", &endx->sid);
+			json_object_string_addf(jendx, "behavior", "0x%x", endx->endpoint_behavior);
+			json_object_string_addf(jendx, "flags", "0x%x", endx->flags);
+			json_object_int_add(jendx, "algo", endx->algo);
+			json_object_int_add(jendx, "weight", endx->weight);
+			if (endx->has_structure) {
+				json_object *jss = json_object_new_object();
+
+				json_object_int_add(jss, "lbLen", endx->structure.lb_len);
+				json_object_int_add(jss, "lnLen", endx->structure.ln_len);
+				json_object_int_add(jss, "funLen", endx->structure.fun_len);
+				json_object_int_add(jss, "argLen", endx->structure.arg_len);
+				json_object_object_add(jendx, "srv6SidStructure", jss);
+			}
+			json_object_array_add(jendx_arr, jendx);
+		}
+		json_object_object_add(json_ls_attr, "srv6EndxSids", jendx_arr);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */
@@ -5263,6 +5435,27 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT)) {
 		CHECK_WRAP();
 		col += vty_out(vty, "SRv6 Capabilities: 0x%x", ls_attr->srv6_cap_flags);
+	}
+
+	/* SRv6 End.X SID (TLV 1106) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT)) {
+		for (uint16_t i = 0; i < ls_attr->srv6_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_endx_sid *endx = &ls_attr->srv6_endx_sid[i];
+
+			CHECK_WRAP();
+			col += vty_out(vty,
+				       "SRv6 End.X SID: %pI6 Behavior: 0x%x Flags: 0x%x Algo: %u Weight: %u",
+				       &endx->sid, endx->endpoint_behavior, endx->flags,
+				       endx->algo, endx->weight);
+
+			if (endx->has_structure) {
+				CHECK_WRAP();
+				col += vty_out(vty,
+					       "SRv6 SID Structure: LBL: %u LNL: %u FL: %u AL: %u",
+					       endx->structure.lb_len, endx->structure.ln_len,
+					       endx->structure.fun_len, endx->structure.arg_len);
+			}
+		}
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */

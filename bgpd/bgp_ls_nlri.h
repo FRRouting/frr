@@ -135,6 +135,21 @@ struct bgp_ls_srv6_sid_structure {
 };
 
 /*
+ * SRv6 End.X SID entry (RFC 9514, Section 4.1, Type 1106)
+ * Multiple instances may appear in the BGP-LS Attribute of a Link NLRI.
+ */
+/* SRv6 End.X SID (TLV 1106, RFC 9514 Section 4.1) - point-to-point adjacency */
+struct bgp_ls_srv6_endx_sid {
+	uint16_t endpoint_behavior; /* Endpoint Behavior code point (RFC 8986) */
+	uint8_t flags;		    /* Flags (B/S/P for BGP EPE, or from IS-IS/OSPFv3) */
+	uint8_t algo;		    /* Algorithm */
+	uint8_t weight;		    /* Weight for load balancing */
+	struct in6_addr sid;	    /* 128-bit SRv6 SID */
+	bool has_structure;	    /* SID Structure sub-TLV present */
+	struct bgp_ls_srv6_sid_structure structure; /* SID Structure sub-TLV */
+};
+
+/*
  * BGP-LS Attribute TLV Types
  * IANA: https://www.iana.org/assignments/bgp-ls-parameters/bgp-ls-parameters.xhtml#node-descriptor-link-descriptor-prefix-descriptor-attribute-tlv
  */
@@ -179,6 +194,10 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_PEER_ADJ_SID = 1102,	      /* PeerAdj SID */
 	BGP_LS_ATTR_PEER_SET_SID = 1103,	      /* PeerSet SID */
 	BGP_LS_ATTR_LINK_MSD = 1104,		      /* Link MSD */
+
+	/* Link Attribute TLVs (RFC 9514 Section 4) */
+	BGP_LS_ATTR_SRV6_ENDX_SID = 1106,	      /* SRv6 End.X SID */
+
 	BGP_LS_ATTR_UNIDIRECTIONAL_LINK_DELAY = 1114, /* Unidirectional Link Delay */
 	BGP_LS_ATTR_MIN_MAX_UNIDIRECTIONAL_LINK_DELAY = 1115, /* Min/Max Unidirectional Link Delay */
 	BGP_LS_ATTR_UNIDIRECTIONAL_DELAY_VARIATION = 1116,    /* Unidirectional Delay Variation */
@@ -290,6 +309,7 @@ enum bgp_ls_attr_tlv {
  */
 #define BGP_LS_SRV6_CAPABILITIES_SIZE 4 /* Flags (2) + Reserved (2) */
 #define BGP_LS_SRV6_SID_STRUCTURE_SIZE		4  /* LB Length (1) + LN Length (1) + Fun Length (1) + Arg Length (1) */
+#define BGP_LS_SRV6_ENDX_SID_MIN_SIZE		  22 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) */
 
 /*
  * Maximum values for arrays
@@ -300,6 +320,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_MAX_EXT_ADMIN_GROUPS 256 /* Maximum number of admin groups in Extended Admin Group TLV */
 #define BGP_LS_MAX_NODE_NAME_LEN 255	/* Maximum node name length */
 #define BGP_LS_MAX_LINK_NAME_LEN 255	/* Maximum link name length */
+#define BGP_LS_MAX_SRV6_SIDS	 256	/* Maximum SRv6 SIDs per TLV type */
 
 /*
  * Bit positions for attribute presence bitmasks
@@ -346,6 +367,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_SRV6_LOCATOR_BIT           (1ULL << 39)
 /* SRv6 attribute bits (RFC 9514) */
 #define BGP_LS_ATTR_SRV6_CAPABILITIES_BIT      (1ULL << 40)
+#define BGP_LS_ATTR_SRV6_ENDX_SID_BIT	       (1ULL << 41)
 #define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
 
 /*
@@ -684,6 +706,10 @@ struct bgp_ls_attr {
 
 	/* SRv6 SID Structure (TLV 1252, RFC 9514 Section 8) */
 	struct bgp_ls_srv6_sid_structure srv6_sid_structure;
+
+	/* SRv6 End.X SID (TLV 1106, RFC 9514 Section 4.1) */
+	uint16_t srv6_endx_sid_count;
+	struct bgp_ls_srv6_endx_sid *srv6_endx_sid;
 
 	unsigned long refcnt; /* Reference count */
 
