@@ -287,6 +287,7 @@ struct srv6_policy {
 	char *rmap_name;
 	uint32_t flags;
 #define SRV6_POLICY_FLAG_BEHAVIOR_DT46 (1 << 0)
+#define SRV6_POLICY_FLAG_SID_AUTO      (1 << 1)
 };
 
 struct vpn_policy {
@@ -806,8 +807,6 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
-/* SRv6 unicast flag */
-#define BGP_CONFIG_SRV6_UNICAST_SID_AUTO (1 << 12)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];

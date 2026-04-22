@@ -10308,7 +10308,6 @@ DEFPY(sid_export,
       "Specify route-map name\n"
       "Name of route-map\n")
 {
-	safi_t safi = SAFI_UNICAST;
 	afi_t afi = bgp_node_afi(vty);
 	struct in6_addr *unicast_sid_explicit = NULL;
 
@@ -10350,7 +10349,7 @@ DEFPY(sid_export,
 			bgp->srv6_unicast[afi].sid_explicit = NULL;
 		}
 		bgp->srv6_unicast[afi].sid_index = 0;
-		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO);
 
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);
 		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
@@ -10359,7 +10358,7 @@ DEFPY(sid_export,
 	}
 
 	/* configured */
-	if ((sid_auto && CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
+	if ((sid_auto && CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO)) ||
 	    (sid_idx != 0 && bgp->srv6_unicast[afi].sid_index != 0) ||
 	    (sid_explicit && bgp->srv6_unicast[afi].sid_explicit)) {
 		if (!!behavior_dt46 !=
@@ -10403,7 +10402,7 @@ DEFPY(sid_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_idx != 0 || sid_explicit) &&
-	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) {
+	    CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO)) {
 		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -10412,8 +10411,8 @@ DEFPY(sid_export,
 		afi_t other_afi = (afi == AFI_IP) ? AFI_IP6 : AFI_IP;
 
 		if (is_srv6_unicast_dt46_enabled(bgp, other_afi)) {
-			bool other_auto = CHECK_FLAG(bgp->af_flags[other_afi][safi],
-						     BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+			bool other_auto = CHECK_FLAG(bgp->srv6_unicast[other_afi].flags,
+						     SRV6_POLICY_FLAG_SID_AUTO);
 			uint32_t other_index = bgp->srv6_unicast[other_afi].sid_index;
 			bool other_explicit = !!bgp->srv6_unicast[other_afi].sid_explicit;
 
@@ -10449,7 +10448,7 @@ DEFPY(sid_export,
 	}
 
 	if (sid_auto) {
-		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		SET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO);
 	} else if (sid_idx) {
 		bgp->srv6_unicast[afi].sid_index = sid_idx;
 	} else if (sid_explicit) {
@@ -21263,7 +21262,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 
 		if (is_srv6_unicast_enabled(bgp, afi)) {
-			if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO))
+			if (CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO))
 				vty_out(vty, "  sid export auto");
 			else if (bgp->srv6_unicast[afi].sid_explicit)
 				vty_out(vty, "  sid export explicit %pI6",
