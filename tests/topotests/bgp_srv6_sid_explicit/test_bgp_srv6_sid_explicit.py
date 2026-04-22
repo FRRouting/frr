@@ -84,7 +84,7 @@ def teardown_module(mod):
 
 def _check_explicit_srv6_sid_allocated(router, expected_sid_file, exact=False):
     logger.info("checking bgp explicit srv6 sid allocated in sending end")
-    output = json.loads(router.vtysh_cmd("show segment-routing srv6 new sid json"))
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
     expected = open_json_file("{}/{}".format(CWD, expected_sid_file))
     return topotest.json_cmp(output, expected, exact=exact)
 
