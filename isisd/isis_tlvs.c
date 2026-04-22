@@ -1393,6 +1393,8 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 	while (readable > 0) {
 		if (readable < ISIS_SUBSUBTLV_HDR_SIZE) {
 			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			stream_forward_getp(s, readable);
+			XFREE(MTYPE_ISIS_SUBTLV, asla);
 			return -1;
 		}
 
@@ -1400,6 +1402,12 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 		subsubtlv_len = stream_getc(s);
 		readable -= ISIS_SUBSUBTLV_HDR_SIZE;
 
+		if (subsubtlv_len > readable) {
+			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			stream_forward_getp(s, readable);
+			XFREE(MTYPE_ISIS_SUBTLV, asla);
+			return -1;
+		}
 
 		switch (subsubtlv_type) {
 		case ISIS_SUBTLV_ADMIN_GRP:
