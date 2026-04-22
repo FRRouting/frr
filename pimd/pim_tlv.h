@@ -89,9 +89,8 @@ int pim_tlv_parse_generation_id(const char *ifname, pim_addr src_addr,
 				uint32_t *hello_option_generation_id,
 				uint16_t option_len, const uint8_t *tlv_curr);
 int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
-			    pim_hello_options *hello_options,
-			    struct list **hello_option_addr_list,
-			    uint16_t option_len, const uint8_t *tlv_curr);
+			    pim_hello_options *hello_options, struct list **hello_option_addr_list,
+			    uint16_t option_len, const uint8_t *tlv_curr, unsigned int max_addrs);
 
 int pim_encode_addr_ucast(uint8_t *buf, pim_addr addr);
 int pim_encode_addr_ucast_prefix(uint8_t *buf, struct prefix *p);
