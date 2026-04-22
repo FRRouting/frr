@@ -1894,13 +1894,12 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	else
 		type = STANDARD;
 
-	if (vertex->status == NEW) {
-		vertex->node->type = type;
-		SET_FLAG(vertex->node->flags, LS_NODE_TYPE);
-	} else if (vertex->node->type != type) {
-		vertex->node->type = type;
+	if (vertex->status != NEW &&
+	    (vertex->node->type != type || !CHECK_FLAG(vertex->node->flags, LS_NODE_TYPE)))
 		vertex->status = UPDATE;
-	}
+
+	vertex->node->type = type;
+	SET_FLAG(vertex->node->flags, LS_NODE_TYPE);
 
 	/* Check if Vertex has been modified */
 	if (vertex->status != SYNC) {
