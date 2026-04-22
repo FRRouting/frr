@@ -529,8 +529,9 @@ static int vtysh_execute_func(const char *line, int pager)
 	saved_node = gvty->node;
 
 	/*
-	 * The "exit" command should not walk up by vtysh_execute("exit"). otherwise, executing "exit"
-	 * on a node without "exit" will cause an endless recursion on vtysh_execute("exit").
+ * The "exit" command should not walk up by vtysh_execute("exit").
+	 * Otherwise, executing "exit" on a node without "exit" will cause an
+	 * endless recursion on vtysh_execute("exit").
 	 */
 	if (strcmp(line, "exit") != 0) {
 		/*
