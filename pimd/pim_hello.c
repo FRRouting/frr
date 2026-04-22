@@ -90,6 +90,23 @@ static void tlv_trace_list(const char *label, const char *tlv_name,
 		return (code);                                                 \
 	}
 
+/*
+ * Bound how many encoded unicast addresses we accept from one Hello
+ * address-list TLV. option_len is constrained by the received Hello buffer,
+ * so tlv_pastend already limits how large this TLV can be; a separate
+ * MTU-based bound cannot be tighter than option_len/min_encoding in normal
+ * reception paths. Apply PIM_HELLO_SECONDARY_ADDR_MAX last.
+ */
+static unsigned int pim_hello_secondary_addr_cap(uint16_t option_len)
+{
+	unsigned int min_sz = PIM_ENCODED_UCAST_MIN_SIZE;
+	unsigned int cap = option_len / min_sz;
+
+	if (cap > PIM_HELLO_SECONDARY_ADDR_MAX)
+		cap = PIM_HELLO_SECONDARY_ADDR_MAX;
+	return cap;
+}
+
 int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		   int tlv_buf_size)
 {
@@ -197,14 +214,16 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 				FREE_ADDR_LIST_THEN_RETURN(-6);
 			}
 			break;
-		case PIM_MSG_OPTION_TYPE_ADDRESS_LIST:
-			if (pim_tlv_parse_addr_list(ifp->name, src_addr,
-						    &hello_options,
-						    &hello_option_addr_list,
-						    option_len, tlv_curr)) {
-				return -7;
+		case PIM_MSG_OPTION_TYPE_ADDRESS_LIST: {
+			unsigned int addr_cap = pim_hello_secondary_addr_cap(option_len);
+
+			if (pim_tlv_parse_addr_list(ifp->name, src_addr, &hello_options,
+						    &hello_option_addr_list, option_len, tlv_curr,
+						    addr_cap)) {
+				FREE_ADDR_LIST_THEN_RETURN(-7);
 			}
 			break;
+		}
 		case PIM_MSG_OPTION_TYPE_DM_STATE_REFRESH:
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
