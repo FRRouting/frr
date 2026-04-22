@@ -688,6 +688,7 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 	int igmp_msg_len;
 	int msg_type;
 	size_t ip_hlen; /* ip header length in bytes */
+	uint16_t ip_total;
 
 	if (len < sizeof(*ip_hdr)) {
 		zlog_warn("IGMP packet size=%zu shorter than minimum=%zu", len,
@@ -705,8 +706,34 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 		return false;
 	}
 
+	/*
+	 * Reject if the IPv4 total length is larger than what we received
+	 * (e.g. recvmsg truncated a jumbo/reassembled datagram into buf[]).
+	 * Otherwise downstream code must not trust ip_len for sendto() length.
+	 */
+	ip_total = ntohs(ip_hdr->ip_len);
+
+	if (ip_total < sizeof(struct ip)) {
+		zlog_warn("IGMP packet ip_len=%u shorter than minimum IPv4 header", ip_total);
+		return false;
+	}
+	if (ip_total < ip_hlen) {
+		zlog_warn("IGMP packet ip_len=%u shorter than header length %zu", ip_total,
+			  ip_hlen);
+		return false;
+	}
+	if (ip_total > len) {
+		zlog_warn("IGMP packet ip_len=%u exceeds received length %zu (truncated or corrupt)",
+			  ip_total, len);
+		return false;
+	}
+
 	igmp_msg = (char *)ip_hdr + ip_hlen;
-	igmp_msg_len = len - ip_hlen;
+	/*
+	 * Use datagram length from ip_hdr, not recv buffer length (len may
+	 * include link-layer padding past ip_total).
+	 */
+	igmp_msg_len = ip_total - ip_hlen;
 
 	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
 		zlog_warn("IGMP message size=%d shorter than minimum=%d",
@@ -753,6 +780,7 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 	const struct pim_interface *pim_interface = igmp->interface->info;
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
+	uint16_t ip_total;
 	char *igmp_msg;
 	int igmp_msg_len;
 	int msg_type;
@@ -762,6 +790,8 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 
 	if (!pim_igmp_verify_header(ip_hdr, len, &ip_hlen))
 		return -1;
+
+	ip_total = ntohs(ip_hdr->ip_len);
 
 	if (ip_hlen > sizeof(struct ip)) {
 		const uint8_t *ip_options = (const uint8_t *)(ip_hdr + 1);
@@ -779,7 +809,8 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 	}
 
 	igmp_msg = buf + ip_hlen;
-	igmp_msg_len = len - ip_hlen;
+	/* Same as pim_igmp_verify_header(): use ip_total, not recv len (padding). */
+	igmp_msg_len = (int)(ip_total - ip_hlen);
 	msg_type = *igmp_msg;
 
 	pim_inet4_dump("<src?>", ip_hdr->ip_src, from_str, sizeof(from_str));
