@@ -340,6 +340,12 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			continue;
 		}
 
+		if (rp->grpcnt > PIM_AUTORP_MAX_GROUPS_PER_RP) {
+			zlog_warn("%s: too many groups (%u > %u) in announcement for RP %pPA",
+				  __func__, rp->grpcnt, PIM_AUTORP_MAX_GROUPS_PER_RP, &rp_addr);
+			return false;
+		}
+
 		if (!autorp_buf_advance(&offset, buf_size, AUTORP_GRPLEN)) {
 			zlog_warn("%s: Buffer underrun parsing groups for RP %pPA", __func__,
 				  &rp_addr);
@@ -348,24 +354,33 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		offset -= AUTORP_GRPLEN;
 
 		/* Store all announced RP's, calculate what to send in discovery when discovery is sent. */
-		ma_rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(struct pim_autorp_rp));
-		memcpy(&(ma_rp->addr), &rp_addr, sizeof(pim_addr));
-		trp = pim_autorp_rp_add(&(autorp->mapping_rp_list), ma_rp);
-		if (trp == NULL) {
-			/* RP was brand new, finish initializing */
-			ma_rp->autorp = autorp;
-			ma_rp->grplist[0] = '\0';
-			memset(&(ma_rp->grp), 0, sizeof(ma_rp->grp));
-			pim_autorp_grppfix_init(&ma_rp->grp_pfix_list);
-			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: New candidate RP learned (%pPA)", __func__,
-					   &rp_addr);
-		} else {
-			/* Returned an existing entry, free allocated RP */
-			XFREE(MTYPE_PIM_AUTORP_RP, ma_rp);
-			ma_rp = trp;
-			/* Free the existing group prefix list, in case the advertised groups changed */
-			pim_autorp_grppfix_free(&ma_rp->grp_pfix_list);
+		{
+			struct pim_autorp_rp find = { .addr = rp_addr };
+
+			ma_rp = pim_autorp_rp_find(&(autorp->mapping_rp_list), &find);
+			if (!ma_rp) {
+				if (pim_autorp_rp_count(&autorp->mapping_rp_list) >=
+				    PIM_AUTORP_MAX_LEARNED_RPS) {
+					zlog_warn("%s: reached AutoRP learned RP limit (%u), drop RP %pPA",
+						  __func__, PIM_AUTORP_MAX_LEARNED_RPS, &rp_addr);
+					return false;
+				}
+
+				ma_rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(*ma_rp));
+				memcpy(&(ma_rp->addr), &rp_addr, sizeof(pim_addr));
+				ma_rp->autorp = autorp;
+				ma_rp->grplist[0] = '\0';
+				memset(&(ma_rp->grp), 0, sizeof(ma_rp->grp));
+				pim_autorp_grppfix_init(&ma_rp->grp_pfix_list);
+				trp = pim_autorp_rp_add(&(autorp->mapping_rp_list), ma_rp);
+				assert(trp == NULL);
+				if (PIM_DEBUG_AUTORP)
+					zlog_debug("%s: New candidate RP learned (%pPA)", __func__,
+						   &rp_addr);
+			} else {
+				/* Free the existing group prefix list, in case the advertised groups changed */
+				pim_autorp_grppfix_free(&ma_rp->grp_pfix_list);
+			}
 		}
 
 		ma_rp->holdtime = holdtime;
@@ -443,6 +458,18 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr, struct
 	struct pim_autorp_rp *trp = NULL;
 	int ret;
 
+	{
+		struct pim_autorp_rp find = { .addr = rpaddr };
+
+		trp = pim_autorp_rp_find(&(autorp->discovery_rp_list), &find);
+		if (!trp && pim_autorp_rp_count(&autorp->discovery_rp_list) >=
+				    PIM_AUTORP_MAX_LEARNED_RPS) {
+			zlog_warn("%s: reached AutoRP learned RP limit (%u), drop RP %pPA",
+				  __func__, PIM_AUTORP_MAX_LEARNED_RPS, &rpaddr);
+			return false;
+		}
+	}
+
 	ret = pim_rp_new(autorp->pim, rpaddr, grp, listname, RP_SRC_AUTORP);
 
 	/* There may not be a path to the RP right now, but that doesn't mean it failed to add the RP */
@@ -452,21 +479,22 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr, struct
 		return false;
 	}
 
-	rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(*rp));
-	rp->autorp = autorp;
-	memcpy(&(rp->addr), &rpaddr, sizeof(pim_addr));
-	trp = pim_autorp_rp_add(&(autorp->discovery_rp_list), rp);
-	if (trp == NULL) {
-		/* RP was brand new */
-		trp = pim_autorp_rp_find(&(autorp->discovery_rp_list),
-					 (const struct pim_autorp_rp *)rp);
-		/* Make sure the timer is NULL so the cancel below doesn't mess up */
-		trp->hold_timer = NULL;
-		zlog_info("%s: Added new AutoRP learned RP addr=%pI4, grp=%pFX, grplist=%s",
-			  __func__, &rpaddr, &grp, (listname ? listname : "NONE"));
-	} else {
-		/* RP already existed, free the temp one */
-		XFREE(MTYPE_PIM_AUTORP_RP, rp);
+	{
+		struct pim_autorp_rp find = { .addr = rpaddr };
+
+		trp = pim_autorp_rp_find(&(autorp->discovery_rp_list), &find);
+		if (!trp) {
+			rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(*rp));
+			rp->autorp = autorp;
+			memcpy(&(rp->addr), &rpaddr, sizeof(pim_addr));
+			trp = pim_autorp_rp_add(&(autorp->discovery_rp_list), rp);
+			assert(trp == NULL);
+			trp = rp;
+			/* Make sure the timer is NULL so the cancel below doesn't mess up */
+			trp->hold_timer = NULL;
+			zlog_info("%s: Added new AutoRP learned RP addr=%pI4, grp=%pFX, grplist=%s",
+				  __func__, &rpaddr, &grp, (listname ? listname : "NONE"));
+		}
 	}
 
 	/* Cancel any existing timer before restarting it */
@@ -840,6 +868,12 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				zlog_debug("%s: Discovery message has no groups for RP %pPA",
 					   __func__, &rp_addr);
 			continue;
+		}
+
+		if (rp->grpcnt > PIM_AUTORP_MAX_GROUPS_PER_RP) {
+			zlog_warn("%s: too many groups (%u > %u) in discovery for RP %pPA",
+				  __func__, rp->grpcnt, PIM_AUTORP_MAX_GROUPS_PER_RP, &rp_addr);
+			return false;
 		}
 
 		/* Make sure there is enough buffer to parse all the groups */
