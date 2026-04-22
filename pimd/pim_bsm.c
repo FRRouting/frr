@@ -79,6 +79,11 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 
 static void pim_bsm_rpinfo_free(struct bsm_rpinfo *bsrp_info)
 {
+	struct bsm_scope *scope = bsrp_info->bsgrp_node ? bsrp_info->bsgrp_node->scope : NULL;
+
+	if (bsrp_info->in_scope_count && scope && scope->bsrp_rp_count > 0)
+		scope->bsrp_rp_count--;
+
 	event_cancel(&bsrp_info->g2rp_timer);
 	XFREE(MTYPE_PIM_BSRP_INFO, bsrp_info);
 }
@@ -163,6 +168,18 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 
 	prefix_copy(&bsgrp->group, grp);
 	return bsgrp;
+}
+
+static uint8_t pim_group_mask_maxlen(uint8_t afi)
+{
+	switch (afi) {
+	case PIM_MSG_ADDRESS_FAMILY_IPV4:
+		return IPV4_MAX_BITLEN;
+	case PIM_MSG_ADDRESS_FAMILY_IPV6:
+		return IPV6_MAX_BITLEN;
+	default:
+		return 0;
+	}
 }
 
 /* BS timer for NO_INFO, ACCEPT_ANY & ACCEPT_PREFERRED.
@@ -1179,12 +1196,34 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, pim_addr rp,
 	return hash;
 }
 
+/*
+ * Bound total (G,RP) tuples in scope. During a legitimate BSM refresh for a
+ * group, entries in partial_bsrp_list grow while bsrp_list still holds the
+ * previous epoch; those active entries will be discarded when the refresh
+ * completes (swap). Count them as extra so we do not falsely reject installs
+ * near PIM_BSM_MAX_RP_ENTRIES.
+ */
+static bool pim_bsm_scope_cannot_add_rp(struct bsm_scope *scope, const struct bsgrp_node *grpnode)
+{
+	size_t extra = bsm_rpinfos_count(grpnode->bsrp_list);
+
+	return scope->bsrp_rp_count + 1 > PIM_BSM_MAX_RP_ENTRIES + extra;
+}
+
 static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 				   struct bsgrp_node *grpnode,
 				   struct bsmmsg_rpinfo *rp)
 {
 	struct bsm_rpinfo *bsm_rpinfo;
 	uint8_t hashMask_len = pim->global_scope.hashMasklen;
+	struct bsm_scope *scope = grpnode->scope;
+
+	if (pim_bsm_scope_cannot_add_rp(scope, grpnode)) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: dropping BSM RP entry for group %pFX (limit %u reached)",
+				   __func__, &grpnode->group, PIM_BSM_MAX_RP_ENTRIES);
+		return false;
+	}
 
 	/*memory allocation for bsm_rpinfo */
 	bsm_rpinfo = XCALLOC(MTYPE_PIM_BSRP_INFO, sizeof(*bsm_rpinfo));
@@ -1201,6 +1240,8 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 	bsm_rpinfo->hash = hash_calc_on_grp_rp(grpnode->group, rp->rpaddr.addr,
 					       hashMask_len);
 	if (bsm_rpinfos_add(grpnode->partial_bsrp_list, bsm_rpinfo) == NULL) {
+		bsm_rpinfo->in_scope_count = true;
+		scope->bsrp_rp_count++;
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s, bs_rpinfo node added to the partial bs_rplist.",
@@ -1252,6 +1293,8 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 	pim_addr grp_addr;
 
 	while (buflen > offset) {
+		uint8_t max_masklen;
+
 		if (offset + (int)sizeof(struct bsmmsg_grpinfo) > buflen) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
@@ -1273,11 +1316,13 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		offset += sizeof(struct bsmmsg_grpinfo);
 
 		group.family = PIM_AF;
-		if (grpinfo.group.mask > PIM_MAX_BITLEN) {
+		max_masklen = pim_group_mask_maxlen(grpinfo.group.family);
+		if (!max_masklen || grpinfo.group.family != PIM_MSG_ADDRESS_FAMILY ||
+		    grpinfo.group.mask > max_masklen) {
 			if (PIM_DEBUG_BSM)
-				zlog_debug(
-					"%s, prefix length specified: %d is too long",
-					__func__, grpinfo.group.mask);
+				zlog_debug("%s: invalid group AFI/mask (afi=%u mask=%u max=%u)",
+					   __func__, grpinfo.group.family, grpinfo.group.mask,
+					   max_masklen);
 			return false;
 		}
 
@@ -1310,6 +1355,21 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		}
 
 		if (!bsgrp) {
+			if (scope->bsrp_rp_count >= PIM_BSM_MAX_RP_ENTRIES) {
+				size_t skip_rp;
+
+				if (PIM_DEBUG_BSM)
+					zlog_debug("%s: cannot create new group node %pFX, RP limit %u reached",
+						   __func__, &group, PIM_BSM_MAX_RP_ENTRIES);
+				skip_rp = sizeof(struct bsmmsg_rpinfo) *
+					  (size_t)grpinfo.frag_rp_count;
+				if (offset > buflen || (size_t)(buflen - offset) < skip_rp)
+					return false;
+				buf += skip_rp;
+				offset += (int)skip_rp;
+				continue;
+			}
+
 			if (PIM_DEBUG_BSM)
 				zlog_debug("%s, Create new  BSM Group node.",
 					   __func__);
@@ -1360,8 +1420,25 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			}
 
 			/* Call Install api to update grp-rp mappings */
-			if (pim_install_bsm_grp_rp(scope->pim, bsgrp, &rpinfo))
-				ins_count++;
+			if (!pim_install_bsm_grp_rp(scope->pim, bsgrp, &rpinfo)) {
+				if (pim_bsm_scope_cannot_add_rp(scope, bsgrp)) {
+					size_t skip_rp;
+
+					/*
+					 * Skip RP TLVs not yet consumed for this group
+					 * (frag_rp_cnt is remaining after while's --).
+					 */
+					skip_rp = sizeof(struct bsmmsg_rpinfo) *
+						  (size_t)frag_rp_cnt;
+					if (offset > buflen || (size_t)(buflen - offset) < skip_rp)
+						return false;
+					buf += skip_rp;
+					offset += (int)skip_rp;
+					break;
+				}
+				continue;
+			}
+			ins_count++;
 		}
 
 		bsgrp->pend_rp_cnt -= ins_count;
@@ -1552,6 +1629,14 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Empty Pref BSM received", __func__);
 	}
+
+	/*
+	 * Restart BS liveness whenever we accept a preferred BSR's BSM; do not
+	 * tie this to whether payload parsing installs every (G,RP) (capacity
+	 * bounds may drop tuples without invalidating receipt).
+	 */
+	pim_bs_timer_restart(&pim_ifp->pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
+
 	/* Parse Update bsm rp table and install/uninstall rp if required */
 	if (!pim_bsm_parse_install_g2rp(
 		    &pim_ifp->pim->global_scope,
@@ -1562,9 +1647,6 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		pim->bsm_dropped++;
 		return -1;
 	}
-	/* Restart the bootstrap timer */
-	pim_bs_timer_restart(&pim_ifp->pim->global_scope,
-			     PIM_BSR_DEFAULT_TIMEOUT);
 
 	/* If new BSM received, clear the old bsm database */
 	if (pim_ifp->pim->global_scope.bsm_frag_tag != frag_tag) {
