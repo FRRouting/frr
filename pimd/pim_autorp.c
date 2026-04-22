@@ -132,6 +132,16 @@ static bool autorp_buf_advance(size_t *offset, size_t buf_size, size_t len)
 	return true;
 }
 
+static bool pim_autorp_group_prefix_valid(const struct prefix *grp)
+{
+	/*
+	 * Auto-RP in this file is IPv4-only; grp->family still guards against a
+	 * corrupted struct prefix (mask/address built from wire fields).
+	 */
+	return grp->family == AF_INET && grp->prefixlen <= IPV4_MAX_BITLEN &&
+	       pim_addr_is_multicast(grp->u.prefix4) && grp->prefixlen >= 4;
+}
+
 static bool pim_autorp_should_enable_socket(struct pim_autorp *autorp)
 {
 	struct interface *ifp;
@@ -414,6 +424,15 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			lgrp->grp.prefixlen = grp->masklen;
 			lgrp->grp.u.prefix4.s_addr = grp->addr;
 			lgrp->negative = grp->negprefix;
+
+			if (!pim_autorp_group_prefix_valid(&lgrp->grp)) {
+				if (PIM_DEBUG_AUTORP)
+					zlog_debug("%s: invalid group prefix %pFX for RP %pPA",
+						   __func__, &lgrp->grp, &rp_addr);
+				XFREE(MTYPE_PIM_AUTORP_GRPPFIX, lgrp);
+				pim_autorp_grppfix_free(&ma_rp->grp_pfix_list);
+				return false;
+			}
 
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: %s%pFX added to candidate RP %pPA", __func__,
@@ -873,7 +892,20 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		if (rp->grpcnt > PIM_AUTORP_MAX_GROUPS_PER_RP) {
 			zlog_warn("%s: too many groups (%u > %u) in discovery for RP %pPA",
 				  __func__, rp->grpcnt, PIM_AUTORP_MAX_GROUPS_PER_RP, &rp_addr);
-			return false;
+			/*
+			 * Skip this RP's group encodings so the rest of the message stays aligned;
+			 * do not return false (earlier RPs may already be installed).
+			 */
+			if (!autorp_buf_advance(&offset, buf_size,
+						AUTORP_GRPLEN * (size_t)rp->grpcnt)) {
+				zlog_warn("%s: discovery RP %pPA groups exceed buffer (%u < %u)",
+					  __func__, &rp_addr,
+					  (uint32_t)(offset > buf_size ? 0 : (buf_size - offset)),
+					  (uint32_t)(AUTORP_GRPLEN * rp->grpcnt));
+				return false;
+			}
+			success = false;
+			continue;
 		}
 
 		/* Make sure there is enough buffer to parse all the groups */
@@ -898,6 +930,15 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 			grppfix.prefixlen = grp->masklen;
 			grppfix.u.prefix4.s_addr = grp->addr;
 
+			if (!pim_autorp_group_prefix_valid(&grppfix)) {
+				if (PIM_DEBUG_AUTORP)
+					zlog_debug("%s: invalid discovery group prefix %pFX for RP %pPA",
+						   __func__, &grppfix, &rp_addr);
+				/* Same as multi-group path: do not abort the whole message */
+				success = false;
+				continue;
+			}
+
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
 					   (grp->negprefix ? "!" : ""), &grppfix, &rp_addr);
@@ -905,6 +946,8 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, NULL, holdtime))
 				success = false;
 		} else {
+			bool grp_parse_ok = true;
+
 			/* More than one grp, or the only group is a negative prefix.
 			 * Need to make a prefix list for this RP
 			 */
@@ -930,6 +973,17 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				grp = (struct autorp_pkt_grp *)(buf + offset);
 				offset += AUTORP_GRPLEN;
 
+				grppfix.family = AF_INET;
+				grppfix.prefixlen = grp->masklen;
+				grppfix.u.prefix4.s_addr = grp->addr;
+				if (!pim_autorp_group_prefix_valid(&grppfix)) {
+					if (PIM_DEBUG_AUTORP)
+						zlog_debug("%s: invalid discovery group prefix %pFX for RP %pPA",
+							   __func__, &grppfix, &rp_addr);
+					grp_parse_ok = false;
+					break;
+				}
+
 				ple = prefix_list_entry_new();
 				ple->pl = pl;
 				ple->seq = seq;
@@ -949,6 +1003,26 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 					zlog_debug("%s: Parsing group %s%pFX for RP %pPA", __func__,
 						   (grp->negprefix ? "!" : ""), &ple->prefix,
 						   &rp_addr);
+			}
+			if (!grp_parse_ok) {
+				prefix_list_delete(pl);
+				success = false;
+				/* Inner loop stopped early; consume the rest of this RP's groups */
+				if ((size_t)j + 1 < (size_t)rp->grpcnt) {
+					size_t skip = AUTORP_GRPLEN *
+						      ((size_t)rp->grpcnt - (size_t)j - 1);
+
+					if (!autorp_buf_advance(&offset, buf_size, skip)) {
+						zlog_warn("%s: discovery RP %pPA tail groups exceed buffer (%u < %u)",
+							  __func__, &rp_addr,
+							  (uint32_t)(offset > buf_size
+									     ? 0
+									     : (buf_size - offset)),
+							  (uint32_t)skip);
+						return false;
+					}
+				}
+				continue;
 			}
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, plname, holdtime))
