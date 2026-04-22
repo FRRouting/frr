@@ -491,6 +491,18 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 		}
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT)) {
+		if (attr1->srv6_lan_endx_sid_count != attr2->srv6_lan_endx_sid_count)
+			return numcmp(attr1->srv6_lan_endx_sid_count,
+				      attr2->srv6_lan_endx_sid_count);
+		for (uint16_t i = 0; i < attr1->srv6_lan_endx_sid_count; i++) {
+			ret = memcmp(&attr1->srv6_lan_endx_sid[i], &attr2->srv6_lan_endx_sid[i],
+				     sizeof(attr1->srv6_lan_endx_sid[i]));
+			if (ret != 0)
+				return ret;
+		}
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
 		ret = memcmp(&attr1->srv6_sid_structure, &attr2->srv6_sid_structure,
 			     sizeof(attr1->srv6_sid_structure));
@@ -576,6 +588,7 @@ void bgp_ls_attr_free(struct bgp_ls_attr *attr)
 	XFREE(MTYPE_BGP_LS_ATTR, attr->extended_tags);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->opaque_data);
 	XFREE(MTYPE_BGP_LS_ATTR, attr->srv6_endx_sid);
+	XFREE(MTYPE_BGP_LS_ATTR, attr->srv6_lan_endx_sid);
 
 	XFREE(MTYPE_BGP_LS_ATTR, attr);
 }
@@ -694,6 +707,13 @@ struct bgp_ls_attr *bgp_ls_attr_copy(const struct bgp_ls_attr *src)
 
 		dst->srv6_endx_sid = XCALLOC(MTYPE_BGP_LS_ATTR, endx_sid_size);
 		memcpy(dst->srv6_endx_sid, src->srv6_endx_sid, endx_sid_size);
+	}
+
+	if (src->srv6_lan_endx_sid) {
+		size_t sz = src->srv6_lan_endx_sid_count * sizeof(*src->srv6_lan_endx_sid);
+
+		dst->srv6_lan_endx_sid = XCALLOC(MTYPE_BGP_LS_ATTR, sz);
+		memcpy(dst->srv6_lan_endx_sid, src->srv6_lan_endx_sid, sz);
 	}
 
 	return dst;
@@ -2579,6 +2599,47 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 				stream_putc(s, endx->structure.ln_len);
 				stream_putc(s, endx->structure.fun_len);
 				stream_putc(s, endx->structure.arg_len);
+			}
+		}
+	}
+
+	/* SRv6 LAN End.X SID (TLV 1107 IS-IS / TLV 1108 OSPFv3) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT)) {
+		for (uint16_t i = 0; i < attr->srv6_lan_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_lan_endx_sid *lan_endx =
+				&attr->srv6_lan_endx_sid[i];
+			uint16_t sub_len = lan_endx->has_structure
+						   ? BGP_LS_TLV_HDR_SIZE +
+							     BGP_LS_SRV6_SID_STRUCTURE_SIZE
+						   : 0;
+			uint16_t min_size = lan_endx->is_isis
+						    ? BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE
+						    : BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE;
+			uint16_t tlv_len = min_size + sub_len;
+
+			if (STREAM_WRITEABLE(s) < (size_t)(BGP_LS_TLV_HDR_SIZE + tlv_len))
+				return -1;
+
+			stream_putw(s, lan_endx->is_isis ? BGP_LS_ATTR_SRV6_LAN_ENDX_SID_ISIS
+							 : BGP_LS_ATTR_SRV6_LAN_ENDX_SID_OSPF);
+			stream_putw(s, tlv_len);
+			stream_putw(s, lan_endx->endpoint_behavior);
+			stream_putc(s, lan_endx->flags);
+			stream_putc(s, lan_endx->algo);
+			stream_putc(s, lan_endx->weight);
+			stream_putc(s, 0); /* Reserved */
+			if (lan_endx->is_isis)
+				stream_put(s, lan_endx->neighbor.sysid, 6);
+			else
+				stream_putl(s, lan_endx->neighbor.router_id.s_addr);
+			stream_put(s, &lan_endx->sid, IPV6_MAX_BYTELEN);
+			if (lan_endx->has_structure) {
+				stream_putw(s, BGP_LS_ATTR_SRV6_SID_STRUCTURE);
+				stream_putw(s, BGP_LS_SRV6_SID_STRUCTURE_SIZE);
+				stream_putc(s, lan_endx->structure.lb_len);
+				stream_putc(s, lan_endx->structure.ln_len);
+				stream_putc(s, lan_endx->structure.fun_len);
+				stream_putc(s, lan_endx->structure.arg_len);
 			}
 		}
 	}
@@ -4747,6 +4808,102 @@ static int parse_srv6_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_
 	return 0;
 }
 
+/*
+ * Parse IS-IS SRv6 LAN End.X SID TLV (Type 1107, RFC 9514 Section 4.2)
+ * Format: Endpoint Behavior (2) + Flags (1) + Algorithm (1) + Weight (1)
+ *         + Reserved (1) + IS-IS Neighbor System-ID (6) + SID (16) + Sub-TLVs
+ */
+static int parse_isis_srv6_lan_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	struct bgp_ls_srv6_lan_endx_sid *entry;
+
+	if (length < BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: IS-IS SRv6 LAN End.X SID TLV too short (%u, need %u)", length,
+			  BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE);
+		return -1;
+	}
+	if (attr->srv6_lan_endx_sid_count >= BGP_LS_MAX_SRV6_SIDS) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: IS-IS SRv6 LAN End.X SID count exceeds max (%u), ignoring TLV",
+			  BGP_LS_MAX_SRV6_SIDS);
+		stream_forward_getp(s, length);
+		return 0;
+	}
+	attr->srv6_lan_endx_sid =
+		XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_lan_endx_sid,
+			 (attr->srv6_lan_endx_sid_count + 1) * sizeof(*attr->srv6_lan_endx_sid));
+	entry = &attr->srv6_lan_endx_sid[attr->srv6_lan_endx_sid_count];
+	memset(entry, 0, sizeof(*entry));
+	entry->is_isis = true;
+	entry->endpoint_behavior = stream_getw(s);
+	entry->flags = stream_getc(s);
+	entry->algo = stream_getc(s);
+	entry->weight = stream_getc(s);
+	stream_getc(s);				 /* Reserved */
+	stream_get(entry->neighbor.sysid, s, 6); /* IS-IS System-ID */
+	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
+
+	if (length > BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE) {
+		uint16_t sub_total = length - BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE;
+
+		if (parse_endx_sub_tlvs(s, sub_total, &entry->has_structure, &entry->structure) < 0)
+			return -1;
+	}
+
+	attr->srv6_lan_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
+	return 0;
+}
+
+/*
+ * Parse OSPFv3 SRv6 LAN End.X SID TLV (Type 1108, RFC 9514 Section 4.2)
+ * Format: Endpoint Behavior (2) + Flags (1) + Algorithm (1) + Weight (1)
+ *         + Reserved (1) + OSPFv3 Router-ID (4) + SID (16) + Sub-TLVs
+ */
+static int parse_ospf_srv6_lan_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	struct bgp_ls_srv6_lan_endx_sid *entry;
+
+	if (length < BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: OSPFv3 SRv6 LAN End.X SID TLV too short (%u, need %u)", length,
+			  BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE);
+		return -1;
+	}
+	if (attr->srv6_lan_endx_sid_count >= BGP_LS_MAX_SRV6_SIDS) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: OSPFv3 SRv6 LAN End.X SID count exceeds max (%u), ignoring TLV",
+			  BGP_LS_MAX_SRV6_SIDS);
+		stream_forward_getp(s, length);
+		return 0;
+	}
+	attr->srv6_lan_endx_sid =
+		XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_lan_endx_sid,
+			 (attr->srv6_lan_endx_sid_count + 1) * sizeof(*attr->srv6_lan_endx_sid));
+	entry = &attr->srv6_lan_endx_sid[attr->srv6_lan_endx_sid_count];
+	memset(entry, 0, sizeof(*entry));
+	entry->is_isis = false;
+	entry->endpoint_behavior = stream_getw(s);
+	entry->flags = stream_getc(s);
+	entry->algo = stream_getc(s);
+	entry->weight = stream_getc(s);
+	stream_getc(s);					   /* Reserved */
+	entry->neighbor.router_id.s_addr = stream_getl(s); /* OSPFv3 Router-ID */
+	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
+
+	if (length > BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE) {
+		uint16_t sub_total = length - BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE;
+
+		if (parse_endx_sub_tlvs(s, sub_total, &entry->has_structure, &entry->structure) < 0)
+			return -1;
+	}
+
+	attr->srv6_lan_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -4941,6 +5098,16 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_SRV6_ENDX_SID:
 			if (parse_srv6_endx_sid(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_LAN_ENDX_SID_ISIS:
+			if (parse_isis_srv6_lan_endx_sid(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_LAN_ENDX_SID_OSPF:
+			if (parse_ospf_srv6_lan_endx_sid(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -5189,6 +5356,43 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 			json_object_array_add(jendx_arr, jendx);
 		}
 		json_object_object_add(json_ls_attr, "srv6EndxSids", jendx_arr);
+	}
+
+	/* SRv6 LAN End.X SID (TLV 1107 IS-IS / TLV 1108 OSPFv3) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT)) {
+		json_object *jlan_arr = json_object_new_array();
+
+		for (uint16_t i = 0; i < ls_attr->srv6_lan_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_lan_endx_sid *e = &ls_attr->srv6_lan_endx_sid[i];
+			json_object *jlan = json_object_new_object();
+
+			json_object_string_addf(jlan, "sid", "%pI6", &e->sid);
+			json_object_string_addf(jlan, "behavior", "0x%x", e->endpoint_behavior);
+			json_object_string_addf(jlan, "flags", "0x%x", e->flags);
+			json_object_int_add(jlan, "algo", e->algo);
+			json_object_int_add(jlan, "weight", e->weight);
+			if (e->is_isis)
+				json_object_string_addf(jlan, "neighborSysId",
+							"%02x%02x.%02x%02x.%02x%02x",
+							e->neighbor.sysid[0], e->neighbor.sysid[1],
+							e->neighbor.sysid[2], e->neighbor.sysid[3],
+							e->neighbor.sysid[4], e->neighbor.sysid[5]);
+			else
+				json_object_string_addf(jlan, "neighborRouterId", "%pI4",
+							&e->neighbor.router_id);
+
+			if (e->has_structure) {
+				json_object *jss = json_object_new_object();
+
+				json_object_int_add(jss, "lbLen", e->structure.lb_len);
+				json_object_int_add(jss, "lnLen", e->structure.ln_len);
+				json_object_int_add(jss, "funLen", e->structure.fun_len);
+				json_object_int_add(jss, "argLen", e->structure.arg_len);
+				json_object_object_add(jlan, "srv6SidStructure", jss);
+			}
+			json_object_array_add(jlan_arr, jlan);
+		}
+		json_object_object_add(json_ls_attr, "srv6LanEndxSids", jlan_arr);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */
@@ -5454,6 +5658,36 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 					       "SRv6 SID Structure: LBL: %u LNL: %u FL: %u AL: %u",
 					       endx->structure.lb_len, endx->structure.ln_len,
 					       endx->structure.fun_len, endx->structure.arg_len);
+			}
+		}
+	}
+
+	/* SRv6 LAN End.X SID (TLV 1107 IS-IS / TLV 1108 OSPFv3) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT)) {
+		for (uint16_t i = 0; i < ls_attr->srv6_lan_endx_sid_count; i++) {
+			const struct bgp_ls_srv6_lan_endx_sid *e = &ls_attr->srv6_lan_endx_sid[i];
+
+			CHECK_WRAP();
+			if (e->is_isis)
+				col += vty_out(vty,
+					       "SRv6 LAN End.X SID: %pI6 Behavior 0x%x Nbr %02x%02x.%02x%02x.%02x%02x Flags: 0x%x Algo: %u Weight: %u",
+					       &e->sid, e->endpoint_behavior, e->neighbor.sysid[0],
+					       e->neighbor.sysid[1], e->neighbor.sysid[2],
+					       e->neighbor.sysid[3], e->neighbor.sysid[4],
+					       e->neighbor.sysid[5], e->flags, e->algo, e->weight);
+			else
+				col += vty_out(vty,
+					       "SRv6 LAN End.X SID: %pI6 Behavior 0x%x Nbr %pI4 Flags: 0x%x Algo: %u Weight: %u",
+					       &e->sid, e->endpoint_behavior,
+					       &e->neighbor.router_id, e->flags, e->algo,
+					       e->weight);
+
+			if (e->has_structure) {
+				CHECK_WRAP();
+				col += vty_out(vty,
+					       "SRv6 SID Structure: LBL: %u LNL: %u FL: %u AL: %u",
+					       e->structure.lb_len, e->structure.ln_len,
+					       e->structure.fun_len, e->structure.arg_len);
 			}
 		}
 	}

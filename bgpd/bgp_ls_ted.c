@@ -121,6 +121,28 @@ static void bgp_ls_fill_srv6_endx_sid(struct bgp_ls_srv6_endx_sid *endx,
 }
 
 /*
+ * Fill a pre-allocated SRv6 LAN End.X SID entry (TLV 1107/1108) from a Link State adjacency SID
+ */
+static void bgp_ls_fill_srv6_lan_endx_sid(struct bgp_ls_srv6_lan_endx_sid *endx,
+					  const struct ls_srv6_adjacency *adj)
+{
+	memset(endx, 0, sizeof(*endx));
+	endx->endpoint_behavior = adj->endpoint_behavior;
+	endx->flags = adj->flags;
+	endx->weight = adj->weight;
+	endx->is_isis = true; /* Only IS-IS LAN End.X SID (TLV 1107) is currently supported */
+	IPV6_ADDR_COPY(&endx->sid, &adj->sid);
+	memcpy(endx->neighbor.sysid, adj->neighbor.sysid, ISO_SYS_ID_LEN);
+	if (adj->has_structure) {
+		endx->has_structure = true;
+		endx->structure.lb_len = adj->lb_len;
+		endx->structure.ln_len = adj->ln_len;
+		endx->structure.fun_len = adj->fn_len;
+		endx->structure.arg_len = adj->arg_len;
+	}
+}
+
+/*
  * Append a single SRv6 adjacency SID to the appropriate BGP-LS attribute array.
  * A non-zero neighbor sysid identifies a LAN adjacency (TLV 1107/1108);
  * an all-zero sysid identifies a point-to-point adjacency (TLV 1106).
@@ -137,6 +159,14 @@ static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
 				 (attr->srv6_endx_sid_count + 1) * sizeof(*attr->srv6_endx_sid));
 		bgp_ls_fill_srv6_endx_sid(&attr->srv6_endx_sid[attr->srv6_endx_sid_count++], adj);
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
+	} else {
+		/* LAN adjacency: LAN End.X SID (IS-IS TLV 1107 / OSPFv3 TLV 1108) */
+		attr->srv6_lan_endx_sid = XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_lan_endx_sid,
+						   (attr->srv6_lan_endx_sid_count + 1) *
+							   sizeof(*attr->srv6_lan_endx_sid));
+		bgp_ls_fill_srv6_lan_endx_sid(&attr->srv6_lan_endx_sid[attr->srv6_lan_endx_sid_count++],
+					      adj);
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
 	}
 }
 
