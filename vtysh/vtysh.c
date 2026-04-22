@@ -546,9 +546,9 @@ static int vtysh_execute_func(const char *line, int pager)
 			ret = cmd_execute(gvty, line, &cmd, 1);
 			tried++;
 		}
-	
+
 		gvty->node = saved_node;
-	
+
 		/*
 		 * If command succeeded in any other node than current (tried > 0) we
 		 * have to move into node in the vtysh where it succeeded.
