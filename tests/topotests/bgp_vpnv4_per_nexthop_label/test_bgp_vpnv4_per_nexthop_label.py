@@ -517,11 +517,15 @@ def test_flapping_bgp_vrf_down():
     # Check BGP updated received on r2 are not from r11
     logger.info("Checking BGP VPNv4 labels on r2")
     for entry in PREFIXES_R11:
-        dump = tgen.gears["r2"].vtysh_cmd(
-            "show bgp ipv4 vpn {} json".format(entry), isjson=True
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_not_found,
+            tgen.gears["r2"],
+            "ipv4",
+            entry,
+            "444:1",
         )
-        for rd in dump:
-            assert False, "r2, {}, route distinguisher {} present".format(entry, rd)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+        assert success, "r2, {}, route distinguisher 444:1 still present".format(entry)
 
     mpls_table_check(tgen.gears["r1"], blacklist=["192.0.2.11"])
 
