@@ -37,8 +37,21 @@
 #define PIM_PIM_MIN_LEN               PIM_MSG_HEADER_LEN
 
 #define PIM_ENCODED_IPV4_UCAST_SIZE    (6)
+#define PIM_ENCODED_IPV6_UCAST_SIZE    (18) /* RFC 7761 encoded unicast, native IPv6 */
 #define PIM_ENCODED_IPV4_GROUP_SIZE    (8)
 #define PIM_ENCODED_IPV4_SOURCE_SIZE   (8)
+
+#if PIM_IPV == 4
+#define PIM_ENCODED_UCAST_MIN_SIZE PIM_ENCODED_IPV4_UCAST_SIZE
+#else
+#define PIM_ENCODED_UCAST_MIN_SIZE PIM_ENCODED_IPV6_UCAST_SIZE
+#endif
+
+/*
+ * Secondary address list on PIM Hellos is attacker-controlled length; bound
+ * stored entries (see pim_tlv_parse_addr_list).
+ */
+#define PIM_HELLO_SECONDARY_ADDR_MAX (512)
 
 /*
  * J/P Message Format, Group Header

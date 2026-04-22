@@ -656,12 +656,12 @@ int pim_parse_addr_source(pim_sgaddr *sg, uint8_t *flags, const uint8_t *buf,
 	}
 
 int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
-			    pim_hello_options *hello_options,
-			    struct list **hello_option_addr_list,
-			    uint16_t option_len, const uint8_t *tlv_curr)
+			    pim_hello_options *hello_options, struct list **hello_option_addr_list,
+			    uint16_t option_len, const uint8_t *tlv_curr, unsigned int max_addrs)
 {
 	const uint8_t *addr;
 	const uint8_t *pastend;
+	unsigned int stored_count = 0;
 
 	assert(hello_option_addr_list);
 
@@ -726,6 +726,16 @@ int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
 				__func__, &src_addr, ifname);
 			continue;
 		}
+
+		if (stored_count >= max_addrs) {
+			if (PIM_DEBUG_PIM_HELLO)
+				zlog_debug("%s: secondary address list exceeds max=%u (option_len=%u): from %pPAs on %s",
+					   __func__, max_addrs, option_len, &src_addr, ifname);
+			FREE_ADDR_LIST(*hello_option_addr_list);
+			return -2;
+		}
+
+		stored_count++;
 
 		/*
 		  Allocate list if needed
