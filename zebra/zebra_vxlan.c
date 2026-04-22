@@ -4831,8 +4831,18 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vrf *zvrf;
+	struct zebra_l2_brvlan_mac *bmac;
 
 	assert(ifp);
+
+	if (br_if) {
+		bmac = zebra_l2_brvlan_mac_find(br_if, vid, macaddr);
+		if (bmac)
+			zebra_l2_brvlan_mac_update(br_if, bmac, ifp->ifindex);
+		else
+			zebra_l2_brvlan_mac_add(br_if, vid, macaddr, ifp->ifindex,
+						sticky, local_inactive, dp_static);
+	}
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to an EVPN.

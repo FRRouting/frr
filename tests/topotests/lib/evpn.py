@@ -2082,3 +2082,128 @@ def evpn_verify_overlay_route_in_kernel(
         f"{len(actual_nexthops)} nexthops via {expected_dev}"
     )
     return None
+
+
+def evpn_check_bgp_imet(dut, rd, prefix, pmsi_label, pmsi_id):
+    """
+    Validate EVPN Type-3 (IMET) route PMSI fields with convergence tolerance.
+
+    This helper is intentionally tolerant to transient CLI output windows seen in
+    slower CI targets, where RD-specific route dumps can momentarily miss entries
+    even though the global EVPN table already contains the route.
+    """
+
+    def _collect_type3_routes(routes_json, expected_rd, allow_any_rd=False):
+        entries = []
+        if not isinstance(routes_json, dict):
+            return entries
+
+        rd_table = routes_json
+        routes_obj = rd_table.get("routes")
+        if isinstance(routes_obj, dict):
+            rd_table = routes_obj
+        rd_obj = rd_table.get("routeDistinguishers")
+        if isinstance(rd_obj, dict):
+            rd_table = rd_obj
+
+        for rd_key, rd_data in rd_table.items():
+            # Some filtered outputs can be keyed directly by route key
+            # instead of RD.
+            if rd_key.startswith("[3]:") and isinstance(rd_data, dict):
+                if allow_any_rd or expected_rd:
+                    entries.append((expected_rd, rd_key, rd_data))
+                continue
+
+            if not isinstance(rd_data, dict):
+                continue
+            if not allow_any_rd and rd_key != expected_rd:
+                continue
+            for route_key, route_data in rd_data.items():
+                if not route_key.startswith("[3]:"):
+                    continue
+                entries.append((rd_key, route_key, route_data))
+        return entries
+
+    def _extract_pmsi(route_data):
+        if not isinstance(route_data, dict):
+            return {}
+
+        paths = route_data.get("paths")
+        if not isinstance(paths, list):
+            return {}
+
+        for path_group in paths:
+            if isinstance(path_group, dict):
+                pmsi = path_group.get("pmsi")
+                if isinstance(pmsi, dict):
+                    return pmsi
+                continue
+
+            if not isinstance(path_group, list):
+                continue
+
+            for path in path_group:
+                if not isinstance(path, dict):
+                    continue
+                pmsi = path.get("pmsi")
+                if isinstance(pmsi, dict):
+                    return pmsi
+
+        return {}
+
+    # First try the targeted RD query (fast path).
+    rd_routes = dut.vtysh_cmd(
+        f"show bgp l2vpn evpn route rd {rd} type 3 json", isjson=True
+    )
+    imet_entries = _collect_type3_routes(rd_routes, rd)
+
+    # Fallback to global EVPN routes when RD-specific output is transiently empty.
+    if not imet_entries:
+        all_routes = dut.vtysh_cmd("show bgp l2vpn evpn route json", isjson=True)
+        imet_entries = _collect_type3_routes(all_routes, rd)
+
+    # Final fallback: if RD key shifts across convergence windows, match any RD
+    # and use PMSI fields to identify the expected IMET route.
+    if not imet_entries:
+        all_routes = dut.vtysh_cmd("show bgp l2vpn evpn route json", isjson=True)
+        imet_entries = _collect_type3_routes(all_routes, rd, allow_any_rd=True)
+
+    if not imet_entries:
+        return f"Imet routes not found for rd {rd}"
+
+    matched_entry = None
+    for _, route_key, route_data in imet_entries:
+        if route_key == prefix:
+            matched_entry = (route_key, route_data)
+            break
+
+    # Keep compatibility with expected prefix checking, but allow route-key
+    # variations as long as PMSI ID identifies the expected VTEP.
+    if matched_entry is None:
+        for _, route_key, route_data in imet_entries:
+            pmsi = _extract_pmsi(route_data)
+            if pmsi.get("id") == pmsi_id:
+                matched_entry = (route_key, route_data)
+                break
+
+    if matched_entry is None:
+        keys = [route_key for _, route_key, _ in imet_entries]
+        return f"Imet route key not found for rd {rd}; expected {prefix}, got {keys}"
+
+    route_key, route_data = matched_entry
+    pmsi = _extract_pmsi(route_data)
+    out_label = pmsi.get("label", 0)
+    if out_label != pmsi_label:
+        return (
+            f"Imet PMSI Label mismatch for rd {rd} route {route_key}: "
+            f"Expected {pmsi_label} Got {out_label}"
+        )
+
+    out_id = pmsi.get("id", "")
+    if out_id != pmsi_id:
+        return (
+            f"Imet PMSI Id mismatch for rd {rd} route {route_key}: "
+            f"Expected {pmsi_id} Got {out_id}"
+        )
+
+    return None

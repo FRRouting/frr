@@ -3697,9 +3697,8 @@ DEFPY (show_evpn_neigh_vni_vtep,
 			SET_IPADDR_V6(&vtep_ip);
 			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
 		}
-	} else {
+	} else
 		SET_IPADDR_NONE(&vtep_ip);
-	}
 
 	if (IS_IPADDR_NONE(&vtep_ip)) {
 		if (!uj)
@@ -3727,9 +3726,8 @@ DEFPY(show_evpn_local_mac,
 	bool found = false;
 	bool uj = use_json(argc, argv);
 
-	if (!if_name || !vid) {
+	if (!if_name || !vid)
 		return CMD_WARNING;
-	}
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		ifp = if_lookup_by_name(if_name, vrf->vrf_id);

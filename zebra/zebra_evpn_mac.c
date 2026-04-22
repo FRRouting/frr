@@ -2003,30 +2003,26 @@ static vlanid_t zebra_get_bridge_vlan_id(struct zebra_evpn *zevpn)
 
 	zif = zevpn->vxlan_if->info;
 	if (!zif) {
-		if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Failed to get the zif info");
-		}
 		return 0;
 	}
 	vni_ptr = zebra_vxlan_if_vni_find(zif, zevpn->vni);
 	if (!vni_ptr) {
-		if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Failed to get zevpn vni");
-		}
 		return 0;
 	}
 	br_ifp = zif->brslave_info.br_if;
 	if (br_ifp == NULL) {
-		if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Failed to get bridge interface");
-		}
 		return 0;
 	}
 	br_zif = (const struct zebra_if *)(br_ifp->info);
 	if (br_zif == NULL) {
-		if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Failed to get the bridge interface info");
-		}
 		return 0;
 	}
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
@@ -2175,7 +2171,8 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 		/* Remove the MAC from the FDB cache as it should contain the
 		 * locally-learnt MACs in sync with the kernel FDB
 		 * If the install fails then the local cache and kernel might
-		 * get out of sync */
+		 * get out of sync
+		 */
 		vid = zebra_get_bridge_vlan_id(zevpn);
 		if (vid != 0 && zevpn->bridge_if != NULL) {
 			bmac = zebra_l2_brvlan_mac_find(zevpn->bridge_if, vid,

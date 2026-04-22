@@ -10,6 +10,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "typesafe.h"
 #include "vlan.h"
 #include "vxlan.h"
 #include "zebra/zebra_vrf.h"
@@ -38,6 +39,8 @@ struct zebra_l2_bridge_vlan {
 	struct zebra_evpn_access_bd *access_bd;
 };
 
+PREDECL_HASH(zebra_l2_brvlan_mac_db);
+
 struct zebra_l2_brvlan_mac {
 	struct interface *br_if;
 	vlanid_t vid;
@@ -46,6 +49,7 @@ struct zebra_l2_brvlan_mac {
 	bool sticky;
 	bool local_inactive;
 	bool dp_static;
+	struct zebra_l2_brvlan_mac_db_item item;
 };
 
 struct zebra_l2_bridge_if_ctx {
@@ -74,7 +78,7 @@ struct zebra_l2_bridge_if {
 	uint8_t vlan_aware;
 	struct zebra_if *br_zif;
 	struct hash *vlan_table;
-	struct hash *mac_table[VLANID_MAX];
+	struct zebra_l2_brvlan_mac_db_head *mac_table[VLANID_MAX];
 };
 
 /* zebra L2 interface information - bridge interface */
