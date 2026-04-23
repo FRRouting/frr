@@ -1150,9 +1150,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				up, pim->keep_alive_time);
 		}
 	} else if (!pim_addr_is_any(up->upstream_addr)) {
-		pim_upstream_update_use_rpt(up,
-				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
+		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			up->channel_oil->oil_inherited_rescan = 1;
 			if (PIM_DEBUG_PIM_TRACE)
