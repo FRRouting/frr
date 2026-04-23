@@ -3938,6 +3938,7 @@ int lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy(
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
 	bool pfx_only = false;
 	uint32_t count;
@@ -3963,8 +3964,11 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pfx_only = yang_dnode_get_bool(args->dnode, "../prefix-only");
 
-		zebra_vxlan_process_vrf_vni_cmd(vrf->info, vni,
-						pfx_only ? 1 : 0, 1);
+		zvrf = vrf->info;
+		if (zvrf->l3vni && zvrf->l3vni != vni && zl3vni_lookup(zvrf->l3vni))
+			zebra_vxlan_process_vrf_vni_cmd(zvrf, zvrf->l3vni, 0, 0);
+
+		zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, pfx_only ? 1 : 0, 1);
 		break;
 	}
 
