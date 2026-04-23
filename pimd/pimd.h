@@ -54,6 +54,12 @@
 #define PIM_HELLO_SECONDARY_ADDR_MAX (512)
 
 /*
+ * Upper bound on PIM neighbors per interface (limits memory use and DR election
+ * work if bogus Hellos inject many source addresses).
+ */
+#define PIM_NEIGHBOR_LIST_MAX (4096)
+
+/*
  * J/P Message Format, Group Header
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |        Upstream Neighbor Address (Encoded-Unicast format)     |
