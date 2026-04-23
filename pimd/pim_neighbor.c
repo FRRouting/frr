@@ -474,15 +474,25 @@ pim_neighbor_add(struct interface *ifp, pim_addr source_addr,
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
 
-	neigh = pim_neighbor_new(ifp, source_addr, hello_options, holdtime,
-				 propagation_delay, override_interval,
-				 dr_priority, generation_id, addr_list);
+	if (!ifp)
+		return NULL;
+	pim_ifp = ifp->info;
+	if (!pim_ifp)
+		return NULL;
+
+	if (!pim_neighbor_find(ifp, source_addr, false) &&
+	    listcount(pim_ifp->pim_neighbor_list) >= PIM_NEIGHBOR_LIST_MAX) {
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s: neighbor list limit (%u) reached on %s, ignoring new neighbor %pPA",
+				   __func__, PIM_NEIGHBOR_LIST_MAX, ifp->name, &source_addr);
+		return NULL;
+	}
+
+	neigh = pim_neighbor_new(ifp, source_addr, hello_options, holdtime, propagation_delay,
+				 override_interval, dr_priority, generation_id, addr_list);
 	if (!neigh) {
 		return 0;
 	}
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
 
 	listnode_add(pim_ifp->pim_neighbor_list, neigh);
 
