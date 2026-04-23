@@ -186,36 +186,27 @@ enum bgp_ls_attr_tlv {
  * ===========================================================================
  */
 
-/*
- * TLV Presence Bitmask Macros
- * Used to track which optional TLVs are present in descriptors
- */
-#define BGP_LS_TLV_SET(bitmap, bit)   ((bitmap) |= (1ULL << (bit)))
-#define BGP_LS_TLV_CHECK(bitmap, bit) ((bitmap) & (1ULL << (bit)))
-#define BGP_LS_TLV_UNSET(bitmap, bit) ((bitmap) &= ~(1ULL << (bit)))
-#define BGP_LS_TLV_RESET(bitmap)      ((bitmap) = 0)
-
 /* Bit positions for Node Descriptor TLVs */
-#define BGP_LS_NODE_DESC_AS_BIT		0
-#define BGP_LS_NODE_DESC_BGP_LS_ID_BIT	1
-#define BGP_LS_NODE_DESC_OSPF_AREA_BIT	2
-#define BGP_LS_NODE_DESC_IGP_ROUTER_BIT 3
-#define BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT 4
+#define BGP_LS_NODE_DESC_AS_BIT             (1ULL << 0)
+#define BGP_LS_NODE_DESC_BGP_LS_ID_BIT      (1ULL << 1)
+#define BGP_LS_NODE_DESC_OSPF_AREA_BIT      (1ULL << 2)
+#define BGP_LS_NODE_DESC_IGP_ROUTER_BIT     (1ULL << 3)
+#define BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT  (1ULL << 4)
 
 /* Bit positions for Link Descriptor TLVs */
-#define BGP_LS_LINK_DESC_LINK_ID_BIT	0
-#define BGP_LS_LINK_DESC_IPV4_INTF_BIT	1
-#define BGP_LS_LINK_DESC_IPV4_NEIGH_BIT 2
-#define BGP_LS_LINK_DESC_IPV6_INTF_BIT	3
-#define BGP_LS_LINK_DESC_IPV6_NEIGH_BIT 4
-#define BGP_LS_LINK_DESC_MT_ID_BIT	5
-#define BGP_LS_LINK_DESC_REMOTE_AS_BIT	6
+#define BGP_LS_LINK_DESC_LINK_ID_BIT     (1ULL << 0)
+#define BGP_LS_LINK_DESC_IPV4_INTF_BIT   (1ULL << 1)
+#define BGP_LS_LINK_DESC_IPV4_NEIGH_BIT  (1ULL << 2)
+#define BGP_LS_LINK_DESC_IPV6_INTF_BIT   (1ULL << 3)
+#define BGP_LS_LINK_DESC_IPV6_NEIGH_BIT  (1ULL << 4)
+#define BGP_LS_LINK_DESC_MT_ID_BIT       (1ULL << 5)
+#define BGP_LS_LINK_DESC_REMOTE_AS_BIT   (1ULL << 6)
 
 /* Bit positions for Prefix Descriptor TLVs */
-#define BGP_LS_PREFIX_DESC_MT_ID_BIT	  0
-#define BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT 1
-#define BGP_LS_PREFIX_DESC_IP_REACH_BIT	  2
-#define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT 3
+#define BGP_LS_PREFIX_DESC_MT_ID_BIT           (1ULL << 0)
+#define BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT      (1ULL << 1)
+#define BGP_LS_PREFIX_DESC_IP_REACH_BIT        (1ULL << 2)
+#define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT  (1ULL << 3)
 
 /* Maximum number of MT-IDs per descriptor */
 #define BGP_LS_MAX_MT_ID 16
@@ -276,46 +267,46 @@ enum bgp_ls_attr_tlv {
 /*
  * Bit positions for attribute presence bitmasks
  */
-#define BGP_LS_ATTR_NODE_FLAGS_BIT	0
-#define BGP_LS_ATTR_NODE_NAME_BIT	1
-#define BGP_LS_ATTR_ISIS_AREA_BIT	2
-#define BGP_LS_ATTR_SR_CAPABILITIES_BIT 3
-#define BGP_LS_ATTR_SR_ALGORITHM_BIT	4
-#define BGP_LS_ATTR_SR_LOCAL_BLOCK_BIT	5
-#define BGP_LS_ATTR_NODE_MSD_BIT	6
-#define BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT  7
-#define BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT  8
-#define BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE_BIT 9
-#define BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT 10
-#define BGP_LS_ATTR_ADMIN_GROUP_BIT	      11
-#define BGP_LS_ATTR_MAX_LINK_BW_BIT	      12
-#define BGP_LS_ATTR_MAX_RESV_BW_BIT	      13
-#define BGP_LS_ATTR_UNRESV_BW_BIT	      14
-#define BGP_LS_ATTR_TE_METRIC_BIT	      15
-#define BGP_LS_ATTR_LINK_PROTECTION_BIT	      16
-#define BGP_LS_ATTR_MPLS_PROTOCOL_BIT	      17
-#define BGP_LS_ATTR_IGP_METRIC_BIT	      18
-#define BGP_LS_ATTR_SRLG_BIT		      19
-#define BGP_LS_ATTR_LINK_NAME_BIT	      20
-#define BGP_LS_ATTR_ADJ_SID_BIT		      21
-#define BGP_LS_ATTR_LINK_MSD_BIT	      22
-#define BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT	      23
-#define BGP_LS_ATTR_DELAY_BIT		      24
-#define BGP_LS_ATTR_MIN_MAX_DELAY_BIT	      25
-#define BGP_LS_ATTR_JITTER_BIT		      26
-#define BGP_LS_ATTR_PKT_LOSS_BIT	      27
-#define BGP_LS_ATTR_RESIDUAL_BW_BIT	      28
-#define BGP_LS_ATTR_AVAILABLE_BW_BIT	      29
-#define BGP_LS_ATTR_UTILIZED_BW_BIT	      30
-#define BGP_LS_ATTR_IGP_FLAGS_BIT     31
-#define BGP_LS_ATTR_ROUTE_TAG_BIT     32
-#define BGP_LS_ATTR_EXTENDED_TAG_BIT  33
-#define BGP_LS_ATTR_PREFIX_METRIC_BIT 34
-#define BGP_LS_ATTR_OSPF_FWD_ADDR_BIT 35
-#define BGP_LS_ATTR_PREFIX_SID_BIT    36
-#define BGP_LS_ATTR_RANGE_BIT	      37
-#define BGP_LS_ATTR_SID_LABEL_BIT     38
-#define BGP_LS_ATTR_SRV6_LOCATOR_BIT  39
+#define BGP_LS_ATTR_NODE_FLAGS_BIT             (1ULL << 0)
+#define BGP_LS_ATTR_NODE_NAME_BIT              (1ULL << 1)
+#define BGP_LS_ATTR_ISIS_AREA_BIT              (1ULL << 2)
+#define BGP_LS_ATTR_SR_CAPABILITIES_BIT        (1ULL << 3)
+#define BGP_LS_ATTR_SR_ALGORITHM_BIT           (1ULL << 4)
+#define BGP_LS_ATTR_SR_LOCAL_BLOCK_BIT         (1ULL << 5)
+#define BGP_LS_ATTR_NODE_MSD_BIT               (1ULL << 6)
+#define BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT   (1ULL << 7)
+#define BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT   (1ULL << 8)
+#define BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE_BIT  (1ULL << 9)
+#define BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT  (1ULL << 10)
+#define BGP_LS_ATTR_ADMIN_GROUP_BIT            (1ULL << 11)
+#define BGP_LS_ATTR_MAX_LINK_BW_BIT            (1ULL << 12)
+#define BGP_LS_ATTR_MAX_RESV_BW_BIT            (1ULL << 13)
+#define BGP_LS_ATTR_UNRESV_BW_BIT              (1ULL << 14)
+#define BGP_LS_ATTR_TE_METRIC_BIT              (1ULL << 15)
+#define BGP_LS_ATTR_LINK_PROTECTION_BIT        (1ULL << 16)
+#define BGP_LS_ATTR_MPLS_PROTOCOL_BIT          (1ULL << 17)
+#define BGP_LS_ATTR_IGP_METRIC_BIT             (1ULL << 18)
+#define BGP_LS_ATTR_SRLG_BIT                   (1ULL << 19)
+#define BGP_LS_ATTR_LINK_NAME_BIT              (1ULL << 20)
+#define BGP_LS_ATTR_ADJ_SID_BIT                (1ULL << 21)
+#define BGP_LS_ATTR_LINK_MSD_BIT               (1ULL << 22)
+#define BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT        (1ULL << 23)
+#define BGP_LS_ATTR_DELAY_BIT                  (1ULL << 24)
+#define BGP_LS_ATTR_MIN_MAX_DELAY_BIT          (1ULL << 25)
+#define BGP_LS_ATTR_JITTER_BIT                 (1ULL << 26)
+#define BGP_LS_ATTR_PKT_LOSS_BIT               (1ULL << 27)
+#define BGP_LS_ATTR_RESIDUAL_BW_BIT            (1ULL << 28)
+#define BGP_LS_ATTR_AVAILABLE_BW_BIT           (1ULL << 29)
+#define BGP_LS_ATTR_UTILIZED_BW_BIT            (1ULL << 30)
+#define BGP_LS_ATTR_IGP_FLAGS_BIT              (1ULL << 31)
+#define BGP_LS_ATTR_ROUTE_TAG_BIT              (1ULL << 32)
+#define BGP_LS_ATTR_EXTENDED_TAG_BIT           (1ULL << 33)
+#define BGP_LS_ATTR_PREFIX_METRIC_BIT          (1ULL << 34)
+#define BGP_LS_ATTR_OSPF_FWD_ADDR_BIT          (1ULL << 35)
+#define BGP_LS_ATTR_PREFIX_SID_BIT             (1ULL << 36)
+#define BGP_LS_ATTR_RANGE_BIT                  (1ULL << 37)
+#define BGP_LS_ATTR_SID_LABEL_BIT              (1ULL << 38)
+#define BGP_LS_ATTR_SRV6_LOCATOR_BIT           (1ULL << 39)
 
 /*
  * Node Flag Bits (TLV 1024)
