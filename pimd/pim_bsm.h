@@ -27,6 +27,11 @@
 #define PIM_CRP_ADV_TRIGCOUNT 3
 #define PIM_CRP_ADV_INTERVAL  60
 #define PIM_CRP_HOLDTIME      150
+/*
+ * Upper bound for BSR-derived (Group,RP) entries kept in memory per scope.
+ * This limits heap growth under malicious/buggy BSM floods.
+ */
+#define PIM_BSM_MAX_RP_ENTRIES 1024
 
 /* These structures are only encoded IPv4 specific */
 #define PIM_BSM_HDR_LEN sizeof(struct bsm_hdr)
@@ -102,6 +107,7 @@ struct bsm_scope {
 	int64_t current_bsr_last_ts;    /* Last BSM received from E-BSR */
 	uint16_t bsm_frag_tag;		/* Last received frag tag from E-BSR */
 	uint8_t hashMasklen;		/* Mask in hash calc RFC 7761 4.7.2 */
+	size_t bsrp_rp_count;		/* current BSR-derived (G,RP) entries */
 	struct pim_instance *pim;       /* Back pointer to pim instance */
 
 	/* current set of fragments for forwarding */
@@ -240,6 +246,7 @@ struct bsm_rpinfo {
 	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
 	struct event *g2rp_timer;	/* Run only for elected RP node */
+	bool in_scope_count;		/* accounted in scope->bsrp_rp_count */
 };
 
 extern int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *a,
