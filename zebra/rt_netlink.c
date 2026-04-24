@@ -68,6 +68,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_kernel_capabilities.h"
 #include "lib/srv6.h"
 
 #ifndef AF_MPLS
@@ -471,12 +472,10 @@ parse_encap_seg6local(struct rtattr *tb,
 		ctx->nh6 = *(struct in6_addr *)RTA_DATA(
 				tb_encap[SEG6_LOCAL_NH6]);
 
-	if (tb_encap[SEG6_LOCAL_TABLE])
-		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_TABLE]);
-
 	if (tb_encap[SEG6_LOCAL_VRFTABLE])
-		ctx->table =
-			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+	else if (tb_encap[SEG6_LOCAL_TABLE])
+		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_TABLE]);
 
 	if (tb_encap[SEG6_LOCAL_FLAVORS]) {
 		parse_encap_seg6local_flavors(tb_encap[SEG6_LOCAL_FLAVORS],
@@ -1690,6 +1689,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 	char label_buf[256];
 	struct vrf *vrf;
 	char addrstr[INET6_ADDRSTRLEN];
+	uint32_t srv6_table_attr;
 
 	assert(nexthop);
 
@@ -1766,9 +1766,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   SEG6_LOCAL_ACTION,
 						   SEG6_LOCAL_ACTION_END_DT6))
 					return false;
-				if (!nl_attr_put32(nlmsg, req_size,
-						   SEG6_LOCAL_TABLE,
-						   ctx->table))
+				srv6_table_attr =
+					zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
+						? SEG6_LOCAL_VRFTABLE
+						: SEG6_LOCAL_TABLE;
+				if (!nl_attr_put32(nlmsg, req_size, srv6_table_attr, ctx->table))
 					return false;
 				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
@@ -3028,6 +3030,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					uint16_t encap;
 					struct rtattr *nest;
 					const struct seg6local_context *ctx;
+					uint32_t srv6_table_attr;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
@@ -3106,10 +3109,12 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_DT6))
 							return 0;
-						if (!nl_attr_put32(
-						    &req->n, buflen,
-						    SEG6_LOCAL_TABLE,
-						    ctx->table))
+						srv6_table_attr =
+							zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
+								? SEG6_LOCAL_VRFTABLE
+								: SEG6_LOCAL_TABLE;
+						if (!nl_attr_put32(&req->n, buflen, srv6_table_attr,
+								   ctx->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT4:
