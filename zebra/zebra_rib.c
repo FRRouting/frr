@@ -1454,6 +1454,24 @@ static void rib_process(struct route_node *rn)
 
 		if (old_selected) {
 			/*
+			 * We need to check to see if the old_selected was
+			 * something that was removed from the kernel.  At
+			 * this point in time we do not have any code that
+			 * let's us track nhgs to re's so when we have an
+			 * interface down event, we cannot just mark the
+			 * route entries as no longer installed.  We can
+			 * make do for the moment with Kernel/Connected/Local
+			 * routes because we know if we have a removal/addition
+			 * of one of those route types, we had a very very
+			 * quick interface flap and zebra was unable to
+			 * finish up processing the down event before
+			 * new up events have come in.
+			 */
+			if (new_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED) &&
+			    RSYSTEM_ROUTE(old_selected->type))
+				SET_FLAG(new_selected->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
+
+			/*
 			 * If we're removing the old entry, we should tell
 			 * redist subscribers about that *if* they aren't
 			 * going to see a redist for the new entry.
@@ -2102,6 +2120,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
+	if (re)
+		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
+
 	zebra_rib_evaluate_mpls(rn);
 done:
 

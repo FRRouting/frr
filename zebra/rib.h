@@ -152,6 +152,13 @@ struct route_entry {
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
+/*
+ * If the route entry experiences a quick flap
+ * of the route entry due to interface flapping
+ * we need to note that we should send a nht removal
+ * then addition.
+ */
+#define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
