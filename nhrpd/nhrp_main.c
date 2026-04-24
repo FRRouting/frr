@@ -23,6 +23,7 @@
 
 #include "nhrpd.h"
 #include "nhrp_errors.h"
+#include "nhrp_mcast_oil.h"
 
 DEFINE_MGROUP(NHRPD, "NHRP");
 
@@ -168,6 +169,7 @@ int main(int argc, char **argv)
 	hook_register_prio(if_unreal, 0, nhrp_ifp_destroy);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
+	nhrp_mcast_oil_init();
 
 	nhrp_config_init();
 
