@@ -730,7 +730,8 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		   for the adjacency. The LSA will be retransmitted
 		   at intervals until an acknowledgment is seen from
 		   the neighbor. */
-		ospf_ls_retransmit_add(onbr, lsa);
+		if (!oi->rec4_gap_pacing)
+                        ospf_ls_retransmit_add(onbr, lsa);
 		retx_flag = 1;
 	}
 
@@ -789,10 +790,13 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	    IP addresses for these packets are the neighbors' IP
 	    addresses. This behavior is extended to P2MP networks which
 	    don't support broadcast. */
-	/* RFC 4222 R4: when gap pacing is active, bypass the legacy send
+	/* 
+	 * RFC 4222 R4: when gap pacing is active, bypass the legacy send
 	 * path entirely.  Enqueue the LSA directly into each eligible
-	 * neighbor's per-neighbor paced queue; the retransmit-add above
-	 * already ensures reliable delivery via the retransmit timer. */
+	 * neighbor's per-neighbor paced queue. Rec4 enqueue first; 
+	 * add retransmit/unacked accounting only when the LSA is 
+	 * packed into an LSU and queued for output.
+	 */
 	if (oi->rec4_gap_pacing) {
 		struct ospf_neighbor *nbr;
 
@@ -1211,7 +1215,9 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 		/* Decrement unacked count if this LSA was counted */
 		if (ls_rxmt_node->counted_sent) {
-			nbr->ls_rxmt_unacked--;
+                        ls_rxmt_node->counted_sent = false;
+                        if (nbr->ls_rxmt_unacked)
+				nbr->ls_rxmt_unacked--;
 		}
 
 		lsa->retransmit_counter--;

@@ -486,7 +486,8 @@ static int ospf_db_summary_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 		return 0;
 
 	if (IS_LSA_MAXAGE(lsa))
-		ospf_ls_retransmit_add(nbr, lsa);
+		if (!nbr->oi->rec4_gap_pacing)
+                        ospf_ls_retransmit_add(nbr, lsa);
 	else
 		ospf_lsdb_add(&nbr->db_sum, lsa);
 

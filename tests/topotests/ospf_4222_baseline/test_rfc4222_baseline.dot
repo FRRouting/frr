@@ -1,0 +1,28 @@
+graph template {
+    label="baseline network";
+
+    # Routers
+    r1 [
+        shape=doubleoctagon,
+        label="r1",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r2 [
+        shape=doubleoctagon,
+        label="r2",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+
+    # Switches
+    s1 [
+        shape=oval,
+        label="s1\n192.0.2.0/24",
+        fillcolor="#d0e0d0",
+        style=filled,
+    ];
+     # Connections
+    r1 -- s1 [label="eth0\n.1"];
+    r2 -- s1 [label="eth0\n.2"];
+}
