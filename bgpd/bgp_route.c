@@ -8998,6 +8998,21 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 				bgp_static->rmap.map = NULL;
 				bgp_static->valid = 0;
 			}
+
+			if (safi == SAFI_EVPN) {
+				if (esi) {
+					XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
+					bgp_static->eth_s_id = XCALLOC(MTYPE_ATTR, sizeof(esi_t));
+					str2esi(esi, bgp_static->eth_s_id);
+				}
+				if (routermac) {
+					XFREE(MTYPE_ATTR, bgp_static->router_mac);
+					bgp_static->router_mac = XCALLOC(MTYPE_ATTR, ETH_ALEN + 1);
+					(void)prefix_str2mac(routermac, bgp_static->router_mac);
+				}
+				if (gwip)
+					prefix_copy(&bgp_static->gatewayIp, &gw_ip);
+			}
 			bgp_dest_unlock_node(dest);
 		} else {
 			/* New configuration. */
