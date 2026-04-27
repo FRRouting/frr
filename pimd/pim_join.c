@@ -556,6 +556,274 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 }
 
 /*
+ * Auxiliary function that sets the upstream RPT prune flag on some
+ * circumstances. This is meant to be used in the function
+ * `pim_joinprune_send`.
+ */
+static void pim_jp_groups_source_set_prune(struct list *sources)
+{
+	struct pim_upstream *child, *upstream;
+	struct pim_jp_sources *js;
+	struct listnode *node;
+
+	if (!sources)
+		return;
+
+	js = listgetdata(listhead(sources));
+	if (!js || !pim_addr_is_any(js->up->sg.src) || !js->is_join)
+		return;
+
+	upstream = js->up;
+	if (PIM_DEBUG_PIM_PACKETS)
+		zlog_debug("%s: Considering (%s) children for (S,G,rpt) prune", __func__,
+			   upstream->sg_str);
+
+	for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child)) {
+		/*
+		 * PIM VXLAN is weird
+		 * It auto creates the S,G and populates a bunch
+		 * of flags that make it look like a SPT prune should
+		 * be sent.  But this regularly scheduled join
+		 * for the *,G in the VXLAN setup can happen at
+		 * scheduled times *before* the null register
+		 * is received by the RP to cause it to initiate
+		 * the S,G joins toward the source.  Let's just
+		 * assume that if this is a SRC VXLAN ORIG route
+		 * and no actual ifchannels( joins ) have been
+		 * created then do not send the embedded prune
+		 * Why you may ask?  Well if the prune is S,G
+		 * RPT Prune is received *before* the join
+		 * from the RP( if it flows to this routers
+		 * upstream interface ) then we'll just wisely
+		 * create a mroute with an empty oil on
+		 * the upstream intermediate router preventing
+		 * packets from flowing to the RP
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
+		    listcount(child->ifchannels) == 0) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
+					   __func__, child->sg_str);
+		} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
+			/* If we are using SPT and the SPT and RPT IIFs
+			 * are different we can prune the source off
+			 * of the RPT.
+			 * If RPF_interface(S) is not resolved hold
+			 * decision to prune as SPT may end up on the
+			 * same IIF as RPF_interface(RP).
+			 */
+			if (child->rpf.source_nexthop.interface &&
+			    !pim_rpf_is_same(&upstream->rpf, &child->rpf)) {
+				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+				if (PIM_DEBUG_PIM_PACKETS)
+					zlog_debug("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
+						   __func__, upstream->sg_str, child->sg_str);
+			} else if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
+					   __func__, upstream->sg_str, child->sg_str);
+		} else if (pim_upstream_empty_inherited_olist(child)) {
+			/* S is supposed to be forwarded along the RPT
+			 * but it's inherited OIL is empty. So just
+			 * prune it off.
+			 */
+			PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+					   __func__, child->sg_str);
+		} else if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("%s: Do not add Prune %s to compound message %s", __func__,
+				   child->sg_str, upstream->sg_str);
+	}
+}
+
+/* Auxiliary function to write the source child data. This is meant to be
+ * used by the function `pim_jp_groups_fill`.
+ *
+ * Returns `true` when buffer is full otherwise `false`.
+ */
+static bool pim_jp_groups_source_child_fill(struct pim_jp_groups *grp, size_t *tgroups,
+					    size_t *bytes_written, size_t *bytes_left,
+					    struct listnode *source_node,
+					    struct listnode *child_node,
+					    struct listnode **last_source,
+					    struct listnode **last_child)
+{
+	for (; child_node != NULL; child_node = listnextnode(child_node)) {
+		struct pim_upstream *child = listgetdata(child_node);
+
+		if (!PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
+			continue;
+
+		if (*bytes_left < sizeof(pim_encoded_source)) {
+			*last_source = source_node;
+			*last_child = child_node;
+			return true;
+		}
+
+		*bytes_written += sizeof(pim_encoded_source);
+		*bytes_left -= sizeof(pim_encoded_source);
+
+		pim_msg_addr_encode_source((uint8_t *)&grp->s[*tgroups], child->sg.src,
+					   PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
+		*tgroups += 1;
+		PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(child->flags);
+		grp->prunes++;
+	}
+
+	return false;
+}
+
+/*
+ * Auxiliary function that fills packet with group information and
+ * returns the amount of bytes written. This is meant to be used in
+ * the function `pim_joinprune_send`.
+ *
+ * If the amount of sources exceed the current packet limit, then this
+ * function also returns `last_source` and/or `last_child`.
+ *
+ * When this function returns `last_child` but not `last_source` it means we
+ * finished iterating over source list but not over upstream source list.
+ *
+ * **NOTE** Don't forget to converge `grp->joins` and `grp->prunes` to
+ * network byte order before sending.
+ */
+static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs,
+				 size_t bytes_left, struct listnode **last_source,
+				 struct listnode **last_child)
+{
+	struct listnode *source_node, *child_node;
+	struct pim_upstream *upstream = NULL;
+	size_t bytes_written = 0;
+	size_t tgroups = 0;
+	uint8_t bits;
+	pim_addr stosend;
+
+	memset(grp, 0, sizeof(*grp));
+	pim_msg_addr_encode_group((uint8_t *)&grp->g, sgs->group);
+
+	bytes_written += sizeof(pim_encoded_group);
+	bytes_written += 4; // Joined sources (2) + Pruned Sources (2)
+	/*
+	 * Underflow protection, tell caller we didn't write anything
+	 * this should cause the current packet to be flushed.
+	 *
+	 * Also include at least one encoded source to avoid empty group.
+	 */
+	if (bytes_left < bytes_written + sizeof(pim_encoded_source))
+		return 0;
+
+	bytes_left -= bytes_written;
+
+	/*
+	 * Get pointer to last source we stopped.
+	 *
+	 * When group sources are done `last_child` is set, but
+	 * `last_source` is NULL.
+	 */
+	if (*last_source != NULL || *last_child != NULL)
+		source_node = *last_source;
+	else
+		source_node = listhead(sgs->sources);
+
+	/* Finish previously remaining upstream child sources */
+	if (*last_child != NULL) {
+		child_node = *last_child;
+
+		if (pim_jp_groups_source_child_fill(grp, &tgroups, &bytes_written, &bytes_left,
+						    source_node, child_node, last_source,
+						    last_child))
+			return bytes_written;
+	}
+
+	for (; source_node != NULL; source_node = listnextnode(source_node)) {
+		struct pim_jp_sources *source = listgetdata(source_node);
+
+		upstream = NULL;
+
+		if (bytes_left < sizeof(pim_encoded_source)) {
+			*last_source = source_node;
+			*last_child = NULL;
+			return bytes_written;
+		}
+
+		bytes_written += sizeof(pim_encoded_source);
+		bytes_left -= sizeof(pim_encoded_source);
+
+		if (pim_addr_is_any(source->up->sg.src)) {
+			struct pim_instance *pim = source->up->pim;
+			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
+
+			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
+			stosend = rpf->rpf_addr;
+			/* Only Send SGRpt in case of *,G Join */
+			if (source->is_join)
+				upstream = source->up;
+		} else if (pim_is_grp_dm(source->up->pim, source->up->sg.grp)) {
+			bits = 0; /* all bits should be set to 0 for DM (RFC3973 4.7.4) */
+			stosend = source->up->sg.src;
+		} else {
+			bits = PIM_ENCODE_SPARSE_BIT;
+			stosend = source->up->sg.src;
+		}
+
+		pim_msg_addr_encode_source((uint8_t *)&grp->s[tgroups], stosend, bits);
+		tgroups++;
+
+		if (source->is_join)
+			grp->joins++;
+		else
+			grp->prunes++;
+
+		/* We found upstream sources, start this function over */
+		if (upstream && listhead(upstream->sources)) {
+			child_node = listhead(upstream->sources);
+
+			/*
+			 * Pass the next source so that on overflow
+			 * `*last_source` records where to resume — the
+			 * current source has already been encoded.
+			 */
+			if (pim_jp_groups_source_child_fill(grp, &tgroups, &bytes_written,
+							    &bytes_left, listnextnode(source_node),
+							    child_node, last_source, last_child))
+				return bytes_written;
+		}
+	}
+
+	*last_source = NULL;
+	*last_child = NULL;
+
+	return bytes_written;
+}
+
+/*
+ * Auxiliary function that sends a packet. This is meant to be used in
+ * `pim_joinprune_send`.
+ */
+static void pim_jp_flush_packet(struct interface *ifp, uint8_t pim_msg_type, void *buf,
+				size_t buf_size)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	pim_msg_build_header(pim_ifp->primary_address, qpim_all_pim_routers_addr, buf, buf_size,
+			     pim_msg_type, false);
+	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address, qpim_all_pim_routers_addr,
+			 buf, buf_size, ifp))
+		zlog_warn("%s: could not send PIM message on interface %s", __func__, ifp->name);
+}
+
+#define PIM_JP_HEADER_SIZE                                                                        \
+	(sizeof(struct pim_msg_header) + sizeof(pim_encoded_unicast) +                            \
+	 4 /* reserved (1) + groups (1) + holdtime (2) */)
+
+/* Size of IP header plus IP Router Alert */
+#if PIM_IPV == 4
+#define PIM_IP_HEADER_SIZE (sizeof(struct ip) + 4)
+#else
+#define PIM_IP_HEADER_SIZE (sizeof(struct ip6_hdr) + 8)
+#endif
+
+/*
  * J/P Message Format
  *
  * While the RFC clearly states that this is 32 bits wide, it
@@ -621,198 +889,23 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
  *  |        Pruned Source Address n (Encoded-Source format)        |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
-int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
+static int pim_jp_send(struct pim_rpf *rpf, struct list *groups, uint8_t pim_msg_type,
+		       uint16_t holdtime)
 {
+	struct listnode *node, *last_source, *last_child;
 	struct pim_jp_agg_group *group;
-	struct pim_interface *pim_ifp = NULL;
-	struct pim_jp_groups *grp = NULL;
-	struct pim_jp *msg = NULL;
-	struct listnode *node, *nnode;
-	uint8_t pim_msg[10000];
-	uint8_t *curr_ptr = pim_msg;
-	bool new_packet = true;
+	struct pim_interface *pim_ifp;
+	struct pim_jp_groups *grp;
+	struct pim_jp *msg;
+	struct interface *ifp;
 	size_t packet_left = 0;
 	size_t packet_size = 0;
-	size_t group_size = 0;
-
-	if (rpf->source_nexthop.interface)
-		pim_ifp = rpf->source_nexthop.interface->info;
-	else {
-		zlog_warn("%s: RPF interface is not present", __func__);
-		return -1;
-	}
-
-
-	on_trace(__func__, rpf->source_nexthop.interface, rpf->rpf_addr);
-
-	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s", __func__,
-			  rpf->source_nexthop.interface->name);
-		return -1;
-	}
-
-	if (pim_addr_is_any(rpf->rpf_addr)) {
-		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug(
-				"%s: upstream=%pPA is myself on interface %s",
-				__func__, &rpf->rpf_addr,
-				rpf->source_nexthop.interface->name);
-		return 0;
-	}
-
-	/*
-	  RFC 4601: 4.3.1.  Sending Hello Messages
-
-	  Thus, if a router needs to send a Join/Prune or Assert message on
-	  an interface on which it has not yet sent a Hello message with the
-	  currently configured IP address, then it MUST immediately send the
-	  relevant Hello message without waiting for the Hello Timer to
-	  expire, followed by the Join/Prune or Assert message.
-	*/
-	pim_hello_require(rpf->source_nexthop.interface);
-
-	for (ALL_LIST_ELEMENTS(groups, node, nnode, group)) {
-		if (new_packet) {
-			msg = (struct pim_jp *)pim_msg;
-
-			memset(msg, 0, sizeof(*msg));
-
-			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
-						  rpf->rpf_addr);
-			msg->reserved = 0;
-			msg->holdtime = htons(pim_if_jp_hold(pim_ifp));
-
-			new_packet = false;
-
-			grp = &msg->groups[0];
-			curr_ptr = (uint8_t *)grp;
-			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(pim_encoded_unicast);
-			packet_size +=
-				4; // reserved (1) + groups (1) + holdtime (2)
-
-			packet_left = rpf->source_nexthop.interface->mtu - 24;
-			packet_left -= packet_size;
-		}
-		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug(
-				"%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
-				__func__, &group->group, &rpf->rpf_addr,
-				rpf->source_nexthop.interface->name);
-
-		group_size = pim_msg_get_jp_group_size(group->sources);
-		if (group_size > packet_left) {
-			pim_msg_build_header(pim_ifp->primary_address,
-					     qpim_all_pim_routers_addr, pim_msg,
-					     packet_size,
-					     PIM_MSG_TYPE_JOIN_PRUNE, false);
-			if (pim_msg_send(pim_ifp->pim_sock_fd,
-					 pim_ifp->primary_address,
-					 qpim_all_pim_routers_addr, pim_msg,
-					 packet_size,
-					 rpf->source_nexthop.interface)) {
-				zlog_warn(
-					"%s: could not send PIM message on interface %s",
-					__func__,
-					rpf->source_nexthop.interface->name);
-			}
-
-			msg = (struct pim_jp *)pim_msg;
-			memset(msg, 0, sizeof(*msg));
-
-			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
-						  rpf->rpf_addr);
-			msg->reserved = 0;
-			msg->holdtime = htons(pim_if_jp_hold(pim_ifp));
-
-			new_packet = false;
-
-			grp = &msg->groups[0];
-			curr_ptr = (uint8_t *)grp;
-			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(pim_encoded_unicast);
-			packet_size +=
-				4; // reserved (1) + groups (1) + holdtime (2)
-
-			packet_left = rpf->source_nexthop.interface->mtu - 24;
-			packet_left -= packet_size;
-		}
-
-		msg->num_groups++;
-		/*
-		  Build PIM message
-		*/
-
-		curr_ptr += group_size;
-		packet_left -= group_size;
-		packet_size += group_size;
-		pim_msg_build_jp_groups(grp, group, group_size);
-
-		if (!pim_ifp->pim_passive_enable) {
-			pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
-			pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
-		}
-
-		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: interface %s num_joins %u num_prunes %u",
-				__func__, rpf->source_nexthop.interface->name,
-				ntohs(grp->joins), ntohs(grp->prunes));
-
-		grp = (struct pim_jp_groups *)curr_ptr;
-		if (packet_left < sizeof(struct pim_jp_groups)
-		    || msg->num_groups == 255) {
-			pim_msg_build_header(pim_ifp->primary_address,
-					     qpim_all_pim_routers_addr, pim_msg,
-					     packet_size,
-					     PIM_MSG_TYPE_JOIN_PRUNE, false);
-			if (pim_msg_send(pim_ifp->pim_sock_fd,
-					 pim_ifp->primary_address,
-					 qpim_all_pim_routers_addr, pim_msg,
-					 packet_size,
-					 rpf->source_nexthop.interface)) {
-				zlog_warn(
-					"%s: could not send PIM message on interface %s",
-					__func__,
-					rpf->source_nexthop.interface->name);
-			}
-
-			new_packet = true;
-		}
-	}
-
-
-	if (!new_packet) {
-		// msg->num_groups = htons (msg->num_groups);
-		pim_msg_build_header(
-			pim_ifp->primary_address, qpim_all_pim_routers_addr,
-			pim_msg, packet_size, PIM_MSG_TYPE_JOIN_PRUNE, false);
-		if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-				 qpim_all_pim_routers_addr, pim_msg,
-				 packet_size, rpf->source_nexthop.interface)) {
-			zlog_warn(
-				"%s: could not send PIM message on interface %s",
-				__func__, rpf->source_nexthop.interface->name);
-		}
-	}
-	return 0;
-}
-
-int pim_graft_send(struct pim_rpf *rpf, struct list *groups)
-{
-	struct pim_jp_agg_group *group;
-	struct pim_interface *pim_ifp = NULL;
-	struct pim_jp_groups *grp = NULL;
-	struct pim_jp *msg = NULL;
-	struct listnode *node, *nnode;
+	size_t group_written;
+	size_t packet_max_size;
 	uint8_t pim_msg[10000];
-	uint8_t *curr_ptr = pim_msg;
-	bool new_packet = true;
-	size_t packet_left = 0;
-	size_t packet_size = 0;
-	size_t group_size = 0;
 
-	if (rpf->source_nexthop.interface)
+	ifp = rpf->source_nexthop.interface;
+	if (ifp)
 		pim_ifp = rpf->source_nexthop.interface->info;
 	else {
 		zlog_warn("%s: RPF interface is not present", __func__);
@@ -835,117 +928,164 @@ int pim_graft_send(struct pim_rpf *rpf, struct list *groups)
 	}
 
 	/*
-	  RFC 4601: 4.3.1.  Sending Hello Messages
+	 * RFC 4601: 4.3.1.  Sending Hello Messages
+	 *
+	 * Thus, if a router needs to send a Join/Prune or Assert message on
+	 * an interface on which it has not yet sent a Hello message with the
+	 * currently configured IP address, then it MUST immediately send the
+	 * relevant Hello message without waiting for the Hello Timer to
+	 * expire, followed by the Join/Prune or Assert message.
+	 */
+	pim_hello_require(ifp);
 
-	  Thus, if a router needs to send a Join/Prune or Assert message on
-	  an interface on which it has not yet sent a Hello message with the
-	  currently configured IP address, then it MUST immediately send the
-	  relevant Hello message without waiting for the Hello Timer to
-	  expire, followed by the Join/Prune or Assert message.
-	*/
-	pim_hello_require(rpf->source_nexthop.interface);
+	/* Underflow protection: next instruction we do MTU - PIM_IP_HEADER_SIZE. */
+	if (ifp->mtu <= PIM_IP_HEADER_SIZE) {
+		zlog_warn("%s: interface %s MTU seems bogus: %d", __func__, ifp->name, ifp->mtu);
+		return 0;
+	}
 
-	for (ALL_LIST_ELEMENTS(groups, node, nnode, group)) {
-		if (new_packet) {
-			msg = (struct pim_jp *)pim_msg;
+	/*
+	 * Find out the maximum packet size an interface can handle
+	 * which is the MTU size minus the size of an IP header.
+	 *
+	 * In case the interface MTU is bigger than our stack buffer,
+	 * then use the stack buffer.
+	 */
+	packet_max_size = MIN(ifp->mtu - PIM_IP_HEADER_SIZE, sizeof(pim_msg));
+	if (packet_max_size < (PIM_IP_HEADER_SIZE + PIM_JP_HEADER_SIZE + sizeof(struct pim_jp))) {
+		zlog_warn("%s: interface %s MTU is too small: %d", __func__, ifp->name, ifp->mtu);
+		return 0;
+	}
 
-			memset(msg, 0, sizeof(*msg));
+	msg = (struct pim_jp *)pim_msg;
+	packet_left = 0;
 
-			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr, rpf->rpf_addr);
-			msg->reserved = 0;
-			msg->holdtime = 0; // htons(PIM_JP_HOLDTIME);
-
-			new_packet = false;
-
-			grp = &msg->groups[0];
-			curr_ptr = (uint8_t *)grp;
-			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(pim_encoded_unicast);
-			packet_size += 4; // reserved (1) + groups (1) + holdtime (2)
-
-			packet_left = rpf->source_nexthop.interface->mtu - 24;
-			packet_left -= packet_size;
-		}
+	for (ALL_LIST_ELEMENTS_RO(groups, node, group)) {
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
-				   __func__, &group->group, &rpf->rpf_addr,
-				   rpf->source_nexthop.interface->name);
+			zlog_debug(
+				"%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
+				__func__, &group->group, &rpf->rpf_addr,
+				rpf->source_nexthop.interface->name);
 
-		group_size = pim_msg_get_jp_group_size(group->sources);
-		if (group_size > packet_left) {
-			pim_msg_build_header(pim_ifp->primary_address, qpim_all_pim_routers_addr,
-					     pim_msg, packet_size, PIM_MSG_TYPE_GRAFT, false);
-			if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-					 qpim_all_pim_routers_addr, pim_msg, packet_size,
-					 rpf->source_nexthop.interface)) {
-				zlog_warn("%s: could not send PIM message on interface %s",
-					  __func__, rpf->source_nexthop.interface->name);
-			}
+		/* Initialize source iterators */
+		last_source = NULL;
+		last_child = NULL;
 
-			msg = (struct pim_jp *)pim_msg;
+		/* Set RPT prune in eligible sources */
+		pim_jp_groups_source_set_prune(group->sources);
+
+pim_start_message:
+		/* Write the join prune header or point to the next group */
+		if (packet_left <= sizeof(struct pim_jp)) {
 			memset(msg, 0, sizeof(*msg));
-
 			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr, rpf->rpf_addr);
-			msg->reserved = 0;
-			msg->holdtime = 0; // htons(PIM_JP_HOLDTIME);
+			msg->holdtime = htons(holdtime);
 
-			new_packet = false;
+			grp = (struct pim_jp_groups *)&msg->groups[0];
 
-			grp = &msg->groups[0];
-			curr_ptr = (uint8_t *)grp;
-			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(pim_encoded_unicast);
-			packet_size += 4; // reserved (1) + groups (1) + holdtime (2)
+			packet_size = PIM_JP_HEADER_SIZE;
+			packet_left = packet_max_size - packet_size;
+		} else
+			grp = (struct pim_jp_groups *)&pim_msg[packet_size];
 
-			packet_left = rpf->source_nexthop.interface->mtu - 24;
-			packet_left -= packet_size;
+		/*
+		 * Write the PIM join prune group contents
+		 *
+		 * While there are group sources or upstream sources
+		 * available keep iterating
+		 *
+		 * *NOTE* when `pim_jp_groups_fill` returns 0 it means
+		 * nothing was written so we can't bump the
+		 * `msg->num_groups`.
+		 */
+		group_written = pim_jp_groups_fill(grp, group, packet_left, &last_source,
+						   &last_child);
+		/*
+		 * When `pim_jp_groups_fill` returns 0 it means there
+		 * were no more space in the buffer, so flush the
+		 * packet and start over.
+		 */
+		if (group_written == 0) {
+			pim_jp_flush_packet(ifp, pim_msg_type, pim_msg, packet_size);
+
+			packet_left = 0;
+			packet_size = 0;
+			goto pim_start_message;
 		}
 
 		msg->num_groups++;
-		/*
-		  Build PIM message
-		*/
 
-		curr_ptr += group_size;
-		packet_left -= group_size;
-		packet_size += group_size;
-		pim_msg_build_jp_groups(grp, group, group_size);
+		packet_size += group_written;
+		packet_left -= group_written;
 
 		if (!pim_ifp->pim_passive_enable) {
-			pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
-			pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
+			pim_ifp->pim_ifstat_join_send += grp->joins;
+			pim_ifp->pim_ifstat_prune_send += grp->prunes;
 		}
 
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: interface %s num_joins %u num_prunes %u", __func__,
-				   rpf->source_nexthop.interface->name, ntohs(grp->joins),
-				   ntohs(grp->prunes));
+				   ifp->name, grp->joins, grp->prunes);
 
-		grp = (struct pim_jp_groups *)curr_ptr;
-		if (packet_left < sizeof(struct pim_jp_groups) || msg->num_groups == 255) {
-			pim_msg_build_header(pim_ifp->primary_address, qpim_all_pim_routers_addr,
-					     pim_msg, packet_size, PIM_MSG_TYPE_GRAFT, false);
-			if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-					 qpim_all_pim_routers_addr, pim_msg, packet_size,
-					 rpf->source_nexthop.interface)) {
-				zlog_warn("%s: could not send PIM message on interface %s",
-					  __func__, rpf->source_nexthop.interface->name);
-			}
+		grp->joins = htons(grp->joins);
+		grp->prunes = htons(grp->prunes);
 
-			new_packet = true;
+		/* We filled the buffer with the group, lets flush */
+		if (last_source || last_child) {
+			pim_jp_flush_packet(ifp, pim_msg_type, pim_msg, packet_size);
+
+			/* Repeat loop but don't go to the next group */
+			packet_left = 0;
+			goto pim_start_message;
+		}
+
+		/*
+		 * `last_source` and `last_child` are NULL so we
+		 * exhausted all sources in this group, before we go to
+		 * the next one check if we need flushing the packet.
+		 *
+		 * We need to flush the packet if:
+		 *  1. The buffer space is too small
+		 *  2. The number of groups would overflow (> 255)
+		 */
+		if (packet_left <= (sizeof(struct pim_jp) + sizeof(pim_encoded_source)) ||
+		    msg->num_groups == 255) {
+			pim_jp_flush_packet(ifp, pim_msg_type, pim_msg, packet_size);
+
+			packet_left = 0;
+			packet_size = 0;
+			continue;
 		}
 	}
 
-	if (!new_packet) {
-		// msg->num_groups = htons (msg->num_groups);
-		pim_msg_build_header(pim_ifp->primary_address, qpim_all_pim_routers_addr, pim_msg,
-				     packet_size, PIM_MSG_TYPE_GRAFT, false);
-		if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-				 qpim_all_pim_routers_addr, pim_msg, packet_size,
-				 rpf->source_nexthop.interface)) {
-			zlog_warn("%s: could not send PIM message on interface %s", __func__,
-				  rpf->source_nexthop.interface->name);
-		}
-	}
+	/* Flush final packet if something was written */
+	if (packet_size > 0)
+		pim_jp_flush_packet(ifp, pim_msg_type, pim_msg, packet_size);
+
 	return 0;
+}
+
+int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
+{
+	struct interface *ifp = rpf->source_nexthop.interface;
+	struct pim_interface *pim_ifp;
+
+	if (ifp == NULL) {
+		zlog_warn("%s: RPF interface is not present", __func__);
+		return -1;
+	}
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  rpf->source_nexthop.interface->name);
+		return -1;
+	}
+
+	return pim_jp_send(rpf, groups, PIM_MSG_TYPE_JOIN_PRUNE, pim_if_jp_hold(pim_ifp));
+}
+
+int pim_graft_send(struct pim_rpf *rpf, struct list *groups)
+{
+	return pim_jp_send(rpf, groups, PIM_MSG_TYPE_GRAFT, 0);
 }
