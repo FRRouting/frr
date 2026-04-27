@@ -76,6 +76,14 @@ struct pim_interface {
 	bool pim_enable : 1;
 	bool pim_can_disable_join_suppression : 1;
 	bool pim_passive_enable : 1;
+	/* NBMA-mode: on an mGRE/DMVPN-style multi-access interface,
+	 * track each NHRP-resolved neighbor as an independent PIM peer
+	 * (per-NBMA PIM state + per-NBMA OIL). Enables selective,
+	 * PIM-SM-compliant multicast replication to subscribers only,
+	 * replacing the default "blanket fanout" behaviour that makes
+	 * the interface look like a pseudo-broadcast LAN.
+	 */
+	bool pim_nbma_enable : 1;
 
 	bool gm_enable : 1;
 	bool gm_proxy : 1; /* proxy IGMP joins/prunes */

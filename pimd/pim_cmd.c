@@ -5871,6 +5871,59 @@ DEFPY (interface_ip_pim,
 	return pim_process_ip_pim_mode_cmd(vty, dm, smdm, ssm);
 }
 
+/*
+ * "ip pim nbma" -- enable PIM NBMA-mode on a multi-access non-broadcast
+ * tunnel interface (typical: mGRE over DMVPN). In NBMA-mode the
+ * interface is no longer treated as a single broadcast segment. Each
+ * NHRP-resolved neighbor is an independent PIM peer with its own OIL
+ * entry. Multicast forwarding is selective per neighbor, respecting
+ * PIM Join/Prune state -- matching the behaviour of Cisco IOS's
+ * "ip pim nbma-mode" on mGRE tunnels.
+ *
+ * The actual per-NBMA state tracking and OIL construction is handled
+ * in follow-on patches; this patch only plumbs the interface-level
+ * flag + CLI + config-write, so operators can enable the feature and
+ * nhrpd (via zapi) can read the flag when building its replication
+ * filter.
+ */
+DEFPY (interface_ip_pim_nbma,
+       interface_ip_pim_nbma_cmd,
+       "ip pim nbma",
+       IP_STR
+       PIM_STR
+       "Enable PIM NBMA-mode for mGRE/DMVPN multi-access tunnels\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp || !pim_ifp->pim_enable) {
+		vty_out(vty, "%% enable PIM (\"ip pim\") on this interface first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pim_ifp->pim_nbma_enable = true;
+	pim_nbma_send_state(ifp);
+	return CMD_SUCCESS;
+}
+
+DEFPY (interface_no_ip_pim_nbma,
+       interface_no_ip_pim_nbma_cmd,
+       "no ip pim nbma",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Disable PIM NBMA-mode for mGRE/DMVPN multi-access tunnels\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (pim_ifp) {
+		pim_ifp->pim_nbma_enable = false;
+		pim_nbma_send_state(ifp);
+	}
+	return CMD_SUCCESS;
+}
+
 /* boundaries */
 DEFUN_YANG(interface_ip_pim_boundary_oil,
       interface_ip_pim_boundary_oil_cmd,
@@ -9437,6 +9490,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_passive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_nbma_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_nbma_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
