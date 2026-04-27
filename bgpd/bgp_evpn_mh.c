@@ -339,6 +339,31 @@ static void bgp_evpn_es_route_del_all(struct bgp *bgp, struct bgp_evpn_es *es)
 	}
 }
 
+/* Purge all path-info entries from the ES table during daemon shutdown.
+ * The owning bgp instance may already have been deleted, so clear the
+ * table->bgp backpointer to avoid node teardown dereferencing freed state.
+ */
+static void bgp_evpn_es_route_table_purge(struct bgp_evpn_es *es)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi, *nextpi;
+
+	if (!es->route_table)
+		return;
+
+	es->route_table->bgp = NULL;
+
+	for (dest = bgp_table_top(es->route_table); dest; dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); (pi != NULL) && (nextpi = pi->next, 1);
+		     pi = nextpi) {
+			bgp_path_info_mark_for_delete(dest, pi);
+			dest = bgp_path_info_reap(dest, pi);
+
+			assert(dest);
+		}
+	}
+}
+
 /*****************************************************************************
  * Base APIs for creating MH routes (Type-1 or Type-4) on local ethernet
  * segment updates.
@@ -5100,10 +5125,11 @@ void bgp_evpn_mh_finish(void)
 	 * that prevent freeing structures with REMOTE flags set. We force
 	 * cleanup here to ensure no memory leaks.
 	 */
-	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree,
-			 es_next) {
-		/* Clear local info first (attempts normal cleanup) */
-		bgp_evpn_es_local_info_clear(es, true);
+	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es_next) {
+		/* Reap any remaining ES-table paths so table pi_hash is empty
+		 * before bgp_table_unlock() in bgp_evpn_es_free().
+		 */
+		bgp_evpn_es_route_table_purge(es);
 
 		/* Force cleanup of any remaining structures that couldn't be
 		 * freed due to REMOTE flags or other guard conditions
