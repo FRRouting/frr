@@ -107,6 +107,15 @@ enum pta_type {
 	PMSI_TNLTYPE_MAX = PMSI_TNLTYPE_MLDP_MP2MP
 };
 
+/* Hard limit on sub-TLVs within a single Tunnel Encap attribute (RFC 9012).
+ * Prevents a peer from driving unbounded XCALLOC churn with valid packets.
+ * This is not defined in the RFC, but is a sanity check to prevent memory
+ * exhaustion.
+ * Adding 64, just as a sanity number (I doubt more than 64 TLVs is a valid
+ * case in real life...).
+ */
+#define BGP_ENCAP_SUBTLV_MAX 64
+
 /*
  * Prefix-SID type-4
  * SRv6-VPN-SID-TLV
