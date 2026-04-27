@@ -263,7 +263,11 @@ static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 		return;
 
 	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
-	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
+	/* During daemon shutdown, VRF EVPN cleanup may already have freed
+	 * bgp_vrf->l2vnis before late VNI teardown runs.
+	 */
+	if (vpn->bgp_vrf->l2vnis)
+		listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
 
 	bgp_evpn_es_evi_vrf_deref(vpn);
 
