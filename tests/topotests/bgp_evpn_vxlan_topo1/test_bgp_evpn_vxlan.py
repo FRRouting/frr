@@ -532,6 +532,111 @@ def test_bgp_evpn_route_brief_json():
     logger.info("PE1: show bgp l2vpn evpn route brief [json] tests passed")
 
 
+def test_bgp_evpn_neighbor_routes_json_brief():
+    """
+    Test 'show bgp l2vpn evpn neighbors <peer> routes [json [brief]]' on PE1.
+
+    PE1 peers with PE2 (10.30.30.30) for EVPN; we assert full JSON includes
+    table-level keys and per-prefix paths, and brief JSON omits those in favor
+    of pathCount / flags only.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    peer = "10.30.30.30"
+
+    probe = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn neighbors {} routes json brief".format(peer),
+        isjson=False,
+    )
+    if "% Unknown command" in probe or "Unknown command:" in probe:
+        pytest.skip("neighbor routes json brief not in this build")
+
+    def _full_neighbor_json_ready():
+        j = pe1.vtysh_cmd(
+            "show bgp l2vpn evpn neighbors {} routes json".format(peer), isjson=True
+        )
+        if not j or not isinstance(j, dict):
+            return False
+        if j.get("bgpLocalRouterId") != "10.10.10.10":
+            return False
+        if "numPrefix" not in j or "totalPrefix" not in j:
+            return False
+        if "localAS" not in j:
+            return False
+        meta = {
+            "numPrefix",
+            "totalPrefix",
+            "bgpTableVersion",
+            "bgpLocalRouterId",
+            "defaultLocPrf",
+            "localAS",
+        }
+        rd_objs = {k: v for k, v in j.items() if k not in meta and isinstance(v, dict)}
+        if not rd_objs:
+            return False
+        rd = next(iter(rd_objs.values()))
+        if "numPrefixes" not in rd:
+            return False
+        for k, v in rd.items():
+            if k in ("rd", "numPrefixes"):
+                continue
+            if isinstance(v, dict) and "paths" in v:
+                return True
+        return False
+
+    ok, _ = topotest.run_and_expect(_full_neighbor_json_ready, True, count=20, wait=3)
+    assert ok, "PE1: neighbor routes full JSON did not converge"
+
+    text = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn neighbors {} routes".format(peer), isjson=False
+    )
+    assert "Route Distinguisher" in text
+    assert "Displayed" in text and "total prefixes" in text
+
+    full = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn neighbors {} routes json".format(peer), isjson=True
+    )
+    assert isinstance(full, dict)
+    assert full.get("bgpLocalRouterId") == "10.10.10.10"
+
+    brief = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn neighbors {} routes json brief".format(peer),
+        isjson=True,
+    )
+    assert isinstance(brief, dict)
+    for k in ("bgpTableVersion", "bgpLocalRouterId", "numPrefix", "totalPrefix"):
+        assert k not in brief, "PE1: brief json should omit top-level key {}".format(k)
+
+    meta = {
+        "numPrefix",
+        "totalPrefix",
+        "bgpTableVersion",
+        "bgpLocalRouterId",
+        "defaultLocPrf",
+        "localAS",
+    }
+    rd_keys = [x for x in brief if x not in meta and isinstance(brief[x], dict)]
+    assert rd_keys, "PE1: brief json should contain at least one RD object"
+    rd = brief[rd_keys[0]]
+    assert "numPrefixes" in rd
+    saw_nlri = False
+    for k, v in rd.items():
+        if k in ("rd", "numPrefixes"):
+            continue
+        if not isinstance(v, dict):
+            continue
+        saw_nlri = True
+        assert "paths" not in v, "PE1: brief must omit paths for NLRI {}".format(k)
+        assert "pathCount" in v, "PE1: brief expects pathCount for NLRI {}".format(k)
+        assert "flags" in v, "PE1: brief expects flags for NLRI {}".format(k)
+    assert saw_nlri, "PE1: brief json RD should contain at least one NLRI entry"
+
+    logger.info("PE1: neighbor routes json / json brief tests passed")
+
+
 def test_evpn_l2vni_vlan_bridge_json():
     """
     Test L2 VNI JSON output includes vlan and bridge fields
