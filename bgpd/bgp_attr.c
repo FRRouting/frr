@@ -3007,10 +3007,20 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		}
 	}
 
+	uint16_t subtlv_count = 0;
+
 	while (length > 0 && STREAM_READABLE(BGP_INPUT(peer)) >= 4) {
 		uint16_t subtype = 0;
 		uint16_t sublength = 0;
 		struct bgp_attr_encap_subtlv *tlv;
+
+		if (subtlv_count++ >= BGP_ENCAP_SUBTLV_MAX) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Tunnel Encap attribute sub-TLV count exceeds limit (%u)",
+				 BGP_ENCAP_SUBTLV_MAX);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+						  args->total);
+		}
 
 		if (BGP_ATTR_ENCAP == type) {
 			if (length < 1) {

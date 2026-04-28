@@ -1352,7 +1352,8 @@ as_t peek_for_as4_capability(struct peer *peer, uint16_t length)
 			unsigned long capd_start = stream_get_getp(s);
 			unsigned long capd_end = capd_start + opt_length;
 
-			assert(capd_end <= end);
+			if (capd_end > end)
+				goto end;
 
 			while (stream_get_getp(s) < capd_end) {
 				struct capability_header hdr;
