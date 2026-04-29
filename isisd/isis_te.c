@@ -1058,6 +1058,15 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv, struct isis_e
 			attr->adj_srv6_sid[i].weight = endx->weight;
 			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid, sizeof(struct in6_addr));
 			attr->adj_srv6_sid[i].endpoint_behavior = endx->behavior;
+			if (endx->subsubtlvs && endx->subsubtlvs->srv6_sid_structure) {
+				struct isis_srv6_sid_structure_subsubtlv *ss =
+					endx->subsubtlvs->srv6_sid_structure;
+				attr->adj_srv6_sid[i].has_structure = true;
+				attr->adj_srv6_sid[i].lb_len = ss->loc_block_len;
+				attr->adj_srv6_sid[i].ln_len = ss->loc_node_len;
+				attr->adj_srv6_sid[i].fn_len = ss->func_len;
+				attr->adj_srv6_sid[i].arg_len = ss->arg_len;
+			}
 		}
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_SRV6_LAN_ENDX_SID)) {
@@ -1079,6 +1088,15 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv, struct isis_e
 			attr->adj_srv6_sid[i].weight = lendx->weight;
 			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid, sizeof(struct in6_addr));
 			attr->adj_srv6_sid[i].endpoint_behavior = lendx->behavior;
+			if (lendx->subsubtlvs && lendx->subsubtlvs->srv6_sid_structure) {
+				struct isis_srv6_sid_structure_subsubtlv *ss =
+					lendx->subsubtlvs->srv6_sid_structure;
+				attr->adj_srv6_sid[i].has_structure = true;
+				attr->adj_srv6_sid[i].lb_len = ss->loc_block_len;
+				attr->adj_srv6_sid[i].ln_len = ss->loc_node_len;
+				attr->adj_srv6_sid[i].fn_len = ss->func_len;
+				attr->adj_srv6_sid[i].arg_len = ss->arg_len;
+			}
 		}
 	}
 	return attr;
@@ -1353,6 +1371,20 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 		sr.behavior = psid->behavior;
 		sr.flags = psid->flags;
 		memcpy(&sr.sid, &psid->sid, sizeof(struct in6_addr));
+
+		/*
+		 * For locator prefixes, also capture SID Structure (sub-sub-TLV)
+		 * for BGP-LS TLVs 1162 / 1252
+		 */
+		if (psid->subsubtlvs && psid->subsubtlvs->srv6_sid_structure) {
+			struct isis_srv6_sid_structure_subsubtlv *ss =
+				psid->subsubtlvs->srv6_sid_structure;
+			sr.has_structure = true;
+			sr.lb_len = ss->loc_block_len;
+			sr.ln_len = ss->loc_node_len;
+			sr.fn_len = ss->func_len;
+			sr.arg_len = ss->arg_len;
+		}
 
 		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6) ||
 		    memcmp(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid))) {
