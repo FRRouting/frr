@@ -210,6 +210,34 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 	return 0;
 }
 
+static void zebra_evpn_l2vni_svi_update(struct zebra_evpn *zevpn,
+					struct interface *svi_if)
+{
+	struct zebra_l3vni *zl3vni;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+
+	if (svi_if && svi_if->vrf)
+		vrf_id = svi_if->vrf->vrf_id;
+
+	if (zevpn->svi_if != svi_if || zevpn->vrf_id != vrf_id) {
+		/* Remove this L2VNI from the old L3VNI's associated L2VNI list. */
+		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
+		if (zl3vni)
+			listnode_delete(zl3vni->l2vnis, zevpn);
+
+		zevpn->svi_if = svi_if;
+		zevpn->vrf_id = vrf_id;
+	}
+
+	if (!svi_if)
+		return;
+
+	/* Add this L2VNI to the new L3VNI's associated L2VNI list. */
+	zl3vni = zl3vni_from_vrf(vrf_id);
+	if (zl3vni)
+		listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
+}
+
 static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				     struct zebra_vxlan_vni *vnip,
 				     struct zebra_vxlan_if_update_ctx *ctx)
@@ -362,8 +390,7 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		zevpn_bridge_if_set(zevpn, br_if, true /* set */);
 
 		vlan_if = zvni_map_to_svi(vnip->access_vlan, br_if);
-		if (vlan_if)
-			zevpn->svi_if = vlan_if;
+		zebra_evpn_l2vni_svi_update(zevpn, vlan_if);
 
 		/* Take further actions needed.
 		 * Note that if we are here, there is a change of interest.
