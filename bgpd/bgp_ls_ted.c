@@ -382,6 +382,40 @@ int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr 
 }
 
 /*
+ * Populate BGP-LS Attributes for an SRv6 SID NLRI (Type 6)
+ *
+ * Fills in the SRv6 SID-specific attribute TLVs:
+ *   TLV 1250 - SRv6 Endpoint Behavior (RFC 9514 Section 7.1)
+ *   TLV 1252 - SRv6 SID Structure (RFC 9514 Section 7.3)
+ *              (populated only when structure info is available in ls_prefix)
+ */
+static int bgp_ls_populate_srv6_sid_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr)
+{
+	if (!ls_prefix || !attr)
+		return -1;
+
+	if (!CHECK_FLAG(ls_prefix->flags, LS_PREF_SRV6))
+		return 0;
+
+	/* SRv6 Endpoint Behavior (TLV 1250) - identifies the SID function */
+	attr->srv6_endpoint_behavior = ls_prefix->srv6.behavior;
+	attr->srv6_endpoint_flags = ls_prefix->srv6.flags;
+	attr->srv6_endpoint_algo = 0;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT);
+
+	/* SRv6 SID Structure (TLV 1252, RFC 9514 Section 7.3) */
+	if (ls_prefix->srv6.has_structure) {
+		attr->srv6_sid_structure.lb_len = ls_prefix->srv6.lb_len;
+		attr->srv6_sid_structure.ln_len = ls_prefix->srv6.ln_len;
+		attr->srv6_sid_structure.fun_len = ls_prefix->srv6.fn_len;
+		attr->srv6_sid_structure.arg_len = ls_prefix->srv6.arg_len;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT);
+	}
+
+	return 0;
+}
+
+/*
  * ===========================================================================
  * IGP Origination Functions
  * ===========================================================================
@@ -1031,6 +1065,14 @@ int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rou
 	/* SRv6 SID Descriptor: SID Information (TLV 518) */
 	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
 
+	/* Populate SRv6 SID attributes (endpoint behavior, SID structure) */
+	ls_attr = bgp_ls_attr_alloc();
+	if (bgp_ls_populate_srv6_sid_attr(subnet->ls_pref, ls_attr) < 0) {
+		zlog_warn("BGP-LS: Failed to populate SRv6 SID attributes");
+		bgp_ls_attr_free(ls_attr);
+		return -1;
+	}
+
 	/* Install in RIB */
 	ret = bgp_ls_update(bgp, &nlri, ls_attr);
 	if (ret < 0) {
@@ -1043,6 +1085,7 @@ int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rou
 		zlog_debug("BGP-LS: Originated SRv6 SID NLRI %pI6 behavior 0x%04x",
 			   &subnet->ls_pref->srv6.sid, subnet->ls_pref->srv6.behavior);
 
+	bgp_ls_attr_free(ls_attr);
 	return 0;
 }
 

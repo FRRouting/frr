@@ -529,6 +529,15 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->srv6_locator_metric, attr2->srv6_locator_metric);
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		if (attr1->srv6_endpoint_behavior != attr2->srv6_endpoint_behavior)
+			return numcmp(attr1->srv6_endpoint_behavior, attr2->srv6_endpoint_behavior);
+		if (attr1->srv6_endpoint_flags != attr2->srv6_endpoint_flags)
+			return numcmp(attr1->srv6_endpoint_flags, attr2->srv6_endpoint_flags);
+		if (attr1->srv6_endpoint_algo != attr2->srv6_endpoint_algo)
+			return numcmp(attr1->srv6_endpoint_algo, attr2->srv6_endpoint_algo);
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT)) {
 		ret = memcmp(&attr1->srv6_sid_structure, &attr2->srv6_sid_structure,
 			     sizeof(attr1->srv6_sid_structure));
@@ -2799,6 +2808,19 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		stream_putc(s, attr->srv6_locator_algo);
 		stream_putw(s, 0); /* Reserved */
 		stream_putl(s, attr->srv6_locator_metric);
+	}
+
+	/* SRv6 Endpoint Behavior (TLV 1250) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		if (STREAM_WRITEABLE(s) <
+		    (size_t)(BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE))
+			return -1;
+
+		stream_putw(s, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR);
+		stream_putw(s, BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE);
+		stream_putw(s, attr->srv6_endpoint_behavior);
+		stream_putc(s, attr->srv6_endpoint_flags);
+		stream_putc(s, attr->srv6_endpoint_algo);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) - top-level in SRv6 SID NLRI attributes */
@@ -5245,6 +5267,32 @@ static int parse_srv6_locator(struct stream *s, uint16_t length, struct bgp_ls_a
 	return 0;
 }
 
+/*
+ * Parse SRv6 Endpoint Behavior TLV (Type 1250, RFC 9514 Section 7.1)
+ * Format: Endpoint Behavior (2) + Flags (1) + Algorithm (1)
+ */
+static int parse_srv6_endpoint_behavior(struct stream *s, uint16_t length, struct bgp_ls_attr *attr)
+{
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate SRv6 Endpoint Behavior TLV");
+		return -1;
+	}
+
+	if (length != BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: SRv6 Endpoint Behavior TLV bad length (%u bytes, expected %u)",
+			  length, BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE);
+		return -1;
+	}
+
+	attr->srv6_endpoint_behavior = stream_getw(s);
+	attr->srv6_endpoint_flags = stream_getc(s);
+	attr->srv6_endpoint_algo = stream_getc(s);
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT);
+	return 0;
+}
+
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
@@ -5454,6 +5502,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_SRV6_LOCATOR:
 			if (parse_srv6_locator(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR:
+			if (parse_srv6_endpoint_behavior(s, length, attr) < 0)
 				return -1;
 			break;
 
@@ -5749,6 +5802,16 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		json_object_int_add(jloc, "algo", ls_attr->srv6_locator_algo);
 		json_object_int_add(jloc, "metric", ls_attr->srv6_locator_metric);
 		json_object_object_add(json_ls_attr, "srv6Locator", jloc);
+	}
+
+	/* SRv6 Endpoint Behavior (TLV 1250) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		json_object *jep = json_object_new_object();
+
+		json_object_string_addf(jep, "behavior", "0x%x", ls_attr->srv6_endpoint_behavior);
+		json_object_string_addf(jep, "flags", "0x%x", ls_attr->srv6_endpoint_flags);
+		json_object_int_add(jep, "algo", ls_attr->srv6_endpoint_algo);
+		json_object_object_add(json_ls_attr, "srv6EndpointBehavior", jep);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */
@@ -6054,6 +6117,14 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 		col += vty_out(vty, "SRv6 Locator Metric: %u Flags: 0x%x Algo: %u",
 			       ls_attr->srv6_locator_metric, ls_attr->srv6_locator_flags,
 			       ls_attr->srv6_locator_algo);
+	}
+
+	/* SRv6 Endpoint Behavior (TLV 1250) */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		CHECK_WRAP();
+		col += vty_out(vty, "SRv6 Endpoint Behavior: 0x%x Flags: 0x%x Algo: %u",
+			       ls_attr->srv6_endpoint_behavior, ls_attr->srv6_endpoint_flags,
+			       ls_attr->srv6_endpoint_algo);
 	}
 
 	/* SRv6 SID Structure (TLV 1252) */

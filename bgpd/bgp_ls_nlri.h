@@ -251,6 +251,7 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator - RFC 9514, Section 5.1 */
 
 	/* SRv6 SID Attribute TLVs (RFC 9514 Section 7.1) */
+	BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR = 1250,  /* SRv6 Endpoint Behavior */
 	BGP_LS_ATTR_SRV6_SID_STRUCTURE = 1252,	     /* SRv6 SID Structure */
 };
 
@@ -343,6 +344,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE	  28 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Sys-ID (6) */
 #define BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE	  26 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Router-ID (4) */
 #define BGP_LS_SRV6_LOCATOR_MIN_SIZE		8  /* Flags (1) + Algo (1) + Reserved (2) + Metric (4) */
+#define BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE	4  /* Behavior (2) + Flags (1) + Algo (1) */
 #define BGP_LS_SRV6_SID_INFO_SIZE		16 /* 128-bit SRv6 SID */
 
 /*
@@ -403,6 +405,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_SRV6_CAPABILITIES_BIT      (1ULL << 40)
 #define BGP_LS_ATTR_SRV6_ENDX_SID_BIT	       (1ULL << 41)
 #define BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT      (1ULL << 42)
+#define BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT (1ULL << 43)
 #define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
 
 /*
@@ -789,6 +792,11 @@ struct bgp_ls_attr {
 	uint8_t srv6_locator_flags;
 	uint8_t srv6_locator_algo;
 	uint32_t srv6_locator_metric;
+
+	/* SRv6 Endpoint Behavior (TLV 1250, RFC 9514 Section 7.1) */
+	uint16_t srv6_endpoint_behavior;
+	uint8_t srv6_endpoint_flags;
+	uint8_t srv6_endpoint_algo;
 
 	unsigned long refcnt; /* Reference count */
 
