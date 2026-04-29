@@ -238,6 +238,12 @@ struct ls_attributes {
 		union {
 			uint8_t sysid[ISO_SYS_ID_LEN]; /* Sys-ID for ISIS */
 		} neighbor;
+		/* SID Structure sub-sub-TLV (RFC 9352 section 9) */
+		bool has_structure;
+		uint8_t lb_len;	 /* Locator Block length in bits */
+		uint8_t ln_len;	 /* Locator Node length in bits */
+		uint8_t fn_len;	 /* Function length in bits */
+		uint8_t arg_len; /* Argument length in bits */
 	} adj_srv6_sid[2];
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
@@ -270,6 +276,12 @@ struct ls_prefix {
 		struct in6_addr sid; /* Segment Routing ID */
 		uint16_t behavior;   /* Endpoint behavior bound to the SID */
 		uint8_t flags;	     /* Flags */
+		/* SID Structure sub-sub-TLV (valid when has_structure is true) */
+		bool has_structure;
+		uint8_t lb_len;		/* Locator Block length in bits */
+		uint8_t ln_len;		/* Locator Node length in bits */
+		uint8_t fn_len;		/* Function length in bits */
+		uint8_t arg_len;	/* Argument length in bits */
 	} srv6;
 };
 
