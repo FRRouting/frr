@@ -442,6 +442,7 @@ static void rpki_delete_all_cache_nodes(struct rpki_vrf *rpki_vrf)
 			rtr_mgr_remove_group(rpki_vrf->rtr_config,
 					     cache->preference);
 		listnode_delete(rpki_vrf->cache_list, cache);
+		free_cache(cache);
 	}
 }
 
