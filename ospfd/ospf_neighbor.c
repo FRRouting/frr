@@ -135,7 +135,7 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);
 
-	bfd_sess_free(&nbr->bfd_session);
+	ospf_neighbor_bfd_clear(nbr);
 
 	event_cancel(&nbr->gr_helper_info.t_grace_timer);
 

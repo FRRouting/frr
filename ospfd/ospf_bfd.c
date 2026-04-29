@@ -31,6 +31,105 @@
 #include "ospf_vty.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, BFD_CONFIG, "BFD configuration data");
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_BFD_SESSION_ENTRY, "OSPF BFD session entry");
+
+static void ospf_bfd_session_change(struct bfd_session_params *bsp,
+				    const struct bfd_session_status *bss, void *arg);
+
+struct ospf_bfd_session_entry {
+	struct ospf_interface *oi;
+	struct in_addr endpoint;
+	/* Weak pointer to the current neighbor (may be NULL). */
+	struct ospf_neighbor *nbr;
+	struct bfd_session_params *bsp;
+};
+
+static void ospf_bfd_entry_key(const struct in_addr *endpoint, struct prefix *p)
+{
+	memset(p, 0, sizeof(*p));
+	p->family = AF_INET;
+	p->prefixlen = IPV4_MAX_BITLEN;
+	p->u.prefix4 = *endpoint;
+}
+
+static struct ospf_bfd_session_entry *ospf_bfd_entry_lookup(struct ospf_interface *oi,
+							    const struct in_addr *endpoint)
+{
+	struct prefix key;
+	struct route_node *rn;
+	struct ospf_bfd_session_entry *entry;
+
+	if (!oi || !oi->bfd_sessions)
+		return NULL;
+
+	ospf_bfd_entry_key(endpoint, &key);
+	rn = route_node_lookup(oi->bfd_sessions, &key);
+	if (!rn)
+		return NULL;
+
+	entry = rn->info;
+	route_unlock_node(rn);
+	return entry;
+}
+
+static struct ospf_bfd_session_entry *ospf_bfd_entry_get(struct ospf_interface *oi,
+							 const struct in_addr *endpoint)
+{
+	struct prefix key;
+	struct route_node *rn;
+	struct ospf_bfd_session_entry *entry;
+
+	if (!oi->bfd_sessions)
+		oi->bfd_sessions = route_table_init();
+
+	ospf_bfd_entry_key(endpoint, &key);
+	rn = route_node_get(oi->bfd_sessions, &key);
+
+	if (rn->info) {
+		route_unlock_node(rn);
+		entry = rn->info;
+	} else {
+		entry = XCALLOC(MTYPE_OSPF_BFD_SESSION_ENTRY, sizeof(*entry));
+		entry->oi = oi;
+		entry->endpoint = *endpoint;
+		rn->info = entry;
+	}
+
+	if (!entry->bsp)
+		entry->bsp = bfd_sess_new(ospf_bfd_session_change, entry);
+
+	return entry;
+}
+
+static void ospf_bfd_entry_del(struct ospf_interface *oi, const struct in_addr *endpoint)
+{
+	struct prefix key;
+	struct route_node *rn;
+	struct ospf_bfd_session_entry *entry;
+
+	if (!oi || !oi->bfd_sessions)
+		return;
+
+	ospf_bfd_entry_key(endpoint, &key);
+	rn = route_node_lookup(oi->bfd_sessions, &key);
+	if (!rn)
+		return;
+
+	entry = rn->info;
+	if (entry) {
+		rn->info = NULL;
+		if (entry->nbr)
+			entry->nbr->bfd_session = NULL;
+		bfd_sess_free(&entry->bsp);
+		entry->nbr = NULL;
+		XFREE(MTYPE_OSPF_BFD_SESSION_ENTRY, entry);
+		/* Drop the persistent node lock held while info was set. */
+		route_unlock_node(rn);
+	}
+
+	/* Drop the lookup lock. */
+	route_unlock_node(rn);
+}
 
 /*
  * ospf_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
@@ -48,7 +147,9 @@ static void ospf_bfd_session_change(struct bfd_session_params *bsp,
 				    const struct bfd_session_status *bss,
 				    void *arg)
 {
-	struct ospf_neighbor *nbr = arg;
+	struct ospf_bfd_session_entry *entry = arg;
+	struct ospf_neighbor *nbr = entry ? entry->nbr : NULL;
+	struct ospf_interface *oi = entry ? entry->oi : NULL;
 
 	/*
 	 * Handle Admin Down from peer separately.
@@ -57,63 +158,136 @@ static void ospf_bfd_session_change(struct bfd_session_params *bsp,
 	 * but the OSPF adjacency should remain up.
 	 */
 	if (bss->state == BSS_ADMIN_DOWN && bss->previous_state == BSS_UP) {
-		if (IS_DEBUG_OSPF(bfd, BFD_LIB))
-			zlog_debug("%s: NSM[%s:%pI4]: BFD received Admin Down from peer - OSPF adjacency maintained",
-				   __func__, IF_NAME(nbr->oi), &nbr->address.u.prefix4);
+		if (IS_DEBUG_OSPF(bfd, BFD_LIB)) {
+			if (nbr)
+				zlog_debug("%s: NSM[%s:%pI4]: BFD received Admin Down from peer - OSPF adjacency maintained",
+					   __func__, IF_NAME(nbr->oi), &nbr->address.u.prefix4);
+			else if (oi && entry)
+				zlog_debug("%s: NSM[%s:%pI4]: BFD received Admin Down (no neighbor) - OSPF adjacency maintained",
+					   __func__, IF_NAME(oi), &entry->endpoint);
+		}
 		/* Don't tear down OSPF neighbor, just log the event */
 		return;
+	}
+
+	/* If we don't have a current neighbor pointer, try to find it by endpoint. */
+	if (!nbr && oi && entry) {
+		nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &entry->endpoint);
+		entry->nbr = nbr;
 	}
 
 	/* BFD peer went down. */
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
-		if (IS_DEBUG_OSPF(bfd, BFD_LIB))
-			zlog_debug("%s: NSM[%s:%pI4]: BFD Down", __func__,
-				   IF_NAME(nbr->oi), &nbr->address.u.prefix4);
-
-		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
+		if (nbr) {
+			if (IS_DEBUG_OSPF(bfd, BFD_LIB))
+				zlog_debug("%s: NSM[%s:%pI4]: BFD Down", __func__,
+					   IF_NAME(nbr->oi), &nbr->address.u.prefix4);
+			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
+		} else if (IS_DEBUG_OSPF(bfd, BFD_LIB) && oi && entry) {
+			zlog_debug("%s: NSM[%s:%pI4]: BFD Down (no neighbor)", __func__,
+				   IF_NAME(oi), &entry->endpoint);
+		}
 	}
 
 	/* BFD peer went up. */
 	if (bss->state == BSS_UP && bss->previous_state == BSS_DOWN)
-		if (IS_DEBUG_OSPF(bfd, BFD_LIB))
-			zlog_debug("%s: NSM[%s:%pI4]: BFD Up", __func__,
-				   IF_NAME(nbr->oi), &nbr->address.u.prefix4);
+		if (IS_DEBUG_OSPF(bfd, BFD_LIB)) {
+			if (nbr)
+				zlog_debug("%s: NSM[%s:%pI4]: BFD Up", __func__, IF_NAME(nbr->oi),
+					   &nbr->address.u.prefix4);
+			else if (oi && entry)
+				zlog_debug("%s: NSM[%s:%pI4]: BFD Up (no neighbor)", __func__,
+					   IF_NAME(oi), &entry->endpoint);
+		}
 }
 
 void ospf_neighbor_bfd_apply(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 	struct ospf_if_params *oip = IF_DEF_PARAMS(oi->ifp);
+	struct ospf_bfd_session_entry *entry;
 
 	/* BFD configuration was removed. */
 	if (oip->bfd_config == NULL) {
-		bfd_sess_free(&nbr->bfd_session);
+		ospf_neighbor_bfd_clear(nbr);
 		return;
 	}
 
-	/* New BFD session. */
-	if (nbr->bfd_session == NULL) {
-		nbr->bfd_session = bfd_sess_new(ospf_bfd_session_change, nbr);
-		/* Pass local interface address as source (like BGP does with su_local) */
-		bfd_sess_set_ipv4_addrs(nbr->bfd_session,
-					oi->address ? &oi->address->u.prefix4 : NULL,  /* local source */
-					&nbr->src);                /* remote dest */
-		bfd_sess_set_interface(nbr->bfd_session, oi->ifp->name);
-		bfd_sess_set_vrf(nbr->bfd_session, oi->ospf->vrf_id);
-	}
+	entry = ospf_bfd_entry_get(oi, &nbr->src);
+	entry->nbr = nbr;
+	nbr->bfd_session = entry->bsp;
+
+	/* Pass local interface address as source (like BGP does with su_local) */
+	bfd_sess_set_ipv4_addrs(entry->bsp, oi->address ? &oi->address->u.prefix4 : NULL,
+				&nbr->src);
+	bfd_sess_set_interface(entry->bsp, oi->ifp->name);
+	bfd_sess_set_vrf(entry->bsp, oi->ospf->vrf_id);
 
 	/* Set new configuration. */
-	bfd_sess_set_timers(nbr->bfd_session,
-			    oip->bfd_config->detection_multiplier,
+	bfd_sess_set_timers(entry->bsp, oip->bfd_config->detection_multiplier,
 			    oip->bfd_config->min_rx, oip->bfd_config->min_tx);
-	bfd_sess_set_profile(nbr->bfd_session, oip->bfd_config->profile);
+	bfd_sess_set_profile(entry->bsp, oip->bfd_config->profile);
 
 	/* Don't start sessions on down OSPF sessions. */
 	if (nbr->state < NSM_TwoWay)
 		return;
 
-	bfd_sess_install(nbr->bfd_session);
+	bfd_sess_install(entry->bsp);
+}
+
+void ospf_neighbor_bfd_clear(struct ospf_neighbor *nbr)
+{
+	struct ospf_interface *oi;
+	struct ospf_bfd_session_entry *entry;
+	struct bfd_session_params *legacy_bsp;
+
+	if (!nbr)
+		return;
+
+	oi = nbr->oi;
+	legacy_bsp = nbr->bfd_session;
+	nbr->bfd_session = NULL;
+
+	/*
+	 * Preferred path: session is interface-owned. If an entry exists, delete it
+	 * and do NOT free legacy_bsp (it aliases entry->bsp).
+	 */
+	entry = (oi ? ospf_bfd_entry_lookup(oi, &nbr->src) : NULL);
+	if (entry) {
+		ospf_bfd_entry_del(oi, &nbr->src);
+		return;
+	}
+
+	/* Legacy/partial-init fallback: free whatever the neighbor owns. */
+	bfd_sess_free(&legacy_bsp);
+}
+
+void ospf_bfd_if_flush(struct ospf_interface *oi)
+{
+	struct route_node *rn, *next;
+
+	if (!oi || !oi->bfd_sessions)
+		return;
+
+	for (rn = route_top(oi->bfd_sessions); rn; rn = next) {
+		struct ospf_bfd_session_entry *entry;
+
+		entry = rn->info;
+		next = route_next(rn);
+
+		if (!entry)
+			continue;
+
+		rn->info = NULL;
+		if (entry->nbr)
+			entry->nbr->bfd_session = NULL;
+		bfd_sess_free(&entry->bsp);
+		entry->nbr = NULL;
+		XFREE(MTYPE_OSPF_BFD_SESSION_ENTRY, entry);
+		/* Drop the persistent node lock held while info was set. */
+		route_unlock_node(rn);
+	}
 }
 
 static void ospf_interface_bfd_apply(struct interface *ifp)
@@ -158,6 +332,18 @@ void ospf_interface_disable_bfd(struct interface *ifp,
 {
 	XFREE(MTYPE_BFD_CONFIG, oip->bfd_config);
 	ospf_interface_bfd_apply(ifp);
+	/* Ensure any interface-owned entries are removed too. */
+	{
+		struct route_node *rn;
+
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (!oi)
+				continue;
+			ospf_bfd_if_flush(oi);
+		}
+	}
 }
 
 /*

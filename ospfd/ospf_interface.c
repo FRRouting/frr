@@ -270,6 +270,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	/* Initialize neighbor list. */
 	oi->nbrs = route_table_init();
+	oi->bfd_sessions = route_table_init();
 
 	/* Initialize static neighbor list. */
 	oi->nbr_nbma = list_new();
@@ -387,6 +388,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	/* Free Pseudo Neighbour */
 	ospf_nbr_delete(oi->nbr_self);
 
+	ospf_bfd_if_flush(oi);
+	route_table_finish(oi->bfd_sessions);
 	route_table_finish(oi->nbrs);
 	route_table_finish(oi->ls_upd_queue);
 

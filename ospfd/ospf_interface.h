@@ -240,6 +240,8 @@ struct ospf_interface {
 	/* Neighbor information. */
 	struct route_table *nbrs;       /* OSPF Neighbor List */
 	struct ospf_neighbor *nbr_self; /* Neighbor Self */
+	/* BFD session entries for this interface (keyed by neighbor endpoint). */
+	struct route_table *bfd_sessions;
 #define DR(I)			((I)->nbr_self->d_router)
 #define BDR(I)			((I)->nbr_self->bd_router)
 #define OPTIONS(I)		((I)->nbr_self->options)
