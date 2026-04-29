@@ -807,6 +807,10 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+/* per-AF backup-path flags (ipv4/ipv6 unicast) */
+#define BGP_CONFIG_BACKUP_PATH	     (1 << 12)
+#define BGP_CONFIG_BACKUP_PATH_ECMP  (1 << 13)
+#define BGP_CONFIG_BACKUP_PATH_FLUSH (1 << 14)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
