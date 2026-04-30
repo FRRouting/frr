@@ -64,12 +64,15 @@ TREE_DATA_FIELD_PARTIAL_ERROR = 0
 TREE_DATA_FIELD_RESULT_TYPE = 1
 TREE_DATA_FIELD_MORE = 2
 
-MSG_FMT_GET_DATA = "=BB6x"
+MSG_FMT_GET_DATA = "=BBBB4x"
 GET_DATA_FIELD_RESULT_TYPE = 0
 GET_DATA_FIELD_FLAGS = 1
+GET_DATA_FIELD_DEFAULTS = 2
+GET_DATA_FIELD_DATASTORE = 3
 GET_DATA_FLAG_STATE = 0x1
 GET_DATA_FLAG_CONFIG = 0x2
 GET_DATA_FLAG_EXACT = 0x4
+GET_DATA_DEFAULTS_EXPLICIT = 0
 
 MSG_FMT_NOTIFY = "=BB6x"
 NOTIFY_FIELD_RESULT_TYPE = 0
@@ -80,7 +83,10 @@ NOTIFY_OP_DELETE = 2
 NOTIFY_OP_PATCH = 3
 NOTIFY_OP_GET_SYNC = 4
 
-MSG_FMT_NOTIFY_SELECT = "=B7x"
+NOTIFY_MODE_ON_CHANGE = 0
+NOTIFY_MODE_PERIODIC = 1
+
+MSG_FMT_NOTIFY_SELECT = "=BBBBI"
 
 MSG_FMT_SESSION_REQ = "=B7x"
 
@@ -363,7 +369,7 @@ class Session:
             "locked" if lock else "unlocked",
         )
 
-    def get_data(self, query, data=True, config=False):
+    def get_data(self, query, data=True, config=False, datastore=OPERATIONAL_DS):
         """Retrieve data from the mgmtd server based on an XPath query.
 
         Args:
@@ -381,7 +387,13 @@ class Session:
         mdata, _ = self.get_native_msg_header(MSG_CODE_GET_DATA)
         flags = GET_DATA_FLAG_STATE if data else 0
         flags |= GET_DATA_FLAG_CONFIG if config else 0
-        mdata += struct.pack(MSG_FMT_GET_DATA, MSG_FORMAT_JSON, flags)
+        mdata += struct.pack(
+            MSG_FMT_GET_DATA,
+            MSG_FORMAT_JSON,
+            flags,
+            GET_DATA_DEFAULTS_EXPLICIT,
+            datastore,
+        )
         mdata += query.encode("utf-8") + b"\x00"
 
         self.send_native_msg(mdata)
@@ -394,21 +406,29 @@ class Session:
         logging.debug("Received GET: %s: %s", mfixed, mdata)
         return result
 
-    def add_notify_select(self, replace, notif_xpaths):
+    def add_notify_select(
+        self,
+        replace,
+        notif_xpaths,
+        mode=NOTIFY_MODE_ON_CHANGE,
+        mode_data=0,
+    ):
         """Send a request to add notification subscriptions to the given XPaths.
 
         Args:
             replace (bool): Whether to replace existing notification subscriptions.
             notif_xpaths (list of str): List of XPaths to subscribe to notifications on.
+            mode (int): Notification mode, e.g. ON_CHANGE or PERIODIC.
+            mode_data (int): Mode-specific data. For periodic mode, interval in msec.
         """
         mdata, _ = self.get_native_msg_header(MSG_CODE_NOTIFY_SELECT)
-        mdata += struct.pack(MSG_FMT_NOTIFY_SELECT, replace)
+        mdata += struct.pack(MSG_FMT_NOTIFY_SELECT, int(replace), 0, 0, mode, mode_data)
 
         for xpath in notif_xpaths:
             mdata += xpath.encode("utf-8") + b"\x00"
 
         self.send_native_msg(mdata)
-        logging.debug("Sent NOTIFY_SELECT")
+        logging.debug("Sent NOTIFY_SELECT mode=%s mode_data=%s", mode, mode_data)
 
     def recv_notify(self, xpaths=None):
         """Receive a notification message, optionally setting up XPath filters first.
@@ -459,6 +479,23 @@ def __parse_args():
         help="Number of notifications to listen for 0 for infinite",
     )
     parser.add_argument(
+        "--notify-mode",
+        choices=["on-change", "periodic"],
+        default="on-change",
+        help="Notification mode for --listen subscriptions",
+    )
+    parser.add_argument(
+        "--notify-mode-data",
+        type=int,
+        default=0,
+        help="Mode-specific data (msec for periodic mode)",
+    )
+    parser.add_argument(
+        "--allow-invalid-mode-data",
+        action="store_true",
+        help="Allow sending invalid mode/mode_data combinations for negative tests",
+    )
+    parser.add_argument(
         "-b", "--both", action="store_true", help="return both config and data"
     )
     parser.add_argument(
@@ -474,9 +511,21 @@ def __parse_args():
     parser.add_argument(
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
     )
+    parser.add_argument(
+        "--query-datastore",
+        choices=["operational", "running", "candidate"],
+        default="operational",
+        help="Datastore used by --query (default: operational)",
+    )
     parser.add_argument("-s", "--server", default=MPATH, help="path to server socket")
     parser.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
     args = parser.parse_args()
+
+    if not args.allow_invalid_mode_data:
+        if args.notify_mode == "on-change" and args.notify_mode_data != 0:
+            parser.error("--notify-mode-data must be 0 for --notify-mode on-change")
+        if args.notify_mode == "periodic" and args.notify_mode_data <= 0:
+            parser.error("--notify-mode-data must be > 0 for --notify-mode periodic")
 
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
@@ -518,17 +567,33 @@ def __main():
     if args.query:
         # Performa an xpath query
         # query = "/frr-interface:lib/interface/state/mtu"
+        query_ds = {
+            "operational": OPERATIONAL_DS,
+            "running": RUNNING_DS,
+            "candidate": CANDIDATE_DS,
+        }[args.query_datastore]
         for query in args.query:
             logging.info("Sending query: %s", query)
             result = sess.get_data(
-                query, data=not args.config_only, config=(args.both or args.config_only)
+                query,
+                data=not args.config_only,
+                config=(args.both or args.config_only),
+                datastore=query_ds,
             )
             print(result)
 
     if args.listen is not None:
         i = args.notify_count
+        notify_mode = (
+            NOTIFY_MODE_PERIODIC if args.notify_mode == "periodic" else NOTIFY_MODE_ON_CHANGE
+        )
         if args.listen:
-            sess.add_notify_select(True, args.listen)
+            sess.add_notify_select(
+                True,
+                args.listen,
+                mode=notify_mode,
+                mode_data=args.notify_mode_data,
+            )
         while i > 0 or args.notify_count == 0:
             result_type, op, xpath, notif = sess.recv_notify()
             logging.debug(

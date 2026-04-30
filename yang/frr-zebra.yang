@@ -2956,6 +2956,85 @@ module frr-zebra {
     }
   }
 
+  grouping route-count-operational {
+    leaf total {
+      config false;
+      type uint32;
+      description
+        "Total routes across all route types.";
+    }
+    leaf connected {
+      config false;
+      type uint32;
+      description
+        "Connected routes count.";
+    }
+    leaf bgp {
+      config false;
+      type uint32;
+      description
+        "BGP routes count.";
+    }
+    leaf kernel {
+      config false;
+      type uint32;
+      description
+        "Kernel routes count.";
+    }
+    leaf static {
+      config false;
+      type uint32;
+      description
+        "Static routes count.";
+    }
+    leaf pbr {
+      config false;
+      type uint32;
+      description
+        "PBR routes count.";
+    }
+    leaf table {
+      config false;
+      type uint32;
+      description
+        "Table routes count.";
+    }
+    leaf ospf {
+      config false;
+      type uint32;
+      description
+        "OSPF routes count.";
+    }
+  }
+
+  container lib {
+    list vrf {
+      config false;
+      key "id";
+      description
+        "VRF.";
+      leaf id {
+        type string;
+        description
+          "VRF name.";
+      }
+      container ipv4-route-count {
+        config false;
+        uses route-count-operational;
+      }
+      container ipv6-route-count {
+        config false;
+        uses route-count-operational;
+      }
+      leaf nhg-count {
+        config false;
+        type uint32;
+        description
+          "NHG count.";
+      }
+    }
+  }
+
   augment "/frr-vrf:lib/frr-vrf:vrf" {
     description
       "Extends VRF model with Zebra-related parameters.";

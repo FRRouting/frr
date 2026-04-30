@@ -604,6 +604,13 @@ void mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64
 	msg->replace = selectors == NULL;
 	msg->get_only = session_id != MGMTD_SESSION_ID_NONE;
 	msg->subscribing = subscribing;
+	/*
+	 * MGMTd owns periodic scheduling for FE sessions. Backend selector-update
+	 * messages stay in on-change mode; periodic behavior is driven by MGMTd's
+	 * per-session timer and get_only polling flow.
+	 */
+	msg->mode = NOTIFY_MODE_ON_CHANGE;
+	msg->mode_data = 0;
 
 	if (selectors == NULL) {
 		/* Get selectors for all sessions */
