@@ -3491,6 +3491,8 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 	uint8_t *data = pnt + 3;
 	uint8_t *end = data + hdr->length;
 	char str[BGP_MAX_HOSTNAME + 1] = {};
+	char *new_hostname = NULL;
+	char *new_domainname = NULL;
 	uint8_t len;
 
 	if (action == CAPABILITY_ACTION_SET) {
@@ -3525,15 +3527,13 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		}
 		data += len;
 
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-
-		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		new_hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
 		if (data + 1 > end) {
 			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				 "%pBP: Received invalid FQDN capability (domain name length)",
 				 peer);
+			XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 			return;
 		}
 
@@ -3543,6 +3543,7 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				 "%pBP: Received invalid FQDN capability length (domain name) %d",
 				 peer, len);
+			XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 			return;
 		}
 		data++;
@@ -3556,11 +3557,13 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		}
 		/* data += len;  In case new code is ever added */
 
-		if (len) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		if (len)
+			new_domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
-			peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
-		}
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		peer->hostname = new_hostname;
+		peer->domainname = new_domainname;
 
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 	} else {
