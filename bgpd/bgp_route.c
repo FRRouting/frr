@@ -11655,6 +11655,13 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 					       json_nexthops);
 		}
 
+		/* BGP-LS link-state attributes */
+		if (safi == SAFI_BGP_LS && attr->ls_attr) {
+			json_object *json_ls_attr = bgp_ls_attr_to_json(attr->ls_attr);
+
+			json_object_object_add(json_path, "linkStateAttrs", json_ls_attr);
+		}
+
 		json_object_array_add(json_paths, json_path);
 	} else {
 		vty_out(vty, "\n");
