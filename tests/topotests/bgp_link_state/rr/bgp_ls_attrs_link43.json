@@ -1,0 +1,14 @@
+{
+	"paths": [
+		{
+			"linkStateAttrs": {
+				"adjSids": [
+					{
+						"flags": "0x30",
+						"weight": 0
+					}
+				]
+			}
+		}
+	]
+}
