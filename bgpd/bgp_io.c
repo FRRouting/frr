@@ -62,13 +62,12 @@ void bgp_writes_on(struct peer_connection *connection)
 
 void bgp_writes_off(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
 	struct stream *s;
 
 	assert(fpt->running);
 
-	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
+	UNSET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON);
 
 	/* Clear out the write fifo */
 	frr_with_mutex (&connection->io_mtx) {
