@@ -1,0 +1,206 @@
+module frr-bgp-peer {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/bgp-peer";
+  prefix frr-bgp-peer;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines bgp route map settings";
+
+  revision 2020-01-02 {
+    description
+      "Initial revision";
+  }
+
+  container lib {
+     list vrf {
+       config false;
+       key "id";
+       description
+         "Vrf.";
+       leaf id {
+         type string;
+         description
+           "VRF Id";
+       }
+       list peer {
+          config false;
+          key "name";
+          description
+            "Peer.";
+          leaf name {
+            type string;
+            description
+              "Peer name";
+          }
+          leaf status {
+            config false;
+            type string;
+            description
+              "Peer status";
+          }
+          leaf established-transitions {
+            config false;
+            type uint32;
+            description
+               "Transitions";
+          }
+          leaf in-queue {
+            config false;
+            type uint32;
+            description
+               "Input buffer queue";
+          }
+          leaf out-queue {
+            config false;
+            type uint32;
+            description
+               "Output buffer queue";
+          }
+          leaf local-as {
+            config false;
+            type uint32;
+            description
+                "Local Autonomous System Number";
+          }
+          leaf peer-as {
+            config false;
+            type uint32;
+            description
+                "AS Number of BGP peer";
+          }
+          leaf last-established {
+            config false;
+            type uint64;
+            description
+                "Last Established Time";
+          }
+          leaf description {
+            config false;
+            type string;
+            description
+                "Description of peer";
+          }
+          leaf peer-group {
+            config false;
+            type string;
+            description
+                "Name of peer-group";
+          }
+          leaf peer-type {
+            config false;
+            type string;
+            description
+                "Type of peer";
+          }
+          leaf neighbor-address {
+            config false;
+            type string;
+            description
+                "IP Address of BGP peer";
+          }
+          container messages {
+            description
+              "Counters for BGP messages sent and received from the
+              neighbor";
+            container sent {
+              description
+                "Counters relating to BGP messages sent to the neighbor";
+              uses bgp-peer-message;
+            }
+            container received {
+              description
+                "Counters for BGP messages received from the neighbor";
+              uses bgp-peer-message;
+            }
+          }
+          list afi-safi {
+            config false;
+            key "afi-safi-name";
+            description
+              "AFI-SAFI.";
+            leaf afi-safi-name {
+              config false;
+              type string;
+              description
+                "AFI SAFI name";
+            }
+            leaf rcvd-pfx {
+              config false;
+              type uint32;
+              description
+                 "Recvd prefixes post policy";
+            }
+            leaf rcvd-pfx-installed {
+              config false;
+              type uint32;
+              description
+                "Recvd prefixes installed post policy";
+            }
+            leaf pfx-sent {
+              config false;
+              type uint32;
+              description
+                 "Prefixes sent from the peer";
+            }
+            leaf afi {
+              config false;
+              type string;
+              description
+                  "Address family";
+            }
+            leaf safi {
+               config false;
+               type string;
+               description
+                  "Subsequent Address family";
+            }
+          }
+          leaf total-msgs-sent {
+            config false;
+            type uint32;
+            description
+               "Total messages sent";
+          }
+          leaf total-msgs-recvd {
+            config false;
+            type uint32;
+            description
+               "Total messages recieved";
+          }
+          leaf graceful-shutdown {
+            config false;
+            type boolean;
+            description
+                "Gaceful shutdown status";
+          }
+      }
+    }
+  }
+  grouping bgp-peer-message{
+    leaf last-notification-error-code{
+      config false;
+      type string;
+      description
+          "Error sent or received on peering session";
+    }
+    leaf updates {
+      config false;
+      type uint32;
+      description
+          "Update Messages sent/recieved";
+    }
+  }
+}

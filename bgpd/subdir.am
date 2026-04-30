@@ -63,6 +63,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_nht.c \
 	bgpd/bgp_open.c \
 	bgpd/bgp_packet.c \
+	bgpd/bgp_peer_nb.c \
 	bgpd/bgp_pbr.c \
 	bgpd/bgp_rd.c \
 	bgpd/bgp_regex.c \
@@ -152,6 +153,7 @@ noinst_HEADERS += \
 	bgpd/bgp_nht.h \
 	bgpd/bgp_open.h \
 	bgpd/bgp_packet.h \
+	bgpd/bgp_peer_nb.h \
 	bgpd/bgp_pbr.h \
 	bgpd/bgp_rd.h \
 	bgpd/bgp_regex.h \
@@ -239,6 +241,7 @@ nodist_bgpd_bgpd_SOURCES = \
 	yang/frr-bgp-common-multiprotocol.yang.c \
 	yang/frr-bgp-neighbor.yang.c \
 	yang/frr-bgp-peer-group.yang.c \
+	yang/frr-bgp-peer.yang.c \
 	yang/frr-bgp-bmp.yang.c \
 	yang/frr-bgp-rpki.yang.c \
 	yang/frr-deviations-bgp-datacenter.yang.c \
