@@ -364,6 +364,7 @@ extern struct zebra_privs_t nhrpd_privs;
 int sock_open_unix(const char *path);
 
 void nhrp_interface_init(void);
+void nhrp_interface_terminate(void);
 void nhrp_interface_update(struct interface *ifp);
 void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
@@ -516,6 +517,7 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
 			  void (*cb)(struct nhrp_reqid *, void *));
 void nhrp_reqid_free(struct nhrp_reqid_pool *p, struct nhrp_reqid *r);
 struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *, uint32_t reqid);
+void nhrp_reqid_terminate(struct nhrp_reqid_pool *p);
 
 int nhrp_packet_init(void);
 

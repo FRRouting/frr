@@ -52,6 +52,11 @@ static void *nhrp_interface_gre_alloc(void *data)
 	return a;
 }
 
+static void nhrp_interface_gre_free(void *data)
+{
+	XFREE(MTYPE_NHRP_IF_GRE, data);
+}
+
 struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p)
 {
 	struct nhrp_gre_info *a;
@@ -113,6 +118,11 @@ void nhrp_interface_init(void)
 
 	nhrp_gre_list = hash_create(nhrp_gre_info_key, nhrp_gre_info_cmp,
 				    "NHRP GRE list Hash");
+}
+
+void nhrp_interface_terminate(void)
+{
+	hash_clean_and_free(&nhrp_gre_list, nhrp_interface_gre_free);
 }
 
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi)
