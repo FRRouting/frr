@@ -2533,6 +2533,22 @@ static int ospf_snmp_init(struct event_loop *tm)
 	return 0;
 }
 
+static int ospf_snmp_terminate(void)
+{
+	if (ospf_snmp_iflist) {
+		ospf_snmp_iflist->del = (void (*)(void *))ospf_snmp_if_free;
+		list_delete(&ospf_snmp_iflist);
+	}
+
+	if (ospf_snmp_vl_table) {
+		route_table_finish(ospf_snmp_vl_table);
+		ospf_snmp_vl_table = NULL;
+	}
+
+	smux_terminate();
+	return 0;
+}
+
 static int ospf_snmp_module_init(void)
 {
 	hook_register(ospf_if_update, ospf_snmp_if_update);
@@ -2543,6 +2559,7 @@ static int ospf_snmp_module_init(void)
 	hook_register(ospf_nsm_change, ospf_snmp_nsm_change);
 
 	hook_register(frr_late_init, ospf_snmp_init);
+	hook_register(frr_fini, ospf_snmp_terminate);
 	return 0;
 }
 

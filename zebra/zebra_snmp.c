@@ -546,9 +546,16 @@ static int zebra_snmp_init(struct event_loop *tm)
 	return 0;
 }
 
+static int zebra_snmp_terminate(void)
+{
+	smux_terminate();
+	return 0;
+}
+
 static int zebra_snmp_module_init(void)
 {
 	hook_register(frr_late_init, zebra_snmp_init);
+	hook_register(frr_fini, zebra_snmp_terminate);
 	return 0;
 }
 
