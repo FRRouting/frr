@@ -173,6 +173,13 @@ static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
 	XFREE(MTYPE_PBR_NHG, p);
 }
 
+static void pbr_nhrc_delete(void *arg)
+{
+	struct nhrc *nhrc = arg;
+
+	XFREE(MTYPE_PBR_NHG, nhrc);
+}
+
 static void *pbr_nhgc_alloc(void *p)
 {
 	struct pbr_nexthop_group_cache *new;
@@ -1485,4 +1492,25 @@ void pbr_nht_init(void)
 
 	/* First unallocated table is lowest in range on init */
 	pbr_next_unallocated_table_id = PBR_NHT_DEFAULT_LOW_TABLEID;
+}
+
+void pbr_nht_terminate(void)
+{
+	if (pbr_nhg_hash) {
+		hash_clean(pbr_nhg_hash, (void (*)(void *))pbr_nhgc_delete);
+		hash_free(pbr_nhg_hash);
+		pbr_nhg_hash = NULL;
+	}
+
+	if (pbr_nhrc_hash) {
+		hash_clean(pbr_nhrc_hash, pbr_nhrc_delete);
+		hash_free(pbr_nhrc_hash);
+		pbr_nhrc_hash = NULL;
+	}
+
+	if (pbr_nhg_allocated_id_hash) {
+		hash_clean(pbr_nhg_allocated_id_hash, NULL);
+		hash_free(pbr_nhg_allocated_id_hash);
+		pbr_nhg_allocated_id_hash = NULL;
+	}
 }

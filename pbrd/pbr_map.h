@@ -246,6 +246,7 @@ extern void pbr_map_schedule_policy_from_nhg(const char *nh_group,
 					     bool installed);
 
 extern void pbr_map_install(struct pbr_map *pbrm);
+extern void pbr_map_terminate(void);
 
 extern void pbr_map_policy_install(const char *name);
 extern void pbr_map_policy_delete(struct pbr_map *pbrm,
