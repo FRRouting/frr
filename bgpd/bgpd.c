@@ -9794,7 +9794,8 @@ static void bgp_process_conn_error(struct event *event)
 			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 			     || CHECK_FLAG(peer->flags,
 					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
-			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
+			    && !peer->notify.hard_reset) {
 				peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
 				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 			} else

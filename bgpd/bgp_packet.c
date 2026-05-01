@@ -2626,19 +2626,13 @@ static int bgp_notify_receive(struct peer_connection *connection, bgp_size_t siz
 
 	hard_reset =
 		bgp_notify_received_hard_reset(peer, outer.code, outer.subcode);
+	inner = outer;
 	if (hard_reset) {
 		/* Hard reset treatment: we expect but don't require inner error codes */
 		peer->notify.hard_reset = true;
 		/* If we have at least an inner code and subcode, capture them */
-		if (outer.length > 1) {
+		if (outer.length > 1)
 			inner = bgp_notify_decapsulate_hard_reset(&outer);
-		} else {
-			inner = outer;
-			inner.length = 0;
-			inner.raw_data = NULL;
-		}
-	} else {
-		inner = outer;
 	}
 
 	/* Preserve notify code and sub code. */
