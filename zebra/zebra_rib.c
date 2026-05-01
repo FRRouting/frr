@@ -4894,8 +4894,36 @@ void rib_sweep_table(struct route_table *table)
 /* Sweep all RIB tables.  */
 void rib_sweep_route(struct event *t)
 {
+	static unsigned int defer_count;
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+
+	/*
+	 * Kernel routes read by route_read() are queued in the metaqueue
+	 * and only move into the RIB when the work_queue fires (after the
+	 * hold timer, ZEBRA_RIB_PROCESS_HOLD_TIME = 10 ms).  If we sweep
+	 * before the metaqueue drains, the RIB is empty and no stale
+	 * routes are cleaned up.  Reschedule until the queue is empty.
+	 *
+	 * This is safe because zebra's event loop is single-threaded, so
+	 * mq->size cannot change while we are in this callback.
+	 *
+	 * Bound the retry to avoid deferring forever if the metaqueue
+	 * never fully drains (e.g. heavy convergence at startup).
+	 */
+	if (zrouter.mq->size > 0) {
+		if (++defer_count <= 50) {
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("RIB sweep deferred: metaqueue still has %u entries",
+					   zrouter.mq->size);
+			event_add_timer_msec(zrouter.master, rib_sweep_route, NULL,
+					     ZEBRA_RIB_PROCESS_HOLD_TIME * 2, &zrouter.t_rib_sweep);
+			return;
+		}
+		zlog_warn("RIB sweep: metaqueue still non-empty after %u retries, sweeping anyway",
+			  defer_count);
+	}
+	defer_count = 0;
 
 	zrouter.rib_sweep_time = monotime(NULL);
 	/* TODO: Change to debug */
