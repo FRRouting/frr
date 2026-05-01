@@ -31,6 +31,9 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_dynhn.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_LOG_MULTILINE, "ISIS log multiline temporary");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_VTY_MULTILINE, "ISIS vty multiline temporary");
+
 /* statically assigned vars for printing purposes */
 static char sys_hostname[ISO_SYSID_STRLEN];
 struct in_addr new_prefix;
@@ -408,7 +411,7 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 	char *p;
 
 	va_start(ap, format);
-	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
+	p = vasnprintfrr(MTYPE_ISIS_TMP_LOG_MULTILINE, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
@@ -421,7 +424,7 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 	}
 
 	if (p != shortbuf)
-		XFREE(MTYPE_TMP, p);
+		XFREE(MTYPE_ISIS_TMP_LOG_MULTILINE, p);
 }
 
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
@@ -431,7 +434,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 	char *p;
 
 	va_start(ap, format);
-	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
+	p = vasnprintfrr(MTYPE_ISIS_TMP_VTY_MULTILINE, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
@@ -444,7 +447,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 	}
 
 	if (p != shortbuf)
-		XFREE(MTYPE_TMP, p);
+		XFREE(MTYPE_ISIS_TMP_VTY_MULTILINE, p);
 }
 
 void vty_out_timestr(struct vty *vty, time_t uptime)

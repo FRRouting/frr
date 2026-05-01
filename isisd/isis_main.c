@@ -46,6 +46,7 @@
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_tlvs.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_ldp_sync.h"
@@ -122,6 +123,7 @@ static FRR_NORETURN void terminate(int i)
 	isis_affinity_map_terminate();
 #endif
 	isis_master_terminate();
+	isis_tlvs_terminate();
 
 	frr_fini();
 	exit(i);
