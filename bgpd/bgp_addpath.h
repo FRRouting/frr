@@ -25,6 +25,8 @@ struct bgp_paths_limit_capability {
 
 void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d);
 
+void bgp_addpath_finish_bgp_data(struct bgp_addpath_bgp_data *d);
+
 bool bgp_addpath_is_addpath_used(struct bgp_addpath_bgp_data *d, afi_t afi,
 				 safi_t safi);
 

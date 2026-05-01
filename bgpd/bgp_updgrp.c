@@ -1956,10 +1956,21 @@ void update_bgp_group_init(struct bgp *bgp)
 {
 	int afid;
 
-	AF_FOREACH (afid)
+	/*
+	 * Be idempotent: when a hidden bgp instance is revived (see
+	 * bgp_lookup_by_as_name_type() -> bgp_create() with hidden=true),
+	 * bgp_create() runs again on the same struct bgp.  The connectionhash
+	 * and per-afi import_vrf list are already guarded with explicit NULL
+	 * checks; without the same check here we would re-allocate the per-afi
+	 * update_groups hash tables and leak the previously allocated set.
+	 */
+	AF_FOREACH (afid) {
+		if (bgp->update_groups[afid])
+			continue;
 		bgp->update_groups[afid] =
 			hash_create(updgrp_hash_key_make, updgrp_hash_cmp,
 				    "BGP Update Group Hash");
+	}
 }
 
 void update_bgp_group_free(struct bgp *bgp)

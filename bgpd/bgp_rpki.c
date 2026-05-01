@@ -879,6 +879,8 @@ static int bgp_rpki_fini(void)
 		XFREE(MTYPE_BGP_RPKI_CACHE, rpki_vrf);
 	}
 
+	list_delete(&rpki_vrf_list);
+
 	return 0;
 }
 

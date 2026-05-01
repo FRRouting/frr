@@ -363,6 +363,16 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	if (dest->srv6_unicast && sid_same(bgp->srv6_unicast[afi].sid, &dest->srv6_unicast->sid))
 		return;
 
+	/*
+	 * If a previous SID was installed on this dest (e.g. the operator
+	 * reconfigured the unicast SID without first walking/withdrawing the
+	 * RIB), free the old descriptor before allocating a new one.  Without
+	 * this the previous XCALLOC is leaked across "no sid export ..." +
+	 * re-add sequences that change the SID value.
+	 */
+	if (dest->srv6_unicast)
+		bgp_srv6_unicast_unregister_route(dest);
+
 	locator = bgp->srv6_unicast[afi].sid_locator;
 	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
 				     sizeof(struct bgp_attr_srv6_l3service));
