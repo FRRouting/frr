@@ -694,6 +694,11 @@ static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
 static inline void bgp_attr_set_ls_attr(struct attr *attr, struct bgp_ls_attr *ls_attr)
 {
 	attr->ls_attr = ls_attr;
+
+	if (ls_attr)
+		bgp_attr_set(attr, BGP_ATTR_LINK_STATE);
+	else
+		bgp_attr_unset(attr, BGP_ATTR_LINK_STATE);
 }
 
 static inline struct bgp_attr_encap_subtlv *
