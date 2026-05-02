@@ -179,8 +179,26 @@ void log_ref_init(void)
 
 void log_ref_fini(void)
 {
+	struct ferr *error;
+
 	frr_with_mutex (&refs_mtx) {
 		hash_clean_and_free(&refs, NULL);
+	}
+
+	/*
+	 * Worker threads that called any ferr_*() macro have their per-thread
+	 * struct ferr freed by ferr_free() through pthread_key_create()'s
+	 * destructor when they exit (frr_pthread_finish() joins them earlier
+	 * in frr_fini()).  The main thread, however, is *itself* the thread
+	 * driving shutdown and does not exit through pthread teardown until
+	 * after log_memstats() has already dumped active allocations.  Free
+	 * its slot explicitly here so the lazily-allocated struct ferr (~4512
+	 * bytes) is not reported as an "error information" leak.
+	 */
+	error = pthread_getspecific(errkey);
+	if (error) {
+		pthread_setspecific(errkey, NULL);
+		ferr_free(error);
 	}
 }
 
