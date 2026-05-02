@@ -1712,6 +1712,11 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_evpn_overlay(attr, NULL);
 	}
 
+	if (attr->ls_attr && !attr->ls_attr->refcnt) {
+		bgp_ls_attr_free(attr->ls_attr);
+		attr->ls_attr = NULL;
+	}
+
 	nhc = bgp_attr_get_nhc(attr);
 	if (nhc && !nhc->refcnt) {
 		bgp_nhc_free(nhc);
