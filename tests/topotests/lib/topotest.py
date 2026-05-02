@@ -1914,7 +1914,6 @@ class Router(Node):
             self.run_in_window("vtysh", title="vt-%s" % self.name)
 
         if self.unified_config:
-
             # Check that none of the datastores are locked before proceeding
             def check_datastores_unlocked():
                 """Check that all datastores are unlocked"""
@@ -1993,7 +1992,8 @@ class Router(Node):
         # Get global bundle data
         if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
             logger.info(
-                "No support bundle commands.conf found in %s namespace, copying them over", self.name
+                "No support bundle commands.conf found in %s namespace, copying them over",
+                self.name,
             )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
@@ -2001,7 +2001,9 @@ class Router(Node):
                 with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
                     bundle_data = rf.read()
             else:
-                logger.warning("No support bundle commands.conf found, please install them on this system")
+                logger.warning(
+                    "No support bundle commands.conf found, please install them on this system"
+                )
             self.cmd_raises(
                 "cat > /etc/frr/support_bundle_commands.conf",
                 stdin=bundle_data,
@@ -2686,11 +2688,11 @@ class Router(Node):
                 dname,
             )
             reportMade = True
-        return reportMade
+        return reportMade, traces
 
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
-            return
+            return ""
         reportMade = False
         traces = ""
         for daemon in self.daemons:
@@ -2700,9 +2702,15 @@ class Router(Node):
                     and len(self.daemon_instances[daemon]) > 0
                 ):
                     for inst in self.daemon_instances[daemon]:
-                        self.check_daemon(daemon, reportLeaks, traces, inst)
+                        daemon_reported, traces = self.check_daemon(
+                            daemon, reportLeaks, traces, inst
+                        )
+                        reportMade = reportMade or daemon_reported
                 else:
-                    self.check_daemon(daemon, reportLeaks, traces)
+                    daemon_reported, traces = self.check_daemon(
+                        daemon, reportLeaks, traces
+                    )
+                    reportMade = reportMade or daemon_reported
 
         if reportMade:
             self.reportCores = False
