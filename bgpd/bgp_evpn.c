@@ -5559,8 +5559,8 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	}
 }
 
-static void rt_list_remove_node(struct list *rt_list,
-				struct ecommunity *ecomdel, bool is_l3)
+static void rt_list_remove_node(struct list *rt_list, struct ecommunity *ecomdel, bool is_l3,
+				bool auto_only)
 {
 	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
 	struct vrf_route_target *l3rt = NULL;
@@ -5568,6 +5568,9 @@ static void rt_list_remove_node(struct list *rt_list,
 
 	if (is_l3) {
 		for (ALL_LIST_ELEMENTS(rt_list, node, nnode, l3rt)) {
+			if (auto_only && !CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
+				continue;
+
 			if (ecommunity_match(l3rt->ecom, ecomdel)) {
 				evpn_vrf_rt_del(l3rt);
 				node_to_del = node;
@@ -5583,7 +5586,6 @@ static void rt_list_remove_node(struct list *rt_list,
 			}
 		}
 	}
-
 
 	if (node_to_del)
 		list_delete_node(rt_list, node_to_del);
@@ -5603,7 +5605,10 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 	ecom_auto = ecommunity_new();
 	ecommunity_add_val(ecom_auto, &eval, false, false);
 
-	rt_list_remove_node(rtl, ecom_auto, is_l3);
+	/* L3 RTs carry flags; when deleting an auto-derived L3 RT, do not
+	 * remove a user-configured RT with the same value.
+	 */
+	rt_list_remove_node(rtl, ecom_auto, is_l3, is_l3);
 
 	ecommunity_free(&ecom_auto);
 }
@@ -5682,8 +5687,12 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
-	/* Remove auto generated RT if not configured */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
+	/* Remove the implicit auto-generated RT when transitioning to
+	 * configured RTs. If configured RTs already exist, the implicit auto
+	 * RT has already been removed.
+	 */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD) &&
+	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
 		evpn_auto_rt_import_delete_for_vrf(bgp_vrf);
 
 	/* Add the newly configured RT to RT list */
@@ -5720,7 +5729,7 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
 	/* Remove rt */
-	rt_list_remove_node(bgp_vrf->vrf_import_rtl, ecomdel, true);
+	rt_list_remove_node(bgp_vrf->vrf_import_rtl, ecomdel, true, false);
 
 	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_import_rtl))
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
@@ -5754,8 +5763,12 @@ void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 
 	newrt = evpn_vrf_rt_new(ecomadd);
 
-	/* Remove auto generated RT if not configured */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
+	/* Remove the implicit auto-generated RT when transitioning to
+	 * configured RTs. If configured RTs already exist, the implicit auto
+	 * RT has already been removed.
+	 */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD) &&
+	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
 		evpn_auto_rt_export_delete_for_vrf(bgp_vrf);
 
 	/* Add the new RT to the RT list */
@@ -5789,7 +5802,7 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 		return; /* Already un-configured */
 
 	/* Remove rt */
-	rt_list_remove_node(bgp_vrf->vrf_export_rtl, ecomdel, true);
+	rt_list_remove_node(bgp_vrf->vrf_export_rtl, ecomdel, true, false);
 
 	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_export_rtl))
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
