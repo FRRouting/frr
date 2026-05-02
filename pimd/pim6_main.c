@@ -197,6 +197,7 @@ static void pim6_terminate(void)
 
 	prefix_list_reset();
 	access_list_reset();
+	pim_route_map_terminate();
 
 	zclient = pim_zebra_zclient_get();
 	if (zclient) {
