@@ -2051,7 +2051,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		protodown_set = dplane_ctx_get_ifp_protodown_set(ctx);
 		protodown = dplane_ctx_get_ifp_protodown(ctx);
 		rc_bitfield = dplane_ctx_get_ifp_rc_bitfield(ctx);
-		startup = dplane_ctx_get_ifp_startup(ctx);
+		startup = dplane_ctx_get_startup(ctx);
 		desc = dplane_ctx_get_ifp_desc(ctx);
 		family = dplane_ctx_get_ifp_family(ctx);
 		change_flags = dplane_ctx_get_ifp_change_flags(ctx);

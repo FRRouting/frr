@@ -427,8 +427,8 @@ void dplane_ctx_set_ifp_change_flags(struct zebra_dplane_ctx *ctx, uint64_t chan
 uint64_t dplane_ctx_get_ifp_change_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_protodown(struct zebra_dplane_ctx *ctx, bool protodown);
 bool dplane_ctx_get_ifp_protodown(const struct zebra_dplane_ctx *ctx);
-void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup);
-bool dplane_ctx_get_ifp_startup(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_startup(struct zebra_dplane_ctx *ctx, bool startup);
+bool dplane_ctx_get_startup(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_protodown_set(struct zebra_dplane_ctx *ctx, bool set);
 bool dplane_ctx_get_ifp_protodown_set(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_rc_bitfield(struct zebra_dplane_ctx *ctx,
@@ -624,7 +624,20 @@ dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *
 dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
-/* Accessors for nexthop information */
+/* Setters/accessors for nexthop information */
+void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id);
+void dplane_ctx_set_nhe_afi(struct zebra_dplane_ctx *ctx, afi_t afi);
+void dplane_ctx_set_nhe_vrf_id(struct zebra_dplane_ctx *ctx, vrf_id_t vrf_id);
+void dplane_ctx_set_nhe_type(struct zebra_dplane_ctx *ctx, int type);
+void dplane_ctx_set_nhe_nh_grp(struct zebra_dplane_ctx *ctx, const struct nh_grp *grp,
+			       uint16_t count);
+void dplane_ctx_set_nhe_resilience(struct zebra_dplane_ctx *ctx,
+				   const struct nhg_resilience *resilience);
+void dplane_ctx_set_nhe_nh(struct zebra_dplane_ctx *ctx, const struct nexthop *nh);
+void dplane_ctx_set_nhe_labels(struct zebra_dplane_ctx *ctx, const mpls_label_t *labels,
+			       uint16_t count);
+void dplane_ctx_set_nhe_notif(struct zebra_dplane_ctx *ctx, bool notif);
+
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
@@ -635,6 +648,11 @@ dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_nhe_notif(const struct zebra_dplane_ctx *ctx);
+const struct nhg_resilience *dplane_ctx_get_nhe_resilience(const struct zebra_dplane_ctx *ctx);
+const struct nexthop *dplane_ctx_get_nhe_nh(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_nhe_label_count(const struct zebra_dplane_ctx *ctx);
+const mpls_label_t *dplane_ctx_get_nhe_labels(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for LSP information */
 

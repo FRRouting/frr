@@ -22,6 +22,10 @@
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_errors.h"
 
+void nexthop_read(struct zebra_ns *zns)
+{
+}
+
 /* Kernel routing table read up by sysctl function. */
 void route_read(struct zebra_ns *zns)
 {

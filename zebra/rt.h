@@ -101,6 +101,7 @@ extern void neigh_read(struct zebra_ns *zns);
 extern void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *ifp);
 extern void neigh_read_specific_ip(const struct ipaddr *ip,
 				   struct interface *vlan_if);
+extern void nexthop_read(struct zebra_ns *zns);
 extern void route_read(struct zebra_ns *zns);
 extern int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip);
 extern int kernel_del_mac_nh(uint32_t nh_id);

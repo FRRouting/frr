@@ -87,6 +87,12 @@ struct dplane_nexthop_info {
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
+	bool is_notif;
+	bool nh_valid;
+	struct nexthop nh;
+	uint16_t nh_label_count;
+	mpls_label_t nh_labels[MPLS_MAX_LABELS];
+	struct nhg_resilience resilience;
 
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
@@ -211,7 +217,6 @@ struct dplane_intf_info {
 	enum zebra_slave_iftype zslave_type;
 	uint8_t bypass;
 	enum zebra_link_type zltype;
-	bool startup;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
 	bool no_bvinfo_avail;
@@ -440,6 +445,8 @@ struct zebra_dplane_ctx {
 
 	char zd_ifname[IFNAMSIZ];
 	ifindex_t zd_ifindex;
+
+	bool zd_startup;
 
 	/* Support info for different kinds of updates */
 	union {
@@ -1636,18 +1643,18 @@ ns_id_t dplane_ctx_get_ifp_link_nsid(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.intf.link_nsid;
 }
 
-void dplane_ctx_set_ifp_startup(struct zebra_dplane_ctx *ctx, bool startup)
+void dplane_ctx_set_startup(struct zebra_dplane_ctx *ctx, bool startup)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	ctx->u.intf.startup = startup;
+	ctx->zd_startup = startup;
 }
 
-bool dplane_ctx_get_ifp_startup(const struct zebra_dplane_ctx *ctx)
+bool dplane_ctx_get_startup(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.intf.startup;
+	return ctx->zd_startup;
 }
 
 void dplane_ctx_set_ifp_protodown_set(struct zebra_dplane_ctx *ctx, bool set)
@@ -2377,7 +2384,99 @@ int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
 #endif
 }
 
-/* Accessors for nexthop information */
+/* Setters/accessors for nexthop information */
+void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.nhe.id = id;
+}
+
+void dplane_ctx_set_nhe_afi(struct zebra_dplane_ctx *ctx, afi_t afi)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.nhe.afi = afi;
+}
+
+void dplane_ctx_set_nhe_vrf_id(struct zebra_dplane_ctx *ctx, vrf_id_t vrf_id)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.nhe.vrf_id = vrf_id;
+}
+
+void dplane_ctx_set_nhe_type(struct zebra_dplane_ctx *ctx, int type)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.nhe.type = type;
+}
+
+void dplane_ctx_set_nhe_nh_grp(struct zebra_dplane_ctx *ctx, const struct nh_grp *grp,
+			       uint16_t count)
+{
+	uint16_t copy_count = count;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (copy_count > MULTIPATH_NUM)
+		copy_count = MULTIPATH_NUM;
+
+	ctx->u.rinfo.nhe.nh_grp_count = copy_count;
+	if (copy_count && grp)
+		memcpy(ctx->u.rinfo.nhe.nh_grp, grp, copy_count * sizeof(*grp));
+	else if (!copy_count)
+		memset(ctx->u.rinfo.nhe.nh_grp, 0, sizeof(ctx->u.rinfo.nhe.nh_grp));
+}
+
+void dplane_ctx_set_nhe_resilience(struct zebra_dplane_ctx *ctx,
+				   const struct nhg_resilience *resilience)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (resilience)
+		ctx->u.rinfo.nhe.resilience = *resilience;
+	else
+		memset(&ctx->u.rinfo.nhe.resilience, 0, sizeof(ctx->u.rinfo.nhe.resilience));
+}
+
+void dplane_ctx_set_nhe_nh(struct zebra_dplane_ctx *ctx, const struct nexthop *nh)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (nh) {
+		ctx->u.rinfo.nhe.nh = *nh;
+		ctx->u.rinfo.nhe.nh.next = NULL;
+		ctx->u.rinfo.nhe.nh.prev = NULL;
+		ctx->u.rinfo.nhe.nh_valid = true;
+	} else {
+		memset(&ctx->u.rinfo.nhe.nh, 0, sizeof(ctx->u.rinfo.nhe.nh));
+		ctx->u.rinfo.nhe.nh_valid = false;
+	}
+}
+
+void dplane_ctx_set_nhe_labels(struct zebra_dplane_ctx *ctx, const mpls_label_t *labels,
+			       uint16_t count)
+{
+	uint16_t copy_count = count;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (!labels || copy_count == 0) {
+		ctx->u.rinfo.nhe.nh_label_count = 0;
+		return;
+	}
+
+	if (copy_count > MPLS_MAX_LABELS)
+		copy_count = MPLS_MAX_LABELS;
+
+	ctx->u.rinfo.nhe.nh_label_count = copy_count;
+	memcpy(ctx->u.rinfo.nhe.nh_labels, labels, copy_count * sizeof(*labels));
+}
+
+void dplane_ctx_set_nhe_notif(struct zebra_dplane_ctx *ctx, bool notif)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.nhe.is_notif = notif;
+}
+
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2426,6 +2525,40 @@ uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.rinfo.nhe.nh_grp_count;
+}
+
+bool dplane_ctx_get_nhe_notif(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.is_notif;
+}
+
+const struct nhg_resilience *dplane_ctx_get_nhe_resilience(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.rinfo.nhe.resilience;
+}
+
+const struct nexthop *dplane_ctx_get_nhe_nh(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (!ctx->u.rinfo.nhe.nh_valid)
+		return NULL;
+
+	return &ctx->u.rinfo.nhe.nh;
+}
+
+uint16_t dplane_ctx_get_nhe_label_count(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.nh_label_count;
+}
+
+const mpls_label_t *dplane_ctx_get_nhe_labels(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.nh_labels;
 }
 
 /* Accessors for LSP information */
