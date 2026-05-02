@@ -13518,12 +13518,12 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Display BGP-LS attributes if this is link-state SAFI */
-	if (safi == SAFI_BGP_LS && attr && attr->ls_attr) {
+	if (safi == SAFI_BGP_LS && attr && bgp_attr_get_ls_attr(attr)) {
 		if (json_paths) {
-			json_ls_attr = bgp_ls_attr_to_json(attr->ls_attr);
+			json_ls_attr = bgp_ls_attr_to_json(bgp_attr_get_ls_attr(attr));
 			json_object_object_add(json_path, "linkStateAttrs", json_ls_attr);
 		} else
-			bgp_ls_attr_display(vty, attr->ls_attr);
+			bgp_ls_attr_display(vty, bgp_attr_get_ls_attr(attr));
 	}
 
 	/* Output some debug about internal state of the dest flags */

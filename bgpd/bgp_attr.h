@@ -686,6 +686,16 @@ static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
 	attr->evpn_overlay = bre;
 }
 
+static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
+{
+	return attr->ls_attr;
+}
+
+static inline void bgp_attr_set_ls_attr(struct attr *attr, struct bgp_ls_attr *ls_attr)
+{
+	attr->ls_attr = ls_attr;
+}
+
 static inline struct bgp_attr_encap_subtlv *
 bgp_attr_get_vnc_subtlvs(const struct attr *attr)
 {
