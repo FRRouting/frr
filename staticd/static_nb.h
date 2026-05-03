@@ -128,10 +128,6 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 void routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 
-/* Optional 'pre_validate' callbacks. */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_pre_validate(
-	struct nb_cb_pre_validate_args *args);
-
 /*
  * Callback registered with routing_nb lib to validate only
  * one instance of staticd is allowed
