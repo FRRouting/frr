@@ -1623,6 +1623,29 @@ class Router(Node):
         return ret
 
     def stopRouter(self, assertOnError=True):
+        # fpm_listener writes its PID file to the gear log directory (next to
+        # its data dump), not to /var/run/frr/, so listDaemons() can't see it.
+        # Send it SIGTERM first and give it a brief moment to run its atexit
+        # handlers (in particular gcov flush under --enable-gcov) before the
+        # namespace teardown SIGKILLs it. This must happen before listDaemons()
+        # below sends SIGTERM to the FRR daemons because once zebra exits the
+        # FPM client side closes the socket and we want fpm_listener's last
+        # accept loop iteration to be reflected in coverage.
+        fpm_pidfile = "{}/{}/fpm_listener.pid".format(self.logdir, self.name)
+        try:
+            with open(fpm_pidfile) as f:
+                fpm_pid = int(f.read().strip())
+            try:
+                os.kill(fpm_pid, signal.SIGTERM)
+                logger.debug(
+                    "%s: sent SIGTERM to fpm_listener pid %d", self.name, fpm_pid
+                )
+            except OSError:
+                pass
+            time.sleep(0.1)
+        except (FileNotFoundError, ValueError):
+            pass
+
         # Stop Running FRR Daemons
         running = self.listDaemons()
         if not running:
