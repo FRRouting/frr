@@ -102,7 +102,7 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 			 * so tightening the filter without cycling the proxy cannot strand
 			 * proxy (*,G)/(S,G) state after the last host leaves.
 			 */
-			if (join && !pim_filter_match(&pim_ifp->gm_proxy_filter, &pfx, ifp)) {
+			if (join && !pim_filter_match(&pim_ifp->gm_proxy_filter, &pfx, ifp, oif)) {
 				if (PIM_DEBUG_GM_TRACE)
 					zlog_debug("%s: proxy join for SG%pPSG from %s to %s filtered due to route-map",
 						   __func__, &pfx, oif->name, ifp->name);

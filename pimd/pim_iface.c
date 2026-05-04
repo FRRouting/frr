@@ -1621,7 +1621,7 @@ void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 				struct prefix_sg pfx;
 
 				pim_sg_to_prefix(&sgaddr, &pfx);
-				if (!pim_filter_match(&oif_pim->gm_proxy_filter, &pfx, oif)) {
+				if (!pim_filter_match(&oif_pim->gm_proxy_filter, &pfx, oif, ifp)) {
 					if (PIM_DEBUG_GM_TRACE)
 						zlog_debug("%s: proxy join for SG%pPSG from %s to %s filtered due to route-map",
 							   __func__, &pfx, ifp->name, oif->name);
