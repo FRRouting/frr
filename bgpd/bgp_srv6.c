@@ -131,7 +131,7 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
 		bgp->srv6_unicast[afi].zebra_sid_last_sent = unicast_sid_ls;
 
-	} else {
+	} else if (bgp->srv6_unicast[afi].zebra_sid_last_sent) {
 		zclient_send_localsid(zclient, ZEBRA_ROUTE_DELETE,
 				      bgp->srv6_unicast[afi].zebra_sid_last_sent, IPV6_MAX_BITLEN,
 				      ifp->ifindex, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
