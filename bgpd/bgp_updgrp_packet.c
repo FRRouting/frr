@@ -1156,8 +1156,13 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 					 iana_safi2str(pkt_safi));
 			}
 
+			/* A BGP-MUP withdraw must carry the full mandatory
+			 * NLRI body; the non-key part lives on the attr of
+			 * the advertisement being withdrawn.
+			 */
 			bgp_packet_mpunreach_prefix(s, dest_p, afi, safi, prd, NULL, 0,
-						    addpath_capable, addpath_tx_id, NULL, ls_nlri);
+						    addpath_capable, addpath_tx_id,
+						    (safi == SAFI_MUP) ? adj->attr : NULL, ls_nlri);
 		}
 
 		num_pfx++;
