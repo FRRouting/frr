@@ -543,6 +543,22 @@ keyword at the end.
    * ``match ip multicast-source A.B.C.D``
    * ``match ip multicast-source prefix-list PREFIX-LIST``
    * ``match multicast-interface INTERFACE-NAME``
+   * ``match multicast-source-interface INTERFACE-NAME``
+
+   ``match multicast-source-interface`` matches against the interface where
+   the IGMP/MLD report was **received** (the upstream/listener-facing
+   interface), not the proxy output interface. This allows filtering proxy
+   joins per source interface::
+
+      route-map PROXY_FILTER permit 10
+       match multicast-source-interface eth0
+
+      interface eth1
+       ip igmp proxy
+       ip igmp proxy route-map PROXY_FILTER
+
+   With this configuration, only groups reported on ``eth0`` are proxied
+   out ``eth1``.
 
    **Indirect IGMPv2 vs IGMPv3 filtering**
 
