@@ -18,6 +18,7 @@ Following tests are covered to test pim igmp proxy:
 5. TC:5 Verify igmp drops/timeouts from another interface cause
         proxy join removal
 6. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
+7. TC:7 Verify 'match multicast-source-interface' filters by source iface
 """
 
 import os
@@ -464,6 +465,112 @@ int r1-eth1
 conf
 no route-map PROXY_FILTER
 no ip prefix-list PROXY_GROUPS
+"""
+    )
+
+
+def test_pim_igmp_proxy_source_interface_filter():
+    """
+    TC:7 - Verify 'match multicast-source-interface' filters proxied groups
+           based on the interface where the IGMP report was received.
+
+    Topology relevant to this test:
+      r1-eth0 (10.0.20.1) <-> r2-eth0  (sw1)  -- groups from r2 arrive here
+      r1-eth1 (10.0.30.1) <-> rp        (sw2)  -- proxy output interface
+      r1-eth2 (10.0.40.1) <-> r3        (sw3)  -- static joins 225.3.3.3/225.4.4.4
+
+    State at entry (from test_pim_igmp_proxy_route_map):
+      Source iface r1-eth0: 225.2.2.2, 225.5.5.5, 225.7.7.7
+      Source iface r1-eth2: 225.3.3.3, 225.4.4.4
+      All five proxied on r1-eth1.
+
+    Steps:
+      1. Configure a route-map matching only source interface r1-eth2.
+      2. Apply it and cycle proxy.
+      3. Verify only 225.3.3.3 and 225.4.4.4 (from r1-eth2) are proxied.
+      4. Verify groups from r1-eth0 are absent.
+      5. Remove the route-map; cycle proxy; verify all five groups return.
+    """
+    logger.info("Verify match multicast-source-interface filtering")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+
+    # Step 1+2: route-map matching source interface r1-eth2 only
+    r1.vtysh_cmd(
+        """
+conf
+route-map PROXY_SRC_IFC permit 10
+ match multicast-source-interface r1-eth2
+!
+int r1-eth1
+ ip igmp proxy route-map PROXY_SRC_IFC
+ no ip igmp proxy
+ ip igmp proxy
+"""
+    )
+
+    # Step 3: only groups reported on r1-eth2 should be proxied
+    expected_eth2_only = {
+        "vrf": "default",
+        "r1-eth1": {
+            "name": "r1-eth1",
+            "groups": [
+                {"source": "*", "group": "225.3.3.3", "primaryAddr": "10.0.30.1"},
+                {"source": "*", "group": "225.4.4.4", "primaryAddr": "10.0.30.1"},
+            ],
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp proxy json", expected_eth2_only
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"r1" proxy groups mismatch: expected only r1-eth2 groups'
+    assert result is None, assertmsg
+
+    # Step 4: groups from r1-eth0 must not appear
+    denied_groups = ["225.2.2.2", "225.5.5.5", "225.7.7.7"]
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], denied_groups)
+    assert result is True, "Error: r1-eth0 group leaked into proxy: {}".format(result)
+
+    # Step 5: remove the route-map; all groups should return
+    r1.vtysh_cmd(
+        """
+conf
+int r1-eth1
+ no ip igmp proxy route-map
+ no ip igmp proxy
+ ip igmp proxy
+"""
+    )
+
+    expected_all = {
+        "vrf": "default",
+        "r1-eth1": {
+            "name": "r1-eth1",
+            "groups": [
+                {"source": "*", "group": "225.2.2.2", "primaryAddr": "10.0.30.1"},
+                {"source": "*", "group": "225.3.3.3", "primaryAddr": "10.0.30.1"},
+                {"source": "*", "group": "225.4.4.4", "primaryAddr": "10.0.30.1"},
+                {"source": "*", "group": "225.5.5.5", "primaryAddr": "10.0.30.1"},
+                {"source": "*", "group": "225.7.7.7", "primaryAddr": "10.0.30.1"},
+            ],
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp proxy json", expected_all
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"r1" proxy groups mismatch after source-interface route-map removed'
+    assert result is None, assertmsg
+
+    # cleanup
+    r1.vtysh_cmd(
+        """
+conf
+no route-map PROXY_SRC_IFC
 """
     )
 
