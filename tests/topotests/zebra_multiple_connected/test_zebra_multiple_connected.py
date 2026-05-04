@@ -512,6 +512,73 @@ def test_zebra_kernel_last_ipv6_address_deleted():
     )
 
 
+def test_zebra_secondary_address_local_route():
+    """
+    Test that secondary IPv4 addresses appear as local routes in zebra RIB.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    ifname = "dummy_sec"
+
+    router.run("ip link del {} 2>/dev/null".format(ifname))
+    router.run("ip link add {} type dummy".format(ifname))
+    router.run("sysctl -w net.ipv4.conf.{}.promote_secondaries=1".format(ifname))
+    router.run("ip link set {} up".format(ifname))
+
+    # Phase A: primary + secondary, both /32 local routes must be present.
+    addresses = ["10.100.0.1", "10.100.0.2"]
+    for address in addresses:
+        router.run("ip addr add {}/24 dev {}".format(address, ifname))
+
+    expected_before = {
+        "{}/32".format(address): [
+            {
+                "protocol": "local",
+                "selected": True,
+                "nexthops": [{"interfaceName": ifname, "directlyConnected": True}],
+            }
+        ]
+        for address in addresses
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route json", expected_before
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Secondary local /32 routes are missing\n{}".format(result)
+
+    # Phase B: delete the primary while a secondary on the same /24 still exists.
+    # With promote_secondaries=1 the kernel keeps 10.100.0.2.
+    # The deleted primary's /32 must be removed; the secondary's /32 must remain.
+    router.run("ip addr del 10.100.0.1/24 dev {}".format(ifname))
+
+    expected_after = {
+        "{}/32".format(address): [
+            {
+                "protocol": "local",
+                "selected": True,
+                "nexthops": [{"interfaceName": ifname, "directlyConnected": True}],
+            }
+        ]
+        for address in addresses[1:]
+    }
+    expected_after["10.100.0.1/32"] = None
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route json", expected_after
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Stale local primary /32 route after deletion\n{}".format(
+        result
+    )
+
+    router.run("ip link del {}".format(ifname))
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
