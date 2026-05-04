@@ -504,6 +504,16 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	/* Mark the address as 'down' */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
+	if (remove_local) {
+		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+
+		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+	}
+
 	/*
 	 * It's possible to have X number of addresses
 	 * on a interface that all resolve to the same
@@ -536,16 +546,6 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 
 		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
-	}
-
-	if (remove_local) {
-		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
-			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
-
-		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
-			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
 			   zvrf->table_id, 0, 0, false);
 	}
 
