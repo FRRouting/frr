@@ -84,6 +84,8 @@ struct static_srv6_if_neigh {
 
 	/* Flag to indicate if a neighbor request has been sent */
 	bool neigh_request_sent;
+	/* RA assist request is pending while waiting for LL confirmation */
+	bool ra_assist_waiting;
 };
 
 /*
@@ -174,6 +176,8 @@ void static_srv6_neigh_unregister_if_needed(void);
 void static_srv6_neigh_cleanup_interface(struct interface *ifp);
 void static_srv6_refresh_sids_on_neigh_change(struct interface *ifp, struct in6_addr *nexthop,
 					      bool is_add);
+bool static_srv6_ra_assist_waiting(const struct interface *ifp);
+void static_srv6_ra_assist_wait_set(struct interface *ifp, bool waiting);
 
 const struct in6_addr *static_srv6_sid_get_nexthop(const struct static_srv6_sid *sid);
 bool static_srv6_sid_needs_resolution(const struct static_srv6_sid *sid);

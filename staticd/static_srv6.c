@@ -309,6 +309,47 @@ uint32_t static_srv6_neigh_table_hash(const struct static_srv6_if_neigh *ifn)
 	return jhash_1word(ifn->ifindex, 0);
 }
 
+static struct static_srv6_if_neigh *
+static_srv6_get_if_neigh_bucket(const struct interface *ifp, bool create_if_missing)
+{
+	struct static_srv6_if_neigh *ifn;
+	struct static_srv6_if_neigh lookup_key = { .ifindex = ifp->ifindex };
+
+	if (!neigh_cache || !ifp)
+		return NULL;
+
+	ifn = static_srv6_neigh_table_find(&neigh_cache->neigh_table, &lookup_key);
+	if (!ifn && create_if_missing) {
+		ifn = XCALLOC(MTYPE_STATIC_SRV6_IF_NEIGH, sizeof(struct static_srv6_if_neigh));
+		ifn->ifindex = ifp->ifindex;
+		static_srv6_neigh_table_add(&neigh_cache->neigh_table, ifn);
+	}
+
+	return ifn;
+}
+
+bool static_srv6_ra_assist_waiting(const struct interface *ifp)
+{
+	struct static_srv6_if_neigh *ifn;
+
+	ifn = static_srv6_get_if_neigh_bucket(ifp, false);
+	return ifn ? ifn->ra_assist_waiting : false;
+}
+
+void static_srv6_ra_assist_wait_set(struct interface *ifp, bool waiting)
+{
+	struct static_srv6_if_neigh *ifn;
+
+	if (!ifp)
+		return;
+
+	ifn = static_srv6_get_if_neigh_bucket(ifp, waiting);
+	if (!ifn)
+		return;
+
+	ifn->ra_assist_waiting = waiting;
+}
+
 /* Free neighbor */
 static void static_srv6_neigh_free(struct static_srv6_neigh *neigh)
 {
@@ -514,7 +555,6 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 	bool state_changed = false;
 	uint32_t old_state = 0;
 	bool is_new = false;
-	struct static_srv6_if_neigh lookup_key = { .ifindex = ifp->ifindex };
 
 	if (!neigh_cache) {
 		DEBUGD(&static_dbg_srv6, "%s: Cache not initialized, ignoring neighbor add",
@@ -526,15 +566,11 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 	       "%s: Adding neighbor %pI6 on interface %s (index %u) with state 0x%x", __func__,
 	       addr, ifp->name, ifp->ifindex, ndm_state);
 
-	/* Look up bucket for this interface */
-	ifn = static_srv6_neigh_table_find(&neigh_cache->neigh_table, &lookup_key);
-
-	/* Create bucket if it doesn't exist */
-	if (!ifn) {
-		ifn = XCALLOC(MTYPE_STATIC_SRV6_IF_NEIGH, sizeof(struct static_srv6_if_neigh));
-		ifn->ifindex = ifp->ifindex;
-		ifn->neighbors = NULL;
-		static_srv6_neigh_table_add(&neigh_cache->neigh_table, ifn);
+	/* Look up/create bucket for this interface */
+	ifn = static_srv6_get_if_neigh_bucket(ifp, true);
+	if (!ifn)
+		return;
+	if (ifn && !ifn->neighbors) {
 		DEBUGD(&static_dbg_srv6, "%s: Created new bucket for interface %s (index %u)",
 		       __func__, ifp->name, ifp->ifindex);
 	}
@@ -580,6 +616,13 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 				bool was_usable = static_srv6_neigh_state_is_usable(old_state);
 				bool is_usable = static_srv6_neigh_state_is_usable(ndm_state);
 
+				if (!was_usable && is_usable && ifn && ifn->ra_assist_waiting) {
+					DEBUGD(&static_dbg_srv6,
+					       "%s: LL confirmed on %s via state change, clearing RA-assist waiting state",
+					       __func__, ifp->name);
+					ifn->ra_assist_waiting = false;
+				}
+
 				if (was_usable != is_usable)
 					static_srv6_refresh_sids_on_neigh_change(ifp, addr, true);
 			}
@@ -615,6 +658,12 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 
 	/* Refresh SIDs for this interface if new usable neighbor */
 	if (is_new && static_srv6_neigh_state_is_usable(ndm_state)) {
+		if (ifn && ifn->ra_assist_waiting) {
+			DEBUGD(&static_dbg_srv6,
+			       "%s: LL confirmed on %s, clearing RA-assist waiting state", __func__,
+			       ifp->name);
+			ifn->ra_assist_waiting = false;
+		}
 		DEBUGD(&static_dbg_srv6,
 		       "%s: Refreshing SIDs for interface %s (index %u) after neighbor add",
 		       __func__, ifp->name, ifp->ifindex);
@@ -810,6 +859,8 @@ void static_srv6_neigh_cleanup_interface(struct interface *ifp)
 	ifn = static_srv6_neigh_table_find(&neigh_cache->neigh_table, &lookup_key);
 	if (!ifn)
 		return;
+
+	ifn->ra_assist_waiting = false;
 
 	/* Remove all neighbors for this interface */
 	neighbor = ifn->neighbors;

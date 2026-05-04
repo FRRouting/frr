@@ -35,6 +35,7 @@
 #include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_IF, "Static interface info");
 PREDECL_HASH(static_nht_hash);
 
 struct static_nht_data {
@@ -78,15 +79,85 @@ static struct static_nht_hash_head static_nht_hash[1];
 struct zclient *static_zclient;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
+struct static_if {
+	uint32_t flags;
+};
+
+#define STATIC_IF_FLAG_PEER_LL_WAITING	 (1 << 0)
+#define STATIC_IF_FLAG_PEER_LL_CONFIRMED (1 << 1)
+
+static bool static_srv6_ua_needs_ra(struct static_srv6_sid *sid)
+{
+	return sid && sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID &&
+	       sid->attributes.ifname[0] != '\0';
+}
+
+static bool static_ua_sid_is_queued_for_peer_ll(struct static_srv6_sid *sid)
+{
+	return sid && CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+}
+
+static bool static_queue_ua_sid_allocation_after_peer_ll(struct static_srv6_sid *sid)
+{
+	if (!sid)
+		return false;
+
+	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+	return true;
+}
+
+static bool static_peer_ll_confirmation_received(struct interface *ifp)
+{
+	struct static_if *sif;
+
+	if (!ifp || !ifp->info)
+		return false;
+
+	sif = ifp->info;
+	return CHECK_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_CONFIRMED);
+}
+
+static void static_process_queued_ua_sid_allocations(struct interface *ifp)
+{
+	struct listnode *node;
+	struct static_srv6_sid *sid;
+
+	if (!ifp || !srv6_sids)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (!static_srv6_ua_needs_ra(sid))
+			continue;
+		if (strcmp(sid->attributes.ifname, ifp->name) != 0)
+			continue;
+		if (!CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED))
+			continue;
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID))
+			continue;
+
+		DEBUGD(&static_dbg_srv6,
+		       "%s: Processing queued uA SID %pFX after peer LL confirmation on %s",
+		       __func__, &sid->addr, ifp->name);
+		static_zebra_request_srv6_sid(sid);
+	}
+}
+
 #define STATIC_SRV6_RA_ASSIST_INTERVAL 10
 
 static void static_zebra_trigger_srv6_ra_assist(struct interface *ifp,
 						const struct prefix_ipv6 *sid_addr)
 {
 	enum zclient_send_status status;
+	struct static_if *sif;
 
 	if (!ifp || !ifp->vrf || !static_zclient || static_zclient->sock < 0)
 		return;
+
+	sif = ifp->info;
+	if (sif) {
+		SET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_WAITING);
+		UNSET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_CONFIRMED);
+	}
 
 	status = zclient_send_interface_radv_req(static_zclient, ifp->vrf->vrf_id, ifp, 1,
 						 STATIC_SRV6_RA_ASSIST_INTERVAL);
@@ -100,9 +171,56 @@ static void static_zebra_trigger_srv6_ra_assist(struct interface *ifp,
 	       __func__, sid_addr, ifp->name);
 }
 
+static int static_zebra_peer_ll_confirmation(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	ifindex_t ifindex;
+	struct interface *ifp;
+	struct static_if *sif;
+
+	s = zclient->ibuf;
+	STREAM_GETL(s, ifindex);
+
+	ifp = if_lookup_by_index(ifindex, vrf_id);
+	if (!ifp)
+		return -1;
+
+	sif = ifp->info;
+	if (!sif)
+		return -1;
+
+	SET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_CONFIRMED);
+	UNSET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_WAITING);
+	static_srv6_ra_assist_wait_set(ifp, false);
+
+	DEBUGD(&static_dbg_srv6,
+	       "%s: Peer LL confirmation received for %s (ifindex %u), processing queued SIDs",
+	       __func__, ifp->name, ifindex);
+	static_process_queued_ua_sid_allocations(ifp);
+
+	return 0;
+stream_failure:
+	return -1;
+}
+
 /* Interface addition message from zebra. */
 static int static_ifp_create(struct interface *ifp)
 {
+	struct static_if *sif;
+
+	if (!ifp)
+		return -1;
+
+	if (ifp->info) {
+		static_ifindex_update(ifp, true);
+		return 0;
+	}
+
+	sif = XCALLOC(MTYPE_STATIC_IF, sizeof(*sif));
+	if (!sif)
+		return -1;
+
+	ifp->info = sif;
 	static_ifindex_update(ifp, true);
 
 	return 0;
@@ -110,7 +228,14 @@ static int static_ifp_create(struct interface *ifp)
 
 static int static_ifp_destroy(struct interface *ifp)
 {
+	if (!ifp)
+		return -1;
+
 	static_ifindex_update(ifp, false);
+	if (ifp->info) {
+		XFREE(MTYPE_STATIC_IF, ifp->info);
+		ifp->info = NULL;
+	}
 	return 0;
 }
 
@@ -165,9 +290,17 @@ static int static_ifp_up(struct interface *ifp)
 
 static int static_ifp_down(struct interface *ifp)
 {
+	struct static_if *sif;
+
 	static_ifindex_update(ifp, false);
 
 	static_ifp_srv6_sids_update(ifp, false);
+	static_srv6_ra_assist_wait_set(ifp, false);
+	sif = ifp ? ifp->info : NULL;
+	if (sif) {
+		UNSET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_WAITING);
+		UNSET_FLAG(sif->flags, STATIC_IF_FLAG_PEER_LL_CONFIRMED);
+	}
 
 	/* Clean up neighbor table entries for this interface */
 	static_srv6_neigh_cleanup_interface(ifp);
@@ -1181,6 +1314,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 			if (!nexthop) {
 				bool deferred =
 					CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+				bool ra_waiting = static_srv6_ra_assist_waiting(ifp);
 
 				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
 				DEBUGD(&static_dbg_srv6,
@@ -1189,8 +1323,10 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 
 				if (static_srv6_ua_nexthop_learn_mode_get() ==
 					    STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_RA &&
-				    !deferred)
+				    !deferred && !ra_waiting) {
 					static_zebra_trigger_srv6_ra_assist(ifp, &sid->addr);
+					static_srv6_ra_assist_wait_set(ifp, true);
+				}
 
 				return;
 			}
@@ -1692,6 +1828,7 @@ static zclient_handler *const static_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_ADD] = static_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = static_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_SID_NOTIFY] = static_zebra_srv6_sid_notify,
+	[ZEBRA_PEER_LL_CONFIRMATION] = static_zebra_peer_ll_confirmation,
 	[ZEBRA_NEIGH_ADDED] = static_zebra_process_neigh,
 	[ZEBRA_NEIGH_REMOVED] = static_zebra_process_neigh,
 };
