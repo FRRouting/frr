@@ -60,6 +60,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_memory.c \
 	bgpd/bgp_mpath.c \
 	bgpd/bgp_mplsvpn.c \
+	bgpd/bgp_mup.c \
 	bgpd/bgp_network.c \
 	bgpd/bgp_nexthop.c \
 	bgpd/bgp_nht.c \
@@ -150,6 +151,7 @@ noinst_HEADERS += \
 	bgpd/bgp_mpath.h \
 	bgpd/bgp_mplsvpn.h \
 	bgpd/bgp_mplsvpn_snmp.h \
+	bgpd/bgp_mup.h \
 	bgpd/bgp_network.h \
 	bgpd/bgp_nexthop.h \
 	bgpd/bgp_nht.h \
