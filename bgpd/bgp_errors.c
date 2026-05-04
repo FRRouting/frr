@@ -588,6 +588,13 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Check for excessive number of UPA originators (>200 Router-IDs per prefix). Review UPA configuration on upstream routers.",
 	},
 	{
+		.code = EC_BGP_MUP_PACKET,
+		.title = "BGP-MUP packet error",
+		.description = "BGP-MUP NLRI or attribute packet parsing/encoding error",
+		.suggestion =
+			"Check that the BGP-MUP peer is sending valid packets per draft-ietf-bess-mup-safi. May indicate an interoperability issue or malformed data.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
