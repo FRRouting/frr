@@ -29,6 +29,7 @@
 #define MULTICAST_IPV6_GROUP	   "multicast-group-v6"
 #define MULTICAST_IPV6_GROUP_LIST  "multicast-group-v6 prefix-list"
 #define MULTICAST_INTERFACE	   "multicast-interface"
+#define MULTICAST_SOURCE_INTERFACE "multicast-source-interface"
 
 DEFINE_MTYPE_STATIC(PIMD, PIM_ACL_REF, "PIM filter name");
 
@@ -103,10 +104,20 @@ void pim_sg_to_prefix(const pim_sgaddr *sg, struct prefix_sg *prefix)
 struct pim_rmap_info {
 	const struct prefix_sg *sg;
 	struct interface *interface;
+	/*
+	 * Multicast source interface for this route-map evaluation
+	 * (`match multicast-source-interface` matches this):
+	 *   - may differ from `interface` when membership or control traffic
+	 *     arrived on a different interface than the filter evaluation context
+	 *   - otherwise same as `interface`
+	 *
+	 * Always populated by callers; never NULL in current code paths.
+	 */
+	struct interface *source_interface;
 };
 
 bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *sg,
-		      struct interface *interface)
+		      struct interface *interface, struct interface *source_interface)
 {
 #if PIM_IPV == 4
 	if (sg->grp.ipaddr_v4.s_addr && !pim_is_group_224_4(sg->grp.ipaddr_v4))
@@ -147,6 +158,7 @@ bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *
 		struct pim_rmap_info info = {
 			.sg = sg,
 			.interface = interface,
+			.source_interface = source_interface,
 		};
 
 		if (!ref->rmap)
@@ -613,6 +625,60 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 	route_map_rule_str_free,
 };
 
+static enum route_map_cmd_result_t
+route_match_source_interface(void *rule, const struct prefix *prefix, void *object)
+{
+	struct pim_rmap_info *info = object;
+	struct interface *ifp;
+
+	if (!info->source_interface)
+		return RMAP_NOMATCH;
+
+	ifp = if_lookup_by_name(rule, info->source_interface->vrf->vrf_id);
+	if (ifp == NULL || ifp != info->source_interface)
+		return RMAP_NOMATCH;
+
+	return RMAP_MATCH;
+}
+
+static const struct route_map_rule_cmd route_match_source_interface_cmd = {
+	MULTICAST_SOURCE_INTERFACE,
+	route_match_source_interface,
+	route_map_rule_str_compile,
+	route_map_rule_str_free,
+};
+
+DEFPY_YANG(route_map_match_source_interface,
+	   route_map_match_source_interface_cmd,
+	   "[no] match multicast-source-interface IFNAME",
+	   NO_STR
+	   MATCH_STR
+	   "Multicast source interface for this route-map evaluation\n"
+	   "Interface name\n")
+{
+	const char *xpath, *xpval;
+	char xpath_value[XPATH_MAXLEN];
+
+	xpath = "./match-condition[condition='frr-pim-route-map:multicast-source-interface']";
+	xpval = "/rmap-match-condition/frr-pim-route-map:multicast-source-interface";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value), "%s%s", xpath, xpval);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ifname);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_YANG(route_map_match_source_interface,
+	   no_route_map_match_source_interface_cmd,
+	   "no match multicast-source-interface",
+	   NO_STR
+	   MATCH_STR
+	   "Multicast source interface for this route-map evaluation\n")
 
 static void pim_route_map_add(const char *rmap_name)
 {
@@ -651,6 +717,7 @@ void pim_route_map_init(void)
 	route_map_install_match(&route_match_group_prefix_list_cmd);
 	route_map_install_match(&route_match_group_v6_prefix_list_cmd);
 	route_map_install_match(&route_match_interface_cmd);
+	route_map_install_match(&route_match_source_interface_cmd);
 
 	install_element(RMAP_NODE, &route_map_match_address_cmd);
 	install_element(RMAP_NODE, &no_route_map_match_address_cmd);
@@ -662,6 +729,8 @@ void pim_route_map_init(void)
 	install_element(RMAP_NODE, &no_route_map_match_prefix_list_v6_cmd);
 	install_element(RMAP_NODE, &route_map_match_interface_cmd);
 	install_element(RMAP_NODE, &no_route_map_match_interface_cmd);
+	install_element(RMAP_NODE, &route_map_match_source_interface_cmd);
+	install_element(RMAP_NODE, &no_route_map_match_source_interface_cmd);
 }
 
 void pim_route_map_terminate(void)
@@ -724,6 +793,11 @@ int pim_route_map_match_group_v6_modify(struct nb_cb_modify_args *args)
 int pim_route_map_match_interface_modify(struct nb_cb_modify_args *args)
 {
 	return pim_route_map_match_item_modify(args, MULTICAST_INTERFACE);
+}
+
+int pim_route_map_match_source_interface_modify(struct nb_cb_modify_args *args)
+{
+	return pim_route_map_match_item_modify(args, MULTICAST_SOURCE_INTERFACE);
 }
 
 int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args)

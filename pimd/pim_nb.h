@@ -186,6 +186,7 @@ int pim_route_map_match_source_v6_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_group_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_group_v6_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_interface_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_source_interface_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args);
 
 /* frr-pim-rp prototypes*/

@@ -527,6 +527,13 @@ const struct frr_yang_module_info frr_pim_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:multicast-source-interface",
+			.cbs = {
+				.modify = pim_route_map_match_source_interface_modify,
+				.destroy = lib_route_map_entry_match_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:list-name",
 			.cbs = {
 				.modify = pim_route_map_match_list_name_modify,

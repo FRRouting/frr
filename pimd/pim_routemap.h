@@ -30,7 +30,7 @@ struct pim_filter_ref {
  * sg is required, interface is optional
  */
 extern bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *sg,
-			     struct interface *interface);
+			     struct interface *interface, struct interface *source_interface);
 
 extern void pim_sg_to_prefix(const pim_sgaddr *sg, struct prefix_sg *prefix);
 
