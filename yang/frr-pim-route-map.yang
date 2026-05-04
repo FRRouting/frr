@@ -93,6 +93,12 @@ module frr-pim-route-map {
       "Match multicast interface";
   }
 
+  identity multicast-source-interface {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match the multicast source interface for the route-map evaluation context.";
+  }
+
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
     description
       "Augments the route-map match-condition to support PIM-specific match types
@@ -146,6 +152,16 @@ module frr-pim-route-map {
         type frr-interface:interface-ref;
         description
           "Multicast interface to match";
+      }
+    }
+
+    case multicast-source-interface {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:multicast-source-interface')";
+
+      leaf multicast-source-interface {
+        type frr-interface:interface-ref;
+        description
+          "Multicast source interface to match for the route-map evaluation context.";
       }
     }
 
