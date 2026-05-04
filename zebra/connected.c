@@ -305,6 +305,13 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	if (zrouter.zav.asic_offloaded)
 		flags |= ZEBRA_FLAG_OFFLOADED;
 
+	if (install_local) {
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags, &plocal,
+			NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags,
+			&plocal, NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
+	}
+
 	/*
 	 * It's possible to add the same network and mask
 	 * to an interface over and over.  This would
@@ -336,13 +343,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
 			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
-	}
-
-	if (install_local) {
-		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags, &plocal,
-			NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
-		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags,
-			&plocal, NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
 	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
