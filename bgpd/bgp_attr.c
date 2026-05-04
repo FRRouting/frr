@@ -44,6 +44,7 @@
 #include "bgp_vnc_types.h"
 #endif
 #include "bgp_evpn.h"
+#include "bgp_mup.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
 #include "bgpd/bgp_ls_nlri.h"
@@ -4960,7 +4961,14 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put_ipv4(s, attr->mp_nexthop_global_in.s_addr);
 			break;
 		case SAFI_MUP:
-			/* TODO: implemented in subsequent commit */
+			/* Keep whichever nexthop family the route carries. */
+			if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) {
+				stream_putc(s, BGP_ATTR_NHLEN_IPV4);
+				stream_put(s, &attr->mp_nexthop_global_in, 4);
+			} else {
+				stream_putc(s, IPV6_MAX_BYTELEN);
+				stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
+			}
 			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -5225,7 +5233,7 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
 	case SAFI_MUP:
-		/* TODO: implemented in subsequent commit */
+		bgp_mup_encode_prefix(s, afi, p, prd, addpath_capable, addpath_tx_id);
 		break;
 	}
 }
@@ -5271,8 +5279,7 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		size = 0;
 		break;
 	case SAFI_MUP:
-		/* TODO: implemented in subsequent commit */
-		size = 0;
+		size = bgp_mup_prefix_size(p);
 		break;
 	}
 
@@ -5803,7 +5810,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if ((afi == AFI_IP || afi == AFI_IP6)) {
 		struct bgp_attr_srv6_l3service *srv6_l3service = NULL;
 
-		if (safi == SAFI_MPLS_VPN && bgp_attr_get_srv6_l3service(attr))
+		if ((safi == SAFI_MPLS_VPN || safi == SAFI_MUP) &&
+		    bgp_attr_get_srv6_l3service(attr))
 			srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 		else if (peer_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
