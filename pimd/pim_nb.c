@@ -885,6 +885,13 @@ const struct frr_yang_module_info frr_gmp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy-route-map",
+			.cbs = {
+				.modify  = lib_interface_gm_proxy_rmap_modify,
+				.destroy = lib_interface_gm_proxy_rmap_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/immediate-leave",
 			.cbs = {
 				.modify = lib_interface_gmp_immediate_leave_modify,
