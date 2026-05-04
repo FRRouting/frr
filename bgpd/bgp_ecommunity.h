@@ -24,6 +24,7 @@
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
 #define ECOMMUNITY_ENCODE_EVPN              0x06
 #define ECOMMUNITY_ENCODE_REDIRECT_IP_NH    0x08 /* Flow Spec */
+#define ECOMMUNITY_ENCODE_MUP               0x0c
 /* Generic Transitive Experimental */
 #define ECOMMUNITY_ENCODE_TRANS_EXP         0x80
 
@@ -92,6 +93,9 @@
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
 #define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
+
+/* Sub-Types for ECOMMUNITY_ENCODE_MUP (draft 3.2). */
+#define ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_ID 0x00
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
