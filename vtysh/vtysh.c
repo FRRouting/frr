@@ -1540,6 +1540,20 @@ static struct cmd_node bgp_ls_node = {
 	.prompt = "%s(config-router-af)# ",
 };
 
+static struct cmd_node bgp_mupv4_node = {
+	.name = "bgp ipv4 mup",
+	.node = BGP_MUPV4_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
+
+static struct cmd_node bgp_mupv6_node = {
+	.name = "bgp ipv6 mup",
+	.node = BGP_MUPV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
+
 static struct cmd_node ospf_node = {
 	.name = "ospf",
 	.node = OSPF_NODE,
@@ -1883,6 +1897,22 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_unreachability, address_family_ipv6_unre
 	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6U_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_mupv4, address_family_mupv4_cmd,
+	"address-family ipv4 mup",
+	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_MUPV4_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_mupv6, address_family_mupv6_cmd,
+	"address-family ipv6 mup",
+	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_MUPV6_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2641,16 +2671,14 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	"exit-address-family", "Exit from Address Family configuration mode\n")
 {
-	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE
-	    || vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE
-	    || vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE
-	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE
-	    || vty->node == BGP_EVPN_NODE
-	    || vty->node == BGP_FLOWSPECV4_NODE
-	    || vty->node == BGP_FLOWSPECV6_NODE
-	    || vty->node == BGP_LS_NODE
-	    || vty->node == BGP_IPV4U_NODE
-	    || vty->node == BGP_IPV6U_NODE)
+	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE ||
+	    vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE ||
+	    vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE ||
+	    vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE ||
+	    vty->node == BGP_EVPN_NODE || vty->node == BGP_FLOWSPECV4_NODE ||
+	    vty->node == BGP_FLOWSPECV6_NODE || vty->node == BGP_LS_NODE ||
+	    vty->node == BGP_IPV4U_NODE || vty->node == BGP_IPV6U_NODE ||
+	    vty->node == BGP_MUPV4_NODE || vty->node == BGP_MUPV6_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -5351,6 +5379,8 @@ void vtysh_init_vty(void)
 	install_node(&bmp_node);
 	install_node(&bgp_srv6_node);
 	install_node(&bgp_ls_node);
+	install_node(&bgp_mupv4_node);
+	install_node(&bgp_mupv6_node);
 	install_node(&rip_node);
 	install_node(&ripng_node);
 	install_node(&ospf_node);
@@ -5551,6 +5581,18 @@ void vtysh_init_vty(void)
 	install_element(BGP_LS_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_LS_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &address_family_mupv4_cmd);
+	install_element(BGP_MUPV4_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_MUPV4_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_MUPV4_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_MUPV4_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &address_family_mupv6_cmd);
+	install_element(BGP_MUPV6_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_MUPV6_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_MUPV6_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_MUPV6_NODE, &exit_address_family_cmd);
 #endif /* HAVE_BGPD */
 
 	/* ripd */
