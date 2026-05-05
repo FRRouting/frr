@@ -41,6 +41,7 @@
 #include "zebra/zebra_defaults.h"
 #include "zebra/zebra_nhrp.h"
 #include "zebra/zebra_l2vpn_svc.h"
+#include "zebra/zebra_kernel_capabilities.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -2105,6 +2106,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Update interface type */
 			ifp->zif_type = zif_type;
+
+			zebra_kernel_capabilities_interface_created_cb(ifp);
 
 			/* Inform clients, install any configured addresses. */
 			if_add_update(ifp);

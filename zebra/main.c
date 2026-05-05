@@ -56,6 +56,7 @@
 #ifndef HAVE_MGMTD
 #include "zebra/zebra_cli.h"
 #endif
+#include "zebra/zebra_kernel_capabilities.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -509,6 +510,8 @@ int main(int argc, char **argv)
 	*  to that after daemon() completes (if ever called).
 	*/
 	frr_config_fork();
+
+	zebra_kernel_capabilities_init();
 
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting
