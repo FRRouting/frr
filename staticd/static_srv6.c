@@ -38,6 +38,18 @@ DECLARE_HASH(static_srv6_neigh_table, struct static_srv6_if_neigh, item,
 
 /* Global neighbor cache instance */
 struct static_srv6_neigh_cache *neigh_cache;
+static enum static_srv6_ua_nexthop_learn_mode ua_nexthop_learn_mode =
+	STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_ND;
+
+void static_srv6_ua_nexthop_learn_mode_set(enum static_srv6_ua_nexthop_learn_mode mode)
+{
+	ua_nexthop_learn_mode = mode;
+}
+
+enum static_srv6_ua_nexthop_learn_mode static_srv6_ua_nexthop_learn_mode_get(void)
+{
+	return ua_nexthop_learn_mode;
+}
 
 /*
  * Determines if the specified SID needs to be installed or removed
@@ -247,6 +259,7 @@ void static_srv6_sid_del(struct static_srv6_sid *sid)
 		static_srv6_neigh_unregister_if_needed();
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
 	}
+	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
 
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
 		static_zebra_release_srv6_sid(sid);
@@ -435,6 +448,20 @@ void static_srv6_refresh_sids_on_neigh_change(struct interface *ifp, struct in6_
 
 		/* Try to resolve with the new neighbor */
 		if (static_srv6_sid_resolve_nexthop(sid)) {
+			/*
+			 * This SID was deferred waiting for LL. Now that neighbor
+			 * resolution succeeded, continue queued processing by
+			 * requesting allocation again.
+			 */
+			if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED) &&
+			    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+				DEBUGD(&static_dbg_srv6,
+				       "%s: Processing deferred SID %pFX after LL confirmation",
+				       __func__, &sid->addr);
+				static_zebra_request_srv6_sid(sid);
+				continue;
+			}
+
 			/* Install with resolved nexthop */
 			if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
 			    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
@@ -952,6 +979,7 @@ void static_srv6_sid_clear_resolution(struct static_srv6_sid *sid)
  */
 void static_srv6_init(void)
 {
+	ua_nexthop_learn_mode = STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_ND;
 	srv6_locators = list_new();
 	srv6_locators->del = delete_static_srv6_locator;
 	srv6_sids = list_new();

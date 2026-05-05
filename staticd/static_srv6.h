@@ -46,6 +46,8 @@ struct static_srv6_sid {
 #define STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA (1 << 1)
 /* this SRv6 SID requires nexthop resolution */
 #define STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION (1 << 2)
+/* SID request is deferred waiting for LL resolution */
+#define STATIC_FLAG_SRV6_SID_DEFERRED (1 << 3)
 
 	char locator_name[SRV6_LOCNAME_SIZE];
 	struct static_srv6_locator *locator;
@@ -113,6 +115,11 @@ struct static_srv6_locator {
 	uint8_t flags;
 };
 
+enum static_srv6_ua_nexthop_learn_mode {
+	STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_ND = 0,
+	STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_RA,
+};
+
 /* List of SRv6 SIDs. */
 extern struct list *srv6_locators;
 extern struct list *srv6_sids;
@@ -153,6 +160,9 @@ void delete_static_srv6_sid(void *val);
 void delete_static_srv6_locator(void *val);
 
 void static_zebra_request_srv6_sids(void);
+
+void static_srv6_ua_nexthop_learn_mode_set(enum static_srv6_ua_nexthop_learn_mode mode);
+enum static_srv6_ua_nexthop_learn_mode static_srv6_ua_nexthop_learn_mode_get(void);
 
 void static_srv6_neigh_cache_init(void);
 void static_srv6_neigh_cache_cleanup(void);

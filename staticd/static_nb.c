@@ -162,6 +162,13 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/ua-nexthop-learn-mode",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/static-sids/sid/behavior",
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_behavior_modify,

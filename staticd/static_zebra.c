@@ -78,6 +78,28 @@ static struct static_nht_hash_head static_nht_hash[1];
 struct zclient *static_zclient;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
+#define STATIC_SRV6_RA_ASSIST_INTERVAL 10
+
+static void static_zebra_trigger_srv6_ra_assist(struct interface *ifp,
+						const struct prefix_ipv6 *sid_addr)
+{
+	enum zclient_send_status status;
+
+	if (!ifp || !ifp->vrf || !static_zclient || static_zclient->sock < 0)
+		return;
+
+	status = zclient_send_interface_radv_req(static_zclient, ifp->vrf->vrf_id, ifp, 1,
+						 STATIC_SRV6_RA_ASSIST_INTERVAL);
+	if (status == ZCLIENT_SEND_FAILURE) {
+		zlog_warn("Failed to trigger RA assist for SID %pFX on interface %s", sid_addr,
+			  ifp->name);
+		return;
+	}
+
+	DEBUGD(&static_dbg_srv6, "%s: Triggered RA assist for SID %pFX on interface %s",
+	       __func__, sid_addr, ifp->name);
+}
+
 /* Interface addition message from zebra. */
 static int static_ifp_create(struct interface *ifp)
 {
@@ -1101,13 +1123,41 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sid->attributes.nh6;
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to request SRv6 SID %pFX: interface %s does not exist",
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
+			const struct in6_addr *nexthop = static_srv6_sid_get_nexthop(sid);
+
+			if (!nexthop) {
+				bool deferred =
+					CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+
+				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+				DEBUGD(&static_dbg_srv6,
+				       "%s: Deferring SID %pFX request - waiting for LL on %s",
+				       __func__, &sid->addr, sid->attributes.ifname);
+
+				if (static_srv6_ua_nexthop_learn_mode_get() ==
+					    STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_RA &&
+				    !deferred)
+					static_zebra_trigger_srv6_ra_assist(ifp, &sid->addr);
+
+				return;
+			}
+
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+			if (nexthop)
+				ctx.nh6 = *nexthop;
+		} else {
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
+			ctx.nh6 = sid->attributes.nh6;
+		}
+
 		ctx.ifindex = ifp->ifindex;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
