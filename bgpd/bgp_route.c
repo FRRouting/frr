@@ -10223,7 +10223,9 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 	 * its intended purpose and could incorrectly skip the count in other
 	 * callers (e.g. NHT, dampening reuse) where the flag may be set.
 	 */
-	child = bgp_node_get(table, p);
+	child = bgp_node_match(table, p);
+	if (!child)
+		return;
 
 	/* Aggregate address configuration check. */
 	for (dest = child; dest; dest = bgp_dest_parent_nolock(dest)) {
@@ -10264,7 +10266,9 @@ void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 	if (del->sub_type == BGP_ROUTE_AGGREGATE)
 		return;
 
-	child = bgp_node_get(table, p);
+	child = bgp_node_match(table, p);
+	if (!child)
+		return;
 
 	/* Aggregate address configuration check. */
 	for (dest = child; dest; dest = bgp_dest_parent_nolock(dest)) {
