@@ -125,6 +125,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				if (!bgp_adj_out_set_subgroup(dest, subgrp,
 							      &attr, pi))
 					bgp_attr_flush(&attr);
+				bgp_attr_flush(&advmap_attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
@@ -134,8 +135,10 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				 */
 				if (CHECK_FLAG(peer->af_flags[afi][safi],
 					       PEER_FLAG_DEFAULT_ORIGINATE) &&
-				    is_default_prefix(dest_p))
+				    is_default_prefix(dest_p)) {
+					bgp_attr_flush(&advmap_attr);
 					break;
+				}
 
 				bgp_adj_out_unset_subgroup(dest, subgrp,
 					bgp_addpath_id_for_peer(
