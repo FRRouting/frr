@@ -7146,7 +7146,11 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 
 	if (negate) {
 		/* Set BGP static route configuration. */
+<<<<<<< HEAD
 		dest = bgp_node_lookup(bgp->route[afi][safi], &p);
+=======
+		dest = bgp_node_lookup(table, &p);
+>>>>>>> 8ac4766fa (bgpd: Allow `no network ....` form for safi = EVPN or MPLS_VPN)
 
 		if (!dest) {
 			vty_out(vty, "%% Can't find static route specified\n");
@@ -7172,8 +7176,12 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			}
 
 			/* Update BGP RIB. */
-			if (!bgp_static->backdoor)
-				bgp_static_withdraw(bgp, &p, afi, safi, NULL);
+			if (!bgp_static->backdoor) {
+				if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN)
+					bgp_static_withdraw(bgp, &p, afi, safi, &prd);
+				else
+					bgp_static_withdraw(bgp, &p, afi, safi, NULL);
+			}
 
 			/* Clear configuration. */
 			bgp_static_free(bgp_static);
