@@ -1281,3 +1281,11 @@ struct yang_data *zebra_state_mpls_forwarding_get_elem(struct nb_cb_get_elem_arg
 {
 	return yang_data_new_bool(args->xpath, mpls_enabled);
 }
+
+/*
+ * XPath: /frr-zebra:zebra/state/kernel-mac-ext-learn
+ */
+struct yang_data *zebra_state_kernel_mac_ext_learn_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, zrouter.zav.kernel_mac_ext_learn);
+}

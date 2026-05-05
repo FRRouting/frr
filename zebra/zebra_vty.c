@@ -3929,6 +3929,9 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.zav.asic_offloaded ? "Used" : "Unavailable");
 
+	ttable_add_row(table, "Kernel MAC External Learn|%s",
+		       zrouter.zav.kernel_mac_ext_learn ? "On" : "Off");
+
 	ttable_add_row(table, "RA|%s",
 		       rtadv_compiled_in() ? "Compiled in" : "Not Compiled in");
 	ttable_add_row(table, "RFC 5549|%s",
