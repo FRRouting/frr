@@ -1732,14 +1732,13 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 	bool matched_p = true;
 	struct nexthop *nexthop, *ctx_nexthop;
 
-	/* Get the first `installed` one to check against.
-	 * If the dataplane doesn't set these to be what was actually installed,
-	 * it will just be whatever was in re->nhe->nhg?
+	/* First ctx nh must match the RIB walk: active, non-recursive,
+	 * non-duplicate (nexthop_next_active_resolved skips duplicate nh).
 	 */
 	ctx_nexthop = ctx_nhg->nexthop;
-
-	if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	if (ctx_nexthop && (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
+			    !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE) ||
+			    CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_DUPLICATE)))
 		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
 
 	for (ALL_NEXTHOPS_PTR(re_nhg, nexthop)) {

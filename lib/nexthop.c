@@ -806,14 +806,17 @@ struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
 	return nexthop->next;
 }
 
-/* Return the next nexthop in the tree that is resolved and active */
+/* Return the next nexthop in the tree that is resolved, active, and not a
+ * duplicate-expanded copy (NEXTHOP_FLAG_DUPLICATE). The latter keeps sequential
+ * walks aligned with RIB iterations that skip duplicate nh.
+ */
 struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 {
 	struct nexthop *next = nexthop_next(nexthop);
 
-	while (next
-	       && (CHECK_FLAG(next->flags, NEXTHOP_FLAG_RECURSIVE)
-		   || !CHECK_FLAG(next->flags, NEXTHOP_FLAG_ACTIVE)))
+	while (next && (CHECK_FLAG(next->flags, NEXTHOP_FLAG_RECURSIVE) ||
+			!CHECK_FLAG(next->flags, NEXTHOP_FLAG_ACTIVE) ||
+			CHECK_FLAG(next->flags, NEXTHOP_FLAG_DUPLICATE)))
 		next = nexthop_next(next);
 
 	return next;
