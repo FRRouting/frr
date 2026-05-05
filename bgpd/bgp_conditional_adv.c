@@ -27,7 +27,7 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			dummy_attr = *pi->attr;
+			bgp_attr_dup_into(&dummy_attr, pi->attr);
 
 			/* Fill temp path_info */
 			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
@@ -96,7 +96,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			advmap_attr = *pi->attr;
+			bgp_attr_dup_into(&advmap_attr, pi->attr);
 
 			/* Fill temp path_info */
 			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,

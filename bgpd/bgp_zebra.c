@@ -1384,7 +1384,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		if (bgp->table_map[afi][safi].name) {
 			/* Copy info and attributes, so the route-map
 			   apply doesn't modify the BGP route info. */
-			local_attr = *mpinfo->attr;
+			bgp_attr_dup_into(&local_attr, mpinfo->attr);
 			mpinfo_cp->attr = &local_attr;
 			if (!bgp_table_map_apply(bgp->table_map[afi][safi].map,
 						 p, mpinfo_cp))
@@ -1766,8 +1766,10 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 				bool is_add = true;
 
 				if (bgp->table_map[afi][safi].name) {
-					struct attr local_attr = *pi->attr;
+					struct attr local_attr;
 					struct bgp_path_info local_info = *pi;
+
+					bgp_attr_dup_into(&local_attr, pi->attr);
 
 					local_info.attr = &local_attr;
 
@@ -2364,7 +2366,7 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				struct attr *old_attr;
 				struct attr new_attr;
 
-				new_attr = *pi->attr;
+				bgp_attr_dup_into(&new_attr, pi->attr);
 				new_attr.med = red->redist_metric;
 				old_attr = pi->attr;
 				pi->attr = bgp_attr_intern(&new_attr);

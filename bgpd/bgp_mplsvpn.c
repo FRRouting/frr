@@ -1924,8 +1924,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		return;
 	}
 
-	/* shallow copy */
-	static_attr = *path_vrf->attr;
+	bgp_attr_dup_into(&static_attr, path_vrf->attr);
 
 	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
 		char *s = ecommunity_ecom2str(
@@ -2451,8 +2450,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		zlog_debug("%s: updating RD %s, %pFX to %s", __func__, rd_buf,
 			   p, to_bgp->name_pretty);
 
-	/* shallow copy */
-	static_attr = *path_vpn->attr;
+	bgp_attr_dup_into(&static_attr, path_vpn->attr);
 
 	struct ecommunity *old_ecom;
 	struct ecommunity *new_ecom;

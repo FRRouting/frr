@@ -133,6 +133,18 @@ struct bgp_attr_srv6_vpn {
 	struct in6_addr sid;
 };
 
+struct attr_extra {
+	unsigned long refcnt;
+
+	/* draft-ietf-idr-nhc attribute */
+	struct bgp_nhc *nhc;
+};
+
+extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
+extern void bgp_attr_extra_put(struct attr *attr);
+extern struct attr_extra *bgp_attr_extra_dup(const struct attr_extra *src);
+extern void bgp_attr_dup_into(struct attr *to, const struct attr *from);
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -329,11 +341,11 @@ struct attr {
 	/* AIGP Metric */
 	uint64_t aigp_metric;
 
-	/* Next-hop characteristics */
-	struct bgp_nhc *nhc;
-
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
+
+	/* Optional feature-specific attributes */
+	struct attr_extra *extra;
 };
 
 /* rmap_change_flags definition */
@@ -613,12 +625,21 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 
 static inline struct bgp_nhc *bgp_attr_get_nhc(const struct attr *attr)
 {
-	return attr->nhc;
+	return attr->extra ? attr->extra->nhc : NULL;
 }
 
 static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 {
-	attr->nhc = bnc;
+	struct bgp_nhc *old = bgp_attr_get_nhc(attr);
+
+	if (bnc && !old) {
+		bgp_attr_extra_get(attr)->nhc = bnc;
+	} else if (bnc && old) {
+		attr->extra->nhc = bnc; /* replace; refcnt unchanged */
+	} else if (!bnc && old) {
+		attr->extra->nhc = NULL;
+		bgp_attr_extra_put(attr);
+	}
 
 	if (bnc)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));

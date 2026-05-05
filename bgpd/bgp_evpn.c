@@ -1686,7 +1686,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 			break;
 	}
 
-	static_attr = *attr;
+	bgp_attr_dup_into(&static_attr, attr);
 
 	/*
 	 * create a new route entry if one doesn't exist.
@@ -1799,7 +1799,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	 * present, else treat as locally originated.
 	 */
 	if (src_attr)
-		attr = *src_attr;
+		bgp_attr_dup_into(&attr, src_attr);
 	else {
 		memset(&attr, 0, sizeof(attr));
 		bgp_attr_default_set(&attr, bgp_vrf, BGP_ORIGIN_IGP);
@@ -2090,7 +2090,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		add_mac_mobility_to_attr(seq, attr);
 
 	if (!local_pi) {
-		local_attr = *attr;
+		bgp_attr_dup_into(&local_attr, attr);
 
 		/* Extract MAC mobility sequence number, if any. */
 		local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(&local_attr);
@@ -2179,7 +2179,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			local_attr = *attr;
+			bgp_attr_dup_into(&local_attr, attr);
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
@@ -3225,7 +3225,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * address for the rest of the code to flow through. In the case of IPv4,
 	 * make sure to set the flag for next hop attribute.
 	 */
-	attr = *parent_pi->attr;
+	bgp_attr_dup_into(&attr, parent_pi->attr);
 	bre = bgp_attr_get_evpn_overlay(&attr);
 	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		/*
@@ -6917,7 +6917,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 		return;
 	}
 
-	tmp_attr = *pi->attr;
+	bgp_attr_dup_into(&tmp_attr, pi->attr);
 
 	/* Fill temp path_info */
 	prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer, NULL, &tmp_attr);

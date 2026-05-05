@@ -988,6 +988,67 @@ static void transit_finish(void)
 	hash_clean_and_free(&transit_hash, (void (*)(void *))transit_free);
 }
 
+struct attr_extra *bgp_attr_extra_get(struct attr *attr)
+{
+	if (!attr->extra)
+		attr->extra = XCALLOC(MTYPE_ATTR_EXTRA, sizeof(struct attr_extra));
+
+	attr->extra->refcnt++;
+
+	return attr->extra;
+}
+
+void bgp_attr_extra_put(struct attr *attr)
+{
+	if (!attr->extra)
+		return;
+
+	assert(attr->extra->refcnt > 0);
+
+	if (--attr->extra->refcnt == 0)
+		XFREE(MTYPE_ATTR_EXTRA, attr->extra);
+}
+
+struct attr_extra *bgp_attr_extra_dup(const struct attr_extra *src)
+{
+	struct attr_extra *dup;
+
+	if (!src)
+		return NULL;
+
+	dup = XCALLOC(MTYPE_ATTR_EXTRA, sizeof(struct attr_extra));
+	*dup = *src;
+
+	return dup;
+}
+
+static bool bgp_attr_owns_extra(const struct attr *attr)
+{
+	return attr->extra && !attr->refcnt && attr->attr_intern_reuse.parsed_attr != attr;
+}
+
+static void bgp_attr_extra_discard(struct attr *attr)
+{
+	if (!attr || !attr->extra)
+		return;
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
+}
+
+void bgp_attr_dup_into(struct attr *to, const struct attr *from)
+{
+	if (to == from)
+		return;
+
+	*to = *from;
+	to->refcnt = 0;
+
+	memset(&to->attr_intern_reuse, 0, sizeof(to->attr_intern_reuse));
+
+	if (to->extra)
+		to->extra = bgp_attr_extra_dup(to->extra);
+}
+
 /* Attribute hash routines. */
 static struct hash *attrhash;
 
@@ -1126,8 +1187,11 @@ static void attrhash_init(void)
 /*
  * special for hash_clean below
  */
-static void attr_vfree(void *attr)
+static void attr_vfree(void *a)
 {
+	struct attr *attr = a;
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 	XFREE(MTYPE_ATTR, attr);
 }
 
@@ -1226,6 +1290,12 @@ static void *bgp_attr_hash_alloc(void *p)
 	attr = XMALLOC(MTYPE_ATTR, sizeof(struct attr));
 	*attr = *val;
 	memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+	if (val->extra) {
+		if (bgp_attr_owns_extra(val))
+			val->extra = NULL;
+		else
+			attr->extra = bgp_attr_extra_dup(val->extra);
+	}
 	if (val->encap_subtlvs) {
 		val->encap_subtlvs = NULL;
 	}
@@ -1399,6 +1469,9 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		}
 	}
 
+	if (bgp_attr_owns_extra(attr))
+		bgp_attr_extra_discard(attr);
+
 	return find;
 }
 
@@ -1502,8 +1575,10 @@ struct attr *bgp_attr_aggregate_intern(
 
 	/* Apply route-map */
 	if (aggregate->rmap.name) {
-		struct attr attr_tmp = attr;
+		struct attr attr_tmp;
 		struct bgp_path_info rmap_path;
+
+		bgp_attr_dup_into(&attr_tmp, &attr);
 
 		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
@@ -1607,6 +1682,9 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	ls_attr = bgp_attr_get_ls_attr(attr);
 	bgp_ls_attr_unintern(&ls_attr);
 	bgp_attr_set_ls_attr(attr, NULL);
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
+	attr->extra = NULL;
 }
 
 /* Clear cached intern_attr if it points to the attr that is being uninterned */
@@ -1630,17 +1708,16 @@ void bgp_attr_unintern(struct attr **pattr)
 	/* Decrement attribute reference. */
 	attr->refcnt--;
 
-	tmp = *attr;
-
-	/* If reference becomes zero then free attribute object. */
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
+		bgp_attr_unintern_sub(attr);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
+	} else {
+		bgp_attr_dup_into(&tmp, attr);
+		bgp_attr_unintern_sub(&tmp);
 	}
-
-	bgp_attr_unintern_sub(&tmp);
 }
 
 void bgp_attr_flush(struct attr *attr)
@@ -1728,6 +1805,8 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_nhc_free(nhc);
 		bgp_attr_set_nhc(attr, NULL);
 	}
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and

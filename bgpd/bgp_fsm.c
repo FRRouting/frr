@@ -771,7 +771,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
 							peer, &dest->rn->p);
 
-					attr = *pi->attr;
+					bgp_attr_dup_into(&attr, pi->attr);
 					bgp_attr_add_llgr_community(&attr);
 					pi->attr = bgp_attr_intern(&attr);
 					bgp_process(bgp, rm, pi, afi, safi);
@@ -800,7 +800,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
 						peer, &dest->rn->p);
 
-				attr = *pi->attr;
+				bgp_attr_dup_into(&attr, pi->attr);
 				bgp_attr_add_llgr_community(&attr);
 				pi->attr = bgp_attr_intern(&attr);
 				bgp_process(bgp, dest, pi, afi, safi);

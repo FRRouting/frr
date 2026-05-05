@@ -336,7 +336,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		if (rmap) {
 			struct bgp_path_info_extra extra;
 
-			attr_tmp = *bpi->attr;
+			bgp_attr_dup_into(&attr_tmp, bpi->attr);
 			p = bgp_dest_get_prefix(bpi->net);
 
 			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,

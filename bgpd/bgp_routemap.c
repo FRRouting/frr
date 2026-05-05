@@ -434,7 +434,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	struct attr newattr = *path->attr;
+	struct attr newattr;
+
+	bgp_attr_dup_into(&newattr, path->attr);
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),

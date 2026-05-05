@@ -641,7 +641,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		return;
 	}
 
-	attr = *new_best->attr;
+	bgp_attr_dup_into(&attr, new_best->attr);
 
 	if (new_best->peer
 	    && CHECK_FLAG(new_best->peer->bgp->flags,
