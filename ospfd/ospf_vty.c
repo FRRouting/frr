@@ -13108,6 +13108,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " socket buffer send %u\n",
 			ospf->send_sock_bufsize);
 
+	if (CHECK_FLAG(ospf->config, OSPF_SHUTDOWN))
+		vty_out(vty, " shutdown\n");
 
 	vty_out(vty, "exit\n");
 
@@ -13650,6 +13652,46 @@ DEFPY (per_intf_socket,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ospf_instance_shutdown, ospf_instance_shutdown_cmd,
+      "[no] shutdown",
+      NO_STR
+      "Administrative shutdown\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (!no && ospf->gr_info.restart_support) {
+		struct listnode *node, *inode;
+		struct ospf_interface *oi;
+		struct ospf_area *area;
+
+		/* Prevent OSPF shutdown with graceful restart if opaque is disabled */
+		if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
+			vty_out(vty,
+				"%% Failed to activate graceful restart: opaque capability is not enabled\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/* Reenable routing instance in the GR mode. */
+		ospf_gr_restart_enter(ospf, OSPF_GR_SWITCH_CONTROL_PROCESSOR,
+				      time(NULL) + ospf->gr_info.grace_period);
+
+		/*
+		 * RFC 3623 - Section 5 ("Unplanned Outages"):
+		 * "The grace-LSAs are encapsulated in Link State Update
+		 * Packets and sent out to all interfaces, even though
+		 * the restarted router has no adjacencies and no
+		 * knowledge of previous adjacencies".
+		 */
+		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
+			for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi))
+				ospf_gr_unplanned_start_interface(oi);
+	}
+
+	ospf_shutdown(ospf, !no);
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13812,6 +13854,8 @@ void ospf_vty_init(void)
 
 	install_element(OSPF_NODE, &ospf_socket_bufsizes_cmd);
 	install_element(OSPF_NODE, &per_intf_socket_cmd);
+
+	install_element(OSPF_NODE, &ospf_instance_shutdown_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

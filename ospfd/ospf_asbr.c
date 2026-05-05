@@ -1291,3 +1291,38 @@ int ospf_external_aggregator_timer_set(struct ospf *ospf, uint16_t interval)
 	ospf->aggr_delay_interval = interval;
 	return OSPF_SUCCESS;
 }
+
+/* Reoriginate AS-External/NSSA LSAs. */
+void ospf_asbr_reoriginate(struct ospf *ospf)
+{
+	struct route_node *rn;
+	struct external_info *ei;
+	struct ospf_external *ext;
+	struct list *ext_list;
+	struct listnode *node;
+
+	for (int type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+		ext_list = ospf->external[type];
+		if (!ext_list)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+			if (!ospf_is_type_redistributed(ospf, type, ext->instance))
+				continue;
+
+			if (EXTERNAL_INFO(ext) == NULL)
+				continue;
+
+			for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+				ei = rn->info;
+				if (ei == NULL)
+					continue;
+
+				if (!ospf_distribute_check_connected(ospf, ei))
+					continue;
+
+				ospf_external_lsa_originate(ospf, ei);
+			}
+		}
+	}
+}
