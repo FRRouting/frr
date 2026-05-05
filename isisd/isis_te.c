@@ -316,8 +316,8 @@ void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp
 	struct prefix_ipv6 *addr6;
 	struct isis_ext_subtlvs *ext;
 
-	/* Check if TE is enable or not */
-	if (!circuit->area || !IS_MPLS_TE(circuit->area->mta))
+	/* Check if TE should be advertised (MPLS TE or SRv6 enabled). */
+	if (!circuit->area || (!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)))
 		return;
 
 	/* Sanity Check */
@@ -495,8 +495,8 @@ static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, 
 
 	circuit = adj->circuit;
 
-	/* Check that MPLS TE is enabled */
-	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+	/* Check that MPLS TE or SRv6 is enabled */
+	if ((!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)) || !circuit->ext)
 		return 0;
 
 	ext = circuit->ext;
@@ -558,14 +558,14 @@ static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
 
 	circuit = adj->circuit;
 
-	/* Check that MPLS TE is enabled */
-	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+	/* Check that MPLS TE or SRv6 is enabled */
+	if ((!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)) || !circuit->ext)
 		return 0;
 
 	ext = circuit->ext;
 
 	/* Update MPLS TE IP address parameters if possible */
-	if (!IS_MPLS_TE(circuit->area->mta) || !IS_EXT_TE(ext))
+	if (!IS_EXT_TE(ext))
 		return 0;
 
 	/* Determine nexthop IP address */
@@ -650,11 +650,11 @@ int isis_mpls_te_update(struct interface *ifp)
 	/* Update TE TLVs ... */
 	isis_link_params_update(circuit, ifp);
 
-	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
+	if (circuit->area && (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area)))
 		isis_mpls_te_circuit_ip_update(circuit);
 
 	/* ... and LSP */
-	if (circuit->area && (IS_MPLS_TE(circuit->area->mta)
+	if (circuit->area && (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area)
 #ifndef FABRICD
 			      || !list_isempty(circuit->area->flex_algos->flex_algos)
 #endif /* ifndef FABRICD */
