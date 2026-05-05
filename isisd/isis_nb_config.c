@@ -2008,6 +2008,40 @@ int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/distribute-link-state
+ */
+int isis_instance_distribute_link_state_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->distribute_link_state = yang_dnode_get_bool(args->dnode, NULL);
+
+	/* Keep TED active for link-state distribution even without mpls-te config. */
+	if (area->distribute_link_state && !area->mta)
+		isis_mpls_te_create(area);
+
+	if (area->distribute_link_state) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Enabled Link State export");
+		if (isis_zebra_ls_register(true) != 0)
+			zlog_warn("Unable to register Link State");
+	} else {
+		isis_mpls_te_disable(area);
+
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Disable Link State export");
+		if (isis_zebra_ls_register(false) != 0)
+			zlog_warn("Unable to register Link State");
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/segment-routing/enabled
  */
 int isis_instance_segment_routing_enabled_modify(struct nb_cb_modify_args *args)

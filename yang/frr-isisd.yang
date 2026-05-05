@@ -1733,6 +1733,18 @@ module frr-isisd {
           "Log any dropped PDUs in this area.";
       }
 
+      leaf distribute-link-state {
+        type boolean;
+        default "false";
+        must ". = 'false' or (not(../mpls-te) and not(../mpls-te/export = 'true'))" {
+          error-message
+            "distribute-link-state is mutually exclusive with mpls-te and mpls-te export";
+        }
+        description
+          "Enable distribution of IS-IS link-state information to external
+           consumers (for example, BGP-LS).";
+      }
+
       container mpls-te {
         presence "Present if MPLS-TE is enabled.";
         description

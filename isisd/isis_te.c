@@ -1450,7 +1450,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Check if Vertex has been modified */
 	if (vertex->status != SYNC) {
 		/* Vertex is out of sync: export it if requested */
-		if (IS_EXPORT_TE(mta))
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area))
 			isis_te_export(LS_MSG_TYPE_NODE, vertex);
 		vertex->status = SYNC;
 	}
@@ -1465,7 +1465,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Process all Extended Reachability in LSP (all fragments) */
 	args.ted = ted;
 	args.vertex = vertex;
-	args.export = mta->export;
+	args.export = mta->export || IS_DISTRIBUTE_LS(lsp->area);
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV4_UNICAST, lsp_to_edge_cb, &args);
 
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_edge_cb, &args);
@@ -1480,7 +1480,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
-	if (IS_EXPORT_TE(mta))
+	if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area))
 		ls_vertex_clean(ted, vertex, isis_zclient);
 	else
 		ls_vertex_clean(ted, vertex, NULL);
@@ -1530,7 +1530,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	 */
 	/* Remove outgoing Edges */
 	for (ALL_LIST_ELEMENTS(vertex->outgoing_edges, node, nnode, edge)) {
-		if (IS_EXPORT_TE(mta)) {
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 			edge->status = DELETE;
 			isis_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 		}
@@ -1541,7 +1541,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	for (ALL_LIST_ELEMENTS(vertex->incoming_edges, node, nnode, edge)) {
 		ls_disconnect(vertex, edge, false);
 		if (edge->source == NULL) {
-			if (IS_EXPORT_TE(mta)) {
+			if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 				edge->status = DELETE;
 				isis_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 			}
@@ -1551,7 +1551,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	/* Remove subnets */
 	for (ALL_LIST_ELEMENTS(vertex->prefixes, node, nnode, subnet)) {
-		if (IS_EXPORT_TE(mta)) {
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 			subnet->status = DELETE;
 			isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
 		}
@@ -1559,7 +1559,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	}
 
 	/* Then remove Link State Node */
-	if (IS_EXPORT_TE(mta)) {
+	if (IS_EXPORT_TE(lsp->area->mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 		vertex->status = DELETE;
 		isis_te_export(LS_MSG_TYPE_NODE, vertex);
 	}
@@ -1635,7 +1635,8 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 	frr_each (isis_instance_list, &im->isis, isis) {
 		frr_each (isis_area_list, &isis->area_list, area) {
 			mta = area->mta;
-			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
+			if (((IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) || IS_DISTRIBUTE_LS(area)) &&
+			    mta && mta->ted) {
 				te_debug("  |- Export TED from area %s", area->area_tag);
 				rc = ls_sync_ted(mta->ted, isis_zclient, &dst);
 				if (rc != 0)
