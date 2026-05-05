@@ -711,9 +711,16 @@ done:
 }
 
 /* Convert masklen into IP address's netmask (network byte order). */
-void masklen2ip(const int masklen, struct in_addr *netmask)
+void masklen2ip(int masklen, struct in_addr *netmask)
 {
-	assert(masklen >= 0 && masklen <= IPV4_MAX_BITLEN);
+	if (masklen < 0) {
+		zlog_warn("%s: invalid masklen %d, set to 0", __func__, masklen);
+		masklen = 0;
+	} else if (masklen > IPV4_MAX_BITLEN) {
+		zlog_warn("%s: invalid masklen %d, set to %d", __func__, masklen,
+			  IPV4_MAX_BITLEN);
+		masklen = IPV4_MAX_BITLEN;
+	}
 
 	/* left shift is only defined for less than the size of the type.
 	 * we unconditionally use long long in case the target platform
@@ -822,9 +829,16 @@ int ip6_masklen(struct in6_addr netmask)
 	return 128;
 }
 
-void masklen2ip6(const int masklen, struct in6_addr *netmask)
+void masklen2ip6(int masklen, struct in6_addr *netmask)
 {
-	assert(masklen >= 0 && masklen <= IPV6_MAX_BITLEN);
+	if (masklen < 0) {
+		zlog_warn("%s: invalid masklen %d, set to 0", __func__, masklen);
+		masklen = 0;
+	} else if (masklen > IPV6_MAX_BITLEN) {
+		zlog_warn("%s: invalid masklen %d, set to %d", __func__, masklen,
+			  IPV6_MAX_BITLEN);
+		masklen = IPV6_MAX_BITLEN;
+	}
 
 	if (masklen == 0) {
 		/* note << 32 is undefined */
