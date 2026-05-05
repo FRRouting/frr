@@ -8431,8 +8431,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	uint8_t num_labels = 0;
 	struct bgp *bgp_nexthop = bgp;
 	struct bgp_labels labels = {};
-	struct bgp_nhc_tlv *tlv;
-	struct bgp_nhc *nhc;
 	uint8_t nh_length = IPV6_MAX_BYTELEN;
 
 	assert(bgp_static);
@@ -8450,18 +8448,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		nh_length = IPV4_MAX_BYTELEN;
 		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 	}
-
-	/* NHC */
-	nhc = XCALLOC(MTYPE_BGP_NHC, sizeof(struct bgp_nhc));
-	nhc->afi = afi;
-	nhc->safi = safi;
-	nhc->nh_length = nh_length;
-	nhc->tlvs_length = IPV4_MAX_BYTELEN;
-
-	tlv = bgp_nhc_tlv_new(BGP_ATTR_NHC_TLV_BGPID, IPV4_MAX_BYTELEN, &bgp->router_id);
-	bgp_nhc_tlv_add(nhc, tlv);
-	bgp_attr_set_nhc(&attr, nhc);
-	/* NHC */
 
 	attr.nexthop = bgp_static->igpnexthop;
 	attr.mp_nexthop_len = nh_length;
@@ -8546,11 +8532,14 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			return;
 		}
 
+		bgp_nhc_add_bgpid_tlv(bgp, &attr_tmp, afi, safi, nh_length);
+
 		if (bgp_in_graceful_shutdown(bgp))
 			bgp_attr_add_gshut_community(&attr_tmp);
 
 		attr_new = bgp_attr_intern(&attr_tmp);
 	} else {
+		bgp_nhc_add_bgpid_tlv(bgp, &attr, afi, safi, nh_length);
 
 		if (bgp_in_graceful_shutdown(bgp))
 			bgp_attr_add_gshut_community(&attr);

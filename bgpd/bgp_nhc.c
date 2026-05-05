@@ -104,8 +104,6 @@ uint64_t bgp_nhc_nnhn_count(struct bgp_nhc *nhc)
 
 	return 0;
 }
-<<<<<<< Updated upstream
-=======
 
 void bgp_nhc_add_bgpid_tlv(struct bgp *bgp, struct attr *attr, afi_t afi, safi_t safi,
 			   uint8_t nh_length)
@@ -123,4 +121,3 @@ void bgp_nhc_add_bgpid_tlv(struct bgp *bgp, struct attr *attr, afi_t afi, safi_t
 	bgp_nhc_tlv_add(nhc, tlv);
 	bgp_attr_set_nhc(attr, nhc);
 }
->>>>>>> Stashed changes
