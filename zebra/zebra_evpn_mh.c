@@ -2272,8 +2272,7 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	}
 }
 
-static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
-				       struct interface *ifp)
+void zebra_evpn_flush_local_mac(struct zebra_mac *mac, struct interface *ifp)
 {
 	vlanid_t vid;
 	struct zebra_if *zif;
