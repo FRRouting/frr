@@ -222,6 +222,8 @@ struct isis_area {
 	uint8_t log_pdu_drops;
 	/* multi topology settings */
 	struct list *mt_settings;
+	/* Distribute link-state information to external consumers */
+	bool distribute_link_state;
 	/* MPLS-TE settings */
 	struct mpls_te_area *mta;
 	/* Segment Routing information */

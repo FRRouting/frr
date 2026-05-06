@@ -18,6 +18,8 @@
 #define ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD 2
 #define ISIS_DEFAULT_SRV6_MAX_END_D_MSD	   5
 
+#define IS_SRV6_ENABLED(area) ((area) && (area)->srv6db.config.enabled)
+
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {
 	uint8_t loc_block_len;

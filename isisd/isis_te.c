@@ -316,8 +316,8 @@ void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp
 	struct prefix_ipv6 *addr6;
 	struct isis_ext_subtlvs *ext;
 
-	/* Check if TE is enable or not */
-	if (!circuit->area || !IS_MPLS_TE(circuit->area->mta))
+	/* Check if TE should be advertised (MPLS TE or SRv6 enabled). */
+	if (!circuit->area || (!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)))
 		return;
 
 	/* Sanity Check */
@@ -495,8 +495,8 @@ static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, 
 
 	circuit = adj->circuit;
 
-	/* Check that MPLS TE is enabled */
-	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+	/* Check that MPLS TE or SRv6 is enabled */
+	if ((!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)) || !circuit->ext)
 		return 0;
 
 	ext = circuit->ext;
@@ -558,14 +558,14 @@ static int _isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
 
 	circuit = adj->circuit;
 
-	/* Check that MPLS TE is enabled */
-	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+	/* Check that MPLS TE or SRv6 is enabled */
+	if ((!IS_MPLS_TE(circuit->area->mta) && !IS_SRV6_ENABLED(circuit->area)) || !circuit->ext)
 		return 0;
 
 	ext = circuit->ext;
 
 	/* Update MPLS TE IP address parameters if possible */
-	if (!IS_MPLS_TE(circuit->area->mta) || !IS_EXT_TE(ext))
+	if (!IS_EXT_TE(ext))
 		return 0;
 
 	/* Determine nexthop IP address */
@@ -650,11 +650,11 @@ int isis_mpls_te_update(struct interface *ifp)
 	/* Update TE TLVs ... */
 	isis_link_params_update(circuit, ifp);
 
-	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
+	if (circuit->area && (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area)))
 		isis_mpls_te_circuit_ip_update(circuit);
 
 	/* ... and LSP */
-	if (circuit->area && (IS_MPLS_TE(circuit->area->mta)
+	if (circuit->area && (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area)
 #ifndef FABRICD
 			      || !list_isempty(circuit->area->flex_algos->flex_algos)
 #endif /* ifndef FABRICD */
@@ -1058,6 +1058,15 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv, struct isis_e
 			attr->adj_srv6_sid[i].weight = endx->weight;
 			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid, sizeof(struct in6_addr));
 			attr->adj_srv6_sid[i].endpoint_behavior = endx->behavior;
+			if (endx->subsubtlvs && endx->subsubtlvs->srv6_sid_structure) {
+				struct isis_srv6_sid_structure_subsubtlv *ss =
+					endx->subsubtlvs->srv6_sid_structure;
+				attr->adj_srv6_sid[i].has_structure = true;
+				attr->adj_srv6_sid[i].lb_len = ss->loc_block_len;
+				attr->adj_srv6_sid[i].ln_len = ss->loc_node_len;
+				attr->adj_srv6_sid[i].fn_len = ss->func_len;
+				attr->adj_srv6_sid[i].arg_len = ss->arg_len;
+			}
 		}
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_SRV6_LAN_ENDX_SID)) {
@@ -1079,6 +1088,15 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv, struct isis_e
 			attr->adj_srv6_sid[i].weight = lendx->weight;
 			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid, sizeof(struct in6_addr));
 			attr->adj_srv6_sid[i].endpoint_behavior = lendx->behavior;
+			if (lendx->subsubtlvs && lendx->subsubtlvs->srv6_sid_structure) {
+				struct isis_srv6_sid_structure_subsubtlv *ss =
+					lendx->subsubtlvs->srv6_sid_structure;
+				attr->adj_srv6_sid[i].has_structure = true;
+				attr->adj_srv6_sid[i].lb_len = ss->loc_block_len;
+				attr->adj_srv6_sid[i].ln_len = ss->loc_node_len;
+				attr->adj_srv6_sid[i].fn_len = ss->func_len;
+				attr->adj_srv6_sid[i].arg_len = ss->arg_len;
+			}
 		}
 	}
 	return attr;
@@ -1354,6 +1372,20 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 		sr.flags = psid->flags;
 		memcpy(&sr.sid, &psid->sid, sizeof(struct in6_addr));
 
+		/*
+		 * For locator prefixes, also capture SID Structure (sub-sub-TLV)
+		 * for BGP-LS TLVs 1162 / 1252
+		 */
+		if (psid->subsubtlvs && psid->subsubtlvs->srv6_sid_structure) {
+			struct isis_srv6_sid_structure_subsubtlv *ss =
+				psid->subsubtlvs->srv6_sid_structure;
+			sr.has_structure = true;
+			sr.lb_len = ss->loc_block_len;
+			sr.ln_len = ss->loc_node_len;
+			sr.fn_len = ss->func_len;
+			sr.arg_len = ss->arg_len;
+		}
+
 		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6) ||
 		    memcmp(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid))) {
 			memcpy(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid));
@@ -1418,7 +1450,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Check if Vertex has been modified */
 	if (vertex->status != SYNC) {
 		/* Vertex is out of sync: export it if requested */
-		if (IS_EXPORT_TE(mta))
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area))
 			isis_te_export(LS_MSG_TYPE_NODE, vertex);
 		vertex->status = SYNC;
 	}
@@ -1433,7 +1465,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Process all Extended Reachability in LSP (all fragments) */
 	args.ted = ted;
 	args.vertex = vertex;
-	args.export = mta->export;
+	args.export = mta->export || IS_DISTRIBUTE_LS(lsp->area);
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV4_UNICAST, lsp_to_edge_cb, &args);
 
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_edge_cb, &args);
@@ -1448,7 +1480,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
-	if (IS_EXPORT_TE(mta))
+	if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area))
 		ls_vertex_clean(ted, vertex, isis_zclient);
 	else
 		ls_vertex_clean(ted, vertex, NULL);
@@ -1498,7 +1530,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	 */
 	/* Remove outgoing Edges */
 	for (ALL_LIST_ELEMENTS(vertex->outgoing_edges, node, nnode, edge)) {
-		if (IS_EXPORT_TE(mta)) {
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 			edge->status = DELETE;
 			isis_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 		}
@@ -1509,7 +1541,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	for (ALL_LIST_ELEMENTS(vertex->incoming_edges, node, nnode, edge)) {
 		ls_disconnect(vertex, edge, false);
 		if (edge->source == NULL) {
-			if (IS_EXPORT_TE(mta)) {
+			if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 				edge->status = DELETE;
 				isis_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 			}
@@ -1519,7 +1551,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	/* Remove subnets */
 	for (ALL_LIST_ELEMENTS(vertex->prefixes, node, nnode, subnet)) {
-		if (IS_EXPORT_TE(mta)) {
+		if (IS_EXPORT_TE(mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 			subnet->status = DELETE;
 			isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
 		}
@@ -1527,7 +1559,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	}
 
 	/* Then remove Link State Node */
-	if (IS_EXPORT_TE(mta)) {
+	if (IS_EXPORT_TE(lsp->area->mta) || IS_DISTRIBUTE_LS(lsp->area)) {
 		vertex->status = DELETE;
 		isis_te_export(LS_MSG_TYPE_NODE, vertex);
 	}
@@ -1603,7 +1635,8 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 	frr_each (isis_instance_list, &im->isis, isis) {
 		frr_each (isis_area_list, &isis->area_list, area) {
 			mta = area->mta;
-			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
+			if (((IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) || IS_DISTRIBUTE_LS(area)) &&
+			    mta && mta->ted) {
 				te_debug("  |- Export TED from area %s", area->area_tag);
 				rc = ls_sync_ted(mta->ted, isis_zclient, &dst);
 				if (rc != 0)
