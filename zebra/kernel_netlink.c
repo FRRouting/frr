@@ -1865,8 +1865,7 @@ void kernel_router_terminate(void)
 
 	pthread_mutex_destroy(&nlsock_mutex);
 
-	hash_free(nlsock_hash);
-	nlsock_hash = NULL;
+	hash_clean_and_free(&nlsock_hash, NULL);
 }
 
 #endif /* HAVE_NETLINK */

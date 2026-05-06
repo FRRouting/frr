@@ -871,6 +871,5 @@ void mgmt_txn_destroy(void)
 		TXN_DECREF(txn);
 	}
 
-	if (txn_id_tab)
-		hash_free(txn_id_tab);
+	hash_clean_and_free(&txn_id_tab, NULL);
 }

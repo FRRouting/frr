@@ -169,7 +169,7 @@ static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
 static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
 {
 	hash_iterate(p->nhh, pbr_nh_delete_iterate, NULL);
-	hash_free(p->nhh);
+	hash_clean_and_free(&p->nhh, NULL);
 	XFREE(MTYPE_PBR_NHG, p);
 }
 
@@ -1498,19 +1498,16 @@ void pbr_nht_terminate(void)
 {
 	if (pbr_nhg_hash) {
 		hash_clean(pbr_nhg_hash, (void (*)(void *))pbr_nhgc_delete);
-		hash_free(pbr_nhg_hash);
-		pbr_nhg_hash = NULL;
+		hash_clean_and_free(&pbr_nhg_hash, NULL);
 	}
 
 	if (pbr_nhrc_hash) {
 		hash_clean(pbr_nhrc_hash, pbr_nhrc_delete);
-		hash_free(pbr_nhrc_hash);
-		pbr_nhrc_hash = NULL;
+		hash_clean_and_free(&pbr_nhrc_hash, NULL);
 	}
 
 	if (pbr_nhg_allocated_id_hash) {
 		hash_clean(pbr_nhg_allocated_id_hash, NULL);
-		hash_free(pbr_nhg_allocated_id_hash);
-		pbr_nhg_allocated_id_hash = NULL;
+		hash_clean_and_free(&pbr_nhg_allocated_id_hash, NULL);
 	}
 }

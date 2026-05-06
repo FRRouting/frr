@@ -1177,7 +1177,7 @@ void pim_igmp_if_fini(struct pim_interface *pim_ifp)
 	assert(!listcount(pim_ifp->gm_group_list));
 
 	list_delete(&pim_ifp->gm_group_list);
-	hash_free(pim_ifp->gm_group_hash);
+	hash_clean_and_free(&pim_ifp->gm_group_hash, NULL);
 
 	list_delete(&pim_ifp->gm_socket_list);
 }

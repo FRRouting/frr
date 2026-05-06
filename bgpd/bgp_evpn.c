@@ -8044,8 +8044,7 @@ static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *vpn)
 	(void (*)(struct hash_bucket *, void *))bgp_evpn_remote_ip_hash_free,
 	vpn);
 
-	hash_free(vpn->remote_ip_hash);
-	vpn->remote_ip_hash = NULL;
+	hash_clean_and_free(&vpn->remote_ip_hash, NULL);
 }
 
 /* Add a remote MAC/IP route to hash table */

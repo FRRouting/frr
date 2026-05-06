@@ -303,17 +303,6 @@ extern void hash_clean(struct hash *hash, void (*free_func)(void *data));
 extern void hash_clean_and_free(struct hash **hash, void (*free_func)(void *data));
 
 /*
- * Delete a hash table.
- *
- * This function assumes the table is empty. Call hash_clean to delete the
- * hashtable contents if necessary.
- *
- * hash
- *    hash table to delete
- */
-extern void hash_free(struct hash *hash);
-
-/*
  * Converts a hash table to an unsorted linked list.
  * Does not modify the hash table in any way.
  *
