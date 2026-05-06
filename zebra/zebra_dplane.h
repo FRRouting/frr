@@ -221,6 +221,10 @@ enum dplane_op_e {
 	/* EVPN FDB/neighbor reads */
 	DPLANE_OP_FDB_READ,
 	DPLANE_OP_NEIGH_READ,
+
+	/* Traffic control qdisc read */
+	DPLANE_OP_TC_QDISC_READ,
+	DPLANE_OP_TC_QDISC_NOTIFY,
 };
 
 /* Operational status of Bridge Ports */
@@ -280,6 +284,14 @@ enum dplane_netconf_status_e {
 /* Some special ifindex values that may be part of the dplane netconf api. */
 #define DPLANE_NETCONF_IFINDEX_ALL     -1
 #define DPLANE_NETCONF_IFINDEX_DEFAULT -2
+
+/*
+ * Generic TC qdisc notification enum.
+ */
+enum dplane_tc_qdisc_notify_e {
+	DPLANE_TC_QDISC_NOTIFY_NEW,
+	DPLANE_TC_QDISC_NOTIFY_DEL,
+};
 
 /* Enable system route notifications */
 void dplane_enable_sys_route_notifs(void);
@@ -596,6 +608,16 @@ uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx);
 uint8_t
 dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx);
+
+int dplane_ctx_tc_qdisc_notify_get_kind(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_tc_qdisc_notify_get_ifindex(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_qdisc_notify_get_major_handle(const struct zebra_dplane_ctx *ctx);
+enum dplane_tc_qdisc_notify_e
+dplane_ctx_tc_qdisc_notify_get_type(const struct zebra_dplane_ctx *ctx);
+/*
+ * For the 'startup' indication on the notification ctx, use the
+ * generic dplane_ctx_get_startup() / dplane_ctx_set_startup() pair.
+ */
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -1013,6 +1035,17 @@ enum zebra_dplane_result
 dplane_tc_filter_update(struct zebra_tc_filter *filter);
 
 /*
+ * Enqueue a kernel TC qdisc notification from the dplane thread to
+ * the zebra master thread for policy processing. The kernel-specific
+ * message type is translated into a generic dplane_tc_qdisc_notify_e
+ * by the dplane decoder before this is called.
+ */
+enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
+							enum dplane_tc_qdisc_notify_e notify_type,
+							bool startup, int kind, ifindex_t ifindex,
+							uint32_t major_handle);
+
+/*
  * Link layer operations for the dataplane.
  */
 enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
@@ -1128,6 +1161,11 @@ enum zebra_dplane_result dplane_neigh_read_for_vlan(struct zebra_ns *zns,
 enum zebra_dplane_result dplane_neigh_read_specific_ip(struct zebra_ns *zns,
 						       const struct ipaddr *ip,
 						       const struct interface *vlan_ifp);
+
+/*
+ * Enqueue a traffic control qdisc read request for the dataplane.
+ */
+enum zebra_dplane_result dplane_tc_qdisc_read(struct zebra_ns *zns);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;
