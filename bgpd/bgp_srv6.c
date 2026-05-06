@@ -350,9 +350,11 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				if (BGP_DEBUG(update, UPDATE_OUT))
 					zlog_debug("srv6 unicast prefix %pBD denied", dest);
 
+				bgp_attr_extra_discard(&attr_tmp);
 				return;
 			}
 
+			bgp_attr_extra_discard(&attr_tmp);
 			route_map_counter_increment(rmap);
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
