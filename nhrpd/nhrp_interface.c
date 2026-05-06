@@ -220,6 +220,9 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	union sockunion nbma;
 	struct in_addr saddr = {0};
 
+	if (!nifp)
+		return;
+
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
