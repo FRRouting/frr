@@ -456,7 +456,6 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 	struct map_ctx *ctx = data;
 	struct interface *ifp = cc->ifp;
 	struct nhrp_cache *c;
-	union sockunion nbma_addr;
 
 	if (sockunion_family(&cc->remote_addr) != ctx->family)
 		return;
@@ -473,8 +472,7 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 	if (!ctx->enabled) {
 		if (c && c->map) {
 			nhrp_cache_update_binding(
-				c, c->cur.type, -1,
-				nhrp_peer_get(ifp, &nbma_addr), 0, NULL, NULL);
+				c, c->cur.type, -1, NULL, 0, NULL, NULL);
 		}
 		return;
 	}
