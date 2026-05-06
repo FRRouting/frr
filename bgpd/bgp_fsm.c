@@ -1633,7 +1633,17 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 	 */
 	if (bgp_gr_check_all_eors(bgp, afi, safi, &multihop_eors_pending)) {
 		gr_info = &(bgp->gr_info[afi][safi]);
-		if (!BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: GR check path select for %s, gr_deferred=%u",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+				   bgp->gr_info[afi][safi].gr_deferred);
+		/*
+		 * Turn off t_select_deferral if wfi feature is not enabled or
+		 * if there are no routes for deferred calculation or if
+		 * the incoming safi does not support wfi feature.
+		 */
+		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].gr_deferred ||
+		    !bgp_fibupd_safi(safi)) {
 			if (gr_info->t_select_deferral) {
 				void *info = EVENT_ARG(gr_info->t_select_deferral);
 
