@@ -10,6 +10,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "typesafe.h"
 #include "vlan.h"
 #include "vxlan.h"
 #include "zebra/zebra_vrf.h"
@@ -42,6 +43,19 @@ struct zebra_l2_bridge_vlan {
 	struct zebra_evpn_access_bd *access_bd;
 };
 
+PREDECL_HASH(zebra_l2_brvlan_mac_db);
+
+struct zebra_l2_brvlan_mac {
+	struct interface *br_if;
+	vlanid_t vid;
+	struct ethaddr macaddr;
+	ifindex_t ifindex;
+	bool sticky;
+	bool local_inactive;
+	bool dp_static;
+	struct zebra_l2_brvlan_mac_db_item item;
+};
+
 struct zebra_l2_bridge_if_ctx {
 	/* input */
 	struct zebra_if *zif;
@@ -52,10 +66,23 @@ struct zebra_l2_bridge_if_ctx {
 	void *arg;
 };
 
+struct zebra_l2_brvlan_mac_ctx {
+	/* input */
+	struct interface *br_if;
+	vlanid_t vid;
+	int (*func)(struct interface *br_if, vlanid_t vid,
+		    struct ethaddr *macaddr, ifindex_t ifidx, bool sticky,
+		    bool local_inactive, bool dp_static, void *arg);
+
+	/* input-output */
+	void *arg;
+};
+
 struct zebra_l2_bridge_if {
 	uint8_t vlan_aware;
 	struct zebra_if *br_zif;
 	struct hash *vlan_table;
+	struct zebra_l2_brvlan_mac_db_head *mac_table[VLANID_MAX];
 };
 
 /* zebra L2 interface information - bridge interface */
@@ -180,9 +207,8 @@ extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
-extern void
-zebra_l2_bridge_add_update(struct interface *ifp,
-			   const struct zebra_l2info_bridge *bridge_info);
+extern void zebra_l2_bridge_add_update(struct interface *ifp,
+				       const struct zebra_l2info_bridge *bridge_info, bool add);
 extern void zebra_l2_bridge_del(struct interface *ifp);
 extern void zebra_l2_vlanif_update(struct interface *ifp,
 				   const struct zebra_l2info_vlan *vlan_info);

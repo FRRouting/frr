@@ -40,6 +40,7 @@
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
 
@@ -2630,6 +2631,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		/* Inform BGP if the VNI is up and mapped to a bridge. */
 		if (if_is_operative(ctx.ret_ifp) && zif->brslave_info.br_if) {
+			zevpn_bridge_if_set(zevpn, zif->brslave_info.br_if,
+					    true /* set */);
 			zebra_evpn_send_add_to_client(zevpn);
 			zebra_evpn_read_mac_neigh(zevpn, ctx.ret_ifp);
 		}
@@ -4669,6 +4672,7 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 				   vni_t vni, uint32_t nhg_id, bool sticky,
 				   bool dp_static)
 {
+	struct zebra_l2_brvlan_mac *bmac;
 	struct zebra_evpn_es *es;
 	struct interface *acc_ifp;
 
@@ -4702,6 +4706,20 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug("dpAdd local-nw-MAC %pEA VID %u", macaddr, vid);
 	acc_ifp = es->zif->ifp;
+
+	bmac = zebra_l2_brvlan_mac_find(br_if, vid, macaddr);
+	if (bmac)
+		zebra_l2_brvlan_mac_update(br_if, bmac, ifp->ifindex);
+	else {
+		bmac = zebra_l2_brvlan_mac_add(br_if, vid, macaddr,
+					       ifp->ifindex, sticky, false,
+					       dp_static);
+		if (!bmac)
+			zlog_err(
+				"Failed to add local MAC cache bridge %s vid %u mac %pEA IF %u",
+				br_if->name, vid, macaddr, ifp->ifindex);
+	}
+
 	return zebra_vxlan_local_mac_add_update(
 		acc_ifp, br_if, macaddr, vid, sticky,
 		false /* local_inactive */, dp_static);
@@ -4811,8 +4829,18 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vrf *zvrf;
+	struct zebra_l2_brvlan_mac *bmac;
 
 	assert(ifp);
+
+	if (br_if) {
+		bmac = zebra_l2_brvlan_mac_find(br_if, vid, macaddr);
+		if (bmac)
+			zebra_l2_brvlan_mac_update(br_if, bmac, ifp->ifindex);
+		else
+			zebra_l2_brvlan_mac_add(br_if, vid, macaddr, ifp->ifindex,
+						sticky, local_inactive, dp_static);
+	}
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to an EVPN.
@@ -5952,7 +5980,7 @@ static int macfdb_read_ns(struct ns *ns,
 {
 	struct zebra_ns *zns = ns->info;
 
-	macfdb_read(zns);
+	dplane_fdb_read(zns);
 	return NS_WALK_CONTINUE;
 }
 
@@ -5962,7 +5990,7 @@ static int neigh_read_ns(struct ns *ns,
 {
 	struct zebra_ns *zns = ns->info;
 
-	neigh_read(zns);
+	dplane_neigh_read(zns);
 	return NS_WALK_CONTINUE;
 }
 

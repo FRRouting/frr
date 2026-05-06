@@ -3577,6 +3577,38 @@ DEFUN (show_evpn_neigh_vni_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_local_mac_all,
+      show_evpn_local_mac_all_cmd,
+      "show evpn local-mac [json]",
+      SHOW_STR
+      "EVPN\n"
+      "LOCAL MAC cache\n"
+      JSON_STR)
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	bool uj = use_json(argc, argv);
+	struct zebra_if *zif;
+	struct zebra_l2_bridge_if *br;
+
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		zif = (struct zebra_if *)ifp->info;
+		br = BRIDGE_FROM_ZEBRA_IF(zif);
+		if (!IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif))
+			continue;
+		if (!br)
+			continue;
+		for (int vid = 1; vid < VLANID_MAX; vid++) {
+			if (!br->mac_table[vid])
+				continue;
+			zebra_l2_brvlan_print_macs(vty, ifp, vid, uj);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_neigh_vni_all_detail, show_evpn_neigh_vni_all_detail_cmd,
        "show evpn arp-cache vni all detail [json]",
        SHOW_STR
@@ -3647,9 +3679,8 @@ DEFPY (show_evpn_neigh_vni_vtep,
 			SET_IPADDR_V6(&vtep_ip);
 			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
 		}
-	} else {
+	} else
 		SET_IPADDR_NONE(&vtep_ip);
-	}
 
 	if (IS_IPADDR_NONE(&vtep_ip)) {
 		if (!uj)
@@ -3659,6 +3690,41 @@ DEFPY (show_evpn_neigh_vni_vtep,
 
 	zvrf = zebra_vrf_get_evpn();
 	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, &vtep_ip, uj);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_local_mac,
+      show_evpn_local_mac_cmd,
+      "show evpn local-mac IFNAME$if_name (1-4094)$vid [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Local MAC addresses\n"
+      "Interface Name\n"
+      "VLAN ID\n"
+      JSON_STR)
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	bool found = false;
+	bool uj = use_json(argc, argv);
+
+	if (!if_name || !vid)
+		return CMD_WARNING;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+		if (ifp) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		vty_out(vty, "%% Can't find interface %s\n", if_name);
+		return CMD_WARNING;
+	}
+
+	zebra_l2_brvlan_print_macs(vty, ifp, vid, uj);
 	return CMD_SUCCESS;
 }
 
@@ -4330,6 +4396,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
+	install_element(VIEW_NODE, &show_evpn_local_mac_cmd);
+	install_element(VIEW_NODE, &show_evpn_local_mac_all_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
 	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
 	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);

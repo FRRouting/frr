@@ -32,6 +32,7 @@ from lib.evpn import (
     evpn_show_vni_json_elide_ifindex,
     evpn_check_bgp_imet,
 )
+from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -294,7 +295,32 @@ def test_local_remote_mac_pe2():
     pe2 = tgen.gears["PE2"]
     evpn_mac_test_local_remote(pe2, pe1)
 
-    # Memory leak test template
+def test_local_mac_cache_cli_pe1():
+    "Verify local MAC cache CLI shows tagged host-facing MAC"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    # Install a deterministic tagged FDB entry to avoid kernel-dependent
+    # untagged VID reporting differences (VID 0 vs access VLAN).
+    host_mac = "02:00:00:00:01:01"
+    pe1.run(
+        "bridge fdb replace {} dev PE1-eth0 master vlan 1 static".format(
+            host_mac
+        )
+    )
+
+    def _check_local_mac_cache():
+        output = pe1.vtysh_cmd("show evpn local-mac br101 1")
+        if host_mac in output.lower():
+            return None
+        return "Host MAC {} missing from local cache output:\n{}".format(host_mac, output)
+
+    _, result = topotest.run_and_expect(_check_local_mac_cache, None, count=30, wait=1)
+    assert result is None, result
 
 
 def ip_learn_test(tgen, host, local, remote, ip_addr):
@@ -313,6 +339,8 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
         print(local_output)
         local_output_json = json.loads(local_output)
+        if mac not in local_output_json:
+            return False
         mac_type = local_output_json[mac]["type"]
 
         if local_output_json[mac]["neighbors"] == "none":
@@ -328,6 +356,11 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     assertmsg = "Failed to learn local IP address on host {}".format(host.name)
     assert result, assertmsg
 
+    # Trigger deterministic cross-VTEP traffic so the remote PE has a
+    # chance to install/refresh the corresponding remote MAC/IP entry.
+    peer_host = "host2" if host.name == "host1" else "host1"
+    tgen.gears[peer_host].run("ping -c1 {}".format(ip_addr))
+
     # now lets check the remote
     def check_remote_ip_learned():
         remote_output = remote.vtysh_cmd(
@@ -335,6 +368,8 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         )
         print(remote_output)
         remote_output_json = json.loads(remote_output)
+        if mac not in remote_output_json:
+            return False
         type = remote_output_json[mac]["type"]
         if not remote_output_json[mac]["neighbors"] == "none":
             # due to a kernel quirk, learned IPs can be inactive
@@ -401,12 +436,15 @@ def test_ip_pe1_learn():
         pytest.skip(tgen.errors)
 
     host1 = tgen.gears["host1"]
+    host2 = tgen.gears["host2"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
     # pe2.vtysh_cmd("debug zebra vxlan")
     # pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host1.run("ping -c1 10.10.1.1")
+    host1.run("ping -c2 10.10.1.56 || true")
+    host2.run("ping -c2 10.10.1.55 || true")
     ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
     # tgen.mininet_cli()
 
@@ -420,13 +458,58 @@ def test_ip_pe2_learn():
         pytest.skip(tgen.errors)
 
     host2 = tgen.gears["host2"]
+    host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
     # pe1.vtysh_cmd("debug zebra vxlan")
     # pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host2.run("ping -c1 10.10.1.3")
+    host2.run("ping -c2 10.10.1.55 || true")
+    host1.run("ping -c2 10.10.1.56 || true")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
+def test_z_local_mac_cache_rebuild_pe1():
+    "Verify local MAC cache rebuild after zebra restart on PE1"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    host_mac = "02:00:00:00:01:02"
+    pe1.run(
+        "bridge fdb replace {} dev PE1-eth0 master vlan 1 static".format(
+            host_mac
+        )
+    )
+
+    def _check_local_mac_cache():
+        output = pe1.vtysh_cmd("show evpn local-mac br101 1")
+        if host_mac in output.lower():
+            return None
+        return "Host MAC {} missing from local cache output:\n{}".format(host_mac, output)
+
+    _, result = topotest.run_and_expect(_check_local_mac_cache, None, count=30, wait=1)
+    assert result is None, result
+
+    kill_router_daemons(tgen, "PE1", ["zebra"])
+    start_router_daemons(tgen, "PE1", ["zebra"])
+
+    _, result = topotest.run_and_expect(_check_local_mac_cache, None, count=60, wait=1)
+    assert result is None, (
+        "Host MAC {} missing from local cache output after zebra restart:\n{}".format(
+            host_mac, result
+        )
+    )
+
+    # Re-prime host-to-host forwarding/learning after zebra restart.
+    host1 = tgen.gears["host1"]
+    host2 = tgen.gears["host2"]
+    host1.run("ping -c1 10.10.1.56")
+    host2.run("ping -c1 10.10.1.55")
+
+    # Memory leak test template
+
     # tgen.mininet_cli()
 
 

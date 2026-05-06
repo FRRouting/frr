@@ -908,8 +908,28 @@ from the non-anycast configuration are:
 This approach is recommended for most EVPN deployments as it simplifies
 configuration management and improves host mobility.
 
+Local MAC Cache
+---------------
+
+For EVPN VNIs, zebra maintains a local bridge/VLAN-scoped MAC cache that tracks
+locally learned MACs. This cache is used to rebuild EVPN local MAC state during
+restart/recovery paths and helps avoid repeated full kernel FDB scans on each
+rebuild trigger.
+
+The cache is kept in sync by local FDB learn/delete events, and the associated
+EVPN MAC database is updated from this state.
+
 Displaying EVPN information
 ---------------------------
+
+.. clicmd:: show evpn local-mac [json]
+
+   Display local MAC cache entries for all bridge/VLAN contexts that currently
+   contain cached entries.
+
+.. clicmd:: show evpn local-mac IFNAME (1-4094) [json]
+
+   Display local MAC cache entries for a specific bridge interface and VLAN ID.
 
 .. clicmd:: show evpn mac vni (1-16777215) detail [json]
 
