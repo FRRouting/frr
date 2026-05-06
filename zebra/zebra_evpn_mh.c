@@ -994,6 +994,19 @@ void zebra_evpn_vl_mbr_deref(uint16_t vid, struct zebra_if *zif)
 	if (!br_if)
 		return;
 
+	/* Check if bridge interface is still valid using the cached bridge_ifindex.
+	 * During shutdown, the bridge interface may be deleted before bond interfaces,
+	 * leaving a stale br_if pointer. We must not dereference br_if until we've
+	 * verified the bridge still exists. Lookup returns a fresh pointer.
+	 */
+	br_if = if_lookup_by_index(zif->brslave_info.bridge_ifindex, zif->ifp->vrf->vrf_id);
+	if (!br_if) {
+		/* Bridge interface was deleted, clear the cached values */
+		zif->brslave_info.br_if = NULL;
+		zif->brslave_info.bridge_ifindex = IFINDEX_INTERNAL;
+		return;
+	}
+
 	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
 	if (!acc_bd)
 		return;
