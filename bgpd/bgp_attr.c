@@ -1230,8 +1230,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 		"\tflags: %" PRIu64
 		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6 aigp_metric: %" PRIu64
 		"\n",
-		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
+		attr->flag, attr->distance, attr->med, attr->local_pref, attr->origin,
+		attr->weight, attr->label, sid, bgp_attr_get_aigp_metric(attr));
 	vty_out(vty,
 		"\tnh_ifindex: %u nh_flags: %u distance: %u nexthop_global: %pI6 nexthop_local: %pI6 nexthop_local_ifindex: %u\n",
 		attr->nh_ifindex, attr->nh_flags, attr->distance, &attr->mp_nexthop_global,
@@ -1683,6 +1683,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_ls_attr_unintern(&ls_attr);
 	bgp_attr_set_ls_attr(attr, NULL);
 
+	bgp_attr_unset_aigp_metric(attr);
+
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 	attr->extra = NULL;
 }
@@ -1805,6 +1807,8 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_nhc_free(nhc);
 		bgp_attr_set_nhc(attr, NULL);
 	}
+
+	bgp_attr_unset_aigp_metric(attr);
 
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
@@ -5862,7 +5866,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
+		stream_put_bgp_aigp_tlv_metric(s, bgp_attr_get_aigp_metric(attr));
 	}
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
@@ -6144,7 +6148,7 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
+		stream_put_bgp_aigp_tlv_metric(s, bgp_attr_get_aigp_metric(attr));
 	}
 
 	/* Return total size of attribute. */

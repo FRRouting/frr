@@ -148,7 +148,7 @@ static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
 		value = bpi->extra ? bpi->extra->igpmetric : 0;
 		break;
 	case RMAP_VALUE_TYPE_AIGP:
-		value = MIN(bpi->attr->aigp_metric, UINT32_MAX);
+		value = MIN(bgp_attr_get_aigp_metric(bpi->attr), UINT32_MAX);
 		break;
 	default:
 		value = rv->value;

@@ -3152,8 +3152,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				bgp_attr_set_aigp_metric(attr, aigp);
 			}
 		} else {
-			attr->aigp_metric = 0;
-			bgp_attr_unset(attr, BGP_ATTR_AIGP);
+			bgp_attr_unset_aigp_metric(attr);
 		}
 	}
 
