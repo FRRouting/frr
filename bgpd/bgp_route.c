@@ -8838,12 +8838,17 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
-		pdest = bgp_node_get(bgp->static_routes[afi][safi],
-				     (struct prefix *)&prd);
-		if (!bgp_dest_has_bgp_path_info_data(pdest))
-			bgp_dest_set_bgp_table_info(pdest,
-						    bgp_table_init(bgp, afi,
-								   safi));
+		pdest = bgp_node_lookup(bgp->static_routes[afi][safi], (struct prefix *)&prd);
+		if (!negate) {
+			if (!pdest)
+				pdest = bgp_node_get(bgp->static_routes[afi][safi],
+						     (struct prefix *)&prd);
+			if (!bgp_dest_has_bgp_path_info_data(pdest))
+				bgp_dest_set_bgp_table_info(pdest, bgp_table_init(bgp, afi, safi));
+		} else if (!pdest) {
+			vty_out(vty, "%% Can't find static route RD specified %s\n", rd_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		table = bgp_dest_get_bgp_table_info(pdest);
 	} else {
 		table = bgp->static_routes[afi][safi];
