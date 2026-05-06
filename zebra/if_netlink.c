@@ -269,9 +269,36 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
 }
 
-uint32_t kernel_get_speed(struct interface *ifp, int *error)
+void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 {
-	return netlink_get_interface_speed(zebra_ns_lookup(ifp->vrf->vrf_id), ifp->name, error);
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	uint32_t speed;
+	int error = 0;
+
+	speed = netlink_get_interface_speed(zns, ifname, &error);
+	switch (error) {
+	case 0:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed(ctx, speed);
+		dplane_ctx_set_ifp_speed_set(ctx, true);
+		break;
+	case INTERFACE_SPEED_ERROR_UNKNOWN:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		break;
+	case INTERFACE_SPEED_ERROR_READ:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		break;
+	default:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("netlink_get_interface_speed returned an unknown error %d",
+				   error);
+		break;
+	}
 }
 
 static ssize_t
@@ -1315,6 +1342,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	uint8_t bypass = 0;
 	uint32_t txqlen = 0;
 	uint32_t cchanges = 0;
+	int speed_err = 0;
+	uint32_t speed = 0;
 
 	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
@@ -1475,17 +1504,28 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+
+		vrf_id_t ifp_vrf_id = vrf_is_backend_netns() ? ns_id : vrf_id;
+
+		if (startup) {
+			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id),
+							    name, &speed_err);
+			if (speed_err == 0) {
+				dplane_ctx_set_ifp_speed(ctx, speed);
+				dplane_ctx_set_ifp_speed_set(ctx, true);
+			} else
+				dplane_ctx_set_ifp_speed_set(ctx, false);
+		} else
+			dplane_ctx_set_ifp_speed_set(ctx, false);
+
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
-		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
+		dplane_ctx_set_ifp_vrf_id(ctx, ifp_vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
 		dplane_ctx_set_ifp_bridge_ifindex(ctx, bridge_ifindex);
 		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
 		dplane_ctx_set_ifp_bypass(ctx, bypass);
 		dplane_ctx_set_ifp_zltype(
 			ctx, netlink_to_zebra_link_type(ifi->ifi_type));
-
-		if (vrf_is_backend_netns())
-			dplane_ctx_set_ifp_vrf_id(ctx, ns_id);
 
 		dplane_ctx_set_ifp_flags(ctx, ifi->ifi_flags & 0x0000fffff);
 		dplane_ctx_set_ifp_change_flags(ctx, ifi->ifi_change & 0x0000fffff);
