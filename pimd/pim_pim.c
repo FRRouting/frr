@@ -223,7 +223,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	case PIM_MSG_TYPE_HELLO:
 	case PIM_MSG_TYPE_JOIN_PRUNE:
 	case PIM_MSG_TYPE_ASSERT:
-		if (pim_ifp == NULL || pim_ifp->nbr_plist == NULL)
+		if (!pim_ifp) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: reject PIM %s from %pPA on %s: PIM not enabled on interface",
+					   __func__, pim_pim_msgtype2str(header->type), &sg.src,
+					   ifp->name);
+			return -1;
+		}
+
+		if (pim_ifp->nbr_plist == NULL)
 			break;
 
 		nbr_plist = prefix_list_lookup(PIM_AFI, pim_ifp->nbr_plist);
