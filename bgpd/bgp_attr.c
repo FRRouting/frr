@@ -1055,8 +1055,8 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
 	if (bgp_attr_get_nhc(attr))
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
-	if (attr->ls_attr)
-		MIX(bgp_ls_attr_hash_key(attr->ls_attr));
+	if (bgp_attr_get_ls_attr(attr))
+		MIX(bgp_ls_attr_hash_key(bgp_attr_get_ls_attr(attr)));
 
 	return key;
 }
@@ -1361,11 +1361,11 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			nhc->refcnt++;
 	}
 
-	if (attr->ls_attr) {
-		if (!attr->ls_attr->refcnt)
-			attr->ls_attr = bgp_ls_attr_intern(attr->ls_attr);
+	if (bgp_attr_get_ls_attr(attr)) {
+		if (!bgp_attr_get_ls_attr(attr)->refcnt)
+			bgp_attr_set_ls_attr(attr, bgp_ls_attr_intern(bgp_attr_get_ls_attr(attr)));
 		else
-			attr->ls_attr->refcnt++;
+			bgp_attr_get_ls_attr(attr)->refcnt++;
 	}
 
 	/* At this point, attr only contains intern'd pointers.  that means
@@ -1552,6 +1552,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct transit *transit;
 	struct bgp_route_evpn *bre;
 	struct bgp_nhc *nhc;
+	struct bgp_ls_attr *ls_attr;
 
 	/* aspath refcount should be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1602,7 +1603,9 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	evpn_overlay_unintern(&bre);
 	bgp_attr_set_evpn_overlay(attr, NULL);
 
-	bgp_ls_attr_unintern(&attr->ls_attr);
+	ls_attr = bgp_attr_get_ls_attr(attr);
+	bgp_ls_attr_unintern(&ls_attr);
+	bgp_attr_set_ls_attr(attr, NULL);
 }
 
 /* Clear cached intern_attr if it points to the attr that is being uninterned */
@@ -1710,6 +1713,13 @@ void bgp_attr_flush(struct attr *attr)
 	if (bre && !bre->refcnt) {
 		evpn_overlay_free(bre);
 		bgp_attr_set_evpn_overlay(attr, NULL);
+	}
+
+	struct bgp_ls_attr *ls_attr = bgp_attr_get_ls_attr(attr);
+
+	if (ls_attr && !ls_attr->refcnt) {
+		bgp_ls_attr_free(ls_attr);
+		bgp_attr_set_ls_attr(attr, NULL);
 	}
 
 	nhc = bgp_attr_get_nhc(attr);
@@ -4118,7 +4128,7 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 
-	attr->ls_attr = bgp_ls_attr_intern(ls_attr);
+	bgp_attr_set_ls_attr(attr, bgp_ls_attr_intern(ls_attr));
 
 	bgp_ls_attr_free(ls_attr);
 
@@ -4984,7 +4994,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct attr *attr,
 				    struct bgp_path_info *bpi)
 {
-	struct bgp_ls_attr *ls_attr = attr->ls_attr;
+	struct bgp_ls_attr *ls_attr = bgp_attr_get_ls_attr(attr);
 	size_t attr_start, len_pos, attr_len;
 	int ret = -1;
 
@@ -5765,7 +5775,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
-	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && attr->ls_attr)
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
 		bgp_packet_ls_attribute(s, bgp, attr, bpi);
 
 	/* draft-ietf-idr-entropy-label */
