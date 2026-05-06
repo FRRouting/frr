@@ -1714,7 +1714,6 @@ DEFPY (show_route,
            " FRR_IP_REDIST_STR_ZEBRA "$type_str\
            |ospf$type_str (1-65535)$ospf_instance_id\
           >]\
-       [<brief$brief>] \
          |ipv6$ipv6 <fib$fib|route>\
           [{\
            table <(1-4294967295)$table|all$table_all>\
@@ -1726,9 +1725,9 @@ DEFPY (show_route,
            |X:X::X:X/M$prefix longer-prefixes\
           }]\
           [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
-       [<brief$brief>] \
         >\
-       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]] [failed$failed] [json$json]",
+       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]]\
+       [failed$failed] [json$json [brief$brief]]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
@@ -1746,10 +1745,9 @@ DEFPY (show_route,
        FRR_IP_REDIST_HELP_STR_ZEBRA
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
-       "Brief\n"
        IPV6_STR
-       "IP forwarding table\n"
-       "IP routing table\n"
+       "IPv6 forwarding table\n"
+       "IPv6 routing table\n"
        "Table to display\n"
        "The table number to display\n"
        "All tables\n"
@@ -1760,6 +1758,7 @@ DEFPY (show_route,
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n"
        FRR_IP6_REDIST_HELP_STR_ZEBRA
+       "Nexthop Group Information\n"
        "Show ECMP count summary\n"
        "Filter by ECMP count\n"
        "Greater than (>)\n"
@@ -1767,9 +1766,8 @@ DEFPY (show_route,
        "Equal to (=)\n"
        "ECMP count value\n"
        "Show only failed routes\n"
-       "Brief\n"
        JSON_STR
-       "Nexthop Group Information\n")
+       "Brief JSON output\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
