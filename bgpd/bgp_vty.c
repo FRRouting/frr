@@ -147,6 +147,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
 
+FRR_CFG_DEFAULT_BOOL(BGP_CLIENT_TO_CLIENT,
+	{ .val_bool = true },
+);
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -774,6 +778,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
 		if (DFLT_BGP_COMPARE_AIGP)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
+		if (!DFLT_BGP_CLIENT_TO_CLIENT)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 
 		ret = BGP_SUCCESS;
 	}
@@ -5582,6 +5588,53 @@ DEFPY (neighbor_cluster_id,
 	 */
 	bgp_neighbor_cluster_id_unset(bgp, peer, afi, safi);
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_cluster_id_client_to_client,
+       bgp_cluster_id_client_to_client_cmd,
+       "[no] bgp cluster-id <per-neighbor$per_neighbor|global$global> [<A.B.C.D|(1-4294967295)>$id] client-to-client-reflection [<always$conf_true|never$conf_false>]",
+	   NO_STR
+       BGP_STR
+       "Configure Route-Reflector Cluster-id\n"
+	   "Configure a per-neighbor cluster\n"
+	   "Configure the global cluster\n"
+       "Route-Reflector Cluster-id in IP address format\n"
+       "Route-Reflector Cluster-id as 32 bit quantity\n"
+	   "Configure client-to-client route reflection intra-cluster\n"
+       "Reflection of routes always allowed inside this cluster\n"
+	   "Reflection of routes forbidden inside this cluster\n"
+	   )
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int ret;
+	struct in_addr cluster = { 0 };
+
+	if (per_neighbor) {
+		if (id) {
+			ret = inet_aton(id, &cluster);
+			if (!ret) {
+				vty_out(vty, "%% Malformed bgp cluster identifier\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		} else {
+			vty_out(vty, "%% specify a per-neighbor cluster\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (no) {
+		bgp_cluster_client_to_client_unset(bgp, per_neighbor, &cluster);
+	} else {
+		/* always|never argument is optional in order for the negative
+		 *form of the command to be clean
+		 */
+		if (!conf_true && !conf_false) {
+			vty_out(vty, "%% specify a value for client-to-client reflection\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp_cluster_client_to_client_set(bgp, per_neighbor, &cluster, conf_true);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -22517,13 +22570,42 @@ int bgp_config_write(struct vty *vty)
 				bgp->default_subgroup_pkt_queue_max);
 
 		/* BGP client-to-client reflection. */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
-			vty_out(vty, " no bgp client-to-client reflection\n");
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT) ==
+		    SAVE_BGP_CLIENT_TO_CLIENT)
+			vty_out(vty, " %sbgp client-to-client reflection\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT) ? "no " : "");
 
 		/* BGP cluster ID. */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
 			vty_out(vty, " bgp cluster-id %pI4\n",
 				&bgp->cluster_id);
+
+		/*BGP client-to-client reflection in the global cluster*/
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER))
+				vty_out(vty,
+					" bgp cluster-id global client-to-client-reflection always\n");
+			else
+				vty_out(vty,
+					" bgp cluster-id global client-to-client-reflection never\n");
+		}
+
+		/*BGP per-neighbor clusters*/
+		frr_each (per_neighbor_cluster_list, &bgp->per_neighbor_clusters, cluster) {
+			if (CHECK_FLAG(cluster->flags,
+				       CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED)) {
+				if (CHECK_FLAG(cluster->flags,
+					       CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER))
+					vty_out(vty,
+						" bgp cluster-id per-neighbor %pI4 client-to-client-reflection always\n",
+						&cluster->cluster_id);
+				else {
+					vty_out(vty,
+						" bgp cluster-id per-neighbor %pI4 client-to-client-reflection never\n",
+						&cluster->cluster_id);
+				}
+			}
+		}
 
 		/* Disable ebgp connected nexthop check */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
