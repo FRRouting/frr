@@ -45,6 +45,12 @@ else
   CONF_ASAN=--enable-address-sanitizer
 endif
 
+ifeq ($(filter pkg.frr.tcmalloc,$(DEB_BUILD_PROFILES)),)
+  CONF_TCMALLOC=--disable-gperf-tcmalloc
+else
+  CONF_TCMALLOC=--enable-gperf-tcmalloc
+endif
+
 export PYTHON=python3
 
 %:
@@ -65,6 +71,7 @@ override_dh_auto_configure:
 		$(CONF_PIM6) \
 		$(CONF_GRPC) \
 		$(CONF_ASAN) \
+		$(CONF_TCMALLOC) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
