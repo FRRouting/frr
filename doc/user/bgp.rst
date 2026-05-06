@@ -5997,6 +5997,19 @@ the same id as the unique cluster of the route-reflector that we call global,
 the settings of the global cluster will override the settings of that
 per-neighbor cluster.
 
+.. clicmd:: bgp cluster-id <per-neighbor A.B.C.D|global> client-to-client-reflection <always|never>
+
+This command configures a client-to-client reflection policy for the said
+cluster be it a per-neighbor cluster or the global (default unique) cluster
+of the router. Reflection inside of a cluster is always allowed if it is configured
+as always for that cluster, it is always forbidden if it is configured
+as never for that cluster. If nothing is configured for that cluster
+then the base bgp client-to-client reflection configuration applies.
+Between two different clusters the base bgp client-to-client reflection
+configuration applies.
+
+Once configured for a cluster it can be deconfigured.
+
 .. _bgp-suppress-fib:
 
 Suppressing routes not installed in FIB

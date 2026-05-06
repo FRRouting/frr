@@ -779,6 +779,8 @@ struct bgp {
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW (1ULL << 45)
 #define BGP_FLAG_USE_RECURSIVE_WEIGHT (1ULL << 46)
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER	    (1ULL << 47)
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED (1ULL << 48)
 
 /* Use current (imported) path's attributes instead of source path's attributes
  * for bestpath comparison of imported paths.
@@ -1973,6 +1975,8 @@ struct peer {
  */
 #define PEER_FLAG_UPA_SEND   (1ULL << 37)
 #define PEER_FLAG_CLUSTER_ID	 (1ULL << 38)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1ULL << 39)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	    (1ULL << 40)
 #define PEER_CLUSTER_FLAG_GLOBAL (1ULL << 41)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
@@ -2387,8 +2391,13 @@ struct cluster {
 	/* cluster-id */
 	struct in_addr cluster_id;
 
-	/* flag for client-to-client reflection */
 	uint8_t flags;
+	/* both CLUSTER_FLAG_CLIENT_TO_CLIENT act as one ternary flag
+	 * with states:
+	 * always, never and not configured
+	 */
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1 << 0)
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	       (1 << 1)
 #define CLUSTER_FLAG_GLOBAL (1 << 2)
 
 	/* count the number of times the cluster is referenced during
@@ -2807,6 +2816,10 @@ extern void bgp_neighbor_cluster_id_unset(struct bgp *bgp, struct peer *peer, af
 					  safi_t safi);
 extern void bgp_neighbor_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id,
 					struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_cluster_client_to_client_unset(struct bgp *bgp, const char *per_neighbor,
+					       struct in_addr *cluster_id);
+extern void bgp_cluster_client_to_client_set(struct bgp *bgp, const char *per_neighbor,
+					     struct in_addr *cluster_id, const char *configuration);
 
 
 extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
