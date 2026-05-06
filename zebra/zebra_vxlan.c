@@ -1938,6 +1938,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 		}
 
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
+		if (is_zero_mac(rmac))
+			return 0;
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
 				   &nh->emac, rmac, vtep_ip, host_prefix,
@@ -1964,7 +1967,7 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	 * Install the nh neigh in kernel if this is the first time we
 	 * have seen it.
 	 */
-	if (nh->refcnt == 1)
+	if (nh->refcnt == 1 && !is_zero_mac(rmac))
 		svd_nh_install(zl3vni, nh);
 
 	return 0;
