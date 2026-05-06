@@ -1044,11 +1044,7 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	/* SRv6 wide SID function */
 	stream_putl(s, wide_func);
 	/* SRv6 locator name optional */
-	if (locator_name) {
-		stream_putw(s, strlen(locator_name));
-		stream_put(s, locator_name, strlen(locator_name));
-	} else
-		stream_putw(s, 0);
+	zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -3011,17 +3007,10 @@ static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
 						 vrf_id_t vrf_id)
 {
 	struct stream *s = msg;
-	uint16_t len;
 	char locator_name[SRV6_LOCNAME_SIZE] = {0};
 
 	/* Get data. */
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE) {
-		zlog_warn("%s: SRv6 locator name length %u exceeds maximum %d", __func__, len,
-			  SRV6_LOCNAME_SIZE);
-		goto stream_failure;
-	}
-	STREAM_GET(locator_name, s, len);
+	ZAPI_GET_SRV6_LOCNAME(locator_name, s);
 
 	/* call hook to get a chunk using wrapper */
 	struct srv6_locator *loc = NULL;
@@ -3036,17 +3025,10 @@ static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
 						     vrf_id_t vrf_id)
 {
 	struct stream *s = msg;
-	uint16_t len;
 	char locator_name[SRV6_LOCNAME_SIZE] = {0};
 
 	/* Get data. */
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE) {
-		zlog_warn("%s: SRv6 locator name length %u exceeds maximum %d", __func__, len,
-			  SRV6_LOCNAME_SIZE);
-		goto stream_failure;
-	}
-	STREAM_GET(locator_name, s, len);
+	ZAPI_GET_SRV6_LOCNAME(locator_name, s);
 
 	/* call hook to release a chunk using wrapper */
 	srv6_manager_release_locator_chunk_call(client, locator_name, vrf_id);
@@ -3069,7 +3051,6 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 	struct in6_addr sid_value = {};
 	struct in6_addr *sid_value_ptr = NULL;
 	char locator[SRV6_LOCNAME_SIZE] = { 0 };
-	uint16_t len;
 	struct zebra_srv6_sid *sid = NULL;
 	uint8_t flags;
 
@@ -3083,10 +3064,8 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 		STREAM_GET(&sid_value, s, sizeof(struct in6_addr));
 		sid_value_ptr = &sid_value;
 	}
-	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
-		STREAM_GETW(s, len);
-		STREAM_GET(locator, s, len);
-	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR))
+		ZAPI_GET_SRV6_LOCNAME(locator, s);
 
 	/* Call hook to get a SID using wrapper */
 	srv6_manager_get_sid_call(&sid, client, &ctx, sid_value_ptr, locator);
@@ -3130,16 +3109,14 @@ static void zread_srv6_manager_get_locator(struct zserv *client,
 					   struct stream *msg)
 {
 	struct stream *s = msg;
-	uint16_t len;
 	char locator_name[SRV6_LOCNAME_SIZE] = { 0 };
 	struct srv6_locator *locator = NULL;
 
 	/* Get data */
-	STREAM_GETW(s, len);
-	STREAM_GET(locator_name, s, len);
+	ZAPI_GET_SRV6_LOCNAME(locator_name, s);
 
 	/* Call hook to get the locator info using wrapper */
-	srv6_manager_get_locator_call(&locator, client, locator_name);
+	srv6_manager_get_locator_call(&locator, client, locator_name[0] ? locator_name : NULL);
 
 stream_failure:
 	return;
