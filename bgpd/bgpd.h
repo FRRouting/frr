@@ -573,7 +573,8 @@ struct bgp {
  * call is delayed after VRF up so that we can refresh NHT state
  * that was marked down. */
 #define BGP_FLAG_VRF_LEAK_MARK_DOWN		 (1ULL << 45)
-
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER	    (1ULL << 47)
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED (1ULL << 48)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1621,6 +1622,8 @@ struct peer {
 #define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX (1ULL << 33)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
 #define PEER_FLAG_CLUSTER_ID					    (1ULL << 37)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1ULL << 38)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	    (1ULL << 39)
 #define PEER_CLUSTER_FLAG_GLOBAL				    (1ULL << 40)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
@@ -2012,8 +2015,13 @@ struct cluster {
 	/* cluster-id */
 	struct in_addr cluster_id;
 
-	/* flag for client-to-client reflection */
 	uint8_t flags;
+	/* both CLUSTER_FLAG_CLIENT_TO_CLIENT act as one ternary flag
+	 * with states:
+	 * always, never and not configured
+	 */
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1 << 0)
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	       (1 << 1)
 #define CLUSTER_FLAG_GLOBAL				       (1 << 2)
 
 	/* count the number of times the cluster is referenced during
@@ -2425,6 +2433,10 @@ extern void bgp_neighbor_cluster_id_unset(struct bgp *bgp, struct peer *peer, af
 					  safi_t safi);
 extern void bgp_neighbor_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id,
 					struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_cluster_client_to_client_unset(struct bgp *bgp, const char *per_neighbor,
+					       struct in_addr *cluster_id);
+extern void bgp_cluster_client_to_client_set(struct bgp *bgp, const char *per_neighbor,
+					     struct in_addr *cluster_id, const char *configuration);
 
 
 extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
