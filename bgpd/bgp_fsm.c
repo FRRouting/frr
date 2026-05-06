@@ -1996,10 +1996,15 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	    (bgp->established_peers == 0))
 		bgp_router_id_zebra_bump(bgp->vrf_id, NULL);
 
-	/* Transition into Clearing or Deleted must /always/ clear all routes..
-	 * (and must do so before actually changing into Deleted..
+	/* Transition into Clearing or Deleted must clear all routes,
+	 * and must do so before actually changing into Deleted.
+	 * Skip the clear if the peer was not in Established state,
+	 * as it cannot have any routes in the BGP table (e.g.,
+	 * doppelganger peers from collision resolution.
+	 * Walking the entire BGP table for such
+	 * peers is pure overhead.
 	 */
-	if (status >= Clearing && (peer->established || peer != bgp->peer_self)) {
+	if (status >= Clearing && peer_established(connection)) {
 		bgp_clear_route_all(peer);
 
 		/* If no route was queued for the clear-node processing,
