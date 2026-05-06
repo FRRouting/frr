@@ -138,6 +138,9 @@ struct attr_extra {
 
 	/* draft-ietf-idr-nhc attribute */
 	struct bgp_nhc *nhc;
+
+	/* EVPN overlay index */
+	struct bgp_route_evpn *evpn_overlay;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -305,9 +308,6 @@ struct attr {
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
-	/* EVPN */
-	struct bgp_route_evpn *evpn_overlay;
-
 	/* EVPN MAC Mobility sequence number, if any. */
 	uint32_t mm_seqnum;
 	/* highest MM sequence number rxed in a MAC-IP route from an
@@ -699,13 +699,22 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
-	return attr->evpn_overlay;
+	return attr->extra ? attr->extra->evpn_overlay : NULL;
 }
 
 static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
 					     struct bgp_route_evpn *bre)
 {
-	attr->evpn_overlay = bre;
+	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(attr);
+
+	if (bre && !old) {
+		bgp_attr_extra_get(attr)->evpn_overlay = bre;
+	} else if (bre && old) {
+		attr->extra->evpn_overlay = bre; /* replace; refcnt unchanged */
+	} else if (!bre && old) {
+		attr->extra->evpn_overlay = NULL;
+		bgp_attr_extra_put(attr);
+	}
 }
 
 static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
