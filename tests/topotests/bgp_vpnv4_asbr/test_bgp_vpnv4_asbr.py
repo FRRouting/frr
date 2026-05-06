@@ -784,6 +784,63 @@ router bgp 65501
     check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
 
+def test_undeclare_vpn_network_with_different_label():
+    """
+    Remove the previously declared vpnv4 network on r3 via
+    'no network 33.33.33.33/32 rd 444:3 label 33' under
+    'address-family ipv4 vpn' and check that the entry is withdrawn
+    from r2's BGP VPNv4 table. Regression for the bug where negating
+    a 'network ... rd ... label ...' statement under 'address-family
+    ipv4|ipv6 vpn' returned '% Can't find static route specified'.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r3 = tgen.gears["r3"]
+    logger.info(
+        "{}, undeclare static 33.33.33.33/32 network rd 444:3 label 33".format(r3.name)
+    )
+    output = r3.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ address-family ipv4 vpn
+  no network 33.33.33.33/32 rd 444:3 label 33
+"""
+    )
+    assert "Can't find static route specified" not in output, (
+        "{}, 'no network ... rd ... label ...' under 'address-family ipv4 vpn' "
+        "was rejected: {}".format(r3.name, output)
+    )
+
+    r2 = tgen.gears["r2"]
+    logger.info(
+        "{}, check that prefix 33.33.33.33/32 rd 444:3 is no longer present".format(
+            r2.name
+        )
+    )
+    test_func = functools.partial(
+        check_show_bgp_vpn_prefix_not_found,
+        r2,
+        "ipv4",
+        "33.33.33.33/32",
+        "444:3",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert success, "{}, vpnv4 update 33.33.33.33/32 is still present".format(r2.name)
+
+    vpnv4_checks = {
+        "172.31.1.0/24": "r1",
+        "172.31.2.0/24": "r1",
+        "172.31.3.0/24": "r1",
+    }
+    logger.info(
+        "{}, check that the original VPNv4 entries are still present".format(r2.name)
+    )
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+
 def test_filter_vpn_network_from_r1():
     """
     Get the list of labels in 'show mpls table'
