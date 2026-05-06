@@ -2341,13 +2341,11 @@ stream_failure:
 
 bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 struct in6_addr *sid_value, uint32_t *func,
-				 uint32_t *wide_func,
-				 enum zapi_srv6_sid_notify *note,
-				 char **p_locator_name)
+				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
+				 char *locator_name, size_t loc_size)
 {
 	uint32_t f, wf;
 	uint16_t len = 0;
-	static char locator_name[SRV6_LOCNAME_SIZE];
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2355,25 +2353,30 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 	STREAM_GETL(s, f);
 	STREAM_GETL(s, wf);
 
+	STREAM_GETW(s, len);
+	if (len >= loc_size && locator_name != NULL)
+		return false;
+
 	if (func)
 		*func = f;
 	if (wide_func)
 		*wide_func = wf;
 
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE) {
-		*p_locator_name = NULL;
-		return false;
-	}
-	if (p_locator_name) {
-		if (len == 0)
-			*p_locator_name = NULL;
-		else {
-			memset(locator_name, 0, sizeof(locator_name));
+	if (locator_name != NULL) {
+		/* This is a cstring, and it looks like it's normally sent without
+		 * its terminal NULL...
+		 */
+		if (len == 0) {
+			locator_name[0] = 0;
+		} else {
 			STREAM_GET(locator_name, s, len);
-			*p_locator_name = locator_name;
+			locator_name[len] = 0;
 		}
+	} else if (len > 0) {
+		/* Advance the stream */
+		stream_forward_getp(s, len);
 	}
+
 	return true;
 
 stream_failure:
