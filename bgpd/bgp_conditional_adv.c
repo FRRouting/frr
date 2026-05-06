@@ -125,7 +125,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				if (!bgp_adj_out_set_subgroup(dest, subgrp,
 							      &attr, pi))
 					bgp_attr_flush(&attr);
-				bgp_attr_flush(&advmap_attr);
+				bgp_attr_extra_discard(&advmap_attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
