@@ -5391,18 +5391,18 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 
 #ifdef ENABLE_BGP_VNC
 	if (safi == SAFI_MPLS_VPN) {
-		struct bgp_dest *pdest = NULL;
-		struct bgp_table *table = NULL;
+		struct bgp_dest *pdest;
+		struct bgp_table *table;
 
-		pdest = bgp_node_get(peer->bgp->rib[afi][safi],
-				     (struct prefix *)prd);
-		if (bgp_dest_has_bgp_path_info_data(pdest)) {
+		pdest = bgp_node_lookup(peer->bgp->rib[afi][safi],
+					(struct prefix *)prd);
+		if (pdest) {
 			table = bgp_dest_get_bgp_table_info(pdest);
-
-			vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
-				peer->bgp, prd, table, p, pi);
+			if (table)
+				vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
+					peer->bgp, prd, table, p, pi);
+			bgp_dest_unlock_node(pdest);
 		}
-		bgp_dest_unlock_node(pdest);
 	}
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
