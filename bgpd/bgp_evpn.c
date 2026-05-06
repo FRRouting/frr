@@ -1872,6 +1872,9 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	/* uninten temporary */
 	if (!src_attr)
 		aspath_unintern(&attr.aspath);
+	else
+		bgp_attr_extra_discard(&attr);
+
 	return 0;
 }
 
@@ -3280,6 +3283,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
 			bgp_dest_unlock_node(dest);
+			bgp_attr_extra_discard(&attr);
 			return 0;
 		}
 		/* The attribute has changed. */
@@ -3355,6 +3359,8 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	}
 
 	bgp_dest_unlock_node(dest);
+
+	bgp_attr_extra_discard(&attr);
 
 	return ret;
 }
@@ -6929,6 +6935,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 		return;
 	}
 	bgp_evpn_advertise_type5_route(bgp, pi, prefix, &tmp_attr, afi, safi, addpath_id);
+	bgp_attr_extra_discard(&tmp_attr);
 }
 
 /*

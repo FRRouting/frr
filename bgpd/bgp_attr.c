@@ -1027,7 +1027,7 @@ static bool bgp_attr_owns_extra(const struct attr *attr)
 	return attr->extra && !attr->refcnt && attr->attr_intern_reuse.parsed_attr != attr;
 }
 
-static void bgp_attr_extra_discard(struct attr *attr)
+void bgp_attr_extra_discard(struct attr *attr)
 {
 	if (!attr || !attr->extra)
 		return;

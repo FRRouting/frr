@@ -143,6 +143,7 @@ struct attr_extra {
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
 extern void bgp_attr_extra_put(struct attr *attr);
 extern struct attr_extra *bgp_attr_extra_dup(const struct attr_extra *src);
+extern void bgp_attr_extra_discard(struct attr *attr);
 extern void bgp_attr_dup_into(struct attr *to, const struct attr *from);
 
 /* BGP core attribute structure. */
