@@ -8326,7 +8326,7 @@ dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx)
 	return ctx->u.spot;
 }
 
-void zebra_dplane_startup_stage(struct zebra_ns *zns,
+void zebra_dplane_startup_stage(ns_id_t ns_id,
 				enum zebra_dplane_startup_notifications spot)
 {
 	struct zebra_dplane_ctx *ctx = dplane_ctx_alloc();
@@ -8335,7 +8335,7 @@ void zebra_dplane_startup_stage(struct zebra_ns *zns,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_QUEUED;
 
 	ctx->u.spot = spot;
-	dplane_ctx_set_ns_id(ctx, zns->ns_id);
+	dplane_ctx_set_ns_id(ctx, ns_id);
 
 	dplane_provider_enqueue_to_zebra(ctx);
 }

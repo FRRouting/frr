@@ -131,7 +131,7 @@ void interface_list(struct zebra_ns *zns)
 	/* Free sysctl buffer. */
 	XFREE(MTYPE_TMP, ref);
 
-	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+	zebra_dplane_startup_stage(zns->ns_id, ZEBRA_DPLANE_INTERFACES_READ);
 }
 
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */
