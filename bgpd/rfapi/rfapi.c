@@ -987,16 +987,18 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 
 			if (safi == SAFI_MPLS_VPN) {
-				struct bgp_dest *pdest = NULL;
-				struct bgp_table *table = NULL;
+				struct bgp_dest *pdest;
+				struct bgp_table *table;
 
-				pdest = bgp_node_get(bgp->rib[afi][safi],
-						     (struct prefix *)prd);
-				table = bgp_dest_get_bgp_table_info(pdest);
-				if (table)
-					vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
-						bgp, prd, table, p, bpi);
-				bgp_dest_unlock_node(pdest);
+				pdest = bgp_node_lookup(bgp->rib[afi][safi],
+							(struct prefix *)prd);
+				if (pdest) {
+					table = bgp_dest_get_bgp_table_info(pdest);
+					if (table)
+						vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
+							bgp, prd, table, p, bpi);
+					bgp_dest_unlock_node(pdest);
+				}
 			}
 
 			/* Process change. */
