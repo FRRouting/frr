@@ -17063,6 +17063,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 				if (type == bgp_show_adj_route_filtered &&
 					!route_filtered && ret != RMAP_DENY) {
 					bgp_attr_flush(&attr);
+					bgp_attr_extra_discard(&attr_unchanged);
 					continue;
 				}
 
@@ -17099,6 +17100,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 					route_vty_out_tmp(vty, bgp, dest, rn_p, &attr_unchanged,
 							  safi, use_json, json_ar, wide);
 				bgp_attr_flush(&attr);
+				bgp_attr_extra_discard(&attr_unchanged);
 				(*output_count)++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
