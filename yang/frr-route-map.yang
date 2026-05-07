@@ -280,7 +280,7 @@ module frr-route-map {
           when "derived-from-or-self(../condition, 'match-metric')";
           leaf metric {
             type uint32 {
-              range "1..4294967295";
+              range "0..4294967295";
             }
             description
               "Metric value to match";
