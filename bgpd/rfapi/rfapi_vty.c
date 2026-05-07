@@ -421,10 +421,10 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 				decode_label(&bpi->extra->labels->label[0]));
 	}
 
-	if (bpi->attr->srv6_l3service || bpi->attr->srv6_vpn) {
+	if (bpi->attr->srv6_l3service || bgp_attr_get_srv6_vpn(bpi->attr)) {
 		struct in6_addr *sid_tmp = bpi->attr->srv6_l3service
 						   ? (&bpi->attr->srv6_l3service->sid)
-						   : (&bpi->attr->srv6_vpn->sid);
+						   : (&bgp_attr_get_srv6_vpn(bpi->attr)->sid);
 		vty_out(vty, " sid=%pI6", sid_tmp);
 
 		if (bpi->attr->srv6_l3service && bpi->attr->srv6_l3service->loc_block_len != 0) {

@@ -150,6 +150,9 @@ struct attr_extra {
 
 	/* Link bandwidth value extracted from ecommunity, if any. */
 	uint64_t link_bw;
+
+	/* SRv6 VPN SID */
+	struct bgp_attr_srv6_vpn *srv6_vpn;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -305,9 +308,6 @@ struct attr {
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
-
-	/* SRv6 VPN SID */
-	struct bgp_attr_srv6_vpn *srv6_vpn;
 
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
@@ -773,6 +773,25 @@ static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
 		attr->extra->link_bw = link_bw; /* replace; refcnt unchanged */
 	} else if (!link_bw && old) {
 		attr->extra->link_bw = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline struct bgp_attr_srv6_vpn *bgp_attr_get_srv6_vpn(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_vpn : NULL;
+}
+
+static inline void bgp_attr_set_srv6_vpn(struct attr *attr, struct bgp_attr_srv6_vpn *vpn)
+{
+	struct bgp_attr_srv6_vpn *old = bgp_attr_get_srv6_vpn(attr);
+
+	if (vpn && !old) {
+		bgp_attr_extra_get(attr)->srv6_vpn = vpn;
+	} else if (vpn && old) {
+		attr->extra->srv6_vpn = vpn; /* replace; refcnt unchanged */
+	} else if (!vpn && old) {
+		attr->extra->srv6_vpn = NULL;
 		bgp_attr_extra_put(attr);
 	}
 }

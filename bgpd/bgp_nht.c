@@ -133,7 +133,7 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 	if (bgp_zebra_num_connects() == 0)
 		return 1;
 
-	if (path->attr->srv6_l3service || path->attr->srv6_vpn) {
+	if (path->attr->srv6_l3service || bgp_attr_get_srv6_vpn(path->attr)) {
 		/* In the case of SRv6-VPN, we need to track the reachability to the
 		 * SID (in other words, IPv6 address). We check that the SID is
 		 * available in the BGP update; then if it is available, we check
