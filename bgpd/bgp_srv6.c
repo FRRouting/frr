@@ -325,7 +325,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		return;
 	}
 
-	if (bpi->attr->srv6_l3service)
+	if (bgp_attr_get_srv6_l3service(bpi->attr))
 		return;
 
 	if (!bgp->srv6_unicast[afi].sid_locator)
@@ -405,7 +405,7 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
 				continue;
 
-			if (bpi->attr->srv6_l3service)
+			if (bgp_attr_get_srv6_l3service(bpi->attr))
 				continue;
 
 			bgp_srv6_unicast_register_route(bgp, afi, pdest, bpi);

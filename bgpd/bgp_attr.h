@@ -153,6 +153,9 @@ struct attr_extra {
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
+
+	/* SRv6 L3 service SID */
+	struct bgp_attr_srv6_l3service *srv6_l3service;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -308,9 +311,6 @@ struct attr {
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
-
-	/* SRv6 L3 service SID */
-	struct bgp_attr_srv6_l3service *srv6_l3service;
 
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
@@ -792,6 +792,26 @@ static inline void bgp_attr_set_srv6_vpn(struct attr *attr, struct bgp_attr_srv6
 		attr->extra->srv6_vpn = vpn; /* replace; refcnt unchanged */
 	} else if (!vpn && old) {
 		attr->extra->srv6_vpn = NULL;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline struct bgp_attr_srv6_l3service *bgp_attr_get_srv6_l3service(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_l3service : NULL;
+}
+
+static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
+					       struct bgp_attr_srv6_l3service *srv6_l3service)
+{
+	struct bgp_attr_srv6_l3service *old = bgp_attr_get_srv6_l3service(attr);
+
+	if (srv6_l3service && !old) {
+		bgp_attr_extra_get(attr)->srv6_l3service = srv6_l3service;
+	} else if (srv6_l3service && old) {
+		attr->extra->srv6_l3service = srv6_l3service; /* replace; refcnt unchanged */
+	} else if (!srv6_l3service && old) {
+		attr->extra->srv6_l3service = NULL;
 		bgp_attr_extra_put(attr);
 	}
 }

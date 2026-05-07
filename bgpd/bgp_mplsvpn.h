@@ -364,7 +364,7 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_nexthop, afi_t afi,
 				    safi_t safi)
 {
-	if (!pi->attr->srv6_l3service && !bgp_attr_get_srv6_vpn(pi->attr))
+	if (!bgp_attr_get_srv6_l3service(pi->attr) && !bgp_attr_get_srv6_vpn(pi->attr))
 		return !bgp_nexthop->srv6_only;
 
 	/* imported paths from VPN: srv6 enabled and nht reachability
