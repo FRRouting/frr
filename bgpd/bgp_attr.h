@@ -144,6 +144,9 @@ struct attr_extra {
 
 	/* AIGP Metric */
 	uint64_t aigp_metric;
+
+	/* For BGP-LS Attribute (RFC 9552) */
+	struct bgp_ls_attr *ls_attr;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -341,9 +344,6 @@ struct attr {
 
 	/* OTC value if set */
 	uint32_t otc;
-
-	/* For BGP-LS Attribute (RFC 9552) */
-	struct bgp_ls_attr *ls_attr;
 
 	/* Optional feature-specific attributes */
 	struct attr_extra *extra;
@@ -736,12 +736,21 @@ static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
 
 static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
 {
-	return attr->ls_attr;
+	return attr->extra ? attr->extra->ls_attr : NULL;
 }
 
 static inline void bgp_attr_set_ls_attr(struct attr *attr, struct bgp_ls_attr *ls_attr)
 {
-	attr->ls_attr = ls_attr;
+	struct bgp_ls_attr *old = bgp_attr_get_ls_attr(attr);
+
+	if (ls_attr && !old) {
+		bgp_attr_extra_get(attr)->ls_attr = ls_attr;
+	} else if (ls_attr && old) {
+		attr->extra->ls_attr = ls_attr; /* replace; refcnt unchanged */
+	} else if (!ls_attr && old) {
+		attr->extra->ls_attr = NULL;
+		bgp_attr_extra_put(attr);
+	}
 
 	if (ls_attr)
 		bgp_attr_set(attr, BGP_ATTR_LINK_STATE);

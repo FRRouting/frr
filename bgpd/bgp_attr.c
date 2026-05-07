@@ -1169,7 +1169,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
-		    bgp_ls_attr_same(attr1->ls_attr, attr2->ls_attr) &&
+		    bgp_ls_attr_same(bgp_attr_get_ls_attr(attr1), bgp_attr_get_ls_attr(attr2)) &&
 		    (attr1->pmsi_tnl_type == attr2->pmsi_tnl_type) &&
 		    IPV6_ADDR_SAME(&attr1->tunn_id, &attr2->tunn_id))
 			return true;
