@@ -1024,6 +1024,7 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 
 	ret = route_map_apply(map, p, path);
 	bgp_attr_flush(path->attr);
+	bgp_attr_extra_discard(path->attr);
 
 	if (ret != RMAP_DENYMATCH)
 		return true;
