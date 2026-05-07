@@ -1705,6 +1705,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	bgp_attr_unset_aigp_metric(attr);
 
+	bgp_attr_set_link_bw(attr, 0);
+
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 	attr->extra = NULL;
 }
@@ -1837,6 +1839,8 @@ void bgp_attr_flush(struct attr *attr)
 	}
 
 	bgp_attr_unset_aigp_metric(attr);
+
+	bgp_attr_set_link_bw(attr, 0);
 
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
