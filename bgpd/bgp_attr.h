@@ -657,16 +657,6 @@ static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 	return attr->extra ? attr->extra->aigp_metric : 0;
 }
 
-static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
-{
-	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
-		bgp_attr_extra_get(attr)->aigp_metric = aigp;
-	else
-		attr->extra->aigp_metric = aigp;
-
-	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
-}
-
 static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
 {
 	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP))
@@ -678,6 +668,21 @@ static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
 	}
 
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
+}
+
+static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
+{
+	if (aigp == 0) {
+		bgp_attr_unset_aigp_metric(attr);
+		return;
+	}
+
+	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
+		bgp_attr_extra_get(attr)->aigp_metric = aigp;
+	else
+		attr->extra->aigp_metric = aigp;
+
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
