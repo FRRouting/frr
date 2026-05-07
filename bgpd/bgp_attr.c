@@ -3173,8 +3173,12 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	attr->encap_tunneltype = tun_type;
 
 	/* Extract link bandwidth, if any. */
-	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
-					&attr->link_bw);
+	{
+		uint64_t link_bw = 0;
+
+		(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr), &link_bw);
+		bgp_attr_set_link_bw(attr, link_bw);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3209,8 +3213,12 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 
 	/* Extract link bandwidth, if any. */
-	(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr),
-					&attr->link_bw);
+	{
+		uint64_t link_bw = 0;
+
+		(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr), &link_bw);
+		bgp_attr_set_link_bw(attr, link_bw);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 

@@ -1267,7 +1267,9 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
 	 */
-	if (!attr->link_bw) {
+	uint64_t link_bw = bgp_attr_get_link_bw(attr);
+
+	if (!link_bw) {
 		/* the only situations should be if we're either told
 		 * to skip or use default weight.
 		 */
@@ -1275,7 +1277,7 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 			return false;
 		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
 	} else
-		*nh_weight = attr->link_bw;
+		*nh_weight = link_bw;
 
 	return true;
 }
@@ -1350,13 +1352,16 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 			 * between VRFs, but we need to extract the actual link-bandwidth
 			 * value from the extended communities.
 			 */
+			uint64_t link_bw = 0;
+
 			(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(mpinfo->attr),
-							&mpinfo->attr->link_bw);
+							&link_bw);
 			/* Fallback to IPv6 address-specific extended community */
-			if (!mpinfo->attr->link_bw)
+			if (!link_bw)
 				(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
 									mpinfo->attr),
-								&mpinfo->attr->link_bw);
+								&link_bw);
+			bgp_attr_set_link_bw(mpinfo->attr, link_bw);
 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
 							 &nh_weight))
 				continue;

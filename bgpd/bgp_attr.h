@@ -147,6 +147,9 @@ struct attr_extra {
 
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
+
+	/* Link bandwidth value extracted from ecommunity, if any. */
+	uint64_t link_bw;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -326,9 +329,6 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
-
-	/* Link bandwidth value, if any. */
-	uint64_t link_bw;
 
 	/* EVPN ES */
 	esi_t esi;
@@ -756,6 +756,25 @@ static inline void bgp_attr_set_ls_attr(struct attr *attr, struct bgp_ls_attr *l
 		bgp_attr_set(attr, BGP_ATTR_LINK_STATE);
 	else
 		bgp_attr_unset(attr, BGP_ATTR_LINK_STATE);
+}
+
+static inline uint64_t bgp_attr_get_link_bw(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->link_bw : 0;
+}
+
+static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
+{
+	uint64_t old = bgp_attr_get_link_bw(attr);
+
+	if (link_bw && !old) {
+		bgp_attr_extra_get(attr)->link_bw = link_bw;
+	} else if (link_bw && old) {
+		attr->extra->link_bw = link_bw; /* replace; refcnt unchanged */
+	} else if (!link_bw && old) {
+		attr->extra->link_bw = 0;
+		bgp_attr_extra_put(attr);
+	}
 }
 
 static inline struct bgp_attr_encap_subtlv *
