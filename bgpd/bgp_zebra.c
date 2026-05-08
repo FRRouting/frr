@@ -492,7 +492,13 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	enum blackhole_type bhtype = BLACKHOLE_UNSPEC;
 	struct zapi_route api;
 	union g_addr nexthop = {};
+<<<<<<< HEAD
 	ifindex_t ifindex;
+=======
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	uint32_t seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	const struct seg6local_context *seg6local_ctx = NULL;
+>>>>>>> f0eb283a3 (bgpd: Export static SRv6 END SIDs as BGP-LS SRv6 SID NLRIs)
 	int add, i;
 	struct bgp *bgp;
 
@@ -524,6 +530,25 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add) {
+<<<<<<< HEAD
+=======
+		if (api.nexthop_num == 0)
+			return 0;
+
+		ifindex = api.nexthops[0].ifindex;
+		nhtype = api.nexthops[0].type;
+
+		/* api_nh structure has union of gate and bh_type */
+		if (nhtype == NEXTHOP_TYPE_BLACKHOLE) {
+			/* bh_type is only applicable if NEXTHOP_TYPE_BLACKHOLE*/
+			bhtype = api.nexthops[0].bh_type;
+		} else
+			nexthop = api.nexthops[0].gate;
+
+		seg6local_action = api.nexthops[0].seg6local_action;
+		seg6local_ctx = &api.nexthops[0].seg6local_ctx;
+
+>>>>>>> f0eb283a3 (bgpd: Export static SRv6 END SIDs as BGP-LS SRv6 SID NLRIs)
 		/*
 		 * The ADD message is actually an UPDATE and there is no
 		 * explicit DEL
@@ -540,9 +565,9 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 		}
 
 		/* Now perform the add/update. */
-		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     nhtype, api.distance, bhtype, api.metric,
-				     api.type, api.instance, api.tag);
+		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex, nhtype, api.distance,
+				     bhtype, api.metric, api.type, api.instance, api.tag,
+				     seg6local_action, seg6local_ctx);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);

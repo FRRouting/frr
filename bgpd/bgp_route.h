@@ -818,6 +818,7 @@ extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
 extern bool bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
+<<<<<<< HEAD
 extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				 const union g_addr *nexthop, ifindex_t ifindex,
 				 enum nexthop_types_t nhtype, uint8_t distance,
@@ -827,6 +828,18 @@ extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 extern void bgp_redistribute_delete(struct bgp *, struct prefix *, uint8_t,
 				    unsigned short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, unsigned short);
+=======
+extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr *nexthop,
+				 ifindex_t ifindex, enum nexthop_types_t nhtype, uint8_t distance,
+				 enum blackhole_type bhtype, uint32_t metric, uint8_t type,
+				 unsigned short instance, route_tag_t tag,
+				 uint32_t seg6local_action,
+				 const struct seg6local_context *seg6local_ctx);
+extern void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
+				    unsigned short instance);
+extern void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
+				      unsigned short instance);
+>>>>>>> f0eb283a3 (bgpd: Export static SRv6 END SIDs as BGP-LS SRv6 SID NLRIs)
 
 extern void bgp_static_add(struct bgp *);
 extern void bgp_static_delete(struct bgp *);
