@@ -86,10 +86,6 @@
 
 #include "bgpd/bgp_route_clippy.c"
 
-void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len);
-struct json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri);
-
-
 static bool bgp_attr_nexthop_same(const struct attr *attr1, const struct attr *attr2, afi_t afi)
 {
 	afi_t nh_afi1 = BGP_ATTR_NH_AFI(afi, attr1);
