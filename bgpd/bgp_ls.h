@@ -7,8 +7,11 @@
 #ifndef _FRR_BGP_LS_H
 #define _FRR_BGP_LS_H
 
+#include <typesafe.h>
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ls_nlri.h"
+
+PREDECL_DLIST(bgp_ls_endx_sid_list);
 
 struct bgp_ls {
 	/* Back-pointer to parent BGP instance */
@@ -33,6 +36,9 @@ struct bgp_ls {
 
 	/* BGP-fabric link-state instance ID */
 	uint64_t instance_id;
+
+	/* Static End.X/uA SIDs associated to BGP links. */
+	struct bgp_ls_endx_sid_list_head static_endx_sids;
 };
 
 /* Function prototypes */
@@ -110,6 +116,11 @@ int bgp_ls_withdraw_bgp_link(struct bgp *bgp, struct peer *peer);
 int bgp_ls_withdraw_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest,
 			       struct bgp_path_info *path);
 
+extern int bgp_ls_upsert_bgp_link_srv6_endx_sid(struct bgp *bgp, const struct in6_addr *sid,
+						uint8_t prefixlen, uint32_t action,
+						const struct seg6local_context *ctx);
+extern int bgp_ls_delete_bgp_link_srv6_endx_sid(struct bgp *bgp, const struct in6_addr *sid,
+						uint8_t prefixlen);
 extern int bgp_ls_originate_static_srv6_sid_from_seg6local(struct bgp *bgp,
 							   const struct in6_addr *sid,
 							   uint8_t prefixlen, uint32_t action,
