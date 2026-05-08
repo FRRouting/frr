@@ -1392,7 +1392,6 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct listnode *node;
 	char buf[256];
 	struct static_srv6_sid *sid = NULL;
-	char *loc_name;
 	bool found = false;
 
 	if (!srv6_locators)
@@ -1400,7 +1399,7 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
-					 &loc_name)) {
+					 NULL, 0)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}

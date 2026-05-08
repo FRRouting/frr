@@ -3769,7 +3769,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct prefix_ipv6 tmp_prefix;
 	uint32_t sid_func, sid_wide_func = 0;
 	bool found = false;
-	char *loc_name;
+	char loc_name[SRV6_LOCNAME_SIZE];
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
@@ -3790,7 +3790,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
-					 &note, &loc_name)) {
+					 &note, loc_name, sizeof(loc_name))) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
