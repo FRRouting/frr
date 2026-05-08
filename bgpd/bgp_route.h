@@ -842,12 +842,12 @@ extern int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr, struct bgp_nl
 
 extern bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi, int always);
 
-extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
-				 const union g_addr *nexthop, ifindex_t ifindex,
-				 enum nexthop_types_t nhtype, uint8_t distance,
-				 enum blackhole_type bhtype, uint32_t metric,
-				 uint8_t type, unsigned short instance,
-				 route_tag_t tag);
+extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr *nexthop,
+				 ifindex_t ifindex, enum nexthop_types_t nhtype, uint8_t distance,
+				 enum blackhole_type bhtype, uint32_t metric, uint8_t type,
+				 unsigned short instance, route_tag_t tag,
+				 uint32_t seg6local_action,
+				 const struct seg6local_context *seg6local_ctx);
 extern void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 				    unsigned short instance);
 extern void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,

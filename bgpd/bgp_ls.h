@@ -110,6 +110,32 @@ int bgp_ls_withdraw_bgp_link(struct bgp *bgp, struct peer *peer);
 int bgp_ls_withdraw_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest,
 			       struct bgp_path_info *path);
 
+extern int bgp_ls_originate_static_srv6_sid_from_seg6local(struct bgp *bgp,
+							   const struct in6_addr *sid,
+							   uint8_t prefixlen, uint32_t action,
+							   const struct seg6local_context *ctx);
+extern int bgp_ls_withdraw_static_srv6_sid(struct bgp *bgp, const struct in6_addr *sid,
+					   uint8_t prefixlen);
+extern void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
+					       uint8_t type, unsigned short instance,
+					       uint32_t seg6local_action,
+					       const struct seg6local_context *seg6local_ctx,
+					       bool is_add);
+
+/*
+ * BGP-LS route handlers - abstraction layer for route redistribution
+ *
+ * These functions handle BGP-LS concerns (including SRv6 localsid) from
+ * route redistribution events. Route code calls these handlers instead of
+ * directly invoking SRv6-specific functions.
+ */
+extern int bgp_ls_handle_route_add(struct bgp *bgp, const struct prefix *p, afi_t afi,
+				   uint8_t type, unsigned short instance, uint32_t seg6local_action,
+				   const struct seg6local_context *seg6local_ctx);
+
+extern int bgp_ls_handle_route_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
+				      uint8_t type, unsigned short instance);
+
 /*
  * ===========================================================================
  * Link State Message Processing

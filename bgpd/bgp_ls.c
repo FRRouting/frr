@@ -25,6 +25,70 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 
+void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
+					uint8_t type, unsigned short instance,
+					uint32_t seg6local_action,
+					const struct seg6local_context *seg6local_ctx, bool is_add)
+{
+	if (!bgp || !bgp->ls_info || !bgp->ls_info->enable_distribution)
+		return;
+
+	if (afi != AFI_IP6 || type != ZEBRA_ROUTE_STATIC)
+		return;
+
+	if (!is_add) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("%s: BGP-LS localsid delete %pFX type=%s(%u) instance=%u",
+				   __func__, p, zebra_route_string(type), type, instance);
+
+		bgp_ls_withdraw_static_srv6_sid(bgp, &p->u.prefix6, p->prefixlen);
+		return;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("%s: BGP-LS localsid add %pFX type=%s(%u) instance=%u action=%u ctx=%s",
+			   __func__, p, zebra_route_string(type), type, instance, seg6local_action,
+			   seg6local_ctx ? "set" : "unset");
+
+	if (seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC || !seg6local_ctx)
+		return;
+
+	if (seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END)
+		bgp_ls_originate_static_srv6_sid_from_seg6local(bgp, &p->u.prefix6, p->prefixlen,
+								seg6local_action, seg6local_ctx);
+}
+
+/*
+ * BGP-LS Route Handler - Add
+ *
+ * Abstraction layer for route redistribution events. Handles BGP-LS concerns
+ * including SRv6 localsid updates from route add events.
+ */
+int bgp_ls_handle_route_add(struct bgp *bgp, const struct prefix *p, afi_t afi, uint8_t type,
+			    unsigned short instance, uint32_t seg6local_action,
+			    const struct seg6local_context *seg6local_ctx)
+{
+	/* Delegate SRv6 localsid handling to BGP-LS layer */
+	bgp_ls_handle_srv6_localsid_update(bgp, p, afi, type, instance, seg6local_action,
+					   seg6local_ctx, true);
+	return 0;
+}
+
+/*
+ * BGP-LS Route Handler - Delete
+ *
+ * Abstraction layer for route redistribution events. Handles BGP-LS concerns
+ * including SRv6 localsid updates from route delete events.
+ */
+int bgp_ls_handle_route_delete(struct bgp *bgp, const struct prefix *p, afi_t afi, uint8_t type,
+			       unsigned short instance)
+{
+	/* Delegate SRv6 localsid handling to BGP-LS layer */
+	bgp_ls_handle_srv6_localsid_update(bgp, p, afi, type, instance,
+					   ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL, false);
+	return 0;
+}
+
 /*
  * Helper Functions for NLRI Formatting
  */
@@ -962,6 +1026,179 @@ void bgp_ls_cleanup(struct bgp *bgp)
 	XFREE(MTYPE_BGP_LS, bgp->ls_info);
 
 	zlog_info("BGP-LS: Module terminated for instance %s", bgp->name_pretty);
+}
+
+static uint16_t bgp_ls_seg6local_to_srv6_behavior(uint32_t action,
+						  const struct seg6local_context *ctx)
+{
+	bool next_csid = (ctx && seg6local_has_next_csid(ctx));
+	bool psp = (ctx && CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP));
+	bool usd = (ctx && CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD));
+
+	switch (action) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		if (next_csid) {
+			if (psp && usd)
+				return SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD;
+			if (psp)
+				return SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP;
+			return SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID;
+		}
+		if (psp && usd)
+			return SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD;
+		if (psp)
+			return SRV6_ENDPOINT_BEHAVIOR_END_PSP;
+		return SRV6_ENDPOINT_BEHAVIOR_END;
+	default:
+		return SRV6_ENDPOINT_BEHAVIOR_RESERVED;
+	}
+}
+
+static bool bgp_ls_static_srv6_behavior_allowed(uint16_t behavior)
+{
+	switch (behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static int bgp_ls_originate_static_srv6_sid(struct bgp *bgp, const struct in6_addr *sid,
+					    uint8_t prefixlen, uint16_t behavior, uint8_t lb_len,
+					    uint8_t ln_len, uint8_t fn_len, uint8_t arg_len)
+{
+	struct bgp_ls_nlri nlri;
+	struct bgp_ls_attr *ls_attr;
+	int ret;
+
+	if (!bgp || !sid)
+		return -1;
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: originate_static_srv6_sid %pI6/%u behavior=0x%04x lb=%u ln=%u fn=%u arg=%u",
+			   sid, prefixlen, behavior, lb_len, ln_len, fn_len, arg_len);
+
+	if (!bgp_ls_static_srv6_behavior_allowed(behavior)) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: behavior 0x%04x NOT in allowed list - skipping %pI6/%u",
+				   behavior, sid, prefixlen);
+		return 0;
+	}
+
+	memset(&nlri, 0, sizeof(nlri));
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = BGP_LS_PROTO_STATIC;
+	nlri.nlri_data.srv6_sid.identifier = bgp->ls_info->instance_id;
+
+	nlri.nlri_data.srv6_sid.local_node.bgp_router_id = bgp->router_id;
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+		 BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT);
+
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, sid);
+
+	ls_attr = bgp_ls_attr_alloc();
+	ls_attr->srv6_endpoint_behavior = behavior;
+	ls_attr->srv6_endpoint_flags = 0;
+	ls_attr->srv6_endpoint_algo = 0;
+	SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT);
+
+	if (lb_len || ln_len || fn_len || arg_len) {
+		ls_attr->srv6_sid_structure.lb_len = lb_len;
+		ls_attr->srv6_sid_structure.ln_len = ln_len;
+		ls_attr->srv6_sid_structure.fun_len = fn_len;
+		ls_attr->srv6_sid_structure.arg_len = arg_len;
+		SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT);
+	}
+
+	ret = bgp_ls_update(bgp, &nlri, ls_attr);
+	bgp_ls_attr_free(ls_attr);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to originate static SRv6 SID NLRI");
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Originated static SRv6 SID NLRI %pI6/%u behavior 0x%04x", sid,
+			   prefixlen, behavior);
+
+	return 0;
+}
+
+int bgp_ls_originate_static_srv6_sid_from_seg6local(struct bgp *bgp, const struct in6_addr *sid,
+						    uint8_t prefixlen, uint32_t action,
+						    const struct seg6local_context *ctx)
+{
+	uint16_t behavior;
+	uint8_t lb_len = 0;
+	uint8_t ln_len = 0;
+	uint8_t fn_len = 0;
+	uint8_t arg_len = 0;
+
+	if (!bgp || !sid)
+		return -1;
+
+	behavior = bgp_ls_seg6local_to_srv6_behavior(action, ctx);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: _from_seg6local %pI6/%u action=%u -> behavior=0x%04x", sid,
+			   prefixlen, action, behavior);
+
+	if (behavior == SRV6_ENDPOINT_BEHAVIOR_RESERVED) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: %pI6/%u action=%u mapped to RESERVED - skipping", sid,
+				   prefixlen, action);
+		return 0;
+	}
+
+	if (ctx) {
+		lb_len = ctx->block_len;
+		ln_len = ctx->node_len;
+		fn_len = ctx->function_len;
+		arg_len = ctx->argument_len;
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: %pI6/%u SID structure lb=%u ln=%u fn=%u arg=%u", sid,
+				   prefixlen, lb_len, ln_len, fn_len, arg_len);
+	}
+
+	return bgp_ls_originate_static_srv6_sid(bgp, sid, prefixlen, behavior, lb_len, ln_len,
+						fn_len, arg_len);
+}
+
+int bgp_ls_withdraw_static_srv6_sid(struct bgp *bgp, const struct in6_addr *sid, uint8_t prefixlen)
+{
+	struct bgp_ls_nlri nlri;
+	int ret;
+
+	if (!bgp || !sid)
+		return -1;
+
+	memset(&nlri, 0, sizeof(nlri));
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = BGP_LS_PROTO_STATIC;
+	nlri.nlri_data.srv6_sid.identifier = bgp->ls_info->instance_id;
+
+	nlri.nlri_data.srv6_sid.local_node.bgp_router_id = bgp->router_id;
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+		 BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT);
+
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, sid);
+
+	ret = bgp_ls_withdraw(bgp, &nlri);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to withdraw static SRv6 SID NLRI");
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Withdrawn static SRv6 SID NLRI %pI6/%u", sid, prefixlen);
+
+	return 0;
 }
 
 /*
