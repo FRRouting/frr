@@ -25,6 +25,8 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 
+static int bgp_ls_refresh_bgp_link_endx_attrs(struct bgp *bgp, struct peer *peer);
+
 void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					uint8_t type, unsigned short instance,
 					uint32_t seg6local_action,
@@ -42,6 +44,7 @@ void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p,
 				   __func__, p, zebra_route_string(type), type, instance);
 
 		bgp_ls_withdraw_static_srv6_sid(bgp, &p->u.prefix6, p->prefixlen);
+		bgp_ls_delete_bgp_link_srv6_endx_sid(bgp, &p->u.prefix6, p->prefixlen);
 		return;
 	}
 
@@ -56,6 +59,9 @@ void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p,
 	if (seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END)
 		bgp_ls_originate_static_srv6_sid_from_seg6local(bgp, &p->u.prefix6, p->prefixlen,
 								seg6local_action, seg6local_ctx);
+	else if (seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_X)
+		bgp_ls_upsert_bgp_link_srv6_endx_sid(bgp, &p->u.prefix6, p->prefixlen,
+						     seg6local_action, seg6local_ctx);
 }
 
 /*
@@ -966,6 +972,28 @@ bool bgp_ls_is_registered(struct bgp *bgp)
 
 /*
  * ===========================================================================
+ * Static END.X SID list management
+ * ===========================================================================
+ */
+
+struct bgp_ls_static_endx_sid {
+	struct in6_addr sid;
+	uint8_t prefixlen;
+	uint16_t behavior;
+	uint8_t lb_len;
+	uint8_t ln_len;
+	uint8_t fn_len;
+	uint8_t arg_len;
+	struct in6_addr nh6;
+	ifindex_t ifindex;
+	struct peer *peer;
+	struct bgp_ls_endx_sid_list_item list_item;
+};
+
+DECLARE_DLIST(bgp_ls_endx_sid_list, struct bgp_ls_static_endx_sid, list_item);
+
+/*
+ * ===========================================================================
  * Module Initialization and Cleanup
  * ===========================================================================
  */
@@ -987,6 +1015,8 @@ void bgp_ls_init(struct bgp *bgp)
 
 	bgp->ls_info->ted = ls_ted_new(bgp->as, "BGP-LS TED", bgp->as);
 
+	bgp_ls_endx_sid_list_init(&bgp->ls_info->static_endx_sids);
+
 	zlog_info("BGP-LS: Module initialized for instance %s", bgp->name_pretty);
 }
 
@@ -998,6 +1028,7 @@ void bgp_ls_cleanup(struct bgp *bgp)
 {
 	struct bgp_ls_nlri *entry;
 	struct bgp_ls_attr *ls_attr;
+	struct bgp_ls_static_endx_sid *endx_entry;
 
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
@@ -1021,11 +1052,62 @@ void bgp_ls_cleanup(struct bgp *bgp)
 
 	ls_ted_del_all(&bgp->ls_info->ted);
 
+	frr_each_safe (bgp_ls_endx_sid_list, &bgp->ls_info->static_endx_sids, endx_entry) {
+		bgp_ls_endx_sid_list_del(&bgp->ls_info->static_endx_sids, endx_entry);
+		XFREE(MTYPE_BGP_LS, endx_entry);
+	}
+
+	bgp_ls_endx_sid_list_fini(&bgp->ls_info->static_endx_sids);
+
 	idalloc_destroy(bgp->ls_info->allocator);
 
 	XFREE(MTYPE_BGP_LS, bgp->ls_info);
 
 	zlog_info("BGP-LS: Module terminated for instance %s", bgp->name_pretty);
+}
+
+static struct bgp_ls_static_endx_sid *
+bgp_ls_static_endx_sid_lookup(struct bgp *bgp, const struct in6_addr *sid, uint8_t prefixlen)
+{
+	struct bgp_ls_static_endx_sid *entry;
+
+	if (!bgp || !bgp->ls_info || !sid)
+		return NULL;
+
+	frr_each (bgp_ls_endx_sid_list, &bgp->ls_info->static_endx_sids, entry) {
+		if (entry->prefixlen == prefixlen && memcmp(&entry->sid, sid, sizeof(*sid)) == 0)
+			return entry;
+	}
+
+	return NULL;
+}
+
+static uint16_t bgp_ls_seg6local_endx_behavior(uint32_t action, const struct seg6local_context *ctx)
+{
+	bool next_csid;
+	bool psp;
+	bool usd;
+
+	if (action != ZEBRA_SEG6_LOCAL_ACTION_END_X)
+		return SRV6_ENDPOINT_BEHAVIOR_RESERVED;
+
+	next_csid = (ctx && seg6local_has_next_csid(ctx));
+	psp = (ctx && CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP));
+	usd = (ctx && CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD));
+
+	if (next_csid) {
+		if (psp && usd)
+			return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD;
+		if (psp)
+			return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP;
+		return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID;
+	}
+
+	if (psp && usd)
+		return SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD;
+	if (psp)
+		return SRV6_ENDPOINT_BEHAVIOR_END_X_PSP;
+	return SRV6_ENDPOINT_BEHAVIOR_END_X;
 }
 
 static uint16_t bgp_ls_seg6local_to_srv6_behavior(uint32_t action,
@@ -1049,6 +1131,19 @@ static uint16_t bgp_ls_seg6local_to_srv6_behavior(uint32_t action,
 		if (psp)
 			return SRV6_ENDPOINT_BEHAVIOR_END_PSP;
 		return SRV6_ENDPOINT_BEHAVIOR_END;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+		if (next_csid) {
+			if (psp && usd)
+				return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD;
+			if (psp)
+				return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP;
+			return SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID;
+		}
+		if (psp && usd)
+			return SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD;
+		if (psp)
+			return SRV6_ENDPOINT_BEHAVIOR_END_X_PSP;
+		return SRV6_ENDPOINT_BEHAVIOR_END_X;
 	default:
 		return SRV6_ENDPOINT_BEHAVIOR_RESERVED;
 	}
@@ -1063,6 +1158,12 @@ static bool bgp_ls_static_srv6_behavior_allowed(uint16_t behavior)
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
 		return true;
 	default:
 		return false;
@@ -1309,7 +1410,8 @@ static struct interface *bgp_ls_get_ifp_from_connection(struct peer_connection *
  * @param peer - BGP peer (remote endpoint of the session)
  * @return 0 on success, -1 on error
  */
-int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer)
+static int bgp_ls_originate_bgp_link_internal(struct bgp *bgp, struct peer *peer,
+					      struct bgp_ls_attr *ls_attr)
 {
 	struct bgp_ls_nlri *nlri;
 	struct peer_connection *connection;
@@ -1402,7 +1504,7 @@ int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer)
 			 BGP_LS_LINK_DESC_IPV6_INTF_BIT);
 	}
 
-	ret = bgp_ls_update(bgp, nlri, NULL);
+	ret = bgp_ls_update(bgp, nlri, ls_attr);
 	if (ret != 0) {
 		zlog_err("BGP-LS: Failed to originate BGP link NLRI");
 		bgp_ls_nlri_free(nlri);
@@ -1415,6 +1517,244 @@ int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer)
 
 	bgp_ls_nlri_free(nlri);
 	return 0;
+}
+
+int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer)
+{
+	return bgp_ls_refresh_bgp_link_endx_attrs(bgp, peer);
+}
+
+static bool bgp_ls_static_endx_sid_matches_peer(const struct bgp_ls_static_endx_sid *entry,
+						const struct peer *peer)
+{
+	struct interface *ifp;
+	struct in6_addr zero = IN6ADDR_ANY_INIT;
+
+	if (!entry || !peer || !peer->connection)
+		return false;
+
+	if (peer->connection->su.sa.sa_family != AF_INET6)
+		return false;
+
+	if (memcmp(&entry->nh6, &zero, sizeof(entry->nh6)) != 0 &&
+	    memcmp(&peer->connection->su.sin6.sin6_addr, &entry->nh6, sizeof(entry->nh6)) != 0)
+		return false;
+
+	if (!entry->ifindex)
+		return true;
+
+	ifp = bgp_ls_get_ifp_from_connection(peer->connection);
+	return ifp && ifp->ifindex == entry->ifindex;
+}
+
+static struct peer *bgp_ls_find_peer_by_nh6(struct bgp *bgp, const struct in6_addr *nh6,
+					    ifindex_t ifindex)
+{
+	struct listnode *node;
+	struct peer *peer;
+	struct in6_addr zero = IN6ADDR_ANY_INIT;
+	bool match_by_ifindex_only;
+
+	if (!bgp || !nh6)
+		return NULL;
+
+	match_by_ifindex_only = (memcmp(nh6, &zero, sizeof(*nh6)) == 0);
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		struct interface *ifp;
+		int status;
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+			continue;
+
+		if (!peer->connection || peer->connection->status != Established) {
+			status = peer->connection ? (int)peer->connection->status : -1;
+			if (BGP_DEBUG(linkstate, LINKSTATE))
+				zlog_debug("BGP-LS: peer %s skipped (not Established, status=%d)",
+					   peer->host, status);
+			continue;
+		}
+
+		if (peer->connection->su.sa.sa_family != AF_INET6) {
+			if (BGP_DEBUG(linkstate, LINKSTATE))
+				zlog_debug("BGP-LS: peer %s skipped (not AF_INET6, family=%d)",
+					   peer->host, peer->connection->su.sa.sa_family);
+			continue;
+		}
+
+		if (!match_by_ifindex_only &&
+		    memcmp(&peer->connection->su.sin6.sin6_addr, nh6, sizeof(*nh6)) != 0)
+			continue;
+
+		if (!ifindex)
+			return peer;
+
+		ifp = bgp_ls_get_ifp_from_connection(peer->connection);
+		if (ifp && ifp->ifindex == ifindex)
+			return peer;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: find_peer_by_nh6 %pI6 ifindex=%u - no matching peer found%s",
+			   nh6, ifindex, match_by_ifindex_only ? " (interface-only match)" : "");
+	return NULL;
+}
+
+static int bgp_ls_refresh_bgp_link_endx_attrs(struct bgp *bgp, struct peer *peer)
+{
+	struct bgp_ls_static_endx_sid *entry;
+	struct bgp_ls_attr *ls_attr;
+	struct bgp_ls_srv6_endx_sid *endx;
+	uint16_t count = 0;
+	uint16_t idx = 0;
+
+	if (!bgp || !bgp->ls_info || !peer)
+		return -1;
+
+	frr_each (bgp_ls_endx_sid_list, &bgp->ls_info->static_endx_sids, entry) {
+		if (bgp_ls_static_endx_sid_matches_peer(entry, peer))
+			entry->peer = peer;
+
+		if (entry->peer == peer)
+			count++;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: peer %s refresh with %u End.X SID(s)", peer->host, count);
+
+	if (count == 0)
+		return bgp_ls_originate_bgp_link_internal(bgp, peer, NULL);
+
+	ls_attr = bgp_ls_attr_alloc();
+	ls_attr->srv6_endx_sid_count = count;
+	ls_attr->srv6_endx_sid = XCALLOC(MTYPE_BGP_LS_ATTR,
+					 count * sizeof(*ls_attr->srv6_endx_sid));
+
+	frr_each (bgp_ls_endx_sid_list, &bgp->ls_info->static_endx_sids, entry) {
+		if (entry->peer != peer)
+			continue;
+
+		endx = &ls_attr->srv6_endx_sid[idx++];
+		memset(endx, 0, sizeof(*endx));
+		endx->endpoint_behavior = entry->behavior;
+		endx->flags = 0;
+		endx->algo = 0;
+		endx->weight = 0;
+		IPV6_ADDR_COPY(&endx->sid, &entry->sid);
+		if (entry->lb_len || entry->ln_len || entry->fn_len || entry->arg_len) {
+			endx->has_structure = true;
+			endx->structure.lb_len = entry->lb_len;
+			endx->structure.ln_len = entry->ln_len;
+			endx->structure.fun_len = entry->fn_len;
+			endx->structure.arg_len = entry->arg_len;
+		}
+	}
+
+	SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
+
+	if (bgp_ls_originate_bgp_link_internal(bgp, peer, ls_attr) != 0) {
+		bgp_ls_attr_free(ls_attr);
+		return -1;
+	}
+
+	bgp_ls_attr_free(ls_attr);
+	return 0;
+}
+
+int bgp_ls_upsert_bgp_link_srv6_endx_sid(struct bgp *bgp, const struct in6_addr *sid,
+					 uint8_t prefixlen, uint32_t action,
+					 const struct seg6local_context *ctx)
+{
+	struct bgp_ls_static_endx_sid *entry;
+	struct peer *peer;
+	struct peer *old_peer = NULL;
+	bool had_srv6_cap;
+	uint16_t behavior;
+
+	if (!bgp || !bgp->ls_info || !sid || !ctx)
+		return -1;
+
+	behavior = bgp_ls_seg6local_endx_behavior(action, ctx);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: upsert_endx_sid %pI6/%u action=%u behavior=0x%04x nh6=%pI6 ifindex=%u",
+			   sid, prefixlen, action, behavior, &ctx->nh6, ctx->ifindex);
+
+	if (behavior == SRV6_ENDPOINT_BEHAVIOR_RESERVED) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: %pI6/%u End.X behavior RESERVED - skipping", sid,
+				   prefixlen);
+		return 0;
+	}
+
+	had_srv6_cap = bgp_ls_has_srv6_capability(bgp);
+
+	entry = bgp_ls_static_endx_sid_lookup(bgp, sid, prefixlen);
+	if (!entry) {
+		entry = XCALLOC(MTYPE_BGP_LS, sizeof(*entry));
+		entry->sid = *sid;
+		entry->prefixlen = prefixlen;
+		bgp_ls_endx_sid_list_add_tail(&bgp->ls_info->static_endx_sids, entry);
+	} else {
+		old_peer = entry->peer;
+	}
+
+	entry->behavior = behavior;
+	entry->lb_len = ctx->block_len;
+	entry->ln_len = ctx->node_len;
+	entry->fn_len = ctx->function_len;
+	entry->arg_len = ctx->argument_len;
+	entry->nh6 = ctx->nh6;
+	entry->ifindex = ctx->ifindex;
+	entry->peer = NULL;
+
+	peer = bgp_ls_find_peer_by_nh6(bgp, &ctx->nh6, ctx->ifindex);
+	if (!peer) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: %pI6/%u stored pending End.X SID for nh6=%pI6 ifindex=%u until link exists",
+				   sid, prefixlen, &ctx->nh6, ctx->ifindex);
+	} else {
+		entry->peer = peer;
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS: %pI6/%u matched peer %s", sid, prefixlen, peer->host);
+	}
+
+	if (!had_srv6_cap)
+		bgp_ls_originate_bgp_node(bgp);
+
+	if (old_peer && old_peer != peer)
+		bgp_ls_refresh_bgp_link_endx_attrs(bgp, old_peer);
+
+	if (!peer)
+		return 0;
+
+	return bgp_ls_refresh_bgp_link_endx_attrs(bgp, peer);
+}
+
+int bgp_ls_delete_bgp_link_srv6_endx_sid(struct bgp *bgp, const struct in6_addr *sid,
+					 uint8_t prefixlen)
+{
+	struct bgp_ls_static_endx_sid *entry;
+	struct peer *peer;
+
+	if (!bgp || !bgp->ls_info || !sid)
+		return -1;
+
+	entry = bgp_ls_static_endx_sid_lookup(bgp, sid, prefixlen);
+	if (!entry)
+		return 0;
+
+	peer = entry->peer;
+	bgp_ls_endx_sid_list_del(&bgp->ls_info->static_endx_sids, entry);
+	XFREE(MTYPE_BGP_LS, entry);
+
+	if (!bgp_ls_has_srv6_capability(bgp))
+		bgp_ls_originate_bgp_node(bgp);
+
+	if (!peer)
+		return 0;
+
+	return bgp_ls_refresh_bgp_link_endx_attrs(bgp, peer);
 }
 
 /*
