@@ -339,11 +339,11 @@ static uint8_t *ldpEntityTable(struct variable *v, oid name[], size_t *length,
 			return SNMP_INTEGER(MPLSLDPPEERTRANSPORTADDRTYPE_IPV6);
 	case MPLSLDPENTITYTARGETPEERADDR:
 		if (index == 1) {
-			*var_len = sizeof(af->trans_addr.v4);
-			return ((uint8_t *)&af->trans_addr.v4);
+			*var_len = sizeof(af->trans_addr.ipv4);
+			return ((uint8_t *)&af->trans_addr.ipv4);
 		}else {
-			*var_len = sizeof(af->trans_addr.v6);
-			return ((uint8_t *)&af->trans_addr.v6);
+			*var_len = sizeof(af->trans_addr.ipv6);
+			return ((uint8_t *)&af->trans_addr.ipv6);
 		}
 	case MPLSLDPENTITYLABELTYPE:
 		return SNMP_INTEGER(LABELTYPEGENERIC);
@@ -816,11 +816,11 @@ static uint8_t *ldpPeerTable(struct variable *v, oid name[], size_t *length,
 			return SNMP_INTEGER(MPLSLDPPEERTRANSPORTADDRTYPE_IPV6);
 	case MPLSLDPPEERTRANSPORTADDR:
 		if (ctl_nbr->af == AF_INET) {
-			*var_len = sizeof(ctl_nbr->raddr.v4);
-			return ((uint8_t *)&ctl_nbr->raddr.v4);
+			*var_len = sizeof(ctl_nbr->raddr.ipv4);
+			return ((uint8_t *)&ctl_nbr->raddr.ipv4);
 		} else {
-			*var_len = sizeof(ctl_nbr->raddr.v6);
-			return ((uint8_t *)&ctl_nbr->raddr.v6);
+			*var_len = sizeof(ctl_nbr->raddr.ipv6);
+			return ((uint8_t *)&ctl_nbr->raddr.ipv6);
 		}
 	default:
 		return NULL;

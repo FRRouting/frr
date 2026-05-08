@@ -67,9 +67,7 @@ adj_compare(const struct adj *a, const struct adj *b)
 	return (0);
 }
 
-struct adj *
-adj_new(struct in_addr lsr_id, struct hello_source *source,
-    union ldpd_addr *addr)
+struct adj *adj_new(struct in_addr lsr_id, struct hello_source *source, union g_addr *addr)
 {
 	struct adj	*adj;
 
@@ -210,8 +208,7 @@ tnbr_compare(const struct tnbr *a, const struct tnbr *b)
 	return (ldp_addrcmp(a->af, &a->addr, &b->addr));
 }
 
-struct tnbr *
-tnbr_new(int af, union ldpd_addr *addr)
+struct tnbr *tnbr_new(int af, union g_addr *addr)
 {
 	struct tnbr		*tnbr;
 
@@ -233,8 +230,7 @@ tnbr_del(struct ldpd_conf *xconf, struct tnbr *tnbr)
 	free(tnbr);
 }
 
-struct tnbr *
-tnbr_find(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
+struct tnbr *tnbr_find(struct ldpd_conf *xconf, int af, union g_addr *addr)
 {
 	struct tnbr	 tnbr;
 	tnbr.af = af;
