@@ -2595,6 +2595,19 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 						  struct zserv *client,
 						  const char *locator_name)
 {
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	int ret = 0;
+
+	if (!locator_name) {
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, *locator)) {
+			ret = zsend_zebra_srv6_locator_add(client, *locator);
+			if (ret < 0)
+				return ret;
+		}
+		return 0;
+	}
+
 	*locator = zebra_srv6_locator_lookup(locator_name);
 	if (!*locator)
 		return -1;

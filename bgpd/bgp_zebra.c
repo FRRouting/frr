@@ -5065,9 +5065,6 @@ int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
  */
 int bgp_zebra_srv6_manager_get_locator(const char *name)
 {
-	if (!name)
-		return -1;
-
 	/*
 	 * Send the Get Locator request to the SRv6 Manager and return the
 	 * result
