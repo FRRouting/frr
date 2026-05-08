@@ -344,7 +344,7 @@ Mandatory keywords/options in JSON:
   automatically
 * ``r2-link1`` : it will be used when routers have multiple links. 'r2' is router
   name, 'link' is any logical name, '1' is to identify link number,
-  router name and link must be seperated by hyphen (``-``), ex- a0-peer1
+  router name and link must be separated by hyphen (``-``), ex- a0-peer1
 
 Optional keywords/options in JSON:
 

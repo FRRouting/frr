@@ -136,7 +136,7 @@ libyang
    (and providing API) in C.
 
 -  GitHub page: https://github.com/CESNET/libyang
--  Documentaion: https://netopeer.liberouter.org/doc/libyang/master/
+-  Documentation: https://netopeer.liberouter.org/doc/libyang/master/
 
 pyang
 ^^^^^
@@ -147,7 +147,7 @@ pyang
    from the modules.
 
 -  GitHub page: https://github.com/mbj4668/pyang
--  Documentaion: https://github.com/mbj4668/pyang/wiki/Documentation
+-  Documentation: https://github.com/mbj4668/pyang/wiki/Documentation
 
 ncclient
 ^^^^^^^^
@@ -156,7 +156,7 @@ ncclient
    and application development around the NETCONF protocol.
 
 -  GitHub page: https://github.com/ncclient/ncclient
--  Documentaion: https://ncclient.readthedocs.io/en/latest/
+-  Documentation: https://ncclient.readthedocs.io/en/latest/
 
 YDK
 ^^^

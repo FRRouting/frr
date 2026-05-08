@@ -45,7 +45,7 @@ Reasons against supporting multiple scripting languages:
 - Languages have different capabilities that would have to be brought to
   parity with each other; a lot of work
 - Languages have vastly different performance characteristics; this would
-  create alot of basically unfixable issues, and result in a single de facto
+  create a lot of basically unfixable issues, and result in a single de facto
   standard scripting language (the fastest)
 - Each language would need a dedicated maintainer for the above reasons;
   this is pragmatically difficult
@@ -381,7 +381,7 @@ Decoders are a bit more involved. They do the reverse; a decoder function takes
 a ``lua_State *``, pops a value off the Lua stack and converts it back into its
 C type.
 
-There are two: ``lua_decode*`` and ``lua_to*``. The former does no mememory
+There are two: ``lua_decode*`` and ``lua_to*``. The former does no memory
 allocation and is needed for ``frrscript_call``.
 The latter performs allocation and is optional.
 

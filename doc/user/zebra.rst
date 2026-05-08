@@ -380,7 +380,7 @@ the default route.
 
    This command displays route-map attach point to nexthop tracking and
    displays list of protocol with its applied route-map.
-   When zebra considers sending NHT resoultion, the nofification only
+   When zebra considers sending NHT resolution, the notification only
    sent to appropriate client protocol only after applying route-map filter.
    User can get that information as JSON format when ``json`` keyword
    at the end of cli is presented.
@@ -481,7 +481,7 @@ Route Replace Semantics
 
 When using the Linux Kernel as a forwarding plane, routes are installed
 with a metric of 20 to the kernel.  Please note that the kernel's metric
-value bears no resemblence to FRR's RIB metric or admin distance.  It
+value bears no resemblance to FRR's RIB metric or admin distance.  It
 merely is a way for the Linux Kernel to decide which route to use if it
 has multiple routes for the same prefix from multiple sources.  An example
 here would be if someone else was running another routing suite besides
@@ -1306,7 +1306,7 @@ zebra Table Import
 ==================
 
 Zebra supports importing an alternate routing table into the main unicast RIB (URIB).
-An imported table will continously sync all changes to the main URIB as routes are
+An imported table will continuously sync all changes to the main URIB as routes are
 added or deleted from the alternate table.
 Zebra also supports importing into the main multicast RIB (MRIB) which can be used
 to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
@@ -1960,7 +1960,7 @@ Optional sysctl settings
 
 .. option:: net.ipv4.conf.{all,default,<interface>}.arp_notify = 1
 
-   This per interface option allows the linux kernel to decide whether to send a Gratuitious ARP
+   This per interface option allows the linux kernel to decide whether to send a Gratuitous ARP
    (GARP) frame when the Layer 3 interface comes UP.
    When arp_notify is set to 0, no GARP is sent.
    When arp_notify is set to 1, a GARP is sent when the interface comes UP.

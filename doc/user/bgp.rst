@@ -1896,7 +1896,7 @@ Configuring Peers
    neighbour, may be specified as either an IP address directly or as an
    interface name (in which case the *zebra* daemon MUST be running in order
    for *bgpd* to be able to retrieve interface state).  When there are multiple
-   addresses on the choosen IFNAME then BGP will use the address that matches
+   addresses on the chosen IFNAME then BGP will use the address that matches
    the most number of bits in comparison to the destination peer address.
 
    .. code-block:: frr
@@ -5169,7 +5169,7 @@ incoming/outgoing directions.
    If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
-   each SAFI in the selcted AFI
+   each SAFI in the selected AFI
 
    If a specific prefix is specified, the detailed version of that prefix will
    be displayed.
@@ -5350,7 +5350,7 @@ attribute.
    If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
-   each SAFI in the selcted AFI
+   each SAFI in the selected AFI
 
    If ``json`` option is specified, output is displayed in JSON format.
 

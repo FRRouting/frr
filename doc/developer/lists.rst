@@ -712,7 +712,7 @@ Atomic lists
 
 `atomlist.h` provides an unsorted and a sorted atomic single-linked list.
 Since atomic memory accesses can be considerably slower than plain memory
-accessses (depending on the CPU type), these lists should only be used where
+accesses (depending on the CPU type), these lists should only be used where
 necessary.
 
 The following guarantees are provided regarding concurrent access:
@@ -834,7 +834,7 @@ intentional crashes.  This is leading to situations when converting from
 an older data structure to the new typesafe where, on shutdown, the older
 data structures would still be attempted to be accessed.  This access would
 just be ignored or result in benign code running.  With the new typesafe
-data structure crashes will occurr.  Be aware that when modifying the code
+data structure crashes will occur.  Be aware that when modifying the code
 base that this sort of change might end up with crashes on shutdown and
 work must be done to ensure that the newly changed does not use the data
 structure after the fini call.
