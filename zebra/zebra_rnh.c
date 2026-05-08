@@ -1025,6 +1025,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		free_state(rnh->vrf_id, rnh->state, rn);
 		rnh->state = NULL;
 	}
+	rnh->resolved_nhg_id = 0;
 
 	if (!re)
 		return;
@@ -1037,6 +1038,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 	state->status = re->status;
 
 	state->nhe = zebra_nhe_copy(re->nhe, 0);
+	rnh->resolved_nhg_id = re->nhe->id;
 
 	rnh->state = state;
 }
