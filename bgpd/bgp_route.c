@@ -13346,63 +13346,58 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Remote SID */
-	{
-		struct bgp_attr_srv6_l3service *srv6_l3service =
-			bgp_attr_get_srv6_l3service(path->attr);
+	struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
 
-		if ((srv6_l3service || bgp_attr_get_srv6_vpn(path->attr)) && safi != SAFI_EVPN) {
-			json_object *json_sid_attr;
-			mpls_label_t label_sid = 0;
-			struct in6_addr *sid_tmp =
-				srv6_l3service ? (&srv6_l3service->sid)
-					       : (&bgp_attr_get_srv6_vpn(path->attr)->sid);
-			struct in6_addr sid_transposed = {};
+	if ((srv6_l3service || bgp_attr_get_srv6_vpn(path->attr)) && safi != SAFI_EVPN) {
+		json_object *json_sid_attr;
+		mpls_label_t label_sid = 0;
+		struct in6_addr *sid_tmp = srv6_l3service
+						   ? (&srv6_l3service->sid)
+						   : (&bgp_attr_get_srv6_vpn(path->attr)->sid);
+		struct in6_addr sid_transposed = {};
 
-			if (json_paths) {
-				if (bgp_path_info_has_valid_label(path) &&
-				    (safi != SAFI_EVPN && !is_route_parent_evpn(path)) &&
-				    path->extra->labels->num_labels == 1 &&
-				    (decode_label(&path->extra->labels->label[0]) >=
-					    MPLS_LABEL_UNRESERVED_MIN))
-					label_sid = decode_label(&path->extra->labels->label[0]);
-				json_object_string_addf(json_path, "remoteSid", "%pI6", sid_tmp);
-				if (srv6_l3service) {
-					IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
-					transpose_sid(&sid_transposed, label_sid,
+		if (json_paths) {
+			if (bgp_path_info_has_valid_label(path) &&
+			    (safi != SAFI_EVPN && !is_route_parent_evpn(path)) &&
+			    path->extra->labels->num_labels == 1 &&
+			    (decode_label(&path->extra->labels->label[0]) >=
+			     MPLS_LABEL_UNRESERVED_MIN))
+				label_sid = decode_label(&path->extra->labels->label[0]);
+			json_object_string_addf(json_path, "remoteSid", "%pI6", sid_tmp);
+			if (srv6_l3service) {
+				IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
+				transpose_sid(&sid_transposed, label_sid,
 					      srv6_l3service->transposition_offset,
 					      srv6_l3service->transposition_len,
 					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
-					json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
+				json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
 							&sid_transposed);
-
-					json_sid_attr = json_object_new_object();
-					json_object_object_add(json_path, "remoteSidStructure",
-							       json_sid_attr);
-					json_object_int_add(json_sid_attr, "locatorBlockLen",
-							    srv6_l3service->loc_block_len);
-					json_object_int_add(json_sid_attr, "locatorNodeLen",
-							    srv6_l3service->loc_node_len);
-					json_object_int_add(json_sid_attr, "functionLen",
-							    srv6_l3service->func_len);
-					json_object_int_add(json_sid_attr, "argumentLen",
-							    srv6_l3service->arg_len);
-					json_object_int_add(json_sid_attr, "transpositionLen",
-							    srv6_l3service->transposition_len);
-					json_object_int_add(json_sid_attr, "transpositionOffset",
-							    srv6_l3service->transposition_offset);
-				}
-			} else {
-				vty_out(vty, "      Remote SID: %pI6", sid_tmp);
-				if (srv6_l3service) {
-					vty_out(vty, ", sid structure=[%u %u %u %u %u %u]",
-						srv6_l3service->loc_block_len,
-						srv6_l3service->loc_node_len,
-						srv6_l3service->func_len, srv6_l3service->arg_len,
-						srv6_l3service->transposition_len,
-						srv6_l3service->transposition_offset);
-				}
-				vty_out(vty, "\n");
+				json_sid_attr = json_object_new_object();
+				json_object_object_add(json_path, "remoteSidStructure",
+						       json_sid_attr);
+				json_object_int_add(json_sid_attr, "locatorBlockLen",
+						    srv6_l3service->loc_block_len);
+				json_object_int_add(json_sid_attr, "locatorNodeLen",
+						    srv6_l3service->loc_node_len);
+				json_object_int_add(json_sid_attr, "functionLen",
+						    srv6_l3service->func_len);
+				json_object_int_add(json_sid_attr, "argumentLen",
+						    srv6_l3service->arg_len);
+				json_object_int_add(json_sid_attr, "transpositionLen",
+						    srv6_l3service->transposition_len);
+				json_object_int_add(json_sid_attr, "transpositionOffset",
+						    srv6_l3service->transposition_offset);
 			}
+		} else {
+			vty_out(vty, "      Remote SID: %pI6", sid_tmp);
+			if (srv6_l3service) {
+				vty_out(vty, ", sid structure=[%u %u %u %u %u %u]",
+					srv6_l3service->loc_block_len,
+					srv6_l3service->loc_node_len, srv6_l3service->func_len,
+					srv6_l3service->arg_len, srv6_l3service->transposition_len,
+					srv6_l3service->transposition_offset);
+			}
+			vty_out(vty, "\n");
 		}
 	}
 

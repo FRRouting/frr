@@ -3511,22 +3511,19 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 
 		/* Log SRv6 Service Data Sub-Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			zlog_debug("%s: srv6-srv6_l3service-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
+			zlog_debug("%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
 				   __func__, loc_block_len, loc_node_len, func_len, arg_len,
 				   transposition_len, transposition_offset);
 		}
 
-		{
-			struct bgp_attr_srv6_l3service *srv6_l3service =
-				bgp_attr_get_srv6_l3service(attr);
+		struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 
-			srv6_l3service->loc_block_len = loc_block_len;
-			srv6_l3service->loc_node_len = loc_node_len;
-			srv6_l3service->func_len = func_len;
-			srv6_l3service->arg_len = arg_len;
-			srv6_l3service->transposition_len = transposition_len;
-			srv6_l3service->transposition_offset = transposition_offset;
-		}
+		srv6_l3service->loc_block_len = loc_block_len;
+		srv6_l3service->loc_node_len = loc_node_len;
+		srv6_l3service->func_len = func_len;
+		srv6_l3service->arg_len = arg_len;
+		srv6_l3service->transposition_len = transposition_len;
+		srv6_l3service->transposition_offset = transposition_offset;
 	}
 
 	else {
@@ -3593,7 +3590,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 
 		/* Log SRv6 Service Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
-			zlog_debug("%s: srv6-srv6_l3service-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
+			zlog_debug("%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
 				   __func__, &ipv6_sid, sid_flags, endpoint_behavior);
 
 		/* Configure from Info */
@@ -3603,22 +3600,20 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
-		{
-			struct bgp_attr_srv6_l3service *srv6_l3service =
-				XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
-					sizeof(struct bgp_attr_srv6_l3service));
 
-			sid_copy(&srv6_l3service->sid, &ipv6_sid);
-			srv6_l3service->sid_flags = sid_flags;
-			srv6_l3service->endpoint_behavior = endpoint_behavior;
-			srv6_l3service->loc_block_len = 0;
-			srv6_l3service->loc_node_len = 0;
-			srv6_l3service->func_len = 0;
-			srv6_l3service->arg_len = 0;
-			srv6_l3service->transposition_len = 0;
-			srv6_l3service->transposition_offset = 0;
-			bgp_attr_set_srv6_l3service(attr, srv6_l3service);
-		}
+		struct bgp_attr_srv6_l3service *srv6_l3service =
+			XCALLOC(MTYPE_BGP_SRV6_L3SERVICE, sizeof(struct bgp_attr_srv6_l3service));
+
+		sid_copy(&srv6_l3service->sid, &ipv6_sid);
+		srv6_l3service->sid_flags = sid_flags;
+		srv6_l3service->endpoint_behavior = endpoint_behavior;
+		srv6_l3service->loc_block_len = 0;
+		srv6_l3service->loc_node_len = 0;
+		srv6_l3service->func_len = 0;
+		srv6_l3service->arg_len = 0;
+		srv6_l3service->transposition_len = 0;
+		srv6_l3service->transposition_offset = 0;
+		bgp_attr_set_srv6_l3service(attr, srv6_l3service);
 
 		// Sub-Sub-TLV found
 		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
