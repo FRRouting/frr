@@ -3192,10 +3192,13 @@ static void zread_srv6_manager_get_locator(struct zserv *client,
 
 	/* Get data */
 	STREAM_GETW(s, len);
-	STREAM_GET(locator_name, s, len);
+	if (len >= sizeof(locator_name))
+		goto stream_failure;
+	if (len)
+		STREAM_GET(locator_name, s, len);
 
 	/* Call hook to get the locator info using wrapper */
-	srv6_manager_get_locator_call(&locator, client, locator_name);
+	srv6_manager_get_locator_call(&locator, client, len ? locator_name : NULL);
 
 stream_failure:
 	return;
