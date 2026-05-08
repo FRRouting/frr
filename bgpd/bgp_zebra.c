@@ -54,6 +54,12 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_ls_ted.h"
+>>>>>>> 27f783c27 (bgpd: Originate and withdraw SRv6 locator prefixes as BGP-LS Prefix NLRIs)
 
 /* All information about zebra. */
 struct zclient *bgp_zclient = NULL;
@@ -3845,6 +3851,8 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
+	bgp_ls_originate_srv6_locator_prefix(bgp_get_default(), &loc);
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
 			continue;
@@ -3994,6 +4002,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	bgp_ls_withdraw_srv6_locator_prefix(bgp_get_default(), &loc);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
