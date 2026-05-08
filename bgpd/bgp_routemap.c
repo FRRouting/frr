@@ -448,6 +448,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
 			 "Issue running script rule; defaulting to no match");
+		bgp_attr_extra_discard(&newattr);
 		return RMAP_NOMATCH;
 	}
 
@@ -488,6 +489,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	XFREE(MTYPE_SCRIPT_RES, action);
 
 	frrscript_delete(fs);
+
+	bgp_attr_extra_discard(&newattr);
 
 	return status;
 }
