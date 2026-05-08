@@ -1068,6 +1068,14 @@ void bgp_ls_cleanup(struct bgp *bgp)
 	zlog_info("BGP-LS: Module terminated for instance %s", bgp->name_pretty);
 }
 
+static bool bgp_ls_has_srv6_capability(const struct bgp *bgp)
+{
+	if (!bgp || !bgp->ls_info)
+		return false;
+
+	return bgp->ls_info->srv6_locator_nlri_count > 0;
+}
+
 static struct bgp_ls_static_endx_sid *
 bgp_ls_static_endx_sid_lookup(struct bgp *bgp, const struct in6_addr *sid, uint8_t prefixlen)
 {
@@ -1351,6 +1359,11 @@ int bgp_ls_originate_bgp_node(struct bgp *bgp)
 	/* TLV 1026: Node Name */
 	ls_attr->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, bgp->peer_self->host);
 	SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT);
+
+	if (bgp_ls_has_srv6_capability(bgp)) {
+		ls_attr->srv6_cap_flags = 0;
+		SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT);
+	}
 
 	ret = bgp_ls_update(bgp, nlri, ls_attr);
 	if (ret != 0) {
