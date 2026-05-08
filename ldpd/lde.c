@@ -48,7 +48,9 @@ static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
 static void              zclient_sync_init(void);
+static void		 zclient_sync_cleanup(void);
 static void		 lde_label_list_init(void);
+static void		 lde_label_list_cleanup(void);
 static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
@@ -194,6 +196,8 @@ static FRR_NORETURN void lde_shutdown(void)
 	lde_gc_stop_timer();
 	lde_nbr_clear();
 	fec_tree_clear();
+	lde_label_list_cleanup();
+	zclient_sync_cleanup();
 
 	config_clear(ldeconf);
 
@@ -203,7 +207,8 @@ static FRR_NORETURN void lde_shutdown(void)
 
 	log_info("label decision engine exiting");
 
-	zlog_fini();
+	frr_early_fini();
+	frr_fini();
 	exit(0);
 }
 
@@ -2219,12 +2224,20 @@ static void zclient_sync_init(void)
 retry:
 
 	/* Discard failed zclient object */
-	zclient_stop(zclient_sync);
-	zclient_free(zclient_sync);
-	zclient_sync = NULL;
+	zclient_sync_cleanup();
 
 	/* Retry using a timer */
 	event_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
+}
+
+static void zclient_sync_cleanup(void)
+{
+	if (!zclient_sync)
+		return;
+
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
 }
 
 static void
@@ -2276,6 +2289,25 @@ lde_label_list_init(void)
 		log_warnx("Error getting first label chunk!");
 		sleep(1);
 	}
+}
+
+static void
+lde_label_list_cleanup(void)
+{
+	struct listnode *node, *nnode;
+	struct label_chunk *label_chunk;
+
+	if (!label_chunk_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS(label_chunk_list, node, nnode, label_chunk)) {
+		if (zclient_sync &&
+		    lde_release_label_chunk(label_chunk->start, label_chunk->end) != 0)
+			log_warnx("%s: Error releasing label chunk!", __func__);
+	}
+
+	current_label_chunk = NULL;
+	list_delete(&label_chunk_list);
 }
 
 static void

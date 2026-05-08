@@ -2285,5 +2285,5 @@ void mgmt_fe_adapter_destroy(void)
 
 	ns_string_free_all(&mgmt_fe_ns_strings);
 
-	hash_free(mgmt_fe_sessions);
+	hash_clean_and_free(&mgmt_fe_sessions, NULL);
 }

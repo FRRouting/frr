@@ -1429,11 +1429,18 @@ static int ospf6_snmp_init(struct event_loop *mstr)
 	return 0;
 }
 
+static int ospf6_snmp_terminate(void)
+{
+	smux_terminate();
+	return 0;
+}
+
 static int ospf6_snmp_module_init(void)
 {
 	hook_register(ospf6_interface_change, ospf6TrapIfStateChange);
 	hook_register(ospf6_neighbor_change, ospf6TrapNbrStateChange);
 	hook_register(frr_late_init, ospf6_snmp_init);
+	hook_register(frr_fini, ospf6_snmp_terminate);
 	return 0;
 }
 

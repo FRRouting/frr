@@ -32,6 +32,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
@@ -229,6 +230,21 @@ static int if_zebra_delete_hook(struct interface *ifp)
 			list_delete(&bond->mbr_zifs);
 
 		zebra_l2_bridge_if_cleanup(ifp);
+		/*
+		 * Destroy any per-VXLAN-IF SVD VNI table that is still hanging
+		 * around.  In the runtime delete path this is already done via
+		 * zebra_l2_vxlanif_del() before if_delete_update() fires the
+		 * if_del hook, so this is a no-op there.  At zebra shutdown,
+		 * however, dplane delete events do not arrive, so we need to
+		 * release the VNI table here or the L2 VNI entries leak.
+		 *
+		 * Must guard on IS_ZEBRA_VXLAN_IF_SVD: for per-VNI VXLAN
+		 * interfaces vni_info->vni_table aliases the embedded
+		 * zebra_vxlan_vni struct via a union, so reading it as a hash
+		 * pointer would dereference garbage.
+		 */
+		if (IS_ZEBRA_IF_VXLAN(ifp) && IS_ZEBRA_VXLAN_IF_SVD(zebra_if))
+			zebra_vxlan_if_vni_table_destroy(zebra_if);
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 

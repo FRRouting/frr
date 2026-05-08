@@ -179,6 +179,25 @@ static FRR_NORETURN void bgp_exit(int status)
 	bgp_default = bgp_get_default();
 	bgp_evpn = bgp_get_evpn();
 
+	/*
+	 * Drop any bgp_dest references the labelpool is still holding for
+	 * pending BGP-LU label requests BEFORE bgp_delete() runs.
+	 *
+	 * bgp_delete() -> bgp_free() -> bgp_table_finish() force-frees every
+	 * dest in the instance's tables regardless of lock count; if the
+	 * labelpool's slow-path FIFO or callback workqueue still pin any of
+	 * those dests, the unlock attempts later in bgp_lp_finish() become
+	 * a use-after-free (occasional assert(node->lock > 0) crash in
+	 * route_unlock_node()).
+	 *
+	 * This only releases the dest locks - the labelpool itself stays
+	 * functional so bgp_delete()-time callers (e.g.
+	 * bgp_label_per_nexthop_free() -> bgp_lp_release()) keep working.
+	 * The remainder of the labelpool is torn down by bgp_lp_finish()
+	 * below.
+	 */
+	bgp_lp_release_pending_lu_locks();
+
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (bgp_default == bgp || bgp_evpn == bgp)

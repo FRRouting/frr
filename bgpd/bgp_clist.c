@@ -1456,21 +1456,21 @@ void community_list_terminate(struct community_list_handler *ch)
 		community_list_delete(cm, list);
 	while ((list = cm->str.head) != NULL)
 		community_list_delete(cm, list);
-	hash_free(cm->hash);
+	hash_clean_and_free(&cm->hash, NULL);
 
 	cm = &ch->lcommunity_list;
 	while ((list = cm->num.head) != NULL)
 		community_list_delete(cm, list);
 	while ((list = cm->str.head) != NULL)
 		community_list_delete(cm, list);
-	hash_free(cm->hash);
+	hash_clean_and_free(&cm->hash, NULL);
 
 	cm = &ch->extcommunity_list;
 	while ((list = cm->num.head) != NULL)
 		community_list_delete(cm, list);
 	while ((list = cm->str.head) != NULL)
 		community_list_delete(cm, list);
-	hash_free(cm->hash);
+	hash_clean_and_free(&cm->hash, NULL);
 
 	XFREE(MTYPE_COMMUNITY_LIST_HANDLER, ch);
 }

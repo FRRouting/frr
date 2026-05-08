@@ -562,12 +562,24 @@ static int rip_snmp_init(struct event_loop *mstr)
 	return 0;
 }
 
+static int rip_snmp_terminate(void)
+{
+	if (rip_ifaddr_table) {
+		route_table_finish(rip_ifaddr_table);
+		rip_ifaddr_table = NULL;
+	}
+
+	smux_terminate();
+	return 0;
+}
+
 static int rip_snmp_module_init(void)
 {
 	hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
 	hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
 
 	hook_register(frr_late_init, rip_snmp_init);
+	hook_register(frr_fini, rip_snmp_terminate);
 	return 0;
 }
 

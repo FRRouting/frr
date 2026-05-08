@@ -957,3 +957,17 @@ void pbr_map_init(void)
 
 	pbr_map_sequence_unique = 1;
 }
+
+void pbr_map_terminate(void)
+{
+	struct pbr_map *pbrm;
+
+	while ((pbrm = RB_ROOT(pbr_map_entry_head, &pbr_maps))) {
+		struct pbr_map_sequence *pbrms;
+
+		pbrms = listnode_head(pbrm->seqnumbers);
+		assert(pbrms);
+
+		pbr_map_delete(pbrms);
+	}
+}

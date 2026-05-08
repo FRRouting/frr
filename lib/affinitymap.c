@@ -115,9 +115,10 @@ void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 
 void affinity_map_terminate(void)
 {
-	struct affinity_map *map;
-	struct listnode *node, *nnode;
+	if (!affinity_map_master.maps)
+		return;
 
-	for (ALL_LIST_ELEMENTS(affinity_map_master.maps, node, nnode, map))
-		affinity_map_free(map);
+	affinity_map_master.maps->del = (void (*)(void *))affinity_map_free;
+	list_delete(&affinity_map_master.maps);
+	affinity_map_master.update_hook = NULL;
 }

@@ -5469,6 +5469,40 @@ static void free_vni_entry(struct hash_bucket *bucket, struct bgp *bgp)
 }
 
 /*
+ * Iterator helper: drain per-VNI route tables (mac_table/ip_table) without
+ * freeing the bgpevpn struct itself.  Used during early cleanup so that the
+ * imported per-VNI bgp_path_info entries (which reference parent path_info
+ * and dest objects in the global EVPN RIB) are reaped before the global
+ * EVPN RIB is finalized by bgp_cleanup_routes().
+ */
+static void drain_vni_routes(struct hash_bucket *bucket, struct bgp *bgp)
+{
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+
+	delete_all_vni_routes(bgp, vpn);
+}
+
+/*
+ * Drain the per-VNI route tables for every VNI owned by this bgp instance.
+ *
+ * Per-VNI imported paths (in vpn->mac_table and vpn->ip_table) hold
+ * extra->vrfleak->parent references back to BPI/dest objects in the global
+ * EVPN RIB.  bgp_cleanup_routes() later finalizes those tables via
+ * bgp_table_finish() which forcibly zeroes the dest lock counts and frees the
+ * dest nodes, leaving dangling pointers behind.  Reap the per-VNI paths now
+ * so that their bgp_path_info_extra_free() can safely unlock parent dests
+ * while those parents are still alive; the subsequent bgp_evpn_cleanup() then
+ * walks empty per-VNI tables and is a no-op for routes.
+ */
+void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp)
+{
+	if (!bgp->vnihash)
+		return;
+
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))drain_vni_routes, bgp);
+}
+
+/*
  * Derive AUTO import RT for BGP VRF - L3VNI
  */
 static void evpn_auto_rt_import_add_for_vrf(struct bgp *bgp_vrf)
@@ -6164,6 +6198,16 @@ static void bgp_evpn_handle_deferred_bestpath_per_vni(struct hash_bucket *bucket
 void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt)
 {
 	struct vni_gr_walk ctx;
+
+	/*
+	 * GR deferred path selection for SAFI_EVPN runs for any bgp instance
+	 * with peers participating in graceful restart, but vnihash is only
+	 * allocated by bgp_evpn_init() on instances that actually configure
+	 * "address-family l2vpn evpn".  Skip non-EVPN instances cleanly
+	 * instead of crashing in hash_iterate().
+	 */
+	if (!bgp->vnihash)
+		return;
 
 	ctx.bgp = bgp;
 	ctx.cnt = cnt;
@@ -8015,8 +8059,7 @@ static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *vpn)
 	(void (*)(struct hash_bucket *, void *))bgp_evpn_remote_ip_hash_free,
 	vpn);
 
-	hash_free(vpn->remote_ip_hash);
-	vpn->remote_ip_hash = NULL;
+	hash_clean_and_free(&vpn->remote_ip_hash, NULL);
 }
 
 /* Add a remote MAC/IP route to hash table */

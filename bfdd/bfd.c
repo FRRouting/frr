@@ -2274,9 +2274,9 @@ void bfd_shutdown(void)
 	assert(sbfd_rflt_hash->count == 0);
 
 	/* Now free the hashes themselves. */
-	hash_free(bfd_id_hash);
-	hash_free(bfd_key_hash);
-	hash_free(sbfd_rflt_hash);
+	hash_clean_and_free(&bfd_id_hash, NULL);
+	hash_clean_and_free(&bfd_key_hash, NULL);
+	hash_clean_and_free(&sbfd_rflt_hash, NULL);
 
 	destroy_bfd_perm_vrfs_data();
 

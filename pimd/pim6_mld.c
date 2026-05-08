@@ -2387,6 +2387,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_group_delete(gm_ifp);
 
+	gm_gsq_pends_fini(gm_ifp->gsq_pends);
 	gm_grp_pends_fini(gm_ifp->grp_pends);
 	gm_packet_expires_fini(gm_ifp->expires);
 	gm_subscribers_fini(gm_ifp->subscribers);

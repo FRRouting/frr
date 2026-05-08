@@ -7180,11 +7180,39 @@ static void bgp_clear_node_queue_init(struct peer *peer)
 	peer->clear_node_queue->spec.data = peer;
 }
 
+bool bgp_clear_node_queue_drain(struct peer *peer)
+{
+	struct work_queue *wq;
+	struct work_queue_item *item;
+	bool need_peer_unlock = false;
+
+	if (!peer || !peer->clear_node_queue)
+		return false;
+
+	wq = peer->clear_node_queue;
+	need_peer_unlock = work_queue_is_scheduled(wq) || !work_queue_empty(wq);
+
+	/*
+	 * During daemon termination we need the clear-route work to run
+	 * synchronously before queue teardown, otherwise we only drop refs.
+	 *
+	 * This is intentionally done this way because we are trying to cleanup
+	 * memory on shutdown and these items need to be handled no matter what.
+	 */
+	if (bm->terminating && wq->spec.workfunc) {
+		STAILQ_FOREACH (item, &wq->items, wq)
+			wq->spec.workfunc(wq, item->data);
+	}
+
+	work_queue_free_and_null(&peer->clear_node_queue);
+	return need_peer_unlock;
+}
+
 static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 				  struct bgp_table *table)
 {
 	struct bgp_dest *dest;
-	int force = peer->bgp->process_queue ? 0 : 1;
+	int force = (!peer->bgp->process_queue || bm->terminating) ? 1 : 0;
 
 	if (!table)
 		table = peer->bgp->rib[afi][safi];

@@ -2122,8 +2122,7 @@ static int zl3vni_del(struct zebra_l3vni *zl3vni)
 	zl3vni->l2vnis = NULL;
 
 	/* Free the rmac table */
-	hash_free(zl3vni->rmac_table);
-	zl3vni->rmac_table = NULL;
+	hash_clean_and_free(&zl3vni->rmac_table, NULL);
 
 	/* Free the nh table */
 	zebra_neigh_db_fini(zl3vni->nh_table);
@@ -6083,11 +6082,10 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 	if (!zvrf)
 		return;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
-	hash_free(zvrf->evpn_table);
+	hash_clean_and_free(&zvrf->evpn_table, NULL);
 	if (zvrf->vxlan_sg_table) {
 		zebra_vxlan_cleanup_sg_table(zvrf);
-		hash_free(zvrf->vxlan_sg_table);
-		zvrf->vxlan_sg_table = NULL;
+		hash_clean_and_free(&zvrf->vxlan_sg_table, NULL);
 	}
 }
 
@@ -6116,7 +6114,7 @@ void zebra_vxlan_terminate(void)
 /* free l3vni table */
 void zebra_vxlan_disable(void)
 {
-	hash_free(zrouter.l3vni_table);
+	hash_clean_and_free(&zrouter.l3vni_table, NULL);
 	zebra_evpn_mh_terminate();
 }
 

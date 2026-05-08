@@ -211,7 +211,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 		circuit->ext = NULL;
 	}
 
-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 
 	/* and lastly the circuit itself */
