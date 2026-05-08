@@ -19013,6 +19013,9 @@ DEFPY(bgp_ls_distribute_bgp_fabric,
 		zlog_warn("%s: failed to subscribe to IPv6 ZEBRA_ROUTE_ALL redistribution",
 			  __func__);
 
+	if (bgp_zclient && bgp_zclient->sock >= 0)
+		bgp_zebra_srv6_manager_get_locator(NULL);
+
 	if (bgp_ls_export_bgp_topology(bgp) != 0) {
 		vty_out(vty, "%% Failed to export BGP topology\n");
 		return CMD_WARNING;

@@ -26,6 +26,8 @@
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 
 static int bgp_ls_refresh_bgp_link_endx_attrs(struct bgp *bgp, struct peer *peer);
+static struct bgp_ls_nlri *bgp_ls_lookup_bgp_prefix_nlri(struct bgp *bgp, const struct prefix *p,
+							 enum bgp_ls_bgp_route_type route_type);
 
 void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					uint8_t type, unsigned short instance,
@@ -1873,6 +1875,122 @@ int bgp_ls_originate_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi, struct 
 	return bgp_ls_originate_prefix_internal(bgp, afi, p, route_type, NULL);
 }
 
+int bgp_ls_originate_srv6_locator_prefix(struct bgp *bgp, const struct srv6_locator *locator)
+{
+	struct bgp_ls_attr *ls_attr;
+	struct bgp_ls_nlri *existing_nlri;
+	bool had_srv6_cap;
+	bool is_new_locator_nlri;
+	int ret;
+
+	if (!bgp || !bgp->ls_info || !locator)
+		return -1;
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: entry instance=%s locator=%s prefix=%pFX algo=%u",
+			   bgp->name_pretty, locator->name, &locator->prefix, locator->algonum);
+
+	if (!bgp->ls_info->enable_distribution) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS [locator]: skipping locator %s because distribution is disabled",
+				   locator->name);
+		return 0;
+	}
+
+	if (locator->prefix.family != AF_INET6) {
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			zlog_debug("BGP-LS [locator]: skipping locator %s because family=%u is not IPv6",
+				   locator->name, locator->prefix.family);
+		return 0;
+	}
+
+	had_srv6_cap = bgp_ls_has_srv6_capability(bgp);
+	existing_nlri = bgp_ls_lookup_bgp_prefix_nlri(bgp, (const struct prefix *)&locator->prefix,
+						      BGP_LS_BGP_RT_LOCAL);
+	is_new_locator_nlri = (existing_nlri == NULL);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: advertising locator %s prefix=%pFX algo=%u",
+			   locator->name, &locator->prefix, locator->algonum);
+
+	/* Prepare SRv6 locator attributes */
+	ls_attr = bgp_ls_attr_alloc();
+	ls_attr->srv6_locator_flags = 0;
+	ls_attr->srv6_locator_algo = locator->algonum;
+	ls_attr->srv6_locator_metric = 0;
+	SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: update prefix=%pFX route_type=0x%02x algo=%u attr_present=0x%llx",
+			   &locator->prefix, BGP_LS_BGP_RT_LOCAL, locator->algonum,
+			   (unsigned long long)ls_attr->present_tlvs);
+
+	/* Originate prefix NLRI with SRv6 locator attributes */
+	ret = bgp_ls_originate_prefix_internal(bgp, AFI_IP6,
+					       (const struct prefix *)&locator->prefix,
+					       BGP_LS_BGP_RT_LOCAL, ls_attr);
+	bgp_ls_attr_free(ls_attr);
+
+	if (ret != 0) {
+		zlog_err("BGP-LS: Failed to originate SRv6 locator prefix NLRI for %pFX",
+			 &locator->prefix);
+		return -1;
+	}
+
+	if (is_new_locator_nlri)
+		bgp->ls_info->srv6_locator_nlri_count++;
+
+	if (!had_srv6_cap)
+		ret = bgp_ls_originate_bgp_node(bgp);
+
+	if (!had_srv6_cap && BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: node re-originate for SRv6 capability ret=%d", ret);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: originated locator prefix NLRI for %s",
+			   locator->name);
+
+	return 0;
+}
+
+int bgp_ls_withdraw_srv6_locator_prefix(struct bgp *bgp, const struct srv6_locator *locator)
+{
+	struct bgp_ls_nlri *nlri;
+	int ret;
+	bool had_srv6_cap;
+
+	if (!bgp || !bgp->ls_info || !locator)
+		return -1;
+
+	if (!bgp->ls_info->enable_distribution)
+		return 0;
+
+	if (locator->prefix.family != AF_INET6)
+		return 0;
+
+	nlri = bgp_ls_lookup_bgp_prefix_nlri(bgp, (const struct prefix *)&locator->prefix,
+					     BGP_LS_BGP_RT_LOCAL);
+	if (!nlri)
+		return 0;
+
+	had_srv6_cap = bgp_ls_has_srv6_capability(bgp);
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS [locator]: withdrawn locator prefix NLRI for %s", locator->name);
+
+	ret = bgp_ls_withdraw(bgp, nlri);
+	if (ret != 0)
+		return ret;
+
+	if (bgp->ls_info->srv6_locator_nlri_count > 0)
+		bgp->ls_info->srv6_locator_nlri_count--;
+
+	if (bgp->ls_info->srv6_locator_nlri_count == 0 && had_srv6_cap)
+		bgp_ls_originate_bgp_node(bgp);
+
+	return 0;
+}
+
 /*
  * Export BGP topology as BGP-LS NLRIs.
  *
@@ -1972,6 +2090,8 @@ void bgp_ls_withdraw_all(struct bgp *bgp)
 
 		bgp_ls_withdraw(bgp, nlri);
 	}
+
+	bgp->ls_info->srv6_locator_nlri_count = 0;
 }
 
 static struct bgp_ls_nlri *bgp_ls_lookup_bgp_link_nlri(struct bgp *bgp, struct peer *peer)
