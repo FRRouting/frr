@@ -39,6 +39,9 @@ struct bgp_ls {
 
 	/* Static End.X/uA SIDs associated to BGP links. */
 	struct bgp_ls_endx_sid_list_head static_endx_sids;
+
+	/* Number of active SRv6 locator Prefix NLRIs originated by BGP-LS. */
+	uint32_t srv6_locator_nlri_count;
 };
 
 /* Function prototypes */
@@ -132,6 +135,9 @@ extern void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct pre
 					       uint32_t seg6local_action,
 					       const struct seg6local_context *seg6local_ctx,
 					       bool is_add);
+extern int bgp_ls_originate_srv6_locator_prefix(struct bgp *bgp,
+						const struct srv6_locator *locator);
+extern int bgp_ls_withdraw_srv6_locator_prefix(struct bgp *bgp, const struct srv6_locator *locator);
 
 /*
  * BGP-LS route handlers - abstraction layer for route redistribution
