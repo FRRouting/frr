@@ -249,42 +249,91 @@ def _get_nhg_for_prefix(router, prefix):
     return None, None
 
 
+def _fpm_dump_path(router):
+    return os.path.join(router.gearlogdir, "fpm_test.data")
+
+
+def _fpm_listener_dump(router):
+    """Send SIGUSR1 to fpm_listener so it rewrites its dump file."""
+    pid_file = os.path.join(router.gearlogdir, "fpm_listener.pid")
+    try:
+        with open(pid_file, "r") as f:
+            pid = f.read().strip()
+        router.run("kill -SIGUSR1 {}".format(pid))
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def _read_fpm_dump(router):
+    try:
+        with open(_fpm_dump_path(router), "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+def _fpm_dump_has_nhg(router, nhg_id):
+    """
+    Return True iff the fpm_listener dump file currently contains an entry
+    for ``nhg_id``. The listener writes one line per live NHG of the form
+    "  ID: <id>, Protocol: ..." (see sigusr1_handler in fpm_listener.c),
+    and removes the entry when it receives the matching RTM_DELNEXTHOP.
+    """
+    if not _fpm_listener_dump(router):
+        return False
+    return "  ID: {},".format(nhg_id) in _read_fpm_dump(router)
+
+
 def _check_nhg_fpm_and_not_kernel(router, prefix, route_type):
     """
-    Helper: assert that the NHG for prefix has been sent to FPM
-    while skipping kernel programming.
+    Assert that the NHG for ``prefix`` was received by the mock FPM
+    listener and that the Linux kernel did NOT install it.
+
+    The "received by FPM" half is verified by inspecting the fpm_listener
+    dump file directly rather than relying on the in-zebra
+    NEXTHOP_GROUP_FPM flag, which is only set by the FPM resync hash-walk
+    (fpm_nhg_send_cb) and not by the runtime fpm_nl_enqueue() path that
+    this test exercises.
     """
 
-    def check_nhg_sent_to_fpm():
-        nhg_id, nhg_data = _get_nhg_for_prefix(router, prefix)
-        if nhg_id is None or nhg_data is None:
-            return False
-        return nhg_data.get("fpm", False) is True
+    last_seen = {"nhg_id": None, "nhg_data": None}
 
-    success, result = topotest.run_and_expect(
-        check_nhg_sent_to_fpm, True, count=60, wait=1
+    def have_nhg_id():
+        nhg_id, nhg_data = _get_nhg_for_prefix(router, prefix)
+        last_seen["nhg_id"] = nhg_id
+        last_seen["nhg_data"] = nhg_data
+        return nhg_id is not None
+
+    success, _ = topotest.run_and_expect(have_nhg_id, True, count=30, wait=1)
+    nhg_id = last_seen["nhg_id"]
+    assert (
+        success and nhg_id is not None
+    ), "{} route ({}) never picked up an NHG id in zebra. NHG data: {}".format(
+        route_type, prefix, json.dumps(last_seen["nhg_data"], indent=2)
     )
+
+    def check_nhg_in_fpm_dump():
+        return _fpm_dump_has_nhg(router, nhg_id)
+
+    success, _ = topotest.run_and_expect(check_nhg_in_fpm_dump, True, count=60, wait=1)
     assert success, (
-        "{} route NHG ({}) was not sent to FPM "
-        "(NEXTHOP_GROUP_FPM flag not set). NHG data: {}".format(
-            route_type, prefix, result
+        "{} route NHG ({}, id {}) was not received by the FPM listener.\n"
+        "FPM dump tail:\n{}".format(
+            route_type, prefix, nhg_id, _read_fpm_dump(router)[-2000:]
         )
     )
 
     def check_nhg_not_in_kernel():
-        nhg_id, _ = _get_nhg_for_prefix(router, prefix)
-        if nhg_id is None:
-            return False
         output = router.run("ip nexthop show")
         return "id {} ".format(nhg_id) not in output
 
     success, _ = topotest.run_and_expect(
         check_nhg_not_in_kernel, True, count=30, wait=1
     )
-    assert (
-        success
-    ), "{} route NHG ({}) was unexpectedly installed in the Linux kernel.".format(
-        route_type, prefix
+    assert success, (
+        "{} route NHG ({}, id {}) was unexpectedly installed in the "
+        "Linux kernel.".format(route_type, prefix, nhg_id)
     )
 
 
@@ -292,8 +341,10 @@ def test_fpm_system_route_nhg_sent_to_fpm_not_kernel():
     """
     Test that NHGs for system routes (connected, local, kernel) are forwarded
     to FPM but NOT installed in the kernel.
-      - FPM provider receives and sends the NHG  (NEXTHOP_GROUP_FPM flag set)
-      - Kernel provider skips netlink programming (NHG absent from kernel)
+      - FPM listener receives the RTM_NEWNEXTHOP for the NHG (verified by
+        inspecting the fpm_listener SIGUSR1 dump for the NHG id)
+      - Kernel provider skips netlink programming (NHG absent from
+        ``ip nexthop show``)
 
     Three sub-cases are verified:
       1. Connected route  (ZEBRA_ROUTE_CONNECT) - 172.16.1.0/24
