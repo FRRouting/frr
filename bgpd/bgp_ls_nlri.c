@@ -5090,6 +5090,13 @@ static int parse_endx_sub_tlvs(struct stream *s, uint16_t sub_total, bool *has_s
 		sub_total -= len;
 	}
 
+	if (sub_total != 0) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: malformed SRv6 End.X sub-TLV list (%u byte(s) remain after sub-TLV parsing)",
+			  sub_total);
+		return -1;
+	}
+
 	return 0;
 }
 
