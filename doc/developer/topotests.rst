@@ -116,7 +116,7 @@ following steps will get you there on Ubuntu 22.04/24.04.
 
    edit /etc/snmp/snmp.conf to look like this
    # As the snmp packages come without MIB files due to license reasons, loading
-   # of MIBs is disabled by default. If you added the MIBs you can reenable
+   # of MIBs is disabled by default. If you added the MIBs you can re-enable
    # loading them by commenting out the following line.
    mibs +ALL
 
@@ -372,7 +372,7 @@ Everything works exactly as with a host run except that you specify the name of
 the container, or the container-id, using the `-C` or ``--container`` option.
 ``analyze.py`` will then use the results inside that containers
 ``/tmp/topotests`` directory. It will extract and save those results when you
-pass the ``-A`` or ``-a`` options just as withe host results.
+pass the ``-A`` or ``-a`` options just as with host results.
 
 
 Execute single test
@@ -595,7 +595,7 @@ Spawning ``vtysh`` or Shells on Routers
 Topotest can automatically launch a shell or ``vtysh`` for any or all routers in
 a test. This is enabled by specifying 1 of 2 CLI arguments ``--shell`` or
 ``--vtysh``. Both of these options can be set to a single router value, multiple
-comma-seperated values, or ``all``.
+comma-separated values, or ``all``.
 
 When either of these options are specified topotest will pause after setup and
 each test to allow for inspection of the router state.
@@ -635,7 +635,7 @@ breakpoints for any test run. This is enabled by specifying 1 or 2 CLI arguments
 ``--gdb-routers`` and ``--gdb-daemons``. Additionally ``--gdb-breakpoints`` can
 be used to automatically set breakpoints in the launched ``gdb`` processes.
 
-Each of these options can be set to a single value, multiple comma-seperated
+Each of these options can be set to a single value, multiple comma-separated
 values, or ``all``. If ``--gdb-routers`` is empty but ``--gdb_daemons`` is set
 then the given daemons will be launched in ``gdb`` on all routers in the test.
 Likewise if ``--gdb_routers`` is set, but ``--gdb_daemons`` is empty then all
@@ -718,7 +718,7 @@ either ``all`` or a comma-separated list of types:
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
 
-.. note:: GDB can be used in conjection with valgrind.
+.. note:: GDB can be used in conjunction with valgrind.
 
    When you enable ``--valgrind-memleaks`` and you also launch various daemons
    under GDB (debug_with_gdb_) topotest will connect the two utilities using
@@ -731,7 +731,7 @@ Collecting Performance Data using perf(1)
 Topotest can automatically launch any daemon under ``perf(1)`` to collect
 performance data. The daemon is run in non-daemon mode with ``perf record -g``.
 The ``perf.data`` file will be saved in the router specific directory under the
-tests run directoy.
+tests run directory.
 
 Here's an example of collecting performance data from ``mgmtd`` on router ``r1``
 during the config_timing test.
@@ -753,7 +753,7 @@ Topotest can automatically launch any daemon under ``rr(1)`` to collect
 execution state. The daemon is run in the foreground with ``rr record``.
 
 The execution state will be saved in the router specific directory
-(in a `rr` subdir that rr creates) under the test's run directoy.
+(in a `rr` subdir that rr creates) under the test's run directory.
 
 Here's an example of collecting ``rr`` execution state from ``mgmtd`` on router
 ``r1`` during the ``config_timing`` test.
@@ -820,7 +820,7 @@ that are employed to allow for the test to be reproduced reliably
 
 This allows you to run multiple copies of the same test with one full test run.
 Additionally if you need to modify the test you don't need to recopy everything
-to make it work.  By adding multiple copies of the same occassionally failing test
+to make it work.  By adding multiple copies of the same occasionally failing test
 you raise the odds of it failing again.  Additionally you have easily accessible
 good and bad runs to compare.
 
@@ -828,7 +828,7 @@ good and bad runs to compare.
 
    sudo -E python3 -m pytest -n <some value> --dist=loadfile
 
-Choose a n value that is greater than the number of cpu's avalaible on the system.
+Choose a n value that is greater than the number of cpu's available on the system.
 This changes the timing and may or may not make it more likely that the test fails.
 Be aware, though, that this changes memory requirements as well as may make other
 tests fail more often as well.  You should choose values that do not cause the system
@@ -892,7 +892,7 @@ the image. If you need to force a complete recompile, you can set
 
 By default, ``frr-topotests.sh`` will build frr and run pytest. If you append
 arguments and the first one starts with ``/`` or ``./``, they will replace the
-call to pytest. If the appended arguments do not match this patttern, they will
+call to pytest. If the appended arguments do not match this pattern, they will
 be provided to pytest as arguments.  So, to run a specific test with more
 verbose logging:
 
@@ -1217,7 +1217,7 @@ that using the following example commands:
 
 .. code:: shell
 
-   $ # Running your bootstraped topology
+   $ # Running your bootstrapped topology
    $ sudo -E pytest -s --topology-only new-topo/test_new_topo.py
    $ # Running the test_template.py topology
    $ sudo -E pytest -s --topology-only example-test/test_template.py

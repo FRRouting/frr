@@ -444,7 +444,7 @@ keyword at the end.
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
    Enable PIM on this interface. PIM will use this interface to form PIM
-   neighborships and start exchaning PIM protocol messages with those
+   neighborships and start exchanging PIM protocol messages with those
    neighbors.
    The available modes of operation are:
 
@@ -512,7 +512,7 @@ keyword at the end.
    Join multicast group or source-group on an interface. This will result in
    an IGMP join happening through a local socket so that IGMP reports will be
    sent on this interface. It may also have the side effect of the kernel
-   forwarding multicast traffic to the socket unnessarily.
+   forwarding multicast traffic to the socket unnecessarily.
 
 .. clicmd:: ip igmp static-group A.B.C.D [A.B.C.D]
 
@@ -521,7 +521,7 @@ keyword at the end.
 
 .. clicmd:: ip igmp proxy
 
-   Tell PIM to send proxy IGMP reports for joins occuring on all other
+   Tell PIM to send proxy IGMP reports for joins occurring on all other
    interfaces on this interface. Join-groups on other interfaces will
    also be proxied. The default version is v3.
 

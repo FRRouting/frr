@@ -29,7 +29,7 @@ Together with pceplib, this module supports at least partially:
 
   - :rfc:`8408`
 
-        Only used to comunicate the support for segment routing to the PCE.
+        Only used to communicate the support for segment routing to the PCE.
 
   - :rfc:`8664`
 
@@ -160,7 +160,7 @@ prefixed functions.
 Debugging Helpers
 .................
 
-All the functions formating data structures for debugging and logging purposes
+All the functions formatting data structures for debugging and logging purposes
 are implemented in `path_pcep_debug.[hc]`.
 
 

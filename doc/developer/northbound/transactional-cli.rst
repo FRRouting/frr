@@ -46,7 +46,7 @@ The segfault above can happen if ``router ospf`` edits the candidate
 configuration but ``ospf router-id 1.1.1.1`` edits the running
 configuration. The second command tries to set
 ``ospf->router_id_static`` but, since the previous ``router ospf``
-command hasn’t been commited yet, the ``ospf`` global variable is set to
+command hasn’t been committed yet, the ``ospf`` global variable is set to
 NULL, which leads to the crash. Besides this problem, having a set of
 commands that edit the candidate configuration and others that edit the
 running configuration is confusing at best. The ``--tcli`` option should

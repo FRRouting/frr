@@ -290,7 +290,7 @@ done to bring long term support for stability.
 Development Branches
 --------------------
 
-Occassionally the community will desire the ability to work together
+Occasionally the community will desire the ability to work together
 on a feature that is considered useful to FRR.  In this case the
 parties may ask the Maintainers for the creation of a development
 branch in the main FRR repository.  Requirements for this to happen
@@ -850,7 +850,7 @@ Other than this, the following are "aspirational":
    - among the "aspirations" here, this is the most inconsistent across the
      codebase
 
-- the order of includes should be, with a blank line inbetween each group:
+- the order of includes should be, with a blank line in between each group:
 
    1. (source files only:) ``<zebra.h>`` or ``"config.h"``
    2. system includes, e.g. ``<stdint.h>``
@@ -910,10 +910,10 @@ following requirements have achieved consensus:
 - ``strcpy``, ``strcat`` and ``sprintf`` are unacceptable without exception.
   Use ``strlcpy``, ``strlcat`` and ``snprintf`` instead.  (Rationale:  even if
   you know the operation cannot overflow the buffer, a future code change may
-  inadvertedly introduce an overflow.)
+  inadvertently introduce an overflow.)
 
 - buffer size arguments, particularly to ``strlcpy`` and ``snprintf``, must
-  use ``sizeof()`` whereever possible.  Particularly, do not use a size
+  use ``sizeof()`` wherever possible.  Particularly, do not use a size
   constant in these cases.  (Rationale:  changing a buffer to another size
   constant may leave the write operations on a now-incorrect size limit.)
 
@@ -972,7 +972,7 @@ containers**.  If there are any reasons this can't be done, please work to
 remove these reasons (e.g. by adding necessary features to the new containers)
 rather than falling back to the old code.
 
-In order of likelyhood of removal, these are the old containers:
+In order of likelihood of removal, these are the old containers:
 
 - :file:`nhrpd/list.*`, ``hlist_*`` ⇒ ``DECLARE_LIST``
 - :file:`nhrpd/list.*`, ``list_*`` ⇒ ``DECLARE_DLIST``
@@ -1661,7 +1661,7 @@ added to or created to support the JSON format.
   the hyphen (or symbol) and capitalizing the following letter, for
   example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
-  display or if an error ocurrs with the input.
+  display or if an error occurs with the input.
 * In general JSON commands include a ``json`` keyword typically at the end of
   the CLI command (e.g., ``show ip ospf json``)
 

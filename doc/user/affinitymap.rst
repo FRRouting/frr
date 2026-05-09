@@ -8,7 +8,7 @@ Affinity maps provide a means of configuring Standard Admininistrative-Group
 (RFC3630, RFC5305 and RFC5329) and Extended Admininistrative-Group (RFC7308).
 An affinity-map maps a specific bit position to a human readable-name.
 
-An affinity refers to a color or a ressource class in the Traffic Engineering
+An affinity refers to a color or a resource class in the Traffic Engineering
 terminology. The bit position means the position of the bit set starting from
 the least significant bit. For example, if the affinity 'blue' has bit position
 0 the extended Admin-Group value will be 0x01. If the affinity 'red' bit

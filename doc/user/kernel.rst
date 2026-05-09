@@ -30,7 +30,7 @@ in some parts of the code.
      kernel information.
 
 - routing socket / Netlink
-     Netlink first appeard in Linux kernel 2.0. It makes asynchronous
+     Netlink first appeared in Linux kernel 2.0. It makes asynchronous
      communication between the kernel and FRR possible, similar to a routing
      socket on BSD systems. Netlink communication is done by reading/writing
      over Netlink socket.

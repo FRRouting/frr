@@ -511,7 +511,7 @@ Usage of *ospfd6*'s route-map support.
 
    Set a metric for matched route when sending announcement. Use plus (+) sign
    to add a metric value to an existing metric. Use minus (-) sign to
-   substract a metric value from an existing metric.
+   subtract a metric value from an existing metric.
 
 .. _redistribute-routes-to-ospf6:
 
@@ -861,7 +861,7 @@ Showing OSPF6 information
 
 .. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database adv-router A.B.C.D linkstate-id A.B.C.D [json]
 
-   The LSAs additinally can also be filtered with the linkstate-id and
+   The LSAs additionally can also be filtered with the linkstate-id and
    advertising-router fields. We can use the LSA type filter and views with
    this command as well and visa-versa. JSON output can be obtained by
    appending 'json' to the end of command.
