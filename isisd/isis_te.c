@@ -794,6 +794,24 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				       sizeof(struct isis_srv6_msd));
 			}
 		}
+
+		/*
+		 * MT-IDs (RFC 9552 §5.2.1.4): MT-0 (standard) is always
+		 * present; additional topologies come from the MT Router
+		 * Info TLV (TLV 229).
+		 */
+		lnode.mt_id_count = 0;
+		lnode.mt_ids[lnode.mt_id_count++] = ISIS_MT_IPV4_UNICAST;
+		if (!tlvs->mt_router_info_empty) {
+			struct isis_mt_router_info *info;
+
+			for (info = (struct isis_mt_router_info *)tlvs->mt_router_info.head;
+			     info && lnode.mt_id_count < LS_NODE_MT_IDS_MAX; info = info->next) {
+				if (info->mtid != ISIS_MT_IPV4_UNICAST)
+					lnode.mt_ids[lnode.mt_id_count++] = info->mtid;
+			}
+		}
+		SET_FLAG(lnode.flags, LS_NODE_MT_IDS);
 	}
 
 	/* Update Link State Node information */
@@ -1143,6 +1161,9 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	attr->metric = metric;
 	SET_FLAG(attr->flags, LS_ATTR_METRIC);
 
+	attr->mt_id = args->mt_id;
+	SET_FLAG(attr->flags, LS_ATTR_MT_ID);
+
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(args->ted, attr);
 	/*
@@ -1331,6 +1352,14 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 			subnet->status = SYNC;
 	}
 
+	/* Update MT-ID */
+	if (!CHECK_FLAG(ls_pref->flags, LS_PREF_MT_ID) || ls_pref->mt_id != args->mt_id) {
+		ls_pref->mt_id = args->mt_id;
+		SET_FLAG(ls_pref->flags, LS_PREF_MT_ID);
+		if (subnet->status != NEW)
+			subnet->status = UPDATE;
+	}
+
 	/* Update Prefix SID if any */
 	if (subtlvs && subtlvs->prefix_sids.count != 0) {
 		struct isis_prefix_sid *psid;
@@ -1466,17 +1495,24 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	args.ted = ted;
 	args.vertex = vertex;
 	args.export = mta->export || IS_DISTRIBUTE_LS(lsp->area);
+	args.mt_id = ISIS_MT_IPV4_UNICAST;
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV4_UNICAST, lsp_to_edge_cb, &args);
 
+	args.mt_id = ISIS_MT_IPV6_UNICAST;
 	isis_lsp_iterate_is_reach(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_edge_cb, &args);
 
 	/* Process all Extended IP (v4 & v6) in LSP (all fragments) */
 	args.srv6_locator = false;
+	args.mt_id = ISIS_MT_IPV4_UNICAST;
 	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST, lsp_to_subnet_cb, &args);
+	args.mt_id = ISIS_MT_IPV6_UNICAST;
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
+	args.mt_id = ISIS_MT_IPV4_UNICAST;
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST, lsp_to_subnet_cb, &args);
 	args.srv6_locator = true;
+	args.mt_id = ISIS_MT_STANDARD;
 	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_STANDARD, lsp_to_subnet_cb, &args);
+	args.mt_id = ISIS_MT_IPV6_UNICAST;
 	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST, lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
