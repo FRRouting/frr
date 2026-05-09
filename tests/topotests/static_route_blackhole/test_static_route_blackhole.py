@@ -107,7 +107,7 @@ def test_static_route_blackhole():
 
 
 def test_show_ip_route_brief_json():
-    """Check that 'show ip route brief json' returns valid JSON with expected brief fields."""
+    """Check that 'show ip route json brief' returns valid JSON with expected brief fields."""
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -133,12 +133,12 @@ def test_show_ip_route_brief_json():
     prefixes_connected_or_local = ["192.168.1.0/24", "192.168.1.1/32"]
 
     def _check_brief_json():
-        output = r1.vtysh_cmd("show ip route brief json", isjson=True)
+        output = r1.vtysh_cmd("show ip route json brief", isjson=True)
         if not isinstance(output, dict):
             return "Output is not a dict: %s" % type(output)
         for prefix in expected_prefixes:
             if prefix not in output:
-                return "Missing prefix %s in brief json" % prefix
+                return "Missing prefix %s in json brief" % prefix
             routes = output[prefix]
             if not isinstance(routes, list) or len(routes) == 0:
                 return "Prefix %s has no route list" % prefix
@@ -163,11 +163,11 @@ def test_show_ip_route_brief_json():
         return None
 
     _, result = topotest.run_and_expect(_check_brief_json, None, count=30, wait=1)
-    assert result is None, "show ip route brief json check failed: %s" % (result or "")
+    assert result is None, "show ip route json brief check failed: %s" % (result or "")
 
 
 def test_show_ip_route_brief_json_vrf_consistency():
-    """Check that brief json is consistent across no-vrf, vrf default, and vrf all."""
+    """Check that json brief is consistent across no-vrf, vrf default, and vrf all."""
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -175,24 +175,24 @@ def test_show_ip_route_brief_json_vrf_consistency():
     r1 = tgen.gears["r1"]
 
     def _check_vrf_consistency():
-        brief = r1.vtysh_cmd("show ip route brief json", isjson=True)
+        brief = r1.vtysh_cmd("show ip route json brief", isjson=True)
         default_brief = r1.vtysh_cmd(
-            "show ip route vrf default brief json", isjson=True
+            "show ip route vrf default json brief", isjson=True
         )
-        all_brief = r1.vtysh_cmd("show ip route vrf all brief json", isjson=True)
+        all_brief = r1.vtysh_cmd("show ip route vrf all json brief", isjson=True)
 
         if not isinstance(brief, dict):
-            return "show ip route brief json is not a dict"
+            return "show ip route json brief is not a dict"
         if not isinstance(default_brief, dict):
-            return "show ip route vrf default brief json is not a dict"
+            return "show ip route vrf default json brief is not a dict"
         if not isinstance(all_brief, dict):
-            return "show ip route vrf all brief json is not a dict"
+            return "show ip route vrf all json brief is not a dict"
 
         if set(brief.keys()) != set(default_brief.keys()):
             return "Prefix set differs: brief vs vrf default"
 
         if "default" not in all_brief:
-            return "vrf all brief json missing 'default' key"
+            return "vrf all json brief missing 'default' key"
 
         if set(all_brief["default"].keys()) != set(brief.keys()):
             return "Prefix set in vrf all['default'] differs from default VRF"
@@ -200,7 +200,7 @@ def test_show_ip_route_brief_json_vrf_consistency():
         return None
 
     _, result = topotest.run_and_expect(_check_vrf_consistency, None, count=30, wait=1)
-    assert result is None, "show ip route brief json VRF consistency failed: %s" % (
+    assert result is None, "show ip route json brief VRF consistency failed: %s" % (
         result or ""
     )
 
