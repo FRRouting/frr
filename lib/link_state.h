@@ -107,6 +107,14 @@ extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
 #define LS_NODE_SRLB		0x0080
 #define LS_NODE_MSD		0x0100
 #define LS_NODE_SRV6		0x0200
+<<<<<<< HEAD
+=======
+#define LS_NODE_ISIS_AREA_ID	0x0400
+#define LS_NODE_MT_IDS		0x0800
+
+/* Maximum number of MT-IDs per node (matches BGP_LS_MAX_MT_ID) */
+#define LS_NODE_MT_IDS_MAX 16
+>>>>>>> 052151310 (lib: Add MT-ID support to link-state data model)
 
 /* Link State Node structure */
 struct ls_node {
@@ -137,6 +145,8 @@ struct ls_node {
 		uint8_t max_h_encaps_msd;
 		uint8_t max_end_d_msd;
 	} srv6_msd;
+	uint8_t mt_id_count;		     /* Number of MT-IDs */
+	uint16_t mt_ids[LS_NODE_MT_IDS_MAX]; /* Multi-Topology IDs (RFC 9552 §5.2.1.4) */
 };
 
 /* Link State flags to indicate which Attribute parameters are valid */
@@ -164,6 +174,7 @@ struct ls_node {
 #define LS_ATTR_AVA_BW		0x00100000U
 #define LS_ATTR_RSV_BW		0x00200000U
 #define LS_ATTR_USE_BW		0x00400000U
+#define LS_ATTR_MT_ID		0x00800000U
 #define LS_ATTR_ADJ_SID		0x01000000U
 #define LS_ATTR_BCK_ADJ_SID	0x02000000U
 #define LS_ATTR_ADJ_SID6	0x04000000U
@@ -234,6 +245,7 @@ struct ls_attributes {
 	} adj_srv6_sid[2];
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
+	uint16_t mt_id;		/* IS-IS Multi-Topology ID of this link */
 };
 
 /* Link State flags to indicate which Prefix parameters are valid */
@@ -244,6 +256,7 @@ struct ls_attributes {
 #define LS_PREF_METRIC		0x08
 #define LS_PREF_SR		0x10
 #define LS_PREF_SRV6		0x20
+#define LS_PREF_MT_ID		0x40
 
 /* Link State Prefix */
 struct ls_prefix {
@@ -264,6 +277,7 @@ struct ls_prefix {
 		uint16_t behavior;   /* Endpoint behavior bound to the SID */
 		uint8_t flags;	     /* Flags */
 	} srv6;
+	uint16_t mt_id; /* IS-IS Multi-Topology ID of this prefix */
 };
 
 /**
