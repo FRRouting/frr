@@ -3898,6 +3898,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 			} else
 				bgp_evpn_advertise_type5_route(bgp, new_select, p, &dummy_attr,
 							       afi, safi, 0);
+			bgp_attr_extra_discard(&dummy_attr);
 		} else {
 			bgp_evpn_advertise_type5_route(bgp, new_select, p, new_select->attr, afi,
 						       safi, 0);
