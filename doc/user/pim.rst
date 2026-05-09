@@ -545,10 +545,15 @@ keyword at the end.
    * ``match multicast-interface INTERFACE-NAME``
    * ``match multicast-source-interface INTERFACE-NAME``
 
-   ``match multicast-source-interface`` matches against the interface where
-   the IGMP/MLD report was **received** (the upstream/listener-facing
-   interface), not the proxy output interface. This allows filtering proxy
-   joins per source interface::
+   ``match multicast-source-interface`` matches against the inbound
+   interface for the filter decision. In a proxy filter that is the
+   interface where the IGMP/MLD report was **received** (the
+   upstream/listener-facing interface), which is distinct from the proxy
+   output interface. In a regular ``ip/ipv6 igmp/mld route-map`` (or a
+   PIM ``join-filter``) it is the interface processing the report or
+   join, in which case it behaves the same as ``match multicast-interface``.
+
+   This allows filtering proxy joins per source interface::
 
       route-map PROXY_FILTER permit 10
        match multicast-source-interface eth0
