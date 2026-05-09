@@ -1774,6 +1774,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 		}
 		*entry = local_pi;
 	}
+	bgp_attr_extra_discard(&static_attr);
 	return 0;
 }
 
