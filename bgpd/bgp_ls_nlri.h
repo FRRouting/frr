@@ -478,8 +478,7 @@ struct bgp_ls_link_descriptor {
 	struct in6_addr ipv6_intf_addr;	 /* IPv6 Interface Address */
 	struct in6_addr ipv6_neigh_addr; /* IPv6 Neighbor Address */
 	as_t remote_asn;		 /* Remote AS Number */
-	uint8_t mt_id_count;		 /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;		 /* Multi-Topology IDs */
+	uint16_t mt_id;			 /* Multi-Topology ID (TLV 263) */
 };
 
 /*
@@ -488,8 +487,7 @@ struct bgp_ls_link_descriptor {
  */
 struct bgp_ls_prefix_descriptor {
 	uint16_t present_tlvs;			     /* Bitmask of present TLVs */
-	uint8_t mt_id_count;			     /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;			     /* Multi-Topology IDs */
+	uint16_t mt_id;				     /* Multi-Topology ID (TLV 263) */
 	enum bgp_ls_ospf_route_type ospf_route_type; /* OSPF Route Type */
 	enum bgp_ls_bgp_route_type bgp_route_type;   /* BGP Route Type */
 	struct prefix prefix;			     /* IP prefix (IPv4 or IPv6) */
@@ -503,8 +501,7 @@ struct bgp_ls_prefix_descriptor {
 struct bgp_ls_srv6_sid_descriptor {
 	uint16_t present_tlvs;		      /* Bitmask of present SID descriptor TLVs */
 	struct in6_addr sid;		      /* 128-bit SRv6 SID (from TLV 518) */
-	uint8_t mt_id_count;		      /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;			      /* Multi-Topology IDs (from TLV 263) */
+	uint16_t mt_id;			      /* Multi-Topology ID (from TLV 263) */
 };
 
 /*
