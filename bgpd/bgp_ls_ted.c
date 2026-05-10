@@ -495,7 +495,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.node.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -565,7 +565,7 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.node.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -649,7 +649,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.link.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -793,7 +793,7 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.link.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -927,7 +927,7 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.prefix.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -1022,7 +1022,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.prefix.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -1095,7 +1095,7 @@ int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rou
 	}
 
 	/* Set OSPF Area ID if OSPF (mirrors bgp_ls_originate_prefix). */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -1159,7 +1159,7 @@ int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rout
 	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
