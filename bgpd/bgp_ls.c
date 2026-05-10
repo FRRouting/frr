@@ -91,9 +91,8 @@ static json_object *link_desc_to_json(struct bgp_ls_link_descriptor *link_desc)
 		json_object_string_addf(json_link, "ipv6NeighborAddress", "%pI6",
 					&link_desc->ipv6_neigh_addr);
 
-	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) &&
-	    link_desc->mt_id_count > 0)
-		json_object_int_add(json_link, "mtId", link_desc->mt_id[0]);
+	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT))
+		json_object_int_add(json_link, "multiTopologyId", link_desc->mt_id);
 
 	return json_link;
 }
@@ -194,12 +193,10 @@ json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri)
 		json_object *json_local = node_desc_to_json(&srv6->local_node);
 		json_object *json_sid = json_object_new_object();
 
-		if (srv6->sid_desc.mt_id_count > 0) {
+		if (CHECK_FLAG(srv6->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
 			json_object *json_mt = json_object_new_array();
 
-			for (uint8_t i = 0; i < srv6->sid_desc.mt_id_count; i++)
-				json_object_array_add(json_mt,
-						      json_object_new_int(srv6->sid_desc.mt_id[i]));
+			json_object_array_add(json_mt, json_object_new_int(srv6->sid_desc.mt_id));
 			json_object_object_add(json_sid, "multiTopologyId", json_mt);
 		}
 
