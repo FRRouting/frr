@@ -495,6 +495,7 @@ struct bgp_ls_prefix_descriptor {
  * MUST contain exactly one SRv6 SID Information TLV (518).
  */
 struct bgp_ls_srv6_sid_descriptor {
+	uint16_t present_tlvs;		      /* Bitmask of present SID descriptor TLVs */
 	struct in6_addr sid;		      /* 128-bit SRv6 SID (from TLV 518) */
 	uint8_t mt_id_count;		      /* Number of Multi-Topology IDs */
 	uint16_t *mt_id;			      /* Multi-Topology IDs (from TLV 263) */
