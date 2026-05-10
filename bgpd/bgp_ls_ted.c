@@ -1064,6 +1064,7 @@ int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rou
 
 	/* SRv6 SID Descriptor: SID Information (TLV 518) */
 	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+	SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
 
 	/* Populate SRv6 SID attributes (endpoint behavior, SID structure) */
 	ls_attr = bgp_ls_attr_alloc();
@@ -1119,6 +1120,7 @@ int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rout
 	}
 
 	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+	SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
 
 	ret = bgp_ls_withdraw(bgp, &nlri);
 	if (ret < 0) {
