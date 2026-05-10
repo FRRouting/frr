@@ -277,7 +277,17 @@ static void format_srv6_sid_desc(char **p, size_t *remain,
 {
 	int len;
 
-	len = snprintfrr(*p, *remain, "[S[sd%pI6]]", &sid_desc->sid);
+	len = snprintfrr(*p, *remain, "[S");
+	*p += len;
+	*remain -= len;
+
+	if (CHECK_FLAG(sid_desc->present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[t0x%04x]", sid_desc->mt_id);
+		*p += len;
+		*remain -= len;
+	}
+
+	len = snprintfrr(*p, *remain, "[sd%pI6]]", &sid_desc->sid);
 	*p += len;
 	*remain -= len;
 }
