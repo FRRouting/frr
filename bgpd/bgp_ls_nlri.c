@@ -2649,6 +2649,19 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		}
 	}
 
+	/* Multi-Topology ID (TLV 263) - RFC 9552 §5.2.1.4 / §5.3 */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && attr->mt_id &&
+	    attr->mt_id_count > 0) {
+		uint16_t mt_len = attr->mt_id_count * BGP_LS_MT_ID_SIZE;
+
+		if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_TLV_HDR_SIZE + (size_t)mt_len)
+			return -1;
+		stream_putw(s, BGP_LS_TLV_MT_ID);
+		stream_putw(s, mt_len);
+		for (int i = 0; i < attr->mt_id_count; i++)
+			stream_putw(s, attr->mt_id[i]);
+	}
+
 	/*
 	 * RFC 9514 SRv6 Attribute TLVs
 	 */
@@ -5413,6 +5426,27 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 				return -1;
 			break;
 
+
+		case BGP_LS_TLV_MT_ID:
+			/* Multi-Topology ID - RFC 9552 §5.2.1.4 */
+			if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate MT-ID TLV in attribute, ignoring");
+				stream_skip_tlv(s, length);
+				break;
+			}
+			if (length == 0 || length % 2 != 0 || length > BGP_LS_MAX_MT_ID * 2) {
+				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: invalid MT-ID TLV length %u",
+					  length);
+				return -1;
+			}
+			attr->mt_id_count = length / 2;
+			attr->mt_id = XCALLOC(MTYPE_BGP_LS_ATTR, length);
+			for (uint16_t i = 0; i < attr->mt_id_count; i++)
+				attr->mt_id[i] = stream_getw(s);
+			SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT);
+			break;
+
 		/* SRv6 TLVs (RFC 9514) */
 		case BGP_LS_ATTR_SRV6_CAPABILITIES:
 			if (parse_srv6_capabilities(s, length, attr) < 0)
@@ -5649,6 +5683,15 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6))
 			json_object_string_addf(json_ls_attr, "forwardingAddrV6", "%pI6",
 						&ls_attr->ospf_fwd_addr6);
+	}
+
+	/* Multi-Topology IDs */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && ls_attr->mt_id) {
+		json_object *jmt = json_object_new_array();
+
+		json_object_object_add(json_ls_attr, "multiTopologyIds", jmt);
+		for (int i = 0; i < ls_attr->mt_id_count; i++)
+			json_object_array_add(jmt, json_object_new_int(ls_attr->mt_id[i]));
 	}
 
 	/* Prefix SID */
@@ -5984,6 +6027,14 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 			CHECK_WRAP();
 			col += vty_out(vty, "Forwarding addr: %pI6", &ls_attr->ospf_fwd_addr6);
 		}
+	}
+
+	/* Multi-Topology IDs */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && ls_attr->mt_id) {
+		CHECK_WRAP();
+		col += vty_out(vty, "MT-ID:");
+		for (int i = 0; i < ls_attr->mt_id_count; i++)
+			col += vty_out(vty, " %u", ls_attr->mt_id[i]);
 	}
 
 	/* Prefix SID */
