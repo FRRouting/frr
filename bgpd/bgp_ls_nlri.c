@@ -505,11 +505,13 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return ret;
 	}
 
-	if (attr1->mt_id_count != attr2->mt_id_count)
-		return numcmp(attr1->mt_id_count, attr2->mt_id_count);
-	for (int i = 0; i < attr1->mt_id_count; i++) {
-		if (attr1->mt_id[i] != attr2->mt_id[i])
-			return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_MT_ID_BIT)) {
+		if (attr1->mt_id_count != attr2->mt_id_count)
+			return numcmp(attr1->mt_id_count, attr2->mt_id_count);
+		for (int i = 0; i < attr1->mt_id_count; i++) {
+			if (attr1->mt_id[i] != attr2->mt_id[i])
+				return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
+		}
 	}
 
 	/* SRv6 comparisons (RFC 9514) */
