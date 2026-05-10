@@ -189,6 +189,27 @@ int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
 }
 
 /*
+ * Compare two SRv6 SID descriptors for equality
+ * Returns 0 if equal, non-zero otherwise
+ */
+static int bgp_ls_srv6_sid_descriptor_cmp(const struct bgp_ls_srv6_sid_descriptor *d1,
+					  const struct bgp_ls_srv6_sid_descriptor *d2)
+{
+	int ret;
+
+	/* Must have same SID descriptor TLVs present */
+	if (d1->present_tlvs != d2->present_tlvs)
+		return numcmp(d1->present_tlvs, d2->present_tlvs);
+
+	/* Compare SRv6 SID value */
+	ret = IPV6_ADDR_CMP(&d1->sid, &d2->sid);
+	if (ret != 0)
+		return ret;
+
+	return 0;
+}
+
+/*
  * ===========================================================================
  * NLRI Comparison Functions
  * ===========================================================================
@@ -285,8 +306,8 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 		if (ret != 0)
 			return ret;
 
-		/* Compare SRv6 SID (the 128-bit SID identifies the NLRI) */
-		return memcmp(&s1->sid_desc.sid, &s2->sid_desc.sid, sizeof(s1->sid_desc.sid));
+		/* Compare SRv6 SID descriptor */
+		return bgp_ls_srv6_sid_descriptor_cmp(&s1->sid_desc, &s2->sid_desc);
 	}
 
 	case BGP_LS_NLRI_TYPE_RESERVED:
