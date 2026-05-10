@@ -407,6 +407,8 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT      (1ULL << 42)
 #define BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT (1ULL << 43)
 #define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
+/* Multi-Topology IDs - RFC 9552 §5.2.1.4 */
+#define BGP_LS_ATTR_MT_ID_BIT                  (1ULL << 45)
 
 /*
  * Node Flag Bits (TLV 1024)
