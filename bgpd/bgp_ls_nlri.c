@@ -1333,8 +1333,13 @@ unsigned int bgp_ls_nlri_hash_key(const struct bgp_ls_nlri *nlri)
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		return key ^ bgp_ls_prefix_hash_key_internal(nlri);
 	case BGP_LS_NLRI_TYPE_SRV6_SID:
-		return key ^ jhash(&nlri->nlri_data.srv6_sid.sid_desc.sid,
-				   sizeof(nlri->nlri_data.srv6_sid.sid_desc.sid), 0);
+		key = jhash(&nlri->nlri_data.srv6_sid.sid_desc.sid,
+			    sizeof(nlri->nlri_data.srv6_sid.sid_desc.sid), key);
+		key = jhash_1word(nlri->nlri_data.srv6_sid.sid_desc.present_tlvs, key);
+		if (CHECK_FLAG(nlri->nlri_data.srv6_sid.sid_desc.present_tlvs,
+			       BGP_LS_SRV6_SID_DESC_MT_ID_BIT))
+			key = jhash_1word(nlri->nlri_data.srv6_sid.sid_desc.mt_id, key);
+		return key;
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		return key;
 	}
