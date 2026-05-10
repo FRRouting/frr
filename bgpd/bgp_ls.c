@@ -47,15 +47,37 @@ static json_object *node_desc_to_json(struct bgp_ls_node_descriptor *node,
 
 	if (CHECK_FLAG(node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
 		char igp_router_id[256];
-		char *p = igp_router_id;
 
-		for (int i = 0; i < node->igp_router_id_len; i++) {
-			p += snprintfrr(p, sizeof(igp_router_id) - (p - igp_router_id), "%02x",
-					node->igp_router_id[i]);
-			if (i < node->igp_router_id_len - 1 && (i + 1) % 2 == 0) {
-				p += snprintfrr(p, sizeof(igp_router_id) - (p - igp_router_id),
-						".");
-			}
+		if (bgp_ls_protocol_is_isis(protocol_id) &&
+		    node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pSY.00",
+				   node->igp_router_id.raw);
+		else if (bgp_ls_protocol_is_isis(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pPN",
+				   node->igp_router_id.raw);
+		else if (bgp_ls_protocol_is_ospf(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pI4",
+				   &node->igp_router_id.ospf);
+		else if (bgp_ls_protocol_is_ospf(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_PSEUDO_LEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pI4:%pI4",
+				   &node->igp_router_id.pseudo_ospf.router_id,
+				   &node->igp_router_id.pseudo_ospf.ifaddr);
+		else if (bgp_ls_protocol_is_direct_static(protocol_id) &&
+			 node->igp_router_id_len == IPV4_MAX_BYTELEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pI4",
+				   &node->igp_router_id.ipv4);
+		else if (bgp_ls_protocol_is_direct_static(protocol_id) &&
+			 node->igp_router_id_len == IPV6_MAX_BYTELEN)
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "%pI6",
+				   &node->igp_router_id.ipv6);
+		else {
+			flog_err(EC_BGP_LS_PACKET,
+				 "BGP-LS: unhandled IGP Router-ID len %u for protocol %u",
+				 node->igp_router_id_len, protocol_id);
+			snprintfrr(igp_router_id, sizeof(igp_router_id), "<unknown>");
 		}
 		json_object_string_add(json_node, "igpRouterId", igp_router_id);
 	}
@@ -246,20 +268,32 @@ static void format_node_desc(char **p, size_t *remain, struct bgp_ls_node_descri
 
 	/* IGP Router ID */
 	if (CHECK_FLAG(node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
-		len = snprintfrr(*p, *remain, "[s");
-		*p += len;
-		*remain -= len;
-		for (int i = 0; i < node->igp_router_id_len; i++) {
-			len = snprintfrr(*p, *remain, "%02x", node->igp_router_id[i]);
-			*p += len;
-			*remain -= len;
-			if (i < node->igp_router_id_len - 1 && (i + 1) % 2 == 0) {
-				len = snprintfrr(*p, *remain, ".");
-				*p += len;
-				*remain -= len;
-			}
+		if (bgp_ls_protocol_is_isis(protocol_id) &&
+		    node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN)
+			len = snprintfrr(*p, *remain, "[s%pSY.00]", node->igp_router_id.raw);
+		else if (bgp_ls_protocol_is_isis(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN)
+			len = snprintfrr(*p, *remain, "[s%pPN]", node->igp_router_id.raw);
+		else if (bgp_ls_protocol_is_ospf(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN)
+			len = snprintfrr(*p, *remain, "[r%pI4]", &node->igp_router_id.ospf);
+		else if (bgp_ls_protocol_is_ospf(protocol_id) &&
+			 node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_PSEUDO_LEN)
+			len = snprintfrr(*p, *remain, "[r%pI4:%pI4]",
+					 &node->igp_router_id.pseudo_ospf.router_id,
+					 &node->igp_router_id.pseudo_ospf.ifaddr);
+		else if (bgp_ls_protocol_is_direct_static(protocol_id) &&
+			 node->igp_router_id_len == IPV4_MAX_BYTELEN)
+			len = snprintfrr(*p, *remain, "[r%pI4]", &node->igp_router_id.ipv4);
+		else if (bgp_ls_protocol_is_direct_static(protocol_id) &&
+			 node->igp_router_id_len == IPV6_MAX_BYTELEN)
+			len = snprintfrr(*p, *remain, "[r%pI6]", &node->igp_router_id.ipv6);
+		else {
+			flog_err(EC_BGP_LS_PACKET,
+				 "BGP-LS: unhandled IGP Router-ID len %u for protocol %u",
+				 node->igp_router_id_len, protocol_id);
+			len = snprintfrr(*p, *remain, "[s<unknown>]");
 		}
-		len = snprintfrr(*p, *remain, "]");
 		*p += len;
 		*remain -= len;
 	}
