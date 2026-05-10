@@ -30,7 +30,13 @@
 						"igpRouterId": "0000.0000.0002"
 					}
 				},
-				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0002]]"
+				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0002]]",
+				"linkStateAttrs": {
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0002]][P[p10.0.1.0/24]]": [
@@ -132,7 +138,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[p2.2.2.2/32]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:0:2::1/128]]": [
+		"[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:0:2::1/128]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -159,10 +165,11 @@
 						"igpRouterId": "0000.0000.0002"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:0:2::1/128"
+						"ipReachabilityInformation": "fc00:0:2::1/128",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:0:2::1/128]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:0:2::1/128]]"
 			}
 		],
 		"[V][L2][I0x0][N[s0000.0000.0001]]": [
@@ -192,7 +199,13 @@
 						"igpRouterId": "0000.0000.0001"
 					}
 				},
-				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0001]]"
+				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0001]]",
+				"linkStateAttrs": {
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0001]][P[p1.1.1.1/32]]": [
@@ -261,7 +274,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[p10.0.4.0/24]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:0:1::1/128]]": [
+		"[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:0:1::1/128]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -288,13 +301,14 @@
 						"igpRouterId": "0000.0000.0001"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:0:1::1/128"
+						"ipReachabilityInformation": "fc00:0:1::1/128",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:0:1::1/128]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:0:1::1/128]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:10:0:1::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:10:0:1::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -321,13 +335,14 @@
 						"igpRouterId": "0000.0000.0001"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:1::/64"
+						"ipReachabilityInformation": "fc00:10:0:1::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:10:0:1::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:10:0:1::/64]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:10:0:4::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:10:0:4::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -354,10 +369,11 @@
 						"igpRouterId": "0000.0000.0001"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:4::/64"
+						"ipReachabilityInformation": "fc00:10:0:4::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[pfc00:10:0:4::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0001]][P[t0x0002][pfc00:10:0:4::/64]]"
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0002]][P[p10.0.3.0/24]]": [
@@ -453,7 +469,13 @@
 						"igpRouterId": "0000.0000.0003"
 					}
 				},
-				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0003]]"
+				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0003]]",
+				"linkStateAttrs": {
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0003]][P[p3.3.3.3/32]]": [
@@ -522,7 +544,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[p10.0.5.0/24]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:0:3::1/128]]": [
+		"[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:0:3::1/128]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -549,13 +571,14 @@
 						"igpRouterId": "0000.0000.0003"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:0:3::1/128"
+						"ipReachabilityInformation": "fc00:0:3::1/128",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:0:3::1/128]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:0:3::1/128]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:10:0:1::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:10:0:1::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -582,13 +605,14 @@
 						"igpRouterId": "0000.0000.0002"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:1::/64"
+						"ipReachabilityInformation": "fc00:10:0:1::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:10:0:1::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:10:0:1::/64]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:10:0:2::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:10:0:2::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -615,10 +639,11 @@
 						"igpRouterId": "0000.0000.0002"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:2::/64"
+						"ipReachabilityInformation": "fc00:10:0:2::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[pfc00:10:0:2::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0002]][P[t0x0002][pfc00:10:0:2::/64]]"
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0003]][P[p10.0.2.0/24]]": [
@@ -654,7 +679,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[p10.0.2.0/24]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:10:0:5::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:10:0:5::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -681,10 +706,11 @@
 						"igpRouterId": "0000.0000.0003"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:5::/64"
+						"ipReachabilityInformation": "fc00:10:0:5::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:10:0:5::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:10:0:5::/64]]"
 			}
 		],
 		"[V][L2][I0x0][N[s0000.0000.0004]]": [
@@ -714,7 +740,13 @@
 						"igpRouterId": "0000.0000.0004"
 					}
 				},
-				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0004]]"
+				"nlriStr": "[V][L2][I0x0][N[s0000.0000.0004]]",
+				"linkStateAttrs": {
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0004]][P[p4.4.4.4/32]]": [
@@ -750,7 +782,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[p4.4.4.4/32]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:0:4::1/128]]": [
+		"[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:0:4::1/128]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -777,13 +809,14 @@
 						"igpRouterId": "0000.0000.0004"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:0:4::1/128"
+						"ipReachabilityInformation": "fc00:0:4::1/128",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:0:4::1/128]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:0:4::1/128]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:10:0:2::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:10:0:2::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -810,10 +843,11 @@
 						"igpRouterId": "0000.0000.0003"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:2::/64"
+						"ipReachabilityInformation": "fc00:10:0:2::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[pfc00:10:0:2::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0003]][P[t0x0002][pfc00:10:0:2::/64]]"
 			}
 		],
 		"[T][L2][I0x0][N[s0000.0000.0004]][P[p10.0.4.0/24]]": [
@@ -882,7 +916,7 @@
 				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[p10.0.5.0/24]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:10:0:5::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:10:0:5::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -909,13 +943,14 @@
 						"igpRouterId": "0000.0000.0004"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:5::/64"
+						"ipReachabilityInformation": "fc00:10:0:5::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:10:0:5::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:10:0:5::/64]]"
 			}
 		],
-		"[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:10:0:4::/64]]": [
+		"[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:10:0:4::/64]]": [
 			{
 				"valid": true,
 				"bestpath": true,
@@ -942,10 +977,11 @@
 						"igpRouterId": "0000.0000.0004"
 					},
 					"prefixDescriptors": {
-						"ipReachabilityInformation": "fc00:10:0:4::/64"
+						"ipReachabilityInformation": "fc00:10:0:4::/64",
+						"multiTopologyId": 2
 					}
 				},
-				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[pfc00:10:0:4::/64]]"
+				"nlriStr": "[T][L2][I0x0][N[s0000.0000.0004]][P[t0x0002][pfc00:10:0:4::/64]]"
 			}
 		],
 		"[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0002]][L[i10.0.1.1][n10.0.1.2]]": [
@@ -1244,7 +1280,7 @@
 				"nlriStr": "[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0003]][L[i10.0.5.4][n10.0.5.3]]"
 			}
 		],
-		"[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0002]][L[ifc00:10:0:1::1][nfc00:10:0:1::2]]":
+		"[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0002]][L[ifc00:10:0:1::1][nfc00:10:0:1::2][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1276,13 +1312,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:1::1",
-							"ipv6NeighborAddress": "fc00:10:0:1::2"
+							"ipv6NeighborAddress": "fc00:10:0:1::2",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0002]][L[ifc00:10:0:1::1][nfc00:10:0:1::2]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0002]][L[ifc00:10:0:1::1][nfc00:10:0:1::2][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0001]][L[ifc00:10:0:1::2][nfc00:10:0:1::1]]":
+		"[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0001]][L[ifc00:10:0:1::2][nfc00:10:0:1::1][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1314,13 +1351,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:1::2",
-							"ipv6NeighborAddress": "fc00:10:0:1::1"
+							"ipv6NeighborAddress": "fc00:10:0:1::1",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0001]][L[ifc00:10:0:1::2][nfc00:10:0:1::1]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0001]][L[ifc00:10:0:1::2][nfc00:10:0:1::1][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0003]][L[ifc00:10:0:2::2][nfc00:10:0:2::3]]":
+		"[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0003]][L[ifc00:10:0:2::2][nfc00:10:0:2::3][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1352,13 +1390,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:2::2",
-							"ipv6NeighborAddress": "fc00:10:0:2::3"
+							"ipv6NeighborAddress": "fc00:10:0:2::3",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0003]][L[ifc00:10:0:2::2][nfc00:10:0:2::3]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0002]][R[s0000.0000.0003]][L[ifc00:10:0:2::2][nfc00:10:0:2::3][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0002]][L[ifc00:10:0:2::3][nfc00:10:0:2::2]]":
+		"[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0002]][L[ifc00:10:0:2::3][nfc00:10:0:2::2][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1390,13 +1429,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:2::3",
-							"ipv6NeighborAddress": "fc00:10:0:2::2"
+							"ipv6NeighborAddress": "fc00:10:0:2::2",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0002]][L[ifc00:10:0:2::3][nfc00:10:0:2::2]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0002]][L[ifc00:10:0:2::3][nfc00:10:0:2::2][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0004]][L[ifc00:10:0:4::1][nfc00:10:0:4::4]]":
+		"[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0004]][L[ifc00:10:0:4::1][nfc00:10:0:4::4][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1428,13 +1468,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:4::1",
-							"ipv6NeighborAddress": "fc00:10:0:4::4"
+							"ipv6NeighborAddress": "fc00:10:0:4::4",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0004]][L[ifc00:10:0:4::1][nfc00:10:0:4::4]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0001]][R[s0000.0000.0004]][L[ifc00:10:0:4::1][nfc00:10:0:4::4][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0001]][L[ifc00:10:0:4::4][nfc00:10:0:4::1]]":
+		"[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0001]][L[ifc00:10:0:4::4][nfc00:10:0:4::1][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1466,13 +1507,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:4::4",
-							"ipv6NeighborAddress": "fc00:10:0:4::1"
+							"ipv6NeighborAddress": "fc00:10:0:4::1",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0001]][L[ifc00:10:0:4::4][nfc00:10:0:4::1]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0001]][L[ifc00:10:0:4::4][nfc00:10:0:4::1][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0004]][L[ifc00:10:0:5::3][nfc00:10:0:5::4]]":
+		"[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0004]][L[ifc00:10:0:5::3][nfc00:10:0:5::4][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1504,13 +1546,14 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:5::3",
-							"ipv6NeighborAddress": "fc00:10:0:5::4"
+							"ipv6NeighborAddress": "fc00:10:0:5::4",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0004]][L[ifc00:10:0:5::3][nfc00:10:0:5::4]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0003]][R[s0000.0000.0004]][L[ifc00:10:0:5::3][nfc00:10:0:5::4][t0x0002]]"
 				}
 			],
-		"[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0003]][L[ifc00:10:0:5::4][nfc00:10:0:5::3]]":
+		"[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0003]][L[ifc00:10:0:5::4][nfc00:10:0:5::3][t0x0002]]":
 			[
 				{
 					"valid": true,
@@ -1542,10 +1585,11 @@
 						},
 						"linkDescriptors": {
 							"ipv6InterfaceAddress": "fc00:10:0:5::4",
-							"ipv6NeighborAddress": "fc00:10:0:5::3"
+							"ipv6NeighborAddress": "fc00:10:0:5::3",
+							"multiTopologyId": 2
 						}
 					},
-					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0003]][L[ifc00:10:0:5::4][nfc00:10:0:5::3]]"
+					"nlriStr": "[E][L2][I0x0][N[s0000.0000.0004]][R[s0000.0000.0003]][L[ifc00:10:0:5::4][nfc00:10:0:5::3][t0x0002]]"
 				}
 			]
 	}
