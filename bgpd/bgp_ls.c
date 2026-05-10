@@ -118,6 +118,10 @@ static json_object *prefix_desc_to_json(struct bgp_ls_prefix_descriptor *prefix_
 		json_object_string_addf(json_prefix, "bgpRouteType", "%s",
 					bgp_ls_bgp_route_type_str_json(prefix_desc->bgp_route_type));
 
+	/* Multi-Topology ID */
+	if (CHECK_FLAG(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT))
+		json_object_int_add(json_prefix, "multiTopologyId", prefix_desc->mt_id);
+
 	return json_prefix;
 }
 
@@ -323,6 +327,13 @@ static void format_link_desc(char **p, size_t *remain, struct bgp_ls_link_descri
 		*remain -= len;
 	}
 
+	/* Multi-Topology ID (TLV 263) */
+	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[t0x%04x]", link_desc->mt_id);
+		*p += len;
+		*remain -= len;
+	}
+
 	len = snprintfrr(*p, *remain, "]");
 	*p += len;
 	*remain -= len;
@@ -425,7 +436,19 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 		format_node_desc(&p, &remain, &nlri->nlri_data.prefix.local_node, "N");
 
 		/* Format prefix */
-		len = snprintfrr(p, remain, "[P[p");
+		len = snprintfrr(p, remain, "[P");
+		p += len;
+		remain -= len;
+
+		if (CHECK_FLAG(nlri->nlri_data.prefix.prefix_desc.present_tlvs,
+			       BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
+			len = snprintfrr(p, remain, "[t0x%04x]",
+					 nlri->nlri_data.prefix.prefix_desc.mt_id);
+			p += len;
+			remain -= len;
+		}
+
+		len = snprintfrr(p, remain, "[p");
 		p += len;
 		remain -= len;
 
