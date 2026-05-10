@@ -3881,6 +3881,7 @@ int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint
 				return -1;
 			}
 			stream_get(&srv6->sid_desc.sid, s, IPV6_MAX_BYTELEN);
+			SET_FLAG(srv6->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
 			if (length > BGP_LS_SRV6_SID_INFO_SIZE)
 				stream_forward_getp(s, length - BGP_LS_SRV6_SID_INFO_SIZE);
 			got_sid = true;
