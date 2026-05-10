@@ -198,6 +198,12 @@ static int bgp_ls_srv6_sid_descriptor_cmp(const struct bgp_ls_srv6_sid_descripto
 	if (ret != 0)
 		return ret;
 
+	/* Compare Multi-Topology ID */
+	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
+		if (d1->mt_id != d2->mt_id)
+			return numcmp(d1->mt_id, d2->mt_id);
+	}
+
 	return 0;
 }
 
