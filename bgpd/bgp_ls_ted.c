@@ -85,6 +85,15 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT);
 	}
 
+	/* Multi-Topology IDs (TLV 263) - RFC 9552 §5.2.1.4 */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_MT_IDS) && ls_node->mt_id_count > 0 &&
+	    !(ls_node->mt_id_count == 1 && ls_node->mt_ids[0] == 0)) {
+		attr->mt_id = XCALLOC(MTYPE_BGP_LS_ATTR, ls_node->mt_id_count * sizeof(uint16_t));
+		memcpy(attr->mt_id, ls_node->mt_ids, ls_node->mt_id_count * sizeof(uint16_t));
+		attr->mt_id_count = ls_node->mt_id_count;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT);
+	}
+
 	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
 	if (CHECK_FLAG(ls_node->flags, LS_NODE_SRV6)) {
 		attr->srv6_cap_flags = ls_node->srv6_cap_flags;
