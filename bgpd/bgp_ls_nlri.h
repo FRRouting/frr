@@ -283,6 +283,10 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_DESC_IP_REACH_BIT        (1ULL << 2)
 #define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT  (1ULL << 3)
 
+/* Bit positions for SRv6 SID Descriptor TLVs */
+#define BGP_LS_SRV6_SID_DESC_INFO_BIT          (1ULL << 0)
+#define BGP_LS_SRV6_SID_DESC_MT_ID_BIT         (1ULL << 1)
+
 /* Maximum number of MT-IDs per descriptor */
 #define BGP_LS_MAX_MT_ID 16
 
