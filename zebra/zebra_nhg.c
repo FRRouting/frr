@@ -3649,9 +3649,21 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 * we haven't gotten an update about it from the proto since startup.
 	 * This means that either the config for it was removed or the daemon
 	 * didn't get started. This handles graceful restart & retain scenario.
+	 *
+	 * zebra_nhg_decrement_ref may trigger KEEP_AROUND which keeps the entry
+	 * in the hash (refcnt reset to 1, timer started) in that case the
+	 * hash is unmodified and the walk can safely continue to process
+	 * remaining proto-owned entries in the same pass.
 	 */
 	if (PROTO_OWNED(nhe) && nhe->refcnt == 1) {
+		uint32_t id = nhe->id;
+
 		zebra_nhg_decrement_ref(nhe);
+		/* Entry still in hash (KEEP_AROUND) safe to continue.
+		 * Entry freed, hash may be modified, must abort.
+		 */
+		if (zebra_nhg_lookup_id(id))
+			return HASHWALK_CONTINUE;
 		return HASHWALK_ABORT;
 	}
 
