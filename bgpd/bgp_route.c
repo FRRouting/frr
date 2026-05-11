@@ -13279,19 +13279,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			if (bgp_path_info_has_valid_label(path) &&
 			    (safi != SAFI_EVPN && !is_route_parent_evpn(path)) &&
 			    path->extra->labels->num_labels == 1 &&
-			    decode_label(&path->extra->labels->label[0]) >=
-				    MPLS_LABEL_UNRESERVED_MIN)
+			    (decode_label(&path->extra->labels->label[0]) >=
+			     MPLS_LABEL_UNRESERVED_MIN))
 				label_sid = decode_label(&path->extra->labels->label[0]);
-			IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
-			transpose_sid(&sid_transposed, label_sid,
-				      path->attr->srv6_l3service->transposition_offset,
-				      path->attr->srv6_l3service->transposition_len,
-				      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
-			json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
-						&sid_transposed);
-			json_object_string_addf(json_path, "remoteSid", "%pI6",
-						sid_tmp);
+			json_object_string_addf(json_path, "remoteSid", "%pI6", sid_tmp);
+
 			if (path->attr->srv6_l3service) {
+				IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
+				transpose_sid(&sid_transposed, label_sid,
+					      path->attr->srv6_l3service->transposition_offset,
+					      path->attr->srv6_l3service->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+				json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
+							&sid_transposed);
+
 				json_sid_attr = json_object_new_object();
 				json_object_object_add(json_path, "remoteSidStructure",
 						       json_sid_attr);
