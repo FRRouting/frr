@@ -5149,6 +5149,7 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
 	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd;
 	req.nhm.nh_family = ipaddr_family(vtep_ip);
+	req.nhm.nh_protocol = RTPROT_ZEBRA;
 
 	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nh_id))
 		return -1;
@@ -5228,6 +5229,7 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd;
 	req.nhm.nh_family = AF_UNSPEC;
+	req.nhm.nh_protocol = RTPROT_ZEBRA;
 
 	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nhg_id))
 		return -1;
