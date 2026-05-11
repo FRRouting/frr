@@ -461,7 +461,21 @@ struct bgp_ls_node_descriptor {
 	uint32_t bgp_ls_id;	   /* BGP-LS Identifier (deprecated) */
 	uint32_t ospf_area_id;	   /* OSPF Area ID */
 	uint8_t igp_router_id_len; /* Length of IGP Router ID (4-16 bytes) */
-	uint8_t igp_router_id[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* IGP Router ID (ISIS, OSPF, Direct, or Static configuration) */
+	union {
+		uint8_t sysid[BGP_LS_IGP_ROUTER_ID_ISIS_LEN]; /* IS-IS non-pseudonode: 6-byte ISO System-ID */
+		struct {
+			uint8_t sysid[BGP_LS_IGP_ROUTER_ID_ISIS_LEN]; /* IS-IS pseudonode: ISO System-ID */
+			uint8_t psn; /* IS-IS pseudonode: Pseudonode ID (non-zero) */
+		} pseudo_isis;
+		struct in_addr ospf; /* OSPFv2 non-pseudonode: Router-ID */
+		struct {
+			struct in_addr router_id; /* OSPFv2 pseudonode: DIS Router-ID */
+			struct in_addr ifaddr;	  /* OSPFv2 pseudonode: Interface IP Address */
+		} pseudo_ospf;
+		struct in_addr ipv4;			    /* Direct/Static: IPv4 address */
+		struct in6_addr ipv6;			    /* Direct/Static: IPv6 address */
+		uint8_t raw[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* Raw access / encode-decode */
+	} igp_router_id;
 	struct in_addr bgp_router_id;			      /* BGP Router-ID (TLV 516) */
 };
 

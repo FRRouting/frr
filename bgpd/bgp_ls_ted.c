@@ -485,7 +485,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.node.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.node.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.node.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -555,7 +555,7 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.node.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.node.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.node.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -624,7 +624,8 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.link.local_node.igp_router_id_len = local_router_id_len;
-	memcpy(nlri.nlri_data.link.local_node.igp_router_id, local_router_id, local_router_id_len);
+	memcpy(nlri.nlri_data.link.local_node.igp_router_id.raw, local_router_id,
+	       local_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Local Node if available */
@@ -636,7 +637,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
-	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
+	memcpy(nlri.nlri_data.link.remote_node.igp_router_id.raw, remote_router_id,
 	       remote_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
@@ -767,7 +768,8 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.link.local_node.igp_router_id_len = local_router_id_len;
-	memcpy(nlri.nlri_data.link.local_node.igp_router_id, local_router_id, local_router_id_len);
+	memcpy(nlri.nlri_data.link.local_node.igp_router_id.raw, local_router_id,
+	       local_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Local Node if available */
@@ -779,7 +781,7 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
-	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
+	memcpy(nlri.nlri_data.link.remote_node.igp_router_id.raw, remote_router_id,
 	       remote_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
@@ -914,7 +916,7 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.prefix.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -1009,7 +1011,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.prefix.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -1082,7 +1084,7 @@ int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rou
 
 	/* Local Node Descriptor */
 	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -1154,7 +1156,7 @@ int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *rout
 	nlri.nlri_data.srv6_sid.identifier = 0;
 
 	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {

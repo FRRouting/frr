@@ -56,7 +56,7 @@ int bgp_ls_node_descriptor_cmp(const struct bgp_ls_node_descriptor *d1,
 	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
 		if (d1->igp_router_id_len != d2->igp_router_id_len)
 			return numcmp(d1->igp_router_id_len, d2->igp_router_id_len);
-		ret = memcmp(d1->igp_router_id, d2->igp_router_id, d1->igp_router_id_len);
+		ret = memcmp(d1->igp_router_id.raw, d2->igp_router_id.raw, d1->igp_router_id_len);
 		if (ret != 0)
 			return ret;
 	}
@@ -1234,7 +1234,7 @@ static unsigned int bgp_ls_node_descriptor_hash(const struct bgp_ls_node_descrip
 		key = jhash_1word(desc->ospf_area_id, key);
 
 	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT))
-		key = jhash(desc->igp_router_id, desc->igp_router_id_len, key);
+		key = jhash(desc->igp_router_id.raw, desc->igp_router_id_len, key);
 
 	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 		key = jhash_1word(desc->bgp_router_id.s_addr, key);
@@ -1741,7 +1741,7 @@ int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_des
 			return -1;
 		stream_putw(s, BGP_LS_TLV_IGP_ROUTER_ID);
 		stream_putw(s, desc->igp_router_id_len);
-		stream_put(s, desc->igp_router_id, desc->igp_router_id_len);
+		stream_put(s, desc->igp_router_id.raw, desc->igp_router_id_len);
 	}
 
 	/* BGP Router ID (TLV 516) */
@@ -2972,7 +2972,7 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 				return -1;
 			}
 			desc->igp_router_id_len = sub_len;
-			stream_get(desc->igp_router_id, s, sub_len);
+			stream_get(desc->igp_router_id.raw, s, sub_len);
 			SET_FLAG(desc->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 			has_igp_router_id = true;
 			break;
@@ -6257,19 +6257,20 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		if (CHECK_FLAG(local_node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
 			vty_out(vty, "\tBGP Identifier: %u\n", local_node->bgp_ls_id);
 		if (CHECK_FLAG(local_node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
-			if (local_node->igp_router_id_len == 4) {
+			if (local_node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN)
 				vty_out(vty, "\tRouter ID IPv4: %pI4\n",
-					(struct in_addr *)local_node->igp_router_id);
-			} else if (local_node->igp_router_id_len == 6 ||
-				   local_node->igp_router_id_len == 7) {
-				vty_out(vty, "\tISO Node ID: %02x%02x.%02x%02x.%02x%02x.%02x\n",
-					local_node->igp_router_id[0], local_node->igp_router_id[1],
-					local_node->igp_router_id[2], local_node->igp_router_id[3],
-					local_node->igp_router_id[4], local_node->igp_router_id[5],
-					local_node->igp_router_id[6] >> 1);
-			} else if (local_node->igp_router_id_len == 16)
+					&local_node->igp_router_id.ospf);
+			else if (local_node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN)
+				vty_out(vty, "\tISO Node ID: %pSY.00\n",
+					local_node->igp_router_id.raw);
+			else if (local_node->igp_router_id_len ==
+				 BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN)
+				vty_out(vty, "\tISO Node ID: %pPN\n",
+					local_node->igp_router_id.raw);
+			else if (local_node->igp_router_id_len ==
+				 BGP_LS_IGP_ROUTER_ID_DIRECT_IPV6_LEN)
 				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
-					(struct in6_addr *)local_node->igp_router_id);
+					&local_node->igp_router_id.ipv6);
 		}
 		if (CHECK_FLAG(local_node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			vty_out(vty, "\tBGP Router Identifier: %pI4\n", &local_node->bgp_router_id);
@@ -6288,22 +6289,20 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		if (CHECK_FLAG(remote_node->present_tlvs, BGP_LS_NODE_DESC_BGP_LS_ID_BIT))
 			vty_out(vty, "\tBGP Identifier: %u\n", remote_node->bgp_ls_id);
 		if (CHECK_FLAG(remote_node->present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT)) {
-			if (remote_node->igp_router_id_len == 4) {
+			if (remote_node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_OSPF_LEN)
 				vty_out(vty, "\tRouter ID IPv4: %pI4\n",
-					(struct in_addr *)remote_node->igp_router_id);
-			} else if (remote_node->igp_router_id_len == 6 ||
-				   remote_node->igp_router_id_len == 7) {
-				vty_out(vty, "\tISO Node ID: %02x%02x.%02x%02x.%02x%02x.%02x\n",
-					remote_node->igp_router_id[0],
-					remote_node->igp_router_id[1],
-					remote_node->igp_router_id[2],
-					remote_node->igp_router_id[3],
-					remote_node->igp_router_id[4],
-					remote_node->igp_router_id[5],
-					remote_node->igp_router_id[6] >> 1);
-			} else if (remote_node->igp_router_id_len == 16)
+					&remote_node->igp_router_id.ospf);
+			else if (remote_node->igp_router_id_len == BGP_LS_IGP_ROUTER_ID_ISIS_LEN)
+				vty_out(vty, "\tISO Node ID: %pSY.00\n",
+					remote_node->igp_router_id.raw);
+			else if (remote_node->igp_router_id_len ==
+				 BGP_LS_IGP_ROUTER_ID_ISIS_PSEUDO_LEN)
+				vty_out(vty, "\tISO Node ID: %pPN\n",
+					remote_node->igp_router_id.raw);
+			else if (remote_node->igp_router_id_len ==
+				 BGP_LS_IGP_ROUTER_ID_DIRECT_IPV6_LEN)
 				vty_out(vty, "\tRouter ID IPv6: %pI6\n",
-					(struct in6_addr *)remote_node->igp_router_id);
+					&remote_node->igp_router_id.ipv6);
 		}
 		if (CHECK_FLAG(remote_node->present_tlvs, BGP_LS_NODE_DESC_BGP_ROUTER_ID_BIT))
 			vty_out(vty, "\tBGP Router Identifier: %pI4\n",
