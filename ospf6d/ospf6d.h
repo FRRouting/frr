@@ -34,7 +34,9 @@ extern struct event *t_ospf6_cfg;
 /* operation on timeval structure */
 #define timerstring(tv, buf, size)                                             \
 	do {                                                                   \
-		if ((tv)->tv_sec / 60 / 60 / 24)                               \
+		if ((tv)->tv_sec < 0)                                          \
+			snprintf(buf, size, "00:00:00");                       \
+		else if ((tv)->tv_sec / 60 / 60 / 24)                          \
 			snprintf(buf, size, "%lldd%02lld:%02lld:%02lld",       \
 				 (tv)->tv_sec / 60LL / 60 / 24,                \
 				 (tv)->tv_sec / 60LL / 60 % 24,                \
