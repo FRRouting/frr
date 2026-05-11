@@ -3709,15 +3709,17 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	id = *((uint32_t *)RTA_DATA(tb[NHA_ID]));
 
 	if (zebra_evpn_mh_is_fdb_nh(id)) {
-		/* If this is a L2 NH just ignore it */
-		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
-			zlog_debug("Ignore kernel update (%u) for fdb-nh 0x%x",
-					h->nlmsg_type, id);
+		if (!startup) {
+			if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+				zlog_debug("In non startup scenario, ignore kernel update (%u) for fdb-nh 0x%x",
+					   h->nlmsg_type, id);
+			frrtrace(2, frr_zebra, netlink_nexthop_change_err, h->nlmsg_type, id);
+			return 0;
 		}
-
-		frrtrace(2, frr_zebra, netlink_nexthop_change_err, h->nlmsg_type, id);
-
-		return 0;
+		/* startup: fall through to process stale FDB NH/NHGs from
+		 * previous zebra instance are added to the NHG hash table so
+		 * the sweep can uninstall them via the standard cleanup path.
+		 */
 	}
 
 	family = nhm->nh_family;
@@ -3757,8 +3759,34 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				 */
 				nh = netlink_nexthop_process_nh(tb, family,
 								&ifp, ns_id);
-			else {
-
+			else if (zebra_evpn_mh_is_fdb_nh(id)) {
+				/**
+				 * FDB nexthops have a gateway (remote
+				 * VTEP IP) but no outgoing interface.
+				 */
+				if (!tb[NHA_GATEWAY]) {
+					if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+						zlog_debug("FDB Nexthop message received from the kernel with ID (%u) is missing NHA_GATEWAY",
+							   id);
+					return -1;
+				}
+				if (family == AF_INET) {
+					nh.type = NEXTHOP_TYPE_IPV4;
+					memcpy(&nh.gate.ipv4, RTA_DATA(tb[NHA_GATEWAY]),
+					       IPV4_MAX_BYTELEN);
+				} else if (family == AF_INET6) {
+					nh.type = NEXTHOP_TYPE_IPV6;
+					memcpy(&nh.gate.ipv6, RTA_DATA(tb[NHA_GATEWAY]),
+					       IPV6_MAX_BYTELEN);
+				} else {
+					if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+						zlog_debug("FDB Nexthop ID (%u) has unexpected family %u",
+							   id, family);
+					return -1;
+				}
+				/* read back below overwrites local vrf_id */
+				nh.vrf_id = vrf_id;
+			} else {
 				flog_warn(
 					EC_ZEBRA_BAD_NHG_MESSAGE,
 					"Invalid Nexthop message received from the kernel with ID (%u)",

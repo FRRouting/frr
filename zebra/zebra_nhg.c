@@ -29,6 +29,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
@@ -1169,6 +1170,14 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_release(nhe);
+
+	/* Release bitmap bit only for stale FDB entries read from kernel
+	 * at startup. Normal FDB entries have their bitmap managed by
+	 * the EVPN-MH layer (zebra_evpn_nhid_free).
+	 */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB))
+		zebra_evpn_mh_release_stale_nhid(nhe->id);
+
 	zebra_nhg_free(nhe);
 }
 
@@ -1313,8 +1322,16 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	 * slightly before the zrouter.startup_time.  Then graceful
 	 * restart sweeping will work properly for these nexthop entries
 	 */
-	if (startup)
+	if (startup) {
 		nhe->uptime = zrouter.startup_time - 1;
+		/* tag stale FDB NH/NHG and reserve its bitmap bit; sweep
+		 * releases the bit via zebra_evpn_mh_release_stale_nhid()
+		 */
+		if (zebra_evpn_mh_is_fdb_nh(id)) {
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB);
+			zebra_evpn_mh_reserve_stale_nhid(id);
+		}
+	}
 	return 0;
 }
 
@@ -3678,7 +3695,7 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 
 		zebra_nhg_decrement_ref(nhe);
 		/* Entry still in hash (KEEP_AROUND) safe to continue.
-		 * Entry freed, hash may be modified, must abort.
+		 * Entry freed hash may be modified, must abort.
 		 */
 		if (zebra_nhg_lookup_id(id))
 			return HASHWALK_CONTINUE;

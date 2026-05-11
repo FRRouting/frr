@@ -337,6 +337,8 @@ static inline bool zebra_evpn_mh_do_adv_svi_mac(void)
 extern esi_t *zero_esi;
 extern void zebra_evpn_mh_init(void);
 extern void zebra_evpn_mh_terminate(void);
+extern void zebra_evpn_mh_reserve_stale_nhid(uint32_t nh_id);
+extern void zebra_evpn_mh_release_stale_nhid(uint32_t nh_id);
 extern bool zebra_evpn_is_if_es_capable(struct zebra_if *zif);
 extern void zebra_evpn_if_init(struct zebra_if *zif);
 extern void zebra_evpn_if_cleanup(struct zebra_if *zif);

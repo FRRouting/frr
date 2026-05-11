@@ -173,6 +173,11 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 
 #define NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL (1 << 10)
+
+/* Stale FDB NH/NHG read from kernel at startup bitmap bit is owned
+ * by the NHG layer, not the EVPN-MH layer.
+ */
+#define NEXTHOP_GROUP_STALE_FDB (1 << 11)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
