@@ -122,6 +122,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_pm.c \
 	zebra/zebra_nhrp.c \
 	zebra/zebra_nhrp_netlink.c \
+	zebra/zebra_kernel_capabilities.c \
 	# end
 
 if !MGMTD
@@ -218,6 +219,7 @@ noinst_HEADERS += \
 	zebra/zebra_pm.h \
 	zebra/zebra_nhrp.h \
 	zebra/zebra_defaults.h \
+	zebra/zebra_kernel_capabilities.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \

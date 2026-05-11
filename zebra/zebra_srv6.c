@@ -23,6 +23,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/interface.h"
+#include <zebra/zebra_kernel_capabilities.h>
 #include "typesafe.h"
 
 #include <stdio.h>
@@ -82,6 +83,9 @@ DEFINE_HOOK(srv6_manager_get_locator,
 	     const char *locator_name),
 	    (locator, client, locator_name));
 
+/* local variables */
+static bool check_sr0_created_done;
+
 /* define wrappers to be called in zapi_msg.c (as hooks must be called in
  * source file where they were defined)
  */
@@ -140,50 +144,20 @@ static int zebra_srv6_cleanup(struct zserv *client)
 	return 0;
 }
 
-static bool zebra_srv6_check_sr0_created_done;
-
 void zebra_srv6_check_sr0_created(void)
 {
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-	int buflen = NL_PKT_BUF_SIZE;
-	char buf[NL_PKT_BUF_SIZE] = {};
-	struct rtattr *rta_info;
-	struct {
-		struct nlmsghdr n;
-		struct ifinfomsg ifi;
-		char buf[];
-	} *req = (void *)&buf[0];
 
-	if (zebra_srv6_check_sr0_created_done)
+	if (check_sr0_created_done)
 		return;
 
 	if (!zns || zns->netlink_cmd.sock == -1)
 		goto netlink_error;
 
-	memset(req, 0, sizeof(*req));
-	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req->n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE;
-	req->n.nlmsg_type = RTM_NEWLINK;
-	req->ifi.ifi_change = 0xFFFFFFFF;
-	req->ifi.ifi_flags = IFF_UP;
-	req->n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	if (!nl_attr_put(&req->n, buflen, IFLA_IFNAME, "sr0", 3))
+	if (!zebra_kernel_capabilities_configure_interface(zns, DEFAULT_SRV6_IFNAME))
 		goto netlink_error;
 
-	rta_info = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
-	if (!rta_info)
-		goto netlink_error;
-
-	if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "dummy", 5))
-		goto netlink_error;
-
-	nl_attr_nest_end(&req->n, rta_info);
-
-	netlink_talk(netlink_talk_filter, &req->n, &zns->netlink_cmd, zns,
-		     0);
-
-	zebra_srv6_check_sr0_created_done = true;
+	check_sr0_created_done = true;
 
 	return;
  netlink_error:
@@ -2952,7 +2926,7 @@ void zebra_srv6_terminate(void)
 
 void zebra_srv6_init(void)
 {
-	zebra_srv6_check_sr0_created_done = false;
+	check_sr0_created_done = false;
 	hook_register(zserv_client_close, zebra_srv6_cleanup);
 	hook_register(srv6_manager_get_chunk,
 		      zebra_srv6_manager_get_locator_chunk);
