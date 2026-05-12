@@ -40,13 +40,35 @@
 #endif
 
 const uint8_t ospf_auth_apad[KEYCHAIN_MAX_HASH_SIZE] = {
-	0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1,
-	0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F,
-	0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87,
-	0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3,
-	0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1,
-	0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3
+	0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87,
+	0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F,
+	0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1,
+	0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3,
+	0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3, 0x87, 0x8F, 0xE1, 0xF3
 };
+
+/*
+ * Resolve whether strict RFC 7474 sequence number validation is active.
+ * Per-interface setting overrides global; global defaults to strict.
+ *
+ * Resolution order:
+ *  1. Per-address params (oi->params) — set when the operator specified
+ *     an A.B.C.D address with "ip ospf compatible rfc7474 A.B.C.D".
+ *  2. Interface default params (IF_DEF_PARAMS) — set when the operator
+ *     used "ip ospf compatible rfc7474" without an address.
+ *  3. Global OSPF instance flag — "compatible rfc7474" under router ospf.
+ */
+static bool ospf_auth_seq_strict(struct ospf_interface *oi)
+{
+	/* Per-address override (e.g. "ip ospf compatible rfc7474 10.0.0.1") */
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, rfc7474_compat))
+		return oi->params->rfc7474_compat != 0;
+	/* Interface-wide override (e.g. "ip ospf compatible rfc7474") */
+	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), rfc7474_compat))
+		return IF_DEF_PARAMS(oi->ifp)->rfc7474_compat != 0;
+	/* Fall back to global setting */
+	return CHECK_FLAG(oi->ospf->config, OSPF_RFC7474_COMPATIBLE);
+}
 
 static int ospf_check_sum(struct ospf_header *ospfh)
 {
@@ -172,17 +194,22 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	/* check crypto seqnum. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 
-	if (nbr &&
-	    ntohl(nbr->crypt_seqnum) >= ntohl(ospfh->u.crypt.crypt_seqnum)) {
-		flog_warn(EC_OSPF_AUTH,
-			  "interface %s: ospf_check_hmac_sha bad sequence %u (expect > %u), Router-ID: %pI4",
-			  IF_NAME(oi), ntohl(ospfh->u.crypt.crypt_seqnum),
-			  ntohl(nbr->crypt_seqnum), &ospfh->router_id);
-		return 0;
+	if (nbr) {
+		uint32_t nbr_seq = ntohl(nbr->crypt_seqnum);
+		uint32_t pkt_seq = ntohl(ospfh->u.crypt.crypt_seqnum);
+		bool strict = ospf_auth_seq_strict(oi);
+
+		if (strict ? (nbr_seq >= pkt_seq) : (nbr_seq > pkt_seq)) {
+			flog_warn(EC_OSPF_AUTH,
+				  "interface %s: ospf_check_hmac_sha bad sequence %u (expect %s %u), Router-ID: %pI4",
+				  IF_NAME(oi), pkt_seq, strict ? ">" : ">=", nbr_seq,
+				  &ospfh->router_id);
+			return 0;
+		}
 	}
 #ifdef CRYPTO_OPENSSL
-	if (!ospf_auth_compute_hmac_sha(oi, ospfh, digest_name, key, length,
-					hash_length, digest, sizeof(digest)))
+	if (!ospf_auth_compute_hmac_sha(oi, ospfh, digest_name, key, length, hash_length, digest,
+					sizeof(digest)))
 		return 0;
 #elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
@@ -237,13 +264,18 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	/* check crypto seqnum. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 
-	if (nbr &&
-	    ntohl(nbr->crypt_seqnum) >= ntohl(ospfh->u.crypt.crypt_seqnum)) {
-		flog_warn(EC_OSPF_AUTH,
-			  "interface %s: %s bad sequence %u (expect > %u), Router-ID: %pI4",
-			  IF_NAME(oi), __func__, ntohl(ospfh->u.crypt.crypt_seqnum),
-			  ntohl(nbr->crypt_seqnum), &ospfh->router_id);
-		return 0;
+	if (nbr) {
+		uint32_t nbr_seq = ntohl(nbr->crypt_seqnum);
+		uint32_t pkt_seq = ntohl(ospfh->u.crypt.crypt_seqnum);
+		bool strict = ospf_auth_seq_strict(oi);
+
+		if (strict ? (nbr_seq >= pkt_seq) : (nbr_seq > pkt_seq)) {
+			flog_warn(EC_OSPF_AUTH,
+				  "interface %s: %s bad sequence %u (expect %s %u), Router-ID: %pI4",
+				  IF_NAME(oi), __func__, pkt_seq, strict ? ">" : ">=", nbr_seq,
+				  &ospfh->router_id);
+			return 0;
+		}
 	}
 
 	memset(auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);

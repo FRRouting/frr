@@ -338,6 +338,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	ospf_zebra_vrf_register(new);
 
 	new->abr_type = OSPF_ABR_DEFAULT;
+	SET_FLAG(new->config, OSPF_RFC7474_COMPATIBLE);
 	new->oiflist = list_new();
 	new->vlinks = list_new();
 	new->areas = list_new();
