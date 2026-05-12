@@ -443,6 +443,16 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_SID_FLAG_LOCAL 0x04 /* Same for IS-IS, OSPFv2, OSPFv3 */
 
 /*
+ * IS-IS RFC 8667, 2.2.1
+ * OSPFv2 RFC 8665, 6.1
+ * OSPFv3 RFC 8666, 7.1
+ */
+#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x20
+#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x10
+#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x40
+#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x20
+
+/*
  * ===========================================================================
  * Descriptor Structures (RFC 9552 Section 5.2)
  * ===========================================================================
@@ -738,6 +748,15 @@ struct bgp_ls_attr {
 	/* Link Name (TLV 1098) */
 	char *link_name;
 
+	/* Adjacency SID (TLV 1099) */
+#define BGP_LS_ADJ_MAX 4
+	uint8_t adj_sid_count; /* number of adj_sid elements */
+	struct bgp_ls_adjacency {
+		uint32_t sid;	   /* SID as MPLS label or index */
+		uint8_t flags;	   /* Flags */
+		uint8_t weight;	   /* Administrative weight */
+	} adj_sid[BGP_LS_ADJ_MAX]; /* IPv4/IPv6 & Primary/Backup Adj. SID */
+
 	/* Extended Administrative Group (TLV 1173) */
 	struct admin_group ext_admin_group;
 
@@ -960,6 +979,13 @@ extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
  * @return 3 or 4 in normal case, -1 in error case
  */
 extern int bgp_ls_attr_prefix_sid_len(uint8_t flags);
+
+/*
+ * Get Adjacency SID attribute Label/Index SID length by flags
+ *
+ * @return 3 or 4 in normal case, -1 in error case
+ */
+extern int bgp_ls_attr_adjacency_sid_len(uint8_t flags, enum bgp_ls_protocol_id protocol_id);
 
 /*
  * ===========================================================================
