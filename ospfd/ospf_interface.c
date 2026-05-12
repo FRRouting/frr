@@ -577,6 +577,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, dead_timer_any);
 	UNSET_IF_PARAM(oip, dscp_ospf_all);
 	UNSET_IF_PARAM(oip, dscp_low_control);
+	UNSET_IF_PARAM(oip, rfc7474_compat);
 
 	oip->auth_crypt = list_new();
 
@@ -636,7 +637,8 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dead_timer_any) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_ospf_all) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) && listcount(oip->auth_crypt) == 0) {
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) && listcount(oip->auth_crypt) == 0 &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, rfc7474_compat)) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
