@@ -55,6 +55,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_nhrp.h"
+#include "zebra/zebra_kernel_capabilities.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -4267,6 +4268,33 @@ DEFUN_HIDDEN (show_frr,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(show_zebra_capabilities, show_zebra_capabilities_cmd,
+	     "show zebra capabilities [json$uj]",
+	     SHOW_STR "Zebra daemon\n"
+		      "Capabilities\n" JSON_STR)
+{
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (json) {
+		json_object_boolean_add(
+			json, "capabilitiesSrv6Seg6LocalDt6VrfTableAttribute",
+			zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported());
+		json_object_boolean_add(
+			json, "capabilitiesSrv6Seg6SourceEncapAttribute",
+			zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported());
+		vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
+	vty_out(vty, "SRv6 seg6local DT6 VRFTABLE attribute: %ssupported\n",
+		zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported() ? ""
+											  : "not ");
+	vty_out(vty, "SRv6 seg6 ENCAP_SRC attribute: %ssupported\n",
+		zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported() ? "" : "not ");
+	return CMD_SUCCESS;
+}
 #ifdef HAVE_NETLINK
 DEFUN_HIDDEN(zebra_kernel_netlink_batch_tx_buf,
 	     zebra_kernel_netlink_batch_tx_buf_cmd,
@@ -4515,4 +4543,6 @@ void zebra_vty_init(void)
 #endif /* HAVE_SCRIPTING */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
+
+	install_element(VIEW_NODE, &show_zebra_capabilities_cmd);
 }
