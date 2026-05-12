@@ -851,6 +851,9 @@ extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
 /* NLRI size calculation helpers */
 extern size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri);
 
+/* NLRI get protocol_id helper */
+extern enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri);
+
 /* String conversion helpers */
 extern const char *bgp_ls_protocol_id_str(enum bgp_ls_protocol_id proto_id);
 extern const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type);
@@ -948,7 +951,8 @@ extern int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefi
 extern int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri);
 
 /* Encode BGP-LS Attributes (Type 29 TLVs) */
-extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr);
+extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+			      enum bgp_ls_protocol_id protocol_id);
 
 /*
  * Get Prefix-SID attribute SID length by flags
@@ -997,15 +1001,21 @@ extern int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlr
 /* Decode complete NLRI */
 extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
 
+/* Decode enough NLRI to get protocol id */
+extern int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
+					  enum bgp_ls_protocol_id *protocol_id);
+
 /*
  * Parse BGP-LS Attributes (Type 29 TLVs)
  *
  * @param s Stream containing the attribute TLVs
  * @param total_length Total length of all TLVs in bytes
+ * @param protocol_id Protocol-ID from NLRI needed by some attributes
  * @param attr Pointer to node attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr);
+extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length,
+			     enum bgp_ls_protocol_id protocol_id, struct bgp_ls_attr *attr);
 
 /*
  * Convert BGP-LS Attributes to JSON object

@@ -1030,6 +1030,28 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 	return size;
 }
 
+/* NLRI get protocol_id helper */
+enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri)
+{
+	if (!nlri)
+		return BGP_LS_PROTO_RESERVED;
+
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		return nlri->nlri_data.node.protocol_id;
+	case BGP_LS_NLRI_TYPE_LINK:
+		return nlri->nlri_data.link.protocol_id;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		return nlri->nlri_data.prefix.protocol_id;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return nlri->nlri_data.srv6_sid.protocol_id;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return BGP_LS_PROTO_RESERVED;
+	}
+	return BGP_LS_PROTO_RESERVED;
+}
+
 /*
  * ===========================================================================
  * String Conversion Functions
@@ -2233,7 +2255,8 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
  *
  * Returns number of bytes written, or -1 on error
  */
-int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
+int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+		       enum bgp_ls_protocol_id protocol_id)
 {
 	size_t start_pos;
 
@@ -3870,6 +3893,75 @@ int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint
 }
 
 /*
+ * Decode protocol id from BGP-LS NLRI UPDATE message
+ *
+ * Needed by BGP-LS attribute that is parsed before NLRI
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
+					  enum bgp_ls_protocol_id *protocol_id)
+{
+	uint16_t nlri_type, nlri_length;
+	uint8_t *data;
+
+	if (!packet || !protocol_id)
+		return -1;
+
+	/* Read NLRI Type + Length (4 bytes total) */
+	if (packet->length < BGP_LS_NLRI_TYPE_SIZE + BGP_LS_NLRI_LENGTH_SIZE) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: %s: Not enough data for NLRI type and length",
+			  __func__);
+		return -1;
+	}
+
+	/* Creating stream requires allocating/deallocating and copying memory, it
+	 * seems too much for two words parsing
+	 */
+	data = packet->nlri;
+	nlri_type = *data++ << 8;
+	nlri_type += *data++;
+	nlri_length = *data++ << 8;
+	nlri_length += *data++;
+
+	/* Check if stream has enough data for NLRI */
+	if (packet->length - (data - packet->nlri) < nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: %s: NLRI type=%u length=%u exceeds available data", __func__,
+			  nlri_type, nlri_length);
+		return -1;
+	}
+
+	/* Decode based on NLRI type */
+	switch ((enum bgp_ls_nlri_type)nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+	case BGP_LS_NLRI_TYPE_LINK:
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		/* Check minimum length */
+		if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: %s: Node NLRI length %u too short (minimum %u)",
+				  __func__, nlri_length, BGP_LS_NLRI_MIN_LENGTH);
+			return -1;
+		}
+
+		/* Read Protocol-ID (1 byte) */
+		*protocol_id = *data;
+		break;
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+	default:
+		/* Unknown NLRI type - preserve and propagate (RFC 9552 Section 5.2) */
+		zlog_warn("BGP-LS: %s: Unknown NLRI type %u", __func__, nlri_type);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
  * Decode complete BGP-LS NLRI from UPDATE message (RFC 9552 Section 5.2)
  *
  * This is the main entry point for decoding NLRIs from MP_REACH_NLRI
@@ -5263,7 +5355,8 @@ static int parse_srv6_endpoint_behavior(struct stream *s, uint16_t length, struc
 	return 0;
 }
 
-int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
+int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, enum bgp_ls_protocol_id protocol_id,
+		      struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
 	size_t end_pos = stream_get_getp(s) + total_length;
