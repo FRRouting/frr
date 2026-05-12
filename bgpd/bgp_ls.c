@@ -403,7 +403,7 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 		proto_str = "D";
 		break;
 	case BGP_LS_PROTO_STATIC:
-		proto_str = "S";
+		proto_str = "ST";
 		break;
 	case BGP_LS_PROTO_BGP:
 		proto_str = "B";
