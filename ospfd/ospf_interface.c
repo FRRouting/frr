@@ -697,6 +697,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, dead_timer_any);
 	UNSET_IF_PARAM(oip, dscp_ospf_all);
 	UNSET_IF_PARAM(oip, dscp_low_control);
+	UNSET_IF_PARAM(oip, rfc7474_compat);
 
 	/* RFC4222 R4: LSA gap pacing parameters. */
 	UNSET_IF_PARAM(oip, gap_pacing_enable);
@@ -790,7 +791,8 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_adjust_int_ms) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_high_water) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_low_water) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_lsas) && listcount(oip->auth_crypt) == 0) {
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_lsas) && listcount(oip->auth_crypt) == 0 &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, rfc7474_compat)) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
