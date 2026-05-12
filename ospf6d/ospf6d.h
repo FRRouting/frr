@@ -34,17 +34,20 @@ extern struct event *t_ospf6_cfg;
 /* operation on timeval structure */
 #define timerstring(tv, buf, size)                                             \
 	do {                                                                   \
-		if ((tv)->tv_sec / 60 / 60 / 24)                               \
+		long long _sec = (tv)->tv_sec;                                 \
+		if (_sec < 0)                                                  \
+			_sec = 0;                                              \
+		if (_sec / 60 / 60 / 24)                                       \
 			snprintf(buf, size, "%lldd%02lld:%02lld:%02lld",       \
-				 (tv)->tv_sec / 60LL / 60 / 24,                \
-				 (tv)->tv_sec / 60LL / 60 % 24,                \
-				 (tv)->tv_sec / 60LL % 60,                     \
-				 (tv)->tv_sec % 60LL);                         \
+				 _sec / 60LL / 60 / 24,                        \
+				 _sec / 60LL / 60 % 24,                        \
+				 _sec / 60LL % 60,                             \
+				 _sec % 60LL);                                 \
 		else                                                           \
 			snprintf(buf, size, "%02lld:%02lld:%02lld",            \
-				 (tv)->tv_sec / 60LL / 60 % 24,                \
-				 (tv)->tv_sec / 60LL % 60,                     \
-				 (tv)->tv_sec % 60LL);                         \
+				 _sec / 60LL / 60 % 24,                        \
+				 _sec / 60LL % 60,                             \
+				 _sec % 60LL);                                 \
 	} while (0)
 
 #define threadtimer_string(now, t, buf, size)                                  \
