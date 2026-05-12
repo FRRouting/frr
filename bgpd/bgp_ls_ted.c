@@ -182,7 +182,8 @@ static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
 /*
  * Populate BGP-LS Attributes from Link State Attributes
  */
-int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr)
+int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr,
+			      enum bgp_ls_protocol_id protocol_id)
 {
 	if (!ls_attr || !attr)
 		return -1;
@@ -713,7 +714,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Populate BGP-LS attributes from Link State edge */
 	ls_attr = bgp_ls_attr_alloc();
-	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr) < 0) {
+	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr, protocol_id) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Link attributes");
 		bgp_ls_attr_free(ls_attr);
 		return -1;
