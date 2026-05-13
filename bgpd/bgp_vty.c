@@ -12507,6 +12507,118 @@ DEFUN (show_bgp_views,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_bgp_clusters,
+       show_bgp_clusters_cmd,
+       "show [ip] bgp [<view$view|vrf$vrf> VIEWVRFNAME$name] clusters [json$json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+	   BGP_INSTANCE_HELP_STR
+       "Show referenced clusters\n"
+	   JSON_STR)
+{
+	struct bgp *bgp;
+	struct cluster *cluster;
+	json_object *json_all_clusters;
+	json_object *json_one_cluster;
+	json_object *json_per_neighbor_clusters;
+
+	/* [<vrf> VIEWVRFNAME] */
+	if (name && (!strmatch(name, VRF_DEFAULT_NAME) || view))
+		bgp = bgp_lookup_by_name(name);
+	else
+		bgp = bgp_get_default();
+
+	if (!json) {
+		if (!bgp) {
+			vty_out(vty, "%% BGP instance not found\n");
+			return CMD_WARNING;
+		}
+		vty_out(vty, "BGP global cluster:\n");
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+			vty_out(vty, "\t cluster-id %pI4\n", &bgp->cluster_id);
+		else
+			vty_out(vty, "\t cluster-id %pI4\n", &bgp->router_id);
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER))
+				vty_out(vty, "\t client to client reflection: always\n");
+			else
+				vty_out(vty, "\t client to client reflection: never\n");
+		} else
+			vty_out(vty, "\t client to client reflection: not configured\n\n");
+
+		vty_out(vty, "Referenced BGP per-neighbor clusters:\n");
+
+		frr_each (per_neighbor_cluster_list, &bgp->per_neighbor_clusters, cluster) {
+			vty_out(vty, "\t cluster %pI4\n", &cluster->cluster_id);
+			if (CHECK_FLAG(cluster->flags, CLUSTER_FLAG_GLOBAL))
+				vty_out(vty, "\t\t override by global\n");
+			if (CHECK_FLAG(cluster->flags,
+				       CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED)) {
+				if (CHECK_FLAG(cluster->flags,
+					       CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER))
+					vty_out(vty, "\t\t client to client reflection: always\n");
+				else
+					vty_out(vty, "\t\t client to client reflection: never\n");
+			} else
+				vty_out(vty, "\t\t client to client reflection: not configured\n");
+			vty_out(vty, "\t\t number of refcnt: %d\n", cluster->refcnt);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	/* json format */
+	json_all_clusters = json_object_new_object();
+	if (!bgp) {
+		vty_json(vty, json_all_clusters);
+		return CMD_WARNING;
+	}
+	json_one_cluster = json_object_new_object();
+	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+		json_object_string_addf(json_one_cluster, "clusterId", "%pI4", &bgp->cluster_id);
+	else
+		json_object_string_addf(json_one_cluster, "clusterId", "%pI4", &bgp->router_id);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER))
+			json_object_string_add(json_one_cluster, "clientToClientReflection",
+					       "always");
+		else
+			json_object_string_add(json_one_cluster, "clientToClientReflection",
+					       "never");
+	} else
+		json_object_string_add(json_one_cluster, "clientToClientReflection",
+				       "notConfigured");
+	json_object_object_add(json_all_clusters, "global", json_one_cluster);
+
+	json_per_neighbor_clusters = json_object_new_array();
+	frr_each (per_neighbor_cluster_list, &bgp->per_neighbor_clusters, cluster) {
+		json_one_cluster = json_object_new_object();
+
+		json_object_string_addf(json_one_cluster, "clusterId", "%pI4",
+					&cluster->cluster_id);
+		json_object_boolean_add(json_one_cluster, "global",
+					CHECK_FLAG(cluster->flags, CLUSTER_FLAG_GLOBAL));
+		if (CHECK_FLAG(cluster->flags,
+			       CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED)) {
+			if (CHECK_FLAG(cluster->flags, CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER))
+				json_object_string_add(json_one_cluster,
+						       "clientToClientReflection", "always");
+			else
+				json_object_string_add(json_one_cluster,
+						       "clientToClientReflection", "never");
+		} else
+			json_object_string_add(json_one_cluster, "clientToClientReflection",
+					       "notConfigured");
+		json_object_int_add(json_one_cluster, "refcnt", cluster->refcnt);
+		json_object_array_add(json_per_neighbor_clusters, json_one_cluster);
+	}
+	json_object_object_add(json_all_clusters, "perNeighbor", json_per_neighbor_clusters);
+	vty_json(vty, json_all_clusters);
+
+	return CMD_SUCCESS;
+}
+
 static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
 					 int *peers_estbd)
 {
@@ -25299,6 +25411,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp vrfs" commands. */
 	install_element(VIEW_NODE, &show_bgp_vrfs_cmd);
+
+	/* "show [ip] bgp clusters" commands. */
+	install_element(VIEW_NODE, &show_bgp_clusters_cmd);
 
 	/* Some overall BGP information */
 	install_element(VIEW_NODE, &show_bgp_router_cmd);
