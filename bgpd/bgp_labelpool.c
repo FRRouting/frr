@@ -1485,8 +1485,7 @@ static void lptest_stop(void)
 		return;
 	}
 
-	if (tcb->event_thread)
-		event_cancel(&tcb->event_thread);
+	event_cancel(&tcb->event_thread);
 
 	lpt_inprogress = false;
 }
@@ -1774,8 +1773,7 @@ static void lptest_delete(void *val)
 		tcb->timestamps_dealloc = NULL;
 	}
 
-	if (tcb->event_thread)
-		event_cancel(&tcb->event_thread);
+	event_cancel(&tcb->event_thread);
 
 	memset(tcb, 0, sizeof(*tcb));
 

@@ -498,8 +498,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	}
 
 	if (OSPF_GR_IS_ACTIVE_HELPER(restarter)) {
-		if (restarter->gr_helper_info.t_grace_timer)
-			event_cancel(&restarter->gr_helper_info.t_grace_timer);
+		event_cancel(&restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf->active_restarter_cnt > 0)
 			ospf->active_restarter_cnt--;

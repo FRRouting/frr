@@ -1346,10 +1346,7 @@ void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
 {
 	/* The hook needs to be call synchronously, otherwise the candidate
 	path will be already deleted when the handler is called */
-	if (candidate->hook_timer != NULL) {
-		event_cancel(&candidate->hook_timer);
-		candidate->hook_timer = NULL;
-	}
+	event_cancel(&candidate->hook_timer);
 	hook_call(pathd_candidate_removed, candidate);
 }
 

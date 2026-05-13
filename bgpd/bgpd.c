@@ -4317,8 +4317,7 @@ void bgp_instance_down(struct bgp *bgp)
 	hook_call(bgp_instance_state, bgp);
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval)
-		event_cancel(&bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Bring down peers, so corresponding routes are purged. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
@@ -4545,8 +4544,7 @@ int bgp_delete(struct bgp *bgp)
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval)
-		event_cancel(&bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))

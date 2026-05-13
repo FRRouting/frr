@@ -336,8 +336,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
-	if (pcc_state->t_reconnect != NULL)
-		event_cancel(&pcc_state->t_reconnect);
+	event_cancel(&pcc_state->t_reconnect);
 
 	select_transport_address(pcc_state);
 
@@ -402,8 +401,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 
 	// In case some best pce alternative were waiting to activate
-	if (pcc_state->t_update_best != NULL)
-		event_cancel(&pcc_state->t_update_best);
+	event_cancel(&pcc_state->t_update_best);
 
 	pcc_state->status = PCEP_PCC_CONNECTING;
 

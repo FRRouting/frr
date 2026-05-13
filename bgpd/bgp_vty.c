@@ -9070,8 +9070,7 @@ DEFPY (bgp_def_originate_eval,
 
 	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
 
-	if (bgp->t_rmap_def_originate_eval)
-		event_cancel(&bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	return CMD_SUCCESS;
 }

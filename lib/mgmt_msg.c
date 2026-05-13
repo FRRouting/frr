@@ -878,8 +878,7 @@ void msg_server_cleanup(struct msg_server *server)
 {
 	DEBUGD(server->debug, "Closing %s server", server->idtag);
 
-	if (server->listen_ev)
-		event_cancel(&server->listen_ev);
+	event_cancel(&server->listen_ev);
 
 	msg_server_list_del(&msg_servers, server);
 
