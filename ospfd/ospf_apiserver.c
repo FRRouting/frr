@@ -1540,10 +1540,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	}
 
 	/* Create a stream for internal opaque LSA */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("%s: stream_new failed", __func__);
-		return NULL;
-	}
+	s = stream_new(OSPF_MAX_LSA_SIZE);
 
 	newlsa = (struct lsa_header *)STREAM_DATA(s);
 
