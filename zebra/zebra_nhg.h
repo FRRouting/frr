@@ -26,6 +26,7 @@ struct nh_grp {
 };
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
+PREDECL_RBTREE_UNIQ(nhe_re_tree);
 
 /*
  * Hashtables containing nhg entries is in `zebra_router`.
@@ -173,6 +174,8 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 
 #define NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL (1 << 10)
+	/* Head of rb_tree of route_entries(re's)*/
+	struct nhe_re_tree_head re_head;
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
