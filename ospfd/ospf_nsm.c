@@ -70,6 +70,17 @@ static void ospf_inactivity_timer(struct event *event)
 				  nbr->v_inactivity);
 	}
 }
+/* RFC4222 */
+void ospf_nsm_restart_inactivity_timer(struct ospf_neighbor *nbr)
+{
+	if (!nbr)
+		return;
+
+	/* Start or Restart Inactivity Timer. */
+	event_cancel(&nbr->t_inactivity);
+
+	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer, nbr->v_inactivity);
+}
 
 static void ospf_db_desc_timer(struct event *event)
 {
