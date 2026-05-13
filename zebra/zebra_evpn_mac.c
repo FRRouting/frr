@@ -1098,7 +1098,7 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	mac = hash_get(zevpn->mac_table, &tmp_mac, zebra_evpn_mac_alloc);
 
 	mac->zevpn = zevpn;
-	mac->dad_mac_auto_recovery_timer = NULL;
+	event_cancel(&mac->dad_mac_auto_recovery_timer);
 
 	mac->neigh_list = list_new();
 	mac->neigh_list->cmp = neigh_list_cmp;

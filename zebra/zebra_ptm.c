@@ -167,7 +167,7 @@ static void zebra_ptm_flush_messages(struct event *event)
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
@@ -191,7 +191,7 @@ static int zebra_ptm_send_message(char *data, int size)
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
@@ -218,7 +218,7 @@ void zebra_ptm_connect(struct event *t)
 
 	if (ptm_cb.ptm_sock != -1) {
 		if (init) {
-			ptm_cb.t_read = NULL;
+			event_cancel(&ptm_cb.t_read);
 			event_add_read(zrouter.master, zebra_ptm_sock_read,
 				       NULL, ptm_cb.ptm_sock, &ptm_cb.t_read);
 			zebra_bfd_peer_replay_req();
@@ -614,7 +614,7 @@ void zebra_ptm_sock_read(struct event *event)
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
@@ -655,7 +655,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 			   zebra_route_string(client->proto), hdr->length);
 
 	if (ptm_cb.ptm_sock == -1) {
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
@@ -814,7 +814,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 			   zebra_route_string(client->proto), hdr->length);
 
 	if (ptm_cb.ptm_sock == -1) {
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
@@ -942,7 +942,7 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, pid);
 
 	if (ptm_cb.ptm_sock == -1) {
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
@@ -1001,7 +1001,7 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 			   zebra_route_string(proto));
 
 	if (ptm_cb.ptm_sock == -1) {
-		ptm_cb.t_timer = NULL;
+		event_cancel(&ptm_cb.t_timer);
 		event_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return 0;

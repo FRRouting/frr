@@ -508,7 +508,7 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 
 	n->state = ZEBRA_NEIGH_INACTIVE;
 	n->zevpn = zevpn;
-	n->dad_ip_auto_recovery_timer = NULL;
+	event_cancel(&n->dad_ip_auto_recovery_timer);
 	n->flags = n_flags;
 	n->uptime = monotime(NULL);
 	n->gr_refresh_time = monotime(NULL);
