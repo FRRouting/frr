@@ -3407,6 +3407,7 @@ int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 {
 	uint16_t desc_type, desc_len;
 	size_t start_pos;
+	size_t consumed = 0;
 
 	if (!s || !nlri)
 		return -1;
@@ -3445,6 +3446,14 @@ int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
 		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Expected Local Node Descriptor TLV %u, got %u",
 			  BGP_LS_TLV_LOCAL_NODE_DESC, desc_type);
+		return -1;
+	}
+
+	consumed = stream_get_getp(s) - start_pos;
+	if (consumed > nlri_length || desc_len > nlri_length - consumed) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: Local Node Descriptor TLV length %u exceeds NLRI boundary",
+			  desc_len);
 		return -1;
 	}
 
