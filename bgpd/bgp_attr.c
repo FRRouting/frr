@@ -33,6 +33,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_vty.h"
@@ -3342,6 +3343,17 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 		arg_len = stream_getc(connection->curr);
 		transposition_len = stream_getc(connection->curr);
 		transposition_offset = stream_getc(connection->curr);
+
+		/* Validate transposition values */
+		if (transposition_len > BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL ||
+		    transposition_offset >= IPV6_MAX_BITLEN ||
+		    transposition_len + transposition_offset > IPV6_MAX_BITLEN) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Malformed SRv6 Service Data Sub-Sub-TLV attribute - invalid transposition data (len=%u, offset=%u)",
+				 transposition_len, transposition_offset);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+		}
 
 		/* Log SRv6 Service Data Sub-Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
