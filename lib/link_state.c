@@ -152,6 +152,12 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 		if (memcmp(n1->isis_area_id, n2->isis_area_id, n1->isis_area_id_len))
 			return 0;
 	}
+	if (CHECK_FLAG(n1->flags, LS_NODE_MT_IDS)) {
+		if (n1->mt_id_count != n2->mt_id_count)
+			return 0;
+		if (memcmp(n1->mt_ids, n2->mt_ids, n1->mt_id_count * sizeof(uint16_t)))
+			return 0;
+	}
 
 	/* OK, n1 & n2 are equal */
 	return 1;
@@ -361,6 +367,8 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 			  l1->srlg_len * sizeof(uint32_t))
 			   != 0))
 		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_MT_ID) && (l1->mt_id != l2->mt_id))
+		return 0;
 
 	/* OK, l1 & l2 are equal */
 	return 1;
@@ -436,6 +444,8 @@ int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
 		      p1->srv6.fn_len != p2->srv6.fn_len || p1->srv6.arg_len != p2->srv6.arg_len)))
 			return 0;
 	}
+	if (CHECK_FLAG(p1->flags, LS_PREF_MT_ID) && (p1->mt_id != p2->mt_id))
+		return 0;
 
 	/* OK, p1 & p2 are equal */
 	return 1;
@@ -1242,6 +1252,16 @@ static struct ls_node *ls_parse_node(struct stream *s)
 		}
 		STREAM_GET(node->isis_area_id, s, node->isis_area_id_len);
 	}
+	if (CHECK_FLAG(node->flags, LS_NODE_MT_IDS)) {
+		STREAM_GETC(s, node->mt_id_count);
+		if (node->mt_id_count > LS_NODE_MT_IDS_MAX) {
+			zlog_err("LS(%s): MT-ID count %u exceeds maximum (%d)", __func__,
+				 node->mt_id_count, LS_NODE_MT_IDS_MAX);
+			goto stream_failure;
+		}
+		for (len = 0; len < node->mt_id_count; len++)
+			STREAM_GETW(s, node->mt_ids[len]);
+	}
 
 	return node;
 
@@ -1403,6 +1423,8 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		for (len = 0; len < attr->srlg_len; len++)
 			STREAM_GETL(s, attr->srlgs[len]);
 	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_MT_ID))
+		STREAM_GETW(s, attr->mt_id);
 
 	return attr;
 
@@ -1458,6 +1480,8 @@ static struct ls_prefix *ls_parse_prefix(struct stream *s)
 			STREAM_GETC(s, ls_pref->srv6.arg_len);
 		}
 	}
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_MT_ID))
+		STREAM_GETW(s, ls_pref->mt_id);
 
 	return ls_pref;
 
@@ -1546,6 +1570,11 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 	if (CHECK_FLAG(node->flags, LS_NODE_ISIS_AREA_ID)) {
 		stream_putc(s, node->isis_area_id_len);
 		stream_put(s, node->isis_area_id, node->isis_area_id_len);
+	}
+	if (CHECK_FLAG(node->flags, LS_NODE_MT_IDS)) {
+		stream_putc(s, node->mt_id_count);
+		for (len = 0; len < node->mt_id_count; len++)
+			stream_putw(s, node->mt_ids[len]);
 	}
 
 	return 0;
@@ -1690,6 +1719,8 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		for (len = 0; len < attr->srlg_len; len++)
 			stream_putl(s, attr->srlgs[len]);
 	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_MT_ID))
+		stream_putw(s, attr->mt_id);
 
 	return 0;
 }
@@ -1732,6 +1763,8 @@ static int ls_format_prefix(struct stream *s, struct ls_prefix *ls_pref)
 			stream_putc(s, ls_pref->srv6.arg_len);
 		}
 	}
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_MT_ID))
+		stream_putw(s, ls_pref->mt_id);
 
 	return 0;
 }

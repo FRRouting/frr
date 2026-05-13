@@ -283,6 +283,10 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_DESC_IP_REACH_BIT        (1ULL << 2)
 #define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT  (1ULL << 3)
 
+/* Bit positions for SRv6 SID Descriptor TLVs */
+#define BGP_LS_SRV6_SID_DESC_INFO_BIT          (1ULL << 0)
+#define BGP_LS_SRV6_SID_DESC_MT_ID_BIT         (1ULL << 1)
+
 /* Maximum number of MT-IDs per descriptor */
 #define BGP_LS_MAX_MT_ID 16
 
@@ -407,6 +411,8 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT      (1ULL << 42)
 #define BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT (1ULL << 43)
 #define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
+/* Multi-Topology IDs - RFC 9552 §5.2.1.4 */
+#define BGP_LS_ATTR_MT_ID_BIT                  (1ULL << 45)
 
 /*
  * Node Flag Bits (TLV 1024)
@@ -472,8 +478,7 @@ struct bgp_ls_link_descriptor {
 	struct in6_addr ipv6_intf_addr;	 /* IPv6 Interface Address */
 	struct in6_addr ipv6_neigh_addr; /* IPv6 Neighbor Address */
 	as_t remote_asn;		 /* Remote AS Number */
-	uint8_t mt_id_count;		 /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;		 /* Multi-Topology IDs */
+	uint16_t mt_id;			 /* Multi-Topology ID (TLV 263) */
 };
 
 /*
@@ -482,8 +487,7 @@ struct bgp_ls_link_descriptor {
  */
 struct bgp_ls_prefix_descriptor {
 	uint16_t present_tlvs;			     /* Bitmask of present TLVs */
-	uint8_t mt_id_count;			     /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;			     /* Multi-Topology IDs */
+	uint16_t mt_id;				     /* Multi-Topology ID (TLV 263) */
 	enum bgp_ls_ospf_route_type ospf_route_type; /* OSPF Route Type */
 	enum bgp_ls_bgp_route_type bgp_route_type;   /* BGP Route Type */
 	struct prefix prefix;			     /* IP prefix (IPv4 or IPv6) */
@@ -495,9 +499,9 @@ struct bgp_ls_prefix_descriptor {
  * MUST contain exactly one SRv6 SID Information TLV (518).
  */
 struct bgp_ls_srv6_sid_descriptor {
+	uint16_t present_tlvs;		      /* Bitmask of present SID descriptor TLVs */
 	struct in6_addr sid;		      /* 128-bit SRv6 SID (from TLV 518) */
-	uint8_t mt_id_count;		      /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;			      /* Multi-Topology IDs (from TLV 263) */
+	uint16_t mt_id;			      /* Multi-Topology ID (from TLV 263) */
 };
 
 /*

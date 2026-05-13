@@ -105,6 +105,7 @@ struct isis_te_args {
 	struct ls_vertex *vertex;
 	bool export;
 	bool srv6_locator;
+	uint16_t mt_id; /* IS-IS MT-ID of the current iteration context */
 };
 
 enum lsp_event { LSP_UNKNOWN, LSP_ADD, LSP_UPD, LSP_DEL, LSP_INC, LSP_TICK };

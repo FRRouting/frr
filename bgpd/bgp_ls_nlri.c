@@ -128,12 +128,8 @@ int bgp_ls_link_descriptor_cmp(const struct bgp_ls_link_descriptor *d1,
 
 	/* Compare Multi-Topology IDs if present */
 	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
-		if (d1->mt_id_count != d2->mt_id_count)
-			return numcmp(d1->mt_id_count, d2->mt_id_count);
-		for (int i = 0; i < d1->mt_id_count; i++) {
-			if (d1->mt_id[i] != d2->mt_id[i])
-				return numcmp(d1->mt_id[i], d2->mt_id[i]);
-		}
+		if (d1->mt_id != d2->mt_id)
+			return numcmp(d1->mt_id, d2->mt_id);
 	}
 
 	return 0;
@@ -171,18 +167,41 @@ int bgp_ls_prefix_descriptor_cmp(const struct bgp_ls_prefix_descriptor *d1,
 
 	/* Compare Multi-Topology IDs if present */
 	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
-		if (d1->mt_id_count != d2->mt_id_count)
-			return numcmp(d1->mt_id_count, d2->mt_id_count);
-		for (int i = 0; i < d1->mt_id_count; i++) {
-			if (d1->mt_id[i] != d2->mt_id[i])
-				return numcmp(d1->mt_id[i], d2->mt_id[i]);
-		}
+		if (d1->mt_id != d2->mt_id)
+			return numcmp(d1->mt_id, d2->mt_id);
 	}
 
 	/* Compare BGP Route Type if present */
 	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT)) {
 		if (d1->bgp_route_type != d2->bgp_route_type)
 			return numcmp(d1->bgp_route_type, d2->bgp_route_type);
+	}
+
+	return 0;
+}
+
+/*
+ * Compare two SRv6 SID descriptors for equality
+ * Returns 0 if equal, non-zero otherwise
+ */
+static int bgp_ls_srv6_sid_descriptor_cmp(const struct bgp_ls_srv6_sid_descriptor *d1,
+					  const struct bgp_ls_srv6_sid_descriptor *d2)
+{
+	int ret;
+
+	/* Must have same SID descriptor TLVs present */
+	if (d1->present_tlvs != d2->present_tlvs)
+		return numcmp(d1->present_tlvs, d2->present_tlvs);
+
+	/* Compare SRv6 SID value */
+	ret = IPV6_ADDR_CMP(&d1->sid, &d2->sid);
+	if (ret != 0)
+		return ret;
+
+	/* Compare Multi-Topology ID */
+	if (CHECK_FLAG(d1->present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
+		if (d1->mt_id != d2->mt_id)
+			return numcmp(d1->mt_id, d2->mt_id);
 	}
 
 	return 0;
@@ -285,8 +304,8 @@ int bgp_ls_nlri_cmp(const struct bgp_ls_nlri *nlri1, const struct bgp_ls_nlri *n
 		if (ret != 0)
 			return ret;
 
-		/* Compare SRv6 SID (the 128-bit SID identifies the NLRI) */
-		return memcmp(&s1->sid_desc.sid, &s2->sid_desc.sid, sizeof(s1->sid_desc.sid));
+		/* Compare SRv6 SID descriptor */
+		return bgp_ls_srv6_sid_descriptor_cmp(&s1->sid_desc, &s2->sid_desc);
 	}
 
 	case BGP_LS_NLRI_TYPE_RESERVED:
@@ -484,11 +503,13 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return ret;
 	}
 
-	if (attr1->mt_id_count != attr2->mt_id_count)
-		return numcmp(attr1->mt_id_count, attr2->mt_id_count);
-	for (int i = 0; i < attr1->mt_id_count; i++) {
-		if (attr1->mt_id[i] != attr2->mt_id[i])
-			return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_MT_ID_BIT)) {
+		if (attr1->mt_id_count != attr2->mt_id_count)
+			return numcmp(attr1->mt_id_count, attr2->mt_id_count);
+		for (int i = 0; i < attr1->mt_id_count; i++) {
+			if (attr1->mt_id[i] != attr2->mt_id[i])
+				return numcmp(attr1->mt_id[i], attr2->mt_id[i]);
+		}
 	}
 
 	/* SRv6 comparisons (RFC 9514) */
@@ -575,30 +596,6 @@ struct bgp_ls_nlri *bgp_ls_nlri_alloc(void)
 
 void bgp_ls_nlri_free(struct bgp_ls_nlri *nlri)
 {
-	if (!nlri)
-		return;
-
-	switch (nlri->nlri_type) {
-	case BGP_LS_NLRI_TYPE_NODE:
-		break;
-
-	case BGP_LS_NLRI_TYPE_LINK:
-		XFREE(MTYPE_BGP_LS_NLRI, nlri->nlri_data.link.link_desc.mt_id);
-		break;
-
-	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
-	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
-		XFREE(MTYPE_BGP_LS_NLRI, nlri->nlri_data.prefix.prefix_desc.mt_id);
-		break;
-
-	case BGP_LS_NLRI_TYPE_SRV6_SID:
-		XFREE(MTYPE_BGP_LS_NLRI, nlri->nlri_data.srv6_sid.sid_desc.mt_id);
-		break;
-
-	case BGP_LS_NLRI_TYPE_RESERVED:
-		break;
-	}
-
 	XFREE(MTYPE_BGP_LS_NLRI, nlri);
 }
 
@@ -644,52 +641,6 @@ struct bgp_ls_nlri *bgp_ls_nlri_copy(const struct bgp_ls_nlri *nlri)
 	nlri_copy = XCALLOC(MTYPE_BGP_LS_NLRI, sizeof(*nlri_copy));
 	memcpy(nlri_copy, nlri, sizeof(*nlri_copy));
 	nlri_copy->refcnt = 0;
-
-	/* Copy type-specific dynamically allocated fields */
-	switch (nlri->nlri_type) {
-	case BGP_LS_NLRI_TYPE_NODE:
-		break;
-
-	case BGP_LS_NLRI_TYPE_LINK:
-		/* Copy link descriptor mt_id */
-		if (nlri->nlri_data.link.link_desc.mt_id) {
-			size_t mt_size = nlri->nlri_data.link.link_desc.mt_id_count *
-					 sizeof(uint16_t);
-			nlri_copy->nlri_data.link.link_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
-									    mt_size);
-			memcpy(nlri_copy->nlri_data.link.link_desc.mt_id,
-			       nlri->nlri_data.link.link_desc.mt_id, mt_size);
-		}
-		break;
-
-	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
-	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
-		/* Copy prefix descriptor mt_id */
-		if (nlri->nlri_data.prefix.prefix_desc.mt_id) {
-			size_t mt_size = nlri->nlri_data.prefix.prefix_desc.mt_id_count *
-					 sizeof(uint16_t);
-			nlri_copy->nlri_data.prefix.prefix_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
-										mt_size);
-			memcpy(nlri_copy->nlri_data.prefix.prefix_desc.mt_id,
-			       nlri->nlri_data.prefix.prefix_desc.mt_id, mt_size);
-		}
-		break;
-
-	case BGP_LS_NLRI_TYPE_SRV6_SID:
-		/* Copy SRv6 SID descriptor mt_id */
-		if (nlri->nlri_data.srv6_sid.sid_desc.mt_id) {
-			size_t mt_size = nlri->nlri_data.srv6_sid.sid_desc.mt_id_count *
-					 sizeof(uint16_t);
-			nlri_copy->nlri_data.srv6_sid.sid_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI,
-									       mt_size);
-			memcpy(nlri_copy->nlri_data.srv6_sid.sid_desc.mt_id,
-			       nlri->nlri_data.srv6_sid.sid_desc.mt_id, mt_size);
-		}
-		break;
-
-	case BGP_LS_NLRI_TYPE_RESERVED:
-		break;
-	}
 
 	return nlri_copy;
 }
@@ -1023,8 +974,7 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 		if (CHECK_FLAG(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT))
 			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_IPV6_ADDR_SIZE;
 		if (CHECK_FLAG(l->link_desc.present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT))
-			size += BGP_LS_TLV_HDR_SIZE +
-				(l->link_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE;
 
 		break;
 	}
@@ -1038,8 +988,7 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 
 		/* Prefix Descriptor */
 		if (CHECK_FLAG(p->prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT))
-			size += BGP_LS_TLV_HDR_SIZE +
-				(p->prefix_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE;
 		if (CHECK_FLAG(p->prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT))
 			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_OSPF_ROUTE_TYPE_SIZE;
 
@@ -1068,8 +1017,8 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 		size += BGP_LS_TLV_HDR_SIZE + BGP_LS_SRV6_SID_INFO_SIZE;
 
 		/* Optional MT-ID TLV in SID descriptor */
-		if (s->sid_desc.mt_id_count > 0)
-			size += BGP_LS_TLV_HDR_SIZE + (s->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
+		if (CHECK_FLAG(s->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT))
+			size += BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE;
 
 		break;
 	}
@@ -1390,8 +1339,13 @@ unsigned int bgp_ls_nlri_hash_key(const struct bgp_ls_nlri *nlri)
 	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
 		return key ^ bgp_ls_prefix_hash_key_internal(nlri);
 	case BGP_LS_NLRI_TYPE_SRV6_SID:
-		return key ^ jhash(&nlri->nlri_data.srv6_sid.sid_desc.sid,
-				   sizeof(nlri->nlri_data.srv6_sid.sid_desc.sid), 0);
+		key = jhash(&nlri->nlri_data.srv6_sid.sid_desc.sid,
+			    sizeof(nlri->nlri_data.srv6_sid.sid_desc.sid), key);
+		key = jhash_1word(nlri->nlri_data.srv6_sid.sid_desc.present_tlvs, key);
+		if (CHECK_FLAG(nlri->nlri_data.srv6_sid.sid_desc.present_tlvs,
+			       BGP_LS_SRV6_SID_DESC_MT_ID_BIT))
+			key = jhash_1word(nlri->nlri_data.srv6_sid.sid_desc.mt_id, key);
+		return key;
 	case BGP_LS_NLRI_TYPE_RESERVED:
 		return key;
 	}
@@ -1828,7 +1782,6 @@ int bgp_ls_encode_node_descriptor(struct stream *s, const struct bgp_ls_node_des
 int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_descriptor *desc)
 {
 	size_t start;
-	uint16_t i;
 
 	if (!s || !desc)
 		return -1;
@@ -1882,14 +1835,12 @@ int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_des
 	}
 
 	/* Multi-Topology ID (TLV 263) */
-	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) && desc->mt_id_count > 0) {
-		if (STREAM_WRITEABLE(s) <
-		    BGP_LS_TLV_HDR_SIZE + (size_t)desc->mt_id_count * BGP_LS_MT_ID_SIZE)
+	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE)
 			return -1;
 		stream_putw(s, BGP_LS_TLV_MT_ID);
-		stream_putw(s, desc->mt_id_count * BGP_LS_MT_ID_SIZE);
-		for (i = 0; i < desc->mt_id_count; i++)
-			stream_putw(s, desc->mt_id[i]);
+		stream_putw(s, BGP_LS_MT_ID_SIZE);
+		stream_putw(s, desc->mt_id);
 	}
 
 	/* Remote AS Number (TLV 264) */
@@ -1924,7 +1875,6 @@ int bgp_ls_encode_link_descriptor(struct stream *s, const struct bgp_ls_link_des
 int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix_descriptor *desc)
 {
 	size_t start;
-	uint16_t i;
 	uint8_t prefix_len_bytes;
 
 	if (!s || !desc)
@@ -1933,14 +1883,12 @@ int bgp_ls_encode_prefix_descriptor(struct stream *s, const struct bgp_ls_prefix
 	start = stream_get_endp(s);
 
 	/* Multi-Topology ID (TLV 263) */
-	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT) && desc->mt_id_count > 0) {
-		if (STREAM_WRITEABLE(s) <
-		    BGP_LS_TLV_HDR_SIZE + (size_t)desc->mt_id_count * BGP_LS_MT_ID_SIZE)
+	if (CHECK_FLAG(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE)
 			return -1;
 		stream_putw(s, BGP_LS_TLV_MT_ID);
-		stream_putw(s, desc->mt_id_count * BGP_LS_MT_ID_SIZE);
-		for (i = 0; i < desc->mt_id_count; i++)
-			stream_putw(s, desc->mt_id[i]);
+		stream_putw(s, BGP_LS_MT_ID_SIZE);
+		stream_putw(s, desc->mt_id);
 	}
 
 	/* OSPF Route Type (TLV 264) */
@@ -2186,14 +2134,12 @@ int bgp_ls_encode_srv6_sid_nlri(struct stream *s, const struct bgp_ls_srv6_sid_n
 	stream_put(s, &nlri->sid_desc.sid, BGP_LS_SRV6_SID_INFO_SIZE);
 
 	/* Optional MT-ID TLV in SID descriptor */
-	if (nlri->sid_desc.mt_id_count > 0) {
-		if (STREAM_WRITEABLE(s) <
-		    BGP_LS_TLV_HDR_SIZE + (size_t)nlri->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE)
+	if (CHECK_FLAG(nlri->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
+		if (STREAM_WRITEABLE(s) < BGP_LS_TLV_HDR_SIZE + BGP_LS_MT_ID_SIZE)
 			return -1;
 		stream_putw(s, BGP_LS_TLV_MT_ID);
-		stream_putw(s, nlri->sid_desc.mt_id_count * BGP_LS_MT_ID_SIZE);
-		for (uint8_t i = 0; i < nlri->sid_desc.mt_id_count; i++)
-			stream_putw(s, nlri->sid_desc.mt_id[i]);
+		stream_putw(s, BGP_LS_MT_ID_SIZE);
+		stream_putw(s, nlri->sid_desc.mt_id);
 	}
 
 	return stream_get_endp(s) - start;
@@ -2709,6 +2655,19 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 		}
 	}
 
+	/* Multi-Topology ID (TLV 263) - RFC 9552 §5.2.1.4 / §5.3 */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && attr->mt_id &&
+	    attr->mt_id_count > 0) {
+		uint16_t mt_len = attr->mt_id_count * BGP_LS_MT_ID_SIZE;
+
+		if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_TLV_HDR_SIZE + (size_t)mt_len)
+			return -1;
+		stream_putw(s, BGP_LS_TLV_MT_ID);
+		stream_putw(s, mt_len);
+		for (int i = 0; i < attr->mt_id_count; i++)
+			stream_putw(s, attr->mt_id[i]);
+	}
+
 	/*
 	 * RFC 9514 SRv6 Attribute TLVs
 	 */
@@ -3190,16 +3149,14 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 					  "BGP-LS: duplicate MT-ID TLV in link descriptor");
 				goto error;
 			}
-			/* Variable length: 2*n bytes where n is number of MT-IDs */
-			if (tlv_len == 0 || tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
-				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
-					  tlv_len);
+			/* RFC 9552 Section 5.2.2.1: exactly one MT-ID in Link Descriptor */
+			if (tlv_len != BGP_LS_MT_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid MT-ID TLV length %u in link descriptor (expected %u)",
+					  tlv_len, BGP_LS_MT_ID_SIZE);
 				goto error;
 			}
-			desc->mt_id_count = tlv_len / 2;
-			desc->mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, tlv_len);
-			for (uint16_t i = 0; i < desc->mt_id_count; i++)
-				desc->mt_id[i] = stream_getw(s);
+			desc->mt_id = stream_getw(s);
 			SET_FLAG(desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT);
 			break;
 
@@ -3238,9 +3195,7 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 	return 0;
 
 error:
-	XFREE(MTYPE_BGP_LS_NLRI, desc->mt_id);
-	desc->mt_id = NULL;
-	desc->mt_id_count = 0;
+	desc->mt_id = 0;
 	return -1;
 }
 
@@ -3289,16 +3244,14 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 					  "BGP-LS: duplicate MT-ID TLV in prefix descriptor");
 				goto error;
 			}
-			/* Variable length: 2*n bytes where n is number of MT-IDs */
-			if (tlv_len == 0 || tlv_len % 2 != 0 || tlv_len > BGP_LS_MAX_MT_ID * 2) {
-				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Invalid MT-ID TLV length %u",
-					  tlv_len);
+			/* RFC 9552 Section 5.2.2.1: exactly one MT-ID in Prefix Descriptor */
+			if (tlv_len != BGP_LS_MT_ID_SIZE) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: Invalid MT-ID TLV length %u in prefix descriptor (expected %u)",
+					  tlv_len, BGP_LS_MT_ID_SIZE);
 				goto error;
 			}
-			desc->mt_id_count = tlv_len / 2;
-			desc->mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, tlv_len);
-			for (uint16_t i = 0; i < desc->mt_id_count; i++)
-				desc->mt_id[i] = stream_getw(s);
+			desc->mt_id = stream_getw(s);
 			SET_FLAG(desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT);
 			break;
 
@@ -3423,9 +3376,7 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 	return 0;
 
 error:
-	XFREE(MTYPE_BGP_LS_NLRI, desc->mt_id);
-	desc->mt_id = NULL;
-	desc->mt_id_count = 0;
+	desc->mt_id = 0;
 	return -1;
 }
 
@@ -3858,28 +3809,28 @@ int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint
 				return -1;
 			}
 			stream_get(&srv6->sid_desc.sid, s, IPV6_MAX_BYTELEN);
+			SET_FLAG(srv6->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
 			if (length > BGP_LS_SRV6_SID_INFO_SIZE)
 				stream_forward_getp(s, length - BGP_LS_SRV6_SID_INFO_SIZE);
 			got_sid = true;
 			break;
 
 		case BGP_LS_TLV_MT_ID:
-			if (srv6->sid_desc.mt_id_count != 0) {
+			if (CHECK_FLAG(srv6->sid_desc.present_tlvs,
+				       BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
 				flog_warn(EC_BGP_LS_PACKET,
 					  "BGP-LS: duplicate MT-ID TLV in SRv6 SID descriptor");
 				return -1;
 			}
-			/* Variable length: 2*n bytes where n is number of MT-IDs */
-			if (length == 0 || length % 2 != 0 || length > BGP_LS_MAX_MT_ID * 2) {
+			/* SRv6 SID NLRI carries a single MT-ID when present. */
+			if (length != BGP_LS_MT_ID_SIZE) {
 				flog_warn(EC_BGP_LS_PACKET,
-					  "BGP-LS: Invalid MT-ID TLV length %u in SRv6 SID descriptor",
-					  length);
+					  "BGP-LS: Invalid MT-ID TLV length %u in SRv6 SID descriptor (expected %u)",
+					  length, BGP_LS_MT_ID_SIZE);
 				return -1;
 			}
-			srv6->sid_desc.mt_id_count = length / 2;
-			srv6->sid_desc.mt_id = XCALLOC(MTYPE_BGP_LS_NLRI, length);
-			for (uint16_t i = 0; i < srv6->sid_desc.mt_id_count; i++)
-				srv6->sid_desc.mt_id[i] = stream_getw(s);
+			srv6->sid_desc.mt_id = stream_getw(s);
+			SET_FLAG(srv6->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT);
 			break;
 
 		default:
@@ -5481,6 +5432,27 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 				return -1;
 			break;
 
+
+		case BGP_LS_TLV_MT_ID:
+			/* Multi-Topology ID - RFC 9552 §5.2.1.4 */
+			if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT)) {
+				flog_warn(EC_BGP_LS_PACKET,
+					  "BGP-LS: duplicate MT-ID TLV in attribute, ignoring");
+				stream_skip_tlv(s, length);
+				break;
+			}
+			if (length == 0 || length % 2 != 0 || length > BGP_LS_MAX_MT_ID * 2) {
+				flog_warn(EC_BGP_LS_PACKET, "BGP-LS: invalid MT-ID TLV length %u",
+					  length);
+				return -1;
+			}
+			attr->mt_id_count = length / 2;
+			attr->mt_id = XCALLOC(MTYPE_BGP_LS_ATTR, length);
+			for (uint16_t i = 0; i < attr->mt_id_count; i++)
+				attr->mt_id[i] = stream_getw(s);
+			SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT);
+			break;
+
 		/* SRv6 TLVs (RFC 9514) */
 		case BGP_LS_ATTR_SRV6_CAPABILITIES:
 			if (parse_srv6_capabilities(s, length, attr) < 0)
@@ -5717,6 +5689,15 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 		else if (!IN6_IS_ADDR_UNSPECIFIED(&ls_attr->ospf_fwd_addr6))
 			json_object_string_addf(json_ls_attr, "forwardingAddrV6", "%pI6",
 						&ls_attr->ospf_fwd_addr6);
+	}
+
+	/* Multi-Topology IDs */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && ls_attr->mt_id) {
+		json_object *jmt = json_object_new_array();
+
+		json_object_object_add(json_ls_attr, "multiTopologyIds", jmt);
+		for (int i = 0; i < ls_attr->mt_id_count; i++)
+			json_object_array_add(jmt, json_object_new_int(ls_attr->mt_id[i]));
 	}
 
 	/* Prefix SID */
@@ -6054,6 +6035,14 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 		}
 	}
 
+	/* Multi-Topology IDs */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT) && ls_attr->mt_id) {
+		CHECK_WRAP();
+		col += vty_out(vty, "MT-ID:");
+		for (int i = 0; i < ls_attr->mt_id_count; i++)
+			col += vty_out(vty, " %u", ls_attr->mt_id[i]);
+	}
+
 	/* Prefix SID */
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
 		CHECK_WRAP();
@@ -6344,11 +6333,8 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 				&link_desc->ipv6_neigh_addr);
 
 		/* Display Link Descriptor Multi-Topology info */
-		if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
-			vty_out(vty, "Multi-Topology:\n");
-			for (uint8_t i = 0; i < link_desc->mt_id_count; i++)
-				vty_out(vty, "\tMT-ID: %u\n", link_desc->mt_id[i]);
-		}
+		if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT))
+			vty_out(vty, "\tMulti-Topology: 0x%04x\n", link_desc->mt_id);
 	}
 
 	/* Display Prefix Descriptor for Prefix NLRI */
@@ -6400,11 +6386,8 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		}
 
 		/* Multi-Topology */
-		if (CHECK_FLAG(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
-			vty_out(vty, "Multi-Topology:\n");
-			for (uint8_t i = 0; i < prefix_desc->mt_id_count; i++)
-				vty_out(vty, "\tMT-ID: %u\n", prefix_desc->mt_id[i]);
-		}
+		if (CHECK_FLAG(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT))
+			vty_out(vty, "\tMulti-Topology: 0x%04x\n", prefix_desc->mt_id);
 	}
 
 	/* Display SRv6 SID Descriptor for SRv6 SID NLRI (RFC 9514) */
@@ -6412,8 +6395,10 @@ void bgp_ls_nlri_display(struct vty *vty, struct bgp_ls_nlri *nlri)
 		const struct bgp_ls_srv6_sid_nlri *s = &nlri->nlri_data.srv6_sid;
 
 		vty_out(vty, "SRv6 SID Descriptor:\n");
-		for (uint8_t i = 0; i < s->sid_desc.mt_id_count; i++)
-			vty_out(vty, "\tMulti-Topology: 0x%04x\n", s->sid_desc.mt_id[i]);
+
+		if (CHECK_FLAG(s->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT))
+			vty_out(vty, "\tMulti-Topology: 0x%04x\n", s->sid_desc.mt_id);
+
 		vty_out(vty, "\tSID: %pI6\n", &s->sid_desc.sid);
 	}
 }

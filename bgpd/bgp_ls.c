@@ -91,9 +91,8 @@ static json_object *link_desc_to_json(struct bgp_ls_link_descriptor *link_desc)
 		json_object_string_addf(json_link, "ipv6NeighborAddress", "%pI6",
 					&link_desc->ipv6_neigh_addr);
 
-	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT) &&
-	    link_desc->mt_id_count > 0)
-		json_object_int_add(json_link, "mtId", link_desc->mt_id[0]);
+	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT))
+		json_object_int_add(json_link, "multiTopologyId", link_desc->mt_id);
 
 	return json_link;
 }
@@ -118,6 +117,10 @@ static json_object *prefix_desc_to_json(struct bgp_ls_prefix_descriptor *prefix_
 	if (CHECK_FLAG(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT))
 		json_object_string_addf(json_prefix, "bgpRouteType", "%s",
 					bgp_ls_bgp_route_type_str_json(prefix_desc->bgp_route_type));
+
+	/* Multi-Topology ID */
+	if (CHECK_FLAG(prefix_desc->present_tlvs, BGP_LS_PREFIX_DESC_MT_ID_BIT))
+		json_object_int_add(json_prefix, "multiTopologyId", prefix_desc->mt_id);
 
 	return json_prefix;
 }
@@ -194,12 +197,10 @@ json_object *bgp_ls_nlri_to_json(struct bgp_ls_nlri *nlri)
 		json_object *json_local = node_desc_to_json(&srv6->local_node);
 		json_object *json_sid = json_object_new_object();
 
-		if (srv6->sid_desc.mt_id_count > 0) {
+		if (CHECK_FLAG(srv6->sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
 			json_object *json_mt = json_object_new_array();
 
-			for (uint8_t i = 0; i < srv6->sid_desc.mt_id_count; i++)
-				json_object_array_add(json_mt,
-						      json_object_new_int(srv6->sid_desc.mt_id[i]));
+			json_object_array_add(json_mt, json_object_new_int(srv6->sid_desc.mt_id));
 			json_object_object_add(json_sid, "multiTopologyId", json_mt);
 		}
 
@@ -276,7 +277,17 @@ static void format_srv6_sid_desc(char **p, size_t *remain,
 {
 	int len;
 
-	len = snprintfrr(*p, *remain, "[S[sd%pI6]]", &sid_desc->sid);
+	len = snprintfrr(*p, *remain, "[S");
+	*p += len;
+	*remain -= len;
+
+	if (CHECK_FLAG(sid_desc->present_tlvs, BGP_LS_SRV6_SID_DESC_MT_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[t0x%04x]", sid_desc->mt_id);
+		*p += len;
+		*remain -= len;
+	}
+
+	len = snprintfrr(*p, *remain, "[sd%pI6]]", &sid_desc->sid);
 	*p += len;
 	*remain -= len;
 }
@@ -322,6 +333,13 @@ static void format_link_desc(char **p, size_t *remain, struct bgp_ls_link_descri
 	/* IPv6 Neighbor Address (TLV 262) */
 	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_IPV6_NEIGH_BIT)) {
 		len = snprintfrr(*p, *remain, "[n%pI6]", &link_desc->ipv6_neigh_addr);
+		*p += len;
+		*remain -= len;
+	}
+
+	/* Multi-Topology ID (TLV 263) */
+	if (CHECK_FLAG(link_desc->present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT)) {
+		len = snprintfrr(*p, *remain, "[t0x%04x]", link_desc->mt_id);
 		*p += len;
 		*remain -= len;
 	}
@@ -428,7 +446,19 @@ void bgp_ls_nlri_format(struct bgp_ls_nlri *nlri, char *buf, size_t buf_len)
 		format_node_desc(&p, &remain, &nlri->nlri_data.prefix.local_node, "N");
 
 		/* Format prefix */
-		len = snprintfrr(p, remain, "[P[p");
+		len = snprintfrr(p, remain, "[P");
+		p += len;
+		remain -= len;
+
+		if (CHECK_FLAG(nlri->nlri_data.prefix.prefix_desc.present_tlvs,
+			       BGP_LS_PREFIX_DESC_MT_ID_BIT)) {
+			len = snprintfrr(p, remain, "[t0x%04x]",
+					 nlri->nlri_data.prefix.prefix_desc.mt_id);
+			p += len;
+			remain -= len;
+		}
+
+		len = snprintfrr(p, remain, "[p");
 		p += len;
 		remain -= len;
 
