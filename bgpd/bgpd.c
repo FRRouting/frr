@@ -2933,12 +2933,12 @@ void peer_nsf_stop(struct peer *peer)
 		event_cancel(&peer->t_llgr_stale[afi][safi]);
 	}
 
-	if (peer->connection->t_gr_restart) {
+	if (event_is_scheduled(peer->connection->t_gr_restart)) {
 		event_cancel(&peer->connection->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
-	if (peer->connection->t_gr_stale) {
+	if (event_is_scheduled(peer->connection->t_gr_stale)) {
 		event_cancel(&peer->connection->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -5502,7 +5502,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
-			if (peer->connection->t_pmax_restart) {
+			if (event_is_scheduled(peer->connection->t_pmax_restart)) {
 				event_cancel(&peer->connection->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
@@ -8545,7 +8545,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 		return false;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-	if (peer->connection->t_pmax_restart) {
+	if (event_is_scheduled(peer->connection->t_pmax_restart)) {
 		event_cancel(&peer->connection->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -9405,7 +9405,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	 * If this VRF doesn't have GR configured at global and neighbor level
 	 * then return
 	 */
-	if ((!bgp_in_graceful_restart() && !bgp->t_startup) ||
+	if ((!bgp_in_graceful_restart() && !event_is_scheduled(bgp->t_startup)) ||
 	    (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
 		return 0;
 

@@ -329,7 +329,7 @@ static int nsm_exchange_done(struct ospf_neighbor *nbr)
 		return NSM_Full;
 
 	/* Send Link State Request. */
-	if (nbr->t_ls_req == NULL)
+	if (!event_is_scheduled(nbr->t_ls_req))
 		ospf_ls_req_send(nbr);
 
 	return NSM_Loading;

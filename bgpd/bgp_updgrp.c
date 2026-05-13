@@ -1539,7 +1539,7 @@ static void update_subgroup_merge_check_thread_cb(struct event *event)
 bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 					 int force)
 {
-	if (subgrp->t_merge_check)
+	if (event_is_scheduled(subgrp->t_merge_check))
 		return true;
 
 	if (!force && !update_subgroup_ready_for_merge(subgrp))
@@ -2267,7 +2267,7 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 			if (cur_paf == paf)
 				continue;
 
-			if (cur_paf->t_announce_route)
+			if (event_is_scheduled(cur_paf->t_announce_route))
 				continue;
 
 			all_pending = 0;

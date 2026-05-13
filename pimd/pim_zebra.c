@@ -395,7 +395,7 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 
 	pim_rpf_set_refresh_time(pim);
 
-	if (pim->rpf_cache_refresher) {
+	if (event_is_scheduled(pim->rpf_cache_refresher)) {
 		/* Refresh timer is already running */
 		return;
 	}

@@ -2556,9 +2556,9 @@ void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
 	if (bfd_vrf->bg_echov6 == -1)
 		bfd_vrf->bg_echov6 = bp_echov6_socket(bfd_vrf->vrf);
 
-	if (bfd_vrf->bg_ev[4] == NULL && bfd_vrf->bg_echo != -1)
+	if (!event_is_scheduled(bfd_vrf->bg_ev[4]) && bfd_vrf->bg_echo != -1)
 		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echo, &bfd_vrf->bg_ev[4]);
-	if (bfd_vrf->bg_ev[5] == NULL && bfd_vrf->bg_echov6 != -1)
+	if (!event_is_scheduled(bfd_vrf->bg_ev[5]) && bfd_vrf->bg_echov6 != -1)
 		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echov6, &bfd_vrf->bg_ev[5]);
 }
 
@@ -2935,19 +2935,19 @@ int bfd_vrf_start_sockets(struct bfd_vrf_global *bvrf)
 	if (bvrf->bg_initv6 == -1)
 		bvrf->bg_initv6 = bp_initv6_socket(bvrf->vrf);
 
-	if (bvrf->bg_ev[0] == NULL && bvrf->bg_shop != -1)
+	if (!event_is_scheduled(bvrf->bg_ev[0]) && bvrf->bg_shop != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
 			       &bvrf->bg_ev[0]);
-	if (bvrf->bg_ev[1] == NULL && bvrf->bg_mhop != -1)
+	if (!event_is_scheduled(bvrf->bg_ev[1]) && bvrf->bg_mhop != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
 			       &bvrf->bg_ev[1]);
-	if (bvrf->bg_ev[2] == NULL && bvrf->bg_shop6 != -1)
+	if (!event_is_scheduled(bvrf->bg_ev[2]) && bvrf->bg_shop6 != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
 			       &bvrf->bg_ev[2]);
-	if (bvrf->bg_ev[3] == NULL && bvrf->bg_mhop6 != -1)
+	if (!event_is_scheduled(bvrf->bg_ev[3]) && bvrf->bg_mhop6 != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
 			       &bvrf->bg_ev[3]);
-	if (bvrf->bg_ev[6] == NULL && bvrf->bg_initv6 != -1)
+	if (!event_is_scheduled(bvrf->bg_ev[6]) && bvrf->bg_initv6 != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_initv6,
 			       &bvrf->bg_ev[6]);
 

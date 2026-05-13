@@ -3890,7 +3890,7 @@ DEFUN (show_zebra,
 	vty_out(vty, "Zebra started%s at time %s",
 		zrouter.graceful_restart ? " gracefully" : "", timebuf);
 
-	if (zrouter.t_rib_sweep)
+	if (event_is_scheduled(zrouter.t_rib_sweep))
 		vty_out(vty,
 			"Zebra RIB sweep timer running, remaining time %lds\n",
 			event_timer_remain_second(zrouter.t_rib_sweep));

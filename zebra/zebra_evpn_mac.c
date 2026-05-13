@@ -679,7 +679,7 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, struct vty *vty, json_object *j
 			json_object_boolean_true_add(json_mac, "peerProxy");
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE))
 			json_object_boolean_true_add(json_mac, "peerActive");
-		if (mac->hold_timer)
+		if (event_is_scheduled(mac->hold_timer))
 			json_object_string_add(
 				json_mac, "peerActiveHold",
 				event_timer_to_hhmmss(thread_buf,
@@ -768,7 +768,7 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, struct vty *vty, json_object *j
 			vty_out(vty, " peer-proxy");
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE))
 			vty_out(vty, " peer-active");
-		if (mac->hold_timer)
+		if (event_is_scheduled(mac->hold_timer))
 			vty_out(vty, " (ht: %s)",
 				event_timer_to_hhmmss(thread_buf,
 						      sizeof(thread_buf),
@@ -1559,7 +1559,7 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 
 static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 {
-	if (mac->hold_timer)
+	if (event_is_scheduled(mac->hold_timer))
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
@@ -1575,7 +1575,7 @@ static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 
 void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
 {
-	if (!mac->hold_timer)
+	if (!event_is_scheduled(mac->hold_timer))
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {

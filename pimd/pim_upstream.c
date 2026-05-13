@@ -637,7 +637,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 		MIN(pim_if_t_suppressed_msec(up->rpf.source_nexthop.interface),
 		    1000 * holdtime);
 
-	if (up->t_join_timer)
+	if (event_is_scheduled(up->t_join_timer))
 		join_timer_remain_msec =
 			pim_time_timer_remain_msec(up->t_join_timer);
 	else {
@@ -690,7 +690,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 	t_override_msec =
 		pim_if_t_override_msec(up->rpf.source_nexthop.interface);
 
-	if (up->t_join_timer) {
+	if (event_is_scheduled(up->t_join_timer)) {
 		join_timer_remain_msec =
 			pim_time_timer_remain_msec(up->t_join_timer);
 	} else {

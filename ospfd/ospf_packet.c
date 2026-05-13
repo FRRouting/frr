@@ -1185,7 +1185,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 	/* Save received neighbor values from DD. */
 	ospf_db_desc_save_current(nbr, dd);
 
-	if (!nbr->t_ls_req)
+	if (!event_is_scheduled(nbr->t_ls_req))
 		ospf_ls_req_send(nbr);
 }
 
@@ -4338,7 +4338,7 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	ls_ack_list_entry->lsa = ospf_lsa_lock(lsa);
 	ospf_lsa_list_add_tail(&nbr->oi->ls_ack_direct, ls_ack_list_entry);
 
-	if (oi->t_ls_ack_direct == NULL)
+	if (!event_is_scheduled(oi->t_ls_ack_direct))
 		event_add_event(master, ospf_ls_ack_send_direct_event, oi, 0,
 				&oi->t_ls_ack_direct);
 }

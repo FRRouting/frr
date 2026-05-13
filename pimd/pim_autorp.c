@@ -1111,7 +1111,7 @@ static void autorp_send_discovery_on(struct pim_autorp *autorp)
 	if (interval > autorp->discovery_interval)
 		interval = autorp->discovery_interval;
 
-	if (autorp->send_discovery_timer)
+	if (event_is_scheduled(autorp->send_discovery_timer))
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP discovery sending enabled in %u seconds", __func__,
 				   interval);
@@ -1122,7 +1122,7 @@ static void autorp_send_discovery_on(struct pim_autorp *autorp)
 
 static void autorp_send_discovery_off(struct pim_autorp *autorp)
 {
-	if (autorp->send_discovery_timer)
+	if (event_is_scheduled(autorp->send_discovery_timer))
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP discovery sending disabled", __func__);
 	event_cancel(&(autorp->send_discovery_timer));
@@ -1598,7 +1598,7 @@ static void autorp_announcement_on(struct pim_autorp *autorp)
 	if (interval > autorp->announce_interval)
 		interval = autorp->announce_interval;
 
-	if (autorp->announce_timer == NULL)
+	if (!event_is_scheduled(autorp->announce_timer))
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP announcement sending enabled", __func__);
 
@@ -1608,7 +1608,7 @@ static void autorp_announcement_on(struct pim_autorp *autorp)
 
 static void autorp_announcement_off(struct pim_autorp *autorp)
 {
-	if (autorp->announce_timer != NULL)
+	if (event_is_scheduled(autorp->announce_timer))
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP announcement sending disabled", __func__);
 	event_cancel(&(autorp->announce_timer));

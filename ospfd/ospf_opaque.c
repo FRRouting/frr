@@ -1490,8 +1490,8 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (oipt->t_opaque_lsa_self
-				    != NULL /* Waiting for a thread call. */
+			if (event_is_scheduled(oipt->t_opaque_lsa_self)
+				    /* Waiting for a thread call. */
 			    || oipt->status == PROC_SUSPEND) /* Cannot
 								originate
 								now. */
@@ -1515,8 +1515,8 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (oipt->t_opaque_lsa_self
-				    != NULL /* Waiting for a thread call. */
+			if (event_is_scheduled(oipt->t_opaque_lsa_self)
+				    /* Waiting for a thread call. */
 			    || oipt->status == PROC_SUSPEND) /* Cannot
 								originate
 								now. */
@@ -1540,8 +1540,8 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (oipt->t_opaque_lsa_self
-				    != NULL /* Waiting for a thread call. */
+			if (event_is_scheduled(oipt->t_opaque_lsa_self)
+				    /* Waiting for a thread call. */
 			    || oipt->status == PROC_SUSPEND) /* Cannot
 								originate
 								now. */
@@ -1869,7 +1869,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 		}
 	}
 
-	if (oipt->t_opaque_lsa_self != NULL) {
+	if (event_is_scheduled(oipt->t_opaque_lsa_self)) {
 		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Type-%u Opaque-LSA has already scheduled to RE-ORIGINATE: [opaque-type=%u]",
@@ -2066,7 +2066,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
-	if (oipi->t_opaque_lsa_self != NULL) {
+	if (event_is_scheduled(oipi->t_opaque_lsa_self)) {
 		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Type-%u Opaque-LSA has already scheduled to REFRESH: [opaque-type=%u, opaque-id=%x]",

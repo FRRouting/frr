@@ -4457,7 +4457,8 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
  */
 static void bgp_evpn_es_cons_checks_timer_start(void)
 {
-	if (!bgp_mh_info->consistency_checking || bgp_mh_info->t_cons_check)
+	if (!bgp_mh_info->consistency_checking ||
+	    event_is_scheduled(bgp_mh_info->t_cons_check))
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))

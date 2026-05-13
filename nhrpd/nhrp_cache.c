@@ -318,7 +318,7 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:
-		if (!c->t_auth)
+		if (!event_is_scheduled(c->t_auth))
 			event_add_timer_msec(master, nhrp_cache_do_free, c, 10,
 					     &c->t_timeout);
 		break;

@@ -239,7 +239,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			/* Send withdrawals without waiting for coalesting timer
 			 * to expire.
 			 */
-			if (subgrp->t_coalesce) {
+			if (event_is_scheduled(subgrp->t_coalesce)) {
 				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
 				goto done;
@@ -261,7 +261,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			/* Send withdrawals without waiting for coalesting timer
 			 * to expire.
 			 */
-			if (subgrp->t_coalesce) {
+			if (event_is_scheduled(subgrp->t_coalesce)) {
 				if (!ctx->pi || CHECK_FLAG(ctx->pi->flags, BGP_PATH_UNUSEABLE)) {
 					RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
 							 adj_next) {
@@ -1168,7 +1168,7 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
 	/*
 	 * We should wait for the coalesce timer. Arm the timer if not done.
 	 */
-	if (!subgrp->t_coalesce) {
+	if (!event_is_scheduled(subgrp->t_coalesce)) {
 		event_add_timer_msec(bm->master, subgroup_coalesce_timer,
 				     subgrp, subgrp->v_coalesce,
 				     &subgrp->t_coalesce);

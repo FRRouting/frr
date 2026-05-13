@@ -832,7 +832,7 @@ int zclient_start(struct zclient *zclient)
 		return 0;
 
 	/* Check connect thread. */
-	if (zclient->t_connect)
+	if (event_is_scheduled(zclient->t_connect))
 		return 0;
 
 	if (zclient_socket_connect(zclient) < 0) {

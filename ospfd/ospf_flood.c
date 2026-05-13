@@ -138,7 +138,7 @@ static void ospf_flood_delayed_lsa_ack(struct ospf_neighbor *inbr,
 	ospf_lsa_list_add_tail(&oi->ls_ack_delayed, ls_ack_list_entry);
 
 	/* Set LS Ack timer if it is not already scheduled. */
-	if (!oi->t_ls_ack_delayed)
+	if (!event_is_scheduled(oi->t_ls_ack_delayed))
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack_delayed,
 				  ospf_ls_ack_delayed_timer,
 				  oi->v_ls_ack_delayed);
@@ -1164,7 +1164,7 @@ void ospf_ls_retransmit_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 		 * Reset the neighbor LSA retransmission timer if isn't currently
 		 * running or the LSA at the head of the list was updated.
 		 */
-		if (!nbr->t_ls_rxmt || rxmt_head_replaced)
+		if (!event_is_scheduled(nbr->t_ls_rxmt) || rxmt_head_replaced)
 			ospf_ls_retransmit_set_timer(nbr);
 	}
 }

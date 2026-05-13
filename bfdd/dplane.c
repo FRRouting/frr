@@ -437,7 +437,7 @@ static int bfd_dplane_enqueue(struct bfd_dplane_ctx *bdc, const void *buf,
 		bdc->out_bytes_peak = rlen;
 
 	/* Schedule if it is not yet. */
-	if (bdc->outbufev == NULL)
+	if (!event_is_scheduled(bdc->outbufev))
 		event_add_write(master, bfd_dplane_write, bdc, bdc->sock,
 				&bdc->outbufev);
 

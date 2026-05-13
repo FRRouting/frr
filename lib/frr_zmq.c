@@ -83,7 +83,7 @@ static void frrzmq_read_msg(struct event *t)
 				frrzmq_check_events(cbp, &cb->write,
 						    ZMQ_POLLOUT);
 				cb->read.event = NULL;
-				if (cb->write.cancelled && !cb->write.event)
+				if (cb->write.cancelled && !event_is_scheduled(cb->write.event))
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -115,7 +115,7 @@ static void frrzmq_read_msg(struct event *t)
 				frrzmq_check_events(cbp, &cb->write,
 						    ZMQ_POLLOUT);
 				cb->read.event = NULL;
-				if (cb->write.cancelled && !cb->write.event)
+				if (cb->write.cancelled && !event_is_scheduled(cb->write.event))
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -233,7 +233,7 @@ static void frrzmq_write_msg(struct event *t)
 			if (cb->write.cancelled) {
 				frrzmq_check_events(cbp, &cb->read, ZMQ_POLLIN);
 				cb->write.event = NULL;
-				if (cb->read.cancelled && !cb->read.event)
+				if (cb->read.cancelled && !event_is_scheduled(cb->read.event))
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
 				return;
@@ -316,8 +316,8 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 		return;
 
 	/* Ok to free the callback context if no more ... context. */
-	if ((*cb)->read.cancelled && !(*cb)->read.event && (*cb)->write.cancelled &&
-	    ((*cb)->write.event == NULL))
+	if ((*cb)->read.cancelled && !event_is_scheduled((*cb)->read.event) &&
+	    (*cb)->write.cancelled && !event_is_scheduled((*cb)->write.event))
 		XFREE(MTYPE_ZEROMQ_CB, *cb);
 }
 
@@ -337,7 +337,7 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	len = sizeof(events);
 	if (zmq_getsockopt(cb->zmqsock, ZMQ_EVENTS, &events, &len))
 		return;
-	if ((events & event) && core->event && !core->cancelled) {
+	if ((events & event) && event_is_scheduled(core->event) && !core->cancelled) {
 		struct event_loop *tm = core->event->master;
 
 		event_cancel(&core->event);

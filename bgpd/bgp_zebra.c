@@ -4934,7 +4934,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 
 	/* Check if the client is connected */
-	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || event_is_scheduled(bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
@@ -5013,7 +5013,7 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 
 	/* Check if the client is connected */
-	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || event_is_scheduled(bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
@@ -5056,7 +5056,7 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	}
 
 	/* Check if the client is connected */
-	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || event_is_scheduled(bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);

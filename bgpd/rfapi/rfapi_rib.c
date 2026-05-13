@@ -285,7 +285,7 @@ static void rfapi_info_free(struct rfapi_info *goner)
 			rfapiFreeRfapiVnOptionChain(goner->vn_options);
 			goner->vn_options = NULL;
 		}
-		if (goner->timer) {
+		if (event_is_scheduled(goner->timer)) {
 			struct rfapi_rib_tcb *tcb;
 
 			tcb = EVENT_ARG(goner->timer);
@@ -355,7 +355,7 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 {
 	struct rfapi_rib_tcb *tcb = NULL;
 
-	if (ri->timer) {
+	if (event_is_scheduled(ri->timer)) {
 		tcb = EVENT_ARG(ri->timer);
 		event_cancel(&ri->timer);
 	} else {
@@ -548,7 +548,7 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 							    NULL,
 							    (void **)&ri)) {
 
-						if (ri->timer) {
+						if (event_is_scheduled(ri->timer)) {
 							struct rfapi_rib_tcb
 								*tcb;
 
@@ -943,7 +943,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				rfapiFreeBgpTeaOptionChain(ri->tea_options);
 				ri->tea_options = NULL;
 
-				if (ri->timer) {
+				if (event_is_scheduled(ri->timer)) {
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ri->timer);
@@ -1029,7 +1029,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				listnode_add(delete_list, ori);
 				rfapiFreeBgpTeaOptionChain(ori->tea_options);
 				ori->tea_options = NULL;
-				if (ori->timer) {
+				if (event_is_scheduled(ori->timer)) {
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ori->timer);
@@ -1365,7 +1365,7 @@ callback:
 
 				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
 				/* cancel normal expire timer */
-				if (ri->timer) {
+				if (event_is_scheduled(ri->timer)) {
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ri->timer);

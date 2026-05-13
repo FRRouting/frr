@@ -263,7 +263,7 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 	long timeout = 2L * circuit->hello_interval[1] * circuit->hello_multiplier[1];
 
 	f->initial_sync_circuit = circuit;
-	if (f->initial_sync_timeout)
+	if (event_is_scheduled(f->initial_sync_timeout))
 		return;
 
 	event_add_timer(master, fabricd_initial_sync_timeout, f, timeout,
@@ -418,7 +418,7 @@ static void fabricd_tier_calculation_cb(struct event *event)
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
 {
 	/* Cancel timer if we already know our tier */
-	if (f->tier != ISIS_TIER_UNDEFINED || f->tier_set_timer) {
+	if (f->tier != ISIS_TIER_UNDEFINED || event_is_scheduled(f->tier_set_timer)) {
 		event_cancel(&f->tier_calculation_timer);
 		return;
 	}
@@ -707,7 +707,7 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 	struct isis_circuit *circuit;
 
 	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
-		if (!circuit->t_send_csnp[1])
+		if (!event_is_scheduled(circuit->t_send_csnp[1]))
 			continue;
 
 		event_cancel(&circuit->t_send_csnp[ISIS_LEVEL2 - 1]);

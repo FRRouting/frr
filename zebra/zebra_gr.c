@@ -92,7 +92,7 @@ void zebra_gr_stale_client_cleanup(void)
 				    ninfo) {
 
 			/* Cancel the stale timer */
-			if (info->t_stale_removal != NULL) {
+			if (event_is_scheduled(info->t_stale_removal)) {
 				event_cancel(&info->t_stale_removal);
 				info->do_delete = true;
 				info->stale_client = true;
@@ -400,7 +400,7 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		       zebra_route_string(client->proto));
 
 		/* Update the stale removal timer */
-		if (info && info->t_stale_removal == NULL) {
+		if (info && !event_is_scheduled(info->t_stale_removal)) {
 
 			LOG_GR("%s: vrf %s(%u) Stale time: %d is now update to: %d",
 			       __func__, VRF_LOGNAME(vrf), info->vrf_id,
@@ -813,7 +813,7 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 	 * Also perform the cleanup if FRR itself is gracefully restarting.
 	 */
 	info->route_sync_done_time = monotime(NULL);
-	if (info->t_stale_removal || zrouter.graceful_restart) {
+	if (event_is_scheduled(info->t_stale_removal) || zrouter.graceful_restart) {
 		struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
 		LOG_GR("%s: Client %s route update complete for all AFI/SAFI in vrf %s(%d)",

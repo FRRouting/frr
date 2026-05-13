@@ -582,7 +582,7 @@ static void ospf_deferred_shutdown_check(struct ospf *ospf)
 	struct ospf_area *area;
 
 	/* deferred shutdown already running? */
-	if (ospf->t_deferred_shutdown)
+	if (event_is_scheduled(ospf->t_deferred_shutdown))
 		return;
 
 	/* Should we try push out max-metric LSAs? */

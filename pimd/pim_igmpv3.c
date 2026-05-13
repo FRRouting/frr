@@ -155,7 +155,7 @@ static void igmp_source_timer(struct event *t)
 
 static void source_timer_off(struct gm_group *group, struct gm_source *source)
 {
-	if (!source->t_source_timer)
+	if (!event_is_scheduled(source->t_source_timer))
 		return;
 
 	if (PIM_DEBUG_GM_TRACE) {
@@ -252,7 +252,7 @@ static int source_mark_send_flag_by_timer(struct gm_group *group)
 
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
 		/* Is source timer running? */
-		if (src->t_source_timer) {
+		if (event_is_scheduled(src->t_source_timer)) {
 			IGMP_SOURCE_DO_SEND(src->source_flags);
 			++num_marked_sources;
 		} else {
@@ -362,7 +362,7 @@ void igmp_source_delete_expired(struct list *source_list)
 	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS(source_list, src_node, src_nextnode, src))
-		if (!src->t_source_timer)
+		if (!event_is_scheduled(src->t_source_timer))
 			igmp_source_delete(src);
 }
 
@@ -733,7 +733,7 @@ static void toin_excl(struct gm_group *group, int num_sources,
 		if (!source)
 			continue;
 
-		if (source->t_source_timer) {
+		if (event_is_scheduled(source->t_source_timer)) {
 			/* If found and timer running, clear SEND flag
 			 * (X*A) */
 			IGMP_SOURCE_DONT_SEND(source->source_flags);
@@ -893,7 +893,7 @@ static void toex_excl(struct gm_group *group, int num_sources,
 		/* make sure reported source has DELETE flag unset */
 		assert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
 
-		if (source->t_source_timer) {
+		if (event_is_scheduled(source->t_source_timer)) {
 			/* if source timer>0 mark SEND flag: Q(G,A-Y) */
 			IGMP_SOURCE_DO_SEND(source->source_flags);
 			++num_sources_tosend;
@@ -1243,7 +1243,7 @@ static void group_retransmit_timer_on(struct gm_group *group)
 	long lmqi_msec; /* Last Member Query Interval */
 
 	/* if group retransmit timer is running, do nothing */
-	if (group->t_group_query_retransmit_timer) {
+	if (event_is_scheduled(group->t_group_query_retransmit_timer)) {
 		return;
 	}
 
@@ -1378,7 +1378,7 @@ static void block_excl(struct gm_group *group, int num_sources,
 			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 		}
 
-		if (source->t_source_timer) {
+		if (event_is_scheduled(source->t_source_timer)) {
 			/* 4. if source timer>0 mark SEND flag: Q(G,A-Y) */
 			IGMP_SOURCE_DO_SEND(source->source_flags);
 			++num_sources_tosend;
@@ -1663,7 +1663,7 @@ void igmp_v3_recv_query(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 	 * Interval] value, unless that most recently received QQI was zero,
 	 * in which case the receiving routers use the default.
 	 */
-	if (igmp->t_other_querier_timer) {
+	if (event_is_scheduled(igmp->t_other_querier_timer)) {
 		/* other querier present */
 		uint8_t qqic;
 		uint16_t qqi;

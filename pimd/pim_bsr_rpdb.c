@@ -221,7 +221,7 @@ static void pim_bsm_generate_sched(struct bsm_scope *scope)
 {
 	assertf(scope->state == BSR_ELECTED, "state=%d", scope->state);
 
-	if (scope->t_ebsr_regen_bsm)
+	if (event_is_scheduled(scope->t_ebsr_regen_bsm))
 		return;
 
 	event_add_timer(router->master, pim_bsm_generate_timer, scope, 1,

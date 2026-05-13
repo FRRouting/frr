@@ -1541,7 +1541,7 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state)
 {
 	/* No need to schedule timeout if multiple PCEs are connected */
-	if (pcc_state->t_session_timeout == NULL) {
+	if (!event_is_scheduled(pcc_state->t_session_timeout)) {
 		PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
 		return;
 	}
@@ -1666,7 +1666,7 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 {
 	assert(req != NULL);
 
-	if (req->t_retry)
+	if (event_is_scheduled(req->t_retry))
 		return;
 
 	assert(req->path != NULL);

@@ -2432,7 +2432,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	/* Cancel max-med onstartup if its on */
-	if (bgp->t_maxmed_onstartup) {
+	if (event_is_scheduled(bgp->t_maxmed_onstartup)) {
 		event_cancel(&bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
@@ -4028,7 +4028,7 @@ DEFUN (bgp_neighbor_graceful_restart_disable_set,
 
 	ret = bgp_neighbor_graceful_restart(peer, PEER_DISABLE_CMD);
 	if (ret == BGP_GR_SUCCESS) {
-		if (peer->bgp->t_startup || bgp_in_graceful_restart())
+		if (event_is_scheduled(peer->bgp->t_startup) || bgp_in_graceful_restart())
 			bgp_peer_gr_flags_update(peer);
 
 		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
@@ -8646,7 +8646,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * running, stop the timer and act as if the timer has already
 		 * fired.
 		 */
-		if (!rmap_delay_timer && bm->t_rmap_update) {
+		if (!rmap_delay_timer && event_is_scheduled(bm->t_rmap_update)) {
 			event_cancel(&bm->t_rmap_update);
 			event_execute(bm->master, bgp_route_map_update_timer,
 				      NULL, 0, NULL);
@@ -12671,7 +12671,7 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 				json_object_boolean_add(json_gr, "grPathSelectionDeferral",
 							event_is_scheduled(
 								gr_info->t_select_deferral));
-				if (gr_info->t_select_deferral)
+				if (event_is_scheduled(gr_info->t_select_deferral))
 					json_object_int_add(json_gr, "grDeferralRemainingTimeSec",
 							    event_timer_remain_second(
 								    gr_info->t_select_deferral));
@@ -12930,7 +12930,7 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 						event_is_scheduled(gr_info->t_select_deferral)
 							? "DONE"
 							: "IN-PROGRESS");
-					if (gr_info->t_select_deferral)
+					if (event_is_scheduled(gr_info->t_select_deferral))
 						vty_out(vty,
 							"  Path selection deferral timer running, remaining time %lds\n",
 							event_timer_remain_second(
@@ -15351,7 +15351,7 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 			json_object_int_add(json_timer, "llgrStaleTime",
 					    peer->llgr[afi][safi].stale_time);
 
-			if (peer->connection->t_gr_stale != NULL) {
+			if (event_is_scheduled(peer->connection->t_gr_stale)) {
 				json_object_int_add(json_timer,
 						    "stalePathTimerRemaining",
 						    event_timer_remain_second(
@@ -15399,7 +15399,7 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 				"        Configured Stale Path Time(sec): %u\n",
 				peer->bgp->stalepath_time);
 
-			if (peer->connection->t_gr_stale != NULL)
+			if (event_is_scheduled(peer->connection->t_gr_stale))
 				vty_out(vty,
 					"      Stale Path Remaining(sec): %ld\n",
 					event_timer_remain_second(
@@ -15462,11 +15462,11 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 		json_object_int_add(json_timer, "receivedRestartTimer",
 				    p->v_gr_restart);
 
-		if (p->connection->t_gr_restart != NULL)
+		if (event_is_scheduled(p->connection->t_gr_restart))
 			json_object_int_add(json_timer, "restartTimerRemaining",
 					    event_timer_remain_second(
 						    p->connection->t_gr_restart));
-		if (p->connection->t_gr_stale)
+		if (event_is_scheduled(p->connection->t_gr_stale))
 			json_object_int_add(json_timer, "gracefulStalepathTimerSec",
 					    event_timer_remain_second(p->connection->t_gr_stale));
 
@@ -15481,7 +15481,7 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 			p->v_gr_restart);
 		vty_out(vty, "      Configured LLGR Stale Path Time(sec): %u\n",
 			p->bgp->llgr_stale_time);
-		if (p->connection->t_gr_restart != NULL)
+		if (event_is_scheduled(p->connection->t_gr_restart))
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
 				event_timer_remain_second(
 					p->connection->t_gr_restart));
@@ -16326,11 +16326,11 @@ static void bgp_show_peer_gr_extra_info(struct vty *vty, struct peer *p, bool us
 		json_object_object_add(json_grace, "endOfRibRecv", json_grace_recv);
 
 
-		if (p->connection->t_gr_restart)
+		if (event_is_scheduled(p->connection->t_gr_restart))
 			json_object_int_add(json_grace, "gracefulRestartTimerSec",
 					    event_timer_remain_second(p->connection->t_gr_restart));
 
-		if (p->connection->t_gr_stale)
+		if (event_is_scheduled(p->connection->t_gr_stale))
 			json_object_int_add(json_grace, "gracefulStalepathTimerSec",
 					    event_timer_remain_second(p->connection->t_gr_stale));
 		/* more gr info in new format */
@@ -16359,11 +16359,11 @@ static void bgp_show_peer_gr_extra_info(struct vty *vty, struct peer *p, bool us
 			vty_out(vty, "\n");
 		}
 
-		if (p->connection->t_gr_restart)
+		if (event_is_scheduled(p->connection->t_gr_restart))
 			vty_out(vty, "    The remaining time of restart timer is %ld\n",
 				event_timer_remain_second(p->connection->t_gr_restart));
 
-		if (p->connection->t_gr_stale)
+		if (event_is_scheduled(p->connection->t_gr_stale))
 			vty_out(vty, "    The remaining time of stalepath timer is %ld\n",
 				event_timer_remain_second(p->connection->t_gr_stale));
 
@@ -18033,7 +18033,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			vty_out(vty,
 				"  Peer had exceeded the max. no. of prefixes configured.\n");
 
-		if (p->connection->t_pmax_restart) {
+		if (event_is_scheduled(p->connection->t_pmax_restart)) {
 			if (use_json) {
 				json_object_boolean_true_add(
 					json_neigh, "reducePrefixNumFrom");
@@ -18205,19 +18205,19 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 						!!CHECK_FLAG(p->sflags,
 							     PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED));
 		}
-		if (p->connection->t_start)
+		if (event_is_scheduled(p->connection->t_start))
 			json_object_int_add(json_neigh,
 					    "nextStartTimerDueInMsecs",
 					    event_timer_remain_second(
 						    p->connection->t_start) *
 						    1000);
-		if (p->connection->t_connect)
+		if (event_is_scheduled(p->connection->t_connect))
 			json_object_int_add(json_neigh,
 					    "nextConnectTimerDueInMsecs",
 					    event_timer_remain_second(
 						    p->connection->t_connect) *
 						    1000);
-		if (p->connection->t_routeadv) {
+		if (event_is_scheduled(p->connection->t_routeadv)) {
 			json_object_int_add(json_neigh, "mraiInterval",
 					    p->v_routeadv);
 			json_object_int_add(json_neigh, "mraiTimerExpireInMsecs",
@@ -18229,7 +18229,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			json_object_int_add(json_neigh, "authenticationEnabled",
 					    1);
 
-		if (p->connection->t_read)
+		if (event_is_scheduled(p->connection->t_read))
 			json_object_string_add(json_neigh, "readThread", "on");
 		else
 			json_object_string_add(json_neigh, "readThread", "off");
@@ -18251,15 +18251,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 					"Shutdown when RTT > %dms, count > %u\n",
 					p->rtt_expected, p->rtt_keepalive_rcv);
 		}
-		if (p->connection->t_start)
+		if (event_is_scheduled(p->connection->t_start))
 			vty_out(vty, "Next start timer due in %ld seconds\n",
 				event_timer_remain_second(
 					p->connection->t_start));
-		if (p->connection->t_connect)
+		if (event_is_scheduled(p->connection->t_connect))
 			vty_out(vty, "Next connect timer due in %ld seconds\n",
 				event_timer_remain_second(
 					p->connection->t_connect));
-		if (p->connection->t_routeadv)
+		if (event_is_scheduled(p->connection->t_routeadv))
 			vty_out(vty,
 				"MRAI (interval %u) timer expires in %ld seconds\n",
 				p->v_routeadv,

@@ -3285,7 +3285,7 @@ DEFPY(show_bmp,
 
 				uptime[0] = '\0';
 
-				if (ba->t_timer) {
+				if (event_is_scheduled(ba->t_timer)) {
 					long trem = event_timer_remain_second(
 						ba->t_timer);
 
@@ -3293,7 +3293,7 @@ DEFPY(show_bmp,
 						    uptime, sizeof(uptime),
 						    false, NULL);
 					state_str = "RetryWait";
-				} else if (ba->t_read) {
+				} else if (event_is_scheduled(ba->t_read)) {
 					state_str = "Connecting";
 				} else if (ba->resq.callback) {
 					state_str = "Resolving";

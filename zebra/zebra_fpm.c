@@ -1462,7 +1462,7 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 	/*
 	 * Make sure that writes are enabled.
 	 */
-	if (zfpm_g->t_write)
+	if (event_is_scheduled(zfpm_g->t_write))
 		return 0;
 
 	zfpm_write_on();
@@ -1635,7 +1635,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 	zfpm_g->stats.updates_triggered++;
 
 	/* If writes are already enabled, return. */
-	if (zfpm_g->t_write)
+	if (event_is_scheduled(zfpm_g->t_write))
 		return 0;
 
 	zfpm_write_on();
@@ -1699,7 +1699,7 @@ static void zfpm_stats_timer_cb(struct event *t)
  */
 static void zfpm_stop_stats_timer(void)
 {
-	if (!zfpm_g->t_stats)
+	if (!event_is_scheduled(zfpm_g->t_stats))
 		return;
 
 	zfpm_debug("Stopping existing stats timer");

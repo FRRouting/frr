@@ -222,7 +222,7 @@ void bgp_check_update_delay(struct bgp *bgp)
 		 * establish wait timer is on, or establish wait option is not
 		 * given with the update-delay command
 		 */
-		if (bgp->t_establish_wait
+		if (event_is_scheduled(bgp->t_establish_wait)
 		    || (bgp->v_establish_wait == bgp->v_update_delay))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 				if (CHECK_FLAG(peer->flags,
@@ -407,7 +407,7 @@ static void bgp_write_proceed_actions(struct peer_connection *connection)
 
 		/* No packets to send, see if EOR is pending */
 		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
-			if (!subgrp->t_coalesce && peer->afc_nego[afi][safi]
+			if (!event_is_scheduled(subgrp->t_coalesce) && peer->afc_nego[afi][safi]
 			    && peer->synctime
 			    && !CHECK_FLAG(peer->af_sflags[afi][safi],
 					   PEER_STATUS_EOR_SEND)
@@ -460,11 +460,12 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 * processing is done and routes needs to be conditionally advertised or
 	 * withdrawn.
 	 */
-	if (connection->t_routeadv && !CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING))
+	if (event_is_scheduled(connection->t_routeadv) &&
+	    !CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING))
 		return;
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING)) {
-		if (connection->t_routeadv && bgp_debug_neighbor_events(peer))
+		if (event_is_scheduled(connection->t_routeadv) && bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP: Pending conditional advertisement, ignoring MRAI timer",
 				   peer);
 	}
@@ -539,7 +540,7 @@ void bgp_generate_updgrp_packets(struct event *event)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
-				if (!paf->t_announce_route) {
+				if (!event_is_scheduled(paf->t_announce_route)) {
 					/* If route-refresh BoRR message was
 					 * already sent and we are done with
 					 * re-announcing tables for a decent
@@ -580,8 +581,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 				 *   general, and thus the practice is
 				 *   recommended.
 				 */
-				if (!(PAF_SUBGRP(paf))->t_coalesce && peer->afc_nego[afi][safi] &&
-				    peer->synctime &&
+				if (!event_is_scheduled((PAF_SUBGRP(paf))->t_coalesce) &&
+				    peer->afc_nego[afi][safi] && peer->synctime &&
 				    !CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND) &&
 				    advertise_list_is_empty(PAF_SUBGRP(paf))) {
 					/* If EOR is disabled, the message is
@@ -1345,7 +1346,7 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 		stream_putc(s, 0);
 		gr_restart_time = peer->bgp->restart_time;
 
-		if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+		if (event_is_scheduled(peer->bgp->t_startup) || bgp_in_graceful_restart()) {
 			SET_FLAG(gr_restart_time, GRACEFUL_RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 		}
@@ -2287,7 +2288,7 @@ static void bgp_update_receive_eor(struct peer_connection *connection, afi_t afi
 		/* graceful-restart related processing */
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
 
-		if ((bgp->t_startup || bgp_in_graceful_restart() ||
+		if ((event_is_scheduled(bgp->t_startup) || bgp_in_graceful_restart() ||
 		     BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)) &&
 		    bgp_gr_supported_for_afi_safi(afi, safi)) {
 			struct graceful_restart_info *gr_info;
@@ -3055,7 +3056,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			return BGP_PACKET_NOOP;
 		}
 
-		if (peer->t_refresh_stalepath) {
+		if (event_is_scheduled(peer->t_refresh_stalepath)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%pBP rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
@@ -3088,7 +3089,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				peer, afi2str(afi), safi2str(safi),
 				peer->bgp->stalepath_time);
 	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
-		if (!peer->t_refresh_stalepath) {
+		if (!event_is_scheduled(peer->t_refresh_stalepath)) {
 			flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
 				 "%pBP rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
 				 peer, afi2str(afi), safi2str(safi));

@@ -3850,7 +3850,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 * Make sure that the MaxAge LSA remover is executed immediately,
 	 * without conflicting to other threads.
 	 */
-	if (ospf->t_maxage != NULL) {
+	if (event_is_scheduled(ospf->t_maxage)) {
 		event_cancel(&ospf->t_maxage);
 		event_execute(master, ospf_maxage_lsa_remover, ospf, 0, NULL);
 	}

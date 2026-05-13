@@ -526,7 +526,7 @@ static void on_assert_timer(struct event *t)
 static void assert_timer_off(struct pim_ifchannel *ch)
 {
 	if (PIM_DEBUG_PIM_TRACE) {
-		if (ch->t_ifassert_timer) {
+		if (event_is_scheduled(ch->t_ifassert_timer)) {
 			zlog_debug(
 				"%s: (S,G)=%s cancelling timer on interface %s",
 				__func__, ch->sg_str, ch->interface->name);

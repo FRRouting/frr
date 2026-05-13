@@ -78,7 +78,7 @@ void pullwr_cfg(struct pullwr *pullwr, int64_t max_spin_usec,
 
 void pullwr_bump(struct pullwr *pullwr)
 {
-	if (pullwr->writer)
+	if (event_is_scheduled(pullwr->writer))
 		return;
 
 	event_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);

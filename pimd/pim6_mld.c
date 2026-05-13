@@ -691,7 +691,7 @@ static void gm_packet_sg_remove_sources(struct gm_if *gm_ifp,
 
 static void gm_sg_expiry_cancel(struct gm_sg *sg)
 {
-	if (sg->t_sg_expire && PIM_DEBUG_GM_TRACE)
+	if (event_is_scheduled(sg->t_sg_expire) && PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "alive, cancelling expiry timer"));
 	event_cancel(&sg->t_sg_expire);
 	sg->query_sbit = true;
@@ -1371,7 +1371,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "expiring in %pTVI"), &expire_wait);
 
-	if (sg->t_sg_expire) {
+	if (event_is_scheduled(sg->t_sg_expire)) {
 		struct timeval remain;
 
 		remain = event_timer_remain(sg->t_sg_expire);
@@ -2486,7 +2486,7 @@ void gm_ifp_update(struct interface *ifp)
 		gm_ifp->cur_max_resp = cfg_max_response;
 
 	/* Only adjust the QRV if no other querier is available */
-	if (gm_ifp->t_other_querier == NULL)
+	if (!event_is_scheduled(gm_ifp->t_other_querier))
 		gm_ifp->cur_qrv = pim_ifp->gm_default_robustness_variable;
 
 	gm_ifp->cur_lmqc = if_gm_last_member_query_count(pim_ifp);

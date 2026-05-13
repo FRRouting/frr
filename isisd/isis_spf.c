@@ -2005,7 +2005,7 @@ int _isis_spf_schedule(struct isis_area *area, int level, const char *func, cons
 		 * restart holdoff timer - compare
 		 * draft-ietf-rtgwg-backoff-algo-04 */
 		long delay = spf_backoff_schedule(area->spf_delay_ietf[level - 1]);
-		if (area->spf_timer[level - 1])
+		if (event_is_scheduled(area->spf_timer[level - 1]))
 			return ISIS_OK;
 
 		event_add_timer_msec(master, isis_run_spf_cb, isis_run_spf_arg(area, level), delay,
@@ -2013,7 +2013,7 @@ int _isis_spf_schedule(struct isis_area *area, int level, const char *func, cons
 		return ISIS_OK;
 	}
 
-	if (area->spf_timer[level - 1])
+	if (event_is_scheduled(area->spf_timer[level - 1]))
 		return ISIS_OK;
 
 	/* wait configured min_spf_interval before doing the SPF */

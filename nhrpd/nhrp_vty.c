@@ -813,12 +813,12 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		else
 			json_object_boolean_false_add(json, "used");
 
-		if (c->t_timeout)
+		if (event_is_scheduled(c->t_timeout))
 			json_object_boolean_true_add(json, "timeout");
 		else
 			json_object_boolean_false_add(json, "timeout");
 
-		if (c->t_auth)
+		if (event_is_scheduled(c->t_auth))
 			json_object_boolean_true_add(json, "auth");
 		else
 			json_object_boolean_false_add(json, "auth");

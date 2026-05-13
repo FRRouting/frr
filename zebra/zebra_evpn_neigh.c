@@ -389,7 +389,7 @@ static void zebra_evpn_neigh_hold_exp_cb(struct event *t)
 
 static inline void zebra_evpn_neigh_start_hold_timer(struct zebra_neigh *n)
 {
-	if (n->hold_timer)
+	if (event_is_scheduled(n->hold_timer))
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH && n->zevpn)
@@ -1759,7 +1759,7 @@ void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object
 			vty_out(vty, " peer-active");
 			sync_info = true;
 		}
-		if (n->hold_timer) {
+		if (event_is_scheduled(n->hold_timer)) {
 			vty_out(vty, " (ht: %s)",
 				event_timer_to_hhmmss(thread_buf,
 						      sizeof(thread_buf),
@@ -1782,7 +1782,7 @@ void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object
 			json_object_boolean_true_add(json, "peerProxy");
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE))
 			json_object_boolean_true_add(json, "peerActive");
-		if (n->hold_timer)
+		if (event_is_scheduled(n->hold_timer))
 			json_object_string_add(
 				json, "peerActiveHold",
 				event_timer_to_hhmmss(thread_buf,

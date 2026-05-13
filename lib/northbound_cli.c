@@ -405,7 +405,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */
-	if (vty->t_confirmed_commit_timeout) {
+	if (event_is_scheduled(vty->t_confirmed_commit_timeout)) {
 		if (confirmed_timeout) {
 			/* Reset timeout if "commit confirmed" is used again. */
 			vty_out(vty,

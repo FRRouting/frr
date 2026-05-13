@@ -1309,7 +1309,7 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 	pathd. In addition, a minimum amount of time need to pass before
 	the hook is called to prevent the hook to be called multiple times
 	from changing the candidate by hand with the console */
-	if (candidate->hook_timer != NULL)
+	if (event_is_scheduled(candidate->hook_timer))
 		return;
 	event_add_timer(master, trigger_pathd_candidate_created_timer,
 			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
@@ -1329,7 +1329,7 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 	pathd. In addition, a minimum amount of time need to pass before
 	the hook is called to prevent the hook to be called multiple times
 	from changing the candidate by hand with the console */
-	if (candidate->hook_timer != NULL)
+	if (event_is_scheduled(candidate->hook_timer))
 		return;
 	event_add_timer(master, trigger_pathd_candidate_updated_timer,
 			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);

@@ -579,10 +579,10 @@ void isis_area_destroy(struct isis_area *area)
 
 	spftree_area_del(area);
 
-	if (area->spf_timer[0])
+	if (event_is_scheduled(area->spf_timer[0]))
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));
 	event_cancel(&area->spf_timer[0]);
-	if (area->spf_timer[1])
+	if (event_is_scheduled(area->spf_timer[1]))
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[1]));
 	event_cancel(&area->spf_timer[1]);
 
@@ -2289,7 +2289,7 @@ static void isis_spf_ietf_common(struct vty *vty, struct isis *isis)
 
 			vty_out(vty, "  Level-%d:\n", level);
 			vty_out(vty, "    SPF delay status: ");
-			if (area->spf_timer[level - 1]) {
+			if (event_is_scheduled(area->spf_timer[level - 1])) {
 				struct timeval remain = event_timer_remain(
 					area->spf_timer[level - 1]);
 				vty_out(vty, "Pending, due in %lld msec\n",
@@ -2454,7 +2454,7 @@ static void common_isis_summary_json(struct json_object *json,
 					    area->lsp_gen_count[level - 1]);
 			json_object_int_add(level_json, "lsp-purged",
 					    area->lsp_purge_count[level - 1]);
-			if (area->spf_timer[level - 1])
+			if (event_is_scheduled(area->spf_timer[level - 1]))
 				json_object_string_add(level_json, "spf",
 						       "pending");
 			else
@@ -2542,7 +2542,7 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
 				area->lsp_purge_count[level - 1]);
 
-			if (area->spf_timer[level - 1])
+			if (event_is_scheduled(area->spf_timer[level - 1]))
 				vty_out(vty, "    SPF: (pending)\n");
 			else
 				vty_out(vty, "    SPF:\n");
@@ -3191,7 +3191,7 @@ static void area_resign_level(struct isis_area *area, int level)
 	}
 #endif /* ifndef FABRICD */
 
-	if (area->spf_timer[level - 1])
+	if (event_is_scheduled(area->spf_timer[level - 1]))
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));
 
 	event_cancel(&area->spf_timer[level - 1]);
