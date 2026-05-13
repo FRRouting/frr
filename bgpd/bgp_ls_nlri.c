@@ -4095,7 +4095,7 @@ static int parse_node_msd(struct stream *s, uint16_t length, struct bgp_ls_attr 
 {
 	uint8_t t;
 	uint8_t v;
-	uint8_t msd = 255;
+	uint8_t msd;
 	bool had_msd = false;
 
 	/*
@@ -4125,11 +4125,14 @@ static int parse_node_msd(struct stream *s, uint16_t length, struct bgp_ls_attr 
 		t = stream_getc(s);
 		v = stream_getc(s);
 		if (t == BGP_LS_IGP_MSD_TYPE_BASE_MPLS) {
-			if (had_msd) {
-				flog_warn(EC_BGP_UPDATE_RCV,
-					  "BGP-LS: Several MSD Values of Base MPLS Imposition MSD type, choosing minimum");
+			if (!had_msd) {
+				msd = v;
+				had_msd = true;
+				continue;
 			}
-			had_msd = true;
+
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: Several MSD Values of Base MPLS Imposition MSD type, choosing minimum");
 			msd = MIN(msd, v);
 		}
 	}
