@@ -394,6 +394,11 @@ static void bgp_peer_remove_bfd(struct peer *p)
 	/* Groups should not call this. */
 	assert(!CHECK_FLAG(p->sflags, PEER_STATUS_GROUP));
 
+	if (!p->bfd_config)
+		return;
+
+	event_cancel(&p->bfd_config->t_hold_timer);
+
 	/*
 	 * Peer configuration was removed, however we must check if there
 	 * is still a group configuration to keep this running.
