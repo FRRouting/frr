@@ -238,9 +238,9 @@ static struct ospf_apiserver *lookup_apiserver_by_lsa(struct ospf_lsa *lsa)
 struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 {
 	struct ospf_apiserver *new =
-		XMALLOC(MTYPE_APISERVER, sizeof(struct ospf_apiserver));
+		XCALLOC(MTYPE_APISERVER, sizeof(struct ospf_apiserver));
 
-	new->filter = XMALLOC(MTYPE_APISERVER_MSGFILTER,
+	new->filter = XCALLOC(MTYPE_APISERVER_MSGFILTER,
 			      sizeof(struct lsa_filter_type));
 
 	new->fd_sync = fd_sync;
@@ -252,21 +252,12 @@ struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 	/* Initialize temporary storage for LSA instances to be refreshed. */
 	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: Initiallize the reserve LSDB");
-	memset(&new->reserve, 0, sizeof(struct ospf_lsdb));
 	ospf_lsdb_init(&new->reserve);
 
 	new->out_sync_fifo = msg_fifo_new();
 	new->out_async_fifo = msg_fifo_new();
-	new->t_sync_read = NULL;
-#ifdef USE_ASYNC_READ
-	new->t_async_read = NULL;
-#endif /* USE_ASYNC_READ */
-	new->t_sync_write = NULL;
-	new->t_async_write = NULL;
 
-	new->filter->typemask = 0; /* filter all LSAs */
 	new->filter->origin = ANY_ORIGIN;
-	new->filter->num_areas = 0;
 
 	return new;
 }
