@@ -1435,6 +1435,9 @@ void mgmt_be_client_destroy(struct mgmt_be_client *client)
 
 	debug_be_client("Destroying MGMTD Backend Client '%s'", client->name);
 
+	hook_unregister_arg(nb_notification_tree_send,
+			    mgmt_be_send_notification, client);
+
 	nb_oper_cancel_all_walks();
 	msg_client_cleanup(&client->client);
 	mgmt_be_cleanup_all_txns(client);
