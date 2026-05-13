@@ -121,11 +121,9 @@ static void control_accept(struct event *event)
 
 	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler_read = control_dispatch_imsg;
-	c->iev.ev_read = NULL;
 	event_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
 		       &c->iev.ev_read);
 	c->iev.handler_write = ldp_write_handler;
-	c->iev.ev_write = NULL;
 
 	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
 }
@@ -189,8 +187,6 @@ static void control_dispatch_imsg(struct event *event)
 		log_warnx("%s: fd %d: not found", __func__, fd);
 		return;
 	}
-
-	c->iev.ev_read = NULL;
 
 	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) || n == 0) {
 		control_close(fd);

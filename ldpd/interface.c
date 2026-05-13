@@ -448,7 +448,6 @@ static void if_hello_timer(struct event *event)
 {
 	struct iface_af *ia = EVENT_ARG(event);
 
-	ia->hello_timer = NULL;
 	send_hello(HELLO_LINK, ia, NULL);
 	if_start_hello_timer(ia);
 }

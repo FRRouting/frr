@@ -112,8 +112,6 @@ static void accept_cb(struct event *event)
 
 static void accept_timeout(struct event *event)
 {
-	accept_queue.evt = NULL;
-
 	log_debug(__func__);
 	accept_arm();
 }

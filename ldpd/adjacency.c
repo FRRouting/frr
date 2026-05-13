@@ -165,8 +165,6 @@ static void adj_itimer(struct event *event)
 {
 	struct adj *adj = EVENT_ARG(event);
 
-	adj->inactivity_timer = NULL;
-
 	log_debug("%s: lsr-id %pI4", __func__, &adj->lsr_id);
 
 	if (adj->source.type == HELLO_TARGETED) {
@@ -186,7 +184,6 @@ void
 adj_start_itimer(struct adj *adj)
 {
 	event_cancel(&adj->inactivity_timer);
-	adj->inactivity_timer = NULL;
 	event_add_timer(master, adj_itimer, adj, adj->holdtime,
 			&adj->inactivity_timer);
 }
@@ -335,7 +332,6 @@ static void tnbr_hello_timer(struct event *event)
 {
 	struct tnbr *tnbr = EVENT_ARG(event);
 
-	tnbr->hello_timer = NULL;
 	send_hello(HELLO_TARGETED, NULL, tnbr);
 	tnbr_start_hello_timer(tnbr);
 }
@@ -344,7 +340,6 @@ static void
 tnbr_start_hello_timer(struct tnbr *tnbr)
 {
 	event_cancel(&tnbr->hello_timer);
-	tnbr->hello_timer = NULL;
 	event_add_timer(master, tnbr_hello_timer, tnbr,
 			tnbr_get_hello_interval(tnbr), &tnbr->hello_timer);
 }
