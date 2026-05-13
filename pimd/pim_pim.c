@@ -1081,7 +1081,7 @@ int pim_sock_add(struct interface *ifp)
 
 	pim_socket_ip_hdr(pim_ifp->pim_sock_fd);
 
-	pim_ifp->t_pim_sock_read = NULL;
+	event_cancel(&pim_ifp->t_pim_sock_read);
 	pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
 	/*
