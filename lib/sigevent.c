@@ -134,8 +134,7 @@ void frr_signal_timer(struct event *t)
 	struct frr_sigevent_master_t *sigm;
 
 	sigm = EVENT_ARG(t);
-	sigm->t = NULL;
-	event_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
+	event_add_timer(t->master, frr_signal_timer, &sigmaster,
 			FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
 	frr_sigevent_process();
 }
@@ -374,7 +373,6 @@ void signal_init(struct event_loop *m, int sigc, struct frr_signal_t signals[])
 	sigmaster.signals = signals;
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
-	sigmaster.t = NULL;
 	event_add_timer(m, frr_signal_timer, &sigmaster,
 			FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
