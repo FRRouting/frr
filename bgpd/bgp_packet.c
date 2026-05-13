@@ -2255,8 +2255,6 @@ static void bgp_refresh_stalepath_timer_expire(struct event *event)
 	safi_t safi = paf->safi;
 	struct peer *peer = paf->peer;
 
-	peer->t_refresh_stalepath = NULL;
-
 	if (peer->nsf[afi][safi])
 		bgp_clear_stale_route(peer, afi, safi);
 

@@ -162,7 +162,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
 static void nhrp_shortcut_do_purge(struct event *t)
 {
 	struct nhrp_shortcut *s = EVENT_ARG(t);
-	s->t_shortcut_purge = NULL;
+
 	event_cancel(&s->t_retry_resolution);
 	nhrp_shortcut_delete(s, NULL);
 }

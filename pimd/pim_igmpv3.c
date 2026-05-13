@@ -419,13 +419,9 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 	if (new)
 		*new = true;
 
-	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */
 	src->source_addr = src_addr;
 	src->source_creation = pim_time_monotonic_sec();
-	src->source_flags = 0;
-	src->source_query_retransmit_count = 0;
-	src->source_channel_oil = NULL;
 
 	listnode_add(group->group_source_list, src);
 

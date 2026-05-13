@@ -1202,9 +1202,6 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->interface = ifp;
 	igmp->ifaddr = ifaddr;
 	igmp->querier_addr = ifaddr;
-	igmp->t_igmp_read = NULL;
-	igmp->t_igmp_query_timer = NULL;
-	igmp->t_other_querier_timer = NULL; /* no other querier present */
 	igmp->querier_robustness_variable =
 		pim_ifp->gm_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
@@ -1469,8 +1466,6 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	group->group_source_list = list_new();
 	group->group_source_list->del = (void (*)(void *))igmp_source_free;
 
-	group->t_group_timer = NULL;
-	group->t_group_query_retransmit_timer = NULL;
 	group->group_specific_query_retransmit_count = 0;
 	group->group_addr = group_addr;
 	group->interface = igmp->interface;

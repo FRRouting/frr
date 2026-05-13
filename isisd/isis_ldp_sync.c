@@ -345,7 +345,6 @@ static void isis_ldp_sync_holddown_timer(struct event *event)
 	ldp_sync_info = circuit->ldp_sync_info;
 
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-	ldp_sync_info->t_holddown = NULL;
 
 	ils_debug("%s: holddown timer expired for %s state:sync achieved",
 		  __func__, circuit->interface->name);

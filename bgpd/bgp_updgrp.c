@@ -1523,8 +1523,6 @@ static void update_subgroup_merge_check_thread_cb(struct event *event)
 
 	subgrp = EVENT_ARG(event);
 
-	subgrp->t_merge_check = NULL;
-
 	update_subgroup_check_merge(subgrp, "triggered merge check");
 }
 
@@ -1547,7 +1545,6 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 	if (!force && !update_subgroup_ready_for_merge(subgrp))
 		return false;
 
-	subgrp->t_merge_check = NULL;
 	event_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
 			     subgrp, 0, &subgrp->t_merge_check);
 

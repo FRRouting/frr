@@ -1642,8 +1642,6 @@ static void ospf_distribute_list_update_timer(struct event *event)
 	if (ospf == NULL)
 		return;
 
-	ospf->t_distribute_update = NULL;
-
 	zlog_info("Zebra[Redistribute]: vrf: %s distribute-list update timer fired!",
 		  ospf_vrf_id_to_name(ospf->vrf_id));
 

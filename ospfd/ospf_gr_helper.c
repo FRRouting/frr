@@ -334,8 +334,6 @@ static void ospf_handle_grace_timer_expiry(struct event *event)
 {
 	struct ospf_neighbor *nbr = EVENT_ARG(event);
 
-	nbr->gr_helper_info.t_grace_timer = NULL;
-
 	ospf_gr_helper_exit(nbr, OSPF_GR_HELPER_GRACE_TIMEOUT);
 }
 

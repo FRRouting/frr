@@ -195,7 +195,6 @@ static void nhrp_cache_do_free(struct event *t)
 {
 	struct nhrp_cache *c = EVENT_ARG(t);
 
-	c->t_timeout = NULL;
 	nhrp_cache_free(c);
 }
 
@@ -203,7 +202,6 @@ static void nhrp_cache_do_timeout(struct event *t)
 {
 	struct nhrp_cache *c = EVENT_ARG(t);
 
-	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
 					  NULL);
@@ -394,7 +392,7 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 static void nhrp_cache_do_auth_timeout(struct event *t)
 {
 	struct nhrp_cache *c = EVENT_ARG(t);
-	c->t_auth = NULL;
+
 	nhrp_cache_authorize_binding(&c->eventid, (void *)"timeout");
 }
 

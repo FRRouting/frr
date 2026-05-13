@@ -585,8 +585,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->local_ifmembership = PIM_IFMEMBERSHIP_NOINFO;
 
 	ch->ifjoin_state = PIM_IFJOIN_NOINFO;
-	ch->t_ifjoin_expiry_timer = NULL;
-	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
 
 	ch->prune_holdtime = 0;
@@ -605,7 +603,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->ifassert_winner = PIMADDR_ANY;
 
 	/* Assert state */
-	ch->t_ifassert_timer = NULL;
 	ch->ifassert_state = PIM_IFASSERT_NOINFO;
 	reset_ifassert_state(ch);
 	if (pim_macro_ch_could_assert_eval(ch))

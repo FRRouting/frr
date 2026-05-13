@@ -3286,10 +3286,8 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 			area->overload_counter++;
 		} else {
 			/* Cancel overload on startup timer if it's running */
-			if (area->t_overload_on_startup_timer) {
+			if (area->t_overload_on_startup_timer)
 				event_cancel(&area->t_overload_on_startup_timer);
-				area->t_overload_on_startup_timer = NULL;
-			}
 		}
 
 #ifndef FABRICD

@@ -1674,8 +1674,6 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args)
  */
 static void zfpm_stats_timer_cb(struct event *t)
 {
-	zfpm_g->t_stats = NULL;
-
 	/*
 	 * Remember the stats collected in the last interval for display
 	 * purposes.

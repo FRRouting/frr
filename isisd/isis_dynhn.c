@@ -63,8 +63,6 @@ static void dyn_cache_cleanup(struct event *event)
 
 	isis = EVENT_ARG(event);
 
-	isis->t_dync_clean = NULL;
-
 	for (ALL_LIST_ELEMENTS(isis->dyn_cache, node, nnode, dyn)) {
 		if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
 			continue;

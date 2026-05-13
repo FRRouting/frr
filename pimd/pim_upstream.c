@@ -1215,12 +1215,6 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	pim_upstream_find_new_children(pim, up);
 	up->flags = flags;
 	up->ref_count = 1;
-	up->t_join_timer = NULL;
-	up->t_ka_timer = NULL;
-	up->t_rs_timer = NULL;
-	up->t_msdp_reg_timer = NULL;
-	up->t_graft_timer = NULL;
-	up->t_prune_timer = NULL;
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();

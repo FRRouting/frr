@@ -3725,8 +3725,6 @@ static void bgp_startup_timer_expire(struct event *event)
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Startup timer expired", bgp->name_pretty);
-
-	bgp->t_startup = NULL;
 }
 
 /*
@@ -4211,8 +4209,6 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp_tip_hash_init(bgp);
 	bgp_scan_init(bgp);
 	*bgp_val = bgp;
-
-	bgp->t_rmap_def_originate_eval = NULL;
 
 	/* If Default instance or VRF, link to the VRF structure, if present. */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
@@ -9213,7 +9209,6 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->addresses = addresses;
 	bm->master = master;
 	bm->start_time = monotime(NULL);
-	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
@@ -9224,14 +9219,10 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
-	bm->t_bgp_sync_label_manager = NULL;
-	bm->t_bgp_start_label_manager = NULL;
-	bm->t_bgp_zebra_route = NULL;
 	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
-	bm->t_bgp_zebra_l2_vni = NULL;
 
 	bm->peer_clearing_batch_id = 1;
 	/* TODO -- make these configurable */

@@ -779,8 +779,6 @@ static void ospf_stub_router_timer(struct event *t)
 {
 	struct ospf_area *area = EVENT_ARG(t);
 
-	area->t_stub_router = NULL;
-
 	SET_FLAG(area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED);
 
 	/* clear stub route state and generate router-lsa refresh, don't
@@ -3247,8 +3245,6 @@ void ospf_maxage_lsa_remover(struct event *event)
 	struct route_node *rn;
 	int reschedule = 0;
 
-	ospf->t_maxage = NULL;
-
 	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 		zlog_debug("LSA[MaxAge]: remover Start");
 
@@ -3500,8 +3496,6 @@ void ospf_lsa_maxage_walker(struct event *event)
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
 	struct listnode *node, *nnode;
-
-	ospf->t_maxage_walker = NULL;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
@@ -4302,7 +4296,6 @@ void ospf_lsa_refresh_walker(struct event *e)
 		}
 	}
 
-	ospf->t_lsa_refresher = NULL;
 	event_add_timer(master, ospf_lsa_refresh_walker, ospf,
 			ospf->lsa_refresh_interval, &ospf->t_lsa_refresher);
 	ospf->lsa_refresher_started = monotime(NULL);

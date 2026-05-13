@@ -59,7 +59,6 @@ static void nhrp_peer_notify_up(struct event *t)
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	p->t_fallback = NULL;
 	if (nifp->enabled && (!nifp->ipsec_profile || vc->ipsec)) {
 		p->online = 1;
 		nhrp_peer_ref(p);

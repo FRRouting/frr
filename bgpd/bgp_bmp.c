@@ -2026,8 +2026,6 @@ static void bmp_read(struct event *t)
 	char buf[1024];
 	ssize_t n;
 
-	bmp->t_read = NULL;
-
 	n = read(bmp->socket, buf, sizeof(buf));
 	if (n >= 1) {
 		zlog_info("bmp[%s]: unexpectedly received %zu bytes", bmp->remote, n);

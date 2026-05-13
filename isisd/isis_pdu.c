@@ -1855,8 +1855,6 @@ void isis_receive(struct event *event)
 	circuit = EVENT_ARG(event);
 	assert(circuit);
 
-	circuit->t_read = NULL;
-
 	isis_circuit_stream(circuit, &circuit->rcv_stream);
 
 #if ISIS_METHOD != ISIS_METHOD_BPF

@@ -552,7 +552,6 @@ static void ospf_gr_grace_period_expired(struct event *event)
 {
 	struct ospf *ospf = EVENT_ARG(event);
 
-	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
 }
 

@@ -568,7 +568,6 @@ static void ospf_ase_calculate_timer(struct event *t)
 	struct timeval start_time, stop_time;
 
 	ospf = EVENT_ARG(t);
-	ospf->t_ase_calc = NULL;
 
 	if (ospf->ase_calc) {
 		ospf->ase_calc = 0;

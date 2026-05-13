@@ -202,7 +202,6 @@ void pim_msdp_write(struct event *event)
 	int work_max_cnt = 100;
 
 	mp = EVENT_ARG(event);
-	mp->t_write = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP peer %s pim_msdp_write", mp->key_str);
@@ -780,7 +779,6 @@ void pim_msdp_read(struct event *event)
 	uint32_t len;
 
 	mp = EVENT_ARG(event);
-	mp->t_read = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP peer %s pim_msdp_read", mp->key_str);

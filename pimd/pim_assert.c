@@ -506,8 +506,6 @@ static void on_assert_timer(struct event *t)
 			   __func__, ch->sg_str, ifp->name);
 	}
 
-	ch->t_ifassert_timer = NULL;
-
 	switch (ch->ifassert_state) {
 	case PIM_IFASSERT_I_AM_WINNER:
 		assert_action_a3(ch);

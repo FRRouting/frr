@@ -276,7 +276,6 @@ void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 		break;
 #ifdef USE_ASYNC_READ
 	case OSPF_APISERVER_ASYNC_READ:
-		apiserv->t_async_read = NULL;
 		event_add_read(master, ospf_apiserver_read, apiserv, fd,
 			       &apiserv->t_async_read);
 		break;
@@ -363,7 +362,6 @@ void ospf_apiserver_read(struct event *e)
 
 	if (fd == apiserv->fd_sync) {
 		event = OSPF_APISERVER_SYNC_READ;
-		apiserv->t_sync_read = NULL;
 
 		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
@@ -373,7 +371,6 @@ void ospf_apiserver_read(struct event *e)
 #ifdef USE_ASYNC_READ
 	else if (fd == apiserv->fd_async) {
 		event = OSPF_APISERVER_ASYNC_READ;
-		apiserv->t_async_read = NULL;
 
 		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
@@ -420,8 +417,6 @@ void ospf_apiserver_sync_write(struct event *event)
 	apiserv = EVENT_ARG(event);
 	assert(apiserv);
 	fd = EVENT_FD(event);
-
-	apiserv->t_sync_write = NULL;
 
 	/* Sanity check */
 	if (fd != apiserv->fd_sync) {
@@ -480,8 +475,6 @@ void ospf_apiserver_async_write(struct event *event)
 	apiserv = EVENT_ARG(event);
 	assert(apiserv);
 	fd = EVENT_FD(event);
-
-	apiserv->t_async_write = NULL;
 
 	/* Sanity check */
 	if (fd != apiserv->fd_async) {

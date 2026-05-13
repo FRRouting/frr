@@ -617,9 +617,7 @@ void pim_sock_reset(struct interface *ifp)
 
 	pim_ifp->pim_sock_fd = -1;
 	pim_ifp->pim_sock_creation = 0;
-	pim_ifp->t_pim_sock_read = NULL;
 
-	pim_ifp->t_pim_hello_timer = NULL;
 	pim_ifp->pim_hello_period = PIM_DEFAULT_HELLO_PERIOD;
 	pim_ifp->pim_default_holdtime =
 		-1; /* unset: means 3.5 * pim_hello_period */

@@ -405,7 +405,6 @@ static void subgroup_coalesce_timer(struct event *event)
 	frrtrace(3, frr_bgp, upd_announce_route_on_coalesce_timer_expiry,
 		 (SUBGRP_UPDGRP(subgrp))->id, subgrp->id, subgrp->v_coalesce);
 
-	subgrp->t_coalesce = NULL;
 	subgrp->v_coalesce = 0;
 	bgp = SUBGRP_INST(subgrp);
 	subgroup_announce_route(subgrp);

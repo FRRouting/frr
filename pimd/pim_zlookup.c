@@ -130,7 +130,6 @@ void zclient_lookup_new(void)
 	}
 
 	pim_zlookup->sock = -1;
-	pim_zlookup->t_connect = NULL;
 	pim_zlookup->privs = &pimd_privs;
 
 	zclient_lookup_sched_now(pim_zlookup);

@@ -545,7 +545,6 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *event)
 	struct zserv *client;
 	struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
-	info->t_stale_removal = NULL;
 	if (zrouter.graceful_restart)
 		client = (struct zserv *)info->client_ptr;
 	else

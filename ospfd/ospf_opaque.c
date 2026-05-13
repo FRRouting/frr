@@ -136,7 +136,6 @@ int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 
 	oi->opaque_lsa_self = list_new();
 	oi->opaque_lsa_self->del = free_opaque_info_per_type_del;
-	oi->t_opaque_lsa_self = NULL;
 	return 0;
 }
 
@@ -156,7 +155,6 @@ int ospf_opaque_type10_lsa_init(struct ospf_area *area)
 
 	area->opaque_lsa_self = list_new();
 	area->opaque_lsa_self->del = free_opaque_info_per_type_del;
-	area->t_opaque_lsa_self = NULL;
 	if (!ospf_opaque_lsa_hooks_registered) {
 		hook_register(ospf_lsa_update, ospf_opaque_lsa_update_hook);
 		hook_register(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
@@ -184,7 +182,6 @@ int ospf_opaque_type11_lsa_init(struct ospf *top)
 
 	top->opaque_lsa_self = list_new();
 	top->opaque_lsa_self->del = free_opaque_info_per_type_del;
-	top->t_opaque_lsa_self = NULL;
 
 	return 0;
 }
@@ -1438,7 +1435,6 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			zlog_debug(
 				"Schedule Type-9 Opaque-LSA origination in %d ms later.",
 				delay);
-		oi->t_opaque_lsa_self = NULL;
 		event_add_timer_msec(master, ospf_opaque_type9_lsa_originate,
 				     oi, delay, &oi->t_opaque_lsa_self);
 		delay += top->min_ls_interval;
@@ -1456,7 +1452,6 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			zlog_debug(
 				"Schedule Type-10 Opaque-LSA origination in %d ms later.",
 				delay);
-		area->t_opaque_lsa_self = NULL;
 		event_add_timer_msec(master, ospf_opaque_type10_lsa_originate,
 				     area, delay, &area->t_opaque_lsa_self);
 		delay += top->min_ls_interval;
@@ -1474,7 +1469,6 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			zlog_debug(
 				"Schedule Type-11 Opaque-LSA origination in %d ms later.",
 				delay);
-		top->t_opaque_lsa_self = NULL;
 		event_add_timer_msec(master, ospf_opaque_type11_lsa_originate,
 				     top, delay, &top->t_opaque_lsa_self);
 		delay += top->min_ls_interval;
@@ -1568,7 +1562,6 @@ static void ospf_opaque_type9_lsa_originate(struct event *t)
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(t);
-	oi->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("Timer[Type9-LSA]: Originate Opaque-LSAs for OI %s",
@@ -1582,7 +1575,6 @@ static void ospf_opaque_type10_lsa_originate(struct event *t)
 	struct ospf_area *area;
 
 	area = EVENT_ARG(t);
-	area->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
@@ -1597,7 +1589,6 @@ static void ospf_opaque_type11_lsa_originate(struct event *t)
 	struct ospf *top;
 
 	top = EVENT_ARG(t);
-	top->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
