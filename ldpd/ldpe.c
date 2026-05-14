@@ -358,14 +358,13 @@ static void ldpe_dispatch_main(struct event *thread)
 				break;
 			}
 
-			if ((iev_lde = malloc(sizeof(struct imsgev))) == NULL)
+			if ((iev_lde = calloc(1, sizeof(struct imsgev))) == NULL)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
 			event_add_read(master, iev_lde->handler_read, iev_lde,
 				       iev_lde->ibuf.fd, &iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
-			iev_lde->ev_write = NULL;
 			break;
 		case IMSG_INIT:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))
