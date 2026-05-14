@@ -182,6 +182,9 @@ extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp, const struct in6_addr *addr);
 extern int stream_put_prefix(struct stream *s, const struct prefix *p);
+/* Encode a length-counted c-string, including a terminating NULL */
+extern int stream_put_str(struct stream *s, const char *str);
+
 extern void stream_get(void *dst, struct stream *s, size_t size);
 extern bool stream_get2(void *data, struct stream *s, size_t size);
 extern void stream_get_from(void *dst, struct stream *s, size_t from, size_t size);
@@ -201,6 +204,7 @@ extern uint64_t stream_getq_from(struct stream *s, size_t from);
 bool stream_getq2(struct stream *s, uint64_t *q);
 extern uint32_t stream_get_ipv4(struct stream *s);
 extern bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip);
+bool stream_get_str(struct stream *s, char *buf, size_t buflen);
 
 /* IEEE-754 floats */
 extern float stream_getf(struct stream *s);
@@ -480,6 +484,13 @@ static inline uint8_t *ptr_get_be16(uint8_t *ptr, uint16_t *out)
 #define STREAM_FORWARD_ENDP(STR, SIZE)                                         \
 	do {                                                                   \
 		if (!stream_forward_endp2((STR), (SIZE)))                      \
+			goto stream_failure;                                   \
+	} while (0)
+
+
+#define STREAM_GET_STR(S, BUF, SIZE)                                           \
+	do {                                                                   \
+		if (!stream_get_str((S), (BUF), (SIZE)))                       \
 			goto stream_failure;                                   \
 	} while (0)
 
