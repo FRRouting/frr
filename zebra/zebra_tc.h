@@ -17,6 +17,14 @@
 extern "C" {
 #endif
 
+/*
+ * Major handle value zebra uses for TC qdiscs that it owns. Used both
+ * when programming new qdiscs and when deciding whether a qdisc seen
+ * via the kernel notification path was previously installed by zebra
+ * (so that it can be cleaned up at startup).
+ */
+#define TC_QDISC_MAJOR_ZEBRA (0xbeef0000u)
+
 struct zebra_tc_qdisc {
 	int sock;
 
@@ -60,7 +68,12 @@ void zebra_tc_filters_free(void *arg);
 uint32_t zebra_tc_filter_hash_key(const void *arg);
 bool zebra_tc_filter_hash_equal(const void *arg1, const void *arg2);
 
-void kernel_read_tc_qdisc(struct zebra_ns *zns);
+/*
+ * Master-pthread handler for kernel-originated TC qdisc notifications
+ * (DPLANE_OP_TC_QDISC_NOTIFY ctx).
+ */
+struct zebra_dplane_ctx;
+void zebra_tc_qdisc_handle_notify(struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

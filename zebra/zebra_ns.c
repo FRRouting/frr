@@ -317,7 +317,7 @@ void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
 
 		vlan_read(zns);
 		kernel_read_pbr_rules(zns);
-		kernel_read_tc_qdisc(zns);
+		dplane_tc_qdisc_read(zns);
 		break;
 		/*
 		 * IF we add additional dplane reads here make sure

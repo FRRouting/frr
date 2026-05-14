@@ -52,6 +52,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
+#include "zebra/zebra_tc.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -5291,6 +5292,10 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_TC_FILTER_UPDATE:
 				break;
 
+			case DPLANE_OP_TC_QDISC_NOTIFY:
+				zebra_tc_qdisc_handle_notify(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
@@ -5321,6 +5326,7 @@ static void rib_process_dplane_results(struct event *event)
 
 			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
+			case DPLANE_OP_TC_QDISC_READ:
 				break;
 			} /* Dispatch by op code */
 

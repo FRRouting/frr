@@ -79,9 +79,17 @@ void kernel_read_pbr_rules(struct zebra_ns *zns)
 {
 }
 
-void kernel_read_tc_qdisc(struct zebra_ns *zns)
+void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 {
-	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_FINISHED_READING);
+	/*
+	 * Non-Linux platforms do not currently read any TC state, but they
+	 * must still signal that all startup reads are finished so zebra
+	 * can advance to ZEBRA_DPLANE_FINISHED_READING. Any new
+	 * implementation must keep this final signal at the end after all
+	 * TC data has been read.
+	 */
+	zebra_dplane_startup_stage(dplane_ctx_get_ns_id(ctx),
+				   ZEBRA_DPLANE_FINISHED_READING);
 }
 
 void vlan_read(struct zebra_ns *zns)

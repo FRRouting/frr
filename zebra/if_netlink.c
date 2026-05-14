@@ -943,7 +943,7 @@ void interface_list_tunneldump(struct zebra_ns *zns)
 	if (ret < 0)
 		return;
 
-	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_TUNNELS_READ);
+	zebra_dplane_startup_stage(zns->ns_id, ZEBRA_DPLANE_TUNNELS_READ);
 }
 
 
@@ -1664,7 +1664,7 @@ void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
 
-	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+	zebra_dplane_startup_stage(zns->ns_id, ZEBRA_DPLANE_INTERFACES_READ);
 }
 
 void interface_list_second(struct zebra_ns *zns)
@@ -1678,7 +1678,7 @@ void interface_list_second(struct zebra_ns *zns)
 
 	interface_addr_lookup_netlink(zns);
 
-	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_ADDRESSES_READ);
+	zebra_dplane_startup_stage(zns->ns_id, ZEBRA_DPLANE_ADDRESSES_READ);
 }
 
 /**

@@ -91,6 +91,7 @@ extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void kernel_read_macfdb(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_neigh(struct zebra_dplane_ctx *ctx);
+extern void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx);
 extern void route_read(struct zebra_ns *zns);
 extern int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip);
 extern int kernel_del_mac_nh(uint32_t nh_id);
