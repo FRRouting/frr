@@ -1715,7 +1715,6 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
  * Handle NBC API changes between versions of Libyang
  */
 
-#undef lyd_new_term_bin
 #undef lyd_new_path2
 
 #if (LY_VERSION_MAJOR >= 4)
@@ -1723,13 +1722,6 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
 #else
 #define LY_SZ(x) (x)
 #endif
-
-LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *module,
-			 const char *name, const void *value, uint32_t size, uint32_t options,
-			 struct lyd_node **node)
-{
-	return lyd_new_term_bin(parent, module, name, value, LY_SZ(size), options, node);
-}
 
 LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
 		      const void *value, uint32_t value_size_bytes, uint32_t options,
