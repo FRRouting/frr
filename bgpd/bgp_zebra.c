@@ -1718,12 +1718,13 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		}
 
 		if (!is_evpn) {
+			char buf[1024];
 			struct bgp_nh_dedup_entry lookup = { .nh = api_nh };
 
 			if (bgp_nh_dedup_find(&nh_hash, &lookup)) {
 				if (bgp_debug_zebra(&api->prefix))
-					zlog_debug("%s: p=%pFX, skipping duplicate nexthop",
-						   __func__, p);
+					zlog_debug("%s: p=%pFX, skipping duplicate nexthop: %s",
+						   __func__, p, bgp_debug_zebra_nh_individual(api_nh, buf, sizeof(buf), *valid_nh_count));
 				continue;
 			}
 
