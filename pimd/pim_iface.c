@@ -2000,6 +2000,11 @@ static int pim_ifp_up(struct interface *ifp)
 		return 0;
 
 	pim_ifp = ifp->info;
+
+	/* Avoid enabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index != -1)
+		return 0;
+
 	/*
 	 * If we have a pim_ifp already and this is an if_add
 	 * that means that we probably have a vrf move event
@@ -2056,6 +2061,7 @@ static int pim_ifp_up(struct interface *ifp)
 
 static int pim_ifp_down(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim;
 
 	if (PIM_DEBUG_ZEBRA) {
@@ -2065,6 +2071,10 @@ static int pim_ifp_down(struct interface *ifp)
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}
+
+	/* Avoid disabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index == -1)
+		return 0;
 
 	pim = ifp->vrf->info;
 	if (!if_is_operative(ifp) || (pim && pim->shutdown)) {
