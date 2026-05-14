@@ -3836,7 +3836,14 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
+<<<<<<< HEAD
 	struct prefix_ipv6 tmp_prefi;
+=======
+	struct in6_addr *unicast_sid;
+	struct prefix_ipv6 tmp_prefix;
+	struct srv6_locator *sid_locator;
+	afi_t afi;
+>>>>>>> 1d1f691e7 (bgpd: Clear SRv6 unicast SIDs on locator delete)
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
@@ -3949,6 +3956,27 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 				bgp_vrf->tovpn_sid_locator = NULL;
 			}
 		}
+	}
+
+	/* Clear SRv6 unicast SIDs */
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		unicast_sid = bgp->srv6_unicast[afi].sid;
+		sid_locator = bgp->srv6_unicast[afi].sid_locator;
+		if (!unicast_sid || !sid_locator)
+			continue;
+		if (!strmatch(sid_locator->name, loc->name))
+			continue;
+		tmp_prefix.family = AF_INET6;
+		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+		tmp_prefix.prefix = *unicast_sid;
+		if (!prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix))
+			continue;
+		bgp_srv6_unicast_withdraw(bgp, afi);
+		bgp_srv6_unicast_sid_withdraw(bgp, afi);
+		srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+		bgp->srv6_unicast[afi].sid_locator = NULL;
+		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
 	}
 
 	// clear SRv6 locator
