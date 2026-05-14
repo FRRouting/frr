@@ -792,7 +792,6 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 {
 	struct bmp_bgp *bmpbgp;
 	struct timeval tv;
-	struct bmp_mirrorq *qitem = NULL;
 	struct bmp_targets *bt;
 	struct bmp *bmp;
 	struct bgp *bgp_vrf;
@@ -812,17 +811,19 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 		memcpy(bbpeer->open_rx, packet->data, size);
 	}
 
-
-	qitem = XCALLOC(MTYPE_BMP_MIRRORQ, sizeof(*qitem) + size);
-	qitem->peerid = peer->qobj_node.nid;
-	qitem->tv = tv;
-	qitem->len = size;
-	memcpy(qitem->data, packet->data, size);
-
+	/*
+	 * mirrorq is per-VRF (per bmp_bgp) and is shared by all targets
+	 * inside that VRF.  qitem->refcount tracks the number of sessions,
+	 * across all mirror-enabled matching targets in that VRF, that still
+	 * need to consume this packet.
+	 */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		struct bmp_mirrorq *qitem = NULL;
+
 		bmpbgp = bmp_bgp_find(bgp_vrf);
 		if (!bmpbgp)
 			continue;
+
 		frr_each (bmp_targets, &bmpbgp->targets, bt) {
 			if (!bt->mirror)
 				continue;
@@ -838,24 +839,23 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 					qitem->len = size;
 					memcpy(qitem->data, packet->data, size);
 				}
-
 				qitem->refcount++;
 				if (!bmp->mirrorpos)
 					bmp->mirrorpos = qitem;
 				pullwr_bump(bmp->pullwr);
 			}
-			if (qitem->refcount == 0)
-				continue;
-			bmpbgp->mirror_qsize += sizeof(*qitem) + size;
-			bmp_mirrorq_add_tail(&bmpbgp->mirrorq, qitem);
-
-			bmp_mirror_cull(bmpbgp);
-
-			bmpbgp->mirror_qsizemax = MAX(bmpbgp->mirror_qsizemax, bmpbgp->mirror_qsize);
 		}
+
+		if (!qitem)
+			continue;
+
+		bmpbgp->mirror_qsize += sizeof(*qitem) + size;
+		bmp_mirrorq_add_tail(&bmpbgp->mirrorq, qitem);
+
+		bmp_mirror_cull(bmpbgp);
+
+		bmpbgp->mirror_qsizemax = MAX(bmpbgp->mirror_qsizemax, bmpbgp->mirror_qsize);
 	}
-	if (qitem && qitem->refcount == 0)
-		XFREE(MTYPE_BMP_MIRRORQ, qitem);
 	return 0;
 }
 
