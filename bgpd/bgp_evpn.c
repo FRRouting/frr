@@ -3219,11 +3219,11 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	} else
 		return 0;
 
-	/* EVPN routes currently only support a IPv4 next hop which corresponds
-	 * to the remote VTEP. When importing into a VRF, if it is IPv6 host
-	 * or prefix route, we have to convert the next hop to an IPv4-mapped
-	 * address for the rest of the code to flow through. In the case of IPv4,
-	 * make sure to set the flag for next hop attribute.
+	/* EVPN routes may carry either an IPv4 or IPv6 next hop corresponding
+	 * to the remote VTEP. When importing into a VRF, IPv6 host/prefix routes
+	 * use an IPv6 MP nexthop. For IPv4 routes, set the legacy NEXT_HOP
+	 * attribute only when the imported nexthop is IPv4; IPv6 nexthops are
+	 * preserved as MP nexthops.
 	 */
 	attr = *parent_pi->attr;
 	bre = bgp_attr_get_evpn_overlay(&attr);
@@ -3249,11 +3249,13 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 		}
 	} else {
-		if (afi == AFI_IP6)
+		if (afi == AFI_IP) {
+			if (!BGP_ATTR_MP_NEXTHOP_LEN_IP6(&attr)) {
+				attr.nexthop = attr.mp_nexthop_global_in;
+				bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
+			}
+		} else if (afi == AFI_IP6) {
 			evpn_convert_nexthop_to_ipv6(&attr);
-		else {
-			attr.nexthop = attr.mp_nexthop_global_in;
-			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 		}
 	}
 
@@ -3291,11 +3293,17 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			bgp_path_info_restore(dest, pi);
 
 		/* Mark if nexthop has changed. */
-		if ((afi == AFI_IP
-		     && !IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop))
-		    || (afi == AFI_IP6
-			&& !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
-					   &attr_new->mp_nexthop_global)))
+		if (afi == AFI_IP) {
+			bool old_v6nh = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr);
+			bool new_v6nh = BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr_new);
+
+			if (old_v6nh != new_v6nh ||
+			    (old_v6nh && !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
+							 &attr_new->mp_nexthop_global)) ||
+			    (!old_v6nh && !IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop)))
+				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+		} else if (afi == AFI_IP6 && !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
+							     &attr_new->mp_nexthop_global))
 			SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
 
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
