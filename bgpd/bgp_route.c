@@ -5845,6 +5845,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 * we never carry forward any of its `set` modifications.
 			 */
 			bgp_attr_flush(&local_attr);
+			bgp_attr_extra_discard(&local_attr);
 
 			if (rmap_ret == RMAP_PERMITMATCH)
 				allowas_in_apply = true;
