@@ -464,7 +464,8 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 								    pim_ifp->pim->keep_alive_time);
 				pim_upstream_inherited_olist(pim_ifp->pim, up);
 				pim_upstream_update_join_desired(pim_ifp->pim, up);
-				if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+				if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src) &&
+				    pim_upstream_could_register(up))
 					pim_register_join(up);
 				if (PIM_DEBUG_MROUTE)
 					zlog_debug("%s: Treat WHOLEPKT on pimreg as FHR for %pSG",
@@ -815,7 +816,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
-		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src) &&
+		    pim_upstream_could_register(up))
 			pim_register_join(up);
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 		if (!up->channel_oil->installed)
