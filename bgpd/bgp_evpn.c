@@ -2323,12 +2323,15 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
+		struct in6_addr tunn_id = {};
+
 		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL));
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 		if (attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
-			ipv4_to_ipv4_mapped_ipv6(&attr.tunn_id, attr.mp_nexthop_global_in);
+			ipv4_to_ipv4_mapped_ipv6(&tunn_id, attr.mp_nexthop_global_in);
 		else
-			IPV6_ADDR_COPY(&attr.tunn_id, &attr.mp_nexthop_global);
+			IPV6_ADDR_COPY(&tunn_id, &attr.mp_nexthop_global);
+		bgp_attr_set_tunn_id(&attr, &tunn_id);
 	}
 
 	/* router mac is only needed for type-2 routes here. */

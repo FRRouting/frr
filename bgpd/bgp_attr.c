@@ -1113,7 +1113,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
 	if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL)
-		key = jhash(attr->tunn_id.s6_addr, IPV6_MAX_BYTELEN, key);
+		key = jhash(bgp_attr_get_tunn_id(attr)->s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
 	if (bgp_attr_get_nhc(attr))
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
@@ -1171,8 +1171,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
 		    bgp_ls_attr_same(bgp_attr_get_ls_attr(attr1), bgp_attr_get_ls_attr(attr2)) &&
-		    (attr1->pmsi_tnl_type == attr2->pmsi_tnl_type) &&
-		    IPV6_ADDR_SAME(&attr1->tunn_id, &attr2->tunn_id))
+		    (bgp_attr_get_pmsi_tnl_type(attr1) == bgp_attr_get_pmsi_tnl_type(attr2)) &&
+		    IPV6_ADDR_SAME(bgp_attr_get_tunn_id(attr1), bgp_attr_get_tunn_id(attr2)))
 			return true;
 	}
 
@@ -1707,6 +1707,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	bgp_attr_set_link_bw(attr, 0);
 
+	bgp_attr_unset_tunn_id(attr);
+
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 	attr->extra = NULL;
 }
@@ -1841,6 +1843,8 @@ void bgp_attr_flush(struct attr *attr)
 	bgp_attr_unset_aigp_metric(attr);
 
 	bgp_attr_set_link_bw(attr, 0);
+
+	bgp_attr_unset_tunn_id(attr);
 
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
@@ -3948,14 +3952,17 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 
 	/* Decode ingress-replication tunnel id */
 	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
+		struct in6_addr tnl_tunn_id = {};
+
 		if (length == BGP_ATTR_PMSI_TUNNEL_V4_LENGTH) {
 			tunn_id.s_addr = stream_get_ipv4(connection->curr);
-			ipv4_to_ipv4_mapped_ipv6(&attr->tunn_id, tunn_id);
+			ipv4_to_ipv4_mapped_ipv6(&tnl_tunn_id, tunn_id);
 			attr_parse_len += IPV4_MAX_BYTELEN;
 		} else {
-			stream_get(&attr->tunn_id, connection->curr, IPV6_MAX_BYTELEN);
+			stream_get(&tnl_tunn_id, connection->curr, IPV6_MAX_BYTELEN);
 			attr_parse_len += IPV6_MAX_BYTELEN;
 		}
+		bgp_attr_set_tunn_id(attr, &tnl_tunn_id);
 	}
 
 	/* Forward read pointer of input stream to skip anything we didn't parse */
@@ -5869,15 +5876,17 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 		/* Encode tunnel id for known tunnel type */
 		if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
-			if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+			const struct in6_addr *attr_tunn_id = bgp_attr_get_tunn_id(attr);
+
+			if (IS_MAPPED_IPV6(attr_tunn_id)) {
 				stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V4_LENGTH);
 				tunn_id_len = IPV4_MAX_BYTELEN;
-				ipv4_mapped_ipv6_to_ipv4(&attr->tunn_id, &tunn_id);
+				ipv4_mapped_ipv6_to_ipv4(attr_tunn_id, &tunn_id);
 				nh = (uint8_t *)&tunn_id;
 			} else {
 				stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V6_LENGTH);
 				tunn_id_len = IPV6_MAX_BYTELEN;
-				nh = (uint8_t *)&attr->tunn_id;
+				nh = (uint8_t *)attr_tunn_id;
 			}
 		} else {
 			/* Encode label part only */

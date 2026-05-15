@@ -156,6 +156,9 @@ struct attr_extra {
 
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
+
+	/* PMSI Tunnel Id */
+	struct in6_addr tunn_id;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -262,7 +265,6 @@ struct attr {
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
-	struct in6_addr tunn_id; /* PMSI Tunnel Id */
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
@@ -537,10 +539,35 @@ static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 	return attr->pmsi_tnl_type;
 }
 
+static inline void bgp_attr_unset_tunn_id(struct attr *attr)
+{
+	if (!attr->extra || bgp_attr_get_pmsi_tnl_type(attr) != PMSI_TNLTYPE_INGR_REPL)
+		return;
+
+	attr->extra->tunn_id = in6addr_any;
+	bgp_attr_extra_put(attr);
+}
+
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
 	attr->pmsi_tnl_type = pmsi_tnl_type;
+}
+
+static inline const struct in6_addr *bgp_attr_get_tunn_id(const struct attr *attr)
+{
+	return attr->extra ? &attr->extra->tunn_id : &in6addr_any;
+}
+
+static inline void bgp_attr_set_tunn_id(struct attr *attr, const struct in6_addr *tunn_id)
+{
+	/* Caller must set pmsi_tnl_type to PMSI_TNLTYPE_INGR_REPL first;
+	 * that transition is what claims the tunn_id slot.
+	 */
+	if (!attr->extra || bgp_attr_get_pmsi_tnl_type(attr) != PMSI_TNLTYPE_INGR_REPL)
+		return;
+
+	attr->extra->tunn_id = tunn_id ? *tunn_id : in6addr_any;
 }
 
 static inline struct ecommunity *

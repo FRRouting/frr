@@ -13513,25 +13513,27 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					    label2vni(&attr->label));
 
 			if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
-				if (IS_MAPPED_IPV6(&attr->tunn_id)) {
-					json_object_string_addf(
-						json_pmsi, "id", "%pI4",
-						(in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+				const struct in6_addr *tunn_id = bgp_attr_get_tunn_id(attr);
+
+				if (IS_MAPPED_IPV6(tunn_id)) {
+					json_object_string_addf(json_pmsi, "id", "%pI4",
+								(in_addr_t *)&tunn_id->s6_addr32[3]);
 				} else {
-					json_object_string_addf(json_pmsi, "id", "%pI6",
-								&attr->tunn_id);
+					json_object_string_addf(json_pmsi, "id", "%pI6", tunn_id);
 				}
 			}
 			json_object_object_add(json_path, "pmsi", json_pmsi);
 		} else if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
 			/* Include tunnel ID for known types */
-			if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+			const struct in6_addr *tunn_id = bgp_attr_get_tunn_id(attr);
+
+			if (IS_MAPPED_IPV6(tunn_id)) {
 				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI4\n",
 					msgstr, label2vni(&attr->label),
-					(in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+					(in_addr_t *)&tunn_id->s6_addr32[3]);
 			} else {
 				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI6\n",
-					msgstr, label2vni(&attr->label), &attr->tunn_id);
+					msgstr, label2vni(&attr->label), tunn_id);
 			}
 		} else {
 			/* Label only */
