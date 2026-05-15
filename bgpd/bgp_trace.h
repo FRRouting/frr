@@ -1497,6 +1497,96 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, upd_send_withdraw_default_originate, TRACE_INFO)
 
+/* BFD session state enum for CTF decoding - matches BFD_STATUS_* in lib/bfd.h */
+TRACEPOINT_ENUM(
+	frr_bgp,
+	bfd_state,
+	TP_ENUM_VALUES(
+		ctf_enum_value("NONE", 0)
+		ctf_enum_value("UNKNOWN", 1)
+		ctf_enum_value("DOWN", 2)
+		ctf_enum_value("UP", 4)
+		ctf_enum_value("ADMIN_DOWN", 8)
+	)
+)
+
+/*
+ * BFD session registration tracepoint
+ * Traced when BGP registers/installs BFD session with BFDd via Zebra
+ * loc: 1=config_apply, 2=config_apply_group, 3=update_source
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_session_register,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_register, TRACE_INFO)
+
+/*
+ * BFD session deregistration tracepoint
+ * Traced when BGP deregisters BFD session (e.g., during fast shutdown/warmboot)
+ * loc: 1=fast_shutdown, 2=update_source_change, 3=multihop_change,
+ *      4=peer_config_removal, 5=peer_group_config_removal
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_session_deregister,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_deregister, TRACE_INFO)
+
+/*
+ * BFD session status update received from BFDd via Zebra
+ * state is decoded via bfd_state enum: 0=NONE, 1=UNKNOWN, 2=DOWN, 4=UP, 8=ADMIN_DOWN
+ * (matches BFD_STATUS_* bitmask values in lib/bfd.h)
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_session_status_update,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id, uint8_t, old_state,
+		uint8_t, new_state, bool, cbit, bool, remote_cbit),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_enum(frr_bgp, bfd_state, uint8_t, old_state, old_state)
+		ctf_enum(frr_bgp, bfd_state, uint8_t, new_state, new_state)
+		ctf_integer(bool, cbit, cbit)
+		ctf_integer(bool, remote_cbit, remote_cbit)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_status_update, TRACE_INFO)
+
+/*
+ * BFD fast shutdown processing tracepoint
+ * Traced when BGP enables BFD integration shutdown (suppresses per-session
+ * zebra BFD reg/dereg during teardown), e.g. SIGINT in bgp_main.c.
+ *
+ * vrf_name: VRF identifier for the BGP scope being torn down; empty string
+ * denotes daemon-wide shutdown affecting all instances.
+ * upgrade: true if warm-upgrade / ISSU-style teardown (reserved; false for
+ * normal signal shutdown).
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_fast_shutdown,
+	TP_ARGS(const char *, vrf_name, bool, upgrade),
+	TP_FIELDS(
+		ctf_string(vrf_name, vrf_name)
+		ctf_integer(bool, upgrade, upgrade)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_fast_shutdown, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

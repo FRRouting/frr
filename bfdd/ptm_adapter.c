@@ -132,8 +132,13 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 	if (bglobal.debug_peer_event)
 		zlog_debug("session-delete: %s", bs_to_string(bs));
 
-	frrtrace(7, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, diag, bs->key.family,
-		 (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer, bs->refcount);
+	frrtrace(10, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, diag,
+		 bs->key.family, (uint8_t *)&bs->key.local,
+		 (uint8_t *)&bs->key.peer,
+		 bs->vrf ? bs->vrf->vrf_id : VRF_UNKNOWN,
+		 bs->ifp ? bs->ifp->ifindex : 0,
+		 bs->key.ifname[0] ? bs->key.ifname : "",
+		 bs->refcount);
 
 	/* Change state and notify peer. */
 	bs->ses_state = PTM_BFD_DOWN;
@@ -188,8 +193,35 @@ static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 {
 	struct stream *msg;
+	const char *state_str;
 
 	bs->stats.znotification++;
+
+	switch (notify_state) {
+	case PTM_BFD_ADM_DOWN:
+		state_str = "ADM_DOWN";
+		break;
+	case PTM_BFD_DOWN:
+		state_str = "DOWN";
+		break;
+	case PTM_BFD_INIT:
+		state_str = "INIT";
+		break;
+	case PTM_BFD_UP:
+		state_str = "UP";
+		break;
+	default:
+		state_str = "UNKNOWN";
+		break;
+	}
+
+	if (bglobal.debug_peer_event)
+		zlog_debug("control_notify: session [%s] state %s vrf_id %u ifindex %u",
+			   bs_to_string(bs), state_str,
+			   bs->vrf ? bs->vrf->vrf_id : VRF_UNKNOWN,
+			   bs->ifp ? bs->ifp->ifindex : 0);
+
+	frrtrace(2, frr_bfd, control_notify, bs, notify_state);
 
 	/*
 	 * Message format:
@@ -498,6 +530,14 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 			frrtrace(2, frr_bfd, ptm_error, 6, 0);
 			return;
 		}
+		/* Trace successful session creation */
+		frrtrace(10, frr_bfd, ptm_session_event, 1, bs->discrs.my_discr, 0,
+			 bs->key.family, (uint8_t *)&bs->key.local,
+			 (uint8_t *)&bs->key.peer,
+			 bs->vrf ? bs->vrf->vrf_id : VRF_UNKNOWN,
+			 bs->ifp ? bs->ifp->ifindex : 0,
+			 bs->key.ifname[0] ? bs->key.ifname : "",
+			 bs->refcount);
 	} else {
 		/*
 		 * BFD session was already created, we are just updating the
@@ -1013,8 +1053,13 @@ static void pcn_free(struct ptm_client_notification *pcn)
 		zlog_debug("ptm-del-session: [%s] refcount=%" PRIu64,
 			   bs_to_string(bs), bs->refcount);
 
-	frrtrace(7, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, BD_NEIGHBOR_DOWN,
-		 bs->key.family, (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer, bs->refcount);
+	frrtrace(10, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, BD_NEIGHBOR_DOWN,
+		 bs->key.family, (uint8_t *)&bs->key.local,
+		 (uint8_t *)&bs->key.peer,
+		 bs->vrf ? bs->vrf->vrf_id : VRF_UNKNOWN,
+		 bs->ifp ? bs->ifp->ifindex : 0,
+		 bs->key.ifname[0] ? bs->key.ifname : "",
+		 bs->refcount);
 
 	/* Set session down. */
 	_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);
