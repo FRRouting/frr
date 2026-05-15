@@ -2610,20 +2610,21 @@ sub exclude_global_initialisers {
 }
 
 sub remove_defuns {
-    my @breakfast = ();
-    my $milktoast;
-    my $zap = 0;
+	my $zap_it = 0;
 
-    for my $tasty (@rawlines) {
-        $milktoast = $tasty;
-        $zap = 1 if ($tasty =~ /^\+DEFPY/ ||
-                     $tasty =~ /^\+DEFUN/ ||
-                     $tasty =~ /^\+ALIAS/);
-        $zap = 0 if ($tasty =~ /^\+\{/);
-        $milktoast = "\n" if ($zap);
-        push(@breakfast, $milktoast);
-    }
-    @rawlines = @breakfast;
+	for (my $i = 0; $i < scalar @rawlines; $i++) {
+		my $rawline = $rawlines[$i];
+
+		$zap_it = 1 if ($rawline =~ /^\+DEFPY/ ||
+				$rawline =~ /^\+DEFUN/ ||
+				$rawline =~ /^\+ALIAS/);
+		$zap_it = 0 if ($rawline =~ /^\+\{/ ||
+				$rawline =~ /^\+\+\+/ ||
+				$rawline =~ /^\+\s*$/);
+		if ($zap_it) {
+			$rawlines[$i] = "\n";
+		}
+	}
 }
 
 sub process {
