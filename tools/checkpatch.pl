@@ -2612,13 +2612,15 @@ sub exclude_global_initialisers {
 sub remove_defuns {
     my @breakfast = ();
     my $milktoast;
+    my $zap = 0;
+
     for my $tasty (@rawlines) {
         $milktoast = $tasty;
-        if (($tasty =~ /^\+DEFPY/ ||
-             $tasty =~ /^\+DEFUN/ ||
-             $tasty =~ /^\+ALIAS/) .. ($tasty =~ /^\+\{/)) {
-            $milktoast = "\n";
-        }
+        $zap = 1 if ($tasty =~ /^\+DEFPY/ ||
+                     $tasty =~ /^\+DEFUN/ ||
+                     $tasty =~ /^\+ALIAS/);
+        $zap = 0 if ($tasty =~ /^\+\{/);
+        $milktoast = "\n" if ($zap);
         push(@breakfast, $milktoast);
     }
     @rawlines = @breakfast;
