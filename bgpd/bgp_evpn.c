@@ -2468,6 +2468,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Unintern temporary. */
 	aspath_unintern(&attr.aspath);
+	bgp_attr_extra_discard(&attr);
 
 	return 0;
 }

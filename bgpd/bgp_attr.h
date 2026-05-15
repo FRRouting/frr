@@ -157,6 +157,9 @@ struct attr_extra {
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
 
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
+
 	/* PMSI Tunnel Id */
 	struct in6_addr tunn_id;
 };
@@ -262,9 +265,6 @@ struct attr {
 	uint8_t mp_nexthop_len;
 
 	uint16_t encap_tunneltype;
-
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
@@ -536,7 +536,7 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 
 static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 {
-	return attr->pmsi_tnl_type;
+	return attr->extra ? attr->extra->pmsi_tnl_type : PMSI_TNLTYPE_NO_INFO;
 }
 
 static inline void bgp_attr_unset_tunn_id(struct attr *attr)
@@ -545,13 +545,29 @@ static inline void bgp_attr_unset_tunn_id(struct attr *attr)
 		return;
 
 	attr->extra->tunn_id = in6addr_any;
-	bgp_attr_extra_put(attr);
 }
 
+/* One attr_extra slot covers both pmsi_tnl_type and (for INGR_REPL) tunn_id. */
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
-	attr->pmsi_tnl_type = pmsi_tnl_type;
+	enum pta_type old = bgp_attr_get_pmsi_tnl_type(attr);
+
+	if (old == pmsi_tnl_type)
+		return;
+
+	/* Zero tunn_id when leaving INGR_REPL (no refcnt change). */
+	if (old == PMSI_TNLTYPE_INGR_REPL && pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL)
+		bgp_attr_unset_tunn_id(attr);
+
+	if (pmsi_tnl_type == PMSI_TNLTYPE_NO_INFO) {
+		/* Release slot (old was non-NO_INFO). */
+		attr->extra->pmsi_tnl_type = PMSI_TNLTYPE_NO_INFO;
+		bgp_attr_extra_put(attr);
+	} else if (old == PMSI_TNLTYPE_NO_INFO)
+		bgp_attr_extra_get(attr)->pmsi_tnl_type = pmsi_tnl_type;
+	else
+		attr->extra->pmsi_tnl_type = pmsi_tnl_type;
 }
 
 static inline const struct in6_addr *bgp_attr_get_tunn_id(const struct attr *attr)
