@@ -2080,6 +2080,50 @@ Configuring Peers
 
    This command is only allowed for eBGP peers.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in route-map WORD [<(1-10)|origin>]
+
+   Accept incoming routes with AS path containing the system AS number, but only
+   for routes that match the specified route-map. This provides maximum flexibility
+   for selective AS-path loop prevention based on any BGP attributes.
+
+   Route-maps can match on prefixes, AS-path patterns, communities, extended communities, and
+   any other BGP attributes, allowing complex filtering logic.
+
+   The parameter ``WORD`` specifies the name of the route-map to use for matching.
+   Only routes that result in a ``permit`` action from the route-map will have
+   allowas-in applied. The route-map performs matching only; it does not modify
+   route attributes.
+
+   The parameter ``(1-10)`` configures the amount of accepted occurrences of the
+   system AS number in AS path for matching routes (default: 3).
+
+   The parameter ``origin`` configures BGP to only accept routes originated with
+   the same AS number as the system, for matching routes.
+
+   Example configuration to allow AS-path loops for routes with a specific SoO community:
+
+   .. code-block:: frr
+
+      ip extcommunity-list standard MGMT_SOO permit soo 1.1.1.1:0
+      !
+      route-map RM_ALLOW_AS permit 10
+       match extcommunity MGMT_SOO
+      !
+      router bgp 65201
+       neighbor 10.0.0.1 remote-as external
+       !
+       address-family ipv4 unicast
+        neighbor 10.0.0.1 allowas-in route-map RM_ALLOW_AS 1
+       exit-address-family
+
+   Behavior:
+
+   - Routes matching the route-map (permit): allowas-in is applied
+   - Routes NOT matching the route-map (deny): strict AS-path loop detection
+   - If route-map is not found: strict AS-path loop detection
+
+   This command is only allowed for eBGP peers.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths
 
    Configure BGP to send all known paths to neighbor in order to preserve multi

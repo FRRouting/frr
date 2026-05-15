@@ -48,6 +48,7 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     create_route_maps,
+    create_prefix_lists,
     check_address_types,
     step,
     required_linux_kernel_version,
@@ -948,6 +949,1076 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
+    write_test_footer(tc_name)
+
+
+def test_bgp_allowas_in_route_map_p0(request):
+    """
+    Verify that allowas-in route-map permits only matching routes.
+
+    Topology: R1 (AS 200) -> R2 (AS 100) -> R3 (AS 200)
+
+    Routes advertised from R1 (all have AS-path "100 200" at R3):
+    - 192.0.2.0/24      (will NOT match - length /24 < ge 31)
+    - 192.0.2.128/31    (will match - within subnet, length /31 matches)
+    - 192.0.2.1/32      (will match - within subnet, length /32 matches)
+    - 198.51.100.1/32   (will NOT match - different subnet)
+
+    Configuration on R3:
+      ip prefix-list PL_ALLOWAS_V4 permit 192.0.2.0/24 ge 31 le 32
+      ipv6 prefix-list PL_ALLOWAS_V6 permit 2001:db8::/48 ge 127 le 128
+      !
+      route-map RM_ALLOWAS_V4 permit 10
+       match ip address prefix-list PL_ALLOWAS_V4
+      route-map RM_ALLOWAS_V4 deny 20
+      !
+      route-map RM_ALLOWAS_V6 permit 10
+       match ipv6 address prefix-list PL_ALLOWAS_V6
+      route-map RM_ALLOWAS_V6 deny 20
+      !
+      address-family ipv4 unicast
+       neighbor R2 allowas-in route-map RM_ALLOWAS_V4 1
+      address-family ipv6 unicast
+       neighbor R2 allowas-in route-map RM_ALLOWAS_V6 1
+
+    Expected Results (IPv4):
+      ACCEPTED: 192.0.2.128/31, 192.0.2.1/32 (match subnet AND length)
+      REJECTED: 192.0.2.0/24 (wrong length /24 < ge 31)
+      REJECTED: 198.51.100.1/32 (wrong subnet)
+
+    Expected Results (IPv6):
+      ACCEPTED: 2001:db8::1/127, 2001:db8::1/128 (match subnet AND length)
+      REJECTED: 2001:db8::/48 (wrong length /48 < ge 127)
+      REJECTED: 2001:db9::1/128 (wrong subnet)
+
+    Comparison with standard allowas-in (neighbor R2 allowas-in 1):
+      Without route-map: ALL routes would be accepted
+      With route-map: Only routes matching BOTH subnet AND length accepted
+
+    Removal test:
+      Remove allowas-in route-map (removes entire allowas-in config)
+      Result: ALL routes rejected (no allowas-in)
+
+    This demonstrates allowas-in can use ANY route-map match criteria
+    (specific prefixes, prefix-lengths, communities, AS-path, etc.)
+    for flexible, selective AS-loop prevention.
+    """
+
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    reset_config_on_routers(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Advertise multiple routes with different prefix lengths from R1(AS-200).")
+    dut = "r3"
+    protocol = "bgp"
+
+    # Test routes with different prefix lengths (RFC documentation addresses):
+    # Routes that WILL match (within 192.0.2.0/24 or 2001:db8::/48):
+    network_match1 = {"ipv4": "192.0.2.0/24", "ipv6": "2001:db8::/48"}  # /24, /48
+    network_match2 = {"ipv4": "192.0.2.128/31", "ipv6": "2001:db8::1/127"}  # /31, /127
+    network_match3 = {"ipv4": "192.0.2.1/32", "ipv6": "2001:db8::1/128"}  # /32, /128
+    # Route that will NOT match (different subnet - outside our prefix-list):
+    network_nomatch = {"ipv4": "198.51.100.1/32", "ipv6": "2001:db9::1/128"}
+    next_hop = {"ipv4": "Null0", "ipv6": "Null0"}
+
+    # Use separate route-map names for IPv4 and IPv6 to avoid overwriting
+    plist_names = {"ipv4": "PL_ALLOWAS_V4", "ipv6": "PL_ALLOWAS_V6"}
+    rmap_names = {"ipv4": "RM_ALLOWAS_V4", "ipv6": "RM_ALLOWAS_V6"}
+
+    for addr_type in ADDR_TYPES:
+        # Configure static routes with various prefix lengths
+        input_dict_all = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match1[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_match2[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_match3[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                ]
+            }
+        }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_dict_all)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("configure redistribute static in Router BGP in R1")
+
+        input_dict_redist = {
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_redist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify routes are NOT in R3's RIB (own AS in path)")
+        logger.info(
+            "Verifying %s routes on r3, routes should not be present", addr_type
+        )
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_all,
+            next_hop=next_hop[addr_type],
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: routes should not be present in rib \n"
+            + "Error: {}".format(result)
+        )
+
+        step("Configure route-map with prefix-list to match subnet AND length")
+        # Match 192.0.2.0/24 ge 31 le 32 (or 2001:db8::/48 ge 127 le 128 for v6)
+        # Accepts /31 and /32 within subnet, rejects /24
+        # Demonstrates filtering on BOTH prefix AND length
+        plist_name = plist_names[addr_type]
+        rmap_name = rmap_names[addr_type]
+
+        # Match specific subnet with specific prefix length range
+        if addr_type == "ipv4":
+            match_subnet = "192.0.2.0/24"
+            min_len = "31"
+            max_len = "32"
+        else:
+            match_subnet = "2001:db8::/48"
+            min_len = "127"
+            max_len = "128"
+
+        input_dict_plist = {
+            "r3": {
+                "prefix_lists": {
+                    addr_type: {
+                        plist_name: [
+                            {
+                                "seqid": 5,
+                                "network": match_subnet,
+                                "ge": min_len,
+                                "le": max_len,
+                                "action": "permit",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        result = create_prefix_lists(tgen, input_dict_plist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        # Create route-map that matches prefix-list
+        input_dict_rmap = {
+            "r3": {
+                "route_maps": {
+                    rmap_name: [
+                        {
+                            "action": "permit",
+                            "seq_id": 10,
+                            "match": {addr_type: {"prefix_lists": plist_name}},
+                        },
+                        {
+                            "action": "deny",
+                            "seq_id": 20,
+                        },
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_rmap)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Configure allowas-in route-map on R3 for R2.")
+        step("Only routes matching prefix-list should be accepted.")
+        # Api call to enable allowas-in with route-map in bgp process.
+        input_dict_allowas = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "number_occurences": 1,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_allowas)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify routes matching prefix AND length are accepted")
+        # Only /31 and /32 should be accepted (ge 31 le 32)
+        input_dict_matching = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match2[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_match3[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                ]
+            }
+        }
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict_matching, protocol=protocol
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify /24 route is rejected (wrong length, even though right subnet)")
+        input_dict_wrong_len = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match1[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                ]
+            }
+        }
+        logger.info(
+            "Verifying /24 route is not present on r3 (length doesn't match ge 31)"
+        )
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_wrong_len,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: /24 route should be rejected (length < ge 31) \n"
+            + "Error: {}".format(result)
+        )
+
+        step("Verify non-matching route is rejected")
+        input_dict_nomatch = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    }
+                ]
+            }
+        }
+        logger.info("Verifying non-matching route is not present on r3")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_nomatch,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: non-matching route should not be present \n"
+            + "Error: {}".format(result)
+        )
+
+        step("Remove allowas-in, verify routes rejected")
+        rmap_name = rmap_names[addr_type]
+        input_dict_remove = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "delete": True,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_remove)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify all routes rejected after removal")
+        logger.info("Verifying routes rejected after removing allowas-in")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_matching,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_allowas_in_route_map_count_p0(request):
+    """
+    Verify that allowas-in route-map with AS occurrence count works correctly.
+
+    Test that when AS appears multiple times in path, route-map filtering
+    combined with occurrence count limit works as expected.
+
+    Example AS-path evolution:
+      At R1 (AS 200): "200 200 200 200 200" (prepended 4 times)
+      At R2 (AS 100): prepends 100 → "100 200 200 200 200 200"
+      At R3 (AS 200): sees own AS 200 appear 5 times in path
+
+    Configuration on R3:
+      ip prefix-list PL_COUNT_V4 permit 192.0.2.0/24 le 32
+      route-map RM_COUNT_V4 permit 10
+       match ip address prefix-list PL_COUNT_V4
+      route-map RM_COUNT_V4 deny 20
+      !
+      neighbor R2 allowas-in route-map RM_COUNT_V4 5
+
+    Routes advertised from R1:
+      IPv4: 192.0.2.1/32 (matches), 198.51.100.1/32 (no match)
+      IPv6: 2001:db8::1/128 (matches), 2001:db9::1/128 (no match)
+
+    Expected behavior with count=5:
+      ACCEPTED: 192.0.2.1/32, 2001:db8::1/128 (match route-map + count 5 <= 5)
+      REJECTED: 198.51.100.1/32, 2001:db9::1/128 (no match route-map)
+
+    Expected behavior after changing to count=4:
+      REJECTED: 192.0.2.1/32, 2001:db8::1/128 (match route-map but 5 > 4)
+      REJECTED: 198.51.100.1/32, 2001:db9::1/128 (no match route-map)
+
+    Removal test:
+      Remove allowas-in route-map (removes entire allowas-in config)
+      Result: ALL routes rejected (no allowas-in)
+
+    Demonstrates: Route-map filtering combined with occurrence count limit.
+    """
+
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    reset_config_on_routers(tgen)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = "r3"
+    protocol = "bgp"
+    network_match = {"ipv4": "192.0.2.1/32", "ipv6": "2001:db8::1/128"}
+    network_nomatch = {"ipv4": "198.51.100.1/32", "ipv6": "2001:db9::1/128"}
+    next_hop = {"ipv4": "Null0", "ipv6": "Null0"}
+
+    plist_names = {"ipv4": "PL_COUNT_V4", "ipv6": "PL_COUNT_V6"}
+    rmap_names = {"ipv4": "RM_COUNT_V4", "ipv6": "RM_COUNT_V6"}
+
+    for addr_type in ADDR_TYPES:
+        # Configure static routes
+        static_routes = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                ]
+            }
+        }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, static_routes)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("configure redistribute static in Router BGP in R1")
+
+        input_dict_redist = {
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_redist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    step("Configure a route-map on R1 to prepend AS 4 times.")
+    for addr_type in ADDR_TYPES:
+        input_dict_prepend = {
+            "r1": {
+                "route_maps": {
+                    "ASP_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "path": {
+                                    "as_num": "200 200 200 200",
+                                    "as_action": "prepend",
+                                }
+                            },
+                        }
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_prepend)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("configure route map in out direction on R1")
+        input_dict_rmap_out = {
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "ASP_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_rmap_out)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        step("Configure prefix-list and route-map on R3")
+        plist_name = plist_names[addr_type]
+        rmap_name = rmap_names[addr_type]
+
+        if addr_type == "ipv4":
+            match_network = "192.0.2.0/24"
+        else:
+            match_network = "2001:db8::/48"
+
+        input_dict_plist = {
+            "r3": {
+                "prefix_lists": {
+                    addr_type: {
+                        plist_name: [
+                            {
+                                "seqid": 5,
+                                "network": match_network,
+                                "le": "32" if addr_type == "ipv4" else "128",
+                                "action": "permit",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        result = create_prefix_lists(tgen, input_dict_plist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        input_dict_rmap = {
+            "r3": {
+                "route_maps": {
+                    rmap_name: [
+                        {
+                            "action": "permit",
+                            "seq_id": 10,
+                            "match": {addr_type: {"prefix_lists": plist_name}},
+                        },
+                        {
+                            "action": "deny",
+                            "seq_id": 20,
+                        },
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_rmap)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Configure allowas-in route-map with count=5 on R3")
+        input_dict_allowas = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "number_occurences": 5,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_allowas)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify matching route is accepted (AS occurs 5 times, count=5)")
+        input_dict_match = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    }
+                ]
+            }
+        }
+        result = verify_rib(tgen, addr_type, dut, input_dict_match, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify non-matching route is rejected (route-map denies)")
+        input_dict_nomatch = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    }
+                ]
+            }
+        }
+        logger.info("Verifying non-matching route is not present on r3")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_nomatch,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: non-matching route should not be present \n"
+            + "Error: {}".format(result)
+        )
+
+        step("Change to count=4, verify route is rejected (AS occurs 5 times > 4)")
+        input_dict_allowas_4 = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "number_occurences": 4,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_allowas_4)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        logger.info("Verifying route is rejected with count=4")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_match,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: route should be rejected (AS count 5 > 4) \n"
+            + "Error: {}".format(result)
+        )
+
+    # Test removal: show route-map is additional filter
+    for addr_type in ADDR_TYPES:
+        step("Remove allowas-in route-map config")
+        rmap_name = rmap_names[addr_type]
+        input_dict_no_rmap = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "delete": True,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_no_rmap)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify routes rejected after removal")
+        logger.info("Verifying routes rejected")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_match,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_allowas_in_route_map_origin_p0(request):
+    """
+    Verify that allowas-in route-map with origin flag works correctly.
+
+    The origin flag accepts routes ONLY if last AS (originator) == our AS.
+    Combined with route-map for selective filtering.
+
+    Example AS-path evolution:
+      At R1 (AS 200): "200 200 200" (prepended twice)
+      At R2 (AS 100): prepends 100 → "100 200 200 200"
+      At R3 (AS 200): last AS = 200 (matches our AS)
+
+    Configuration on R3:
+      ip prefix-list PL_ORIGIN_V4 permit 192.0.2.0/24 le 32
+      ipv6 prefix-list PL_ORIGIN_V6 permit 2001:db8::/48 le 128
+      !
+      route-map RM_ORIGIN_V4 permit 10
+       match ip address prefix-list PL_ORIGIN_V4
+      route-map RM_ORIGIN_V4 deny 20
+      !
+      neighbor R2 allowas-in route-map RM_ORIGIN_V4 origin
+
+    Routes advertised from R1:
+      IPv4: 192.0.2.1/32 (matches), 198.51.100.1/32 (no match)
+      IPv6: 2001:db8::1/128 (matches), 2001:db9::1/128 (no match)
+
+    Expected behavior:
+      ACCEPTED: 192.0.2.1/32, 2001:db8::1/128 (origin AS=200 + match route-map)
+      REJECTED: 198.51.100.1/32, 2001:db9::1/128 (origin AS=200 but no match)
+
+    Removal test:
+      After removing allowas-in route-map origin: ALL routes rejected
+
+    Comparison with standard allowas-in count:
+      Without origin: Would need count >= 3 to accept (AS appears 3 times)
+      With origin: Skips occurrence check, only verifies origin AS + route-map
+    """
+
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    reset_config_on_routers(tgen)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = "r3"
+    protocol = "bgp"
+    network_match = {"ipv4": "192.0.2.1/32", "ipv6": "2001:db8::1/128"}
+    network_nomatch = {"ipv4": "198.51.100.1/32", "ipv6": "2001:db9::1/128"}
+    next_hop = {"ipv4": "Null0", "ipv6": "Null0"}
+
+    plist_names = {"ipv4": "PL_ORIGIN_V4", "ipv6": "PL_ORIGIN_V6"}
+    rmap_names = {"ipv4": "RM_ORIGIN_V4", "ipv6": "RM_ORIGIN_V6"}
+
+    # Configure route-map and allowas-in FIRST, then advertise routes
+    for addr_type in ADDR_TYPES:
+        step("Configure prefix-list and route-map on R3")
+        plist_name = plist_names[addr_type]
+        rmap_name = rmap_names[addr_type]
+
+        if addr_type == "ipv4":
+            match_network = "192.0.2.0/24"
+        else:
+            match_network = "2001:db8::/48"
+
+        input_dict_plist = {
+            "r3": {
+                "prefix_lists": {
+                    addr_type: {
+                        plist_name: [
+                            {
+                                "seqid": 5,
+                                "network": match_network,
+                                "le": "32" if addr_type == "ipv4" else "128",
+                                "action": "permit",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        result = create_prefix_lists(tgen, input_dict_plist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        input_dict_rmap = {
+            "r3": {
+                "route_maps": {
+                    rmap_name: [
+                        {
+                            "action": "permit",
+                            "seq_id": 10,
+                            "match": {addr_type: {"prefix_lists": plist_name}},
+                        },
+                        {
+                            "action": "deny",
+                            "seq_id": 20,
+                        },
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_rmap)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Configure allowas-in route-map with origin flag on R3")
+        input_dict_allowas = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "origin": True,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_allowas)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Now advertise routes with origin AS 200
+    for addr_type in ADDR_TYPES:
+        static_routes = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    },
+                ]
+            }
+        }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, static_routes)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("configure redistribute static in Router BGP in R1")
+        input_dict_redist = {
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_redist)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    step("Configure route-map on R1 to prepend AS (last AS remains 200)")
+    for addr_type in ADDR_TYPES:
+        input_dict_prepend = {
+            "r1": {
+                "route_maps": {
+                    "ASP_ORIGIN_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "path": {
+                                    "as_num": "200 200",
+                                    "as_action": "prepend",
+                                }
+                            },
+                        }
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_prepend)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Apply prepend route-map on R1")
+        input_dict_rmap_out = {
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "ASP_ORIGIN_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_rmap_out)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        step("Verify matching route accepted (matches route-map + origin AS)")
+        input_dict_match = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_match[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    }
+                ]
+            }
+        }
+        result = verify_rib(tgen, addr_type, dut, input_dict_match, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify non-matching route rejected (route-map denies)")
+        input_dict_nomatch = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": network_nomatch[addr_type],
+                        "next_hop": next_hop[addr_type],
+                    }
+                ]
+            }
+        }
+        logger.info("Verifying non-matching route is not present on r3")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_nomatch,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: non-matching route should not be present \n"
+            + "Error: {}".format(result)
+        )
+
+    # Test configuration removal
+    for addr_type in ADDR_TYPES:
+        step("Remove allowas-in route-map origin, verify all routes rejected")
+        rmap_name = rmap_names[addr_type]
+        input_dict_no_allowas = {
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {
+                                                    "route_map": rmap_name,
+                                                    "delete": True,
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = create_router_bgp(tgen, topo, input_dict_no_allowas)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        step("Verify routes rejected after removal")
+        logger.info("Verifying routes rejected")
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_match,
+            protocol=protocol,
+            expected=False,
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
     write_test_footer(tc_name)
 
 

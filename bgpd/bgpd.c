@@ -3098,6 +3098,7 @@ int peer_delete(struct peer *peer)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
 		ecommunity_free(&peer->soo[afi][safi]);
+		XFREE(MTYPE_ROUTE_MAP_NAME, peer->allowas_in_rmap[afi][safi].name);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi)
@@ -7212,32 +7213,54 @@ void peer_interface_unset(struct peer *peer)
 }
 
 /* Allow-as in.  */
-int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num, bool origin)
+/*
+ * Set/update a peer's allowas-in route-map name and cached pointer.
+ * Pass NULL to clear an existing route-map.
+ */
+static void peer_allowas_in_rmap_update(struct peer *peer, afi_t afi, safi_t safi,
+					const char *rmap_name)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, peer->allowas_in_rmap[afi][safi].name);
+	if (rmap_name) {
+		peer->allowas_in_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+		peer->allowas_in_rmap[afi][safi].rmap = route_map_lookup_by_name(rmap_name);
+	} else {
+		peer->allowas_in_rmap[afi][safi].rmap = NULL;
+	}
+}
+
+int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num, bool origin,
+			const char *rmap_name)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
+	bool rmap_changed;
 
 	if (!origin && (allow_num < 1 || allow_num > 10))
 		return BGP_ERR_INVALID_VALUE;
 
+	rmap_changed = ((peer->allowas_in_rmap[afi][safi].name == NULL) != (rmap_name == NULL)) ||
+		       (rmap_name && peer->allowas_in_rmap[afi][safi].name &&
+			strcmp(peer->allowas_in_rmap[afi][safi].name, rmap_name) != 0);
+
+	if (rmap_changed)
+		peer_allowas_in_rmap_update(peer, afi, safi, rmap_name);
+
 	/* Set flag and configuration on peer. */
 	peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 	if (origin) {
-		if (peer->allowas_in[afi][safi] != 0
-		    || !CHECK_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			peer_af_flag_set(peer, afi, safi,
-					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		if (peer->allowas_in[afi][safi] != 0 ||
+		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+		    rmap_changed) {
+			peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 			peer->allowas_in[afi][safi] = 0;
 			peer_on_policy_change(peer, afi, safi, 0);
 		}
 	} else {
-		if (peer->allowas_in[afi][safi] != allow_num
-		    || CHECK_FLAG(peer->af_flags[afi][safi],
-				  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-
-			peer_af_flag_unset(peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		if (peer->allowas_in[afi][safi] != allow_num ||
+		    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+		    rmap_changed) {
+			peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 			peer->allowas_in[afi][safi] = allow_num;
 			peer_on_policy_change(peer, afi, safi, 0);
 		}
@@ -7253,25 +7276,26 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->af_flags_override[afi][safi],
-			       PEER_FLAG_ALLOWAS_IN))
+		if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_ALLOWAS_IN))
 			continue;
+
+		peer_allowas_in_rmap_update(member, afi, safi, rmap_name);
 
 		/* Set flag and configuration on peer-group member. */
 		SET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
 		if (origin) {
-			if (member->allowas_in[afi][safi] != 0
-			    || !CHECK_FLAG(member->af_flags[afi][safi],
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+			if (member->allowas_in[afi][safi] != 0 ||
+			    !CHECK_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+			    rmap_changed) {
 				SET_FLAG(member->af_flags[afi][safi],
 					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = 0;
 				peer_on_policy_change(member, afi, safi, 0);
 			}
 		} else {
-			if (member->allowas_in[afi][safi] != allow_num
-			    || CHECK_FLAG(member->af_flags[afi][safi],
-					  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+			if (member->allowas_in[afi][safi] != allow_num ||
+			    CHECK_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+			    rmap_changed) {
 				UNSET_FLAG(member->af_flags[afi][safi],
 					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = allow_num;
@@ -7298,6 +7322,9 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		PEER_ATTR_INHERIT(peer, peer->group, allowas_in[afi][safi]);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].name,
+				      MTYPE_ROUTE_MAP_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].rmap);
 		peer_on_policy_change(peer, afi, safi, 0);
 
 		return 0;
@@ -7307,6 +7334,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 	peer->allowas_in[afi][safi] = 0;
+	peer_allowas_in_rmap_update(peer, afi, safi, NULL);
 	peer_on_policy_change(peer, afi, safi, 0);
 
 	/* Skip peer-group mechanics if handling a regular peer. */
@@ -7328,6 +7356,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		member->allowas_in[afi][safi] = 0;
+		peer_allowas_in_rmap_update(member, afi, safi, NULL);
 		peer_on_policy_change(member, afi, safi, 0);
 	}
 
