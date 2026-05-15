@@ -28,6 +28,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_trace.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bfd_clippy.c"
 #endif
@@ -112,6 +113,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 				      void *arg)
 {
 	struct peer *peer = arg;
+	bool local_cbit = bfd_sess_cbit(bsp);
 
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		zlog_debug("%s: neighbor %s vrf %s(%u) bfd state %s -> %s",
@@ -119,6 +121,11 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 			   bfd_sess_vrf(bsp), bfd_sess_vrf_id(bsp),
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
+
+	frrtrace(6, frr_bgp, bfd_session_status_update,
+		 peer->conf_if ? peer->conf_if : peer->host,
+		 bfd_sess_vrf_id(bsp), bss->previous_state, bss->state,
+		 local_cbit, bss->remote_cbit);
 
 	/*
 	 * Handle Admin Down from peer separately.
@@ -136,7 +143,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 
 	if (bss->state == BSS_DOWN && bss->previous_state == BSS_UP) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
-		    && bfd_sess_cbit(bsp) && !bss->remote_cbit) {
+		    && local_cbit && !bss->remote_cbit) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_debug(
 					"%s BFD DOWN message ignored in the process of graceful restart when C bit is cleared",
@@ -241,7 +248,7 @@ static bool bgp_peer_bfd_keyed(struct bfd_session_params *session)
  * both are known, except when nothing better can be learnt any more
  * (connection already up) or BGP itself waits for BFD (strict mode).
  */
-static void bgp_peer_bfd_install(struct peer *p)
+static void bgp_peer_bfd_install(struct peer *p, uint8_t loc)
 {
 	struct bfd_session_params *session = p->bfd_config->session;
 
@@ -257,6 +264,7 @@ static void bgp_peer_bfd_install(struct peer *p)
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		zlog_debug("%s: registering BFD session for peer %pBP vrf %s(%u)", __func__, p,
 			   p->bgp->name_pretty, p->bgp->vrf_id);
+	frrtrace(3, frr_bgp, bfd_session_register, p->host, p->bgp->vrf_id, loc);
 	p->bfd_config->install_pending = false;
 	bfd_sess_install(session);
 }
@@ -292,7 +300,7 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 				     p->bfd_config->profile);
 		if (!PEER_IS_MULTIHOP(p))
 			bgp_peer_bfd_sync(p);
-		bgp_peer_bfd_install(p);
+		bgp_peer_bfd_install(p, 1);
 		return;
 	}
 
@@ -342,7 +350,7 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 				    p->bfd_config->min_rx,
 				    p->bfd_config->min_tx);
 
-	bgp_peer_bfd_install(p);
+	bgp_peer_bfd_install(p, 2);
 }
 
 /*
@@ -499,7 +507,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		return;
 
 	if (bgp_peer_bfd_sync(p) || p->bfd_config->install_pending)
-		bgp_peer_bfd_install(p);
+		bgp_peer_bfd_install(p, 3);
 }
 
 /**
@@ -582,8 +590,19 @@ static void bgp_peer_remove_bfd(struct peer *p)
 		return;
 	}
 
-	if (p->bfd_config)
+	if (p->bfd_config) {
+		if (BGP_DEBUG(bfd, BFD_LIB)) {
+			if (p->bgp)
+				zlog_debug("%s: deregistering BFD session for peer %pBP vrf %s(%u) (config removal)",
+					   __func__, p, p->bgp->name_pretty, p->bgp->vrf_id);
+			else
+				zlog_debug("%s: deregistering BFD session for peer %pBP (config removal)",
+					   __func__, p);
+		}
+		if (p->bgp)
+			frrtrace(3, frr_bgp, bfd_session_deregister, p->host, p->bgp->vrf_id, 4);
 		bfd_sess_free(&p->bfd_config->session);
+	}
 
 	XFREE(MTYPE_BFD_CONFIG, p->bfd_config);
 }
@@ -623,6 +642,17 @@ static void bgp_group_remove_bfd(struct peer *p)
 	/* Already freed: do nothing. */
 	if (p->bfd_config == NULL)
 		return;
+
+        if (p->bgp && p->group) {
+		if (BGP_DEBUG(bfd, BFD_LIB))
+			zlog_debug("%s: removing BFD config from peer-group %s vrf %s(%u), will deregister sessions for %d peers",
+				   __func__, p->group->name, p->bgp->name_pretty,
+				   p->bgp->vrf_id,
+				   p->group->peer ? (int)listcount(p->group->peer) : 0);
+
+		frrtrace(3, frr_bgp, bfd_session_deregister, p->group->name, p->bgp->vrf_id, 5);
+
+        }
 
 	/* Free configuration and point to `NULL`. */
 	XFREE(MTYPE_BFD_CONFIG, p->bfd_config);
