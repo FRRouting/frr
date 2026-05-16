@@ -329,7 +329,7 @@ static void on_graft_timer(struct event *t)
 		return;
 	}
 
-	if (!up->channel_oil->installed)
+	if (!up->channel_oil || !up->channel_oil->installed)
 		return;
 
 	pim_mroute_update_counters(up->channel_oil);
@@ -359,7 +359,7 @@ static void on_staterefresh_timer(struct event *t)
 		return;
 	}
 
-	if (!up->channel_oil->installed)
+	if (!up->channel_oil || !up->channel_oil->installed)
 		return;
 
 	pim_mroute_update_counters(up->channel_oil);
@@ -391,7 +391,7 @@ static void on_prune_timer(struct event *t)
 		return;
 	}
 
-	if (!up->channel_oil->installed)
+	if (!up->channel_oil || !up->channel_oil->installed)
 		return;
 
 	pim_mroute_update_counters(up->channel_oil);
@@ -2316,7 +2316,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	bool rv = false;
 	struct pim_instance *pim = up->pim;
 
-	if (!up->channel_oil->installed)
+	if (!up->channel_oil || !up->channel_oil->installed)
 		return rv;
 
 	pim_mroute_update_counters(up->channel_oil);
@@ -2392,7 +2392,7 @@ static void pim_upstream_sg_running(void *arg)
 	struct pim_instance *pim = up->pim;
 
 	// No packet can have arrived here if this is the case
-	if (!up->channel_oil->installed) {
+	if (!up->channel_oil || !up->channel_oil->installed) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: %s[%s] is not installed in mroute",
 				   __func__, up->sg_str, pim->vrf->name);
