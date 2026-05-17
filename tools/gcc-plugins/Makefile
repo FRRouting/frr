@@ -12,7 +12,7 @@ CPPFLAGS=-I$(PLUGBASE)/include -I$(PLUGBASE)/include/c-family
 frr-format.so: frr-format.o
 	$(CXX) -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb -shared -o $@ $^
 
-frr-format.o: frr-format.c gcc-common.h
+frr-format.o: frr-format.cc gcc-common.h
 	$(CXX) -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb $(CPPFLAGS) -fPIC -Wall -Wextra -Wno-unused-parameter -c -o $@ $<
 
 install:
