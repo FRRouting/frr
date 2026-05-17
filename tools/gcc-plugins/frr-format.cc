@@ -34,16 +34,16 @@
 #endif
 #include "builtins.h"
 #include "attribs.h"
-#if BUILDING_GCC_VERSION >= 16000
-#include "c-family/c-type-mismatch.h"
-#else
 #include "gcc-rich-location.h"
-#endif
 #if BUILDING_GCC_VERSION >= 15000
 #include "tree-pretty-print-markup.h"
 #endif
 #include "c-tree.h"
 #include "c-pragma.h"
+
+#if BUILDING_GCC_VERSION < 10000
+#define OPT_Wformat_diag OPT_Wformat_
+#endif
 
 #if BUILDING_GCC_VERSION < 12000
 #define check_function_arguments_recurse(arg, ctx, tree, num, opt)             \
@@ -3077,7 +3077,7 @@ check_argument_type (const format_char_info *fci,
 	    return true;
 	}
 
-      location_t param_loc;
+      location_t param_loc = UNKNOWN_LOCATION;
 
       if (EXPR_HAS_LOCATION (first_wanted_type->param))
 	param_loc = EXPR_LOCATION (first_wanted_type->param);
@@ -5843,7 +5843,8 @@ convert_format_name_to_system_name (const char *attr_name)
       if (cmp_attribs (gnu_target_overrides_format_attributes[i].named_attr_src,
 		       attr_name))
         return attr_name;
-      if (cmp_attribs (gnu_target_overrides_format_attributes[i].named_attr_dst,
+      if (gnu_target_overrides_format_attributes[i].named_attr_dst &&
+          cmp_attribs (gnu_target_overrides_format_attributes[i].named_attr_dst,
 		       attr_name))
         return gnu_target_overrides_format_attributes[i].named_attr_src;
     }
