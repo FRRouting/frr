@@ -5,6 +5,21 @@
    Extended for FRR's printfrr() with Linux kernel style extensions
    Copyright (C) 2019-2020  David Lamparter, for NetDEF, Inc.
  */
+/* tested versions:
+gcc version 9.3.0 (Gentoo Hardened 9.3.0-r2 p4)
+gcc version 10.5.0 (Gentoo Hardened 10.5.0 p7)
+gcc version 11.5.0 (Debian 11.5.0-11)
+gcc version 11.5.0 (Gentoo Hardened 11.5.0 p2)
+gcc version 12.5.0 (Debian 12.5.0-9)
+gcc version 12.5.0 (Gentoo Hardened 12.5.0 p4)
+gcc version 13.4.0 (Debian 13.4.0-10)
+gcc version 13.4.1 20260212 (Gentoo Hardened 13.4.1_p20260212 p9)
+gcc version 14.3.0 (Debian 14.3.0-14)
+gcc version 14.3.1 20260213 (Gentoo Hardened 14.3.1_p20260213 p5)
+gcc version 15.2.0 (Debian 15.2.0-17)
+gcc version 15.2.1 20260214 (Gentoo Hardened 15.2.1_p20260214 p5)
+gcc version 16.1.0 (Gentoo Hardened 16.1.0 p1)
+ */
 
 #include "gcc-plugin.h"
 #include "plugin-version.h"
