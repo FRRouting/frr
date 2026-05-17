@@ -4,6 +4,7 @@ import sys
 import shlex
 import os
 import re
+import hashlib
 
 os.environ["LC_ALL"] = "C"
 os.environ["LANG"] = "C"
@@ -15,9 +16,33 @@ if len(sys.argv) < 2:
     sys.stderr.write("start as format-test.py gcc-123.45 [-options ...]\n")
     sys.exit(1)
 
-c_re = re.compile(r"//\s+(NO)?WARN")
+c_re = re.compile(r"//\s+(?P<no>NO)?WARN(?:.*(?P<retain>retain-typeinfo))?")
 expect = {}
 lines = {}
+
+ver_p = subprocess.Popen(
+    sys.argv[1:] + ["-xc", "-P", "-E", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8"
+)
+ver = int(ver_p.communicate("__GNUC__\n")[0])
+
+fullver = subprocess.check_output(
+    sys.argv[1:] + ["-dumpfullversion"], encoding="UTF-8"
+).strip()
+
+confwith_p = subprocess.Popen(
+    sys.argv[1:] + ["-v"], stderr=subprocess.PIPE,
+)
+confwith_l = confwith_p.communicate(b"")[1].split(b"\n")
+confwith = b"".join(l + b"\n" for l in confwith_l if l.startswith(b"Configured with:") or l.startswith(b"gcc version"))
+confhash = hashlib.sha1(confwith).hexdigest()[:16]
+
+versioned_plugin = f"frr-format-{fullver}-{confhash}.so"
+if os.path.exists(versioned_plugin):
+    print(f"using versioned plugin for GCC version {ver} (full: {fullver}, hash: {confhash})")
+    plugin_arg = ["-fplugin=./" + versioned_plugin]
+else:
+    print(f"trying default plugin for GCC version {ver} (full: {fullver}, hash: {confhash}")
+    plugin_arg = ["-fplugin=./frr-format.so"]
 
 with open("format-test.c", "r") as fd:
     for lno, line in enumerate(fd.readlines(), 1):
@@ -25,14 +50,17 @@ with open("format-test.c", "r") as fd:
         m = c_re.search(line)
         if m is None:
             continue
-        if m.group(1) is None:
+        if m.group("no") is None:
             expect[lno] = "warn"
         else:
             expect[lno] = "nowarn"
+        if ver >= 11 and m.group("retain") is not None:
+            expect[lno] = { "warn": "nowarn", "nowarn": "warn" }[expect[lno]]
 
-cmd = shlex.split(
-    "-Wall -Wextra -Wno-unused -fplugin=./frr-format.so -fno-diagnostics-show-caret -c -o format-test.o format-test.c"
-)
+cmd = []
+cmd.extend(shlex.split("-Wall -Wextra -Wno-unused"))
+cmd.extend(plugin_arg)
+cmd.extend(shlex.split("-fno-diagnostics-show-caret -c -o format-test.o format-test.c"))
 
 gcc = subprocess.Popen(
     sys.argv[1:] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
