@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-objc.h"
 #include "intl.h"
 #include "langhooks.h"
-#include "c-format.h"
+#include "frr-format.h"
 #include "diagnostic.h"
 #include "substring-locations.h"
 #include "selftest.h"
