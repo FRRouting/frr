@@ -39,7 +39,9 @@
 #else
 #include "gcc-rich-location.h"
 #endif
+#if BUILDING_GCC_VERSION >= 15000
 #include "tree-pretty-print-markup.h"
+#endif
 #include "c-tree.h"
 #include "c-pragma.h"
 
@@ -5219,6 +5221,7 @@ class range_label_for_format_type_mismatch
   int m_pointer_count;
 };
 
+#if BUILDING_GCC_VERSION >= 15000
 /* Subclass of pp_element for text describing part of a format string.  */
 
 class element_format_substring : public pp_element
@@ -5297,6 +5300,7 @@ private:
   tree m_wanted_type;
   int m_pointer_count;
 };
+#endif
 
 /* Give a warning about a format argument of different type from that expected.
    The range of the diagnostic is taken from WHOLE_FMT_LOC; the caret location
@@ -5379,6 +5383,48 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 			       offset_to_type_start, conversion_char);
   format_string_diagnostic_t diag (fmt_loc, &fmt_label, param_loc, &param_label,
 				   corrected_substring);
+#if BUILDING_GCC_VERSION < 15000
+  indirection_suffix suffix (pointer_count);
+  char *p = (char *) alloca (suffix.get_buffer_size ());
+  suffix.fill_buffer (p);
+
+  if (wanted_type_name)
+    {
+      if (arg_type)
+	diag.emit_warning
+	  (OPT_Wformat_,
+	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, but argument %d has type %qT%s",
+	   gettext (kind_descriptions[kind]),
+	   (kind == CF_KIND_FORMAT ? "%" : ""),
+	   format_length, format_start,
+	   wanted_type_name, p, arg_num, arg_type, extra);
+      else
+	diag.emit_warning
+	  (OPT_Wformat_,
+	   "%s %<%s%.*s%> expects a matching %<%s%s%> argument%s",
+	   gettext (kind_descriptions[kind]),
+	   (kind == CF_KIND_FORMAT ? "%" : ""),
+	   format_length, format_start, wanted_type_name, p, extra);
+    }
+  else
+    {
+      if (arg_type)
+	diag.emit_warning
+	  (OPT_Wformat_,
+	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, but argument %d has type %qT%s",
+	   gettext (kind_descriptions[kind]),
+	   (kind == CF_KIND_FORMAT ? "%" : ""),
+	   format_length, format_start,
+	   wanted_type, p, arg_num, arg_type, extra);
+      else
+	diag.emit_warning
+	  (OPT_Wformat_,
+	   "%s %<%s%.*s%> expects a matching %<%T%s%> argument%s",
+	   gettext (kind_descriptions[kind]),
+	   (kind == CF_KIND_FORMAT ? "%" : ""),
+	   format_length, format_start, wanted_type, p, extra);
+    }
+#else
   element_format_substring elem_format_substring
     (format_string_diagnostic_t::highlight_color_format_string,
      (kind == CF_KIND_FORMAT ? "%" : ""),
@@ -5399,6 +5445,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 		       gettext (kind_descriptions[kind]),
 		       &elem_format_substring,
 		       &elem_expected_type, extra);
+#endif
   free (corrected_substring);
 }
 
