@@ -6236,7 +6236,16 @@ cb_walk_tree_fn (tree * tp, int * walk_subtrees, void * data ATTRIBUTE_UNUSED)
 	fargs[j] = arg;
     }
 
+  /* this code runs at FINISH_PARSE_FUNCTION, so input_location is the closing
+   * } of the function.  That's quite unhelpful, especially for pragma GCC
+   * diagnostic.  Just swap in (and back out) the location of the function call
+   */
+  location_t saved_input_loc = input_location;
+  input_location = EXPR_LOCATION(call_expr);
+
   check_function_frr_format (fn, TYPE_ATTRIBUTES (TREE_TYPE (fndecl)), nargs, fargs, NULL, comp_parm_types);
+
+  input_location = saved_input_loc;
   return NULL_TREE;
 }
 
