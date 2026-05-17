@@ -26,16 +26,21 @@
 #include "diagnostic.h"
 #include "substring-locations.h"
 #include "selftest.h"
+#if BUILDING_GCC_VERSION >= 16000
 #include "diagnostics/selftest-context.h"
 #include "diagnostics/file-cache.h"
+#else
+#include "selftest-diagnostic.h"
+#endif
 #include "builtins.h"
 #include "attribs.h"
-#if BUILDING_GCC_VERSION >= 15000
+#if BUILDING_GCC_VERSION >= 16000
 #include "c-family/c-type-mismatch.h"
-#include "tree-pretty-print-markup.h"
 #else
 #include "gcc-rich-location.h"
 #endif
+#include "tree-pretty-print-markup.h"
+#include "c-tree.h"
 #include "c-pragma.h"
 
 #if BUILDING_GCC_VERSION < 12000
@@ -4294,6 +4299,7 @@ static bool
 handle_subclass_of_pp_element_p (format_wanted_type *types,
 				 bool (*comp_types) (tree, tree))
 {
+#if 0
   if (types->wanted_type != local_pp_element_ptr_node)
     return false;
 
@@ -4303,7 +4309,7 @@ handle_subclass_of_pp_element_p (format_wanted_type *types,
 
   if (comp_types (types->wanted_type, param_type))
     return true;
-
+#endif
   return false;
 }
 
@@ -5061,8 +5067,9 @@ get_corrected_substring (const substring_loc &fmt_loc,
 
 #if BUILDING_GCC_VERSION < 14000
   char_span line = location_get_source_line (start.file, start.line);
-#elif BUILDING_GCC_VERSION < 15000
+#elif BUILDING_GCC_VERSION < 16000
   char_span line
+    = global_dc->get_file_cache ().get_source_line (start.file, start.line);
 #else
   diagnostics::char_span line
     = global_dc->get_file_cache ().get_source_line (start.file, start.line);
@@ -5077,8 +5084,13 @@ get_corrected_substring (const substring_loc &fmt_loc,
      specification, up to the (but not including) the length modifier.
      In the above example, this would be "%-+*.*".  */
   int length_up_to_type = caret.column - start.column;
+#if BUILDING_GCC_VERSION < 16000
+  char_span prefix_span
+    = line.subspan (start.column - 1, length_up_to_type);
+#else
   diagnostics::char_span prefix_span
     = line.subspan (start.column - 1, length_up_to_type);
+#endif
   char *prefix = prefix_span.xstrdup ();
 
   /* Now attempt to generate a suggestion for the rest of the specification
@@ -6115,6 +6127,13 @@ register_attributes (void *event_data, void *data)
   register_attribute (frr_format_attribute_table);
 }
 
+/* wrapper from c-typeck.cc, not shipped in headers */
+static bool
+comp_parm_types (tree wanted_type, tree actual_type)
+{
+  return comptypes (wanted_type, actual_type);
+}
+
 tree
 cb_walk_tree_fn (tree * tp, int * walk_subtrees, void * data ATTRIBUTE_UNUSED)
 {
@@ -6154,7 +6173,7 @@ cb_walk_tree_fn (tree * tp, int * walk_subtrees, void * data ATTRIBUTE_UNUSED)
 	fargs[j] = arg;
     }
 
-  check_function_frr_format (fn, TYPE_ATTRIBUTES (TREE_TYPE (fndecl)), nargs, fargs, NULL);
+  check_function_frr_format (fn, TYPE_ATTRIBUTES (TREE_TYPE (fndecl)), nargs, fargs, NULL, comp_parm_types);
   return NULL_TREE;
 }
 
