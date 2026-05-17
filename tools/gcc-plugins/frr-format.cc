@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Check calls to formatted I/O functions (-Wformat).
-   Copyright (C) 1992-2019 Free Software Foundation, Inc.
+   Copyright (C) 1992-2024 Free Software Foundation, Inc.
 
    Extended for FRR's printfrr() with Linux kernel style extensions
    Copyright (C) 2019-2020  David Lamparter, for NetDEF, Inc.
  */
 
-#include "gcc-common.h"
+#include "gcc-plugin.h"
+#include "plugin-version.h"
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#define IN_GCC
 #include "tm.h"
+#undef IN_GCC
 //include "c-target.h"
 #include "c-common.h"
 #include "alloc-pool.h"
 #include "stringpool.h"
-#include "c-tree.h"
 #include "c-objc.h"
 #include "intl.h"
 #include "langhooks.h"
@@ -25,18 +27,38 @@
 #include "substring-locations.h"
 #include "selftest.h"
 #include "selftest-diagnostic.h"
-#ifndef FIRST_PSEUDO_REGISTER
-#define FIRST_PSEUDO_REGISTER 0
-#endif
 #include "builtins.h"
 #include "attribs.h"
 #include "gcc-rich-location.h"
-#include "c-pretty-print.h"
 #include "c-pragma.h"
 
-extern struct cpp_reader *parse_in;
+#if BUILDING_GCC_VERSION < 12000
+#define check_function_arguments_recurse(arg, ctx, tree, num, opt)             \
+	check_function_arguments_recurse(arg, ctx, tree, num)
 
-#pragma GCC visibility push(hidden)
+inline bool
+startswith (const char *str, const char *prefix)
+{
+  return strncmp (str, prefix, strlen (prefix)) == 0;
+}
+#endif
+
+bool fake_string_object_ref_type_p(const_tree stringref)
+{
+	return false;
+}
+
+struct plugin_fake_targetcm {
+	bool (*string_object_ref_type_p) (const_tree stringref);
+	void (*check_string_object_format_arg) (tree format, tree params);
+} targetcm = {
+	&fake_string_object_ref_type_p,
+	NULL,
+};
+
+#if BUILDING_GCC_VERSION < 14000
+#define flag_isoc23 flag_isoc2x
+#endif
 
 /* Handle attributes associated with format checking.  */
 
@@ -75,6 +97,8 @@ static GTY(()) tree locus;
 
 static GTY(()) tree local_uint64_t_node;
 static GTY(()) tree local_int64_t_node;
+static GTY(()) tree local_uint_fast64_t_node;
+static GTY(()) tree local_int_fast64_t_node;
 
 static GTY(()) tree local_size_t_node;
 static GTY(()) tree local_ssize_t_node;
@@ -103,6 +127,8 @@ static struct type_special {
   { &local_ssize_t_node,	NULL,			&local_size_t_node, },
   { &local_uint64_t_node,	NULL,			&local_int64_t_node, },
   { &local_int64_t_node,	NULL,			&local_uint64_t_node, },
+  { &local_uint_fast64_t_node,	NULL,			&local_int_fast64_t_node, },
+  { &local_int_fast64_t_node,	NULL,			&local_uint_fast64_t_node, },
   { &local_pid_t_node,		NULL,			&local_pid_t_node, },
   { &local_uid_t_node,		NULL,			&local_uid_t_node, },
   { &local_gid_t_node,		NULL,			&local_gid_t_node, },
@@ -152,18 +178,39 @@ format_warning_at_char (location_t fmt_string_loc, tree format_string_cst,
 
   substring_loc fmt_loc (fmt_string_loc, string_type, char_idx, char_idx,
 			 char_idx);
-#if BUILDING_GCC_VERSION >= 9000
   format_string_diagnostic_t diag (fmt_loc, NULL, UNKNOWN_LOCATION, NULL,
 				   NULL);
   bool warned = diag.emit_warning_va (opt, gmsgid, &ap);
-#else
-  bool warned = format_warning_va (fmt_loc, UNKNOWN_LOCATION, NULL,
-				   opt, gmsgid, &ap);
-#endif
   va_end (ap);
 
   return warned;
 }
+
+
+/* Emit a warning as per format_warning_va, but construct the substring_loc
+   for the substring at offset (POS1, POS2 - 1) within a string constant
+   FORMAT_STRING_CST at FMT_STRING_LOC.  */
+
+ATTRIBUTE_GCC_DIAG (6,7)
+static bool
+format_warning_substr (location_t fmt_string_loc, tree format_string_cst,
+		       int pos1, int pos2, int opt, const char *gmsgid, ...)
+{
+  va_list ap;
+  va_start (ap, gmsgid);
+  tree string_type = TREE_TYPE (format_string_cst);
+
+  pos2 -= 1;
+
+  substring_loc fmt_loc (fmt_string_loc, string_type, pos1, pos1, pos2);
+  format_string_diagnostic_t diag (fmt_loc, NULL, UNKNOWN_LOCATION, NULL,
+				   NULL);
+  bool warned = diag.emit_warning_va (opt, gmsgid, &ap);
+  va_end (ap);
+
+  return warned;
+}
+
 
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
@@ -316,8 +363,6 @@ check_format_string (const_tree fntype, unsigned HOST_WIDE_INT format_num,
       *no_add_attrs = true;
       return false;
     }
-
-  gcc_unreachable ();
 }
 
 /* Under the control of FLAGS, verify EXPR is a valid constant that
@@ -778,7 +823,7 @@ static const format_char_info print_char_table[] =
   { "C",   0, STD_EXT, { TEX_WI,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,   BADLEN }, "-w",        "",   NULL, NULL },
   { "S",   1, STD_EXT, { TEX_W,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,   BADLEN }, "-wp",       "R",  NULL, NULL },
   /* GNU conversion specifiers.  */
-  { "m",   0, STD_EXT, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN },   "-wp",       "",   NULL, NULL },
+  { "m",   0, STD_EXT, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,   BADLEN,   BADLEN }, "-wp",       "",   NULL, NULL },
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL, NULL }
 };
 
@@ -4947,8 +4992,12 @@ get_corrected_substring (const substring_loc &fmt_loc,
   if (caret.column > finish.column)
     return NULL;
 
-#if BUILDING_GCC_VERSION >= 9000
+#if BUILDING_GCC_VERSION < 14000
   char_span line = location_get_source_line (start.file, start.line);
+#else
+  char_span line
+    = global_dc->get_file_cache ().get_source_line (start.file, start.line);
+#endif
   if (!line)
     return NULL;
 
@@ -4961,9 +5010,6 @@ get_corrected_substring (const substring_loc &fmt_loc,
   int length_up_to_type = caret.column - start.column;
   char_span prefix_span = line.subspan (start.column - 1, length_up_to_type);
   char *prefix = prefix_span.xstrdup ();
-#else
-  char *prefix = NULL;
-#endif
 
   /* Now attempt to generate a suggestion for the rest of the specification
      (length modifier and conversion char), based on ARG_TYPE and
@@ -5028,12 +5074,13 @@ class indirection_suffix
   int m_pointer_count;
 };
 
-#if BUILDING_GCC_VERSION >= 9000
-/* not exported by GCC... need a local copy :( */
-class frr_range_label_for_type_mismatch : public range_label
+#if BUILDING_GCC_VERSION >= 15000
+/* in gcc 15, this is in "c-type-mismatch.h", which is not shipped :( */
+
+class range_label_for_type_mismatch : public range_label
 {
  public:
-  frr_range_label_for_type_mismatch (tree labelled_type, tree other_type)
+  range_label_for_type_mismatch (tree labelled_type, tree other_type)
   : m_labelled_type (labelled_type), m_other_type (other_type)
   {
   }
@@ -5045,84 +5092,7 @@ class frr_range_label_for_type_mismatch : public range_label
   tree m_other_type;
 };
 
-/* Print T to CPP.  */
-
-static void
-print_type (c_pretty_printer *cpp, tree t, bool *quoted)
-{
-  gcc_assert (TYPE_P (t));
-  struct obstack *ob = pp_buffer (cpp)->obstack;
-  char *p = (char *) obstack_base (ob);
-  /* Remember the end of the initial dump.  */
-  int len = obstack_object_size (ob);
-
-  tree name = TYPE_NAME (t);
-  if (name && TREE_CODE (name) == TYPE_DECL && DECL_NAME (name))
-    pp_identifier (cpp, lang_hooks.decl_printable_name (name, 2));
-  else
-    cpp->type_id (t);
-
-  /* If we're printing a type that involves typedefs, also print the
-     stripped version.  But sometimes the stripped version looks
-     exactly the same, so we don't want it after all.  To avoid
-     printing it in that case, we play ugly obstack games.  */
-  if (TYPE_CANONICAL (t) && t != TYPE_CANONICAL (t))
-    {
-      c_pretty_printer cpp2;
-      /* Print the stripped version into a temporary printer.  */
-      cpp2.type_id (TYPE_CANONICAL (t));
-      struct obstack *ob2 = cpp2.buffer->obstack;
-      /* Get the stripped version from the temporary printer.  */
-      const char *aka = (char *) obstack_base (ob2);
-      int aka_len = obstack_object_size (ob2);
-      int type1_len = obstack_object_size (ob) - len;
-
-      /* If they are identical, bail out.  */
-      if (aka_len == type1_len && memcmp (p + len, aka, aka_len) == 0)
-	return;
-
-      /* They're not, print the stripped version now.  */
-      if (*quoted)
-	pp_end_quote (cpp, pp_show_color (cpp));
-      pp_c_whitespace (cpp);
-      pp_left_brace (cpp);
-      pp_c_ws_string (cpp, _("aka"));
-      pp_c_whitespace (cpp);
-      if (*quoted)
-	pp_begin_quote (cpp, pp_show_color (cpp));
-      cpp->type_id (TYPE_CANONICAL (t));
-      if (*quoted)
-	pp_end_quote (cpp, pp_show_color (cpp));
-      pp_right_brace (cpp);
-      /* No further closing quotes are needed.  */
-      *quoted = false;
-    }
-}
-
-/* C-specific implementation of range_label::get_text () vfunc for
-   range_label_for_type_mismatch.  */
-#if BUILDING_GCC_VERSION >= 10000
-#define label_borrow(text) label_text::borrow(text)
-#define label_take(text)   label_text::take(text)
-#else
-#define label_borrow(text) label_text((char *)text, false)
-#define label_take(text)   label_text(text, true)
-#endif
-
-label_text
-frr_range_label_for_type_mismatch::get_text (unsigned /*range_idx*/) const
-{
-  if (m_labelled_type == NULL_TREE)
-    return label_borrow("(null tree)");
-
-  c_pretty_printer cpp;
-  bool quoted = false;
-  print_type (&cpp, m_labelled_type, &quoted);
-  return label_take(xstrdup (pp_formatted_text (&cpp)));
-}
-
-#define range_label_for_type_mismatch frr_range_label_for_type_mismatch
-#endif
+#endif /* BUILDING_GCC_VERSION >= 15000 */
 
 /* Subclass of range_label for labelling the range in the format string
    with the type in question, adding trailing '*' for pointer_count.  */
@@ -5141,9 +5111,12 @@ class range_label_for_format_type_mismatch
 #if BUILDING_GCC_VERSION >= 13000
 #define text_get(text) text.get()
 #define text_return(text, result) return label_text::take(result)
+#elif BUILDING_GCC_VERSION >= 10000
+#define text_get(text) text.m_buffer
+#define text_return(text, result) text.maybe_free(); return label_text::take(result)
 #else
 #define text_get(text) text.m_buffer
-#define text_return(text, result) text.maybe_free(); return label_take(result)
+#define text_return(text, result) text.maybe_free(); return label_text(result, true)
 #endif
 
   label_text get_text (unsigned range_idx) const final override
@@ -5238,7 +5211,6 @@ format_type_warning (const substring_loc &whole_fmt_loc,
   substring_loc fmt_loc (whole_fmt_loc);
   fmt_loc.set_caret_index (type->offset_loc - 1);
 
-#if BUILDING_GCC_VERSION >= 9000
   range_label_for_format_type_mismatch fmt_label (wanted_type, arg_type,
 						  pointer_count);
   range_label_for_type_mismatch param_label (arg_type, wanted_type);
@@ -5250,19 +5222,6 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 			       offset_to_type_start, conversion_char);
   format_string_diagnostic_t diag (fmt_loc, &fmt_label, param_loc, &param_label,
 				   corrected_substring);
-# define format_warning_at_substring(a,b,c,d,e,...) \
-	diag.emit_warning(__VA_ARGS__)
-#else
-# define format_warning_at_substring(a,b,c,d,...) \
-	format_warning_at_substring(a,c,__VA_ARGS__)
-  /* Get a string for use as a replacement fix-it hint for the range in
-     fmt_loc, or NULL.  */
-  char *corrected_substring
-    = get_corrected_substring (fmt_loc, type, arg_type, fki,
-			       offset_to_type_start, conversion_char);
-
-#endif
-
   if (wanted_type_name)
     {
       if (arg_type)
@@ -5697,7 +5656,7 @@ convert_format_name_to_system_name (const char *attr_name)
 /* Handle a "format" attribute; arguments as in
    struct attribute_spec.handler.  */
 tree
-handle_frr_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+handle_frr_format_attribute (tree node[3], tree atname, tree args,
 			 int flags, bool *no_add_attrs)
 {
   const_tree type = *node;
@@ -6052,7 +6011,7 @@ cb_walk_tree_fn (tree * tp, int * walk_subtrees, void * data ATTRIBUTE_UNUSED)
 	fargs[j] = arg;
     }
 
-  check_function_format (TYPE_ATTRIBUTES (TREE_TYPE (fndecl)), nargs, fargs, NULL);
+  check_function_frr_format (fn, TYPE_ATTRIBUTES (TREE_TYPE (fndecl)), nargs, fargs, NULL);
   return NULL_TREE;
 }
 
@@ -6089,6 +6048,8 @@ handle_finish_parse (void *event_data, void *data)
 
   setup_type ("uint64_t", &local_uint64_t_node);
   setup_type ("int64_t", &local_int64_t_node);
+  setup_type ("uint_fast64_t", &local_uint_fast64_t_node);
+  setup_type ("int_fast64_t", &local_int_fast64_t_node);
 
   setup_type ("size_t", &local_size_t_node);
   setup_type ("ssize_t", &local_ssize_t_node);
@@ -6133,6 +6094,9 @@ handle_finish_parse (void *event_data, void *data)
 	      node = identifier_global_tag (identifier);
 	      if (!node)
 	        continue;
+
+	      if (TREE_CODE (node) == TYPE_DECL)
+                node = TREE_TYPE (node);
 
 	      if (node->base.code != etab->type_code)
 	        {
