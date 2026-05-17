@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Check calls to formatted I/O functions (-Wformat).
-   Copyright (C) 1992-2024 Free Software Foundation, Inc.
+   Copyright (C) 1992-2026 Free Software Foundation, Inc.
 
    Extended for FRR's printfrr() with Linux kernel style extensions
    Copyright (C) 2019-2020  David Lamparter, for NetDEF, Inc.
@@ -26,10 +26,16 @@
 #include "diagnostic.h"
 #include "substring-locations.h"
 #include "selftest.h"
-#include "selftest-diagnostic.h"
+#include "diagnostics/selftest-context.h"
+#include "diagnostics/file-cache.h"
 #include "builtins.h"
 #include "attribs.h"
+#if BUILDING_GCC_VERSION >= 15000
+#include "c-family/c-type-mismatch.h"
+#include "tree-pretty-print-markup.h"
+#else
 #include "gcc-rich-location.h"
+#endif
 #include "c-pragma.h"
 
 #if BUILDING_GCC_VERSION < 12000
@@ -90,8 +96,10 @@ struct function_format_info
 #if 0
 static GTY(()) tree local_tree_type_node;
 static GTY(()) tree local_event_ptr_node;
+static GTY(()) tree local_pp_element_ptr_node;
 static GTY(()) tree local_gimple_ptr_node;
 static GTY(()) tree local_cgraph_node_ptr_node;
+static GTY(()) tree local_string_slice_node;
 static GTY(()) tree locus;
 #endif
 
@@ -215,12 +223,12 @@ format_warning_substr (location_t fmt_string_loc, tree format_string_cst,
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
    For objective-c dialects, this is extended to include references to string
-   objects validated by objc_string_ref_type_p ().  
-   Targets may also provide a string object type that can be used within c and 
+   objects validated by objc_string_ref_type_p ().
+   Targets may also provide a string object type that can be used within c and
    c++ and shared with their respective objective-c dialects. In this case the
    reference to a format string is checked for validity via a hook.
-   
-   The function returns true if strref points to any string type valid for the 
+
+   The function returns true if strref points to any string type valid for the
    language dialect and target.  */
 
 bool
@@ -272,8 +280,8 @@ handle_frr_format_arg_attribute (tree *node, tree atname,
 }
 
 /* Verify that the format_num argument is actually a string reference suitable,
-   for the language dialect and target (in case the format attribute is in 
-   error).  When we know the specific reference type expected, this is also 
+   for the language dialect and target (in case the format attribute is in
+   error).  When we know the specific reference type expected, this is also
    checked.  */
 static bool
 check_format_string (const_tree fntype, unsigned HOST_WIDE_INT format_num,
@@ -307,7 +315,7 @@ check_format_string (const_tree fntype, unsigned HOST_WIDE_INT format_num,
     return true;
 
   /* Now check that the arg matches the expected type.  */
-  is_char_ref = 
+  is_char_ref =
     (TYPE_MAIN_VARIANT (TREE_TYPE (ref)) == char_type_node);
 
   fmt_flags = format_flags (expected_format_type);
@@ -341,18 +349,18 @@ check_format_string (const_tree fntype, unsigned HOST_WIDE_INT format_num,
       *no_add_attrs = true;
       return false;
     }
-  
+
   /* We will assert that objective-c will support either its own string type
      or the target-supplied variant.  */
   if (!is_objc_sref)
     is_target_sref = (*targetcm.string_object_ref_type_p) ((const_tree) ref);
 
-  if (expected_format_type == (int) gcc_objc_string_format_type 
+  if (expected_format_type == (int) gcc_objc_string_format_type
       && (is_objc_sref || is_target_sref))
     return true;
 
   /* We will allow a target string ref to match only itself.  */
-  if (first_target_format_type 
+  if (first_target_format_type
       && expected_format_type >= first_target_format_type
       && is_target_sref)
     return true;
@@ -863,6 +871,8 @@ static const format_char_info asm_fprintf_char_table[] =
   { "p",   1, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q",  "c",  NULL }, \
   { "r",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "//cR",   NULL }, \
   { "@",   1, STD_C89, { T_EVENT_PTR,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "\"",   NULL }, \
+  { "B",   1, STD_C89, { T_STRING_SLICE,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q", "",   NULL }, \
+  { "e",   1, STD_C89, { T_PP_ELEMENT_PTR,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "\"", NULL }, \
   { "<",   0, STD_C89, NOARGUMENTS, "",      "<",   NULL }, \
   { ">",   0, STD_C89, NOARGUMENTS, "",      ">",   NULL }, \
   { "'" ,  0, STD_C89, NOARGUMENTS, "",      "",    NULL }, \
@@ -941,6 +951,10 @@ static const format_char_info gcc_gfc_char_table[] =
 
   /* This will require a "locus" at runtime.  */
   { "L",   0, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "R", NULL },
+
+  /* These will require a "tree" at runtime.  */
+  { "DFTV", 1, STD_C89, { T89_T,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q+", "'",   NULL },
+  { "E",   1, STD_C89, { T89_T,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q+", "",   NULL },
 
   /* These will require nothing.  */
   { "<>",0, STD_C89, NOARGUMENTS, "",      "",   NULL },
@@ -1121,6 +1135,20 @@ static int n_format_types = ARRAY_SIZE (format_types_orig);
    many leaves resulting from nested conditional expressions.  */
 struct format_check_results
 {
+  format_check_results (location_t format_string_loc_)
+  : number_non_literal (0),
+    number_extra_args (0),
+    extra_arg_loc (UNKNOWN_LOCATION),
+    number_dollar_extra_args (0),
+    number_wide (0),
+    number_non_char (0),
+    number_empty (0),
+    number_unterminated (0),
+    number_other (0),
+    format_string_loc (format_string_loc_)
+  {
+  }
+
   /* Number of leaves of the format argument that could not be checked
      as they were not string literals.  */
   int number_non_literal;
@@ -1150,10 +1178,24 @@ struct format_check_results
 
 struct format_check_context
 {
-  format_check_results *res;
-  function_format_info *info;
-  tree params;
-  vec<location_t> *arglocs;
+  format_check_context (format_check_results *res,
+			function_format_info *info,
+			tree params,
+			vec<location_t> *arglocs,
+			bool (*comp_types) (tree, tree))
+  : m_res (res),
+    m_info (info),
+    m_params (params),
+    m_arglocs (arglocs),
+    m_comp_types (comp_types)
+  {
+  }
+
+  format_check_results *m_res;
+  function_format_info *m_info;
+  tree m_params;
+  vec<location_t> *m_arglocs;
+  bool (*m_comp_types) (tree, tree);
 };
 
 /* Return the format name (as specified in the original table) for the format
@@ -1177,7 +1219,8 @@ format_flags (int format_num)
 }
 
 static void check_format_info (function_format_info *, tree,
-			       vec<location_t> *);
+			       vec<location_t> *,
+			       bool (*comp_types) (tree, tree));
 static void check_format_arg (void *, tree, unsigned HOST_WIDE_INT);
 static void check_format_info_main (format_check_results *,
 				    function_format_info *, const char *,
@@ -1185,7 +1228,8 @@ static void check_format_info_main (format_check_results *,
 				    int, tree,
 				    unsigned HOST_WIDE_INT,
 				    object_allocator<format_wanted_type> &,
-				    vec<location_t> *);
+				    vec<location_t> *,
+				    bool (*comp_types) (tree, tree));
 
 static void init_dollar_format_checking (int, tree);
 static int maybe_read_dollar_number (const char **, int,
@@ -1201,7 +1245,8 @@ static void check_format_types (const substring_loc &fmt_loc,
 				const format_kind_info *fki,
 				int offset_to_type_start,
 				char conversion_char,
-				vec<location_t> *arglocs);
+				vec<location_t> *arglocs,
+				bool (*comp_types) (tree, tree));
 static void format_type_warning (const substring_loc &fmt_loc,
 				 location_t param_loc,
 				 format_wanted_type *, tree,
@@ -1283,7 +1328,8 @@ decode_format_type (const char *s, bool *is_raw /* = NULL */)
 
 void
 check_function_frr_format (const_tree fn, tree attrs, int nargs,
-		       tree *argarray, vec<location_t> *arglocs)
+		       tree *argarray, vec<location_t> *arglocs,
+		       bool (*comp_types) (tree, tree))
 {
   tree a;
 
@@ -1340,7 +1386,7 @@ check_function_frr_format (const_tree fn, tree attrs, int nargs,
 	      int i;
 	      for (i = nargs - 1; i >= 0; i--)
 		params = tree_cons (NULL_TREE, argarray[i], params);
-	      check_format_info (&info, params, arglocs);
+	      check_format_info (&info, params, arglocs, comp_types);
 	    }
 
 	  /* Attempt to detect whether the current function might benefit
@@ -1648,12 +1694,11 @@ get_flag_spec (const format_flag_spec *spec, int flag, const char *predicates)
 
 static void
 check_format_info (function_format_info *info, tree params,
-		   vec<location_t> *arglocs)
+		   vec<location_t> *arglocs,
+		   bool (*comp_types) (tree, tree))
 {
-  format_check_context format_ctx;
   unsigned HOST_WIDE_INT arg_num;
   tree format_tree;
-  format_check_results res;
   /* Skip to format argument.  If the argument isn't available, there's
      no work for us to do; prototype checking will catch the problem.  */
   for (arg_num = 1; ; ++arg_num)
@@ -1669,26 +1714,14 @@ check_format_info (function_format_info *info, tree params,
   if (format_tree == 0)
     return;
 
-  res.number_non_literal = 0;
-  res.number_extra_args = 0;
-  res.extra_arg_loc = UNKNOWN_LOCATION;
-  res.number_dollar_extra_args = 0;
-  res.number_wide = 0;
-  res.number_non_char = 0;
-  res.number_empty = 0;
-  res.number_unterminated = 0;
-  res.number_other = 0;
-  res.format_string_loc = input_location;
+  format_check_results res (input_location);
 
-  format_ctx.res = &res;
-  format_ctx.info = info;
-  format_ctx.params = params;
-  format_ctx.arglocs = arglocs;
+  format_check_context format_ctx (&res, info, params, arglocs, comp_types);
 
   check_function_arguments_recurse (check_format_arg, &format_ctx,
 				    format_tree, arg_num, OPT_Wformat_);
 
-  location_t loc = format_ctx.res->format_string_loc;
+  location_t loc = format_ctx.m_res->format_string_loc;
 
   if (res.number_non_literal > 0)
     {
@@ -1770,10 +1803,11 @@ check_format_arg (void *ctx, tree format_tree,
 		  unsigned HOST_WIDE_INT arg_num)
 {
   format_check_context *format_ctx = (format_check_context *) ctx;
-  format_check_results *res = format_ctx->res;
-  function_format_info *info = format_ctx->info;
-  tree params = format_ctx->params;
-  vec<location_t> *arglocs = format_ctx->arglocs;
+  format_check_results *res = format_ctx->m_res;
+  function_format_info *info = format_ctx->m_info;
+  tree params = format_ctx->m_params;
+  vec<location_t> *arglocs = format_ctx->m_arglocs;
+  bool (*comp_types) (tree, tree) = format_ctx->m_comp_types;
 
   int format_length;
   HOST_WIDE_INT offset;
@@ -1802,7 +1836,7 @@ check_format_arg (void *ctx, tree format_tree,
 
       if (params == 0)
 	res->number_other++;
-      else 
+      else
 	{
 	  if (res->number_extra_args == 0)
 	    res->extra_arg_loc = EXPR_LOC_OR_LOC (TREE_VALUE (params),
@@ -1843,7 +1877,7 @@ check_format_arg (void *ctx, tree format_tree,
     }
   res->format_string_loc = EXPR_LOC_OR_LOC (format_tree, input_location);
   format_tree = TREE_OPERAND (format_tree, 0);
-  if (format_types[info->format_type].flags 
+  if (format_types[info->format_type].flags
       & (int) FMT_FLAG_PARSE_ARG_CONVERT_EXTERNAL)
     {
       bool objc_str = (info->format_type == gcc_objc_string_format_type);
@@ -1851,7 +1885,7 @@ check_format_arg (void *ctx, tree format_tree,
 	 a valid type.  */
       if (TREE_CODE (format_tree) != CONST_DECL
 	  || !((objc_str && objc_string_ref_type_p (TREE_TYPE (format_tree)))
-		|| (*targetcm.string_object_ref_type_p) 
+		|| (*targetcm.string_object_ref_type_p)
 				     ((const_tree) TREE_TYPE (format_tree))))
 	{
 	  res->number_non_literal++;
@@ -1965,7 +1999,8 @@ check_format_arg (void *ctx, tree format_tree,
   res->number_other++;
   object_allocator <format_wanted_type> fwt_pool ("format_wanted_type pool");
   check_format_info_main (res, info, format_chars, fmt_param_loc, format_tree,
-			  format_length, params, arg_num, fwt_pool, arglocs);
+			  format_length, params, arg_num, fwt_pool, arglocs,
+			  comp_types);
 }
 
 /* Support class for argument_parser and check_format_info_main.
@@ -2036,7 +2071,8 @@ class argument_parser
 		   location_t format_string_loc, flag_chars_t &flag_chars,
 		   int &has_operand_number, tree first_fillin_param,
 		   object_allocator <format_wanted_type> &fwt_pool_,
-		   vec<location_t> *arglocs);
+		   vec<location_t> *arglocs,
+		   bool (*comp_types) (tree, tree));
 
   bool read_any_dollar ();
 
@@ -2117,6 +2153,7 @@ class argument_parser
   format_wanted_type *first_wanted_type;
   format_wanted_type *last_wanted_type;
   vec<location_t> *arglocs;
+  bool (*m_comp_types) (tree, tree);
 };
 
 /* flag_chars_t's constructor.  */
@@ -2210,7 +2247,7 @@ flag_chars_t::validate (const format_kind_info *fki,
 	{
 	  format_warning_at_char (format_string_loc, format_string_cst,
 				  format_chars - orig_format_chars - 1,
-				  OPT_Wformat_,
+				  OPT_Wformat_diag,
 				  "%s used within a quoted sequence",
 				  _(s->name));
 	}
@@ -2223,7 +2260,7 @@ flag_chars_t::validate (const format_kind_info *fki,
     {
       format_warning_at_char (format_string_loc, format_string_cst,
 			      format_chars - orig_format_chars,
-			      OPT_Wformat_,
+			      OPT_Wformat_diag,
 			      "%qc conversion used unquoted",
 			      format_char);
     }
@@ -2268,7 +2305,8 @@ argument_parser (function_format_info *info_, const char *&format_chars_,
 		 int &has_operand_number_,
 		 tree first_fillin_param_,
 		 object_allocator <format_wanted_type> &fwt_pool_,
-		 vec<location_t> *arglocs_)
+		 vec<location_t> *arglocs_,
+		 bool (*comp_types) (tree, tree))
 : info (info_),
   fki (&format_types[info->format_type]),
   flag_specs (fki->flag_specs),
@@ -2285,7 +2323,8 @@ argument_parser (function_format_info *info_, const char *&format_chars_,
   first_fillin_param (first_fillin_param_),
   first_wanted_type (NULL),
   last_wanted_type (NULL),
-  arglocs (arglocs_)
+  arglocs (arglocs_),
+  m_comp_types (comp_types)
 {
 }
 
@@ -3009,7 +3048,7 @@ check_argument_type (const format_char_info *fci,
       ptrdiff_t offset_to_type_start = type_start - orig_format_chars;
       check_format_types (fmt_loc, first_wanted_type, fki,
 			  offset_to_type_start,
-			  conversion_char, arglocs);
+			  conversion_char, arglocs, m_comp_types);
 
       /* note printf extension type checks are *additional* - %p must always
        * be pointer compatible, %d always int compatible.
@@ -3972,7 +4011,8 @@ check_format_info_main (format_check_results *res,
 			int format_length, tree params,
 			unsigned HOST_WIDE_INT arg_num,
 			object_allocator <format_wanted_type> &fwt_pool,
-			vec<location_t> *arglocs)
+			vec<location_t> *arglocs,
+			bool (*comp_types) (tree, tree))
 {
   const char * const orig_format_chars = format_chars;
   const tree first_fillin_param = params;
@@ -4039,7 +4079,8 @@ check_format_info_main (format_check_results *res,
       argument_parser arg_parser (info, format_chars, format_string_cst,
 				  orig_format_chars, format_string_loc,
 				  flag_chars, has_operand_number,
-				  first_fillin_param, fwt_pool, arglocs);
+				  first_fillin_param, fwt_pool, arglocs,
+				  comp_types);
 
       if (!arg_parser.read_any_dollar ())
 	return;
@@ -4244,6 +4285,28 @@ check_format_info_main (format_check_results *res,
 			    OPT_Wformat_, "unterminated color directive");
 }
 
+/* Special-case to support inheritance for %e.
+   Return true for the case where we have %e with a valid
+   pointer to a pp_element or pp_element subclass; false
+   otherwise.  */
+
+static bool
+handle_subclass_of_pp_element_p (format_wanted_type *types,
+				 bool (*comp_types) (tree, tree))
+{
+  if (types->wanted_type != local_pp_element_ptr_node)
+    return false;
+
+  tree param_type = TREE_TYPE (types->param);
+  if (param_type == error_mark_node)
+    return false;
+
+  if (comp_types (types->wanted_type, param_type))
+    return true;
+
+  return false;
+}
+
 /* Check the argument types from a single format conversion (possibly
    including width and precision arguments).
 
@@ -4345,7 +4408,8 @@ check_format_types (const substring_loc &fmt_loc,
 		    format_wanted_type *types, const format_kind_info *fki,
 		    int offset_to_type_start,
 		    char conversion_char,
-		    vec<location_t> *arglocs)
+		    vec<location_t> *arglocs,
+		    bool (*comp_types) (tree, tree))
 {
   for (; types != 0; types = types->next)
     {
@@ -4369,6 +4433,9 @@ check_format_types (const substring_loc &fmt_loc,
 
       if (types->pointer_count == 0)
 	wanted_type = lang_hooks.types.type_promotes_to (wanted_type);
+
+      if (handle_subclass_of_pp_element_p (types, comp_types))
+	continue;
 
       switch (TREE_CODE (wanted_type))
         {
@@ -4994,8 +5061,10 @@ get_corrected_substring (const substring_loc &fmt_loc,
 
 #if BUILDING_GCC_VERSION < 14000
   char_span line = location_get_source_line (start.file, start.line);
-#else
+#elif BUILDING_GCC_VERSION < 15000
   char_span line
+#else
+  diagnostics::char_span line
     = global_dc->get_file_cache ().get_source_line (start.file, start.line);
 #endif
   if (!line)
@@ -5008,7 +5077,8 @@ get_corrected_substring (const substring_loc &fmt_loc,
      specification, up to the (but not including) the length modifier.
      In the above example, this would be "%-+*.*".  */
   int length_up_to_type = caret.column - start.column;
-  char_span prefix_span = line.subspan (start.column - 1, length_up_to_type);
+  diagnostics::char_span prefix_span
+    = line.subspan (start.column - 1, length_up_to_type);
   char *prefix = prefix_span.xstrdup ();
 
   /* Now attempt to generate a suggestion for the rest of the specification
@@ -5137,6 +5207,85 @@ class range_label_for_format_type_mismatch
   int m_pointer_count;
 };
 
+/* Subclass of pp_element for text describing part of a format string.  */
+
+class element_format_substring : public pp_element
+{
+public:
+  element_format_substring (const char *highlight_color,
+			    const char *prefix,
+			    int format_length,
+			    const char *format_start)
+  : m_highlight_color (highlight_color),
+    m_prefix (prefix),
+    m_format_length (format_length),
+    m_format_start (format_start)
+  {
+  }
+
+  void add_to_phase_2 (pp_markup::context &ctxt) final override
+  {
+    ctxt.begin_quote ();
+    ctxt.begin_highlight_color (m_highlight_color);
+    pp_string (&ctxt.m_pp, m_prefix);
+    pp_string_n (&ctxt.m_pp, m_format_start, m_format_length);
+    ctxt.end_highlight_color ();
+    ctxt.end_quote ();
+  }
+
+private:
+  const char *m_highlight_color;
+  const char *m_prefix;
+  int m_format_length;
+  const char *m_format_start;
+};
+
+/* Subclass of pp_element for text describing an optional WANTED_TYPE_NAME
+   with a fallback TYPE, part of an expected type with some number of
+   indirections.  */
+
+class element_expected_type_with_indirection
+  : public pp_markup::element_expected_type
+{
+public:
+  element_expected_type_with_indirection (tree wanted_type,
+					  const char *wanted_type_name,
+					  int pointer_count)
+  : pp_markup::element_expected_type (wanted_type),
+    m_wanted_type_name (wanted_type_name),
+    m_pointer_count (pointer_count)
+  {
+    // m_wanted_type_name can be nullptr
+  }
+
+  void add_to_phase_2 (pp_markup::context &ctxt) final override
+  {
+    indirection_suffix suffix (m_pointer_count);
+    char *indirection_buf = (char *) alloca (suffix.get_buffer_size ());
+    suffix.fill_buffer (indirection_buf);
+
+    ctxt.begin_quote ();
+    ctxt.begin_highlight_color (highlight_colors::expected);
+    if (m_wanted_type_name)
+      pp_string (&ctxt.m_pp, m_wanted_type_name);
+    else
+      {
+	/* Any trailing quotes should be printed within the quoted.  */
+	ctxt.m_quoted = false;
+	print_type (ctxt);
+	ctxt.m_quoted = true;
+      }
+    pp_string (&ctxt.m_pp, indirection_buf);
+    ctxt.end_highlight_color ();
+    ctxt.end_quote ();
+  }
+
+private:
+  const char *m_wanted_type_name;
+  tree m_wanted_type;
+  int m_pointer_count;
+};
+
 /* Give a warning about a format argument of different type from that expected.
    The range of the diagnostic is taken from WHOLE_FMT_LOC; the caret location
    is based on the location of the char at TYPE->offset_loc.
@@ -5201,10 +5350,6 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 		  lang_hooks.decl_printable_name (TYPE_NAME (arg_type), 2)))
     arg_type = TYPE_MAIN_VARIANT (arg_type);
 
-  indirection_suffix suffix (pointer_count);
-  char *p = (char *) alloca (suffix.get_buffer_size ());
-  suffix.fill_buffer (p);
-
   /* WHOLE_FMT_LOC has the caret at the end of the range.
      Set the caret to be at the offset from TYPE.  Subtract one
      from the offset for the same reason as in format_warning_at_char.  */
@@ -5222,45 +5367,26 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 			       offset_to_type_start, conversion_char);
   format_string_diagnostic_t diag (fmt_loc, &fmt_label, param_loc, &param_label,
 				   corrected_substring);
-  if (wanted_type_name)
-    {
-      if (arg_type)
-	diag.emit_warning
-	  (OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, "
-	   "but argument %d has type %qT%s",
-	   gettext (kind_descriptions[kind]),
-	   (kind == CF_KIND_FORMAT ? "%" : ""),
-	   format_length, format_start,
-	   wanted_type_name, p, arg_num, arg_type, extra);
-      else
-	diag.emit_warning
-	  (OPT_Wformat_,
-	   "%s %<%s%.*s%> expects a matching %<%s%s%> argument%s",
-	   gettext (kind_descriptions[kind]),
-	   (kind == CF_KIND_FORMAT ? "%" : ""),
-	   format_length, format_start, wanted_type_name, p, extra);
-    }
+  element_format_substring elem_format_substring
+    (format_string_diagnostic_t::highlight_color_format_string,
+     (kind == CF_KIND_FORMAT ? "%" : ""),
+     format_length, format_start);
+  pp_markup::element_actual_type elem_actual_param_type (arg_type);
+  element_expected_type_with_indirection
+    elem_expected_type (wanted_type, wanted_type_name, pointer_count);
+  if (arg_type)
+    diag.emit_warning (OPT_Wformat_,
+		       "%s %e expects argument of type %e, "
+		       "but argument %d has type %e%s",
+		       gettext (kind_descriptions[kind]),
+		       &elem_format_substring, &elem_expected_type,
+		       arg_num, &elem_actual_param_type, extra);
   else
-    {
-      if (arg_type)
-	diag.emit_warning
-	  (OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, "
-	   "but argument %d has type %qT%s",
-	   gettext (kind_descriptions[kind]),
-	   (kind == CF_KIND_FORMAT ? "%" : ""),
-	   format_length, format_start,
-	   wanted_type, p, arg_num, arg_type, extra);
-      else
-	diag.emit_warning
-	  (OPT_Wformat_,
-	   "%s %<%s%.*s%> expects a matching %<%T%s%> argument%s",
-	   gettext (kind_descriptions[kind]),
-	   (kind == CF_KIND_FORMAT ? "%" : ""),
-	   format_length, format_start, wanted_type, p, extra);
-    }
-
+    diag.emit_warning (OPT_Wformat_,
+		       "%s %e expects a matching %e argument%s",
+		       gettext (kind_descriptions[kind]),
+		       &elem_format_substring,
+		       &elem_expected_type, extra);
   free (corrected_substring);
 }
 
@@ -5555,10 +5681,23 @@ init_dynamic_diag_info (void)
       || local_cgraph_node_ptr_node == void_type_node)
     local_cgraph_node_ptr_node = get_named_type ("cgraph_node");
 
+  /* Similar to the above but for string_slice*.  */
+  if (!local_string_slice_node
+      || local_string_slice_node == void_type_node)
+    local_string_slice_node = get_named_type ("string_slice");
+
   /* Similar to the above but for diagnostic_event_id_t*.  */
   if (!local_event_ptr_node
       || local_event_ptr_node == void_type_node)
     local_event_ptr_node = get_named_type ("diagnostic_event_id_t");
+
+  /* Similar to the above but for pp_element*.  */
+  if (!local_pp_element_ptr_node
+      || local_pp_element_ptr_node == void_type_node)
+    {
+      if (tree pp_element_node = get_named_type ("pp_element"))
+	local_pp_element_ptr_node = build_pointer_type (pp_element_node);
+    }
 
   /* All the GCC diag formats use the same length specs.  */
   dynamic_format_types[gcc_diag_format_type].length_char_specs =
@@ -5915,18 +6054,22 @@ test_type_mismatch_range_labels ()
 						  integer_type_node, 1);
   range_label_for_type_mismatch param_label (integer_type_node,
 					     char_type_node);
-  gcc_rich_location richloc (fmt, &fmt_label);
+  gcc_rich_location richloc (fmt, &fmt_label, nullptr);
   richloc.add_range (param, SHOW_RANGE_WITHOUT_CARET, &param_label);
 
-  test_diagnostic_context dc;
-  diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+  diagnostics::selftest::test_context dc;
+  diagnostic_show_locus (&dc,
+			 dc.get_source_printing_options (),
+			 &richloc,
+			 diagnostics::kind::error,
+			 dc.get_reference_printer ());
   if (c_dialect_cxx ())
     /* "char*", without a space.  */
     ASSERT_STREQ ("   printf (\"msg: %i\\n\", msg);\n"
 		  "                 ~^     ~~~\n"
 		  "                  |     |\n"
 		  "                  char* int\n",
-		  pp_formatted_text (dc.printer));
+		  pp_formatted_text (dc.get_reference_printer ()));
   else
     /* "char *", with a space.  */
     ASSERT_STREQ ("   printf (\"msg: %i\\n\", msg);\n"
@@ -5934,7 +6077,7 @@ test_type_mismatch_range_labels ()
 		  "                  |     |\n"
 		  "                  |     int\n"
 		  "                  char *\n",
-		  pp_formatted_text (dc.printer));
+		  pp_formatted_text (dc.get_reference_printer ()));
 }
 
 /* Run all of the selftests within this file.  */

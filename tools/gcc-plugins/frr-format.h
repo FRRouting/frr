@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Check calls to formatted I/O functions (-Wformat).
-   Copyright (C) 1992-2024 Free Software Foundation, Inc.
+   Copyright (C) 1992-2026 Free Software Foundation, Inc.
  */
 
 #ifndef GCC_C_FORMAT_H
@@ -328,6 +328,8 @@ struct format_kind_info
 #define T89_G   { STD_C89, NULL, &local_gimple_ptr_node }
 #define T_CGRAPH_NODE   { STD_C89, NULL, &local_cgraph_node_ptr_node }
 #define T_EVENT_PTR    { STD_C89, NULL, &local_event_ptr_node }
+#define T_STRING_SLICE    { STD_C89, NULL, &local_string_slice_node }
+#define T_PP_ELEMENT_PTR    { STD_C89, NULL, &local_pp_element_ptr_node }
 #define T89_T   { STD_C89, NULL, &local_tree_type_node }
 #define T89_V	{ STD_C89, NULL, T_V }
 #define T_W	&wchar_type_node
