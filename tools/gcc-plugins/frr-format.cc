@@ -64,11 +64,13 @@ struct function_format_info
 };
 
 /* Initialized in init_dynamic_diag_info.  */
+#if 0
 static GTY(()) tree local_tree_type_node;
 static GTY(()) tree local_event_ptr_node;
 static GTY(()) tree local_gimple_ptr_node;
 static GTY(()) tree local_cgraph_node_ptr_node;
 static GTY(()) tree locus;
+#endif
 
 static bool decode_format_attr (const_tree, tree, tree, function_format_info *,
 				bool);
@@ -179,6 +181,7 @@ handle_format_arg_attribute (tree *node, tree atname,
   if (!validate_constant (type, atname, *format_num_expr, 0, &format_num, 0,
 			  false))
     {
+      error ("format string has invalid operand number");
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -4312,7 +4315,7 @@ check_format_types (const substring_loc &fmt_loc,
 /* Given type TYPE, attempt to dereference the type N times
    (e.g. from ("int ***", 2) to "int *")
 
-   Return the derefenced type, with any qualifiers
+   Return the dereferenced type, with any qualifiers
    such as "const" stripped from the result, or
    NULL if unsuccessful (e.g. TYPE is not a pointer type).  */
 
@@ -4806,6 +4809,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 }
 
 
+#if 0
 /* Given a format_char_info array FCI, and a character C, this function
    returns the index into the conversion_specs where that specifier's
    data is located.  The character must exist.  */
@@ -5120,6 +5124,7 @@ init_dynamic_diag_info (void)
   dynamic_format_types[gcc_dump_printf_format_type].conversion_specs =
     gcc_dump_printf_char_table;
 }
+#endif
 
 #ifdef TARGET_FORMAT_TYPES
 extern const format_kind_info TARGET_FORMAT_TYPES[];
@@ -5273,6 +5278,7 @@ handle_format_attribute (tree node[3], tree atname, tree args,
       return NULL_TREE;
     }
 
+#if 0
   /* If this is a custom GCC-internal format type, we have to
      initialize certain bits at runtime.  */
   if (info.format_type == asm_fprintf_format_type
@@ -5309,6 +5315,7 @@ handle_format_attribute (tree node[3], tree atname, tree args,
       else
 	gcc_unreachable ();
     }
+#endif
 
   return NULL_TREE;
 }
