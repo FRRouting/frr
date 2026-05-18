@@ -1863,9 +1863,20 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 		}
 
 		/* install the nh neigh in kernel */
-		zl3vni_nh_install(zl3vni, nh);
+		if (!is_zero_mac(rmac))
+			zl3vni_nh_install(zl3vni, nh);
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
 		nh->gr_refresh_time = monotime(NULL);
+
+		/*
+		 * Don't let a zero RMAC (e.g. from type-2 MAC/IP imports)
+		 * overwrite a valid RMAC previously installed by a type-5
+		 * prefix route.
+		 */
+		if (is_zero_mac(rmac)) {
+			rb_find_or_add_host(&nh->host_rb, host_prefix);
+			return 0;
+		}
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
@@ -1928,6 +1939,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 		}
 
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
+		if (is_zero_mac(rmac))
+			return 0;
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
 				   &nh->emac, rmac, vtep_ip, host_prefix,
@@ -1954,7 +1968,7 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	 * Install the nh neigh in kernel if this is the first time we
 	 * have seen it.
 	 */
-	if (nh->refcnt == 1)
+	if (nh->refcnt == 1 && !is_zero_mac(rmac))
 		svd_nh_install(zl3vni, nh);
 
 	return 0;

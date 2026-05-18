@@ -2686,7 +2686,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
-		for (ALL_NEXTHOPS(nhe->nhg, tmp_nh)) {
+		for (ALL_NEXTHOPS(ere->re_nhe->nhg, tmp_nh)) {
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				struct ipaddr vtep_ip = {};
 
