@@ -1069,6 +1069,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
+	event_cancel(&peer->t_llgr_stale[afi][safi]);
 
 	if (PAF_SUBGRP(af)) {
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
