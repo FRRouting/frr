@@ -236,6 +236,23 @@ submodule frr-bgp-common {
            and sequences in selecting a route.";
       }
 
+      leaf bestpath-aigp {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', the AIGP (Accumulated IGP) attribute is
+           evaluated during best-path selection.";
+        reference "RFC 7311";
+      }
+
+      leaf bestpath-use-imported-attributes {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', use imported path's attributes for
+           best-path comparison (rather than only locally-set attributes).";
+      }
+
       leaf ignore-as-path-length {
         type boolean;
         default "false";
@@ -271,6 +288,15 @@ submodule frr-bgp-common {
           "Multi-path with AS-SET, When set to 'true' it adds AS set
            information for aggregate routes, When set to 'false' it
            prevents AS set generation.";
+      }
+
+      leaf peer-type-multipath-relax {
+        type boolean;
+        default "false";
+        description
+          "When 'true', allow load sharing across routes learned from
+           different peer types (iBGP / eBGP / confed-EBGP) during
+           multipath best-path selection.";
       }
     }
   }
@@ -437,17 +463,23 @@ submodule frr-bgp-common {
 
     leaf suppress-duplicates {
       type boolean;
-      default "true";
+      default "false";
       description
-        "Suppress duplicate updates if the route actually not changed.";
+        "When set to 'true', BGP suppresses duplicate updates if the
+         route's attributes have not actually changed (matches the FRR
+         CLI default of 'no suppress-duplicates'). The default was
+         changed from 'true' in earlier revisions of the model to
+         reflect the implementation's default behaviour.";
     }
 
     leaf ebgp-requires-policy {
       type boolean;
-      default "true";
+      default "false";
       description
         "When set to 'true' BGP speaker requires in and out policy
-         for EBGP peers (RFC8212).";
+         for EBGP peers (RFC 8212). Default 'false' matches the FRR CLI
+         default — the legacy `bgp ebgp-requires-policy` command must be
+         issued to enable RFC 8212 enforcement.";
     }
 
     leaf show-hostname {
@@ -463,6 +495,255 @@ submodule frr-bgp-common {
       description
         "When set to 'true' BGP show hostname for nexthop in certain
          command outputs.";
+    }
+
+    leaf minimum-holdtime {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Minimum hold time that BGP will accept from a peer. If the
+         peer's advertised hold time is less than this value the
+         session establishment is rejected.";
+    }
+
+    leaf allow-martian-nexthop {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', BGP accepts NLRIs whose nexthop is a
+         Martian address (typically rejected as invalid). Used in
+         tightly-controlled lab and EVPN deployments.";
+    }
+
+    leaf fast-convergence {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', BGP sessions are torn down immediately
+         when the nexthop to the peer becomes unreachable, rather
+         than waiting for the hold-timer to expire.";
+    }
+
+    leaf default-link-local-capability {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', advertise the Link-Local Next Hop
+         capability (RFC 8950) to all neighbors by default.";
+    }
+
+    leaf default-dynamic-capability {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', advertise the Dynamic Capability
+         (RFC 5492) to all neighbors by default.";
+    }
+
+    leaf default-software-version-capability {
+      type enumeration {
+        enum "disabled" { value 0; description "Capability not advertised."; }
+        enum "old"      { value 1; description "Advertise using the pre-draft-15 encoding."; }
+        enum "new"      { value 2; description "Advertise using the draft-abraitis-bgp-version-capability-15 encoding."; }
+      }
+      default "disabled";
+      description
+        "Advertise BGP software-version capability to all neighbors by
+         default, using either the legacy or the latest IETF-draft encoding.";
+      reference
+        "draft-abraitis-bgp-version-capability-15";
+    }
+
+    container tcp-keepalive {
+      presence "Enable TCP-level keepalives for BGP sessions";
+      description
+        "BGP TCP-level keepalive parameters. Sets SO_KEEPALIVE on the
+         BGP listening sockets with the configured timing.";
+
+      leaf idle {
+        type uint16 { range "1..65535"; }
+        units "seconds";
+        mandatory true;
+        description "Time before the first keepalive probe is sent.";
+      }
+
+      leaf interval {
+        type uint16 { range "1..65535"; }
+        units "seconds";
+        mandatory true;
+        description "Time between consecutive keepalive probes.";
+      }
+
+      leaf probes {
+        type uint8 { range "1..30"; }
+        mandatory true;
+        description "Maximum number of probes before declaring failure.";
+      }
+    }
+
+    leaf use-underlays-nexthop-weight {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', tell Zebra to use the underlay nexthop weight
+         when resolving recursively-resolved nexthops. Used by ECMP-heavy
+         underlay deployments where the BGP-learned next-hop should inherit
+         the load-share of the underlying recursive nexthop set.";
+    }
+
+    leaf reject-as-sets {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true', BGP rejects routes whose AS_PATH contains
+         AS_SET or AS_CONFED_SET segments. Toggling this leaf resets
+         existing peer sessions so the new policy applies on re-establish.";
+    }
+
+    container administrative-shutdown {
+      presence
+        "Place the BGP instance under administrative shutdown";
+      description
+        "Administrative shutdown of the BGP instance (RFC 8203). When the
+         container is present, all sessions of this instance are shut down
+         with the optional message.";
+
+      leaf message {
+        type string {
+          length "1..127";
+        }
+        description
+          "Optional shutdown message to send via the NOTIFICATION cease
+           subcode (RFC 8203).";
+      }
+    }
+
+    leaf enforce-first-as-global {
+      type boolean;
+      default "false";
+      description
+        "When 'true', BGP requires every received EBGP route to list the
+         peer's ASN as the first element of the AS_PATH. Toggling this
+         leaf triggers a soft-in policy re-evaluation across all peers.";
+    }
+
+    leaf labeled-unicast-explicit-null {
+      type enumeration {
+        enum "disabled"            { value 0; description "No explicit-null behaviour."; }
+        enum "both"                { value 1; description "Use explicit-null for IPv4 and IPv6 local prefixes."; }
+        enum "ipv4-only"           { value 2; description "Use IPv4 explicit-null label only."; }
+        enum "ipv6-only"           { value 3; description "Use IPv6 explicit-null label only."; }
+      }
+      default "disabled";
+      description
+        "BGP Labeled-Unicast explicit-null behaviour. Replaces the
+         per-AFI flag-pair `bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>`
+         in the CLI.";
+    }
+
+    leaf ipv6-auto-ra {
+      type boolean;
+      default "true";
+      description
+        "When 'true' (the default), BGP allows IPv6 Router Advertisements
+         on neighbor interfaces. `no bgp ipv6-auto-ra` flips this to
+         'false'. Per-instance — the global `no bgp ipv6-auto-ra`
+         CONFIG-NODE form sets the bm->flags global bit (kept in legacy
+         dispatch path).";
+    }
+
+    leaf graceful-restart-notification {
+      type boolean;
+      default "false";
+      description
+        "Indicate Graceful Restart support for BGP NOTIFICATION
+         messages. Toggling this leaf re-sends the BGP RESTART
+         capability to all peers.";
+      reference "draft-ietf-idr-bgp-gr-notification";
+    }
+
+    leaf long-lived-graceful-restart-stale-time {
+      type uint32 { range "1..16777215"; }
+      units "seconds";
+      description
+        "Long-lived Graceful Restart: maximum time stale routes are
+         retained per peer. Toggling this leaf re-sends the BGP LLGR
+         capability to all peers.";
+      reference "RFC 9494";
+    }
+
+    leaf bestpath-bandwidth {
+      type enumeration {
+        enum "ecmp"                       { value 0; description "Default: ECMP without weighting."; }
+        enum "ignore"                     { value 1; description "Ignore link-bandwidth: regular ECMP, not weighted."; }
+        enum "skip-missing"               { value 2; description "Ignore paths without link-bandwidth for ECMP."; }
+        enum "default-weight-for-missing" { value 3; description "Assign a low default weight to paths without link-bandwidth."; }
+      }
+      default "ecmp";
+      description
+        "BGP best-path link-bandwidth handling. Maps to bgp->lb_handling.";
+    }
+
+    leaf conditional-advertisement-period {
+      type uint16 { range "5..240"; }
+      units "seconds";
+      default "60";
+      description
+        "Period between BGP table scans for the conditional-advertisement
+         feature (CLI: `bgp conditional-advertisement timer`).";
+    }
+
+    leaf default-originate-timer {
+      type uint16 { range "0..65535"; }
+      units "seconds";
+      default "5";
+      description
+        "Period between BGP table scans evaluating the default-originate
+         condition (CLI: `bgp default-originate timer`). 0 disables
+         re-scan.";
+    }
+
+    leaf advertisement-delay-global {
+      type uint16 { range "1..3600"; }
+      units "seconds";
+      description
+        "Per-instance advertisement-delay: hold route advertisements to
+         peers for this many seconds after the first peer establishes.
+         The global (CONFIG_NODE) form mutates bm-level state and stays
+         in legacy dispatch.";
+    }
+
+    container suppress-fib-pending {
+      presence
+        "Enable FIB-pending suppression: do not advertise routes until
+         they're programmed in the kernel.";
+      description
+        "Per-instance FIB-pending suppression. The global form (sets
+         bm-level flag for all instances) stays in the legacy CONFIG_NODE
+         dispatch path.";
+
+      leaf adv-delay {
+        type uint16 { range "0..10000"; }
+        units "milliseconds";
+        default "1000";
+        description
+          "Advertisement delay after FIB installation.";
+      }
+    }
+
+    container bgp-ls-distribute {
+      presence "Enable distribution of BGP fabric link-state topology";
+      description
+        "BGP-LS (RFC 7752) topology distribution settings.";
+
+      leaf instance-id {
+        type uint64;
+        default "0";
+        description
+          "BGP-LS instance identifier for the distributed topology.";
+      }
     }
   }
 

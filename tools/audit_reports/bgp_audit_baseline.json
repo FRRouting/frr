@@ -1,0 +1,1353 @@
+{
+  "repo": "/Users/hwigelsworth/github/frr",
+  "summary": {
+    "cli_files_scanned": 9,
+    "yang_files_scanned": 11,
+    "total_config_cmds": 708,
+    "yang_nodes": 701,
+    "unknown_keywords": 35,
+    "forgiven_after_alias": 35,
+    "true_yang_gaps": 0
+  },
+  "forgiven_keywords": [
+    {
+      "keyword": "advertise",
+      "reason": "YANG node(s) present: ['advertise', 'ipv4-unicast', 'ipv6-unicast']"
+    },
+    {
+      "keyword": "advertise-all-vni",
+      "reason": "YANG node(s) present: ['advertise-all-vni']"
+    },
+    {
+      "keyword": "advertise-default-gw",
+      "reason": "YANG node(s) present: ['advertise-default-gw']"
+    },
+    {
+      "keyword": "advertise-pip",
+      "reason": "YANG node(s) present: ['advertise-pip']"
+    },
+    {
+      "keyword": "advertise-subnet",
+      "reason": "YANG node(s) present: ['advertise-subnet']"
+    },
+    {
+      "keyword": "advertise-svi-ip",
+      "reason": "YANG node(s) present: ['advertise-svi-ip']"
+    },
+    {
+      "keyword": "advertisement-delay",
+      "reason": "YANG node(s) present: ['advertise-interval']"
+    },
+    {
+      "keyword": "autort",
+      "reason": "YANG node(s) present: ['autort-rfc8365-compatible']"
+    },
+    {
+      "keyword": "coalesce-time",
+      "reason": "YANG node(s) present: ['coalesce-time']"
+    },
+    {
+      "keyword": "default-originate",
+      "reason": "YANG node(s) present: ['default-originate']"
+    },
+    {
+      "keyword": "disable-ead-evi-rx",
+      "reason": "YANG node(s) present: ['disable-ead-evi-rx']"
+    },
+    {
+      "keyword": "disable-ead-evi-tx",
+      "reason": "YANG node(s) present: ['disable-ead-evi-tx']"
+    },
+    {
+      "keyword": "distribute",
+      "reason": "YANG node(s) present: ['bgp-ls-distribute']"
+    },
+    {
+      "keyword": "dup-addr-detection",
+      "reason": "YANG node(s) present: ['dup-addr-detection', 'freeze-permanent', 'freeze-time', 'max-moves']"
+    },
+    {
+      "keyword": "ead-es-frag",
+      "reason": "YANG node(s) present: ['evi-limit', 'fragmentation']"
+    },
+    {
+      "keyword": "ead-es-route-target",
+      "reason": "YANG node(s) present: ['route-target-export']"
+    },
+    {
+      "keyword": "enable-resolve-overlay-index",
+      "reason": "YANG node(s) present: ['enable-resolve-overlay-index']"
+    },
+    {
+      "keyword": "encap-behavior",
+      "reason": "YANG node(s) present: ['encap-behavior']"
+    },
+    {
+      "keyword": "exit-address-family",
+      "reason": "exit/test/context-only \u2014 no YANG node expected"
+    },
+    {
+      "keyword": "exit-vni",
+      "reason": "exit/test/context-only \u2014 no YANG node expected"
+    },
+    {
+      "keyword": "flooding",
+      "reason": "YANG node(s) present: ['flooding']"
+    },
+    {
+      "keyword": "local-install",
+      "reason": "YANG node(s) present: ['local-install-interface']"
+    },
+    {
+      "keyword": "locator",
+      "reason": "YANG node(s) present: ['locator']"
+    },
+    {
+      "keyword": "mac-vrf",
+      "reason": "YANG node(s) present: ['mac-vrf-soo']"
+    },
+    {
+      "keyword": "mpls",
+      "reason": "YANG node(s) present: ['mpls-forwarding', 'mpls-l3vpn-multi-domain-switching']"
+    },
+    {
+      "keyword": "nexthop",
+      "reason": "YANG node(s) present: ['nexthop']"
+    },
+    {
+      "keyword": "read-quanta",
+      "reason": "YANG node(s) present: ['rpkt-quanta']"
+    },
+    {
+      "keyword": "segment-routing",
+      "reason": "YANG node(s) present: ['segment-routing', 'srv6']"
+    },
+    {
+      "keyword": "sid",
+      "reason": "YANG node(s) present: ['export-index', 'export-mode', 'export-value', 'sid']"
+    },
+    {
+      "keyword": "srv6-only",
+      "reason": "YANG node(s) present: ['srv6-only']"
+    },
+    {
+      "keyword": "test",
+      "reason": "exit/test/context-only \u2014 no YANG node expected"
+    },
+    {
+      "keyword": "update-delay",
+      "reason": "YANG node(s) present: ['update-delay-time']"
+    },
+    {
+      "keyword": "use-es-l3nhg",
+      "reason": "YANG node(s) present: ['use-es-l3nhg']"
+    },
+    {
+      "keyword": "use-underlays-nexthop-weight",
+      "reason": "YANG node(s) present: ['use-underlays-nexthop-weight']"
+    },
+    {
+      "keyword": "write-quanta",
+      "reason": "YANG node(s) present: ['wpkt-quanta']"
+    }
+  ],
+  "true_yang_gaps": [],
+  "per_file": {
+    "bgpd/bgp_vty.c": {
+      "total": 515,
+      "config": 481,
+      "skipped": 34
+    },
+    "bgpd/bgp_routemap.c": {
+      "total": 135,
+      "config": 135,
+      "skipped": 0
+    },
+    "bgpd/bgp_evpn_vty.c": {
+      "total": 108,
+      "config": 51,
+      "skipped": 57
+    },
+    "bgpd/bgp_rpki.c": {
+      "total": 25,
+      "config": 17,
+      "skipped": 8
+    },
+    "bgpd/bgp_bmp.c": {
+      "total": 14,
+      "config": 13,
+      "skipped": 1
+    },
+    "bgpd/bgp_flowspec_vty.c": {
+      "total": 3,
+      "config": 1,
+      "skipped": 2
+    },
+    "bgpd/bgp_debug.c": {
+      "total": 54,
+      "config": 0,
+      "skipped": 54
+    },
+    "bgpd/bgp_bfd.c": {
+      "total": 10,
+      "config": 10,
+      "skipped": 0
+    },
+    "bgpd/bgp_mplsvpn_vty.c": {
+      "total": 0,
+      "config": 0,
+      "skipped": 0,
+      "missing_file": true
+    }
+  },
+  "by_keyword": {
+    "neighbor": {
+      "count": 249,
+      "expected_owner": [
+        "frr-bgp-neighbor.yang",
+        "neighbors/neighbor"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 3982,
+          "cmdstr": "neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 4011,
+          "cmdstr": "no neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 4041,
+          "cmdstr": "neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart-helper"
+        }
+      ]
+    },
+    "bgp": {
+      "count": 150,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "global/*"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 1614,
+          "cmdstr": "bgp local-mac vni"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 1657,
+          "cmdstr": "no bgp local-mac vni"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 1979,
+          "cmdstr": "bgp session-dscp (0-63)$dscp"
+        }
+      ]
+    },
+    "set": {
+      "count": 84,
+      "expected_owner": [
+        "frr-bgp-route-map.yang",
+        "set/*"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5379,
+          "cmdstr": "set evpn gateway-ip ipv4 A.B.C.D"
+        },
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5417,
+          "cmdstr": "no set evpn gateway-ip ipv4 A.B.C.D"
+        },
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5450,
+          "cmdstr": "set evpn gateway-ip ipv6 X:X::X:X"
+        }
+      ]
+    },
+    "match": {
+      "count": 53,
+      "expected_owner": [
+        "frr-bgp-route-map.yang",
+        "match/*"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5145,
+          "cmdstr": "match mac address ACCESSLIST_MAC_NAME"
+        },
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5165,
+          "cmdstr": "no match mac address ACCESSLIST_MAC_NAME"
+        },
+        {
+          "file": "bgpd/bgp_routemap.c",
+          "lineno": 5205,
+          "cmdstr": "match evpn route-type <ead|1|macip|2|multicast|3|es|4|prefix|5>"
+        }
+      ]
+    },
+    "redistribute": {
+      "count": 32,
+      "expected_owner": [
+        "frr-bgp-common-multiprotocol.yang",
+        "afi-safi/redistribute"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 19699,
+          "cmdstr": "redistribute"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 19719,
+          "cmdstr": "redistribute"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 19724,
+          "cmdstr": "redistribute"
+        }
+      ]
+    },
+    "rpki": {
+      "count": 15,
+      "expected_owner": [
+        "frr-bgp-rpki.yang",
+        "rpki/*"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_rpki.c",
+          "lineno": 1684,
+          "cmdstr": "rpki"
+        },
+        {
+          "file": "bgpd/bgp_rpki.c",
+          "lineno": 1719,
+          "cmdstr": "no rpki"
+        },
+        {
+          "file": "bgpd/bgp_rpki.c",
+          "lineno": 1748,
+          "cmdstr": "rpki start [vrf NAME$vrfname]"
+        }
+      ]
+    },
+    "bmp": {
+      "count": 12,
+      "expected_owner": [
+        "frr-bgp-bmp.yang",
+        "bmp/*"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_bmp.c",
+          "lineno": 2809,
+          "cmdstr": "bmp targets BMPTARGETS"
+        },
+        {
+          "file": "bgpd/bgp_bmp.c",
+          "lineno": 2825,
+          "cmdstr": "no bmp targets BMPTARGETS"
+        },
+        {
+          "file": "bgpd/bgp_bmp.c",
+          "lineno": 2845,
+          "cmdstr": "[no] bmp import-vrf-view VRFNAME$vrfname"
+        }
+      ]
+    },
+    "maximum-paths": {
+      "count": 10,
+      "expected_owner": [
+        "frr-bgp-common-multiprotocol.yang",
+        "afi-safi/use-multiple-paths"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2933,
+          "cmdstr": "maximum-paths"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2944,
+          "cmdstr": "maximum-paths"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2949,
+          "cmdstr": "maximum-paths ibgp"
+        }
+      ]
+    },
+    "route-target": {
+      "count": 10,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/rt"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11370,
+          "cmdstr": "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST..."
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11441,
+          "cmdstr": "no <rt|route-target> vpn <import|export|both>$direction_str"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11770,
+          "cmdstr": "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST..."
+        }
+      ]
+    },
+    "rd": {
+      "count": 8,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/rd"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 10833,
+          "cmdstr": "[no] rd vpn export ASN:NN_OR_IP-ADDRESS:NN$rd_str"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 10903,
+          "cmdstr": "no rd vpn export"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6598,
+          "cmdstr": "rd ASN:NN_OR_IP-ADDRESS:NN"
+        }
+      ]
+    },
+    "address-family": {
+      "count": 6,
+      "expected_owner": [
+        "frr-bgp.yang",
+        "global/afi-safis/afi-safi"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11833,
+          "cmdstr": "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec>]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11858,
+          "cmdstr": "address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec>]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11883,
+          "cmdstr": "address-family vpnv4 [unicast]"
+        }
+      ]
+    },
+    "sid": {
+      "count": 4,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 10492,
+          "cmdstr": "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [behavior dt46$behavior_dt46] [route-map RMAP$rmap_str]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11061,
+          "cmdstr": "[no] sid vpn export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11182,
+          "cmdstr": "[no] sid vpn per-vrf export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>"
+        }
+      ]
+    },
+    "import": {
+      "count": 4,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "global/import-export"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11521,
+          "cmdstr": "import vrf route-map RMAP$rmap_str"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11576,
+          "cmdstr": "no import vrf route-map [RMAP$rmap_str]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11609,
+          "cmdstr": "[no] import vrf VIEWVRFNAME$import_name"
+        }
+      ]
+    },
+    "advertise-default-gw": {
+      "count": 4,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 3937,
+          "cmdstr": "advertise-default-gw"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 3953,
+          "cmdstr": "no advertise-default-gw"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 3971,
+          "cmdstr": "advertise-default-gw"
+        }
+      ]
+    },
+    "label": {
+      "count": 3,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/label"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 10911,
+          "cmdstr": "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 10970,
+          "cmdstr": "[no] label vpn export <(0-1048575)$label_val|auto$label_auto>"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11288,
+          "cmdstr": "no label vpn export"
+        }
+      ]
+    },
+    "rt": {
+      "count": 3,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/rt"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11370,
+          "cmdstr": "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST..."
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11441,
+          "cmdstr": "no <rt|route-target> vpn <import|export|both>$direction_str"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11770,
+          "cmdstr": "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST..."
+        }
+      ]
+    },
+    "dup-addr-detection": {
+      "count": 3,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4110,
+          "cmdstr": "dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val]"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4142,
+          "cmdstr": "dup-addr-detection freeze <permanent |(30-3600)$freeze_time_val>"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4171,
+          "cmdstr": "no dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val | freeze <permanent$permanent_val | (30-3600)$freeze_time_val>]"
+        }
+      ]
+    },
+    "router": {
+      "count": 2,
+      "expected_owner": [
+        "frr-bgp.yang",
+        "router-bgp-entry"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 1697,
+          "cmdstr": "router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 1845,
+          "cmdstr": "no router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]"
+        }
+      ]
+    },
+    "update-delay": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2666,
+          "cmdstr": "update-delay (0-3600)$delay [(1-3600)$wait]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2677,
+          "cmdstr": "no update-delay [(0-3600) [(1-3600)]]"
+        }
+      ]
+    },
+    "advertisement-delay": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2739,
+          "cmdstr": "advertisement-delay (1-3600)$delay"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2751,
+          "cmdstr": "no advertisement-delay [(1-3600)]"
+        }
+      ]
+    },
+    "coalesce-time": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2883,
+          "cmdstr": "coalesce-time (0-4294967295)$ms"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2899,
+          "cmdstr": "no coalesce-time [(0-4294967295)]"
+        }
+      ]
+    },
+    "nexthop": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 3046,
+          "cmdstr": "[no] nexthop prefer-global"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11305,
+          "cmdstr": "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop_su]"
+        }
+      ]
+    },
+    "timers": {
+      "count": 2,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "global/timers"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 3071,
+          "cmdstr": "timers bgp (0-65535) (0-65535)"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 3101,
+          "cmdstr": "no timers bgp [(0-65535) (0-65535)]"
+        }
+      ]
+    },
+    "route-map": {
+      "count": 2,
+      "expected_owner": [
+        "frr-bgp-route-map.yang",
+        "(top-level lib/route-map)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11452,
+          "cmdstr": "route-map <vpn|evpn|vrf NAME> <import|export> RMAP"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11512,
+          "cmdstr": "no route-map vpn <import|export>$direction_str"
+        }
+      ]
+    },
+    "segment-routing": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11930,
+          "cmdstr": "segment-routing srv6"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11968,
+          "cmdstr": "no segment-routing srv6"
+        }
+      ]
+    },
+    "locator": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 12028,
+          "cmdstr": "locator NAME$name"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 12069,
+          "cmdstr": "no locator NAME$name"
+        }
+      ]
+    },
+    "distribute": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 20630,
+          "cmdstr": "distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 20682,
+          "cmdstr": "no distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]"
+        }
+      ]
+    },
+    "mpls": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 22986,
+          "cmdstr": "[no$no] mpls bgp forwarding"
+        },
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 23015,
+          "cmdstr": "[no$no] mpls bgp l3vpn-multi-domain-switching"
+        }
+      ]
+    },
+    "network": {
+      "count": 2,
+      "expected_owner": [
+        "frr-bgp-common-multiprotocol.yang",
+        "afi-safi/network-config"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 2109,
+          "cmdstr": "network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map RMAP_NAME]"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 2148,
+          "cmdstr": "no network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X>"
+        }
+      ]
+    },
+    "flooding": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 3907,
+          "cmdstr": "[no$no] flooding <disable$disable|head-end-replication$her>"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6492,
+          "cmdstr": "[no$no] flooding <disable$disable|head-end-replication$her>"
+        }
+      ]
+    },
+    "advertise-all-vni": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4008,
+          "cmdstr": "advertise-all-vni"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4030,
+          "cmdstr": "no advertise-all-vni"
+        }
+      ]
+    },
+    "autort": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4044,
+          "cmdstr": "autort rfc8365-compatible"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4058,
+          "cmdstr": "no autort rfc8365-compatible"
+        }
+      ]
+    },
+    "default-originate": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4073,
+          "cmdstr": "default-originate <ipv4 | ipv6>"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4091,
+          "cmdstr": "no default-originate <ipv4 | ipv6>"
+        }
+      ]
+    },
+    "advertise-svi-ip": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4252,
+          "cmdstr": "[no$no] advertise-svi-ip"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4277,
+          "cmdstr": "[no$no] advertise-svi-ip"
+        }
+      ]
+    },
+    "mac-vrf": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4297,
+          "cmdstr": "mac-vrf soo ASN:NN_OR_IP-ADDRESS:NN$soo"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4329,
+          "cmdstr": "no mac-vrf soo [ASN:NN_OR_IP-ADDRESS:NN$soo]"
+        }
+      ]
+    },
+    "advertise-subnet": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4349,
+          "cmdstr": "advertise-subnet"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4369,
+          "cmdstr": "no advertise-subnet"
+        }
+      ]
+    },
+    "advertise": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4385,
+          "cmdstr": "advertise"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4533,
+          "cmdstr": "no advertise"
+        }
+      ]
+    },
+    "test": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6286,
+          "cmdstr": "[no$no] test es NAME$esi_str [state NAME$state_str]"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6338,
+          "cmdstr": "[no$no] test es NAME$esi_str vni (1-16777215)$vni"
+        }
+      ]
+    },
+    "vni": {
+      "count": 2,
+      "expected_owner": [
+        "frr-bgp.yang",
+        "afi-safi[l2vpn-evpn]/vni"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6531,
+          "cmdstr": "vni"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6557,
+          "cmdstr": "no vni"
+        }
+      ]
+    },
+    "ead-es-route-target": {
+      "count": 2,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 7296,
+          "cmdstr": "ead-es-route-target export RT"
+        },
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 7331,
+          "cmdstr": "no ead-es-route-target export RT"
+        }
+      ]
+    },
+    "write-quanta": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2823,
+          "cmdstr": "[no$no] write-quanta (1-64)$quanta"
+        }
+      ]
+    },
+    "read-quanta": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2845,
+          "cmdstr": "[no$no] read-quanta (1-10)$quanta"
+        }
+      ]
+    },
+    "use-underlays-nexthop-weight": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 2916,
+          "cmdstr": "[no] use-underlays-nexthop-weight"
+        }
+      ]
+    },
+    "export": {
+      "count": 1,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "global/import-export"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11694,
+          "cmdstr": "[no] <import|export>$direction_str vpn"
+        }
+      ]
+    },
+    "route-target6": {
+      "count": 1,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/rt"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11770,
+          "cmdstr": "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST..."
+        }
+      ]
+    },
+    "rt6": {
+      "count": 1,
+      "expected_owner": [
+        "frr-bgp-common.yang",
+        "afi-safi/rt"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11770,
+          "cmdstr": "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST..."
+        }
+      ]
+    },
+    "encap-behavior": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 11992,
+          "cmdstr": "[no$no] encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior"
+        }
+      ]
+    },
+    "srv6-only": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 12055,
+          "cmdstr": "[no] srv6-only"
+        }
+      ]
+    },
+    "exit-address-family": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_vty.c",
+          "lineno": 12157,
+          "cmdstr": "exit-address-family"
+        }
+      ]
+    },
+    "use-es-l3nhg": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4601,
+          "cmdstr": "[no$no] use-es-l3nhg"
+        }
+      ]
+    },
+    "disable-ead-evi-rx": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4611,
+          "cmdstr": "[no$no] disable-ead-evi-rx"
+        }
+      ]
+    },
+    "disable-ead-evi-tx": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4627,
+          "cmdstr": "[no$no] disable-ead-evi-tx"
+        }
+      ]
+    },
+    "enable-resolve-overlay-index": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4643,
+          "cmdstr": "[no$no] enable-resolve-overlay-index"
+        }
+      ]
+    },
+    "advertise-pip": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 4663,
+          "cmdstr": "[no$no] advertise-pip [ip <A.B.C.D> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]"
+        }
+      ]
+    },
+    "exit-vni": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 6588,
+          "cmdstr": "exit-vni"
+        }
+      ]
+    },
+    "ead-es-frag": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_evpn_vty.c",
+          "lineno": 7283,
+          "cmdstr": "[no$no] ead-es-frag evi-limit (1-1000)$limit"
+        }
+      ]
+    },
+    "ip": {
+      "count": 1,
+      "expected_owner": [
+        "(varies)",
+        "ip community-list / etc."
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_bmp.c",
+          "lineno": 2999,
+          "cmdstr": "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list"
+        }
+      ]
+    },
+    "ipv6": {
+      "count": 1,
+      "expected_owner": [
+        "(varies)",
+        "ipv6 prefix-list / etc."
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_bmp.c",
+          "lineno": 2999,
+          "cmdstr": "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list"
+        }
+      ]
+    },
+    "local-install": {
+      "count": 1,
+      "expected_owner": [
+        "(unmapped)",
+        "(unmapped)"
+      ],
+      "examples": [
+        {
+          "file": "bgpd/bgp_flowspec_vty.c",
+          "lineno": 577,
+          "cmdstr": "[no] local-install INTERFACE"
+        }
+      ]
+    }
+  },
+  "unknown_keywords": [
+    "advertise",
+    "advertise-all-vni",
+    "advertise-default-gw",
+    "advertise-pip",
+    "advertise-subnet",
+    "advertise-svi-ip",
+    "advertisement-delay",
+    "autort",
+    "coalesce-time",
+    "default-originate",
+    "disable-ead-evi-rx",
+    "disable-ead-evi-tx",
+    "distribute",
+    "dup-addr-detection",
+    "ead-es-frag",
+    "ead-es-route-target",
+    "enable-resolve-overlay-index",
+    "encap-behavior",
+    "exit-address-family",
+    "exit-vni",
+    "flooding",
+    "local-install",
+    "locator",
+    "mac-vrf",
+    "mpls",
+    "nexthop",
+    "read-quanta",
+    "segment-routing",
+    "sid",
+    "srv6-only",
+    "test",
+    "update-delay",
+    "use-es-l3nhg",
+    "use-underlays-nexthop-weight",
+    "write-quanta"
+  ]
+}

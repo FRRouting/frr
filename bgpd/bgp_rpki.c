@@ -1716,7 +1716,7 @@ DEFUN_NOSH (rpki,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_rpki,
+DEFPY_YANG (no_rpki,
        no_rpki_cmd,
        "no rpki",
        NO_STR
@@ -1745,7 +1745,7 @@ DEFPY (no_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_rpki_start,
+DEFPY_YANG (bgp_rpki_start,
        bgp_rpki_start_cmd,
        "rpki start [vrf NAME$vrfname]",
        RPKI_OUTPUT_STRING
@@ -1774,7 +1774,7 @@ DEFPY (bgp_rpki_start,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_rpki_stop,
+DEFPY_YANG (bgp_rpki_stop,
        bgp_rpki_stop_cmd,
        "rpki stop [vrf NAME$vrfname]",
        RPKI_OUTPUT_STRING
@@ -1791,7 +1791,7 @@ DEFPY (bgp_rpki_stop,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_polling_period,
+DEFPY_YANG (rpki_polling_period,
        rpki_polling_period_cmd,
        "rpki polling_period (1-86400)$pp",
        RPKI_OUTPUT_STRING
@@ -1812,7 +1812,7 @@ DEFPY (rpki_polling_period,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_polling_period,
+DEFPY_YANG (no_rpki_polling_period,
        no_rpki_polling_period_cmd,
        "no rpki polling_period [(1-86400)]",
        NO_STR
@@ -1834,7 +1834,7 @@ DEFUN (no_rpki_polling_period,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_expire_interval,
+DEFPY_YANG (rpki_expire_interval,
        rpki_expire_interval_cmd,
        "rpki expire_interval (600-172800)$tmp",
        RPKI_OUTPUT_STRING
@@ -1860,7 +1860,7 @@ DEFPY (rpki_expire_interval,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-DEFUN (no_rpki_expire_interval,
+DEFPY_YANG (no_rpki_expire_interval,
        no_rpki_expire_interval_cmd,
        "no rpki expire_interval [(600-172800)]",
        NO_STR
@@ -1882,7 +1882,7 @@ DEFUN (no_rpki_expire_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_retry_interval,
+DEFPY_YANG (rpki_retry_interval,
        rpki_retry_interval_cmd,
        "rpki retry_interval (1-7200)$tmp",
        RPKI_OUTPUT_STRING
@@ -1903,7 +1903,7 @@ DEFPY (rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_retry_interval,
+DEFPY_YANG (no_rpki_retry_interval,
        no_rpki_retry_interval_cmd,
        "no rpki retry_interval [(1-7200)]",
        NO_STR
@@ -1925,7 +1925,7 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
+DEFPY_YANG(rpki_cache_tcp, rpki_cache_tcp_cmd,
       "rpki cache tcp <A.B.C.D|WORD>$cache TCPPORT [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
@@ -1980,7 +1980,7 @@ DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
+DEFPY_YANG(rpki_cache_ssh, rpki_cache_ssh_cmd,
       "rpki cache ssh <A.B.C.D|WORD>$cache (1-65535)$sshport SSH_UNAME SSH_PRIVKEY [KNOWN_HOSTS_PATH] [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
@@ -2045,7 +2045,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_rpki_cache,
+DEFPY_YANG (no_rpki_cache,
        no_rpki_cache_cmd,
        "no rpki cache <tcp|ssh> <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [KNOWN_HOSTS_PATH]> [source <A.B.C.D>$bindaddr] preference (1-255)",
        NO_STR
@@ -2613,7 +2613,7 @@ static int config_on_exit(struct vty *vty)
 	return 1;
 }
 
-DEFPY(rpki_reset,
+DEFPY_YANG(rpki_reset,
        rpki_reset_cmd,
        "rpki reset [vrf NAME$vrfname]",
        RPKI_OUTPUT_STRING
@@ -2629,7 +2629,7 @@ DEFPY(rpki_reset,
 	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }
 
-DEFPY (rpki_reset_config_mode,
+DEFPY_YANG (rpki_reset_config_mode,
        rpki_reset_config_mode_cmd,
        "rpki reset",
        RPKI_OUTPUT_STRING
@@ -2661,7 +2661,7 @@ DEFUN (debug_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_rpki,
+DEFPY_YANG (no_debug_rpki,
        no_debug_rpki_cmd,
        "no debug rpki",
        NO_STR

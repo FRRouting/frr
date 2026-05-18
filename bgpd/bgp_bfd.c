@@ -513,7 +513,7 @@ void bgp_bfd_show_info(struct vty *vty, struct peer *peer, json_object *json_nei
 	bfd_sess_show(vty, json_neigh, peer->bfd_config->session);
 }
 
-DEFUN (neighbor_bfd,
+DEFPY_YANG (neighbor_bfd,
        neighbor_bfd_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
        NEIGHBOR_STR
@@ -538,7 +538,7 @@ DEFUN (neighbor_bfd,
 }
 
 #if HAVE_BFDD == 0
-DEFUN(
+DEFPY_YANG(
        neighbor_bfd_param,
        neighbor_bfd_param_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
@@ -579,7 +579,7 @@ DEFUN(
 #endif
 
 #if HAVE_BFDD > 0
-DEFUN_HIDDEN(
+DEFPY_YANG(
        neighbor_bfd_param,
        neighbor_bfd_param_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
@@ -619,7 +619,7 @@ DEFUN_HIDDEN(
 }
 #endif
 
-DEFPY (neighbor_bfd_strict,
+DEFPY_YANG (neighbor_bfd_strict,
        neighbor_bfd_strict_cmd,
        "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict",
        NO_STR
@@ -640,7 +640,7 @@ DEFPY (neighbor_bfd_strict,
 	return peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
 }
 
-DEFPY (neighbor_bfd_strict_hold_time,
+DEFPY_YANG (neighbor_bfd_strict_hold_time,
        neighbor_bfd_strict_hold_time_cmd,
        "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict hold-time ![(1-4294967295)$hold_time]",
        NO_STR
@@ -677,7 +677,7 @@ DEFPY (neighbor_bfd_strict_hold_time,
 	return CMD_SUCCESS;
 }
 
-DEFUN (neighbor_bfd_check_controlplane_failure,
+DEFPY_YANG (neighbor_bfd_check_controlplane_failure,
        neighbor_bfd_check_controlplane_failure_cmd,
        "[no] neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure",
        NO_STR
@@ -710,7 +710,7 @@ DEFUN (neighbor_bfd_check_controlplane_failure,
  }
 
 #if HAVE_BFDD > 0
-DEFUN (no_neighbor_bfd,
+DEFPY_YANG (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
        NO_STR
@@ -735,7 +735,7 @@ DEFUN (no_neighbor_bfd,
 #endif
 
 #if HAVE_BFDD == 0
-DEFUN (no_neighbor_bfd,
+DEFPY_YANG (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
        NO_STR
@@ -763,7 +763,7 @@ DEFUN (no_neighbor_bfd,
 #endif
 
 #if HAVE_BFDD > 0
-DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
+DEFPY_YANG(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF",
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
@@ -790,7 +790,7 @@ DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
+DEFPY_YANG(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile [BFDPROF]",
       NO_STR
       NEIGHBOR_STR

@@ -95,6 +95,188 @@ submodule frr-bgp-neighbor {
         "Don't send open messages to this neighbor.";
     }
 
+    leaf aigp {
+      type boolean;
+      default "false";
+      description
+        "Enable send and receive of the AIGP attribute per neighbor.";
+    }
+
+    leaf ip-transparent {
+      type boolean;
+      default "false";
+      description
+        "Configure peer with IP_TRANSPARENT socket option.";
+    }
+
+    leaf extended-link-bandwidth {
+      type boolean;
+      default "false";
+      description
+        "Send Extended (64-bit) encoding for Link-Bandwidth extended
+         community.";
+    }
+
+    leaf disable-link-bw-encoding-ieee {
+      type boolean;
+      default "false";
+      description
+        "Disable IEEE floating-point encoding for extended community
+         bandwidth.";
+    }
+
+    leaf extended-optional-parameters {
+      type boolean;
+      default "false";
+      description
+        "Force the extended optional parameters format for OPEN
+         messages (RFC 9072).";
+    }
+
+    leaf send-nexthop-characteristics {
+      type boolean;
+      default "false";
+      description
+        "Send BGP Next Hop Dependent Characteristics Attribute.";
+    }
+
+    leaf rpki-strict {
+      type boolean;
+      default "false";
+      description
+        "Apply strict RPKI mode for this neighbor — drop INVALID and
+         NOTFOUND prefixes.";
+    }
+
+    leaf capability-fqdn {
+      type boolean;
+      default "true";
+      description
+        "Advertise the FQDN capability to this peer (RFC draft).";
+    }
+
+    leaf capability-link-local {
+      type boolean;
+      default "false";
+      description
+        "Advertise the Link-Local Address capability.";
+    }
+
+    leaf capability-software-version {
+      type boolean;
+      default "false";
+      description
+        "Advertise the Software Version capability.";
+    }
+
+    leaf capability-software-version-latest-encoding {
+      type boolean;
+      default "false";
+      description
+        "Use the latest-encoding form of the Software Version
+         capability (draft-abraitis-bgp-version-capability-15).";
+    }
+
+    leaf as-loop-detection {
+      type boolean;
+      default "false";
+      description
+        "Enable sender-side AS path loop detection.";
+    }
+
+    leaf oad {
+      type boolean;
+      default "false";
+      description
+        "Mark this neighbor as part of an EBGP Operator AS Domain (OAD).
+         Only meaningful when the neighbor is an EBGP peer; takes effect
+         after the session is reset.";
+    }
+
+    leaf ls-local-link-id {
+      type uint32;
+      description
+        "BGP-LS local link identifier advertised to this neighbor.";
+    }
+
+    leaf ls-remote-link-id {
+      type uint32;
+      description
+        "BGP-LS remote link identifier advertised to this neighbor.";
+    }
+
+    leaf peer-graceful-shutdown {
+      type boolean;
+      default "false";
+      description
+        "Mark all routes from this peer with the GRACEFUL_SHUTDOWN
+         community. Peer-level setting (not per-AF).";
+    }
+
+    leaf timers-delayopen {
+      type uint16 {
+        range "1..240";
+      }
+      units "seconds";
+      description
+        "RFC 4271 DelayOpenTimer interval for this neighbor.";
+    }
+
+    container shutdown-rtt {
+      description
+        "Shutdown peer if round-trip-time exceeds threshold.";
+      leaf rtt {
+        type uint16 {
+          range "1..65535";
+        }
+        units "milliseconds";
+        description
+          "Round-trip-time threshold above which to shut down.";
+      }
+      leaf count {
+        type uint8 {
+          range "1..255";
+        }
+        description
+          "Number of keepalives with elevated RTT before shutdown.";
+      }
+    }
+
+    leaf tcp-mss {
+      type uint32;
+      description
+        "TCP Maximum Segment Size used for the BGP TCP session.";
+    }
+
+    leaf port {
+      type inet:port-number;
+      description
+        "BGP TCP port number for the BGP session with this neighbor.";
+    }
+
+    container local-role {
+      description
+        "BGP Role (RFC 9234) configuration.";
+      leaf role {
+        type enumeration {
+          enum provider;
+          enum rs-server;
+          enum rs-client;
+          enum customer;
+          enum peer;
+        }
+        description
+          "Local BGP role advertised to the peer.";
+      }
+      leaf strict-mode {
+        type boolean;
+        default "false";
+        description
+          "Require the remote peer to advertise a role and reset the
+           session on mismatch.";
+      }
+    }
+
     uses neighbor-update-source;
 
     uses structure-neighbor-group-ebgp-multihop;
@@ -125,6 +307,182 @@ submodule frr-bgp-neighbor {
           description
             "This leaf indicates whether the IPv4 Unicast AFI, SAFI is
              enabled for the neighbour or group.";
+        }
+
+        /* Phase 3c — per-AF per-peer flag toggles shared across AFs.
+         * These boolean leaves map directly to PEER_FLAG_* bits applied
+         * per AFI/SAFI via peer_af_flag_set/unset. */
+        leaf soft-reconfiguration-inbound {
+          type boolean;
+          default "false";
+          description
+            "Allow inbound soft reconfiguration for this neighbor.";
+        }
+        leaf as-override {
+          type boolean;
+          default "false";
+          description
+            "Override matching AS-number while sending update.";
+        }
+        leaf route-reflector-client {
+          type boolean;
+          default "false";
+          description
+            "Configure a neighbor as Route Reflector client.";
+        }
+        leaf route-server-client {
+          type boolean;
+          default "false";
+          description
+            "Configure a neighbor as Route Server client.";
+        }
+        leaf next-hop-self {
+          type boolean;
+          default "false";
+          description
+            "Disable the next-hop calculation for this neighbor.";
+        }
+        leaf next-hop-self-force {
+          type boolean;
+          default "false";
+          description
+            "Set next-hop to self for reflected routes.";
+        }
+        leaf remove-private-as {
+          type boolean;
+          default "false";
+          description
+            "Remove private ASNs in outbound updates.";
+        }
+        leaf remove-private-as-all {
+          type boolean;
+          default "false";
+          description
+            "Remove all private ASNs (not just leading).";
+        }
+        leaf remove-private-as-replace-as {
+          type boolean;
+          default "false";
+          description
+            "Replace removed private ASNs with the local ASN.";
+        }
+        leaf remove-private-as-all-replace-as {
+          type boolean;
+          default "false";
+          description
+            "Combined remove-private-AS all + replace-AS variant.";
+        }
+        leaf nexthop-local-unchanged {
+          type boolean;
+          default "false";
+          description
+            "Configure treatment of outgoing link-local nexthop.";
+        }
+        leaf send-community-standard {
+          type boolean;
+          default "true";
+          description
+            "Send Community attribute to this neighbor.";
+        }
+        leaf send-community-extended {
+          type boolean;
+          default "true";
+          description
+            "Send Extended-Community attribute to this neighbor.";
+        }
+        leaf send-community-large {
+          type boolean;
+          default "true";
+          description
+            "Send Large-Community attribute to this neighbor.";
+        }
+        leaf weight {
+          type uint16;
+          description
+            "Set default weight for routes from this neighbor.";
+        }
+        leaf allowas-in {
+          type uint8 {
+            range "1..10";
+          }
+          description
+            "Number of occurrences of AS-number permitted in the
+             AS-path.";
+        }
+        leaf graceful-shutdown {
+          type boolean;
+          default "false";
+          description
+            "Mark routes received from this peer as
+             well-known-community no-export plus path-attribute
+             GRACEFUL_SHUTDOWN.";
+        }
+        leaf accept-own {
+          type boolean;
+          default "false";
+          description
+            "Enable handling of self-originated VPN routes.";
+        }
+        leaf disable-addpath-rx {
+          type boolean;
+          default "false";
+          description
+            "Do not accept addpath Rx capability.";
+        }
+        leaf addpath-tx-all-paths {
+          type boolean;
+          default "false";
+          description
+            "Use addpath to advertise all paths to a neighbor.";
+        }
+        leaf addpath-tx-best-selected-paths {
+          type uint8 {
+            range "1..6";
+          }
+          description
+            "Use addpath to advertise N best-selected paths.";
+        }
+        leaf addpath-tx-bestpath-per-as {
+          type boolean;
+          default "false";
+          description
+            "Use addpath to advertise the bestpath per neighboring AS.";
+        }
+        leaf encapsulation-srv6 {
+          type boolean;
+          default "false";
+          description
+            "Distribute L3VPN updates with SRv6 prefix SID.";
+        }
+        leaf encapsulation-mpls {
+          type boolean;
+          default "false";
+          description
+            "Distribute L3VPN updates with MPLS prefix SID.";
+        }
+        leaf soo {
+          type string;
+          description
+            "Site-of-Origin extended community
+             (ASN:NN or IP-ADDRESS:NN).";
+        }
+        leaf attribute-unchanged-as-path {
+          type boolean;
+          default "false";
+          description
+            "Send updates with AS_PATH attribute unchanged.";
+        }
+        leaf attribute-unchanged-next-hop {
+          type boolean;
+          default "false";
+          description
+            "Send updates with NEXT_HOP attribute unchanged.";
+        }
+        leaf attribute-unchanged-med {
+          type boolean;
+          default "false";
+          description
+            "Send updates with MED attribute unchanged.";
         }
 
         uses mp-all-afi-safi-list-contents;

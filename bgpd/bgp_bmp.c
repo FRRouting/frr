@@ -2822,7 +2822,7 @@ DEFPY_NOSH(bmp_targets_main,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_bmp_targets_main,
+DEFPY_YANG(no_bmp_targets_main,
       no_bmp_targets_cmd,
       "no bmp targets BMPTARGETS",
       NO_STR
@@ -2842,7 +2842,7 @@ DEFPY(no_bmp_targets_main,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_import_vrf,
+DEFPY_YANG(bmp_import_vrf,
       bmp_import_vrf_cmd,
       "[no] bmp import-vrf-view VRFNAME$vrfname",
       NO_STR
@@ -2899,7 +2899,7 @@ DEFPY(bmp_import_vrf,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_listener_main,
+DEFPY_YANG(bmp_listener_main,
       bmp_listener_cmd,
       "bmp listener <X:X::X:X|A.B.C.D> port (1-65535)",
       BMP_STR
@@ -2919,7 +2919,7 @@ DEFPY(bmp_listener_main,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_bmp_listener_main,
+DEFPY_YANG(no_bmp_listener_main,
       no_bmp_listener_cmd,
       "no bmp listener <X:X::X:X|A.B.C.D> port (1-65535)",
       NO_STR
@@ -2943,7 +2943,7 @@ DEFPY(no_bmp_listener_main,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_connect,
+DEFPY_YANG(bmp_connect,
       bmp_connect_cmd,
       "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)} [source-interface <WORD$srcif>]",
       NO_STR
@@ -2996,7 +2996,7 @@ DEFPY(bmp_connect,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_acl,
+DEFPY_YANG(bmp_acl,
       bmp_acl_cmd,
       "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list",
       NO_STR
@@ -3022,7 +3022,7 @@ DEFPY(bmp_acl,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_stats_cfg,
+DEFPY_YANG(bmp_stats_cfg,
       bmp_stats_cmd,
       "[no] bmp stats [interval (100-86400000)]",
       NO_STR
@@ -3047,7 +3047,7 @@ DEFPY(bmp_stats_cfg,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_stats_send_experimental,
+DEFPY_YANG(bmp_stats_send_experimental,
       bmp_stats_send_experimental_cmd,
       "[no] bmp stats send-experimental",
       NO_STR
@@ -3065,7 +3065,7 @@ DEFPY(bmp_stats_send_experimental,
 #define BMP_POLICY_IS_LOCRIB(str) ((str)[0] == 'l') /* __l__oc-rib */
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
-DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
+DEFPY_YANG(bmp_monitor_cfg, bmp_monitor_cmd,
       "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
       "Send BMP route monitoring messages\n" BGP_AF_STR BGP_AF_STR BGP_AF_STR
@@ -3107,7 +3107,7 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_mirror_cfg,
+DEFPY_YANG(bmp_mirror_cfg,
       bmp_mirror_cmd,
       "[no] bmp mirror",
       NO_STR
@@ -3134,7 +3134,7 @@ DEFPY(bmp_mirror_cfg,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_mirror_limit_cfg,
+DEFPY_YANG(bmp_mirror_limit_cfg,
       bmp_mirror_limit_cmd,
       "bmp mirror buffer-limit (0-4294967294)",
       BMP_STR
@@ -3151,7 +3151,7 @@ DEFPY(bmp_mirror_limit_cfg,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_bmp_mirror_limit_cfg,
+DEFPY_YANG(no_bmp_mirror_limit_cfg,
       no_bmp_mirror_limit_cmd,
       "no bmp mirror buffer-limit [(0-4294967294)]",
       NO_STR

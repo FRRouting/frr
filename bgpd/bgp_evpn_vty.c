@@ -2106,7 +2106,7 @@ DEFUN(show_bgp_l2vpn_evpn_com,
 }
 
 /* For testing purpose, static route of EVPN RT-5. */
-DEFUN(evpnrt5_network,
+DEFPY_YANG(evpnrt5_network,
       evpnrt5_network_cmd,
       "network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map RMAP_NAME]",
       "Specify a network to announce via BGP\n"
@@ -2145,7 +2145,7 @@ DEFUN(evpnrt5_network,
 }
 
 /* For testing purpose, static route of EVPN RT-5. */
-DEFUN(no_evpnrt5_network,
+DEFPY_YANG(no_evpnrt5_network,
       no_evpnrt5_network_cmd,
       "no network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X>",
       NO_STR
@@ -3904,7 +3904,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 
 #include "bgpd/bgp_evpn_vty_clippy.c"
 
-DEFPY(bgp_evpn_flood_control,
+DEFPY_YANG(bgp_evpn_flood_control,
       bgp_evpn_flood_control_cmd,
       "[no$no] flooding <disable$disable|head-end-replication$her>",
       NO_STR
@@ -3934,7 +3934,7 @@ DEFPY(bgp_evpn_flood_control,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_default_gw_vni,
+DEFPY_YANG (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
        "Advertise default g/w mac-ip routes in EVPN for a VNI\n")
@@ -3950,7 +3950,7 @@ DEFUN (bgp_evpn_advertise_default_gw_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_default_vni_gw,
+DEFPY_YANG (no_bgp_evpn_advertise_default_vni_gw,
        no_bgp_evpn_advertise_default_gw_vni_cmd,
        "no advertise-default-gw",
        NO_STR
@@ -3968,7 +3968,7 @@ DEFUN (no_bgp_evpn_advertise_default_vni_gw,
 }
 
 
-DEFUN (bgp_evpn_advertise_default_gw,
+DEFPY_YANG (bgp_evpn_advertise_default_gw,
        bgp_evpn_advertise_default_gw_cmd,
        "advertise-default-gw",
        "Advertise All default g/w mac-ip routes in EVPN\n")
@@ -3989,7 +3989,7 @@ DEFUN (bgp_evpn_advertise_default_gw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_default_gw,
+DEFPY_YANG (no_bgp_evpn_advertise_default_gw,
        no_bgp_evpn_advertise_default_gw_cmd,
        "no advertise-default-gw",
        NO_STR
@@ -4005,7 +4005,7 @@ DEFUN (no_bgp_evpn_advertise_default_gw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_all_vni,
+DEFPY_YANG (bgp_evpn_advertise_all_vni,
        bgp_evpn_advertise_all_vni_cmd,
        "advertise-all-vni",
        "Advertise All local VNIs\n")
@@ -4027,7 +4027,7 @@ DEFUN (bgp_evpn_advertise_all_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_all_vni,
+DEFPY_YANG (no_bgp_evpn_advertise_all_vni,
        no_bgp_evpn_advertise_all_vni_cmd,
        "no advertise-all-vni",
        NO_STR
@@ -4041,7 +4041,7 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_autort_rfc8365,
+DEFPY_YANG (bgp_evpn_advertise_autort_rfc8365,
        bgp_evpn_advertise_autort_rfc8365_cmd,
        "autort rfc8365-compatible",
        "Auto-derivation of RT\n"
@@ -4055,7 +4055,7 @@ DEFUN (bgp_evpn_advertise_autort_rfc8365,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_autort_rfc8365,
+DEFPY_YANG (no_bgp_evpn_advertise_autort_rfc8365,
        no_bgp_evpn_advertise_autort_rfc8365_cmd,
        "no autort rfc8365-compatible",
        NO_STR
@@ -4070,7 +4070,7 @@ DEFUN (no_bgp_evpn_advertise_autort_rfc8365,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_default_originate,
+DEFPY_YANG (bgp_evpn_default_originate,
        bgp_evpn_default_originate_cmd,
        "default-originate <ipv4 | ipv6>",
        "originate a default route\n"
@@ -4088,7 +4088,7 @@ DEFUN (bgp_evpn_default_originate,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_default_originate,
+DEFPY_YANG (no_bgp_evpn_default_originate,
        no_bgp_evpn_default_originate_cmd,
        "no default-originate <ipv4 | ipv6>",
        NO_STR
@@ -4107,7 +4107,7 @@ DEFUN (no_bgp_evpn_default_originate,
 	return CMD_SUCCESS;
 }
 
-DEFPY (dup_addr_detection,
+DEFPY_YANG (dup_addr_detection,
        dup_addr_detection_cmd,
        "dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val]",
        "Duplicate address detection\n"
@@ -4139,7 +4139,7 @@ DEFPY (dup_addr_detection,
 	return CMD_SUCCESS;
 }
 
-DEFPY (dup_addr_detection_auto_recovery,
+DEFPY_YANG (dup_addr_detection_auto_recovery,
        dup_addr_detection_auto_recovery_cmd,
        "dup-addr-detection freeze <permanent |(30-3600)$freeze_time_val>",
        "Duplicate address detection\n"
@@ -4168,7 +4168,7 @@ DEFPY (dup_addr_detection_auto_recovery,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_dup_addr_detection,
+DEFPY_YANG (no_dup_addr_detection,
        no_dup_addr_detection_cmd,
        "no dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val | freeze <permanent$permanent_val | (30-3600)$freeze_time_val>]",
        NO_STR
@@ -4249,7 +4249,7 @@ DEFPY (no_dup_addr_detection,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_evpn_advertise_svi_ip,
+DEFPY_YANG(bgp_evpn_advertise_svi_ip,
       bgp_evpn_advertise_svi_ip_cmd,
       "[no$no] advertise-svi-ip",
       NO_STR
@@ -4274,7 +4274,7 @@ DEFPY(bgp_evpn_advertise_svi_ip,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_evpn_advertise_svi_ip_vni,
+DEFPY_YANG(bgp_evpn_advertise_svi_ip_vni,
       bgp_evpn_advertise_svi_ip_vni_cmd,
       "[no$no] advertise-svi-ip",
       NO_STR
@@ -4294,7 +4294,7 @@ DEFPY(bgp_evpn_advertise_svi_ip_vni,
 	return CMD_SUCCESS;
 }
 
-DEFPY(macvrf_soo_global, macvrf_soo_global_cmd,
+DEFPY_YANG(macvrf_soo_global, macvrf_soo_global_cmd,
       "mac-vrf soo ASN:NN_OR_IP-ADDRESS:NN$soo",
       "EVPN MAC-VRF\n"
       "Site-of-Origin extended community\n"
@@ -4326,7 +4326,7 @@ DEFPY(macvrf_soo_global, macvrf_soo_global_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_macvrf_soo_global, no_macvrf_soo_global_cmd,
+DEFPY_YANG(no_macvrf_soo_global, no_macvrf_soo_global_cmd,
       "no mac-vrf soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
       NO_STR
       "EVPN MAC-VRF\n"
@@ -4346,7 +4346,7 @@ DEFPY(no_macvrf_soo_global, no_macvrf_soo_global_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
+DEFPY_YANG (bgp_evpn_advertise_vni_subnet,
 	      bgp_evpn_advertise_vni_subnet_cmd,
 	      "advertise-subnet",
 	      "Advertise the subnet corresponding to VNI\n")
@@ -4366,7 +4366,7 @@ DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
+DEFPY_YANG (no_bgp_evpn_advertise_vni_subnet,
 	      no_bgp_evpn_advertise_vni_subnet_cmd,
 	      "no advertise-subnet",
 	      NO_STR
@@ -4382,7 +4382,7 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_type5,
+DEFPY_YANG (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map RMAP_NAME]",
        "Advertise prefix routes\n"
@@ -4530,7 +4530,7 @@ DEFUN (bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_type5,
+DEFPY_YANG (no_bgp_evpn_advertise_type5,
        no_bgp_evpn_advertise_type5_cmd,
        "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [route-map WORD]",
        NO_STR
@@ -4598,7 +4598,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_use_es_l3nhg,
+DEFPY_YANG (bgp_evpn_use_es_l3nhg,
        bgp_evpn_use_es_l3nhg_cmd,
        "[no$no] use-es-l3nhg",
        NO_STR
@@ -4608,7 +4608,7 @@ DEFPY (bgp_evpn_use_es_l3nhg,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_ead_evi_rx_disable,
+DEFPY_YANG (bgp_evpn_ead_evi_rx_disable,
        bgp_evpn_ead_evi_rx_disable_cmd,
        "[no$no] disable-ead-evi-rx",
        NO_STR
@@ -4624,7 +4624,7 @@ DEFPY (bgp_evpn_ead_evi_rx_disable,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_ead_evi_tx_disable,
+DEFPY_YANG (bgp_evpn_ead_evi_tx_disable,
        bgp_evpn_ead_evi_tx_disable_cmd,
        "[no$no] disable-ead-evi-tx",
        NO_STR
@@ -4640,7 +4640,7 @@ DEFPY (bgp_evpn_ead_evi_tx_disable,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_enable_resolve_overlay_index,
+DEFPY_YANG (bgp_evpn_enable_resolve_overlay_index,
        bgp_evpn_enable_resolve_overlay_index_cmd,
        "[no$no] enable-resolve-overlay-index",
        NO_STR
@@ -4660,7 +4660,7 @@ DEFPY (bgp_evpn_enable_resolve_overlay_index,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_advertise_pip_ip_mac,
+DEFPY_YANG (bgp_evpn_advertise_pip_ip_mac,
        bgp_evpn_advertise_pip_ip_mac_cmd,
        "[no$no] advertise-pip [ip <A.B.C.D> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]",
        NO_STR
@@ -6283,7 +6283,7 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 	return CMD_SUCCESS;
 }
 
-DEFPY_HIDDEN(test_es_add,
+DEFPY_YANG(test_es_add,
       test_es_add_cmd,
       "[no$no] test es NAME$esi_str [state NAME$state_str]",
       NO_STR
@@ -6335,7 +6335,7 @@ DEFPY_HIDDEN(test_es_add,
 	return CMD_SUCCESS;
 }
 
-DEFPY_HIDDEN(test_es_vni_add,
+DEFPY_YANG(test_es_vni_add,
       test_es_vni_add_cmd,
       "[no$no] test es NAME$esi_str vni (1-16777215)$vni",
       NO_STR
@@ -6489,7 +6489,7 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 	     "show bgp evpn import-rt",
 	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
 
-DEFPY(bgp_evpn_flood_control_vni,
+DEFPY_YANG(bgp_evpn_flood_control_vni,
       bgp_evpn_flood_control_vni_cmd,
       "[no$no] flooding <disable$disable|head-end-replication$her>",
       NO_STR
@@ -6554,7 +6554,7 @@ DEFUN_NOSH (bgp_evpn_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vni,
+DEFPY_YANG (no_bgp_evpn_vni,
        no_bgp_evpn_vni_cmd,
        "no vni " CMD_VNI_RANGE,
        NO_STR
@@ -6595,7 +6595,7 @@ DEFUN_NOSH (exit_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_vrf_rd,
+DEFPY_YANG (bgp_evpn_vrf_rd,
        bgp_evpn_vrf_rd_cmd,
        "rd ASN:NN_OR_IP-ADDRESS:NN",
        EVPN_RT_DIST_HELP_STR
@@ -6623,7 +6623,7 @@ DEFUN (bgp_evpn_vrf_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vrf_rd,
+DEFPY_YANG (no_bgp_evpn_vrf_rd,
        no_bgp_evpn_vrf_rd_cmd,
        "no rd ASN:NN_OR_IP-ADDRESS:NN",
        NO_STR
@@ -6659,7 +6659,7 @@ DEFUN (no_bgp_evpn_vrf_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vrf_rd_without_val,
+DEFPY_YANG (no_bgp_evpn_vrf_rd_without_val,
        no_bgp_evpn_vrf_rd_without_val_cmd,
        "no rd",
        NO_STR
@@ -6680,7 +6680,7 @@ DEFUN (no_bgp_evpn_vrf_rd_without_val,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_vni_rd,
+DEFPY_YANG (bgp_evpn_vni_rd,
        bgp_evpn_vni_rd_cmd,
        "rd ASN:NN_OR_IP-ADDRESS:NN",
        EVPN_RT_DIST_HELP_STR
@@ -6715,7 +6715,7 @@ DEFUN (bgp_evpn_vni_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vni_rd,
+DEFPY_YANG (no_bgp_evpn_vni_rd,
        no_bgp_evpn_vni_rd_cmd,
        "no rd ASN:NN_OR_IP-ADDRESS:NN",
        NO_STR
@@ -6758,7 +6758,7 @@ DEFUN (no_bgp_evpn_vni_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vni_rd_without_val,
+DEFPY_YANG (no_bgp_evpn_vni_rd_without_val,
        no_bgp_evpn_vni_rd_without_val_cmd,
        "no rd",
        NO_STR
@@ -7049,7 +7049,7 @@ static int parse_rtlist(struct bgp *bgp, struct vty *vty, int argc,
 }
 
 /* import/export rt for l3vni-vrf */
-DEFUN (bgp_evpn_vrf_rt,
+DEFPY_YANG (bgp_evpn_vrf_rt,
        bgp_evpn_vrf_rt_cmd,
        "route-target <both|import|export> RTLIST...",
        "Route Target\n"
@@ -7108,7 +7108,7 @@ DEFUN (bgp_evpn_vrf_rt,
 	return ret;
 }
 
-DEFPY (bgp_evpn_vrf_rt_auto,
+DEFPY_YANG (bgp_evpn_vrf_rt_auto,
        bgp_evpn_vrf_rt_auto_cmd,
        "route-target <both|import|export>$type auto",
        "Route Target\n"
@@ -7143,7 +7143,7 @@ DEFPY (bgp_evpn_vrf_rt_auto,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vrf_rt,
+DEFPY_YANG (no_bgp_evpn_vrf_rt,
        no_bgp_evpn_vrf_rt_cmd,
        "no route-target <both|import|export> RTLIST...",
        NO_STR
@@ -7223,7 +7223,7 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	return ret;
 }
 
-DEFPY (no_bgp_evpn_vrf_rt_auto,
+DEFPY_YANG (no_bgp_evpn_vrf_rt_auto,
        no_bgp_evpn_vrf_rt_auto_cmd,
        "no route-target <both|import|export>$type auto",
        NO_STR
@@ -7280,7 +7280,7 @@ DEFPY (no_bgp_evpn_vrf_rt_auto,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
+DEFPY_YANG(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
       "[no$no] ead-es-frag evi-limit (1-1000)$limit",
       NO_STR
       "EAD ES fragment config\n"
@@ -7293,7 +7293,7 @@ DEFPY(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
+DEFPY_YANG(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
       "ead-es-route-target export RT",
       "EAD ES Route Target\n"
       "export\n"
@@ -7328,7 +7328,7 @@ DEFUN(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
+DEFPY_YANG(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
       "no ead-es-route-target export RT",
       NO_STR
       "EAD ES Route Target\n"
@@ -7365,7 +7365,7 @@ DEFUN(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_vni_rt,
+DEFPY_YANG (bgp_evpn_vni_rt,
        bgp_evpn_vni_rt_cmd,
        "route-target <both|import|export> RT",
        "Route Target\n"
@@ -7440,7 +7440,7 @@ DEFUN (bgp_evpn_vni_rt,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vni_rt,
+DEFPY_YANG (no_bgp_evpn_vni_rt,
        no_bgp_evpn_vni_rt_cmd,
        "no route-target <both|import|export> RT",
        NO_STR
@@ -7546,7 +7546,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_vni_rt_without_val,
+DEFPY_YANG (no_bgp_evpn_vni_rt_without_val,
        no_bgp_evpn_vni_rt_without_val_cmd,
        "no route-target <import|export>",
        NO_STR

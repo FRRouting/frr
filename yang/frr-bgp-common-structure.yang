@@ -133,6 +133,13 @@ submodule frr-bgp-common-structure {
         description
           "Do not prepend local-as to updates from IBGP peers.";
       }
+
+      leaf dual-as {
+        type boolean;
+        default "false";
+        description
+          "Allow peering with a global AS number or local-as number.";
+      }
     }
   }
 

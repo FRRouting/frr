@@ -49,7 +49,10 @@
 #include "bgpd/bgp_script.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nhg.h"
+#include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_routemap_nb.h"
+
+#include "mgmt_be_client.h"
 #include "bgpd/bgp_community_alias.h"
 
 DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
@@ -120,6 +123,21 @@ struct zebra_privs_t bgpd_privs = {
 
 static struct frr_daemon_info bgpd_di;
 
+/*
+ * Northbound / mgmtd integration (FRRouting/frr#5428).
+ *
+ * bgpd subscribes as an mgmt backend client so that NETCONF / gRPC / mgmtd-CLI
+ * writes against bgp xpaths are routed here. During migration most xpaths
+ * have no callback registered yet — those writes will fail until each phase
+ * of BGPD_NB_MIGRATION_PLAN.md wires its subtree.
+ *
+ * Note: FRR_MGMTD_BACKEND is intentionally NOT set on bgpd_di. bgpd still
+ * parses its own bgpd.conf and the legacy CLI is the authoritative path for
+ * unconverted knobs. Phase 7 of the migration plan flips this flag once
+ * conversion is feature-complete.
+ */
+static struct mgmt_be_client *mgmt_be_client;
+
 /* SIGHUP handler. */
 void sighup(void)
 {
@@ -135,6 +153,10 @@ FRR_NORETURN void sigint(void)
 
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
+
+	/* Disconnect from mgmtd before tearing down internal state. */
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
 
 	bgp_terminate();
 
@@ -398,7 +420,31 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&frr_bgp_info,
 	&frr_bgp_route_map_info,
+};
+
+/*
+ * XPath subscriptions for the mgmt backend client.
+ *
+ * Only list xpaths whose owning callbacks are wired today (or whose write
+ * failure on unwired paths is the expected migration signal). Adding an
+ * xpath here causes mgmtd to route writes against it to bgpd; if bgpd has
+ * no callback for the leaf, the write errors with NB_ERR — that's how the
+ * migration plan's phase-by-phase conversion stays observable.
+ *
+ * Shared modules (frr-host, frr-logging, frr-vrf, frr-interface) are
+ * intentionally NOT subscribed here — bgpd reads them via its own legacy
+ * config path. Subscribing now would duplicate processing.
+ */
+static const char *const bgpd_config_xpaths[] = {
+	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp",
+	"/frr-route-map:lib",
+};
+
+static struct mgmt_be_client_cbs bgpd_be_client_cbs = {
+	.config_xpaths  = bgpd_config_xpaths,
+	.nconfig_xpaths = array_size(bgpd_config_xpaths),
 };
 
 /* clang-format off */
@@ -561,6 +607,14 @@ int main(int argc, char **argv)
 	}
 
 	bgp_if_init();
+
+	/*
+	 * Connect to mgmtd as a backend client BEFORE frr_config_fork so the
+	 * subscriptions registered in bgpd_config_xpaths are in place before
+	 * any config replay. (FRRouting/frr#5428)
+	 */
+	mgmt_be_client = mgmt_be_client_create("bgpd", &bgpd_be_client_cbs, 0,
+					       bm->master);
 
 	frr_config_fork();
 	/* must be called after fork() */

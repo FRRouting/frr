@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-deviations-bgp-rfc {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/deviations/bgp-rfc";
+  prefix "frr-dev-bgp-rfc";
+
+  import frr-bgp { prefix bgp; }
+  import frr-bgp-common { prefix bgp-common; }
+  import frr-bgp-common-structure { prefix bgp-structure; }
+
+  organization "FRRouting";
+  contact
+    "FRR Users List:        <mailto:frog@lists.frrouting.org>
+     FRR Development List:  <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module documents the places where FRR's frr-bgp YANG model
+     departs from the IETF BGP YANG model (draft-ietf-idr-bgp-model) or
+     from strict RFC semantics. It captures the Phase 7 deliverable of
+     BGPD_NB_MIGRATION_PLAN.md: deviations + tracking for GitHub issue
+     #5428.
+
+     Deviations are intentional — FRR's CLI predates the IETF model and
+     supports behaviors not directly representable in the standard
+     groupings. Each `deviate` block below has a description that
+     explains the reason. These deviations DO NOT remove conformance
+     for the leaves that ARE common; they only document the gaps.
+
+     Last-reviewed: 2026-05-18 against bgpd master branch
+     (#5428 migration baseline).";
+
+  revision 2026-05-18 {
+    description "Initial revision (Phase 7).";
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 1.  Inverted-semantic flags                                        */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * `capability-options/capability-negotiate` has inverted YANG↔internal
+   * mapping: YANG `true` = peer_flag_unset PEER_FLAG_DONT_CAPABILITY,
+   * YANG `false` = peer_flag_set PEER_FLAG_DONT_CAPABILITY. The CLI
+   * `neighbor X dont-capability-negotiate` sets YANG `false`.
+   */
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols"
+          + "/frr-rt:control-plane-protocol/bgp:bgp/bgp:neighbors"
+          + "/bgp:neighbor/bgp:capability-options/bgp:capability-negotiate" {
+    deviate add {
+      description
+        "FRR inverts the YANG semantic vs the legacy CLI:
+         true  = negotiate capabilities (PEER_FLAG_DONT_CAPABILITY clear)
+         false = suppress capability negotiation (flag SET).
+         The CLI is `neighbor X dont-capability-negotiate` (no inversion
+         at the CLI surface).";
+    }
+  }
+
+  /*
+   * `bgp/global/fast-external-failover` is inverted. The internal flag
+   * is BGP_FLAG_NO_FAST_EXT_FAILOVER (default ON in code, meaning
+   * fast-failover IS enabled by default). YANG `fast-external-failover`
+   * is true-when-fast (matches operator mental model). Conversion
+   * inverts at the boundary.
+   */
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols"
+          + "/frr-rt:control-plane-protocol/bgp:bgp/bgp:global"
+          + "/bgp:fast-external-failover" {
+    deviate add {
+      description
+        "Inverted semantic vs the internal BGP_FLAG_NO_FAST_EXT_FAILOVER
+         bit. Operators set true to enable, but the legacy CLI uses the
+         double-negative `no bgp fast-external-failover` to disable.";
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 2.  Range mismatches                                               */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Several timer leaves use a tighter YANG range than the legacy CLI
+   * accepts. The conversion clamps with a warning rather than rejecting.
+   */
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols"
+          + "/frr-rt:control-plane-protocol/bgp:bgp/bgp:global"
+          + "/bgp:graceful-restart/bgp:stalepath-time" {
+    deviate add {
+      description
+        "Legacy CLI accepts (1..4095); YANG range is (1..3600). DEFPY_YANG
+         clamps to 3600 with a warning when CLI input exceeds the YANG
+         max.";
+    }
+  }
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols"
+          + "/frr-rt:control-plane-protocol/bgp:bgp/bgp:global"
+          + "/bgp:graceful-restart/bgp:restart-time" {
+    deviate add {
+      description
+        "Legacy CLI accepts (0..4095); YANG range is (1..3600). 0 is
+         silently treated as 1; values above 3600 are clamped.";
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 3.  CLI-only commands without a YANG equivalent                    */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * `bgp graceful-restart-disable` (per-bgp-instance) uses a CLI-only
+   * shorthand: in the legacy code path it also resets all peers. The
+   * YANG leaf `graceful-restart-disable` only flips the flag bit;
+   * full session-reset side effects remain CLI-only.
+   */
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols"
+          + "/frr-rt:control-plane-protocol/bgp:bgp/bgp:global"
+          + "/bgp:graceful-restart/bgp:graceful-restart-disable" {
+    deviate add {
+      description
+        "YANG-driven write flips the bit only. The legacy CLI also
+         performs an implicit per-peer soft-reset. Full side-effect
+         parity is a follow-up (track in BGPD_NB_MIGRATION_PROGRES.md
+         Phase 5 polish).";
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 4.  Per-peer state not yet exposed via YANG                        */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * The following bgpd CLI knobs are converted to DEFPY_YANG but do not
+   * (yet) have dedicated YANG leaves; mgmtd cannot drive them:
+   *   - `neighbor X capability orf prefix-list <both|send|receive>`
+   *   - `neighbor X advertise-map RMAP exist-map RMAP`
+   *   - `neighbor X path-attribute discard 1 2 3` (the leaf-list)
+   *   - `neighbor X path-attribute treat-as-withdraw 1 2 3`
+   *   - `bgp dampening` family (per-AF)
+   *   - `vpnv4/vpnv6 network` (l3vpn injected routes)
+   *
+   * These are tracked as Phase 5 polish; CLI-side semantics are
+   * preserved end-to-end by the dual-write helpers, but mgmtd
+   * write-path is non-functional for these.
+   */
+
+  /* ------------------------------------------------------------------ */
+  /* 5.  Operational-state gaps                                         */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Operational state (NB read-only nodes like adjacency-rib counters,
+   * peer state-machine state, last error, FSM transitions) is not yet
+   * exposed via YANG. The IETF model has many `config false` containers
+   * for these; FRR continues to use vty `show bgp ...` commands.
+   *
+   * Phase 6 (integration tests) verifies config round-trip only, not
+   * operational-state queries.
+   */
+}

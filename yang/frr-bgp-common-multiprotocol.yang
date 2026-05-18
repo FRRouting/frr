@@ -10,6 +10,14 @@ submodule frr-bgp-common-multiprotocol {
     prefix frr-rt;
   }
 
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
   organization
     "FRRouting";
   contact
@@ -163,6 +171,209 @@ submodule frr-bgp-common-multiprotocol {
       }
       description
         "BGP EVPN configuration options.";
+
+      leaf advertise-all-vni {
+        type boolean;
+        default "false";
+        description
+          "Advertise all locally-configured VNIs as EVPN type-3 routes.";
+      }
+
+      leaf advertise-svi-ip {
+        type boolean;
+        default "false";
+        description
+          "Advertise SVI IP addresses as EVPN type-2 routes.";
+      }
+
+      leaf advertise-default-gw {
+        type boolean;
+        default "false";
+        description
+          "Advertise default-gateway extended community on EVPN type-2 routes.";
+      }
+
+      leaf advertise-subnet {
+        type boolean;
+        default "false";
+        description
+          "Advertise locally-configured subnets as EVPN type-5 routes.";
+      }
+
+      leaf autort-rfc8365-compatible {
+        type boolean;
+        default "false";
+        description
+          "Generate auto-RTs that are RFC 8365 compatible.";
+      }
+
+      leaf use-es-l3nhg {
+        type boolean;
+        default "false";
+        description
+          "Use EVPN Ethernet Segment L3 next-hop-group for ECMP forwarding.";
+      }
+
+      leaf enable-resolve-overlay-index {
+        type boolean;
+        default "false";
+        description
+          "Enable resolving overlay-index for EVPN routes.";
+      }
+
+      leaf disable-ead-evi-rx {
+        type boolean;
+        default "false";
+        description
+          "Disable the receipt of EAD-per-EVI EVPN type-1 routes.";
+      }
+
+      leaf disable-ead-evi-tx {
+        type boolean;
+        default "false";
+        description
+          "Disable the generation of EAD-per-EVI EVPN type-1 routes.";
+      }
+
+      container advertise-pip {
+        presence
+          "Advertise Primary IP for EVPN routes (split between primary and
+           system IP).";
+        description
+          "Advertise-pip parameters: when present, BGP advertises the
+           primary IP address (and optionally MAC) in EVPN type-2 routes.";
+
+        leaf ip {
+          type inet:ipv4-address;
+          description "Primary IPv4 address to advertise.";
+        }
+
+        leaf mac {
+          type yang:mac-address;
+          description "Primary MAC to advertise.";
+        }
+      }
+
+      container advertise {
+        description
+          "Advertise selected routes from other address-families into EVPN.
+           One sub-container per AFI to advertise.";
+
+        leaf ipv4-unicast {
+          type boolean;
+          default "false";
+          description
+            "Advertise IPv4-unicast routes into EVPN as type-5 prefix
+             routes.";
+        }
+
+        leaf ipv4-unicast-route-map {
+          when "../ipv4-unicast = 'true'";
+          type string;
+          description
+            "Route-map filter applied to IPv4-unicast → EVPN advertisement.";
+        }
+
+        leaf ipv6-unicast {
+          type boolean;
+          default "false";
+          description
+            "Advertise IPv6-unicast routes into EVPN as type-5 prefix
+             routes.";
+        }
+
+        leaf ipv6-unicast-route-map {
+          when "../ipv6-unicast = 'true'";
+          type string;
+          description
+            "Route-map filter applied to IPv6-unicast → EVPN advertisement.";
+        }
+      }
+
+      container dup-addr-detection {
+        description
+          "EVPN MAC mobility / duplicate-address-detection parameters.";
+
+        leaf max-moves {
+          type uint16 { range "2..1000"; }
+          default "5";
+          description "Maximum moves before the MAC is flagged duplicate.";
+        }
+
+        leaf time {
+          type uint16 { range "2..1800"; }
+          units "seconds";
+          default "180";
+          description
+            "Detection window in which max-moves is counted.";
+        }
+
+        choice freeze-action {
+          description
+            "Action when a duplicate MAC is detected.";
+
+          case permanent-case {
+            leaf freeze-permanent {
+              type boolean;
+              description
+                "When 'true', freeze the duplicate MAC permanently.";
+            }
+          }
+
+          case timed-case {
+            leaf freeze-time {
+              type uint16 { range "30..3600"; }
+              units "seconds";
+              description
+                "Freeze duration before the MAC is unfrozen.";
+            }
+          }
+        }
+      }
+
+      leaf flooding {
+        type enumeration {
+          enum "disable"              { value 0; }
+          enum "head-end-replication" { value 1; }
+        }
+        default "head-end-replication";
+        description
+          "BUM (broadcast/unknown-unicast/multicast) flooding strategy
+           for the EVPN VNIs in this instance.";
+      }
+
+      leaf mac-vrf-soo {
+        type string {
+          length "3..64";
+        }
+        description
+          "MAC-VRF Site-of-Origin extended community (RT format).";
+      }
+
+      container ead-es {
+        description
+          "EAD-per-ES (Ethernet Segment) parameters.";
+
+        container fragmentation {
+          description
+            "EAD-per-ES fragmentation control.";
+
+          leaf evi-limit {
+            type uint16 { range "1..1000"; }
+            default "128";
+            description
+              "Maximum number of EVI labels per EAD-per-ES route fragment.";
+          }
+        }
+
+        leaf-list route-target-export {
+          type string {
+            length "3..64";
+          }
+          description
+            "Route-target(s) attached to EAD-per-ES routes on export.";
+        }
+      }
     }
 
     container ipv4-multicast {
@@ -193,6 +404,16 @@ submodule frr-bgp-common-multiprotocol {
       }
       description
         "IPv4 flowspec configuration options.";
+
+      leaf-list local-install-interface {
+        type string {
+          length "1..63";
+        }
+        description
+          "Interface(s) on which flowspec rules are locally installed
+           (corresponds to `local-install INTERFACE` in the IPv4
+           flowspec address-family CLI).";
+      }
     }
 
     container ipv6-flowspec {
@@ -203,6 +424,14 @@ submodule frr-bgp-common-multiprotocol {
       }
       description
         "IPv6 flowspec configuration options.";
+
+      leaf-list local-install-interface {
+        type string {
+          length "1..63";
+        }
+        description
+          "Interface(s) on which flowspec rules are locally installed.";
+      }
     }
   }
 }

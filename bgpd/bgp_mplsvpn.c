@@ -3392,7 +3392,7 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char 
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
-DEFUN (vpnv4_network,
+DEFPY_YANG (vpnv4_network,
        vpnv4_network_cmd,
        "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        "Specify a network to announce via BGP\n"
@@ -3413,7 +3413,7 @@ DEFUN (vpnv4_network,
 			      0, 0, 0, NULL, NULL, NULL, NULL);
 }
 
-DEFUN (vpnv4_network_route_map,
+DEFPY_YANG (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
        "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) route-map RMAP_NAME",
        "Specify a network to announce via BGP\n"
@@ -3438,7 +3438,7 @@ DEFUN (vpnv4_network_route_map,
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
-DEFUN (no_vpnv4_network,
+DEFPY_YANG (no_vpnv4_network,
        no_vpnv4_network_cmd,
        "no network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        NO_STR
@@ -3460,7 +3460,7 @@ DEFUN (no_vpnv4_network,
 			      0, 0, 0, NULL, NULL, NULL, NULL);
 }
 
-DEFUN (vpnv6_network,
+DEFPY_YANG (vpnv6_network,
        vpnv6_network_cmd,
        "network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) [route-map RMAP_NAME]",
        "Specify a network to announce via BGP\n"
@@ -3493,7 +3493,7 @@ DEFUN (vpnv6_network,
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
-DEFUN (no_vpnv6_network,
+DEFPY_YANG (no_vpnv6_network,
        no_vpnv6_network_cmd,
        "no network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        NO_STR

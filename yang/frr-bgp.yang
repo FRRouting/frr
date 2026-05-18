@@ -157,6 +157,80 @@ module frr-bgp {
 
         uses global-bmp-config;
 
+        container segment-routing {
+          presence
+            "Enables BGP Segment-Routing (SRv6) support for this instance.";
+          description
+            "BGP SRv6 (RFC 9252) support configuration.";
+
+          container srv6 {
+            presence
+              "Activates SRv6 sub-configuration block.";
+            description
+              "Container for SRv6-specific configuration.";
+
+            leaf locator {
+              type string {
+                length "1..63";
+              }
+              description
+                "Name of the SRv6 locator (managed by zebra/srv6-manager)
+                 from which SIDs for BGP services are allocated.";
+            }
+
+            leaf srv6-only {
+              type boolean;
+              default "false";
+              description
+                "When set to 'true', restrict BGP to SRv6-only forwarding
+                 mode (no MPLS).";
+            }
+
+            leaf encap-behavior {
+              type enumeration {
+                enum "H_Encaps"     { value 0; }
+                enum "H_Encaps_Red" { value 1; }
+              }
+              default "H_Encaps";
+              description
+                "SRv6 encapsulation behaviour
+                 (RFC 8986: H.Encaps / H.Encaps.Red).";
+            }
+
+            container sid {
+              description
+                "SRv6 SID allocation configuration for BGP services.";
+
+              leaf export-mode {
+                type enumeration {
+                  enum "auto"      { value 0; }
+                  enum "explicit"  { value 1; }
+                  enum "index"     { value 2; }
+                }
+                description
+                  "How SIDs are exported: auto-allocated from the locator,
+                   explicitly named, or index-based.";
+              }
+
+              leaf export-index {
+                when "../export-mode = 'index'";
+                type uint32 { range "1..4294967295"; }
+                description
+                  "Explicit numeric SID index used when export-mode is
+                   'index'.";
+              }
+
+              leaf export-value {
+                when "../export-mode = 'explicit'";
+                type inet:ipv6-address;
+                description
+                  "Explicit IPv6 SID value used when export-mode is
+                   'explicit'.";
+              }
+            }
+          }
+        }
+
         container afi-safis {
           description
             "List of address-families associated with the BGP
@@ -1371,5 +1445,34 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-group-filter-config;
+  }
+
+  /*
+   * Per-interface BGP knobs (CLI: `[no] mpls bgp <forwarding|...>` in
+   * interface config). Augments the standard frr-interface lib model.
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container bgp-interface {
+      description
+        "BGP-specific per-interface configuration.";
+
+      leaf mpls-forwarding {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', enable MPLS forwarding for eBGP peers
+           directly connected via this interface (CLI:
+           `mpls bgp forwarding`).";
+      }
+
+      leaf mpls-l3vpn-multi-domain-switching {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', bind a local MPLS label to incoming L3VPN
+           updates on this interface (CLI:
+           `mpls bgp l3vpn-multi-domain-switching`).";
+      }
+    }
   }
 }
