@@ -68,6 +68,7 @@ extern struct event_loop *master;
 		VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D | VTYSH_NHRPD |         \
 		VTYSH_EIGRPD | VTYSH_BABELD | VTYSH_PBRD | VTYSH_FABRICD |     \
 		VTYSH_VRRPD | VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD
+#define VTYSH_KEYS VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD
 #else
 #define VTYSH_ACL_CONFIG                                                       \
 	VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |               \
@@ -83,6 +84,7 @@ extern struct event_loop *master;
 		VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D | VTYSH_NHRPD |         \
 		VTYSH_EIGRPD | VTYSH_BABELD | VTYSH_PBRD | VTYSH_FABRICD |     \
 		VTYSH_VRRPD | VTYSH_MGMTD
+#define VTYSH_KEYS VTYSH_MGMTD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD
 #endif
 
 #define VTYSH_L2VPN  VTYSH_LDPD | VTYSH_BGPD | VTYSH_MGMTD
@@ -102,7 +104,6 @@ extern struct event_loop *master;
 #else
 #define VTYSH_VRF	VTYSH_INTERFACE_SUBSET | VTYSH_BGPD | VTYSH_STATICD
 #endif
-#define VTYSH_KEYS VTYSH_MGMTD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
 #define VTYSH_SR          VTYSH_ZEBRA|VTYSH_PATHD
