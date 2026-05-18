@@ -39,31 +39,12 @@
         ]
       }
     ],
-    "192.168.0.2/32": null,
-    "192.168.0.3/32": [
+    "192.168.0.2/32": [
       {
         "valid": true,
         "bestpath": true,
         "pathFrom": "external",
-        "path": "65003",
-        "origin": "IGP",
-        "nexthops": [
-          {
-            "hostname": "r3",
-            "scope": "global"
-          },
-          {
-            "interface": "eth-r3",
-            "hostname": "r3",
-            "scope": "link-local",
-            "used": true
-          }
-        ]
-      },
-      {
-        "valid": true,
-        "pathFrom": "external",
-        "path": "65002 65003",
+        "path": "65002",
         "origin": "IGP",
         "nexthops": [
           {
@@ -77,7 +58,26 @@
             "used": true
           }
         ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "path": "65003 65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "hostname": "r3",
+            "scope": "global"
+          },
+          {
+            "interface": "eth-r3",
+            "hostname": "r3",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
       }
-    ]
+    ],
+    "192.168.0.3/32": null
   }
 }
