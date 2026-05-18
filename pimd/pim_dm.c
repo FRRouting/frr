@@ -365,7 +365,7 @@ void pim_dm_prune_iff_on_timer(struct event *t)
 	if (!up)
 		return;
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
-	if (up->channel_oil->installed) {
+	if (up->channel_oil && up->channel_oil->installed) {
 		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 	}
