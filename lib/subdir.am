@@ -82,7 +82,6 @@ lib_libfrr_la_SOURCES = \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
-	lib/netns_other.c \
 	lib/nexthop_group.c \
 	lib/northbound.c \
 	lib/northbound_cli.c \
