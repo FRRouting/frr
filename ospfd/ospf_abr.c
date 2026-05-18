@@ -622,7 +622,7 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
 		/* if type-7 is removed, remove old translated type-5 lsa */
-		if (old) {
+		if (old && ospf_lsa_more_recent(lsa, old) > 0) {
 			UNSET_FLAG(old->flags, OSPF_LSA_APPROVED);
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
@@ -688,6 +688,7 @@ static void ospf_abr_translate_nssa_range(struct ospf *ospf,
 	ei.type = ZEBRA_ROUTE_OSPF;
 	ei.route_map_set.metric = cost;
 	ei.route_map_set.metric_type = -1;
+	ei.nssa_range = true;
 
 	lsa = ospf_external_info_find_lsa(ospf, p);
 	if (lsa)
@@ -695,7 +696,8 @@ static void ospf_abr_translate_nssa_range(struct ospf *ospf,
 						LSA_REFRESH_FORCE, true);
 	else
 		lsa = ospf_external_lsa_originate(ospf, &ei);
-	SET_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT);
+	if (lsa)
+		SET_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT);
 }
 
 void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
@@ -1844,7 +1846,7 @@ static void ospf_abr_nssa_type7_default_create(struct ospf *ospf,
 		ei.route_map_set.metric_type = DEFAULT_METRIC_TYPE;
 
 	if (!lsa)
-		ospf_nssa_lsa_originate(area, &ei);
+		ospf_nssa_lsa_originate(area, &ei, false);
 	else
 		ospf_nssa_lsa_refresh(area, lsa, &ei);
 }
@@ -1962,12 +1964,16 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 	struct ospf_area *area;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		struct route_table *table;
 		struct route_table *ranges;
 
-		if (nssa)
+		if (nssa) {
+			table = ospf->new_external_route;
 			ranges = area->nssa_ranges;
-		else
+		} else {
+			table = ospf->new_table;
 			ranges = area->ranges;
+		}
 
 		for (rn = route_top(ranges); rn; rn = route_next(rn)) {
 			struct ospf_area_range *range;
@@ -1979,14 +1985,22 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 			if (ospf_area_range_active(range)
 			    && CHECK_FLAG(range->flags,
 					  OSPF_AREA_RANGE_ADVERTISE))
-				ospf_add_discard_route(
-					ospf, ospf->new_table, area,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_add_discard_route(ospf, table, area,
+						       (struct prefix_ipv4 *)&rn->p, nssa);
 			else
-				ospf_delete_discard_route(
-					ospf, ospf->new_table,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_delete_discard_route(ospf, table,
+							  (struct prefix_ipv4 *)&rn->p, nssa);
 		}
+	}
+
+	/*
+	 * NSSA discard routes land in new_external_route, which is only
+	 * promoted to old_external_route at the end of an ASE calculation.
+	 * Trigger an ASE recalculation so the swap happens promptly.
+	 */
+	if (nssa) {
+		ospf_ase_calculate_schedule(ospf);
+		ospf_ase_calculate_timer_add(ospf);
 	}
 }
 

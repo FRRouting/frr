@@ -54,6 +54,12 @@ struct external_info {
 
 	/* Persistent default route. */
 	bool default_always;
+
+	/*
+	 * Indicates whether this is external information related to an NSSA
+	 * range.
+	 */
+	bool nssa_range;
 };
 
 #define OSPF_EXTL_AGGR_DEFAULT_DELAY 5

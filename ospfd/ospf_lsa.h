@@ -279,8 +279,8 @@ extern void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type, struct pref
 extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *oi);
 
 extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf, struct external_info *ei);
-extern struct ospf_lsa *ospf_nssa_lsa_originate(struct ospf_area *area,
-						struct external_info *ei);
+extern struct ospf_lsa *ospf_nssa_lsa_originate(struct ospf_area *area, struct external_info *ei,
+						bool p_bit);
 extern struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 					      struct ospf_lsa *lsa,
 					      struct external_info *ei);
