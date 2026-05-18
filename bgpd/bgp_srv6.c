@@ -325,7 +325,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		return;
 	}
 
-	if (bpi->attr->srv6_l3service)
+	if (bgp_attr_get_srv6_l3service(bpi->attr))
 		return;
 
 	if (!bgp->srv6_unicast[afi].sid_locator)
@@ -336,7 +336,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		if (rmap) {
 			struct bgp_path_info_extra extra;
 
-			attr_tmp = *bpi->attr;
+			bgp_attr_dup_into(&attr_tmp, bpi->attr);
 			p = bgp_dest_get_prefix(bpi->net);
 
 			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,
@@ -350,9 +350,11 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				if (BGP_DEBUG(update, UPDATE_OUT))
 					zlog_debug("srv6 unicast prefix %pBD denied", dest);
 
+				bgp_attr_extra_discard(&attr_tmp);
 				return;
 			}
 
+			bgp_attr_extra_discard(&attr_tmp);
 			route_map_counter_increment(rmap);
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
@@ -403,7 +405,7 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
 				continue;
 
-			if (bpi->attr->srv6_l3service)
+			if (bgp_attr_get_srv6_l3service(bpi->attr))
 				continue;
 
 			bgp_srv6_unicast_register_route(bgp, afi, pdest, bpi);

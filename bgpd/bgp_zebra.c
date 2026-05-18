@@ -1024,6 +1024,7 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 
 	ret = route_map_apply(map, p, path);
 	bgp_attr_flush(path->attr);
+	bgp_attr_extra_discard(path->attr);
 
 	if (ret != RMAP_DENYMATCH)
 		return true;
@@ -1267,7 +1268,9 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
 	 */
-	if (!attr->link_bw) {
+	uint64_t link_bw = bgp_attr_get_link_bw(attr);
+
+	if (!link_bw) {
 		/* the only situations should be if we're either told
 		 * to skip or use default weight.
 		 */
@@ -1275,7 +1278,7 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 			return false;
 		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
 	} else
-		*nh_weight = attr->link_bw;
+		*nh_weight = link_bw;
 
 	return true;
 }
@@ -1350,13 +1353,16 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 			 * between VRFs, but we need to extract the actual link-bandwidth
 			 * value from the extended communities.
 			 */
+			uint64_t link_bw = 0;
+
 			(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(mpinfo->attr),
-							&mpinfo->attr->link_bw);
+							&link_bw);
 			/* Fallback to IPv6 address-specific extended community */
-			if (!mpinfo->attr->link_bw)
+			if (!link_bw)
 				(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
 									mpinfo->attr),
-								&mpinfo->attr->link_bw);
+								&link_bw);
+			bgp_attr_set_link_bw(mpinfo->attr, link_bw);
 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
 							 &nh_weight))
 				continue;
@@ -1384,7 +1390,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		if (bgp->table_map[afi][safi].name) {
 			/* Copy info and attributes, so the route-map
 			   apply doesn't modify the BGP route info. */
-			local_attr = *mpinfo->attr;
+			bgp_attr_dup_into(&local_attr, mpinfo->attr);
 			mpinfo_cp->attr = &local_attr;
 			if (!bgp_table_map_apply(bgp->table_map[afi][safi].map,
 						 p, mpinfo_cp))
@@ -1484,21 +1490,23 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		api_nh->weight = nh_weight;
 
-		if (((mpinfo->attr->srv6_l3service &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3service->sid)) ||
-		     (mpinfo->attr->srv6_vpn && !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+		struct bgp_attr_srv6_vpn *vpn_tmp = bgp_attr_get_srv6_vpn(mpinfo->attr);
+		struct bgp_attr_srv6_l3service *srv6_l3service =
+			bgp_attr_get_srv6_l3service(mpinfo->attr);
+
+		if (((srv6_l3service && !sid_zero_ipv6(&srv6_l3service->sid)) ||
+		     (vpn_tmp && !sid_zero_ipv6(&vpn_tmp->sid))) &&
 		    !is_evpn) {
-			struct in6_addr *sid_tmp = mpinfo->attr->srv6_l3service
-							   ? (&mpinfo->attr->srv6_l3service->sid)
-							   : (&mpinfo->attr->srv6_vpn->sid);
+			struct in6_addr *sid_tmp = srv6_l3service ? (&srv6_l3service->sid)
+								  : (&vpn_tmp->sid);
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
 			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
-			if (mpinfo->attr->srv6_l3service && labels && (num_labels > 0) &&
+			if (srv6_l3service && labels && (num_labels > 0) &&
 			    bgp_is_valid_label(&labels[0]) &&
-			    mpinfo->attr->srv6_l3service->transposition_len != 0) {
+			    srv6_l3service->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
 
@@ -1510,8 +1518,8 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 				}
 
 				transpose_sid(&api_nh->seg6_segs[0], nh_label,
-					      mpinfo->attr->srv6_l3service->transposition_offset,
-					      mpinfo->attr->srv6_l3service->transposition_len,
+					      srv6_l3service->transposition_offset,
+					      srv6_l3service->transposition_len,
 					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			}
 
@@ -1766,8 +1774,10 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 				bool is_add = true;
 
 				if (bgp->table_map[afi][safi].name) {
-					struct attr local_attr = *pi->attr;
+					struct attr local_attr;
 					struct bgp_path_info local_info = *pi;
+
+					bgp_attr_dup_into(&local_attr, pi->attr);
 
 					local_info.attr = &local_attr;
 
@@ -2364,7 +2374,7 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				struct attr *old_attr;
 				struct attr new_attr;
 
-				new_attr = *pi->attr;
+				bgp_attr_dup_into(&new_attr, pi->attr);
 				new_attr.med = red->redist_metric;
 				old_attr = pi->attr;
 				pi->attr = bgp_attr_intern(&new_attr);
@@ -2529,9 +2539,12 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 			if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) || pi->type != ZEBRA_ROUTE_BGP)
 				continue;
 
-			if ((pi->attr->srv6_l3service &&
-			     !sid_zero_ipv6(&pi->attr->srv6_l3service->sid)) ||
-			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
+			struct bgp_attr_srv6_vpn *vpn = bgp_attr_get_srv6_vpn(pi->attr);
+			struct bgp_attr_srv6_l3service *srv6_l3service =
+				bgp_attr_get_srv6_l3service(pi->attr);
+
+			if ((srv6_l3service && !sid_zero_ipv6(&srv6_l3service->sid)) ||
+			    (vpn && !sid_zero_ipv6(&vpn->sid)))
 				bgp_zebra_route_install(dest, pi, bgp, add, NULL, false);
 		}
 	}

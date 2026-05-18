@@ -148,7 +148,7 @@ static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
 		value = bpi->extra ? bpi->extra->igpmetric : 0;
 		break;
 	case RMAP_VALUE_TYPE_AIGP:
-		value = MIN(bpi->attr->aigp_metric, UINT32_MAX);
+		value = MIN(bgp_attr_get_aigp_metric(bpi->attr), UINT32_MAX);
 		break;
 	default:
 		value = rv->value;
@@ -434,7 +434,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	struct attr newattr = *path->attr;
+	struct attr newattr;
+
+	bgp_attr_dup_into(&newattr, path->attr);
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),
@@ -446,6 +448,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
 			 "Issue running script rule; defaulting to no match");
+		bgp_attr_extra_discard(&newattr);
 		return RMAP_NOMATCH;
 	}
 
@@ -486,6 +489,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	XFREE(MTYPE_SCRIPT_RES, action);
 
 	frrscript_delete(fs);
+
+	bgp_attr_extra_discard(&newattr);
 
 	return status;
 }
@@ -4651,7 +4656,7 @@ route_match_vpn_dataplane(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_MATCH;
 
 	if (*bgp_encap_type == BGP_ENCAP_TYPE_SRV6 &&
-	    (path_vpn->attr->srv6_l3service || path_vpn->attr->srv6_vpn))
+	    (bgp_attr_get_srv6_l3service(path_vpn->attr) || bgp_attr_get_srv6_vpn(path_vpn->attr)))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;

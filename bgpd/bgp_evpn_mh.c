@@ -2330,7 +2330,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 				&pi->net->rn->p, es->esi_str,
 				is_local ? "local" : "non-local");
 
-		attr_tmp = *pi->attr;
+		bgp_attr_dup_into(&attr_tmp, pi->attr);
 		if (is_local)
 			SET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
 		else

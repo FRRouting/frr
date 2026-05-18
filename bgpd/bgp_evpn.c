@@ -1686,7 +1686,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 			break;
 	}
 
-	static_attr = *attr;
+	bgp_attr_dup_into(&static_attr, attr);
 
 	/*
 	 * create a new route entry if one doesn't exist.
@@ -1774,6 +1774,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 		}
 		*entry = local_pi;
 	}
+	bgp_attr_extra_discard(&static_attr);
 	return 0;
 }
 
@@ -1799,7 +1800,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	 * present, else treat as locally originated.
 	 */
 	if (src_attr)
-		attr = *src_attr;
+		bgp_attr_dup_into(&attr, src_attr);
 	else {
 		memset(&attr, 0, sizeof(attr));
 		bgp_attr_default_set(&attr, bgp_vrf, BGP_ORIGIN_IGP);
@@ -1872,6 +1873,9 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	/* uninten temporary */
 	if (!src_attr)
 		aspath_unintern(&attr.aspath);
+	else
+		bgp_attr_extra_discard(&attr);
+
 	return 0;
 }
 
@@ -2090,7 +2094,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		add_mac_mobility_to_attr(seq, attr);
 
 	if (!local_pi) {
-		local_attr = *attr;
+		bgp_attr_dup_into(&local_attr, attr);
 
 		/* Extract MAC mobility sequence number, if any. */
 		local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(&local_attr);
@@ -2179,7 +2183,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			local_attr = *attr;
+			bgp_attr_dup_into(&local_attr, attr);
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
@@ -2319,12 +2323,15 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
+		struct in6_addr tunn_id = {};
+
 		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL));
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 		if (attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
-			ipv4_to_ipv4_mapped_ipv6(&attr.tunn_id, attr.mp_nexthop_global_in);
+			ipv4_to_ipv4_mapped_ipv6(&tunn_id, attr.mp_nexthop_global_in);
 		else
-			IPV6_ADDR_COPY(&attr.tunn_id, &attr.mp_nexthop_global);
+			IPV6_ADDR_COPY(&tunn_id, &attr.mp_nexthop_global);
+		bgp_attr_set_tunn_id(&attr, &tunn_id);
 	}
 
 	/* router mac is only needed for type-2 routes here. */
@@ -2461,6 +2468,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Unintern temporary. */
 	aspath_unintern(&attr.aspath);
+	bgp_attr_extra_discard(&attr);
 
 	return 0;
 }
@@ -3225,7 +3233,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * address for the rest of the code to flow through. In the case of IPv4,
 	 * make sure to set the flag for next hop attribute.
 	 */
-	attr = *parent_pi->attr;
+	bgp_attr_dup_into(&attr, parent_pi->attr);
 	bre = bgp_attr_get_evpn_overlay(&attr);
 	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		/*
@@ -3280,6 +3288,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
 			bgp_dest_unlock_node(dest);
+			bgp_attr_extra_discard(&attr);
 			return 0;
 		}
 		/* The attribute has changed. */
@@ -3355,6 +3364,8 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	}
 
 	bgp_dest_unlock_node(dest);
+
+	bgp_attr_extra_discard(&attr);
 
 	return ret;
 }
@@ -6917,7 +6928,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 		return;
 	}
 
-	tmp_attr = *pi->attr;
+	bgp_attr_dup_into(&tmp_attr, pi->attr);
 
 	/* Fill temp path_info */
 	prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer, NULL, &tmp_attr);
@@ -6929,6 +6940,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 		return;
 	}
 	bgp_evpn_advertise_type5_route(bgp, pi, prefix, &tmp_attr, afi, safi, addpath_id);
+	bgp_attr_extra_discard(&tmp_attr);
 }
 
 /*
