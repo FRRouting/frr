@@ -38,6 +38,7 @@ import shlex
 import subprocess
 import sys
 from collections import OrderedDict
+from functools import partial
 
 import lib.topolog as topolog
 from lib.micronet import Commander
@@ -1238,6 +1239,29 @@ class TopoRouter(TopoGear):
         if "with-crypto=openssl" in output:
             return True
         return False
+
+    def expect_ospfv2_neighbor(self, neighbor: str) -> None:
+        """
+        Runs the command 'show ip ospf neighbor json' and verifies that the
+        neighbor passed as parameter has convergence status Full.
+
+        If the neighbor doesn't exist or is not in state 'Full' the function
+        asserts.
+        """
+        expected = {
+            "neighbors": {
+                neighbor: [{
+                    "converged": "Full"
+                }]
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            self,
+            "show ip ospf neighbor json",
+            expected)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"Router {self.name} failed to converge"
 
 
 class TopoSwitch(TopoGear):

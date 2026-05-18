@@ -106,46 +106,6 @@ def test_wait_protocol_convergence():
 
     logger.info("waiting for protocols to converge")
 
-    def expect_ospfv2_neighbor_full(router, neighbor):
-        "Wait until OSPFv2 convergence."
-        logger.info("waiting OSPFv2 router '{}'".format(router))
-
-        def run_command_and_expect():
-            """
-            Function that runs command and expect the following outcomes:
-             * Full/DR
-             * Full/DROther
-             * Full/Backup
-            """
-            result = tgen.gears[router].vtysh_cmd(
-                "show ip ospf neighbor json", isjson=True
-            )
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-            )
-
-        _, result = topotest.run_and_expect(
-            run_command_and_expect, None, count=130, wait=1
-        )
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
-
     def expect_ospfv3_neighbor_full(router, neighbor):
         "Wait until OSPFv3 convergence."
         logger.info("waiting OSPFv3 router '{}'".format(router))
@@ -160,14 +120,14 @@ def test_wait_protocol_convergence():
         assert result is None, assertmsg
 
     # Wait for OSPFv2 convergence
-    expect_ospfv2_neighbor_full("r1", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r1", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.4")
-    expect_ospfv2_neighbor_full("r4", "10.0.255.3")
+    tgen.gears["r1"].expect_ospfv2_neighbor("10.0.255.2")
+    tgen.gears["r1"].expect_ospfv2_neighbor("10.0.255.3")
+    tgen.gears["r2"].expect_ospfv2_neighbor("10.0.255.1")
+    tgen.gears["r2"].expect_ospfv2_neighbor("10.0.255.3")
+    tgen.gears["r3"].expect_ospfv2_neighbor("10.0.255.1")
+    tgen.gears["r3"].expect_ospfv2_neighbor("10.0.255.2")
+    tgen.gears["r3"].expect_ospfv2_neighbor("10.0.255.4")
+    tgen.gears["r4"].expect_ospfv2_neighbor("10.0.255.3")
 
     # Wait for OSPFv3 convergence
     expect_ospfv3_neighbor_full("r1", "10.0.255.2")
