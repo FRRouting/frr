@@ -3,7 +3,10 @@
  * NS functions.
  * Copyright (C) 2014 6WIND S.A.
  */
-
+/*
+ * note this file is used on all operating systems, i.e. including BSD.
+ * HAVE_NETNS will just not be defined on non-Linux systems.
+ */
 #include <zebra.h>
 #include <fcntl.h>
 
