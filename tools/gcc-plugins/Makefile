@@ -13,15 +13,11 @@ all: frr-format-$(GCCVER).so
 frr-format-$(GCCVER).so: frr-format-$(GCCVER).o
 	$(CXX) -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb3 -Og -shared -o $@ $^
 
-frr-format.o: frr-format.cc gcc-common.h
-	$(CXX) -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb3 -Og $(CPPFLAGS) -fPIC -Wall -Wextra -Wno-unused-parameter -c -o $@ $<
-
 frr-format-$(GCCVER).o: frr-format.cc frr-format.h
 	$(CXX) -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb3 -Og $(CPPFLAGS) -fPIC -Wall -Wextra -Wno-unused-parameter -c -o $@ $<
 
 install:
-	install -d $(DESTDIR)$(PLUGBASE)
-	install frr-format.so $(DESTDIR)$(PLUGBASE)
+	@echo This plugin is not intended to be installed.  The FRR build system will handle it automatically.
 
 clean:
-	rm -f frr-format.so frr-format.o
+	rm -f frr-format*.so frr-format*.o
