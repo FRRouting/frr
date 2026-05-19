@@ -3868,7 +3868,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 				   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
 		bgp_nhc_free(nhc);
 		bgp_attr_set_nhc(attr, NULL);
-		return BGP_ATTR_PARSE_ERROR;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
 	}
 
 	if (bgp_debug_update(peer, NULL, NULL, 0))
