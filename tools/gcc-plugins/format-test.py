@@ -21,7 +21,10 @@ expect = {}
 lines = {}
 
 ver_p = subprocess.Popen(
-    sys.argv[1:] + ["-xc", "-P", "-E", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8"
+    sys.argv[1:] + ["-xc", "-P", "-E", "-"],
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    encoding="UTF-8",
 )
 ver = int(ver_p.communicate("__GNUC__\n")[0])
 
@@ -30,18 +33,27 @@ fullver = subprocess.check_output(
 ).strip()
 
 confwith_p = subprocess.Popen(
-    sys.argv[1:] + ["-v"], stderr=subprocess.PIPE,
+    sys.argv[1:] + ["-v"],
+    stderr=subprocess.PIPE,
 )
 confwith_l = confwith_p.communicate(b"")[1].split(b"\n")
-confwith = b"".join(l + b"\n" for l in confwith_l if l.startswith(b"Configured with:") or l.startswith(b"gcc version"))
+confwith = b"".join(
+    l + b"\n"
+    for l in confwith_l
+    if l.startswith(b"Configured with:") or l.startswith(b"gcc version")
+)
 confhash = hashlib.sha1(confwith).hexdigest()[:16]
 
 versioned_plugin = f"frr-format-{fullver}-{confhash}.so"
 if os.path.exists(versioned_plugin):
-    print(f"using versioned plugin for GCC version {ver} (full: {fullver}, hash: {confhash})")
+    print(
+        f"using versioned plugin for GCC version {ver} (full: {fullver}, hash: {confhash})"
+    )
     plugin_arg = ["-fplugin=./" + versioned_plugin]
 else:
-    print(f"trying default plugin for GCC version {ver} (full: {fullver}, hash: {confhash}")
+    print(
+        f"trying default plugin for GCC version {ver} (full: {fullver}, hash: {confhash}"
+    )
     plugin_arg = ["-fplugin=./frr-format.so"]
 
 with open("format-test.c", "r") as fd:
@@ -55,7 +67,7 @@ with open("format-test.c", "r") as fd:
         else:
             expect[lno] = "nowarn"
         if ver >= 11 and m.group("retain") is not None:
-            expect[lno] = { "warn": "nowarn", "nowarn": "warn" }[expect[lno]]
+            expect[lno] = {"warn": "nowarn", "nowarn": "warn"}[expect[lno]]
 
 cmd = []
 cmd.extend(shlex.split("-Wall -Wextra -Wno-unused"))
