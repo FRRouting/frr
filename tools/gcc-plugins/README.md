@@ -14,14 +14,27 @@ the build outcome.  It is perfectly fine to build FRR without this plugin.
 Binary Debian packages
 ----------------------
 
-Can be found at [https://deb.nox.tf/devel/].
+The build system no longer attempts to use an installed copy of the plugin,
+therefore binary packages would be nonsensical.
 
 
 GCC requirements
 ----------------
 
-To use this plugin, you need a **patched 9.3.0** or a **patched 10.1.0**
-version of GCC using the [gcc-retain-typeinfo.patch] provided in this repo.
+To use this plugin, you need GCC installed with matching plugin development
+headers.  On Fedora these headers seem to be included in the default GCC
+package, and this should "just work".  On Debian and derivatives, install the
+`gcc-${version}-plugin-dev` package, e.g. `gcc-15-plugin-dev`.  There is
+unfortunately no meta-package to get the "current"/"matching" version
+automatically, so you will have to do this again when a new major version of
+GCC ships in Debian.
+
+
+type information on casts
+-------------------------
+
+Technically, for full functionality a GCC patch is necessary and provided in
+this repo (it still applies to some newer versions.)
 
 Without this patch, GCC strips type information too early during compilation,
 leaving to the plugin being unable to perform more meaningful type checks.
@@ -29,13 +42,18 @@ leaving to the plugin being unable to perform more meaningful type checks.
 If the patch is missing, `format-test.c` will show 4 false negative/positive
 warnings marked with `(need retain-typeinfo patch)`.
 
-(@eqvinox has discussed this one-line diff with some GCC people on their
-IRC channel around mid 2019, the consensus was that the line is an "early
-optimization" and removing it should not be harmful.  However, doing so is
-likely to break GCC's unit tests since warnings would print different types.)
+The conditions to trigger this are sufficiently rare that we just work around
+them in FRR code.  Using curly-brace constructor syntax works, e.g. where
+```
+printfrr("%" PRIu64, (uint64_t)foo);
+```
+gives a false-positive warning, this will not:
+```
+printfrr("%" PRIu64, (uint64_t){ foo });
+```
 
-Other versions of gcc are not supported.  gcc 8 previously did work but isn't
-actively tested/maintained.
+That syntax is normally used with structs rather than plain types, but it does
+apply to those as well.
 
 
 Usage
@@ -95,8 +113,23 @@ TODOs and future direction
 * get the one-liner patch upstreamed
 
 
+Source control/maintenance
+--------------------------
+
+The GCC source files are first imported into a separately-rooted, empty git
+repository that starts at 2fbb5ef8bf33 (root commit).  That is then merged
+into FRR.  It's looks a bit odd in a commit graph but works surprisingly well.
+
+
+Source formatting
+-----------------
+
+The `frr-format.cc` and `frr-format.h` files retain GCC's formatting.
+**Do not reformat these files.**
+
+
 License
 -------
 
-This plugin is **derivative of GCC 9.x**.  It was created by copying off
-`c-format.c`.  It must therefore adhere to GCC's GPLv3+ license.
+This plugin is **derivative of GCC**.  It was created by copying off
+`c-format.cc`.  It must therefore adhere to GCC's GPLv3+ license.
