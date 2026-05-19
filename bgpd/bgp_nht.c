@@ -1560,10 +1560,20 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				 * nexthop reachable and we no longer
 				 * have this path to revive; the peer
 				 * will re-advertise on session up.
+				 *
+				 * BGP_PATH_STALE is also set during
+				 * Enhanced Route Refresh (RFC 7313),
+				 * so additionally gate on the GR-specific
+				 * condition the setters use
+				 * (PEER_STATUS_NSF_WAIT and
+				 * peer->nsf[afi][safi]) to act only in
+				 * the GR helper context.
 				 */
-				if (CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
+				if (CHECK_FLAG(path->flags, BGP_PATH_STALE) &&
+				    CHECK_FLAG(path->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+				    path->peer->nsf[afi][safi]) {
 					if (bgp_debug_neighbor_events(path->peer))
-						zlog_debug("%pBP NH %pFX unreachable and path stale, deleting %pFX",
+						zlog_debug("%pBP NH %pFX unreachable and path stale (GR helper), deleting %pFX",
 							   path->peer, &bnc->prefix, p);
 					if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(
 									 bgp_dest_get_prefix(dest)))
