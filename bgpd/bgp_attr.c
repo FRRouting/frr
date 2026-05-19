@@ -3781,10 +3781,13 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			bgp_attr_set_srv6_vpn(attr, srv6_vpn_intern(vpn));
 		}
 	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+<<<<<<< HEAD
 		size_t start;
 		size_t consumed;
 		enum bgp_attr_parse_ret err;
 
+=======
+>>>>>>> c3da712ca (bgpd: Add boundary checks when parsing sub-sub TLVs for srv6 prefix sid)
 		if (length < 1 || STREAM_READABLE(connection->curr) < 1) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
@@ -3798,6 +3801,7 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* ignore reserved */
 		stream_getc(connection->curr);
 
+<<<<<<< HEAD
 		err = bgp_attr_srv6_service(args, (size_t)length - 1);
 		if (err != BGP_ATTR_PARSE_PROCEED)
 			return err;
@@ -3807,6 +3811,9 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			stream_forward_getp(connection->curr, length - consumed);
 
 		return BGP_ATTR_PARSE_PROCEED;
+=======
+		return bgp_attr_srv6_service(args, (size_t)length - 1);
+>>>>>>> c3da712ca (bgpd: Add boundary checks when parsing sub-sub TLVs for srv6 prefix sid)
 	}
 	/* Placeholder code for Unsupported TLV */
 	else {
