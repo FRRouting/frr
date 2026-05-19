@@ -151,6 +151,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_CLIENT_TO_CLIENT,
 	{ .val_bool = true },
 );
 
+FRR_CFG_DEFAULT_BOOL(BGP_PREFER_GLOBAL_CLUSTER,
+	{ .val_bool = false },
+);
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -780,6 +784,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
 		if (!DFLT_BGP_CLIENT_TO_CLIENT)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+		if (DFLT_BGP_PREFER_GLOBAL_CLUSTER)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER);
 
 		ret = BGP_SUCCESS;
 	}
@@ -5635,6 +5641,26 @@ DEFPY (bgp_cluster_id_client_to_client,
 		}
 		bgp_cluster_client_to_client_set(bgp, per_neighbor, &cluster, conf_true);
 	}
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_cluster_id_prefer_global,
+       bgp_cluster_id_prefer_global_cmd,
+       "[no] bgp cluster-id non-client-to-client prefer-global-cluster-id",
+	   NO_STR
+       BGP_STR
+       "Configure Route-Reflector Cluster-ids\n"
+	   "Configure the behavior of non-client to client reflections\n"
+	   "Add the global cluster-id to the cluster-list of prefixes that are reflected from non-client peers\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER);
+	bgp_clear_star_soft_out(vty, bgp->name);
+
 	return CMD_SUCCESS;
 }
 
@@ -22779,6 +22805,14 @@ int bgp_config_write(struct vty *vty)
 					" bgp cluster-id global client-to-client-reflection never\n");
 		}
 
+		/* BGP non-client-to-client prefer-global-cluster-id */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER) !=
+		    SAVE_BGP_PREFER_GLOBAL_CLUSTER)
+			vty_out(vty,
+				" %sbgp cluster-id non-client-to-client prefer-global-cluster-id\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER) ? ""
+										       : "no ");
+
 		/* BGP per-neighbor clusters */
 		frr_each (per_neighbor_cluster_list, &bgp->per_neighbor_clusters, cluster) {
 			if (CHECK_FLAG(cluster->flags,
@@ -23836,6 +23870,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_cluster_id_cmd);
 	install_element(BGP_NODE, &no_bgp_cluster_id_cmd);
 	install_element(BGP_NODE, &bgp_cluster_id_client_to_client_cmd);
+	install_element(BGP_NODE, &bgp_cluster_id_prefer_global_cmd);
 
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
