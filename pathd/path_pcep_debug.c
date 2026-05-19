@@ -1365,7 +1365,6 @@ void _format_pcep_objects(int ps, double_linked_list *objs)
 	} else {
 		double_linked_list_node *node;
 		int ps2 = ps + DEBUG_IDENT_SIZE;
-		int i;
 
 		if (objs->num_entries == 0) {
 			PATHD_FORMAT("[]\n");
@@ -1373,8 +1372,7 @@ void _format_pcep_objects(int ps, double_linked_list *objs)
 		}
 
 		PATHD_FORMAT("\n");
-		for (node = objs->head, i = 0; node != NULL;
-		     node = node->next_node, i++) {
+		for (node = objs->head; node != NULL; node = node->next_node) {
 			struct pcep_object_header *obj =
 				(struct pcep_object_header *)node->data;
 			PATHD_FORMAT("%*s- ", ps2 - 2, "");
@@ -1561,7 +1559,6 @@ void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)
 	struct pcep_object_ro_subobj *sub_obj;
 
 	int ps2 = ps + DEBUG_IDENT_SIZE;
-	int i;
 
 	if ((obj_list == NULL) || (obj_list->num_entries == 0)) {
 		PATHD_FORMAT("%*ssub_objects: []\n", ps, "");
@@ -1570,8 +1567,7 @@ void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)
 
 	PATHD_FORMAT("%*ssub_objects:\n", ps, "");
 
-	for (node = obj_list->head, i = 0; node != NULL;
-	     node = node->next_node, i++) {
+	for (node = obj_list->head; node != NULL; node = node->next_node) {
 		sub_obj = (struct pcep_object_ro_subobj *)node->data;
 		PATHD_FORMAT("%*s- flag_subobj_loose_hop: %u\n", ps2 - 2, "",
 			     sub_obj->flag_subobj_loose_hop);
@@ -1699,7 +1695,6 @@ void _format_pcep_object_tlvs(int ps, struct pcep_object_header *obj)
 	struct pcep_object_tlv_header *tlv;
 	double_linked_list_node *node;
 	int ps2 = ps + DEBUG_IDENT_SIZE;
-	int i = 0;
 
 	if (tlv_list == NULL)
 		return;
@@ -1710,8 +1705,7 @@ void _format_pcep_object_tlvs(int ps, struct pcep_object_header *obj)
 
 	PATHD_FORMAT("%*stlvs:\n", ps, "");
 
-	for (node = tlv_list->head, i = 0; node != NULL;
-	     node = node->next_node, i++) {
+	for (node = tlv_list->head; node != NULL; node = node->next_node) {
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		PATHD_FORMAT("%*s- ", ps2 - 2, "");
 		_format_pcep_object_tlv(ps2, tlv);
