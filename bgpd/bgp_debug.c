@@ -432,9 +432,8 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", localpref %u", attr->local_pref);
 
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
-		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", aigp-metric %" PRIu64,
-			 (unsigned long long)bgp_attr_get_aigp_metric(attr));
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", aigp-metric %" PRIu64,
+			   bgp_attr_get_aigp_metric(attr));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", metric %u",
