@@ -5678,11 +5678,13 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 
 	table = bgp_vrf->rib[afi][safi];
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		/* Only care about "selected" and "multipath" routes. Also
-		 * ensure that these are routes that are injectable into EVPN.
+		/* Use _non_supp variant: withdraw must not skip suppressed
+		 * routes. A route may have been advertised while unsuppressed
+		 * and later re-suppressed. Skipping it would leave stale
+		 * type-5s in the EVPN table.
 		 */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			if (!is_route_injectable_into_evpn(pi))
+			if (!is_route_injectable_into_evpn_non_supp(pi))
 				continue;
 			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, pi, afi);
 			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
