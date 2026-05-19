@@ -418,6 +418,23 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
+#if __STDC_VERSION__ >= 202311L
+/* whohoo, we can start moving towards getting rid of these, since
+ * __STDC_VERSION__ >= 202311L also implies printf supports it
+ *
+ * (the issue is mainly that without C23, even though printfrr unconditionally
+ * supports w64, we don't know what libc's printf supports.  And we use plain
+ * printf quite a bit, since a bulk printf -> printfrr pass is rather intrusive
+ * for little benefit.)
+ */
+#undef PRIu64
+#undef PRId64
+#undef PRIx64
+#define PRIu64 "w64u"
+#define PRId64 "w64d"
+#define PRIx64 "w64x"
+#endif
+
 /* helper to get type safety/avoid casts on calls
  * (w/o this, functions accepting all prefix types need casts on the caller
  * side, which strips type safety since the cast will accept any pointer
