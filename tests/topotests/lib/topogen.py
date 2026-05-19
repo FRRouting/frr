@@ -1263,6 +1263,26 @@ class TopoRouter(TopoGear):
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assert result is None, f"Router {self.name} failed to converge"
 
+    def expect_pim_neighbor(self, interface: str, neighbor: str) -> None:
+        """
+        Runs the command 'show ip pim neighbor json' and verifies that the
+        neighbor passed as parameter has being discovered.
+
+        If the neighbor doesn't exist the function asserts.
+        """
+        expected = {
+                interface: {
+                    neighbor: {}
+                }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            self,
+            "show ip pim neighbor json",
+            expected)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"Router {self.name} failed to converge"
+
 
 class TopoSwitch(TopoGear):
     """
