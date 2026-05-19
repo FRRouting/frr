@@ -164,4 +164,24 @@ extern int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer);
 extern int bgp_ls_originate_bgp_prefix(struct bgp *bgp, afi_t afi, safi_t safi,
 				       struct bgp_dest *dest, struct bgp_path_info *path);
 
+/*
+ * ===========================================================================
+ * Protocol-ID Predicate Helpers
+ * ===========================================================================
+ */
+static inline bool bgp_ls_protocol_is_isis(enum bgp_ls_protocol_id protocol_id)
+{
+	return protocol_id == BGP_LS_PROTO_ISIS_L1 || protocol_id == BGP_LS_PROTO_ISIS_L2;
+}
+
+static inline bool bgp_ls_protocol_is_direct_static(enum bgp_ls_protocol_id protocol_id)
+{
+	return protocol_id == BGP_LS_PROTO_DIRECT || protocol_id == BGP_LS_PROTO_STATIC;
+}
+
+static inline bool bgp_ls_protocol_is_ospf(enum bgp_ls_protocol_id protocol_id)
+{
+	return protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3;
+}
+
 #endif /* _FRR_BGP_LS_H */
