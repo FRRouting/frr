@@ -1397,8 +1397,10 @@ int bgp_ls_originate_bgp_node(struct bgp *bgp)
 	ls_attr = bgp_ls_attr_alloc();
 
 	/* TLV 1026: Node Name */
-	ls_attr->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, bgp->peer_self->host);
-	SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT);
+	if (bgp->peer_self->hostname) {
+		ls_attr->node_name = XSTRDUP(MTYPE_BGP_LS_ATTR, bgp->peer_self->hostname);
+		SET_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_NODE_NAME_BIT);
+	}
 
 	if (bgp_ls_has_srv6_capability(bgp)) {
 		ls_attr->srv6_cap_flags = 0;
