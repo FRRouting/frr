@@ -81,8 +81,7 @@ lib_libfrr_la_SOURCES = \
 	lib/netlink_parser.c \
 	lib/network.c \
 	lib/nexthop.c \
-	lib/netns_linux.c \
-	lib/netns_other.c \
+	lib/netns.c \
 	lib/nexthop_group.c \
 	lib/northbound.c \
 	lib/northbound_cli.c \
