@@ -5793,6 +5793,16 @@ configuration applies.
 
 Once configured for a cluster it can be deconfigured.
 
+.. clicmd:: bgp cluster-id non-client-to-client prefer-global-cluster-id
+
+Default behavior for the route-reflector when reflecting a route from a non-client
+peer to a client peer is to add the cluster-id of the destination peer in the
+cluster-list of the prefix.
+This command changes this behavior, the global cluster-id of the route-reflector is added
+instead.
+
+
+
 .. _bgp-suppress-fib:
 
 Suppressing routes not installed in FIB
