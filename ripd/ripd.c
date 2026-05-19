@@ -1692,8 +1692,8 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	rte = packet->rte;
 
 	/* The Request is processed entry by entry.  If there are no
-	   entries, no response is given. */
-	if (lim == (caddr_t)rte)
+	   entries (or only a partial RTE), no response is given. */
+	if ((caddr_t)(rte + 1) > lim)
 		return;
 
 	/* There is one special case.  If there is exactly one entry in the
