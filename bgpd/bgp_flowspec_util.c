@@ -336,8 +336,7 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 					ptr += len_written;
 				}
 			}
-			len_written = snprintf(ptr, len_string, " %" PRIu64 " ",
-					       (unsigned long long)value);
+			len_written = snprintf(ptr, len_string, " %" PRIu64 " ", value);
 			if (len_written > 0 && len_written < len_string) {
 				len_string -= len_written;
 				ptr += len_written;
@@ -474,8 +473,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 					ptr += len_written;
 				}
 			}
-			len_written = snprintf(ptr, len_string, "%" PRIu64,
-					       (unsigned long long)value);
+			len_written = snprintf(ptr, len_string, "%" PRIu64, value);
 			if (len_written > 0 && len_written < len_string) {
 				len_string -= len_written;
 				ptr += len_written;
