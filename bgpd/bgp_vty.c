@@ -20507,6 +20507,14 @@ DEFPY(bgp_ls_distribute_bgp_fabric,
 	bgp->ls_info->instance_id = instance_id;
 	bgp->ls_info->enable_distribution = true;
 
+	bgp_redist_add(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
+	if (bgp_redistribute_set(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0, false) != CMD_SUCCESS)
+		zlog_warn("%s: failed to subscribe to IPv6 ZEBRA_ROUTE_ALL redistribution",
+			  __func__);
+
+	if (bgp_zclient && bgp_zclient->sock >= 0)
+		bgp_zebra_srv6_manager_get_locator(NULL);
+
 	if (bgp_ls_export_bgp_topology(bgp) != 0) {
 		vty_out(vty, "%% Failed to export BGP topology\n");
 		return CMD_WARNING;
@@ -20544,6 +20552,8 @@ DEFPY(no_bgp_ls_distribute_bgp_fabric,
 	if (bgp->ls_info) {
 		if (!bgp->ls_info->enable_distribution)
 			return CMD_SUCCESS;
+
+		bgp_redistribute_unset(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
 
 		bgp->ls_info->enable_distribution = false;
 		bgp->ls_info->instance_id = 0;

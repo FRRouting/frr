@@ -590,6 +590,15 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 			api_nh->gate.ipv6 = nexthop->gate.ipv6;
 			api_nh->ifindex = nexthop->ifindex;
 		}
+
+		if (nexthop->nh_srv6 &&
+		    nexthop->nh_srv6->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+			api_nh->seg6local_action = nexthop->nh_srv6->seg6local_action;
+			memcpy(&api_nh->seg6local_ctx, &nexthop->nh_srv6->seg6local_ctx,
+			       sizeof(struct seg6local_context));
+		}
+
 		count++;
 	}
 
@@ -3184,10 +3193,13 @@ static void zread_srv6_manager_get_locator(struct zserv *client,
 
 	/* Get data */
 	STREAM_GETW(s, len);
-	STREAM_GET(locator_name, s, len);
+	if (len >= sizeof(locator_name))
+		goto stream_failure;
+	if (len)
+		STREAM_GET(locator_name, s, len);
 
 	/* Call hook to get the locator info using wrapper */
-	srv6_manager_get_locator_call(&locator, client, locator_name);
+	srv6_manager_get_locator_call(&locator, client, len ? locator_name : NULL);
 
 stream_failure:
 	return;

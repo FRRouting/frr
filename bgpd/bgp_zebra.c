@@ -56,6 +56,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
 
 /* All information about zebra. */
@@ -528,6 +529,8 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 	union g_addr nexthop = {};
 	ifindex_t ifindex = IFINDEX_INTERNAL;
+	uint32_t seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	const struct seg6local_context *seg6local_ctx = NULL;
 	int add, i;
 	struct bgp *bgp;
 
@@ -562,6 +565,9 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 		} else
 			nexthop = api.nexthops[0].gate;
 
+		seg6local_action = api.nexthops[0].seg6local_action;
+		seg6local_ctx = &api.nexthops[0].seg6local_ctx;
+
 		/*
 		 * The ADD message is actually an UPDATE and there is no
 		 * explicit DEL
@@ -578,9 +584,9 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 		}
 
 		/* Now perform the add/update. */
-		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     nhtype, api.distance, bhtype, api.metric,
-				     api.type, api.instance, api.tag);
+		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex, nhtype, api.distance,
+				     bhtype, api.metric, api.type, api.instance, api.tag,
+				     seg6local_action, seg6local_ctx);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);
@@ -2576,7 +2582,9 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	 * Request SRv6 locator information from Zebra, if SRv6 is enabled
 	 * and a locator is configured for this BGP instance.
 	 */
-	if (bgp_srv6_locator_is_configured(bgp) && !bgp_srv6_locator_lookup(NULL, bgp))
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_zebra_srv6_manager_get_locator(NULL);
+	else if (bgp_srv6_locator_is_configured(bgp) && !bgp_srv6_locator_lookup(NULL, bgp))
 		bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 }
 
@@ -4264,6 +4272,8 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
+	bgp_ls_originate_srv6_locator_prefix(bgp_get_default(), &loc);
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
 			continue;
@@ -4413,6 +4423,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	bgp_ls_withdraw_srv6_locator_prefix(bgp_get_default(), &loc);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
@@ -5060,9 +5072,6 @@ int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
  */
 int bgp_zebra_srv6_manager_get_locator(const char *name)
 {
-	if (!name)
-		return -1;
-
 	/*
 	 * Send the Get Locator request to the SRv6 Manager and return the
 	 * result
