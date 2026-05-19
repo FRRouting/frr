@@ -11,13 +11,24 @@
 
 """
 test_multicast_ssm_topo1.py: Test PIM SSM configuration.
+
+Topology:
+
+    h1          h2          h3
+    |           |           |
+   r1          r2          r3
+    +-----------+-----------+
+                s1
+         (shared LAN)
+
+  s1:  192.168.1.0/24, 2001:db8:1::/64  (r1-eth0, r2-eth0, r3-eth0, OSPFv2 area 0)
+  h1:  10.0.1.0/24 via r1-eth1 (.1)
+  h2:  10.0.2.0/24 via r2-eth1 (.1)
+  h3:  10.0.3.0/24 via r3-eth1 (.1)
 """
 
 import os
 import sys
-import json
-from functools import partial
-import re
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -29,14 +40,35 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 
 # Required to instantiate the topology builder class.
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
 
 
 def build_topo(tgen):
-    tgen.add_router(f"r1")
+    """
+    Three routers on a shared LAN, each with a host on a dedicated access link.
+    """
+
+    for rname in ("r1", "r2", "r3"):
+        tgen.add_router(rname)
+
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
+
+    hosts = (
+        ("h1", "r1", "10.0.1.2/24", "via 10.0.1.1", "s2"),
+        ("h2", "r2", "10.0.2.2/24", "via 10.0.2.1", "s3"),
+        ("h3", "r3", "10.0.3.2/24", "via 10.0.3.1", "s4"),
+    )
+    for hname, rname, hip, hroute, sname in hosts:
+        host = tgen.add_host(hname, hip, hroute)
+        switch = tgen.add_switch(sname)
+        switch.add_link(tgen.gears[rname])
+        switch.add_link(host)
 
 
 def setup_module(mod):
@@ -44,7 +76,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    tgen.gears["r1"].load_frr_config(os.path.join(CWD, f"r1/frr.conf"))
+    for rname in ("r1", "r2", "r3"):
+        tgen.gears[rname].load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
     tgen.start_router()
 
 
@@ -55,7 +88,7 @@ def teardown_module():
 
 
 def test_multicast_ssm():
-    "Test SSM group"
+    "Test SSM group type on all routers"
     pim_test = [
         {"address": "229.0.0.100", "type": "ASM"},
         {"address": "230.0.0.100", "type": "SSM"},
@@ -69,33 +102,34 @@ def test_multicast_ssm():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r1"]
+    for rname in ("r1", "r2", "r3"):
+        router = tgen.gears[rname]
 
-    for test in pim_test:
+        for test in pim_test:
 
-        def check_group_type_v4():
-            output = router.vtysh_cmd(
-                f"show ip pim group-type {test['address']} json", isjson=True
+            def check_group_type_v4():
+                output = router.vtysh_cmd(
+                    f"show ip pim group-type {test['address']} json", isjson=True
+                )
+                return output.get("groupType")
+
+            _, result = topotest.run_and_expect(
+                check_group_type_v4, test["type"], count=20, wait=1
             )
-            return output.get("groupType")
+            assert result == test["type"], f"{rname}: wrong IPv4 group type"
 
-        _, result = topotest.run_and_expect(
-            check_group_type_v4, test["type"], count=20, wait=1
-        )
-        assert result == test["type"], "Wrong group type"
+        for test in pim6_test:
 
-    for test in pim6_test:
+            def check_group_type_v6():
+                output = router.vtysh_cmd(
+                    f"show ipv6 pim group-type {test['address']} json", isjson=True
+                )
+                return output.get("groupType")
 
-        def check_group_type_v6():
-            output = router.vtysh_cmd(
-                f"show ipv6 pim group-type {test['address']} json", isjson=True
+            _, result = topotest.run_and_expect(
+                check_group_type_v6, test["type"], count=20, wait=1
             )
-            return output.get("groupType")
-
-        _, result = topotest.run_and_expect(
-            check_group_type_v6, test["type"], count=20, wait=1
-        )
-        assert result == test["type"], "Wrong group type"
+            assert result == test["type"], f"{rname}: wrong IPv6 group type"
 
 
 def test_memory_leak():
