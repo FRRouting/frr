@@ -10,7 +10,10 @@
 #
 
 """
-test_multicast_ssm_topo1.py: Test PIM SSM configuration.
+test_multicast_ssm_topo1.py: Test PIM SSM configuration and (S,G) join state.
+
+r3 uses a configured IGMP join-group only to inject local membership; the
+test checks that the SSM (S,G) is reflected on all routers on the shared LAN.
 
 Topology:
 
@@ -29,6 +32,7 @@ Topology:
 
 import os
 import sys
+from functools import partial
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -44,6 +48,65 @@ from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
+
+SSM_GROUP = "230.0.0.100"
+SSM_SOURCE = "10.0.1.2"
+
+
+def expect_igmp_ssm_group(router, interface):
+    "Wait until SSM (S,G) IGMP group state is present on interface"
+    tgen = get_topogen()
+    expected = {
+        interface: {
+            "groups": [
+                {
+                    "group": SSM_GROUP,
+                    "mode": "INCLUDE",
+                    "sources": [
+                        {
+                            "source": SSM_SOURCE,
+                            "forwarded": True,
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show ip igmp groups detail json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), f"{router}: missing IGMP group ({SSM_SOURCE}, {SSM_GROUP}) on {interface}"
+
+
+def expect_pim_sg_join(router, interface, source, group):
+    "Wait until (S,G) PIM join state is present on interface"
+    tgen = get_topogen()
+    expected = {
+        interface: {
+            group: {
+                source: {
+                    "source": source,
+                    "group": group,
+                }
+            }
+        }
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show ip pim join json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), f"{router}: missing PIM join ({source}, {group}) on {interface}"
 
 
 def build_topo(tgen):
@@ -130,6 +193,33 @@ def test_multicast_ssm():
                 check_group_type_v6, test["type"], count=20, wait=1
             )
             assert result == test["type"], f"{rname}: wrong IPv6 group type"
+
+
+def test_ssm_join_state():
+    "Verify SSM (S,G) IGMP and PIM join state on all routers"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ("r1", "r2", "r3"):
+        router = tgen.gears[rname]
+
+        def check_group_type_ssm():
+            output = router.vtysh_cmd(
+                f"show ip pim group-type {SSM_GROUP} json", isjson=True
+            )
+            return output.get("groupType")
+
+        _, result = topotest.run_and_expect(
+            check_group_type_ssm, "SSM", count=20, wait=1
+        )
+        assert result == "SSM", f"{rname}: group {SSM_GROUP} is not SSM"
+
+    for rname in ("r1", "r2", "r3"):
+        expect_igmp_ssm_group(rname, f"{rname}-eth0")
+
+    for rname in ("r1", "r2", "r3"):
+        expect_pim_sg_join(rname, f"{rname}-eth0", SSM_SOURCE, SSM_GROUP)
 
 
 def test_memory_leak():
