@@ -5887,10 +5887,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
 			if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
 				cluster_id = &from->cluster[afi][safi];
+
 			/* if the destination of the id has a per-neighbor cluster configured
-		 	 * and the originator is a non-client
-		 	 */
-		} else if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+			 * and the originator is a non-client and prefer global cluster is not configured
+			 * for non-client-to-client reflections
+			 */
+		} else if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID) &&
+			   !CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER))
 			cluster_id = &peer->cluster[afi][safi];
 		/* If eiher the originator is part of the global cluster or
 		 * the originator is non-client and the destinaton is part of the global cluster
