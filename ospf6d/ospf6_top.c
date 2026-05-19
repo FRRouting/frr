@@ -250,6 +250,21 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	}
 }
 
+static void ospf6_asbr_route_calc_timer(struct event *t)
+{
+	struct ospf6 *ospf6 = EVENT_ARG(t);
+
+	ospf6_asbr_recalculate_external_routes(ospf6);
+}
+
+static void ospf6_schedule_asbr_route_calc(struct ospf6 *ospf6)
+{
+	if (event_is_scheduled(ospf6->t_asbr_route_calc))
+		return;
+
+	event_add_event(master, ospf6_asbr_route_calc_timer, ospf6, 0, &ospf6->t_asbr_route_calc);
+}
+
 static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
 	struct ospf6 *ospf6 = NULL;
@@ -275,7 +290,7 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 	ospf6_zebra_route_update_add(route, ospf6);
 	if (global_scope && route->path.type != OSPF6_PATH_TYPE_EXTERNAL1 &&
 	    route->path.type != OSPF6_PATH_TYPE_EXTERNAL2)
-		ospf6_asbr_recalculate_external_routes(ospf6);
+		ospf6_schedule_asbr_route_calc(ospf6);
 }
 
 static void ospf6_top_route_hook_remove(struct ospf6_route *route)
@@ -304,7 +319,7 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	ospf6_zebra_route_update_remove(route, ospf6);
 	if (global_scope && route->path.type != OSPF6_PATH_TYPE_EXTERNAL1 &&
 	    route->path.type != OSPF6_PATH_TYPE_EXTERNAL2)
-		ospf6_asbr_recalculate_external_routes(ospf6);
+		ospf6_schedule_asbr_route_calc(ospf6);
 }
 
 static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
@@ -570,6 +585,7 @@ static void ospf6_disable(struct ospf6 *o)
 		event_cancel(&o->maxage_remover);
 		event_cancel(&o->t_spf_calc);
 		event_cancel(&o->t_ase_calc);
+		event_cancel(&o->t_asbr_route_calc);
 		event_cancel(&o->t_distribute_update);
 		event_cancel(&o->t_ospf6_receive);
 		event_cancel(&o->t_external_aggr);

@@ -172,6 +172,7 @@ struct ospf6 {
 	/* Threads */
 	struct event *t_spf_calc; /* SPF calculation timer. */
 	struct event *t_ase_calc; /* ASE calculation timer. */
+	struct event *t_asbr_route_calc; /* AS-External route recalculation timer. */
 	struct event *maxage_remover;
 	struct event *t_distribute_update; /* Distribute update timer. */
 	struct event *t_ospf6_receive;	   /* OSPF6 receive timer */
