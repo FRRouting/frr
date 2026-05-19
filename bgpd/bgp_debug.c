@@ -411,7 +411,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
 	if (bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
-		snprintf(buf + strlen(buf), size - strlen(buf), ", origin %s",
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", origin %s",
 			 bgp_origin_str[attr->origin]);
 
 	/* Add MP case. */
@@ -428,7 +428,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
 	if (bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", localpref %u", attr->local_pref);
 
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
@@ -436,32 +436,32 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			   bgp_attr_get_aigp_metric(attr));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC))
-		snprintf(buf + strlen(buf), size - strlen(buf), ", metric %u",
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", metric %u",
 			 attr->med);
 
 	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", community %s",
 			 community_str(bgp_attr_get_community(attr), false,
 				       true));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", large-community %s",
 			 lcommunity_str(bgp_attr_get_lcommunity(attr), false,
 					true));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES))
-		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_ATOMIC_AGGREGATE))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");
 
 	if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR))
@@ -477,7 +477,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		struct cluster_list *cluster;
 		int i;
 
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", clusterlist");
 
 		cluster = bgp_attr_get_cluster(attr);
@@ -487,16 +487,16 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	}
 
 	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL))
-		snprintf(buf + strlen(buf), size - strlen(buf),
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			 ", pmsi tnltype %u", bgp_attr_get_pmsi_tnl_type(attr));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_AS_PATH))
-		snprintf(buf + strlen(buf), size - strlen(buf), ", path %s",
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", path %s",
 			 aspath_print(attr->aspath));
 
 	if (bgp_attr_exists(attr, BGP_ATTR_PREFIX_SID)) {
 		if (attr->label_index != BGP_INVALID_LABEL_INDEX)
-			snprintf(buf + strlen(buf), size - strlen(buf),
+			snprintfrr(buf + strlen(buf), size - strlen(buf),
 				 ", label-index %u", attr->label_index);
 	}
 
@@ -505,7 +505,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
 
 		for (tlv = nhc->tlvs; tlv; tlv = tlv->next)
-			snprintf(buf + strlen(buf), size - strlen(buf),
+			snprintfrr(buf + strlen(buf), size - strlen(buf),
 				 ", NHC TLV code %d length %d value %p", tlv->code, tlv->length,
 				 tlv->value);
 	}
@@ -630,7 +630,7 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 
 	if (p->u.prefix_evpn.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)p)) {
-			snprintf(
+			snprintfrr(
 				evpn_desc, sizeof(evpn_desc),
 				"l2vpn evpn type macip mac %s",
 				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
@@ -639,7 +639,7 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 			uint8_t family = is_evpn_prefix_ipaddr_v4(
 						(struct prefix_evpn *)p) ?
 							AF_INET : AF_INET6;
-			snprintf(
+			snprintfrr(
 				evpn_desc, sizeof(evpn_desc),
 				"l2vpn evpn type macip mac %s ip %s",
 				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
@@ -658,7 +658,7 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 		uint8_t family = is_evpn_prefix_ipaddr_v4(
 					(struct prefix_evpn *)p) ? AF_INET
 								: AF_INET6;
-		snprintf(evpn_desc, sizeof(evpn_desc),
+		snprintfrr(evpn_desc, sizeof(evpn_desc),
 			 "l2vpn evpn type prefix ip %s/%d",
 			 inet_ntop(family,
 				   &p->u.prefix_evpn.prefix_addr.ip.ip.addr,
@@ -2985,7 +2985,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	 * sometimes. */
 	pathid_buf[0] = '\0';
 	if (addpath_valid)
-		snprintf(pathid_buf, sizeof(pathid_buf), " with addpath ID %u",
+		snprintfrr(pathid_buf, sizeof(pathid_buf), " with addpath ID %u",
 			 addpath_id);
 
 	overlay_index_buf[0] = '\0';
@@ -3001,7 +3001,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			inet_ntop(AF_INET6, &overlay_index->gw_ip, obuf,
 				  sizeof(obuf));
 
-		snprintf(overlay_index_buf, sizeof(overlay_index_buf),
+		snprintfrr(overlay_index_buf, sizeof(overlay_index_buf),
 			 " gateway IP %s", obuf);
 	}
 
@@ -3012,7 +3012,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			char tag_buf2[20];
 
 			bgp_evpn_label2str(label, num_labels, tag_buf2, 20);
-			snprintf(tag_buf, sizeof(tag_buf), " label %s",
+			snprintfrr(tag_buf, sizeof(tag_buf), " label %s",
 				 tag_buf2);
 		} else {
 			mpls_labels2str(label, num_labels, " label ", tag_buf, sizeof(tag_buf));
@@ -3036,7 +3036,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				       return_string,
 				       NLRI_STRING_FORMAT_DEBUG, NULL,
 				       family2afi(fs->prefix.family));
-		snprintf(str, size, "FS %s Match{%s}", afi2str(afi),
+		snprintfrr(str, size, "FS %s Match{%s}", afi2str(afi),
 			 return_string);
 	} else
 		snprintfrr(str, size, "%pFX%s%s %s %s", pu.p, tag_buf,
