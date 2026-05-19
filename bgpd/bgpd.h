@@ -575,6 +575,7 @@ struct bgp {
 #define BGP_FLAG_VRF_LEAK_MARK_DOWN		 (1ULL << 45)
 #define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER	    (1ULL << 47)
 #define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED (1ULL << 48)
+#define BGP_FLAG_PREFER_GLOBAL_CLUSTER			    (1ULL << 49)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
