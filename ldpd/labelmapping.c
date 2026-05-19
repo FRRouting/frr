@@ -142,6 +142,10 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 	struct mapping_head	 mh;
 	struct map		 map;
 
+	if (len < LDP_MSG_SIZE) {
+		session_shutdown(nbr, S_BAD_MSG_LEN, 0, 0);
+		return (-1);
+	}
 	memcpy(&msg, buf, sizeof(msg));
 	buf += LDP_MSG_SIZE;
 	len -= LDP_MSG_SIZE;
