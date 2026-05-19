@@ -5755,8 +5755,9 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 			if (!is_route_injectable_into_evpn(pi))
 				continue;
 
-			if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
+			    (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+			     !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH)))
 				continue;
 
 			bgp_evpn_export_type5_route(bgp_vrf, dest, pi, afi, safi);
