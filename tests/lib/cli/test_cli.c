@@ -37,7 +37,7 @@ DEFPY(magic_test, magic_test_cmd,
 	"1\n2\n3\n4\n5\n")
 {
 	vty_out(vty, "def: %s\n", self->string);
-	vty_out(vty, "num: %ld\n", magic);
+	vty_out(vty, "num: %" PRId64 "\n", magic);
 	vty_out(vty, "ipv4: %pFX\n", ipv4net);
 	vty_out(vty, "ipv6: %pI6\n", &ipv6);
 	return CMD_SUCCESS;

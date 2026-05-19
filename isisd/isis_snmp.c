@@ -1053,7 +1053,7 @@ static int isis_snmp_circuit_level_lookup_next(
 	oid offset;
 	oid start;
 	struct isis_circuit *circuit = NULL;
-	int level;
+	int level = 0;
 
 	start = 0;
 

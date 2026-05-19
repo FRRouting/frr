@@ -443,7 +443,7 @@ int main(int argc, char *argv[])
 {
 	char **search_paths = NULL;
 	char **iter = NULL;
-	struct yang_module *module;
+	struct yang_module *module = NULL;
 	char module_name_underscores[64];
 	struct stat st;
 	int opt;

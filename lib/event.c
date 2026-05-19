@@ -2421,10 +2421,10 @@ static unsigned int thread_process(struct event_list_head *list)
 	return ready;
 }
 
-static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
-				   struct event *fetch, bool *broken,
-				   bool *continued)
+static struct event *event_fetch_inner_loop(struct event_loop *m, struct event *fetch,
+					    bool *broken, bool *continued)
 {
+	struct event *event = NULL;
 	struct timeval now;
 	struct timeval zerotime = {0, 0};
 	struct timeval tv;
@@ -2454,7 +2454,7 @@ static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
 			GETRUSAGE(&m->last_getrusage);
 		m->ready_run_loop = true;
 		*broken = true;
-		return;
+		return fetch;
 	}
 
 	m->ready_run_loop = false;
@@ -2492,16 +2492,17 @@ static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
 	if (!tw && epoll_revent_list_count(&m->handler.epoll_revents_list) == 0 &&
 	    epoll_event_hash_count(&m->handler.epoll_event_hash) == 0) { /* die */
 		pthread_mutex_unlock(&m->mtx);
-		fetch = NULL;
 		*broken = true;
-		return;
+		return NULL;
 	}
 #else
+	while (m->handler.pfdcount && m->handler.pfds[m->handler.pfdcount - 1].fd == -1)
+		m->handler.pfdcount--;
+
 	if (!tw && m->handler.pfdcount == 0) { /* die */
 		pthread_mutex_unlock(&m->mtx);
-		fetch = NULL;
 		*broken = true;
-		return;
+		return NULL;
 	}
 #endif
 
@@ -2528,7 +2529,7 @@ static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
 			pthread_mutex_unlock(&m->mtx);
 			/* loop around to signal handler */
 			*continued = true;
-			return;
+			return fetch;
 		}
 
 		/* else die */
@@ -2540,9 +2541,8 @@ static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
 			 safe_strerror(errno));
 #endif
 		pthread_mutex_unlock(&m->mtx);
-		fetch = NULL;
 		*broken = true;
-		return;
+		return NULL;
 	}
 
 	/* Post timers to ready queue. */
@@ -2554,24 +2554,24 @@ static void event_fetch_inner_loop(struct event_loop *m, struct event *event,
 		thread_process_io(m, num);
 
 	pthread_mutex_unlock(&m->mtx);
+	return fetch;
 }
 
 /* Fetch next ready thread. */
 struct event *event_fetch(struct event_loop *m, struct event *fetch)
 {
-	struct event *event = NULL;
 	bool broken = false;
 	bool continued = false;
 
 	do {
 		broken = false;
 		continued = false;
-		event_fetch_inner_loop(m, event, fetch, &broken, &continued);
+		fetch = event_fetch_inner_loop(m, fetch, &broken, &continued);
 		if (broken)
 			break;
 		if (continued)
 			continue;
-	} while (!event && m->spin);
+	} while (m->spin);
 
 	return fetch;
 }
@@ -2942,9 +2942,12 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 		break;
 	}
 
-	rv += bprintfrr(buf, " %-12s %s() %s from %s:%d}", info,
-			event->xref->funcname, event->xref->dest,
-			event->xref->xref.file, event->xref->xref.line);
+	if (event->xref)
+		rv += bprintfrr(buf, " %-12s %s() %s from %s:%d}", info, event->xref->funcname,
+				event->xref->dest, event->xref->xref.file, event->xref->xref.line);
+	else
+		rv += bprintfrr(buf, " %-12s xref=NULL}", info);
+
 	return rv;
 }
 

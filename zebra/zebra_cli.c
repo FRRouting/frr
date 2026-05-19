@@ -2146,6 +2146,24 @@ DEFPY_YANG(
 				    prefix_str);
 }
 
+#if CONFDATE > 20270601
+CPP_NOTICE("remove this compatibility block");
+#endif
+
+/* config write didn't match the CLI command (missing the token "lifetime")...
+ * so we wrote br0ken configs.  let's silently accept those "broken" configs
+ * for a bit.  (Luckily there is no ambiguity.)
+ */
+ALIAS_HIDDEN(
+      ipv6_nd_pref64,
+      ipv6_nd_pref64_compat_cmd,
+      "ipv6 nd nat64 [X:X::X:X/M]$prefix (0-65535)$lifetime",
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "NAT64 prefix advertisement (RFC8781)\n"
+      "NAT64 prefix to advertise (default: 64:ff9b::/96)\n"
+      "Valid lifetime in seconds\n")
+
 static void lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_cli_write(
 	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
@@ -2156,7 +2174,7 @@ static void lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_
 	if (yang_dnode_exists(dnode, "lifetime")) {
 		uint16_t lifetime = yang_dnode_get_uint16(dnode, "lifetime");
 
-		vty_out(vty, " %u", lifetime);
+		vty_out(vty, " lifetime %u", lifetime);
 	}
 
 	vty_out(vty, "\n");
@@ -3340,6 +3358,7 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_pref64_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_pref64_compat_cmd);
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
 #endif

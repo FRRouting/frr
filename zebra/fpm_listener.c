@@ -1120,6 +1120,7 @@ static void fpm_serve(void)
 	}
 }
 
+FRR_NORETURN
 static void sigterm_handler(int signum)
 {
 	exit(0);
