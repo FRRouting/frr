@@ -12284,7 +12284,7 @@ static int interface_config_auth_str(struct ospf_if_params *params, char *buf)
 		break;
 
 	case OSPF_AUTH_SIMPLE:
-		snprintf(buf, BUFSIZ, " ");
+		buf[0] = '\0';
 		break;
 
 	case OSPF_AUTH_CRYPTOGRAPHIC:
