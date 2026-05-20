@@ -3415,6 +3415,9 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+		size_t start;
+		size_t consumed;
+
 		if (length < BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
 				 "Malformed SRv6 Service Sub-TLV attribute - declared length %u is less than minimum %d",
@@ -3422,6 +3425,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						  args->total);
 		}
+
+		start = stream_get_getp(connection->curr);
 		stream_getc(connection->curr);
 		stream_get(&ipv6_sid, connection->curr, sizeof(ipv6_sid));
 		sid_flags = stream_getc(connection->curr);
@@ -3468,7 +3473,16 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 			}
 		}
 
+<<<<<<< HEAD
 		attr->srv6_l3service = bgp_attr_srv6_l3service_intern(attr->srv6_l3service);
+=======
+		bgp_attr_set_srv6_l3service(attr, bgp_attr_srv6_l3service_intern(
+							  bgp_attr_get_srv6_l3service(attr)));
+
+		consumed = stream_get_getp(connection->curr) - start;
+		if (consumed < length)
+			stream_forward_getp(connection->curr, length - consumed);
+>>>>>>> 24ef85b06 (bgpd: Advance stream past slack bytes in SRv6 prefix-SID Sub-TLVs)
 	}
 
 	/* Placeholder code for unsupported type */
@@ -3637,6 +3651,10 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		sid_copy(&attr->srv6_vpn->sid, &ipv6_sid);
 		attr->srv6_vpn = srv6_vpn_intern(attr->srv6_vpn);
 	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+		size_t start;
+		size_t consumed;
+		enum bgp_attr_parse_ret err;
+
 		if (length < 1 || STREAM_READABLE(connection->curr) < 1) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
@@ -3645,10 +3663,20 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				args->total);
 		}
+
+		start = stream_get_getp(connection->curr);
 		/* ignore reserved */
 		stream_getc(connection->curr);
 
-		return bgp_attr_srv6_service(args, (size_t)length - 1);
+		err = bgp_attr_srv6_service(args, (size_t)length - 1);
+		if (err != BGP_ATTR_PARSE_PROCEED)
+			return err;
+
+		consumed = stream_get_getp(connection->curr) - start;
+		if (consumed < length)
+			stream_forward_getp(connection->curr, length - consumed);
+
+		return BGP_ATTR_PARSE_PROCEED;
 	}
 	/* Placeholder code for Unsupported TLV */
 	else {
