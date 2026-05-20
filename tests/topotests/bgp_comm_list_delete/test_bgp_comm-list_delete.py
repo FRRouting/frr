@@ -14,7 +14,7 @@ bgp_comm-list_delete.py:
 
 Test if works the following commands:
 route-map test permit 10
-  set comm-list <arg> delete
+  set comm-list delete <arg>
 """
 
 import os
