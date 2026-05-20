@@ -2844,6 +2844,7 @@ static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 	}
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+	peer->notify.hard_reset = false;
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		if (peer->afc_nego[afi][safi] && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
 		    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV)) {
