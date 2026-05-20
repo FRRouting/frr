@@ -1253,12 +1253,14 @@ AS_IF([$needsync], [
   dnl https://marc.info/?l=openbsd-tech&m=147299508409549&w=2
   AC_MSG_CHECKING([for OpenBSD futex() support])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stddef.h>
+#include <stdint.h>
 #include <sys/futex.h>
 int main(void);
 ],
 [
 {
-  return futex(NULL, FUTEX_WAIT, 0, NULL, NULL, 0);
+  return futex(NULL, FUTEX_WAIT, 0, NULL, NULL);
 }
 ])], [
     AC_MSG_RESULT([yes])

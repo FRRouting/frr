@@ -82,6 +82,7 @@ static long sys_futex(void *addr1, int op, int val1,
 
 /*
  * OpenBSD: sys_futex(), almost the same as on Linux
+ * it doesn't have the 6th argument though
  */
 #elif defined(HAVE_SYNC_OPENBSD_FUTEX)
 #include <sys/syscall.h>
@@ -89,12 +90,14 @@ static long sys_futex(void *addr1, int op, int val1,
 
 #define TIME_RELATIVE		1
 
+/* clang-format off */
 #define wait_once(sqlo, val)	\
-	futex((int *)&sqlo->pos, FUTEX_WAIT, (int)val, NULL, NULL, 0)
+	futex((int *)&sqlo->pos, FUTEX_WAIT, (int)val, NULL, NULL)
 #define wait_time(sqlo, val, time, reltime)	\
-	futex((int *)&sqlo->pos, FUTEX_WAIT, (int)val, reltime, NULL, 0)
+	futex((int *)&sqlo->pos, FUTEX_WAIT, (int)val, reltime, NULL)
 #define wait_poke(sqlo)		\
-	futex((int *)&sqlo->pos, FUTEX_WAKE, INT_MAX, NULL, NULL, 0)
+	futex((int *)&sqlo->pos, FUTEX_WAKE, INT_MAX, NULL, NULL)
+/* clang-format on */
 
 /*
  * FreeBSD: _umtx_op()
@@ -211,13 +214,13 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 
 #define time_arg1 abs_monotime_limit
 #define time_arg2 &reltime
-#define time_prep \
-	clock_gettime(CLOCK_MONOTONIC, &reltime);                              \
-	reltime.tv_sec = abs_monotime_limit.tv_sec - reltime.tv_sec;           \
-	reltime.tv_nsec = abs_monotime_limit.tv_nsec - reltime.tv_nsec;        \
-	if (reltime.tv_nsec < 0) {                                             \
-		reltime.tv_sec--;                                              \
-		reltime.tv_nsec += 1000000000;                                 \
+#define time_prep                                                                                 \
+	clock_gettime(CLOCK_MONOTONIC, &reltime);                                                 \
+	reltime.tv_sec = abs_monotime_limit->tv_sec - reltime.tv_sec;                             \
+	reltime.tv_nsec = abs_monotime_limit->tv_nsec - reltime.tv_nsec;                          \
+	if (reltime.tv_nsec < 0) {                                                                \
+		reltime.tv_sec--;                                                                 \
+		reltime.tv_nsec += 1000000000;                                                    \
 	}
 /*
  * FreeBSD & Linux: absolute time re. CLOCK_MONOTONIC
