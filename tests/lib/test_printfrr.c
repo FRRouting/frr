@@ -300,7 +300,7 @@ int main(int argc, char **argv)
 	printchk("first", "%1pSA", sptr);
 	sarr[0] = NULL;
 	printchk("", "%pSA", sptr);
-	printchk("", "%pSA", NULL);
+	printchk("", "%pSA", (char **)NULL);
 
 	*darr_append(sdarr) = "first";
 	*darr_append(sdarr) = "second";
