@@ -20,6 +20,17 @@ cd "${FRR_BUILD_DIR}/tests/topotests"
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod 1777 /tmp
 
+# ExaBGP warns and stalls ~15s per peer when reverse DNS for peer hostnames
+# is missing (e.g. bgp_peer_shut starts twenty ExaBGP peers).
+if ! grep -qE '[[:space:]]peer1([[:space:]]|$)' /etc/hosts; then
+	log_info "Adding ExaBGP peer hostnames to /etc/hosts for faster startup"
+	peer_hosts=""
+	for i in $(seq 1 20); do
+		peer_hosts+=" peer${i}"
+	done
+	echo "127.0.0.1${peer_hosts}" >> /etc/hosts
+fi
+
 # This is a MUST, otherwise we have:
 # AddressSanitizer:DEADLYSIGNAL
 # Segmentation fault
