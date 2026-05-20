@@ -38,10 +38,12 @@ import pytest
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
+sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.pim import McastTesterHelper
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, get_topogen
@@ -51,6 +53,11 @@ pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
 
 SSM_GROUP = "230.0.0.100"
 SSM_SOURCE = "10.0.1.2"
+# Source on the shared LAN (r1-eth0); matches r3 join-group in r3/frr.conf
+LAN_SSM_SOURCE = "192.168.1.1"
+SHARED_LAN_IF = "eth0"
+TRAFFIC_MONITOR_COUNT = 5
+TRAFFIC_MONITOR_WAIT = 1
 
 
 def expect_igmp_ssm_group(router, interface):
@@ -82,6 +89,82 @@ def expect_igmp_ssm_group(router, interface):
     assert (
         result is None
     ), f"{router}: missing IGMP group ({SSM_SOURCE}, {SSM_GROUP}) on {interface}"
+
+
+def _mroute_iif_oif_loop_error(router, source, group, lan_intf):
+    """
+    Return an error string if (S,G) lists the IIF as an OIF; None if OK,
+    absent, or not installed (kernel cannot loop without an installed MFC).
+    """
+    tgen = get_topogen()
+    output = tgen.gears[router].vtysh_cmd("show ip mroute json", isjson=True)
+
+    if group not in output or source not in output[group]:
+        return None
+
+    entry = output[group][source]
+    if not entry.get("installed"):
+        return None
+
+    iif = entry.get("iif")
+    if iif != f"{router}-{lan_intf}":
+        return (
+            f"{router}: ({source}, {group}) expected IIF "
+            f"{router}-{lan_intf}, got {iif}"
+        )
+
+    oil = entry.get("oil")
+    if not oil:
+        return None
+
+    for oif_data in oil.values():
+        outbound = oif_data.get("outboundInterface")
+        if outbound == iif:
+            return (
+                f"{router}: ({source}, {group}) loops on {iif} "
+                f"(IIF listed as OIF {outbound})"
+            )
+
+    return None
+
+
+def wait_mroute_split_horizon(router, source, group, lan_intf=SHARED_LAN_IF):
+    "Wait until (S,G) mroute does not forward back out the incoming interface"
+
+    def check():
+        return _mroute_iif_oif_loop_error(router, source, group, lan_intf)
+
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert (
+        result is None
+    ), f"{router}: split-horizon check failed for ({source}, {group}): {result}"
+
+
+def poll_mroute_split_horizon_during_traffic(
+    router,
+    source,
+    group,
+    lan_intf=SHARED_LAN_IF,
+    count=TRAFFIC_MONITOR_COUNT,
+    wait=TRAFFIC_MONITOR_WAIT,
+):
+    "Poll while traffic runs; fail fast if loop appears, succeed after count clean polls"
+    polls = {"remaining": count}
+
+    def check():
+        err = _mroute_iif_oif_loop_error(router, source, group, lan_intf)
+        if err is not None:
+            assert False, err
+        polls["remaining"] -= 1
+        if polls["remaining"] <= 0:
+            return None
+        return "polling"
+
+    _, result = topotest.run_and_expect(check, None, count=count, wait=wait)
+    assert result is None, (
+        f"{router}: split-horizon check failed during traffic "
+        f"for ({source}, {group}): {result}"
+    )
 
 
 def expect_pim_sg_join(router, interface, source, group):
@@ -220,6 +303,46 @@ def test_ssm_join_state():
 
     for rname in ("r1", "r2", "r3"):
         expect_pim_sg_join(rname, f"{rname}-eth0", SSM_SOURCE, SSM_GROUP)
+
+
+def test_ssm_mroute_no_iif_oif_loop():
+    """
+    With source and local join-group on the shared LAN, (S,G) must not
+    install an MFC with OIF equal to IIF (split horizon).  Without that,
+    the router re-injects multicast onto the segment (duplicate packets,
+    local router MAC, stepping TTL).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    mcast = McastTesterHelper(tgen)
+
+    def mroute_installed_on_r3():
+        output = tgen.gears["r3"].vtysh_cmd("show ip mroute json", isjson=True)
+        try:
+            entry = output[SSM_GROUP][LAN_SSM_SOURCE]
+        except (KeyError, TypeError):
+            return False
+        return bool(entry.get("installed"))
+
+    _, result = topotest.run_and_expect(mroute_installed_on_r3, True, count=60, wait=1)
+    assert result is True, "r3: missing installed mroute before traffic"
+
+    mcast.run_traffic("r1", SSM_GROUP, bind_intf="r1-eth0")
+
+    # r3 has join-group (192.168.1.1, G) on eth0 — primary regression target
+    poll_mroute_split_horizon_during_traffic("r3", LAN_SSM_SOURCE, SSM_GROUP)
+
+    # r1 is the sender; r2 may have PIM state without a local join
+    for rname in ("r1", "r2"):
+        err = _mroute_iif_oif_loop_error(
+            rname, LAN_SSM_SOURCE, SSM_GROUP, SHARED_LAN_IF
+        )
+        if err is not None:
+            assert False, err
+
+    mcast.stop_traffic_senders()
 
 
 def test_memory_leak():
