@@ -45,11 +45,13 @@ There is also a BGP-advertised route used only for recursively resolving
 next hops.
 """
 
+import errno
 import functools
 import json
 import os
 import pytest
 import sys
+import time
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -137,11 +139,41 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def exabgp_cmd(peer, cmd):
-    pipe = open("/run/exabgp_{}.in".format(peer), "w")
-    with pipe:
-        pipe.write(cmd)
-        pipe.close()
+def exabgp_cmd(peer, cmd, timeout=120):
+    """
+    Send a command to ExaBGP via the per-peer FIFO.
+
+    Opening a FIFO for write blocks until exa_readpipe.py opens it for read
+    (after ExaBGP starts). Use a non-blocking open with retries so a slow peer
+    hostname lookup cannot hang the test indefinitely.
+    """
+    path = "/run/exabgp_{}.in".format(peer)
+    data = cmd if isinstance(cmd, bytes) else cmd.encode()
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
+        except OSError as err:
+            if err.errno in (errno.ENXIO, errno.ENOENT):
+                time.sleep(0.2)
+                continue
+            raise
+        try:
+            os.write(fd, data)
+            os.close(fd)
+            return
+        except BlockingIOError:
+            os.close(fd)
+            time.sleep(0.2)
+            continue
+        except BaseException:
+            os.close(fd)
+            raise
+    raise TimeoutError(
+        "no ExaBGP reader on {} within {}s (is ExaBGP/readpipe running?)".format(
+            path, timeout
+        )
+    )
 
 
 def test_bgp_peer_type_multipath_relax_test1():
