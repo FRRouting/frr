@@ -2627,6 +2627,30 @@ if test "$enable_backtrace" != "no" ; then
           AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
           backtrace_ok=true
         ])
+      ], [
+        # OpenBSD. no idea why the header file is under C++, but it is
+        ac_cflags_save="$CFLAGS"
+        CFLAGS="$CFLAGS -I/usr/include/c++/v1"
+        $as_unset ac_cv_header_libunwind_h
+        AC_CHECK_HEADER([libunwind.h], [
+          # and the actual functions are in libexecinfo, but not public...
+	  # except in execinfo_p, but that's a static library...
+	  # but another copy is in libc++abi...
+          # but that one needs -pthread...
+	  ac_libs_save="$LIBS"
+	  ac_ldflags_save="$LDFLAGS"
+	  LDFLAGS="-pthread $LDFLAGS"
+          $as_unset ac_cv_search_unw_getcontext
+          AC_SEARCH_LIBS([unw_getcontext], [execinfo c++abi execinfo_p], [
+            AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+            UNWIND_CFLAGS="-I/usr/include/c++/v1"
+            UNWIND_LIBS="-pthread ${ac_cv_search_unw_getcontext}"
+            backtrace_ok=true
+          ])
+	  LDFLAGS="$ac_ldflags_save"
+	  LIBS="$ac_libs_save"
+        ])
+        CFLAGS="$ac_cflags_save"
       ])
     ])
     if test "$enable_backtrace" = "libunwind" -a "$backtrace_ok" = "false"; then
