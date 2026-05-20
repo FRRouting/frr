@@ -587,6 +587,34 @@ def router_json_cmp_retry(router, cmd, data, exact=False, retry_timeout=10.0):
     return ok
 
 
+def router_compare_json_output_data(
+    rname, command, json_data_str, count, wait, cmp_func=router_json_cmp
+):
+    "Compare router JSON output"
+    from lib.topogen import get_topogen
+
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    expected = json.loads(json_data_str)
+
+    # Run test function until we get an result. Wait at most count*wait seconds.
+    test_func = functools.partial(cmp_func, tgen.gears[rname], command, expected)
+    _, diff = run_and_expect(test_func, None, count=count, wait=wait)
+    assertmsg = f'"{rname}" JSON output mismatches the expected result: {diff}'
+    assert diff is None, assertmsg
+
+
+def router_compare_json_output(
+    rname, command, reference, count, wait, CWD, cmp_func=router_json_cmp
+):
+    "Compare router JSON output"
+    filename = f"{CWD}/{rname}/{reference}"
+    with open(filename) as f:
+        data = f.read()
+    router_compare_json_output_data(rname, command, data, count, wait, cmp_func)
+
+
 def int2dpid(dpid):
     "Converting Integer to DPID"
 
