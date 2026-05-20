@@ -254,7 +254,7 @@ static int if_getaddrs(void)
 }
 
 /* Fetch interface information via ioctl(). */
-static void interface_info_ioctl()
+static void interface_info_ioctl(void)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
