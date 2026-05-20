@@ -155,6 +155,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_PREFER_GLOBAL_CLUSTER,
 	{ .val_bool = false },
 );
 
+FRR_CFG_DEFAULT_BOOL(BGP_LOOSE_CLUSTER_LIST_CHECK,
+	{ .val_bool = false },
+);
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -786,6 +790,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 		if (DFLT_BGP_PREFER_GLOBAL_CLUSTER)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER);
+		if (DFLT_BGP_LOOSE_CLUSTER_LIST_CHECK)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK);
 
 		ret = BGP_SUCCESS;
 	}
@@ -5663,6 +5669,26 @@ DEFPY (bgp_cluster_id_prefer_global,
 
 	return CMD_SUCCESS;
 }
+
+DEFPY (bgp_cluster_id_loose_cluster_check,
+       bgp_cluster_id_loose_cluster_check_cmd,
+       "[no] bgp cluster-id loose-cluster-list-check",
+	   NO_STR
+       BGP_STR
+       "Configure Route-Reflector Cluster-ids\n"
+	   "Stop rejecting prefixes with known cluster-id, but do not advertise them to members of that cluster\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK);
+	bgp_clear_star_soft_in(vty, bgp->name);
+
+	return CMD_SUCCESS;
+}
+
 
 DEFPY (bgp_allow_martian,
        bgp_allow_martian_cmd,
@@ -22813,6 +22839,13 @@ int bgp_config_write(struct vty *vty)
 				CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER) ? ""
 										       : "no ");
 
+		/* BGP loose-cluster-list-check */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK) !=
+		    SAVE_BGP_LOOSE_CLUSTER_LIST_CHECK)
+			vty_out(vty, " %sbgp cluster-id loose-cluster-list-check\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK) ? ""
+											  : "no ");
+
 		/* BGP per-neighbor clusters */
 		frr_each (per_neighbor_cluster_list, &bgp->per_neighbor_clusters, cluster) {
 			if (CHECK_FLAG(cluster->flags,
@@ -23871,6 +23904,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_cluster_id_cmd);
 	install_element(BGP_NODE, &bgp_cluster_id_client_to_client_cmd);
 	install_element(BGP_NODE, &bgp_cluster_id_prefer_global_cmd);
+	install_element(BGP_NODE, &bgp_cluster_id_loose_cluster_check_cmd);
 
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
