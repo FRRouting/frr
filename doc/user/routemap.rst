@@ -359,7 +359,7 @@ Route Map Set Command
 
    Set the BGP community attribute.
 
-.. clicmd:: set extended-comm-list <EXTCOMMUNITY_LIST_NAME> delete
+.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
 
    Set BGP extended community list for deletion.
 
