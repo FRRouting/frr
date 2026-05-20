@@ -457,8 +457,39 @@ class Commander:  # pylint: disable=R0904
 
             os.kill(kill_pid, sn)
 
-            # No need to wait after this.
+            # After SIGKILL, reap `pid` so mutini/nsenter children do not linger as
+            # zombies under the pytest xdist worker (which never exits while zombies
+            # exist as unreaped children of that worker).
             if sn == signal.SIGKILL:
+                wait_sec = 5
+                self.logger.debug(
+                    "%s: waiting up to %ss to reap pid %s after SIGKILL",
+                    self,
+                    wait_sec,
+                    pid,
+                )
+                for _ in Timeout(wait_sec):
+                    try:
+                        wpid, status = os.waitpid(pid, os.WNOHANG)
+                        if wpid == 0:
+                            await asyncio.sleep(0.1)
+                            continue
+                        self.logger.debug(
+                            "pid %s reaped after SIGKILL, status %s", wpid, status
+                        )
+                        return
+                    except ChildProcessError:
+                        self.logger.debug("%s: pid %s already reaped", self, pid)
+                        return
+                    except OSError as error:
+                        if error.errno == errno.ECHILD:
+                            self.logger.debug("%s: pid %s was reaped", self, pid)
+                            return
+                        self.logger.warning(
+                            "%s: error reaping pid %s: %s", self, pid, error
+                        )
+                        return
+                self.logger.debug("%s: timeout reaping pid %s after SIGKILL", self, pid)
                 return
 
             # try each signal, waiting 15 seconds for exit before advancing
@@ -1059,7 +1090,7 @@ class Commander:  # pylint: disable=R0904
             "%s: [cleanup_proc] terminate process: %s (pid %s)", self, proc_str(p), pid
         )
         try:
-            # This will SIGHUP and wait a while then SIGKILL and return immediately
+            # SIGHUP, wait, then SIGKILL and reap the target pid.
             await self.cleanup_pid(p.pid, pid)
 
             # Wait another 2 seconds after the possible SIGKILL above for the
@@ -1076,6 +1107,13 @@ class Commander:  # pylint: disable=R0904
             )
         except (asyncio.TimeoutError, subprocess.TimeoutExpired):
             self.logger.warning("%s: [cleanup_proc] SIGKILL timeout", self)
+            if pid is not None and pid != p.pid:
+                try:
+                    os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    pass
+                except OSError:
+                    pass
             return p
         except Exception as error:
             self.logger.warning(
@@ -1085,7 +1123,21 @@ class Commander:  # pylint: disable=R0904
                 exc_info=True,
             )
             return p
+        finally:
+            await self._reap_zombie_children()
+
         return None
+
+    async def _reap_zombie_children(self):
+        """Reap any child processes already exited (e.g., mutini after nsenter)."""
+        while True:
+            try:
+                wpid, status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                break
+            if wpid == 0:
+                break
+            self.logger.debug("%s: reaped child pid %s status %s", self, wpid, status)
 
     @staticmethod
     def _cmd_status_input(stdin):
