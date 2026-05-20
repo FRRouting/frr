@@ -75,7 +75,6 @@ pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 
 def build_topo(tgen):
-
     # Setup Routers
     for i in range(1, 5):
         tgen.add_router("r%s" % i)
@@ -102,20 +101,9 @@ def build_topo(tgen):
 #####################################################
 
 
-def router_compare_json_output(rname, command, reference, count=60, wait=1):
-    "Compare router JSON output"
-
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    filename = "{}/{}/{}".format(CWD, rname, reference)
-    expected = json.loads(open(filename).read())
-
-    # Run test function until we get an result.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count, wait)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+router_compare_json_output = partial(
+    topotest.router_compare_json_output, count=60, wait=1, CWD=CWD
+)
 
 
 #####################################################
@@ -892,7 +880,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])
