@@ -4481,23 +4481,7 @@ void clear_mroute(struct pim_instance *pim)
 			pim_ifchannel_delete(ch);
 		}
 
-#if PIM_IPV == 4
-		/* clean up all igmp groups */
-		struct gm_group *grp;
-
-		if (pim_ifp->gm_group_list) {
-			while (pim_ifp->gm_group_list->count) {
-				grp = listnode_head(pim_ifp->gm_group_list);
-				igmp_group_delete(grp);
-			}
-		}
-#else
-		struct gm_if *gm_ifp;
-
-		gm_ifp = pim_ifp->mld;
-		if (gm_ifp)
-			gm_group_delete(gm_ifp);
-#endif
+		gm_group_delete(ifp);
 	}
 
 	/* clean up all upstreams*/
