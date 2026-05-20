@@ -60,13 +60,12 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	}
 
 	/*
-	 * Protect IGMP against adding looped MFC entries created by both
-	 * source and receiver attached to the same interface. See TODO T22.
-	 * Block only when the intf is non DR DR must create upstream.
+	 * Non-DR must not create (S,G) state when the RPF interface for the
+	 * source is the same as the IGMP oif (see TODO T22).  The DR still
+	 * creates channel_oil here; looped OIF=IIF is blocked in
+	 * pim_channel_add_oif().
 	 */
-	if ((input_iface_vif_index == pim_oif->mroute_vif_index) &&
-	    !(PIM_I_am_DR(pim_oif))) {
-		/* ignore request for looped MFC entry */
+	if ((input_iface_vif_index == pim_oif->mroute_vif_index) && !(PIM_I_am_DR(pim_oif))) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				"%s: ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
