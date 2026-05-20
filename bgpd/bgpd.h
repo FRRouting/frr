@@ -769,6 +769,7 @@ struct bgp {
 #define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER	    (1ULL << 47)
 #define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED (1ULL << 48)
 #define BGP_FLAG_PREFER_GLOBAL_CLUSTER			    (1ULL << 49)
+#define BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK		    (1ULL << 50)
 
 /* Use current (imported) path's attributes instead of source path's attributes
  * for bestpath comparison of imported paths.

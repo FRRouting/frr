@@ -2072,11 +2072,12 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 		if (cluster_loop_check(cluster, cluster_id))
 			return true;
-
-		frr_each (per_neighbor_cluster_list, &peer->bgp->per_neighbor_clusters,
-			  per_neighbor_cluster) {
-			if (cluster_loop_check(cluster, per_neighbor_cluster->cluster_id))
-				return true;
+		if (!CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK)) {
+			frr_each (per_neighbor_cluster_list, &peer->bgp->per_neighbor_clusters,
+				  per_neighbor_cluster) {
+				if (cluster_loop_check(cluster, per_neighbor_cluster->cluster_id))
+					return true;
+			}
 		}
 	}
 	return false;
@@ -2719,6 +2720,20 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 1, onlypeer->host, pfxprint);
 
 		return false;
+	}
+
+	/* If the attribute has cluster-list and one of the cluster-ids in it is the same as remote
+	 * peer's cluster-id. Only when the loose check cluster-id check is enabled and the peer
+	 * is part of a per-neighbor cluster, otherwise it is filtered when received by the
+	 * route-reflector
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK) &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID)) {
+		if (bgp_attr_exists(piattr, BGP_ATTR_CLUSTER_LIST) &&
+		    cluster_loop_check(bgp_attr_get_cluster(piattr), peer->cluster[afi][safi])) {
+			frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 4, peer->host, pfxprint);
+			return false;
+		}
 	}
 
 	/* ORF prefix-list filter check */

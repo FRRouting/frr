@@ -5870,8 +5870,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		 * or if from is non-client and prefer global cluster-id is configured
 		 */
 		else if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) ||
-			 (!CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
-			  CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER))) {
+			 CHECK_FLAG(bgp->flags, BGP_FLAG_PREFER_GLOBAL_CLUSTER)) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
 				stream_put_in_addr(s, &bgp->cluster_id);
 			else
