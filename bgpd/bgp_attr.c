@@ -3782,12 +3782,18 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		}
 	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 24ef85b06 (bgpd: Advance stream past slack bytes in SRv6 prefix-SID Sub-TLVs)
 		size_t start;
 		size_t consumed;
 		enum bgp_attr_parse_ret err;
 
+<<<<<<< HEAD
 =======
 >>>>>>> c3da712ca (bgpd: Add boundary checks when parsing sub-sub TLVs for srv6 prefix sid)
+=======
+>>>>>>> 24ef85b06 (bgpd: Advance stream past slack bytes in SRv6 prefix-SID Sub-TLVs)
 		if (length < 1 || STREAM_READABLE(connection->curr) < 1) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
@@ -3802,6 +3808,9 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		stream_getc(connection->curr);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 24ef85b06 (bgpd: Advance stream past slack bytes in SRv6 prefix-SID Sub-TLVs)
 		err = bgp_attr_srv6_service(args, (size_t)length - 1);
 		if (err != BGP_ATTR_PARSE_PROCEED)
 			return err;
@@ -3811,9 +3820,12 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			stream_forward_getp(connection->curr, length - consumed);
 
 		return BGP_ATTR_PARSE_PROCEED;
+<<<<<<< HEAD
 =======
 		return bgp_attr_srv6_service(args, (size_t)length - 1);
 >>>>>>> c3da712ca (bgpd: Add boundary checks when parsing sub-sub TLVs for srv6 prefix sid)
+=======
+>>>>>>> 24ef85b06 (bgpd: Advance stream past slack bytes in SRv6 prefix-SID Sub-TLVs)
 	}
 	/* Placeholder code for Unsupported TLV */
 	else {
