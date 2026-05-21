@@ -714,4 +714,135 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 	return 0;
 }
 
+/* Add unreachability information to the UI-RIB.
+ *
+ * Self-originated helper used by callers that locally synthesize an
+ * Unreachability NLRI (e.g. the 'bgp inject unreachability' test CLI).
+ * Looks up or creates a path owned by peer_self for the prefix in the
+ * SAFI_UNREACH RIB and stores the Reporter TLV / Sub-TLV data on the
+ * path's bgp_path_info_extra_unreach.
+ */
+int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_nlri *nlri,
+			 struct attr *attr)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *bpi;
+	struct bgp_path_info *new;
+	struct attr attr_new;
+	struct attr *attr_interned;
+
+	if (!bgp || !nlri)
+		return -1;
+
+	/* Get/create destination node */
+	dest = bgp_node_get(bgp->rib[afi][SAFI_UNREACH], &nlri->prefix);
+
+	/* Check for existing path */
+	for (bpi = bgp_dest_get_bgp_path_info(dest); bpi; bpi = bpi->next) {
+		if (bpi->peer == bgp->peer_self)
+			break;
+	}
+
+	/* Create new path or update existing */
+	if (!bpi) {
+		/* Initialize attributes (no TLV data in attr) */
+		if (attr) {
+			attr_new = *attr;
+		} else {
+			/* Set default attributes for locally originated route */
+			bgp_attr_default_set(&attr_new, bgp, BGP_ORIGIN_IGP);
+		}
+
+		/* Set nexthop length to 0 for SAFI_UNREACH (no nexthop, like Flowspec) */
+		attr_new.mp_nexthop_len = 0;
+
+		/* Intern the attributes */
+		attr_interned = bgp_attr_intern(&attr_new);
+
+		new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, 0, bgp->peer_self, attr_interned,
+				dest);
+
+		if (!new->extra)
+			new->extra = bgp_path_info_extra_get(new);
+
+		new->extra->unreach = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_UNREACH,
+					      sizeof(struct bgp_path_info_extra_unreach));
+
+		new->extra->unreach->timestamp = nlri->timestamp;
+		new->extra->unreach->has_timestamp = nlri->has_timestamp;
+		new->extra->unreach->reason_code = nlri->reason_code;
+		new->extra->unreach->has_reason_code = nlri->has_reason_code;
+		new->extra->unreach->reporter = nlri->reporter;
+		new->extra->unreach->has_reporter = nlri->has_reporter;
+		new->extra->unreach->reporter_as = nlri->reporter_as;
+		new->extra->unreach->has_reporter_as = nlri->has_reporter_as;
+
+		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
+		bgp_path_info_add(dest, new);
+		frrtrace(7, frr_bgp, unreach_info_add, bgp->name_pretty, &nlri->prefix,
+			 &nlri->reporter, nlri->reporter_as, nlri->reason_code,
+			 nlri->timestamp, 1);
+		bgp_process(bgp, dest, new, afi, SAFI_UNREACH);
+	} else {
+		/* Update existing path with new TLV data */
+		if (!bpi->extra)
+			bpi->extra = bgp_path_info_extra_get(bpi);
+
+		if (!bpi->extra->unreach)
+			bpi->extra->unreach = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_UNREACH,
+						      sizeof(struct bgp_path_info_extra_unreach));
+
+		if (bgp_debug_update(NULL, &nlri->prefix, NULL, 0)) {
+			zlog_debug("UNREACH UPDATE %pFX: old reason=%u new reason=%u",
+				   &nlri->prefix,
+				   bpi->extra->unreach->reason_code,
+				   nlri->reason_code);
+		}
+
+		bpi->extra->unreach->timestamp = nlri->timestamp;
+		bpi->extra->unreach->has_timestamp = nlri->has_timestamp;
+		bpi->extra->unreach->reason_code = nlri->reason_code;
+		bpi->extra->unreach->has_reason_code = nlri->has_reason_code;
+		bpi->extra->unreach->reporter = nlri->reporter;
+		bpi->extra->unreach->has_reporter = nlri->has_reporter;
+		bpi->extra->unreach->reporter_as = nlri->reporter_as;
+		bpi->extra->unreach->has_reporter_as = nlri->has_reporter_as;
+
+		bpi->uptime = monotime(NULL);
+		bgp_path_info_set_flag(dest, bpi, BGP_PATH_ATTR_CHANGED);
+		frrtrace(7, frr_bgp, unreach_info_add, bgp->name_pretty, &nlri->prefix,
+			 &nlri->reporter, nlri->reporter_as, nlri->reason_code,
+			 nlri->timestamp, 0);
+		bgp_process(bgp, dest, bpi, afi, SAFI_UNREACH);
+	}
+
+	bgp_dest_unlock_node(dest);
+
+	return 0;
+}
+
+/* Remove a self-originated unreachability path from the UI-RIB. */
+void bgp_unreach_info_delete(struct bgp *bgp, afi_t afi, const struct prefix *prefix)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *bpi;
+
+	if (!bgp || !prefix)
+		return;
+
+	dest = bgp_node_lookup(bgp->rib[afi][SAFI_UNREACH], prefix);
+	if (!dest)
+		return;
+
+	for (bpi = bgp_dest_get_bgp_path_info(dest); bpi; bpi = bpi->next) {
+		if (bpi->peer == bgp->peer_self) {
+			frrtrace(2, frr_bgp, unreach_info_delete, bgp->name_pretty, prefix);
+			bgp_rib_remove(dest, bpi, bgp->peer_self, afi, SAFI_UNREACH);
+			break;
+		}
+	}
+
+	bgp_dest_unlock_node(dest);
+}
+
 /* Show unreachability information */

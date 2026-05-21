@@ -162,5 +162,10 @@ extern int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct b
 extern int bgp_unreach_tlv_parse(uint8_t *data, uint16_t len, struct bgp_unreach_nlri *unreach);
 extern int bgp_unreach_tlv_encode(struct stream *s, struct bgp_unreach_nlri *unreach);
 
+/* UI-RIB helpers for self-originated unreachability information */
+extern int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_nlri *nlri,
+				struct attr *attr);
+extern void bgp_unreach_info_delete(struct bgp *bgp, afi_t afi, const struct prefix *prefix);
+
 
 #endif /* _QUAGGA_BGP_UNREACH_H */

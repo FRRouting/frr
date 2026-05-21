@@ -1625,6 +1625,40 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, unreach_nlri_withdraw_received, TRACE_INFO)
 
+/* Self-originated SAFI_UNREACH path added to or refreshed in the UI-RIB.
+ * 'oper' distinguishes a brand-new path (1) from a TLV refresh on an
+ * existing path (0). Fired after bgp_path_info_add() / before bgp_process().
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_info_add,
+	TP_ARGS(const char *, vrf_name, struct prefix *, prefix,
+		struct in_addr *, reporter_id, uint32_t, reporter_as,
+		uint16_t, reason_code, uint64_t, timestamp, uint8_t, oper),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+		ctf_array(unsigned char, reporter_id, reporter_id, sizeof(struct in_addr))
+		ctf_integer(uint32_t, reporter_as, reporter_as)
+		ctf_enum(frr_bgp, unreach_reason, uint16_t, reason_code, reason_code)
+		ctf_integer(uint64_t, timestamp, timestamp)
+		ctf_integer(uint8_t, oper, oper)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_info_add, TRACE_INFO)
+
+/* Self-originated SAFI_UNREACH path removed from the UI-RIB. */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_info_delete,
+	TP_ARGS(const char *, vrf_name, const struct prefix *, prefix),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_info_delete, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
