@@ -1229,28 +1229,16 @@ int pim_mroute_del_vif(struct interface *ifp)
  * IGMP must be protected against adding looped MFC entries created
  * by both source and receiver attached to the same interface. See
  * TODO T22.
- * We shall allow igmp to create upstream when it is DR for the intf.
- * Assume RP reachable via non DR.
+ *
+ * Local IGMP/MLD membership is delivered by the stack on the receiving
+ * interface; the MFC must not list that interface as an OIF (split
+ * horizon).  VXLAN is the only exception (ALLOW_IIF_IN_OIL).
  */
 bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index)
 {
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
-	struct interface *ifp_out;
-	struct pim_interface *pim_ifp;
-
-	if (c_oil->up &&
-		PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(c_oil->up->flags))
-		return true;
-
-	ifp_out = pim_if_find_by_vif_index(c_oil->pim, oif_index);
-	if (!ifp_out)
-		return false;
-	pim_ifp = ifp_out->info;
-	if (!pim_ifp)
-		return false;
-	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_GM) &&
-	    PIM_I_am_DR(pim_ifp))
+	if (c_oil->up && PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(c_oil->up->flags))
 		return true;
 
 	return false;
