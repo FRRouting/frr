@@ -6,8 +6,10 @@
 
 import datetime
 import functools
+import json
 import os
 import re
+import subprocess
 import sys
 import traceback
 from copy import deepcopy
@@ -4228,7 +4230,9 @@ class McastTesterHelper(HostApplicationHelper):
     def __str__(self):
         return "McastTesterHelper({})".format(self.script_path)
 
-    def run_join(self, host, join_addrs, join_towards=None, join_intf=None):
+    def run_join(
+        self, host, join_addrs, join_towards=None, join_intf=None, source=None
+    ):
         """
         Join a UDP multicast group.
 
@@ -4240,6 +4244,7 @@ class McastTesterHelper(HostApplicationHelper):
         * `join_addrs`: multicast address (or addresses) to join to
         * `join_intf`: the interface to bind the join[s] to
         * `join_towards`: router whos interface to bind the join[s] to
+        * `source`: optional SSM source address (IGMPv3 INCLUDE)
         """
         if not isinstance(join_addrs, list) and not isinstance(join_addrs, tuple):
             join_addrs = [join_addrs]
@@ -4252,7 +4257,10 @@ class McastTesterHelper(HostApplicationHelper):
             assert join_intf
 
         for join in join_addrs:
-            self.run(host, [join, join_intf])
+            cmd = [join, join_intf]
+            if source:
+                cmd = ["--source={}".format(source), join, join_intf]
+            self.run(host, cmd)
 
         return True
 
@@ -4282,6 +4290,63 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, ["--send=0.7", send_to, bind_intf])
 
         return True
+
+    def collect_receiver_sources(
+        self, host, group_addr, recv_intf, port=1000, duration=5, source=None
+    ):
+        """
+        Run mcast-tester in bounded RX-report mode and return per-source counts.
+
+        Returns:
+        --------
+        Dict in mcast-tester JSON format:
+        {
+            "group": "<group>",
+            "port": <port>,
+            "duration": <seconds>,
+            "sources": {"<src-ip>": <pkt-count>, ...}
+        }
+        """
+        cmd = list(self.base_cmd)
+        cmd.extend(
+            [
+                "--report-sources",
+                "--report-duration={}".format(duration),
+                "--port={}".format(port),
+            ]
+        )
+        if source:
+            cmd.append("--source={}".format(source))
+        cmd.extend([group_addr, recv_intf])
+
+        p = self.tgen.gears[host].popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
+        )
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise RuntimeError(
+                "collect_receiver_sources failed on {}: rc={} stderr={}".format(
+                    host, p.returncode, err.strip()
+                )
+            )
+
+        out = out.strip()
+        if not out:
+            return {
+                "group": group_addr,
+                "port": port,
+                "duration": duration,
+                "sources": {},
+            }
+
+        try:
+            return json.loads(out)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "invalid source report JSON on {}: {} output={!r}".format(
+                    host, exc, out
+                )
+            )
 
     def stop_traffic_senders(self):
         """
