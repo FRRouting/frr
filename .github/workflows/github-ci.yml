@@ -313,8 +313,8 @@ jobs:
           # Now get the failed tests (if any) from the archived results directory.
           rerun_tests=$(./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }} | cut -f1 -d: | sort -u)
           if [ -z "$rerun_tests" ]; then
-            echo "All tests passed during parallel run."
-            exit 0
+            echo "ERROR: Parallel pytest run failed but no failures found in topotests.xml." >&2
+            exit 1
           fi
 
           echo "ERROR: Some tests failed during parallel run, rerunning serially." >&2
