@@ -5099,6 +5099,11 @@ setting.
 This command allows bgp to control, at a global level, the TCP dscp values
 in the TCP header.
 
+.. clicmd:: bgp client-to-client reflection
+
+Routes received from client peers are also reflected to other client peers, otherwise
+they are only reflected to non-client peers. This is the default configuration.
+
 .. clicmd:: neighbor PEER cluster-id A.B.C.D
 
 This command sets the peer PEER as part of a per-neighbor cluster.
