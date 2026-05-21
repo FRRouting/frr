@@ -36,6 +36,24 @@
 #define BGP_UNREACH_TLV_HEADER_LEN    3 /* Type(1) + Length(2) */
 #define BGP_UNREACH_SUBTLV_HEADER_LEN 3 /* Sub-Type(1) + Sub-Length(2) */
 
+/*
+ * Per-NLRI Length field (draft -06, length-prefixed NLRI envelope).
+ *
+ * Each Unreachability NLRI is framed as:
+ *   [NLRI Length (2 octets)][Prefix Length (1)][Prefix][Reporter TLVs]
+ * where NLRI Length counts every octet after itself, i.e. the Prefix
+ * Length octet, the Prefix, and all Reporter TLVs (zero on withdraw).
+ * The AddPath Path Identifier, when present, precedes the NLRI Length
+ * field and is NOT counted in it.
+ *
+ * This explicit bound aligns with the EVPN IP Prefix Unreachability
+ * Route (draft-tantsura-bess-evpn-unreachability), which inherits the
+ * RFC 7432 length-prefixed NLRI envelope, and removes the -05 wire
+ * ambiguity where the byte after a Reporter TLV could be either a
+ * continuation Reporter TLV or the next NLRI's Prefix Length.
+ */
+#define BGP_UNREACH_NLRI_LEN_SIZE 2
+
 /* TLV header field offsets */
 #define BGP_UNREACH_TLV_TYPE_OFFSET 0 /* TLV Type field */
 #define BGP_UNREACH_TLV_LEN_OFFSET  1 /* TLV Length field (2 bytes) */
@@ -56,6 +74,46 @@
 
 /* Maximum reasonable TLV sizes (sanity checks) */
 #define BGP_UNREACH_TLV_MAX_LEN 255 /* Reasonable upper bound for single TLV */
+
+/*
+ * Reporter TLV parse error identifiers (used by the unreach_tlv_parse_error
+ * LTTng tracepoint to label which validation rejected the TLV). Values must
+ * match the unreach_tlv_error TRACEPOINT_ENUM in bgpd/bgp_trace.h.
+ */
+enum bgp_unreach_tlv_error {
+	UNREACH_TLV_ERR_NLRI_TOO_SHORT = 1,
+	UNREACH_TLV_ERR_TRUNCATED_TLV_HEADER = 2,
+	UNREACH_TLV_ERR_INVALID_TLV_TYPE = 3,
+	UNREACH_TLV_ERR_REPORTER_TLV_TOO_SHORT = 4,
+	UNREACH_TLV_ERR_REPORTER_TLV_OVERFLOW = 5,
+	UNREACH_TLV_ERR_TRUNCATED_REPORTER_ID = 6,
+	UNREACH_TLV_ERR_TRUNCATED_REPORTER_AS = 7,
+	UNREACH_TLV_ERR_TRUNCATED_SUBTLV_HEADER = 8,
+	UNREACH_TLV_ERR_SUBTLV_LENGTH_OVERFLOW = 9,
+	UNREACH_TLV_ERR_ZERO_LENGTH_SUBTLV = 10,
+	UNREACH_TLV_ERR_INVALID_REASON_CODE_LEN = 11,
+	UNREACH_TLV_ERR_INVALID_TIMESTAMP_LEN = 12,
+	UNREACH_TLV_ERR_LENGTH_EXCEEDS_LIMIT = 13,
+};
+
+/*
+ * NLRI parse error identifiers (used by the unreach_nlri_parse_error LTTng
+ * tracepoint). Numbered from 101 so TLV and NLRI errors share one trace
+ * field type without value collisions. Values must match the
+ * unreach_nlri_error TRACEPOINT_ENUM in bgpd/bgp_trace.h.
+ */
+enum bgp_unreach_nlri_error {
+	UNREACH_NLRI_ERR_ADDPATH_OVERFLOW = 101,
+	UNREACH_NLRI_ERR_PREMATURE_END = 102,
+	UNREACH_NLRI_ERR_INVALID_PREFIX_LEN = 103,
+	UNREACH_NLRI_ERR_PREFIX_OVERFLOW = 104,
+	UNREACH_NLRI_ERR_REPORTER_TLV_TOO_SHORT = 106,
+	UNREACH_NLRI_ERR_REPORTER_TLV_EXCEEDS_PKT = 107,
+	UNREACH_NLRI_ERR_REPORTER_TLV_PARSE_FAIL = 108,
+	UNREACH_NLRI_ERR_REPORTER_TLV_LENGTH_EXCEEDS_LIMIT = 109,
+	UNREACH_NLRI_ERR_TRUNCATED_NLRI_LEN = 110,
+	UNREACH_NLRI_ERR_NLRI_LEN_OVERFLOW = 111,
+};
 
 /* Unreachability Reason Code values (Sub-TLV Type 1) */
 enum bgp_unreach_reason_code {
@@ -84,6 +142,14 @@ struct bgp_unreach_nlri {
 	bool has_reporter_as;
 	bool has_reason_code;
 	bool has_timestamp;
+	/*
+	 * True if reason_code was filled in by the parser using the spec
+	 * default (Unspecified / 0) because the Reason Code Sub-TLV was
+	 * absent. Set independently of has_reason_code so that show output
+	 * can distinguish "peer sent code 0" from "Sub-TLV absent, treated
+	 * as Unspecified per draft-tantsura-idr-unreachability-safi §3.5.1".
+	 */
+	bool defaulted_reason_code;
 };
 
 /* Function prototypes */

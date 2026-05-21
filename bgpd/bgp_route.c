@@ -5758,7 +5758,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 		uint8_t num_labels, int soft_reconfig,
-		struct bgp_route_evpn *evpn)
+		struct bgp_route_evpn *evpn,
+		struct bgp_unreach_nlri *unreach)
 {
 	int ret;
 	struct bgp_dest *dest;
@@ -6987,7 +6988,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 
 	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
 		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, bre);
+		   label_pnt, num_labels, 1, bre, NULL);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -8389,7 +8390,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (attr)
 			bgp_update(peer, &p, addpath_id, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				   NULL, 0, 0, NULL);
+				   NULL, 0, 0, NULL, NULL);
 		else
 			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,

@@ -18,6 +18,7 @@
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
+struct bgp_unreach_nlri;
 
 enum bgp_show_type {
 	bgp_show_type_normal,
@@ -903,7 +904,8 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
 		       uint8_t num_labels, int soft_reconfig,
-		       struct bgp_route_evpn *evpn);
+		       struct bgp_route_evpn *evpn,
+		       struct bgp_unreach_nlri *unreach);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,

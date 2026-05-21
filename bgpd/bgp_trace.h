@@ -1497,6 +1497,134 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, upd_send_withdraw_default_originate, TRACE_INFO)
 
+/* SAFI_UNREACH Reason Code labels (Sub-TLV Type 1, draft Section 3.5.1) */
+TRACEPOINT_ENUM(
+	frr_bgp,
+	unreach_reason,
+	TP_ENUM_VALUES(
+		ctf_enum_value("UNSPECIFIED", 0)
+		ctf_enum_value("POLICY_BLOCKED", 1)
+		ctf_enum_value("SECURITY_FILTERED", 2)
+		ctf_enum_value("RPKI_INVALID", 3)
+		ctf_enum_value("NO_EXPORT_POLICY", 4)
+		ctf_enum_value("MARTIAN_ADDRESS", 5)
+		ctf_enum_value("BOGON_PREFIX", 6)
+		ctf_enum_value("MAINTENANCE", 7)
+		ctf_enum_value("LOCAL_ADMIN_ACTION", 8)
+		ctf_enum_value("LOCAL_LINK_DOWN", 9)
+	)
+)
+
+/* SAFI_UNREACH Reporter TLV parse error labels (see enum bgp_unreach_tlv_error) */
+TRACEPOINT_ENUM(
+	frr_bgp,
+	unreach_tlv_error,
+	TP_ENUM_VALUES(
+		ctf_enum_value("NLRI_TOO_SHORT", 1)
+		ctf_enum_value("TRUNCATED_TLV_HEADER", 2)
+		ctf_enum_value("INVALID_TLV_TYPE", 3)
+		ctf_enum_value("REPORTER_TLV_TOO_SHORT", 4)
+		ctf_enum_value("REPORTER_TLV_OVERFLOW", 5)
+		ctf_enum_value("TRUNCATED_REPORTER_ID", 6)
+		ctf_enum_value("TRUNCATED_REPORTER_AS", 7)
+		ctf_enum_value("TRUNCATED_SUBTLV_HEADER", 8)
+		ctf_enum_value("SUBTLV_LENGTH_OVERFLOW", 9)
+		ctf_enum_value("ZERO_LENGTH_SUBTLV", 10)
+		ctf_enum_value("INVALID_REASON_CODE_LEN", 11)
+		ctf_enum_value("INVALID_TIMESTAMP_LEN", 12)
+		ctf_enum_value("LENGTH_EXCEEDS_LIMIT", 13)
+	)
+)
+
+/* SAFI_UNREACH NLRI parse error labels (see enum bgp_unreach_nlri_error) */
+TRACEPOINT_ENUM(
+	frr_bgp,
+	unreach_nlri_error,
+	TP_ENUM_VALUES(
+		ctf_enum_value("ADDPATH_OVERFLOW", 101)
+		ctf_enum_value("PREMATURE_END", 102)
+		ctf_enum_value("INVALID_PREFIX_LEN", 103)
+		ctf_enum_value("PREFIX_OVERFLOW", 104)
+		ctf_enum_value("REPORTER_TLV_TOO_SHORT", 106)
+		ctf_enum_value("REPORTER_TLV_EXCEEDS_PKT", 107)
+		ctf_enum_value("REPORTER_TLV_PARSE_FAIL", 108)
+		ctf_enum_value("REPORTER_TLV_LENGTH_EXCEEDS_LIMIT", 109)
+	)
+)
+
+/* Reporter TLV parse failure: a Reporter TLV inside an MP_REACH NLRI failed
+ * one of the structural validations in bgp_unreach_tlv_parse(). One event
+ * per rejected TLV. tlv_type/tlv_len are the values read from the TLV
+ * header (zero when the failure was before the header was read). sub_type/
+ * sub_len are populated only for Sub-TLV-level errors. expected_len records
+ * the minimum/expected size that triggered the rejection.
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_tlv_parse_error,
+	TP_ARGS(uint8_t, error_code, uint8_t, tlv_type, uint16_t, tlv_len,
+		uint8_t, sub_type, uint16_t, sub_len, uint16_t, expected_len),
+	TP_FIELDS(
+		ctf_enum(frr_bgp, unreach_tlv_error, uint8_t, error, error_code)
+		ctf_integer(uint8_t, tlv_type, tlv_type)
+		ctf_integer(uint16_t, tlv_len, tlv_len)
+		ctf_integer(uint8_t, sub_type, sub_type)
+		ctf_integer(uint16_t, sub_len, sub_len)
+		ctf_integer(uint16_t, expected_len, expected_len)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_tlv_parse_error, TRACE_WARNING)
+
+/* NLRI-level parse failure inside bgp_nlri_parse_unreach() */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_nlri_parse_error,
+	TP_ARGS(uint8_t, error_code, const char *, peer_host, const char *, vrf_name,
+		struct prefix *, prefix),
+	TP_FIELDS(
+		ctf_enum(frr_bgp, unreach_nlri_error, uint8_t, error, error_code)
+		ctf_string(peer, peer_host)
+		ctf_string(vrf, vrf_name)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_nlri_parse_error, TRACE_WARNING)
+
+/* SAFI_UNREACH MP_REACH NLRI accepted from a remote peer: one event per
+ * NLRI handed to bgp_update(), carrying the parsed Reporter TLV fields.
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_nlri_received,
+	TP_ARGS(const char *, vrf_name, const char *, peer_host,
+		struct prefix *, prefix, struct in_addr *, reporter_id,
+		uint32_t, reporter_as, uint16_t, reason_code, uint64_t, timestamp),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_string(peer, peer_host)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+		ctf_array(unsigned char, reporter_id, reporter_id, sizeof(struct in_addr))
+		ctf_integer(uint32_t, reporter_as, reporter_as)
+		ctf_enum(frr_bgp, unreach_reason, uint16_t, reason_code, reason_code)
+		ctf_integer(uint64_t, timestamp, timestamp)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_nlri_received, TRACE_INFO)
+
+/* SAFI_UNREACH MP_UNREACH (withdraw) accepted from a remote peer */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	unreach_nlri_withdraw_received,
+	TP_ARGS(const char *, vrf_name, const char *, peer_host,
+		struct prefix *, prefix),
+	TP_FIELDS(
+		ctf_string(vrf, vrf_name)
+		ctf_string(peer, peer_host)
+		ctf_array(unsigned char, prefix, prefix, sizeof(struct prefix))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, unreach_nlri_withdraw_received, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
