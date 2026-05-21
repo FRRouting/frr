@@ -9,7 +9,12 @@
 #define _QUAGGA_BGP_UNREACH_H
 
 #include "prefix.h"
+#include "lib/json.h"
 #include "bgpd.h"
+#include "bgpd/bgp_route.h"
+
+extern const char *bgp_origin_str[];
+extern const char *bgp_origin_long_str[];
 
 /* Status codes for SAFI_UNREACH (informational only, not installed in RIB/FIB) */
 #define BGP_UNREACH_SHOW_SCODE_HEADER                                                              \
@@ -167,5 +172,25 @@ extern int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_n
 				struct attr *attr);
 extern void bgp_unreach_info_delete(struct bgp *bgp, afi_t afi, const struct prefix *prefix);
 
+/* Reason code / display API */
+extern const char *bgp_unreach_reason_str(uint16_t code);
+extern int bgp_unreach_reason_str2code(const char *str, uint16_t *code);
+extern void bgp_unreach_show(struct vty *vty, struct bgp *bgp, afi_t afi,
+			     struct prefix *prefix, bool use_json, bool detail,
+			     enum bgp_show_type type, void *output_arg);
+
+/*
+ * Emit a Reporter TLV as a JSON sub-object on json_path with the schema:
+ *   "reporters": { "<reporter_ip>": { "AS": <as>,
+ *                                    "subtlv": { "reason": "<str>",
+ *                                                "timestamp": {...} } } }
+ * brief omits the subtlv; include_timestamp gates inclusion of the
+ * timestamp Sub-TLV when present.
+ */
+extern void bgp_unreach_reporters_to_json(struct bgp_path_info_extra_unreach *unreach,
+					  json_object *json_path, bool brief,
+					  bool include_timestamp);
+
+extern void bgp_unreach_vty_init(void);
 
 #endif /* _QUAGGA_BGP_UNREACH_H */
