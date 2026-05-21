@@ -736,6 +736,8 @@ static void get_fd_stat(int fd, struct stat *fd_stat, bool *fd_closed)
 
 #define STUPIDLY_LARGE_FD_SIZE 100000
 
+static bool fd_limit_large_warned;
+
 struct event_loop *event_master_create(const char *name)
 {
 	struct event_loop *rv;
@@ -766,9 +768,11 @@ struct event_loop *event_master_create(const char *name)
 	}
 
 	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE) {
-		if (frr_is_daemon())
-			zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds also limiting size to %u",
+		if (frr_is_daemon() && !fd_limit_large_warned) {
+			fd_limit_large_warned = true;
+			zlog_warn("FD Limit set: %u is too large.  Is this intentional?  Consider using --limit-fds. Limiting size to %u",
 				  rv->fd_limit, STUPIDLY_LARGE_FD_SIZE);
+		}
 
 		rv->fd_limit = STUPIDLY_LARGE_FD_SIZE;
 	}
