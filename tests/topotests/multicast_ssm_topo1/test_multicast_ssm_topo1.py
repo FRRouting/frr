@@ -15,6 +15,10 @@ test_multicast_ssm_topo1.py: Test PIM SSM configuration and (S,G) join state.
 r3 uses a configured IGMP join-group only to inject local membership; the
 test checks that the SSM (S,G) is reflected on all routers on the shared LAN.
 
+test_ssm_r1_to_h3_multicast_traffic exercises McastTesterHelper.
+collect_receiver_sources(): r1 sends on the shared LAN, r3 join-group on
+eth0 pulls (192.168.1.1, G) to r3, then traffic is forwarded to h3 on r3-eth1.
+
 Topology:
 
     h1          h2          h3
@@ -58,6 +62,8 @@ LAN_SSM_SOURCE = "192.168.1.1"
 SHARED_LAN_IF = "eth0"
 TRAFFIC_MONITOR_COUNT = 5
 TRAFFIC_MONITOR_WAIT = 1
+HOST_RX_DURATION = 10
+MIN_HOST_RX_PACKETS = 5
 
 
 def expect_igmp_ssm_group(router, interface):
@@ -343,6 +349,59 @@ def test_ssm_mroute_no_iif_oif_loop():
             assert False, err
 
     mcast.stop_traffic_senders()
+
+
+def test_ssm_r1_to_h3_multicast_traffic():
+    """
+    End-to-end SSM delivery using collect_receiver_sources.
+
+    r1 sends (192.168.1.1, 230.0.0.100) on the shared LAN.  r3 already has
+    join-group on r3-eth0 for that (S,G), so traffic reaches r3; h3 joins the
+    same (S,G) and receives on r3-eth1.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    mcast = McastTesterHelper(tgen)
+
+    mcast.run_join(
+        "h3",
+        SSM_GROUP,
+        join_intf="h3-eth0",
+        source=LAN_SSM_SOURCE,
+    )
+
+    def mroute_installed_on_r3():
+        output = tgen.gears["r3"].vtysh_cmd("show ip mroute json", isjson=True)
+        try:
+            entry = output[SSM_GROUP][LAN_SSM_SOURCE]
+        except (KeyError, TypeError):
+            return False
+        return bool(entry.get("installed"))
+
+    _, result = topotest.run_and_expect(mroute_installed_on_r3, True, count=60, wait=1)
+    assert (
+        result is True
+    ), f"r3: missing installed mroute ({LAN_SSM_SOURCE}, {SSM_GROUP})"
+
+    mcast.run_traffic("r1", SSM_GROUP, bind_intf="r1-eth0")
+
+    report = mcast.collect_receiver_sources(
+        "h3",
+        SSM_GROUP,
+        "h3-eth0",
+        source=LAN_SSM_SOURCE,
+        duration=HOST_RX_DURATION,
+    )
+    rx_count = report.get("sources", {}).get(LAN_SSM_SOURCE, 0)
+    assert rx_count >= MIN_HOST_RX_PACKETS, (
+        f"h3: expected >= {MIN_HOST_RX_PACKETS} packets from "
+        f"{LAN_SSM_SOURCE}, got {rx_count}: {report}"
+    )
+
+    mcast.stop_traffic_senders()
+    mcast.stop_host("h3")
 
 
 def test_memory_leak():

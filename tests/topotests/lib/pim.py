@@ -4230,7 +4230,9 @@ class McastTesterHelper(HostApplicationHelper):
     def __str__(self):
         return "McastTesterHelper({})".format(self.script_path)
 
-    def run_join(self, host, join_addrs, join_towards=None, join_intf=None):
+    def run_join(
+        self, host, join_addrs, join_towards=None, join_intf=None, source=None
+    ):
         """
         Join a UDP multicast group.
 
@@ -4242,6 +4244,7 @@ class McastTesterHelper(HostApplicationHelper):
         * `join_addrs`: multicast address (or addresses) to join to
         * `join_intf`: the interface to bind the join[s] to
         * `join_towards`: router whos interface to bind the join[s] to
+        * `source`: optional SSM source address (IGMPv3 INCLUDE)
         """
         if not isinstance(join_addrs, list) and not isinstance(join_addrs, tuple):
             join_addrs = [join_addrs]
@@ -4254,7 +4257,10 @@ class McastTesterHelper(HostApplicationHelper):
             assert join_intf
 
         for join in join_addrs:
-            self.run(host, [join, join_intf])
+            cmd = [join, join_intf]
+            if source:
+                cmd = ["--source={}".format(source), join, join_intf]
+            self.run(host, cmd)
 
         return True
 
