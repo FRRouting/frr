@@ -506,6 +506,16 @@ class Topogen(object):
             logger.info(error)
             logger.info("Exception ignored: switch is already stopped")
 
+        # Reap any mutini/nsenter children left as zombies under this process.
+        while True:
+            try:
+                wpid, status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                break
+            if wpid == 0:
+                break
+            logger.debug("stop_topology: reaped child pid %s status %s", wpid, status)
+
         if len(errors) > 0:
             logger.error(
                 "Errors found post shutdown - details follow: {}".format(errors)

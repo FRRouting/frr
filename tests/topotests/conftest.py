@@ -735,8 +735,9 @@ def session_autouse():
     if is_main:
         cleanup_previous()
     yield
-    if is_main:
-        cleanup_current()
+    # Reap munet/mutini children on xdist workers too; otherwise a few stuck
+    # workers with zombie mutini block the controller until the session is killed.
+    cleanup_current()
     logger.debug("After the run (is_main: %s)", is_main)
 
 
@@ -885,14 +886,17 @@ def coverage_finish(terminalreporter, config):
     gcdadir = Path(os.environ["GCOV_PREFIX"])
 
     logger.info("Creating .gcno ssymlink from '%s' to '%s'", gcdadir, bdir)
-    commander.cmd_raises(f"cd {gcdadir}; bdir={bdir}" + """
+    commander.cmd_raises(
+        f"cd {gcdadir}; bdir={bdir}"
+        + """
 for f in $(find . -name '*.gcda'); do
     f=${f#./};
     f=${f%.gcda}.gcno;
     ln -fs $bdir/$f $f;
     touch -h -r $bdir/$f $f;
     echo $f;
-done""")
+done"""
+    )
 
     # Get the results into a summary file
     data_file = rundir / "coverage.info"
