@@ -5987,6 +5987,12 @@ setting.
 This command allows the BGP daemon to control, at a global level, the DSCP value
 used in outgoing packets for each BGP connection.
 
+.. clicmd:: bgp client-to-client reflection
+
+Routes received from client peers are reflected to other client peers and non-client
+peers, when this is not configured they are only reflected to non-client peers.
+This is the default configuration.
+
 .. clicmd:: neighbor PEER cluster-id A.B.C.D
 
 This command sets the peer PEER as part of a per-neighbor cluster.
