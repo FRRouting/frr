@@ -1213,6 +1213,13 @@ class TopoRouter(TopoGear):
     def has_mpls(self):
         return self.net.hasmpls
 
+    def has_crypto_openssl(self):
+        "Get Build option to know if openssl is used."
+        output = self.vtysh_cmd("show version")
+        if "with-crypto=openssl" in output:
+            return True
+        return False
+
 
 class TopoSwitch(TopoGear):
     """
@@ -1236,6 +1243,7 @@ class TopoSwitch(TopoGear):
 
 class TopoHost(TopoGear):
     "Host abstraction."
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
@@ -1274,6 +1282,7 @@ class TopoHost(TopoGear):
 
 class TopoExaBGP(TopoHost):
     "ExaBGP peer abstraction."
+
     # pylint: disable=too-few-public-methods
 
     PRIVATE_DIRS = [

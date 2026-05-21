@@ -996,6 +996,86 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_profile_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_profile_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_profile_authentication_key_chain,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-algorithm-meticulous",
+			.cbs = {
+				.modify = bfdd_bfd_profile_authentication_algorithm_meticulous_modify,
+				.destroy = bfdd_bfd_profile_authentication_algorithm_meticulous_destroy,
+				.cli_show = bfd_cli_show_profile_authentication_algorithm_meticulous,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_auth,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/authentication-algorithm-meticulous",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy,
+				.cli_show = bfd_cli_show_auth_algorithm_meticulous,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_auth,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/authentication-algorithm-meticulous",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy,
+				.cli_show = bfd_cli_show_auth_algorithm_meticulous,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_auth,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/authentication-algorithm-meticulous",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy,
+				.cli_show = bfd_cli_show_auth_algorithm_meticulous,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/authentication-key-chain",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_key_chain_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_key_chain_destroy,
+				.cli_show = bfd_cli_show_auth,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/authentication-algorithm-meticulous",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify,
+				.destroy = bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy,
+				.cli_show = bfd_cli_show_auth_algorithm_meticulous,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

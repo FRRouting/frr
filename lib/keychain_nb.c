@@ -9,6 +9,8 @@
 #include "northbound.h"
 #include "keychain.h"
 
+DEFINE_HOOK(keychain_updated, (const char *keychain_name), (keychain_name));
+
 static void keychain_touch(struct keychain *keychain)
 {
 	keychain->last_touch = time(NULL);
@@ -28,18 +30,23 @@ static int key_chains_key_chain_create(struct nb_cb_create_args *args)
 	name = yang_dnode_get_string(args->dnode, "name");
 	keychain = keychain_get(name);
 	keychain_touch(keychain);
+	nb_running_set_entry(args->dnode, keychain);
 	return NB_OK;
 }
 
 static int key_chains_key_chain_destroy(struct nb_cb_destroy_args *args)
 {
 	const char *name;
+	struct keychain *kc;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "name");
-	keychain_delete(keychain_lookup(name));
+	kc = keychain_lookup(name);
+	if (kc)
+		keychain_delete(kc); /* keychain_delete should call the hook */
+
 	return NB_OK;
 }
 
@@ -192,6 +199,8 @@ static int key_chains_key_chain_key_create(struct nb_cb_create_args *args)
 	assert(keyid <= UINT32_MAX);
 	key = key_get(keychain, (uint32_t)keyid);
 	assert(key);
+	nb_running_set_entry(args->dnode, key);
+	hook_call(keychain_updated, keychain->name);
 
 	keychain_touch(keychain);
 	return NB_OK;
@@ -214,6 +223,7 @@ static int key_chains_key_chain_key_destroy(struct nb_cb_destroy_args *args)
 	keychain = keychain_lookup(name);
 	key = key_lookup(keychain, (uint32_t)keyid);
 	key_delete(keychain, key);
+	hook_call(keychain_updated, keychain->name);
 
 	keychain_touch(keychain);
 	return NB_OK;
@@ -558,6 +568,7 @@ static int key_chains_key_chain_key_crypto_algorithm_modify(struct nb_cb_modify_
 	key = key_lookup(keychain, index);
 	key->hash_algo = hash_algo;
 
+	hook_call(keychain_updated, keychain->name);
 	keychain_touch(keychain);
 	return NB_OK;
 }
@@ -578,6 +589,7 @@ static int key_chains_key_chain_key_crypto_algorithm_destroy(
 	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../key-id");
 	key = key_lookup(keychain, index);
 	key->hash_algo = KEYCHAIN_ALGO_NULL;
+	hook_call(keychain_updated, keychain->name);
 	keychain_touch(keychain);
 
 	return NB_OK;
@@ -608,6 +620,7 @@ static int key_chains_key_chain_key_key_string_keystring_modify(struct nb_cb_mod
 	key->string = XSTRDUP(MTYPE_KEY,
 			      yang_dnode_get_string(args->dnode, NULL));
 
+	hook_call(keychain_updated, keychain->name);
 	keychain_touch(keychain);
 	return NB_OK;
 }
@@ -629,6 +642,7 @@ static int key_chains_key_chain_key_key_string_keystring_destroy(struct nb_cb_de
 	assert(key);
 
 	XFREE(MTYPE_KEY, key->string);
+	hook_call(keychain_updated, keychain->name);
 	keychain_touch(keychain);
 
 	return NB_OK;
@@ -672,12 +686,14 @@ static struct yang_data *key_chains_key_chain_key_accept_lifetime_active_get_ele
 	return yang_data_new_bool(args->xpath, active);
 }
 
+/* clang-format off */
+
 static const char * const keychain_features[] = {
 	"independent-send-accept-lifetime",
+	"cleartext",
 	NULL,
 };
 
-/* clang-format off */
 const struct frr_yang_module_info ietf_key_chain_info = {
 	.name = "ietf-key-chain",
 	.features = (const char **)keychain_features,

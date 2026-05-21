@@ -282,6 +282,7 @@ static void ospf6_hash_hmac_sha_digest(enum keychain_hash_algo key,
 		sha512_digest(mes, len, digest);
 #endif
 		break;
+	case KEYCHAIN_ALGO_CLEARTEXT:
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_MAX:
 	default:

@@ -16,6 +16,7 @@ extern "C" {
 
 enum keychain_hash_algo {
 	KEYCHAIN_ALGO_NULL,
+	KEYCHAIN_ALGO_CLEARTEXT,
 	KEYCHAIN_ALGO_MD5,
 	KEYCHAIN_ALGO_HMAC_SHA1,
 	KEYCHAIN_ALGO_HMAC_SHA256,
@@ -119,6 +120,8 @@ extern void keychain_init(void);
 extern void keychain_init_new(bool in_backend);
 extern void keychain_terminate(void);
 extern struct keychain *keychain_lookup(const char *);
+extern struct key *keychain_key_find(const struct keychain *keychain,
+				     const struct timespec *now_ts);
 extern struct key *key_lookup_for_accept(const struct keychain *keychain,
 					 uint32_t index);
 extern struct key *key_match_for_accept(const struct keychain *keychain,
@@ -127,6 +130,8 @@ extern struct key *key_lookup_for_send(const struct keychain *);
 const char *keychain_algo_str(enum keychain_hash_algo hash_algo);
 
 
+DECLARE_HOOK(keychain_updated, (const char *keychain_name), (keychain_name));
+DECLARE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
 
 #ifdef __cplusplus
 }

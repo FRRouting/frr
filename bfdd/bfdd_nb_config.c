@@ -712,6 +712,200 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-key-chain
+ */
+int bfdd_bfd_profile_authentication_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	char key_chain_name[MAXKEYCHAINNAMELEN + 1];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bp)
+		return NB_ERR_NOT_FOUND;
+
+	strlcpy(key_chain_name, yang_dnode_get_string(args->dnode, NULL), sizeof(key_chain_name));
+
+	if (strlen(key_chain_name) == 0)
+		/* ignoring request. should not happen */
+		return NB_OK;
+
+	strlcpy(bp->auth_config.key_chain_name, key_chain_name,
+		sizeof(bp->auth_config.key_chain_name));
+	bp->kc = keychain_lookup(bp->auth_config.key_chain_name);
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_authentication_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bp)
+		return NB_ERR_NOT_FOUND;
+
+	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
+	bp->kc = NULL;
+
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/profile-authentication/authentication-algorithm-meticulous
+ */
+int bfdd_bfd_profile_authentication_algorithm_meticulous_modify(struct nb_cb_modify_args *args)
+{
+	bool meticulous = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_profile *bp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.meticulous = meticulous;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_authentication_algorithm_meticulous_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.meticulous = false;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/authentication-key-chain
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop/authentication-key-chain
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-echo/authentication-key-chain
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-init/authentication-key-chain
+ */
+int bfdd_bfd_sessions_common_authentication_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	const char *key_chain_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bs) /* Should not happen */
+		return NB_ERR_NOT_FOUND;
+
+	key_chain_name = yang_dnode_get_string(args->dnode, NULL);
+	if (strlen(key_chain_name) == 0)
+		/* ignoring request. should not happen */
+		return NB_OK;
+	strlcpy(bs->peer_profile.auth_config.key_chain_name, key_chain_name,
+		sizeof(bs->peer_profile.auth_config.key_chain_name));
+	bfd_session_apply(bs);
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_authentication_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (args->event != NB_EV_APPLY || !bs)
+		return NB_OK;
+
+	memset(bs->peer_profile.auth_config.key_chain_name, 0,
+	       sizeof(bs->peer_profile.auth_config.key_chain_name));
+	bfd_session_apply(bs);
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/authentication-algorithm-meticulous
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop/authentication-algorithm-meticulous
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-echo/authentication-algorithm-meticulous
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-init/authentication-algorithm-meticulous
+ */
+int bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify(
+	struct nb_cb_modify_args *args)
+{
+	bool meticulous = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.meticulous = meticulous;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.meticulous = false;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
  */
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)

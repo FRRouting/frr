@@ -229,6 +229,17 @@ BFD peers and profiles share the same BFD session configuration commands.
    Enables or disables logging of session state transitions into Up
    state or when the session transitions from Up state to Down state.
 
+.. clicmd:: authentication key-chain NAME
+
+   Configure peer or profile to use a key-chain. That key-chain refers
+   to a list of available key tuple made up of a crypto algorithm and
+   a key-string. Those values are used in BFD packets. Clear text and
+   hmac-sha1 algorithm is currently supported.
+
+.. clicmd:: authentication algorithm meticulous
+
+   Configure peer or profile to use meticulous mode when the key-chain
+   is configured with a hmac-sha1 crypto algorithm.
 
 BFD Peer Specific Commands
 --------------------------
@@ -755,6 +766,95 @@ Sample output:
 
 
 .. _bfd-debugging:
+
+BFD authentication overview
+===========================
+
+Bidirectional Forwarding Detection (BFD) authentication ensures that
+BFD sessions are only established between trusted routers. This is
+accomplished by using a keychain to store authentication keys. The
+configuration involves creating a keychain, defining one or more keys
+with a key string (password), and specifying an authentication algorithm.
+
+There are two primary methods to apply
+this authentication:
+
+    Direct Peer Application: The keychain is directly associated
+    with a specific BFD peer.
+
+    Profile-based Application: The keychain is linked to a BFD profile,
+    which is then applied to one or more peers. This allows for more
+    scalable and manageable configurations.
+
+Possible example is a simple cryptographic algorithm, which means
+the key string is sent in clear text and will be visible in packet
+captures (e.g., using tcpdump).
+
+BFD authentication configuration
+================================
+
+Here are two examples demonstrating how to configure BFD authentication with a
+keychain.
+
+Example 1: Applying Authentication via a Profile
+
+This method uses a BFD profile, which is useful for applying the same
+authentication settings to multiple peers.
+
+Define the Keychain and Key:
+
+.. code-block:: frr
+
+   key chain 0
+    key 0
+     key-string secret123456
+     cryptographic-algorithm cleartext
+
+Create a BFD Profile and Link the Keychain:
+
+.. code-block:: frr
+
+   bfd
+    profile 0
+     authentication key-chain 0
+
+Apply the Profile to the BFD Peer:
+
+.. code-block:: frr
+
+   bfd
+    peer 10.0.1.2 interface eth-rt2
+     profile 0
+
+Example 2: Applying hmac-sha-1 Authentication via a Profile
+
+This method uses a BFD profile, which is useful for applying the same
+hmac-sha-1 authentication settings to multiple peers.
+
+Define the Keychain and Key:
+
+.. code-block:: frr
+
+   key chain 0
+    key 0
+     key-string secret123456
+     cryptographic-algorithm hmac-sha-1
+
+Create a BFD Profile and Link the Keychain:
+
+.. code-block:: frr
+
+   bfd
+    profile 0
+     authentication key-chain 0
+
+Apply the Profile to the BFD Peer:
+
+.. code-block:: frr
+
+   bfd
+    peer 10.0.1.2 interface eth-rt2
+     profile 0
 
 Debugging
 =========

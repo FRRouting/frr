@@ -32,9 +32,7 @@ DEFINE_MTYPE_STATIC(BFDD, BFD_PERM_VRF, "BFD perm vrf data");
  */
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
-static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
-					 uint32_t ldisc);
-static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
+static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa, uint32_t ldisc);
 static const char *get_diag_str(int diag);
 
 static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
@@ -100,6 +98,9 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
+	/* Keychain authentication parameters */
+	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
+	bp->auth_config.meticulous = false;
 }
 
 struct bfd_profile *bfd_profile_new(const char *name)
@@ -159,6 +160,17 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 
 	/* Apply configuration. */
 	bfd_session_apply(bs);
+}
+
+bool bfd_session_auth_config_takes_precedence_over_profile(struct bfd_session *bs)
+{
+	struct keychain *kc = NULL; /* Currently active keychain for this session */
+
+	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
+		kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
+	if (kc)
+		return true;
+	return false;
 }
 
 void bfd_session_apply(struct bfd_session *bs)
@@ -234,6 +246,24 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_log_session_changes(bs, bp->log_session_changes);
 	else
 		bfd_set_log_session_changes(bs, bs->peer_profile.log_session_changes);
+
+	/* Determine effective authentication settings */
+	bs->kc = NULL;
+
+	/* Peer-specific config takes precedence */
+	if (bfd_session_auth_config_takes_precedence_over_profile(bs))
+		bs->kc = keychain_lookup(bs->peer_profile.auth_config.key_chain_name);
+	else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
+		bs->kc = keychain_lookup(bs->profile->auth_config.key_chain_name);
+
+	if (bs->peer_profile.auth_config.meticulous ||
+	    (bs->profile && bs->profile->auth_config.meticulous)) {
+		bs->auth_meticulous = true;
+		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO_METICULOUS;
+	} else {
+		bs->auth_meticulous = false;
+		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
+	}
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
@@ -561,6 +591,84 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, true);
+}
+
+const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type)
+{
+	switch (auth_type) {
+	case BFD_AUTH_TYPE_KEYED_MD5:
+		return "keyed-md5";
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_MD5:
+		return "meticulous keyed-md5";
+	case BFD_AUTH_TYPE_SIMPLE_PASSWORD:
+		return "simple-password";
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1:
+		return "meticulous keyed-sha1";
+	case BFD_AUTH_TYPE_KEYED_SHA1:
+		return "keyed-sha1";
+	case BFD_AUTH_TYPE_RESERVED:
+		return "none";
+	}
+	return "none";
+}
+
+enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
+						      bool meticulous)
+{
+	switch (kc_algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
+	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
+		return BFD_AUTH_TYPE_SIMPLE_PASSWORD;
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+	case KEYCHAIN_ALGO_MAX:
+	default:
+		return BFD_AUTH_TYPE_RESERVED;
+	}
+}
+
+/**
+ * Find an active key
+ *
+ * @param keychain The keychain to search within.
+ * @param meticulous. Boolean that tells if meticulous mode can be used with HMAC-SHA1
+ * @return The active key, or NULL if no active key is found.
+ */
+struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool meticulous)
+{
+	struct listnode *node;
+	struct key *key;
+	struct timespec now_ts;
+	time_t now_sec;
+
+	if (!keychain)
+		return NULL;
+
+	clock_gettime(CLOCK_REALTIME, &now_ts);
+	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+			continue;
+		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
+		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+			continue;
+		if (!key->string)
+			continue;
+		if (strlen(key->string) < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN)
+			continue;
+		if (strlen(key->string) > BFD_AUTH_SIMPLE_PASSWD_MAX_LEN)
+			continue;
+		if (key->send.start == 0 || /* Always valid if start is 0 */
+		    (key->send.start <= now_sec &&
+		     (key->send.end >= now_sec || key->send.end == (time_t)-1))) /* -1 for infinite */
+			return key;
+	}
+	return NULL;
 }
 
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
@@ -988,6 +1096,10 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 	bs->ses_state = PTM_BFD_DOWN;
 
 	/* Initiate connection with slow timers. */
+	/* RFC 5880, Section 6.7.3: unpredictable initial sequence number */
+	bs->auth_seq_num = frr_weak_random();
+	bs->auth_last_rx_seq_num = 0;
+	bs->auth_meticulous = false;
 	bs_set_slow_timers(bs);
 
 	/* Initiate remote settings as well. */
@@ -1065,7 +1177,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bfd_profile_apply(bpc->bpc_profile, bs);
 }
 
-static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
+int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 {
 	/* User didn't want to update, return failure. */
 	if (bpc->bpc_createonly)
@@ -1163,6 +1275,12 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	if (bpc->bpc_mhop)
 		SET_FLAG(bfd->flags, BFD_SESS_FLAG_MH);
+
+	if (bpc->auth_config.key_chain_name[0]) {
+		strlcpy(bfd->peer_profile.auth_config.key_chain_name,
+			bpc->auth_config.key_chain_name,
+			sizeof(bfd->peer_profile.auth_config.key_chain_name));
+	}
 
 	bfd->key.mhop = bpc->bpc_mhop;
 

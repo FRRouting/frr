@@ -26,6 +26,11 @@
 #include <linux/ipv6.h>
 #endif /* BFD_LINUX */
 
+#ifdef CRYPTO_OPENSSL
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#endif
+
 #include <netinet/if_ether.h>
 #include <netinet/udp.h>
 #include <netinet/ip6.h>
@@ -35,6 +40,7 @@
 #include "lib/checksum.h"
 #include "lib/network.h"
 
+#include "lib/keychain.h"
 #include "bfd.h"
 #include "bfd_trace.h"
 #define BUF_SIZ		   1024
@@ -83,7 +89,6 @@ static void bp_set_ipopts(int sd);
 static void bp_bind_ip(int sd, uint16_t port);
 static void bp_set_ipv6opts(int sd);
 static void bp_bind_ipv6(int sd, uint16_t port);
-
 
 /*
  * Functions
@@ -418,11 +423,19 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
+	unsigned char send_buffer[256];
+	struct bfd_pkt cp = {};
+	size_t packet_len = BFD_PKT_LEN;
+	struct key *key = NULL;
+	enum bfd_auth_type pkt_auth_type = BFD_AUTH_TYPE_RESERVED;
+	unsigned char *auth_payload_ptr;
+	uint8_t auth_section_len;
+
 	/* Check for passive mode with zero discriminator */
 	if (bfd->discrs.remote_discr == 0 && CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE))
 		return;
 
-	struct bfd_pkt cp = {};
+	memset(send_buffer, 0, sizeof(send_buffer));
 
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
@@ -435,8 +448,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 
 	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
 
-	/*
-	 * Polling and Final can't be set at the same time.
+	/* Polling and Final can't be set at the same time.
 	 *
 	 * RFC 5880, Section 6.5.
 	 */
@@ -445,29 +457,94 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		BFD_SETPBIT(cp.flags, bfd->polling);
 
 	cp.detect_mult = bfd->detect_mult;
-	cp.len = BFD_PKT_LEN;
+
 	cp.discrs.my_discr = htonl(bfd->discrs.my_discr);
 	cp.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
-	if (bfd->polling) {
-		cp.timers.desired_min_tx =
-			htonl(bfd->timers.desired_min_tx);
-		cp.timers.required_min_rx =
-			htonl(bfd->timers.required_min_rx);
+	if (bfd->ses_state == PTM_BFD_UP) {
+		cp.timers.desired_min_tx = htonl(bfd->timers.desired_min_tx);
+		cp.timers.required_min_rx = htonl(bfd->timers.required_min_rx);
 	} else {
 		/*
-		 * We can only announce current setting on poll, this
-		 * avoids timing mismatch with our peer and give it
-		 * the opportunity to learn. See `bs_final_handler` for
-		 * more information.
+		 * RFC 5880 6.8.1
+		 * When state is not Up, we must use 1 second to avoid
+		 * packet storms.
 		 */
-		cp.timers.desired_min_tx =
-			htonl(bfd->cur_timers.desired_min_tx);
-		cp.timers.required_min_rx =
-			htonl(bfd->cur_timers.required_min_rx);
+		cp.timers.desired_min_tx = htonl(MAX(bfd->timers.desired_min_tx, 1000000));
+		cp.timers.required_min_rx = htonl(MAX(bfd->timers.required_min_rx, 1000000));
 	}
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo_rx);
 
-	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
+	/* Authentication Handling */
+	if (bfd->kc) {
+		key = bfd_keychain_key_find_active(bfd->kc, bfd->auth_meticulous);
+		if (key)
+			pkt_auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo,
+									   bfd->auth_meticulous);
+	}
+	if (pkt_auth_type == BFD_AUTH_TYPE_SIMPLE_PASSWORD) {
+		auth_section_len = 3 + strlen(key->string);
+		packet_len = BFD_PKT_LEN + auth_section_len;
+
+		cp.len = packet_len;
+		SET_FLAG(cp.flags, BFD_ABIT);
+
+		/* Copy base header into buffer NOW, before appending auth payload */
+		memcpy(send_buffer, &cp, BFD_PKT_LEN);
+
+		auth_payload_ptr = send_buffer + BFD_PKT_LEN;
+		*auth_payload_ptr++ = BFD_AUTH_TYPE_SIMPLE_PASSWORD;
+		*auth_payload_ptr++ = auth_section_len;
+		*auth_payload_ptr++ = key->index;
+		memcpy(auth_payload_ptr, key->string, strlen(key->string));
+
+#ifdef CRYPTO_OPENSSL
+	} else if ((pkt_auth_type == BFD_AUTH_TYPE_KEYED_SHA1) ||
+		   (pkt_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1)) {
+		const EVP_MD *md_alg = EVP_sha1();
+		unsigned int digest_len = 0;
+		unsigned char digest[20]; // SHA1 is always 20 bytes
+		uint32_t seq_num_n;
+
+		if (md_alg) {
+			/* RFC 5880: Keyed SHA1 Auth section is exactly 28 bytes */
+			auth_section_len = 28;
+			packet_len = BFD_PKT_LEN + auth_section_len;
+			cp.len = packet_len;
+
+			SET_FLAG(cp.flags, BFD_ABIT);
+
+			memcpy(send_buffer, &cp, BFD_PKT_LEN);
+			auth_payload_ptr = send_buffer + BFD_PKT_LEN;
+
+			*auth_payload_ptr++ = pkt_auth_type;
+			*auth_payload_ptr++ = auth_section_len;
+			*auth_payload_ptr++ = key->index;
+			*auth_payload_ptr++ = 0; /* Reserved */
+
+			bfd->auth_seq_num++;
+			seq_num_n = htonl(bfd->auth_seq_num);
+			memcpy(auth_payload_ptr, &seq_num_n, sizeof(seq_num_n));
+			auth_payload_ptr += sizeof(seq_num_n);
+
+			/* SHA1 Auth Data is 20 bytes.
+			 * Ensure we only HMAC the packet with the 20-byte digest area zeroed.
+			 */
+			memset(auth_payload_ptr, 0, 20);
+
+			/* Note: HMAC-SHA1 results in 20 bytes */
+			HMAC(md_alg, key->string, strlen(key->string), send_buffer, packet_len,
+			     digest, &digest_len);
+
+			memcpy(auth_payload_ptr, digest, 20);
+		}
+#endif /* CRYPTO_OPENSSL */
+	} else {
+		cp.len = packet_len;
+		/* No Auth: Ensure we still copy the header to the send buffer! */
+		memcpy(send_buffer, &cp, BFD_PKT_LEN);
+	}
+
+	if (_ptm_bfd_send(bfd, NULL, send_buffer, cp.len) != 0)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
@@ -821,39 +898,238 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-static bool bfd_check_auth(const struct bfd_session *bfd,
-			   const struct bfd_pkt *cp)
+static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 {
+	struct sockaddr_any peer_sa, local_sa;
+	const uint8_t *auth_section;
+	uint8_t received_auth_type;
+	uint8_t auth_len;
+	const char *local_pwd = NULL;
+	const char *remote_pwd;
+	size_t remote_pwd_len;
+	uint8_t expected_auth_type = BFD_AUTH_TYPE_RESERVED;
+	struct key *active_key = NULL;
+	uint8_t received_key_id;
+	struct key *key;
+
 	(void)bfd;
 
-	if (!CHECK_FLAG(cp->flags, BFD_ABIT))
+	/* Prepare sockaddr_any structures for cp_debug */
+	memset(&peer_sa, 0, sizeof(peer_sa));
+	memset(&local_sa, 0, sizeof(local_sa));
+
+	if (bfd->key.family == AF_INET) {
+		peer_sa.sa_sin.sin_family = AF_INET;
+		memcpy(&peer_sa.sa_sin.sin_addr, &bfd->key.peer, sizeof(struct in_addr));
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		peer_sa.sa_sin.sin_len = sizeof(struct sockaddr_in);
+#endif
+		local_sa.sa_sin.sin_family = AF_INET;
+		memcpy(&local_sa.sa_sin.sin_addr, &bfd->key.local, sizeof(struct in_addr));
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		local_sa.sa_sin.sin_len = sizeof(struct sockaddr_in);
+#endif
+	} else if (bfd->key.family == AF_INET6) {
+		peer_sa.sa_sin6.sin6_family = AF_INET6;
+		memcpy(&peer_sa.sa_sin6.sin6_addr, &bfd->key.peer, sizeof(struct in6_addr));
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		peer_sa.sa_sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif
+		local_sa.sa_sin6.sin6_family = AF_INET6;
+		memcpy(&local_sa.sa_sin6.sin6_addr, &bfd->key.local, sizeof(struct in6_addr));
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		local_sa.sa_sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif
+	}
+
+	/* Check current expected auth type to prevent stale cache drops */
+	if (bfd->kc)
+		active_key = bfd_keychain_key_find_active(bfd->kc, bfd->auth_meticulous);
+	if (bfd->kc && active_key)
+		expected_auth_type = map_keychain_algo_to_bfd_auth_type(active_key->hash_algo,
+									bfd->auth_meticulous);
+	if (!CHECK_FLAG(cp->flags, BFD_ABIT)) {
+		if (expected_auth_type != BFD_AUTH_TYPE_RESERVED) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: enabled on session, but peer sent no auth");
+			return false;
+		}
 		return true;
+	}
 
-	/* RFC5880 4.1: Authentication Section is present. */
-	if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
-		return false;
-
-	const struct bfd_auth *auth = (const struct bfd_auth *)(cp + 1);
-
-	if (cp->len < BFD_PKT_LEN + auth->length)
-		return false;
-
-	switch (auth->type) {
-	case BFD_AUTH_NULL:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	case BFD_AUTH_SIMPLE:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	case BFD_AUTH_CRYPTOGRAPHIC:
-		/* RFC5880 6.7: To be finished. */
-		return false;
-	default:
-		/* RFC5880 6.7: To be finished. */
+	if (expected_auth_type == BFD_AUTH_TYPE_RESERVED) {
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: not enabled on session but peer sent auth");
 		return false;
 	}
 
-	return false; /* unreachable, defensive */
+	if (cp->len < BFD_PKT_LEN + 2) {
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: packet too short to contain auth type/length");
+		return false;
+	}
+
+	auth_section = (const uint8_t *)cp + BFD_PKT_LEN;
+	received_auth_type = auth_section[0];
+	auth_len = auth_section[1];
+
+	if (cp->len < (BFD_PKT_LEN + auth_len)) {
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: packet length too short for auth data");
+		return false;
+	}
+
+	if (expected_auth_type == BFD_AUTH_TYPE_RESERVED) {
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: local type not available");
+		return false;
+	}
+
+	if (received_auth_type != expected_auth_type) {
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: type mismatch (remote %s)",
+			 bfd_auth_type_get_description(received_auth_type));
+		bfd->stats.rx_pkt_authentication_type_mismatch++;
+		return false;
+	}
+
+	switch (received_auth_type) {
+	case BFD_AUTH_TYPE_SIMPLE_PASSWORD: {
+		if (auth_len < 3) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: authentication length header too short");
+			return false;
+		}
+
+		if (bfd->kc) {
+			received_key_id = auth_section[2];
+			key = key_lookup_for_accept(bfd->kc, received_key_id);
+			if (!key || !key->string) {
+				cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
+					 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
+					 bfd->vrf ? bfd->vrf->vrf_id : 0,
+					 "Auth: key ID %u not found for simple password",
+					 received_key_id);
+				return false;
+			}
+			local_pwd = key->string;
+		}
+
+		remote_pwd = (const char *)&auth_section[3];
+		remote_pwd_len = auth_len - 3;
+
+		if (!local_pwd || strlen(local_pwd) != remote_pwd_len ||
+		    memcmp(local_pwd, remote_pwd, remote_pwd_len) != 0) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: simple password mismatch");
+			bfd->stats.rx_pkt_authentication_simple_password_mismatch++;
+			return false;
+		}
+		break;
+	}
+#ifdef CRYPTO_OPENSSL
+	case BFD_AUTH_TYPE_KEYED_SHA1:
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1: {
+		uint32_t received_seq_num;
+		unsigned int digest_len;
+		unsigned char computed_digest[KEYCHAIN_MAX_HASH_SIZE];
+		const unsigned char *received_digest;
+		unsigned char msgbuf[BFD_PACKET_SIZE];
+		const EVP_MD *md_alg = EVP_sha1();
+
+		if (auth_len < 28) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth SHA1 length too short");
+			return false;
+		}
+		if (!bfd->kc) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: keychain configured but no keychain found");
+			return false;
+		}
+		received_key_id = auth_section[2];
+		key = key_lookup_for_accept(bfd->kc, received_key_id);
+		if (!key || !key->string) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: key ID %u not found or invalid in keychain %s",
+				 received_key_id, bfd->kc->name);
+			return false;
+		}
+
+		/* RFC 5880 6.8.1: Sequence Number Validation for ALL Cryptographic Auth */
+		memcpy(&received_seq_num, auth_section + 4, sizeof(received_seq_num));
+		received_seq_num = ntohl(received_seq_num);
+
+		if (bfd->auth_last_rx_seq_num != 0) {
+			if (received_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1) {
+				if (received_seq_num <= bfd->auth_last_rx_seq_num) {
+					cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
+						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
+						 bfd->vrf ? bfd->vrf->vrf_id : 0,
+						 "Auth: meticulous sequence number error");
+					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error++;
+					return false;
+				}
+			} else {
+				/* Non-meticulous allows equal sequence numbers on stable state */
+				if (received_seq_num < bfd->auth_last_rx_seq_num) {
+					cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
+						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
+						 bfd->vrf ? bfd->vrf->vrf_id : 0,
+						 "Auth: sequence number error (replay)");
+					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_error++;
+					return false;
+				}
+			}
+			if ((received_seq_num % bfd->auth_seq_num_update_modulo) == 0)
+				bfd->auth_last_rx_seq_num = received_seq_num;
+		}
+
+		/* Validate Digest */
+		digest_len = keychain_get_hash_len(key->hash_algo);
+		if (digest_len > KEYCHAIN_MAX_HASH_SIZE || digest_len == 0)
+			return false;
+
+		received_digest = auth_section + 8;
+
+		memcpy(msgbuf, cp, cp->len);
+		/* Zero out the 20-byte digest field in the temp packet before hashing */
+		memset(msgbuf + BFD_PKT_LEN + 8, 0, digest_len);
+
+		md_alg = EVP_sha1();
+		HMAC(md_alg, key->string, strlen(key->string), msgbuf, cp->len, computed_digest,
+		     &digest_len);
+
+		if (memcmp(received_digest, computed_digest, digest_len) != 0) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "BFD: Auth digest mismatch for key ID %u", received_key_id);
+			bfd->stats.rx_pkt_authentication_keyed_sha1_mismatch++;
+			return false;
+		}
+
+		break;
+	}
+#endif /* CRYPTO_OPENSSL */
+	default:
+		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+			 "Auth: unsupported authentication type %u", received_auth_type);
+		return false;
+	}
+
+	return true;
 }
 
 void bfd_recv_cb(struct event *t)
@@ -867,7 +1143,7 @@ void bfd_recv_cb(struct event *t)
 	vrf_id_t vrfid;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = EVENT_ARG(t);
 
@@ -1074,7 +1350,7 @@ void bfd_recv_cb(struct event *t)
 	/* Check authentication. */
 	if (!bfd_check_auth(bfd, cp)) {
 		/* Extract auth type from packet for tracing */
-		uint8_t auth_type __attribute__((unused)) = BFD_AUTH_NULL;
+		uint8_t auth_type __attribute__((unused)) = BFD_AUTH_TYPE_RESERVED;
 
 		if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
 			if (cp->len >= BFD_PKT_LEN + sizeof(struct bfd_auth)) {
@@ -1088,6 +1364,7 @@ void bfd_recv_cb(struct event *t)
 			 ifindex, vrfid);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "Authentication failed");
+		bfd->stats.rx_pkt_authentication_failure++;
 		return;
 	}
 
@@ -1192,7 +1469,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 	struct sockaddr_any local, peer;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	vrf_id_t vrfid = VRF_DEFAULT;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 	size_t bfd_offset = 0;
 
 	if (sd == bvrf->bg_echo) {
@@ -2145,7 +2422,7 @@ static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, in
 	struct sockaddr_any local, peer;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	//vrf_id_t vrfid = VRF_DEFAULT;
-	uint8_t msgbuf[1516];
+	uint8_t msgbuf[BFD_PACKET_SIZE];
 
 	rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex, &local, &peer);
 	if (rlen < 0) {
