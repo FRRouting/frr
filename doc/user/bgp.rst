@@ -2839,7 +2839,8 @@ expanded
    will happen user defined order. Once the community list matches to
    communities attribute in BGP updates it return permit or deny by the
    community list definition. When there is no matched entry, deny will be
-   returned. When ``COMMUNITY`` is empty it matches to any routes.
+   returned. To match any community, use an expanded community list with the
+   ``.*`` regular expression.
 
 .. clicmd:: bgp community-list expanded NAME permit|deny COMMUNITY
 
@@ -3083,8 +3084,8 @@ community-list.
      neighbor 192.168.0.1 route-map RMAP in
     exit-address-family
    !
-   bgp community-list standard FILTER deny 1:1
-   bgp community-list standard FILTER permit
+   bgp community-list expanded FILTER deny 1:1
+   bgp community-list expanded FILTER permit .*
    !
    route-map RMAP permit 10
     match community FILTER
