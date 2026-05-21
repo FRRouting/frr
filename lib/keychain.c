@@ -124,8 +124,7 @@ struct key *key_lookup(const struct keychain *keychain, uint32_t index)
 	return NULL;
 }
 
-struct key *key_lookup_for_accept(const struct keychain *keychain,
-				  uint32_t index)
+struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_t index, bool exact)
 {
 	struct listnode *node;
 	struct key *key;
@@ -134,7 +133,7 @@ struct key *key_lookup_for_accept(const struct keychain *keychain,
 	now = time(NULL);
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->index >= index) {
+		if ((exact && (key->index == index)) || (!exact && (key->index >= index))) {
 			if (key->accept.start == 0)
 				return key;
 
