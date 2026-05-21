@@ -15,10 +15,12 @@
 
 #include "pimd.h"
 #include "pim_oil.h"
+#include "pim_mroute.h"
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_time.h"
 #include "pim_vxlan.h"
+#include "pim_ssm.h"
 
 static void pim_channel_update_mute(struct channel_oil *c_oil);
 
@@ -439,6 +441,24 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	assertf(pim_ifp->mroute_vif_index >= 0,
 		"trying to add OIF %s with VIF (%d)", oif->name,
 		pim_ifp->mroute_vif_index);
+
+	/*
+	 * Never forward (S,G) back out the incoming interface (split horizon).
+	 * Limit to SSM: ASM may briefly have IIF == OIF on the receiver
+	 * interface during RPT-to-SPT transition before the true RPF IIF is
+	 * installed.  (*,G) is handled separately in pim_mroute_add().
+	 */
+	if (!pim_addr_is_any(*oil_origin(channel_oil)) &&
+	    pim_is_grp_ssm(channel_oil->pim, *oil_mcastgrp(channel_oil)) &&
+	    *oil_incoming_vif(channel_oil) < MAXVIFS &&
+	    pim_ifp->mroute_vif_index == *oil_incoming_vif(channel_oil) &&
+	    !pim_mroute_allow_iif_in_oil(channel_oil, pim_ifp->mroute_vif_index)) {
+		if (PIM_DEBUG_GM_TRACE || PIM_DEBUG_MROUTE)
+			zlog_debug("%s(%s): not adding OIF %s (vif %d): same as IIF for (S,G)=(%pPAs,%pPAs)",
+				   __func__, caller, oif->name, pim_ifp->mroute_vif_index,
+				   oil_origin(channel_oil), oil_mcastgrp(channel_oil));
+		return 0;
+	}
 
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
