@@ -1108,7 +1108,7 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
-	MIX3(attr->bh_type, attr->otc, bgp_attr_get_aigp_metric(attr));
+	MIX3(attr->bh_type, bgp_attr_get_otc(attr), bgp_attr_get_aigp_metric(attr));
 	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
@@ -1167,7 +1167,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 					bgp_attr_get_srv6_l3service(attr2)) &&
 		    srv6_vpn_same(bgp_attr_get_srv6_vpn(attr1), bgp_attr_get_srv6_vpn(attr2)) &&
 		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
-		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
+		    attr1->bh_type == attr2->bh_type &&
+		    bgp_attr_get_otc(attr1) == bgp_attr_get_otc(attr2) &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
 		    bgp_ls_attr_same(bgp_attr_get_ls_attr(attr1), bgp_attr_get_ls_attr(attr2)) &&
@@ -4261,14 +4262,15 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto otc_ignore;
 
-	attr->otc = stream_getl(connection->curr);
-	if (!attr->otc) {
+	uint32_t otc = stream_getl(connection->curr);
+
+	if (!otc) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "OTC attribute value is 0");
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  args->total);
 	}
 
-	bgp_attr_set(attr, BGP_ATTR_OTC);
+	bgp_attr_set_otc(attr, otc);
 
 	return BGP_ATTR_PARSE_PROCEED;
 
@@ -5935,7 +5937,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_OTC);
 		stream_putc(s, 4);
-		stream_putl(s, attr->otc);
+		stream_putl(s, bgp_attr_get_otc(attr));
 	}
 
 	/* AIGP */
@@ -6217,7 +6219,7 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_OTC);
 		stream_putc(s, 4);
-		stream_putl(s, attr->otc);
+		stream_putl(s, bgp_attr_get_otc(attr));
 	}
 
 	/* AIGP */

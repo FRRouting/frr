@@ -162,6 +162,9 @@ struct attr_extra {
 
 	/* PMSI Tunnel Id */
 	struct in6_addr tunn_id;
+
+	/* RFC 9234 */
+	uint32_t otc;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -343,9 +346,6 @@ struct attr {
 
 	/* If NEXTHOP_TYPE_BLACKHOLE, then blackhole type */
 	enum blackhole_type bh_type;
-
-	/* OTC value if set */
-	uint32_t otc;
 
 	/* Optional feature-specific attributes */
 	struct attr_extra *extra;
@@ -822,6 +822,28 @@ static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
 	} else if (!link_bw && old) {
 		attr->extra->link_bw = 0;
 		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint32_t bgp_attr_get_otc(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->otc : 0;
+}
+
+static inline void bgp_attr_set_otc(struct attr *attr, uint32_t otc)
+{
+	uint32_t old = bgp_attr_get_otc(attr);
+
+	if (otc && !old) {
+		bgp_attr_extra_get(attr)->otc = otc;
+		bgp_attr_set(attr, BGP_ATTR_OTC);
+	} else if (otc && old) {
+		attr->extra->otc = otc; /* replace; refcnt unchanged */
+		bgp_attr_set(attr, BGP_ATTR_OTC);
+	} else if (!otc && old) {
+		attr->extra->otc = 0;
+		bgp_attr_extra_put(attr);
+		bgp_attr_unset(attr, BGP_ATTR_OTC);
 	}
 }
 

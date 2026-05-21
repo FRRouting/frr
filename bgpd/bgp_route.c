@@ -2038,15 +2038,14 @@ static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 		if (peer->local_role == ROLE_PROVIDER ||
 		    peer->local_role == ROLE_RS_SERVER)
 			return true;
-		if (peer->local_role == ROLE_PEER && attr->otc != peer->as)
+		if (peer->local_role == ROLE_PEER && bgp_attr_get_otc(attr) != peer->as)
 			return true;
 		return false;
 	}
 	if (peer->local_role == ROLE_CUSTOMER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_CLIENT) {
-		bgp_attr_set(attr, BGP_ATTR_OTC);
-		attr->otc = peer->as;
+		bgp_attr_set_otc(attr, peer->as);
 	}
 	return false;
 }
@@ -2063,8 +2062,7 @@ static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 	if (peer->local_role == ROLE_PROVIDER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_SERVER) {
-		bgp_attr_set(attr, BGP_ATTR_OTC);
-		attr->otc = peer->bgp->as;
+		bgp_attr_set_otc(attr, peer->bgp->as);
 	}
 	return false;
 }
@@ -13131,9 +13129,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
 		if (json_paths)
-			json_object_int_add(json_path, "otc", attr->otc);
+			json_object_int_add(json_path, "otc", bgp_attr_get_otc(attr));
 		else
-			vty_out(vty, ", otc %u", attr->otc);
+			vty_out(vty, ", otc %u", bgp_attr_get_otc(attr));
 	}
 
 	if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH) ||
