@@ -31,6 +31,7 @@ Reproducer for the bgpd BMP route-mirroring multi-target queueing bug.
 import json
 import os
 import pytest
+import re
 import sys
 from functools import partial
 
@@ -91,6 +92,30 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def _daemon_pid(router, daemon):
+    """
+    Return the pid (as a string) of ``daemon`` running on ``router``,
+    or an empty string if it is not running.
+    """
+    output = router.vtysh_cmd("show module")
+    if not output:
+        return ""
+
+    in_section = False
+    header_re = re.compile(r"^Module information for (\S+):")
+    pid_re = re.compile(r"^pid:\s*(\d+)")
+    for line in output.splitlines():
+        m = header_re.match(line)
+        if m:
+            in_section = m.group(1) == daemon
+            continue
+        if in_section:
+            m = pid_re.match(line)
+            if m:
+                return m.group(1)
+    return ""
+
+
 def _bmp_target_state(router, bmp_collector_addr_port, state):
     """Helper used by run_and_expect to wait for a BMP target to reach
     ``state`` ("Up" or "Down") in ``show bmp``.
@@ -147,7 +172,7 @@ def _bmp_mirror_quiesced(router, expected_pid):
     Otherwise it returns a short string describing why the state is not
     yet acceptable, so ``run_and_expect`` can keep polling.
     """
-    pid_now = router.net.cmd("pidof bgpd").strip()
+    pid_now = _daemon_pid(router, "bgpd")
     if not pid_now:
         return "bgpd is not running"
     if pid_now != expected_pid:
@@ -201,7 +226,7 @@ def test_bgpd_survives_mirrored_traffic():
     r1 = tgen.gears["r1mirror"]
     r2 = tgen.gears["r2mirror"]
 
-    bgpd_pid_before = r1.net.cmd("pidof bgpd").strip()
+    bgpd_pid_before = _daemon_pid(r1, "bgpd")
     assert bgpd_pid_before, "bgpd is not running on r1mirror"
     logger.info("bgpd pid on r1mirror is %s", bgpd_pid_before)
 
@@ -248,11 +273,11 @@ def test_bgpd_survives_mirrored_traffic():
     logger.info("waiting for the BMP route-mirroring queue to drain")
     test_func = partial(_bmp_mirror_quiesced, r1, bgpd_pid_before)
     success, res = topotest.run_and_expect(test_func, True, count=30, wait=1)
-    assert success, (
-        "bgpd / BMP did not reach a quiesced state on r1mirror: {}".format(res)
+    assert success, "bgpd / BMP did not reach a quiesced state on r1mirror: {}".format(
+        res
     )
 
-    bgpd_pid_after = r1.net.cmd("pidof bgpd").strip()
+    bgpd_pid_after = _daemon_pid(r1, "bgpd")
     logger.info("bgpd pid on r1mirror after traffic is %r", bgpd_pid_after)
 
     assert bgpd_pid_after, (
