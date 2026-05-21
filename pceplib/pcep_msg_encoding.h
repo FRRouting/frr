@@ -90,7 +90,7 @@ uint16_t pcep_encode_object(struct pcep_object_header *object_hdr,
 /* Implemented in pcep-objects-encoding.c
  * Decode the object, including the TLVs (if any) and return the object.
  * Returns object on success, NULL otherwise. */
-struct pcep_object_header *pcep_decode_object(const uint8_t *msg_buf);
+struct pcep_object_header *pcep_decode_object(const uint8_t *msg_buf, size_t buflen);
 
 /* Internal util functions implemented in pcep-objects-encoding.c */
 void encode_ipv6(struct in6_addr *src_ipv6, uint32_t *dst);

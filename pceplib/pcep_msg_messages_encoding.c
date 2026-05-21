@@ -312,7 +312,7 @@ struct pcep_message *pcep_decode_message(const uint8_t *msg_buf)
 	uint16_t bytes_read = MESSAGE_HEADER_LENGTH;
 	while ((msg_length - bytes_read) >= OBJECT_HEADER_LENGTH) {
 		struct pcep_object_header *obj_hdr =
-			pcep_decode_object(msg_buf + bytes_read);
+			pcep_decode_object(msg_buf + bytes_read, msg_length - bytes_read);
 
 		if (obj_hdr == NULL) {
 			pcep_log(LOG_INFO, "%s: Discarding invalid message",
