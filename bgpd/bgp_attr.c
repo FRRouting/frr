@@ -1166,8 +1166,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    srv6_l3service_same(bgp_attr_get_srv6_l3service(attr1),
 					bgp_attr_get_srv6_l3service(attr2)) &&
 		    srv6_vpn_same(bgp_attr_get_srv6_vpn(attr1), bgp_attr_get_srv6_vpn(attr2)) &&
-		    bgp_attr_get_srte_color(attr1) == bgp_attr_get_srte_color(attr2) &&
-		    attr1->nh_type == attr2->nh_type && attr1->bh_type == attr2->bh_type &&
+		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
+		    attr1->bh_type == attr2->bh_type &&
 		    bgp_attr_get_otc(attr1) == bgp_attr_get_otc(attr2) &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
@@ -2796,12 +2796,11 @@ cluster_list_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
-uint32_t bgp_attr_get_srte_color(const struct attr *attr)
+/* get locally configure or received srte-color value*/
+uint32_t bgp_attr_get_color(struct attr *attr)
 {
-	uint32_t srte_color = attr->extra ? attr->extra->srte_color : 0;
-
-	if (srte_color)
-		return srte_color;
+	if (attr->srte_color)
+		return attr->srte_color;
 	if (attr->ecommunity)
 		return ecommunity_select_color(attr->ecommunity);
 	return 0;
