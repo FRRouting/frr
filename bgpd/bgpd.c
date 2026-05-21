@@ -5184,7 +5184,9 @@ enum bgp_peer_active peer_active(struct peer_connection *connection)
 				return BGP_PEER_BFD_ADMIN_DOWN;
 			else if (bfd_session_is_down(peer->bfd_config->session))
 				return BGP_PEER_BFD_DOWN;
-		}
+		} else if (peer_established(connection) &&
+			   bfd_session_is_down(peer->bfd_config->session))
+			return BGP_PEER_BFD_DOWN;
 	}
 
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
