@@ -186,6 +186,7 @@ int pim_route_map_match_source_v6_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_group_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_group_v6_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_interface_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_source_interface_modify(struct nb_cb_modify_args *args);
 int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args);
 
 /* frr-pim-rp prototypes*/
@@ -323,6 +324,8 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_gm_proxy_rmap_modify(struct nb_cb_modify_args *args);
+int lib_interface_gm_proxy_rmap_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_gm_alist_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_alist_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_allow_rp_modify(struct nb_cb_modify_args *args);

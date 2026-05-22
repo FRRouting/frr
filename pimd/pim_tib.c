@@ -15,6 +15,7 @@
 #include "pim_oil.h"
 #include "pim_nht.h"
 #include "pim_dm.h"
+#include "pim_routemap.h"
 
 static struct channel_oil *
 tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
@@ -93,6 +94,20 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 			continue;
 
 		if (pim_ifp->gm_enable && pim_ifp->gm_proxy) {
+			struct prefix_sg pfx;
+
+			pim_sg_to_prefix(&sg, &pfx);
+			/* Apply the proxy route-map only to joins.  Prunes must always run
+			 * so tightening the filter without cycling the proxy cannot strand
+			 * proxy (*,G)/(S,G) state after the last host leaves.
+			 */
+			if (join && !pim_filter_match(&pim_ifp->gm_proxy_filter, &pfx, ifp, oif)) {
+				if (PIM_DEBUG_GM_TRACE)
+					zlog_debug("%s: proxy join for SG%pPSG from %s to %s filtered due to route-map",
+						   __func__, &pfx, oif->name, ifp->name);
+				continue;
+			}
+
 			if (join)
 				pim_if_gm_join_add(ifp, sg.grp, sg.src,
 						   GM_JOIN_PROXY);

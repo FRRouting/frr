@@ -310,7 +310,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				continue;
 
 			pim_sg_to_prefix(&sg, &psg);
-			if (!pim_filter_match(&pim_ifp->pim->join_filter, &psg, ifp)) {
+			if (!pim_filter_match(&pim_ifp->pim->join_filter, &psg, ifp, ifp)) {
 				if (PIM_DEBUG_PIM_TRACE)
 					zlog_debug("%s: SG%pPSG on interface %s filtered due to route-map",
 						   __func__, &psg, ifp->name);

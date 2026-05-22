@@ -76,6 +76,7 @@ struct pim_interface {
 
 	bool gm_enable : 1;
 	bool gm_proxy : 1; /* proxy IGMP joins/prunes */
+	struct pim_filter_ref gm_proxy_filter; /* route-map filter for proxied (S,G) */
 
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;

@@ -282,7 +282,7 @@ static bool gm_sg_filter_match(const struct gm_if *gm_if, const pim_addr source,
 		.grp.ipaddr_v6 = group,
 	};
 
-	if (!pim_filter_match(&pim_interface->gmp_filter, &sg, gm_if->ifp)) {
+	if (!pim_filter_match(&pim_interface->gmp_filter, &sg, gm_if->ifp, gm_if->ifp)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("%s: SG%pPSG on interface %s filtered due to route-map",
 				   __func__, &sg, gm_if->ifp->name);

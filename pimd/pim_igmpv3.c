@@ -208,7 +208,7 @@ void igmp_source_reset_gmi(struct gm_group *group, struct gm_source *source)
 
 	group_membership_interval_msec = igmp_gmi_msec(group);
 
-	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface)) {
+	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface, group->interface)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("Timer for %pPSG on %s not refreshed due to route-map reject",
 				   &sg, ifp->name);
@@ -394,7 +394,7 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 	if (new)
 		*new = false;
 
-	if (!pim_filter_match(&pim_interface->gmp_filter, &sg, group->interface))
+	if (!pim_filter_match(&pim_interface->gmp_filter, &sg, group->interface, group->interface))
 		return NULL;
 
 	src = igmp_find_source_by_addr(group, src_addr);
@@ -630,7 +630,7 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
 		return;
 
-	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, igmp->interface)) {
+	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, igmp->interface, igmp->interface)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("Rejected ISEX %pPSG on %s due to route-map", &sg, ifp->name);
 		return;
@@ -935,7 +935,7 @@ void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, igmp->interface)) {
+	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg, igmp->interface, igmp->interface)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("Rejected TOEX %pPSG on %s due to route-map", &sg, ifp->name);
 		return;

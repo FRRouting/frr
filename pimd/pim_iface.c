@@ -39,6 +39,7 @@
 #include "pim_vxlan.h"
 #include "pim_tib.h"
 #include "pim_util.h"
+#include "pim_routemap.h"
 
 #include "pim6_mld.h"
 
@@ -187,6 +188,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->pim->mcast_if_count++;
 
 	pim_filter_ref_init(&pim_ifp->gmp_filter);
+	pim_filter_ref_init(&pim_ifp->gm_proxy_filter);
 
 	return pim_ifp;
 }
@@ -227,6 +229,7 @@ void pim_if_delete(struct interface *ifp)
 	pim_igmp_if_fini(pim_ifp);
 
 	pim_filter_ref_fini(&pim_ifp->gmp_filter);
+	pim_filter_ref_fini(&pim_ifp->gm_proxy_filter);
 
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
@@ -1595,6 +1598,7 @@ static void pim_if_static_group_del_all(struct interface *ifp)
 void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 {
 	struct interface *ifp;
+	struct pim_interface *oif_pim = oif->info;
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
@@ -1612,6 +1616,18 @@ void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 					  group)) {
 			for (ALL_LIST_ELEMENTS_RO(group->group_source_list,
 						  source_node, src)) {
+				pim_sgaddr sgaddr = { .src = src->source_addr,
+						      .grp = group->group_addr };
+				struct prefix_sg pfx;
+
+				pim_sg_to_prefix(&sgaddr, &pfx);
+				if (!pim_filter_match(&oif_pim->gm_proxy_filter, &pfx, oif, ifp)) {
+					if (PIM_DEBUG_GM_TRACE)
+						zlog_debug("%s: proxy join for SG%pPSG from %s to %s filtered due to route-map",
+							   __func__, &pfx, ifp->name, oif->name);
+					continue;
+				}
+
 				pim_if_gm_join_add(oif, group->group_addr,
 						   src->source_addr,
 						   GM_JOIN_PROXY);

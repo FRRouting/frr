@@ -1379,7 +1379,8 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 		.grp.ipaddr_v4 = group->group_addr,
 	};
 
-	if (interval_msec && !pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface)) {
+	if (interval_msec &&
+	    !pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface, group->interface)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("Timer for %pPSG on %s not refreshed due to route-map reject",
 				   &sg, ifname);
