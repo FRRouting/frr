@@ -1681,20 +1681,18 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		backup_nh_count++;
 	}
 
-	/* Set backup nexthop information if we found any valid backups */
+	/* Set backup nexthop information if we found any valid backups.
+	 * PIC-Local uses the route-level "all-primaries-down" semantic:
+	 * the backup_nexthops[] array stands alone as a route-scope pool;
+	 * primaries are not annotated with HAS_BACKUP / backup_idx[].
+	 */
 	if (backup_nh_count > 0) {
-		unsigned int i;
-		/* Set flag and index in primary nexthop */
-		api_nh = &api->nexthops[0];
-		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
-		api_nh->backup_num = backup_nh_count;
-		for (i = 0; i < backup_nh_count; i++)
-			api_nh->backup_idx[i] = i;
 		api->backup_nexthop_num = backup_nh_count;
 		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_ALL_PRIMARIES_DOWN);
 
 		if (bgp_debug_zebra(&api->prefix)) {
-			zlog_debug("%s: %pFX: added %d backup nexthops",
+			zlog_debug("%s: %pFX: added %d backup nexthops (all-primaries-down)",
 				   __func__, p, backup_nh_count);
 		}
 	}
