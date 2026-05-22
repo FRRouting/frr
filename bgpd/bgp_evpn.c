@@ -2834,8 +2834,12 @@ static void delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 				continue;
 
 			pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
-			if (pi)
+			if (pi) {
 				bgp_process(bgp, dest, pi, afi, safi);
+				if (!is_evpn_prefix_ipaddr_none(evp))
+					bgp_evpn_unimport_route(bgp, afi, safi,
+								(struct prefix *)evp, pi);
+			}
 		}
 
 		/* Unlock RD node. */
@@ -4749,7 +4753,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr *attr;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
-
+	bool mac_ip = false;
 	struct prefix_evpn tmp_evp;
 	const struct prefix_evpn *evp =
 		(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
@@ -4781,6 +4785,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 			evpn_type2_prefix_global_copy(
 				&tmp_evp, evp, evpn_type2_path_info_get_mac(pi),
 				NULL /* ip */);
+			mac_ip = true;
 		}
 	} else {
 		memcpy(&tmp_evp, evp, sizeof(tmp_evp));
@@ -4801,6 +4806,11 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 			NULL /* ip */, 1, &global_pi, 0,
 			mac_mobility_seqnum(attr), false /* setup_sync */,
 			NULL /* old_is_sync */);
+		if (mac_ip) {
+			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+			bgp_evpn_import_route(bgp, afi, safi, (struct prefix *)&tmp_evp, global_pi);
+		}
+
 	} else {
 		/* Type-1 route */
 		struct bgp_evpn_es *es;
