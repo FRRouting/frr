@@ -959,10 +959,10 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
 
     step("Shut and No shut FRR1 and FRR3 interface")
     shutdown_bringup_interface(tgen, "l1", "l1-r2-eth4", False)
-    shutdown_bringup_interface(tgen, dut, intf, True)
+    shutdown_bringup_interface(tgen, "l1", "l1-r2-eth4", True)
 
     shutdown_bringup_interface(tgen, "f1", "f1-r2-eth3", False)
-    shutdown_bringup_interface(tgen, dut, intf, True)
+    shutdown_bringup_interface(tgen, "f1", "f1-r2-eth3", True)
 
     step(
         "After shut/no shut of interface , verify traffic resume to all"
@@ -1074,6 +1074,13 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
             "Found: {}".format(tc_name, data["dut"], result)
         )
 
+    clear_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
+    for rname in ["l1", "f1", "c1", "c2", "r2"]:
+        kill_router_daemons(tgen, rname, ["pimd"], save_config=False)
+        start_router_daemons(tgen, rname, ["pimd"])
+
     write_test_footer(tc_name)
 
 
@@ -1154,6 +1161,11 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
 
     result = app_helper.run_join("i5", _IGMP_JOIN_RANGE, "c2")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+
+    step("Restart traffic after all receivers have joined")
+    app_helper.stop_host("i2")
+    result = app_helper.run_traffic("i2", _IGMP_JOIN_RANGE, "f1")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("FRR1 has 10 (*.G) and 10 (S,G) verify using 'show ip mroute count'")
     step(
