@@ -1480,6 +1480,68 @@ struct route_map_rule_cmd route_set_evpn_gateway_ip_ipv6_cmd = {
 	"evpn gateway-ip ipv6", route_set_evpn_gateway_ip,
 	route_set_evpn_gateway_ip_compile, route_set_evpn_gateway_ip_free};
 
+static enum route_map_cmd_result_t
+route_set_evpn_router_mac(void *rule, const struct prefix *prefix, void *object)
+{
+	struct ethaddr *rmac = rule;
+	const struct prefix_evpn *evp;
+	struct bgp_path_info *path;
+	struct ecommunity *old_ecom;
+	struct ecommunity *new_ecom;
+	struct ecommunity_val rmac_eval;
+
+	if (prefix->family != AF_EVPN)
+		return RMAP_OKAY;
+
+	evp = (const struct prefix_evpn *)prefix;
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return RMAP_OKAY;
+
+	path = object;
+
+	encode_rmac_extcomm(&rmac_eval, rmac);
+
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
+	if (old_ecom) {
+		new_ecom = ecommunity_dup(old_ecom);
+		ecommunity_strip(new_ecom, ECOMMUNITY_ENCODE_EVPN,
+				 ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC);
+		ecommunity_add_val(new_ecom, &rmac_eval, true, true);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else {
+		new_ecom = ecommunity_new();
+		ecommunity_add_val(new_ecom, &rmac_eval, true, true);
+	}
+
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
+	memcpy(&path->attr->rmac, rmac, ETH_ALEN);
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_evpn_router_mac_compile(const char *arg)
+{
+	struct ethaddr *rmac;
+
+	rmac = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct ethaddr));
+	if (!prefix_str2mac(arg, rmac)) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, rmac);
+		return NULL;
+	}
+	return rmac;
+}
+
+static void route_set_evpn_router_mac_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_set_evpn_router_mac_cmd = { "extcommunity evpn rmac",
+							    route_set_evpn_router_mac,
+							    route_set_evpn_router_mac_compile,
+							    route_set_evpn_router_mac_free };
+
 /* Route map commands for VRF route leak with source vrf matching */
 static enum route_map_cmd_result_t
 route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
@@ -5511,6 +5573,44 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv6,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (set_ecommunity_evpn_rmac,
+	    set_ecommunity_evpn_rmac_cmd,
+	    "set extcommunity evpn rmac X:X:X:X:X:X",
+	    SET_STR
+	    "BGP extended community attribute\n"
+	    "EVPN extended community\n"
+	    "Router MAC extended community\n"
+	    "MAC address in XX:XX:XX:XX:XX:XX format\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:set-extcommunity-evpn-rmac']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-evpn-rmac", xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_set_ecommunity_evpn_rmac,
+	    no_set_ecommunity_evpn_rmac_cmd,
+	    "no set extcommunity evpn rmac [X:X:X:X:X:X]",
+	    NO_STR
+	    SET_STR
+	    "BGP extended community attribute\n"
+	    "EVPN extended community\n"
+	    "Router MAC extended community\n"
+	    "MAC address in XX:XX:XX:XX:XX:XX format\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:set-extcommunity-evpn-rmac']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(match_vrl_source_vrf,
       match_vrl_source_vrf_cmd,
       "match source-vrf NAME$vrf_name",
@@ -8303,6 +8403,7 @@ void bgp_route_map_init(void)
 
 	route_map_install_set(&route_set_evpn_gateway_ip_ipv4_cmd);
 	route_map_install_set(&route_set_evpn_gateway_ip_ipv6_cmd);
+	route_map_install_set(&route_set_evpn_router_mac_cmd);
 	route_map_install_set(&route_set_table_id_cmd);
 	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
@@ -8359,6 +8460,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv4_cmd);
 	install_element(RMAP_NODE, &set_evpn_gw_ip_ipv6_cmd);
 	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv6_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_evpn_rmac_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_evpn_rmac_cmd);
 	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
 	install_element(RMAP_NODE, &no_match_vrl_source_vrf_cmd);
 

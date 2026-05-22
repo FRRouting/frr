@@ -424,6 +424,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv4"))
 #define IS_SET_BGP_EVPN_GATEWAY_IP_IPV6(A)                                     \
 	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv6"))
+#define IS_SET_BGP_EVPN_ROUTER_MAC(A) (strmatch(A, "frr-bgp-route-map:set-extcommunity-evpn-rmac"))
 #define IS_SET_BGP_L3VPN_NEXTHOP_ENCAPSULATION(A)                              \
 	(strmatch(A, "frr-bgp-route-map:set-l3vpn-nexthop-encapsulation"))
 
