@@ -1124,9 +1124,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	attrlen_pos = stream_get_endp(s);
 	stream_putw(s, 0);
 
-	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
+	/* 5: Encode all the attributes, except MP_REACH_NLRI attr.
+	 * Pass for_bmp=true to bgp_packet_attribute() so it skips outbound
+	 * peer-specific AS_PATH transformations and emits attr->aspath as
+	 * stored — BMP is a reporting channel, not a BGP peer session.
+	 */
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
-					      NULL, NULL, 0, 0, 0, 0, NULL, NULL);
+					      NULL, NULL, 0, 0, 0, 0, NULL, NULL, true);
 
 	/* peer_cap_enhe & add-path removed */
 	if (afi == AFI_IP && safi == SAFI_UNICAST)

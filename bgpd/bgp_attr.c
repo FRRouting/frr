@@ -5443,7 +5443,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
 				struct bgp_attr_srv6_l3service *srv6_unicast, bool addpath_capable,
 				uint32_t addpath_tx_id, struct bgp_path_info *bpi,
-				struct bgp_ls_nlri *ls_nlri)
+				struct bgp_ls_nlri *ls_nlri, bool for_bmp)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -5481,13 +5481,29 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* AS path attribute. */
 
+	/*
+	 * The for_bmp path is taken from bmp_update(), which only ever feeds
+	 * in attributes that come from receive-side storage in the three BMP
+	 * modes FRR currently emits:
+	 *
+	 *   - pre-policy Adj-RIB-In:   adjin->attr (raw on-wire from peer)
+	 *   - post-policy Adj-RIB-In:  bpi->attr   (path-info in local RIB)
+	 *   - Loc-RIB:                 bpi->attr   (selected best path)
+	 *
+	 * None of these have been through the outbound peer-specific AS_PATH
+	 * transformations below (local-AS prepend for eBGP, confed-seq,
+	 * change-local-as), so they're skipped when for_bmp is set.
+	 *
+	 * If RFC 8671 Adj-RIB-Out monitoring is added, post-policy
+	 * Adj-RIB-Out MUST be encoded "as actually transmitted to the peer"
+	 * (RFC 8671 §5.1) — that future caller must invoke this function
+	 * with for_bmp=false so the transformations below run.
+	 */
 	/* If remote-peer is EBGP */
-	if (peer->sort == BGP_PEER_EBGP
-	    && (!CHECK_FLAG(peer->af_flags[afi][safi],
-			    PEER_FLAG_AS_PATH_UNCHANGED)
-		|| attr->aspath->segments == NULL)
-	    && (!CHECK_FLAG(peer->af_flags[afi][safi],
-			    PEER_FLAG_RSERVER_CLIENT))) {
+	if (!for_bmp && peer->sort == BGP_PEER_EBGP &&
+	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED) ||
+	     attr->aspath->segments == NULL) &&
+	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))) {
 		aspath = aspath_dup(attr->aspath);
 
 		/* Even though we may not be configured for confederations we
@@ -5528,12 +5544,18 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				aspath = aspath_add_seq(aspath, peer->local_as);
 			}
 		}
-	} else if (peer->sort == BGP_PEER_CONFED) {
+	} else if (!for_bmp && peer->sort == BGP_PEER_CONFED) {
 		/* A confed member, so we need to do the AS_CONFED_SEQUENCE
 		 * thing */
 		aspath = aspath_dup(attr->aspath);
 		aspath = aspath_add_confed_seq(aspath, peer->local_as);
 	} else
+		/*
+		 * NOTE: with for_bmp=true we always reach here, including for
+		 * confed peers — the confed-seq above is intentionally
+		 * skipped. See the for_bmp commentary above the EBGP block for
+		 * the rationale and the RFC 8671 Adj-RIB-Out caveat.
+		 */
 		aspath = attr->aspath;
 
 	/* If peer is not AS4 capable, then:
