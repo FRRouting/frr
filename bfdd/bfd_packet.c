@@ -1010,7 +1010,7 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 
 		if (bfd->kc) {
 			received_key_id = auth_section[2];
-			key = key_lookup_for_accept(bfd->kc, received_key_id);
+			key = key_lookup_for_accept(bfd->kc, received_key_id, false);
 			if (!key || !key->string) {
 				cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
 					 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
@@ -1058,7 +1058,7 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 			return false;
 		}
 		received_key_id = auth_section[2];
-		key = key_lookup_for_accept(bfd->kc, received_key_id);
+		key = key_lookup_for_accept(bfd->kc, received_key_id, true);
 		if (!key || !key->string) {
 			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
 				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,

@@ -514,7 +514,7 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 			return OSPF6_AUTH_VALIDATE_FAILURE;
 		}
 
-		key = key_lookup_for_accept(keychain, ntohs(ospf6_auth->id));
+		key = key_lookup_for_accept(keychain, ntohs(ospf6_auth->id), false);
 		if (!key) {
 			if (IS_OSPF6_DEBUG_AUTH_RX)
 				zlog_err("RECV[%s]: Auth, Invalid SA for %s",

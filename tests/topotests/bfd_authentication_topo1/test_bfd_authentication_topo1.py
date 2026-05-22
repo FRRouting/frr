@@ -627,6 +627,7 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_with_same_key_id_up():
     tgen.gears["rt2"].vtysh_cmd("""
         configure terminal
         key chain kc1
+        no key 0
         key 40
         key-string mysecret123
         cryptographic-algorithm hmac-sha-1

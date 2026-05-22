@@ -926,7 +926,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		if (keychain == NULL)
 			return 0;
 
-		key = key_lookup_for_accept(keychain, md5->keyid);
+		key = key_lookup_for_accept(keychain, md5->keyid, false);
 		if (key == NULL || key->string == NULL)
 			return 0;
 

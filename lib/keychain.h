@@ -122,8 +122,8 @@ extern void keychain_terminate(void);
 extern struct keychain *keychain_lookup(const char *);
 extern struct key *keychain_key_find(const struct keychain *keychain,
 				     const struct timespec *now_ts);
-extern struct key *key_lookup_for_accept(const struct keychain *keychain,
-					 uint32_t index);
+extern struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_t index,
+					 bool exact);
 extern struct key *key_match_for_accept(const struct keychain *keychain,
 					const char *auth_str);
 extern struct key *key_lookup_for_send(const struct keychain *);
