@@ -1243,7 +1243,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 		lcommunity_str(attr->lcommunity, false, false));
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
 		ecommunity_str(attr->ecommunity),
-		ecommunity_str(attr->ipv6_ecommunity));
+		ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
 
 	if (nhc) {
 		vty_out(vty, "\tNHC: TLVs length %d\n", nhc->tlvs_length);

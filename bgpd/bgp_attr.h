@@ -165,6 +165,9 @@ struct attr_extra {
 
 	/* RFC 9234 */
 	uint32_t otc;
+
+	/* IPv6 Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
 };
 
 extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
@@ -281,9 +284,6 @@ struct attr {
 
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
-
-	/* Extended Communities attribute. */
-	struct ecommunity *ipv6_ecommunity;
 
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
@@ -640,13 +640,22 @@ static inline void bgp_attr_set_community(struct attr *attr,
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
-	return attr->ipv6_ecommunity;
+	return attr->extra ? attr->extra->ipv6_ecommunity : NULL;
 }
 
 static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
-	attr->ipv6_ecommunity = ipv6_ecomm;
+	struct ecommunity *old = bgp_attr_get_ipv6_ecommunity(attr);
+
+	if (ipv6_ecomm && !old) {
+		bgp_attr_extra_get(attr)->ipv6_ecommunity = ipv6_ecomm;
+	} else if (ipv6_ecomm && old) {
+		attr->extra->ipv6_ecommunity = ipv6_ecomm; /* replace; refcnt unchanged */
+	} else if (!ipv6_ecomm && old) {
+		attr->extra->ipv6_ecommunity = NULL;
+		bgp_attr_extra_put(attr);
+	}
 
 	if (ipv6_ecomm && ipv6_ecomm->size)
 		SET_FLAG(attr->flag,
