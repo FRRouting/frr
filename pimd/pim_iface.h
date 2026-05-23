@@ -204,6 +204,9 @@ struct pim_interface {
 	uint32_t igmp_ifstat_joins_failed;
 	uint32_t igmp_peak_group_count;
 
+	bool autorp_joined_discovery;
+	bool autorp_joined_announce;
+
 	struct {
 		bool enabled;
 		uint32_t min_rx;
