@@ -1954,6 +1954,8 @@ void pim_autorp_stop_discovery(struct pim_instance *pim)
 	autorp->do_discovery = false;
 	autorp_read_off(autorp);
 
+	pim_autorp_rplist_free(&autorp->discovery_rp_list, true);
+
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Discovery stopped", __func__);
 
