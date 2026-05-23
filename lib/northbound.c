@@ -1814,19 +1814,16 @@ struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_elem_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return NULL;
-
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
 	       xpath, list_entry);
 
-	if (nb_node->cbs.get_elem) {
-		args.xpath = xpath;
-		args.list_entry = list_entry;
-		return nb_node->cbs.get_elem(&args);
-	}
-	return NULL;
+	if (!nb_node->cbs.get_elem)
+		return NULL;
+
+	args.xpath = xpath;
+	args.list_entry = list_entry;
+	return nb_node->cbs.get_elem(&args);
 }
 
 const void *nb_callback_get_next(const struct nb_node *nb_node,
@@ -1835,19 +1832,16 @@ const void *nb_callback_get_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_next_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return NULL;
-
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
 	       nb_node->xpath, parent_list_entry, list_entry);
 
-	if (nb_node->cbs.get_next) {
-		args.parent_list_entry = parent_list_entry;
-		args.list_entry = list_entry;
-		return nb_node->cbs.get_next(&args);
-	}
-	return NULL;
+	if (!nb_node->cbs.get_next)
+		return NULL;
+
+	args.parent_list_entry = parent_list_entry;
+	args.list_entry = list_entry;
+	return nb_node->cbs.get_next(&args);
 }
 
 int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
@@ -1855,12 +1849,12 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 {
 	struct nb_cb_get_keys_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return 0;
-
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_keys): node [%s] list_entry [%p]",
 	       nb_node->xpath, list_entry);
+
+	if (!nb_node->cbs.get_keys)
+		return 0;
 
 	args.list_entry = list_entry;
 	args.keys = keys;
@@ -1870,7 +1864,7 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 void nb_callback_list_entry_done(const struct nb_node *nb_node, const void *parent_list_entry,
 				 const void *list_entry)
 {
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS) || !nb_node->cbs.list_entry_done)
+	if (!nb_node->cbs.list_entry_done)
 		return;
 
 	DEBUGD(&nb_dbg_cbs_state,
@@ -1886,12 +1880,12 @@ const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return NULL;
-
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
+
+	if (!nb_node->cbs.lookup_entry)
+		return NULL;
 
 	args.parent_list_entry = parent_list_entry;
 	args.keys = keys;
@@ -1905,9 +1899,6 @@ const void *nb_callback_lookup_node_entry(struct lyd_node *node,
 	struct nb_cb_lookup_entry_args args = {};
 	const struct nb_node *nb_node = node->schema->priv;
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return NULL;
-
 	if (yang_get_node_keys(node, &keys)) {
 		flog_warn(EC_LIB_LIBYANG,
 			  "%s: can't get keys for lookup from existing data node %s",
@@ -1918,6 +1909,9 @@ const void *nb_callback_lookup_node_entry(struct lyd_node *node,
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (lookup_node_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
+
+	if (!nb_node->cbs.lookup_entry)
+		return NULL;
 
 	args.parent_list_entry = parent_list_entry;
 	args.keys = &keys;
@@ -1930,12 +1924,12 @@ const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
-	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
-		return NULL;
-
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
+
+	if (!nb_node->cbs.lookup_next)
+		return NULL;
 
 	args.parent_list_entry = parent_list_entry;
 	args.keys = keys;

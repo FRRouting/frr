@@ -710,6 +710,11 @@ struct frr_yang_module_info {
 	 * Ignore configuration callbacks for this module. Set this to true to
 	 * load module with only CLI-related callbacks. This is useful for
 	 * modules loaded in mgmtd.
+	 *
+	 * This suppresses configuration callbacks only. Operational callbacks
+	 * remain live so a daemon can expose local state for a standard module
+	 * even when that module's configuration surface is owned elsewhere or
+	 * deliberately unwired.
 	 */
 	bool ignore_cfg_cbs;
 
