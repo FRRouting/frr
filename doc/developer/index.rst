@@ -18,6 +18,7 @@ FRRouting Developer's Guide
    fpm
    grpc
    ospf
+   ospf-yang-northbound-notes
    zebra
    vtysh
    path

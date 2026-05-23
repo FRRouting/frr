@@ -1083,6 +1083,27 @@ Showing Information
    Displays the Graceful Restart Helper details including helper
    config changes.
 
+YANG Operational Data
+---------------------
+
+OSPF operational state is available through the standard :rfc:`9129`
+``ietf-ospf`` YANG model. The current support is operational data only; OSPF
+configuration is still managed through the existing FRR CLI.
+
+The following example retrieves the OSPFv2 instance from the mgmtd operational
+datastore:
+
+.. code-block:: shell
+
+   vtysh -c 'show mgmt get-data /ietf-routing:routing/control-plane-protocols/control-plane-protocol[type="ietf-ospf:ospfv2"][name="default"] datastore operational'
+
+To retrieve the merged operational datastore, including the OSPF protocol
+entry and the ``ietf-interfaces`` data used by OSPF interface leafrefs:
+
+.. code-block:: shell
+
+   vtysh -c 'show mgmt get-data /* datastore operational'
+
 .. _opaque-lsa:
 
 Opaque LSA

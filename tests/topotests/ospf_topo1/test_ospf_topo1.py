@@ -13,6 +13,7 @@
 test_ospf_topo1.py: Test the FRR OSPF routing daemon.
 """
 
+import json
 import os
 import re
 import sys
@@ -212,6 +213,121 @@ def compare_ipv4_kernel_routes(router, expected):
 def compare_ipv6_kernel_routes(router, expected):
     "Compare IPv6 kernel routes against expected routes."
     return topotest.json_cmp(topotest.ip6_route(router), expected)
+
+
+def _as_list(value):
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _yang_operational_root(router):
+    return json.loads(router.vtysh_cmd("show mgmt get-data /* datastore operational"))
+
+
+def _yang_ospf_protocol(output, protocol_type, protocol_name):
+    assert "ietf-routing:routing" in output, output
+    protocols = output["ietf-routing:routing"]["control-plane-protocols"][
+        "control-plane-protocol"
+    ]
+    for protocol in _as_list(protocols):
+        if (
+            protocol.get("type") == protocol_type
+            and protocol.get("name") == protocol_name
+        ):
+            return protocol
+
+    raise AssertionError(
+        "missing {} control-plane-protocol named {}".format(
+            protocol_type, protocol_name
+        )
+    )
+
+
+def _yang_interface(output, ifname):
+    assert "ietf-interfaces:interfaces" in output, output
+    interfaces = output["ietf-interfaces:interfaces"]["interface"]
+    for interface in _as_list(interfaces):
+        if interface.get("name") == ifname:
+            return interface
+
+    raise AssertionError("missing ietf-interfaces interface {}".format(ifname))
+
+
+def _yang_ospf_container(protocol):
+    return protocol.get("ietf-ospf:ospf", protocol.get("ospf"))
+
+
+def _yang_ospf_area(ospf, area_id):
+    for area in _as_list(ospf["areas"]["area"]):
+        if area.get("area-id") == area_id:
+            return area
+
+    raise AssertionError("missing OSPF area {}".format(area_id))
+
+
+def _yang_ospf_interface(area, ifname):
+    interfaces = area["interfaces"]["interface"]
+    for interface in _as_list(interfaces):
+        if interface.get("name") == ifname:
+            return interface
+
+    raise AssertionError("missing OSPF interface {}".format(ifname))
+
+
+def _yang_ospf_neighbor(interface, router_id):
+    neighbors = interface["neighbors"]["neighbor"]
+    for neighbor in _as_list(neighbors):
+        if neighbor.get("neighbor-router-id") == router_id:
+            return neighbor
+
+    raise AssertionError("missing OSPF neighbor {}".format(router_id))
+
+
+def test_ospf_yang_operational_data():
+    "Verify RFC 9129 OSPF operational data is exposed through YANG callbacks."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    backend_adapters = r1.vtysh_cmd("show mgmt backend-adapter all")
+    assert "ospfd" in backend_adapters
+    assert "ospf6d" in backend_adapters
+    xpath_registry = r1.vtysh_cmd("show mgmt backend-yang-xpath-registry oper")
+    assert (
+        "/ietf-routing:routing/control-plane-protocols/control-plane-protocol"
+        in xpath_registry
+    )
+    assert "/ietf-interfaces:interfaces/interface" in xpath_registry
+
+    output = _yang_operational_root(r1)
+    _yang_interface(output, "r1-eth1")
+
+    ospfv2 = _yang_ospf_container(
+        _yang_ospf_protocol(output, "ietf-ospf:ospfv2", "default")
+    )
+    assert ospfv2["router-id"] == "10.0.255.1"
+    assert isinstance(ospfv2["statistics"]["originate-new-lsa-count"], int)
+    assert isinstance(ospfv2["statistics"]["rx-new-lsas-count"], int)
+    area = _yang_ospf_area(ospfv2, "0.0.0.0")
+    interface = _yang_ospf_interface(area, "r1-eth1")
+    neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
+    assert neighbor["state"] == "full"
+    assert "address" in neighbor
+
+    ospfv3 = _yang_ospf_container(
+        _yang_ospf_protocol(output, "ietf-ospf:ospfv3", "default")
+    )
+    assert ospfv3["router-id"] == "10.0.255.1"
+    assert isinstance(ospfv3["statistics"]["originate-new-lsa-count"], int)
+    assert isinstance(ospfv3["statistics"]["rx-new-lsas-count"], int)
+    area = _yang_ospf_area(ospfv3, "0.0.0.0")
+    interface = _yang_ospf_interface(area, "r1-eth1")
+    neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
+    assert neighbor["state"] == "full"
+    assert neighbor["address"].startswith("fe80:")
 
 
 def test_ospf_convergence():

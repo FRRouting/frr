@@ -1,0 +1,5006 @@
+module ietf-ospf {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-ospf";
+
+  prefix ospf;
+
+  import ietf-inet-types {
+    prefix inet;
+    reference
+      "RFC 6991: Common YANG Data Types";
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+    reference
+      "RFC 6991: Common YANG Data Types";
+  }
+
+  import ietf-interfaces {
+    prefix if;
+    reference
+      "RFC 8343: A YANG Data Model for Interface Management";
+  }
+
+  import ietf-routing-types {
+    prefix rt-types;
+    reference
+      "RFC 8294: Common YANG Data Types for the Routing Area";
+  }
+
+  import iana-routing-types {
+    prefix iana-rt-types;
+    reference
+      "RFC 8294: Common YANG Data Types for the Routing Area";
+  }
+
+  import ietf-routing {
+    prefix rt;
+    reference
+      "RFC 8349: A YANG Data Model for Routing Management
+       (NMDA Version)";
+  }
+
+  import ietf-key-chain {
+    prefix key-chain;
+    reference
+      "RFC 8177: YANG Data Model for Key Chains";
+  }
+
+  import ietf-bfd-types {
+    prefix bfd-types;
+    reference
+      "RFC 9314: YANG Data Model for Bidirectional Forwarding
+       Detection (BFD)";
+  }
+
+  organization
+    "IETF Link State Routing (lsr) Working Group";
+
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/lsr/>
+     WG List:  <mailto:lsr@ietf.org>
+
+     Editor:   Derek Yeung
+               <mailto:derek@arrcus.com>
+     Author:   Acee Lindem
+               <mailto:acee@cisco.com>
+     Author:   Yingzhen Qu
+               <mailto:yingzhen.qu@futurewei.com>
+     Author:   Jeffrey Zhang
+               <mailto:zzhang@juniper.net>
+     Author:   Ing-Wher Chen
+               <mailto:ingwherchen@mitre.org>";
+
+  description
+    "This YANG module defines the generic configuration and
+     operational state for the OSPF protocol common to all
+     vendor implementations.  It is intended that the module
+     will be extended by vendors to define vendor-specific
+     OSPF configuration parameters and policies --
+     for example, route maps or route policies.
+
+     This YANG data model conforms to the Network Management
+     Datastore Architecture (NMDA) as described in RFC 8342.
+
+     The key words 'MUST', 'MUST NOT', 'REQUIRED', 'SHALL', 'SHALL
+     NOT', 'SHOULD', 'SHOULD NOT', 'RECOMMENDED', 'NOT RECOMMENDED',
+     'MAY', and 'OPTIONAL' in this document are to be interpreted as
+     described in BCP 14 (RFC 2119) (RFC 8174) when, and only when,
+     they appear in all capitals, as shown here.
+
+     Copyright (c) 2022 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject to
+     the license terms contained in, the Revised BSD License set
+     forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 9129; see the
+     RFC itself for full legal notices.";
+
+  revision 2022-10-19 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 9129: YANG Data Model for the OSPF Protocol";
+  }
+
+  feature multi-topology {
+    description
+      "Support for Multi-Topology (MT) routing.";
+    reference
+      "RFC 4915: Multi-Topology (MT) Routing in OSPF";
+  }
+
+  feature multi-area-adj {
+    description
+      "Support for OSPF multi-area adjacencies as described in
+       RFC 5185.";
+    reference
+      "RFC 5185: OSPF Multi-Area Adjacency";
+  }
+
+  feature explicit-router-id {
+    description
+      "Sets the Router ID per instance explicitly.";
+  }
+
+  feature demand-circuit {
+    description
+      "Support for OSPF demand circuits as defined in RFC 1793.";
+    reference
+      "RFC 1793: Extending OSPF to Support Demand Circuits";
+  }
+
+  feature mtu-ignore {
+    description
+      "Disable OSPF Database Description packet MTU
+       mismatch checking as specified in the OSPFv2
+       protocol specification (RFC 2328).  This mismatch checking
+       also applies to OSPFv3 (RFC 5340).";
+    reference
+      "RFC 2328: OSPF Version 2, Section 10.6
+       RFC 5340: OSPF for IPv6";
+  }
+
+  feature lls {
+    description
+      "OSPF link-local signaling (LLS) as defined in RFC 5613.";
+    reference
+      "RFC 5613: OSPF Link-Local Signaling";
+  }
+
+  feature prefix-suppression {
+    description
+      "OSPF prefix suppression support as described in RFC 6860.";
+    reference
+      "RFC 6860: Hiding Transit-Only Networks in OSPF";
+  }
+
+  feature ttl-security {
+    description
+      "Support for OSPF Time to Live (TTL) security checking.";
+    reference
+      "RFC 5082: The Generalized TTL Security Mechanism (GTSM)";
+  }
+
+  feature nsr {
+    description
+      "Non-Stop-Routing (NSR) support.  The OSPF NSR feature
+       allows a router with redundant control-plane capability
+       (e.g., dual Route Processor (RP) cards) to maintain its
+       state and adjacencies during planned and unplanned
+       OSPF instance restarts.  It differs from graceful restart
+       or Non-Stop Forwarding (NSF) in that no protocol signaling
+       or assistance from adjacent OSPF neighbors is required to
+       recover control-plane state.";
+  }
+
+  feature graceful-restart {
+    description
+      "Graceful OSPF restart as defined in RFCs 3623 and 5187.";
+    reference
+      "RFC 3623: Graceful OSPF Restart
+       RFC 5187: OSPFv3 Graceful Restart";
+  }
+
+  feature auto-cost {
+    description
+      "Calculates the OSPF interface cost according to
+       reference bandwidth.";
+    reference
+      "RFC 2328: OSPF Version 2";
+  }
+
+  feature max-ecmp {
+    description
+      "Sets the maximum number of ECMP paths.";
+  }
+
+  feature max-lsa {
+    description
+      "Sets the maximum number of Link State Advertisements (LSAs)
+       the OSPF instance will accept.";
+    reference
+      "RFC 1765: OSPF Database Overflow";
+  }
+
+  feature te-rid {
+    description
+      "Support for configuration of the Traffic Engineering (TE)
+       Router ID, i.e., the Router Address TLV as described in
+       Section 2.4.1 of RFC 3630 or the Router IPv6 Address TLV
+       as described in Section 3 of RFC 5329.";
+    reference
+      "RFC 3630: Traffic Engineering (TE) Extensions to
+       OSPF Version 2, Section 2.4.1
+       RFC 5329: Traffic Engineering Extensions to OSPF Version 3,
+       Section 3";
+  }
+
+  feature ldp-igp-sync {
+    description
+      "LDP IGP synchronization.";
+    reference
+      "RFC 5443: LDP IGP Synchronization";
+  }
+
+  feature ospfv2-authentication-trailer {
+    description
+      "Support for the OSPFv2 authentication trailer.";
+    reference
+      "RFC 5709: OSPFv2 HMAC-SHA Cryptographic Authentication
+       RFC 7474: Security Extension for OSPFv2 When
+       Using Manual Key Management";
+  }
+
+  feature ospfv3-authentication-ipsec {
+    description
+      "Support for IPsec for OSPFv3 authentication.";
+    reference
+      "RFC 4552: Authentication/Confidentiality for OSPFv3";
+  }
+
+  feature ospfv3-authentication-trailer {
+    description
+      "Support for the OSPFv3 authentication trailer.";
+    reference
+      "RFC 7166: Supporting Authentication Trailer for OSPFv3";
+  }
+
+  feature fast-reroute {
+    description
+      "Support for IP Fast Reroute (IP-FRR).";
+    reference
+      "RFC 5714: IP Fast Reroute Framework";
+  }
+
+  feature key-chain {
+    description
+      "Support of key chains for authentication.";
+    reference
+      "RFC 8177: YANG Data Model for Key Chains";
+  }
+
+  feature node-flag {
+    description
+      "Support for node flags for OSPF prefixes.";
+    reference
+      "RFC 7684: OSPFv2 Prefix/Link Attribute Advertisement";
+  }
+
+  feature node-tag {
+    description
+      "Support for node administrative tags for OSPF routing
+       instances.";
+    reference
+      "RFC 7777: Advertising Node Administrative Tags in OSPF";
+  }
+
+  feature lfa {
+    description
+      "Support for Loop-Free Alternates (LFAs).";
+    reference
+      "RFC 5286: Basic Specification for IP Fast Reroute:
+       Loop-Free Alternates";
+  }
+
+  feature remote-lfa {
+    description
+      "Support for Remote LFAs (R-LFAs).";
+    reference
+      "RFC 7490: Remote Loop-Free Alternate (LFA) Fast Reroute
+       (FRR)";
+  }
+
+  feature stub-router {
+    description
+      "Support for OSPF stub router advertisement as defined in
+       RFC 6987.";
+    reference
+      "RFC 6987: OSPF Stub Router Advertisement";
+  }
+
+  feature pe-ce-protocol {
+    description
+      "Support for OSPF as a Provider Edge to Customer Edge (PE-CE)
+       protocol.";
+    reference
+      "RFC 4577: OSPF as the Provider/Customer Edge Protocol
+       for BGP/MPLS IP Virtual Private Networks (VPNs)
+       RFC 6565: OSPFv3 as a Provider Edge to Customer Edge (PE-CE)
+       Routing Protocol";
+  }
+
+  feature ietf-spf-delay {
+    description
+      "Support for the IETF Shortest Path First (SPF) delay
+       algorithm.";
+    reference
+      "RFC 8405: Shortest Path First (SPF) Back-Off Delay Algorithm
+       for Link-State IGPs";
+  }
+
+  feature bfd {
+    description
+      "Support for BFD to detect OSPF neighbor reachability.";
+    reference
+      "RFC 5880: Bidirectional Forwarding Detection (BFD)
+       RFC 5881: Bidirectional Forwarding Detection
+       (BFD) for IPv4 and IPv6 (Single Hop)";
+  }
+
+  feature hybrid-interface {
+    description
+      "Support for the OSPF hybrid interface type.";
+    reference
+      "RFC 6845: OSPF Hybrid Broadcast and
+       Point-to-Multipoint Interface Type";
+  }
+
+  identity ospf {
+    base rt:routing-protocol;
+    description
+      "Any OSPF protocol version.";
+  }
+
+  identity ospfv2 {
+    base ospf;
+    description
+      "OSPFv2 protocol.";
+  }
+
+  identity ospfv3 {
+    base ospf;
+    description
+      "OSPFv3 protocol.";
+  }
+
+  identity area-type {
+    description
+      "Base identity for an OSPF area type.";
+  }
+
+  identity normal-area {
+    base area-type;
+    description
+      "OSPF normal area.";
+  }
+
+  identity stub-nssa-area {
+    base area-type;
+    description
+      "OSPF stub area or Not-So-Stubby Area (NSSA).";
+  }
+
+  identity stub-area {
+    base stub-nssa-area;
+    description
+      "OSPF stub area.";
+  }
+
+  identity nssa-area {
+    base stub-nssa-area;
+    description
+      "OSPF NSSA.";
+    reference
+      "RFC 3101: The OSPF Not-So-Stubby Area (NSSA) Option";
+  }
+
+  identity ospf-lsa-type {
+    description
+      "Base identity for OSPFv2 and OSPFv3
+       Link State Advertisement (LSA) types.";
+  }
+
+  identity ospfv2-lsa-type {
+    base ospf-lsa-type;
+    description
+      "OSPFv2 LSA types.";
+  }
+
+  identity ospfv2-router-lsa {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Router-LSA - Type 1.";
+  }
+
+  identity ospfv2-network-lsa {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Network-LSA - Type 2.";
+  }
+
+  identity ospfv2-summary-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 summary LSA types.";
+  }
+
+  identity ospfv2-network-summary-lsa {
+    base ospfv2-summary-lsa-type;
+    description
+      "OSPFv2 Network summary LSA - Type 3.";
+  }
+
+  identity ospfv2-asbr-summary-lsa {
+    base ospfv2-summary-lsa-type;
+    description
+      "OSPFv2 Autonomous System Boundary Router (ASBR) summary LSA -
+       Type 4.";
+  }
+
+  identity ospfv2-external-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 External-LSA types.";
+  }
+
+  identity ospfv2-as-external-lsa {
+    base ospfv2-external-lsa-type;
+    description
+      "OSPFv2 AS-External-LSA - Type 5.";
+  }
+
+  identity ospfv2-nssa-lsa {
+    base ospfv2-external-lsa-type;
+    description
+      "OSPFv2 NSSA-LSA - Type 7.";
+  }
+
+  identity ospfv2-opaque-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Opaque-LSA types.";
+    reference
+      "RFC 5250: The OSPF Opaque LSA Option";
+  }
+
+  identity ospfv2-link-scope-opaque-lsa {
+    base ospfv2-opaque-lsa-type;
+    description
+      "OSPFv2 Link-Scope Opaque-LSA - Type 9.";
+  }
+
+  identity ospfv2-area-scope-opaque-lsa {
+    base ospfv2-opaque-lsa-type;
+    description
+      "OSPFv2 Area-Scope Opaque-LSA - Type 10.";
+  }
+
+  identity ospfv2-as-scope-opaque-lsa {
+    base ospfv2-opaque-lsa-type;
+    description
+      "OSPFv2 AS-Scope Opaque-LSA - Type 11.";
+  }
+
+  identity ospfv2-unknown-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 unknown LSA type.";
+  }
+
+  identity ospfv3-lsa-type {
+    base ospf-lsa-type;
+    description
+      "OSPFv3 LSA types.";
+    reference
+      "RFC 5340: OSPF for IPv6";
+  }
+
+  identity ospfv3-router-lsa {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 Router-LSA - Type 0x2001.";
+  }
+
+  identity ospfv3-network-lsa {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 Network-LSA - Type 0x2002.";
+  }
+
+  identity ospfv3-summary-lsa-type {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 summary LSA types.";
+  }
+
+  identity ospfv3-inter-area-prefix-lsa {
+    base ospfv3-summary-lsa-type;
+    description
+      "OSPFv3 Inter-Area-Prefix-LSA - Type 0x2003.";
+  }
+
+  identity ospfv3-inter-area-router-lsa {
+    base ospfv3-summary-lsa-type;
+    description
+      "OSPFv3 Inter-Area-Router-LSA - Type 0x2004.";
+  }
+
+  identity ospfv3-external-lsa-type {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 External-LSA types.";
+  }
+
+  identity ospfv3-as-external-lsa {
+    base ospfv3-external-lsa-type;
+    description
+      "OSPFv3 AS-External-LSA - Type 0x4005.";
+  }
+
+  identity ospfv3-nssa-lsa {
+    base ospfv3-external-lsa-type;
+    description
+      "OSPFv3 NSSA-LSA - Type 0x2007.";
+  }
+
+  identity ospfv3-link-lsa {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 Link-LSA - Type 0x0008.";
+  }
+
+  identity ospfv3-intra-area-prefix-lsa {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 Intra-Area-Prefix-LSA - Type 0x2009.";
+  }
+
+  identity ospfv3-router-information-lsa {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 Router-Information-LSA - Types 0x800C,
+       0xA00C, and 0xC00C.";
+  }
+
+  identity ospfv3-unknown-lsa-type {
+    base ospfv3-lsa-type;
+    description
+      "OSPFv3 unknown LSA type.";
+  }
+
+  identity lsa-log-reason {
+    description
+      "Base identity for an LSA log reason.";
+  }
+
+  identity lsa-refresh {
+    base lsa-log-reason;
+    description
+      "Identity used when an LSA is logged
+       as a result of receiving a refresh LSA.";
+  }
+
+  identity lsa-content-change {
+    base lsa-log-reason;
+    description
+      "Identity used when an LSA is logged
+       as a result of a change in the contents
+       of the LSA.";
+  }
+
+  identity lsa-purge {
+    base lsa-log-reason;
+    description
+      "Identity used when an LSA is logged
+       as a result of being purged.";
+  }
+
+  identity informational-capability {
+    description
+      "Base identity for router informational capabilities.";
+  }
+
+  identity graceful-restart {
+    base informational-capability;
+    description
+      "When set, the router is capable of restarting
+       gracefully.";
+    reference
+      "RFC 3623: Graceful OSPF Restart
+       RFC 5187: OSPFv3 Graceful Restart";
+  }
+
+  identity graceful-restart-helper {
+    base informational-capability;
+    description
+      "When set, the router is capable of acting as
+       a graceful restart helper.";
+    reference
+      "RFC 3623: Graceful OSPF Restart
+       RFC 5187: OSPFv3 Graceful Restart";
+  }
+
+  identity stub-router {
+    base informational-capability;
+    description
+      "When set, the router is capable of acting as
+       an OSPF stub router.";
+    reference
+      "RFC 6987: OSPF Stub Router Advertisement";
+  }
+
+  identity traffic-engineering {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF TE.";
+    reference
+      "RFC 3630: Traffic Engineering (TE) Extensions to
+       OSPF Version 2
+       RFC 5329: Traffic Engineering Extensions to OSPF Version 3";
+  }
+
+  identity p2p-over-lan {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF point-to-point
+       over a LAN.";
+    reference
+      "RFC 5309: Point-to-Point Operation over LAN in Link State
+       Routing Protocols";
+  }
+
+  identity experimental-te {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF experimental TE.";
+    reference
+      "RFC 4973: OSPF-xTE: Experimental Extension to OSPF for
+       Traffic Engineering";
+  }
+
+  identity router-lsa-bit {
+    description
+      "Base identity for Router-LSA bits.";
+  }
+
+  identity vlink-end-bit {
+    base router-lsa-bit;
+    description
+      "V-bit.  When set, the router is an endpoint of one or
+       more virtual links.";
+  }
+
+  identity asbr-bit {
+    base router-lsa-bit;
+    description
+      "E-bit.  When set, the router is an Autonomous System
+       Boundary Router (ASBR).";
+  }
+
+  identity abr-bit {
+    base router-lsa-bit;
+    description
+      "B-bit.  When set, the router is an Area Border
+       Router (ABR).";
+  }
+
+  identity nssa-bit {
+    base router-lsa-bit;
+    description
+      "Nt-bit.  When set, the router is an NSSA border router
+       that is unconditionally translating NSSA-LSAs into
+       AS-External-LSAs.";
+  }
+
+  identity ospfv3-lsa-option {
+    description
+      "Base identity for OSPF LSA Options.";
+  }
+
+  identity af-bit {
+    base ospfv3-lsa-option;
+    description
+      "AF-bit.  When set, the router supports OSPFv3 Address
+       Families (AFs) as described in RFC 5838.";
+    reference
+      "RFC 5838: Support of Address Families in OSPFv3";
+  }
+
+  identity dc-bit {
+    base ospfv3-lsa-option;
+    description
+      "DC-bit.  When set, the router supports demand circuits.";
+  }
+
+  identity r-bit {
+    base ospfv3-lsa-option;
+    description
+      "R-bit.  When set, the originator is an active router.";
+  }
+
+  identity n-bit {
+    base ospfv3-lsa-option;
+    description
+      "N-bit.  When set, the router is attached to an NSSA.";
+  }
+
+  identity e-bit {
+    base ospfv3-lsa-option;
+    description
+      "E-bit.  This bit describes the way AS-External-LSAs
+       are flooded.";
+  }
+
+  identity v6-bit {
+    base ospfv3-lsa-option;
+    description
+      "V6-bit.  If clear, the router/link should be excluded
+       from IPv6 routing calculations.";
+  }
+
+  identity ospfv3-prefix-option {
+    description
+      "Base identity for OSPFv3 prefix options.";
+  }
+
+  identity nu-bit {
+    base ospfv3-prefix-option;
+    description
+      "NU-bit.  When set, the prefix should be excluded
+       from IPv6 unicast calculations.";
+  }
+
+  identity la-bit {
+    base ospfv3-prefix-option;
+    description
+      "LA-bit.  When set, the prefix is actually an IPv6
+       interface address of the advertising router.";
+  }
+
+  identity p-bit {
+    base ospfv3-prefix-option;
+    description
+      "P-bit.  When set, the NSSA prefix should be
+       translated to an AS-External-LSA and advertised
+       by the translating NSSA border router.";
+  }
+
+  identity dn-bit {
+    base ospfv3-prefix-option;
+    description
+      "DN-bit.  When set, the Inter-Area-Prefix-LSA or
+       AS-External-LSA prefix has been advertised as an
+       L3VPN prefix.";
+  }
+
+  identity ospfv2-lsa-option {
+    description
+      "Base identity for OSPFv2 LSA Options.";
+  }
+
+  identity mt-bit {
+    base ospfv2-lsa-option;
+    description
+      "MT-bit.  When set, the router supports multi-topology as
+       described in RFC 4915.";
+    reference
+      "RFC 4915: Multi-Topology (MT) Routing in OSPF";
+  }
+
+  identity v2-dc-bit {
+    base ospfv2-lsa-option;
+    description
+      "DC-bit.  When set, the router supports demand circuits.";
+  }
+
+  identity v2-p-bit {
+    base ospfv2-lsa-option;
+    description
+      "P-bit.  Only used in type-7 LSAs.  When set, an NSSA
+       border router should translate the type-7 LSA
+       to a type-5 LSA.";
+  }
+
+  identity mc-bit {
+    base ospfv2-lsa-option;
+    description
+      "MC-bit.  When set, the router supports
+       Multicast Extensions to OSPF (MOSPF).";
+  }
+
+  identity v2-e-bit {
+    base ospfv2-lsa-option;
+    description
+      "E-bit.  This bit describes the way AS-External-LSAs
+       are flooded.";
+  }
+
+  identity o-bit {
+    base ospfv2-lsa-option;
+    description
+      "O-bit.  When set, the router is opaque capable as described
+       in RFC 5250.";
+    reference
+      "RFC 5250: The OSPF Opaque LSA Option";
+  }
+
+  identity v2-dn-bit {
+    base ospfv2-lsa-option;
+    description
+      "DN-bit.  When a type 3, type 5, or type 7 LSA is sent from a
+       PE to a CE, the DN-bit must be set.  See RFC 4576.";
+    reference
+      "RFC 4576: Using a Link State Advertisement (LSA) Options Bit
+       to Prevent Looping in BGP/MPLS IP Virtual Private Networks
+       (VPNs)";
+  }
+
+  identity ospfv2-extended-prefix-flag {
+    description
+      "Base identity for the Extended Prefix TLV flag.";
+  }
+
+  identity a-flag {
+    base ospfv2-extended-prefix-flag;
+    description
+      "Attach flag.  When set, it indicates that the prefix
+       corresponds to a route that is directly connected to
+       the advertising router.";
+  }
+
+  identity node-flag {
+    base ospfv2-extended-prefix-flag;
+    description
+      "Node flag.  When set, it indicates that the prefix is
+       used to represent the advertising node, e.g., a loopback
+       address.";
+  }
+
+  typedef ospf-metric {
+    type uint32 {
+      range "0 .. 16777215";
+    }
+    description
+      "OSPF metric.  24-bit unsigned integer.";
+  }
+
+  typedef ospf-link-metric {
+    type uint16 {
+      range "0 .. 65535";
+    }
+    description
+      "OSPF link metric.  16-bit unsigned integer.";
+  }
+
+  typedef opaque-id {
+    type uint32 {
+      range "0 .. 16777215";
+    }
+    description
+      "Opaque-LSA ID.  24-bit unsigned integer.";
+  }
+
+  typedef area-id-type {
+    type yang:dotted-quad;
+    description
+      "Area ID type.";
+  }
+
+  typedef route-type {
+    type enumeration {
+      enum intra-area {
+        description
+          "OSPF intra-area route.";
+      }
+      enum inter-area {
+        description
+          "OSPF inter-area route.";
+      }
+      enum external-1 {
+        description
+          "OSPF type 1 external route.";
+      }
+      enum external-2 {
+        description
+          "OSPF type 2 external route.";
+      }
+      enum nssa-1 {
+        description
+          "OSPF type 1 NSSA route.";
+      }
+      enum nssa-2 {
+        description
+          "OSPF type 2 NSSA route.";
+      }
+    }
+    description
+      "OSPF route type.";
+  }
+
+  typedef if-state-type {
+    type enumeration {
+      enum down {
+        value 1;
+        description
+          "Interface is in the 'Down' state.";
+      }
+      enum loopback {
+        value 2;
+        description
+          "Interface is in the 'Loopback' state.";
+      }
+      enum waiting {
+        value 3;
+        description
+          "Interface is in the 'Waiting' state.";
+      }
+      enum point-to-point {
+        value 4;
+        description
+          "Interface is in the 'Point-to-point' state.";
+      }
+      enum dr {
+        value 5;
+        description
+          "Interface is in the 'DR' (Designated Router) state.";
+      }
+      enum bdr {
+        value 6;
+        description
+          "Interface is in the 'Backup' (Backup Designated Router
+           (BDR)) state.";
+      }
+      enum dr-other {
+        value 7;
+        description
+          "Interface is in the 'DR Other' state.";
+      }
+    }
+    description
+      "OSPF interface state type.";
+    reference
+      "RFC 2328: OSPF Version 2";
+  }
+
+  typedef router-link-type {
+    type enumeration {
+      enum point-to-point-link {
+        value 1;
+        description
+          "Point-to-point link to another router.";
+      }
+      enum transit-network-link {
+        value 2;
+        description
+          "Link to a transit network, identified by the DR.";
+      }
+      enum stub-network-link {
+        value 3;
+        description
+          "Link to a stub network, identified by the subnet.";
+      }
+      enum virtual-link {
+        value 4;
+        description
+          "Virtual link across a transit area.";
+      }
+    }
+    description
+      "OSPF router link type.";
+  }
+
+  typedef nbr-state-type {
+    type enumeration {
+      enum down {
+        value 1;
+        description
+          "Neighbor is in the 'Down' state.";
+      }
+      enum attempt {
+        value 2;
+        description
+          "Neighbor is in the 'Attempt' state.";
+      }
+      enum init {
+        value 3;
+        description
+          "Neighbor is in the 'Init' state.";
+      }
+      enum 2-way {
+        value 4;
+        description
+          "Neighbor is in the '2-Way' state.";
+      }
+      enum exstart {
+        value 5;
+        description
+          "Neighbor is in the 'ExStart' (exchange start) state.";
+      }
+      enum exchange {
+        value 6;
+        description
+          "Neighbor is in the 'Exchange' state.";
+      }
+      enum loading {
+        value 7;
+        description
+          "Neighbor is in the 'Loading' state.";
+      }
+      enum full {
+        value 8;
+        description
+          "Neighbor is in the 'Full' state.";
+      }
+    }
+    description
+      "OSPF neighbor state type.";
+    reference
+      "RFC 2328: OSPF Version 2";
+  }
+
+  typedef restart-helper-status-type {
+    type enumeration {
+      enum not-helping {
+        value 1;
+        description
+          "Restart helper status of 'not-helping'.";
+      }
+      enum helping {
+        value 2;
+        description
+          "Restart helper status of 'helping'.";
+      }
+    }
+    description
+      "Restart helper status type.";
+  }
+
+  typedef restart-exit-reason-type {
+    type enumeration {
+      enum none {
+        value 1;
+        description
+          "Restart not attempted.";
+      }
+      enum in-progress {
+        value 2;
+        description
+          "Restart in progress.";
+      }
+      enum completed {
+        value 3;
+        description
+          "Restart successfully completed.";
+      }
+      enum timed-out {
+        value 4;
+        description
+          "Restart timed out.";
+      }
+      enum topology-changed {
+        value 5;
+        description
+          "Restart aborted due to a topology change.";
+      }
+    }
+    description
+      "Describes the outcome of the last graceful restart attempt.
+       The local router is being restarted or acting as a helper.";
+  }
+
+  typedef packet-type {
+    type enumeration {
+      enum hello {
+        value 1;
+        description
+          "OSPF Hello packet.";
+      }
+      enum database-description {
+        value 2;
+        description
+          "OSPF Database Description packet.";
+      }
+      enum link-state-request {
+        value 3;
+        description
+          "OSPF Link State Request packet.";
+      }
+      enum link-state-update {
+        value 4;
+        description
+          "OSPF Link State Update packet.";
+      }
+      enum link-state-ack {
+        value 5;
+        description
+          "OSPF Link State Acknowledgment packet.";
+      }
+    }
+    description
+      "OSPF packet type.";
+  }
+
+  typedef nssa-translator-state-type {
+    type enumeration {
+      enum enabled {
+        value 1;
+        description
+          "NSSATranslatorState is 'enabled'.";
+      }
+      enum elected {
+        value 2;
+        description
+          "NSSATranslatorState is 'elected'.";
+      }
+      enum disabled {
+        value 3;
+        description
+          "NSSATranslatorState is 'disabled'.";
+      }
+    }
+    description
+      "OSPF NSSA translator state type.";
+    reference
+      "RFC 3101: The OSPF Not-So-Stubby Area (NSSA) Option";
+  }
+
+  typedef restart-status-type {
+    type enumeration {
+      enum not-restarting {
+        value 1;
+        description
+          "The router is not restarting.";
+      }
+      enum planned-restart {
+        value 2;
+        description
+          "The router is going through a planned restart.";
+      }
+      enum unplanned-restart {
+        value 3;
+        description
+          "The router is going through an unplanned restart.";
+      }
+    }
+    description
+      "OSPF graceful restart status type.";
+  }
+
+  typedef fletcher-checksum16-type {
+    type string {
+      pattern '(0x)?[0-9a-fA-F]{4}';
+    }
+    description
+      "Fletcher 16-bit checksum in hex-string format 0xXXXX.";
+    reference
+      "RFC 905: ISO Transport Protocol Specification ISO DP 8073";
+  }
+
+  typedef ospfv2-auth-trailer-rfc-version {
+    type enumeration {
+      enum rfc5709 {
+        description
+          "Support for the OSPF authentication trailer as
+           described in RFC 5709.";
+        reference
+          "RFC 5709: OSPFv2 HMAC-SHA Cryptographic Authentication";
+      }
+      enum rfc7474 {
+        description
+          "Support for the OSPF authentication trailer as
+           described in RFC 7474.";
+        reference
+          "RFC 7474: Security Extension for OSPFv2
+           When Using Manual Key Management";
+      }
+    }
+    description
+      "OSPFv2 authentication trailer support.";
+  }
+
+  grouping tlv {
+    description
+      "Type-Length-Value (TLV).";
+    leaf type {
+      type uint16;
+      description
+        "TLV type.";
+    }
+    leaf length {
+      type uint16;
+      description
+        "TLV length (octets).";
+    }
+    leaf value {
+      type yang:hex-string;
+      description
+        "TLV value.";
+    }
+  }
+
+  grouping unknown-tlvs {
+    description
+      "Grouping used for unknown TLVs or unknown sub-TLVs.";
+    container unknown-tlvs {
+      description
+        "All unknown TLVs.";
+      list unknown-tlv {
+        description
+          "Unknown TLV.";
+        uses tlv;
+      }
+    }
+  }
+
+  grouping node-tag-tlv {
+    description
+      "OSPF Node Admin Tag TLV grouping.";
+    list node-tag {
+      leaf tag {
+        type uint32;
+        description
+          "Value of the node administrative tag.";
+      }
+      description
+        "List of tags.";
+    }
+  }
+
+  grouping router-capabilities-tlv {
+    description
+      "Grouping for OSPF router capabilities TLV types.";
+    reference
+      "RFC 7770: Extensions to OSPF for Advertising Optional
+       Router Capabilities";
+    container router-informational-capabilities {
+      leaf-list informational-capabilities {
+        type identityref {
+          base informational-capability;
+        }
+        description
+          "List of informational capabilities.  This list will
+           contain the identities for the informational
+           capabilities supported by the router.";
+      }
+      description
+        "OSPF Router Informational Flag definitions.";
+    }
+    list informational-capabilities-flags {
+      leaf informational-flag {
+        type uint32;
+        description
+          "Individual informational capability flag.";
+      }
+      description
+        "List of informational capability flags.  This will
+         return all the 32-bit informational flags, irrespective
+         of whether or not they are known to the device.";
+    }
+    list functional-capabilities {
+      leaf functional-flag {
+        type uint32;
+        description
+          "Individual functional capability flag.";
+      }
+      description
+        "List of functional capability flags.  This will
+         return all the 32-bit functional flags, irrespective
+         of whether or not they are known to the device.";
+    }
+  }
+
+  grouping dynamic-hostname-tlv {
+    description
+      "Dynamic Hostname TLV.";
+    reference
+      "RFC 5642: Dynamic Hostname Exchange Mechanism for OSPF";
+    leaf hostname {
+      type string {
+        length "1..255";
+      }
+      description
+        "Dynamic hostname.";
+    }
+  }
+
+  grouping sbfd-discriminator-tlv {
+    description
+      "S-BFD Discriminator TLV.";
+    reference
+      "RFC 7884: OSPF Extensions to Advertise Seamless Bidirectional
+       Forwarding Detection (S-BFD) Target Discriminators";
+    list sbfd-discriminators {
+      leaf sbfd-discriminator {
+        type uint32;
+        description
+          "Individual S-BFD Discriminator.";
+      }
+      description
+        "List of S-BFD Discriminators.";
+    }
+  }
+
+  grouping maximum-sid-depth-tlv {
+    description
+      "Node MSD TLV (TLV for Maximum SID Depth).";
+    reference
+      "RFC 8476: Signaling Maximum SID Depth (MSD) Using OSPF";
+    list msd-type {
+      leaf msd-type {
+        type uint8;
+        description
+          "Maximum SID Depth (MSD) type.";
+      }
+      leaf msd-value {
+        type uint8;
+        description
+          "MSD value for the type.";
+      }
+      description
+        "List of MSD tuples.";
+    }
+  }
+
+  grouping ospf-router-lsa-bits {
+    container router-bits {
+      leaf-list rtr-lsa-bits {
+        type identityref {
+          base router-lsa-bit;
+        }
+        description
+          "List of Router-LSA bits.  This list will contain
+           identities for the bits; these identities are set
+           in the Router-LSA bits.";
+      }
+      description
+        "Router-LSA bits.";
+    }
+    description
+      "Router-LSA bits.  Currently common to both OSPFv2 and
+       OSPFv3 but may diverge with future augmentations.";
+  }
+
+  grouping ospfv2-router-link {
+    description
+      "OSPFv2 router link.";
+    leaf link-id {
+      type union {
+        type inet:ipv4-address;
+        type yang:dotted-quad;
+      }
+      description
+        "Router-LSA Link ID.";
+    }
+    leaf link-data {
+      type union {
+        type inet:ipv4-address;
+        type uint32;
+      }
+      description
+        "Router-LSA link data.";
+    }
+    leaf type {
+      type router-link-type;
+      description
+        "Router-LSA link type.";
+    }
+  }
+
+  grouping ospfv2-lsa-body {
+    description
+      "OSPFv2 LSA body.";
+    container router {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv2-router-lsa')" {
+        description
+          "Only applies to Router-LSAs.";
+      }
+      description
+        "Router-LSA.";
+      uses ospf-router-lsa-bits;
+      leaf num-of-links {
+        type uint16;
+        description
+          "Number of links in the Router-LSA.";
+      }
+      container links {
+        description
+          "All router links.";
+        list link {
+          description
+            "Router-LSA link.";
+          uses ospfv2-router-link;
+          container topologies {
+            description
+              "All topologies for the link.";
+            list topology {
+              description
+                "Topology-specific information.";
+              leaf mt-id {
+                type uint8;
+                description
+                  "The MT-ID for the topology enabled on the link.";
+              }
+              leaf metric {
+                type uint16;
+                description
+                  "Metric for the topology.";
+              }
+            }
+          }
+        }
+      }
+    }
+    container network {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv2-network-lsa')" {
+        description
+          "Only applies to Network-LSAs.";
+      }
+      description
+        "Network-LSA.";
+      leaf network-mask {
+        type yang:dotted-quad;
+        description
+          "The IP address mask for the network.";
+      }
+      container attached-routers {
+        description
+          "All attached routers.";
+        leaf-list attached-router {
+          type inet:ipv4-address;
+          description
+            "List of the routers attached to the network.";
+        }
+      }
+    }
+    container summary {
+      when "derived-from(../../header/type, "
+         + "'ospfv2-summary-lsa-type')" {
+        description
+          "Only applies to summary LSAs.";
+      }
+      description
+        "Summary LSA.";
+      leaf network-mask {
+        type inet:ipv4-address;
+        description
+          "The IP address mask for the network.";
+      }
+      container topologies {
+        description
+          "All topologies for the summary LSA.";
+        list topology {
+          description
+            "Topology-specific information.";
+          leaf mt-id {
+            type uint8;
+            description
+              "The MT-ID for the topology enabled for the summary.";
+          }
+          leaf metric {
+            type ospf-metric;
+            description
+              "Metric for the topology.";
+          }
+        }
+      }
+    }
+    container external {
+      when "derived-from(../../header/type, "
+         + "'ospfv2-external-lsa-type')" {
+        description
+          "Only applies to AS-External-LSAs and NSSA-LSAs.";
+      }
+      description
+        "External-LSA.";
+      leaf network-mask {
+        type inet:ipv4-address;
+        description
+          "The IP address mask for the network.";
+      }
+      container topologies {
+        description
+          "All topologies for the External-LSA.";
+        list topology {
+          description
+            "Topology-specific information.";
+          leaf mt-id {
+            type uint8;
+            description
+              "The MT-ID for the topology enabled for the
+               external or NSSA prefix.";
+          }
+          leaf flags {
+            type bits {
+              bit E {
+                description
+                  "When set, the metric specified is a Type 2
+                   external metric.";
+              }
+            }
+            description
+              "Topology flags.";
+          }
+          leaf metric {
+            type ospf-metric;
+            description
+              "Metric for the topology.";
+          }
+          leaf forwarding-address {
+            type inet:ipv4-address;
+            description
+              "IPv4 Forwarding address.";
+          }
+          leaf external-route-tag {
+            type uint32;
+            description
+              "Route tag for the topology.";
+          }
+        }
+      }
+    }
+    container opaque {
+      when "derived-from(../../header/type, "
+         + "'ospfv2-opaque-lsa-type')" {
+        description
+          "Only applies to Opaque-LSAs.";
+      }
+      description
+        "Opaque-LSA.";
+
+      container ri-opaque {
+        description
+          "OSPF Router-Information-Opaque-LSA.";
+        reference
+          "RFC 7770: Extensions to OSPF for Advertising Optional
+           Router Capabilities";
+
+        container router-capabilities-tlv {
+          description
+            "Informational and functional router capabilities.";
+          uses router-capabilities-tlv;
+        }
+
+        container node-tag-tlvs {
+          description
+            "All Node Admin Tag TLVs.";
+          list node-tag-tlv {
+            description
+              "Node Admin Tag TLV.";
+            uses node-tag-tlv;
+          }
+        }
+
+        container dynamic-hostname-tlv {
+          description
+            "OSPF Dynamic Hostname TLV.";
+          uses dynamic-hostname-tlv;
+        }
+
+        container sbfd-discriminator-tlv {
+          description
+            "OSPF S-BFD Discriminator TLV.";
+          uses sbfd-discriminator-tlv;
+        }
+
+        container maximum-sid-depth-tlv {
+          description
+            "OSPF Node MSD TLV.";
+          uses maximum-sid-depth-tlv;
+        }
+        uses unknown-tlvs;
+      }
+
+      container te-opaque {
+        description
+          "OSPFv2 TE Opaque-LSA.";
+        reference
+          "RFC 3630: Traffic Engineering (TE) Extensions to
+           OSPF Version 2";
+
+        container router-address-tlv {
+          description
+            "Router address TLV.";
+          leaf router-address {
+            type inet:ipv4-address;
+            description
+              "Router address.";
+          }
+        }
+
+        container link-tlv {
+          description
+            "Describes a single link.  It is constructed
+             from a set of sub-TLVs.";
+          leaf link-type {
+            type router-link-type;
+            mandatory true;
+            description
+              "Link type.";
+          }
+          leaf link-id {
+            type union {
+              type inet:ipv4-address;
+              type yang:dotted-quad;
+            }
+            mandatory true;
+            description
+              "Link ID.";
+          }
+          container local-if-ipv4-addrs {
+            description
+              "All local interface IPv4 addresses.";
+            leaf-list local-if-ipv4-addr {
+              type inet:ipv4-address;
+              description
+                "List of local interface IPv4 addresses.";
+            }
+          }
+          container remote-if-ipv4-addrs {
+            description
+              "All remote interface IPv4 addresses.";
+            leaf-list remote-if-ipv4-addr {
+              type inet:ipv4-address;
+              description
+                "List of remote interface IPv4 addresses.";
+            }
+          }
+          leaf te-metric {
+            type uint32;
+            description
+              "TE metric.";
+          }
+          leaf max-bandwidth {
+            type rt-types:bandwidth-ieee-float32;
+            description
+              "Maximum bandwidth.";
+          }
+          leaf max-reservable-bandwidth {
+            type rt-types:bandwidth-ieee-float32;
+            description
+              "Maximum reservable bandwidth.";
+          }
+          container unreserved-bandwidths {
+            description
+              "All unreserved bandwidths.";
+            list unreserved-bandwidth {
+              leaf priority {
+                type uint8 {
+                  range "0 .. 7";
+                }
+                description
+                  "Priority from 0 to 7.";
+              }
+              leaf unreserved-bandwidth {
+                type rt-types:bandwidth-ieee-float32;
+                description
+                  "Unreserved bandwidth.";
+              }
+              description
+                "List of unreserved bandwidths for different
+                 priorities.";
+            }
+          }
+          leaf admin-group {
+            type uint32;
+            description
+              "Administrative Group / Resource Class/Color.";
+          }
+          uses unknown-tlvs;
+        }
+      }
+
+      container extended-prefix-opaque {
+        description
+          "All Extended Prefix TLVs in the LSA.";
+        list extended-prefix-tlv {
+          description
+            "Extended Prefix TLV.";
+          leaf route-type {
+            type enumeration {
+              enum unspecified {
+                value 0;
+                description
+                  "Unspecified.";
+              }
+              enum intra-area {
+                value 1;
+                description
+                  "OSPF intra-area route.";
+              }
+              enum inter-area {
+                value 3;
+                description
+                  "OSPF inter-area route.";
+              }
+              enum external {
+                value 5;
+                description
+                  "OSPF external route.";
+              }
+              enum nssa {
+                value 7;
+                description
+                  "OSPF NSSA external route.";
+              }
+            }
+            description
+              "Route type.";
+          }
+          container flags {
+            leaf-list extended-prefix-flags {
+              type identityref {
+                base ospfv2-extended-prefix-flag;
+              }
+              description
+                "List of Extended Prefix TLV flags.  This list will
+                 contain identities for the prefix flags; these
+                 identities are set in the extended prefix flags.";
+            }
+            description
+              "Prefix flags.";
+          }
+          leaf prefix {
+            type inet:ip-prefix;
+            description
+              "Address prefix.";
+          }
+          uses unknown-tlvs;
+        }
+      }
+
+      container extended-link-opaque {
+        description
+          "All Extended Link TLVs in the LSA.";
+        reference
+          "RFC 7684: OSPFv2 Prefix/Link Attribute Advertisement";
+        container extended-link-tlv {
+          description
+            "Extended Link TLV.";
+          uses ospfv2-router-link;
+          container maximum-sid-depth-tlv {
+            description
+              "OSPF Node MSD TLV.";
+            uses maximum-sid-depth-tlv;
+          }
+          uses unknown-tlvs;
+        }
+      }
+    }
+  }
+
+  grouping ospfv3-lsa-options {
+    description
+      "OSPFv3 LSA Options.";
+    container lsa-options {
+      leaf-list lsa-options {
+        type identityref {
+          base ospfv3-lsa-option;
+        }
+        description
+          "List of OSPFv3 LSA Options.  This list will contain
+           the identities for the OSPFv3 LSA Options that are
+           set for the LSA.";
+      }
+      description
+        "OSPFv3 LSA Options.";
+    }
+  }
+
+  grouping ospfv3-lsa-prefix {
+    description
+      "OSPFv3 LSA prefix.";
+
+    leaf prefix {
+      type inet:ip-prefix;
+      description
+        "LSA prefix.";
+    }
+    container prefix-options {
+      leaf-list prefix-options {
+        type identityref {
+          base ospfv3-prefix-option;
+        }
+        description
+          "List of OSPFv3 prefix Options.  This list will
+           contain the identities for the OSPFv3 options
+           that are set for the OSPFv3 prefix.";
+      }
+      description
+        "Prefix options.";
+    }
+  }
+
+  grouping ospfv3-lsa-external {
+    description
+      "AS-External-LSA or NSSA-LSA.";
+    leaf metric {
+      type ospf-metric;
+      description
+        "AS-External-LSA or NSSA-LSA Metric.";
+    }
+    leaf flags {
+      type bits {
+        bit E {
+          description
+            "When set, the metric specified is a Type 2
+             external metric.";
+        }
+        bit F {
+          description
+            "When set, a forwarding address is included
+             in the LSA.";
+        }
+        bit T {
+          description
+            "When set, an external route tag is included
+             in the LSA.";
+        }
+      }
+      description
+        "AS-External-LSA or NSSA-LSA flags.";
+    }
+
+    leaf referenced-ls-type {
+      type identityref {
+        base ospfv3-lsa-type;
+      }
+      description
+        "Referenced Link State (LS) Type.";
+      reference
+        "RFC 5340: OSPF for IPv6";
+    }
+    leaf unknown-referenced-ls-type {
+      type uint16;
+      description
+        "Value for an unknown Referenced LS Type.";
+    }
+
+    uses ospfv3-lsa-prefix;
+
+    leaf forwarding-address {
+      type inet:ipv6-address;
+      description
+        "IPv6 Forwarding address.";
+    }
+
+    leaf external-route-tag {
+      type uint32;
+      description
+        "Route tag.";
+    }
+    leaf referenced-link-state-id {
+      type uint32;
+      description
+        "Referenced Link State ID.";
+      reference
+        "RFC 5340: OSPF for IPv6";
+    }
+  }
+
+  grouping ospfv3-lsa-body {
+    description
+      "OSPFv3 LSA body.";
+    container router {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-router-lsa')" {
+        description
+          "Only applies to Router-LSAs.";
+      }
+      description
+        "Router-LSA.";
+      uses ospf-router-lsa-bits;
+      uses ospfv3-lsa-options;
+
+      container links {
+        description
+          "All router links.";
+        list link {
+          description
+            "Router-LSA link.";
+          leaf interface-id {
+            type uint32;
+            description
+              "Interface ID for the link.";
+          }
+          leaf neighbor-interface-id {
+            type uint32;
+            description
+              "Neighbor's Interface ID for the link.";
+          }
+          leaf neighbor-router-id {
+            type rt-types:router-id;
+            description
+              "Neighbor's Router ID for the link.";
+          }
+          leaf type {
+            type router-link-type;
+            description
+              "Link type: 1 - Point-to-Point Link
+                          2 - Transit Network Link
+                          3 - Reserved for OSPFv3 Links
+                          4 - Virtual Link.";
+          }
+          leaf metric {
+            type uint16;
+            description
+              "Link metric.";
+          }
+        }
+      }
+    }
+    container network {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-network-lsa')" {
+        description
+          "Only applies to Network-LSAs.";
+      }
+      description
+        "Network-LSA.";
+
+      uses ospfv3-lsa-options;
+
+      container attached-routers {
+        description
+          "All attached routers.";
+        leaf-list attached-router {
+          type rt-types:router-id;
+          description
+            "List of the routers attached to the network.";
+        }
+      }
+    }
+    container inter-area-prefix {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-inter-area-prefix-lsa')" {
+        description
+          "Only applies to Inter-Area-Prefix-LSAs.";
+      }
+      leaf metric {
+        type ospf-metric;
+        description
+          "Inter-Area Prefix metric.";
+      }
+      uses ospfv3-lsa-prefix;
+      description
+        "Prefix-LSA.";
+    }
+    container inter-area-router {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-inter-area-router-lsa')" {
+        description
+          "Only applies to Inter-Area-Router-LSAs.";
+      }
+      uses ospfv3-lsa-options;
+      leaf metric {
+        type ospf-metric;
+        description
+          "Autonomous System Boundary Router (ASBR) metric.";
+      }
+      leaf destination-router-id {
+        type rt-types:router-id;
+        description
+          "The Router ID of the ASBR described by the LSA.";
+      }
+      description
+        "Inter-Area-Router-LSA.";
+    }
+    container as-external {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-as-external-lsa')" {
+        description
+          "Only applies to AS-External-LSAs.";
+      }
+
+      uses ospfv3-lsa-external;
+
+      description
+        "AS-External-LSA.";
+    }
+    container nssa {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-nssa-lsa')" {
+        description
+          "Only applies to NSSA-LSAs.";
+      }
+      uses ospfv3-lsa-external;
+
+      description
+        "NSSA-LSA.";
+    }
+    container link {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-link-lsa')" {
+        description
+          "Only applies to Link-LSAs.";
+      }
+      leaf rtr-priority {
+        type uint8;
+        description
+          "Router priority for DR election.  A router with a
+           higher priority will be preferred in the election.
+           A value of 0 indicates that the router is not eligible
+           to become the DR or BDR.";
+      }
+      uses ospfv3-lsa-options;
+
+      leaf link-local-interface-address {
+        type inet:ipv6-address;
+        description
+          "The originating router's link-local
+           interface address for the link.";
+      }
+
+      leaf num-of-prefixes {
+        type uint32;
+        description
+          "Number of prefixes.";
+      }
+
+      container prefixes {
+        description
+          "All prefixes for the link.";
+        list prefix {
+          description
+            "List of prefixes associated with the link.";
+          uses ospfv3-lsa-prefix;
+        }
+      }
+      description
+        "Link-LSA.";
+    }
+    container intra-area-prefix {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-intra-area-prefix-lsa')" {
+        description
+          "Only applies to Intra-Area-Prefix-LSAs.";
+      }
+      description
+        "Intra-Area-Prefix-LSA.";
+
+      leaf referenced-ls-type {
+        type identityref {
+          base ospfv3-lsa-type;
+        }
+        description
+          "Referenced LS Type.";
+      }
+      leaf unknown-referenced-ls-type {
+        type uint16;
+        description
+          "Value for an unknown Referenced LS Type.";
+      }
+      leaf referenced-link-state-id {
+        type uint32;
+        description
+          "Referenced Link State ID.";
+      }
+      leaf referenced-adv-router {
+        type rt-types:router-id;
+        description
+          "Referenced Advertising Router.";
+        reference
+          "RFC 5340: OSPF for IPv6";
+      }
+
+      leaf num-of-prefixes {
+        type uint16;
+        description
+          "Number of prefixes.";
+      }
+      container prefixes {
+        description
+          "All prefixes in this LSA.";
+        list prefix {
+          description
+            "List of prefixes in this LSA.";
+          uses ospfv3-lsa-prefix;
+          leaf metric {
+            type uint16;
+            description
+              "Prefix metric.";
+          }
+        }
+      }
+    }
+    container router-information {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv3-router-information-lsa')" {
+        description
+          "Only applies to Router-Information-LSAs (RFC 7770).";
+        reference
+          "RFC 7770: Extensions to OSPF for Advertising Optional
+           Router Capabilities";
+      }
+      container router-capabilities-tlv {
+        description
+          "Informational and functional router capabilities.";
+        uses router-capabilities-tlv;
+      }
+      container node-tag-tlvs {
+        description
+          "All Node Admin Tag TLVs.";
+        list node-tag-tlv {
+          description
+            "Node Admin Tag TLV.";
+          uses node-tag-tlv;
+        }
+      }
+      container dynamic-hostname-tlv {
+        description
+          "OSPF Dynamic Hostname TLV.";
+        uses dynamic-hostname-tlv;
+      }
+
+      container sbfd-discriminator-tlv {
+        description
+          "OSPF S-BFD Discriminator TLV.";
+        uses sbfd-discriminator-tlv;
+      }
+
+      description
+        "Router-Information-LSA.";
+      reference
+        "RFC 7770: Extensions to OSPF for Advertising Optional
+         Router Capabilities";
+    }
+  }
+
+  grouping lsa-header {
+    description
+      "Common LSA for OSPFv2 and OSPFv3.";
+    leaf age {
+      type uint16;
+      mandatory true;
+      description
+        "LSA age.";
+    }
+    leaf type {
+      type identityref {
+        base ospf-lsa-type;
+      }
+      mandatory true;
+      description
+        "LSA type.";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      mandatory true;
+      description
+        "LSA advertising router.";
+    }
+    leaf seq-num {
+      type uint32;
+      mandatory true;
+      description
+        "LSA sequence number.";
+    }
+    leaf checksum {
+      type fletcher-checksum16-type;
+      mandatory true;
+      description
+        "LSA checksum.";
+    }
+    leaf length {
+      type uint16;
+      mandatory true;
+      description
+        "LSA length, including the header.";
+    }
+  }
+
+  grouping ospfv2-lsa {
+    description
+      "OSPFv2 LSA.  LSAs are uniquely identified by
+       the <LSA Type, Link State ID, Advertising Router>
+       tuple, with the sequence number differentiating the
+       LSA instances.";
+    container header {
+      must "(derived-from(type, "
+         + "'ospfv2-opaque-lsa-type') and "
+         + "opaque-id and opaque-type) or "
+         + "(not(derived-from(type, "
+         + "'ospfv2-opaque-lsa-type')) "
+         + "and not(opaque-id) and not(opaque-type))" {
+        description
+          "The opaque-type and the opaque-id only apply to
+           Opaque-LSAs.";
+      }
+      description
+        "Decoded OSPFv2 LSA header data.";
+
+      container lsa-options {
+        leaf-list lsa-options {
+          type identityref {
+            base ospfv2-lsa-option;
+          }
+          description
+            "List of LSA Options.  This list will contain the
+             identities for the OSPFv2 LSA Options that are set.";
+        }
+        description
+          "LSA Options.";
+      }
+
+      leaf lsa-id {
+        type yang:dotted-quad;
+        mandatory true;
+        description
+          "Link State ID.";
+      }
+
+      leaf opaque-type {
+        type uint8;
+        description
+          "Opaque-LSA type.";
+      }
+
+      leaf opaque-id {
+        type opaque-id;
+        description
+          "Opaque-LSA ID.";
+      }
+
+      uses lsa-header;
+    }
+    container body {
+      description
+        "Decoded OSPFv2 LSA body data.";
+      uses ospfv2-lsa-body;
+    }
+  }
+
+  grouping ospfv3-lsa {
+    description
+      "Decoded OSPFv3 LSA.";
+    container header {
+      description
+        "Decoded OSPFv3 LSA header data.";
+      leaf lsa-id {
+        type uint32;
+        mandatory true;
+        description
+          "OSPFv3 LSA ID.";
+      }
+      uses lsa-header;
+    }
+    container body {
+      description
+        "Decoded OSPF LSA body data.";
+      uses ospfv3-lsa-body;
+    }
+  }
+  grouping lsa-common {
+    description
+      "Common fields for OSPF LSA representation.";
+    leaf decode-completed {
+      type boolean;
+      description
+        "The OSPF LSA body was successfully decoded, except for
+         unknown TLVs.  Unknown LSA types and OSPFv2 unknown
+         Opaque-LSA types are not decoded.  Additionally,
+         malformed LSAs are generally not accepted and will
+         not be in the Link State Database (LSDB).";
+    }
+    leaf raw-data {
+      type yang:hex-string;
+      description
+        "The hexadecimal representation of the complete LSA as
+         received or originated, in network byte order.";
+    }
+  }
+
+  grouping lsa {
+    description
+      "OSPF LSA.";
+    uses lsa-common;
+    choice version {
+      description
+        "OSPFv2 or OSPFv3 LSA body.";
+      container ospfv2 {
+        description
+          "OSPFv2 LSA.";
+        uses ospfv2-lsa;
+      }
+      container ospfv3 {
+        description
+          "OSPFv3 LSA.";
+        uses ospfv3-lsa;
+      }
+    }
+  }
+
+  grouping lsa-key {
+    description
+      "OSPF LSA key.  The database key for each LSA of a given
+       type in the LSDB.";
+    leaf lsa-id {
+      type union {
+        type yang:dotted-quad;
+        type uint32;
+      }
+      description
+        "Link State ID.";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      description
+        "Advertising router.";
+    }
+  }
+
+  grouping instance-stat {
+    description
+      "Per-instance statistics.";
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time of the most recent occasion at which any one or
+         more of this OSPF instance's counters suffered a
+         discontinuity.  If no such discontinuities have occurred
+         since the OSPF instance was last reinitialized, then
+         this node contains the time the OSPF instance was
+         reinitialized, which normally occurs when it was
+         created.";
+    }
+    leaf originate-new-lsa-count {
+      type yang:counter32;
+      description
+        "The number of new LSAs originated.  Discontinuities in the
+         value of this counter can occur when the OSPF instance is
+         reinitialized.";
+    }
+    leaf rx-new-lsas-count {
+      type yang:counter32;
+      description
+        "The number of new LSAs received.  Discontinuities in the
+         value of this counter can occur when the OSPF instance is
+         reinitialized.";
+    }
+    leaf as-scope-lsa-count {
+      type yang:gauge32;
+      description
+        "The number of AS-Scope LSAs.";
+    }
+    leaf as-scope-lsa-chksum-sum {
+      type uint32;
+      description
+        "The modulo 2^32 sum of the LSA checksums
+         for AS-Scope LSAs.  The value should be treated as
+         unsigned when comparing two sums of checksums.  While
+         differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the
+         LSAs are the same, given that multiple combinations of
+         LSAs can result in the same checksum.";
+    }
+    container database {
+      description
+        "Container for per-AS-Scope LSA statistics.";
+      list as-scope-lsa-type {
+        description
+          "List of AS-Scope LSA statistics.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "AS-Scope LSA type.";
+        }
+        leaf lsa-count {
+          type yang:gauge32;
+          description
+            "The number of LSAs of this LSA type.";
+        }
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The modulo 2^32 sum of the LSA checksums
+             for LSAs of this type.  The value should be
+             treated as unsigned when comparing two sums of
+             checksums.  While differing checksums indicate a
+             different combination of LSAs, equivalent checksums
+             don't guarantee that the LSAs are the same, given that
+             multiple combinations of LSAs can result in the same
+             checksum.";
+        }
+      }
+    }
+    uses instance-fast-reroute-state;
+  }
+
+  grouping area-stat {
+    description
+      "Per-area statistics.";
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time of the most recent occasion at which any one or
+         more of this OSPF area's counters suffered a
+         discontinuity.  If no such discontinuities have occurred
+         since the OSPF area was last reinitialized, then
+         this node contains the time the OSPF area was
+         reinitialized, which normally occurs when it was
+         created.";
+    }
+    leaf spf-runs-count {
+      type yang:counter32;
+      description
+        "The number of times the intra-area SPF has run.
+         Discontinuities in the value of this counter can occur
+         when the OSPF area is reinitialized.";
+    }
+    leaf abr-count {
+      type yang:gauge32;
+      description
+        "The total number of Area Border Routers (ABRs)
+         reachable within this area.";
+    }
+    leaf asbr-count {
+      type yang:gauge32;
+      description
+        "The total number of AS Boundary Routers (ASBRs)
+         reachable within this area.";
+    }
+    leaf ar-nssa-translator-event-count {
+      type yang:counter32;
+      description
+        "The number of NSSA translator-state changes.
+         Discontinuities in the value of this counter can occur
+         when the OSPF area is reinitialized.";
+    }
+    leaf area-scope-lsa-count {
+      type yang:gauge32;
+      description
+        "The number of area-scope LSAs in the area.";
+    }
+    leaf area-scope-lsa-cksum-sum {
+      type uint32;
+      description
+        "The modulo 2^32 sum of the LSA checksums
+         for area-scope LSAs.  The value should be treated as
+         unsigned when comparing two sums of checksums.  While
+         differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the
+         LSAs are the same, given that multiple combinations of
+         LSAs can result in the same checksum.";
+    }
+    container database {
+      description
+        "Container for area-scope LSA type statistics.";
+      list area-scope-lsa-type {
+        description
+          "List of area-scope LSA statistics.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "Area-scope LSA type.";
+        }
+        leaf lsa-count {
+          type yang:gauge32;
+          description
+            "The number of LSAs of this LSA type.";
+        }
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The modulo 2^32 sum of the LSA checksums
+             for LSAs of this type.  The value should be
+             treated as unsigned when comparing two sums of
+             checksums.  While differing checksums indicate a
+             different combination of LSAs, equivalent checksums
+             don't guarantee that the LSAs are the same, given that
+             multiple combinations of LSAs can result in the same
+             checksum.";
+        }
+      }
+    }
+  }
+
+  grouping interface-stat {
+    description
+      "Per-interface statistics.";
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time of the most recent occasion at which any one or
+         more of this OSPF interface's counters suffered a
+         discontinuity.  If no such discontinuities have occurred
+         since the OSPF interface was last reinitialized, then
+         this node contains the time the OSPF interface was
+         reinitialized, which normally occurs when it was
+         created.";
+    }
+    leaf if-event-count {
+      type yang:counter32;
+      description
+        "The number of times this interface has changed its
+         state or an error has occurred.  Discontinuities in the
+         value of this counter can occur when the OSPF interface
+         is reinitialized.";
+    }
+    leaf link-scope-lsa-count {
+      type yang:gauge32;
+      description
+        "The number of link-scope LSAs.";
+    }
+    leaf link-scope-lsa-cksum-sum {
+      type uint32;
+      description
+        "The modulo 2^32 sum of the LSA checksums
+         for link-scope LSAs.  The value should be treated as
+         unsigned when comparing two sums of checksums.  While
+         differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the
+         LSAs are the same, given that multiple combinations of
+         LSAs can result in the same checksum.";
+    }
+    container database {
+      description
+        "Container for link-scope LSA type statistics.";
+      list link-scope-lsa-type {
+        description
+          "List of link-scope LSA statistics.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "Link-scope LSA type.";
+        }
+        leaf lsa-count {
+          type yang:gauge32;
+          description
+            "The number of LSAs of this LSA type.";
+        }
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The modulo 2^32 sum of the LSA checksums
+             for LSAs of this type.  The value should be
+             treated as unsigned when comparing two sums of
+             checksums.  While differing checksums indicate a
+             different combination of LSAs, equivalent checksums
+             don't guarantee that the LSAs are the same, given that
+             multiple combinations of LSAs can result in the same
+             checksum.";
+        }
+      }
+    }
+  }
+
+  grouping neighbor-stat {
+    description
+      "Per-neighbor statistics.";
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time of the most recent occasion at which any one or
+         more of this OSPF neighbor's counters suffered a
+         discontinuity.  If no such discontinuities have occurred
+         since the OSPF neighbor was last reinitialized, then
+         this node contains the time the OSPF neighbor was
+         reinitialized, which normally occurs when the neighbor
+         is dynamically discovered and created.";
+    }
+    leaf nbr-event-count {
+      type yang:counter32;
+      description
+        "The number of times this neighbor has changed
+         state or an error has occurred.  Discontinuities in the
+         value of this counter can occur when the OSPF neighbor
+         is reinitialized.";
+    }
+    leaf nbr-retrans-qlen {
+      type yang:gauge32;
+      description
+        "The current length of the retransmission queue.";
+    }
+  }
+
+  grouping instance-fast-reroute-config {
+    description
+      "This group defines the global configuration of
+       IP Fast Reroute (IP-FRR).";
+    container fast-reroute {
+      if-feature "fast-reroute";
+      description
+        "This container may be augmented with global
+         parameters for IP-FRR.";
+      container lfa {
+        if-feature "lfa";
+        description
+          "This container may be augmented with
+           global parameters for Loop-Free Alternates (LFAs).
+           Container creation has no effect on LFA activation.";
+      }
+    }
+  }
+
+  grouping instance-fast-reroute-state {
+    description
+      "IP-FRR state data grouping.";
+
+    container protected-routes {
+      if-feature "fast-reroute";
+      config false;
+      description
+        "Instance protection statistics.";
+
+      list address-family-stats {
+        key "address-family prefix alternate";
+        description
+          "Per-Address-Family (AF) protected prefix information.";
+
+        leaf address-family {
+          type iana-rt-types:address-family;
+          description
+            "Address family.";
+        }
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "Protected prefix.";
+        }
+        leaf alternate {
+          type inet:ip-address;
+          description
+            "Alternate next hop for the prefix.";
+        }
+        leaf alternate-type {
+          type enumeration {
+            enum equal-cost {
+              description
+                "ECMP-based alternate.";
+            }
+            enum lfa {
+              description
+                "LFA-based alternate.";
+            }
+            enum remote-lfa {
+              description
+                "Remote-LFA-based alternate.";
+            }
+            enum tunnel {
+              description
+                "Tunnel-based alternate (like RSVP-TE or GRE).";
+            }
+            enum ti-lfa {
+              description
+                "An alternate based on Topology-Independent
+                 Loop-Free Alternate (TI-LFA).";
+            }
+            enum mrt {
+              description
+                "An alternate based on Maximally Redundant Trees
+                 (MRTs).";
+            }
+            enum other {
+              description
+                "Unknown alternate type.";
+            }
+          }
+          description
+            "Type of alternate.";
+        }
+        leaf best {
+          type boolean;
+          description
+            "Indicates that this alternate is preferred.";
+        }
+        leaf non-best-reason {
+          type string {
+            length "1..255";
+          }
+          description
+            "Information field used to describe why the alternate
+             is not the best choice.";
+        }
+        leaf protection-available {
+          type bits {
+            bit node-protect {
+              position 0;
+              description
+                "Node protection available.";
+            }
+            bit link-protect {
+              position 1;
+              description
+                "Link protection available.";
+            }
+            bit srlg-protect {
+              position 2;
+              description
+                "Shared Risk Link Group (SRLG) protection
+                 available.";
+            }
+            bit downstream-protect {
+              position 3;
+              description
+                "Downstream protection available.";
+            }
+            bit other {
+              position 4;
+              description
+                "Other protection available.";
+            }
+          }
+          description
+            "Protection provided by the alternate.";
+        }
+        leaf alternate-metric-1 {
+          type uint32;
+          description
+            "Metric from the Point of Local Repair (PLR) to
+             the destination through the alternate path.";
+        }
+        leaf alternate-metric-2 {
+          type uint32;
+          description
+            "Metric from the PLR to the alternate node.";
+        }
+        leaf alternate-metric-3 {
+          type uint32;
+          description
+            "Metric from the alternate node to the destination.";
+        }
+      }
+    }
+
+    container unprotected-routes {
+      if-feature "fast-reroute";
+      config false;
+      description
+        "List of prefixes that are not protected.";
+
+      list address-family-stats {
+        key "address-family prefix";
+        description
+          "Per-AF unprotected prefix statistics.";
+
+        leaf address-family {
+          type iana-rt-types:address-family;
+          description
+            "Address family.";
+        }
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "Unprotected prefix.";
+        }
+      }
+    }
+
+    list protection-statistics {
+      key "frr-protection-method";
+      config false;
+      description
+        "List of protection method statistics.";
+
+      leaf frr-protection-method {
+        type string;
+        description
+          "Protection method used.";
+      }
+      list address-family-stats {
+        key "address-family";
+        description
+          "Per-AF protection statistics.";
+
+        leaf address-family {
+          type iana-rt-types:address-family;
+          description
+            "Address family.";
+        }
+        leaf total-routes {
+          type uint32;
+          description
+            "Total prefixes.";
+        }
+        leaf unprotected-routes {
+          type uint32;
+          description
+            "Total prefixes that are not protected.";
+        }
+        leaf protected-routes {
+          type uint32;
+          description
+            "Total prefixes that are protected.";
+        }
+        leaf linkprotected-routes {
+          type uint32;
+          description
+            "Total prefixes that are link protected.";
+        }
+        leaf nodeprotected-routes {
+          type uint32;
+          description
+            "Total prefixes that are node protected.";
+        }
+      }
+    }
+  }
+
+  grouping interface-fast-reroute-config {
+    description
+      "This group defines interface configuration of IP-FRR.";
+    container fast-reroute {
+      if-feature "fast-reroute";
+      container lfa {
+        if-feature "lfa";
+        leaf candidate-enabled {
+          type boolean;
+          default "true";
+          description
+            "Enables the interface to be used as a backup.";
+        }
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Activates an LFA.  Per-prefix LFA computation
+             is assumed.";
+        }
+        container remote-lfa {
+          if-feature "remote-lfa";
+          leaf enabled {
+            type boolean;
+            default "false";
+            description
+              "Activates a Remote LFA (R-LFA).";
+          }
+          description
+            "R-LFA configuration.";
+        }
+        description
+          "LFA configuration.";
+      }
+      description
+        "Interface IP-FRR configuration.";
+    }
+  }
+
+  grouping interface-physical-link-config {
+    description
+      "Interface cost configuration that only applies to
+       physical interfaces (non-virtual) and sham links.";
+    leaf cost {
+      type ospf-link-metric;
+      description
+        "Interface's cost.";
+    }
+    leaf mtu-ignore {
+      if-feature "mtu-ignore";
+      type boolean;
+      description
+        "Enables/disables bypassing the MTU mismatch check in
+         Database Description packets as specified in Section 10.6
+         of RFC 2328.";
+      reference
+        "RFC 2328: OSPF Version 2, Section 10.6";
+    }
+    leaf prefix-suppression {
+      if-feature "prefix-suppression";
+      type boolean;
+      description
+        "Suppresses advertisement of the prefixes associated
+         with the interface.";
+    }
+  }
+
+  grouping interface-common-config {
+    description
+      "Common configuration for all types of interfaces,
+       including virtual links and sham links.";
+
+    leaf hello-interval {
+      type uint16;
+      units "seconds";
+      description
+        "Interval between Hello packets (seconds).  It must
+         be the same for all routers on the same network.
+         Different networks, implementations, and deployments
+         will use different Hello intervals.  A sample value
+         for a LAN network would be 10 seconds.";
+      reference
+        "RFC 2328: OSPF Version 2, Appendix C.3";
+    }
+
+    leaf dead-interval {
+      type uint16;
+      units "seconds";
+      must '../dead-interval > ../hello-interval' {
+        error-message "The dead interval must be "
+                    + "larger than the Hello interval";
+        description
+          "The value must be greater than 'hello-interval'.";
+      }
+      description
+        "Interval after which a neighbor is declared down
+         (seconds) if Hello packets are not received.  It is
+         typically 3 or 4 times the 'hello-interval' period.
+         A typical value for LAN networks is 40 seconds.";
+      reference
+        "RFC 2328: OSPF Version 2, Appendix C.3";
+    }
+
+    leaf retransmit-interval {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      description
+        "Interval between retransmitting unacknowledged Link
+         State Advertisements (LSAs) (seconds).  This should
+         be well over the round-trip transmit delay for
+         any two routers on the network.  A sample value
+         would be 5 seconds.";
+      reference
+        "RFC 2328: OSPF Version 2, Appendix C.3";
+    }
+
+    leaf transmit-delay {
+      type uint16;
+      units "seconds";
+      description
+        "Estimated time needed to transmit Link State Update
+         (LSU) packets on the interface (seconds).  LSAs have
+         their age incremented by this amount when advertised
+         on the interface.  A sample value would be 1 second.";
+      reference
+        "RFC 2328: OSPF Version 2, Appendix C.3";
+    }
+
+    leaf lls {
+      if-feature "lls";
+      type boolean;
+      description
+        "Enables/disables link-local signaling (LLS) support.";
+    }
+
+    container ttl-security {
+      if-feature "ttl-security";
+      description
+        "Time to Live (TTL) security checking.";
+      leaf enabled {
+        type boolean;
+        description
+          "Enables/disables TTL security checking.";
+      }
+      leaf hops {
+        type uint8 {
+          range "1..254";
+        }
+        default "1";
+        description
+          "Maximum number of hops that an OSPF packet may
+           have traversed before reception.";
+      }
+    }
+    leaf enabled {
+      type boolean;
+      default "true";
+      description
+        "Enables/disables the OSPF protocol on the interface.";
+    }
+
+    container authentication {
+      description
+        "Authentication configuration.";
+      choice auth-type-selection {
+        description
+          "Options for OSPFv2/OSPFv3 authentication
+           configuration.";
+        case ospfv2-auth {
+          when "derived-from-or-self(../../../../../../rt:type, "
+             + "'ospfv2')" {
+            description
+              "Applied to OSPFv2 only.";
+          }
+          leaf ospfv2-auth-trailer-rfc {
+            if-feature "ospfv2-authentication-trailer";
+            type ospfv2-auth-trailer-rfc-version;
+            description
+              "Version of OSPFv2 authentication trailer support.
+               See RFCs 5709 and 7474.";
+            reference
+              "RFC 5709: OSPFv2 HMAC-SHA Cryptographic Authentication
+               RFC 7474: Security Extension for OSPFv2 When Using
+               Manual Key Management";
+          }
+          choice ospfv2-auth-specification {
+            description
+              "Key chain or explicit key parameter specification.";
+            case auth-key-chain {
+              if-feature "key-chain";
+              leaf ospfv2-key-chain {
+                type key-chain:key-chain-ref;
+                description
+                  "Name of the key chain.";
+              }
+            }
+            case auth-key-explicit {
+              leaf ospfv2-key-id {
+                type uint32;
+                description
+                  "Key identifier.";
+              }
+              leaf ospfv2-key {
+                type string;
+                description
+                  "OSPFv2 authentication key.  The
+                   length of the key may be dependent on the
+                   cryptographic algorithm.";
+              }
+              leaf ospfv2-crypto-algorithm {
+                type identityref {
+                  base key-chain:crypto-algorithm;
+                }
+                description
+                  "Cryptographic algorithm associated with the key.";
+              }
+            }
+          }
+        }
+        case ospfv3-auth-ipsec {
+          when "derived-from-or-self(../../../../../../rt:type, "
+             + "'ospfv3')" {
+            description
+              "Applied to OSPFv3 only.";
+          }
+          if-feature "ospfv3-authentication-ipsec";
+          leaf sa {
+            type string;
+            description
+              "Name of the Security Association (SA).";
+          }
+        }
+        case ospfv3-auth-trailer {
+          when "derived-from-or-self(../../../../../../rt:type, "
+             + "'ospfv3')" {
+            description
+              "Applied to OSPFv3 only.";
+          }
+          if-feature "ospfv3-authentication-trailer";
+          choice ospfv3-auth-specification {
+            description
+              "Key chain or explicit key parameter specification.";
+            case auth-key-chain {
+              if-feature "key-chain";
+              leaf ospfv3-key-chain {
+                type key-chain:key-chain-ref;
+                description
+                  "Name of the key chain.";
+              }
+            }
+            case auth-key-explicit {
+              leaf ospfv3-sa-id {
+                type uint16;
+                description
+                  "Security Association (SA) Identifier.";
+              }
+              leaf ospfv3-key {
+                type string;
+                description
+                  "OSPFv3 authentication key.  The
+                   length of the key may be dependent on the
+                   cryptographic algorithm.";
+              }
+              leaf ospfv3-crypto-algorithm {
+                type identityref {
+                  base key-chain:crypto-algorithm;
+                }
+                description
+                  "Cryptographic algorithm associated with the key.";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping interface-config {
+    description
+      "Configuration for normal OSPF interfaces (not virtual
+       or sham interfaces).";
+
+    leaf interface-type {
+      type enumeration {
+        enum broadcast {
+          description
+            "Specifies an OSPF broadcast multi-access network.";
+        }
+        enum non-broadcast {
+          description
+            "Specifies an OSPF Non-Broadcast Multi-Access
+             (NBMA) network.";
+        }
+        enum point-to-multipoint {
+          description
+            "Specifies an OSPF point-to-multipoint network.";
+        }
+        enum point-to-point {
+          description
+            "Specifies an OSPF point-to-point network.";
+        }
+        enum hybrid {
+          if-feature "hybrid-interface";
+          description
+            "Specifies an OSPF hybrid broadcast /
+             point-to-multipoint network.";
+        }
+      }
+      description
+        "Interface type.";
+    }
+
+    leaf passive {
+      type boolean;
+      description
+        "Enables/disables a passive interface.  A passive
+         interface's prefix will be advertised, but no neighbor
+         adjacencies will be formed on the interface.";
+    }
+
+    leaf demand-circuit {
+      if-feature "demand-circuit";
+      type boolean;
+      description
+        "Enables/disables a demand circuit.";
+    }
+
+    leaf priority {
+      type uint8;
+      description
+        "Configures OSPF router priority.  In a multi-access
+         network, this value is for Designated Router (DR) election.
+         The priority is ignored on other interface types.  A router
+         with a higher priority will be preferred in the election.
+         A value of 0 indicates that the router is not eligible to
+         become the DR or Backup DR (BDR).";
+    }
+
+    container multi-areas {
+      if-feature "multi-area-adj";
+      description
+        "Container for multi-area configuration.";
+      list multi-area {
+        key "multi-area-id";
+        description
+          "Configures an OSPF multi-area adjacency.";
+        leaf multi-area-id {
+          type area-id-type;
+          description
+            "Multi-area adjacency area ID.";
+        }
+        leaf cost {
+          type ospf-link-metric;
+          description
+            "Interface cost for a multi-area adjacency.";
+        }
+      }
+    }
+
+    container static-neighbors {
+      description
+        "Statically configured neighbors.";
+
+      list neighbor {
+        key "identifier";
+        description
+          "Specifies a static OSPF neighbor.";
+
+        leaf identifier {
+          type inet:ip-address;
+          description
+            "Neighbor's Router ID, IPv4 address, or IPv6 address.";
+        }
+
+        leaf cost {
+          type ospf-link-metric;
+          description
+            "Interface cost.  Different implementations have
+             different default costs, with some defaulting to a
+             cost inversely proportional to the interface speed.
+             Others will default to 1, equating the cost to a
+             hop count.";
+        }
+        leaf poll-interval {
+          type uint16;
+          units "seconds";
+          description
+            "Neighbor's poll interval (seconds) for sending OSPF
+             Hello packets to discover the neighbor on NBMA
+             networks.  This interval dictates the granularity for
+             discovery of new neighbors.  A sample would be
+             120 seconds (2 minutes) for a legacy Packet Data
+             Network (PDN) X.25 network.";
+          reference
+            "RFC 2328: OSPF Version 2, Appendix C.5";
+        }
+        leaf priority {
+          type uint8;
+          description
+            "Neighbor's priority for DR election.  A router with a
+             higher priority will be preferred in the election.
+             A value of 0 indicates that the router is not
+             eligible to become the DR or BDR.";
+        }
+      }
+    }
+
+    leaf node-flag {
+      if-feature "node-flag";
+      type boolean;
+      default "false";
+      description
+        "Sets the prefix as identifying the advertising router.";
+      reference
+        "RFC 7684: OSPFv2 Prefix/Link Attribute Advertisement";
+    }
+
+    container bfd {
+      if-feature "bfd";
+      description
+        "BFD interface configuration.";
+      uses bfd-types:client-cfg-parms;
+      reference
+        "RFC 5880: Bidirectional Forwarding Detection (BFD)
+         RFC 5881: Bidirectional Forwarding Detection
+         (BFD) for IPv4 and IPv6 (Single Hop)
+         RFC 9314: YANG Data Model for Bidirectional Forwarding
+         Detection (BFD)";
+    }
+
+    uses interface-fast-reroute-config;
+    uses interface-common-config;
+    uses interface-physical-link-config;
+  }
+
+  grouping neighbor-state {
+    description
+      "OSPF neighbor operational state.";
+
+    leaf address {
+      type inet:ip-address;
+      config false;
+      description
+        "Neighbor's address.";
+    }
+    leaf dr-router-id {
+      type rt-types:router-id;
+      config false;
+      description
+        "Neighbor's DR Router ID.";
+    }
+
+    leaf dr-ip-addr {
+      type inet:ip-address;
+      config false;
+      description
+        "Neighbor's DR IP address.";
+    }
+
+    leaf bdr-router-id {
+      type rt-types:router-id;
+      config false;
+      description
+        "Neighbor's BDR Router ID.";
+    }
+
+    leaf bdr-ip-addr {
+      type inet:ip-address;
+      config false;
+      description
+        "Neighbor's BDR IP address.";
+    }
+    leaf state {
+      type nbr-state-type;
+      config false;
+      description
+        "OSPF neighbor state.";
+    }
+    leaf cost {
+      type ospf-link-metric;
+      config false;
+      description
+        "Cost to reach the neighbor for point-to-multipoint
+         and Hybrid networks.";
+    }
+    leaf dead-timer {
+      type rt-types:timer-value-seconds16;
+      config false;
+      description
+        "This timer tracks the remaining time before
+         the neighbor is declared dead.";
+    }
+    container statistics {
+      config false;
+      description
+        "Per-neighbor statistics.";
+      uses neighbor-stat;
+    }
+  }
+
+  grouping interface-common-state {
+    description
+      "OSPF interface common operational state.";
+    reference
+      "RFC 2328: OSPF Version 2, Section 9";
+
+    leaf state {
+      type if-state-type;
+      config false;
+      description
+        "Interface state.";
+    }
+
+    leaf hello-timer {
+      type rt-types:timer-value-seconds16;
+      config false;
+      description
+        "This timer tracks the remaining time before the
+         next Hello packet is sent on the interface.";
+    }
+
+    leaf wait-timer {
+      type rt-types:timer-value-seconds16;
+      config false;
+      description
+        "This timer tracks the remaining time before
+         the interface exits the 'Waiting' state.";
+    }
+
+    leaf dr-router-id {
+      type rt-types:router-id;
+      config false;
+      description
+        "DR Router ID.";
+    }
+
+    leaf dr-ip-addr {
+      type inet:ip-address;
+      config false;
+      description
+        "DR IP address.";
+    }
+
+    leaf bdr-router-id {
+      type rt-types:router-id;
+      config false;
+      description
+        "BDR Router ID.";
+    }
+
+    leaf bdr-ip-addr {
+      type inet:ip-address;
+      config false;
+      description
+        "BDR IP address.";
+    }
+
+    container statistics {
+      config false;
+      description
+        "Per-interface statistics.";
+      uses interface-stat;
+    }
+
+    container neighbors {
+      config false;
+      description
+        "All neighbors for the interface.";
+      list neighbor {
+        key "neighbor-router-id";
+        description
+          "List of interface OSPF neighbors.";
+        leaf neighbor-router-id {
+          type rt-types:router-id;
+          description
+            "Neighbor's Router ID.";
+        }
+        uses neighbor-state;
+      }
+    }
+    container database {
+      config false;
+      description
+        "Link-scope LSDB.";
+      list link-scope-lsa-type {
+        key "lsa-type";
+        description
+          "List of OSPF link-scope LSAs.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "OSPF link-scope LSA type.";
+        }
+        container link-scope-lsas {
+          description
+            "All link-scope LSAs of this LSA type.";
+          list link-scope-lsa {
+            key "lsa-id adv-router";
+            description
+              "List of OSPF link-scope LSAs.";
+            uses lsa-key;
+            uses lsa {
+              refine "version/ospfv2/ospfv2" {
+                must "derived-from-or-self( "
+                   + "../../../../../../../../../../"
+                   + "rt:type, 'ospfv2')" {
+                  description
+                    "OSPFv2 LSA.";
+                }
+              }
+              refine "version/ospfv3/ospfv3" {
+                must "derived-from-or-self( "
+                   + "../../../../../../../../../../"
+                   + "rt:type, 'ospfv3')" {
+                  description
+                    "OSPFv3 LSA.";
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping interface-state {
+    description
+      "OSPF interface operational state.";
+    reference
+      "RFC 2328: OSPF Version 2, Section 9";
+
+    uses interface-common-state;
+  }
+
+  grouping virtual-link-config {
+    description
+      "OSPF virtual link configuration state.";
+
+    uses interface-common-config;
+  }
+
+  grouping virtual-link-state {
+    description
+      "OSPF virtual link operational state.";
+
+    leaf cost {
+      type ospf-link-metric;
+      config false;
+      description
+        "Virtual link interface's cost.";
+    }
+    uses interface-common-state;
+  }
+
+  grouping sham-link-config {
+    description
+      "OSPF sham link configuration state.";
+
+    uses interface-common-config;
+    uses interface-physical-link-config;
+  }
+
+  grouping sham-link-state {
+    description
+      "OSPF sham link operational state.";
+    uses interface-common-state;
+  }
+
+  grouping address-family-area-config {
+    description
+      "OSPF address-family-specific area configuration state.";
+
+    container ranges {
+      description
+        "Container for summary ranges.";
+
+      list range {
+        key "prefix";
+        description
+          "Summarizes routes matching the address/mask.
+           Applicable to Area Border Routers (ABRs) only.";
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "IPv4 or IPv6 prefix.";
+        }
+        leaf advertise {
+          type boolean;
+          description
+            "Advertise or hide.";
+        }
+        leaf cost {
+          type ospf-metric;
+          description
+            "Advertised cost of a summary route.";
+        }
+      }
+    }
+  }
+
+  grouping area-common-config {
+    description
+      "OSPF area common configuration state.";
+
+    leaf summary {
+      when "derived-from(../area-type,'stub-nssa-area')" {
+        description
+          "Summary advertisement into the stub area or NSSA.";
+      }
+      type boolean;
+      description
+        "Enables/disables summary advertisement into the stub
+         area or NSSA.";
+    }
+    leaf default-cost {
+      when "derived-from(../area-type,'stub-nssa-area')" {
+        description
+          "Cost for the LSA default route advertised into the
+           stub area or NSSA.";
+      }
+      type ospf-metric;
+      description
+        "Sets the summary default route cost for a stub area
+         or NSSA.";
+    }
+  }
+
+  grouping area-config {
+    description
+      "OSPF area configuration state.";
+
+    leaf area-type {
+      type identityref {
+        base area-type;
+      }
+      default "normal-area";
+      description
+        "Area type.";
+    }
+
+    uses area-common-config;
+    uses address-family-area-config;
+  }
+
+  grouping area-state {
+    description
+      "OSPF area operational state.";
+
+    container statistics {
+      config false;
+      description
+        "Per-area statistics.";
+      uses area-stat;
+    }
+
+    container database {
+      config false;
+      description
+        "Area-scope LSDB.";
+      list area-scope-lsa-type {
+        key "lsa-type";
+        description
+          "List of OSPF area-scope LSAs.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "OSPF area-scope LSA type.";
+        }
+        container area-scope-lsas {
+          description
+            "All area-scope LSAs.";
+          list area-scope-lsa {
+            key "lsa-id adv-router";
+            description
+              "List of OSPF area-scope LSAs.";
+            uses lsa-key;
+            uses lsa {
+              refine "version/ospfv2/ospfv2" {
+                must "derived-from-or-self( "
+                   + "../../../../../../../../"
+                   + "rt:type, 'ospfv2')" {
+                  description
+                    "OSPFv2 LSA.";
+                }
+              }
+              refine "version/ospfv3/ospfv3" {
+                must "derived-from-or-self( "
+                   + "../../../../../../../../"
+                   + "rt:type, 'ospfv3')" {
+                  description
+                    "OSPFv3 LSA.";
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping local-rib {
+    description
+      "Local RIB.  RIB for routes computed by the local
+       OSPF routing instance.";
+    container local-rib {
+      config false;
+      description
+        "Local RIB.";
+      list route {
+        key "prefix";
+        description
+          "OSPF instance's Local Routes.";
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "Destination prefix.";
+        }
+        container next-hops {
+          description
+            "Next hops for the route.";
+          list next-hop {
+            description
+              "List of next hops for the route.";
+            leaf outgoing-interface {
+              type if:interface-ref;
+              description
+                "Name of the outgoing interface.";
+            }
+            leaf next-hop {
+              type inet:ip-address;
+              description
+                "Address of the next hop.";
+            }
+          }
+        }
+        leaf metric {
+          type uint32;
+          description
+            "Metric for this route.";
+        }
+        leaf route-type {
+          type route-type;
+          description
+            "Route type for this route.";
+        }
+        leaf route-tag {
+          type uint32;
+          description
+            "Route tag for this route.";
+        }
+      }
+    }
+  }
+
+  grouping ietf-spf-delay {
+    leaf initial-delay {
+      type uint32;
+      units "milliseconds";
+      default "50";
+      description
+        "Delay used while in the 'QUIET' state (milliseconds).";
+    }
+    leaf short-delay {
+      type uint32;
+      units "milliseconds";
+      default "200";
+      description
+        "Delay used while in the 'SHORT_WAIT' state (milliseconds).";
+    }
+    leaf long-delay {
+      type uint32;
+      units "milliseconds";
+      default "5000";
+      description
+        "Delay used while in the 'LONG_WAIT' state (milliseconds).";
+    }
+    leaf hold-down {
+      type uint32;
+      units "milliseconds";
+      default "10000";
+      description
+        "This timer value defines the period without any changes
+         for the IGP to be considered stable (milliseconds).";
+    }
+    leaf time-to-learn {
+      type uint32;
+      units "milliseconds";
+      default "500";
+      description
+        "Duration used to learn all the IGP events
+         related to a single network event (milliseconds).";
+    }
+    leaf current-state {
+      type enumeration {
+        enum quiet {
+          description
+            "'QUIET' state.";
+        }
+        enum short-wait {
+          description
+            "'SHORT_WAIT' state.";
+        }
+        enum long-wait {
+          description
+            "'LONG_WAIT' state.";
+        }
+      }
+      config false;
+      description
+        "Current SPF back-off algorithm state.";
+    }
+    leaf remaining-time-to-learn {
+      type rt-types:timer-value-milliseconds;
+      config false;
+      description
+        "Remaining time until the time-to-learn timer fires.";
+    }
+    leaf remaining-hold-down {
+      type rt-types:timer-value-milliseconds;
+      config false;
+      description
+        "Remaining time until the hold-down timer fires.";
+    }
+    leaf last-event-received {
+      type yang:timestamp;
+      config false;
+      description
+        "Time of the last SPF triggering event.";
+    }
+    leaf next-spf-time {
+      type yang:timestamp;
+      config false;
+      description
+        "Time when the next SPF has been scheduled.";
+    }
+    leaf last-spf-time {
+      type yang:timestamp;
+      config false;
+      description
+        "Time of the last SPF computation.";
+    }
+    description
+      "Grouping for IETF SPF delay configuration and state.";
+    reference
+      "RFC 8405: Shortest Path First (SPF) Back-Off Delay Algorithm
+       for Link-State IGPs";
+  }
+
+  grouping node-tag-config {
+    description
+      "OSPF node tag configuration state.";
+    container node-tags {
+      if-feature "node-tag";
+      list node-tag {
+        key "tag";
+        leaf tag {
+          type uint32;
+          description
+            "Node tag value.";
+        }
+        description
+          "List of node tags.";
+      }
+      description
+        "Container for node administrative tags.";
+    }
+  }
+
+  grouping instance-config {
+    description
+      "OSPF instance configuration state.";
+
+    leaf enabled {
+      type boolean;
+      default "true";
+      description
+        "Enables/disables the protocol.";
+    }
+
+    leaf explicit-router-id {
+      if-feature "explicit-router-id";
+      type rt-types:router-id;
+      description
+        "Defined in RFC 2328.  A 32-bit number
+         that uniquely identifies the router.";
+      reference
+        "RFC 2328: OSPF Version 2";
+    }
+
+    container preference {
+      description
+        "Route preference configuration.  In many
+         implementations, preference is referred to as
+         administrative distance.";
+      reference
+        "RFC 8349: A YANG Data Model for Routing Management
+         (NMDA Version)";
+      choice scope {
+        description
+          "Options for expressing preference
+           as single or multiple values.";
+        case single-value {
+          leaf all {
+            type uint8;
+            description
+              "Preference for intra-area, inter-area, and
+               external routes.";
+          }
+        }
+        case multi-values {
+          choice granularity {
+            description
+              "Options for expressing preference
+               for intra-area and inter-area routes.";
+            case detail {
+              leaf intra-area {
+                type uint8;
+                description
+                  "Preference for intra-area routes.";
+              }
+              leaf inter-area {
+                type uint8;
+                description
+                  "Preference for inter-area routes.";
+              }
+            }
+            case coarse {
+              leaf internal {
+                type uint8;
+                description
+                  "Preference for both intra-area and
+                   inter-area routes.";
+              }
+            }
+          }
+          leaf external {
+            type uint8;
+            description
+              "Preference for AS external and NSSA routes.";
+          }
+        }
+      }
+    }
+
+    container nsr {
+      if-feature "nsr";
+      description
+        "Non-Stop Routing (NSR) configuration state.";
+      leaf enabled {
+        type boolean;
+        description
+          "Enables/disables NSR.";
+      }
+    }
+
+    container graceful-restart {
+      if-feature "graceful-restart";
+      description
+        "Graceful restart configuration state.";
+      reference
+        "RFC 3623: Graceful OSPF Restart
+         RFC 5187: OSPFv3 Graceful Restart";
+      leaf enabled {
+        type boolean;
+        description
+          "Enables/disables graceful restart as defined in RFC 3623
+           for OSPFv2 and RFC 5187 for OSPFv3.";
+      }
+      leaf helper-enabled {
+        type boolean;
+        description
+          "Enables graceful restart helper support for restarting
+           routers (Section 3 of RFC 3623).";
+        reference
+          "RFC 3623: Graceful OSPF Restart, Section 3";
+      }
+      leaf restart-interval {
+        type uint16 {
+          range "1..1800";
+        }
+        units "seconds";
+        default "120";
+        description
+          "Interval during which to attempt graceful restart prior
+           to failing (seconds) (Appendix B.1 of RFC 3623).";
+        reference
+          "RFC 3623: Graceful OSPF Restart, Appendix B.1";
+      }
+      leaf helper-strict-lsa-checking {
+        type boolean;
+        description
+          "Terminates graceful restart when an LSA topology change
+           is detected (Appendix B.2 of RFC 3623).";
+        reference
+          "RFC 3623: Graceful OSPF Restart, Appendix B.2";
+      }
+    }
+
+    container auto-cost {
+      if-feature "auto-cost";
+      description
+        "Interface auto-cost configuration state.";
+      leaf enabled {
+        type boolean;
+        description
+          "Enables/disables interface auto-cost.";
+      }
+      leaf reference-bandwidth {
+        when "../enabled = 'true'" {
+          description
+            "Only when auto-cost is enabled.";
+        }
+        type uint32 {
+          range "1..4294967";
+        }
+        units "Mbits";
+        description
+          "Configures reference bandwidth used to automatically
+           determine interface cost (Mbits).  The cost is the
+           reference bandwidth divided by the interface speed,
+           with 1 being the minimum cost.";
+      }
+    }
+
+    container spf-control {
+      leaf paths {
+        if-feature "max-ecmp";
+        type uint16 {
+          range "1..65535";
+        }
+        description
+          "Maximum number of Equal-Cost Multi-Path (ECMP) paths.";
+      }
+      container ietf-spf-delay {
+        if-feature "ietf-spf-delay";
+        uses ietf-spf-delay;
+        description
+          "IETF SPF delay algorithm configuration.";
+      }
+      description
+        "SPF calculation control.";
+    }
+
+    container database-control {
+      leaf max-lsa {
+        if-feature "max-lsa";
+        type uint32 {
+          range "1..4294967294";
+        }
+        description
+          "Maximum number of OSPF LSAs the router will accept.";
+      }
+      description
+        "Database maintenance control.";
+    }
+
+    container stub-router {
+      if-feature "stub-router";
+      description
+        "Sets the maximum metric configuration.";
+
+      choice trigger {
+        description
+          "Specific triggers that will enable stub router state.";
+        container always {
+          presence "Enables unconditional stub router support";
+          description
+            "Unconditional stub router state (advertises
+             transit links with 'MaxLinkMetric').";
+          reference
+            "RFC 6987: OSPF Stub Router Advertisement";
+        }
+      }
+    }
+
+    container mpls {
+      description
+        "OSPF MPLS configuration state.";
+      container te-rid {
+        if-feature "te-rid";
+        description
+          "Stable OSPF Router IP address used for TE.";
+        leaf ipv4-router-id {
+          type inet:ipv4-address;
+          description
+            "Explicitly configures a TE IPv4 Router ID.";
+        }
+        leaf ipv6-router-id {
+          type inet:ipv6-address;
+          description
+            "Explicitly configures a TE IPv6 Router ID.";
+        }
+      }
+      container ldp {
+        description
+          "OSPF MPLS LDP configuration state.";
+        leaf igp-sync {
+          if-feature "ldp-igp-sync";
+          type boolean;
+          description
+            "Enables LDP IGP synchronization.";
+        }
+      }
+    }
+    uses instance-fast-reroute-config;
+    uses node-tag-config;
+  }
+
+  grouping instance-state {
+    description
+      "OSPF instance operational state.";
+
+    leaf router-id {
+      type rt-types:router-id;
+      config false;
+      description
+        "Defined in RFC 2328.  A 32-bit number
+         that uniquely identifies the router.";
+      reference
+        "RFC 2328: OSPF Version 2";
+    }
+
+    uses local-rib;
+
+    container statistics {
+      config false;
+      description
+        "Per-instance statistics.";
+      uses instance-stat;
+    }
+
+    container database {
+      config false;
+      description
+        "AS-Scope LSDB.";
+      list as-scope-lsa-type {
+        key "lsa-type";
+        description
+          "List of OSPF AS-Scope LSAs.";
+        leaf lsa-type {
+          type uint16;
+          description
+            "OSPF AS-Scope LSA type.";
+        }
+        container as-scope-lsas {
+          description
+            "All AS-Scope LSAs of this LSA type.";
+          list as-scope-lsa {
+            key "lsa-id adv-router";
+            description
+              "List of OSPF AS-Scope LSAs.";
+            uses lsa-key;
+            uses lsa {
+              refine "version/ospfv2/ospfv2" {
+                must "derived-from-or-self( "
+                   + "../../../../../../"
+                   + "rt:type, 'ospfv2')" {
+                  description
+                    "OSPFv2 LSA.";
+                }
+              }
+              refine "version/ospfv3/ospfv3" {
+                must "derived-from-or-self( "
+                   + "../../../../../../"
+                   + "rt:type, 'ospfv3')" {
+                  description
+                    "OSPFv3 LSA.";
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    uses spf-log;
+    uses lsa-log;
+  }
+
+  grouping multi-topology-area-common-config {
+    description
+      "OSPF multi-topology area common configuration state.";
+    leaf summary {
+      when "derived-from(../../../area-type, 'stub-nssa-area')" {
+        description
+          "Summary advertisement into the stub area or NSSA.";
+      }
+      type boolean;
+      description
+        "Enables/disables a summary advertisement into the
+         topology in the stub area or NSSA.";
+    }
+    leaf default-cost {
+      when "derived-from(../../../area-type, 'stub-nssa-area')" {
+        description
+          "Cost for the LSA default route advertised into the
+           topology in the stub area or NSSA.";
+      }
+      type ospf-metric;
+      description
+        "Sets the summary default route cost for a
+         stub area or NSSA.";
+    }
+  }
+
+  grouping multi-topology-area-config {
+    description
+      "OSPF multi-topology area configuration state.";
+
+    uses multi-topology-area-common-config;
+    uses address-family-area-config;
+  }
+
+  grouping multi-topology-state {
+    description
+      "OSPF multi-topology operational state.";
+
+    uses local-rib;
+  }
+
+  grouping multi-topology-interface-config {
+    description
+      "OSPF multi-topology configuration state.";
+
+    leaf cost {
+      type ospf-link-metric;
+      description
+        "Interface cost for this topology.";
+    }
+  }
+
+  grouping ospfv3-interface-config {
+    description
+      "OSPFv3 interface-specific configuration state.";
+
+    leaf instance-id {
+      type uint8;
+      default "0";
+      description
+        "OSPFv3 instance ID.";
+    }
+  }
+
+  grouping ospfv3-interface-state {
+    description
+      "OSPFv3 interface-specific operational state.";
+
+    leaf interface-id {
+      type uint32;
+      config false;
+      description
+        "OSPFv3 interface ID.";
+    }
+  }
+
+  grouping lsa-identifiers {
+    description
+      "The parameters that uniquely identify an LSA.";
+    leaf area-id {
+      type area-id-type;
+      description
+        "Area ID.";
+    }
+    leaf type {
+      type uint16;
+      description
+        "LSA type.";
+    }
+    leaf lsa-id {
+      type union {
+        type inet:ipv4-address;
+        type yang:dotted-quad;
+      }
+      description
+        "Link State ID.";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      description
+        "LSA advertising router.";
+    }
+    leaf seq-num {
+      type uint32;
+      description
+        "LSA sequence number.";
+    }
+  }
+
+  grouping spf-log {
+    description
+      "Grouping for the SPF log.";
+    container spf-log {
+      config false;
+      description
+        "This container lists the SPF log entries.";
+      list event {
+        key "id";
+        description
+          "List of SPF log entries represented
+           as a wrapping buffer in chronological
+           order, with the oldest entry returned
+           first.";
+        leaf id {
+          type uint32;
+          description
+            "Event identifier.  A purely internal value.";
+        }
+        leaf spf-type {
+          type enumeration {
+            enum full {
+              description
+                "The SPF computation was for a full SPF.";
+            }
+            enum intra {
+              description
+                "The SPF computation was only for intra-area
+                 routes.";
+            }
+            enum inter {
+              description
+                "The SPF computation was only for inter-area
+                 summary routes.";
+            }
+            enum external {
+              description
+                "The SPF computation was only for AS external
+                 and NSSA routes.";
+            }
+          }
+          description
+            "The SPF computation type for the SPF log entry.";
+        }
+        leaf schedule-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the computation was
+             scheduled.";
+        }
+        leaf start-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the computation was
+             started.";
+        }
+        leaf end-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the computation was
+             completed.";
+        }
+        list trigger-lsa {
+          description
+            "The list of LSAs that triggered the computation.";
+          uses lsa-identifiers;
+        }
+      }
+    }
+  }
+
+  grouping lsa-log {
+    description
+      "Grouping for the LSA log.";
+    container lsa-log {
+      config false;
+      description
+        "This container lists the LSA log entries.
+         Local LSA modifications are also included
+         in the list.";
+      list event {
+        key "id";
+        description
+          "List of LSA log entries represented
+           as a wrapping buffer in chronological order,
+           with the oldest entry returned first.";
+        leaf id {
+          type uint32;
+          description
+            "Event identifier.  A purely internal value.";
+        }
+        container lsa {
+          description
+            "This container describes the LSA that was logged.";
+          uses lsa-identifiers;
+        }
+        leaf received-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the LSA was received.
+             In the case of a local LSA update, the timestamp
+             refers to the LSA origination time.";
+        }
+        leaf reason {
+          type identityref {
+            base lsa-log-reason;
+          }
+          description
+            "Reason for the LSA log entry.";
+        }
+      }
+    }
+  }
+
+  augment "/rt:routing/rt:control-plane-protocols/"
+        + "rt:control-plane-protocol" {
+    when "derived-from(rt:type, 'ospf')" {
+      description
+        "This augmentation is only valid for a routing protocol
+         instance of OSPF (type 'ospfv2' or 'ospfv3').";
+    }
+    description
+      "OSPF protocol 'ietf-routing' module 'control-plane-protocol'
+       augmentation.";
+
+    container ospf {
+      description
+        "OSPF protocol instance.";
+
+      leaf address-family {
+        when "derived-from-or-self(../../rt:type, 'ospfv3')" {
+          description
+            "Only applicable to OSPFv3.";
+        }
+        type iana-rt-types:address-family;
+        description
+          "Address family of the instance.";
+      }
+
+      uses instance-config;
+      uses instance-state;
+
+      container areas {
+        description
+          "All OSPF areas.";
+        list area {
+          key "area-id";
+          description
+            "List of OSPF areas.";
+          leaf area-id {
+            type area-id-type;
+            description
+              "Area ID.";
+          }
+
+          uses area-config;
+          uses area-state;
+
+          container virtual-links {
+            when "derived-from-or-self(../area-type, 'normal-area') "
+               + "and ../area-id = '0.0.0.0'" {
+              description
+                "Virtual links must be in a backbone area.";
+            }
+            description
+              "All virtual links.";
+            list virtual-link {
+              key "transit-area-id router-id";
+              description
+                "OSPF virtual link.";
+              leaf transit-area-id {
+                type leafref {
+                  path "../../../../area/area-id";
+                }
+                must "derived-from-or-self("
+                   + "../../../../area[area-id=current()]"
+                   + "/area-type, 'normal-area') and "
+                   + "../../../../area[area-id=current()]"
+                   + "/area-id != '0.0.0.0'" {
+                  error-message "The virtual link transit area must "
+                              + "not be the backbone area.";
+                  description
+                    "The virtual link transit area must not be the
+                     backbone area (0.0.0.0).";
+                }
+                description
+                  "Virtual link transit area ID.";
+              }
+              leaf router-id {
+                type rt-types:router-id;
+                description
+                  "Virtual link remote endpoint Router ID.";
+              }
+
+              uses virtual-link-config;
+              uses virtual-link-state;
+            }
+          }
+          container sham-links {
+            if-feature "pe-ce-protocol";
+            description
+              "All sham links.";
+            list sham-link {
+              key "local-id remote-id";
+              description
+                "OSPF sham link.";
+              leaf local-id {
+                type inet:ip-address;
+                description
+                  "Address of the local sham link endpoint.";
+              }
+              leaf remote-id {
+                type inet:ip-address;
+                description
+                  "Address of the remote sham link endpoint.";
+              }
+              uses sham-link-config;
+              uses sham-link-state;
+            }
+          }
+          container interfaces {
+            description
+              "All OSPF interfaces.";
+            list interface {
+              key "name";
+              description
+                "List of OSPF interfaces.";
+              leaf name {
+                type if:interface-ref;
+                description
+                  "Interface name reference.";
+              }
+              uses interface-config;
+              uses interface-state;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  augment "/rt:routing/rt:control-plane-protocols/"
+        + "rt:control-plane-protocol/ospf" {
+    when "derived-from(../rt:type, 'ospf')" {
+      description
+        "This augmentation is only valid for OSPF
+         (type 'ospfv2' or 'ospfv3').";
+    }
+    if-feature "multi-topology";
+    description
+      "OSPF multi-topology instance configuration
+       state augmentation.";
+    container topologies {
+      description
+        "All topologies.";
+      list topology {
+        key "name";
+        description
+          "OSPF topology.  The OSPF topology address family
+           must coincide with the routing instance's
+           address family.";
+        leaf name {
+          type leafref {
+            path "../../../../../../rt:ribs/rt:rib/rt:name";
+          }
+          description
+            "RIB name corresponding to the OSPF topology.";
+        }
+
+        uses multi-topology-state;
+      }
+    }
+  }
+
+  augment "/rt:routing/rt:control-plane-protocols/"
+        + "rt:control-plane-protocol/ospf/"
+        + "areas/area" {
+    when "derived-from-or-self(../../../rt:type, "
+       + "'ospfv2')" {
+      description
+        "This augmentation is only valid for OSPFv2.";
+    }
+    if-feature "multi-topology";
+    description
+      "OSPF multi-topology area configuration state
+       augmentation.";
+    container topologies {
+      description
+        "All topologies for the area.";
+      list topology {
+        key "name";
+        description
+          "OSPF area topology.";
+        leaf name {
+          type leafref {
+            path "../../../../../../../../"
+               + "rt:ribs/rt:rib/rt:name";
+          }
+          description
+            "Single topology enabled for this area.";
+        }
+
+        uses multi-topology-area-config;
+      }
+    }
+  }
+
+  augment "/rt:routing/rt:control-plane-protocols/"
+        + "rt:control-plane-protocol/ospf/"
+        + "areas/area/interfaces/interface" {
+    when "derived-from-or-self(../../../../../rt:type, "
+       + "'ospfv2')" {
+      description
+        "This augmentation is only valid for OSPFv2.";
+    }
+    if-feature "multi-topology";
+    description
+      "OSPF multi-topology interface configuration state
+       augmentation.";
+    container topologies {
+      description
+        "All topologies for the interface.";
+      list topology {
+        key "name";
+        description
+          "OSPF interface topology.";
+        leaf name {
+          type leafref {
+            path "../../../../../../../../../../"
+               + "rt:ribs/rt:rib/rt:name";
+          }
+          description
+            "Single topology enabled on this interface.";
+        }
+
+        uses multi-topology-interface-config;
+      }
+    }
+  }
+
+  augment "/rt:routing/rt:control-plane-protocols/"
+        + "rt:control-plane-protocol/ospf/"
+        + "areas/area/interfaces/interface" {
+    when "derived-from-or-self(../../../../../rt:type, "
+       + "'ospfv3')" {
+      description
+        "This augmentation is only valid for OSPFv3.";
+    }
+    description
+      "OSPFv3 interface-specific configuration state
+       augmentation.";
+    uses ospfv3-interface-config;
+    uses ospfv3-interface-state;
+  }
+
+  grouping route-content {
+    description
+      "This grouping defines OSPF-specific route attributes.";
+    leaf metric {
+      type uint32;
+      description
+        "OSPF route metric.";
+    }
+    leaf tag {
+      type uint32;
+      default "0";
+      description
+        "OSPF route tag.";
+    }
+    leaf route-type {
+      type route-type;
+      description
+        "OSPF route type.";
+    }
+  }
+
+  augment "/rt:routing/rt:ribs/rt:rib/rt:routes/rt:route" {
+    when "derived-from(rt:source-protocol, 'ospf')" {
+      description
+        "This augmentation is only valid for routes whose
+         source protocol is OSPF.";
+    }
+    description
+      "OSPF-specific route attributes.";
+    uses route-content;
+  }
+
+  /*
+   * RPCs
+   */
+
+  rpc clear-neighbor {
+    description
+      "This RPC request clears a particular set of OSPF neighbors.
+       If the operation fails for an OSPF-internal reason, then
+       'error-tag' and 'error-app-tag' should be set to values
+       indicating the error.";
+    input {
+      leaf routing-protocol-name {
+        type leafref {
+          path "/rt:routing/rt:control-plane-protocols/"
+             + "rt:control-plane-protocol/rt:name";
+        }
+        mandatory true;
+        description
+          "OSPF protocol instance for which information for neighbors
+           is to be cleared.
+
+           If the referenced OSPF instance doesn't exist, then
+           this operation SHALL fail with an 'error-tag' setting of
+           'data-missing' and an 'error-app-tag' setting of
+           'routing-protocol-instance-not-found'.";
+      }
+
+      leaf interface {
+        type if:interface-ref;
+        description
+          "Name of the OSPF interface for which neighbors are to
+           be cleared.
+
+           If the referenced OSPF interface doesn't exist, then
+           this operation SHALL fail with an 'error-tag' setting
+           of 'data-missing' and an 'error-app-tag' setting of
+           'ospf-interface-not-found'.";
+      }
+    }
+  }
+
+  rpc clear-database {
+    description
+      "This RPC request clears a particular OSPF Link State
+       Database.  Additionally, all neighbor adjacencies will
+       be forced to the DOWN state and self-originated LSAs
+       will be reoriginated.  If the operation fails for an
+       OSPF-internal reason, then 'error-tag' and 'error-app-tag'
+       should be set to values indicating the error.";
+    input {
+      leaf routing-protocol-name {
+        type leafref {
+          path "/rt:routing/rt:control-plane-protocols/"
+             + "rt:control-plane-protocol/rt:name";
+        }
+        mandatory true;
+        description
+          "OSPF protocol instance whose LSDB is to be cleared.
+
+           If the referenced OSPF instance doesn't exist, then
+           this operation SHALL fail with an 'error-tag' setting of
+           'data-missing' and an 'error-app-tag' setting of
+           'routing-protocol-instance-not-found'.";
+      }
+    }
+  }
+
+  /*
+   * Notifications
+   */
+
+  grouping notification-instance-hdr {
+    description
+      "This grouping describes common instance-specific
+       data for OSPF notifications.";
+
+    leaf routing-protocol-name {
+      type leafref {
+        path "/rt:routing/rt:control-plane-protocols/"
+           + "rt:control-plane-protocol/rt:name";
+      }
+      must "derived-from( "
+         + "/rt:routing/rt:control-plane-protocols/"
+         + "rt:control-plane-protocol[rt:name=current()]/"
+         + "rt:type, 'ospf')";
+      description
+        "Name of the OSPF routing protocol instance.";
+    }
+
+    leaf address-family {
+      type leafref {
+        path "/rt:routing/"
+           + "rt:control-plane-protocols/rt:control-plane-protocol"
+           + "[rt:name=current()/../routing-protocol-name]/"
+           + "ospf/address-family";
+      }
+      description
+        "Address family of the OSPF instance.";
+    }
+  }
+
+  grouping notification-interface {
+    description
+      "This grouping provides interface information
+       for OSPF interface-specific notifications.";
+
+    choice if-link-type-selection {
+      description
+        "Options for link types.";
+      container interface {
+        description
+          "Normal interface.";
+        leaf interface {
+          type if:interface-ref;
+          description
+            "Interface.";
+        }
+      }
+      container virtual-link {
+        description
+          "Virtual link.";
+        leaf transit-area-id {
+          type area-id-type;
+          description
+            "Area ID.";
+        }
+        leaf neighbor-router-id {
+          type rt-types:router-id;
+          description
+            "Neighbor's Router ID.";
+        }
+      }
+      container sham-link {
+        description
+          "Sham link.";
+        leaf area-id {
+          type area-id-type;
+          description
+            "Area ID.";
+        }
+        leaf local-ip-addr {
+          type inet:ip-address;
+          description
+            "Sham link's local address.";
+        }
+        leaf remote-ip-addr {
+          type inet:ip-address;
+          description
+            "Sham link's remote address.";
+        }
+      }
+    }
+  }
+
+  grouping notification-neighbor {
+    description
+      "This grouping provides the neighbor information
+       for neighbor-specific notifications.";
+
+    leaf neighbor-router-id {
+      type rt-types:router-id;
+      description
+        "Neighbor's Router ID.";
+    }
+
+    leaf neighbor-ip-addr {
+      type inet:ip-address;
+      description
+        "Neighbor's address.";
+    }
+  }
+
+  notification if-state-change {
+    uses notification-instance-hdr;
+    uses notification-interface;
+
+    leaf state {
+      type if-state-type;
+      description
+        "Interface state.";
+    }
+    description
+      "This notification is sent when an interface
+       state change is detected.";
+  }
+
+  notification if-config-error {
+    uses notification-instance-hdr;
+    uses notification-interface;
+
+    leaf packet-source {
+      type inet:ip-address;
+      description
+        "Source address.";
+    }
+
+    leaf packet-type {
+      type packet-type;
+      description
+        "OSPF packet type.";
+    }
+
+    leaf error {
+      type enumeration {
+        enum bad-version {
+          description
+            "Bad version.";
+        }
+        enum area-mismatch {
+          description
+            "Area mismatch.";
+        }
+        enum unknown-nbma-nbr {
+          description
+            "Unknown NBMA neighbor.";
+        }
+        enum unknown-virtual-nbr {
+          description
+            "Unknown virtual link neighbor.";
+        }
+        enum auth-type-mismatch {
+          description
+            "Authentication type mismatch.";
+        }
+        enum auth-failure {
+          description
+            "Authentication failure.";
+        }
+        enum net-mask-mismatch {
+          description
+            "Network mask mismatch.";
+        }
+        enum hello-interval-mismatch {
+          description
+            "Hello interval mismatch.";
+        }
+        enum dead-interval-mismatch {
+          description
+            "Dead interval mismatch.";
+        }
+        enum option-mismatch {
+          description
+            "Option mismatch.";
+        }
+        enum mtu-mismatch {
+          description
+            "MTU mismatch.";
+        }
+        enum duplicate-router-id {
+          description
+            "Duplicate Router ID.";
+        }
+        enum no-error {
+          description
+            "No error.";
+        }
+      }
+      description
+        "Error codes.";
+    }
+    description
+      "This notification is sent when a packet is received indicating
+       an interface configuration error on the sending OSPF router.";
+  }
+
+  notification nbr-state-change {
+    uses notification-instance-hdr;
+    uses notification-interface;
+    uses notification-neighbor;
+
+    leaf state {
+      type nbr-state-type;
+      description
+        "Neighbor state.";
+    }
+
+    description
+      "This notification is sent when a neighbor
+       state change is detected.";
+  }
+
+  notification nbr-restart-helper-status-change {
+    uses notification-instance-hdr;
+    uses notification-interface;
+    uses notification-neighbor;
+
+    leaf status {
+      type restart-helper-status-type;
+      description
+        "Restart helper status.";
+    }
+
+    leaf age {
+      type rt-types:timer-value-seconds16;
+      description
+        "Remaining time in the current OSPF graceful restart
+         interval when the router is acting as a restart
+         helper for the neighbor.";
+    }
+
+    leaf exit-reason {
+      type restart-exit-reason-type;
+      description
+        "Restart helper exit reason.";
+    }
+    description
+      "This notification is sent when a neighbor restart
+       helper status change is detected.";
+  }
+
+  notification if-rx-bad-packet {
+    uses notification-instance-hdr;
+    uses notification-interface;
+
+    leaf packet-source {
+      type inet:ip-address;
+      description
+        "Source address.";
+    }
+
+    leaf packet-type {
+      type packet-type;
+      description
+        "OSPF packet type.";
+    }
+
+    description
+      "This notification is sent when an OSPF packet that
+       cannot be parsed is received on an OSPF interface.";
+  }
+
+  notification lsdb-approaching-overflow {
+    uses notification-instance-hdr;
+
+    leaf ext-lsdb-limit {
+      type uint32;
+      description
+        "The maximum number of non-default AS-External-LSA
+         entries that can be stored in the LSDB.";
+    }
+
+    description
+      "This notification is sent when the number of LSAs
+       in the router's LSDB has exceeded ninety percent of the
+       AS-External-LSA limit ('ext-lsdb-limit').";
+  }
+
+  notification lsdb-overflow {
+    uses notification-instance-hdr;
+
+    leaf ext-lsdb-limit {
+      type uint32;
+      description
+        "The maximum number of non-default AS-External-LSA
+         entries that can be stored in the LSDB.";
+    }
+
+    description
+      "This notification is sent when the number of LSAs
+       in the router's LSDB has exceeded the AS-External-LSA limit
+       ('ext-lsdb-limit').";
+  }
+
+  notification nssa-translator-status-change {
+    uses notification-instance-hdr;
+
+    leaf area-id {
+      type area-id-type;
+      description
+        "Area ID.";
+    }
+
+    leaf status {
+      type nssa-translator-state-type;
+      description
+        "NSSA translator status.";
+    }
+
+    description
+      "This notification is sent when there is a change
+       in the router's role in translating OSPF NSSA-LSAs
+       to OSPF AS-External-LSAs.";
+  }
+
+  notification restart-status-change {
+    uses notification-instance-hdr;
+
+    leaf status {
+      type restart-status-type;
+      description
+        "Restart status.";
+    }
+
+    leaf restart-interval {
+      type uint16 {
+        range "1..1800";
+      }
+      units "seconds";
+      default "120";
+      description
+        "Restart interval.";
+    }
+
+    leaf exit-reason {
+      type restart-exit-reason-type;
+      description
+        "Restart exit reason.";
+    }
+
+    description
+      "This notification is sent when the graceful restart
+       state for the router has changed.";
+  }
+}

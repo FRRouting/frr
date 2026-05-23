@@ -116,6 +116,7 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	}
 
 	ospf6_install_lsa(lsa);
+	ospf6->lsa_originate_count++;
 	ospf6_flood(NULL, lsa);
 }
 
@@ -890,11 +891,13 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		       struct ospf6_lsa_header *lsa_header)
 {
 	struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
+	struct ospf6 *ospf6;
 	int ismore_recent;
 	int is_debug = 0;
 
 	ismore_recent = 1;
 	assert(from);
+	ospf6 = from->ospf6_if->area->ospf6;
 
 	/* if we receive a LSA with invalid seqnum drop it */
 	if (ntohl(lsa_header->seqnum) - 1 == OSPF_MAX_SEQUENCE_NUMBER) {
@@ -1001,8 +1004,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* in case we have no database copy */
 		ismore_recent = -1;
 
-		self_originated = (new->header->adv_router ==
-				   from->ospf6_if->area->ospf6->router_id);
+		self_originated = (new->header->adv_router == ospf6->router_id);
 
 		/* After any restart of DUT node, receiving self-originated
 		 * LSAs with MaxAge from peers within 1 second (MinLSArrival,
@@ -1036,11 +1038,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 		/* Received non-self-originated Grace LSA. */
 		if (IS_GRACE_LSA(new) && !self_originated) {
-			struct ospf6 *ospf6;
+			struct ospf6 *gr_ospf6;
 
-			ospf6 = ospf6_get_by_lsdb(new);
+			gr_ospf6 = ospf6_get_by_lsdb(new);
 
-			assert(ospf6);
+			assert(gr_ospf6);
 
 			if (OSPF6_LSA_IS_MAXAGE(new)) {
 
@@ -1050,8 +1052,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						__func__,
 						&new->header->adv_router);
 				if (old) {
-					ospf6_process_maxage_grace_lsa(
-						ospf6, new, from);
+					ospf6_process_maxage_grace_lsa(gr_ospf6, new, from);
 				} else {
 					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
@@ -1068,8 +1069,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						__func__,
 						&new->header->adv_router);
 
-				if (ospf6_process_grace_lsa(ospf6, new, from)
-				    == OSPF6_GR_NOT_HELPER) {
+				if (ospf6_process_grace_lsa(gr_ospf6, new, from) ==
+				    OSPF6_GR_NOT_HELPER) {
 					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
 							"%s, Not moving to HELPER role, So dicarding GraceLSA",
@@ -1091,17 +1092,18 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* (d), installing lsdb, which may cause routing
 			table calculation (replacing database copy) */
 		ospf6_install_lsa(new);
+		if (!self_originated)
+			ospf6->rx_lsa_count++;
 
 		if (OSPF6_LSA_IS_MAXAGE(new))
-			ospf6_maxage_remove(from->ospf6_if->area->ospf6);
+			ospf6_maxage_remove(ospf6);
 
 		/* (e) possibly acknowledge */
 		ospf6_acknowledge_lsa(new, ismore_recent, from);
 
 		/* (f) Self Originated LSA, section 13.4 */
 		if (self_originated) {
-			if (from->ospf6_if->area->ospf6->gr_info
-				    .restart_in_progress) {
+			if (ospf6->gr_info.restart_in_progress) {
 				if (IS_DEBUG_OSPF6_GR)
 					zlog_debug(
 						"Graceful Restart in progress -- not flushing self-originated LSA: %s",
@@ -1124,7 +1126,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		}
 
 		/* GR: check for network topology change. */
-		struct ospf6 *ospf6 = from->ospf6_if->area->ospf6;
 		struct ospf6_area *area = from->ospf6_if->area;
 		if (ospf6->gr_info.restart_in_progress &&
 		    (new->header->type == ntohs(OSPF6_LSTYPE_ROUTER) ||
@@ -1216,8 +1217,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			 * MAXAGEd and not removed.*/
 			if (OSPF6_LSA_IS_MAXAGE(old)
 			    && !OSPF6_LSA_IS_MAXAGE(new)) {
-				if (new->header->adv_router
-				    != from->ospf6_if->area->ospf6->router_id) {
+				if (new->header->adv_router != ospf6->router_id) {
 					if (is_debug)
 						zlog_debug(
 							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
@@ -1225,6 +1225,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					ospf6_lsa_purge(old);
 					ospf6_flood(from, new);
 					ospf6_install_lsa(new);
+					ospf6->rx_lsa_count++;
 					return;
 				}
 				/* For self-originated LSA, only trust

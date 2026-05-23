@@ -148,6 +148,24 @@ const struct frr_yang_module_info zebra_route_map_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
+static const struct frr_yang_module_info ietf_routing_info = {
+	.name = "ietf-routing",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+static const struct frr_yang_module_info ietf_ospf_info = {
+	.name = "ietf-ospf",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+static const struct frr_yang_module_info ietf_routing_ospf_deviation_info = {
+	.name = "frr-deviations-ietf-routing-ospf",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
 #ifdef HAVE_MGMTD_TESTC
 static const struct frr_yang_module_info frr_test_config_info = {
 	.name = "frr-test-config",
@@ -180,6 +198,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
+	&ietf_routing_ospf_deviation_info,
+	&ietf_routing_info,
+	&ietf_ospf_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
 	&ietf_srv6_types_info,
