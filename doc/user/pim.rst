@@ -73,14 +73,15 @@ PIM Routers
 
 .. clicmd:: no autorp discovery
 
-   In order to use pim, it is necessary to configure a RP for join messages to
+   In order to use PIM, it is necessary to configure an RP for join messages to
    be sent to. FRR supports learning RP information dynamically via the AutoRP
    protocol and performs discovery by default. This command will disable the
-   AutoRP discovery protocol.
-   All routers in the pim network must agree on the network RP information, so
+   AutoRP discovery protocol. Any RP information previously learned via AutoRP
+   is removed immediately from the running configuration.
+   All routers in the PIM network must agree on the network RP information, so
    all routers in the network should have AutoRP either enabled or disabled.
-   This command is vrf aware, to configure for a vrf, specify the vrf in the
-   router pim block.
+   Use ``autorp discovery`` to re-enable AutoRP discovery. This command is
+   VRF-aware.
 
 .. clicmd:: autorp announce A.B.C.D [A.B.C.D/M | group-list PREFIX_LIST]
 
@@ -95,6 +96,24 @@ PIM Routers
    seconds elapsed between advertise messages sent, defaults to 60. Hold time defines
    how long the AutoRP mapping agent will consider the information valid, setting to
    0 will disable expiration of the candidate RP information, defaults to 3 * interval.
+
+.. clicmd:: autorp send-rp-discovery [source <address A.B.C.D | interface IFNAME | loopback | any>]
+
+   Enable the AutoRP mapping agent on this router. The mapping agent listens for
+   candidate RP announcements, aggregates them, and sends AutoRP discovery
+   messages so other routers can learn RP information dynamically. By default the
+   source address is the highest loopback address. Use ``interface`` to select the
+   highest address on an interface, ``address`` to set an explicit address, or
+   ``any`` to use the highest address on any interface. Use ``no autorp
+   send-rp-discovery`` to disable the mapping agent. This command is VRF-aware.
+
+.. clicmd:: autorp send-rp-discovery {scope (0-255) | interval (1-65535) | holdtime (0-65535)}
+
+   Configure AutoRP mapping agent discovery messages. The scope defines the TTL
+   value in the messages to limit the scope, defaults to 31. Interval defines the
+   number of seconds elapsed between discovery messages sent, defaults to 60. Hold
+   time defines how long other routers should consider learned RP information
+   valid, defaults to 180 seconds.
 
 .. clicmd:: rp keep-alive-timer (1-65535)
    :daemon: pim
