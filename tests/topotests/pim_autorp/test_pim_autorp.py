@@ -449,6 +449,93 @@ def test_pim_autorp_discovery_rp(request):
         )
 
 
+def test_pim_autorp_discovery_disable_purge_rp(request):
+    "Test learned AutoRP RPs are removed when discovery is disabled"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.routers()["r3"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp announce 10.0.0.2 224.0.0.0/4
+          autorp announce scope 31 interval 1 holdtime 60
+        """
+    )
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp send-rp-discovery source interface r1-eth0
+          autorp send-rp-discovery scope 31 interval 1 holdtime 60
+        """
+    )
+
+    step("Verify AutoRP learned RP on r2")
+    expected = json.loads(
+        """
+        {
+          "10.0.3.4":[
+            {
+              "rpAddress":"10.0.3.4",
+              "group":"224.0.1.0/24",
+              "source":"Static"
+            }
+          ],
+          "10.0.0.2":[
+            {
+              "rpAddress":"10.0.0.2",
+              "group":"224.0.0.0/4",
+              "source":"AutoRP"
+            }
+          ]
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r2"],
+        "show ip pim rp-info json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r2 does not have correct rp-info before disable"
+
+    step("Disable AutoRP discovery on r2")
+    tgen.routers()["r2"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp discovery
+        """
+    )
+
+    step("Verify learned AutoRP RP is removed immediately on r2")
+    expected = json.loads(
+        """
+        {
+          "10.0.3.4":[
+            {
+              "rpAddress":"10.0.3.4",
+              "group":"224.0.1.0/24",
+              "source":"Static"
+            }
+          ]
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r2"],
+        "show ip pim rp-info json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r2 did not purge learned AutoRP RP after disable"
+
+
 def test_pim_autorp_discovery_multiple_rp_same(request):
     "Test PIM AutoRP Discovery with multiple RP's for same group prefix"
     tgen = get_topogen()
