@@ -35,6 +35,8 @@ static const char *PIM_AUTORP_ANNOUNCEMENT_GRP = "224.0.1.39";
 static const char *PIM_AUTORP_DISCOVERY_GRP = "224.0.1.40";
 static const in_port_t PIM_AUTORP_PORT = 496;
 
+static bool autorp_config_loaded;
+
 static int pim_autorp_rp_cmp(const struct pim_autorp_rp *l, const struct pim_autorp_rp *r)
 {
 	return pim_addr_cmp(l->addr, r->addr);
@@ -2078,6 +2080,7 @@ void pim_autorp_init(struct pim_instance *pim)
 	autorp->read_event = NULL;
 	autorp->announce_timer = NULL;
 	autorp->do_discovery = false;
+	autorp->discovery_cfg_set = false;
 	autorp->send_discovery_timer = NULL;
 	autorp->send_rp_discovery = false;
 	pim_autorp_rp_init(&(autorp->discovery_rp_list));
@@ -2098,10 +2101,40 @@ void pim_autorp_init(struct pim_instance *pim)
 		zlog_debug("%s: AutoRP Initialized", __func__);
 }
 
+void pim_autorp_discovery_apply_finish(struct pim_instance *pim)
+{
+	struct pim_autorp *autorp = pim->autorp;
+
+	if (!autorp)
+		return;
+
+	autorp_config_loaded = true;
+
+	if (!autorp->discovery_cfg_set)
+		pim_autorp_start_discovery(pim);
+}
+
 void pim_autorp_enable(struct pim_instance *pim)
 {
-	/* Start AutoRP discovery by default on startup */
+	struct pim_autorp *autorp = pim->autorp;
+
+	/* Per-VRF apply_finish handles startup config. For VRFs created at
+	 * runtime after config load, start discovery if not explicitly disabled.
+	 */
+	if (!autorp || !autorp_config_loaded || autorp->discovery_cfg_set)
+		return;
+
 	pim_autorp_start_discovery(pim);
+}
+
+void pim_autorp_discovery_cfg_destroy(struct pim_instance *pim)
+{
+	struct pim_autorp *autorp = pim->autorp;
+
+	if (!autorp)
+		return;
+
+	autorp->discovery_cfg_set = false;
 }
 
 void pim_autorp_finish(struct pim_instance *pim)
