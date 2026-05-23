@@ -3544,6 +3544,46 @@ pim6_autorp_err(
 
 #if PIM_IPV == 4
 /*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family
+ */
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	pim = vrf->info;
+	if (!pim || !pim->autorp)
+		return;
+
+	/* auto-rp apply_finish handles discovery when that container exists. */
+	if (yang_dnode_exists(args->dnode, "./frr-pim-rp:rp/auto-rp"))
+		return;
+
+	pim_autorp_discovery_apply_finish(pim);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp
+ */
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	pim = vrf->info;
+	if (!pim)
+		return;
+
+	pim_autorp_discovery_apply_finish(pim);
+}
+
+/*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/discovery-enabled
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
@@ -3561,6 +3601,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
+		if (!pim->autorp)
+			break;
+		pim->autorp->discovery_cfg_set = true;
 		enabled = yang_dnode_get_bool(args->dnode, NULL);
 		if (enabled)
 			pim_autorp_start_discovery(pim);
@@ -3585,8 +3628,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		/* Run AutoRP discovery by default */
-		pim_autorp_start_discovery(pim);
+		pim_autorp_discovery_cfg_destroy(pim);
 		break;
 	}
 
