@@ -168,6 +168,9 @@ struct ospf6 {
 	struct timeval ts_spf_duration; /* Execution time of last SPF */
 	unsigned int last_spf_reason;   /* Last SPF reason */
 
+	uint32_t lsa_originate_count; /* Number of new LSAs originated. */
+	uint32_t rx_lsa_count;	      /* Number of new LSAs received. */
+
 	int fd;
 	/* Threads */
 	struct event *t_spf_calc; /* SPF calculation timer. */

@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * OSPFv3 northbound interface.
+ */
+
+#ifndef FRR_OSPF6_NB_H
+#define FRR_OSPF6_NB_H
+
+#include "northbound.h"
+
+extern const struct frr_yang_module_info ospf6d_ietf_routing_info;
+extern const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info;
+extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
+
+const void *ospf6d_ietf_routing_control_plane_protocol_get_next(struct nb_cb_get_next_args *args);
+int ospf6d_ietf_routing_control_plane_protocol_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+ospf6d_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entry_args *args);
+
+struct yang_data *ospf6d_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_statistics_originate_new_lsa_count_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_statistics_rx_new_lsas_count_get_elem(struct nb_cb_get_elem_args *args);
+const void *ospf6d_ietf_ospf_areas_area_get_next(struct nb_cb_get_next_args *args);
+int ospf6d_ietf_ospf_areas_area_get_keys(struct nb_cb_get_keys_args *args);
+const void *ospf6d_ietf_ospf_areas_area_lookup_entry(struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_areas_area_statistics_spf_runs_count_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_areas_area_statistics_abr_count_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_areas_area_statistics_asbr_count_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *ospf6d_ietf_ospf_areas_area_statistics_area_scope_lsa_count_get_elem(
+	struct nb_cb_get_elem_args *args);
+
+const void *
+ospf6d_ietf_ospf_areas_area_interfaces_interface_get_next(struct nb_cb_get_next_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+ospf6d_ietf_ospf_areas_area_interfaces_interface_lookup_entry(struct nb_cb_lookup_entry_args *args);
+
+const void *ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_get_next(
+	struct nb_cb_get_next_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_get_keys(
+	struct nb_cb_get_keys_args *args);
+const void *ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_lookup_entry(
+	struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_address_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_state_get_elem(
+	struct nb_cb_get_elem_args *args);
+
+#endif /* FRR_OSPF6_NB_H */

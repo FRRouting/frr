@@ -1,0 +1,686 @@
+module ietf-routing {
+  yang-version "1.1";
+  namespace "urn:ietf:params:xml:ns:yang:ietf-routing";
+  prefix "rt";
+
+  import ietf-yang-types {
+    prefix "yang";
+  }
+
+  import ietf-interfaces {
+    prefix "if";
+    description
+      "An 'ietf-interfaces' module version that is compatible with
+       the Network Management Datastore Architecture (NMDA)
+       is required.";
+  }
+
+  organization
+    "IETF NETMOD (Network Modeling) Working Group";
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/netmod/>
+     WG List:  <mailto:rtgwg@ietf.org>
+
+     Editor:   Ladislav Lhotka
+               <mailto:lhotka@nic.cz>
+               Acee Lindem
+               <mailto:acee@cisco.com>
+               Yingzhen Qu
+               <mailto:yingzhen.qu@huawei.com>";
+
+  description
+    "This YANG module defines essential components for the management
+     of a routing subsystem.  The model fully conforms to the Network
+     Management Datastore Architecture (NMDA).
+
+     Copyright (c) 2018 IETF Trust and the persons
+     identified as authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD License
+     set forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 8349; see
+     the RFC itself for full legal notices.";
+
+  revision 2018-03-13 {
+    description
+      "Network Management Datastore Architecture (NMDA) revision.";
+    reference
+      "RFC 8349: A YANG Data Model for Routing Management
+                 (NMDA Version)";
+  }
+
+  revision 2016-11-04 {
+       description
+         "Initial revision.";
+       reference
+         "RFC 8022: A YANG Data Model for Routing Management";
+  }
+
+  /* Features */
+  feature multiple-ribs {
+    description
+      "This feature indicates that the server supports
+       user-defined RIBs.
+
+       Servers that do not advertise this feature SHOULD provide
+       exactly one system-controlled RIB per supported address family
+       and also make it the default RIB.  This RIB then appears as an
+       entry in the list '/routing/ribs/rib'.";
+  }
+
+  feature router-id {
+    description
+      "This feature indicates that the server supports an explicit
+       32-bit router ID that is used by some routing protocols.
+
+       Servers that do not advertise this feature set a router ID
+       algorithmically, usually to one of the configured IPv4
+       addresses.  However, this algorithm is implementation
+       specific.";
+  }
+
+  /* Identities */
+
+  identity address-family {
+    description
+      "Base identity from which identities describing address
+       families are derived.";
+  }
+
+  identity ipv4 {
+    base address-family;
+    description
+      "This identity represents an IPv4 address family.";
+  }
+
+  identity ipv6 {
+    base address-family;
+    description
+      "This identity represents an IPv6 address family.";
+  }
+
+  identity control-plane-protocol {
+    description
+      "Base identity from which control-plane protocol identities are
+       derived.";
+  }
+
+  identity routing-protocol {
+    base control-plane-protocol;
+    description
+      "Identity from which Layer 3 routing protocol identities are
+       derived.";
+  }
+
+  identity direct {
+    base routing-protocol;
+    description
+      "Routing pseudo-protocol that provides routes to directly
+       connected networks.";
+  }
+
+  identity static {
+    base routing-protocol;
+    description
+      "'Static' routing pseudo-protocol.";
+  }
+
+  /* Type Definitions */
+
+  typedef route-preference {
+    type uint32;
+    description
+      "This type is used for route preferences.";
+  }
+
+  /* Groupings */
+
+  grouping address-family {
+    description
+      "This grouping provides a leaf identifying an address
+       family.";
+    leaf address-family {
+      type identityref {
+        base address-family;
+      }
+      mandatory true;
+      description
+        "Address family.";
+    }
+  }
+
+  grouping router-id {
+    description
+      "This grouping provides a router ID.";
+    leaf router-id {
+      type yang:dotted-quad;
+      description
+        "A 32-bit number in the form of a dotted quad that is used by
+         some routing protocols identifying a router.";
+      reference
+        "RFC 2328: OSPF Version 2";
+    }
+  }
+
+  grouping special-next-hop {
+    description
+      "This grouping provides a leaf with an enumeration of special
+       next hops.";
+    leaf special-next-hop {
+      type enumeration {
+        enum blackhole {
+          description
+            "Silently discard the packet.";
+        }
+        enum unreachable {
+          description
+            "Discard the packet and notify the sender with an error
+             message indicating that the destination host is
+             unreachable.";
+        }
+        enum prohibit {
+          description
+            "Discard the packet and notify the sender with an error
+             message indicating that the communication is
+             administratively prohibited.";
+        }
+        enum receive {
+          description
+            "The packet will be received by the local system.";
+        }
+      }
+      description
+        "Options for special next hops.";
+    }
+  }
+
+  grouping next-hop-content {
+    description
+      "Generic parameters of next hops in static routes.";
+    choice next-hop-options {
+      mandatory true;
+      description
+        "Options for next hops in static routes.
+
+         It is expected that further cases will be added through
+         augments from other modules.";
+      case simple-next-hop {
+        description
+          "This case represents a simple next hop consisting of the
+           next-hop address and/or outgoing interface.
+
+           Modules for address families MUST augment this case with a
+           leaf containing a next-hop address of that address
+           family.";
+        leaf outgoing-interface {
+          type if:interface-ref;
+          description
+            "Name of the outgoing interface.";
+        }
+      }
+      case special-next-hop {
+        uses special-next-hop;
+      }
+      case next-hop-list {
+        container next-hop-list {
+          description
+            "Container for multiple next hops.";
+          list next-hop {
+            key "index";
+            description
+              "An entry in a next-hop list.
+
+               Modules for address families MUST augment this list
+               with a leaf containing a next-hop address of that
+               address family.";
+            leaf index {
+              type string;
+              description
+                "A user-specified identifier utilized to uniquely
+                 reference the next-hop entry in the next-hop list.
+                 The value of this index has no semantic meaning
+                 other than for referencing the entry.";
+            }
+            leaf outgoing-interface {
+              type if:interface-ref;
+              description
+                "Name of the outgoing interface.";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping next-hop-state-content {
+    description
+      "Generic state parameters of next hops.";
+    choice next-hop-options {
+      mandatory true;
+      description
+        "Options for next hops.
+
+         It is expected that further cases will be added through
+         augments from other modules, e.g., for recursive
+         next hops.";
+      case simple-next-hop {
+        description
+          "This case represents a simple next hop consisting of the
+           next-hop address and/or outgoing interface.
+
+           Modules for address families MUST augment this case with a
+           leaf containing a next-hop address of that address
+           family.";
+        leaf outgoing-interface {
+          type if:interface-ref;
+          description
+            "Name of the outgoing interface.";
+        }
+      }
+      case special-next-hop {
+        uses special-next-hop;
+      }
+      case next-hop-list {
+        container next-hop-list {
+          description
+            "Container for multiple next hops.";
+          list next-hop {
+            description
+              "An entry in a next-hop list.
+
+               Modules for address families MUST augment this list
+               with a leaf containing a next-hop address of that
+               address family.";
+            leaf outgoing-interface {
+              type if:interface-ref;
+              description
+                "Name of the outgoing interface.";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping route-metadata {
+    description
+      "Common route metadata.";
+    leaf source-protocol {
+      type identityref {
+        base routing-protocol;
+      }
+      mandatory true;
+      description
+        "Type of the routing protocol from which the route
+         originated.";
+    }
+    leaf active {
+      type empty;
+      description
+        "The presence of this leaf indicates that the route is
+         preferred among all routes in the same RIB that have the
+         same destination prefix.";
+    }
+    leaf last-updated {
+      type yang:date-and-time;
+      description
+        "Timestamp of the last modification of the route.  If the
+         route was never modified, it is the time when the route was
+         inserted into the RIB.";
+    }
+  }
+
+  /* Data nodes */
+
+  container routing {
+    description
+      "Configuration parameters for the routing subsystem.";
+    uses router-id {
+      if-feature "router-id";
+      description
+        "Support for the global router ID.  Routing protocols
+         that use a router ID can use this parameter or override it
+         with another value.";
+    }
+    container interfaces {
+      config false;
+      description
+        "Network-layer interfaces used for routing.";
+      leaf-list interface {
+        type if:interface-ref;
+        description
+          "Each entry is a reference to the name of a configured
+           network-layer interface.";
+      }
+    }
+    container control-plane-protocols {
+      description
+        "Support for control-plane protocol instances.";
+      list control-plane-protocol {
+        key "type name";
+        description
+          "Each entry contains a control-plane protocol instance.";
+        leaf type {
+          type identityref {
+            base control-plane-protocol;
+          }
+          description
+            "Type of the control-plane protocol -- an identity
+             derived from the 'control-plane-protocol'
+             base identity.";
+        }
+        leaf name {
+          type string;
+          description
+            "An arbitrary name of the control-plane protocol
+             instance.";
+        }
+        leaf description {
+          type string;
+          description
+            "Textual description of the control-plane protocol
+             instance.";
+        }
+        container static-routes {
+          when "derived-from-or-self(../type, 'rt:static')" {
+            description
+              "This container is only valid for the 'static' routing
+               protocol.";
+          }
+          description
+            "Support for the 'static' pseudo-protocol.
+
+             Address-family-specific modules augment this node with
+             their lists of routes.";
+        }
+      }
+    }
+    container ribs {
+      description
+        "Support for RIBs.";
+      list rib {
+        key "name";
+        description
+          "Each entry contains a configuration for a RIB identified
+           by the 'name' key.
+
+           Entries having the same key as a system-controlled entry
+           in the list '/routing/ribs/rib' are used for
+           configuring parameters of that entry.  Other entries
+           define additional user-controlled RIBs.";
+        leaf name {
+          type string;
+          description
+            "The name of the RIB.
+
+             For system-controlled entries, the value of this leaf
+             must be the same as the name of the corresponding entry
+             in the operational state.
+
+             For user-controlled entries, an arbitrary name can be
+             used.";
+        }
+        uses address-family {
+          description
+            "The address family of the system-controlled RIB.";
+        }
+
+        leaf default-rib {
+          if-feature "multiple-ribs";
+          type boolean;
+          default "true";
+          config false;
+          description
+            "This flag has the value of 'true' if and only if the RIB
+             is the default RIB for the given address family.
+
+             By default, control-plane protocols place their routes
+             in the default RIBs.";
+        }
+        container routes {
+          config false;
+          description
+            "Current contents of the RIB.";
+          list route {
+            description
+              "A RIB route entry.  This data node MUST be augmented
+               with information specific to routes of each address
+               family.";
+            leaf route-preference {
+              type route-preference;
+              description
+                "This route attribute, also known as 'administrative
+                 distance', allows for selecting the preferred route
+                 among routes with the same destination prefix.  A
+                 smaller value indicates a route that is
+                 more preferred.";
+            }
+            container next-hop {
+              description
+                "Route's next-hop attribute.";
+              uses next-hop-state-content;
+            }
+            uses route-metadata;
+          }
+        }
+        action active-route {
+          description
+            "Return the active RIB route that is used for the
+             destination address.
+
+             Address-family-specific modules MUST augment input
+             parameters with a leaf named 'destination-address'.";
+          output {
+            container route {
+              description
+                "The active RIB route for the specified destination.
+
+                 If no route exists in the RIB for the destination
+                 address, no output is returned.
+
+                 Address-family-specific modules MUST augment this
+                 container with appropriate route contents.";
+              container next-hop {
+                description
+                  "Route's next-hop attribute.";
+                uses next-hop-state-content;
+              }
+              uses route-metadata;
+            }
+          }
+        }
+        leaf description {
+          type string;
+          description
+            "Textual description of the RIB.";
+        }
+      }
+    }
+  }
+
+  /*
+   * The subsequent data nodes are obviated and obsoleted
+   * by the Network Management Datastore Architecture
+   * as described in RFC 8342.
+   */
+  container routing-state {
+    config false;
+    status obsolete;
+    description
+      "State data of the routing subsystem.";
+    uses router-id {
+      status obsolete;
+      description
+        "Global router ID.
+
+         It may be either configured or assigned algorithmically by
+         the implementation.";
+    }
+    container interfaces {
+      status obsolete;
+      description
+        "Network-layer interfaces used for routing.";
+      leaf-list interface {
+        type if:interface-state-ref;
+        status obsolete;
+        description
+          "Each entry is a reference to the name of a configured
+           network-layer interface.";
+      }
+    }
+    container control-plane-protocols {
+      status obsolete;
+      description
+        "Container for the list of routing protocol instances.";
+      list control-plane-protocol {
+        key "type name";
+        status obsolete;
+        description
+          "State data of a control-plane protocol instance.
+
+           An implementation MUST provide exactly one
+           system-controlled instance of the 'direct'
+           pseudo-protocol.  Instances of other control-plane
+           protocols MAY be created by configuration.";
+        leaf type {
+          type identityref {
+            base control-plane-protocol;
+          }
+          status obsolete;
+          description
+            "Type of the control-plane protocol.";
+        }
+        leaf name {
+          type string;
+          status obsolete;
+          description
+            "The name of the control-plane protocol instance.
+
+             For system-controlled instances, this name is
+             persistent, i.e., it SHOULD NOT change across
+             reboots.";
+        }
+      }
+    }
+    container ribs {
+      status obsolete;
+      description
+        "Container for RIBs.";
+      list rib {
+        key "name";
+        min-elements 1;
+        status obsolete;
+        description
+          "Each entry represents a RIB identified by the 'name'
+           key.  All routes in a RIB MUST belong to the same address
+           family.
+
+           An implementation SHOULD provide one system-controlled
+           default RIB for each supported address family.";
+        leaf name {
+          type string;
+          status obsolete;
+          description
+            "The name of the RIB.";
+        }
+        uses address-family {
+          status obsolete;
+          description
+            "The address family of the RIB.";
+        }
+        leaf default-rib {
+          if-feature "multiple-ribs";
+          type boolean;
+          default "true";
+          status obsolete;
+          description
+            "This flag has the value of 'true' if and only if the
+             RIB is the default RIB for the given address family.
+
+             By default, control-plane protocols place their routes
+             in the default RIBs.";
+        }
+        container routes {
+          status obsolete;
+          description
+            "Current contents of the RIB.";
+          list route {
+            status obsolete;
+            description
+              "A RIB route entry.  This data node MUST be augmented
+               with information specific to routes of each address
+               family.";
+            leaf route-preference {
+              type route-preference;
+              status obsolete;
+              description
+                "This route attribute, also known as 'administrative
+                 distance', allows for selecting the preferred route
+                 among routes with the same destination prefix.  A
+                 smaller value indicates a route that is
+                 more preferred.";
+            }
+            container next-hop {
+              status obsolete;
+              description
+                "Route's next-hop attribute.";
+              uses next-hop-state-content {
+                status obsolete;
+                description
+                  "Route's next-hop attribute operational state.";
+              }
+            }
+            uses route-metadata {
+              status obsolete;
+              description
+                "Route metadata.";
+            }
+          }
+        }
+        action active-route {
+          status obsolete;
+          description
+            "Return the active RIB route that is used for the
+             destination address.
+
+             Address-family-specific modules MUST augment input
+             parameters with a leaf named 'destination-address'.";
+          output {
+            container route {
+              status obsolete;
+              description
+                "The active RIB route for the specified
+                 destination.
+
+                 If no route exists in the RIB for the destination
+                 address, no output is returned.
+
+                 Address-family-specific modules MUST augment this
+                 container with appropriate route contents.";
+              container next-hop {
+                status obsolete;
+                description
+                  "Route's next-hop attribute.";
+                uses next-hop-state-content {
+                  status obsolete;
+                  description
+                    "Active route state data.";
+                }
+              }
+              uses route-metadata {
+                status obsolete;
+                description
+                  "Active route metadata.";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

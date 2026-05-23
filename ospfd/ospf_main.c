@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "keychain.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -42,6 +43,7 @@
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_nb.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
@@ -91,6 +93,7 @@ const struct option longopts[] = {
 
 /* Master of threads. */
 struct event_loop *master;
+static struct mgmt_be_client *mgmt_be_client;
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -103,6 +106,7 @@ static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 	ospf_terminate();
 
 	exit(0);
@@ -138,9 +142,21 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&ospfd_ietf_routing_ospf_deviation_info,
+	&ospfd_ietf_routing_info,
+	&ospfd_ietf_ospf_info,
 	&frr_ospf_route_map_info,
 	&ietf_key_chain_info,
 	&ietf_key_chain_deviation_info,
+};
+
+static const char *const ospfd_oper_xpaths[] = {
+	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
+};
+
+struct mgmt_be_client_cbs ospfd_be_client_data = {
+	.oper_xpaths = ospfd_oper_xpaths,
+	.noper_xpaths = array_size(ospfd_oper_xpaths),
 };
 
 /* actual paths filled in main() */
@@ -302,6 +318,8 @@ int main(int argc, char **argv)
 
 	/* OSPF errors init */
 	ospf_error_init();
+
+	mgmt_be_client = mgmt_be_client_create("ospfd", &ospfd_be_client_data, 0, master);
 
 	frr_config_fork();
 	frr_run(master);

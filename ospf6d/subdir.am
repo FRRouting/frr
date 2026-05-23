@@ -29,6 +29,8 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_lsdb.c \
 	ospf6d/ospf6_message.c \
 	ospf6d/ospf6_neighbor.c \
+	ospf6d/ospf6_nb.c \
+	ospf6d/ospf6_nb_state.c \
 	ospf6d/ospf6_network.c \
 	ospf6d/ospf6_proto.c \
 	ospf6d/ospf6_route.c \
@@ -53,6 +55,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_lsdb.h \
 	ospf6d/ospf6_message.h \
 	ospf6d/ospf6_neighbor.h \
+	ospf6d/ospf6_nb.h \
 	ospf6d/ospf6_network.h \
 	ospf6d/ospf6_proto.h \
 	ospf6d/ospf6_route.h \

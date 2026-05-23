@@ -158,12 +158,18 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
 	yang/frr-nexthop.yang.c \
+	yang/ietf/iana-bfd-types.yang.c \
+	yang/ietf/iana-routing-types.yang.c \
 	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
+	yang/ietf/frr-deviations-ietf-routing-ospf.yang.c \
+	yang/ietf/ietf-bfd-types.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
 	yang/ietf/ietf-syslog-types.yang.c \
 	yang/ietf/ietf-netconf-acm.yang.c \
 	yang/ietf/ietf-key-chain.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
+	yang/ietf/ietf-ospf.yang.c \
+	yang/ietf/ietf-routing.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
 	yang/ietf/ietf-srv6-types.yang.c \

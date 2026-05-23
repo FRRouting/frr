@@ -46,6 +46,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
+#include "zebra/zebra_ietf_interfaces_nb.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
@@ -294,6 +295,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
+	&zebra_ietf_interfaces_info,
 	&frr_route_map_info,
 	&frr_zebra_info,
 	&frr_vrf_info,
@@ -332,6 +334,7 @@ static const char *const zebra_config_xpaths[] = {
 static const char *const zebra_oper_xpaths[] = {
 	"/frr-backend:clients",
 	"/frr-interface:lib/interface",
+	"/ietf-interfaces:interfaces/interface",
 	"/frr-vrf:lib/vrf",
 	"/frr-zebra:zebra",
 };

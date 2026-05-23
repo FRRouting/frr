@@ -25,6 +25,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -34,6 +35,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_interface.h"
 #include "ospf6_zebra.h"
+#include "ospf6_nb.h"
 #include "ospf6_routemap_nb.h"
 
 /* Default configuration file name for ospf6d. */
@@ -69,6 +71,7 @@ struct option longopts[] = {{0}};
 
 /* Master of threads. */
 struct event_loop *master;
+static struct mgmt_be_client *mgmt_be_client;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
@@ -80,6 +83,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	frr_early_fini();
 
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -168,10 +172,22 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&ospf6d_ietf_routing_ospf_deviation_info,
+	&ospf6d_ietf_routing_info,
+	&ospf6d_ietf_ospf_info,
 	&frr_ospf_route_map_info,
 	&frr_ospf6_route_map_info,
 	&ietf_key_chain_info,
 	&ietf_key_chain_deviation_info,
+};
+
+static const char *const ospf6d_oper_xpaths[] = {
+	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
+};
+
+struct mgmt_be_client_cbs ospf6d_be_client_data = {
+	.oper_xpaths = ospf6d_oper_xpaths,
+	.noper_xpaths = array_size(ospf6d_oper_xpaths),
 };
 
 /* actual paths filled in main() */
@@ -275,6 +291,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* Configuration processing callback initialization. */
 	cmd_init_config_callbacks(ospf6_config_start, ospf6_config_end);
+
+	mgmt_be_client = mgmt_be_client_create("ospf6d", &ospf6d_be_client_data, 0, master);
 
 	frr_config_fork();
 	frr_run(master);
