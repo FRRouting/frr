@@ -1473,7 +1473,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		find->refcnt++;
 		/* Populate cache only for the unchanged-parsed-attr case */
 		if (reuse_anchor && reuse_anchor->attr_intern_reuse.parsed_attr &&
-		    attrhash_cmp(attr, reuse_anchor->attr_intern_reuse.parsed_attr)) {
+		    attrhash_cmp(find, reuse_anchor->attr_intern_reuse.parsed_attr)) {
 			reuse_anchor->attr_intern_reuse.valid = true;
 			reuse_anchor->attr_intern_reuse.interned = find;
 		}
