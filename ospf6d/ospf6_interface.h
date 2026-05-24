@@ -241,6 +241,8 @@ extern void ospf6_interface_start(struct ospf6_interface *oi);
 extern void ospf6_interface_stop(struct ospf6_interface *oi);
 extern void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi);
 extern void ospf6_interface_recalculate_cost(struct ospf6_interface *oi);
+extern void ospf6_hello_reschedule(struct ospf6_interface *oi);
+extern void ospf6_priority_recompute(struct ospf6_interface *oi);
 
 extern struct ospf6_interface *
 ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);

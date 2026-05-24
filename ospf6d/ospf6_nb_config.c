@@ -706,6 +706,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify(
 		return NB_OK;
 
 	oi->hello_interval = yang_dnode_get_uint16(args->dnode, NULL);
+	/*
+	 * Reschedule the next hello immediately so the new interval takes
+	 * effect within the current hello cycle rather than after one full
+	 * old-interval delay. Mirrors the legacy `ipv6 ospf6 hello-interval`
+	 * direct-mutation path.
+	 */
+	ospf6_hello_reschedule(oi);
 	return NB_OK;
 }
 
@@ -730,6 +737,7 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
 		return NB_OK;
 
 	oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
+	ospf6_hello_reschedule(oi);
 	return NB_OK;
 }
 
@@ -890,6 +898,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_c
 		return NB_OK;
 
 	oi->priority = yang_dnode_get_uint8(args->dnode, NULL);
+	/*
+	 * Re-run DR election immediately so the new priority is reflected
+	 * in the next hello without waiting for the current DR/BDR state
+	 * to time out. Mirrors the legacy `ipv6 ospf6 priority` direct-
+	 * mutation path.
+	 */
+	ospf6_priority_recompute(oi);
 	return NB_OK;
 }
 
@@ -913,6 +928,7 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_priority_destroy(struct nb_
 		return NB_OK;
 
 	oi->priority = OSPF6_INTERFACE_PRIORITY;
+	ospf6_priority_recompute(oi);
 	return NB_OK;
 }
 

@@ -17,6 +17,7 @@
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
+#include "northbound_cli.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -216,9 +217,9 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi->transdelay = OSPF6_INTERFACE_TRANSDELAY;
 	oi->priority = OSPF6_INTERFACE_PRIORITY;
 
-	oi->hello_interval = OSPF_HELLO_INTERVAL_DEFAULT;
+	oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
 	oi->gr.hello_delay.interval = OSPF_HELLO_DELAY_DEFAULT;
-	oi->dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+	oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
 	oi->rxmt_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
 	oi->type = ospf6_default_iftype(ifp);
 	oi->state = OSPF6_INTERFACE_DOWN;
@@ -2076,44 +2077,76 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_cost,
+/*
+ * Per-interface CLI conversion for ospf6d. v3 commands don't take
+ * per-address overrides, so the YANG-dispatch branch only needs to
+ * check that the interface is in an ospf6 area; otherwise we fall back
+ * to direct mutation. Returns 0 on success and writes the xpath into
+ * buf; returns -1 if YANG is not applicable.
+ */
+static int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+				 const char *leaf)
+{
+	const struct ospf6_interface *oi;
+	const struct ospf6 *ospf6;
+	char area_id_str[INET_ADDRSTRLEN];
+	struct in_addr addr;
+	int ret;
+
+	if (!ifp)
+		return -1;
+	oi = (const struct ospf6_interface *)ifp->info;
+	if (!oi || !oi->area)
+		return -1;
+	ospf6 = oi->area->ospf6;
+	if (!ospf6)
+		return -1;
+
+	addr.s_addr = oi->area->area_id;
+	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
+	ret = snprintf(xpath, size,
+		       "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
+		       ospf6->name ? ospf6->name : "default", area_id_str, ifp->name,
+		       leaf ? leaf : "");
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+
+	return 0;
+}
+
+DEFPY_YANG (ipv6_ospf6_cost,
        ipv6_ospf6_cost_cmd,
-       "ipv6 ospf6 cost (1-65535)",
+       "ipv6 ospf6 cost (1-65535)$cost",
        IP6_STR
        OSPF6_STR
        "Interface cost\n"
        "Outgoing metric of this interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
-	unsigned long int lcost;
+	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
 
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, cost_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	oi = (struct ospf6_interface *)ifp->info;
-	if (oi == NULL)
+	if (!oi)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	lcost = strtol(argv[idx_number]->arg, NULL, 10);
-
-	if (lcost > UINT32_MAX) {
-		vty_out(vty, "Cost %ld is out of range\n", lcost);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
-	if (oi->cost == lcost)
+	if (oi->cost == (uint32_t)cost)
 		return CMD_SUCCESS;
-
-	oi->cost = lcost;
+	oi->cost = cost;
 	ospf6_interface_force_recalculate_cost(oi);
-
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_cost,
+DEFPY_YANG (no_ipv6_ospf6_cost,
        no_ipv6_ospf6_cost_cmd,
        "no ipv6 ospf6 cost [(1-65535)]",
        NO_STR
@@ -2124,17 +2157,21 @@ DEFUN (no_ipv6_ospf6_cost,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
 
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	oi = (struct ospf6_interface *)ifp->info;
-	if (oi == NULL)
+	if (!oi)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
-
 	ospf6_interface_recalculate_cost(oi);
-
 	return CMD_SUCCESS;
 }
 
@@ -2227,41 +2264,65 @@ DEFUN (no_ospf6_write_multiplier,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_hellointerval,
+void ospf6_hello_reschedule(struct ospf6_interface *oi)
+{
+	if (event_is_scheduled(oi->thread_send_hello)) {
+		event_cancel(&oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
+	}
+}
+
+static bool ospf6_yang_default_timer_edit_is_noop(struct vty *vty, const char *xpath,
+						  uint32_t current, uint32_t default_value)
+{
+	/*
+	 * Interface timer commands can run while the interface is detached
+	 * from OSPF6, in which case they update runtime-only legacy state.
+	 * Once the interface is attached again, editing a YANG leaf back to
+	 * its schema default is a candidate no-op when the leaf is already
+	 * absent. No northbound callback will fire, so the CLI bridge must
+	 * restore the runtime default itself.
+	 */
+	return current != default_value && !yang_dnode_exists(vty->candidate_config->dnode, xpath);
+}
+
+DEFPY_YANG (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
-       "ipv6 ospf6 hello-interval (1-65535)",
+       "ipv6 ospf6 hello-interval (1-65535)$interval",
        IP6_STR
        OSPF6_STR
        "Time between HELLO packets\n"
        SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") == 0) {
+		oi = (struct ospf6_interface *)ifp->info;
+		if (oi && interval == OSPF6_INTERFACE_HELLO_INTERVAL &&
+		    ospf6_yang_default_timer_edit_is_noop(vty, xpath, oi->hello_interval,
+							  OSPF6_INTERFACE_HELLO_INTERVAL)) {
+			oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
+			ospf6_hello_reschedule(oi);
+			return CMD_SUCCESS;
+		}
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
-	oi->hello_interval = strmatch(argv[0]->text, "no")
-				     ? OSPF_HELLO_INTERVAL_DEFAULT
-				     : strtoul(argv[idx_number]->arg, NULL, 10);
-
-	/*
-	 * If the thread is scheduled, send the new hello now.
-	 */
-	if (event_is_scheduled(oi->thread_send_hello)) {
-		event_cancel(&oi->thread_send_hello);
-
-		event_add_timer(master, ospf6_hello_send, oi, 0,
-				&oi->thread_send_hello);
-	}
+	oi->hello_interval = interval;
+	ospf6_hello_reschedule(oi);
 	return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_ospf6_hellointerval,
+DEFPY_YANG (no_ipv6_ospf6_hellointerval,
        no_ipv6_ospf6_hellointerval_cmd,
        "no ipv6 ospf6 hello-interval [(1-65535)]",
        NO_STR
@@ -2269,33 +2330,88 @@ ALIAS (ipv6_ospf6_hellointerval,
        OSPF6_STR
        "Time between HELLO packets\n"
        SECONDS_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
 
-/* interface variable set command */
-DEFUN (ipv6_ospf6_deadinterval,
+	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") == 0) {
+		oi = (struct ospf6_interface *)ifp->info;
+		if (oi && ospf6_yang_default_timer_edit_is_noop(vty, xpath, oi->hello_interval,
+								OSPF6_INTERFACE_HELLO_INTERVAL)) {
+			oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
+			ospf6_hello_reschedule(oi);
+			return CMD_SUCCESS;
+		}
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+	oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
+	ospf6_hello_reschedule(oi);
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG (ipv6_ospf6_deadinterval,
        ipv6_ospf6_deadinterval_cmd,
-       "ipv6 ospf6 dead-interval (1-65535)",
+       "ipv6 ospf6 dead-interval (1-65535)$interval",
        IP6_STR
        OSPF6_STR
        "Interval time after which a neighbor is declared down\n"
        SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+	char hello_xpath[XPATH_MAXLEN];
+	char hello_buf[16];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") == 0) {
+		oi = (struct ospf6_interface *)ifp->info;
+		if (oi && interval == OSPF6_INTERFACE_DEAD_INTERVAL &&
+		    ospf6_yang_default_timer_edit_is_noop(vty, xpath, oi->dead_interval,
+							  OSPF6_INTERFACE_DEAD_INTERVAL)) {
+			if (oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL &&
+			    ospf6_per_iface_xpath(hello_xpath, sizeof(hello_xpath), ifp,
+						  "/hello-interval") == 0 &&
+			    !yang_dnode_exists(vty->candidate_config->dnode, hello_xpath)) {
+				snprintf(hello_buf, sizeof(hello_buf), "%u", oi->hello_interval);
+				nb_cli_enqueue_change(vty, hello_xpath, NB_OP_MODIFY, hello_buf);
+				if (nb_cli_apply_changes(vty, NULL) != CMD_SUCCESS)
+					return CMD_WARNING_CONFIG_FAILED;
+			}
+			oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
+			return CMD_SUCCESS;
+		}
+
+		if (oi && oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL &&
+		    oi->hello_interval < interval &&
+		    ospf6_per_iface_xpath(hello_xpath, sizeof(hello_xpath), ifp,
+					  "/hello-interval") == 0 &&
+		    !yang_dnode_exists(vty->candidate_config->dnode, hello_xpath)) {
+			snprintf(hello_buf, sizeof(hello_buf), "%u", oi->hello_interval);
+			nb_cli_enqueue_change(vty, hello_xpath, NB_OP_MODIFY, hello_buf);
+		}
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
-	oi->dead_interval = strmatch(argv[0]->arg, "no")
-				    ? OSPF_ROUTER_DEAD_INTERVAL_DEFAULT
-				    : strtoul(argv[idx_number]->arg, NULL, 10);
+	oi->dead_interval = interval;
 	return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_ospf6_deadinterval,
+DEFPY_YANG (no_ipv6_ospf6_deadinterval,
        no_ipv6_ospf6_deadinterval_cmd,
        "no ipv6 ospf6 dead-interval [(1-65535)]",
        NO_STR
@@ -2303,6 +2419,31 @@ ALIAS (ipv6_ospf6_deadinterval,
        OSPF6_STR
        "Interval time after which a neighbor is declared down\n"
        SECONDS_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
+	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") == 0) {
+		oi = (struct ospf6_interface *)ifp->info;
+		if (oi && ospf6_yang_default_timer_edit_is_noop(vty, xpath, oi->dead_interval,
+								OSPF6_INTERFACE_DEAD_INTERVAL)) {
+			oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
+			return CMD_SUCCESS;
+		}
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+	oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
+	return CMD_SUCCESS;
+}
 
 DEFPY(ipv6_ospf6_gr_hdelay,
       ipv6_ospf6_gr_hdelay_cmd,
@@ -2418,40 +2559,43 @@ ALIAS (ipv6_ospf6_retransmitinterval,
        "Time between retransmitting lost link state advertisements\n"
        SECONDS_STR)
 
-/* interface variable set command */
-DEFUN (ipv6_ospf6_priority,
+void ospf6_priority_recompute(struct ospf6_interface *oi)
+{
+	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER ||
+			 oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)) {
+		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
+			OSPF6_LINK_LSA_SCHEDULE(oi);
+	}
+}
+
+DEFPY_YANG (ipv6_ospf6_priority,
        ipv6_ospf6_priority_cmd,
-       "ipv6 ospf6 priority (0-255)",
+       "ipv6 ospf6 priority (0-255)$priority",
        IP6_STR
        OSPF6_STR
        "Router priority\n"
        "Priority value\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, priority_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
-	oi->priority = strmatch(argv[0]->text, "no")
-			       ? OSPF6_INTERFACE_PRIORITY
-			       : strtoul(argv[idx_number]->arg, NULL, 10);
-
-	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER ||
-			 oi->state == OSPF6_INTERFACE_BDR ||
-			 oi->state == OSPF6_INTERFACE_DR)) {
-		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
-			OSPF6_LINK_LSA_SCHEDULE(oi);
-	}
-
+	oi->priority = priority;
+	ospf6_priority_recompute(oi);
 	return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_ospf6_priority,
+DEFPY_YANG (no_ipv6_ospf6_priority,
        no_ipv6_ospf6_priority_cmd,
        "no ipv6 ospf6 priority [(0-255)]",
        NO_STR
@@ -2459,6 +2603,25 @@ ALIAS (ipv6_ospf6_priority,
        OSPF6_STR
        "Router priority\n"
        "Priority value\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
+	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+	oi->priority = OSPF6_INTERFACE_PRIORITY;
+	ospf6_priority_recompute(oi);
+	return CMD_SUCCESS;
+}
 
 DEFUN (ipv6_ospf6_instance,
        ipv6_ospf6_instance_cmd,
@@ -2493,7 +2656,7 @@ ALIAS (ipv6_ospf6_instance,
        "Instance ID for this interface\n"
        "Instance ID value\n")
 
-DEFUN (ipv6_ospf6_passive,
+DEFPY_YANG (ipv6_ospf6_passive,
        ipv6_ospf6_passive_cmd,
        "ipv6 ospf6 passive",
        IP6_STR
@@ -2505,8 +2668,13 @@ DEFUN (ipv6_ospf6_passive,
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
+	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/passive") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
@@ -2525,7 +2693,7 @@ DEFUN (ipv6_ospf6_passive,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_passive,
+DEFPY_YANG (no_ipv6_ospf6_passive,
        no_ipv6_ospf6_passive_cmd,
        "no ipv6 ospf6 passive",
        NO_STR
@@ -2536,7 +2704,13 @@ DEFUN (no_ipv6_ospf6_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/passive") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
@@ -2555,7 +2729,7 @@ DEFUN (no_ipv6_ospf6_passive,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_mtu_ignore,
+DEFPY_YANG (ipv6_ospf6_mtu_ignore,
        ipv6_ospf6_mtu_ignore_cmd,
        "ipv6 ospf6 mtu-ignore",
        IP6_STR
@@ -2565,19 +2739,23 @@ DEFUN (ipv6_ospf6_mtu_ignore,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/mtu-ignore") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
 	oi->mtu_ignore = 1;
-
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_mtu_ignore,
+DEFPY_YANG (no_ipv6_ospf6_mtu_ignore,
        no_ipv6_ospf6_mtu_ignore_cmd,
        "no ipv6 ospf6 mtu-ignore",
        NO_STR
@@ -2588,15 +2766,19 @@ DEFUN (no_ipv6_ospf6_mtu_ignore,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/mtu-ignore") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
 	oi->mtu_ignore = 0;
-
 	return CMD_SUCCESS;
 }
 
