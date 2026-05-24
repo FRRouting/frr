@@ -681,24 +681,30 @@ char *mpls_labels2str(mpls_label_t *labels, uint8_t num_labels, const char *pref
 		      int size)
 {
 	uint32_t label_value;
-	uint32_t len = 0;
+	int len = 0;
+	int ret;
 	uint8_t i;
+
+	if (size <= 0)
+		return buf;
 
 	buf[0] = '\0';
 	if (!num_labels)
 		return buf;
 
 	if (prefix) {
-		strlcat(buf + len, prefix, size - len);
+		strlcat(buf, prefix, size);
 		len = strlen(buf);
+		if (len >= size - 1)
+			return buf;
 	}
 
-	label_value = decode_label(&labels[0]);
-	len += snprintf(buf + len, size - len, "%u", label_value);
-
-	for (i = 1; i < num_labels; i++) {
+	for (i = 0; i < num_labels; i++) {
 		label_value = decode_label(&labels[i]);
-		len += snprintf(buf + len, size - len, "/%u", label_value);
+		ret = snprintf(buf + len, size - len, "%s%u", i == 0 ? "" : "/", label_value);
+		if (ret < 0 || ret >= size - len)
+			return buf;
+		len += ret;
 	}
 
 	return buf;
