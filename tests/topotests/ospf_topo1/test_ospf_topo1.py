@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sys
+import time
 from functools import partial
 import pytest
 
@@ -99,6 +100,137 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def _expect_ospfv2_neighbor_full(router, neighbor):
+    "Wait until OSPFv2 neighbor reaches Full."
+    tgen = get_topogen()
+    logger.info(
+        "waiting OSPFv2 router '{}' for neighbor {}".format(router, neighbor)
+    )
+
+    def run_command_and_expect():
+        result = tgen.gears[router].vtysh_cmd(
+            "show ip ospf neighbor json", isjson=True
+        )
+        return topotest.json_cmp(
+            result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
+        )
+
+    _, result = topotest.run_and_expect(
+        run_command_and_expect, None, count=130, wait=1
+    )
+    assert result is None, '"{}" convergence failure for {}'.format(
+        router, neighbor
+    )
+
+
+def _expect_ospfv3_neighbor_full(router, neighbor):
+    "Wait until OSPFv3 neighbor reaches Full."
+    tgen = get_topogen()
+    logger.info(
+        "waiting OSPFv3 router '{}' for neighbor {}".format(router, neighbor)
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show ipv6 ospf6 neighbor json",
+        {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+    assert result is None, '"{}" convergence failure for {}'.format(
+        router, neighbor
+    )
+
+
+def _force_ospf_reconvergence_to_steady_state():
+    """Restart ospfd / ospf6d on every router, then wait for the steady
+    state LSDB.
+
+    Several YANG mutation tests in this suite drive OSPF state
+    transitions that the routing protocol can't fully clean up on its
+    own. Two distinct failure modes:
+
+      * router-id changes (test_ospf_yang_router_id_config) leave
+        old-router-id self-LSAs in remote LSDBs. The local LSDB is
+        wiped before re-origination, so the in-flight flush to
+        neighbours never reaches them.
+      * Interface priority / network-type / passive transitions
+        (test_ospf_yang_area_interface_b3b_leaves_config,
+        test_ospf_per_iface_cli_routes_through_yang,
+        test_ospf_yang_interface_type_and_passive_config) move DR
+        election around. The transient DR originates a Network LSA;
+        when it stops being DR, FRR flushes that self-originated LSA
+        but the resulting MaxAge entry is excluded from
+        ospf_lsa_maxage_walker (line 3452 of ospf_lsa.c skips
+        self-originated MaxAge LSAs), so it lingers in the LSDB
+        indefinitely.
+
+    `clear ip ospf process` is not enough -- the maxage state survives
+    via flooding back from neighbours that also kept the phantom.
+    A full daemon restart re-reads frr.conf cleanly and the LSDB
+    starts from empty everywhere simultaneously, with no stale state
+    in any router's memory for the phantoms to come back from.
+
+    After restart we wait for r1's area 0 LSDB to settle at the
+    steady-state count (3 router LSAs + 1 network LSA + 2 inter-area
+    summary LSAs from r3 + 1 ASBR LSA = 7) so downstream read-only
+    tests see deterministic state.
+    """
+    tgen = get_topogen()
+    # Restart ospfd + ospf6d on every router. Daemon restart re-reads
+    # frr.conf from scratch and gives a guaranteed clean LSDB on every
+    # node, which `clear ip ospf process` alone cannot. SIGTERM each
+    # daemon directly; the topogen wrapper only exposes a whole-router
+    # stop, which would also tear down zebra / mgmtd.
+    for rname in ("r1", "r2", "r3", "r4"):
+        rnode = tgen.gears[rname]
+        rnode.cmd("pkill -TERM -x ospfd")
+        rnode.cmd("pkill -TERM -x ospf6d")
+    # Brief settle for the kernel to reap the processes before restart.
+    time.sleep(2)
+    for rname in ("r1", "r2", "r3", "r4"):
+        rnode = tgen.gears[rname]
+        rnode.net.startRouterDaemons(["ospfd", "ospf6d"])
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv2_lsdb_equal("r1", "0.0.0.0", 7)
+
+
+def _expect_ospfv2_lsdb_equal(router, area, expected_lsa_count):
+    """Wait until `router` reports exactly expected_lsa_count LSAs in `area`.
+
+    NSM Full happens once DBD exchange completes, but full LSDB
+    propagation (especially summary / ASBR / network LSAs) requires
+    further LSU flooding. After an OSPF process reset (e.g. router-id
+    change) the adjacency reaches Full quickly while the LSDB is still
+    refilling. Equality (not just min) lets us catch phantom LSAs from
+    pre-restart state (e.g. stale network LSAs from a transient DR
+    election) that must age out before downstream tests run.
+    """
+    tgen = get_topogen()
+
+    def lsdb_matches():
+        result = tgen.gears[router].vtysh_cmd(
+            "show ip ospf json", isjson=True
+        )
+        try:
+            lsa_count = result["areas"][area]["lsaNumber"]
+        except (KeyError, TypeError):
+            return "LSA count not yet available"
+        if lsa_count == expected_lsa_count:
+            return None
+        return "lsaNumber={} != {}".format(lsa_count, expected_lsa_count)
+
+    _, diag = topotest.run_and_expect(lsdb_matches, None, count=180, wait=1)
+    assert diag is None, (
+        '"{}" LSDB did not converge to {} LSAs in area {}: {}'.format(
+            router, expected_lsa_count, area, diag
+        )
+    )
+
+
 def test_wait_protocol_convergence():
     "Wait for OSPFv2/OSPFv3 to converge"
     tgen = get_topogen()
@@ -107,78 +239,25 @@ def test_wait_protocol_convergence():
 
     logger.info("waiting for protocols to converge")
 
-    def expect_ospfv2_neighbor_full(router, neighbor):
-        "Wait until OSPFv2 convergence."
-        logger.info("waiting OSPFv2 router '{}'".format(router))
-
-        def run_command_and_expect():
-            """
-            Function that runs command and expect the following outcomes:
-             * Full/DR
-             * Full/DROther
-             * Full/Backup
-            """
-            result = tgen.gears[router].vtysh_cmd(
-                "show ip ospf neighbor json", isjson=True
-            )
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-            )
-
-        _, result = topotest.run_and_expect(
-            run_command_and_expect, None, count=130, wait=1
-        )
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
-
-    def expect_ospfv3_neighbor_full(router, neighbor):
-        "Wait until OSPFv3 convergence."
-        logger.info("waiting OSPFv3 router '{}'".format(router))
-        test_func = partial(
-            topotest.router_json_cmp,
-            tgen.gears[router],
-            "show ipv6 ospf6 neighbor json",
-            {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
-        )
-        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
-
     # Wait for OSPFv2 convergence
-    expect_ospfv2_neighbor_full("r1", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r1", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.4")
-    expect_ospfv2_neighbor_full("r4", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r2", "10.0.255.1")
+    _expect_ospfv2_neighbor_full("r2", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.1")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.4")
+    _expect_ospfv2_neighbor_full("r4", "10.0.255.3")
 
     # Wait for OSPFv3 convergence
-    expect_ospfv3_neighbor_full("r1", "10.0.255.2")
-    expect_ospfv3_neighbor_full("r1", "10.0.255.3")
-    expect_ospfv3_neighbor_full("r2", "10.0.255.1")
-    expect_ospfv3_neighbor_full("r2", "10.0.255.3")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.1")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.2")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.4")
-    expect_ospfv3_neighbor_full("r4", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r2", "10.0.255.1")
+    _expect_ospfv3_neighbor_full("r2", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.1")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.4")
+    _expect_ospfv3_neighbor_full("r4", "10.0.255.3")
 
 
 def compare_show_ipv6_ospf6(rname, expected):
@@ -425,6 +504,12 @@ def test_ospf_yang_router_id_config():
     _set_yang_router_id(
         r1, "ietf-ospf:ospfv3", "ospf6d", "ospf6 router-id", "10.0.255.31"
     )
+
+    # Router-id mutation leaves phantom self-LSAs in the other routers'
+    # LSDBs that the routing protocol can't fully reconcile on its own;
+    # bounce every adjacency so the LSDB is rebuilt cleanly before any
+    # downstream test depends on it.
+    _force_ospf_reconvergence_to_steady_state()
 
 
 def _yang_area_xpath(protocol_type, area_id):
@@ -1378,6 +1463,14 @@ def test_ospf_yang_area_delete_recreate_cleanup():
     )
 
     _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
+
+    # This is the last YANG mutation test before the read-only downstream
+    # tests (test_ospf_convergence, test_ospf_json, ...). The interface
+    # priority / passive / network-type round-trips in the preceding tests
+    # all bounce DR election on r1-eth1; OSPF leaves stale MAX_AGE
+    # Network LSAs behind that don't fully flush. Force a full
+    # reconvergence so downstream tests see deterministic LSDB state.
+    _force_ospf_reconvergence_to_steady_state()
 
 
 def test_ospf_convergence():
