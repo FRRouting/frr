@@ -213,8 +213,7 @@ void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area)
 	}
 }
 
-static void ospf6_area_no_summary_set(struct ospf6 *ospf6,
-				      struct ospf6_area *area)
+void ospf6_area_no_summary_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	if (area) {
 		if (!area->no_summary) {
@@ -225,8 +224,7 @@ static void ospf6_area_no_summary_set(struct ospf6 *ospf6,
 	}
 }
 
-static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
-					struct ospf6_area *area)
+void ospf6_area_no_summary_unset(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	if (area) {
 		if (area->no_summary) {
