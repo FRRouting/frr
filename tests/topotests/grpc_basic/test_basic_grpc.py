@@ -17,7 +17,6 @@ import sys
 
 import pytest
 from lib.common_config import step
-from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import json_cmp
 
@@ -43,10 +42,11 @@ pytestmark = [
 script_path = os.path.realpath(os.path.join(CWD, "../lib/grpc-query.py"))
 
 try:
-    commander.cmd_raises([script_path, "--check"])
-except Exception:
+    import grpc  # noqa: F401
+    import grpc_tools  # noqa: F401
+except ImportError:
     pytest.skip(
-        "skipping; cannot create or import gRPC proto modules", allow_module_level=True
+        "skipping; gRPC modules not installed", allow_module_level=True
     )
 
 
