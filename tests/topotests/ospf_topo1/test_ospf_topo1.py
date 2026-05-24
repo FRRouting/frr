@@ -852,6 +852,85 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         )
 
 
+def test_ospf_yang_area_ranges_config():
+    """areas/area/ranges/range list + advertise/cost leaves via mgmtd.
+
+    Creates a range under a stub area, sets advertise=false and a cost,
+    verifies `area X range PREFIX not-advertise` rendering. Then clears
+    via per-leaf revert and via list-entry destroy.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: create a fresh area 0.0.0.55 (to keep this orthogonal to
+    # the existing fixture areas), add a range with cost.
+    area_v2 = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.55")
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type stub-area\n"
+        "mgmt set-config {}/ranges/range[prefix='10.55.0.0/16']/cost 99\n"
+        "mgmt commit apply".format(area_v2, area_v2)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.55 range 10.55.0.0/16" in running, (
+        "expected area-range line in v2 running-config, got:\n" + running
+    )
+    assert "cost 99" in running, (
+        "expected range cost 99 in v2 running-config, got:\n" + running
+    )
+
+    # Flip advertise to false
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/ranges/range[prefix='10.55.0.0/16']/advertise false\n"
+        "mgmt commit apply".format(area_v2)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.55 range 10.55.0.0/16 not-advertise" in running, (
+        "expected not-advertise after advertise=false, got:\n" + running
+    )
+
+    # Tear down: delete the area entry (cascades range removal too)
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.55")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.55" not in running, (
+        "area 0.0.0.55 should be fully removed, got:\n" + running
+    )
+
+    # OSPFv3: same shape with an IPv6 prefix.
+    area_v3 = _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.55")
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type stub-area\n"
+        "mgmt set-config {}/ranges/range[prefix='2001:db8:55::/48']/cost 99\n"
+        "mgmt commit apply".format(area_v3, area_v3)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.55 range 2001:db8:55::/48" in running, (
+        "expected v3 range line in running-config, got:\n" + running
+    )
+    assert "cost 99" in running
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/ranges/range[prefix='2001:db8:55::/48']/advertise false\n"
+        "mgmt commit apply".format(area_v3)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.55 range 2001:db8:55::/48 not-advertise" in running, (
+        "expected v3 not-advertise after advertise=false, got:\n" + running
+    )
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv3", "0.0.0.55")
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "0.0.0.55" not in running, (
+        "v3 area 0.0.0.55 should be fully removed, got:\n" + running
+    )
+
+
 def test_ospf_yang_area_summary_default_cost_config():
     "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
     tgen = get_topogen()

@@ -222,6 +222,33 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/ranges/range",
+			.cbs = {
+				.create = ospf6d_ietf_ospf_areas_area_ranges_range_create,
+				.destroy = ospf6d_ietf_ospf_areas_area_ranges_range_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/ranges/range/advertise",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_ranges_range_advertise_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_ranges_range_advertise_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/ranges/range/cost",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_ranges_range_cost_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_ranges_range_cost_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/neighbors/neighbor",
 			.cbs = {
 				.get_next =

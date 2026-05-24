@@ -227,6 +227,27 @@ int ospf6d_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 	ospf6_area_nssa_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
 
+	/*
+	 * Drop any area ranges; ospf6_area_no_config_delete inspects
+	 * range_table->count and refuses to free if non-zero.  Use the
+	 * head-then-remove drain pattern -- same shape as the post-fix
+	 * ospf6_route_remove_all -- so the loop stays safe if a future
+	 * `hook_remove` is ever attached to range_table.
+	 */
+	{
+		struct ospf6_route *range;
+		bool abr = ospf6_check_and_set_router_abr(area->ospf6);
+
+		while ((range = ospf6_route_head(area->range_table)) != NULL) {
+			if (abr) {
+				SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
+				ospf6_schedule_abr_task(area->ospf6);
+			}
+			ospf6_route_remove(range, area->range_table);
+			ospf6_route_unlock(range);
+		}
+	}
+
 	ospf6_area_no_config_delete(area);
 
 	return NB_OK;
@@ -936,5 +957,246 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
 		return NB_OK;
 
 	oi->mtu_ignore = 0;
+	return NB_OK;
+}
+
+/*
+ * Helper for areas/area/ranges/range callbacks: extract the prefix
+ * key as struct prefix (libyang gives us the full prefix, callers narrow
+ * to ipv6 since this is the ospf6d side). Returns 0 on success.
+ */
+static int ospf6d_ietf_ospf_range_prefix_from_dnode(const struct lyd_node *dnode, struct prefix *p)
+{
+	const struct lyd_node *range_node;
+
+	range_node = yang_dnode_get_parent(dnode, "range");
+	if (!range_node)
+		return -1;
+
+	yang_dnode_get_prefix(p, range_node, "prefix");
+	if (p->family != AF_INET6)
+		return -1;
+	return 0;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/ranges/range
+ *
+ * v3 area ranges live as ospf6_route entries in oa->range_table with
+ * type=OSPF6_DEST_TYPE_RANGE. The route abstraction is the public API
+ * (there is no ospf6_area_range_set helper), so the callback inlines
+ * the same sequence the legacy `area X range PREFIX` DEFUN uses:
+ * create-or-lookup the route, set advertise flag and cost, add to the
+ * table, schedule ABR.
+ */
+int ospf6d_ietf_ospf_areas_area_ranges_range_create(struct nb_cb_create_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		oa = ospf6_area_create(area_id, ospf6, OSPF6_AREA_FMT_DOTTEDQUAD);
+
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range) {
+		range = ospf6_route_create(ospf6);
+		range->type = OSPF6_DEST_TYPE_RANGE;
+		range->prefix = p;
+		range->path.area_id = oa->area_id;
+		range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC;
+		range->path.u.cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
+		ospf6_route_add(range, oa->range_table);
+	}
+
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		return NB_OK;
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range)
+		return NB_OK;
+
+	if (ospf6_check_and_set_router_abr(oa->ospf6)) {
+		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
+		ospf6_schedule_abr_task(oa->ospf6);
+	}
+	ospf6_route_remove(range, oa->range_table);
+	ospf6_area_no_config_delete(oa);
+	return NB_OK;
+}
+
+/* XPath: .../ranges/range/advertise */
+int ospf6d_ietf_ospf_areas_area_ranges_range_advertise_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		return NB_OK;
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range)
+		return NB_OK;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+	else
+		SET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_ranges_range_advertise_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		return NB_OK;
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range)
+		return NB_OK;
+
+	/* Revert to FRR's natural default (advertise on). */
+	UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
+	return NB_OK;
+}
+
+/* XPath: .../ranges/range/cost */
+int ospf6d_ietf_ospf_areas_area_ranges_range_cost_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		return NB_OK;
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range)
+		return NB_OK;
+
+	range->path.u.cost_config = yang_dnode_get_uint32(args->dnode, NULL);
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+	uint32_t area_id;
+	struct prefix p;
+	struct ospf6_route *range;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospf6d_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (!oa)
+		return NB_OK;
+	range = ospf6_route_lookup(&p, oa->range_table);
+	if (!range)
+		return NB_OK;
+
+	range->path.u.cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
 	return NB_OK;
 }
