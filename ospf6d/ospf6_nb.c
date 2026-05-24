@@ -50,11 +50,11 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
  * mtu-ignore) appear in the compiled schema and become callable from converted
  * callbacks.
  */
-static const char *ospf6d_ietf_ospf_features[] = { "*", NULL };
+static const char * const ospf6d_ietf_ospf_features[] = { "*", NULL };
 
 const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 	.name = "ietf-ospf",
-	.features = ospf6d_ietf_ospf_features,
+	.features = (const char **)ospf6d_ietf_ospf_features,
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{

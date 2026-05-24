@@ -1379,8 +1379,15 @@ DEFPY_YANG (no_ospf6_area_stub,
 		return CMD_WARNING;
 	}
 
-	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, NULL);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	/*
+	 * `no area X stub` reverts area-type to normal-area only -- it must
+	 * NOT cascade into the full area-entry destroy, because that would
+	 * silently delete YANG-managed area ranges and interface attachments
+	 * the user did not ask to remove. Matches the legacy
+	 * ospf6_area_stub_unset semantics.
+	 */
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "normal-area");
 	return nb_cli_apply_changes(vty, NULL);
 }
 

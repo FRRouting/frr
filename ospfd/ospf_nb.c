@@ -50,11 +50,11 @@ const struct frr_yang_module_info ospfd_ietf_routing_ospf_deviation_info = {
  * by 'if-feature' (e.g. explicit-router-id, mtu-ignore) appear in the
  * compiled schema and become callable from converted callbacks.
  */
-static const char *ospfd_ietf_ospf_features[] = { "*", NULL };
+static const char * const ospfd_ietf_ospf_features[] = { "*", NULL };
 
 const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 	.name = "ietf-ospf",
-	.features = ospfd_ietf_ospf_features,
+	.features = (const char **)ospfd_ietf_ospf_features,
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{

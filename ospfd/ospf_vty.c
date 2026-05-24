@@ -1559,15 +1559,16 @@ DEFPY_YANG (no_ospf_area_stub,
 	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
 	/*
-	 * Deleting the area list entry cascades through the destroy
-	 * callback, which resets every B2-converted leaf (area-type back
-	 * to normal-area, summary off, default-cost back to 1) and then
-	 * runs ospf_area_check_free. If interfaces or virtual links still
-	 * pin the area, FRR keeps it alive in non-stub form -- the same
-	 * semantics the legacy ospf_area_stub_unset path produced.
+	 * `no area X stub` reverts area-type to normal-area only -- it must
+	 * NOT cascade into the full area-entry destroy, because that would
+	 * silently delete YANG-managed area ranges, interface attachments,
+	 * and the area's own default-cost leaf. Matches the legacy
+	 * ospf_area_stub_unset semantics, which only flipped
+	 * external_routing back to DEFAULT and left every other per-area
+	 * piece of config alone.
 	 */
-	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, NULL);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "normal-area");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -1826,7 +1827,8 @@ DEFPY_YANG (ospf_area_default_cost,
 	VTY_GET_OSPF_AREA_ID_NO_BB("default-cost", area_id, format, area_str);
 
 	/* `cost_str` is the DEFPY-generated string form of the (0-16777215)
-	 * argument; passing it straight through avoids a redundant snprintf. */
+	 * argument; passing it straight through avoids a redundant snprintf.
+	 */
 	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/default-cost");
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, cost_str);
 
@@ -8336,7 +8338,8 @@ static int ospf_dead_interval_set_apply(struct vty *vty,
 	/* Legacy fallback uses the shared helper that also handles the
 	 * minimal-hello-multiplier form -- the simple seconds case threads
 	 * through with fast_hello_str=NULL. ifp comes from the vty context
-	 * inside the helper via VTY_DECLVAR_CONTEXT. */
+	 * inside the helper via VTY_DECLVAR_CONTEXT.
+	 */
 	return ospf_vty_dead_interval_set(vty, buf, ifaddr_str, NULL);
 }
 
@@ -10005,7 +10008,8 @@ DEFUN (ospf_distance_ospf,
 
 /* Shared body for both "ip ospf mtu-ignore" and "no ip ospf mtu-ignore":
  * the legacy DEFUNs are symmetric except for which value they write
- * to params->mtu_ignore. */
+ * to params->mtu_ignore.
+ */
 static int ospf_mtu_ignore_apply(struct vty *vty, struct interface *ifp,
 				 uint8_t new_value, const char *ifaddr_str)
 {

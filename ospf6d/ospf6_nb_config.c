@@ -11,8 +11,11 @@
 
 #include "if.h"
 
+#include "ospf6_proto.h"
+#include "ospf6_lsa.h"
 #include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_abr.h"
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
@@ -523,12 +526,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_cost_modify(struct nb_cb_mo
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
@@ -595,12 +599,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify(
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		return NB_OK;
@@ -647,12 +652,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify(
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		return NB_OK;
@@ -699,12 +705,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify(
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		return NB_OK;
@@ -750,12 +757,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_c
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		return NB_OK;
@@ -800,12 +808,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify(struct nb
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		return NB_OK;
@@ -1115,12 +1124,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		oi = ospf6_interface_create(ifp);
@@ -1190,12 +1200,13 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		oi = ospf6_interface_create(ifp);

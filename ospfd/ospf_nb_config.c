@@ -652,12 +652,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_cost_modify(struct nb_cb_mod
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	SET_IF_PARAM(params, output_cost_cmd);
@@ -720,12 +721,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify(
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	seconds = yang_dnode_get_uint16(args->dnode, NULL);
@@ -798,12 +800,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify(
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	SET_IF_PARAM(params, v_wait);
@@ -850,12 +853,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify(
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	SET_IF_PARAM(params, retransmit_interval);
@@ -899,12 +903,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_cb
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	SET_IF_PARAM(params, priority);
@@ -947,12 +952,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify(struct nb_
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	SET_IF_PARAM(params, mtu_ignore);
@@ -1266,12 +1272,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	if (IF_DEF_PARAMS(ifp)->type == OSPF_IFTYPE_LOOPBACK)
 		return NB_ERR_INCONSISTENCY;
@@ -1346,12 +1353,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb_
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	params = IF_DEF_PARAMS(ifp);
 	newval = yang_dnode_get_bool(args->dnode, NULL) ? OSPF_IF_PASSIVE : OSPF_IF_ACTIVE;
