@@ -710,6 +710,12 @@ struct frr_yang_module_info {
 	 * Ignore configuration callbacks for this module. Set this to true to
 	 * load module with only CLI-related callbacks. This is useful for
 	 * modules loaded in mgmtd.
+	 *
+	 * Individual nodes can opt back in by setting cfg_opt_in = true on
+	 * their entry in the nodes[] array below. This lets a module that is
+	 * being incrementally converted expose config callbacks on a subset
+	 * of its writable schema without having to supply callbacks for the
+	 * rest of the writable nodes at the same time.
 	 */
 	bool ignore_cfg_cbs;
 
@@ -747,6 +753,14 @@ struct frr_yang_module_info {
 
 		/* Priority - lower priorities are processed first. */
 		uint32_t priority;
+
+		/*
+		 * Opt this node into config-callback dispatch and validation
+		 * even when the parent module has ignore_cfg_cbs = true. See
+		 * the comment on ignore_cfg_cbs above. Has no effect when the
+		 * module-level flag is unset (the node already participates).
+		 */
+		bool cfg_opt_in;
 #if defined(__GNUC__) && ((__GNUC__ - 0) < 5) && !defined(__clang__)
 	} nodes[YANG_MODULE_MAX_NODES + 1];
 #else

@@ -2808,6 +2808,16 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 		priority = module->nodes[i].priority;
 		if (priority != 0)
 			nb_node->priority = priority;
+
+		/*
+		 * Per-node opt-in to config-callback dispatch lifts the
+		 * module-level ignore_cfg_cbs suppression on this node so
+		 * incremental conversions can expose a subset of writable
+		 * leaves without supplying callbacks for the rest of the
+		 * module's writable schema.
+		 */
+		if (module->nodes[i].cfg_opt_in)
+			UNSET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS);
 	}
 }
 
