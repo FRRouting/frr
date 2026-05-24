@@ -14,6 +14,7 @@
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_abr.h"
+#include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_nb.h"
 
 /*
@@ -294,6 +295,15 @@ int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 		ospf_area_nssa_unset(ospf, area_id);
 		if (!ospf_area_stub_set(ospf, area_id))
 			return NB_ERR_INCONSISTENCY;
+		/*
+		 * Stub areas don't carry AS-external LSAs; purge any
+		 * lingering ones from when the area was non-stub. The
+		 * legacy CLI did this explicitly after stub_set, so we
+		 * replicate it here to keep CLI- and YANG-driven paths
+		 * semantically identical.
+		 */
+		if (!was_stub)
+			ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	} else if (ospf_area_type_is(type, OSPF_AREA_TYPE_NSSA)) {
 		ospf_area_stub_unset(ospf, area_id);
 		if (!ospf_area_nssa_set(ospf, area_id))
