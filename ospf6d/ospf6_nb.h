@@ -25,6 +25,9 @@ ospf6d_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entr
 /* Config callbacks. */
 int ospf6d_ietf_ospf_explicit_router_id_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_explicit_router_id_destroy(struct nb_cb_destroy_args *args);
+int ospf6d_ietf_ospf_areas_area_create(struct nb_cb_create_args *args);
+int ospf6d_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args);
+int ospf6d_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args);
 
 struct yang_data *ospf6d_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

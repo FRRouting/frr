@@ -192,7 +192,7 @@ static void ospf6_area_stub_update(struct ospf6_area *area)
 	ospf6_schedule_abr_task(area->ospf6);
 }
 
-static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
+int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	if (!IS_AREA_STUB(area)) {
 		/* Disable NSSA first. */

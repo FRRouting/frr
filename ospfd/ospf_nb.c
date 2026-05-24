@@ -89,10 +89,20 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area",
 			.cbs = {
+				.create = ospfd_ietf_ospf_areas_area_create,
+				.destroy = ospfd_ietf_ospf_areas_area_destroy,
 				.get_next = ospfd_ietf_ospf_areas_area_get_next,
 				.get_keys = ospfd_ietf_ospf_areas_area_get_keys,
 				.lookup_entry = ospfd_ietf_ospf_areas_area_lookup_entry,
 			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/area-type",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_type_modify,
+			},
+			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH

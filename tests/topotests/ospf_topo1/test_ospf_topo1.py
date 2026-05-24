@@ -427,6 +427,83 @@ def test_ospf_yang_router_id_config():
     )
 
 
+def _yang_area_xpath(protocol_type, area_id):
+    return (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='"
+        + protocol_type
+        + "'][name='default']/ietf-ospf:ospf/areas/area[area-id='"
+        + area_id
+        + "']"
+    )
+
+
+def _set_yang_area_type(router, protocol_type, daemon, area_id, area_type,
+                        expect_running_line):
+    """Set areas/area[id=X]/area-type via mgmtd and verify it lands.
+
+    area_type is one of "stub-area", "nssa-area", "normal-area" (the RFC 9129
+    identityref values). expect_running_line is the substring to look for in
+    `show running-config <daemon>` once the change has applied.
+    """
+    area_path = _yang_area_xpath(protocol_type, area_id)
+    type_path = area_path + "/area-type"
+    router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} {}\n"
+        "mgmt commit apply".format(type_path, area_type)
+    )
+
+    running = router.vtysh_cmd("show running-config {}".format(daemon))
+    assert expect_running_line in running, (
+        "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
+            expect_running_line, area_type, running
+        )
+    )
+
+
+def _clear_yang_area(router, protocol_type, area_id):
+    """Remove an area list entry via mgmtd."""
+    area_path = _yang_area_xpath(protocol_type, area_id)
+    router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}\n"
+        "mgmt commit apply".format(area_path)
+    )
+
+
+def test_ospf_yang_area_type_config():
+    "Verify areas/area[area-id]/area-type is writable via mgmtd for both daemons."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: create a new stub area via YANG, verify it appears in
+    # show running-config, then remove it.
+    _set_yang_area_type(
+        r1, "ietf-ospf:ospfv2", "ospfd", "0.0.0.42", "stub-area",
+        "area 0.0.0.42 stub",
+    )
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.42")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.42 stub" not in running, (
+        "area 0.0.0.42 should be removed after YANG delete, running:\n" + running
+    )
+
+    # OSPFv3: same shape.
+    _set_yang_area_type(
+        r1, "ietf-ospf:ospfv3", "ospf6d", "0.0.0.42", "stub-area",
+        "area 0.0.0.42 stub",
+    )
+    _clear_yang_area(r1, "ietf-ospf:ospfv3", "0.0.0.42")
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.42 stub" not in running, (
+        "area 0.0.0.42 should be removed after YANG delete, running:\n" + running
+    )
+
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()
