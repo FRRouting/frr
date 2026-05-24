@@ -171,7 +171,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	return cost;
 }
 
-static void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
+void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
 {
 	/* update cost held in route_connected list in ospf6_interface */
 	ospf6_interface_connected_route_update(oi->interface);
@@ -186,7 +186,7 @@ static void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
 	}
 }
 
-static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
+void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
 {
 	uint32_t newcost;
 

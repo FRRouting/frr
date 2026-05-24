@@ -6,6 +6,9 @@ module frr-deviations-ietf-routing-ospf {
   import ietf-routing {
     prefix ietf-routing;
   }
+  import ietf-ospf {
+    prefix ospf;
+  }
 
   organization
     "FRRouting";
@@ -15,17 +18,45 @@ module frr-deviations-ietf-routing-ospf {
      FRR Development List: <mailto:dev@lists.frrouting.org>";
 
   description
-    "This module defines the ietf-routing deviations needed by OSPF
-     daemons using the RFC 9129 ietf-ospf NMDA tree.";
+    "This module defines the ietf-routing and ietf-ospf deviations
+     needed by OSPF daemons using the RFC 9129 ietf-ospf NMDA tree.";
 
   revision 2026-05-24 {
     description
       "Initial revision.";
     reference
-      "RFC 8349: A YANG Data Model for Routing Management.";
+      "RFC 8349: A YANG Data Model for Routing Management.
+       RFC 9129: YANG Data Model for the OSPF Protocol.";
   }
 
   deviation "/ietf-routing:routing-state" {
     deviate not-supported;
+  }
+
+  /*
+   * RFC 9129 keys areas/area/interfaces/interface by a YANG
+   * leafref into /ietf-interfaces:interfaces/interface/name. In FRR,
+   * interfaces are discovered from the kernel and exposed by zebra
+   * as operational state only -- they are never authored via YANG
+   * config. mgmtd validates the leafref against the candidate
+   * datastore at commit time, which doesn't contain the operational
+   * interface list, so any reference to a real interface fails
+   * libyang's leafref check.
+   *
+   * Loosen the typedef ref to a plain string so config commits
+   * referencing an existing kernel interface succeed. Validation
+   * that the named interface actually exists still happens in the
+   * NB callback via if_lookup_by_name; we just give up the
+   * libyang-level cross-module integrity guarantee that vendors
+   * with a YANG-managed interface inventory get for free.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:name" {
+    deviate replace {
+      type string;
+    }
   }
 }

@@ -9,8 +9,11 @@
 #include "yang.h"
 #include "yang_wrappers.h"
 
+#include "if.h"
+
 #include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_interface.h"
 #include "ospf6_route.h"
 #include "ospf6_nb.h"
 #include "ospf6_nssa.h"
@@ -327,6 +330,213 @@ int ospf6d_ietf_ospf_areas_area_summary_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ospf6_area_no_summary_unset(ospf6, area);
+
+	return NB_OK;
+}
+
+/*
+ * Walk up from a dnode within the area/interfaces/interface subtree to
+ * extract the interface name. NULL on schema-shape failure (defensive).
+ */
+static const char *ospf6d_ietf_ospf_interface_name_from_dnode(const struct lyd_node *dnode)
+{
+	const struct lyd_node *iface_node;
+
+	iface_node = yang_dnode_get_parent(dnode, "interface");
+	if (!iface_node)
+		return NULL;
+	return yang_dnode_get_string(iface_node, "name");
+}
+
+static struct interface *ospf6d_ietf_ospf_interface_from_dnode(const struct ospf6 *ospf6,
+							       const struct lyd_node *dnode)
+{
+	const char *name;
+
+	name = ospf6d_ietf_ospf_interface_name_from_dnode(dnode);
+	if (!name)
+		return NULL;
+	return if_lookup_by_name(name, ospf6->vrf_id);
+}
+
+/*
+ * VALIDATE-rejecting variant for per-interface create / modify callbacks.
+ * frr-deviations-ietf-routing-ospf relaxes the RFC 9129 interface-name
+ * leafref so configuration can be emitted ahead of interface plumbing.
+ * The relaxation removes libyang's referential check; this helper restores
+ * it inside the callback, returning NB_ERR_INCONSISTENCY at VALIDATE when
+ * the interface is not present in the OSPF instance's VRF.
+ *
+ * Returns:
+ *   NB_OK + *ifp_out set      -- proceed.
+ *   NB_OK + *ifp_out == NULL  -- APPLY-phase race tolerated.
+ *   NB_ERR_INCONSISTENCY      -- VALIDATE rejected.
+ */
+static int ospf6d_ietf_ospf_resolve_interface(const struct ospf6 *ospf,
+					      const struct lyd_node *dnode, enum nb_event event,
+					      char *errmsg, size_t errmsg_len,
+					      struct interface **ifp_out)
+{
+	struct interface *ifp;
+
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf, dnode);
+	*ifp_out = ifp;
+	if (ifp)
+		return NB_OK;
+
+	if (event == NB_EV_VALIDATE) {
+		const struct lyd_node *iface_node = yang_dnode_get_parent(dnode, "interface");
+
+		snprintf(errmsg, errmsg_len, "interface '%s' is not present in vrf-id %u",
+			 iface_node ? yang_dnode_get_string(iface_node, "name") : "?",
+			 ospf->vrf_id);
+		return NB_ERR_INCONSISTENCY;
+	}
+	return NB_OK;
+}
+
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/interfaces/interface
+ *
+ * Same area-keyed model as the OSPFv2 side. One interface, one area.
+ * Returns NB_ERR_INCONSISTENCY if the interface is already attached to
+ * a different area (matches the legacy ipv6_ospf6_area "already
+ * attached to Area X" rejection).
+ */
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_create(struct nb_cb_create_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	uint32_t area_id;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+	if (oi->area && oi->area->area_id != area_id)
+		return NB_ERR_INCONSISTENCY;
+
+	oi->area_id = area_id;
+	oi->area_id_format = OSPF6_AREA_FMT_DOTTEDQUAD;
+
+	if (!oi->area)
+		ospf6_interface_start(oi);
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	/*
+	 * Future B3 leaves on this interface should clear their state here
+	 * before the area detach so reattach starts from defaults. For B3a
+	 * we have cost only, and it lives on oi itself and is reset by the
+	 * recalculate-from-bandwidth path triggered after stop.
+	 */
+	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
+	ospf6_interface_stop(oi);
+	oi->area_id = 0;
+	oi->area_id_format = OSPF6_AREA_FMT_UNSET;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/interfaces/interface/cost
+ */
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_cost_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	uint32_t cost;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	/* ospf-link-metric is uint16; widen into oi->cost (uint32_t). */
+	cost = yang_dnode_get_uint16(args->dnode, NULL);
+	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
+	if (oi->cost == cost)
+		return NB_OK;
+	oi->cost = cost;
+	ospf6_interface_force_recalculate_cost(oi);
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_cost_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
+	ospf6_interface_recalculate_cost(oi);
 
 	return NB_OK;
 }
