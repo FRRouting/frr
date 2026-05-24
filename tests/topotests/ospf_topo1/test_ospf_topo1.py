@@ -657,6 +657,123 @@ def test_ospf_yang_area_interface_cost_config():
     )
 
 
+def test_ospf_yang_area_interface_b3b_leaves_config():
+    """B3b: hello/dead/retransmit/priority/mtu-ignore round-trip.
+
+    Sets all five per-interface YANG leaves in a single mgmt commit
+    apply for both OSPFv2 and OSPFv3, verifies each lands in
+    `show running-config <daemon>`, then deletes them and verifies
+    the reverts.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: r1-eth1 is already in area 0.0.0.0 via the fixture's
+    # network statement. Existing fixture also sets hello-interval 2
+    # and dead-interval 10, so we use distinguishable test values.
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    cmds = (
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/hello-interval 7\n"
+        "mgmt set-config {}/dead-interval 29\n"
+        "mgmt set-config {}/retransmit-interval 11\n"
+        "mgmt set-config {}/priority 13\n"
+        "mgmt set-config {}/mtu-ignore true\n"
+        "mgmt commit apply"
+    ).format(iface, iface, iface, iface, iface)
+    r1.vtysh_cmd(cmds)
+
+    running = r1.vtysh_cmd("show running-config ospfd")
+    for expected in (
+        "ip ospf hello-interval 7",
+        "ip ospf dead-interval 29",
+        "ip ospf retransmit-interval 11",
+        "ip ospf priority 13",
+        "ip ospf mtu-ignore",
+    ):
+        assert expected in running, (
+            "expected '{}' in v2 running-config, got:\n{}".format(expected, running)
+        )
+
+    # Tear down individual leaves
+    cmds = (
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/hello-interval\n"
+        "mgmt delete-config {}/dead-interval\n"
+        "mgmt delete-config {}/retransmit-interval\n"
+        "mgmt delete-config {}/priority\n"
+        "mgmt delete-config {}/mtu-ignore\n"
+        "mgmt commit apply"
+    ).format(iface, iface, iface, iface, iface)
+    r1.vtysh_cmd(cmds)
+    running = r1.vtysh_cmd("show running-config ospfd")
+    for unexpected in (
+        "ip ospf hello-interval 7",
+        "ip ospf dead-interval 29",
+        "ip ospf retransmit-interval 11",
+        "ip ospf priority 13",
+        "ip ospf mtu-ignore",
+    ):
+        assert unexpected not in running, (
+            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
+        )
+
+    # OSPFv3: same leaves, same path shape.
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    cmds = (
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/hello-interval 7\n"
+        "mgmt set-config {}/dead-interval 29\n"
+        "mgmt set-config {}/retransmit-interval 11\n"
+        "mgmt set-config {}/priority 13\n"
+        "mgmt set-config {}/mtu-ignore true\n"
+        "mgmt commit apply"
+    ).format(iface, iface, iface, iface, iface)
+    r1.vtysh_cmd(cmds)
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    for expected in (
+        "ipv6 ospf6 hello-interval 7",
+        "ipv6 ospf6 dead-interval 29",
+        "ipv6 ospf6 retransmit-interval 11",
+        "ipv6 ospf6 priority 13",
+        "ipv6 ospf6 mtu-ignore",
+    ):
+        assert expected in running, (
+            "expected '{}' in v3 running-config, got:\n{}".format(expected, running)
+        )
+
+    cmds = (
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/hello-interval\n"
+        "mgmt delete-config {}/dead-interval\n"
+        "mgmt delete-config {}/retransmit-interval\n"
+        "mgmt delete-config {}/priority\n"
+        "mgmt delete-config {}/mtu-ignore\n"
+        "mgmt commit apply"
+    ).format(iface, iface, iface, iface, iface)
+    r1.vtysh_cmd(cmds)
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    for unexpected in (
+        "ipv6 ospf6 hello-interval 7",
+        "ipv6 ospf6 dead-interval 29",
+        "ipv6 ospf6 retransmit-interval 11",
+        "ipv6 ospf6 priority 13",
+        "ipv6 ospf6 mtu-ignore",
+    ):
+        assert unexpected not in running, (
+            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
+        )
+
+
 def test_ospf_yang_area_summary_default_cost_config():
     "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
     tgen = get_topogen()
