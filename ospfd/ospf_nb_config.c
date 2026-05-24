@@ -18,7 +18,9 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_lsa.h"
+#include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_nb.h"
+#include "ospfd/ospf_neighbor.h"
 
 /*
  * RFC 9129 ietf-ospf area-type identityref values. Accept both the bare
@@ -567,6 +569,41 @@ static int ospfd_ietf_ospf_resolve_interface(const struct ospf *ospf, const stru
 	return NB_OK;
 }
 
+static void ospfd_ietf_ospf_nbr_timer_update(struct interface *ifp)
+{
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	if (!IF_OSPF_IF_INFO(ifp) || !IF_OIFS(ifp))
+		return;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (oi)
+			ospf_nbr_timer_update(oi);
+	}
+}
+
+static void ospfd_ietf_ospf_priority_update(struct interface *ifp)
+{
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	if (!IF_OSPF_IF_INFO(ifp) || !IF_OIFS(ifp))
+		return;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		if (PRIORITY(oi) == OSPF_IF_PARAM(oi, priority))
+			continue;
+
+		PRIORITY(oi) = OSPF_IF_PARAM(oi, priority);
+		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+	}
+}
 
 int ospfd_ietf_ospf_areas_area_default_cost_destroy(struct nb_cb_destroy_args *args)
 {
@@ -760,5 +797,318 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_cost_destroy(struct nb_cb_de
 	UNSET_IF_PARAM(params, output_cost_cmd);
 	ospf_if_recalculate_output_cost(ifp);
 
+	return NB_OK;
+}
+
+/*
+ * Per-interface uint16/uint8/boolean leaves under
+ * /ietf-routing:routing/.../ospf/areas/area/interfaces/interface.
+ *
+ * All of them mutate IF_DEF_PARAMS only. The YANG model is strictly
+ * per-interface; legacy per-address overrides (e.g. `ip ospf hello-interval N A.B.C.D`)
+ * remain accessible only via the legacy CLI direct-mutation path.
+ */
+
+/* XPath: .../interface/hello-interval */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	uint16_t seconds;
+	struct in_addr addr = { .s_addr = 0L };
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	seconds = yang_dnode_get_uint16(args->dnode, NULL);
+	if (params->v_hello == seconds)
+		return NB_OK;
+
+	SET_IF_PARAM(params, v_hello);
+	params->v_hello = seconds;
+
+	/*
+	 * Mirror the legacy `ip ospf hello-interval` side effect: if the
+	 * operator hasn't explicitly set dead-interval, derive it from the
+	 * hello (RFC 4062 recommends roughly 4x). The YANG dead-interval
+	 * `must` clause (dead > hello) is enforced by libyang at commit.
+	 */
+	if (!params->is_v_wait_set) {
+		SET_IF_PARAM(params, v_wait);
+		params->v_wait = 4 * seconds;
+		ospfd_ietf_ospf_nbr_timer_update(ifp);
+	}
+
+	ospf_reset_hello_timer(ifp, addr, false);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, v_hello))
+		return NB_OK;
+
+	UNSET_IF_PARAM(params, v_hello);
+	params->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
+
+	/*
+	 * Mirror the legacy `no ip ospf hello-interval` (ospf_hello_unset_apply
+	 * in ospf_vty.c): when dead-interval was never explicitly set, reset
+	 * v_wait back to the protocol default AND clear its CONFIGURED flag,
+	 * not just rewrite the value. Earlier versions used SET_IF_PARAM here,
+	 * which left v_wait marked as explicitly configured -- the same
+	 * numerical default (4 * 10 == 40) but a divergent flag state from
+	 * the legacy path, which could surface if other code consults
+	 * OSPF_IF_PARAM_CONFIGURED(params, v_wait) without also checking
+	 * is_v_wait_set.
+	 */
+	if (!params->is_v_wait_set) {
+		UNSET_IF_PARAM(params, v_wait);
+		params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+		ospfd_ietf_ospf_nbr_timer_update(ifp);
+	}
+
+	ospf_reset_hello_timer(ifp, addr, false);
+	return NB_OK;
+}
+
+/* XPath: .../interface/dead-interval */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, v_wait);
+	params->v_wait = yang_dnode_get_uint16(args->dnode, NULL);
+	params->is_v_wait_set = true;
+	ospfd_ietf_ospf_nbr_timer_update(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, v_wait);
+	params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+	params->is_v_wait_set = false;
+	UNSET_IF_PARAM(params, fast_hello);
+	params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
+
+	ospfd_ietf_ospf_nbr_timer_update(ifp);
+	return NB_OK;
+}
+
+/* XPath: .../interface/retransmit-interval */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, retransmit_interval);
+	params->retransmit_interval = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, retransmit_interval);
+	params->retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
+	return NB_OK;
+}
+
+/* XPath: .../interface/priority */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, priority);
+	params->priority = yang_dnode_get_uint8(args->dnode, NULL);
+	ospfd_ietf_ospf_priority_update(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, priority);
+	params->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
+	ospfd_ietf_ospf_priority_update(ifp);
+	return NB_OK;
+}
+
+/* XPath: .../interface/mtu-ignore */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, mtu_ignore);
+	params->mtu_ignore = yang_dnode_get_bool(args->dnode, NULL) ? 1 : 0;
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, mtu_ignore);
+	params->mtu_ignore = 0;
 	return NB_OK;
 }

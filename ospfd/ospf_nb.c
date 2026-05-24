@@ -177,6 +177,51 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/hello-interval",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/dead-interval",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/retransmit-interval",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/priority",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_priority_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/mtu-ignore",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/neighbors/neighbor",
 			.cbs = {
 				.get_next =

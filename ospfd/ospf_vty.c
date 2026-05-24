@@ -8198,24 +8198,6 @@ DEFUN_HIDDEN (no_ospf_cost,
 	return no_ip_ospf_cost(self, vty, argc, argv);
 }
 
-static void ospf_nbr_timer_update(struct ospf_interface *oi)
-{
-	struct route_node *rn;
-	struct ospf_neighbor *nbr;
-
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-		nbr = rn->info;
-
-		if (!nbr)
-			continue;
-
-		nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
-		nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
-		nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
-		nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
-	}
-}
-
 static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 				      const char *nbr_str,
 				      const char *fast_hello_str)

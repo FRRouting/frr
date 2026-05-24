@@ -40,6 +40,35 @@ module frr-deviations-ietf-routing-ospf {
   }
 
   /*
+   * FRR's OSPF interface timer defaults are hello-interval 10 seconds and
+   * dead-interval 40 seconds for both ospfd and ospf6d. RFC 9129 leaves the
+   * leaves without defaults, but its dead-interval `must` expression compares
+   * against hello-interval. Without an FRR default, a legacy CLI sequence such
+   * as `ip ospf dead-interval 15` followed by `no ip ospf hello-interval`
+   * cannot be represented: removing the hello leaf makes the still-explicit
+   * dead leaf fail validation even though FRR correctly falls back to hello 10.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:hello-interval" {
+    deviate add {
+      default "10";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:dead-interval" {
+    deviate add {
+      default "40";
+    }
+  }
+
+  /*
    * RFC 9129 keys areas/area/interfaces/interface by a YANG leafref into
    * /ietf-interfaces:interfaces/interface/name. In FRR, interfaces are
    * discovered from the kernel and exposed by zebra as operational state only;

@@ -68,6 +68,23 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 	return count;
 }
 
+void ospf_nbr_timer_update(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+
+		if (!nbr)
+			continue;
+
+		nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
+		nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
+	}
+}
 
 void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi)
 {
