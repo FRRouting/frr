@@ -520,6 +520,73 @@ def _set_yang_area_attrs(router, protocol_type, area_id, attrs):
     router.vtysh_cmd("\n".join(lines))
 
 
+def test_ospf_area_cli_routes_through_yang():
+    """The legacy `area X stub`, `area X stub no-summary`, `area X
+    default-cost N`, and their `no` forms continue to work via vtysh but
+    now route through the ietf-ospf YANG layer. Verify by issuing the
+    legacy CLI and confirming the daemons running-config reflects the
+    change exactly as before."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: stub, then totally-stubby, then add default-cost, then unwind.
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf\n"
+        " area 0.0.0.51 stub\n"
+        " area 0.0.0.51 stub no-summary\n"
+        " area 0.0.0.51 default-cost 17\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.51 stub no-summary" in running, running
+    assert "area 0.0.0.51 default-cost 17" in running, running
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf\n"
+        " no area 0.0.0.51 default-cost\n"
+        " no area 0.0.0.51 stub no-summary\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    # `no stub no-summary` clears only the no-summary, area stays stub.
+    assert "area 0.0.0.51 stub" in running, running
+    assert "area 0.0.0.51 stub no-summary" not in running, running
+    assert "default-cost 17" not in running, running
+
+    r1.vtysh_cmd(
+        "configure terminal\nrouter ospf\n no area 0.0.0.51 stub\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.51" not in running, running
+
+    # OSPFv3: same cycle, minus default-cost (no v3 surface).
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf6\n"
+        " area 0.0.0.52 stub no-summary\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.52 stub no-summary" in running, running
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf6\n"
+        " no area 0.0.0.52 stub no-summary\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.52 stub" in running, running
+    assert "area 0.0.0.52 stub no-summary" not in running, running
+
+    r1.vtysh_cmd(
+        "configure terminal\nrouter ospf6\n no area 0.0.0.52 stub\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "0.0.0.52" not in running, running
+
+
 def test_ospf_yang_area_summary_default_cost_config():
     "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
     tgen = get_topogen()

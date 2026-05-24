@@ -276,6 +276,27 @@ static void ospf_router_id_change_advise(struct vty *vty, const struct ospf *osp
 		}
 }
 
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area[area-id=...]/<leaf>
+ *
+ * Build the absolute ietf-ospf area-list-entry xpath given a parsed area
+ * id, optionally suffixed with a leaf path. The area-id key always
+ * serialises as A.B.C.D in YANG even if the operator typed it as a
+ * decimal value. `leaf` may be NULL to get just the list-entry xpath, or
+ * a leaf path like "/area-type" or "/summary" to land on a child node.
+ */
+static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
+			   struct in_addr area_id, const char *leaf)
+{
+	char area_id_str[INET_ADDRSTRLEN];
+
+	inet_ntop(AF_INET, &area_id, area_id_str, sizeof(area_id_str));
+	return snprintf(xpath, size,
+			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']%s",
+			ospf->name ? ospf->name : "default", area_id_str,
+			leaf ? leaf : "");
+}
+
 DEFPY_YANG (ospf_router_id,
        ospf_router_id_cmd,
        "ospf router-id A.B.C.D",
@@ -1413,41 +1434,57 @@ DEFUN (no_ospf_area_shortcut,
 }
 
 
-DEFUN (ospf_area_stub,
+/*
+ * area X stub [no-summary]    -> set area-type=stub-area, summary=true|false
+ * no area X stub [no-summary] -> destroy area entry or just clear summary
+ *
+ * The YANG layer's area-type modify callback maps stub-area onto
+ * ospf_area_stub_set + the external-LSA flush; the summary modify maps
+ * true/false onto ospf_area_no_summary_unset/set. The DEFPY_YANG
+ * wrappers just enqueue the right combination and forward the display
+ * format (a FRR-internal concern that doesn't live in YANG).
+ */
+static void ospf_area_display_format_set_if_present(struct ospf *ospf,
+						    struct in_addr area_id,
+						    int format)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area)
+		ospf_area_display_format_set(ospf, area, format);
+}
+
+DEFPY_YANG (ospf_area_stub,
        ospf_area_stub_cmd,
-       "area <A.B.C.D|(0-4294967295)> stub",
+       "area <A.B.C.D|(0-4294967295)>$area_str stub",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Configure OSPF area as stub\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
 	struct in_addr area_id;
-	int ret, format;
+	int format, ret;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
-	ret = ospf_area_stub_set(ospf, area_id);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	if (ret == 0) {
-		vty_out(vty,
-			"First deconfigure all virtual link through this area\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "stub-area");
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 
-	/* Flush the external LSAs from the specified area */
-	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
-	ospf_area_no_summary_unset(ospf, area_id);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_area_display_format_set_if_present(ospf, area_id, format);
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN (ospf_area_stub_no_summary,
+DEFPY_YANG (ospf_area_stub_no_summary,
        ospf_area_stub_no_summary_cmd,
-       "area <A.B.C.D|(0-4294967295)> stub no-summary",
+       "area <A.B.C.D|(0-4294967295)>$area_str stub no-summary",
        "OSPF stub parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1455,30 +1492,27 @@ DEFUN (ospf_area_stub_no_summary,
        "Do not inject inter-area routes into stub\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
 	struct in_addr area_id;
-	int ret, format;
+	int format, ret;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
-	ret = ospf_area_stub_set(ospf, area_id);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	if (ret == 0) {
-		vty_out(vty,
-			"%% Area cannot be stub as it contains a virtual link\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "stub-area");
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "false");
 
-	ospf_area_no_summary_set(ospf, area_id);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_area_display_format_set_if_present(ospf, area_id, format);
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN (no_ospf_area_stub,
+DEFPY_YANG (no_ospf_area_stub,
        no_ospf_area_stub_cmd,
-       "no area <A.B.C.D|(0-4294967295)> stub",
+       "no area <A.B.C.D|(0-4294967295)>$area_str stub",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1486,22 +1520,28 @@ DEFUN (no_ospf_area_stub,
        "Configure OSPF area as stub\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
 	struct in_addr area_id;
 	int format;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
-	ospf_area_stub_unset(ospf, area_id);
-	ospf_area_no_summary_unset(ospf, area_id);
-
-	return CMD_SUCCESS;
+	/*
+	 * Deleting the area list entry cascades through the destroy
+	 * callback, which resets every B2-converted leaf (area-type back
+	 * to normal-area, summary off, default-cost back to 1) and then
+	 * runs ospf_area_check_free. If interfaces or virtual links still
+	 * pin the area, FRR keeps it alive in non-stub form -- the same
+	 * semantics the legacy ospf_area_stub_unset path produced.
+	 */
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf_area_stub_no_summary,
+DEFPY_YANG (no_ospf_area_stub_no_summary,
        no_ospf_area_stub_no_summary_cmd,
-       "no area <A.B.C.D|(0-4294967295)> stub no-summary",
+       "no area <A.B.C.D|(0-4294967295)>$area_str stub no-summary",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1510,15 +1550,20 @@ DEFUN (no_ospf_area_stub_no_summary,
        "Do not inject inter-area routes into area\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
 	struct in_addr area_id;
 	int format;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-	ospf_area_no_summary_unset(ospf, area_id);
+	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
-	return CMD_SUCCESS;
+	/*
+	 * `no area X stub no-summary` only clears the no_summary flag --
+	 * the area stays stub. Map to deleting the summary leaf so it
+	 * reverts to FRR's natural default (summary LSAs injected).
+	 */
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (ospf_area_nssa,
@@ -1724,9 +1769,17 @@ DEFPY (no_ospf_area_nssa_range,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ospf_area_default_cost,
+/*
+ * area X default-cost N    -> set default-cost leaf
+ * no area X default-cost   -> delete default-cost leaf (reverts to FRR default 1)
+ *
+ * The YANG modify callback enforces the stub-or-NSSA precondition; the
+ * legacy "neither stub, nor NSSA" error becomes an NB_ERR_VALIDATION
+ * surfaced through nb_cli_apply_changes.
+ */
+DEFPY_YANG (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
-       "area <A.B.C.D|(0-4294967295)> default-cost (0-16777215)",
+       "area <A.B.C.D|(0-4294967295)>$area_str default-cost (0-16777215)$cost",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1734,43 +1787,27 @@ DEFUN (ospf_area_default_cost,
        "Stub's advertised default summary cost\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
-	int idx_number = 3;
-	struct ospf_area *area;
 	struct in_addr area_id;
-	uint32_t cost;
-	int format;
-	struct prefix_ipv4 p;
+	int format, ret;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("default-cost", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-	cost = strtoul(argv[idx_number]->arg, NULL, 10);
+	VTY_GET_OSPF_AREA_ID_NO_BB("default-cost", area_id, format, area_str);
 
-	area = ospf_area_get(ospf, area_id);
-	ospf_area_display_format_set(ospf, area, format);
+	/* `cost_str` is the DEFPY-generated string form of the (0-16777215)
+	 * argument; passing it straight through avoids a redundant snprintf. */
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/default-cost");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, cost_str);
 
-	if (area->external_routing == OSPF_AREA_DEFAULT) {
-		vty_out(vty, "The area is neither stub, nor NSSA\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_area_display_format_set_if_present(ospf, area_id, format);
 
-	area->default_cost = cost;
-
-	p.family = AF_INET;
-	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
-	p.prefixlen = 0;
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
-			&area->area_id);
-	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN (no_ospf_area_default_cost,
+DEFPY_YANG (no_ospf_area_default_cost,
        no_ospf_area_default_cost_cmd,
-       "no area <A.B.C.D|(0-4294967295)> default-cost [(0-16777215)]",
+       "no area <A.B.C.D|(0-4294967295)>$area_str default-cost [(0-16777215)]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1779,39 +1816,15 @@ DEFUN (no_ospf_area_default_cost,
        "Stub's advertised default summary cost\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
-	struct ospf_area *area;
 	struct in_addr area_id;
 	int format;
-	struct prefix_ipv4 p;
+	char xpath[XPATH_MAXLEN];
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("default-cost", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("default-cost", area_id, format, area_str);
 
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area == NULL)
-		return CMD_SUCCESS;
-
-	if (area->external_routing == OSPF_AREA_DEFAULT) {
-		vty_out(vty, "The area is neither stub, nor NSSA\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	area->default_cost = 1;
-
-	p.family = AF_INET;
-	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
-	p.prefixlen = 0;
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
-			&area->area_id);
-	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
-
-
-	ospf_area_check_free(ospf, area_id);
-
-	return CMD_SUCCESS;
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/default-cost");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ospf_area_export_list,

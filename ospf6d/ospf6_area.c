@@ -11,6 +11,7 @@
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
+#include "northbound_cli.h"
 #include "if.h"
 #include "prefix.h"
 #include "table.h"
@@ -1277,84 +1278,115 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ospf6_area_stub,
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area[area-id=...]/<leaf>
+ *
+ * Mirror of ospfd's ospf_area_xpath but for the ietf-ospf:ospfv3
+ * control-plane-protocol type. area_id is a network-byte-order uint32_t.
+ * Pass NULL for `leaf` to get the list-entry xpath.
+ */
+static int ospf6_area_xpath(char *xpath, size_t size, const struct ospf6 *o,
+			    uint32_t area_id, const char *leaf)
+{
+	char area_id_str[INET_ADDRSTRLEN];
+	struct in_addr addr = { .s_addr = area_id };
+
+	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
+	return snprintf(xpath, size,
+			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']%s",
+			o->name ? o->name : "default", area_id_str,
+			leaf ? leaf : "");
+}
+
+/*
+ * area X stub [no-summary]    -> set area-type=stub-area, summary=true|false
+ * no area X stub [no-summary] -> destroy area entry or just clear summary
+ *
+ * v3 counterparts of the v2 conversions in ospfd/ospf_vty.c. ospf6d's
+ * area helpers operate on a struct ospf6_area pointer, but the NB layer
+ * does the lookup itself from the YANG keys, so the DEFPY_YANG wrappers
+ * only need the area_id (uint32_t, network byte order from str2area_id).
+ */
+DEFPY_YANG (ospf6_area_stub,
        ospf6_area_stub_cmd,
-       "area <A.B.C.D|(0-4294967295)> stub",
+       "area <A.B.C.D|(0-4294967295)>$area_str stub",
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Configure OSPF6 area as stub\n")
 {
-	int idx_ipv4_number = 1;
-	struct ospf6_area *area;
-
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	uint32_t area_id;
+	int format;
+	char xpath[XPATH_MAXLEN];
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
-
-	if (!ospf6_area_stub_set(ospf6, area)) {
-		vty_out(vty,
-			"First deconfigure all virtual link through this area\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (str2area_id(area_str, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", area_str);
+		return CMD_WARNING;
 	}
 
-	ospf6_area_no_summary_unset(ospf6, area);
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "stub-area");
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ospf6_area_stub_no_summary,
+DEFPY_YANG (ospf6_area_stub_no_summary,
        ospf6_area_stub_no_summary_cmd,
-       "area <A.B.C.D|(0-4294967295)> stub no-summary",
+       "area <A.B.C.D|(0-4294967295)>$area_str stub no-summary",
        "OSPF6 stub parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Configure OSPF6 area as stub\n"
        "Do not inject inter-area routes into stub\n")
 {
-	int idx_ipv4_number = 1;
-	struct ospf6_area *area;
-
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	uint32_t area_id;
+	int format;
+	char xpath[XPATH_MAXLEN];
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
-
-	if (!ospf6_area_stub_set(ospf6, area)) {
-		vty_out(vty,
-			"First deconfigure all virtual link through this area\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	if (str2area_id(area_str, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", area_str);
+		return CMD_WARNING;
 	}
 
-	ospf6_area_no_summary_set(ospf6, area);
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/area-type");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "stub-area");
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_area_stub,
+DEFPY_YANG (no_ospf6_area_stub,
        no_ospf6_area_stub_cmd,
-       "no area <A.B.C.D|(0-4294967295)> stub",
+       "no area <A.B.C.D|(0-4294967295)>$area_str stub",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Configure OSPF6 area as stub\n")
 {
-	int idx_ipv4_number = 2;
-	struct ospf6_area *area;
-
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	uint32_t area_id;
+	int format;
+	char xpath[XPATH_MAXLEN];
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+	if (str2area_id(area_str, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", area_str);
+		return CMD_WARNING;
+	}
 
-	ospf6_area_stub_unset(ospf6, area);
-	ospf6_area_no_summary_unset(ospf6, area);
-
-	return CMD_SUCCESS;
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_area_stub_no_summary,
+DEFPY_YANG (no_ospf6_area_stub_no_summary,
        no_ospf6_area_stub_no_summary_cmd,
-       "no area <A.B.C.D|(0-4294967295)> stub no-summary",
+       "no area <A.B.C.D|(0-4294967295)>$area_str stub no-summary",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
@@ -1362,20 +1394,19 @@ DEFUN (no_ospf6_area_stub_no_summary,
        "Configure OSPF6 area as stub\n"
        "Do not inject inter-area routes into area\n")
 {
-	int idx_ipv4_number = 2;
-	struct ospf6_area *area;
-
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	uint32_t area_id;
+	int format;
+	char xpath[XPATH_MAXLEN];
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+	if (str2area_id(area_str, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", area_str);
+		return CMD_WARNING;
+	}
 
-	ospf6_area_stub_unset(ospf6, area);
-	ospf6_area_no_summary_unset(ospf6, area);
-
-	/* Delete area if no interfaces or configuration. */
-	ospf6_area_no_config_delete(area);
-
-	return CMD_SUCCESS;
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
