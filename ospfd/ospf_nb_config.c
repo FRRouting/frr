@@ -20,6 +20,7 @@
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_nb.h"
+#include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_vty.h"
 
 /*
@@ -1381,5 +1382,193 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb
 	/* Revert to FRR's natural default (active). */
 	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
 	UNSET_IF_PARAM(params, passive_interface);
+	return NB_OK;
+}
+
+/*
+ * Per-instance preference (admin distance) leaves.
+ *
+ * RFC 9129's preference container is a `choice` between three scopes:
+ *   case single-value   -> leaf all (one distance for everything)
+ *   case multi-values/detail -> leaf intra-area, leaf inter-area
+ *   case multi-values/coarse -> leaf internal (both intra+inter), leaf external
+ * Plus leaf external in both multi-values branches.
+ *
+ * FRR's ospf struct has distance_all (single) and distance_intra/
+ * distance_inter/distance_external (multi). Setting any "multi"
+ * leaf to non-zero implicitly forces the multi-values choice;
+ * mgmtd's libyang validation handles the choice-arm exclusivity at
+ * commit time. Every modify ends with ospf_restart_spf so the new
+ * distances reflect in the next SPF result.
+ */
+
+/* XPath: .../ospf/preference/all */
+int ospfd_ietf_ospf_preference_all_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	uint8_t distance;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	distance = yang_dnode_get_uint8(args->dnode, NULL);
+	if (ospf->distance_all == distance)
+		return NB_OK;
+	ospf->distance_all = distance;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_preference_all_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (!ospf->distance_all)
+		return NB_OK;
+	ospf->distance_all = 0;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+/* XPath: .../ospf/preference/intra-area */
+int ospfd_ietf_ospf_preference_intra_area_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf->distance_intra = yang_dnode_get_uint8(args->dnode, NULL);
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_preference_intra_area_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf->distance_intra = 0;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+/* XPath: .../ospf/preference/inter-area */
+int ospfd_ietf_ospf_preference_inter_area_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf->distance_inter = yang_dnode_get_uint8(args->dnode, NULL);
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_preference_inter_area_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf->distance_inter = 0;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+/* XPath: .../ospf/preference/internal -- coarse-mode shorthand: both intra & inter to the same value. */
+int ospfd_ietf_ospf_preference_internal_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	uint8_t distance;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	distance = yang_dnode_get_uint8(args->dnode, NULL);
+	ospf->distance_intra = distance;
+	ospf->distance_inter = distance;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_preference_internal_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf->distance_intra = 0;
+	ospf->distance_inter = 0;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+/* XPath: .../ospf/preference/external */
+int ospfd_ietf_ospf_preference_external_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf->distance_external = yang_dnode_get_uint8(args->dnode, NULL);
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf->distance_external = 0;
+	ospf_restart_spf(ospf);
 	return NB_OK;
 }

@@ -774,6 +774,83 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         )
 
 
+def test_ospf_yang_preference_config():
+    """B4: per-instance preference (admin distance) round-trip via mgmtd.
+
+    Covers the single-value scope (preference/all -> distance N) and the
+    multi-values scope (preference/intra-area, /inter-area, /external).
+    For both OSPFv2 and OSPFv3.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon, cli_proto in (
+        ("ietf-ospf:ospfv2", "ospfd", "ospf"),
+        ("ietf-ospf:ospfv3", "ospf6d", "ospf6"),
+    ):
+        # v2 renders `distance ospf intra-area X`; v3 renders `distance ospf6 ...`
+        cli_prefix = "distance"
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+
+        # single-value scope
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/preference/all 137\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "{} 137".format(cli_prefix) in running, (
+            "expected '{} 137' in {} running-config, got:\n{}".format(
+                cli_prefix, daemon, running
+            )
+        )
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/preference/all\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "{} 137".format(cli_prefix) not in running
+
+        # multi-values scope (intra + inter + external set together)
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/preference/intra-area 21\n"
+            "mgmt set-config {}/preference/inter-area 22\n"
+            "mgmt set-config {}/preference/external 23\n"
+            "mgmt commit apply".format(instance, instance, instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "{} {} intra-area 21".format(cli_prefix, cli_proto) in running, (
+            "expected '{} {} intra-area 21' in {} running-config, got:\n{}".format(
+                cli_prefix, cli_proto, daemon, running
+            )
+        )
+        assert "inter-area 22" in running, running
+        assert "external 23" in running, running
+
+        # cleanup
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/preference/intra-area\n"
+            "mgmt delete-config {}/preference/inter-area\n"
+            "mgmt delete-config {}/preference/external\n"
+            "mgmt commit apply".format(instance, instance, instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "intra-area 21" not in running
+        assert "inter-area 22" not in running
+        assert "external 23" not in running
+
+
 def test_ospf_yang_interface_type_and_passive_config():
     """B3d+B3e: interface-type and passive leaves round-trip via mgmtd."""
     tgen = get_topogen()

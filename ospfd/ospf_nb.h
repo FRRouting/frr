@@ -56,6 +56,16 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(struct
 int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb_modify_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_preference_all_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_preference_all_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_preference_intra_area_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_preference_intra_area_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_preference_inter_area_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_preference_inter_area_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_preference_internal_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_preference_internal_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_preference_external_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospfd_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
