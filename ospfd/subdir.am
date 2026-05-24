@@ -40,6 +40,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_memory.c \
 	ospfd/ospf_neighbor.c \
 	ospfd/ospf_nb.c \
+	ospfd/ospf_nb_config.c \
 	ospfd/ospf_nb_state.c \
 	ospfd/ospf_network.c \
 	ospfd/ospf_nsm.c \

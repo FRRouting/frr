@@ -154,8 +154,17 @@ static const struct frr_yang_module_info ietf_routing_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
+/*
+ * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
+ * mtu-ignore) appear in mgmtd's compiled schema. Backend daemons enable the
+ * same set so mgmtd-side validation accepts the same paths the daemons
+ * implement.
+ */
+static const char *const ietf_ospf_features[] = { "*", NULL };
+
 static const struct frr_yang_module_info ietf_ospf_info = {
 	.name = "ietf-ospf",
+	.features = (const char **)ietf_ospf_features,
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };

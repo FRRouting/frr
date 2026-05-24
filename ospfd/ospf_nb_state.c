@@ -69,29 +69,16 @@ static const char *ospfd_ietf_instance_name(const struct ospf *ospf)
 	return ospf->name ? ospf->name : "default";
 }
 
-static uint8_t ospfd_ietf_neighbor_state(uint8_t state)
+struct ospf *ospfd_ietf_ospf_lookup_instance(const char *name)
 {
-	switch (state) {
-	case NSM_Deleted:
-	case NSM_Down:
-		return 1;
-	case NSM_Attempt:
-		return 2;
-	case NSM_Init:
-		return 3;
-	case NSM_TwoWay:
-		return 4;
-	case NSM_ExStart:
-		return 5;
-	case NSM_Exchange:
-		return 6;
-	case NSM_Loading:
-		return 7;
-	case NSM_Full:
-		return 8;
-	default:
-		return 1;
-	}
+	const struct listnode *node;
+	struct ospf *ospf;
+
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf))
+		if (!strcmp(ospfd_ietf_instance_name(ospf), name))
+			return ospf;
+
+	return NULL;
 }
 
 static bool ospfd_ietf_interface_name_seen(const struct ospf_area *area,
@@ -165,18 +152,11 @@ const void *
 ospfd_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *type = args->keys->key[0];
-	const char *name = args->keys->key[1];
-	const struct listnode *node;
-	struct ospf *ospf;
 
 	if (strcmp(type, "ietf-ospf:ospfv2"))
 		return NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf))
-		if (!strcmp(ospfd_ietf_instance_name(ospf), name))
-			return ospf;
-
-	return NULL;
+	return ospfd_ietf_ospf_lookup_instance(args->keys->key[1]);
 }
 
 /*

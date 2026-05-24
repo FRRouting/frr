@@ -15,11 +15,18 @@ extern const struct frr_yang_module_info ospf6d_ietf_routing_info;
 extern const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
 
+/* Shared lookup: find an OSPFv3 instance by the ietf-routing instance name. */
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6);
+struct ospf6 *ospf6d_ietf_ospf_lookup_instance(const char *name);
+
 const void *ospf6d_ietf_routing_control_plane_protocol_get_next(struct nb_cb_get_next_args *args);
 int ospf6d_ietf_routing_control_plane_protocol_get_keys(struct nb_cb_get_keys_args *args);
 const void *
 ospf6d_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entry_args *args);
+
+/* Config callbacks. */
+int ospf6d_ietf_ospf_explicit_router_id_modify(struct nb_cb_modify_args *args);
+int ospf6d_ietf_ospf_explicit_router_id_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospf6d_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

@@ -284,6 +284,28 @@ def _yang_ospf_neighbor(interface, router_id):
     raise AssertionError("missing OSPF neighbor {}".format(router_id))
 
 
+def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
+    """Return None when the YANG operational tree shows a Full neighbor.
+
+    Used by run_and_expect to poll until OSPF converges before the YANG
+    operational test asserts adjacency state. Returns a diagnostic string
+    while convergence is in progress.
+    """
+    try:
+        output = _yang_operational_root(router)
+        ospf = _yang_ospf_container(_yang_ospf_protocol(output, protocol_type, "default"))
+        area = _yang_ospf_area(ospf, "0.0.0.0")
+        interface = _yang_ospf_interface(area, "r1-eth1")
+        neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
+    except (AssertionError, KeyError):
+        return "neighbor entry not yet visible"
+    if neighbor.get("state") != "full":
+        return "neighbor state is {}".format(neighbor.get("state"))
+    if not neighbor.get("address", "").startswith(expected_address_prefix):
+        return "neighbor address {} not in expected family".format(neighbor.get("address"))
+    return None
+
+
 def test_ospf_yang_operational_data():
     "Verify RFC 9129 OSPF operational data is exposed through YANG callbacks."
     tgen = get_topogen()
@@ -301,6 +323,17 @@ def test_ospf_yang_operational_data():
         in xpath_registry
     )
     assert "/ietf-interfaces:interfaces/interface" in xpath_registry
+
+    # Wait for OSPFv2 and OSPFv3 adjacencies to reach Full before asserting
+    # operational state. ospf_topo1 fixture brings the topology up but does
+    # not guarantee convergence by the time this test runs.
+    for protocol_type, addr_prefix in (
+        ("ietf-ospf:ospfv2", "10."),
+        ("ietf-ospf:ospfv3", "fe80:"),
+    ):
+        test_func = partial(_yang_ospf_neighbor_state, r1, protocol_type, addr_prefix)
+        _, diag = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        assert diag is None, "OSPF {} did not converge: {}".format(protocol_type, diag)
 
     output = _yang_operational_root(r1)
     _yang_interface(output, "r1-eth1")
@@ -328,6 +361,70 @@ def test_ospf_yang_operational_data():
     neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
     assert neighbor["state"] == "full"
     assert neighbor["address"].startswith("fe80:")
+
+
+def _yang_explicit_router_id_xpath(protocol_type):
+    return (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='" + protocol_type + "'][name='default']/"
+        "ietf-ospf:ospf/explicit-router-id"
+    )
+
+
+def _mgmt_set_and_commit(router, xpath, value):
+    """Run a single mgmt set-config + commit apply with explicit DS locks.
+
+    `configure terminal file-lock` acquires both candidate and running locks
+    on the mgmtd session; without the lock, `mgmt commit apply` fails with
+    "source not locked by session-id".
+    """
+    router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} {}\n"
+        "mgmt commit apply".format(xpath, value)
+    )
+
+
+def _set_yang_router_id(router, protocol_type, daemon, running_line, new_value):
+    """Set explicit-router-id via mgmtd, verify it lands, then restore.
+
+    Exercises the config-write path end-to-end: candidate datastore set,
+    commit apply, modify callback mutates FRR state, running-config reflects
+    the change.
+    """
+    xpath = _yang_explicit_router_id_xpath(protocol_type)
+
+    _mgmt_set_and_commit(router, xpath, new_value)
+
+    running = router.vtysh_cmd("show running-config {}".format(daemon))
+    assert "{} {}".format(running_line, new_value) in running, (
+        "expected '{} {}' in running-config after YANG set, got:\n{}".format(
+            running_line, new_value, running
+        )
+    )
+
+    # Restore the original value through the same YANG path so subsequent
+    # convergence-dependent tests in this module see the topology they expect.
+    _mgmt_set_and_commit(router, xpath, "10.0.255.1")
+
+    running = router.vtysh_cmd("show running-config {}".format(daemon))
+    assert "{} 10.0.255.1".format(running_line) in running
+
+
+def test_ospf_yang_router_id_config():
+    "Verify RFC 9129 explicit-router-id is writable via mgmtd."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _set_yang_router_id(
+        r1, "ietf-ospf:ospfv2", "ospfd", "ospf router-id", "10.0.255.21"
+    )
+    _set_yang_router_id(
+        r1, "ietf-ospf:ospfv3", "ospf6d", "ospf6 router-id", "10.0.255.31"
+    )
 
 
 def test_ospf_convergence():

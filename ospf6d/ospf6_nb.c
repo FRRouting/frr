@@ -50,7 +50,12 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
 /*
  * RFC 9129's ietf-ospf is the target northbound shape for OSPFv2 and OSPFv3.
  * Load it now so OSPFv3 work can converge on the shared standard model.
+ * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
+ * mtu-ignore) appear in the compiled schema and become callable from converted
+ * callbacks.
  */
+static const char *ospf6d_ietf_ospf_features[] = { "*", NULL };
+
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6)
 {
 	return ospf6->name ? ospf6->name : VRF_DEFAULT_NAME;
@@ -58,6 +63,7 @@ const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6)
 
 const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 	.name = "ietf-ospf",
+	.features = ospf6d_ietf_ospf_features,
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{
@@ -65,6 +71,14 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.cbs = {
 				.get_elem = ospf6d_ietf_ospf_router_id_get_elem,
 			},
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH "/explicit-router-id",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_explicit_router_id_modify,
+				.destroy = ospf6d_ietf_ospf_explicit_router_id_destroy,
+			},
+			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH

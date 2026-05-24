@@ -181,11 +181,23 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&ietf_key_chain_deviation_info,
 };
 
+/*
+ * ospfd and ospf6d both register the RFC 9129 ietf-ospf control-plane-protocol
+ * subtree. Filter on the `type` list-key so mgmtd dispatches each change to
+ * the daemon that owns that protocol family. See the predicate-aware matching
+ * in mgmtd/mgmt_be_adapter.c::mgmt_be_xpath_prefix().
+ */
 static const char *const ospf6d_oper_xpaths[] = {
-	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
+	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3']",
+};
+
+static const char *const ospf6d_config_xpaths[] = {
+	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3']",
 };
 
 struct mgmt_be_client_cbs ospf6d_be_client_data = {
+	.config_xpaths = ospf6d_config_xpaths,
+	.nconfig_xpaths = array_size(ospf6d_config_xpaths),
 	.oper_xpaths = ospf6d_oper_xpaths,
 	.noper_xpaths = array_size(ospf6d_oper_xpaths),
 };
@@ -276,6 +288,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* OSPF6 master init. */
 	ospf6_master_init(frr_init());
+	cmd_config_file_batching_set(true);
 
 	/* thread master */
 	master = om6->master;
