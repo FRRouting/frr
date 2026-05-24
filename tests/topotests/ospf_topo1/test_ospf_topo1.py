@@ -774,6 +774,128 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         )
 
 
+def test_ospf_per_iface_cli_routes_through_yang():
+    """B3c: legacy per-interface CLI commands route through the
+    ietf-ospf YANG layer when the interface is in an area.
+
+    Drives `ip ospf cost N`, `ip ospf hello-interval N`, `ip ospf
+    dead-interval N`, `ip ospf priority N`, `ip ospf mtu-ignore`,
+    `ip ospf passive` and their v3 siblings via vtysh on r1-eth1
+    (which the fixture already attached to area 0 for both
+    daemons), confirms each lands in running-config, then unwinds
+    via the corresponding `no` form. Covers both the conversion
+    of the main DEFUN to DEFPY_YANG and the routing through the
+    NB callbacks landed in B3a/B3b/B3d/B3e.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2 on r1-eth1
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " ip ospf cost 41\n"
+        " ip ospf hello-interval 3\n"
+        " ip ospf dead-interval 15\n"
+        " ip ospf priority 19\n"
+        " ip ospf mtu-ignore\n"
+        " ip ospf passive\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    for expected in (
+        "ip ospf cost 41",
+        "ip ospf hello-interval 3",
+        "ip ospf dead-interval 15",
+        "ip ospf priority 19",
+        "ip ospf mtu-ignore",
+        "ip ospf passive",
+    ):
+        assert expected in running, (
+            "expected '{}' in v2 running-config after CLI set, got:\n{}".format(
+                expected, running
+            )
+        )
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " no ip ospf cost\n"
+        " no ip ospf hello-interval\n"
+        " no ip ospf dead-interval\n"
+        " no ip ospf priority\n"
+        " no ip ospf mtu-ignore\n"
+        " no ip ospf passive\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    for unexpected in (
+        "ip ospf cost 41",
+        "ip ospf hello-interval 3",
+        "ip ospf dead-interval 15",
+        "ip ospf priority 19",
+        "ip ospf mtu-ignore",
+        "ip ospf passive",
+    ):
+        assert unexpected not in running, (
+            "'{}' should be gone after CLI no form, got:\n{}".format(
+                unexpected, running
+            )
+        )
+
+    # OSPFv3 on r1-eth1
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " ipv6 ospf6 cost 41\n"
+        " ipv6 ospf6 hello-interval 3\n"
+        " ipv6 ospf6 dead-interval 15\n"
+        " ipv6 ospf6 priority 19\n"
+        " ipv6 ospf6 mtu-ignore\n"
+        " ipv6 ospf6 passive\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    for expected in (
+        "ipv6 ospf6 cost 41",
+        "ipv6 ospf6 hello-interval 3",
+        "ipv6 ospf6 dead-interval 15",
+        "ipv6 ospf6 priority 19",
+        "ipv6 ospf6 mtu-ignore",
+        "ipv6 ospf6 passive",
+    ):
+        assert expected in running, (
+            "expected '{}' in v3 running-config after CLI set, got:\n{}".format(
+                expected, running
+            )
+        )
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " no ipv6 ospf6 cost\n"
+        " no ipv6 ospf6 hello-interval\n"
+        " no ipv6 ospf6 dead-interval\n"
+        " no ipv6 ospf6 priority\n"
+        " no ipv6 ospf6 mtu-ignore\n"
+        " no ipv6 ospf6 passive\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    for unexpected in (
+        "ipv6 ospf6 cost 41",
+        "ipv6 ospf6 hello-interval 3",
+        "ipv6 ospf6 dead-interval 15",
+        "ipv6 ospf6 priority 19",
+        "ipv6 ospf6 mtu-ignore",
+        "ipv6 ospf6 passive",
+    ):
+        assert unexpected not in running, (
+            "'{}' should be gone after CLI no form, got:\n{}".format(
+                unexpected, running
+            )
+        )
+
+
 def test_ospf_yang_preference_config():
     """B4: per-instance preference (admin distance) round-trip via mgmtd.
 

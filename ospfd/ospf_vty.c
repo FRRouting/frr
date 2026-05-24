@@ -297,6 +297,38 @@ static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
 			leaf ? leaf : "");
 }
 
+/*
+ * Build the absolute ietf-ospf per-interface xpath if the interface is
+ * eligible for YANG dispatch (has an explicit if_area set via
+ * `ip ospf area` or a network statement). Returns 0 on success, -1 if
+ * the YANG path doesn't apply -- the caller falls back to direct
+ * mutation in that case. Per-address overrides (legacy
+ * `ip ospf cost N A.B.C.D`) are out of RFC 9129's scope and never go
+ * through YANG; the caller checks ifaddr_str before calling this.
+ */
+static int ospf_per_iface_xpath(char *xpath, size_t size,
+				const struct interface *ifp, const char *leaf)
+{
+	const struct ospf *ospf;
+	const struct ospf_if_params *params;
+	char area_id_str[INET_ADDRSTRLEN];
+
+	if (!ifp || !ifp->vrf)
+		return -1;
+	ospf = ifp->vrf->info;
+	if (!ospf)
+		return -1;
+	params = IF_DEF_PARAMS((struct interface *)ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
+		return -1;
+
+	inet_ntop(AF_INET, &params->if_area, area_id_str, sizeof(area_id_str));
+	return snprintf(xpath, size,
+			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
+			ospf->name ? ospf->name : "default", area_id_str,
+			ifp->name, leaf ? leaf : "");
+}
+
 DEFPY_YANG (ospf_router_id,
        ospf_router_id_cmd,
        "ospf router-id A.B.C.D",
@@ -8057,64 +8089,52 @@ DEFUN_HIDDEN (no_ospf_message_digest_key,
 	return no_ip_ospf_message_digest_key(self, vty, argc, argv);
 }
 
-DEFUN (ip_ospf_cost,
-       ip_ospf_cost_cmd,
-       "ip ospf cost (1-65535) [A.B.C.D]",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface\n")
+/*
+ * B3c CLI conversion: per-interface OSPF leaves route through ietf-ospf
+ * YANG when (a) no per-address [A.B.C.D] override is given and (b) the
+ * interface has been assigned to an area. Otherwise we fall back to the
+ * legacy direct-mutation path so per-address overrides and
+ * not-yet-area-attached interfaces continue to work exactly as before.
+ *
+ * Each pair of (set, unset) helpers handles both the main `ip ospf X`
+ * form and the hidden backwards-compat `ospf X` alias.
+ */
+
+static int ospf_cost_set_apply(struct vty *vty, struct interface *ifp,
+			       uint32_t cost, const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	uint32_t cost = OSPF_OUTPUT_COST_DEFAULT;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+	char buf[16];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+		snprintf(buf, sizeof(buf), "%u", cost);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	params = IF_DEF_PARAMS(ifp);
-
-	// get arguments
-	char *coststr = NULL, *ifaddr = NULL;
-
-	argv_find(argv, argc, "(1-65535)", &idx);
-	coststr = argv[idx]->arg;
-	cost = strtol(coststr, NULL, 10);
-
-	ifaddr = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-	if (ifaddr) {
-		if (!inet_aton(ifaddr, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
 
 	SET_IF_PARAM(params, output_cost_cmd);
 	params->output_cost_cmd = cost;
-
 	ospf_if_recalculate_output_cost(ifp);
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ospf_cost,
-              ospf_cost_cmd,
-              "ospf cost (1-65535) [A.B.C.D]",
-              "OSPF interface commands\n"
-              "Interface cost\n"
-              "Cost\n"
-              "Address of interface\n")
-{
-	return ip_ospf_cost(self, vty, argc, argv);
-}
-
-DEFUN (no_ip_ospf_cost,
-       no_ip_ospf_cost_cmd,
-       "no ip ospf cost [(1-65535)] [A.B.C.D]",
-       NO_STR
+DEFPY_YANG (ip_ospf_cost,
+       ip_ospf_cost_cmd,
+       "ip ospf cost (1-65535)$cost [A.B.C.D]$ifaddr",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interface cost\n"
@@ -8122,22 +8142,40 @@ DEFUN (no_ip_ospf_cost,
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct in_addr addr;
+
+	return ospf_cost_set_apply(vty, ifp, cost, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (ospf_cost,
+              ospf_cost_cmd,
+              "ospf cost (1-65535)$cost [A.B.C.D]$ifaddr",
+              "OSPF interface commands\n"
+              "Interface cost\n"
+              "Cost\n"
+              "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_cost_set_apply(vty, ifp, cost, ifaddr_str);
+}
+
+static int ospf_cost_unset_apply(struct vty *vty, struct interface *ifp,
+				 const char *ifaddr_str)
+{
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
 
-	// get arguments
-	char *ifaddr = NULL;
-	ifaddr = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-
-	/* According to the semantics we are mimicking "no ip ospf cost N" is
-	 * always treated as "no ip ospf cost" regardless of the actual value
-	 * of N already configured for the interface. Thus ignore cost. */
-
-	if (ifaddr) {
-		if (!inet_aton(ifaddr, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -8160,16 +8198,35 @@ DEFUN (no_ip_ospf_cost,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_cost,
+DEFPY_YANG (no_ip_ospf_cost,
+       no_ip_ospf_cost_cmd,
+       "no ip ospf cost [(1-65535)] [A.B.C.D]$ifaddr",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	/* `no ip ospf cost N` is treated as `no ip ospf cost` regardless of
+	 * any N already configured -- ignore the cost argument. */
+	return ospf_cost_unset_apply(vty, ifp, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_cost,
               no_ospf_cost_cmd,
-              "no ospf cost [(1-65535)] [A.B.C.D]",
+              "no ospf cost [(1-65535)] [A.B.C.D]$ifaddr",
               NO_STR
               "OSPF interface commands\n"
               "Interface cost\n"
               "Cost\n"
               "Address of interface\n")
 {
-	return no_ip_ospf_cost(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_cost_unset_apply(vty, ifp, ifaddr_str);
 }
 
 static void ospf_nbr_timer_update(struct ospf_interface *oi)
@@ -8260,34 +8317,54 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_dead_interval,
+static int ospf_dead_interval_set_apply(struct vty *vty,
+					struct interface *ifp,
+					uint32_t seconds,
+					const char *ifaddr_str)
+{
+	char xpath[XPATH_MAXLEN];
+	char buf[16];
+
+	snprintf(buf, sizeof(buf), "%u", seconds);
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") ==
+		    0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	/* Legacy fallback uses the shared helper that also handles the
+	 * minimal-hello-multiplier form -- the simple seconds case threads
+	 * through with fast_hello_str=NULL. ifp comes from the vty context
+	 * inside the helper via VTY_DECLVAR_CONTEXT. */
+	return ospf_vty_dead_interval_set(vty, buf, ifaddr_str, NULL);
+}
+
+DEFPY_YANG (ip_ospf_dead_interval,
        ip_ospf_dead_interval_cmd,
-       "ip ospf dead-interval (1-65535) [A.B.C.D]",
+       "ip ospf dead-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interval time after which a neighbor is declared down\n"
        "Seconds\n"
        "Address of interface\n")
 {
-	int idx = 0;
-	char *interval = argv_find(argv, argc, "(1-65535)", &idx)
-				 ? argv[idx]->arg
-				 : NULL;
-	char *ifaddr =
-		argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-	return ospf_vty_dead_interval_set(vty, interval, ifaddr, NULL);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_dead_interval_set_apply(vty, ifp, seconds, ifaddr_str);
 }
 
-
-DEFUN_HIDDEN (ospf_dead_interval,
+DEFPY_YANG_HIDDEN (ospf_dead_interval,
               ospf_dead_interval_cmd,
-              "ospf dead-interval (1-65535) [A.B.C.D]",
+              "ospf dead-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
               "OSPF interface commands\n"
               "Interval time after which a neighbor is declared down\n"
               "Seconds\n"
               "Address of interface\n")
 {
-	return ip_ospf_dead_interval(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_dead_interval_set_apply(vty, ifp, seconds, ifaddr_str);
 }
 
 DEFUN (ip_ospf_dead_interval_minimal,
@@ -8311,37 +8388,31 @@ DEFUN (ip_ospf_dead_interval_minimal,
 						  argv[idx_number]->arg);
 }
 
-DEFUN (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval time after which a neighbor is declared down\n"
-       "Seconds\n"
-       "Minimal 1s dead-interval with fast sub-second hellos\n"
-       "Hello multiplier factor\n"
-       "Number of Hellos to send each second\n"
-       "Address of interface\n")
+static int ospf_dead_interval_unset_apply(struct vty *vty,
+					  struct interface *ifp,
+					  const char *ifaddr_str,
+					  bool had_args)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = argc - 1;
-	struct in_addr addr = {.s_addr = 0L};
-	int ret;
+	struct in_addr addr = { .s_addr = 0L };
 	struct ospf_if_params *params;
 	struct ospf_interface *oi;
 	struct route_node *rn;
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") ==
+		    0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-
-	if (argv[idx_ipv4]->type == IPV4_TKN) {
-		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-		if (!ret) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_lookup_if_params(ifp, addr);
 		if (params == NULL)
 			return CMD_SUCCESS;
@@ -8350,7 +8421,6 @@ DEFUN (no_ip_ospf_dead_interval,
 	UNSET_IF_PARAM(params, v_wait);
 	params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
 	params->is_v_wait_set = false;
-
 	UNSET_IF_PARAM(params, fast_hello);
 	params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
 
@@ -8360,10 +8430,9 @@ DEFUN (no_ip_ospf_dead_interval,
 	}
 
 	/* Update timer values in neighbor structure. */
-	if (argc == 1) {
-		struct ospf *ospf = NULL;
+	if (!had_args) {
+		struct ospf *ospf = ifp->vrf->info;
 
-		ospf = ifp->vrf->info;
 		if (ospf) {
 			oi = ospf_if_lookup_by_local_addr(ospf, ifp, addr);
 			if (oi)
@@ -8378,9 +8447,27 @@ DEFUN (no_ip_ospf_dead_interval,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_dead_interval,
+DEFPY_YANG (no_ip_ospf_dead_interval,
+       no_ip_ospf_dead_interval_cmd,
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]$ifaddr]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interval time after which a neighbor is declared down\n"
+       "Seconds\n"
+       "Minimal 1s dead-interval with fast sub-second hellos\n"
+       "Hello multiplier factor\n"
+       "Number of Hellos to send each second\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_dead_interval_unset_apply(vty, ifp, ifaddr_str, argc > 4);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_dead_interval,
               no_ospf_dead_interval_cmd,
-              "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
+              "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]$ifaddr]",
               NO_STR
               "OSPF interface commands\n"
               "Interval time after which a neighbor is declared down\n"
@@ -8390,12 +8477,61 @@ DEFUN_HIDDEN (no_ospf_dead_interval,
               "Number of Hellos to send each second\n"
               "Address of interface\n")
 {
-	return no_ip_ospf_dead_interval(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_dead_interval_unset_apply(vty, ifp, ifaddr_str, argc > 3);
 }
 
-DEFUN (ip_ospf_hello_interval,
+static int ospf_hello_set_apply(struct vty *vty, struct interface *ifp,
+				uint32_t seconds, const char *ifaddr_str)
+{
+	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	bool is_addr = false;
+	uint32_t old_interval;
+	char xpath[XPATH_MAXLEN];
+	char buf[16];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") ==
+		    0) {
+		snprintf(buf, sizeof(buf), "%u", seconds);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	params = IF_DEF_PARAMS(ifp);
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
+			vty_out(vty,
+				"Please specify interface address by A.B.C.D\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		params = ospf_get_if_params(ifp, addr);
+		ospf_if_update_params(ifp, addr);
+		is_addr = true;
+	}
+
+	old_interval = params->v_hello;
+	if (old_interval == seconds)
+		return CMD_SUCCESS;
+
+	SET_IF_PARAM(params, v_hello);
+	params->v_hello = seconds;
+
+	/* RFC 4062: dead-interval should track 4 * hello unless explicit. */
+	if (!params->is_v_wait_set) {
+		SET_IF_PARAM(params, v_wait);
+		params->v_wait = 4 * seconds;
+	}
+
+	ospf_reset_hello_timer(ifp, addr, is_addr);
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG (ip_ospf_hello_interval,
        ip_ospf_hello_interval_cmd,
-       "ip ospf hello-interval (1-65535) [A.B.C.D]",
+       "ip ospf hello-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
        "IP Information\n"
        "OSPF interface commands\n"
        "Time between HELLO packets\n"
@@ -8403,90 +8539,45 @@ DEFUN (ip_ospf_hello_interval,
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct in_addr addr = {.s_addr = 0L};
-	struct ospf_if_params *params;
-	params = IF_DEF_PARAMS(ifp);
-	uint32_t seconds = 0;
-	bool is_addr = false;
-	uint32_t old_interval = 0;
 
-	argv_find(argv, argc, "(1-65535)", &idx);
-	seconds = strtol(argv[idx]->arg, NULL, 10);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
-			vty_out(vty,
-				"Please specify interface address by A.B.C.D\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		params = ospf_get_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-		is_addr = true;
-	}
-
-	old_interval = params->v_hello;
-
-	/* Return, if same interval is configured. */
-	if (old_interval == seconds)
-		return CMD_SUCCESS;
-
-	SET_IF_PARAM(params, v_hello);
-	params->v_hello = seconds;
-
-	if (!params->is_v_wait_set) {
-		SET_IF_PARAM(params, v_wait);
-		/* As per RFC 4062
-		 * The router dead interval should
-		 * be some multiple of the HelloInterval (perhaps 4 times the
-		 * hello interval) and must be the same for all routers
-		 * attached to a common network.
-		 */
-		params->v_wait	= 4 * seconds;
-	}
-
-	ospf_reset_hello_timer(ifp, addr, is_addr);
-
-	return CMD_SUCCESS;
+	return ospf_hello_set_apply(vty, ifp, seconds, ifaddr_str);
 }
 
-DEFUN_HIDDEN (ospf_hello_interval,
+DEFPY_YANG_HIDDEN (ospf_hello_interval,
               ospf_hello_interval_cmd,
-              "ospf hello-interval (1-65535) [A.B.C.D]",
+              "ospf hello-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
               "OSPF interface commands\n"
               "Time between HELLO packets\n"
               "Seconds\n"
               "Address of interface\n")
 {
-	return ip_ospf_hello_interval(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_hello_set_apply(vty, ifp, seconds, ifaddr_str);
 }
 
-DEFUN (no_ip_ospf_hello_interval,
-       no_ip_ospf_hello_interval_cmd,
-       "no ip ospf hello-interval [(1-65535) [A.B.C.D]]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n" // ignored
-       "Seconds\n"
-       "Address of interface\n")
+static int ospf_hello_unset_apply(struct vty *vty, struct interface *ifp,
+				  const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct in_addr addr = {.s_addr = 0L};
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
 	struct route_node *rn;
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") ==
+		    0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_lookup_if_params(ifp, addr);
 		if (params == NULL)
 			return CMD_SUCCESS;
@@ -8497,7 +8588,7 @@ DEFUN (no_ip_ospf_hello_interval,
 
 	if (!params->is_v_wait_set) {
 		UNSET_IF_PARAM(params, v_wait);
-		params->v_wait  = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+		params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
 	}
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
@@ -8505,10 +8596,8 @@ DEFUN (no_ip_ospf_hello_interval,
 
 		if (!oi)
 			continue;
-
 		oi->type = IF_DEF_PARAMS(ifp)->type;
 		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
-
 		if (oi->state > ISM_Down) {
 			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
 			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
@@ -8519,20 +8608,36 @@ DEFUN (no_ip_ospf_hello_interval,
 		ospf_free_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_hello_interval,
+DEFPY_YANG (no_ip_ospf_hello_interval,
+       no_ip_ospf_hello_interval_cmd,
+       "no ip ospf hello-interval [(1-65535) [A.B.C.D]$ifaddr]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Time between HELLO packets\n" // ignored
+       "Seconds\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_hello_unset_apply(vty, ifp, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_hello_interval,
               no_ospf_hello_interval_cmd,
-              "no ospf hello-interval [(1-65535) [A.B.C.D]]",
+              "no ospf hello-interval [(1-65535) [A.B.C.D]$ifaddr]",
               NO_STR
               "OSPF interface commands\n"
               "Time between HELLO packets\n" // ignored
               "Seconds\n"
               "Address of interface\n")
 {
-	return no_ip_ospf_hello_interval(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_hello_unset_apply(vty, ifp, ifaddr_str);
 }
 
 DEFUN(ip_ospf_network, ip_ospf_network_cmd,
@@ -8697,33 +8802,29 @@ DEFUN_HIDDEN (no_ospf_network,
 	return no_ip_ospf_network(self, vty, argc, argv);
 }
 
-DEFUN (ip_ospf_priority,
-       ip_ospf_priority_cmd,
-       "ip ospf priority (0-255) [A.B.C.D]",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n"
-       "Address of interface\n")
+static int ospf_priority_set_apply(struct vty *vty, struct interface *ifp,
+				   uint8_t priority, const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	long priority;
-	struct route_node *rn;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { 0 };
+	struct route_node *rn;
+	char xpath[XPATH_MAXLEN];
+	char buf[8];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+		snprintf(buf, sizeof(buf), "%u", priority);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	params = IF_DEF_PARAMS(ifp);
-
-	argv_find(argv, argc, "(0-255)", &idx);
-	priority = strtol(argv[idx]->arg, NULL, 10);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
@@ -8736,52 +8837,62 @@ DEFUN (ip_ospf_priority,
 
 		if (!oi)
 			continue;
-
 		if (PRIORITY(oi) != OSPF_IF_PARAM(oi, priority)) {
 			PRIORITY(oi) = OSPF_IF_PARAM(oi, priority);
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
 		}
 	}
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ospf_priority,
+DEFPY_YANG (ip_ospf_priority,
+       ip_ospf_priority_cmd,
+       "ip ospf priority (0-255)$priority [A.B.C.D]$ifaddr",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Router priority\n"
+       "Priority\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_priority_set_apply(vty, ifp, priority, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (ospf_priority,
               ospf_priority_cmd,
-              "ospf priority (0-255) [A.B.C.D]",
+              "ospf priority (0-255)$priority [A.B.C.D]$ifaddr",
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n"
               "Address of interface\n")
 {
-	return ip_ospf_priority(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_priority_set_apply(vty, ifp, priority, ifaddr_str);
 }
 
-DEFUN (no_ip_ospf_priority,
-       no_ip_ospf_priority_cmd,
-       "no ip ospf priority [(0-255) [A.B.C.D]]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Router priority\n" // ignored
-       "Priority\n"
-       "Address of interface\n")
+static int ospf_priority_unset_apply(struct vty *vty, struct interface *ifp,
+				     const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct route_node *rn;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { 0 };
+	struct route_node *rn;
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_lookup_if_params(ifp, addr);
 		if (params == NULL)
 			return CMD_SUCCESS;
@@ -8800,26 +8911,41 @@ DEFUN (no_ip_ospf_priority,
 
 		if (!oi)
 			continue;
-
 		if (PRIORITY(oi) != OSPF_IF_PARAM(oi, priority)) {
 			PRIORITY(oi) = OSPF_IF_PARAM(oi, priority);
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
 		}
 	}
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_priority,
+DEFPY_YANG (no_ip_ospf_priority,
+       no_ip_ospf_priority_cmd,
+       "no ip ospf priority [(0-255) [A.B.C.D]$ifaddr]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Router priority\n" // ignored
+       "Priority\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_priority_unset_apply(vty, ifp, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_priority,
               no_ospf_priority_cmd,
-              "no ospf priority [(0-255) [A.B.C.D]]",
+              "no ospf priority [(0-255) [A.B.C.D]$ifaddr]",
               NO_STR
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n"
               "Address of interface\n")
 {
-	return no_ip_ospf_priority(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_priority_unset_apply(vty, ifp, ifaddr_str);
 }
 
 DEFUN (ip_ospf_retransmit_interval,
@@ -9305,41 +9431,60 @@ DEFUN (no_ip_ospf_area,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_passive,
+static int ospf_iface_passive_apply(struct vty *vty, struct interface *ifp,
+				    uint8_t newval, const char *ifaddr_str)
+{
+	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = INADDR_ANY };
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/passive") == 0) {
+		if (newval == OSPF_IF_PASSIVE)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
+			vty_out(vty,
+				"Please specify interface address by A.B.C.D\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (newval == OSPF_IF_PASSIVE) {
+			params = ospf_get_if_params(ifp, addr);
+			ospf_if_update_params(ifp, addr);
+		} else {
+			params = ospf_lookup_if_params(ifp, addr);
+			if (params == NULL)
+				return CMD_SUCCESS;
+		}
+	} else {
+		params = IF_DEF_PARAMS(ifp);
+	}
+
+	ospf_passive_interface_update(ifp, params, addr, newval);
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG (ip_ospf_passive,
        ip_ospf_passive_cmd,
-       "ip ospf passive [A.B.C.D]",
+       "ip ospf passive [A.B.C.D]$ifaddr",
        "IP Information\n"
        "OSPF interface commands\n"
        "Suppress routing updates on an interface\n"
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 3;
-	struct in_addr addr = {.s_addr = INADDR_ANY};
-	struct ospf_if_params *params;
-	int ret;
 
-	if (argc == 4) {
-		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-		if (!ret) {
-			vty_out(vty,
-				"Please specify interface address by A.B.C.D\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		params = ospf_get_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	} else {
-		params = IF_DEF_PARAMS(ifp);
-	}
-
-	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_PASSIVE);
-
-	return CMD_SUCCESS;
+	return ospf_iface_passive_apply(vty, ifp, OSPF_IF_PASSIVE, ifaddr_str);
 }
 
-DEFUN (no_ip_ospf_passive,
+DEFPY_YANG (no_ip_ospf_passive,
        no_ip_ospf_passive_cmd,
-       "no ip ospf passive [A.B.C.D]",
+       "no ip ospf passive [A.B.C.D]$ifaddr",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -9347,28 +9492,8 @@ DEFUN (no_ip_ospf_passive,
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 4;
-	struct in_addr addr = {.s_addr = INADDR_ANY};
-	struct ospf_if_params *params;
-	int ret;
 
-	if (argc == 5) {
-		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-		if (!ret) {
-			vty_out(vty,
-				"Please specify interface address by A.B.C.D\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		params = ospf_lookup_if_params(ifp, addr);
-		if (params == NULL)
-			return CMD_SUCCESS;
-	} else {
-		params = IF_DEF_PARAMS(ifp);
-	}
-
-	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
-
-	return CMD_SUCCESS;
+	return ospf_iface_passive_apply(vty, ifp, OSPF_IF_ACTIVE, ifaddr_str);
 }
 
 DEFUN (ospf_redistribute_source,
@@ -9878,25 +10003,28 @@ DEFUN (ospf_distance_ospf,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_mtu_ignore,
-       ip_ospf_mtu_ignore_addr_cmd,
-       "ip ospf mtu-ignore [A.B.C.D]",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Disable MTU mismatch detection on this interface\n"
-       "Address of interface\n")
+/* Shared body for both "ip ospf mtu-ignore" and "no ip ospf mtu-ignore":
+ * the legacy DEFUNs are symmetric except for which value they write
+ * to params->mtu_ignore. */
+static int ospf_mtu_ignore_apply(struct vty *vty, struct interface *ifp,
+				 uint8_t new_value, const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 3;
-	struct in_addr addr;
-	int ret;
-
 	struct ospf_if_params *params;
-	params = IF_DEF_PARAMS(ifp);
+	struct in_addr addr = { 0 };
+	char xpath[XPATH_MAXLEN];
 
-	if (argc == 4) {
-		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-		if (!ret) {
+	if (!ifaddr_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/mtu-ignore") == 0) {
+		if (new_value)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	params = IF_DEF_PARAMS(ifp);
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -9904,7 +10032,7 @@ DEFUN (ip_ospf_mtu_ignore,
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
-	params->mtu_ignore = 1;
+	params->mtu_ignore = new_value;
 	if (params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT)
 		SET_IF_PARAM(params, mtu_ignore);
 	else {
@@ -9917,9 +10045,22 @@ DEFUN (ip_ospf_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_ospf_mtu_ignore,
+DEFPY_YANG (ip_ospf_mtu_ignore,
+       ip_ospf_mtu_ignore_addr_cmd,
+       "ip ospf mtu-ignore [A.B.C.D]$ifaddr",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Disable MTU mismatch detection on this interface\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_mtu_ignore_apply(vty, ifp, 1, ifaddr_str);
+}
+
+DEFPY_YANG (no_ip_ospf_mtu_ignore,
        no_ip_ospf_mtu_ignore_addr_cmd,
-       "no ip ospf mtu-ignore [A.B.C.D]",
+       "no ip ospf mtu-ignore [A.B.C.D]$ifaddr",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -9927,34 +10068,8 @@ DEFUN (no_ip_ospf_mtu_ignore,
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 4;
-	struct in_addr addr;
-	int ret;
 
-	struct ospf_if_params *params;
-	params = IF_DEF_PARAMS(ifp);
-
-	if (argc == 5) {
-		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-		if (!ret) {
-			vty_out(vty,
-				"Please specify interface address by A.B.C.D\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		params = ospf_get_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-	params->mtu_ignore = 0;
-	if (params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT)
-		SET_IF_PARAM(params, mtu_ignore);
-	else {
-		UNSET_IF_PARAM(params, mtu_ignore);
-		if (params != IF_DEF_PARAMS(ifp)) {
-			ospf_free_if_params(ifp, addr);
-			ospf_if_update_params(ifp, addr);
-		}
-	}
-	return CMD_SUCCESS;
+	return ospf_mtu_ignore_apply(vty, ifp, 0, ifaddr_str);
 }
 
 DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
