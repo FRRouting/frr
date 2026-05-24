@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sys
+import time
 from functools import partial
 import pytest
 
@@ -99,6 +100,121 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def _expect_ospfv2_neighbor_full(router, neighbor):
+    "Wait until OSPFv2 neighbor reaches Full."
+    tgen = get_topogen()
+    logger.info("waiting OSPFv2 router '{}' for neighbor {}".format(router, neighbor))
+
+    def run_command_and_expect():
+        result = tgen.gears[router].vtysh_cmd("show ip ospf neighbor json", isjson=True)
+        return topotest.json_cmp(
+            result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
+        )
+
+    _, result = topotest.run_and_expect(run_command_and_expect, None, count=130, wait=1)
+    assert result is None, '"{}" convergence failure for {}'.format(router, neighbor)
+
+
+def _expect_ospfv3_neighbor_full(router, neighbor):
+    "Wait until OSPFv3 neighbor reaches Full."
+    tgen = get_topogen()
+    logger.info("waiting OSPFv3 router '{}' for neighbor {}".format(router, neighbor))
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show ipv6 ospf6 neighbor json",
+        {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+    assert result is None, '"{}" convergence failure for {}'.format(router, neighbor)
+
+
+def _force_ospf_reconvergence_to_steady_state():
+    """Restart ospfd / ospf6d on every router, then wait for the steady
+    state LSDB.
+
+    Several YANG mutation tests in this suite drive OSPF state
+    transitions that the routing protocol can't fully clean up on its
+    own. Two distinct failure modes:
+
+      * router-id changes (test_ospf_yang_router_id_config) leave
+        old-router-id self-LSAs in remote LSDBs. The local LSDB is
+        wiped before re-origination, so the in-flight flush to
+        neighbours never reaches them.
+      * Interface priority / network-type / passive transitions
+        (test_ospf_yang_area_interface_b3b_leaves_config,
+        test_ospf_per_iface_cli_routes_through_yang,
+        test_ospf_yang_interface_type_and_passive_config) move DR
+        election around. The transient DR originates a Network LSA;
+        when it stops being DR, FRR flushes that self-originated LSA
+        but the resulting MaxAge entry is excluded from
+        ospf_lsa_maxage_walker (line 3452 of ospf_lsa.c skips
+        self-originated MaxAge LSAs), so it lingers in the LSDB
+        indefinitely.
+
+    `clear ip ospf process` is not enough -- the maxage state survives
+    via flooding back from neighbours that also kept the phantom.
+    A full daemon restart re-reads frr.conf cleanly and the LSDB
+    starts from empty everywhere simultaneously, with no stale state
+    in any router's memory for the phantoms to come back from.
+
+    After restart we wait for r1's area 0 LSDB to settle at the
+    steady-state count (3 router LSAs + 1 network LSA + 2 inter-area
+    summary LSAs from r3 + 1 ASBR LSA = 7) so downstream read-only
+    tests see deterministic state.
+    """
+    tgen = get_topogen()
+    # Restart ospfd + ospf6d on every router. Daemon restart re-reads
+    # frr.conf from scratch and gives a guaranteed clean LSDB on every
+    # node, which `clear ip ospf process` alone cannot. SIGTERM each
+    # daemon directly; the topogen wrapper only exposes a whole-router
+    # stop, which would also tear down zebra / mgmtd.
+    for rname in ("r1", "r2", "r3", "r4"):
+        rnode = tgen.gears[rname]
+        rnode.cmd("pkill -TERM -x ospfd")
+        rnode.cmd("pkill -TERM -x ospf6d")
+    # Brief settle for the kernel to reap the processes before restart.
+    time.sleep(2)
+    for rname in ("r1", "r2", "r3", "r4"):
+        rnode = tgen.gears[rname]
+        rnode.net.startRouterDaemons(["ospfd", "ospf6d"])
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv2_lsdb_equal("r1", "0.0.0.0", 7)
+
+
+def _expect_ospfv2_lsdb_equal(router, area, expected_lsa_count):
+    """Wait until `router` reports exactly expected_lsa_count LSAs in `area`.
+
+    NSM Full happens once DBD exchange completes, but full LSDB
+    propagation (especially summary / ASBR / network LSAs) requires
+    further LSU flooding. After an OSPF process reset (e.g. router-id
+    change) the adjacency reaches Full quickly while the LSDB is still
+    refilling. Equality (not just min) lets us catch phantom LSAs from
+    pre-restart state (e.g. stale network LSAs from a transient DR
+    election) that must age out before downstream tests run.
+    """
+    tgen = get_topogen()
+
+    def lsdb_matches():
+        result = tgen.gears[router].vtysh_cmd("show ip ospf json", isjson=True)
+        try:
+            lsa_count = result["areas"][area]["lsaNumber"]
+        except (KeyError, TypeError):
+            return "LSA count not yet available"
+        if lsa_count == expected_lsa_count:
+            return None
+        return "lsaNumber={} != {}".format(lsa_count, expected_lsa_count)
+
+    _, diag = topotest.run_and_expect(lsdb_matches, None, count=180, wait=1)
+    assert diag is None, '"{}" LSDB did not converge to {} LSAs in area {}: {}'.format(
+        router, expected_lsa_count, area, diag
+    )
+
+
 def test_wait_protocol_convergence():
     "Wait for OSPFv2/OSPFv3 to converge"
     tgen = get_topogen()
@@ -107,78 +223,25 @@ def test_wait_protocol_convergence():
 
     logger.info("waiting for protocols to converge")
 
-    def expect_ospfv2_neighbor_full(router, neighbor):
-        "Wait until OSPFv2 convergence."
-        logger.info("waiting OSPFv2 router '{}'".format(router))
-
-        def run_command_and_expect():
-            """
-            Function that runs command and expect the following outcomes:
-             * Full/DR
-             * Full/DROther
-             * Full/Backup
-            """
-            result = tgen.gears[router].vtysh_cmd(
-                "show ip ospf neighbor json", isjson=True
-            )
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            if (
-                topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-                )
-                is None
-            ):
-                return None
-
-            return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
-            )
-
-        _, result = topotest.run_and_expect(
-            run_command_and_expect, None, count=130, wait=1
-        )
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
-
-    def expect_ospfv3_neighbor_full(router, neighbor):
-        "Wait until OSPFv3 convergence."
-        logger.info("waiting OSPFv3 router '{}'".format(router))
-        test_func = partial(
-            topotest.router_json_cmp,
-            tgen.gears[router],
-            "show ipv6 ospf6 neighbor json",
-            {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
-        )
-        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
-        assertmsg = '"{}" convergence failure'.format(router)
-        assert result is None, assertmsg
-
     # Wait for OSPFv2 convergence
-    expect_ospfv2_neighbor_full("r1", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r1", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r2", "10.0.255.3")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.1")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.2")
-    expect_ospfv2_neighbor_full("r3", "10.0.255.4")
-    expect_ospfv2_neighbor_full("r4", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r2", "10.0.255.1")
+    _expect_ospfv2_neighbor_full("r2", "10.0.255.3")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.1")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.2")
+    _expect_ospfv2_neighbor_full("r3", "10.0.255.4")
+    _expect_ospfv2_neighbor_full("r4", "10.0.255.3")
 
     # Wait for OSPFv3 convergence
-    expect_ospfv3_neighbor_full("r1", "10.0.255.2")
-    expect_ospfv3_neighbor_full("r1", "10.0.255.3")
-    expect_ospfv3_neighbor_full("r2", "10.0.255.1")
-    expect_ospfv3_neighbor_full("r2", "10.0.255.3")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.1")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.2")
-    expect_ospfv3_neighbor_full("r3", "10.0.255.4")
-    expect_ospfv3_neighbor_full("r4", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r2", "10.0.255.1")
+    _expect_ospfv3_neighbor_full("r2", "10.0.255.3")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.1")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r3", "10.0.255.4")
+    _expect_ospfv3_neighbor_full("r4", "10.0.255.3")
 
 
 def compare_show_ipv6_ospf6(rname, expected):
@@ -317,7 +380,9 @@ def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
     """
     try:
         output = _yang_operational_root(router)
-        ospf = _yang_ospf_container(_yang_ospf_protocol(output, protocol_type, "default"))
+        ospf = _yang_ospf_container(
+            _yang_ospf_protocol(output, protocol_type, "default")
+        )
         area = _yang_ospf_area(ospf, "0.0.0.0")
         interface = _yang_ospf_interface(area, "r1-eth1")
         neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
@@ -326,7 +391,9 @@ def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
     if neighbor.get("state") != "full":
         return "neighbor state is {}".format(neighbor.get("state"))
     if not neighbor.get("address", "").startswith(expected_address_prefix):
-        return "neighbor address {} not in expected family".format(neighbor.get("address"))
+        return "neighbor address {} not in expected family".format(
+            neighbor.get("address")
+        )
     return None
 
 
@@ -495,10 +562,10 @@ def _set_yang_router_id(router, protocol_type, daemon, running_line, new_value):
     _mgmt_set_and_commit(router, xpath, new_value)
 
     running = router.vtysh_cmd("show running-config {}".format(daemon))
-    assert "{} {}".format(running_line, new_value) in running, (
-        "expected '{} {}' in running-config after YANG set, got:\n{}".format(
-            running_line, new_value, running
-        )
+    assert (
+        "{} {}".format(running_line, new_value) in running
+    ), "expected '{} {}' in running-config after YANG set, got:\n{}".format(
+        running_line, new_value, running
     )
 
     # Restore the original value through the same YANG path so subsequent
@@ -524,6 +591,12 @@ def test_ospf_yang_router_id_config():
         r1, "ietf-ospf:ospfv3", "ospf6d", "ospf6 router-id", "10.0.255.31"
     )
 
+    # Router-id mutation leaves phantom self-LSAs in the other routers'
+    # LSDBs that the routing protocol can't fully reconcile on its own;
+    # bounce every adjacency so the LSDB is rebuilt cleanly before any
+    # downstream test depends on it.
+    _force_ospf_reconvergence_to_steady_state()
+
 
 def _yang_area_xpath(protocol_type, area_id):
     return (
@@ -536,8 +609,9 @@ def _yang_area_xpath(protocol_type, area_id):
     )
 
 
-def _set_yang_area_type(router, protocol_type, daemon, area_id, area_type,
-                        expect_running_line):
+def _set_yang_area_type(
+    router, protocol_type, daemon, area_id, area_type, expect_running_line
+):
     """Set areas/area[id=X]/area-type via mgmtd and verify it lands.
 
     area_type is one of "stub-area", "nssa-area", "normal-area" (the RFC 9129
@@ -553,10 +627,10 @@ def _set_yang_area_type(router, protocol_type, daemon, area_id, area_type,
     )
 
     running = router.vtysh_cmd("show running-config {}".format(daemon))
-    assert expect_running_line in running, (
-        "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
-            expect_running_line, area_type, running
-        )
+    assert (
+        expect_running_line in running
+    ), "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
+        expect_running_line, area_type, running
     )
 
 
@@ -583,6 +657,21 @@ def _clear_yang_area(router, protocol_type, area_id):
         "configure terminal file-lock\n"
         "mgmt delete-config {}\n"
         "mgmt commit apply".format(area_path)
+    )
+
+
+def _restore_r1_eth1_fixture_timers(router, protocol_type):
+    """Restore the explicit timer leaves from the r1 fixture."""
+    iface_path = (
+        _yang_area_xpath(protocol_type, "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+
+    router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/hello-interval 2\n"
+        "mgmt set-config {}/dead-interval 10\n"
+        "mgmt commit apply".format(iface_path, iface_path)
     )
 
 
@@ -647,39 +736,6 @@ def test_ospf_yang_area_type_config():
         "area 0.0.0.42 should be removed after YANG delete, running:\n" + running
     )
 
-def test_ospf_yang_area_delete_clears_native_nssa_ranges():
-    """Deleting a YANG NSSA area must also clear native NSSA range state."""
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip("skipped because of router(s) failure")
-
-    r1 = tgen.gears["r1"]
-    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.52")
-
-    r1.vtysh_cmd(
-        "configure terminal file-lock\n"
-        "mgmt set-config {}/area-type nssa-area\n"
-        "mgmt commit apply".format(area_path)
-    )
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        "area 0.0.0.52 nssa range 10.52.0.0/16 cost 52"
-    )
-
-    running = r1.vtysh_cmd("show running-config ospfd")
-    assert "area 0.0.0.52 nssa" in running, running
-    assert "area 0.0.0.52 nssa range 10.52.0.0/16 cost 52" in running, (
-        "expected native NSSA range before YANG area delete, got:\n" + running
-    )
-
-    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.52")
-    running = r1.vtysh_cmd("show running-config ospfd")
-    assert "0.0.0.52" not in running, (
-        "area 0.0.0.52 and its NSSA range must be gone after delete, got:\n"
-        + running
-    )
-
 def _set_yang_area_attrs(router, protocol_type, area_id, attrs):
     """Set multiple area attrs in one configure-and-commit block.
 
@@ -732,33 +788,25 @@ def test_ospf_area_cli_routes_through_yang():
     assert "area 0.0.0.51 stub no-summary" not in running, running
     assert "default-cost 17" not in running, running
 
-    r1.vtysh_cmd(
-        "configure terminal\nrouter ospf\n no area 0.0.0.51 stub\n"
-    )
+    r1.vtysh_cmd("configure terminal\nrouter ospf\n no area 0.0.0.51 stub\n")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "0.0.0.51" not in running, running
 
     # OSPFv3: same cycle, minus default-cost (no v3 surface).
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf6\n"
-        " area 0.0.0.52 stub no-summary\n"
+        "configure terminal\n" "router ospf6\n" " area 0.0.0.52 stub no-summary\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "area 0.0.0.52 stub no-summary" in running, running
 
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf6\n"
-        " no area 0.0.0.52 stub no-summary\n"
+        "configure terminal\n" "router ospf6\n" " no area 0.0.0.52 stub no-summary\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "area 0.0.0.52 stub" in running, running
     assert "area 0.0.0.52 stub no-summary" not in running, running
 
-    r1.vtysh_cmd(
-        "configure terminal\nrouter ospf6\n no area 0.0.0.52 stub\n"
-    )
+    r1.vtysh_cmd("configure terminal\nrouter ospf6\n no area 0.0.0.52 stub\n")
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "0.0.0.52" not in running, running
 
@@ -819,7 +867,8 @@ def test_ospf_yang_area_interface_cost_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 cost 88" in running, (
-        "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n" + running
+        "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n"
+        + running
     )
 
     r1.vtysh_cmd(
@@ -873,9 +922,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ip ospf priority 13",
         "ip ospf mtu-ignore",
     ):
-        assert expected in running, (
-            "expected '{}' in v2 running-config, got:\n{}".format(expected, running)
-        )
+        assert (
+            expected in running
+        ), "expected '{}' in v2 running-config, got:\n{}".format(expected, running)
 
     # Tear down individual leaves
     cmds = (
@@ -896,9 +945,13 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ip ospf priority 13",
         "ip ospf mtu-ignore",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
+    _restore_r1_eth1_fixture_timers(r1, "ietf-ospf:ospfv2")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf hello-interval 2" in running, running
+    assert "ip ospf dead-interval 10" in running, running
 
     # OSPFv3: same leaves, same path shape.
     iface = (
@@ -923,9 +976,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ipv6 ospf6 priority 13",
         "ipv6 ospf6 mtu-ignore",
     ):
-        assert expected in running, (
-            "expected '{}' in v3 running-config, got:\n{}".format(expected, running)
-        )
+        assert (
+            expected in running
+        ), "expected '{}' in v3 running-config, got:\n{}".format(expected, running)
 
     cmds = (
         "configure terminal file-lock\n"
@@ -945,9 +998,13 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ipv6 ospf6 priority 13",
         "ipv6 ospf6 mtu-ignore",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
+    _restore_r1_eth1_fixture_timers(r1, "ietf-ospf:ospfv3")
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 hello-interval 2" in running, running
+    assert "ipv6 ospf6 dead-interval 10" in running, running
 
 
 def test_ospf_per_iface_cli_routes_through_yang():
@@ -989,10 +1046,10 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf mtu-ignore",
         "ip ospf passive",
     ):
-        assert expected in running, (
-            "expected '{}' in v2 running-config after CLI set, got:\n{}".format(
-                expected, running
-            )
+        assert (
+            expected in running
+        ), "expected '{}' in v2 running-config after CLI set, got:\n{}".format(
+            expected, running
         )
 
     r1.vtysh_cmd(
@@ -1014,11 +1071,9 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf mtu-ignore",
         "ip ospf passive",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after CLI no form, got:\n{}".format(
-                unexpected, running
-            )
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after CLI no form, got:\n{}".format(unexpected, running)
 
     # OSPFv3 on r1-eth1
     r1.vtysh_cmd(
@@ -1040,10 +1095,10 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
     ):
-        assert expected in running, (
-            "expected '{}' in v3 running-config after CLI set, got:\n{}".format(
-                expected, running
-            )
+        assert (
+            expected in running
+        ), "expected '{}' in v3 running-config after CLI set, got:\n{}".format(
+            expected, running
         )
 
     r1.vtysh_cmd(
@@ -1065,11 +1120,9 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after CLI no form, got:\n{}".format(
-                unexpected, running
-            )
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after CLI no form, got:\n{}".format(unexpected, running)
 
     r1.vtysh_cmd(
         "configure terminal\n"
@@ -1114,10 +1167,10 @@ def test_ospf_yang_preference_config():
             "mgmt commit apply".format(instance)
         )
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert "{} 137".format(cli_prefix) in running, (
-            "expected '{} 137' in {} running-config, got:\n{}".format(
-                cli_prefix, daemon, running
-            )
+        assert (
+            "{} 137".format(cli_prefix) in running
+        ), "expected '{} 137' in {} running-config, got:\n{}".format(
+            cli_prefix, daemon, running
         )
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -1136,10 +1189,10 @@ def test_ospf_yang_preference_config():
             "mgmt commit apply".format(instance, instance, instance)
         )
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert "{} {} intra-area 21".format(cli_prefix, cli_proto) in running, (
-            "expected '{} {} intra-area 21' in {} running-config, got:\n{}".format(
-                cli_prefix, cli_proto, daemon, running
-            )
+        assert (
+            "{} {} intra-area 21".format(cli_prefix, cli_proto) in running
+        ), "expected '{} {} intra-area 21' in {} running-config, got:\n{}".format(
+            cli_prefix, cli_proto, daemon, running
         )
         assert "inter-area 22" in running, running
         assert "external 23" in running, running
@@ -1212,7 +1265,8 @@ def test_ospf_yang_interface_type_and_passive_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 network point-to-point" in running, (
-        "expected ipv6 ospf6 network point-to-point in v3 running-config, got:\n" + running
+        "expected ipv6 ospf6 network point-to-point in v3 running-config, got:\n"
+        + running
     )
     assert "ipv6 ospf6 passive" in running, (
         "expected ipv6 ospf6 passive in v3 running-config, got:\n" + running
@@ -1324,7 +1378,9 @@ def test_ospf_yang_area_summary_default_cost_config():
     #   area 0.0.0.43 stub no-summary
     #   area 0.0.0.43 default-cost 42
     _set_yang_area_attrs(
-        r1, "ietf-ospf:ospfv2", "0.0.0.43",
+        r1,
+        "ietf-ospf:ospfv2",
+        "0.0.0.43",
         [("area-type", "stub-area"), ("summary", "false"), ("default-cost", "42")],
     )
     running = r1.vtysh_cmd("show running-config ospfd")
@@ -1344,7 +1400,9 @@ def test_ospf_yang_area_summary_default_cost_config():
     # surface, so the default-cost leaf is intentionally unimplemented on
     # the v3 side; see ospf6_nb_config.c for the rationale).
     _set_yang_area_attrs(
-        r1, "ietf-ospf:ospfv3", "0.0.0.43",
+        r1,
+        "ietf-ospf:ospfv3",
+        "0.0.0.43",
         [("area-type", "stub-area"), ("summary", "false")],
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
@@ -1418,7 +1476,8 @@ def test_ospf_yang_deviated_enabled_leaves_rejected():
         _assert_mgmt_rejected(out, "{}/enabled".format(proto))
 
         iface = (
-            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0")
+            + "/interfaces/interface[name='r1-eth1']"
         )
         out = _mgmt_commit_attempt(
             r1,
@@ -1429,7 +1488,9 @@ def test_ospf_yang_deviated_enabled_leaves_rejected():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "enabled false" not in running
-        ), "rejected enabled leaf must not land on {}, got:\n{}".format(daemon, running)
+        ), "rejected enabled leaf must not land on {}, got:\n{}".format(
+            daemon, running
+        )
 
     out = _mgmt_commit_attempt(
         r1,
@@ -1598,66 +1659,7 @@ def test_ospf_yang_negative_default_cost_on_normal_area():
     )
 
 
-def _assert_mgmt_rejected(output, what):
-    assert (
-        "Failed to edit configuration" in output
-        or "Couldn't apply changes" in output
-        or "Configuration failed" in output
-        or "commit failed" in output.lower()
-    ), "expected {} rejection, got:\n{}".format(what, output)
-
-
-def test_ospf_yang_deviated_enabled_leaves_rejected():
-    """The FRR deviation module marks OSPF enable switches not-supported.
-
-    FRR has no independent protocol-level or per-interface OSPF
-    on/off switch: an instance exists when the control-plane-protocol
-    entry exists, and an interface participates when it is attached to
-    an area. Writes to the RFC 9129 `ospf/enabled` and
-    `interface/enabled` leaves must therefore fail instead of being
-    accepted into the candidate with no daemon-side effect.
-    """
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip("skipped because of router(s) failure")
-
-    r1 = tgen.gears["r1"]
-
-    for proto, daemon in (
-        ("ietf-ospf:ospfv2", "ospfd"),
-        ("ietf-ospf:ospfv3", "ospf6d"),
-    ):
-        instance = (
-            "/ietf-routing:routing/control-plane-protocols/"
-            "control-plane-protocol[type='"
-            + proto
-            + "'][name='default']/ietf-ospf:ospf"
-        )
-        out = _mgmt_commit_attempt(
-            r1,
-            "mgmt set-config {}/enabled false".format(instance),
-        )
-        _assert_mgmt_rejected(out, "{}/enabled".format(proto))
-
-        iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
-        )
-        out = _mgmt_commit_attempt(
-            r1,
-            "mgmt set-config {}/enabled false".format(iface),
-        )
-        _assert_mgmt_rejected(out, "{}/interface/enabled".format(proto))
-
-        running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert (
-            "enabled false" not in running
-        ), "rejected enabled leaf must not land on {}, got:\n{}".format(
-            daemon, running
-        )
-
-
-def test_ospf_yang_negative_v3_unsupported_interface_type():
+def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
     """Reject OSPFv3 writes that the daemon cannot support.
 
     RFC 9129 declares non-broadcast and hybrid; ospf6d only supports
@@ -1749,6 +1751,38 @@ def test_ospf_yang_negative_v3_unsupported_interface_type():
     assert "stub-router administrative" not in running, running
 
 
+def test_ospf_yang_area_delete_clears_native_nssa_ranges():
+    """Deleting a YANG NSSA area must also clear native NSSA range state."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.52")
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type nssa-area\n"
+        "mgmt commit apply".format(area_path)
+    )
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf\n"
+        "area 0.0.0.52 nssa range 10.52.0.0/16 cost 52"
+    )
+
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.52 nssa" in running, running
+    assert "area 0.0.0.52 nssa range 10.52.0.0/16 cost 52" in running, (
+        "expected native NSSA range before YANG area delete, got:\n" + running
+    )
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.52")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.52" not in running, (
+        "area 0.0.0.52 and its NSSA range must be gone after delete, got:\n"
+        + running
+    )
 def test_ospf_yang_area_delete_recreate_cleanup():
     """Delete then recreate an area; per-leaf state must reset cleanly.
 
@@ -1800,6 +1834,14 @@ def test_ospf_yang_area_delete_recreate_cleanup():
     )
 
     _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
+
+    # This is the last YANG mutation test before the read-only downstream
+    # tests (test_ospf_convergence, test_ospf_json, ...). The interface
+    # priority / passive / network-type round-trips in the preceding tests
+    # all bounce DR election on r1-eth1; OSPF leaves stale MAX_AGE
+    # Network LSAs behind that don't fully flush. Force a full
+    # reconvergence so downstream tests see deterministic LSDB state.
+    _force_ospf_reconvergence_to_steady_state()
 
 
 def test_ospf_convergence():
