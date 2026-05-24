@@ -14,6 +14,26 @@
 #include "ospfd/ospf_nb.h"
 
 /*
+ * RFC 9129 ietf-ospf area-type identityref values. Accept both the bare
+ * identity name and the module-qualified form so callers do not depend on the
+ * exact libyang serialisation context used for this dnode.
+ */
+#define OSPF_AREA_TYPE_NORMAL "normal-area"
+#define OSPF_AREA_TYPE_STUB   "stub-area"
+#define OSPF_AREA_TYPE_NSSA   "nssa-area"
+
+static bool ospf_area_type_is(const char *val, const char *name)
+{
+	if (!val)
+		return false;
+	if (!strcmp(val, name))
+		return true;
+	if (strncmp(val, "ietf-ospf:", strlen("ietf-ospf:")) == 0)
+		return !strcmp(val + strlen("ietf-ospf:"), name);
+	return false;
+}
+
+/*
  * Look up the OSPF instance corresponding to an ietf-ospf config dnode.
  * Walks up to the parent control-plane-protocol list entry to read the
  * instance name, then resolves it through the shared helper.
@@ -110,6 +130,167 @@ int ospfd_ietf_ospf_explicit_router_id_destroy(struct nb_cb_destroy_args *args)
 
 	ospf->router_id_static.s_addr = INADDR_ANY;
 	ospf_router_id_update(ospf);
+
+	return NB_OK;
+}
+
+/*
+ * Walk up from a dnode within the areas/area subtree to extract the
+ * area-id key. Returns 0 on success, -1 on failure.
+ */
+static int ospfd_ietf_ospf_area_id_from_dnode(const struct lyd_node *dnode, struct in_addr *area_id)
+{
+	const struct lyd_node *area_node;
+	const char *area_id_str;
+
+	area_node = yang_dnode_get_parent(dnode, "area");
+	if (!area_node)
+		return -1;
+
+	area_id_str = yang_dnode_get_string(area_node, "area-id");
+	if (inet_pton(AF_INET, area_id_str, area_id) != 1)
+		return -1;
+	return 0;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area
+ *
+ * area-id key is an RFC 9129 area-id-type, which serialises as A.B.C.D.
+ * ospf_area_get (the FRR-internal lookup-or-create). Areas are deliberately
+ * not anchored on the running dnode: legacy-compatible cleanup such as
+ * deleting area-type can free an otherwise empty area while the YANG area list
+ * node remains present.
+ */
+int ospfd_ietf_ospf_areas_area_create(struct nb_cb_create_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct in_addr area_id;
+	const char *area_id_str;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area_id_str = yang_dnode_get_string(args->dnode, "area-id");
+	if (inet_pton(AF_INET, area_id_str, &area_id) != 1)
+		return NB_ERR_VALIDATION;
+
+	(void)ospf_area_get(ospf, area_id);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr area_id;
+	const char *area_id_str;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+
+	area_id_str = yang_dnode_get_string(args->dnode, "area-id");
+	if (inet_pton(AF_INET, area_id_str, &area_id) != 1)
+		return NB_ERR_VALIDATION;
+
+	/*
+	 * Reset every area attr back to FRR defaults so
+	 * ospf_area_check_free's precondition (external_routing == DEFAULT,
+	 * no_summary == 0, default_cost == 1, no ranges) can match. Per-leaf
+	 * destroy isn't dispatched for leaves with YANG defaults (area-type
+	 * defaults to normal-area), so we mirror those resets here. Future
+	 * slices that add more area leaves should extend this block.
+	 */
+	ospf_area_stub_unset(ospf, area_id);
+	ospf_area_nssa_unset(ospf, area_id);
+
+	ospf_area_check_free(ospf, area_id);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/area-type
+ *
+ * Map the RFC 9129 identityref values to FRR's area type setters:
+ *   normal-area -> ospf_area_stub_unset + ospf_area_nssa_unset (back to DEFAULT)
+ *   stub-area   -> ospf_area_stub_set
+ *   nssa-area   -> ospf_area_nssa_set
+ */
+int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct in_addr area_id;
+	const char *type;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len, "malformed area-id");
+		return NB_ERR_VALIDATION;
+	}
+
+	type = yang_dnode_get_string(args->dnode, NULL);
+
+	/*
+	 * Reject stub / NSSA conversions at VALIDATE when the area has
+	 * virtual links traversing it. ospf_area_{stub,nssa}_set return 0
+	 * for this case but a deferred APPLY-phase NB_ERR_INCONSISTENCY is
+	 * logged-and-dropped by mgmtd, leaving the YANG datastore recording
+	 * stub-area/nssa-area while ospfd keeps running the area as normal
+	 * -- a persistent invisible split between the two planes. Look up
+	 * the area only if it already exists; atomic-create transactions
+	 * cannot have virtual links yet so are tolerated by falling through
+	 * to APPLY.
+	 */
+	if (ospf_area_type_is(type, OSPF_AREA_TYPE_STUB) ||
+	    ospf_area_type_is(type, OSPF_AREA_TYPE_NSSA)) {
+		struct ospf_area *area = ospf_area_lookup_by_area_id(ospf, area_id);
+
+		if (area && ospf_area_vlink_count(ospf, area) &&
+		    args->event == NB_EV_VALIDATE) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "area %pI4 has virtual links traversing it; remove them before converting to %s",
+				 &area_id, type);
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (ospf_area_type_is(type, OSPF_AREA_TYPE_NORMAL)) {
+		ospf_area_stub_unset(ospf, area_id);
+		ospf_area_nssa_unset(ospf, area_id);
+	} else if (ospf_area_type_is(type, OSPF_AREA_TYPE_STUB)) {
+		struct ospf_area *area = ospf_area_lookup_by_area_id(ospf, area_id);
+		bool was_stub = area && area->external_routing == OSPF_AREA_STUB;
+
+		ospf_area_nssa_unset(ospf, area_id);
+		if (!ospf_area_stub_set(ospf, area_id))
+			return NB_ERR_INCONSISTENCY;
+	} else if (ospf_area_type_is(type, OSPF_AREA_TYPE_NSSA)) {
+		ospf_area_stub_unset(ospf, area_id);
+		if (!ospf_area_nssa_set(ospf, area_id))
+			return NB_ERR_INCONSISTENCY;
+	} else {
+		return NB_ERR_VALIDATION;
+	}
 
 	return NB_OK;
 }

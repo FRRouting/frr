@@ -1589,7 +1589,7 @@ int ospf_area_shortcut_unset(struct ospf *ospf, struct ospf_area *area)
 	return 1;
 }
 
-static int ospf_area_vlink_count(struct ospf *ospf, struct ospf_area *area)
+int ospf_area_vlink_count(struct ospf *ospf, struct ospf_area *area)
 {
 	struct ospf_vl_data *vl;
 	struct listnode *node;
@@ -1712,7 +1712,10 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
 	if (area == NULL)
-		return 0;
+		return 1;
+
+	if (area->external_routing != OSPF_AREA_NSSA)
+		return 1;
 
 	ospf->anyNSSA--;
 	/* set NSSA area defaults */

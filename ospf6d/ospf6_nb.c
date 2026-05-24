@@ -54,7 +54,7 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
  * mtu-ignore) appear in the compiled schema and become callable from converted
  * callbacks.
  */
-static const char *ospf6d_ietf_ospf_features[] = { "*", NULL };
+static const char * const ospf6d_ietf_ospf_features[] = { "*", NULL };
 
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6)
 {
@@ -63,7 +63,7 @@ const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6)
 
 const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 	.name = "ietf-ospf",
-	.features = ospf6d_ietf_ospf_features,
+	.features = (const char **)ospf6d_ietf_ospf_features,
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{
@@ -98,10 +98,20 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/areas/area",
 			.cbs = {
+				.create = ospf6d_ietf_ospf_areas_area_create,
+				.destroy = ospf6d_ietf_ospf_areas_area_destroy,
 				.get_next = ospf6d_ietf_ospf_areas_area_get_next,
 				.get_keys = ospf6d_ietf_ospf_areas_area_get_keys,
 				.lookup_entry = ospf6d_ietf_ospf_areas_area_lookup_entry,
 			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH "/areas/area/area-type",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_type_modify,
+			},
+			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH
