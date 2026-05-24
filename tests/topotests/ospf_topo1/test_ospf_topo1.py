@@ -1173,6 +1173,213 @@ def test_ospf_yang_area_summary_default_cost_config():
     )
 
 
+def _mgmt_commit_attempt(router, set_cmd):
+    """Run a mgmt set-config + commit and return the vty output.
+
+    The caller verifies the rejection by confirming the candidate value
+    did NOT land in `show running-config` (more robust than parsing the
+    error string, which varies by libyang version). `mgmt commit abort`
+    follows the apply so a rejected candidate doesn't survive into the
+    next test's commit attempt.
+    """
+    return router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "{}\n"
+        "mgmt commit apply\n"
+        "mgmt commit abort".format(set_cmd),
+        isjson=False,
+    )
+
+
+def test_ospf_yang_negative_missing_instance():
+    """Reject YANG config that targets an OSPF instance the daemon doesn't have.
+
+    The branch's resolve_instance helper rejects at NB_EV_VALIDATE when no
+    FRR-side ospf / ospf6 instance matches the control-plane-protocol name
+    key. Confirm a commit against name='ghost' does not land.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    ghost_v2 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2'][name='ghost']/"
+        "ietf-ospf:ospf/explicit-router-id"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 9.9.9.9".format(ghost_v2),
+    )
+    # The default instance is unchanged; the ghost one was never created.
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "router-id 9.9.9.9" not in running, (
+        "ghost router-id must not have landed, got:\n" + running
+    )
+
+    ghost_v3 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv3'][name='ghost']/"
+        "ietf-ospf:ospf/explicit-router-id"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 9.9.9.9".format(ghost_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "router-id 9.9.9.9" not in running, (
+        "ghost ospf6 router-id must not have landed, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_missing_interface():
+    """Reject per-interface YANG config that names a non-existent interface.
+
+    frr-deviations-ietf-routing-ospf relaxes the RFC 9129 interface-name
+    leafref, so libyang no longer rejects names that aren't in
+    /ietf-interfaces. The branch's resolve_interface helper restores that
+    rejection inside the callback at NB_EV_VALIDATE.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    bogus_v2 = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth42']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(bogus_v2),
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "r1-eth42" not in running, (
+        "interface r1-eth42 must not appear in running-config, got:\n" + running
+    )
+
+    bogus_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth42']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(bogus_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "r1-eth42" not in running, (
+        "interface r1-eth42 must not appear in v3 running-config, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_default_cost_on_normal_area():
+    """Reject default-cost on a non-stub / non-NSSA area.
+
+    RFC 9129's `when` clause restricts default-cost to stub or NSSA areas;
+    the callback also rejects at VALIDATE as a defence-in-depth measure.
+    Area 0 is the backbone (normal); setting default-cost on it must fail.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/default-cost 99".format(area_path),
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "default-cost 99" not in running, (
+        "default-cost 99 must not appear on the backbone area, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_v3_unsupported_interface_type():
+    """Reject ospf6 interface-type identityrefs that ospf6d doesn't accept.
+
+    RFC 9129 declares non-broadcast and hybrid; ospf6d only supports
+    broadcast, point-to-point and point-to-multipoint. The callback must
+    reject the unsupported identityrefs at VALIDATE.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    iface_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/interface-type non-broadcast".format(iface_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "non-broadcast" not in running, (
+        "unsupported interface-type must not appear in v3 running-config, "
+        "got:\n" + running
+    )
+
+
+def test_ospf_yang_area_delete_recreate_cleanup():
+    """Delete then recreate an area; per-leaf state must reset cleanly.
+
+    Sets a non-default summary and default-cost on a stub area, then deletes
+    the area via the list-destroy path, then recreates it as a normal area,
+    and confirms the previous stub / default-cost state is gone. Catches
+    regressions where destroy callbacks leave stale per-leaf state.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.51")
+
+    # Set area-type=stub + summary=false + default-cost=77 in one commit.
+    # libyang materialises the area list entry implicitly when a child leaf
+    # is set; no separate list-create step is needed.
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type stub-area\n"
+        "mgmt set-config {}/summary false\n"
+        "mgmt set-config {}/default-cost 77\n"
+        "mgmt commit apply".format(area_path, area_path, area_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.51 stub no-summary" in running, running
+    assert "area 0.0.0.51 default-cost 77" in running, running
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.51" not in running, (
+        "area 0.0.0.51 must be gone after delete, got:\n" + running
+    )
+
+    # Recreate by setting only area-type=normal-area; previous stub /
+    # default-cost must not bleed through.
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type normal-area\n"
+        "mgmt commit apply".format(area_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.51 stub" not in running, (
+        "stub setting must not survive delete + recreate, got:\n" + running
+    )
+    assert "area 0.0.0.51 default-cost" not in running, (
+        "default-cost must not survive delete + recreate, got:\n" + running
+    )
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
+
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()
