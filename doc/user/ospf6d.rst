@@ -933,21 +933,51 @@ Showing OSPF6 information
    This command shows the graceful-restart helper details including helper
    configuration parameters.
 
-YANG Operational Data
----------------------
+YANG / NETCONF Support
+----------------------
 
-OSPFv3 operational state is available through the standard :rfc:`9129`
-``ietf-ospf`` YANG model. The current support is operational data only; OSPFv3
-configuration is still managed through the existing FRR CLI.
+OSPFv3 operational state and a subset of OSPFv3 configuration are exposed
+through the standard :rfc:`9129` ``ietf-ospf`` YANG model. The OSPFv3
+instance itself remains owned by the legacy ``router ospf6`` CLI, but
+per-area, per-interface and per-instance configuration leaves are routed
+through the mgmtd northbound and can be read, set, and committed through
+NETCONF / RESTCONF / ``vtysh``'s ``mgmt`` subcommands as well as the legacy
+CLI.
 
-The following example retrieves the OSPFv3 instance from the mgmtd operational
-datastore:
+The supported set mirrors the OSPFv2 side documented in :ref:`ospfv2`, with
+two v3-specific gaps:
+
+* ``areas/area/default-cost``: ospf6d has no per-area stub default-cost
+  knob, so this leaf is not implemented. Setting it via YANG is rejected
+  by mgmtd as ``no backend handles this path``. This matches FRR's existing
+  v3 CLI surface (which has no ``area X default-cost`` equivalent) and is a
+  pre-existing v2/v3 feature gap, not introduced by this conversion.
+* ``interface-type``: RFC 9129 declares ``broadcast``, ``non-broadcast``,
+  ``point-to-multipoint``, ``point-to-point`` and ``hybrid``. ospf6d only
+  accepts ``broadcast``, ``point-to-point`` and ``point-to-multipoint``;
+  the NB callback rejects ``non-broadcast`` and ``hybrid`` at VALIDATE
+  with a clear error.
+
+Otherwise the supported set matches the shared OSPFv2 RFC 9129 surface:
+router-id, preference, spf-control paths, auto-cost, graceful-restart
+enabled, restart-interval, helper-enabled and helper-strict-lsa-checking,
+area lifecycle, area-type, area summary, ranges, per-interface attachment,
+cost, hello-interval, dead-interval, retransmit-interval, priority,
+mtu-ignore, transmit-delay, interface-type, passive, per-interface BFD
+``enabled``, ``local-multiplier``, ``desired-min-tx-interval`` and
+``required-min-rx-interval``, and per-interface
+``authentication/ospfv3-key-chain``.
+
+Examples
+^^^^^^^^
+
+Retrieve the OSPFv3 instance from the operational datastore:
 
 .. code-block:: shell
 
    vtysh -c 'show mgmt get-data /ietf-routing:routing/control-plane-protocols/control-plane-protocol[type="ietf-ospf:ospfv3"][name="default"] datastore operational'
 
-To retrieve the merged operational datastore, including the OSPFv3 protocol
+Retrieve the merged operational datastore, including the OSPFv3 protocol
 entry and the ``ietf-interfaces`` data used by OSPF interface leafrefs:
 
 .. code-block:: shell

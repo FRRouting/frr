@@ -46,45 +46,198 @@ Earlier OSPF northbound work is useful context for future development:
   * Most callbacks are TODO/no-op stubs, so it should not be transplanted
     wholesale.
 
-Implementation Plan
--------------------
+FRR also has an experimental YANG module translator for mapping non-native
+models onto native FRR models with deviation modules and XPath translation
+tables. This branch does not use that mechanism because OSPF does not yet have
+a complete callback-backed native OSPF YANG model to serve as the source of
+truth. Instead, RFC 9129 is implemented directly as the canonical northbound
+surface for the OSPF behavior it covers.
 
-1. Do not register inert FRR-native OSPF modules. ``yang/frr-ospfd.yang``
-   remains on disk for future work, but ``ospfd`` no longer links its generated
-   schema into the daemon binary or advertises it with no callbacks behind it.
-   Add ``frr-ospfd`` or future ``frr-ospf6d`` module registrations only when
-   there is a concrete FRR-specific augment or callback to expose.
+Current Implementation
+----------------------
 
-2. Keep ``ietf-ospf`` loaded for both daemons and map FRR behavior toward the
-   RFC 9129
-   ``/ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf``
-   tree. The first OSPFv2 and OSPFv3 operational callbacks now expose the RFC
-   ``control-plane-protocol`` list, router-id, instance LSA counters, area
-   SPF/ABR/ASBR/LSA counters, interface list, and neighbor list with neighbor
-   address and state. The default instance name is ``default`` for both daemons.
-   The OSPFv2 interface list currently exposes the first ``ospf_interface`` per
-   interface key because RFC 9129 keys the list by interface name while FRR can
-   hold multiple OSPFv2 interface objects for different addresses on the same
-   interface.
+This branch implements the RFC 9129 ``ietf-ospf`` tree directly for OSPFv2 and
+OSPFv3 rather than adding an FRR-native OSPF model with parallel semantics.
+``yang/frr-ospfd.yang`` remains on disk for future FRR-specific OSPFv2 work,
+but ``ospfd`` does not link its generated schema into the daemon binary or
+advertise it with no callbacks behind it.
 
-3. Add mgmtd backend registration after there is at least a narrow set of real
-   callbacks or an explicitly operational-only xpath set. ``ospfd`` and
-   ``ospf6d`` register as mgmtd backend clients for
-   ``/ietf-routing:routing/control-plane-protocols/control-plane-protocol``.
-   ``mgmtd`` also loads the RFC OSPF modules so it can parse OSPF backend
-   replies in the merged operational datastore.
+Both daemons load ``ietf-ospf`` and map FRR behavior toward the RFC 9129
+``/ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf``
+tree. OSPFv2 and OSPFv3 operational callbacks expose the RFC
+``control-plane-protocol`` list, router-id, instance LSA counters, area
+SPF/ABR/ASBR/LSA counters, interface list, and neighbor list with neighbor
+address and state. The default instance name is ``default`` for normal
+``ospfd`` and ``ospf6d`` instances. In ``ospfd --instance N`` daemon-instance
+mode, the RFC 9129 ``control-plane-protocol`` name is the decimal instance ID
+(``N``), matching the legacy ``router ospf N`` CLI. The OSPFv2 interface list
+exposes one entry per interface key because RFC 9129 keys the list by interface
+name while FRR can hold multiple OSPFv2 interface objects for different
+addresses on the same interface.
 
-4. Port operational callbacks from PR #18401 into the current model, beginning
-   with OSPF instance and area statistics.
+``ospfd`` and ``ospf6d`` register as mgmtd backend clients for typed
+``control-plane-protocol`` entries so OSPFv2 and OSPFv3 can share the standard
+``ietf-routing`` list without one daemon claiming the other daemon's instance.
+Instanced ``ospfd`` backends further constrain their registration with the
+``name`` key so ``ospfd-1`` and ``ospfd-2`` receive only edits for their own
+RFC 9129 protocol instance.
+``mgmtd`` also loads the RFC OSPF modules so it can parse OSPF backend replies
+in the merged operational datastore.
 
-5. Convert configuration in narrow CLI-equivalent slices. For each leaf or list,
-   move existing CLI behavior into a northbound callback and make the CLI set
-   the YANG node. ``ietf-ospf`` should be the canonical configuration tree for
-   everything RFC 9129 models; ``frr-ospfd`` and future ``frr-ospf6d`` should
-   augment only FRR-specific behavior that the RFC model does not cover.
+The mgmtd backend matcher treats predicates in backend registrations as
+ownership constraints, not as a reason to hide unfiltered list data. A query
+with ``type='ietf-ospf:ospfv2'`` must dispatch only to ``ospfd`` and a query
+with ``type='ietf-ospf:ospfv3'`` must dispatch only to ``ospf6d``. A query that
+omits the ``type`` predicate, such as a request for the whole
+``control-plane-protocol`` list or one of its unkeyed descendants, still
+dispatches to both daemons so mgmtd can merge the OSPFv2 and OSPFv3 entries.
+Predicate values are compared through the key schema where possible, so
+identityref values are matched by identity rather than by their rendered text.
+This keeps shared IETF lists usable for current OSPF and future protocol
+families without special-casing OSPF in mgmtd. The matcher is deliberately
+tree-free: the same selection code is used for configuration, operational
+state, notifications and RPC dispatch, and the latter three do not have a
+candidate data tree at selection time. Config callbacks still validate against
+the candidate tree once mgmtd has selected the owning backends.
 
-6. Add FRR-native OSPFv3 YANG only when a concrete FRR-specific augment is
-   needed.
+Configuration write support is intentionally limited to CLI-equivalent RFC 9129
+leaves. The converted leaves are router-id, preference, area lifecycle,
+area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
+attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
+priority, mtu-ignore, interface-type, and passive. Existing CLI commands for
+those leaves set the same YANG nodes as mgmtd writes.
+
+Configuration Mapping Model
+---------------------------
+
+The config-write implementation should be maintained as a mapping from RFC
+9129 schema nodes to existing FRR daemon objects, not as a collection of
+independent leaf fixes. Every supported config node should have an explicit
+answer for these questions:
+
+* Which FRR object owns the value?
+* Which candidate-state constraints must be rejected during ``NB_EV_VALIDATE``?
+* What daemon mutation and protocol side effects happen during ``NB_EV_APPLY``?
+* What FRR default is restored when the YANG node is destroyed?
+* Which legacy CLI commands enqueue the same YANG edit?
+* Which topotest asserts mgmtd writes, CLI writes, deletion, and any negative
+  validation path?
+
+The common resolution chain is:
+
+::
+
+   control-plane-protocol[type,name]
+     -> ospfd / ospf6d instance
+     -> area
+     -> interface, range, or per-instance attribute
+
+Missing daemon objects should be rejected in ``NB_EV_VALIDATE`` when accepting
+the commit would leave the intended daemon mutation as a silent no-op. The
+``NB_EV_APPLY`` phase should still tolerate races, such as an instance, area, or
+interface disappearing after validation, and return ``NB_OK`` where no useful
+recovery exists.
+
+The current config-write mapping is:
+
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| RFC 9129 config node          | OSPFv2 owner / default      | OSPFv3 owner / default      | Notes                       |
++===============================+=============================+=============================+=============================+
+| ``control-plane-protocol``    | ``struct ospf`` instance;   | ``struct ospf6`` instance;  | Parent list entry must stay |
+|                               | destroy calls               | destroy calls               | in the candidate so child   |
+|                               | ``ospf_finish()``           | ``ospf6_delete()``          | edits have a real parent.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/explicit-router-id``   | ``router_id_static``;       | ``router_id_static``;       | Apply updates the active    |
+|                               | destroy clears to automatic | destroy clears to automatic | router ID and resets OSPFv3 |
+|                               | selection                   | selection                   | when needed.                |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/preference/*``         | ``distance_*`` fields;      | ``distance_*`` fields;      | ``internal`` is a coarse    |
+|                               | destroy restores OSPFv2     | destroy restores OSPFv3     | RFC leaf mapped onto intra  |
+|                               | admin-distance defaults     | admin-distance defaults     | and inter area distances.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``areas/area``                | ``struct ospf_area``;       | ``struct ospf6_area``;      | Destroy must first restore  |
+|                               | destroy resets area attrs   | destroy resets area attrs   | child defaults and remove   |
+|                               | and ranges before free      | and ranges before free      | ranges so area-free checks  |
+|                               | checks                      | checks                      | can pass.                   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``areas/area/area-type``      | ``external_routing`` via    | area stub/NSSA state via    | OSPFv2 validates virtual    |
+|                               | stub/NSSA helpers; default  | ospf6 helpers; default is   | links before stub/NSSA      |
+|                               | is normal area              | normal area                 | conversion.                 |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``areas/area/summary``        | ``no_summary`` inverted     | ``no_summary`` inverted     | RFC ``summary=true`` means  |
+|                               | from the RFC leaf; destroy  | from the RFC leaf; destroy  | summary LSAs are allowed.   |
+|                               | allows summaries            | allows summaries            |                             |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``areas/area/default-cost``   | ``area->default_cost``;     | Not implemented: ospf6d has | The RFC ``when`` constraint |
+|                               | destroy restores ``1``      | no matching FRR CLI/daemon  | handles atomic area-type +  |
+|                               |                             | knob                        | default-cost commits.       |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``areas/area/ranges/range``   | ``area->ranges`` route      | ``area->range_table`` route | Destroy removes the range   |
+|                               | table; advertise defaults   | table; advertise defaults   | entry, including cost and   |
+|                               | to true and cost unset      | to true and cost unset      | advertise state.            |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``range/advertise``           | range advertise flag;       | range flag; destroy         | ``false`` maps to           |
+|                               | destroy restores advertise  | restores advertise          | ``not-advertise``.          |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``range/cost``                | range configured cost;      | ``cost_config``; destroy    | Destroy restores automatic  |
+|                               | destroy unsets cost         | unsets configured cost      | range cost.                 |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interfaces/interface``      | ``ospf_if_params`` default  | ``struct ospf6_interface``  | The YANG shape is           |
+|                               | params plus interface-area  | area attachment             | area-centric; validation    |
+|                               | attachment                  |                             | enforces one area per       |
+|                               |                             |                             | interface.                  |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/cost``            | ``params->output_cost_cmd`` | ``oi->cost`` plus           | Destroy returns to auto     |
+|                               | and cost recalculation      | ``NOAUTOCOST`` flag         | cost.                       |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/hello-interval``  | ``params->v_hello``;        | ``oi->hello_interval``      | OSPFv2 mirrors the legacy   |
+|                               | destroy restores default    |                             | implicit dead-interval      |
+|                               | hello behavior              |                             | behavior when dead is unset |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/dead-interval``   | ``params->v_wait`` plus     | ``oi->dead_interval``       | Destroy restores daemon     |
+|                               | ``is_v_wait_set``           |                             | defaults.                   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/retransmit-``     | ``params->retransmit_``     | ``oi->rxmt_interval``       | Destroy restores daemon     |
+| ``interval``                  | ``interval``                |                             | defaults.                   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/priority``        | ``params->priority`` and    | ``oi->priority``            | OSPFv2 schedules neighbor   |
+|                               | neighbor-change side effect |                             | change when priority moves. |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/mtu-ignore``      | ``params->mtu_ignore``      | ``oi->mtu_ignore``          | Destroy restores false.     |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/interface-type``  | ``params->type`` / OSPF     | ``oi->type`` with           | Loopback and unsupported    |
+|                               | interface type side effects | ``type_cfg`` marker         | enum values are rejected at |
+|                               |                             |                             | validate.                   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/passive``         | ``params->passive_``        | ``OSPF6_INTERFACE_PASSIVE`` | Destroy restores active.    |
+|                               | ``interface`` and passive   | flag                        |                             |
+|                               | update helper               |                             |                             |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+
+When adding another RFC 9129 config node, add its row here before or alongside
+the callback implementation. If the row cannot name a daemon owner, default
+restore behavior, and CLI-equivalent command, the node is probably outside this
+branch's current config-write scope.
+
+Direct daemon config-file loads in ``ospfd`` and ``ospf6d`` opt in to batching
+for the process lifetime, so cross-leaf validation can evaluate any direct
+daemon config-file load as one northbound transaction. This is not a
+startup-only temporary flag; a later ``config_from_file()`` call in these
+daemons has the same cross-leaf validation requirements. Other daemons keep the
+legacy per-line config-file behavior.
+
+Remaining Scope
+---------------
+
+``ietf-ospf`` remains the canonical configuration tree for everything RFC 9129
+models. ``frr-ospfd`` and future ``frr-ospf6d`` should augment only
+FRR-specific behavior that the RFC model does not cover.
+
+The current config-write scope deliberately does not include redistribution,
+default-information-originate, virtual links, per-address OSPFv2 interface
+overrides, OSPFv2 NSSA translator/suppress-fa knobs, or other FRR-specific
+extensions outside RFC 9129. A native OSPFv3 module should be added only when
+there is concrete FRR-specific state or configuration to expose.
 
 Test Coverage
 -------------
@@ -94,6 +247,28 @@ operational-data check for OSPFv2 and OSPFv3 router-id, area, interface, and
 neighbor state. It also checks that ``ospfd`` and ``ospf6d`` register with mgmtd
 and that mgmtd's operational xpath registry includes the RFC 9129 control-plane
 protocol subtree.
+
+The operational tests also include a targeted mgmtd dispatch check. Predicate
+queries for ``ietf-ospf:ospfv2`` and ``ietf-ospf:ospfv3`` must return exactly
+one protocol entry from the correct backend, and the backend subscription check
+must show that the other OSPF daemon was not selected. The same dispatch check
+also covers a tree-free identityref predicate spelling, ``type='ospfv2'``,
+which mgmtd must resolve to the same identity as ``ietf-ospf:ospfv2``.
+Unfiltered parent/list queries must still select both OSPF daemons. A predicate
+query against ``ietf-interfaces`` verifies that untyped backend registrations
+still match.
+
+The same test file includes config-write checks for the supported OSPFv2 and
+OSPFv3 leaves. The tests exercise mgmtd writes, legacy CLI writes routed through
+YANG, negative validation paths, and cleanup after deleting and recreating an
+area.
+
+``tests/topotests/ospf_yang_startup_config/test_ospf_yang_startup_config.py``
+checks startup config-file batching in an isolated one-router topology. Its
+``r1/ospfd.conf`` places an OSPFv2 ``default-cost`` line before the stub-area
+line that makes it valid; startup succeeds only when the whole daemon config
+file is committed as one northbound transaction. ``r1/ospf6d.conf`` keeps a
+matching OSPFv3 stub area in the startup path.
 
 The test queries the merged mgmtd operational datastore rather than daemon-local
 ``show yang operational-data`` output. Zebra supplies the narrow

@@ -1083,26 +1083,109 @@ Showing Information
    Displays the Graceful Restart Helper details including helper
    config changes.
 
-YANG Operational Data
----------------------
+YANG / NETCONF Support
+----------------------
 
-OSPF operational state is available through the standard :rfc:`9129`
-``ietf-ospf`` YANG model. The current support is operational data only; OSPF
-configuration is still managed through the existing FRR CLI.
+OSPF operational state and a subset of OSPF configuration are exposed through
+the standard :rfc:`9129` ``ietf-ospf`` YANG model.  The OSPF instance itself
+remains owned by the legacy ``router ospf`` CLI, but per-area, per-interface
+and per-instance configuration leaves are routed through the mgmtd northbound
+so they can be read, set and committed via NETCONF / RESTCONF / ``vtysh``'s
+``mgmt`` subcommands as well as the legacy CLI.
 
-The following example retrieves the OSPFv2 instance from the mgmtd operational
-datastore:
+For the default or VRF-based daemon, the RFC 9129
+``control-plane-protocol`` name is the OSPF VRF name, normally ``default``.
+When ``ospfd`` is started in daemon-instance mode, the RFC 9129 name is the
+decimal instance ID used by the legacy CLI; for example, ``router ospf 5`` is
+addressed as ``control-plane-protocol[type='ietf-ospf:ospfv2'][name='5']``.
+This keeps separate ``ospfd`` backend processes distinct in mgmtd.
+
+Supported configuration leaves
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Under ``/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2']/ietf-ospf:ospf``:
+
+* ``explicit-router-id``
+* ``preference/{all,intra-area,inter-area,internal,external}`` (admin distance)
+* ``spf-control/paths``
+* ``auto-cost/{enabled,reference-bandwidth}``
+* ``mpls/ldp/igp-sync`` and ``mpls/te-rid/ipv4-router-id``
+* ``graceful-restart/{enabled,restart-interval,helper-enabled,helper-strict-lsa-checking}``
+* ``stub-router/always``
+* ``areas/area`` (list create / destroy keyed by ``area-id``)
+* ``areas/area/area-type`` (``normal-area``, ``stub-area``, ``nssa-area``)
+* ``areas/area/summary`` (totally-stubby toggle; RFC 9129 inverts FRR's
+  ``no-summary`` sense)
+* ``areas/area/default-cost`` (stub / NSSA only)
+* ``areas/area/ranges/range`` (list create / destroy), with ``advertise``
+  and ``cost`` leaves
+* ``areas/area/interfaces/interface`` (list create / destroy: assigns an
+  interface to the area), plus the per-interface leaves
+  ``cost``, ``hello-interval``, ``dead-interval``, ``retransmit-interval``,
+  ``priority``, ``mtu-ignore``, ``transmit-delay``, ``interface-type``,
+  ``passive`` and ``prefix-suppression``
+* ``areas/area/interfaces/interface/bfd`` leaves: ``enabled``,
+  ``local-multiplier``, ``desired-min-tx-interval`` and
+  ``required-min-rx-interval``
+* ``areas/area/interfaces/interface/static-neighbors/neighbor`` (list create
+  / destroy), with ``poll-interval`` and ``priority`` leaves
+* ``areas/area/interfaces/interface/authentication/ospfv2-key-chain``
+
+Out of scope for this slice
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* ``redistribute`` and ``default-information-originate`` are FRR-specific
+  concepts that RFC 9129 / :rfc:`8349` leave to a separate import / export
+  mechanism. They stay reachable through the legacy CLI on the
+  direct-mutation path.
+* Per-address overrides (e.g. ``ip ospf cost N A.B.C.D``) have no RFC 9129
+  counterpart; the YANG model is strictly per-interface. The legacy CLI
+  with an explicit address argument continues to use direct mutation.
+* FRR-specific area NSSA augments (translator-role,
+  default-information-originate, suppress-fa) are not in the RFC 9129 area
+  grouping; they remain legacy-CLI-only.
+* The ``router ospf [{(1-65535)|vrf NAME}]`` instance creation step is still
+  CLI-only; YANG operations that target a non-existent instance are
+  rejected at VALIDATE with a clear error pointing at ``router ospf``.
+
+Examples
+^^^^^^^^
+
+Retrieve the OSPFv2 instance from the operational datastore:
 
 .. code-block:: shell
 
    vtysh -c 'show mgmt get-data /ietf-routing:routing/control-plane-protocols/control-plane-protocol[type="ietf-ospf:ospfv2"][name="default"] datastore operational'
 
-To retrieve the merged operational datastore, including the OSPF protocol
+Retrieve the merged operational datastore, including the OSPF protocol
 entry and the ``ietf-interfaces`` data used by OSPF interface leafrefs:
 
 .. code-block:: shell
 
    vtysh -c 'show mgmt get-data /* datastore operational'
+
+Set the router-id through mgmtd, then commit:
+
+.. code-block:: shell
+
+   vtysh -c 'configure terminal file-lock'                 \
+         -c 'mgmt set-config /ietf-routing:routing/control-plane-protocols/control-plane-protocol[type="ietf-ospf:ospfv2"][name="default"]/ietf-ospf:ospf/explicit-router-id "10.0.0.1"' \
+         -c 'mgmt commit apply'
+
+The corresponding ``ospf router-id 10.0.0.1`` legacy CLI command takes the
+same path through the northbound; both surfaces converge on the same
+committed running configuration.
+
+Interface leafref relaxation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+RFC 9129's per-interface entry keys on a leafref into
+``/ietf-interfaces:interfaces/interface/name``. The
+``frr-deviations-ietf-routing-ospf`` deviation keeps the leafref but sets
+``require-instance false`` so OSPF config can be staged ahead of interface
+plumbing, which is useful when emitting config from an external orchestrator.
+The NB callbacks perform the daemon-side existence check, rejecting unknown
+interface names at VALIDATE with a clear error.
 
 .. _opaque-lsa:
 
