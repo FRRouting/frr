@@ -1553,16 +1553,28 @@ DEFPY_YANG (no_ospf_area_stub,
 	VTY_GET_OSPF_AREA_ID_NO_BB("stub", area_id, format, area_str);
 
 	/*
-	 * `no area X stub` reverts area-type to normal-area only -- it must
-	 * NOT cascade into the full area-entry destroy, because that would
-	 * silently delete YANG-managed area ranges, interface attachments,
-	 * and the area's own default-cost leaf. Matches the legacy
-	 * ospf_area_stub_unset semantics, which only flipped
-	 * external_routing back to DEFAULT and left every other per-area
-	 * piece of config alone.
+	 * `no area X stub` reverts area-type to normal-area AND clears the
+	 * stub-only leaves (summary, default-cost) from the YANG datastore in
+	 * the same commit:
+	 *
+	 *   - Setting area-type to normal alone would leave a stale
+	 *     `summary = false` (if the operator had previously typed
+	 *     `area X stub no-summary`) in the datastore. RFC 9129 restricts
+	 *     `summary` and `default-cost` to stub / NSSA via a `when` clause,
+	 *     so libyang considers them inapplicable on a normal area;
+	 *     leaving them set produces a datastore inconsistent with the
+	 *     schema.
+	 *
+	 *   - Other per-area state (ranges, interface attachments) is
+	 *     deliberately untouched -- matches legacy `ospf_area_stub_unset`
+	 *     semantics, which only flipped external_routing back to DEFAULT.
 	 */
 	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/area-type");
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "normal-area");
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	ospf_area_xpath(xpath, sizeof(xpath), ospf, area_id, "/default-cost");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

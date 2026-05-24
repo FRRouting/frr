@@ -385,16 +385,38 @@ int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *arg
 	if (ret != NB_OK || !ospf)
 		return ret;
 
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len, "malformed area-id");
+		return NB_ERR_VALIDATION;
+	}
+
+	/*
+	 * Semantic checks at VALIDATE: the area must exist and must be stub
+	 * or NSSA (the YANG `when` clause restricts it, but enforce again
+	 * defensively). APPLY-phase NB_ERR_VALIDATION / NB_ERR_INCONSISTENCY
+	 * is logged-and-ignored by mgmtd, so any rejection must land at
+	 * VALIDATE to actually refuse the commit.
+	 */
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area) {
+		if (args->event == NB_EV_VALIDATE) {
+			snprintf(args->errmsg, args->errmsg_len, "area %pI4 does not exist",
+				 &area_id);
+			return NB_ERR_INCONSISTENCY;
+		}
+		return NB_OK; /* race tolerated */
+	}
+	if (area->external_routing == OSPF_AREA_DEFAULT) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "area %pI4 is normal; default-cost requires stub or NSSA",
+				 &area_id);
+		return NB_ERR_INCONSISTENCY;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
-		return NB_ERR_VALIDATION;
-
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (!area)
-		return NB_ERR_INCONSISTENCY;
-	if (area->external_routing == OSPF_AREA_DEFAULT)
-		return NB_ERR_VALIDATION;
 
 	area->default_cost = yang_dnode_get_uint32(args->dnode, NULL);
 	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
@@ -1289,11 +1311,14 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 		return ret;
 
 	/*
-	 * Loopback interfaces have a fixed OSPF type; reject at VALIDATE so
-	 * mgmtd refuses the commit rather than silently logging-and-dropping
-	 * the error at APPLY.
+	 * Loopback interfaces have a fixed OSPF type. Use if_is_loopback,
+	 * the kernel-flag-based check from libfrr, rather than inspecting
+	 * IF_DEF_PARAMS(ifp)->type, which is an OSPF-internal classification
+	 * that is unset until the interface is first picked up by OSPF and
+	 * therefore returns the wrong answer for a brand-new loopback that
+	 * config arrives on before the network statement runs.
 	 */
-	if (IF_DEF_PARAMS(ifp)->type == OSPF_IFTYPE_LOOPBACK) {
+	if (if_is_loopback(ifp)) {
 		if (args->event == NB_EV_VALIDATE)
 			snprintf(args->errmsg, args->errmsg_len,
 				 "cannot set interface-type on loopback interface %s", ifp->name);

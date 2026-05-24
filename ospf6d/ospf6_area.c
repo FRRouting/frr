@@ -1379,14 +1379,17 @@ DEFPY_YANG (no_ospf6_area_stub,
 	}
 
 	/*
-	 * `no area X stub` reverts area-type to normal-area only -- it must
-	 * NOT cascade into the full area-entry destroy, because that would
-	 * silently delete YANG-managed area ranges and interface attachments
-	 * the user did not ask to remove. Matches the legacy
-	 * ospf6_area_stub_unset semantics.
+	 * `no area X stub` reverts area-type to normal-area AND clears the
+	 * stub-only `summary` leaf so the YANG datastore doesn't carry a
+	 * stale `summary = false` while the schema's `when` clause restricts
+	 * the leaf to stub / NSSA areas. Ranges and interface attachments
+	 * remain untouched -- matches legacy ospf6_area_stub_unset semantics
+	 * exactly. (ospf6 has no per-area default-cost leaf to clear.)
 	 */
 	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/area-type");
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "normal-area");
+	ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id, "/summary");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

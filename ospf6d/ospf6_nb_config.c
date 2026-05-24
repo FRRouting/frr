@@ -1146,6 +1146,20 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 		return ret;
 
 	/*
+	 * Loopback interfaces have a fixed OSPF type. Reject at VALIDATE
+	 * before we touch the struct ospf6_interface or trigger any flap.
+	 * Use if_is_loopback rather than checking oi->type, because oi might
+	 * not be allocated yet (the per-interface attachment may arrive
+	 * before any ospf6 area binding) and oi->type would be unset.
+	 */
+	if (if_is_loopback(ifp)) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "cannot set interface-type on loopback interface %s", ifp->name);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	/*
 	 * Reject unsupported identityrefs at VALIDATE. ospf6d only accepts
 	 * broadcast / point-to-point / point-to-multipoint; the YANG model
 	 * also declares non-broadcast and hybrid which ospf6d cannot
