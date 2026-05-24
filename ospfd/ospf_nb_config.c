@@ -11,6 +11,8 @@
 
 #include "if.h"
 #include "libospf.h"
+#include "prefix.h"
+#include "table.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_abr.h"
@@ -221,10 +223,26 @@ int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 	ospf_area_no_summary_unset(ospf, area_id);
 	{
 		struct ospf_area *area;
+		struct route_node *rn;
+		struct prefix_ipv4 p;
 
 		area = ospf_area_lookup_by_area_id(ospf, area_id);
-		if (area)
+		if (area) {
 			area->default_cost = 1;
+
+			/*
+			 * Drop any area ranges before the
+			 * check_free below; ospf_area_check_free requires
+			 * area->ranges->top to be NULL.
+			 */
+			while ((rn = route_top(area->ranges))) {
+				p.family = AF_INET;
+				p.prefix = rn->p.u.prefix4;
+				p.prefixlen = rn->p.prefixlen;
+				route_unlock_node(rn);
+				ospf_area_range_unset(ospf, area, area->ranges, &p);
+			}
+		}
 	}
 
 	ospf_area_check_free(ospf, area_id);
@@ -951,5 +969,209 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
 	params = IF_DEF_PARAMS(ifp);
 	UNSET_IF_PARAM(params, mtu_ignore);
 	params->mtu_ignore = 0;
+	return NB_OK;
+}
+
+/*
+ * Helper for areas/area/ranges/range list and per-leaf callbacks:
+ * walk up to the range list entry, extract the prefix key, narrow to
+ * struct prefix_ipv4. Returns 0 on success, -1 if the dnode shape is
+ * unexpected or the prefix isn't IPv4.
+ */
+static int ospfd_ietf_ospf_range_prefix_from_dnode(const struct lyd_node *dnode,
+						   struct prefix_ipv4 *p)
+{
+	const struct lyd_node *range_node;
+	struct prefix pref;
+
+	range_node = yang_dnode_get_parent(dnode, "range");
+	if (!range_node)
+		return -1;
+
+	yang_dnode_get_prefix(&pref, range_node, "prefix");
+	if (pref.family != AF_INET)
+		return -1;
+
+	memset(p, 0, sizeof(*p));
+	p->family = AF_INET;
+	p->prefixlen = pref.prefixlen;
+	p->prefix = pref.u.prefix4;
+	return 0;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/ranges/range
+ *
+ * RFC 9129's ranges/range list lives under address-family-area-config
+ * and is keyed by prefix. List create sets up the FRR-side range entry
+ * with advertise=true (FRR's default, matching the legacy
+ * `area X range A.B.C.D/M` form without an explicit not-advertise).
+ * advertise and cost leaves can then mutate per-range state.
+ *
+ * The legacy `area X range A.B.C.D/M substitute A.B.C.D/M` form is FRR
+ * specific and has no RFC 9129 counterpart; it stays reachable only
+ * via the legacy CLI direct-mutation path.
+ */
+int ospfd_ietf_ospf_areas_area_ranges_range_create(struct nb_cb_create_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_range_set(ospf, area, area->ranges, &p, OSPF_AREA_RANGE_ADVERTISE, false);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	ospf_area_range_unset(ospf, area, area->ranges, &p);
+	ospf_area_check_free(ospf, area_id);
+	return NB_OK;
+}
+
+/* XPath: .../ranges/range/advertise */
+int ospfd_ietf_ospf_areas_area_ranges_range_advertise_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+	int advertise;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	advertise = yang_dnode_get_bool(args->dnode, NULL) ? OSPF_AREA_RANGE_ADVERTISE : 0;
+	ospf_area_range_set(ospf, area, area->ranges, &p, advertise, false);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_ranges_range_advertise_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	/* No YANG default; revert to FRR's natural default (advertise on). */
+	ospf_area_range_set(ospf, area, area->ranges, &p, OSPF_AREA_RANGE_ADVERTISE, false);
+	return NB_OK;
+}
+
+/* XPath: .../ranges/range/cost */
+int ospfd_ietf_ospf_areas_area_ranges_range_cost_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	ospf_area_range_cost_set(ospf, area, area->ranges, &p,
+				 yang_dnode_get_uint32(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct prefix_ipv4 p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	/* "no explicit cost" -> the auto-cost path takes over. */
+	ospf_area_range_cost_set(ospf, area, area->ranges, &p, OSPF_AREA_RANGE_COST_UNSPEC);
 	return NB_OK;
 }
