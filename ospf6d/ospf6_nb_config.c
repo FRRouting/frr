@@ -271,9 +271,16 @@ int ospf6d_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR_VALIDATION;
 
+	/*
+	 * Idempotent at APPLY: if the area was torn down between VALIDATE
+	 * and APPLY, silently no-op rather than returning
+	 * NB_ERR_INCONSISTENCY (which mgmtd would log-and-drop anyway, and
+	 * which diverged from the OSPFv2 callback's behaviour where the
+	 * area helpers handle missing areas internally).
+	 */
 	area = ospf6_area_lookup(area_id, ospf6);
 	if (!area)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 
 	type = yang_dnode_get_string(args->dnode, NULL);
 	if (ospf6_area_type_is(type, OSPF6_AREA_TYPE_NORMAL)) {

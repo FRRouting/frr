@@ -816,9 +816,20 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
 	UNSET_IF_PARAM(params, v_hello);
 	params->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
 
+	/*
+	 * Mirror the legacy `no ip ospf hello-interval` (ospf_hello_unset_apply
+	 * in ospf_vty.c): when dead-interval was never explicitly set, reset
+	 * v_wait back to the protocol default AND clear its CONFIGURED flag,
+	 * not just rewrite the value. Earlier versions used SET_IF_PARAM here,
+	 * which left v_wait marked as explicitly configured -- the same
+	 * numerical default (4 * 10 == 40) but a divergent flag state from
+	 * the legacy path, which could surface if other code consults
+	 * OSPF_IF_PARAM_CONFIGURED(params, v_wait) without also checking
+	 * is_v_wait_set.
+	 */
 	if (!params->is_v_wait_set) {
-		SET_IF_PARAM(params, v_wait);
-		params->v_wait = 4 * params->v_hello;
+		UNSET_IF_PARAM(params, v_wait);
+		params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
 	}
 
 	ospf_reset_hello_timer(ifp, addr, false);
