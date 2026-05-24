@@ -539,20 +539,31 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_create(struct nb_cb_create_a
 	if (ret != NB_OK || !ospf)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
-		return NB_ERR_VALIDATION;
-
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
 
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	/*
+	 * One-area-per-interface check: catch the user trying to attach an
+	 * interface that is already in a different area. Run at VALIDATE so
+	 * mgmtd refuses the commit cleanly rather than half-applying it.
+	 */
 	params = IF_DEF_PARAMS(ifp);
 	if (OSPF_IF_PARAM_CONFIGURED(params, if_area) &&
-	    !IPV4_ADDR_SAME(&params->if_area, &area_id))
+	    !IPV4_ADDR_SAME(&params->if_area, &area_id)) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "interface %s already attached to area %pI4", ifp->name,
+				 &params->if_area);
 		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	SET_IF_PARAM(params, if_area);
 	params->if_area = area_id;
@@ -1277,16 +1288,29 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 	if (ret != NB_OK || !ifp)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	if (IF_DEF_PARAMS(ifp)->type == OSPF_IFTYPE_LOOPBACK)
+	/*
+	 * Loopback interfaces have a fixed OSPF type; reject at VALIDATE so
+	 * mgmtd refuses the commit rather than silently logging-and-dropping
+	 * the error at APPLY.
+	 */
+	if (IF_DEF_PARAMS(ifp)->type == OSPF_IFTYPE_LOOPBACK) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "cannot set interface-type on loopback interface %s", ifp->name);
 		return NB_ERR_INCONSISTENCY;
+	}
 
 	val = yang_dnode_get_string(args->dnode, NULL);
 	type = ospf_iftype_from_yang(val);
-	if (type < 0)
+	if (type < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "unsupported interface-type identityref '%s'", val);
 		return NB_ERR_VALIDATION;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 
 	ospf_apply_interface_type(ifp, type);
 	return NB_OK;

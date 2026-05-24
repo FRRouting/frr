@@ -442,21 +442,37 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_create(struct nb_cb_create_
 	if (ret != NB_OK || !ospf6)
 		return ret;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
-		return NB_ERR_VALIDATION;
-
 	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
 						 args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
 		return ret;
 
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	/*
+	 * One-area-per-interface check at VALIDATE. Inspect ifp->info but
+	 * do NOT create an ospf6_interface here -- VALIDATE must be
+	 * side-effect-free so failed transactions don't leave a half-built
+	 * struct behind.
+	 */
 	oi = (struct ospf6_interface *)ifp->info;
+	if (oi && oi->area && oi->area->area_id != area_id) {
+		if (args->event == NB_EV_VALIDATE) {
+			struct in_addr existing = { .s_addr = oi->area->area_id };
+
+			snprintf(args->errmsg, args->errmsg_len,
+				 "interface %s already attached to area %pI4", ifp->name,
+				 &existing);
+		}
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	if (!oi)
 		oi = ospf6_interface_create(ifp);
-	if (oi->area && oi->area->area_id != area_id)
-		return NB_ERR_INCONSISTENCY;
 
 	oi->area_id = area_id;
 	oi->area_id_format = OSPF6_AREA_FMT_DOTTEDQUAD;
@@ -1129,16 +1145,27 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 	if (ret != NB_OK || !ifp)
 		return ret;
 
+	/*
+	 * Reject unsupported identityrefs at VALIDATE. ospf6d only accepts
+	 * broadcast / point-to-point / point-to-multipoint; the YANG model
+	 * also declares non-broadcast and hybrid which ospf6d cannot
+	 * implement.
+	 */
+	val = yang_dnode_get_string(args->dnode, NULL);
+	type = ospf6_iftype_from_yang(val);
+	if (type < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "unsupported interface-type identityref '%s' for ospf6", val);
+		return NB_ERR_VALIDATION;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
 	oi = (struct ospf6_interface *)ifp->info;
 	if (!oi)
 		oi = ospf6_interface_create(ifp);
-
-	val = yang_dnode_get_string(args->dnode, NULL);
-	type = ospf6_iftype_from_yang(val);
-	if (type < 0)
-		return NB_ERR_VALIDATION;
 
 	oi->type_cfg = true;
 	if (oi->type == type)
