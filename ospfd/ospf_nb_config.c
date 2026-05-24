@@ -231,14 +231,24 @@ int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 
 		area = ospf_area_lookup_by_area_id(ospf, area_id);
 		if (area) {
+			struct route_node *next;
+
 			area->default_cost = 1;
 
 			/*
-			 * Drop any area ranges before the
-			 * check_free below; ospf_area_check_free requires
-			 * area->ranges->top to be NULL.
+			 * Drop any area ranges before the check_free below;
+			 * ospf_area_check_free requires area->ranges->top to
+			 * be NULL.
+			 *
+			 * Use route_top + route_next to advance the iterator
+			 * independently of ospf_area_range_unset's success.
+			 * `next` is grabbed (with a route_next lock) before
+			 * the unset call, so the for-loop terminates even if
+			 * ospf_area_range_unset returns 0 without freeing the
+			 * node -- robust against partial-removal regressions.
 			 */
-			while ((rn = route_top(area->ranges))) {
+			for (rn = route_top(area->ranges); rn; rn = next) {
+				next = route_next(rn);
 				p.family = AF_INET;
 				p.prefix = rn->p.u.prefix4;
 				p.prefixlen = rn->p.prefixlen;
@@ -391,31 +401,27 @@ int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *arg
 		return NB_ERR_VALIDATION;
 	}
 
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	/*
-	 * Semantic checks at VALIDATE: the area must exist and must be stub
-	 * or NSSA (the YANG `when` clause restricts it, but enforce again
-	 * defensively). APPLY-phase NB_ERR_VALIDATION / NB_ERR_INCONSISTENCY
-	 * is logged-and-ignored by mgmtd, so any rejection must land at
-	 * VALIDATE to actually refuse the commit.
+	 * Defer the area-existence and area-type checks to APPLY: at
+	 * VALIDATE the area may be in the same candidate transaction as
+	 * this leaf (atomic stub-area + default-cost commit), so
+	 * ospf_area_lookup_by_area_id would return NULL even though the
+	 * area-create APPLY runs first within the same transaction. RFC
+	 * 9129's `when` clause on default-cost (restricts to stub / NSSA
+	 * in the candidate datastore) is the authoritative area-type
+	 * cross-leaf check; libyang enforces it before any callback
+	 * fires. The check here is defensive at APPLY time only:
+	 * silently no-op if the area is gone, defensively skip the
+	 * mutation on a normal area (shouldn't happen, but matches the
+	 * "logged and dropped" APPLY-error semantics).
 	 */
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (!area) {
-		if (args->event == NB_EV_VALIDATE) {
-			snprintf(args->errmsg, args->errmsg_len, "area %pI4 does not exist",
-				 &area_id);
-			return NB_ERR_INCONSISTENCY;
-		}
-		return NB_OK; /* race tolerated */
-	}
-	if (area->external_routing == OSPF_AREA_DEFAULT) {
-		if (args->event == NB_EV_VALIDATE)
-			snprintf(args->errmsg, args->errmsg_len,
-				 "area %pI4 is normal; default-cost requires stub or NSSA",
-				 &area_id);
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	if (args->event != NB_EV_APPLY)
+	if (!area)
+		return NB_OK;
+	if (area->external_routing == OSPF_AREA_DEFAULT)
 		return NB_OK;
 
 	area->default_cost = yang_dnode_get_uint32(args->dnode, NULL);
