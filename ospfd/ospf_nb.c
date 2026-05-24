@@ -222,6 +222,24 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/interface-type",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/passive",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_passive_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/ranges/range",
 			.cbs = {
 				.create = ospfd_ietf_ospf_areas_area_ranges_range_create,

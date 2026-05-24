@@ -119,7 +119,7 @@ static void ospf6_interface_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	ospf6_interface_lsdb_hook(lsa, ospf6_lsremove_to_spf_reason(lsa));
 }
 
-static uint8_t ospf6_default_iftype(struct interface *ifp)
+uint8_t ospf6_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;
@@ -2673,9 +2673,9 @@ DEFUN(no_ipv6_ospf6_advertise_prefix_list,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_network,
+DEFPY_YANG (ipv6_ospf6_network,
        ipv6_ospf6_network_cmd,
-       "ipv6 ospf6 network <broadcast|point-to-point|point-to-multipoint>",
+       "ipv6 ospf6 network <broadcast|point-to-point|point-to-multipoint>$network",
        IP6_STR
        OSPF6_STR
        "Network type\n"
@@ -2685,29 +2685,35 @@ DEFUN (ipv6_ospf6_network,
        )
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_network = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
 
-	oi = (struct ospf6_interface *)ifp->info;
-	if (oi == NULL) {
-		oi = ospf6_interface_create(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/interface-type") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, network);
+		return nb_cli_apply_changes(vty, NULL);
 	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
 	oi->type_cfg = true;
 
-	if (strncmp(argv[idx_network]->arg, "b", 1) == 0) {
+	if (strncmp(network, "b", 1) == 0) {
 		if (oi->type == OSPF_IFTYPE_BROADCAST)
 			return CMD_SUCCESS;
 
 		oi->type = OSPF_IFTYPE_BROADCAST;
-	} else if (strncmp(argv[idx_network]->arg, "point-to-p", 10) == 0) {
+	} else if (strncmp(network, "point-to-p", 10) == 0) {
 		if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 			return CMD_SUCCESS;
 		}
 		oi->type = OSPF_IFTYPE_POINTOPOINT;
-	} else if (strncmp(argv[idx_network]->arg, "point-to-m", 10) == 0) {
+	} else if (strncmp(network, "point-to-m", 10) == 0) {
 		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			return CMD_SUCCESS;
 		}
@@ -2721,7 +2727,7 @@ DEFUN (ipv6_ospf6_network,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_network,
+DEFPY_YANG (no_ipv6_ospf6_network,
        no_ipv6_ospf6_network_cmd,
        "no ipv6 ospf6 network [<broadcast|point-to-point|point-to-multipoint>]",
        NO_STR
@@ -2735,8 +2741,15 @@ DEFUN (no_ipv6_ospf6_network,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
 	int type;
+	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
+
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/interface-type") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)

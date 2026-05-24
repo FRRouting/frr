@@ -398,9 +398,8 @@ static void ospf_passive_interface_default_update(struct ospf *ospf,
 		ospf_if_set_multicast(oi);
 }
 
-static void ospf_passive_interface_update(struct interface *ifp,
-					  struct ospf_if_params *params,
-					  struct in_addr addr, uint8_t newval)
+void ospf_passive_interface_update(struct interface *ifp, struct ospf_if_params *params,
+				   struct in_addr addr, uint8_t newval)
 {
 	struct route_node *rn;
 
@@ -8538,24 +8537,47 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 	return no_ip_ospf_hello_interval(self, vty, argc, argv);
 }
 
-DEFUN(ip_ospf_network, ip_ospf_network_cmd,
-      "ip ospf network <broadcast|"
-      "non-broadcast|"
-      "point-to-multipoint [delay-reflood|non-broadcast]|"
-      "point-to-point [dmvpn]>",
-      "IP Information\n"
-      "OSPF interface commands\n"
-      "Network type\n"
-      "Specify OSPF broadcast multi-access network\n"
-      "Specify OSPF NBMA network\n"
-      "Specify OSPF point-to-multipoint network\n"
-      "Specify OSPF delayed reflooding of LSAs received on P2MP interface\n"
-      "Specify OSPF point-to-multipoint network doesn't support broadcast\n"
-      "Specify OSPF point-to-point network\n"
-      "Specify OSPF point-to-point DMVPN network\n")
+/*
+ * Apply a `ip ospf network` selection through the legacy direct-mutation
+ * path. Used as the fallback when the YANG path is unavailable (interface
+ * not in an area) or when the user requested an FRR-specific modifier
+ * (dmvpn, delay-reflood, p2mp non-broadcast) that has no RFC 9129
+ * counterpart.  The four type-flag arguments map to the DEFPY named
+ * captures: exactly one of bcast / nbma / p2mp / p2p is non-NULL.
+ */
+/*
+ * Clear FRR-augment per-interface modifiers (dmvpn, delay-reflood, p2mp
+ * non-broadcast) on both IF_DEF_PARAMS and any allocated ospf_interfaces.
+ * Used before routing an interface-type change through YANG so that a no-op
+ * MODIFY (same enum value) still drops modifiers left over from a previous
+ * legacy invocation.
+ */
+static void ospf_network_legacy_reset_frr_modifiers(struct interface *ifp)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
+	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
+		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+	IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (oi == NULL)
+			continue;
+		oi->ptp_dmvpn = 0;
+		oi->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+		oi->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
+	}
+}
+
+static int ospf_network_legacy_apply(struct vty *vty, struct interface *ifp,
+				     const char *bcast, const char *nbma,
+				     const char *p2mp, const char *delay_reflood,
+				     const char *p2mp_nbma, const char *p2p,
+				     const char *dmvpn)
+{
 	int old_type = IF_DEF_PARAMS(ifp)->type;
 	uint8_t old_ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 	uint8_t old_p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
@@ -8573,19 +8595,19 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 	IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
 
-	if (argv_find(argv, argc, "broadcast", &idx))
+	if (bcast)
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
-	else if (argv_find(argv, argc, "point-to-multipoint", &idx)) {
+	else if (p2mp) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-		if (argv_find(argv, argc, "delay-reflood", &idx))
+		if (delay_reflood)
 			IF_DEF_PARAMS(ifp)->p2mp_delay_reflood = true;
-		if (argv_find(argv, argc, "non-broadcast", &idx))
+		if (p2mp_nbma)
 			IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = true;
-	} else if (argv_find(argv, argc, "non-broadcast", &idx))
+	} else if (nbma)
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
-	else if (argv_find(argv, argc, "point-to-point", &idx)) {
+	else if (p2p) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOPOINT;
-		if (argv_find(argv, argc, "dmvpn", &idx))
+		if (dmvpn)
 			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
 	}
 
@@ -8628,9 +8650,53 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ospf_network,
+DEFPY_YANG(ip_ospf_network, ip_ospf_network_cmd,
+      "ip ospf network <broadcast$bcast|"
+      "non-broadcast$nbma|"
+      "point-to-multipoint$p2mp [delay-reflood$delay_reflood|non-broadcast$p2mp_nbma]|"
+      "point-to-point$p2p [dmvpn$dmvpn]>",
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Network type\n"
+      "Specify OSPF broadcast multi-access network\n"
+      "Specify OSPF NBMA network\n"
+      "Specify OSPF point-to-multipoint network\n"
+      "Specify OSPF delayed reflooding of LSAs received on P2MP interface\n"
+      "Specify OSPF point-to-multipoint network doesn't support broadcast\n"
+      "Specify OSPF point-to-point network\n"
+      "Specify OSPF point-to-point DMVPN network\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	const char *type_str = NULL;
+	bool has_frr_modifier = false;
+	char xpath[XPATH_MAXLEN];
+
+	if (bcast)
+		type_str = "broadcast";
+	else if (nbma)
+		type_str = "non-broadcast";
+	else if (p2mp) {
+		type_str = "point-to-multipoint";
+		has_frr_modifier = delay_reflood || p2mp_nbma;
+	} else if (p2p) {
+		type_str = "point-to-point";
+		has_frr_modifier = dmvpn != NULL;
+	}
+
+	if (type_str && !has_frr_modifier &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
+		ospf_network_legacy_reset_frr_modifiers(ifp);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, type_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	return ospf_network_legacy_apply(vty, ifp, bcast, nbma, p2mp,
+					 delay_reflood, p2mp_nbma, p2p, dmvpn);
+}
+
+DEFPY_YANG_HIDDEN (ospf_network,
               ospf_network_cmd,
-              "ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point>",
+              "ospf network <broadcast$bcast|non-broadcast$nbma|point-to-multipoint$p2mp|point-to-point$p2p>",
               "OSPF interface commands\n"
               "Network type\n"
               "Specify OSPF broadcast multi-access network\n"
@@ -8638,25 +8704,36 @@ DEFUN_HIDDEN (ospf_network,
               "Specify OSPF point-to-multipoint network\n"
               "Specify OSPF point-to-point network\n")
 {
-	return ip_ospf_network(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	const char *type_str = NULL;
+	char xpath[XPATH_MAXLEN];
+
+	if (bcast)
+		type_str = "broadcast";
+	else if (nbma)
+		type_str = "non-broadcast";
+	else if (p2mp)
+		type_str = "point-to-multipoint";
+	else if (p2p)
+		type_str = "point-to-point";
+
+	if (type_str &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
+		ospf_network_legacy_reset_frr_modifiers(ifp);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, type_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	return ospf_network_legacy_apply(vty, ifp, bcast, nbma, p2mp, NULL, NULL,
+					 p2p, NULL);
 }
 
-DEFUN (no_ip_ospf_network,
-       no_ip_ospf_network_cmd,
-       "no ip ospf network [<broadcast|non-broadcast|point-to-multipoint|point-to-point>]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
+static int ospf_network_legacy_unset(struct vty *vty, struct interface *ifp)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int old_type = IF_DEF_PARAMS(ifp)->type;
 	struct route_node *rn;
 
+	UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	IF_DEF_PARAMS(ifp)->type_cfg = false;
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
@@ -8686,7 +8763,42 @@ DEFUN (no_ip_ospf_network,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_network,
+DEFPY_YANG (no_ip_ospf_network,
+       no_ip_ospf_network_cmd,
+       "no ip ospf network [<broadcast|non-broadcast|point-to-multipoint|point-to-point>]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Network type\n"
+       "Specify OSPF broadcast multi-access network\n"
+       "Specify OSPF NBMA network\n"
+       "Specify OSPF point-to-multipoint network\n"
+       "Specify OSPF point-to-point network\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char xpath[XPATH_MAXLEN];
+
+	/*
+	 * Always clear the legacy ifp state first: an earlier `ip ospf
+	 * network <type> dmvpn` (or any other FRR-modifier form) writes
+	 * directly to params without touching the YANG candidate, so a
+	 * YANG-only DESTROY wouldn't undo it.  Once legacy state is
+	 * clean, the YANG callback's early `!OSPF_IF_PARAM_CONFIGURED`
+	 * bail makes the DESTROY a no-op for the FRR side; its only
+	 * remaining job is to remove any YANG candidate entry that a
+	 * previous canonical-type set may have created.
+	 */
+	ospf_network_legacy_unset(vty, ifp);
+
+	if (ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_network,
               no_ospf_network_cmd,
               "no ospf network [<broadcast|non-broadcast|point-to-multipoint|point-to-point>]",
               NO_STR
@@ -8697,7 +8809,17 @@ DEFUN_HIDDEN (no_ospf_network,
               "Specify OSPF point-to-multipoint network\n"
               "Specify OSPF point-to-point network\n")
 {
-	return no_ip_ospf_network(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char xpath[XPATH_MAXLEN];
+
+	ospf_network_legacy_unset(vty, ifp);
+
+	if (ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_ospf_priority,

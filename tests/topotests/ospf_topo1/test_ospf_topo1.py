@@ -852,6 +852,81 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         )
 
 
+def test_ospf_yang_interface_type_and_passive_config():
+    """interface-type and passive leaves round-trip via mgmtd."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: r1-eth1 already in area 0 via the fixture.
+    iface_v2 = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/interface-type point-to-point\n"
+        "mgmt set-config {}/passive true\n"
+        "mgmt commit apply".format(iface_v2, iface_v2)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf network point-to-point" in running, (
+        "expected ip ospf network point-to-point in v2 running-config, got:\n" + running
+    )
+    assert "ip ospf passive" in running, (
+        "expected ip ospf passive in v2 running-config, got:\n" + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/interface-type\n"
+        "mgmt delete-config {}/passive\n"
+        "mgmt commit apply".format(iface_v2, iface_v2)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf network point-to-point" not in running, (
+        "ip ospf network should be cleared, got:\n" + running
+    )
+    assert "ip ospf passive" not in running, (
+        "ip ospf passive should be cleared, got:\n" + running
+    )
+
+    # OSPFv3: r1-eth1 already attached to area 0 via the fixture.
+    iface_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/interface-type point-to-point\n"
+        "mgmt set-config {}/passive true\n"
+        "mgmt commit apply".format(iface_v3, iface_v3)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 network point-to-point" in running, (
+        "expected ipv6 ospf6 network point-to-point in v3 running-config, got:\n" + running
+    )
+    assert "ipv6 ospf6 passive" in running, (
+        "expected ipv6 ospf6 passive in v3 running-config, got:\n" + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/interface-type\n"
+        "mgmt delete-config {}/passive\n"
+        "mgmt commit apply".format(iface_v3, iface_v3)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 network point-to-point" not in running, (
+        "ipv6 ospf6 network should be cleared, got:\n" + running
+    )
+    assert "ipv6 ospf6 passive" not in running, (
+        "ipv6 ospf6 passive should be cleared, got:\n" + running
+    )
+
+
 def test_ospf_yang_area_ranges_config():
     """areas/area/ranges/range list + advertise/cost leaves via mgmtd.
 

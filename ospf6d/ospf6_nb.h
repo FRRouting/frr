@@ -52,6 +52,10 @@ int ospf6d_ietf_ospf_areas_area_ranges_range_advertise_modify(struct nb_cb_modif
 int ospf6d_ietf_ospf_areas_area_ranges_range_advertise_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_areas_area_ranges_range_cost_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(struct nb_cb_modify_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy(struct nb_cb_destroy_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb_modify_args *args);
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospf6d_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
