@@ -71,6 +71,18 @@ static const char *ospfd_ietf_instance_name(const struct ospf *ospf)
 	return ospf->name ? ospf->name : "default";
 }
 
+struct ospf *ospfd_ietf_ospf_lookup_instance(const char *name)
+{
+	const struct listnode *node;
+	struct ospf *ospf;
+
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf))
+		if (!strcmp(ospfd_ietf_instance_name(ospf), name))
+			return ospf;
+
+	return NULL;
+}
+
 static uint8_t ospfd_ietf_neighbor_state(uint8_t state)
 {
 	switch (state) {
@@ -167,18 +179,11 @@ const void *
 ospfd_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *type = args->keys->key[0];
-	const char *name = args->keys->key[1];
-	const struct listnode *node;
-	struct ospf *ospf;
 
 	if (strcmp(type, "ietf-ospf:ospfv2"))
 		return NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf))
-		if (!strcmp(ospfd_ietf_instance_name(ospf), name))
-			return ospf;
-
-	return NULL;
+	return ospfd_ietf_ospf_lookup_instance(args->keys->key[1]);
 }
 
 /*

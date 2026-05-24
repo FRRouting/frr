@@ -68,6 +68,18 @@ static const char *ospf6d_ietf_instance_name(const struct ospf6 *ospf6)
 	return ospf6->name ? ospf6->name : "default";
 }
 
+struct ospf6 *ospf6d_ietf_ospf_lookup_instance(const char *name)
+{
+	const struct listnode *node;
+	struct ospf6 *ospf6;
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6))
+		if (!strcmp(ospf6d_ietf_instance_name(ospf6), name))
+			return ospf6;
+
+	return NULL;
+}
+
 static uint32_t ospf6d_ietf_ospf_area_router_count(const struct ospf6_area *area,
 						   uint8_t router_bit)
 {
@@ -118,18 +130,11 @@ const void *
 ospf6d_ietf_routing_control_plane_protocol_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *type = args->keys->key[0];
-	const char *name = args->keys->key[1];
-	const struct listnode *node;
-	struct ospf6 *ospf6;
 
 	if (strcmp(type, "ietf-ospf:ospfv3"))
 		return NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6))
-		if (!strcmp(ospf6d_ietf_instance_name(ospf6), name))
-			return ospf6;
-
-	return NULL;
+	return ospf6d_ietf_ospf_lookup_instance(args->keys->key[1]);
 }
 
 /*

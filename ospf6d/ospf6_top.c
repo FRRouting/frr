@@ -14,6 +14,7 @@
 #include "frrevent.h"
 #include "command.h"
 #include "defaults.h"
+#include "northbound_cli.h"
 #include "lib/json.h"
 #include "lib_errors.h"
 #include "frrdistance.h"
@@ -757,7 +758,7 @@ static void ospf6_db_clear(struct ospf6 *ospf6)
 	ospf6_route_remove_all(ospf6->brouter_table);
 }
 
-static void ospf6_process_reset(struct ospf6 *ospf6)
+void ospf6_process_reset(struct ospf6 *ospf6)
 {
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -798,8 +799,38 @@ DEFPY (clear_router_ospf6,
 	return CMD_SUCCESS;
 }
 
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/explicit-router-id
+ *
+ * Build the absolute ietf-ospf explicit-router-id xpath for the given OSPFv3
+ * instance. The `router ospf6` block is not yet converted to YANG, so the
+ * instance keys (type + name) come from the FRR-side context rather than a
+ * vty xpath context push.
+ */
+static int ospf6_router_id_xpath(char *xpath, size_t size, const struct ospf6 *o)
+{
+	return snprintf(xpath, size,
+			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/explicit-router-id",
+			o->name ? o->name : "default");
+}
+
+/*
+ * Mirror the legacy advisory: if the static value and the runtime router-id
+ * disagree after apply, the change was staged but adjacencies must be cleared
+ * for it to take effect. ospf6_router_id_update() encodes this by returning
+ * false, but the NB callback can't print to vty, so the DEFPY_YANG wrapper
+ * recomputes the condition from the post-apply state.
+ */
+static void ospf6_router_id_change_advise(struct vty *vty, const struct ospf6 *o)
+{
+	if (o->router_id_static == o->router_id)
+		return;
+	vty_out(vty,
+		"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
+}
+
 /* change Router_ID commands. */
-DEFUN(ospf6_router_id,
+DEFPY_YANG (ospf6_router_id,
       ospf6_router_id_cmd,
       "ospf6 router-id A.B.C.D",
       OSPF6_STR
@@ -807,32 +838,20 @@ DEFUN(ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
 	int ret;
-	const char *router_id_str;
-	uint32_t router_id;
 
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	router_id_str = argv[idx]->arg;
+	ospf6_router_id_xpath(xpath, sizeof(xpath), o);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, router_id_str);
 
-	ret = inet_pton(AF_INET, router_id_str, &router_id);
-	if (ret == 0) {
-		vty_out(vty, "malformed OSPF Router-ID: %s\n", router_id_str);
-		return CMD_SUCCESS;
-	}
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf6_router_id_change_advise(vty, o);
 
-	o->router_id_static = router_id;
-
-	if (ospf6_router_id_update(o, false))
-		ospf6_process_reset(o);
-	else
-		vty_out(vty,
-			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN(no_ospf6_router_id,
+DEFPY_YANG (no_ospf6_router_id,
       no_ospf6_router_id_cmd,
       "no ospf6 router-id [A.B.C.D]",
       NO_STR OSPF6_STR
@@ -840,17 +859,17 @@ DEFUN(no_ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
+	int ret;
 
-	o->router_id_static = 0;
+	ospf6_router_id_xpath(xpath, sizeof(xpath), o);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf6_router_id_change_advise(vty, o);
 
-	if (ospf6_router_id_update(o, false))
-		ospf6_process_reset(o);
-	else
-		vty_out(vty,
-			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (ospf6_log_adjacency_changes,

@@ -23,6 +23,7 @@
 #include "lib/printfrr.h"
 #include "keychain.h"
 #include "frrdistance.h"
+#include "northbound_cli.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -247,7 +248,35 @@ DEFUN (no_router_ospf,
 }
 
 
-DEFPY (ospf_router_id,
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/explicit-router-id
+ *
+ * Build the absolute ietf-ospf explicit-router-id xpath for the given OSPF
+ * instance. The `router ospf` block is not yet converted to YANG, so the
+ * instance keys (type + name) come from the FRR-side context rather than a
+ * vty xpath context push.
+ */
+static int ospf_router_id_xpath(char *xpath, size_t size, const struct ospf *ospf)
+{
+	return snprintf(xpath, size,
+			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/explicit-router-id",
+			ospf->name ? ospf->name : "default");
+}
+
+static void ospf_router_id_change_advise(struct vty *vty, const struct ospf *ospf)
+{
+	struct listnode *node;
+	struct ospf_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
+		if (area->full_nbrs) {
+			vty_out(vty,
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
+			return;
+		}
+}
+
+DEFPY_YANG (ospf_router_id,
        ospf_router_id_cmd,
        "ospf router-id A.B.C.D",
        "OSPF specific commands\n"
@@ -255,25 +284,20 @@ DEFPY (ospf_router_id,
        "OSPF router-id in IP address format\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
+	int ret;
 
-	struct listnode *node;
-	struct ospf_area *area;
+	ospf_router_id_xpath(xpath, sizeof(xpath), ospf);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, router_id_str);
 
-	ospf->router_id_static = router_id;
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_router_id_change_advise(vty, ospf);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-		if (area->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
-			return CMD_SUCCESS;
-		}
-
-	ospf_router_id_update(ospf);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN_HIDDEN (ospf_router_id_old,
+DEFUN_YANG_HIDDEN (ospf_router_id_old,
               ospf_router_id_old_cmd,
               "router-id A.B.C.D",
               "router-id for the OSPF process\n"
@@ -281,32 +305,26 @@ DEFUN_HIDDEN (ospf_router_id_old,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4 = 1;
-	struct listnode *node;
-	struct ospf_area *area;
 	struct in_addr router_id;
+	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &router_id);
-	if (!ret) {
+	if (inet_aton(argv[idx_ipv4]->arg, &router_id) != 1) {
 		vty_out(vty, "Please specify Router ID by A.B.C.D\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ospf->router_id_static = router_id;
+	ospf_router_id_xpath(xpath, sizeof(xpath), ospf);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[idx_ipv4]->arg);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-		if (area->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
-			return CMD_SUCCESS;
-		}
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_router_id_change_advise(vty, ospf);
 
-	ospf_router_id_update(ospf);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFPY (no_ospf_router_id,
+DEFPY_YANG (no_ospf_router_id,
        no_ospf_router_id_cmd,
        "no ospf router-id [A.B.C.D]",
        NO_STR
@@ -315,8 +333,8 @@ DEFPY (no_ospf_router_id,
        "OSPF router-id in IP address format\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *node;
-	struct ospf_area *area;
+	char xpath[XPATH_MAXLEN];
+	int ret;
 
 	if (router_id_str) {
 		if (!IPV4_ADDR_SAME(&ospf->router_id_static, &router_id)) {
@@ -325,26 +343,23 @@ DEFPY (no_ospf_router_id,
 		}
 	}
 
-	ospf->router_id_static.s_addr = 0;
+	ospf_router_id_xpath(xpath, sizeof(xpath), ospf);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-		if (area->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
-			return CMD_SUCCESS;
-		}
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf_router_id_change_advise(vty, ospf);
 
-	ospf_router_id_update(ospf);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-ALIAS_HIDDEN (no_ospf_router_id,
-              no_router_id_cmd,
-              "no router-id [A.B.C.D]",
-              NO_STR
-              "router-id for the OSPF process\n"
-              "OSPF router-id in IP address format\n")
+ALIAS_ATTR (no_ospf_router_id,
+            no_router_id_cmd,
+            "no router-id [A.B.C.D]",
+            NO_STR
+            "router-id for the OSPF process\n"
+            "OSPF router-id in IP address format\n",
+            CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 
 static void ospf_passive_interface_default_update(struct ospf *ospf,
 						  uint8_t newval)

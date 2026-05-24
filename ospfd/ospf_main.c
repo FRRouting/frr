@@ -154,7 +154,13 @@ static const char *const ospfd_oper_xpaths[] = {
 	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
 };
 
+static const char *const ospfd_config_xpaths[] = {
+	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
+};
+
 struct mgmt_be_client_cbs ospfd_be_client_data = {
+	.config_xpaths = ospfd_config_xpaths,
+	.nconfig_xpaths = array_size(ospfd_config_xpaths),
 	.oper_xpaths = ospfd_oper_xpaths,
 	.noper_xpaths = array_size(ospfd_oper_xpaths),
 };
