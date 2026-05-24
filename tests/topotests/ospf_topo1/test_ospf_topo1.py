@@ -221,8 +221,32 @@ def _as_list(value):
     return [value]
 
 
+def _yang_get_data(router, xpath, datastore="operational"):
+    return json.loads(
+        router.vtysh_cmd("show mgmt get-data {} datastore {}".format(xpath, datastore))
+    )
+
+
+def _yang_xpath_subscription(router, xpath):
+    return router.vtysh_cmd("show mgmt yang-xpath-subscription {}".format(xpath))
+
+
+def _assert_xpath_client(output, client, oper):
+    match = re.search(
+        r"Client: {}\s+config:\d+ notify:\d+ oper:(\d+) rpc:\d+".format(client),
+        output,
+    )
+    assert match, output
+    assert match.group(1) == str(int(oper)), output
+
+
+def _assert_xpath_no_ospf_clients(output):
+    assert "Client: ospfd" not in output, output
+    assert "Client: ospf6d" not in output, output
+
+
 def _yang_operational_root(router):
-    return json.loads(router.vtysh_cmd("show mgmt get-data /* datastore operational"))
+    return _yang_get_data(router, "/*")
 
 
 def _yang_ospf_protocol(output, protocol_type, protocol_name):
@@ -361,6 +385,80 @@ def test_ospf_yang_operational_data():
     neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
     assert neighbor["state"] == "full"
     assert neighbor["address"].startswith("fe80:")
+
+
+def test_ospf_yang_mgmtd_predicate_dispatch():
+    "Verify mgmtd dispatches typed OSPF xpaths to the correct backend."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    output = _yang_operational_root(r1)
+    _yang_ospf_protocol(output, "ietf-ospf:ospfv2", "default")
+    _yang_ospf_protocol(output, "ietf-ospf:ospfv3", "default")
+
+    for protocol_type in ("ietf-ospf:ospfv2", "ietf-ospf:ospfv3"):
+        protocol_path = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='" + protocol_type + "'][name='default']"
+        )
+        subscription = _yang_xpath_subscription(r1, protocol_path)
+        if protocol_type == "ietf-ospf:ospfv2":
+            _assert_xpath_client(subscription, "ospfd", True)
+            assert "Client: ospf6d" not in subscription, subscription
+        else:
+            assert "Client: ospfd" not in subscription, subscription
+            _assert_xpath_client(subscription, "ospf6d", True)
+
+        selected = _yang_get_data(r1, protocol_path)
+        protocols = _as_list(
+            selected["ietf-routing:routing"]["control-plane-protocols"][
+                "control-plane-protocol"
+            ]
+        )
+        assert len(protocols) == 1, selected
+        protocol = protocols[0]
+        assert protocol["type"] == protocol_type, selected
+        assert protocol["name"] == "default", selected
+        assert _yang_ospf_container(protocol)["router-id"] == "10.0.255.1"
+
+    subscription = _yang_xpath_subscription(
+        r1,
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ospfv2'][name='default']",
+    )
+    _assert_xpath_client(subscription, "ospfd", True)
+    assert "Client: ospf6d" not in subscription, subscription
+
+    for protocol_path in (
+        "/ietf-routing:routing/control-plane-protocols",
+        "/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
+        "/ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/router-id",
+    ):
+        subscription = _yang_xpath_subscription(r1, protocol_path)
+        _assert_xpath_client(subscription, "ospfd", True)
+        _assert_xpath_client(subscription, "ospf6d", True)
+
+    for protocol_path in (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:unknown'][name='default']",
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2'[name='default']",
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2'][name='default']/"
+        + ("x" * 1100),
+    ):
+        _assert_xpath_no_ospf_clients(_yang_xpath_subscription(r1, protocol_path))
+
+    # Zebra registers the RFC 8343 interface list without an OSPF-style
+    # protocol-type predicate. Keep one predicate query here so the test
+    # catches regressions in both typed and untyped backend registrations.
+    selected = _yang_get_data(
+        r1, "/ietf-interfaces:interfaces/interface[name='r1-eth1']"
+    )
+    assert _yang_interface(selected, "r1-eth1")["oper-status"] == "up"
 
 
 def _yang_explicit_router_id_xpath(protocol_type):
@@ -1258,6 +1356,450 @@ def test_ospf_yang_area_summary_default_cost_config():
     assert "0.0.0.43" not in running, (
         "area 0.0.0.43 should be fully removed after YANG delete, running:\n" + running
     )
+
+
+def _mgmt_commit_attempt(router, set_cmd):
+    """Run a mgmt set-config + commit and return the vty output.
+
+    The caller verifies the rejection by confirming the candidate value
+    did NOT land in `show running-config` (more robust than parsing the
+    error string, which varies by libyang version). `mgmt commit abort`
+    follows the apply so a rejected candidate doesn't survive into the
+    next test's commit attempt.
+    """
+    return router.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "{}\n"
+        "mgmt commit apply\n"
+        "mgmt commit abort".format(set_cmd),
+        isjson=False,
+    )
+
+
+def _assert_mgmt_rejected(output, what):
+    assert (
+        "Failed to edit configuration" in output
+        or "Couldn't apply changes" in output
+        or "Configuration failed" in output
+        or "commit failed" in output.lower()
+    ), "expected {} rejection, got:\n{}".format(what, output)
+
+
+def test_ospf_yang_deviated_enabled_leaves_rejected():
+    """The FRR deviation module marks OSPF enable switches not-supported.
+
+    FRR has no independent protocol-level or per-interface OSPF
+    on/off switch: an instance exists when the control-plane-protocol
+    entry exists, and an interface participates when it is attached to
+    an area. Writes to the RFC 9129 `ospf/enabled` and
+    `interface/enabled` leaves must therefore fail instead of being
+    accepted into the candidate with no daemon-side effect.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/enabled false".format(instance),
+        )
+        _assert_mgmt_rejected(out, "{}/enabled".format(proto))
+
+        iface = (
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/enabled false".format(iface),
+        )
+        _assert_mgmt_rejected(out, "{}/interface/enabled".format(proto))
+
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "enabled false" not in running
+        ), "rejected enabled leaf must not land on {}, got:\n{}".format(daemon, running)
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/mpls/te-rid/ipv6-router-id 2001:db8::1".format(
+            instance
+        ),
+    )
+    _assert_mgmt_rejected(out, "ospf/mpls/te-rid/ipv6-router-id")
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/interfaces/interface[name='r1-eth1']"
+        "/instance-id 1".format(_yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")),
+    )
+    _assert_mgmt_rejected(out, "ospfv3 interface instance-id")
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/virtual-links/virtual-link"
+        "[transit-area-id='0.0.0.1'][router-id='1.1.1.1']"
+        "/hello-interval 10".format(_yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")),
+    )
+    _assert_mgmt_rejected(out, "ospfv2 virtual-link")
+
+
+def test_ospf_yang_negative_missing_instance():
+    """Reject YANG config that targets an OSPF instance the daemon doesn't have.
+
+    The branch's resolve_instance helper rejects at NB_EV_VALIDATE when no
+    FRR-side ospf / ospf6 instance matches the control-plane-protocol name
+    key. Confirm a commit against name='ghost' does not land.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    ghost_v2 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2'][name='ghost']/"
+        "ietf-ospf:ospf/explicit-router-id"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 9.9.9.9".format(ghost_v2),
+    )
+    # The default instance is unchanged; the ghost one was never created.
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "router-id 9.9.9.9" not in running, (
+        "ghost router-id must not have landed, got:\n" + running
+    )
+
+    ghost_v3 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv3'][name='ghost']/"
+        "ietf-ospf:ospf/explicit-router-id"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 9.9.9.9".format(ghost_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "router-id 9.9.9.9" not in running, (
+        "ghost ospf6 router-id must not have landed, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_missing_interface():
+    """Reject per-interface YANG config that names a non-existent interface.
+
+    frr-deviations-ietf-routing-ospf keeps the RFC 9129 interface-name
+    leafref but sets require-instance false, so the target does not need to
+    exist in config. The branch's resolve_interface helper restores FRR's live
+    interface check inside the callback at NB_EV_VALIDATE.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    bogus_v2 = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth42']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(bogus_v2),
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "r1-eth42" not in running, (
+        "interface r1-eth42 must not appear in running-config, got:\n" + running
+    )
+
+    bogus_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth42']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(bogus_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "r1-eth42" not in running, (
+        "interface r1-eth42 must not appear in v3 running-config, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_duplicate_area_interface():
+    """Reject a candidate that attaches one interface to two OSPF areas."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    other_v2 = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.99")
+        + "/interfaces/interface[name='r1-eth1']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(other_v2),
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.99" not in running, (
+        "r1-eth1 must not attach to a second OSPFv2 area, got:\n" + running
+    )
+
+    other_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.99")
+        + "/interfaces/interface[name='r1-eth1']/cost"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {} 7".format(other_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "0.0.0.99" not in running, (
+        "r1-eth1 must not attach to a second OSPFv3 area, got:\n" + running
+    )
+
+
+def test_ospf_yang_negative_default_cost_on_normal_area():
+    """Reject default-cost on a non-stub / non-NSSA area.
+
+    RFC 9129's `when` clause restricts default-cost to stub or NSSA areas;
+    the callback also rejects at VALIDATE as a defence-in-depth measure.
+    Area 0 is the backbone (normal); setting default-cost on it must fail.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/default-cost 99".format(area_path),
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "default-cost 99" not in running, (
+        "default-cost 99 must not appear on the backbone area, got:\n" + running
+    )
+
+
+def _assert_mgmt_rejected(output, what):
+    assert (
+        "Failed to edit configuration" in output
+        or "Couldn't apply changes" in output
+        or "Configuration failed" in output
+        or "commit failed" in output.lower()
+    ), "expected {} rejection, got:\n{}".format(what, output)
+
+
+def test_ospf_yang_deviated_enabled_leaves_rejected():
+    """The FRR deviation module marks OSPF enable switches not-supported.
+
+    FRR has no independent protocol-level or per-interface OSPF
+    on/off switch: an instance exists when the control-plane-protocol
+    entry exists, and an interface participates when it is attached to
+    an area. Writes to the RFC 9129 `ospf/enabled` and
+    `interface/enabled` leaves must therefore fail instead of being
+    accepted into the candidate with no daemon-side effect.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/enabled false".format(instance),
+        )
+        _assert_mgmt_rejected(out, "{}/enabled".format(proto))
+
+        iface = (
+            _yang_area_xpath(proto, "0.0.0.0")
+            + "/interfaces/interface[name='r1-eth1']"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/enabled false".format(iface),
+        )
+        _assert_mgmt_rejected(out, "{}/interface/enabled".format(proto))
+
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "enabled false" not in running
+        ), "rejected enabled leaf must not land on {}, got:\n{}".format(
+            daemon, running
+        )
+
+
+def test_ospf_yang_negative_v3_unsupported_interface_type():
+    """Reject OSPFv3 writes that the daemon cannot support.
+
+    RFC 9129 declares non-broadcast and hybrid; ospf6d only supports
+    broadcast, point-to-point and point-to-multipoint. The callback must
+    reject the unsupported enum values at VALIDATE. mgmtd also loads the
+    union of ospfd and ospf6d feature sets, so OSPFv2-only feature leaves
+    must not be accepted for an OSPFv3 instance.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    iface_v3 = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/interface-type non-broadcast".format(iface_v3),
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "non-broadcast" not in running, (
+        "unsupported interface-type must not appear in v3 running-config, "
+        "got:\n" + running
+    )
+
+    instance_v3 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv3'][name='default']"
+        "/ietf-ospf:ospf"
+    iface_v2_loopback = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='lo']"
+    )
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/interface-type point-to-point".format(iface_v2_loopback),
+    )
+    _assert_mgmt_rejected(out, "{}/interface-type".format(iface_v2_loopback))
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf network point-to-point" not in running, (
+        "loopback interface-type rejection must not leave native config, got:\n"
+        + running
+    )
+
+    )
+    for command, path in (
+        (
+            "mgmt set-config {}/address-family ipv4".format(instance_v3),
+            "{}/address-family".format(instance_v3),
+        ),
+        (
+            "mgmt set-config {}/mpls/ldp/igp-sync true".format(instance_v3),
+            "{}/mpls/ldp/igp-sync".format(instance_v3),
+        ),
+        (
+            "mgmt set-config {}/mpls/te-rid/ipv4-router-id 192.0.2.9".format(
+                instance_v3
+            ),
+            "{}/mpls/te-rid/ipv4-router-id".format(instance_v3),
+        ),
+        (
+            "mgmt set-config {}/default-cost 99".format(
+                _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+            ),
+            "{}/default-cost".format(
+                _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+            ),
+        ),
+        (
+            "mgmt set-config {}/prefix-suppression true".format(iface_v3),
+            "{}/prefix-suppression".format(iface_v3),
+        ),
+        (
+            "mgmt set-config {}/static-neighbors/neighbor"
+            "[identifier='2001:db8::99']/priority 1".format(iface_v3),
+            "{}/static-neighbors/neighbor[identifier='2001:db8::99']"
+            "/priority".format(iface_v3),
+        ),
+    ):
+        out = _mgmt_commit_attempt(r1, command)
+        _assert_mgmt_rejected(out, path)
+
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "igp-sync" not in running, running
+    assert "192.0.2.9" not in running, running
+    assert "stub-router administrative" not in running, running
+
+
+def test_ospf_yang_area_delete_recreate_cleanup():
+    """Delete then recreate an area; per-leaf state must reset cleanly.
+
+    Sets a non-default summary and default-cost on a stub area, then deletes
+    the area via the list-destroy path, then recreates it as a normal area,
+    and confirms the previous stub / default-cost state is gone. Catches
+    regressions where destroy callbacks leave stale per-leaf state.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.51")
+
+    # Set area-type=stub + summary=false + default-cost=77 in one commit.
+    # libyang materialises the area list entry implicitly when a child leaf
+    # is set; no separate list-create step is needed.
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type stub-area\n"
+        "mgmt set-config {}/summary false\n"
+        "mgmt set-config {}/default-cost 77\n"
+        "mgmt commit apply".format(area_path, area_path, area_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.51 stub no-summary" in running, running
+    assert "area 0.0.0.51 default-cost 77" in running, running
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.51" not in running, (
+        "area 0.0.0.51 must be gone after delete, got:\n" + running
+    )
+
+    # Recreate by setting only area-type=normal-area; previous stub /
+    # default-cost must not bleed through.
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/area-type normal-area\n"
+        "mgmt commit apply".format(area_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.51 stub" not in running, (
+        "stub setting must not survive delete + recreate, got:\n" + running
+    )
+    assert "area 0.0.0.51 default-cost" not in running, (
+        "default-cost must not survive delete + recreate, got:\n" + running
+    )
+
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.51")
 
 
 def test_ospf_convergence():
